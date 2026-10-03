@@ -5,8 +5,9 @@
 # pin in core/tests/snapshots, and a proof in each format as the CLI writes
 # it, with pdfLaTeX from a minimal TeX Live, Typst with curryst from nixpkgs
 # and resvg, offline. The curryst here is the version
-# `linlog::export::typst::CURRYST' names; they change together. Typst and
-# resvg see Euler Math and no system font, and anything either prints fails
+# `linlog::export::typst::CURRYST' names; they change together. The LaTeX
+# and Typst output names no font, so Typst sees only the fonts it embeds;
+# resvg sees Euler Math and no system font. Anything either prints fails
 # the check, so a font they cannot find is not hidden by a fallback.
 {
   perSystem =
@@ -26,7 +27,6 @@
         ps.amsfonts
         ps.cmll
         ps.ebproof
-        ps.eulervm
         ps.standalone
       ]);
 
@@ -57,7 +57,7 @@
                 { cat "''${file%.tex}.log"; exit 1; }
             done
             for file in *.typ; do
-              typst compile --ignore-system-fonts --font-path ${eulerMath} "$file" 2>log
+              typst compile --ignore-system-fonts "$file" 2>log
               if [ -s log ]; then cat log; exit 1; fi
             done
             for file in *.svg; do

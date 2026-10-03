@@ -2237,11 +2237,13 @@ writes derivations as Rocq proof scripts for NanoYalla (`rocq`, in a
   (`modules/workspace.nix`), since `cleanCargoSource` alone drops it.
   `typst::CURRYST` and the nixpkgs curryst in `modules/export.nix` move
   together.
-- **Euler everywhere.** The standalone LaTeX loads `eulervm` and the Typst
-  page sets math in `"Euler Math"`; fragments stay font-neutral. The
-  export check runs Typst and resvg with `--ignore-system-fonts` /
-  `--skip-system-fonts` and fails on any output, so a font they cannot
-  find fails instead of falling back silently.
+- **No font in LaTeX and Typst, Euler in SVG.** The LaTeX and Typst
+  output never chooses a font, standalone or not: it is pasted into a
+  document and takes that document's fonts. Only SVG names one
+  (`svg::Font`, Euler Math by default). The export check runs Typst with
+  `--ignore-system-fonts` (its embedded fonts serve) and resvg with
+  `--skip-system-fonts` and Euler Math alone, and fails on any output,
+  so a font resvg cannot find fails instead of falling back silently.
 - **SVG** (`export/svg/`): a third table (`NOTATION`, with the atom
   letters as mathematical italic codepoints, which a math font sets as
   math italic, and `\u{1}` standing for the raised `⊥`; `PLAIN` for the

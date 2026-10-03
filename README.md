@@ -516,10 +516,10 @@ $⊢ (A ⊗ B) ⊗ C^⊥, C ⅋ (A^⊥ ⅋ B^⊥)$
 ```
 
 `--standalone` writes a document that compiles on its own instead, cropped
-to the tree and set in the Euler math font: `pdflatex` needs the
-ebproof, cmll, eulervm, amsfonts and standalone packages, `typst compile`
-fetches curryst 0.6.0 on first use and needs the
-[Euler Math](https://ctan.org/pkg/euler-math) font (`--font-path`). Typst
+to the tree. Neither form chooses a font: the output takes the fonts of
+the document it goes into. `pdflatex` needs the ebproof, cmll, amsfonts
+and standalone packages, and `typst compile` fetches curryst 0.6.0 on
+first use. Typst
 refuses a curryst tree more than about eleven inferences high; the LaTeX
 tree has no such limit.
 
@@ -769,7 +769,7 @@ Built:
   validates, and a JSON form of the session.
 - Export of sequents and derivations, finished or in progress, to LaTeX
   (ebproof proof trees) and Typst (curryst proof trees), as fragments or
-  standalone documents set in Euler, and drawings of sequents,
+  standalone documents, and drawings of sequents,
   derivations and proof nets as SVG, laid out with the character widths
   of the Euler Math font, a switching cycle of an incorrect net
   highlighted.

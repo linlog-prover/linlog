@@ -162,7 +162,7 @@ does not apply.
 `sequent(&sequent, form)`, `two_sided(&reading, form)` and
 `derivation(&derivation, form)` (finished or with open goals) as LaTeX for
 ebproof and Typst for curryst, each as a `Form::Fragment` or a
-`Form::Standalone` document (set in Euler); `export::svg` (feature `svg`)
+`Form::Standalone` document (choosing no font); `export::svg` (feature `svg`)
 draws `sequent(&sequent, &style)`, `two_sided(&reading, &style)`,
 `derivation(&derivation, &style)` and `net(&structure, &style)` as SVG
 documents, laid out from a committed table of Euler Math's advances, with
