@@ -108,10 +108,9 @@ included, with and without `serialize`), `cargo deny check`, the
 `export` check (pdfLaTeX and Typst on every snapshot and fragment, resvg
 on the SVGs, and the command's PNG and PDF through pngcheck and
 poppler) and the `rocq` check (both label certificates). `nix flake
-check` passed on the tree of the commit "Describe PNG, PDF, --net and the
-style options in README and the step report" (every check, in a capped
-user unit); the one commit after it adds a command test
-(`verdict_lines`) that passes with `cargo test`.
+check` passed on the final tree (every check, in a capped user unit),
+after the PDF profiles and the rule that a drawing format writes a whole
+drawing or nothing.
 
 ## Every option, its default, and how each front end sets it
 
