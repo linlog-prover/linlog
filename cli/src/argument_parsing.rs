@@ -609,8 +609,8 @@ pub struct StyleArgs {
     /// ebproof, preamble; typst: form, labels, open, import, page; svg:
     /// font (family, advances), labels, open, ids, font_size, label_size,
     /// line_height, premise_gap, literal_gap, label_gap, margin,
-    /// stroke_width, link_height, node_radius, text, line, par, link,
-    /// highlight, background; rocq: form, lemma, prelude. Labels are
+    /// stroke_width, link_height, link_cap, node_radius, text, line, par,
+    /// link, highlight, background; rocq: form, lemma, prelude. Labels are
     /// upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is
     /// dots, bare, dashed or {"mark":TEXT}
     #[arg(long = "style", value_name = "KEY=VALUE")]

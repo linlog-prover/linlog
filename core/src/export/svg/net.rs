@@ -9,8 +9,9 @@
 //! between them, the conclusions on the bottom
 //! layer with an edge hanging from each, and every link a half-ellipse
 //! over the two literals it joins, as high as it is wide times a fixed
-//! ratio. Two links over nested pairs of literals are nested half-ellipses
-//! of one shape, which never cross; links over interleaved pairs cross.
+//! ratio up to [`Style::link_cap`] and less beyond, so that the arcs of
+//! nested pairs of literals still never cross; links over interleaved
+//! pairs cross.
 
 use super::font::{AXIS, HEIGHT};
 use super::{NOTATION, PLAIN, RAISED_BOT, Style, document, escaped, run, text};
@@ -34,6 +35,23 @@ fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
         from.0 + (dx * scale).round() as i64,
         from.1 + (dy * scale).round() as i64,
     )
+}
+
+/// Returns the height of the arc of a link `rx` wide on either side of
+/// its middle: `rx` times the style's ratio, and beyond the style's cap
+/// `W` the ratio times `sqrt(W·rx)`, which meets it at `rx = W`.
+///
+/// Nested arcs never cross: the squared height of an arc over `(a, b)`
+/// at `x` is `φ(rx)·(x−a)(b−x)`, which shrinks with the interval for a
+/// constant `φ` (similar arcs) and for `φ ∝ 1/rx` (then it is a multiple
+/// of the harmonic mean of `x−a` and `b−x`), and an arc with `rx ≤ W` lies
+/// below that harmonic arc of its own interval.
+fn height(rx: i64, style: &Style) -> i64 {
+    let ratio = i64::from(style.link_height);
+    match style.link_cap.map(i64::from) {
+        Some(cap) if rx > cap => ratio * (cap * rx).isqrt() / 1000,
+        _ => rx * ratio / 1000,
+    }
 }
 
 /// Returns a proof structure as an SVG document, titled with its sequent
@@ -83,14 +101,13 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
 
     // The links' arcs above the literals decide where the literals'
     // baseline is.
-    let ratio = i64::from(style.link_height);
     let arc = |(p, q): (OccId, OccId)| {
         let (a, b) = (
             x[p.index()].min(x[q.index()]),
             x[p.index()].max(x[q.index()]),
         );
         let rx = (b - a) / 2;
-        (a, b, rx, rx * ratio / 1000)
+        (a, b, rx, height(rx, style))
     };
     let highest = net.links().iter().map(|&l| arc(l).3).max();
     let baseline = margin + stroke + highest.unwrap_or(0) + HEIGHT;
@@ -218,4 +235,28 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
         (width, end + stroke + margin),
         &body,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The arc of a wide link stays under the arc of a wider link it is
+    /// nested in, past the cap, where a plain cap on the height would
+    /// make them cross.
+    #[test]
+    fn nested_arcs_do_not_cross() {
+        let style = Style::default();
+        // The height of the arc over `(a, b)` at `x`.
+        let at = |(a, b): (i64, i64), x: i64| {
+            let (rx, middle) = ((b - a) as f64 / 2.0, (a + b) as f64 / 2.0);
+            let ry = height((b - a) / 2, &style) as f64;
+            ry * (1.0 - ((x as f64 - middle) / rx).powi(2)).max(0.0).sqrt()
+        };
+        let (outer, inner) = ((0, 200_000), (2_000, 30_000));
+        assert!(height(15_000, &style) < 15_000 * 600 / 1000);
+        for x in [inner.0, inner.0 + 500, (inner.0 + inner.1) / 2, inner.1] {
+            assert!(at(inner, x) < at(outer, x), "{x}");
+        }
+    }
 }

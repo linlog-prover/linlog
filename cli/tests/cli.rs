@@ -961,6 +961,13 @@ fn every_style_option() {
         (
             &["--net", "A * B |- B * A"],
             "svg",
+            "link_cap",
+            "1000",
+            true,
+        ),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
             "node_radius",
             "400",
             true,

@@ -2287,8 +2287,9 @@ for NanoYalla. What the code relies on:
   `walk`'s exits for box widths, a pre-order pass over its enters for
   positions; uniform rows of `line_height`), `net.rs` (literals in id
   order, which is left to right; connectives by height; links as
-  half-ellipses whose height is proportional to their width, so nested
-  links never cross). Widths are integer thousandths of an em from
+  half-ellipses whose height is proportional to their width up to
+  `Style::link_cap` and to its square root beyond, so nested links never
+  cross: `net::height` says why). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
   it); all coordinates are integers, so the output is byte-stable.
 - **PNG and PDF render the SVG** (`export/png.rs` with resvg and the

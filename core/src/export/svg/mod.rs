@@ -92,6 +92,11 @@ pub struct Style {
     /// width, so that the arc over a pair of literals nested between two
     /// others stays below theirs.
     pub link_height: u32,
+    /// The half-width of an axiom link beyond which its arc grows only
+    /// with the square root of its half-width, so that a wide link stays
+    /// low and the arcs of nested links still never cross; `None` for
+    /// arcs that grow with their width however wide.
+    pub link_cap: Option<u32>,
     /// The radius of the circle of a `⊗` or `⅋` node of a proof net.
     pub node_radius: u32,
     /// The colour of text.
@@ -133,6 +138,7 @@ impl Default for Style {
             margin: 300,
             stroke_width: 40,
             link_height: 600,
+            link_cap: Some(8000),
             node_radius: 380,
             text: "black".into(),
             line: "black".into(),
