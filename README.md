@@ -550,7 +550,7 @@ always a document.
 $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
 $ linlog prove --net --output net.svg "A * B |- B * A"
 $ linlog seq print --format svg "A |- A"
-<svg xmlns="http://www.w3.org/2000/svg" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥, A</title>
 <g>
 <text x="300" y="1190" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
@@ -561,10 +561,18 @@ $ linlog seq print --format svg "A |- A"
 ```
 
 `--format png` and `--format pdf` render the same drawings as a PNG image
-(at twice the drawing's size) or a PDF page (its text selectable), in the
-Euler Math font the command carries; with `--output` the extension names
-the format, which `--format` overrides, and the verdict goes to standard
-error. Neither is written to a terminal.
+(at twice the drawing's size, with its title and description) or a PDF
+page (its text selectable), in the Euler Math font the command carries;
+with `--output` the extension names the format, which `--format`
+overrides, and the verdict goes to standard error. Neither is written to
+a terminal. The PDF is an archival PDF/A-4 document (PDF 2.0);
+`--style pdf.compatible=true` makes it PDF/A-2u (PDF 1.7) for tools and
+archives that take nothing newer, and `--style pdf.accessible=true` an
+accessible PDF/UA-1 document (PDF/A-2a), whose drawing a screen reader
+reads as a numbered list of the proof's inferences. The document's date
+is `SOURCE_DATE_EPOCH` when it is set, so a build can reproduce it byte
+for byte, and the current time otherwise. Every drawing carries that
+reading too, as the SVG's description.
 
 ```console
 $ linlog prove -i --output proof.pdf "1, A & B, B -o C |- C"
@@ -815,7 +823,9 @@ Built:
   standalone documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG, laid out with the character widths
   of the Euler Math font (or another font's), a switching cycle of an
-  incorrect net highlighted, rendered as PNG and PDF as well.
+  incorrect net highlighted, with a reading for screen readers, and
+  rendered as PNG and as archival (PDF/A-4, PDF/A-2u) or accessible
+  (PDF/UA-1) PDF.
 - Output configured through the library: one options value per format,
   with serde, for rule labels (one table per convention, or the user's),
   the shape of an open goal, alignment, preambles, the SVG's font, sizes

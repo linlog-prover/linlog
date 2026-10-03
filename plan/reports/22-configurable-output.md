@@ -55,6 +55,20 @@ to 9.
   `check` and `seq print`, `proof --png FILE`/`--pdf FILE` in a session.
   Deterministic: the same drawing gives the same bytes (no system
   fonts, no date in the PDF).
+- **Archival and accessible PDF** (the author's decisions, below): every
+  PDF is PDF/A. PDF/A-4 (PDF 2.0) by default, PDF/A-2u (PDF 1.7) with
+  `pdf::Options::compatible`, PDF/A-2a with PDF/UA-1 (PDF 1.7) with
+  `pdf::Options::accessible`, tagged as one figure whose alternative text
+  is the drawing's description. The library reads no clock: the date is
+  `pdf::Options::date`, `RenderError::NoDate` without it; the command
+  takes `SOURCE_DATE_EPOCH` or the clock. veraPDF 1.30.2 passes every
+  profile, in the `export` check.
+- **Accessible drawings**: `role="img"` on every SVG, its `<title>` the
+  accessible name, and (`Style::description`, on by default) a `<desc>`
+  that reads a derivation as numbered inferences, premises first
+  (`Derivation::write_steps`), or a net as its links. The PNG carries
+  title and description as iTXt and declares sRGB and its density (192
+  dpi at the default scale 2, so it shows at the drawing's size).
 - **`--net` replaces the formats `net` and `net-svg`** (the author:
   no aliases, the command is free until the first release): it writes
   the proof net instead of the derivation in text, svg, png or pdf.
@@ -126,6 +140,12 @@ JSON through serde.
 | png | `scale` | 2 (`png::Options::DEFAULT_SCALE`) | `--style png.scale=3` |
 | png | `pixels` | 2²⁶ (`DEFAULT_PIXELS`) | `--style pixels=none` |
 | pdf | `embed_text` | `true` | `--style embed_text=false` |
+| pdf | `compatible` | `false` (PDF/A-4) | `--style pdf.compatible=true` (PDF/A-2u) |
+| pdf | `accessible` | `false` | `--style pdf.accessible=true` (PDF/A-2a + PDF/UA-1) |
+| pdf | `title` | `null`: the drawing's title | `--style 'pdf.title=A proof'` |
+| pdf | `language` | `en` | `--style pdf.language=de` |
+| pdf | `date` | `null`: the library refuses; the command `SOURCE_DATE_EPOCH` or the clock | `--style 'pdf.date={"year":2027,…}'` |
+| svg | `description` | `true` | `--style svg.description=false` |
 | rocq | `form` | `fragment` | `--standalone` |
 | rocq | `lemma` | `certificate` | `--lemma NAME`, `--style lemma=…` |
 | rocq | `prelude` | `From NanoYalla Require Import macroll.` | `--prelude TEXT` |
@@ -198,6 +218,23 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
   Math; `--net` as a switch instead of `net-png`/`net-pdf` formats, no
   aliases for `net` and `net-svg`, and the format inferred from the
   output file's extension, `--format` overriding it.
+- 2026-10-04: asked whether the outputs follow their specifications and
+  whether the PDF can be archival and accessible. An audit found LaTeX,
+  Typst and Rocq idiomatic and compiled, the SVG without `role="img"`,
+  the PNG without colour space, density or title, the PDF neither
+  archival nor accessible; a second research agent and this session's
+  own tests (TeX Live 2025, Typst 0.15.1, poppler, MuPDF, Ghostscript,
+  qpdf, Inkscape, veraPDF) found PDF/A-4 opened everywhere, Typst
+  refusing a PDF 2.0 image by default, the TeX engines warning, and
+  several archives not listing PDF/A-4 (the rules file has the list).
+  The author's decisions: PDF/A-4 by default ("typst imports SVG just
+  fine"), PDF/A-2u under `compatible`, accessibility as PDF/UA-1 even
+  without `compatible` until krilla has PDF/UA-2, a note on the
+  accessible output in the command, the web client and the doc comment,
+  and the date always supplied to the library, the command using the
+  clock unless `SOURCE_DATE_EPOCH` is set. Correction recorded: this
+  session first told the author pdfLaTeX included a PDF 2.0 figure
+  silently; it warns, as LuaLaTeX does (a cut-off log hid the line).
 - `cargo deny check advisories` then flagged two crates as unmaintained
   (no vulnerability): rustybuzz (RUSTSEC-2026-0206) and ttf-parser
   (RUSTSEC-2026-0192), beneath usvg 0.47 and krilla. usvg 0.48 has moved
@@ -223,12 +260,19 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
   be an identifier; the exports' `String` functions and their `write`
   twins could be one generic call.
 - Step 32 (the web front end): the JSON of `Styles` (`cli/src/style.rs`)
-  is the settings object, one key per format; `png::from_svg` and
+  is the settings object, one key per format; the PDF needs the date
+  from the browser's clock (`pdf::Options::date`), and the accessible
+  PDF's note (that a screen reader reads the description, not the
+  drawing) belongs next to its switch, as the author asked; `png::from_svg` and
   `pdf::from_svg` want the font bytes the page already loads;
   `Interactive::derivation_ids` with `Style::ids` maps a click to
   `(goal, position)`. The renderers are said to build for
   wasm32-unknown-unknown (resvg claims it, a wasm build of typst-pdf
   shows krilla does), but this repository has not built them for wasm.
+- Later: PDF/UA-2 when krilla has it (`accessible` alone then moves to
+  PDF/A-4); Inkscape warns "Couldn't parse text in PDF from UTF16" on
+  krilla's PDFs of either version, which concerns krilla's text, not
+  PDF 2.0, and imports them whole.
 - Step 30 (the release): a binary release ships the third-party notices
   (MIT, Apache, BSD, the OFL of the embedded font); `cargo about` makes
   the list.
