@@ -123,6 +123,27 @@ fn open_goal() {
     );
 }
 
+/// With ids per formula, the drawing of a proof in progress names every
+/// formula of an open goal by its inference and position, and the
+/// session's map turns the inference into the goal `apply` takes.
+#[test]
+fn ids_name_goals() {
+    let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    let style = Style {
+        ids: true,
+        ..Style::default()
+    };
+    let drawing = svg::derivation(&state.derivation(), &style);
+    let ids = state.derivation_ids();
+    let drawn = ids.iter().position(|&id| id == goals[1]).unwrap();
+    // The open goal `B ⊢ B` has the hypothesis at position 0.
+    assert!(drawing.contains(&format!(r#"<g id="i{drawn}-0">"#)), "{drawing}");
+    assert!(drawing.contains(&format!(r#"<g id="i{drawn}-1">"#)), "{drawing}");
+    state.apply(ids[drawn], 0, Rule::Ax, &[]).unwrap();
+}
+
 /// A proof of full linear logic with a contraction is pinned as a
 /// certificate; the lemma's name and the prelude are options; a proof
 /// with Mix or with the weakening of affine mode has no certificate.

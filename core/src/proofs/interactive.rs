@@ -875,22 +875,12 @@ impl Interactive {
     /// Returns the derivation so far, with the open goals as leaves of
     /// [`Rule::Open`], two-sided in intuitionistic mode; its inferences are
     /// renumbered premises before conclusions, so its ids are not this
-    /// state's.
+    /// state's: [`derivation_ids`](Self::derivation_ids) maps them.
     pub fn derivation(&self) -> Derivation<'_> {
-        let mut order = Vec::with_capacity(self.inferences.len());
+        let order = self.derivation_ids();
         let mut new_id = vec![InfId::new(u32::MAX); self.inferences.len()];
-        // Postorder without recursion: a frame is an inference and whether
-        // its premises were visited.
-        let mut stack = vec![(InfId::new(0), false)];
-        while let Some((id, visited)) = stack.pop() {
-            let inference = &self.inferences[id.index()];
-            if visited {
-                new_id[id.index()] = InfId::new(order.len() as u32);
-                order.push(id);
-            } else {
-                stack.push((id, true));
-                stack.extend(inference.premises.iter().rev().map(|&p| (p, false)));
-            }
+        for (i, id) in order.iter().enumerate() {
+            new_id[id.index()] = InfId::new(i as u32);
         }
         let inferences = order
             .iter()
@@ -909,6 +899,27 @@ impl Interactive {
             })
             .collect();
         Derivation::from_parts(&self.forest, self.reading(), inferences)
+    }
+
+    /// Returns, for every inference of [`derivation`](Self::derivation) by
+    /// its id, the id of the same inference in this state: what turns the
+    /// inference `n` of a drawing (the SVG's `i<n>`) into the goal that
+    /// [`apply`](Self::apply) and [`close`](Self::close) take.
+    pub fn derivation_ids(&self) -> Vec<InfId> {
+        let mut order = Vec::with_capacity(self.inferences.len());
+        // Postorder without recursion: a frame is an inference and whether
+        // its premises were visited.
+        let mut stack = vec![(InfId::new(0), false)];
+        while let Some((id, visited)) = stack.pop() {
+            if visited {
+                order.push(id);
+            } else {
+                stack.push((id, true));
+                let premises = &self.inferences[id.index()].premises;
+                stack.extend(premises.iter().rev().map(|&p| (p, false)));
+            }
+        }
+        order
     }
 
     /// Translates the finished derivation into a proof term and checks it,
