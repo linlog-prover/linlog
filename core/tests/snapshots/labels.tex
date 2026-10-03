@@ -1,0 +1,45 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer0[$\mathrm{ax}$]{\vdash B^\bot, B}
+\infer2[$\otimes$]{\vdash A^\bot, B^\bot, A \otimes B}
+\infer1[$\parr$]{\vdash A^\bot \parr B^\bot, A \otimes B}
+\infer1[$\parr$]{\vdash (A^\bot \parr B^\bot) \parr (A \otimes B)}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer2[$\with$]{\vdash ((A^\bot \parr B^\bot) \parr (A \otimes B)) \with \mathbf{1}}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\bot$]{\vdash \bot, \mathbf{1}}
+\infer1[$\parr$]{\vdash \bot \parr \mathbf{1}}
+\infer0[$\top$]{\vdash \top}
+\infer2[$\with$]{\vdash (\bot \parr \mathbf{1}) \with \top}
+\infer2[$\with$]{\vdash (((A^\bot \parr B^\bot) \parr (A \otimes B)) \with \mathbf{1}) \with ((\bot \parr \mathbf{1}) \with \top)}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\oplus_1$]{\vdash \mathbf{1} \oplus 0}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\oplus_2$]{\vdash 0 \oplus \mathbf{1}}
+\infer2[$\with$]{\vdash (\mathbf{1} \oplus 0) \with (0 \oplus \mathbf{1})}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\oc$]{\vdash \oc \mathbf{1}}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\wn\mathrm{d}$]{\vdash \wn \mathbf{1}}
+\infer2[$\with$]{\vdash \oc \mathbf{1} \with \wn \mathbf{1}}
+\infer0[$\mathbf{1}$]{\vdash \mathbf{1}}
+\infer1[$\wn\mathrm{w}$]{\vdash \wn A, \mathbf{1}}
+\infer1[$\parr$]{\vdash \wn A \parr \mathbf{1}}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer1[$\wn\mathrm{d}$]{\vdash \wn A^\bot, A}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer1[$\wn\mathrm{d}$]{\vdash \wn A^\bot, A}
+\infer2[$\otimes$]{\vdash \wn A^\bot, \wn A^\bot, A \otimes A}
+\infer1[$\wn\mathrm{c}$]{\vdash \wn A^\bot, A \otimes A}
+\infer1[$\parr$]{\vdash \wn A^\bot \parr (A \otimes A)}
+\infer2[$\with$]{\vdash (\wn A \parr \mathbf{1}) \with (\wn A^\bot \parr (A \otimes A))}
+\infer2[$\with$]{\vdash (\oc \mathbf{1} \with \wn \mathbf{1}) \with ((\wn A \parr \mathbf{1}) \with (\wn A^\bot \parr (A \otimes A)))}
+\infer2[$\with$]{\vdash ((\mathbf{1} \oplus 0) \with (0 \oplus \mathbf{1})) \with ((\oc \mathbf{1} \with \wn \mathbf{1}) \with ((\wn A \parr \mathbf{1}) \with (\wn A^\bot \parr (A \otimes A))))}
+\infer2[$\with$]{\vdash ((((A^\bot \parr B^\bot) \parr (A \otimes B)) \with \mathbf{1}) \with ((\bot \parr \mathbf{1}) \with \top)) \with (((\mathbf{1} \oplus 0) \with (0 \oplus \mathbf{1})) \with ((\oc \mathbf{1} \with \wn \mathbf{1}) \with ((\wn A \parr \mathbf{1}) \with (\wn A^\bot \parr (A \otimes A)))))}
+\end{prooftree}
+\end{document}

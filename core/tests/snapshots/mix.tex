@@ -1,0 +1,11 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer0[$\mathrm{ax}$]{\vdash B^\bot, B}
+\infer2[$\mathrm{mix}$]{\vdash A^\bot, B^\bot, A, B}
+\end{prooftree}
+\end{document}

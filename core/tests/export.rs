@@ -20,7 +20,8 @@ use linlog::export::rocq::{self, Unsupported};
 use linlog::export::svg::{self, Style};
 use linlog::export::{Form, latex, typst};
 use linlog::{Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure};
-use linlog::{Reading, Rule, Sequent, Verdict, prove};
+use linlog::{Labels, OpenGoal, Reading, Rule, Sequent, Verdict, prove};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// Compares `actual` with the snapshot `name`, or writes it there when the
@@ -116,11 +117,83 @@ fn open_goal() {
     let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
     state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
     pin("open", &state.derivation());
+    pin_fragments(
+        "open-dashed",
+        &state.derivation(),
+        Labels::Upright,
+        OpenGoal::Dashed,
+    );
     let options = rocq::Options::default();
     assert_eq!(
         rocq::derivation(&state.derivation(), &options),
         Err(Unsupported::Open)
     );
+}
+
+/// Pins a derivation as LaTeX and Typst fragments, `name.frag.tex` and
+/// `name.frag.typ`, under the labels and the open goal given: the
+/// `export` check compiles them inside a document of its own.
+fn pin_fragments(name: &str, derivation: &Derivation, labels: Labels, open: OpenGoal) {
+    let latex = latex::Options {
+        labels: labels.clone(),
+        open: open.clone(),
+        ..latex::Options::default()
+    };
+    snapshot(
+        &format!("{name}.frag.tex"),
+        &latex::derivation(derivation, &latex),
+    );
+    let typst = typst::Options {
+        labels,
+        open,
+        ..typst::Options::default()
+    };
+    snapshot(
+        &format!("{name}.frag.typ"),
+        &typst::derivation(derivation, &typst),
+    );
+}
+
+/// Every rule label of every target is in a snapshot: the classical rules
+/// on one sequent, Mix and affine weakening on their own, the
+/// intuitionistic rules on one sequent; the intuitionistic ones also as
+/// fragments with subscript labels.
+#[test]
+fn every_label() {
+    let classical = "|- ((((~A | ~B) | (A * B)) & 1) & ((bot | 1) & top)) & \
+                     (((1 + 0) & (0 + 1)) & ((!1 & ?1) & ((?A | 1) & (?~A | (A * A)))))";
+    let intuitionistic = "|- (((A -o ((A -o B) -o B)) & ((A * B) -o (B * A))) & \
+                          (((A & B) -o A) & ((A & B) -o B))) & \
+                          ((((A + B) -o (B + A)) & (1 -o 1)) & \
+                          (((0 -o A) & top) & ((!A -o (A * A)) & ((!A -o !A) & (!A -o 1)))))";
+    let mut rules = BTreeSet::new();
+    for (name, input, mode) in [
+        ("labels", classical, Mode::CLASSICAL),
+        ("mix", "A, B |- A, B", Mode::CLASSICAL.with_mix()),
+        ("affine", "A, B |- A", Mode::CLASSICAL.affine()),
+        ("labels_ill", intuitionistic, Mode::INTUITIONISTIC),
+    ] {
+        let proof = proof(input, mode);
+        let derivation = if mode.intuitionistic {
+            proof.two_sided_derivation()
+        } else {
+            proof.derivation()
+        };
+        let derivation = derivation.unwrap();
+        rules.extend(derivation.inferences().iter().map(|i| i.rule));
+        pin(name, &derivation);
+        if name.starts_with("labels") {
+            pin_certificate(name, &derivation);
+        }
+        if name == "labels_ill" {
+            pin_fragments(name, &derivation, Labels::Subscript, OpenGoal::Dots);
+        }
+    }
+    let missing: Vec<Rule> = Rule::ALL
+        .into_iter()
+        .filter(|r| *r != Rule::Open && !rules.contains(r))
+        .collect();
+    assert!(missing.is_empty(), "no snapshot has {missing:?}");
 }
 
 /// With ids per formula, the drawing of a proof in progress names every
@@ -139,8 +212,14 @@ fn ids_name_goals() {
     let ids = state.derivation_ids();
     let drawn = ids.iter().position(|&id| id == goals[1]).unwrap();
     // The open goal `B ⊢ B` has the hypothesis at position 0.
-    assert!(drawing.contains(&format!(r#"<g id="i{drawn}-0">"#)), "{drawing}");
-    assert!(drawing.contains(&format!(r#"<g id="i{drawn}-1">"#)), "{drawing}");
+    assert!(
+        drawing.contains(&format!(r#"<g id="i{drawn}-0">"#)),
+        "{drawing}"
+    );
+    assert!(
+        drawing.contains(&format!(r#"<g id="i{drawn}-1">"#)),
+        "{drawing}"
+    );
     state.apply(ids[drawn], 0, Rule::Ax, &[]).unwrap();
 }
 

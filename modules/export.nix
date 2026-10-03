@@ -48,6 +48,24 @@
           ''
             export HOME=$TMPDIR
             cp ${snapshots}/* .
+            # A fragment goes into a document of the packages it names.
+            for file in *.frag.tex; do
+              {
+                printf '\\documentclass{article}\n\\usepackage{amssymb}\n'
+                printf '\\usepackage{cmll}\n\\usepackage{ebproof}\n\\begin{document}\n'
+                cat "$file"
+                printf '\n\\end{document}\n'
+              } >"''${file%.frag.tex}-fragment.tex"
+              rm "$file"
+            done
+            for file in *.frag.typ; do
+              {
+                printf '#import "@preview/curryst:0.6.0": prooftree, rule\n'
+                printf '#set page(width: auto, height: auto, margin: 5pt)\n'
+                cat "$file"
+              } >"''${file%.frag.typ}-fragment.typ"
+              rm "$file"
+            done
             linlog prove -i --format latex --standalone --output cli.tex '!A, A -o B |- B * !A'
             linlog prove --format typst --standalone --output cli.typ 'A & B, !C |- (B + A) * !C'
             linlog prove -i --format svg --output cli.svg '!A, A -o B |- B * !A'

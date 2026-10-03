@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1687.312" height="230.592" viewBox="0 0 105457 14412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ (((A ⊸ ((A ⊸ B) ⊸ B)) &amp; ((A ⊗ B) ⊸ (B ⊗ A))) &amp; (((A &amp; B) ⊸ A) &amp; ((A &amp; B) ⊸ B))) &amp; ((((A ⊕ B) ⊸ (B ⊕ A)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ A) &amp; ⊤) &amp; ((!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1)))))</title>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M2267 12812H96754"/>
+<path d="M955 11312H42195"/>
+<path d="M300 9812H23053"/>
+<path d="M300 8312H10521"/>
+<path d="M1299 6812H9521"/>
+<path d="M1317 5312H9503"/>
+<path d="M1317 3812H4221"/>
+<path d="M6829 3812H9503"/>
+<path d="M13516 8312H23053"/>
+<path d="M14843 6812H21725"/>
+<path d="M14191 5312H22377"/>
+<path d="M14191 3812H16865"/>
+<path d="M19473 3812H22377"/>
+<path d="M26048 9812H42850"/>
+<path d="M26048 8312H33009"/>
+<path d="M27047 6812H32009"/>
+<path d="M28076 5312H30980"/>
+<path d="M36004 8312H42850"/>
+<path d="M37004 6812H41851"/>
+<path d="M38090 5312H40764"/>
+<path d="M48855 11312H99672"/>
+<path d="M47413 9812H65223"/>
+<path d="M47413 8312H56950"/>
+<path d="M45845 6812H58517"/>
+<path d="M45845 5312H50738"/>
+<path d="M46839 3812H49743"/>
+<path d="M53739 5312H58517"/>
+<path d="M54791 3812H57465"/>
+<path d="M61518 8312H65223"/>
+<path d="M62189 6812H64551"/>
+<path d="M62605 5312H64135"/>
+<path d="M69202 9812H101771"/>
+<path d="M68218 8312H77094"/>
+<path d="M68218 6812H72194"/>
+<path d="M68890 5312H71523"/>
+<path d="M75189 6812H77094"/>
+<path d="M80758 8312H103006"/>
+<path d="M80758 6812H88060"/>
+<path d="M80920 5312H87898"/>
+<path d="M79980 3812H88838"/>
+<path d="M79980 2312H83179"/>
+<path d="M80127 812H83031"/>
+<path d="M85639 2312H88838"/>
+<path d="M85786 812H88690"/>
+<path d="M91559 6812H103662"/>
+<path d="M91559 5312H96396"/>
+<path d="M92230 3812H95724"/>
+<path d="M92378 2312H95577"/>
+<path d="M92525 812H95429"/>
+<path d="M99391 5312H103662"/>
+<path d="M100062 3812H102990"/>
+<path d="M100761 2312H102291"/>
+</g>
+<text x="6869" y="13902" textLength="85282" lengthAdjust="spacing" id="i51">⊢ (((𝐴 ⊸ ((𝐴 ⊸ 𝐵) ⊸ 𝐵)) &amp; ((𝐴 ⊗ 𝐵) ⊸ (𝐵 ⊗ 𝐴))) &amp; (((𝐴 &amp; 𝐵) ⊸ 𝐴) &amp; ((𝐴 &amp; 𝐵) ⊸ 𝐵))) &amp; ((((𝐴 ⊕ 𝐵) ⊸ (𝐵 ⊕ 𝐴)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ 𝐴) &amp; ⊤) &amp; ((!𝐴 ⊸ (𝐴 ⊗ 𝐴)) &amp; ((!𝐴 ⊸ !𝐴) &amp; (!𝐴 ⊸ 1)))))</text>
+<text x="96954" y="13012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="2267" y="12402" textLength="38617" lengthAdjust="spacing" id="i18">⊢ ((𝐴 ⊸ ((𝐴 ⊸ 𝐵) ⊸ 𝐵)) &amp; ((𝐴 ⊗ 𝐵) ⊸ (𝐵 ⊗ 𝐴))) &amp; (((𝐴 &amp; 𝐵) ⊸ 𝐴) &amp; ((𝐴 &amp; 𝐵) ⊸ 𝐵))</text>
+<text x="42395" y="11512" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="955" y="10902" textLength="21442" lengthAdjust="spacing" id="i10">⊢ (𝐴 ⊸ ((𝐴 ⊸ 𝐵) ⊸ 𝐵)) &amp; ((𝐴 ⊗ 𝐵) ⊸ (𝐵 ⊗ 𝐴))</text>
+<text x="23253" y="10012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="300" y="9402" textLength="10221" lengthAdjust="spacing" id="i4">⊢ 𝐴 ⊸ ((𝐴 ⊸ 𝐵) ⊸ 𝐵)</text>
+<text x="10721" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="1299" y="7902" textLength="8222" lengthAdjust="spacing" id="i3">𝐴 ⊢ (𝐴 ⊸ 𝐵) ⊸ 𝐵</text>
+<text x="9721" y="7012" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="2160" y="6402" textLength="6500" lengthAdjust="spacing" id="i2">𝐴, 𝐴 ⊸ 𝐵 ⊢ 𝐵</text>
+<text x="9703" y="5512" textLength="1255" lengthAdjust="spacing" font-size="800">⊸L</text>
+<text x="1317" y="4902" textLength="2904" lengthAdjust="spacing" id="i0">𝐴 ⊢ 𝐴</text>
+<text x="4421" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="6829" y="4902" textLength="2674" lengthAdjust="spacing" id="i1">𝐵 ⊢ 𝐵</text>
+<text x="9703" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="13516" y="9402" textLength="9537" lengthAdjust="spacing" id="i9">⊢ (𝐴 ⊗ 𝐵) ⊸ (𝐵 ⊗ 𝐴)</text>
+<text x="23253" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="14843" y="7902" textLength="6882" lengthAdjust="spacing" id="i8">𝐴 ⊗ 𝐵 ⊢ 𝐵 ⊗ 𝐴</text>
+<text x="21925" y="7012" textLength="981" lengthAdjust="spacing" font-size="800">⊗L</text>
+<text x="15205" y="6402" textLength="6158" lengthAdjust="spacing" id="i7">𝐴, 𝐵 ⊢ 𝐵 ⊗ 𝐴</text>
+<text x="22577" y="5512" textLength="1021" lengthAdjust="spacing" font-size="800">⊗R</text>
+<text x="14191" y="4902" textLength="2674" lengthAdjust="spacing" id="i5">𝐵 ⊢ 𝐵</text>
+<text x="17065" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="19473" y="4902" textLength="2904" lengthAdjust="spacing" id="i6">𝐴 ⊢ 𝐴</text>
+<text x="22577" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="26704" y="10902" textLength="15491" lengthAdjust="spacing" id="i17">⊢ ((𝐴 &amp; 𝐵) ⊸ 𝐴) &amp; ((𝐴 &amp; 𝐵) ⊸ 𝐵)</text>
+<text x="43050" y="10012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="26048" y="9402" textLength="6961" lengthAdjust="spacing" id="i13">⊢ (𝐴 &amp; 𝐵) ⊸ 𝐴</text>
+<text x="33209" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="27047" y="7902" textLength="4962" lengthAdjust="spacing" id="i12">𝐴 &amp; 𝐵 ⊢ 𝐴</text>
+<g font-size="800">
+<text x="32209" y="7012" textLength="1036" lengthAdjust="spacing">&amp;L</text>
+<text x="33245" y="7132" textLength="280" lengthAdjust="spacing" font-size="560">1</text>
+</g>
+<text x="28076" y="6402" textLength="2904" lengthAdjust="spacing" id="i11">𝐴 ⊢ 𝐴</text>
+<text x="31180" y="5512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="36004" y="9402" textLength="6846" lengthAdjust="spacing" id="i16">⊢ (𝐴 &amp; 𝐵) ⊸ 𝐵</text>
+<text x="43050" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="37004" y="7902" textLength="4847" lengthAdjust="spacing" id="i15">𝐴 &amp; 𝐵 ⊢ 𝐵</text>
+<g font-size="800">
+<text x="42051" y="7012" textLength="1036" lengthAdjust="spacing">&amp;L</text>
+<text x="43087" y="7132" textLength="280" lengthAdjust="spacing" font-size="560">2</text>
+</g>
+<text x="38090" y="6402" textLength="2674" lengthAdjust="spacing" id="i14">𝐵 ⊢ 𝐵</text>
+<text x="40964" y="5512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="51773" y="12402" textLength="44981" lengthAdjust="spacing" id="i50">⊢ (((𝐴 ⊕ 𝐵) ⊸ (𝐵 ⊕ 𝐴)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ 𝐴) &amp; ⊤) &amp; ((!𝐴 ⊸ (𝐴 ⊗ 𝐴)) &amp; ((!𝐴 ⊸ !𝐴) &amp; (!𝐴 ⊸ 1))))</text>
+<text x="99872" y="11512" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="48855" y="10902" textLength="14926" lengthAdjust="spacing" id="i28">⊢ ((𝐴 ⊕ 𝐵) ⊸ (𝐵 ⊕ 𝐴)) &amp; (1 ⊸ 1)</text>
+<text x="65423" y="10012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="47413" y="9402" textLength="9537" lengthAdjust="spacing" id="i24">⊢ (𝐴 ⊕ 𝐵) ⊸ (𝐵 ⊕ 𝐴)</text>
+<text x="57150" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="48740" y="7902" textLength="6882" lengthAdjust="spacing" id="i23">𝐴 ⊕ 𝐵 ⊢ 𝐵 ⊕ 𝐴</text>
+<text x="58717" y="7012" textLength="981" lengthAdjust="spacing" font-size="800">⊕L</text>
+<text x="45845" y="6402" textLength="4893" lengthAdjust="spacing" id="i20">𝐴 ⊢ 𝐵 ⊕ 𝐴</text>
+<g font-size="800">
+<text x="50938" y="5512" textLength="1021" lengthAdjust="spacing">⊕R</text>
+<text x="51959" y="5632" textLength="280" lengthAdjust="spacing" font-size="560">2</text>
+</g>
+<text x="46839" y="4902" textLength="2904" lengthAdjust="spacing" id="i19">𝐴 ⊢ 𝐴</text>
+<text x="49943" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="53739" y="6402" textLength="4778" lengthAdjust="spacing" id="i22">𝐵 ⊢ 𝐵 ⊕ 𝐴</text>
+<g font-size="800">
+<text x="58717" y="5512" textLength="1021" lengthAdjust="spacing">⊕R</text>
+<text x="59738" y="5632" textLength="280" lengthAdjust="spacing" font-size="560">1</text>
+</g>
+<text x="54791" y="4902" textLength="2674" lengthAdjust="spacing" id="i21">𝐵 ⊢ 𝐵</text>
+<text x="57665" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="61518" y="9402" textLength="3705" lengthAdjust="spacing" id="i27">⊢ 1 ⊸ 1</text>
+<text x="65423" y="8512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="62189" y="7902" textLength="2362" lengthAdjust="spacing" id="i26">1 ⊢ 1</text>
+<text x="64751" y="7012" textLength="846" lengthAdjust="spacing" font-size="800">1L</text>
+<text x="62605" y="6402" textLength="1530" lengthAdjust="spacing" id="i25">⊢ 1</text>
+<text x="64335" y="5512" textLength="886" lengthAdjust="spacing" font-size="800">1R</text>
+<text x="71301" y="10902" textLength="28371" lengthAdjust="spacing" id="i49">⊢ ((0 ⊸ 𝐴) &amp; ⊤) &amp; ((!𝐴 ⊸ (𝐴 ⊗ 𝐴)) &amp; ((!𝐴 ⊸ !𝐴) &amp; (!𝐴 ⊸ 1)))</text>
+<text x="101971" y="10012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="69202" y="9402" textLength="6909" lengthAdjust="spacing" id="i32">⊢ (0 ⊸ 𝐴) &amp; ⊤</text>
+<text x="77294" y="8512" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="68218" y="7902" textLength="3976" lengthAdjust="spacing" id="i30">⊢ 0 ⊸ 𝐴</text>
+<text x="72394" y="7012" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="68890" y="6402" textLength="2633" lengthAdjust="spacing" id="i29">0 ⊢ 𝐴</text>
+<text x="71723" y="5512" textLength="846" lengthAdjust="spacing" font-size="800">0L</text>
+<text x="75189" y="7902" textLength="1905" lengthAdjust="spacing" id="i31">⊢ ⊤</text>
+<text x="77294" y="7012" textLength="1186" lengthAdjust="spacing" font-size="800">⊤R</text>
+<text x="81993" y="9402" textLength="19778" lengthAdjust="spacing" id="i48">⊢ (!𝐴 ⊸ (𝐴 ⊗ 𝐴)) &amp; ((!𝐴 ⊸ !𝐴) &amp; (!𝐴 ⊸ 1))</text>
+<text x="103206" y="8512" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="80758" y="7902" textLength="7302" lengthAdjust="spacing" id="i39">⊢ !𝐴 ⊸ (𝐴 ⊗ 𝐴)</text>
+<text x="88260" y="7012" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="81758" y="6402" textLength="5303" lengthAdjust="spacing" id="i38">!𝐴 ⊢ 𝐴 ⊗ 𝐴</text>
+<text x="88098" y="5512" textLength="624" lengthAdjust="spacing" font-size="800">!c</text>
+<text x="80920" y="4902" textLength="6978" lengthAdjust="spacing" id="i37">!𝐴, !𝐴 ⊢ 𝐴 ⊗ 𝐴</text>
+<text x="89038" y="4012" textLength="1021" lengthAdjust="spacing" font-size="800">⊗R</text>
+<text x="79980" y="3402" textLength="3199" lengthAdjust="spacing" id="i34">!𝐴 ⊢ 𝐴</text>
+<text x="83379" y="2512" textLength="683" lengthAdjust="spacing" font-size="800">!L</text>
+<text x="80127" y="1902" textLength="2904" lengthAdjust="spacing" id="i33">𝐴 ⊢ 𝐴</text>
+<text x="83231" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="85639" y="3402" textLength="3199" lengthAdjust="spacing" id="i36">!𝐴 ⊢ 𝐴</text>
+<text x="89038" y="2512" textLength="683" lengthAdjust="spacing" font-size="800">!L</text>
+<text x="85786" y="1902" textLength="2904" lengthAdjust="spacing" id="i35">𝐴 ⊢ 𝐴</text>
+<text x="88890" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="92214" y="7902" textLength="10792" lengthAdjust="spacing" id="i47">⊢ (!𝐴 ⊸ !𝐴) &amp; (!𝐴 ⊸ 1)</text>
+<text x="103862" y="7012" textLength="1076" lengthAdjust="spacing" font-size="800">&amp;R</text>
+<text x="91559" y="6402" textLength="4837" lengthAdjust="spacing" id="i43">⊢ !𝐴 ⊸ !𝐴</text>
+<text x="96596" y="5512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="92230" y="4902" textLength="3494" lengthAdjust="spacing" id="i42">!𝐴 ⊢ !𝐴</text>
+<text x="95924" y="4012" textLength="723" lengthAdjust="spacing" font-size="800">!R</text>
+<text x="92378" y="3402" textLength="3199" lengthAdjust="spacing" id="i41">!𝐴 ⊢ 𝐴</text>
+<text x="95777" y="2512" textLength="683" lengthAdjust="spacing" font-size="800">!L</text>
+<text x="92525" y="1902" textLength="2904" lengthAdjust="spacing" id="i40">𝐴 ⊢ 𝐴</text>
+<text x="95629" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="99391" y="6402" textLength="4271" lengthAdjust="spacing" id="i46">⊢ !𝐴 ⊸ 1</text>
+<text x="103862" y="5512" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="100062" y="4902" textLength="2928" lengthAdjust="spacing" id="i45">!𝐴 ⊢ 1</text>
+<text x="103190" y="4012" textLength="885" lengthAdjust="spacing" font-size="800">!w</text>
+<text x="100761" y="3402" textLength="1530" lengthAdjust="spacing" id="i44">⊢ 1</text>
+<text x="102491" y="2512" textLength="886" lengthAdjust="spacing" font-size="800">1R</text>
+</svg>

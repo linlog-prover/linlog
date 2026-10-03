@@ -1,0 +1,54 @@
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap_{\mathrm{L}}$]{A, A \multimap B &\vdash B}
+\infer1[$\multimap_{\mathrm{R}}$]{A &\vdash (A \multimap B) \multimap B}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash A \multimap ((A \multimap B) \multimap B)}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer2[$\otimes_{\mathrm{R}}$]{A, B &\vdash B \otimes A}
+\infer1[$\otimes_{\mathrm{L}}$]{A \otimes B &\vdash B \otimes A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash (A \otimes B) \multimap (B \otimes A)}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\with_{\mathrm{L1}}$]{A \with B &\vdash A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash (A \with B) \multimap A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer1[$\with_{\mathrm{L2}}$]{A \with B &\vdash B}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash (A \with B) \multimap B}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash ((A \with B) \multimap A) \with ((A \with B) \multimap B)}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash ((A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))) \with (((A \with B) \multimap A) \with ((A \with B) \multimap B))}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oplus_{\mathrm{R2}}$]{A &\vdash B \oplus A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer1[$\oplus_{\mathrm{R1}}$]{B &\vdash B \oplus A}
+\infer2[$\oplus_{\mathrm{L}}$]{A \oplus B &\vdash B \oplus A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash (A \oplus B) \multimap (B \oplus A)}
+\infer0[$\mathbf{1}_{\mathrm{R}}$]{&\vdash \mathbf{1}}
+\infer1[$\mathbf{1}_{\mathrm{L}}$]{\mathbf{1} &\vdash \mathbf{1}}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash \mathbf{1} \multimap \mathbf{1}}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash ((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})}
+\infer0[$0_{\mathrm{L}}$]{0 &\vdash A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash 0 \multimap A}
+\infer0[$\top_{\mathrm{R}}$]{&\vdash \top}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (0 \multimap A) \with \top}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc_{\mathrm{L}}$]{\oc A &\vdash A}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc_{\mathrm{L}}$]{\oc A &\vdash A}
+\infer2[$\otimes_{\mathrm{R}}$]{\oc A, \oc A &\vdash A \otimes A}
+\infer1[$\oc_{\mathrm{c}}$]{\oc A &\vdash A \otimes A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash \oc A \multimap (A \otimes A)}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc_{\mathrm{L}}$]{\oc A &\vdash A}
+\infer1[$\oc_{\mathrm{R}}$]{\oc A &\vdash \oc A}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash \oc A \multimap \oc A}
+\infer0[$\mathbf{1}_{\mathrm{R}}$]{&\vdash \mathbf{1}}
+\infer1[$\oc_{\mathrm{w}}$]{\oc A &\vdash \mathbf{1}}
+\infer1[$\multimap_{\mathrm{R}}$]{&\vdash \oc A \multimap \mathbf{1}}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1}))}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash ((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})))}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})) \with (((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1}))))}
+\infer2[$\with_{\mathrm{R}}$]{&\vdash (((A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))) \with (((A \with B) \multimap A) \with ((A \with B) \multimap B))) \with ((((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})) \with (((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})))))}
+\end{prooftree}

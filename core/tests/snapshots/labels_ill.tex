@@ -1,0 +1,60 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap\mathrm{L}$]{A, A \multimap B &\vdash B}
+\infer1[$\multimap\mathrm{R}$]{A &\vdash (A \multimap B) \multimap B}
+\infer1[$\multimap\mathrm{R}$]{&\vdash A \multimap ((A \multimap B) \multimap B)}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer2[$\otimes\mathrm{R}$]{A, B &\vdash B \otimes A}
+\infer1[$\otimes\mathrm{L}$]{A \otimes B &\vdash B \otimes A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash (A \otimes B) \multimap (B \otimes A)}
+\infer2[$\with\mathrm{R}$]{&\vdash (A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\with\mathrm{L}_1$]{A \with B &\vdash A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash (A \with B) \multimap A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer1[$\with\mathrm{L}_2$]{A \with B &\vdash B}
+\infer1[$\multimap\mathrm{R}$]{&\vdash (A \with B) \multimap B}
+\infer2[$\with\mathrm{R}$]{&\vdash ((A \with B) \multimap A) \with ((A \with B) \multimap B)}
+\infer2[$\with\mathrm{R}$]{&\vdash ((A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))) \with (((A \with B) \multimap A) \with ((A \with B) \multimap B))}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oplus\mathrm{R}_2$]{A &\vdash B \oplus A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer1[$\oplus\mathrm{R}_1$]{B &\vdash B \oplus A}
+\infer2[$\oplus\mathrm{L}$]{A \oplus B &\vdash B \oplus A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash (A \oplus B) \multimap (B \oplus A)}
+\infer0[$\mathbf{1}\mathrm{R}$]{&\vdash \mathbf{1}}
+\infer1[$\mathbf{1}\mathrm{L}$]{\mathbf{1} &\vdash \mathbf{1}}
+\infer1[$\multimap\mathrm{R}$]{&\vdash \mathbf{1} \multimap \mathbf{1}}
+\infer2[$\with\mathrm{R}$]{&\vdash ((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})}
+\infer0[$0\mathrm{L}$]{0 &\vdash A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash 0 \multimap A}
+\infer0[$\top\mathrm{R}$]{&\vdash \top}
+\infer2[$\with\mathrm{R}$]{&\vdash (0 \multimap A) \with \top}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc\mathrm{L}$]{\oc A &\vdash A}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc\mathrm{L}$]{\oc A &\vdash A}
+\infer2[$\otimes\mathrm{R}$]{\oc A, \oc A &\vdash A \otimes A}
+\infer1[$\oc\mathrm{c}$]{\oc A &\vdash A \otimes A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash \oc A \multimap (A \otimes A)}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer1[$\oc\mathrm{L}$]{\oc A &\vdash A}
+\infer1[$\oc\mathrm{R}$]{\oc A &\vdash \oc A}
+\infer1[$\multimap\mathrm{R}$]{&\vdash \oc A \multimap \oc A}
+\infer0[$\mathbf{1}\mathrm{R}$]{&\vdash \mathbf{1}}
+\infer1[$\oc\mathrm{w}$]{\oc A &\vdash \mathbf{1}}
+\infer1[$\multimap\mathrm{R}$]{&\vdash \oc A \multimap \mathbf{1}}
+\infer2[$\with\mathrm{R}$]{&\vdash (\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})}
+\infer2[$\with\mathrm{R}$]{&\vdash (\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1}))}
+\infer2[$\with\mathrm{R}$]{&\vdash ((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})))}
+\infer2[$\with\mathrm{R}$]{&\vdash (((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})) \with (((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1}))))}
+\infer2[$\with\mathrm{R}$]{&\vdash (((A \multimap ((A \multimap B) \multimap B)) \with ((A \otimes B) \multimap (B \otimes A))) \with (((A \with B) \multimap A) \with ((A \with B) \multimap B))) \with ((((A \oplus B) \multimap (B \oplus A)) \with (\mathbf{1} \multimap \mathbf{1})) \with (((0 \multimap A) \with \top) \with ((\oc A \multimap (A \otimes A)) \with ((\oc A \multimap \oc A) \with (\oc A \multimap \mathbf{1})))))}
+\end{prooftree}
+\end{document}
