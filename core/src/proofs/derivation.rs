@@ -452,14 +452,20 @@ impl Display for ViewError {
     /// Writes the reason, with the size of a derivation left out and the
     /// bound it passed.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        // A count that reached the most its counter holds is only known
+        // to be beyond it.
+        let count = |n: u64| match n {
+            u64::MAX => "more than 10¹⁹".to_owned(),
+            n => n.to_string(),
+        };
         let estimate = |f: &mut Formatter<'_>, size: &Size| {
             write!(
                 f,
                 "the derivation is not built: its {} inferences with {} characters of \
                  sequents are estimated at {} bytes",
-                size.inferences,
-                size.characters,
-                size.bytes()
+                count(size.inferences),
+                count(size.characters),
+                count(size.bytes())
             )
         };
         match self {
@@ -484,7 +490,7 @@ impl Display for ViewError {
                 f,
                 "the derivation is not built: it has {} inferences, and a derivation holds {} \
                  at most",
-                size.inferences,
+                count(size.inferences),
                 Derivation::MOST
             ),
             Self::Stopped => f.write_str("the derivation is not built: stopped"),
@@ -1673,7 +1679,7 @@ mod tests {
         assert_eq!(too_many, ViewError::TooMany { size });
         assert_eq!(
             too_many.to_string(),
-            "the derivation is not built: it has 18446744073709551615 inferences, and a \
+            "the derivation is not built: it has more than 10¹⁹ inferences, and a \
              derivation holds 4294967295 at most"
         );
     }
