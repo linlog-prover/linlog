@@ -36,12 +36,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - `interact.rs`: `interact`, a line-based session over `Interactive`:
   the state comes from the sequent argument or `--state FILE` (a session
   `save` wrote; the mode is then the file's), the commands from standard
-  input (`goals`, `rules`, `apply`, `undo`, `close`, `show [--FORMAT]`,
-  `proof [--FORMAT] [FILE]`, `save`, `load`, `help`, `quit`; `HELP` is
-  the list; `show` prints the partial derivation as text, a LaTeX or
-  Typst fragment or an SVG document, `proof` the checked proof in any
-  format, `--rocq` the certificate, `--png`/`--pdf` into a FILE only; a
-  format is a word with dashes so that it never reads as a file name),
+  input (`goals`, `rules`, `apply`, `undo`, `close`, `show [--FORMAT]
+  [FILE]`, `proof [--FORMAT] [FILE]`, `save`, `load`, `help`, `quit`;
+  `HELP` is the list; `show` prints or writes the partial derivation,
+  open goals included, as text, LaTeX, Typst, SVG, PNG or PDF, `proof`
+  the checked proof in any format, `--rocq` the certificate; PNG and
+  PDF go into a FILE only; a format is a word with dashes so that it
+  never reads as a file name, and a FILE without one is written in the
+  format its extension names, JSON for `proof`, text for `show`),
   every command's output or `error: …` goes to standard output and the
   session goes on,
   and the whole loop runs inside `on_large_stack` so that `close` and the
@@ -97,15 +99,19 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   names flags) and the derivation through the library's `write` under
   the format's options from `Styles`; `--standalone` makes the LaTeX,
   Typst or Rocq output a document and is refused, exit 2, for the
-  others (`form`: an SVG is always a whole document). A drawing format
-  (SVG, PNG, PDF) writes a whole drawing or nothing (`Show::holds`,
-  `Show::close`): the SVG's verdict comment waits for the drawing
-  (`Show::open` returns it as the derivation's prefix), and without a
-  drawing (unprovable, invalid, left out, `--quiet`) the verdict goes to
-  standard error and no file is made, since a comment alone is no XML
-  document and an empty file no image. A derivation cut short by the
-  time limit in any format leaves no file; on standard output it stays
-  as far as it came, with the reason after it. In intuitionistic mode the two-sided derivation
+  others (`form`: an SVG is always a whole document). **An output is made only with
+  something in it beyond the verdict** (`Show::holds`, `Show::open`,
+  `Show::close`), since the exit status gives the verdict: a file of
+  any format but JSON holds a derivation or a net, or is not made, the
+  verdict and any note then on standard error; an SVG, on standard
+  output too, is the drawing with its verdict comment before it or
+  nothing (a comment alone is no XML document); PNG and PDF always put
+  the verdict on standard error. JSON is always written: it is the
+  outcome, refutation and statistics included. The held verdict is the
+  derivation's prefix (`derivation(…, prefix, out)`). A derivation cut
+  short by the time limit leaves no file; on standard output it stays
+  as far as it came, with the reason after it. An earlier run's file at
+  the path is left as it is. In intuitionistic mode the two-sided derivation
   goes to Rocq and is certified one-sided; a proof with Mix or affine
   weakening is exit 2 with the library's `Unsupported` message, after
   the search, and standard output stays empty. `seq print --format`

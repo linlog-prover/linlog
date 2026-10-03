@@ -295,11 +295,17 @@ impl Show {
         out.write_str(&note(self.format, line))
     }
 
-    /// Whether the verdict waits for the drawing: an SVG document is the
-    /// drawing with the verdict as a comment before it, or nothing at
-    /// all, never a comment alone, which is no XML document.
+    /// Whether the verdict waits for a derivation or a net to go with it:
+    /// an output is made only when there is one, since a verdict alone is
+    /// what the exit status says. So an SVG document is the drawing with
+    /// the verdict as a comment before it or nothing (a comment alone is
+    /// no XML document), and a file of any format but JSON holds a
+    /// derivation or a net or is not made. JSON is always written: it is
+    /// the outcome itself, with the refutation and the statistics. A
+    /// binary format writes its verdict to standard error anyway.
     fn holds(&self) -> bool {
-        self.format == Format::Svg
+        !self.format.is_binary()
+            && (self.format == Format::Svg || (self.file && self.format != Format::Json))
     }
 
     /// Writes the verdict line at the start of the output, unless the
@@ -308,6 +314,10 @@ impl Show {
     /// verdict line, the held verdict, or nothing.
     fn open(&self, out: &mut impl Write, line: Option<&str>) -> Result<Option<String>> {
         Ok(match line {
+            Some(line) if self.format.is_binary() => {
+                eprintln!("{line}");
+                None
+            }
             Some(line) if self.holds() => Some(format!("{}\n", note(self.format, line))),
             Some(line) => {
                 self.verdict_line(out, line)?;
@@ -330,13 +340,13 @@ impl Show {
 
     /// Writes what became of the derivation, and returns whether the
     /// output is to be finished: rendered bytes; the line of a derivation
-    /// left out; a held verdict whose drawing never came, to standard
-    /// error. A drawing format (SVG, PNG, PDF) writes a whole drawing or
-    /// nothing, so without a drawing the output is not finished, and no
-    /// file is made. A derivation cut short in a file leaves no file
-    /// either: the verdict and the reason go to standard error. Cut short
-    /// on standard output, it stays as far as it came, with the reason
-    /// after it.
+    /// left out; a held verdict whose derivation never came, to standard
+    /// error. An output that holds its verdict ([`holds`](Self::holds)),
+    /// and a binary one, is finished only with a derivation or a net in
+    /// it, so without one no file is made. A derivation cut short in a
+    /// file leaves no file either: the verdict and the reason go to
+    /// standard error. Cut short on standard output, it stays as far as it
+    /// came, with the reason after it.
     fn close(&self, out: &mut io::Output, shown: Shown, line: Option<&str>) -> Result<bool> {
         let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));
         match shown {
@@ -840,9 +850,11 @@ fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
 fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
     let line =
         format!("unknown: the time limit of {limit:?} was reached while the sequent was read");
-    match args.output.format() {
-        format if format == Format::Json || format.is_binary() => eprintln!("{line}"),
-        format => io::write(args.output.output.as_deref(), &note(format, &line))?,
+    // A file holds a derivation or nothing, and JSON has no form for this.
+    match (args.output.format(), &args.output.output) {
+        (Format::Json, _) | (_, Some(_)) => eprintln!("{line}"),
+        (format, None) if format.is_binary() => eprintln!("{line}"),
+        (format, None) => io::write(None, &note(format, &line))?,
     }
     Ok(Status::Unknown)
 }

@@ -7,7 +7,7 @@ use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
     Ended, Show, Shown, alone_first, bytes_text, count_text, derivation, describe, notice_line,
-    on_large_stack, stopped, unknown,
+    on_large_stack, render, stopped, unknown,
 };
 use crate::style::Styles;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
@@ -27,8 +27,10 @@ rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
 undo                retract the last step
 close [G]           let the search close goal G, or every open goal
-show [--FORMAT]     the derivation so far, as text, as a LaTeX or Typst proof tree, or as
-                    SVG: --text, --latex, --typst or --svg (or the name without dashes)
+show [--FORMAT] [FILE]
+                    the derivation so far, open goals included, printed or written to FILE:
+                    as text, or --latex, --typst, --svg, --png or --pdf (these two need a
+                    FILE); with a FILE and no format, the one its extension names
 proof [--FORMAT] [FILE]
                     check the finished proof and print it or write it to FILE: as text,
                     or --json, --latex, --typst, --svg, --png, --pdf, or --rocq for a
@@ -219,19 +221,48 @@ impl Session {
                 text
             }
             "show" => {
+                let (word, path) = match rest {
+                    [] => (None, None),
+                    [word] if word.starts_with("--") => (Some(*word), None),
+                    [path] => (None, Some(*path)),
+                    [word, path] if word.starts_with("--") => (Some(*word), Some(*path)),
+                    _ => bail!("show [--FORMAT] [FILE]: one format and one file at most"),
+                };
+                let format = match (word, path) {
+                    (Some(word), _) => proof_format(word)?,
+                    (None, Some(path)) => Format::of_path(Path::new(path)).unwrap_or(Format::Text),
+                    (None, None) => Format::Text,
+                };
                 let derivation = self.state.derivation();
                 let styles = &self.styles;
-                match rest.first().map(|w| w.trim_start_matches("--")) {
-                    None | Some("text") => {
+                let text = match format {
+                    Format::Text => {
                         let mut text = String::new();
                         derivation.write_text(&styles.text, &mut text, || false)?;
                         text
                     }
-                    Some("latex") => latex::derivation(&derivation, &styles.latex),
-                    Some("typst") => typst::derivation(&derivation, &styles.typst),
-                    Some("svg") => svg::derivation(&derivation, &styles.svg),
-                    Some(other) => {
-                        bail!("show {other}? the formats are --text, --latex, --typst and --svg")
+                    Format::Latex => latex::derivation(&derivation, &styles.latex),
+                    Format::Typst => typst::derivation(&derivation, &styles.typst),
+                    Format::Svg | Format::Png | Format::Pdf => {
+                        svg::derivation(&derivation, &styles.svg)
+                    }
+                    Format::Json | Format::Rocq => bail!(
+                        "show writes the derivation so far as --text, --latex, --typst, --svg, \
+                         --png or --pdf; `save` writes the session, `proof --rocq` a finished proof"
+                    ),
+                };
+                match (path, format.is_binary()) {
+                    (None, true) => bail!("a {format:?} needs a FILE to be written to"),
+                    (None, false) => text,
+                    (Some(path), binary) => {
+                        let mut out = io::Output::open(Some(Path::new(path)), binary)?;
+                        if binary {
+                            out.stream().write_all(&render(&text, format, styles)?)?;
+                        } else {
+                            out.write_str(&text)?;
+                        }
+                        out.finish()?;
+                        format!("derivation so far written to {path}")
                     }
                 }
             }

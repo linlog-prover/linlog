@@ -716,7 +716,7 @@ fn latex_and_typst_formats() {
     let (status, out, err) = linlog(&["prove", "--standalone", "A |- A"], "");
     assert_eq!((status, out.as_str()), (2, ""));
     assert!(err.contains("--standalone needs --format latex"), "{err}");
-    let (status, out, _) = linlog(&["interact", "A |- A"], "show latex\nquit\n");
+    let (status, out, _) = linlog(&["interact", "A |- A"], "show --latex\nquit\n");
     assert_eq!(status, 1);
     assert_eq!(
         out,
@@ -785,7 +785,7 @@ fn svg_formats() {
     let (status, _, err) = linlog(&["prove", "--format", "svg", "--standalone", "A |- A"], "");
     assert_eq!(status, 2);
     assert!(err.contains("--standalone needs --format latex"), "{err}");
-    let (_, out, _) = linlog(&["interact", "A |- A"], "show svg\nquit\n");
+    let (_, out, _) = linlog(&["interact", "A |- A"], "show --svg\nquit\n");
     assert!(
         out.starts_with("<svg ") && out.contains(">⋮</text>"),
         "{out}"
@@ -855,11 +855,26 @@ fn binary_formats() {
             .unwrap()
             .starts_with("provable")
     );
-    // An unprovable sequent leaves no drawing, so no file.
-    let none = scratch("none.pdf");
-    let (status, _, _) = linlog(&["prove", "-o", none.to_str().unwrap(), "A |- B"], "");
-    assert_eq!(status, 1);
-    assert!(!none.exists());
+    // An unprovable sequent leaves no derivation, so no file but JSON's,
+    // and its verdict on standard error.
+    for name in ["none.pdf", "none.svg", "none.tex", "none.json"] {
+        let file = scratch(name);
+        let (status, out, err) = linlog(&["prove", "-o", file.to_str().unwrap(), "A |- B"], "");
+        assert_eq!((status, out.as_str()), (1, ""), "{name}");
+        assert_eq!(file.exists(), name.ends_with(".json"), "{name}");
+        assert_eq!(
+            err.starts_with("unprovable"),
+            !name.ends_with(".json"),
+            "{name}"
+        );
+    }
+    // A session writes its derivation so far, open goals included, in
+    // the format its file's extension names.
+    let part = scratch("part.pdf");
+    let commands = format!("apply 0 1 -oL 0\nshow {}\nquit\n", part.to_str().unwrap());
+    let (_, out, _) = linlog(&["interact", "-i", "A, A -o B |- B"], &commands);
+    assert!(out.contains("derivation so far written to"), "{out}");
+    assert!(std::fs::read(&part).unwrap().starts_with(b"%PDF-2.0"));
     let (status, _, err) = linlog(&["prove", "--net", "--format", "latex", "A |- A"], "");
     assert_eq!(status, 2);
     assert!(

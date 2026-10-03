@@ -515,7 +515,9 @@ pub struct OutputArgs {
     /// .v), and text otherwise
     #[arg(long, value_enum, value_name = "FORMAT")]
     pub format: Option<Format>,
-    /// Write to this file instead of standard output
+    /// Write to this file instead of standard output; the file is made
+    /// only with a derivation or a net in it (or in JSON, always), and
+    /// otherwise the verdict goes to standard error
     #[arg(short, long, value_name = "PATH")]
     pub output: Option<PathBuf>,
     /// Write the proof net of the proof instead of its derivation, for MLL
@@ -525,7 +527,8 @@ pub struct OutputArgs {
     /// (the formula trees with the axiom links as arcs over the literals)
     #[arg(long)]
     pub net: bool,
-    /// Print only the verdict line, not the derivation
+    /// Print only the verdict line, not the derivation; with --output,
+    /// on standard error, since a file holds a derivation or nothing
     #[arg(short, long)]
     pub quiet: bool,
     /// Write a document that compiles on its own instead of a fragment to
