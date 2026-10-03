@@ -411,8 +411,9 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   the goal plus twice the nodes. In ids, that is: `describe` writes every
   member as its formula, so a report with formulas is members times
   formula text, and a file that shares subformulas deeply makes it large
-  (65 MB from a file of 47 KB was measured); bounding the report is a
-  follow-up. The weights an observer adds up are
+  (65 MB from a file of 47 KB was measured): `Described::abbreviated`
+  cuts every formula and every list of formulas after a number of
+  characters, which the command takes from `--abbreviate`. The weights an observer adds up are
   not part of the argument: they are sums of at most that many formula
   sizes.
 - The `any` flag is what makes `⊤` checkable without a recorded context:
@@ -2192,17 +2193,50 @@ after the check. The checker no longer keeps one ("The checker").
 ## Export
 
 `export/` writes sequents and derivations as LaTeX (ebproof trees, cmll and
-amssymb symbols) and Typst (curryst trees), pure functions to `String`,
-each in a `Form` (`Fragment` or `Standalone`), draws them and proof
-structures as SVG documents (no `Form`: an SVG is always a document), and
-writes derivations as Rocq proof scripts for NanoYalla (`rocq`, in a
-`Form`: the lemma, or a file with the import). What the code relies on:
+amssymb symbols) and Typst (curryst trees), draws them and proof
+structures as SVG documents, and writes derivations as Rocq proof scripts
+for NanoYalla. What the code relies on:
+- **A new export option is a field, never a constant.** Every output
+  has one plain-data options value with `Default`, `Clone`, `PartialEq`
+  and serde behind `serialize` (`serde(default, deny_unknown_fields)`,
+  so a JSON with some fields is the defaults with those changed and a
+  misspelt field is an error): `TextOptions` (`proofs/fmt.rs`),
+  `latex::Options`, `typst::Options`, `svg::Style`, `rocq::Options`; the
+  `Form` is a field of the three that have one. Presets are named
+  values (`Style::dark()`, `Style::monospace()`, `Font::monospace()`).
+  The defaults reproduce the output the snapshots pin, so a new field's
+  default is today's behaviour.
+- **One signature writes a derivation**: `latex::write`, `typst::write`,
+  `svg::write`, `rocq::write` and `Derivation::write_text` take the
+  derivation, the options, any `fmt::Write` and a stop closure, and
+  answer `WriteError` (`Stopped`, `Failed`, `Unsupported` for Rocq,
+  which refuses before it writes anything). The emitters make one
+  inference in a buffer and hand it on (`notation::flush`, which asks
+  the stop after each), so they hold one inference's text; the SVG tree
+  keeps a few numbers per inference and lays a conclusion out again
+  when it writes it (a laid-out run per inference was 50 bytes per
+  character of sequent). `derivation(…) -> String` is the same with a
+  string and no stop. The command writes the verdict and then the
+  derivation into its output as it is made (`cli/src/io.rs`, `Output`).
+- **Rule labels are one table per convention** (`proofs/style.rs`:
+  `UPRIGHT`, `SUBSCRIPT`, indexed by `rule as usize` in the order of
+  `Rule::ALL`, plus the user's `Labels::Table`), written in a markup
+  that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`,
+  `_x`/`_{xy}` subscripts, other text upright; `latex::label`,
+  `typst::label`, `svg::label`, `style::plain` for text). The upright
+  table read as plain text is `Rule::name` exactly, and
+  `Rule::from_str(rule.name())` is the rule, for every rule
+  (`names_round_trip`): the interactive JSON depends on both. A new rule
+  is a new entry in `Rule::ALL`, both tables, `name` and `from_str`.
 - **One table per target, one printer.** `notation::Notation` is the
   symbol table (connectives, units, dual mark, turnstile, the alignment
   mark, the atom escaper); `Notation::term` and `Notation::ill` are the
   bracketing of `Sequent`'s and `Reading`'s `Display` over it, and must
-  stay in step with them. A new target (SVG text, say) is a new table;
-  `latex::label` and `typst::label` are the rule-label tables.
+  stay in step with them. A new target is a new table. `Notation::sequent`
+  with `marks` puts `\u{2}`/`\u{3}` around every formula, which the SVG
+  layout turns into a group per formula (`Style::ids`: `i<n>-<p>` for
+  position `p` of inference `n`'s sequent, the position being the one
+  `Interactive::apply` takes, in the drawn order hypotheses first).
 - **The walk keeps its own stack** (`notation::walk`, enter and exit
   events): exits are ebproof's postfix order, enter/exit brackets
   curryst's nesting. Nothing in the emitters recurses over the tree, so
@@ -2210,12 +2244,14 @@ writes derivations as Rocq proof scripts for NanoYalla (`rocq`, in a
   and never as wide as the tree, unlike the text renderer. The formula
   printers do not recurse either: they are loops over `sequents::fmt::Walk`,
   as `Display` is.
-- **An open goal is one shape in both targets**: its sequent under
+- **An open goal's shape is `OpenGoal`**: by default its sequent under
   vertical dots with no inference line (`\hypo{\vdots}` then
   `\infer[no rule]1{…}`; a curryst leaf that is a centred `grid` of
-  `dots.v` over the sequent). Neither package has a per-inference dotted
-  bar (ebproof 2.1.1 styles: simple, no rule, double, dashed; curryst
-  0.6.0 has one stroke per tree), which is why.
+  `dots.v` over the sequent), bare in the text tree; `Bare`, `Mark` (a
+  leaf rule labelled with the mark) and `Dashed` (ebproof's `dashed`
+  style; in Typst a `grid.hline` over a grid of one column, since
+  curryst 0.6.0 has one stroke per tree; a dash array in SVG; `╌` in
+  text). Neither package has a per-inference dotted bar.
 - **Typst symbols are Unicode characters, not names**: Typst 0.15
   removed `times.circle` and `plus.circle`, so names break across
   versions and characters do not. `&` is `class("binary", \&)`, `?` is

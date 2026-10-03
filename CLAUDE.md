@@ -159,19 +159,26 @@ feature `interactive`) is a proof in progress: `new(&sequent, mode)`,
 checked `Proof`, serde behind `serialize`, and `Refusal` saying why a rule
 does not apply.
 `export::latex` and `export::typst` (features of the same names) write
-`sequent(&sequent, form)`, `two_sided(&reading, form)` and
-`derivation(&derivation, form)` (finished or with open goals) as LaTeX for
-ebproof and Typst for curryst, each as a `Form::Fragment` or a
-`Form::Standalone` document (choosing no font); `export::svg` (feature `svg`)
-draws `sequent(&sequent, &style)`, `two_sided(&reading, &style)`,
-`derivation(&derivation, &style)` and `net(&structure, &style)` as SVG
-documents, laid out from a committed table of Euler Math's advances, with
-`Style` for the sizes, gaps and colours; `export::rocq` (feature `rocq`)
-writes `derivation(&derivation, form, &options)` as a Rocq lemma with its
-proof script for NanoYalla (`NANOYALLA` is the version), the fragment or
-a whole file starting with `Options::prelude`, the lemma named by
-`Options::lemma`, refusing an open goal, Mix and affine weakening with
-`Unsupported`; `core/tests/snapshots/` pins the derivations, nets and
+`sequent(&sequent, &options)`, `two_sided(&reading, &options)` and
+`derivation(&derivation, &options)` (finished or with open goals) as
+LaTeX for ebproof and Typst for curryst, a fragment or a standalone
+document by `Options::form`, choosing no font; `export::svg` (feature
+`svg`) draws `sequent`, `two_sided`, `derivation` and `net` with a
+`Style` (the font and its advances, Euler Math by default, labels, the
+open goal's shape, ids per formula, sizes, gaps, colours; presets
+`Style::dark()`, `Style::monospace()`); `export::rocq` (feature `rocq`)
+writes `derivation(&derivation, &options)` as a Rocq lemma with its
+proof script for NanoYalla (`NANOYALLA` is the version), the lemma or a
+file starting with `Options::prelude`, named by `Options::lemma`,
+refusing an open goal, Mix and affine weakening with `Unsupported`.
+Every output has one options value with serde (D15; the text tree's is
+`TextOptions`), the rule labels are one table per convention (`Labels`,
+`proofs/style.rs`), and every one writes a derivation through one
+signature, `write(&derivation, &options, out, stop)` into any
+`fmt::Write` (`Derivation::write_text` for the text tree), returning
+`WriteError`; the command's `--style KEY=VALUE`, `--style-file`,
+`--lemma` and `--prelude` set them (`cli/src/style.rs`, `Styles`).
+`core/tests/snapshots/` pins the derivations, nets and
 certificates (`BLESS=1 cargo test -p linlog --test export` rewrites
 them).
 `ProofStructure` (`nets`) is a proof net of unit-free MLL over the forest:
