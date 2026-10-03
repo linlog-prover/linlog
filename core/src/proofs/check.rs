@@ -359,18 +359,28 @@ impl Display for Dyadic {
     /// Writes `⊢ Θ ; Γ` with the zones as ids, omitting `Θ ;` when it is
     /// empty, and `…` after `Γ` when anything more is allowed.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write(f, None)
+        self.write(f, None, None)
     }
 }
 
 impl Dyadic {
     /// Writes the sequent as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
+    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
         let list = |f: &mut Formatter<'_>, ids: &[OccId]| {
+            let mut budget = Budget {
+                f,
+                left: limit.unwrap_or(usize::MAX),
+                cut: false,
+            };
             for (i, &o) in ids.iter().enumerate() {
-                f.write_str(if i == 0 { " " } else { ", " })?;
-                occurrence(f, forest, o)?;
+                let written =
+                    std::fmt::Write::write_str(&mut budget, if i == 0 { " " } else { ", " })
+                        .and_then(|()| occurrence(&mut budget, forest, o));
+                if written.is_err() && budget.cut {
+                    return write!(budget.f, "… ({} formulas)", ids.len());
+                }
+                written?;
             }
             Ok(())
         };
@@ -391,8 +401,39 @@ impl Dyadic {
     }
 }
 
-/// Writes an occurrence as its id, or as its formula when a forest is given.
-fn occurrence(f: &mut Formatter<'_>, forest: Option<&Forest>, o: OccId) -> FmtResult {
+/// The most characters a list of formulas of an error report takes, or
+/// `None` for no bound.
+type Limit = Option<usize>;
+
+/// A writer that passes on at most `left` characters and then fails,
+/// setting `cut`, so that a formula list of an error report stops where
+/// its bound is reached.
+struct Budget<'a, 'b> {
+    /// Where the text goes.
+    f: &'a mut Formatter<'b>,
+    /// The characters it still passes on.
+    left: usize,
+    /// Whether text was held back.
+    cut: bool,
+}
+
+impl std::fmt::Write for Budget<'_, '_> {
+    fn write_str(&mut self, s: &str) -> FmtResult {
+        let n = s.chars().count();
+        if n <= self.left {
+            self.left -= n;
+            return self.f.write_str(s);
+        }
+        let head: String = s.chars().take(self.left).collect();
+        self.f.write_str(&head)?;
+        (self.left, self.cut) = (0, true);
+        Err(std::fmt::Error)
+    }
+}
+
+/// Writes an occurrence as its formula when a forest is given, else as
+/// its id.
+fn occurrence(f: &mut impl std::fmt::Write, forest: Option<&Forest>, o: OccId) -> FmtResult {
     match forest {
         Some(forest) => write!(f, "{}", forest.formula(o)),
         None => write!(f, "{}", o.get()),
@@ -482,7 +523,7 @@ impl Display for CheckError {
     /// from 0, 1) with premises ⊢ 0, 3 and ⊢ 3, 4: premise 0 lacks
     /// occurrence 2`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write(f, None)
+        self.write(f, None, None)
     }
 }
 
@@ -502,16 +543,25 @@ impl CheckError {
         Described {
             error: self,
             forest,
+            limit: None,
         }
     }
 
     /// Writes the error as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
+    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
         write!(f, "node {} ({}", self.node.get(), self.rule.name())?;
         for (i, o) in self.rule.occurrences().enumerate() {
             f.write_str(if i == 0 { " on " } else { ", " })?;
-            occurrence(f, forest, o)?;
+            let mut budget = Budget {
+                f,
+                left: limit.unwrap_or(usize::MAX),
+                cut: false,
+            };
+            match occurrence(&mut budget, forest, o) {
+                Err(_) if budget.cut => f.write_str("…")?,
+                written => written?,
+            }
         }
         for (i, p) in self.rule.premises().enumerate() {
             write!(f, "{}{}", if i == 0 { " from " } else { ", " }, p.get())?;
@@ -519,7 +569,7 @@ impl CheckError {
         f.write_str(")")?;
         for (i, p) in self.premises.iter().enumerate() {
             f.write_str(if i == 0 { " with premises " } else { " and " })?;
-            p.write(f, forest)?;
+            p.write(f, forest, limit)?;
         }
         f.write_str(": ")?;
         use Problem::*;
@@ -568,7 +618,7 @@ impl CheckError {
             ),
             Conclusion(d) => {
                 f.write_str("the proof concludes ")?;
-                d.write(f, forest)?;
+                d.write(f, forest, limit)?;
                 f.write_str(", not the sequent")
             }
             Memory { limit } => write!(
@@ -588,12 +638,24 @@ pub struct Described<'a> {
     error: &'a CheckError,
     /// The forest of the proof that failed.
     forest: &'a Forest,
+    /// The most characters of a formula or a list of formulas.
+    limit: Limit,
+}
+
+impl Described<'_> {
+    /// Returns the report with every formula and every list of formulas
+    /// cut after `limit` characters, `…` and the number of formulas of a
+    /// list after it, or whole with `None`: a zone may hold a formula per
+    /// node of the proof.
+    pub fn abbreviated(self, limit: Option<usize>) -> Self {
+        Self { limit, ..self }
+    }
 }
 
 impl Display for Described<'_> {
     /// Writes the error with formulas instead of occurrence ids.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.error.write(f, Some(self.forest))
+        self.error.write(f, Some(self.forest), self.limit)
     }
 }
 
