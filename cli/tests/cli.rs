@@ -1031,3 +1031,19 @@ fn every_style_option() {
     assert_eq!(status, 2);
     assert!(err.contains("name the format"), "{err}");
 }
+
+/// `--abbreviate` cuts the sequent of `check`'s verdict line and names its
+/// formulas, `--quiet` included; `--no-verdict` leaves the line out.
+#[test]
+fn verdict_lines() {
+    let (_, json, _) = linlog(&["prove", "--format", "json", "A, B, C |- A * B * C"], "");
+    let (status, out, _) = linlog(&["check", "--quiet", "--abbreviate", "8"], &json);
+    assert_eq!(status, 0);
+    assert_eq!(out, "valid proof of ⊢ ~A, ~B… (4 formulas) (classical)\n");
+    let (status, out, _) = linlog(
+        &["prove", "--format", "latex", "--no-verdict", "A |- A"],
+        "",
+    );
+    assert_eq!(status, 0);
+    assert!(out.starts_with("\\begin{prooftree}\n"), "{out}");
+}
