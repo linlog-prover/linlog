@@ -81,7 +81,7 @@ splits examined: 3
 time: 56.66µs
 ```
 
-`--format net` shows the proof as a proof net instead of a derivation: the
+`--net` shows the proof as a proof net instead of a derivation: the
 sequent, the axiom links as pairs of literals with their positions in the
 sequent's subformula numbering, and the verdict of the correctness
 criterion. With the net engine this is the net the search found; with the
@@ -89,7 +89,7 @@ focus engine it is read off the proof. Proof nets exist for MLL without
 units, with or without Mix:
 
 ```console
-$ linlog prove --format net "|- A * B, C * (~A par ~B), ~C"
+$ linlog prove --net "|- A * B, C * (~A par ~B), ~C"
 provable (MLL, classical, net engine)
 ⊢ A ⊗ B, C ⊗ (~A ⅋ ~B), ~C
 A[1] — ~A[6]
@@ -425,9 +425,11 @@ formula, `rules` names the rules that act on a formula, `apply` applies one
 (a `⊗` or Mix takes the positions of the formulas that go to its left
 premise), `undo` retracts the last step, `close` lets the search close one
 goal or all of them, `show` draws the derivation so far with the open
-goals as bare sequents (`show latex`, `show typst` and `show svg` as proof trees), `save` and `load` keep a session as JSON, and
-`proof` checks the finished proof independently and prints it or writes
-it for `check`. In intuitionistic mode the goals are two-sided and the
+goals as bare sequents (`show --latex`, `show --typst` and `show --svg`
+as proof trees), `save` and `load` keep a session as JSON, and `proof`
+checks the finished proof independently and prints it or writes it for
+`check` (`proof --rocq` certifies it, `proof --pdf FILE` draws it; every
+format of `prove` is a word with dashes there). In intuitionistic mode the goals are two-sided and the
 rules carry the names of ILL:
 
 ```console
@@ -530,16 +532,15 @@ $ pdflatex proof.tex
 
 Names of more than one letter are set in italics (`\mathit{foo}`,
 `italic("foo")`), with the characters LaTeX or Typst treat specially
-escaped. In `interact`, `show latex` and `show typst` draw the derivation
-so far, an open goal as its sequent under vertical dots.
+escaped. In `interact`, `show --latex` and `show --typst` draw the
+derivation so far, an open goal as its sequent under vertical dots.
 
-`--format svg` draws the derivation as an SVG image instead, and `--format
-net-svg` the proof net of the proof, for the sequents `--format net`
-takes: the conclusions at the bottom, every `⊗` and `⅋` a circle (the
+`--format svg` draws the derivation as an SVG image instead, and with
+`--net` the proof net of the proof, for the sequents `--net` takes: the conclusions at the bottom, every `⊗` and `⅋` a circle (the
 premise edges of a `⅋` dashed and blue, since a switching keeps one of
 them), and every axiom link an arc over the literals it joins. The
-verdict becomes an XML comment. `seq print --format svg` and `show svg` in
-`interact` draw a sequent and the derivation so far. The drawings ask for
+verdict becomes an XML comment. `seq print --format svg` and `show --svg`
+in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
 The text stays selectable, and `--standalone` is refused, since an SVG is
@@ -547,7 +548,7 @@ always a document.
 
 ```console
 $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
-$ linlog prove --format net-svg --output net.svg "A * B |- B * A"
+$ linlog prove --net --output net.svg "A * B |- B * A"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥, A</title>
@@ -557,6 +558,48 @@ $ linlog seq print --format svg "A |- A"
 <text x="2712" y="1190" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
 </g>
 </svg>
+```
+
+`--format png` and `--format pdf` render the same drawings as a PNG image
+(at twice the drawing's size) or a PDF page (its text selectable), in the
+Euler Math font the command carries; with `--output` the extension names
+the format, which `--format` overrides, and the verdict goes to standard
+error. Neither is written to a terminal.
+
+```console
+$ linlog prove -i --output proof.pdf "1, A & B, B -o C |- C"
+provable (IMALL, intuitionistic, two-sided engine)
+```
+
+Everything an output shows can be changed. `--style KEY=VALUE` sets one
+option of the format's options (`labels` upright, subscript or off, the
+shape of an open goal, LaTeX's turnstile alignment, ebproof options and
+preamble, Typst's import and page, the SVG's font, sizes and colours, a
+PNG's scale, the text tree's bar and gap; `--help` lists them), with a
+prefix such as `svg.` for another format; `--style-file` reads them all
+as JSON, one object per format, which is the form a front end keeps;
+`--lemma` and `--prelude` name the Rocq lemma and its file's first lines;
+`--no-verdict` writes the derivation alone.
+
+```console
+$ linlog prove -i --format latex --style labels=subscript --style align=false "A, A -o B |- B"
+% provable (IMLL, intuitionistic, net engine)
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A \vdash A}
+\infer0[$\mathrm{ax}$]{B \vdash B}
+\infer2[$\multimap_{\mathrm{L}}$]{A, A \multimap B \vdash B}
+\end{prooftree}
+$ linlog prove --style gap=6 --style bar="=" "A * B |- A * B"
+provable (MLL, classical, net engine)
+======= ax      ======= ax
+⊢ ~A, A         ⊢ ~B, B
+======================= ⊗
+    ⊢ ~A, ~B, A ⊗ B
+    ================ ⅋
+    ⊢ ~A ⅋ ~B, A ⊗ B
+$ echo '{"svg": {"background": "white"}, "png": {"scale": 3}}' > style.json
+$ linlog prove --net --style-file style.json --output net.png "A * B |- B * A"
+provable (MLL, classical, net engine)
 ```
 
 The first two draw these:
@@ -769,10 +812,15 @@ Built:
   validates, and a JSON form of the session.
 - Export of sequents and derivations, finished or in progress, to LaTeX
   (ebproof proof trees) and Typst (curryst proof trees), as fragments or
-  standalone documents, and drawings of sequents,
+  standalone documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG, laid out with the character widths
-  of the Euler Math font, a switching cycle of an incorrect net
-  highlighted.
+  of the Euler Math font (or another font's), a switching cycle of an
+  incorrect net highlighted, rendered as PNG and PDF as well.
+- Output configured through the library: one options value per format,
+  with serde, for rule labels (one table per convention, or the user's),
+  the shape of an open goal, alignment, preambles, the SVG's font, sizes
+  and colours, and the certificate's names; the command sets them with
+  `--style` and `--style-file`, and writes a derivation as it is made.
 - Proof certificates: a finished proof as a Rocq script for the NanoYalla
   kernel, a lemma proved rule by rule and closed by `Qed`, for every
   classical fragment and for intuitionistic proofs as the classical
@@ -819,9 +867,7 @@ Built:
 
 Planned, in roughly this order:
 
-- Output configured through the library (styles, rule labels, the
-  certificate's names), LaTeX and Typst output that sets no font, Typst
-  trees of any height, and a compact view of large derivations.
+- Typst trees of any height, and a compact view of large derivations.
 - A batch mode: many sequents per call, from files, directories and
   standard input, in the LLTP library's format as well.
 - Ordinary classical, intuitionistic and minimal propositional logic
