@@ -83,8 +83,9 @@ to 9.
   with its refutation and statistics (this session's reading of
   "something that can be output"); standard output keeps the verdict
   line of the text formats, which is the answer on a terminal. An
-  earlier run's file at the path is left as it is (open question
-  below). The session's `show` writes the partial derivation to a file
+  earlier run's file at the path is left as it is, the exit status
+  saying that no proof was found (asked, the author: "Sounds good like
+  it is now"). The session's `show` writes the partial derivation to a file
   (`show part.pdf`, open goals included); the bare `show latex` is gone,
   a bare word being a file name as in `proof`.
 - **`--net` replaces the formats `net` and `net-svg`** (the author:
@@ -272,10 +273,6 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
 
 ## Open questions, and what later steps must know
 
-- Whether a run that writes no file should remove a file an earlier
-  run left at the same path. It does not: removing a file the user did
-  not ask to have removed was not this session's to decide, and the
-  exit status says that no proof was found.
 
 - Step 28 (the API's surface): `RenderError` stands outside `Error` as
   the other export errors do; `rocq::Options::lemma` is not checked to
