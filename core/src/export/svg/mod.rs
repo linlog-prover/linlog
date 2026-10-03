@@ -110,7 +110,8 @@ pub struct Style {
     /// The colour of axiom links.
     pub link: String,
     /// The colour of the edges of a switching cycle, when a proof
-    /// structure has one.
+    /// structure has one, and of the edges and links of every part but
+    /// the first when it falls into several.
     pub highlight: String,
     /// The colour the drawing is filled with, or none for a transparent
     /// background.
@@ -599,7 +600,10 @@ pub fn write(
 /// of their own (a switching keeps one of them), and the literals stand
 /// side by side along the top, each axiom link an arc over the two it
 /// joins; Mix leaves no trace. A structure with a switching cycle has the
-/// cycle's edges in the highlight colour. Literals and connectives are the
+/// cycle's edges in the highlight colour, and one that falls into parts
+/// (those of [`NetError::Disconnected`](crate::nets::NetError::Disconnected))
+/// has the edges, conclusions and links of every part but the first in
+/// it. Literals and connectives are the
 /// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
 pub fn net(net: &ProofStructure, style: &Style) -> String {
     net::draw(net, style)

@@ -11,7 +11,9 @@
 //! over the two literals it joins, as high as it is wide times a fixed
 //! ratio up to [`Style::link_cap`] and less beyond, so that the arcs of
 //! nested pairs of literals still never cross; links over interleaved
-//! pairs cross.
+//! pairs cross. A structure that is no proof net has its switching
+//! cycle, or every part but the first that it falls into, in the
+//! highlight colour.
 
 use super::font::{AXIS, HEIGHT};
 use super::{NOTATION, PLAIN, RAISED_BOT, Style, document, escaped, run, text};
@@ -52,6 +54,35 @@ fn height(rx: i64, style: &Style) -> i64 {
         Some(cap) if rx > cap => ratio * (cap * rx).isqrt() / 1000,
         _ => rx * ratio / 1000,
     }
+}
+
+/// Returns every occurrence's component in the switching of a structure
+/// that keeps the left premise of every `⅋`, as the index of one
+/// occurrence in it.
+fn components(net: &ProofStructure) -> Vec<usize> {
+    let forest = net.forest();
+    let mut parent: Vec<usize> = (0..forest.len()).collect();
+    let find = |parent: &mut Vec<usize>, mut o: usize| {
+        while parent[o] != o {
+            parent[o] = parent[parent[o]];
+            o = parent[o];
+        }
+        o
+    };
+    let kept = forest.ids().flat_map(|o| {
+        let cut = (forest.kind(o) == Kind::Par)
+            .then(|| forest.right(o))
+            .flatten();
+        forest
+            .children(o)
+            .filter(move |&c| Some(c) != cut)
+            .map(move |c| (o, c))
+    });
+    for (a, b) in kept.chain(net.links().iter().copied()) {
+        let (a, b) = (find(&mut parent, a.index()), find(&mut parent, b.index()));
+        parent[a] = b;
+    }
+    (0..forest.len()).map(|o| find(&mut parent, o)).collect()
 }
 
 /// Returns a proof structure as an SVG document, titled with its sequent
@@ -117,18 +148,38 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     };
     let end = baseline - AXIS + bottom * line_height + line_height / 2;
 
-    // A switching cycle, as its edges, when the structure has one.
-    let mut cycle = Vec::new();
-    if let Err(NetError::SwitchingCycle(vertices)) = net.is_correct() {
-        let next = vertices.iter().cycle().skip(1);
-        cycle = vertices
-            .iter()
-            .zip(next)
-            .map(|(&a, &b)| (a.min(b), a.max(b)))
-            .collect();
-        cycle.sort_unstable();
+    // A switching cycle, as its edges, or the parts of a disconnected
+    // structure: every occurrence's component in the switching that keeps
+    // each left premise, and the first part's, which stays unmarked.
+    let (mut cycle, mut parts) = (Vec::new(), None);
+    match net.is_correct() {
+        Err(NetError::SwitchingCycle(vertices)) => {
+            let next = vertices.iter().cycle().skip(1);
+            cycle = vertices
+                .iter()
+                .zip(next)
+                .map(|(&a, &b)| (a.min(b), a.max(b)))
+                .collect();
+            cycle.sort_unstable();
+        }
+        Err(NetError::Disconnected(tops)) => {
+            let component = components(net);
+            let first = component[tops[0][0].index()];
+            parts = Some((component, first));
+        }
+        _ => {}
     }
-    let in_cycle = |a: OccId, b: OccId| cycle.binary_search(&(a.min(b), a.max(b))).is_ok();
+    let apart = |o: OccId| {
+        parts
+            .as_ref()
+            .is_some_and(|(c, first)| c[o.index()] != *first)
+    };
+    let marks = |a: OccId, b: OccId| {
+        let joined = parts
+            .as_ref()
+            .is_some_and(|(c, _)| c[a.index()] == c[b.index()]);
+        cycle.binary_search(&(a.min(b), a.max(b))).is_ok() || (joined && apart(a))
+    };
 
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
     let (mut marked, mut texts) = (String::new(), String::new());
@@ -170,13 +221,13 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
                 false => towards(target, centre, radius),
             };
             let par = forest.kind(o) == Kind::Par;
-            let out = match (in_cycle(o, child), par) {
+            let out = match (marks(o, child), par) {
                 (true, _) => &mut marked,
                 (false, true) => &mut pars,
                 (false, false) => &mut lines,
             };
             write!(out, r#"<path d="M{} {}L{} {}""#, from.0, from.1, to.0, to.1).unwrap();
-            if par && in_cycle(o, child) {
+            if par && marks(o, child) {
                 write!(out, r#" stroke-dasharray="{dash}""#).unwrap();
             }
             out.push_str("/>\n");
@@ -188,16 +239,13 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
             false => y(r) + radius,
         };
         let column = x[r.index()];
-        writeln!(lines, r#"<path d="M{column} {start}V{end}"/>"#).unwrap();
+        let out = if apart(r) { &mut marked } else { &mut lines };
+        writeln!(out, r#"<path d="M{column} {start}V{end}"/>"#).unwrap();
     }
     let top = baseline - HEIGHT;
     for &(p, q) in net.links() {
         let (a, b, rx, ry) = arc((p, q));
-        let out = if in_cycle(p, q) {
-            &mut marked
-        } else {
-            &mut links
-        };
+        let out = if marks(p, q) { &mut marked } else { &mut links };
         writeln!(
             out,
             r#"<path id="l{}-{}" d="M{a} {top}A{rx} {ry} 0 0 1 {b} {top}"/>"#,

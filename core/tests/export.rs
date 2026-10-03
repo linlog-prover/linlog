@@ -293,8 +293,8 @@ fn sequents() {
     );
 }
 
-/// Proof nets are pinned as SVG: a net whose links cross, and a structure
-/// whose switching cycle is highlighted.
+/// Proof nets are pinned as SVG: a net whose links cross, a structure
+/// whose switching cycle is highlighted, and one whose second part is.
 #[test]
 fn nets() {
     let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
@@ -305,6 +305,18 @@ fn nets() {
     let cyclic = ProofStructure::from_links(forest, false, &links).unwrap();
     assert!(cyclic.is_correct().is_err());
     snapshot("cycle.svg", &svg::net(&cyclic, &Style::default()));
+
+    // ⊢ A ⅋ B, ~A, ~B: the part of `B` and `~B` hangs off the right premise.
+    let forest = Forest::new(&"|- A par B, ~A, ~B".parse().unwrap()).unwrap();
+    let links = [
+        (OccId::new(1), OccId::new(3)),
+        (OccId::new(2), OccId::new(4)),
+    ];
+    let parted = ProofStructure::from_links(forest, false, &links).unwrap();
+    let drawing = svg::net(&parted, &Style::default());
+    let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
+    assert!(drawing.contains(&highlight), "{drawing}");
+    snapshot("disconnected.svg", &drawing);
 }
 
 /// Parses an SVG document, checks that every text, circle and path lies
