@@ -510,12 +510,21 @@ impl ModeArgs {
 /// Where and how a command writes its result.
 #[derive(Args, Debug)]
 pub struct OutputArgs {
-    /// The output format
-    #[arg(long, value_enum, value_name = "FORMAT", default_value_t = Format::Text)]
-    pub format: Format,
+    /// The output format; by default the one the extension of the
+    /// `--output` file names (.txt, .json, .tex, .typ, .svg, .png, .pdf,
+    /// .v), and text otherwise
+    #[arg(long, value_enum, value_name = "FORMAT")]
+    pub format: Option<Format>,
     /// Write to this file instead of standard output
     #[arg(short, long, value_name = "PATH")]
     pub output: Option<PathBuf>,
+    /// Write the proof net of the proof instead of its derivation, for MLL
+    /// without units, with or without Mix: as text (the sequent, its axiom
+    /// links as pairs of literals with their occurrence numbers, and the
+    /// verdict of the correctness criterion), or drawn as svg, png or pdf
+    /// (the formula trees with the axiom links as arcs over the literals)
+    #[arg(long)]
+    pub net: bool,
     /// Print only the verdict line, not the derivation
     #[arg(short, long)]
     pub quiet: bool,
@@ -731,11 +740,6 @@ pub enum Format {
     /// One JSON object: verdict, fragment, mode, engine, statistics, and the
     /// proof, which `check` reads
     Json,
-    /// The verdict on one line, then the proof net of the proof: the
-    /// sequent, its axiom links as pairs of literals with their occurrence
-    /// numbers, and the verdict of the correctness criterion; for MLL
-    /// without units, in classical mode with or without Mix
-    Net,
     /// The verdict as a comment, then the derivation as a LaTeX proof tree
     /// of the ebproof package, with the connectives of cmll and amssymb
     Latex,
@@ -745,19 +749,56 @@ pub enum Format {
     /// The verdict as an XML comment, then the derivation drawn as an SVG
     /// document, set in the Euler Math font unless `--style` names another
     Svg,
-    /// The verdict as an XML comment, then the proof net of the proof
-    /// drawn as an SVG document: the formula trees with the axiom links as
-    /// arcs over the literals; for the sequents `net` takes
-    NetSvg,
+    /// The derivation drawn as a PNG image, the verdict on standard error;
+    /// written to a file or a pipe, never to a terminal
+    Png,
+    /// The derivation drawn as a PDF document, its text selectable, the
+    /// verdict on standard error; written to a file or a pipe, never to a
+    /// terminal
+    Pdf,
     /// The verdict as a comment, then the derivation as a Rocq proof
     /// script for NanoYalla 1.1.3, the kernel of Click & coLLecT (the
     /// nanoyalla directory of github.com/ComputerAidedLL/click-and-collect,
     /// built with Rocq 9 and its standard library, no Yalla needed): a
     /// lemma stating the sequent one-sided, proved rule by rule and closed
     /// by Qed; `--standalone` adds the import line (`--prelude`), and
-    /// `--lemma` names the lemma; a proof with Mix or
-    /// with the weakening of affine mode is refused
+    /// `--lemma` names the lemma; a proof with Mix or with the weakening
+    /// of affine mode is refused
     Rocq,
+}
+
+impl Format {
+    /// Returns the format a file's extension names, if it names one.
+    pub fn of_path(path: &std::path::Path) -> Option<Self> {
+        let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+        Some(match extension.as_str() {
+            "txt" => Self::Text,
+            "json" => Self::Json,
+            "tex" => Self::Latex,
+            "typ" => Self::Typst,
+            "svg" => Self::Svg,
+            "png" => Self::Png,
+            "pdf" => Self::Pdf,
+            "v" => Self::Rocq,
+            _ => return None,
+        })
+    }
+
+    /// Whether the format is binary, so that it goes to a file or a pipe
+    /// and its verdict to standard error.
+    pub fn is_binary(self) -> bool {
+        matches!(self, Self::Png | Self::Pdf)
+    }
+}
+
+impl OutputArgs {
+    /// Returns the format the output is written in: `--format`, else the
+    /// one the output file's extension names, else text.
+    pub fn format(&self) -> Format {
+        self.format
+            .or_else(|| self.output.as_deref().and_then(Format::of_path))
+            .unwrap_or(Format::Text)
+    }
 }
 
 /// The output formats of `seq print`.
@@ -771,6 +812,10 @@ pub enum SequentFormat {
     Typst,
     /// An SVG document of one line, set in the Euler Math font
     Svg,
+    /// A PNG image of the SVG document's line
+    Png,
+    /// A PDF document of the SVG document's line
+    Pdf,
 }
 
 /// The fragments `--fragment` names.

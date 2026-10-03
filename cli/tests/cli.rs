@@ -641,21 +641,14 @@ fn net_format() {
                     ~A[0] — A[2]\n\
                     ~B[3] — B[4]\n\
                     proof net\n";
-    let (status, out, _) = linlog(&["prove", "--format", "net", "A, A -o B |- B"], "");
+    let (status, out, _) = linlog(&["prove", "--net", "A, A -o B |- B"], "");
     assert_eq!(status, 0);
     assert_eq!(
         out,
         format!("provable (MLL, classical, net engine)\n{expected}")
     );
     let (status, out, _) = linlog(
-        &[
-            "prove",
-            "--format",
-            "net",
-            "--engine",
-            "focus",
-            "A, A -o B |- B",
-        ],
+        &["prove", "--net", "--engine", "focus", "A, A -o B |- B"],
         "",
     );
     assert_eq!(status, 0);
@@ -664,16 +657,16 @@ fn net_format() {
         format!("provable (MLL, classical, focus engine)\n{expected}")
     );
     let (_, json, _) = linlog(&["prove", "--format", "json", "A, A -o B |- B"], "");
-    let (status, out, _) = linlog(&["check", "--format", "net"], &json);
+    let (status, out, _) = linlog(&["check", "--net"], &json);
     assert_eq!(status, 0);
     assert!(out.ends_with("~B[3] — B[4]\nproof net\n"), "{out}");
     for (args, error) in [
         (
-            &["prove", "--format", "net", "A & B |- A"][..],
+            &["prove", "--net", "A & B |- A"][..],
             "proof nets exist for MLL without units only, not for ALL",
         ),
         (
-            &["prove", "--format", "net", "--affine", "A |- A"],
+            &["prove", "--net", "--affine", "A |- A"],
             "proof nets exist in linear mode only",
         ),
     ] {
@@ -760,7 +753,7 @@ fn rocq_format() {
     assert!(err.contains("NanoYalla has no Mix rule"), "{err}");
 }
 
-/// `--format svg` and `--format net-svg` print the verdict as an XML
+/// `--format svg`, with and without `--net`, prints the verdict as an XML
 /// comment, with no `--` in it, and the derivation or the proof net as an
 /// SVG document, for `prove`, `check`, `seq print` and the session's
 /// `show`; an SVG is always a document, so `--standalone` is refused.
@@ -774,7 +767,7 @@ fn svg_formats() {
         "{out}"
     );
     let (_, json, _) = linlog(&["prove", "--format", "json", "A * B |- B * A"], "");
-    let (status, out, _) = linlog(&["check", "--format", "net-svg"], &json);
+    let (status, out, _) = linlog(&["check", "--net", "--format", "svg"], &json);
     assert_eq!(status, 0);
     assert!(out.contains("<circle id=\"o0\""), "{out}");
     let bounds = ["--copies", "0", "--forward-copies", "0"];
@@ -824,4 +817,217 @@ fn help_names_every_command() {
     for command in ["print", "json", "fragment"] {
         assert!(out.contains(&format!("\n  {command} ")), "{command}: {out}");
     }
+}
+
+/// Returns the path of the file `name` in a directory of this test
+/// process's own, apart from the session test's, which removes its own.
+fn scratch(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("linlog-cli-files-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(name)
+}
+
+/// PNG and PDF are drawn from the SVG, the derivation or with `--net` the
+/// net, into a file whose extension names the format unless `--format`
+/// does; the verdict goes to standard error. `--net` takes the drawn
+/// formats and text only.
+#[test]
+fn binary_formats() {
+    let (png, pdf) = (scratch("proof.png"), scratch("net.pdf"));
+    let png_path = png.to_str().unwrap();
+    let (status, out, err) = linlog(&["prove", "-o", png_path, "A * B |- B * A"], "");
+    assert_eq!((status, out.as_str()), (0, ""), "{err}");
+    assert!(err.starts_with("provable"), "{err}");
+    assert!(std::fs::read(&png).unwrap().starts_with(b"\x89PNG"));
+    let pdf_path = pdf.to_str().unwrap();
+    let (status, _, _) = linlog(&["prove", "--net", "-o", pdf_path, "A * B |- B * A"], "");
+    assert_eq!(status, 0);
+    assert!(std::fs::read(&pdf).unwrap().starts_with(b"%PDF-"));
+    // `--format` wins over the extension.
+    let (status, _, _) = linlog(&["prove", "--format", "text", "-o", png_path, "A |- A"], "");
+    assert_eq!(status, 0);
+    assert!(
+        std::fs::read_to_string(&png)
+            .unwrap()
+            .starts_with("provable")
+    );
+    let (status, _, err) = linlog(&["prove", "--net", "--format", "latex", "A |- A"], "");
+    assert_eq!(status, 2);
+    assert!(
+        err.contains("--net writes the formats text, svg, png and pdf"),
+        "{err}"
+    );
+}
+
+/// Every option of every format, set once with `--style KEY=VALUE` and
+/// once from a `--style-file`, gives the same output, and one that differs
+/// from the default's where the input shows the option.
+#[test]
+fn every_style_option() {
+    let ill = ["-i", "A, A -o B |- B"];
+    // The arguments, the format's key, the option, its value, and whether
+    // the input shows it. Open goals exist in a session only.
+    let rows: &[(&[&str], &str, &str, &str, bool)] = &[
+        (&ill, "text", "labels", "\"off\"", true),
+        (&ill, "text", "bar", "\"=\"", true),
+        (&["A * B |- A * B"], "text", "gap", "7", true),
+        (&ill, "latex", "form", "\"standalone\"", true),
+        (&ill, "latex", "labels", "\"off\"", true),
+        (&ill, "latex", "align", "false", true),
+        (&ill, "latex", "ebproof", "\"center=false\"", true),
+        (
+            &["--standalone", "-i", "A |- A"],
+            "latex",
+            "preamble",
+            "\"\\\\documentclass{article}\"",
+            true,
+        ),
+        (&ill, "typst", "form", "\"standalone\"", true),
+        (
+            &ill,
+            "typst",
+            "labels",
+            "{\"table\":{\"⊸L\":\"⊸_L\"}}",
+            true,
+        ),
+        (
+            &["--standalone", "A |- A"],
+            "typst",
+            "import",
+            "\"#import \\\"x.typ\\\": *\"",
+            true,
+        ),
+        (
+            &["--standalone", "A |- A"],
+            "typst",
+            "page",
+            "\"#set page(margin: 1cm)\"",
+            true,
+        ),
+        (
+            &ill,
+            "svg",
+            "font",
+            "{\"family\":\"monospace\",\"advances\":{\"fixed\":600}}",
+            true,
+        ),
+        (&ill, "svg", "labels", "\"subscript\"", true),
+        (&ill, "svg", "ids", "true", true),
+        (&ill, "svg", "font_size", "20", true),
+        (&ill, "svg", "label_size", "700", true),
+        (&ill, "svg", "line_height", "1700", true),
+        (&ill, "svg", "premise_gap", "2000", true),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "literal_gap",
+            "1200",
+            true,
+        ),
+        (&ill, "svg", "label_gap", "300", true),
+        (&ill, "svg", "margin", "500", true),
+        (&ill, "svg", "stroke_width", "60", true),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "link_height",
+            "700",
+            true,
+        ),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "node_radius",
+            "400",
+            true,
+        ),
+        (&ill, "svg", "text", "\"navy\"", true),
+        (&ill, "svg", "line", "\"navy\"", true),
+        (&["--net", "A * B |- B * A"], "svg", "par", "\"navy\"", true),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "link",
+            "\"navy\"",
+            true,
+        ),
+        // Only a structure that is no net shows the highlight.
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "highlight",
+            "\"navy\"",
+            false,
+        ),
+        (&ill, "svg", "background", "\"white\"", true),
+        (&ill, "png", "scale", "1", true),
+        (&ill, "png", "pixels", "100", true),
+        (&ill, "pdf", "embed_text", "false", true),
+        (&["A |- A"], "rocq", "form", "\"standalone\"", true),
+        (&["A |- A"], "rocq", "lemma", "\"identity\"", true),
+        (
+            &["--standalone", "A |- A"],
+            "rocq",
+            "prelude",
+            "\"Require Import x.\"",
+            true,
+        ),
+    ];
+    let run = |args: &[&str], format: &str, style: &[&str]| {
+        let out = scratch(&format!("styled.{format}"));
+        let _ = std::fs::remove_file(&out);
+        let format = if format == "text" { "text" } else { format };
+        let all = [
+            &["prove", "--format", format, "-o", out.to_str().unwrap()],
+            style,
+            args,
+        ]
+        .concat();
+        let (status, _, err) = linlog(&all, "");
+        (
+            status,
+            std::fs::read(&out).unwrap_or_else(|_| err.into_bytes()),
+        )
+    };
+    for (args, format, key, value, shows) in rows {
+        let file = scratch("style.json");
+        std::fs::write(&file, format!("{{\"{format}\":{{\"{key}\":{value}}}}}")).unwrap();
+        let plain: String = match serde_json::from_str::<serde_json::Value>(value).unwrap() {
+            serde_json::Value::String(text) => text,
+            other => other.to_string(),
+        };
+        let flag = format!("{key}={plain}");
+        let by_flag = run(args, format, &["--style", &flag]);
+        let by_file = run(args, format, &["--style-file", file.to_str().unwrap()]);
+        let default = run(args, format, &[]);
+        assert_eq!(by_flag, by_file, "{format}.{key}");
+        assert_eq!(by_flag != default, *shows, "{format}.{key}");
+    }
+    // In a session the key names its format, and the open goal's shape
+    // is an option of every drawn format.
+    for (format, show) in [
+        ("text", "show"),
+        ("latex", "show --latex"),
+        ("typst", "show --typst"),
+        ("svg", "show --svg"),
+    ] {
+        let commands = format!("apply 0 1 -oL 0\n{show}\nquit\n");
+        let flag = format!("{format}.open=dashed");
+        let file = scratch("open.json");
+        std::fs::write(&file, format!("{{\"{format}\":{{\"open\":\"dashed\"}}}}")).unwrap();
+        let session = |style: &[&str]| {
+            let args = [&["interact", "-i"], style, &["A, A -o B |- B"]].concat();
+            linlog(&args, &commands).1
+        };
+        let by_flag = session(&["--style", &flag]);
+        assert_eq!(
+            by_flag,
+            session(&["--style-file", file.to_str().unwrap()]),
+            "{format}"
+        );
+        assert_ne!(by_flag, session(&[]), "{format}");
+    }
+    let (status, _, err) = linlog(&["interact", "--style", "labels=off", "A |- A"], "quit\n");
+    assert_eq!(status, 2);
+    assert!(err.contains("name the format"), "{err}");
 }

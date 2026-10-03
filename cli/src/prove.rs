@@ -9,15 +9,14 @@ use crate::limit::{Deadline, Notice};
 use crate::style::Styles;
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
-use linlog::export::svg;
-use linlog::export::{Form, latex, rocq, typst};
+use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
 use linlog::{
     Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size, ViewError,
     ViewOptions, WriteError,
 };
 use std::fmt::{Display, Write};
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write as _};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -167,7 +166,9 @@ const STEPS_PER_CLOCK: u32 = 256;
 /// where the output goes.
 pub(crate) struct Show {
     /// The format.
-    format: Format,
+    pub(crate) format: Format,
+    /// Whether the proof net is written rather than the derivation.
+    pub(crate) net: bool,
     /// The options of every format.
     pub(crate) styles: Styles,
     /// The bound on what is built.
@@ -193,16 +194,30 @@ fn style_key(format: Format) -> Option<&'static str> {
         Format::Text => Some("text"),
         Format::Latex => Some("latex"),
         Format::Typst => Some("typst"),
-        Format::Svg | Format::NetSvg => Some("svg"),
+        Format::Svg => Some("svg"),
+        Format::Png => Some("png"),
+        Format::Pdf => Some("pdf"),
         Format::Rocq => Some("rocq"),
-        Format::Json | Format::Net => None,
+        Format::Json => None,
     }
 }
 
 impl Show {
     /// Reads the output arguments.
     pub(crate) fn new(output: &OutputArgs) -> Result<Self> {
-        let format = output.format;
+        let format = output.format();
+        if output.net
+            && !matches!(
+                format,
+                Format::Text | Format::Svg | Format::Png | Format::Pdf
+            )
+        {
+            bail!("--net writes the formats text, svg, png and pdf");
+        }
+        let stdout = std::io::stdout();
+        if format.is_binary() && output.output.is_none() && stdout.is_terminal() {
+            bail!("a {format:?} is not for a terminal: write it with --output FILE");
+        }
         form(
             output.standalone,
             matches!(format, Format::Latex | Format::Typst | Format::Rocq),
@@ -210,7 +225,6 @@ impl Show {
         let styles = Styles::read(&output.style, style_key(format), output.standalone)?;
         // The size of the terminal that standard output is, and of no
         // other stream's.
-        let stdout = std::io::stdout();
         let terminal = match (&output.output, stdout.is_terminal()) {
             (None, true) => Some(
                 terminal_size::terminal_size_of(stdout)
@@ -220,6 +234,7 @@ impl Show {
         };
         Ok(Self {
             format,
+            net: output.net,
             styles,
             view: output.derivation_limit.into(),
             tree: output.tree,
@@ -242,6 +257,7 @@ impl Show {
     pub(crate) fn session(format: Format, view: ViewOptions, styles: Styles) -> Self {
         Self {
             format,
+            net: false,
             styles,
             view,
             tree: Tree::Always,
@@ -264,6 +280,22 @@ impl Show {
         }
     }
 
+    /// Writes the verdict line as a comment of the format at the start of
+    /// the output, or for a binary format to standard error.
+    fn verdict_line(&self, out: &mut impl Write, line: &str) -> std::fmt::Result {
+        if self.format.is_binary() {
+            eprintln!("{line}");
+            return Ok(());
+        }
+        out.write_str(&note(self.format, line))
+    }
+
+    /// What goes between the verdict line and the derivation: a newline
+    /// when the verdict line is written into the output.
+    fn separator(&self) -> Option<&'static str> {
+        (self.verdict && !self.format.is_binary()).then_some("\n")
+    }
+
     /// Writes a line about a derivation that was left out: after the
     /// verdict when the output is a terminal, to standard error otherwise,
     /// so that a file or a pipe gets what it would get from a small proof.
@@ -277,8 +309,13 @@ impl Show {
     }
 
     /// Writes a line as a comment of the format on a line of its own,
-    /// after what came before it if anything did.
+    /// after what came before it if anything did; for a binary format, to
+    /// standard error.
     fn note(&self, out: &mut impl Write, line: &str) -> std::fmt::Result {
+        if self.format.is_binary() {
+            eprintln!("{line}");
+            return Ok(());
+        }
         write!(out, "\n{}", note(self.format, line))
     }
 }
@@ -287,6 +324,9 @@ impl Show {
 pub(crate) enum Shown {
     /// It was written.
     Written,
+    /// It was drawn as these bytes of a binary format, for the caller to
+    /// write.
+    Rendered(Vec<u8>),
     /// It was left out, or cut short, for the reason this line gives with
     /// the ways to get it.
     LeftOut(String),
@@ -519,16 +559,23 @@ pub(crate) fn derivation(
             )));
         }
     }
+    if show.format.is_binary() {
+        let mut drawing = String::new();
+        return match svg::write(&d, &styles.svg, &mut drawing, &mut halt) {
+            Ok(()) => Ok(Shown::Rendered(render(&drawing, show.format, styles)?)),
+            Err(_) => Ok(stopped()),
+        };
+    }
     let mut out = Prefixed {
         out,
-        prefix: show.verdict.then_some("\n"),
+        prefix: show.separator(),
     };
     let written = match show.format {
         Format::Latex => latex::write(&d, &styles.latex, &mut out, &mut halt),
         Format::Typst => typst::write(&d, &styles.typst, &mut out, &mut halt),
         Format::Svg => svg::write(&d, &styles.svg, &mut out, &mut halt),
         Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, &mut halt),
-        Format::Text | Format::Json | Format::Net | Format::NetSvg => {
+        Format::Text | Format::Json | Format::Png | Format::Pdf => {
             d.write_text(&styles.text, &mut out, &mut halt)
         }
     };
@@ -552,7 +599,7 @@ pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
 
 /// Returns a sequent in a format, one-sided, or two-sided in
 /// intuitionistic mode when it has an intuitionistic reading, under the
-/// format's options.
+/// format's options; for PNG and PDF, the SVG document to render.
 pub fn sequent_in(
     sequent: &Sequent,
     mode: Mode,
@@ -564,7 +611,9 @@ pub fn sequent_in(
             SequentFormat::Text => sequent.to_string(),
             SequentFormat::Latex => latex::sequent(sequent, &styles.latex),
             SequentFormat::Typst => typst::sequent(sequent, &styles.typst),
-            SequentFormat::Svg => svg::sequent(sequent, &styles.svg),
+            SequentFormat::Svg | SequentFormat::Png | SequentFormat::Pdf => {
+                svg::sequent(sequent, &styles.svg)
+            }
         });
     }
     // The sequent was admitted when it was read.
@@ -575,7 +624,9 @@ pub fn sequent_in(
         SequentFormat::Text => reading.to_string(),
         SequentFormat::Latex => latex::two_sided(&reading, &styles.latex),
         SequentFormat::Typst => typst::two_sided(&reading, &styles.typst),
-        SequentFormat::Svg => svg::two_sided(&reading, &styles.svg),
+        SequentFormat::Svg | SequentFormat::Png | SequentFormat::Pdf => {
+            svg::two_sided(&reading, &styles.svg)
+        }
     })
 }
 
@@ -598,8 +649,8 @@ fn note(format: Format, text: &str) -> String {
         Format::Typst => format!("// {line}"),
         Format::Rocq => format!("(* {line} *)"),
         // An XML comment cannot hold `--`, which flag names bring.
-        Format::Svg | Format::NetSvg => format!("<!-- {} -->", line.replace('-', "\u{2010}")),
-        Format::Text | Format::Json | Format::Net => line.to_owned(),
+        Format::Svg => format!("<!-- {} -->", line.replace('-', "\u{2010}")),
+        Format::Text | Format::Json | Format::Png | Format::Pdf => line.to_owned(),
     };
     let lines: Vec<String> = text.lines().map(comment).collect();
     lines.join("\n")
@@ -620,38 +671,49 @@ pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
     }
 }
 
-/// Returns a proof net as the format writes it: an SVG document for
-/// `net-svg`, text otherwise.
-fn net_in(net: &ProofStructure, format: Format, styles: &Styles) -> String {
+/// The Euler Math font, which the PNG and PDF drawings are set in; its
+/// licence is `fonts/OFL.txt`.
+const FONT: &[u8] = include_bytes!("../fonts/Euler-Math.otf");
+
+/// Returns an SVG document rendered in a binary format, PNG or PDF, with
+/// the Euler Math font and whatever font the style names that the
+/// renderer knows of.
+pub(crate) fn render(svg: &str, format: Format, styles: &Styles) -> Result<Vec<u8>> {
     match format {
-        Format::NetSvg => svg::net(net, &styles.svg),
-        _ => net.to_string(),
+        Format::Png => Ok(png::from_svg(svg, &[FONT], &styles.png)?),
+        _ => Ok(pdf::from_svg(svg, &[FONT], &styles.pdf)?),
     }
 }
 
-/// Returns the proof net of a proof in a format, or why its links are not
-/// one.
-fn net(proof: &Proof, mode: Mode, format: Format, styles: &Styles) -> Result<String> {
-    Ok(net_in(
-        &ProofStructure::from_proof(proof, mode.mix)?,
-        format,
-        styles,
-    ))
-}
-
-/// Returns the proof net of an outcome in a format: the net the net
-/// engine found, or the net of the proof another engine found.
-fn net_of(
-    outcome: &Outcome,
+/// Writes the proof net of a proof into `out` as `show` asks: as text, or
+/// drawn as an SVG document, a PNG image or a PDF document. `found` is the
+/// net the net engine found, if it ran.
+fn net_into(
+    found: Option<&ProofStructure>,
     proof: &Proof,
     mode: Mode,
-    format: Format,
-    styles: &Styles,
-) -> Result<String> {
-    match &outcome.net {
-        Some(found) => Ok(net_in(found, format, styles)),
-        None => net(proof, mode, format, styles),
+    show: &Show,
+    out: &mut io::Output,
+) -> Result<()> {
+    let made;
+    let net = match found {
+        Some(net) => net,
+        None => {
+            made = ProofStructure::from_proof(proof, mode.mix)?;
+            &made
+        }
+    };
+    let separator = show.separator().unwrap_or("");
+    match show.format {
+        Format::Svg => write!(out, "{separator}{}", svg::net(net, &show.styles.svg))?,
+        Format::Png | Format::Pdf => {
+            let drawing = svg::net(net, &show.styles.svg);
+            out.stream()
+                .write_all(&render(&drawing, show.format, &show.styles)?)?;
+        }
+        _ => write!(out, "{separator}{net}")?,
     }
+    Ok(())
 }
 
 /// Fails unless proof nets exist for the sequent in the mode: unit-free
@@ -676,8 +738,8 @@ fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
 fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
     let line =
         format!("unknown: the time limit of {limit:?} was reached while the sequent was read");
-    match args.output.format {
-        Format::Json => eprintln!("{line}"),
+    match args.output.format() {
+        format if format == Format::Json || format.is_binary() => eprintln!("{line}"),
         format => io::write(args.output.output.as_deref(), &note(format, &line))?,
     }
     Ok(Status::Unknown)
@@ -699,7 +761,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     let forest = forest?;
     let sequent = forest.sequent();
     let mode = args.mode.mode();
-    if matches!(args.output.format, Format::Net | Format::NetSvg) {
+    if args.output.net {
         nets_exist(sequent, mode)?;
     }
     let options = Options::default()
@@ -716,7 +778,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
     let options = options.jobs(threads.jobs);
     let deepens = args.copies.0.is_none() && sequent.fragment().has_exponentials();
-    let format = args.output.format;
+    let format = args.output.format();
     let quiet = args.output.quiet;
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     catch_interrupt();
@@ -738,7 +800,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             Verdict::Unprovable(_) => Status::No,
             Verdict::Unknown(_) => Status::Unknown,
         };
-        let mut out = io::Output::open(args.output.output.as_deref())?;
+        let mut out = io::Output::open(args.output.output.as_deref(), format.is_binary())?;
         if format == Format::Json {
             serde_json::to_writer(out.stream(), &outcome)?;
             out.finish()?;
@@ -752,7 +814,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         };
         if show.verdict {
             let line = verdict_line(&outcome, args.fragment.is_some(), &ended);
-            out.write_str(&note(format, &line))?;
+            show.verdict_line(&mut out, &line)?;
         }
         // The time limit and Ctrl-C hold for the derivation as for the
         // search.
@@ -768,13 +830,8 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             None => "stopped".to_owned(),
         };
         let shown = match (&outcome.verdict, format, quiet) {
-            (Verdict::Proved(_), Format::Net | Format::NetSvg, false) => {
-                let Verdict::Proved(proof) = &outcome.verdict else {
-                    unreachable!("matched above")
-                };
-                let net = net_of(&outcome, proof, mode, format, &show.styles)?;
-                let separator = if show.verdict { "\n" } else { "" };
-                write!(out, "{separator}{net}")?;
+            (Verdict::Proved(proof), _, false) if show.net => {
+                net_into(outcome.net.as_ref(), proof, mode, &show, &mut out)?;
                 Shown::Written
             }
             (Verdict::Proved(_), _, false) if over() => {
@@ -785,8 +842,10 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             }
             _ => Shown::Nothing,
         };
-        if let Shown::LeftOut(line) = shown {
-            show.left_out(&mut out, &line)?;
+        match shown {
+            Shown::LeftOut(line) => show.left_out(&mut out, &line)?,
+            Shown::Rendered(bytes) => out.stream().write_all(&bytes)?,
+            Shown::Written | Shown::Nothing => {}
         }
         if args.stats {
             show.note(&mut out, &statistics(&outcome, elapsed))?;
@@ -908,7 +967,7 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     let path = args.output.output.clone();
     let valid = on_large_stack(Options::default().stack_size(), move || {
-        let mut out = io::Output::open(path.as_deref())?;
+        let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let valid = check_into(&proof, mode, &show, quiet, &mut out)?;
         out.finish()?;
         anyhow::Ok(valid)
@@ -965,24 +1024,21 @@ fn check_into(
         Err(e) => format!("invalid proof of {sequent} ({mode}): {}", report(e)),
     };
     if show.verdict || result.is_err() {
-        out.write_str(&note(format, &line))?;
+        show.verdict_line(out, &line)?;
     }
     if result.is_err() || quiet {
         return Ok(result.is_ok());
     }
-    if matches!(format, Format::Net | Format::NetSvg) {
+    if show.net {
         nets_exist(proof.sequent(), mode)?;
-        let separator = if show.verdict { "\n" } else { "" };
-        write!(
-            out,
-            "{separator}{}",
-            net(proof, mode, format, &show.styles)?
-        )?;
+        net_into(None, proof, mode, show, out)?;
         return Ok(true);
     }
     let stopped = || "stopped".to_owned();
-    if let Shown::LeftOut(line) = derivation(proof, mode, show, || false, stopped, out)? {
-        show.left_out(out, &line)?;
+    match derivation(proof, mode, show, || false, stopped, out)? {
+        Shown::LeftOut(line) => show.left_out(out, &line)?,
+        Shown::Rendered(bytes) => out.stream().write_all(&bytes)?,
+        Shown::Written | Shown::Nothing => {}
     }
     Ok(true)
 }

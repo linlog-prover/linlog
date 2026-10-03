@@ -23,16 +23,22 @@ Workspace crates:
   It has seven optional default features, `parse` (the text parser, with
   unicode-ident for the identifiers), `serialize`
   (serde), `interactive` (step-by-step proving), and `latex`, `typst`,
-  `svg` and `rocq` (the exports), and one off by default, `parallel`
-  (rayon: the search on a thread pool, off for wasm); the CLI enables the
-  last six.
+  `svg` and `rocq` (the exports), and three off by default, `parallel`
+  (rayon: the search on a thread pool, off for wasm), `png` (resvg) and
+  `pdf` (krilla), which render the SVG with fonts the caller gives; the
+  CLI enables the last eight.
 - `cli/` is package **`linlog-cli`**, library **`linlog_cli`** and binary
   **`linlog`** (one call into the library; `doc = false` because it shares
   the core crate's name): a clap front end with `prove`, `check`,
   `interact` (a line-based session that reads commands from standard
   input, `interact.rs`) and `seq print|json|fragment`, and the output
-  formats `text`, `json`, `net`, `latex`, `typst` and `rocq` (with
-  `--standalone` for a document), `svg` and `net-svg`; `--tree
+  formats `text`, `json`, `latex`, `typst` and `rocq` (with
+  `--standalone` for a document), `svg`, `png` and `pdf` (the last two
+  with the Euler Math font the command embeds, `cli/fonts/` with its
+  OFL), by `--format` or else the `--output` file's extension; `--net`
+  writes the proof net instead of the derivation; `--style KEY=VALUE`,
+  `--style-file`, `--lemma` and `--prelude` set every format's options
+  (`style.rs`); `--tree
   auto|always|never` prints the text tree on a terminal only where it
   fits, `--derivation-limit SIZE|none` bounds the derivation any format
   builds (the verdict and its exit status stand without it), and
@@ -237,7 +243,7 @@ Verify as much as the change needs:
 | touches `bench/` or `core/src/families.rs` | add `cargo run --release -p linlog-bench -- run --all-families --timeout 5` for the verdicts (a `MISMATCH` in `summary` is a bug); timings only from `bench/baseline.sh` on an idle machine |
 | changes how the focused engine searches, or must not (a refactoring) | add `bench/targets.sh LABEL` and compare the columns `verdict`, `nodes`, `splits`, `memo_hits` and `memo_entries` of `bench/targets/LABEL.csv` with those of `bench/targets/after-bias.csv` (or of `after.csv` when both runs name a `--bias`): on one thread they are a function of the input, so a decided row has them equal exactly when the search is (`linlog-bench summary` of the two files sets the times side by side) |
 | touches `search/parallel.rs`, `focus/parallel.rs` or `net::parallel` | `cargo test --workspace` covers them (the CLI depends on `parallel`, and cargo unifies features across a workspace run); `cargo test -p linlog` alone needs `--features parallel` |
-| adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0 or Zlib |
+| adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0, Zlib, BSD-2-Clause or BSD-3-Clause |
 | `flake.nix`, `modules/`, `.github/`, the toolchain, a lock bump, or before a push | `nix flake check`, which runs all of the above |
 
 ## The flake
@@ -249,12 +255,15 @@ aspect per file, contributing to every output it needs (`treefmt.nix` also puts
 treefmt in the shell). Modules share values through `_module.args`:
 `rustToolchain` and `craneLib` (`toolchain.nix`), `workspace` (the crane
 arguments, `workspace.nix`, whose source is what `cleanCargoSource` keeps
-plus `core/tests/snapshots`). `checks.nix`, `devshell.nix`, `treefmt.nix`
+plus `core/tests/snapshots` and `cli/fonts`). `checks.nix`, `devshell.nix`, `treefmt.nix`
 and `systems.nix` are what their names say; `export.nix` is the `export`
-check, which compiles the snapshots and a CLI proof with pdfLaTeX and with
-Typst and the curryst of nixpkgs (the version `export::typst::CURRYST`
-names), and renders the SVG snapshots and CLI drawings with resvg, both
-with only the Euler Math font of nixpkgs' TeX Live, offline; `rocq.nix`
+check, which compiles the snapshots (the fragments inside a document of
+its own) and a CLI proof with pdfLaTeX and with Typst and the curryst of
+nixpkgs (the version `export::typst::CURRYST` names), with no font but
+Typst's own, renders the SVG snapshots and CLI drawings with resvg with
+only the Euler Math font of nixpkgs' TeX Live, and checks the CLI's PNG
+(pngcheck) and PDF (poppler: the font embedded, the text extractable),
+offline; `rocq.nix`
 is the `rocq` check, which builds NanoYalla from the non-flake input
 `nanoyalla` (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA`
 names the version) with nixpkgs' Rocq and standard library and compiles

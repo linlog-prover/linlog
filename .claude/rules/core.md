@@ -2291,6 +2291,23 @@ for NanoYalla. What the code relies on:
   links never cross). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
   it); all coordinates are integers, so the output is byte-stable.
+- **PNG and PDF render the SVG** (`export/png.rs` with resvg,
+  `export/pdf.rs` with krilla and krilla-svg, features `png` and `pdf`,
+  `export::parse` shared): `from_svg(svg, fonts, &options)` takes the
+  SVG text any drawing gives and the data of font files, and nothing
+  else, so the bytes are a function of the arguments. What keeps them
+  so: resvg without its default features (no `system-fonts`, no
+  `memmap-fonts`: fontdb is built without file access), and krilla
+  writes no date and derives its document id from a hash of the bytes;
+  calling `load_system_fonts`, or turning those features on, ends both.
+  A text whose font is missing is dropped by usvg without an error,
+  which is why the fonts are an argument and the command embeds Euler
+  Math (`cli/fonts/`, with its OFL). PNG is bounded in pixels
+  (`png::Options::pixels`, `RenderError::TooLarge` before anything is
+  allocated); a PDF page is the drawing at 0.75 pt per pixel. krilla-svg
+  pins usvg 0.47, so resvg stays at 0.47 with it: one usvg tree serves
+  both, and `deny.toml` ignores the unmaintained rustybuzz and
+  ttf-parser beneath them until krilla moves on.
 - **A superscript or subscript is its own `<text>`**, never a `<tspan>`
   with `dy`: resvg (which Typst uses to draw SVG images) spreads
   `textLength` wrongly across such a tspan, while every renderer agrees

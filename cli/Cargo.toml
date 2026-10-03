@@ -29,6 +29,8 @@ linlog = { version = "0.1.0", path = "../core", features = [
   "interactive",
   "latex",
   "parallel",
+  "pdf",
+  "png",
   "rocq",
   "svg",
   "typst",

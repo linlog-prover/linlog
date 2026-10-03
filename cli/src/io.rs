@@ -124,12 +124,14 @@ pub struct Output {
     rename: Option<(PathBuf, PathBuf)>,
     /// The first error of the stream.
     error: Option<io::Error>,
+    /// Whether the output is binary, which ends with no newline.
+    binary: bool,
 }
 
 impl Output {
     /// Opens the output: the file at `path`, or standard output for
-    /// `None`.
-    pub fn open(path: Option<&Path>) -> Result<Self> {
+    /// `None`; a binary one ends without a newline.
+    pub fn open(path: Option<&Path>, binary: bool) -> Result<Self> {
         let (sink, rename): (Box<dyn Write>, _) = match path {
             None => (Box::new(io::stdout().lock()), None),
             Some(path) if fs::metadata(path).is_ok_and(|m| !m.is_file()) => {
@@ -150,6 +152,7 @@ impl Output {
             sink: Some(io::BufWriter::new(sink)),
             rename,
             error: None,
+            binary,
         })
     }
 
@@ -166,6 +169,7 @@ impl Output {
         let mut sink = self.sink.take().expect("finished once");
         let done = match self.error.take() {
             Some(error) => Err(error),
+            None if self.binary => sink.flush(),
             None => sink.write_all(b"\n").and_then(|()| sink.flush()),
         };
         let what = match &self.rename {

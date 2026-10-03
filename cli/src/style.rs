@@ -10,13 +10,13 @@ use crate::io;
 use anyhow::{Context, Result, bail};
 use linlog::TextOptions;
 use linlog::export::svg::Style;
-use linlog::export::{Form, latex, rocq, typst};
+use linlog::export::{Form, latex, pdf, png, rocq, typst};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// The names of the formats that have options, as `--style` keys and the
 /// style file name them.
-const FORMATS: [&str; 5] = ["text", "latex", "typst", "svg", "rocq"];
+const FORMATS: [&str; 7] = ["text", "latex", "typst", "svg", "png", "pdf", "rocq"];
 
 /// The options of every output format.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -28,8 +28,13 @@ pub struct Styles {
     pub latex: latex::Options,
     /// Typst's.
     pub typst: typst::Options,
-    /// SVG's, for derivations, sequents and nets.
+    /// SVG's, for derivations, sequents and nets, and for the drawings
+    /// that PNG and PDF render.
     pub svg: Style,
+    /// PNG's, beyond the SVG's.
+    pub png: png::Options,
+    /// PDF's, beyond the SVG's.
+    pub pdf: pdf::Options,
     /// The Rocq certificate's.
     pub rocq: rocq::Options,
 }
@@ -53,7 +58,9 @@ impl Styles {
                 bail!("--style {setting}: give KEY=VALUE");
             };
             let mut path: Vec<&str> = key.split('.').collect();
-            if !FORMATS.contains(&path[0]) {
+            // A format's name is a prefix only before a dot: `text` alone
+            // is the colour field of SVG's style.
+            if path.len() == 1 || !FORMATS.contains(&path[0]) {
                 match format {
                     Some(format) => path.insert(0, format),
                     None => bail!(

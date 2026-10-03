@@ -2,9 +2,10 @@
 # Licensed under the EUPL
 
 # The exports compile and render: every derivation and net the core tests
-# pin in core/tests/snapshots, and a proof in each format as the CLI writes
-# it, with pdfLaTeX from a minimal TeX Live, Typst with curryst from nixpkgs
-# and resvg, offline. The curryst here is the version
+# pin in core/tests/snapshots (the fragments inside a document), and a
+# proof in each format as the CLI writes it, with pdfLaTeX from a minimal
+# TeX Live, Typst with curryst from nixpkgs and resvg, offline; the CLI's
+# PNG and PDF are checked with pngcheck and poppler. The curryst here is the version
 # `linlog::export::typst::CURRYST' names; they change together. The LaTeX
 # and Typst output names no font, so Typst sees only the fonts it embeds;
 # resvg sees Euler Math and no system font. Anything either prints fails
@@ -43,6 +44,8 @@
               latex
               typst
               pkgs.resvg
+              pkgs.pngcheck
+              pkgs.poppler-utils
             ];
           }
           ''
@@ -69,7 +72,15 @@
             linlog prove -i --format latex --standalone --output cli.tex '!A, A -o B |- B * !A'
             linlog prove --format typst --standalone --output cli.typ 'A & B, !C |- (B + A) * !C'
             linlog prove -i --format svg --output cli.svg '!A, A -o B |- B * !A'
-            linlog prove --format net-svg --output cli-net.svg 'A -o B, B -o C |- A -o C'
+            linlog prove --net --output cli-net.svg 'A -o B, B -o C |- A -o C'
+            # The command's PNG and PDF, rendered with the font it embeds: a
+            # valid image, and a PDF whose text is text.
+            linlog prove -i --output cli.png '!A, A -o B |- B * !A' 2>/dev/null
+            pngcheck -q cli.png
+            linlog prove --net --output cli-net.pdf 'A -o B, B -o C |- A -o C' 2>/dev/null
+            linlog prove -i --output cli.pdf '!A, A -o B |- B * !A' 2>/dev/null
+            pdffonts cli.pdf | grep -q Euler-Math
+            pdftotext cli.pdf - | grep -q '⊢'
             for file in *.tex; do
               pdflatex -interaction=nonstopmode -halt-on-error "$file" >/dev/null ||
                 { cat "''${file%.tex}.log"; exit 1; }

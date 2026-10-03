@@ -18,11 +18,12 @@ pub mod prove;
 /// The options of every output format, from a file and flags.
 pub mod style;
 
-use anyhow::Result;
-use argument_parsing::{Cli, Command, SeqCommand, SequentFormat};
+use anyhow::{Result, bail};
+use argument_parsing::{Cli, Command, Format, SeqCommand, SequentFormat};
 use clap::Parser;
 use linlog::{Error, Mode};
 use std::fmt::Write;
+use std::io::{IsTerminal, Write as _};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -185,15 +186,30 @@ fn run(cli: &Cli) -> Result<Status> {
                         *standalone,
                         matches!(format, SequentFormat::Latex | SequentFormat::Typst),
                     )?;
-                    let key = match format {
-                        SequentFormat::Text => "text",
-                        SequentFormat::Latex => "latex",
-                        SequentFormat::Typst => "typst",
-                        SequentFormat::Svg => "svg",
+                    let (key, binary) = match format {
+                        SequentFormat::Text => ("text", None),
+                        SequentFormat::Latex => ("latex", None),
+                        SequentFormat::Typst => ("typst", None),
+                        SequentFormat::Svg => ("svg", None),
+                        SequentFormat::Png => ("png", Some(Format::Png)),
+                        SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
                     };
                     let styles = style::Styles::read(style, Some(key), *standalone)?;
                     let text = prove::sequent_in(&input.sequent()?, mode, *format, &styles)?;
-                    io::write(output.as_deref(), &text)?;
+                    match binary {
+                        None => io::write(output.as_deref(), &text)?,
+                        Some(format) => {
+                            if output.is_none() && std::io::stdout().is_terminal() {
+                                bail!(
+                                    "a {format:?} is not for a terminal: write it with --output FILE"
+                                );
+                            }
+                            let mut out = io::Output::open(output.as_deref(), true)?;
+                            out.stream()
+                                .write_all(&prove::render(&text, format, &styles)?)?;
+                            out.finish()?;
+                        }
+                    }
                 }
                 SeqCommand::Json {
                     input,

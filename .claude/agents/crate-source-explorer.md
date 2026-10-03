@@ -1,6 +1,6 @@
 ---
 name: crate-source-explorer
-description: Answer questions about a Rust dependency's API by reading the exact version that Cargo.lock pins, from the local cargo registry, instead of relying on memory or the web. This matters most for a crate whose API changed between major versions and differs from most examples online, as clap's did. Use it before writing or changing code against clap, serde, rayon, foldhash, thiserror or unicode-ident when a signature, trait bound, feature gate or idiom is in doubt, and to diagnose a compiler error that points into a dependency. Returns signatures with file:line citations and never edits.
+description: Answer questions about a Rust dependency's API by reading the exact version that Cargo.lock pins, from the local cargo registry, instead of relying on memory or the web. This matters most for a crate whose API changed between major versions and differs from most examples online, as clap's did. Use it before writing or changing code against clap, serde, rayon, foldhash, thiserror, unicode-ident, resvg (usvg, tiny-skia, fontdb), krilla or krilla-svg when a signature, trait bound, feature gate or idiom is in doubt, and to diagnose a compiler error that points into a dependency. Returns signatures with file:line citations and never edits.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 effort: medium

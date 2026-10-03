@@ -31,7 +31,8 @@ show [--FORMAT]     the derivation so far, as text, as a LaTeX or Typst proof tr
                     SVG: --text, --latex, --typst or --svg (or the name without dashes)
 proof [--FORMAT] [FILE]
                     check the finished proof and print it or write it to FILE: as text,
-                    or --json, --latex, --typst, --svg, or --rocq for a certificate;
+                    or --json, --latex, --typst, --svg, --png, --pdf, or --rocq for a
+                    certificate (--png and --pdf need a FILE);
                     with a FILE and no format, as JSON
 save FILE           write the session as JSON
 load FILE           resume a session written by save
@@ -244,13 +245,16 @@ impl Session {
                     }
                     _ => bail!("proof [--FORMAT] [FILE]: one format and one file at most"),
                 };
-                let proof = self.state.proof()?;
-                let mode = self.state.mode();
                 let format = match (format, path) {
                     (Some(format), _) => format,
                     (None, Some(_)) => Format::Json,
                     (None, None) => Format::Text,
                 };
+                if format.is_binary() && path.is_none() {
+                    bail!("a {format:?} needs a FILE to be written to");
+                }
+                let proof = self.state.proof()?;
+                let mode = self.state.mode();
                 let mut text = String::new();
                 if path.is_none() {
                     text = format!("valid proof ({mode})");
@@ -262,11 +266,19 @@ impl Session {
                     let mut show = Show::session(format, self.view, self.styles.clone());
                     show.verdict = path.is_none();
                     let stopped = || "stopped".to_owned();
-                    if let Shown::LeftOut(line) =
-                        derivation(&proof, mode, &show, || false, stopped, &mut text)?
-                    {
-                        text.push('\n');
-                        text.push_str(&line);
+                    match derivation(&proof, mode, &show, || false, stopped, &mut text)? {
+                        Shown::LeftOut(line) => {
+                            text.push('\n');
+                            text.push_str(&line);
+                        }
+                        Shown::Rendered(bytes) => {
+                            let path = path.expect("a binary format has a file");
+                            let mut out = io::Output::open(Some(Path::new(path)), true)?;
+                            out.stream().write_all(&bytes)?;
+                            out.finish()?;
+                            return Ok(format!("valid proof written to {path}"));
+                        }
+                        Shown::Written | Shown::Nothing => {}
                     }
                 }
                 match path {
@@ -419,9 +431,12 @@ fn proof_format(word: &str) -> Result<Format> {
         "--latex" => Format::Latex,
         "--typst" => Format::Typst,
         "--svg" => Format::Svg,
+        "--png" => Format::Png,
+        "--pdf" => Format::Pdf,
         "--rocq" => Format::Rocq,
         _ => bail!(
-            "proof {word}? the formats are --text, --json, --latex, --typst, --svg and --rocq"
+            "proof {word}? the formats are --text, --json, --latex, --typst, --svg, --png, \
+             --pdf and --rocq"
         ),
     })
 }

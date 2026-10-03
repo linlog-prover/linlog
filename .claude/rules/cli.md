@@ -36,20 +36,39 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - `interact.rs`: `interact`, a line-based session over `Interactive`:
   the state comes from the sequent argument or `--state FILE` (a session
   `save` wrote; the mode is then the file's), the commands from standard
-  input (`goals`, `rules`, `apply`, `undo`, `close`, `show [latex|typst|svg]`,
-  `proof`, `save`, `load`, `help`, `quit`; `HELP` is the list; `show`
-  with a format prints the export fragment of the partial derivation, or
-  its SVG document),
+  input (`goals`, `rules`, `apply`, `undo`, `close`, `show [--FORMAT]`,
+  `proof [--FORMAT] [FILE]`, `save`, `load`, `help`, `quit`; `HELP` is
+  the list; `show` prints the partial derivation as text, a LaTeX or
+  Typst fragment or an SVG document, `proof` the checked proof in any
+  format, `--rocq` the certificate, `--png`/`--pdf` into a FILE only; a
+  format is a word with dashes so that it never reads as a file name),
   every command's output or `error: …` goes to standard output and the
   session goes on,
   and the whole loop runs inside `on_large_stack` so that `close` and the
   derivation drawing have the stack `prove` has. `goal_line` prints a goal
   with the position of every formula, two-sided under the reading.
-- `prove.rs`: `prove` and `check`, and the `net` and `net-svg` formats'
-  refusal of
+- `style.rs`: `Styles`, the options value of every format (the
+  library's `TextOptions`, `latex::Options`, `typst::Options`,
+  `svg::Style`, `png::Options`, `pdf::Options`, `rocq::Options`) under a
+  key per format, read from `--style-file` and changed by `--style
+  KEY=VALUE` (a key is dotted; a format's name is a prefix only before a
+  dot, so `--style text=navy` is SVG's colour under `--format svg`; a
+  value that is no JSON is a string), then `--lemma`, `--prelude`,
+  `--standalone`. `interact` and every command with several formats need
+  the prefix. A new option is a field of the library's value, never a
+  flag of its own here.
+- `prove.rs`: `prove` and `check`, and `--net`'s refusal of
   sequents outside unit-free MLL and of affine mode (`nets_exist`), before
   the search runs; in intuitionistic mode the net printed is the one of
-  the one-sided sequent. `--copies N|none` (`Bound`, default `none`,
+  the one-sided sequent. The format is `--format`, else the one the
+  `--output` file's extension names (`Format::of_path`), else text
+  (`OutputArgs::format`); `--net` writes the net in text, svg, png or
+  pdf instead of the derivation. PNG and PDF (`Format::is_binary`) are
+  the SVG drawing rendered by `render` with the Euler Math font the
+  command embeds (`FONT`, `cli/fonts/`, its OFL beside it; the crane
+  source keeps that directory), never written to a terminal, their
+  verdict and notes on standard error and their output without a
+  closing newline. `--copies N|none` (`Bound`, default `none`,
   on `prove` and `interact`) is `Options::copies`: by default the
   focused engine's deepening goes on until it decides or the time limit
   passes, and with a number it ends there with `unknown … the copy
@@ -64,30 +83,24 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Options::forward_copies`, the forward search's own copy bound on
   Horn programs. A test that pins a copy bound's message sets both
   bounds, or names a bias. `--stats` prints `copy bound reached`
-  (`Statistics::copies`) where the fragment has exponentials. `--format net` prints the net the
+  (`Statistics::copies`) where the fragment has exponentials. `--net` prints the net the
   net engine found (`Outcome::net`) and otherwise the net read off the
-  proof; `--stats` prints the counters of the engine that ran
-  (`statistics`, one arm per engine with its own counters). `--format
-  latex` and `--format typst` print the verdict line and the statistics
-  as comments of the target (`note`) and the derivation through
-  `linlog::export` (`derivation(proof, mode, format, form)`, which also
-  draws the text tree); `--standalone` makes the derivation a document and
-  is refused, exit 2, for the other formats (`form`). `--format svg`
-  draws the derivation and `--format net-svg` the net (`net_in`, the
-  same net `net` prints) through `linlog::export::svg` with the default
-  `Style`, the verdict and statistics as XML comments (`note`, which
-  turns every `-` into `‐`, since a comment cannot hold `--` and the
-  advice names flags). `--standalone` is refused for them too: an SVG is
-  always a whole document, so the flag would do nothing. An unprovable
+  proof (`net_into`); `--stats` prints the counters of the engine that
+  ran (`statistics`, one arm per engine with its own counters). The
+  source formats (`latex`, `typst`, `svg`, `rocq`) write the verdict line
+  and the statistics as comments of the target (`note`; an XML comment
+  turns every `-` into `‐`, since it cannot hold `--` and the advice
+  names flags) and the derivation through the library's `write` under
+  the format's options from `Styles`; `--standalone` makes the LaTeX,
+  Typst or Rocq output a document and is refused, exit 2, for the
+  others (`form`: an SVG is always a whole document). An unprovable
   sequent prints the comment alone, which is not an XML document; the
-  exit status says why. `--format rocq` prints the verdict and statistics
-  as `(* … *)` comments and the derivation as `linlog::export::rocq`
-  writes it with the default `Options` (lemma `certificate`), taking
-  `--standalone` for the file with the import; in intuitionistic mode the
-  two-sided derivation is passed and certified one-sided; a proof with
-  Mix or affine weakening is exit 2 with the library's `Unsupported`
-  message, after the search. `seq print --format` (`SequentFormat`, with
-  `svg`) prints through `sequent_in`, which `sequent_text` wraps. There
+  exit status says why. In intuitionistic mode the two-sided derivation
+  goes to Rocq and is certified one-sided; a proof with Mix or affine
+  weakening is exit 2 with the library's `Unsupported` message, after
+  the search, and standard output stays empty. `seq print --format`
+  (`SequentFormat`, with `svg`, `png`, `pdf`) prints through
+  `sequent_in`, which `sequent_text` wraps. There
   is no `net` subcommand: the CLI's nets are those of proofs, which
   `prove` and `check` draw.
 
@@ -185,10 +198,16 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--format json` are checked like the drawn formats; `--no-check`
   switches it off. A proof the checker rejects is `Error::Rejected`, exit
   status 2: a defect to report, not a verdict.
-- **A derivation is made by `derivation(proof, mode, &show, halt, why)`
-  and nowhere else** (`prove.rs`; `Show` is what the output arguments ask
-  for and where the output goes, `Shown` what became of the derivation:
-  `Written`, `LeftOut(line)` or `Nothing`). `--derivation-limit`
+- **A derivation is made by `derivation(proof, mode, &show, halt, why,
+  out)` and nowhere else** (`prove.rs`; `Show` is what the output
+  arguments ask for and where the output goes, `Shown` what became of
+  the derivation: `Written` into `out`, `Rendered(bytes)` for a binary
+  format, `LeftOut(line)` or `Nothing`). The output is `io::Output`: the
+  verdict line goes in first and the derivation after it as the library
+  writes it, so no second copy is held; a file is written under another
+  name and renamed when whole, and an output dropped unfinished (an
+  error) drops its buffer, so that a refused certificate leaves standard
+  output empty. `--derivation-limit`
   (`Limit`, default the library's `ViewOptions::DEFAULT_LIMIT`, `none`
   lifts it) is `ViewOptions::limit`, on `prove`, `check` and `interact`.
   A derivation past it is not built: the verdict line stands, the exit
@@ -203,7 +222,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   auto`, the default; `Show::fit`): when standard output is a terminal,
   there is no `--output` and the format is `text`, the tree is printed
   only if its widest line fits the terminal's columns and its lines
-  `SCREENS` (3) times the terminal's rows. Otherwise the verdict is
+  `--screens` (`SCREENS`, 3, or `none`) times the terminal's rows. Otherwise the verdict is
   followed by one line with the tree's inferences, columns and lines and
   the ways to get it (`unfit`: `--tree always`, `--output FILE`,
   `--format json`). The decision is made twice: from the proof's `Size`
@@ -220,12 +239,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   24 where the terminal does not say.
 - **The time limit and Ctrl-C hold after the search** (`prove`): the same
   two flags are polled every `STEPS_PER_CLOCK` (256) inferences
-  built and pieces of text written (`halt`; the text tree goes through
-  `Halting`, a writer that fails once the condition fires). A derivation
-  stopped that way is left out with the reason (`why`), the verdict
-  stands, and nothing of it is written. The LaTeX, Typst, SVG and Rocq
-  emitters return a `String` and cannot be stopped inside; they are
-  linear in their output, which the limit bounds.
+  built and pieces of text written (`halt`, which every exporter's
+  `write` asks between two inferences). A derivation stopped while it is
+  built is left out with the reason (`why`); one stopped while it is
+  written stays written as far as it came, followed by a line in the
+  format's comment syntax that says it is cut short. The verdict stands.
+- **Shortened lines**: `check`'s verdict line abbreviates the sequent
+  and its error report every formula list (`--abbreviate`, `ABBREVIATE`
+  200 characters, `none`), through `abbreviated` and the library's
+  `Described::abbreviated`. `--no-verdict` leaves the verdict line out.
 - **The two limits on size** are the library's, with its defaults.
   `--memory-limit SIZE|none` (`Limit`, default
   `Options::DEFAULT_MEMORY_LIMIT`; on `prove` and `interact`) is
@@ -280,16 +302,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **An `interact` command**: an arm in `Session::command`, a line in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.
-- **An output format** (`lean`, say): a variant of `Format` and its
-  arm in `prove`'s and `check_text`'s `match format`, as `net`, `latex`,
-  `typst` and `rocq` have. A format that renders the derivation builds it inside
-  the `on_large_stack` closure, as the text format does (an arm in
-  `derivation`); `net` builds the net there too, though
-  desequentialization does not recurse. A format with a document form
-  takes `--standalone` (`form` lists which formats have one), a net
-  format builds the net in `net_in`, and one
-  whose output is a source file writes the verdict as its comment
-  (`note`), so that the output still compiles.
+- **An output format** (`lean`, say): a variant of `Format` (its
+  extension in `Format::of_path`, its key in `style_key` and `Styles`),
+  its arm in `derivation`'s `match show.format` calling the library's
+  `write`, and in `note` for its comment syntax, so that a source file
+  still compiles with the verdict in it. A format with a document form
+  takes `--standalone` (`form` lists which formats have one); one that
+  draws nets gets an arm in `net_into` and `--net`'s list in
+  `Show::new`; a binary one is `is_binary`.
 - **A new `Reason`**: its arm in `unknown` (`prove.rs`), which turns a
   generic phrase into advice (`RecursionLimit`, `CopyBound` and
   `MemoryLimit` name the flag to raise); the default arm prints
