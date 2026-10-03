@@ -65,6 +65,11 @@ pub struct Style {
     /// Whether every formula of a conclusion is a group of its own, with
     /// the id `i<n>-<p>` for position `p` of the sequent of inference `n`.
     pub ids: bool,
+    /// Whether a drawing of a derivation or a net carries a `<desc>` that
+    /// reads it in order, which a screen reader reads out: the numbered
+    /// inferences of [`Derivation::write_steps`], or the net's links as
+    /// its text form gives them.
+    pub description: bool,
     /// The size of formula text in pixels, which scales the whole drawing.
     pub font_size: u32,
     /// The size of rule names and of the connectives in a proof net's
@@ -109,7 +114,7 @@ pub struct Style {
 
 impl Default for Style {
     /// Returns Euler Math, upright labels, an open goal under vertical
-    /// dots, no ids per formula, and black lines and text at 16 pixels to
+    /// dots, no ids per formula, a description, and black lines and text at 16 pixels to
     /// the em on a transparent background, with `⅋` edges blue and a
     /// switching cycle orange.
     fn default() -> Self {
@@ -118,6 +123,7 @@ impl Default for Style {
             labels: Labels::Upright,
             open: OpenGoal::Dots,
             ids: false,
+            description: true,
             font_size: 16,
             label_size: 800,
             line_height: 1500,
@@ -434,19 +440,38 @@ fn decimal(thousandths: i64) -> String {
 
 /// Writes the start of an SVG document of `width` by `height`
 /// thousandths of an em with the given title, in the style's font and
-/// colours: what comes before the body.
+/// colours, up to where its description goes: one image, whose title is
+/// its accessible name.
 fn head(out: &mut impl Write, style: &Style, title: &str, size: (i64, i64)) -> std::fmt::Result {
     let (width, height) = size;
     let px = |length: i64| decimal(length * i64::from(style.font_size));
     write!(
         out,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {width} {height}" font-family="{}" font-size="1000" fill="{}">"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" role="img" width="{}" height="{}" viewBox="0 0 {width} {height}" font-family="{}" font-size="1000" fill="{}">"#,
         px(width),
         px(height),
         escaped(&style.font.family),
         escaped(&style.text),
     )?;
-    write!(out, "\n<title>{}</title>\n", escaped(title))?;
+    write!(out, "\n<title>{}</title>\n", escaped(title))
+}
+
+/// A writer that escapes what it passes on for XML text.
+struct Escaping<'a, W>(&'a mut W);
+
+impl<W: Write> Write for Escaping<'_, W> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        let mut text = String::with_capacity(s.len());
+        s.chars().for_each(|c| escape(&mut text, c));
+        self.0.write_str(&text)
+    }
+}
+
+/// Writes the background of a document of `width` by `height`
+/// thousandths of an em, if the style has one: what comes after the head
+/// and the description.
+fn backdrop(out: &mut impl Write, style: &Style, size: (i64, i64)) -> std::fmt::Result {
+    let (width, height) = size;
     if let Some(background) = &style.background {
         writeln!(
             out,
@@ -458,10 +483,21 @@ fn head(out: &mut impl Write, style: &Style, title: &str, size: (i64, i64)) -> s
 }
 
 /// Returns an SVG document of `width` by `height` thousandths of an em
-/// with the given title and body, in the style's font and colours.
-fn document(style: &Style, title: &str, width: i64, height: i64, body: &str) -> String {
+/// with the given title, description and body, in the style's font and
+/// colours.
+fn document(
+    style: &Style,
+    title: &str,
+    description: Option<&str>,
+    size: (i64, i64),
+    body: &str,
+) -> String {
     let mut out = String::new();
-    head(&mut out, style, title, (width, height)).unwrap();
+    head(&mut out, style, title, size).unwrap();
+    if let Some(description) = description {
+        writeln!(out, "<desc>{}</desc>", escaped(description)).unwrap();
+    }
+    backdrop(&mut out, style, size).unwrap();
     out.push_str(body);
     out.push_str("</svg>");
     out
@@ -477,8 +513,8 @@ fn line(style: &Style, title: &str, content: &str) -> String {
     document(
         style,
         title,
-        run.width + 2 * margin,
-        HEIGHT + DEPTH + 2 * margin,
+        None,
+        (run.width + 2 * margin, HEIGHT + DEPTH + 2 * margin),
         &body,
     )
 }

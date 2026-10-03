@@ -1,5 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1050.944" height="230.592" viewBox="0 0 65684 14412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="1050.944" height="230.592" viewBox="0 0 65684 14412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ ((((A⊥ ⅋ B⊥) ⅋ (A ⊗ B)) &amp; 1) &amp; ((⊥ ⅋ 1) &amp; ⊤)) &amp; (((1 ⊕ 0) &amp; (0 ⊕ 1)) &amp; ((!1 &amp; ?1) &amp; ((?A ⅋ 1) &amp; (?A⊥ ⅋ (A ⊗ A)))))</title>
+<desc>1. ⊢ ~A, A, by ax.
+2. ⊢ ~B, B, by ax.
+3. ⊢ ~A, ~B, A ⊗ B, by ⊗ from 1 and 2.
+4. ⊢ ~A ⅋ ~B, A ⊗ B, by ⅋ from 3.
+5. ⊢ (~A ⅋ ~B) ⅋ (A ⊗ B), by ⅋ from 4.
+6. ⊢ 1, by 1.
+7. ⊢ ((~A ⅋ ~B) ⅋ (A ⊗ B)) &amp; 1, by &amp; from 5 and 6.
+8. ⊢ 1, by 1.
+9. ⊢ ⊥, 1, by ⊥ from 8.
+10. ⊢ ⊥ ⅋ 1, by ⅋ from 9.
+11. ⊢ ⊤, by ⊤.
+12. ⊢ (⊥ ⅋ 1) &amp; ⊤, by &amp; from 10 and 11.
+13. ⊢ (((~A ⅋ ~B) ⅋ (A ⊗ B)) &amp; 1) &amp; ((⊥ ⅋ 1) &amp; ⊤), by &amp; from 7 and 12.
+14. ⊢ 1, by 1.
+15. ⊢ 1 ⊕ 0, by ⊕₁ from 14.
+16. ⊢ 1, by 1.
+17. ⊢ 0 ⊕ 1, by ⊕₂ from 16.
+18. ⊢ (1 ⊕ 0) &amp; (0 ⊕ 1), by &amp; from 15 and 17.
+19. ⊢ 1, by 1.
+20. ⊢ !1, by ! from 19.
+21. ⊢ 1, by 1.
+22. ⊢ ?1, by ?d from 21.
+23. ⊢ !1 &amp; ?1, by &amp; from 20 and 22.
+24. ⊢ 1, by 1.
+25. ⊢ ?A, 1, by ?w from 24.
+26. ⊢ ?A ⅋ 1, by ⅋ from 25.
+27. ⊢ ~A, A, by ax.
+28. ⊢ ?~A, A, by ?d from 27.
+29. ⊢ ~A, A, by ax.
+30. ⊢ ?~A, A, by ?d from 29.
+31. ⊢ ?~A, ?~A, A ⊗ A, by ⊗ from 28 and 30.
+32. ⊢ ?~A, A ⊗ A, by ?c from 31.
+33. ⊢ ?~A ⅋ (A ⊗ A), by ⅋ from 32.
+34. ⊢ (?A ⅋ 1) &amp; (?~A ⅋ (A ⊗ A)), by &amp; from 26 and 33.
+35. ⊢ (!1 &amp; ?1) &amp; ((?A ⅋ 1) &amp; (?~A ⅋ (A ⊗ A))), by &amp; from 23 and 34.
+36. ⊢ ((1 ⊕ 0) &amp; (0 ⊕ 1)) &amp; ((!1 &amp; ?1) &amp; ((?A ⅋ 1) &amp; (?~A ⅋ (A ⊗ A)))), by &amp; from 18 and 35.
+37. ⊢ ((((~A ⅋ ~B) ⅋ (A ⊗ B)) &amp; 1) &amp; ((⊥ ⅋ 1) &amp; ⊤)) &amp; (((1 ⊕ 0) &amp; (0 ⊕ 1)) &amp; ((!1 &amp; ?1) &amp; ((?A ⅋ 1) &amp; (?~A ⅋ (A ⊗ A))))), by &amp; from 13 and 36.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M1879 12812H58802"/>
 <path d="M941 11312H24356"/>

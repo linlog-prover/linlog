@@ -82,9 +82,31 @@ pub enum RenderError {
         /// The limit in force.
         limit: u64,
     },
-    /// The renderer failed on a document it read.
+    /// A PDF/A document needs the date it was made, and none was given.
+    #[error("a PDF/A document needs the date it was made: give pdf::Options::date")]
+    NoDate,
+    /// The renderer failed on a document it read, or the document does
+    /// not conform to the standard asked for.
     #[error("the renderer failed: {0}")]
     Failed(String),
+}
+
+/// Returns the title and the description an SVG document of
+/// [`svg`](crate::export::svg) carries, its accessible name and its
+/// reading, where it has them.
+#[cfg(any(feature = "png", feature = "pdf"))]
+fn texts(svg: &str) -> (Option<String>, Option<String>) {
+    let Ok(document) = resvg::usvg::roxmltree::Document::parse(svg) else {
+        return (None, None);
+    };
+    let text = |name: &str| {
+        let element = document
+            .root_element()
+            .children()
+            .find(|node| node.has_tag_name(name))?;
+        Some(element.text().unwrap_or_default().to_owned())
+    };
+    (text("title"), text("desc"))
 }
 
 /// Parses an SVG document with the fonts given and no other: what a text

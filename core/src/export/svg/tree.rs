@@ -8,7 +8,9 @@
 //! above the row below it.
 
 use super::font::{AXIS, DEPTH, HEIGHT};
-use super::{NOTATION, PLAIN, Run, Style, drawn, escaped, head, label, run, text};
+use super::{
+    Escaping, NOTATION, PLAIN, Run, Style, backdrop, drawn, escaped, head, label, run, text,
+};
 use crate::export::notation::{Step, flush, walk};
 use crate::proofs::{Derivation, OpenGoal, Rule, WriteError};
 use std::fmt::Write;
@@ -165,7 +167,14 @@ pub(super) fn draw(
     let root_sequent = &derivation.inference(root).sequent;
     PLAIN.sequent(&mut title, forest, reading, root_sequent, false, false);
     let width = places[root.index()].width + 2 * margin;
-    head(out, style, &title, (width, DEPTH - top + 2 * margin))?;
+    let size = (width, DEPTH - top + 2 * margin);
+    head(out, style, &title, size)?;
+    if style.description {
+        out.write_str("<desc>")?;
+        derivation.write_steps(&mut Escaping(out), &mut stop)?;
+        out.write_str("</desc>\n")?;
+    }
+    backdrop(out, style, size)?;
 
     // The lines, then the texts, each in the order of the walk.
     writeln!(

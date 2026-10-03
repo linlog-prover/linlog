@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="60.016" height="67.072" viewBox="0 0 3751 4192" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="60.016" height="67.072" viewBox="0 0 3751 4192" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A ⊗ A⊥</title>
+<desc>⊢ A ⊗ ~A
+A[1] — ~A[2]
+not a proof net: a switching cycle runs through A ⊗ ~A[0], A[1], ~A[2]</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <circle id="o0" cx="1722" cy="3102" r="380"/>
 <path d="M1722 3482V3852"/>

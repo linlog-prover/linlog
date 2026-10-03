@@ -394,3 +394,48 @@ fn svg_structure() {
     let sequent: Sequent = "x_1 * foo |- A".parse().unwrap();
     assert_eq!(structure(&svg::sequent(&sequent, &style)), [5, 0, 0]);
 }
+
+/// PNG and PDF render a drawing with the font given: the PNG carries the
+/// drawing's title, every PDF profile passes krilla's own validation, the
+/// accessible one is tagged, and a PDF without a date is refused.
+#[cfg(all(feature = "png", feature = "pdf"))]
+#[test]
+fn renders() {
+    use linlog::export::{RenderError, pdf, png};
+    let font =
+        std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../cli/fonts/Euler-Math.otf"))
+            .unwrap();
+    let derivation = proof("A, A -o B |- B", Mode::INTUITIONISTIC);
+    let drawing = svg::derivation(
+        &derivation.two_sided_derivation().unwrap(),
+        &Style::default(),
+    );
+    let image = png::from_svg(&drawing, &[&font], &png::Options::default()).unwrap();
+    assert!(image.starts_with(b"\x89PNG"));
+    assert!(image.windows(5).any(|w| w == b"Title"));
+    let date = Some(pdf::Date::from_unix(1_791_158_399));
+    for (compatible, accessible, version) in [
+        (false, false, "%PDF-2.0"),
+        (true, false, "%PDF-1.7"),
+        (false, true, "%PDF-1.7"),
+    ] {
+        let options = pdf::Options {
+            compatible,
+            accessible,
+            date,
+            ..pdf::Options::default()
+        };
+        let document = pdf::from_svg(&drawing, &[&font], &options).unwrap();
+        assert!(
+            document.starts_with(version.as_bytes()),
+            "{compatible} {accessible}"
+        );
+        let root = b"/StructTreeRoot";
+        let tagged = document.windows(root.len()).any(|w| w == root);
+        assert_eq!(tagged, accessible);
+    }
+    assert_eq!(
+        pdf::from_svg(&drawing, &[&font], &pdf::Options::default()),
+        Err(RenderError::NoDate)
+    );
+}

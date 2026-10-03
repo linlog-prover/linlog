@@ -5,8 +5,12 @@
 //! resvg, its text set in the fonts the caller gives and no other, so that
 //! the image depends on nothing but the arguments. A transparent drawing
 //! stays transparent; [`Style::background`](super::svg::Style) fills it.
+//! The image declares its colours as sRGB and its density as the scale
+//! times 96 pixels per inch, so that a viewer shows it at the drawing's
+//! size, and carries the drawing's title and description as its `Title`
+//! and `Description`.
 
-use super::{RenderError, parse};
+use super::{RenderError, parse, texts};
 use resvg::tiny_skia::{Pixmap, Transform};
 
 /// What a user may vary in a PNG beyond the drawing's style.
@@ -70,7 +74,42 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
         Transform::from_scale(factor, factor),
         &mut pixmap.as_mut(),
     );
-    pixmap
-        .encode_png()
-        .map_err(|e| RenderError::Failed(e.to_string()))
+    let (title, description) = texts(svg);
+    encode(&pixmap, scale, title, description).map_err(|e| RenderError::Failed(e.to_string()))
+}
+
+/// Returns a pixmap as PNG bytes with the image's colour space, density,
+/// title and description.
+fn encode(
+    pixmap: &Pixmap,
+    scale: u32,
+    title: Option<String>,
+    description: Option<String>,
+) -> Result<Vec<u8>, png::EncodingError> {
+    let mut data = Vec::with_capacity(pixmap.data().len());
+    for pixel in pixmap.pixels() {
+        let colour = pixel.demultiply();
+        data.extend([colour.red(), colour.green(), colour.blue(), colour.alpha()]);
+    }
+    let mut bytes = Vec::new();
+    let mut encoder = png::Encoder::new(&mut bytes, pixmap.width(), pixmap.height());
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+    // 96 pixels per inch at scale 1, per metre and rounded.
+    let density = u32::try_from((u64::from(scale) * 960_000 + 127) / 254).unwrap_or(u32::MAX);
+    encoder.set_pixel_dims(Some(png::PixelDimensions {
+        xppu: density,
+        yppu: density,
+        unit: png::Unit::Meter,
+    }));
+    for (keyword, text) in [("Title", title), ("Description", description)] {
+        if let Some(text) = text {
+            encoder.add_itxt_chunk(keyword.to_owned(), text)?;
+        }
+    }
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(&data)?;
+    writer.finish()?;
+    Ok(bytes)
 }

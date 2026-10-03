@@ -506,6 +506,7 @@ dependencies = [
  "foldhash",
  "krilla",
  "krilla-svg",
+ "png",
  "rayon",
  "resvg",
  "roxmltree 0.21.1",

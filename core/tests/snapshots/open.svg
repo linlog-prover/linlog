@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="163.856" height="71.84" viewBox="0 0 10241 4490" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="163.856" height="71.84" viewBox="0 0 10241 4490" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>A, A ⊸ B ⊢ B</title>
+<desc>1. A ⊢ A, by ax.
+2. B ⊢ B, open.
+3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M300 2890H8486"/>
 <path d="M300 1390H3204"/>

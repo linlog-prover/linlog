@@ -35,7 +35,9 @@ Workspace crates:
   formats `text`, `json`, `latex`, `typst` and `rocq` (with
   `--standalone` for a document), `svg`, `png` and `pdf` (the last two
   with the Euler Math font the command embeds, `cli/fonts/` with its
-  OFL), by `--format` or else the `--output` file's extension; `--net`
+  OFL; the PDF is PDF/A-4, PDF/A-2u with `pdf.compatible`, PDF/A-2a and
+  PDF/UA-1 with `pdf.accessible`, dated by `SOURCE_DATE_EPOCH` or the
+  clock), by `--format` or else the `--output` file's extension; `--net`
   writes the proof net instead of the derivation; `--style KEY=VALUE`,
   `--style-file`, `--lemma` and `--prelude` set every format's options
   (`style.rs`); `--tree
@@ -262,7 +264,8 @@ its own) and a CLI proof with pdfLaTeX and with Typst and the curryst of
 nixpkgs (the version `export::typst::CURRYST` names), with no font but
 Typst's own, renders the SVG snapshots and CLI drawings with resvg with
 only the Euler Math font of nixpkgs' TeX Live, and checks the CLI's PNG
-(pngcheck) and PDF (poppler: the font embedded, the text extractable),
+(pngcheck) and PDF (poppler: the font embedded, the text extractable;
+veraPDF: every profile conforms),
 offline; `rocq.nix`
 is the `rocq` check, which builds NanoYalla from the non-flake input
 `nanoyalla` (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA`

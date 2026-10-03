@@ -5,7 +5,7 @@
 # pin in core/tests/snapshots (the fragments inside a document), and a
 # proof in each format as the CLI writes it, with pdfLaTeX from a minimal
 # TeX Live, Typst with curryst from nixpkgs and resvg, offline; the CLI's
-# PNG and PDF are checked with pngcheck and poppler. The curryst here is the version
+# PNG and PDF are checked with pngcheck, poppler and veraPDF. The curryst here is the version
 # `linlog::export::typst::CURRYST' names; they change together. The LaTeX
 # and Typst output names no font, so Typst sees only the fonts it embeds;
 # resvg sees Euler Math and no system font. Anything either prints fails
@@ -46,6 +46,7 @@
               pkgs.resvg
               pkgs.pngcheck
               pkgs.poppler-utils
+              pkgs.verapdf
             ];
           }
           ''
@@ -81,6 +82,16 @@
             linlog prove -i --output cli.pdf '!A, A -o B |- B * !A' 2>/dev/null
             pdffonts cli.pdf | grep -q Euler-Math
             pdftotext cli.pdf - | grep -q '⊢'
+            # Every profile conforms, by veraPDF: PDF/A-4 by default,
+            # PDF/A-2u compatible, PDF/A-2a and PDF/UA-1 accessible. The
+            # date is the build's SOURCE_DATE_EPOCH.
+            linlog prove -i --style compatible=true --output cli-2u.pdf '!A, A -o B |- B * !A' 2>/dev/null
+            linlog prove -i --style accessible=true --output cli-ua.pdf '!A, A -o B |- B * !A' 2>/dev/null
+            for check in "cli.pdf 4" "cli-net.pdf 4" "cli-2u.pdf 2u" "cli-ua.pdf 2a" "cli-ua.pdf ua1"; do
+              set -- $check
+              verapdf --format text --flavour "$2" "$1" >verdict 2>&1
+              grep -q '^PASS' verdict || { cat verdict; exit 1; }
+            done
             for file in *.tex; do
               pdflatex -interaction=nonstopmode -halt-on-error "$file" >/dev/null ||
                 { cat "''${file%.tex}.log"; exit 1; }

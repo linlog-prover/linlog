@@ -68,7 +68,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   command embeds (`FONT`, `cli/fonts/`, its OFL beside it; the crane
   source keeps that directory), never written to a terminal, their
   verdict and notes on standard error and their output without a
-  closing newline. `--copies N|none` (`Bound`, default `none`,
+  closing newline. A PDF's date is `SOURCE_DATE_EPOCH` when it is set,
+  else the clock (`made`); the tests set it, so their PDFs are byte for
+  byte the same. An accessible PDF (`--style pdf.accessible=true`)
+  prints a note on standard error that a screen reader reads the
+  drawing's description, not the drawing. `--copies N|none` (`Bound`, default `none`,
   on `prove` and `interact`) is `Options::copies`: by default the
   focused engine's deepening goes on until it decides or the time limit
   passes, and with a number it ends there with `unknown … the copy

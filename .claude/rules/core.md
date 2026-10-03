@@ -2291,23 +2291,53 @@ for NanoYalla. What the code relies on:
   links never cross). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
   it); all coordinates are integers, so the output is byte-stable.
-- **PNG and PDF render the SVG** (`export/png.rs` with resvg,
-  `export/pdf.rs` with krilla and krilla-svg, features `png` and `pdf`,
-  `export::parse` shared): `from_svg(svg, fonts, &options)` takes the
-  SVG text any drawing gives and the data of font files, and nothing
-  else, so the bytes are a function of the arguments. What keeps them
-  so: resvg without its default features (no `system-fonts`, no
-  `memmap-fonts`: fontdb is built without file access), and krilla
-  writes no date and derives its document id from a hash of the bytes;
-  calling `load_system_fonts`, or turning those features on, ends both.
-  A text whose font is missing is dropped by usvg without an error,
+- **PNG and PDF render the SVG** (`export/png.rs` with resvg and the
+  png encoder, `export/pdf.rs` with krilla and krilla-svg, features
+  `png` and `pdf`, `export::parse` and `export::texts` shared):
+  `from_svg(svg, fonts, &options)` takes the SVG text any drawing gives
+  and the data of font files, and nothing else, so the bytes are a
+  function of the arguments. What keeps them so: resvg without its
+  default features (no `system-fonts`, no `memmap-fonts`: fontdb is
+  built without file access), krilla's document id is a hash of the
+  bytes, and **the crate reads no clock**: a PDF's date is
+  `pdf::Options::date`, and without one `from_svg` answers
+  `RenderError::NoDate` (every PDF/A part requires a date; the command
+  takes `SOURCE_DATE_EPOCH` or the clock, `pdf::Date::from_unix`).
+  Calling `load_system_fonts`, or turning those resvg features on, ends
+  it. A text whose font is missing is dropped by usvg without an error,
   which is why the fonts are an argument and the command embeds Euler
-  Math (`cli/fonts/`, with its OFL). PNG is bounded in pixels
-  (`png::Options::pixels`, `RenderError::TooLarge` before anything is
-  allocated); a PDF page is the drawing at 0.75 pt per pixel. krilla-svg
-  pins usvg 0.47, so resvg stays at 0.47 with it: one usvg tree serves
-  both, and `deny.toml` ignores the unmaintained rustybuzz and
-  ttf-parser beneath them until krilla moves on.
+  Math (`cli/fonts/`, with its OFL). krilla-svg switches krilla's
+  default features on, so none can be turned off there.
+- **The PDF is always PDF/A** (the author's decision): PDF/A-4 (PDF 2.0)
+  by default, PDF/A-2u (PDF 1.7) with `compatible`, PDF/A-2a with
+  PDF/UA-1 (PDF 1.7) with `accessible`, whatever `compatible` says,
+  until krilla has PDF/UA-2; then `accessible` alone moves to PDF/A-4
+  with PDF/UA-2 and no caller changes. krilla validates on `finish`, the
+  `export` check validates with veraPDF. The accessible document is
+  tagged by hand around `draw_svg`, which tags nothing: one `Figure`
+  whose alternative text is the drawing's `<desc>`, a one-entry outline
+  (PDF/UA-1 in krilla requires one), the title and language in the
+  metadata. Facts behind the default (2026-10): Typst 0.15 refuses a
+  PDF 2.0 image without `--pdf-standard 2.0` (it takes the SVG), pdfTeX
+  and LuaTeX warn about the version, Chromium shows no title from an
+  XMP-only file, and the UK National Archives, KOST-CECO, ETH Library,
+  the USPTO and the Bundesarchiv (without consultation) do not list
+  PDF/A-4: that is what `compatible` is for.
+- **A drawing is accessible SVG**: `role="img"` on the root, `<title>`
+  its accessible name, and with `Style::description` a `<desc>` that
+  reads it in order (`Derivation::write_steps`: numbered inferences,
+  premises first; a net's text form), which the PNG carries as its
+  `Description` and the accessible PDF as its figure's alternative
+  text. No ids on the two, so that inlining several drawings in one
+  page cannot collide (SVG-AAM takes them from the elements).
+- **The PNG declares itself**: sRGB, a density of 96 dpi times the
+  scale (so a viewer shows it at the drawing's size), `Title` and
+  `Description` as iTXt; a pixel bound (`png::Options::pixels`)
+  refuses before anything is allocated.
+- **Dependency versions**: krilla-svg pins usvg 0.47, so resvg stays at
+  0.47 with it: one usvg tree serves both, and `deny.toml` ignores the
+  unmaintained rustybuzz and ttf-parser beneath them until krilla moves
+  on.
 - **A superscript or subscript is its own `<text>`**, never a `<tspan>`
   with `dy`: resvg (which Typst uses to draw SVG images) spreads
   `textLength` wrongly across such a tspan, while every renderer agrees

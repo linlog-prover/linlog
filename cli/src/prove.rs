@@ -681,8 +681,36 @@ const FONT: &[u8] = include_bytes!("../fonts/Euler-Math.otf");
 pub(crate) fn render(svg: &str, format: Format, styles: &Styles) -> Result<Vec<u8>> {
     match format {
         Format::Png => Ok(png::from_svg(svg, &[FONT], &styles.png)?),
-        _ => Ok(pdf::from_svg(svg, &[FONT], &styles.pdf)?),
+        _ => {
+            let mut options = styles.pdf.clone();
+            if options.date.is_none() {
+                options.date = Some(made()?);
+            }
+            if options.accessible {
+                eprintln!(
+                    "note: the accessible PDF tags the drawing as one figure; a screen reader \
+                     reads its description, a numbered reading of the proof, not the drawing, \
+                     and a long proof may still be hard to follow"
+                );
+            }
+            Ok(pdf::from_svg(svg, &[FONT], &options)?)
+        }
     }
+}
+
+/// Returns the date a document is made: `SOURCE_DATE_EPOCH`, the seconds
+/// since the Unix epoch that reproducible builds set, or else the clock.
+fn made() -> Result<pdf::Date> {
+    let seconds = match std::env::var("SOURCE_DATE_EPOCH") {
+        Ok(text) => text
+            .trim()
+            .parse()
+            .with_context(|| format!("SOURCE_DATE_EPOCH is {text:?}, not a number of seconds"))?,
+        Err(_) => std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_secs()),
+    };
+    Ok(pdf::Date::from_unix(seconds))
 }
 
 /// Writes the proof net of a proof into `out` as `show` asks: as text, or

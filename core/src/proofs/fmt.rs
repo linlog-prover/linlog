@@ -356,6 +356,45 @@ impl Derivation<'_> {
     }
 }
 
+impl Derivation<'_> {
+    /// Writes the derivation as a numbered list of its inferences, one per
+    /// line, premises before their conclusion and the conclusion last:
+    /// `3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.` An open goal is `open`.
+    /// This is the reading of a derivation for a screen reader, which
+    /// cannot follow a tree. Asks `stop` before every line.
+    pub fn write_steps(
+        &self,
+        out: &mut impl Write,
+        mut stop: impl FnMut() -> bool,
+    ) -> Result<(), WriteError> {
+        for (i, inference) in self.inferences().iter().enumerate() {
+            if stop() {
+                return Err(WriteError::Stopped);
+            }
+            if i > 0 {
+                out.write_char('\n')?;
+            }
+            write!(out, "{}. ", i + 1)?;
+            write_sequent(out, self.forest(), self.reading(), &inference.sequent)?;
+            if inference.rule == Rule::Open {
+                out.write_str(", open.")?;
+                continue;
+            }
+            write!(out, ", by {}", inference.rule.name())?;
+            for (k, p) in inference.premises.iter().enumerate() {
+                let joint = match k {
+                    0 => " from ",
+                    _ if k + 1 == inference.premises.len() => " and ",
+                    _ => ", ",
+                };
+                write!(out, "{joint}{}", p.index() + 1)?;
+            }
+            out.write_char('.')?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for Derivation<'_> {
     /// Draws the derivation as a tree of sequents under the default
     /// [`TextOptions`], one line per row, without a trailing newline.

@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="181.056" height="110.592" viewBox="0 0 11316 6912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="181.056" height="110.592" viewBox="0 0 11316 6912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>1, A &amp; B, B ⊸ C ⊢ C</title>
+<desc>1. B ⊢ B, by ax.
+2. C ⊢ C, by ax.
+3. B, B ⊸ C ⊢ C, by ⊸L from 1 and 2.
+4. A &amp; B, B ⊸ C ⊢ C, by &amp;L₂ from 3.
+5. 1, A &amp; B, B ⊸ C ⊢ C, by 1L from 4.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M300 5312H9970"/>
 <path d="M855 3812H9416"/>

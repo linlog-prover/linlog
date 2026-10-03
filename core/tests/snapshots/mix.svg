@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="195.232" height="62.592" viewBox="0 0 12202 3912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="195.232" height="62.592" viewBox="0 0 12202 3912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥, B⊥, A, B</title>
+<desc>1. ⊢ ~A, A, by ax.
+2. ⊢ ~B, B, by ax.
+3. ⊢ ~A, ~B, A, B, by mix from 1 and 2.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M300 2312H10262"/>
 <path d="M300 812H4092"/>

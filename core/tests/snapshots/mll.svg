@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="186.72" height="86.592" viewBox="0 0 11670 5412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="186.72" height="86.592" viewBox="0 0 11670 5412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
+<desc>1. ⊢ ~B, B, by ax.
+2. ⊢ ~A, A, by ax.
+3. ⊢ ~A, ~B, B ⊗ A, by ⊗ from 1 and 2.
+4. ⊢ ~A ⅋ ~B, B ⊗ A, by ⅋ from 3.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M1056 3812H9507"/>
 <path d="M300 2312H10262"/>

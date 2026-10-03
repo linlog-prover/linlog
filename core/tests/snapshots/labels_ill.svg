@@ -1,5 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1687.312" height="230.592" viewBox="0 0 105457 14412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="1687.312" height="230.592" viewBox="0 0 105457 14412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ (((A ⊸ ((A ⊸ B) ⊸ B)) &amp; ((A ⊗ B) ⊸ (B ⊗ A))) &amp; (((A &amp; B) ⊸ A) &amp; ((A &amp; B) ⊸ B))) &amp; ((((A ⊕ B) ⊸ (B ⊕ A)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ A) &amp; ⊤) &amp; ((!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1)))))</title>
+<desc>1. A ⊢ A, by ax.
+2. B ⊢ B, by ax.
+3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.
+4. A ⊢ (A ⊸ B) ⊸ B, by ⊸R from 3.
+5. ⊢ A ⊸ ((A ⊸ B) ⊸ B), by ⊸R from 4.
+6. B ⊢ B, by ax.
+7. A ⊢ A, by ax.
+8. A, B ⊢ B ⊗ A, by ⊗R from 6 and 7.
+9. A ⊗ B ⊢ B ⊗ A, by ⊗L from 8.
+10. ⊢ (A ⊗ B) ⊸ (B ⊗ A), by ⊸R from 9.
+11. ⊢ (A ⊸ ((A ⊸ B) ⊸ B)) &amp; ((A ⊗ B) ⊸ (B ⊗ A)), by &amp;R from 5 and 10.
+12. A ⊢ A, by ax.
+13. A &amp; B ⊢ A, by &amp;L₁ from 12.
+14. ⊢ (A &amp; B) ⊸ A, by ⊸R from 13.
+15. B ⊢ B, by ax.
+16. A &amp; B ⊢ B, by &amp;L₂ from 15.
+17. ⊢ (A &amp; B) ⊸ B, by ⊸R from 16.
+18. ⊢ ((A &amp; B) ⊸ A) &amp; ((A &amp; B) ⊸ B), by &amp;R from 14 and 17.
+19. ⊢ ((A ⊸ ((A ⊸ B) ⊸ B)) &amp; ((A ⊗ B) ⊸ (B ⊗ A))) &amp; (((A &amp; B) ⊸ A) &amp; ((A &amp; B) ⊸ B)), by &amp;R from 11 and 18.
+20. A ⊢ A, by ax.
+21. A ⊢ B ⊕ A, by ⊕R₂ from 20.
+22. B ⊢ B, by ax.
+23. B ⊢ B ⊕ A, by ⊕R₁ from 22.
+24. A ⊕ B ⊢ B ⊕ A, by ⊕L from 21 and 23.
+25. ⊢ (A ⊕ B) ⊸ (B ⊕ A), by ⊸R from 24.
+26. ⊢ 1, by 1R.
+27. 1 ⊢ 1, by 1L from 26.
+28. ⊢ 1 ⊸ 1, by ⊸R from 27.
+29. ⊢ ((A ⊕ B) ⊸ (B ⊕ A)) &amp; (1 ⊸ 1), by &amp;R from 25 and 28.
+30. 0 ⊢ A, by 0L.
+31. ⊢ 0 ⊸ A, by ⊸R from 30.
+32. ⊢ ⊤, by ⊤R.
+33. ⊢ (0 ⊸ A) &amp; ⊤, by &amp;R from 31 and 32.
+34. A ⊢ A, by ax.
+35. !A ⊢ A, by !L from 34.
+36. A ⊢ A, by ax.
+37. !A ⊢ A, by !L from 36.
+38. !A, !A ⊢ A ⊗ A, by ⊗R from 35 and 37.
+39. !A ⊢ A ⊗ A, by !c from 38.
+40. ⊢ !A ⊸ (A ⊗ A), by ⊸R from 39.
+41. A ⊢ A, by ax.
+42. !A ⊢ A, by !L from 41.
+43. !A ⊢ !A, by !R from 42.
+44. ⊢ !A ⊸ !A, by ⊸R from 43.
+45. ⊢ 1, by 1R.
+46. !A ⊢ 1, by !w from 45.
+47. ⊢ !A ⊸ 1, by ⊸R from 46.
+48. ⊢ (!A ⊸ !A) &amp; (!A ⊸ 1), by &amp;R from 44 and 47.
+49. ⊢ (!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1)), by &amp;R from 40 and 48.
+50. ⊢ ((0 ⊸ A) &amp; ⊤) &amp; ((!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1))), by &amp;R from 33 and 49.
+51. ⊢ (((A ⊕ B) ⊸ (B ⊕ A)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ A) &amp; ⊤) &amp; ((!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1)))), by &amp;R from 29 and 50.
+52. ⊢ (((A ⊸ ((A ⊸ B) ⊸ B)) &amp; ((A ⊗ B) ⊸ (B ⊗ A))) &amp; (((A &amp; B) ⊸ A) &amp; ((A &amp; B) ⊸ B))) &amp; ((((A ⊕ B) ⊸ (B ⊕ A)) &amp; (1 ⊸ 1)) &amp; (((0 ⊸ A) &amp; ⊤) &amp; ((!A ⊸ (A ⊗ A)) &amp; ((!A ⊸ !A) &amp; (!A ⊸ 1))))), by &amp;R from 19 and 51.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M2267 12812H96754"/>
 <path d="M955 11312H42195"/>

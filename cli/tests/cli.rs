@@ -13,6 +13,8 @@ use std::process::{Command, Stdio};
 fn linlog(args: &[&str], stdin: &str) -> (i32, String, String) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
         .args(args)
+        // A PDF's date, so that every run writes the same bytes.
+        .env("SOURCE_DATE_EPOCH", "1791158399")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -963,6 +965,18 @@ fn every_style_option() {
         (&ill, "png", "scale", "1", true),
         (&ill, "png", "pixels", "100", true),
         (&ill, "pdf", "embed_text", "false", true),
+        (&ill, "pdf", "compatible", "true", true),
+        (&ill, "pdf", "accessible", "true", true),
+        (&ill, "pdf", "title", "\"A proof\"", true),
+        (&ill, "pdf", "language", "\"de\"", true),
+        (
+            &ill,
+            "pdf",
+            "date",
+            "{\"year\":2027,\"month\":1,\"day\":2,\"hour\":3,\"minute\":4,\"second\":5}",
+            true,
+        ),
+        (&ill, "svg", "description", "false", true),
         (&["A |- A"], "rocq", "form", "\"standalone\"", true),
         (&["A |- A"], "rocq", "lemma", "\"identity\"", true),
         (

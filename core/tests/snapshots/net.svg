@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="122.752" height="85.888" viewBox="0 0 7672 5368" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="122.752" height="85.888" viewBox="0 0 7672 5368" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
+<desc>⊢ ~A ⅋ ~B, B ⊗ A
+~A[1] — A[5]
+~B[2] — B[4]
+proof net</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <circle id="o0" cx="2152" cy="4278" r="380"/>
 <circle id="o3" cx="6130" cy="4278" r="380"/>

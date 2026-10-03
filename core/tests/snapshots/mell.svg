@@ -1,5 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="197.632" height="158.592" viewBox="0 0 12352 9912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="197.632" height="158.592" viewBox="0 0 12352 9912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ ?A⊥, ?B⊥, !(A ⊗ A)</title>
+<desc>1. ⊢ ~A, A, by ax.
+2. ⊢ ?~A, A, by ?d from 1.
+3. ⊢ ~A, A, by ax.
+4. ⊢ ?~A, A, by ?d from 3.
+5. ⊢ ?~A, ?~A, A ⊗ A, by ⊗ from 2 and 4.
+6. ⊢ ?~A, A ⊗ A, by ?c from 5.
+7. ⊢ ?~A, !(A ⊗ A), by ! from 6.
+8. ⊢ ?~A, ?~B, !(A ⊗ A), by ?w from 7.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M966 8312H10414"/>
 <path d="M2086 6812H9295"/>

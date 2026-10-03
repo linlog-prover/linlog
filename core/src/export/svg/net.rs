@@ -208,5 +208,12 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     } else {
         next - gap + margin
     };
-    document(style, &title, width, end + stroke + margin, &body)
+    let description = style.description.then(|| net.to_string());
+    document(
+        style,
+        &title,
+        description.as_deref(),
+        (width, end + stroke + margin),
+        &body,
+    )
 }
