@@ -97,9 +97,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   names flags) and the derivation through the library's `write` under
   the format's options from `Styles`; `--standalone` makes the LaTeX,
   Typst or Rocq output a document and is refused, exit 2, for the
-  others (`form`: an SVG is always a whole document). An unprovable
-  sequent prints the comment alone, which is not an XML document; the
-  exit status says why. In intuitionistic mode the two-sided derivation
+  others (`form`: an SVG is always a whole document). A drawing format
+  (SVG, PNG, PDF) writes a whole drawing or nothing (`Show::holds`,
+  `Show::close`): the SVG's verdict comment waits for the drawing
+  (`Show::open` returns it as the derivation's prefix), and without a
+  drawing (unprovable, invalid, left out, `--quiet`) the verdict goes to
+  standard error and no file is made, since a comment alone is no XML
+  document and an empty file no image. A derivation cut short by the
+  time limit in any format leaves no file; on standard output it stays
+  as far as it came, with the reason after it. In intuitionistic mode the two-sided derivation
   goes to Rocq and is certified one-sided; a proof with Mix or affine
   weakening is exit 2 with the library's `Unsupported` message, after
   the search, and standard output stays empty. `seq print --format`

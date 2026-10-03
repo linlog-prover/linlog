@@ -756,8 +756,8 @@ fn rocq_format() {
 }
 
 /// `--format svg`, with and without `--net`, prints the verdict as an XML
-/// comment, with no `--` in it, and the derivation or the proof net as an
-/// SVG document, for `prove`, `check`, `seq print` and the session's
+/// comment, with no `--` in it, before the derivation or the proof net as
+/// an SVG document, and nothing without one, for `prove`, `check`, `seq print` and the session's
 /// `show`; an SVG is always a document, so `--standalone` is refused.
 #[test]
 fn svg_formats() {
@@ -774,9 +774,11 @@ fn svg_formats() {
     assert!(out.contains("<circle id=\"o0\""), "{out}");
     let bounds = ["--copies", "0", "--forward-copies", "0"];
     let args = [&["prove", "--format", "svg"], &bounds[..], &["|- ?A"]].concat();
-    let (status, out, _) = linlog(&args, "");
-    assert_eq!(status, 3);
-    assert!(out.contains("while the time limit lasts -->"), "{out}");
+    // Without a drawing an SVG output is nothing, never a comment alone;
+    // the verdict goes to standard error.
+    let (status, out, err) = linlog(&args, "");
+    assert_eq!((status, out.as_str()), (3, ""));
+    assert!(err.contains("while the time limit lasts"), "{err}");
     let (status, out, _) = linlog(&["seq", "print", "--format", "svg", "A |- A"], "");
     assert_eq!(status, 0);
     assert!(out.contains("<title>⊢ A⊥, A</title>"), "{out}");
@@ -853,6 +855,11 @@ fn binary_formats() {
             .unwrap()
             .starts_with("provable")
     );
+    // An unprovable sequent leaves no drawing, so no file.
+    let none = scratch("none.pdf");
+    let (status, _, _) = linlog(&["prove", "-o", none.to_str().unwrap(), "A |- B"], "");
+    assert_eq!(status, 1);
+    assert!(!none.exists());
     let (status, _, err) = linlog(&["prove", "--net", "--format", "latex", "A |- A"], "");
     assert_eq!(status, 2);
     assert!(

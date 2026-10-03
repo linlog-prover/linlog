@@ -266,8 +266,9 @@ impl Session {
                     let mut show = Show::session(format, self.view, self.styles.clone());
                     show.verdict = path.is_none();
                     let stopped = || "stopped".to_owned();
-                    match derivation(&proof, mode, &show, || false, stopped, &mut text)? {
-                        Shown::LeftOut(line) => {
+                    let prefix = (!text.is_empty()).then_some("\n");
+                    match derivation(&proof, mode, &show, || false, stopped, prefix, &mut text)? {
+                        Shown::LeftOut(line) | Shown::Cut(line) => {
                             text.push('\n');
                             text.push_str(&line);
                         }

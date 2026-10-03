@@ -169,6 +169,9 @@ pub(crate) struct Show {
     pub(crate) format: Format,
     /// Whether the proof net is written rather than the derivation.
     pub(crate) net: bool,
+    /// Whether the output goes to a file, which is written whole or not
+    /// at all.
+    file: bool,
     /// The options of every format.
     pub(crate) styles: Styles,
     /// The bound on what is built.
@@ -235,6 +238,7 @@ impl Show {
         Ok(Self {
             format,
             net: output.net,
+            file: output.output.is_some(),
             styles,
             view: output.derivation_limit.into(),
             tree: output.tree,
@@ -258,6 +262,7 @@ impl Show {
         Self {
             format,
             net: false,
+            file: false,
             styles,
             view,
             tree: Tree::Always,
@@ -288,6 +293,73 @@ impl Show {
             return Ok(());
         }
         out.write_str(&note(self.format, line))
+    }
+
+    /// Whether the verdict waits for the drawing: an SVG document is the
+    /// drawing with the verdict as a comment before it, or nothing at
+    /// all, never a comment alone, which is no XML document.
+    fn holds(&self) -> bool {
+        self.format == Format::Svg
+    }
+
+    /// Writes the verdict line at the start of the output, unless the
+    /// format holds it for its drawing, and returns what goes before the
+    /// derivation or the net when one is written: a newline after a
+    /// verdict line, the held verdict, or nothing.
+    fn open(&self, out: &mut impl Write, line: Option<&str>) -> Result<Option<String>> {
+        Ok(match line {
+            Some(line) if self.holds() => Some(format!("{}\n", note(self.format, line))),
+            Some(line) => {
+                self.verdict_line(out, line)?;
+                self.separator().map(str::to_owned)
+            }
+            None => None,
+        })
+    }
+
+    /// Writes a line after the derivation as a comment of the format, or
+    /// to standard error where the output has no place for it: a binary
+    /// format, or a held verdict whose drawing never came.
+    fn after(&self, out: &mut impl Write, line: &str, drawn: bool) -> std::fmt::Result {
+        if self.holds() && !drawn {
+            eprintln!("{line}");
+            return Ok(());
+        }
+        self.note(out, line)
+    }
+
+    /// Writes what became of the derivation, and returns whether the
+    /// output is to be finished: rendered bytes; the line of a derivation
+    /// left out; a held verdict whose drawing never came, to standard
+    /// error. A drawing format (SVG, PNG, PDF) writes a whole drawing or
+    /// nothing, so without a drawing the output is not finished, and no
+    /// file is made. A derivation cut short in a file leaves no file
+    /// either: the verdict and the reason go to standard error. Cut short
+    /// on standard output, it stays as far as it came, with the reason
+    /// after it.
+    fn close(&self, out: &mut io::Output, shown: Shown, line: Option<&str>) -> Result<bool> {
+        let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));
+        match shown {
+            Shown::Rendered(bytes) => out.stream().write_all(&bytes)?,
+            Shown::LeftOut(reason) if self.holds() => eprintln!("{reason}"),
+            Shown::LeftOut(reason) => self.left_out(out, &reason)?,
+            Shown::Cut(reason) if self.file => {
+                if let Some(line) = line.filter(|_| !self.format.is_binary()) {
+                    eprintln!("{line}");
+                }
+                eprintln!("{reason}; the output file is not written");
+                return Ok(false);
+            }
+            Shown::Cut(reason) => self.note(out, &reason)?,
+            Shown::Written | Shown::Nothing => {}
+        }
+        if self.holds()
+            && !drawn
+            && let Some(line) = line
+        {
+            eprintln!("{line}");
+        }
+        Ok(drawn || !(self.holds() || self.format.is_binary()))
     }
 
     /// What goes between the verdict line and the derivation: a newline
@@ -327,9 +399,12 @@ pub(crate) enum Shown {
     /// It was drawn as these bytes of a binary format, for the caller to
     /// write.
     Rendered(Vec<u8>),
-    /// It was left out, or cut short, for the reason this line gives with
-    /// the ways to get it.
+    /// It was left out, for the reason this line gives with the ways to
+    /// get it.
     LeftOut(String),
+    /// It was cut short while it was written, for the reason this line
+    /// gives: what came before stays written.
+    Cut(String),
     /// It was not asked for.
     Nothing,
 }
@@ -487,6 +562,7 @@ pub(crate) fn derivation(
     show: &Show,
     mut halt: impl FnMut() -> bool,
     why: impl Fn() -> String,
+    prefix: Option<&str>,
     out: &mut impl Write,
 ) -> Result<Shown> {
     if show.tree == Tree::Never {
@@ -566,10 +642,7 @@ pub(crate) fn derivation(
             Err(_) => Ok(stopped()),
         };
     }
-    let mut out = Prefixed {
-        out,
-        prefix: show.separator(),
-    };
+    let mut out = Prefixed { out, prefix };
     let written = match show.format {
         Format::Latex => latex::write(&d, &styles.latex, &mut out, &mut halt),
         Format::Typst => typst::write(&d, &styles.typst, &mut out, &mut halt),
@@ -581,7 +654,7 @@ pub(crate) fn derivation(
     };
     match written {
         Ok(()) => Ok(Shown::Written),
-        Err(WriteError::Stopped) => Ok(Shown::LeftOut(format!(
+        Err(WriteError::Stopped) => Ok(Shown::Cut(format!(
             "the derivation is cut short: {}",
             why()
         ))),
@@ -721,6 +794,7 @@ fn net_into(
     proof: &Proof,
     mode: Mode,
     show: &Show,
+    prefix: Option<&str>,
     out: &mut io::Output,
 ) -> Result<()> {
     let made;
@@ -731,7 +805,7 @@ fn net_into(
             &made
         }
     };
-    let separator = show.separator().unwrap_or("");
+    let separator = prefix.unwrap_or("");
     match show.format {
         Format::Svg => write!(out, "{separator}{}", svg::net(net, &show.styles.svg))?,
         Format::Png | Format::Pdf => {
@@ -840,10 +914,10 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             elapsed,
             recursion_limit: args.recursion_limit,
         };
-        if show.verdict {
-            let line = verdict_line(&outcome, args.fragment.is_some(), &ended);
-            show.verdict_line(&mut out, &line)?;
-        }
+        let line = show
+            .verdict
+            .then(|| verdict_line(&outcome, args.fragment.is_some(), &ended));
+        let prefix = show.open(&mut out, line.as_deref())?;
         // The time limit and Ctrl-C hold for the derivation as for the
         // search.
         let over = || interrupted() || deadline.passed();
@@ -859,26 +933,26 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         };
         let shown = match (&outcome.verdict, format, quiet) {
             (Verdict::Proved(proof), _, false) if show.net => {
-                net_into(outcome.net.as_ref(), proof, mode, &show, &mut out)?;
+                let found = outcome.net.as_ref();
+                net_into(found, proof, mode, &show, prefix.as_deref(), &mut out)?;
                 Shown::Written
             }
             (Verdict::Proved(_), _, false) if over() => {
                 Shown::LeftOut(format!("the derivation is not written: {}", why()))
             }
             (Verdict::Proved(proof), _, false) => {
-                derivation(proof, mode, &show, halt, why, &mut out)?
+                derivation(proof, mode, &show, halt, why, prefix.as_deref(), &mut out)?
             }
             _ => Shown::Nothing,
         };
-        match shown {
-            Shown::LeftOut(line) => show.left_out(&mut out, &line)?,
-            Shown::Rendered(bytes) => out.stream().write_all(&bytes)?,
-            Shown::Written | Shown::Nothing => {}
-        }
+        let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));
+        let keep = show.close(&mut out, shown, line.as_deref())?;
         if args.stats {
-            show.note(&mut out, &statistics(&outcome, elapsed))?;
+            show.after(&mut out, &statistics(&outcome, elapsed), drawn)?;
         }
-        out.finish()?;
+        if keep {
+            out.finish()?;
+        }
         anyhow::Ok(status)
     })??;
     Ok(status)
@@ -996,22 +1070,25 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     let path = args.output.output.clone();
     let valid = on_large_stack(Options::default().stack_size(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
-        let valid = check_into(&proof, mode, &show, quiet, &mut out)?;
-        out.finish()?;
+        let (valid, keep) = check_into(&proof, mode, &show, quiet, &mut out)?;
+        if keep {
+            out.finish()?;
+        }
         anyhow::Ok(valid)
     })??;
     Ok(if valid { Status::Yes } else { Status::No })
 }
 
 /// Checks the proof, writes the verdict and the derivation into `out`,
-/// and returns whether the proof is valid.
+/// and returns whether the proof is valid and whether the output is to
+/// be finished ([`Show::close`]).
 fn check_into(
     proof: &Proof,
     mode: Mode,
     show: &Show,
     quiet: bool,
     out: &mut io::Output,
-) -> Result<bool> {
+) -> Result<(bool, bool)> {
     let format = show.format;
     let result = proof.check_within(mode, show.view.memory);
     if let Err(refusal) = &result
@@ -1031,7 +1108,7 @@ fn check_into(
             "error": result.as_ref().err().map(report),
         });
         serde_json::to_writer(out.stream(), &verdict)?;
-        return Ok(result.is_ok());
+        return Ok((result.is_ok(), true));
     }
     // A sequent with no intuitionistic reading is an invalid proof in
     // intuitionistic mode, printed one-sided.
@@ -1051,22 +1128,18 @@ fn check_into(
         Ok(()) => format!("valid proof of {sequent} ({mode})"),
         Err(e) => format!("invalid proof of {sequent} ({mode}): {}", report(e)),
     };
-    if show.verdict || result.is_err() {
-        show.verdict_line(out, &line)?;
-    }
+    let line = (show.verdict || result.is_err()).then_some(line);
+    let prefix = show.open(out, line.as_deref())?;
     if result.is_err() || quiet {
-        return Ok(result.is_ok());
+        let keep = show.close(out, Shown::Nothing, line.as_deref())?;
+        return Ok((result.is_ok(), keep));
     }
     if show.net {
         nets_exist(proof.sequent(), mode)?;
-        net_into(None, proof, mode, show, out)?;
-        return Ok(true);
+        net_into(None, proof, mode, show, prefix.as_deref(), out)?;
+        return Ok((true, true));
     }
     let stopped = || "stopped".to_owned();
-    match derivation(proof, mode, show, || false, stopped, out)? {
-        Shown::LeftOut(line) => show.left_out(out, &line)?,
-        Shown::Rendered(bytes) => out.stream().write_all(&bytes)?,
-        Shown::Written | Shown::Nothing => {}
-    }
-    Ok(true)
+    let shown = derivation(proof, mode, show, || false, stopped, prefix.as_deref(), out)?;
+    Ok((true, show.close(out, shown, line.as_deref())?))
 }
