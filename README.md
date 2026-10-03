@@ -428,8 +428,10 @@ goal or all of them, `show` draws the derivation so far with the open
 goals as bare sequents (`show --latex`, `show --typst` and `show --svg`
 as proof trees), `save` and `load` keep a session as JSON, and `proof`
 checks the finished proof independently and prints it or writes it for
-`check` (`proof --rocq` certifies it, `proof --pdf FILE` draws it; every
-format of `prove` is a word with dashes there). In intuitionistic mode the goals are two-sided and the
+`check` (`proof --rocq` certifies it, `proof --pdf FILE` draws it, and
+`show proof.pdf` writes the derivation so far, open goals included;
+every format of `prove` is a word with dashes there, and a file without
+one takes the format its extension names). In intuitionistic mode the goals are two-sided and the
 rules carry the names of ILL:
 
 ```console
@@ -565,9 +567,10 @@ $ linlog seq print --format svg "A |- A"
 page (its text selectable), in the Euler Math font the command carries;
 with `--output` the extension names the format, which `--format`
 overrides, and the verdict goes to standard error. Neither is written to
-a terminal. A drawing format writes a whole drawing or nothing: for an
-unprovable sequent the verdict goes to standard error and no file is
-made. The PDF is an archival PDF/A-4 document (PDF 2.0);
+a terminal. A file is made only with a derivation or a net in it (or in
+JSON, always): for an unprovable sequent the verdict goes to standard
+error and no file is made, and an SVG on standard output is a drawing
+or nothing. The PDF is an archival PDF/A-4 document (PDF 2.0);
 `--style pdf.compatible=true` makes it PDF/A-2u (PDF 1.7) for tools and
 archives that take nothing newer, and `--style pdf.accessible=true` an
 accessible PDF/UA-1 document (PDF/A-2a), whose drawing a screen reader

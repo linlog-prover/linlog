@@ -69,14 +69,24 @@ to 9.
   (`Derivation::write_steps`), or a net as its links. The PNG carries
   title and description as iTXt and declares sRGB and its density (192
   dpi at the default scale 2, so it shows at the drawing's size).
-- **A drawing format writes a whole drawing or nothing** (found when
-  the author asked whether every output is well-formed): an unprovable
-  sequent had left an empty `.png` or `.pdf`, and an SVG that was its
-  verdict comment alone, no XML document (the latter since step 11, and
-  pinned by a test, which now pins the new behaviour). The SVG's verdict
-  now waits for the drawing, and without one goes to standard error
-  with no file made; a derivation cut short by the time limit leaves no
-  file in any format.
+- **An output is made only with something in it beyond the verdict.**
+  Found when the author asked whether every output is well-formed: an
+  unprovable sequent had left an empty `.png` or `.pdf`, and an SVG that
+  was its verdict comment alone, no XML document (the latter since step
+  11, and pinned by a test, which now pins the new behaviour). Then the
+  author: "a file should generally only be written if there is a proof
+  tree / net … whenever there is actually something that can be
+  output". So a file of any format but JSON holds a derivation or a net
+  or is not made, the verdict going to standard error; an SVG on
+  standard output is a drawing or nothing; a derivation cut short by the
+  time limit leaves no file. JSON is always written, being the outcome
+  with its refutation and statistics (this session's reading of
+  "something that can be output"); standard output keeps the verdict
+  line of the text formats, which is the answer on a terminal. An
+  earlier run's file at the path is left as it is (open question
+  below). The session's `show` writes the partial derivation to a file
+  (`show part.pdf`, open goals included); the bare `show latex` is gone,
+  a bare word being a file name as in `proof`.
 - **`--net` replaces the formats `net` and `net-svg`** (the author:
   no aliases, the command is free until the first release): it writes
   the proof net instead of the derivation in text, svg, png or pdf.
@@ -261,6 +271,11 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
   alike, and with it the PNG and PDF.
 
 ## Open questions, and what later steps must know
+
+- Whether a run that writes no file should remove a file an earlier
+  run left at the same path. It does not: removing a file the user did
+  not ask to have removed was not this session's to decide, and the
+  exit status says that no proof was found.
 
 - Step 28 (the API's surface): `RenderError` stands outside `Error` as
   the other export errors do; `rocq::Options::lemma` is not checked to
