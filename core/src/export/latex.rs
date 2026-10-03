@@ -15,12 +15,16 @@
 //! sequents are aligned in the tree with ebproof's `&` unless
 //! [`Options::align`] is off; one-sided sequents are centred.
 //!
-//! An atom named by one ASCII letter is written as it is, in math italic;
-//! any other name goes into `\mathit{…}`, with `\ { } $ # % & _` escaped by
-//! a backslash, `^`, `~` and `\` written as text, and a space kept. Other
-//! characters are written as they are: a name beyond ASCII needs a
-//! Unicode engine such as LuaLaTeX with `unicode-math`, or a declaration
-//! of the character for pdfLaTeX.
+//! An atom named by one ASCII letter is written as it is, in math italic,
+//! and one named by a Greek letter as its command (`\alpha`, `\Gamma`, or
+//! the Latin letter of a capital that looks like one); any other name goes
+//! into `\mathit{…}`, with `\ { } $ # % & _` escaped by a backslash, `^`,
+//! `~` and `\` written as text, a space kept, a Greek letter as its
+//! command in braces, and the `‿` and `·` of the names `lltp::read` makes
+//! as `\smallsmile` and `\cdotp`. So names of ASCII and Greek letters and
+//! those of the LLTP library compile with pdfLaTeX; any other character
+//! is written as it is and needs a Unicode engine such as LuaLaTeX with
+//! `unicode-math`, or a declaration of the character for pdfLaTeX.
 //!
 //! # Examples
 //!
@@ -82,14 +86,80 @@ const PREAMBLE: &str = r"\documentclass[border=5pt]{standalone}
 \usepackage{cmll}
 ";
 
+/// Returns the math-mode spelling of a Greek letter: its command, or
+/// the Latin letter of a capital that looks like one.
+fn greek(c: char) -> Option<&'static str> {
+    Some(match c {
+        'α' => r"\alpha",
+        'β' => r"\beta",
+        'γ' => r"\gamma",
+        'δ' => r"\delta",
+        'ε' => r"\varepsilon",
+        'ϵ' => r"\epsilon",
+        'ζ' => r"\zeta",
+        'η' => r"\eta",
+        'θ' => r"\theta",
+        'ϑ' => r"\vartheta",
+        'ι' => r"\iota",
+        'κ' => r"\kappa",
+        'λ' => r"\lambda",
+        'μ' => r"\mu",
+        'ν' => r"\nu",
+        'ξ' => r"\xi",
+        'ο' => "o",
+        'π' => r"\pi",
+        'ϖ' => r"\varpi",
+        'ρ' => r"\rho",
+        'ϱ' => r"\varrho",
+        'σ' => r"\sigma",
+        'ς' => r"\varsigma",
+        'τ' => r"\tau",
+        'υ' => r"\upsilon",
+        'φ' => r"\varphi",
+        'ϕ' => r"\phi",
+        'χ' => r"\chi",
+        'ψ' => r"\psi",
+        'ω' => r"\omega",
+        'Γ' => r"\Gamma",
+        'Δ' => r"\Delta",
+        'Θ' => r"\Theta",
+        'Λ' => r"\Lambda",
+        'Ξ' => r"\Xi",
+        'Π' => r"\Pi",
+        'Σ' => r"\Sigma",
+        'Υ' => r"\Upsilon",
+        'Φ' => r"\Phi",
+        'Ψ' => r"\Psi",
+        'Ω' => r"\Omega",
+        'Α' => "A",
+        'Β' => "B",
+        'Ε' => "E",
+        'Ζ' => "Z",
+        'Η' => "H",
+        'Ι' => "I",
+        'Κ' => "K",
+        'Μ' => "M",
+        'Ν' => "N",
+        'Ο' => "O",
+        'Ρ' => "P",
+        'Τ' => "T",
+        'Χ' => "X",
+        _ => return None,
+    })
+}
+
 /// Writes an atom's name in math mode.
 fn atom(out: &mut String, name: &str) {
     let mut chars = name.chars();
-    if let (Some(c), None) = (chars.next(), chars.next())
-        && c.is_ascii_alphabetic()
-    {
-        out.push(c);
-        return;
+    if let (Some(c), None) = (chars.next(), chars.next()) {
+        if c.is_ascii_alphabetic() {
+            out.push(c);
+            return;
+        }
+        if let Some(letter) = greek(c) {
+            out.push_str(letter);
+            return;
+        }
     }
     out.push_str(r"\mathit{");
     for c in name.chars() {
@@ -109,7 +179,20 @@ fn escape(out: &mut String, c: char) {
         '^' => out.push_str(r"\mbox{\textasciicircum}"),
         '~' => out.push_str(r"\mbox{\textasciitilde}"),
         ' ' => out.push_str(r"\ "),
-        c => out.push(c),
+        // `lltp::HYPHEN` and `lltp::DOT`, spelt out since `lltp` needs the
+        // `parse` feature.
+        '‿' => out.push_str(r"{\smallsmile}"),
+        '·' => out.push_str(r"{\cdotp}"),
+        // Braces keep a letter that follows from joining the command.
+        c => match greek(c) {
+            Some(letter) if letter.starts_with('\\') => {
+                out.push('{');
+                out.push_str(letter);
+                out.push('}');
+            }
+            Some(letter) => out.push_str(letter),
+            None => out.push(c),
+        },
     }
 }
 
@@ -329,8 +412,10 @@ mod tests {
         out
     }
 
-    /// One ASCII letter stays as it is; every other name is set in
-    /// `\mathit` with the special characters escaped.
+    /// One ASCII letter stays as it is and one Greek letter is its
+    /// command; every other name is set in `\mathit` with the special
+    /// characters escaped and Greek letters and `lltp`'s marks as commands
+    /// in braces.
     #[test]
     fn names_are_escaped() {
         for (name, expected) in [
@@ -338,7 +423,13 @@ mod tests {
             ("p", "p"),
             ("foo", r"\mathit{foo}"),
             ("x_1", r"\mathit{x\_1}"),
-            ("α", r"\mathit{α}"),
+            ("α", r"\alpha"),
+            ("Γ", r"\Gamma"),
+            ("Α", "A"),
+            ("αβ", r"\mathit{{\alpha}{\beta}}"),
+            ("Οx", r"\mathit{Ox}"),
+            ("P‿a·b", r"\mathit{P{\smallsmile}a{\cdotp}b}"),
+            ("é", r"\mathit{é}"),
             (
                 r"a{b}$#%&^~\ c",
                 r"\mathit{a\{b\}\$\#\%\&\mbox{\textasciicircum}\mbox{\textasciitilde}\mbox{\textbackslash}\ c}",

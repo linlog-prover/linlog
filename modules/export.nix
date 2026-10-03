@@ -1,7 +1,7 @@
 # linlog © Fabian Lukas Grubmüller 2026
 # Licensed under the EUPL
 
-# The exports compile and render: every derivation and net the core tests
+# The exports compile and render: every document the core tests
 # pin in core/tests/snapshots (the fragments inside a document), and a
 # proof in each format as the CLI writes it, with pdfLaTeX from a minimal
 # TeX Live, Typst with curryst from nixpkgs and resvg, offline; the CLI's

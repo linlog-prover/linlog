@@ -255,9 +255,17 @@ fn certificates() {
 }
 
 /// Sequents print as math, one-sided or two-sided, with longer names in
-/// italic and escaped.
+/// italic and escaped; Greek names and those of the LLTP library are
+/// pinned as a document that pdfLaTeX compiles.
 #[test]
 fn sequents() {
+    let sequent: Sequent = "α, Γ -o P‿a·b |- P‿a·b * Γα".parse().unwrap();
+    let options = latex::Options {
+        form: Form::Standalone,
+        ..latex::Options::default()
+    };
+    snapshot("names.tex", &latex::sequent(&sequent, &options));
+
     let sequent: Sequent = "x_1 * foo, !A |- ?B & 1, B".parse().unwrap();
     assert_eq!(
         latex::sequent(&sequent, &latex::Options::default()),
