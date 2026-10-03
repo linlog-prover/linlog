@@ -49,7 +49,10 @@ commands while you build, not only at the end), and before reporting
 progress audit each claim against a tool result from this session: only
 report work you can point to evidence for, say explicitly what is not yet
 verified, and if a check fails say so with its output. Prefer targeted edits
-to whole-file rewrites where the result is the same.
+to whole-file rewrites where the result is the same. Never weaken, delete or loosen a test, a check or
+a tolerance to make it pass: a failing test is reported with its output,
+and changed only where the behaviour it pins was meant to change, which
+the commit says.
 
 The machine is shared with its owner's other work. Every scratch program,
 yours or a sub-agent's, runs in a memory-capped scope of its own

@@ -1,15 +1,15 @@
-# Step 26: ordinary logic through its embeddings
+# Step 25: ordinary logic through its embeddings
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. This prompt is finished
-at the review of step 25. Read before you start:
+at the review of step 24. Read before you start:
 
 - `plan/later.md`: "Ordinary logic through its embeddings" (its layer,
   items 1 to 5, is the requirement; its termination work is not this
   step's).
 - `plan/reports/17-assessment.md`: 2.2, 3.13, and the author's answer 7.
-- `plan/reports/21-defaults.md`, `23-api.md`, `25-batch.md`.
+- `plan/reports/21-defaults.md`, `24-batch.md`.
 - `plan/README.md`: D15, D16, D19.
 
 ## Goal
@@ -42,15 +42,16 @@ the embeddings are worth seeing by themselves.
 5. A certificate over `Prop` for the ordinary statement, which needs no
    library.
 
-## What waits for the review of step 25
+## What waits for the review of step 24
 
 The batch mode's interface, through which the ILTP run goes; the names
-of step 23's API. Termination on dyadic sequents (a loop check, or a
+of the API as it stands (step 28 puts them in order). Termination on
+dyadic sequents (a loop check, or a
 bound proved enough for an image) is engine research: it is assessed in
 this step's report from what the ILTP run leaves undecided, and built
 only as a step of its own.
 
 ## Deliverables
 
-Thematic jj commits; `plan/reports/26-ordinary-logic.md` with the ILTP
+Thematic jj commits; `plan/reports/25-ordinary-logic.md` with the ILTP
 table per translation.

@@ -11,36 +11,37 @@ heading.
 
 | candidate | step | what step 17 changed in it |
 |---|---|---|
-| Code audit and refactoring | 23 (the API and data model), 24 (the command, the harness, the documents), 29 (the focused engine) | the audit is section 1 of step 17's report; the API may change freely (D18) and keeps the place for quantifiers (D17) |
+| Code audit and refactoring | 23 (what every session reads), 26 (the focused engine), 28 (the audit, the API and data model, the command, the harness, the documents; once, before the release, D23) | the audit is section 1 of step 17's report; the API may change freely (D18) and keeps the place for quantifiers (D17) |
 | Configurable output, no font | 22 | the curryst limit is reported upstream and closed as not planned (curryst issue 19), so the Typst tree of linlog's own is built, not weighed |
-| Net-engine pruning and routing | 34 | no verdict to gain (the focused engine is within a factor of three on the net engine's case); kept by D19, each row to be earned by a measurement; the cubes' defect on a pool is step 19's |
-| MELL proof nets with boxes | 32 | – |
-| Essential nets for IMLL | 34 | as an engine only where it beats the embedding; as a drawing regardless. Moot's paper is of 2004 (arXiv 2008) |
-| The focused inverse method | 36 | two cases left (many hypotheses, Mix); stays an option if it wins no row |
-| The !-Horn fragment through Petri-net reachability | 30 | reshaped: an engine of linlog's own with coverability for affine mode. KReach has not changed since 2020; the maintained tools (verifypn, Mist) are GPL-3.0 and could only be called, never linked |
-| Cyclic MLL and the Lambek calculus | 35 | – |
-| First-order linear logic | 37 | wanted (D17). First-order MALL is NEXPTIME-complete (Lincoln and Shankar 1994 for membership) |
-| A Rocq library of linlog's own | 28 | named `linlog`, under `rocq/` (D20). The Mix reduction is machine-checked in Yalla without cut (`mix2_to_ll`); Yalla's general Mix is on its untagged master only; a Lean target exists now (`leanprover/cslib` has classical linear logic with units), deferred until after step 28 |
+| Net-engine pruning and routing | 35 | no verdict to gain (the focused engine is within a factor of three on the net engine's case); kept by D19, each row to be earned by a measurement; the cubes' defect on a pool is step 19's |
+| MELL proof nets with boxes | 33 | – |
+| Essential nets for IMLL | 35 | as an engine only where it beats the embedding; as a drawing regardless. Moot's paper is of 2004 (arXiv 2008) |
+| The focused inverse method | 37 | two cases left (many hypotheses, Mix); stays an option if it wins no row |
+| The !-Horn fragment through Petri-net reachability | 27 | reshaped: an engine of linlog's own with coverability for affine mode. KReach has not changed since 2020; the maintained tools (verifypn, Mist) are GPL-3.0 and could only be called, never linked |
+| Cyclic MLL and the Lambek calculus | 36 | – |
+| First-order linear logic | 38 | wanted (D17). First-order MALL is NEXPTIME-complete (Lincoln and Shankar 1994 for membership) |
+| A Rocq library of linlog's own | 31 (after the release, D23) | named `linlog`, under `rocq/` (D20). The Mix reduction is machine-checked in Yalla without cut (`mix2_to_ll`); Yalla's general Mix is on its untagged master only; a Lean target exists now (`leanprover/cslib` has classical linear logic with units), deferred until after step 31 |
 | MALL proof nets | dropped | non-canonical or exponentially large: a display feature without a use |
-| A batch mode for the CLI | 25 | with LLTP input and the draft of the header report |
-| Ordinary logic through its embeddings | 26 | the layer; termination on the image of a translation is deferred and assessed in step 26's report (the literature terminates on the intuitionistic side: Dyckhoff's LJT, loop-checked LJ) |
-| The web front end | 27 | the bindings (`linlog-web`) in the workspace, the client in a repository of its own under the organization (D22) |
-| Problems from practice | 30 | the coverability suite of `blondimi/qcover` (176 instances, real non-theorems). Deferred: Model Checking Contest nets beyond the 76 LLTP used, and planning domains, for which no collection in linear logic exists. Dropped: Granule's synthesis benchmarks (graded signatures with data types, few of them propositional ILL) and llprover's examples (one file of 70 lines without a licence) |
+| A batch mode for the CLI | 24 | with LLTP input and the draft of the header report |
+| Ordinary logic through its embeddings | 25 | the layer; termination on the image of a translation is deferred and assessed in step 25's report (the literature terminates on the intuitionistic side: Dyckhoff's LJT, loop-checked LJ) |
+| The web front end | 32 (after the release, D23) | the bindings (`linlog-web`) in the workspace, the client in a repository of its own under the organization (D22) |
+| Problems from practice | 27 | the coverability suite of `blondimi/qcover` (176 instances, real non-theorems). Deferred: Model Checking Contest nets beyond the 76 LLTP used, and planning domains, for which no collection in linear logic exists. Dropped: Granule's synthesis benchmarks (graded signatures with data types, few of them propositional ILL) and llprover's examples (one file of 70 lines without a licence) |
 
 New from step 17, sketched in its report's section 5: a call that keeps
 its limits (steps 18, 19 and 20), the defaults a user meets and why a
-sequent is unprovable (21), cut and cut elimination (33), a release
-(31), the wrong LLTP headers (drafted in 25, the author reminded in 31).
+sequent is unprovable (21), cut and cut elimination (34), a release
+(30), the wrong LLTP headers (drafted in 24, the author reminded in 30);
+new on 2026-10-03, a comparison with the other provers (29, D23).
 
 Deferred beyond the table, with the reason: a search that can be
 suspended (an explicit stack in the focused engine; decided by what
-step 27 measures under wasm); a Lean certificate target (after 28); a
+step 32 measures under wasm); a Lean certificate target (after 31); a
 per-worker proof arena, the duplicated exploration of `&` premises, a
 thread sanitizer (no measurement asks); sharing more among
 interchangeable sequents, the order of a split search's members, the
 intersection for `&` (no target asks); the net engine on a sub-forest
 (no client asks). Dropped: the restart of a copy-bound level from the
-frontier and the tuning of the unit of work, if step 30's engine takes
+frontier and the tuning of the unit of work, if step 27's engine takes
 the nets; the member list, `OccSet` and link-time optimisation among the
 constant factors; Matsuoka's 3D-Matching family.
 
@@ -619,19 +620,19 @@ holding without it through `textLength`.
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,
 test-only, for the differential runs that reviewers so far wrote and
-threw away (the unfocused two-sided prover of step 8, for one): step 29, before
-it changes the engine; the engines of steps 30, 34 and 36 join its test.
+threw away (the unfocused two-sided prover of step 8, for one): step 26, before
+it changes the engine; the engines of steps 27, 35 and 37 join its test.
 The checker has its own since step 18 (`proofs/oracle.rs`). The check and the derivation of a large net:
 step 18. The forward search's missed stop and the portfolio's removal:
 19. The search's own memory: 20. The copy bound, the five sampled
 problems and the default's contract at the limit: 21. The Horn test on
 the goal, Mix's `3^n`, a level of recursion per link of a free chain and
-the first three constant factors: 29. The unit of work, the forward
+the first three constant factors: 26. The unit of work, the forward
 bound on Horn programs only, the restart from the frontier and the free
-splits without rows: superseded by step 30 if its engine takes the nets,
-else 29. A search that can be suspended: by step 27's measurement. The
-pool's split of threads between the two searches: measured in 31. A
-sound affine prune: step 30 answers it for Horn programs. The rest stays
+splits without rows: superseded by step 27 if its engine takes the nets,
+else 26. A search that can be suspended: by step 32's measurement. The
+pool's split of threads between the two searches: measured in 30. A
+sound affine prune: step 27 answers it for Horn programs. The rest stays
 as written.
 
 
@@ -806,7 +807,7 @@ meets first on a large problem, and come before any new engine:
   - *The zones of a memo key are bitsets of the forest's width*, nearly
     all of an entry on a forest of thousands of occurrences (528 of 536
     bytes on `SYJ202+1.008` in cbv); a sparse form would multiply what a
-    bound holds. Step 29, with the memo's other constant factors.
+    bound holds. Step 26, with the memo's other constant factors.
   - *The pool's arena is not collected* (its workers hold ids nobody
     can rename), so a pool reaches the bound sooner than one thread on
     a search that proves much.
@@ -822,15 +823,15 @@ meets first on a large problem, and come before any new engine:
     of the formula.
   - A proof file and a session's state are read under the default
     occurrence limit, whatever `--occurrence-limit` says: serde's
-    `Deserialize` takes no options. Step 23.
+    `Deserialize` takes no options. Step 28.
   - *The checker on a hostile file* (the review of step 20 assigned
     these): its pass polls no stop and can be made quadratic in time
-    within flat memory (step 23, with the checker's interface); an error
+    within flat memory (step 28, with the checker's interface); an error
     report with formulas is not bounded (step 22); the crate's hasher
     has a fixed seed, which the checker's tables now face untrusted
     input with (deferred: a seed per process would cost the
     reproducible runs, a second hasher for the checker would not); the
-    32-bit case of every integer argument (step 27, under wasm32).
+    32-bit case of every integer argument (step 32, under wasm32).
 - **The forward search misses its stop on the GPPP-1000 nets, by
   minutes.** On one thread they are killed past 10.5 s under a 5 s
   limit, or proved 0.7 to 1.0 s late, in the default and the `--bias
@@ -860,7 +861,7 @@ meets first on a large problem, and come before any new engine:
 
 ## Follow-ups: intuitionistic mode
 
-*Assigned (2026-10-03).* The written succedent: step 28, whose
+*Assigned (2026-10-03).* The written succedent: step 31, whose
 two-sided statement carries it. The rest stands with no need shown.
 
 
@@ -878,10 +879,10 @@ the focused engine today. The canonical choice among identical hypotheses
 ## Follow-ups: interactive proving
 
 *Assigned (2026-10-03).* The empty goal a one-sided Mix opens, and
-`close_all` dropping its outcomes on an error: step 23. The reading
+`close_all` dropping its outcomes on an error: step 28. The reading
 recomputed per operation, a filtered `rules` list, a budget per goal for
 `close_all`, a map from a drawing's inferences to the session's goals:
-steps 22 and 27. The net engine on a sub-forest: deferred.
+steps 22 and 32. The net engine on a sub-forest: deferred.
 
 
 Left open by step 9, none a correctness issue. The net engine works on a
@@ -1008,7 +1009,7 @@ threads on a 19 KB file), the net engine's cubes on sequents with forced
 links, a bound on `--jobs` and the portfolio's removal: step 19. The
 pool's memory on the largest files: 20. The default thread count: one
 thread first, then the pool (the author's answer; step 21). A `Runtime`
-kept across calls: 25. "The parallel tests take about a minute" no
+kept across calls: 24. "The parallel tests take about a minute" no
 longer holds (5 s for the core crate's 122 tests). The rest is deferred.
 
 *After step 19 (2026-10-03).* Done there: the stop at a `&` on the pool
@@ -1018,7 +1019,7 @@ forced links followed, the threads bounded by the machine's parallelism,
 the portfolio removed, `agree` asserting the contract. Left, and
 assigned: a cancellation at a `&` that comes late and an error of one
 premise that cancels the other, with a differential run at small
-recursion limits: 29. Left, and deferred: where the list of cubes stays
+recursion limits: 26. Left, and deferred: where the list of cubes stays
 short (one surviving branch per choice) the root engine does the whole
 net search with a seed per cube while the workers wait; the pool's
 speculative work on towers of `&` is bounded by cancellation alone, and
@@ -1094,9 +1095,9 @@ prints its row before it checks, `--load-limit`; whether
 `bench/reruns.txt` is still needed for the large SYJ files was not
 measured). `summary`
 counting a late verdict as solved, a table of counters, the script's
-values hard-coded for the second baseline, `bench/reruns.txt`: 24. LLTP
-input for the command and the draft of the header report: 25 (the author
-sends it; step 31 reminds). The net engine's test period: 34. Problems
+values hard-coded for the second baseline, `bench/reruns.txt`: 28. LLTP
+input for the command and the draft of the header report: 24 (the author
+sends it; step 30 reminds). The net engine's test period: 35. Problems
 from practice: the table at the top.
 
 

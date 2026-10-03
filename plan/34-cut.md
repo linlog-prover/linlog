@@ -1,14 +1,15 @@
-# Step 33: cut, and cut elimination
+# Step 34: cut, and cut elimination
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
-sessions; this prompt is finished at the review of step 32. It says what
+sessions; this prompt is finished at the review of step 33. It says what
 is fixed.
 
 Read `plan/reports/17-assessment.md` (5.5), `plan/README.md` (D5, D6,
-D6a, D13, D17), `plan/notes/api.md`, and the reports of steps 2, 5, 9
-and 32.
+D6a, D13, D17), `plan/notes/api.md`, and the reports of steps 2, 5, 9,
+31 and 33. The Rocq library (step 31) gains the cut rule as a case of
+its datatype, its checker and its soundness proof.
 
 ## Goal
 
@@ -16,7 +17,7 @@ What a course on linear logic shows and the suite cannot yet: a proof
 with cuts, and its cut-free form reached step by step. A cut rule in
 interactive proofs (the user names the cut formula), proof terms with
 cuts and the checker's rule for them, cut elimination on terms one step
-at a time and to the end, and on MLL nets (and on the nets of step 32),
+at a time and to the end, and on MLL nets (and on the nets of step 33),
 where it is the reason nets exist, each step drawn.
 
 ## Fixed now
@@ -31,4 +32,4 @@ Termination and the preservation of the conclusion are tested on
 generated proofs with cuts, every result through the checker. Fable 5.1
 at `xhigh`.
 
-Deliverable: thematic jj commits; `plan/reports/33-cut.md`.
+Deliverable: thematic jj commits; `plan/reports/34-cut.md`.

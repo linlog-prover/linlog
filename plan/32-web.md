@@ -1,17 +1,17 @@
-# Step 27: the web front end
+# Step 32: the web front end
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
 sessions and has a plan of its own, which its first session writes; this
-prompt is finished at the reviews of steps 22 to 24. Read before you
+prompt is finished at the review of step 31. Read before you
 start:
 
 - `plan/later.md`: "The web front end", "Follow-ups: interactive
   proving".
 - `plan/reports/09-interactive.md` ("For steps 10 to 12 and the web
   front end"), `11-svg.md` ("What the web front end will call"),
-  `17-assessment.md` (3.14, D9, the author's answers), `18`, `22`, `23`.
+  `17-assessment.md` (3.14, D9, the author's answers), `18`, `22`, `28`.
 - `plan/README.md`: D11, D12, D13, D15, D16, D18.
 - `plan/notes/distribution.md`.
 
@@ -28,7 +28,7 @@ sent to a server.
    workspace the crate `linlog-web`, the bindings: the library compiled
    to `wasm32-unknown-unknown` without the `parallel` feature, behind a
    small API of JSON in and JSON or SVG out (the interactive state, the
-   options values of steps 22 and 23, the outcome of a search), with its
+   options values of steps 22 and 28, the outcome of a search), with its
    tests run under wasm and its build a flake check from the first
    session, so that a change of the library that breaks them fails here.
    In a repository of its own under the organization `linlog-prover`
@@ -62,7 +62,7 @@ sent to a server.
    without threads, at up to five times the better search. The first
    session measures it under wasm on the target set's small rows and
    says whether a search that can be suspended (an explicit stack in the
-   focused engine) is needed; if so it is step 29's, not this step's.
+   focused engine) is needed; if so it is a step of its own, after this one.
 4. **The first version is `linlog interact` with a mouse** and no more:
    a sequent, the modes, the goals with clickable formulas, the rules
    that apply, undo, close, the drawing, the finished proof's exports.
@@ -74,7 +74,7 @@ sent to a server.
 
 The choice of client technology (the first session compares a plain page
 over wasm-bindgen with one Rust framework, by size, maintenance and what
-the author would read); the names of steps 22 and 23. One caveat on the
+the author would read); the names of steps 22 and 28. One caveat on the
 two repositories: a client written in a Rust framework is a crate that
 depends on `linlog`, which is the case for a workspace. If the
 comparison ends there and the split then costs more than it gives, say
@@ -83,5 +83,5 @@ so with the reasons and ask the author before departing from D22.
 ## Deliverables
 
 `plan/web/README.md` (the step's own plan, by its first session) and
-`plan/reports/27-web.md`, both in this repository; thematic jj commits
+`plan/reports/32-web.md`, both in this repository; thematic jj commits
 here for the bindings and in the client's repository for the client.

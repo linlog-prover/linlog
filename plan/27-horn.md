@@ -1,16 +1,16 @@
-# Step 30: Horn programs: an engine, coverability, and problems from practice
+# Step 27: Horn programs: an engine, coverability, and problems from practice
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes two
-sessions; this prompt is finished at the review of step 29. Read before
+sessions; this prompt is finished at the review of step 26. Read before
 you start:
 
 - `plan/reports/17-assessment.md`: 2.1, 2.5, 3.7, 3.15, 5.4.
 - `plan/later.md`: "The !-Horn fragment through Petri-net reachability",
   "Problems from practice".
 - `plan/reports/15-performance.md` ("The default bias"), `16-baseline.md`,
-  `29-focused-engine.md`.
+  `26-focused-engine.md`.
 - `plan/README.md`: D8, D19.
 
 ## Goal
@@ -32,7 +32,8 @@ software verification are what it is measured on.
    it does not, the step ends with its first session and says why.
 2. **Second session, coverability**: the backward algorithm on upward-
    closed sets for affine mode, with its termination argument and a
-   fresh-context review; `Unprovable` from it is the suite's first
+   review by the panel that step 26's prompt describes (a workflow of
+   three agents, each trying to refute it in one way); `Unprovable` from it is the suite's first
    refutation of an affine sequent with exponentials.
 3. **The suite**: the 176 coverability instances of `blondimi/qcover`
    (Mist's `.spec` format; five suites; expected results in the files),
@@ -50,4 +51,4 @@ nets at 5 s against `lltp-forward.csv`.
 
 ## Deliverables
 
-Thematic jj commits; `plan/reports/30-horn.md`.
+Thematic jj commits; `plan/reports/27-horn.md`.

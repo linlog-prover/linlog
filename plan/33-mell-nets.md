@@ -1,9 +1,9 @@
-# Step 32: MELL proof nets with exponential boxes
+# Step 33: MELL proof nets with exponential boxes
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes two
-sessions; this prompt is finished at the review of step 31, from what the
+sessions; this prompt is finished at the review of step 32, from what the
 released API and the web front end look like by then. It says what is
 fixed.
 
@@ -31,4 +31,4 @@ contraction and weakening as nodes, or one generalised node) is the
 session's, argued from what makes desequentialization canonical and
 weakening checkable. Fable 5.1 at `xhigh`.
 
-Deliverable: thematic jj commits; `plan/reports/32-mell-nets.md`.
+Deliverable: thematic jj commits; `plan/reports/33-mell-nets.md`.

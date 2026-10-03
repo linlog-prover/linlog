@@ -1,15 +1,15 @@
-# Step 29: the focused engine in order
+# Step 26: the focused engine in order
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. This prompt is finished
-at the reviews of steps 20 and 23. Read before you start:
+at the review of step 25. Read before you start:
 
 - `plan/reports/17-assessment.md`: section 1.2 (the refactoring's items
   1 to 4, 9, 13 and 14, D8), 1.3, 1.4, and the author's answers 4, 5
   and 7.
 - `plan/reports/15-performance.md` ("Constant factors", "The reviews"),
-  `19`, `20`, `23`; `plan/notes/api.md`.
+  `19`, `20`, `21`.
 - `plan/later.md`: "Follow-ups: the focused engine".
 - `plan/README.md`: D7, D8, D17, D18, D19.
 - The search's rules file and `core/src/search/**` in full.
@@ -20,7 +20,7 @@ The focused engine as one reader can hold it, with nothing that a
 refactoring can break in silence; and a dispatch that is a table: for
 each fragment, mode and feature of a sequent the engine that a
 measurement shows fastest (D19), with one interface every engine
-implements, so that steps 30, 34 and 36 add a row and not a special
+implements, so that steps 27, 35 and 37 add a row and not a special
 case.
 
 ## What is fixed now
@@ -79,16 +79,24 @@ case.
    used to end it and hand the core to the forward one
    (`SYJ212+1.014` in `cbn`). Each of these is a measurement to take,
    with the profile of item 5, before anything changes.
-7. **Ready for quantifiers** (D17) as `plan/notes/api.md` says: where a
-   trail of bindings would go, which prunes assume ground atoms.
+7. **Ready for quantifiers** (D17): the report says where a trail of
+   bindings would go and which prunes assume ground atoms, for the design
+   note of step 28 (`plan/notes/api.md`) to take up.
 
 ## The oracle
 
 Every commit that claims no change of the search leaves `nodes`,
 `splits`, `memo_hits` and `memo_entries` of every decided row of
 `bench/targets.sh` identical; a commit that changes the search says so,
-is measured, and is reviewed differentially by a fresh-context reviewer
-as step 15's were. Pinned CPU time does not rise.
+is measured, and is reviewed by a panel before it is called done. Use a
+workflow for each such review (the author's choice, 2026-10-03): three
+agents, each trying to refute the change in one way, and it stands when
+none does: counterexamples against the committed reference prover and
+the generators (Opus 5.5 at `high`), the argument read line by line
+against the code (Fable 5.1 at `high`), and the integers and limits it
+rests on (Sonnet 5.5 at `high`). An agent that runs programs gets the
+rules of `plan/conduct.md` in its prompt: named cores, a memory-capped
+scope, bounded runs. Pinned CPU time does not rise.
 
 The counters say that a search is the same search; they say nothing of
 a verdict that was wrong before and after. So this step also leaves a
@@ -111,17 +119,18 @@ that step 8's engine was compared with on 60 000 sequents is the one
 the rules file names), so none of those runs can be repeated on the
 engine as it is today; the checker guards a
 wrong "proved" in every build, and only the engines themselves guard a
-wrong "unprovable". Steps 30, 34 and 36 add their engines to this test.
+wrong "unprovable". Steps 27, 35 and 37 add their engines to this test.
 A fresh-context reviewer still writes a reference of their own for a
 change of the search: the committed one is for repeating, theirs for
 independence.
 
 ## What waits
 
-Whether the engine's recursion becomes an explicit stack: only if step
-27 has shown the web front end needs a search that can be suspended.
+Whether the engine's recursion becomes an explicit stack: only if the
+web client (step 32, after the release) shows that it needs a search
+that can be suspended.
 
 ## Deliverables
 
 Thematic jj commits, each building and passing alone;
-`plan/reports/29-focused-engine.md`.
+`plan/reports/26-focused-engine.md`.

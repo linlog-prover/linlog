@@ -73,11 +73,15 @@ session's transcript is
 
 As of 2026-10-03 (evening) steps 1 to 21 are finished, reviewed and
 pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
-and, on the author's answers, planned steps 18 to 37: the step table,
-the decisions D16 to D22 and the commands are in `plan/README.md`, the
-prompts are `plan/18-…md` to `plan/37-…md` (18 to 23 written in full;
-each later one says what is fixed and is finished by you at the review
-its row names), `plan/later.md` says where every candidate and follow-up
+and, on the author's answers, planned steps 18 to 37; at the review of
+step 21 the steps after 22 were put in a new order and renumbered to 38
+(D23: a lean step 23 that saves every later session its tokens, the
+audit and refactor once at step 28 right before the release at step 30,
+a comparison with the other provers at 29, the Rocq library and the web
+client after the release). The step table, the decisions D16 to D23 and
+the commands are in `plan/README.md`, the prompts are `plan/18-…md` to
+`plan/38-…md` (22 to 24 and 28 written in full; each later one says
+what is fixed and is finished by you at the review its row names), `plan/later.md` says where every candidate and follow-up
 went, and `plan/notes/distribution.md` has the facts on releases,
 repositories and the organization. Step 18 rewrote the checker for
 linear memory, made every proof pass it in every build and bounded what
@@ -100,15 +104,23 @@ the counts tell. Its review found the pool honouring a stop up to 15 s
 late on Petri nets (queued tasks of a choice built their workers before
 their first poll), which the default met on every large net, and fixed
 it. The next command is step 22, run twice (two sessions, the second
-from the first's report):
+from the first's report, with `--effort high`):
 
 ```nu
 claude --model claude-opus-5-5 --effort xhigh --name step-22 ((open --raw plan/22-configurable-output.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
+Models and efforts were re-evaluated on 2026-10-03 ("Why these models
+and efforts" in `plan/README.md`): the author runs off a Max 20x plan,
+where Fable may use at most half of the weekly limit; Fable 5.1 and
+Opus 5.5 at `high`, `xhigh` only where the row says, never `max`.
+Workflows (multi-agent orchestration) are used where a prompt says so
+in as many words, which is the author's opt-in: the panels for changes
+of the search (step 26 on) and the audit of step 28.
+
 Profiling (the author asked on 2026-10-03, the planning session
 recommended, the prompts say): a heap profile at the start of step 20,
-a sampling profile at the start and the end of step 29, instruction
+a sampling profile at the start and the end of step 26, instruction
 counts where a change is worth less than the day's noise; never a
 standing requirement of every step. The profiles are read as text and
 reported as tables; the author needs no flame graph.
@@ -122,7 +134,7 @@ research and teaching are equal, the command first (D21); one
 workspace, the web client in a repository of its own, everything under
 the GitHub organization `linlog-prover` (D22), where the repository
 has been since 2026-10-03 (`origin` is
-`git@github.com:linlog-prover/linlog.git`). Remind the author at step 31
+`git@github.com:linlog-prover/linlog.git`). Remind the author at step 30
 that the report of the wrong LLTP headers is ready to send, and that a
 rule on `main` against force pushes and deletion was to follow the
 release. The GitHub CLI is logged in with the author's rights over the

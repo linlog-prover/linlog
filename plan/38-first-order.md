@@ -1,16 +1,16 @@
-# Step 37: first-order linear logic
+# Step 38: first-order linear logic
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step is several
 sessions with a plan of its own, which its first session writes; this
-prompt is finished at the review of step 36. It says what is fixed.
+prompt is finished at the review of step 37. It says what is fixed.
 
 Read `plan/later.md` ("First-order linear logic"),
 `proof-search-specifications.md` ("First-order fragments"),
-`plan/notes/api.md` (where terms and binders go, decided in step 23),
+`plan/notes/api.md` (where terms and binders go, decided in step 28),
 `plan/reports/17-assessment.md` (3.9, the author's answer 4), the
-reports of steps 23, 28 and 29, and `plan/README.md` (D1, D5, D6, D17).
+reports of steps 26, 28 and 31, and `plan/README.md` (D1, D5, D6, D17).
 
 ## Goal
 
@@ -35,4 +35,4 @@ LinearOne is the prover to compare with. Fable 5.1 at `xhigh`
 throughout.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
-jj commits, `plan/reports/37-first-order.md`.
+jj commits, `plan/reports/38-first-order.md`.

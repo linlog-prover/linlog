@@ -1,15 +1,15 @@
-# Step 34: engines for MLL and IMLL: net pruning, routing, essential nets
+# Step 35: engines for MLL and IMLL: net pruning, routing, essential nets
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes two
-sessions; this prompt is finished at the review of step 31, whose
+sessions; this prompt is finished at the review of step 30, whose
 baseline it is measured against. It says what is fixed.
 
 Read `plan/later.md` ("Net-engine pruning and routing for repeated
 literals", "Essential nets for IMLL"), `plan/reports/06-net-search.md`,
 `08-intuitionistic.md`, `17-assessment.md` (2.4, 3.3, 3.5, the author's
-answer 7), `29-focused-engine.md`, and `plan/README.md` (D8, D19).
+answer 7), `26-focused-engine.md`, and `plan/README.md` (D8, D19).
 
 ## Goal
 
@@ -27,7 +27,7 @@ essential-net engine if it wins over the embedding.
    brute-force enumeration, as step 6 had.
 2. **The routing feature**: "no two equal literals under one pure tree"
    or whatever the harness shows separates the two engines, in the
-   dispatch table of step 29, with the measurement beside the row. The
+   dispatch table of step 26, with the measurement beside the row. The
    honest starting point (step 17): the focused engine is within a
    factor of three of the net engine on its own case and ahead from 256
    literals on, so the net engine has to earn every row, and a row it
@@ -41,4 +41,4 @@ essential-net engine if it wins over the embedding.
    the measurement says.
 
 Fable 5.1 at `xhigh`. Deliverable: thematic jj commits;
-`plan/reports/34-mll-engines.md`.
+`plan/reports/35-mll-engines.md`.

@@ -1,14 +1,14 @@
-# Step 31: the third baseline, and the first release
+# Step 30: the third baseline, and the first release
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step needs the
 machine for a night, which the author gives; this prompt is finished at
-the review of step 30. Read before you start:
+the review of step 29. Read before you start:
 
 - `plan/reports/14-benchmarks.md` ("What step 16 must repeat"),
   `16-baseline.md`, `17-assessment.md` (5.6, the author's answer 9 and
-  what follows it), `21-defaults.md`, `24`, `30`.
+  what follows it), `21-defaults.md`, `27`, `28`, `29`.
 - `plan/notes/distribution.md` (how and where to publish, what each
   registry asks, the repositories) and `plan/notes/lltp-headers.md`.
 - `.claude/rules/bench.md`, `bench/baseline.sh`.
@@ -56,4 +56,4 @@ publication) are the last and smallest part.
 
 ## Deliverables
 
-Thematic jj commits; `bench/results/DAY/`; `plan/reports/31-baseline-release.md`.
+Thematic jj commits; `bench/results/DAY/`; `plan/reports/30-baseline-release.md`.

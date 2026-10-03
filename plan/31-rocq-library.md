@@ -1,10 +1,10 @@
-# Step 28: a Rocq library of linlog's own
+# Step 31: a Rocq library of linlog's own
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
 to four sessions, each leaving something usable; this prompt is finished
-at the review of step 23 (the checker's part was added at the review of
+at the review of step 30 (the checker's part was added at the review of
 step 18). Read before you start:
 
 - `plan/later.md`: "Second certificate kernels: a Rocq library of
@@ -63,10 +63,13 @@ proof term. The NanoYalla export stays exactly as it is.
    (`core/src/proofs/oracle.rs`, lists and no tables) is the closer text
    to translate.
 
-## What waits
+## What comes later
 
-The proof term's API (step 23). No `Admitted`, no axiom.
+The proof term's API was settled by step 28, before the release. Cut
+(step 34) adds one rule to the proof term: the datatype, the checker
+and the soundness proof are written so that a rule is a case added and
+nothing is redone. No `Admitted`, no axiom.
 
 ## Deliverables
 
-Thematic jj commits per stage; `plan/reports/28-rocq-library.md`.
+Thematic jj commits per stage; `plan/reports/31-rocq-library.md`.

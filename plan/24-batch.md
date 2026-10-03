@@ -1,9 +1,9 @@
-# Step 25: a batch mode, and LLTP input for the command
+# Step 24: a batch mode, and LLTP input for the command
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. This prompt is finished
-at the review of step 24. Read before you start:
+at the review of step 23. Read before you start:
 
 - `plan/later.md`: "A batch mode for the CLI" (its six headings are the
   requirement), and under "Follow-ups: the benchmarks" the wrong
@@ -11,7 +11,7 @@ at the review of step 24. Read before you start:
 - `plan/reports/17-assessment.md`: 2.2, 3.12, and the author's answers 1
   and 9.
 - `plan/reports/19-time-limits.md`, `20-memory-and-boundaries.md`,
-  `21-defaults.md`, `23-api.md`, `24-command-harness-docs.md`.
+  `21-defaults.md`, `22-configurable-output.md`, `23-session-docs.md`.
 - `plan/README.md`: D15, D16.
 - `core/src/lltp.rs`, `cli/**`, `bench/src/problems.rs`, `bench/src/run.rs`.
 
@@ -27,7 +27,8 @@ script talks to, and what every later measurement by day runs through.
 
 1. **The batch as a library notion** (D15): problems in, results out,
    as iterators, with one options value; the command is its first
-   caller.
+   caller. The batch takes the command's flags; an options file waits for
+   the options' wire form, which step 28 gives every options value.
 2. **Input**: one sequent per line with comments and optional names;
    several `--file` arguments; a directory; the harness's problem files;
    LLTP files, which `lltp::read` reads and the command cannot take
@@ -74,5 +75,5 @@ minutes, detached).
 
 - Thematic jj commits.
 - `plan/notes/lltp-headers.md`.
-- `plan/reports/25-batch.md`: the options and how each front end sets
+- `plan/reports/24-batch.md`: the options and how each front end sets
   them, the timing, decisions, deviations, open questions.

@@ -39,29 +39,31 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 18 | The proof check and the derivation within bounds; first the wrong verdict on a JSON sequent with a repeated atom name; the tests also run with debug assertions in the flake | `18-bounded-proofs.md` | Fable 5.1 | xhigh | 17 |
 | 19 | The search keeps its time limit: the stops on one thread and on a pool, the net engine's cubes, a bound on `--jobs`, the portfolio removed | `19-time-limits.md` | Fable 5.1 | xhigh | 18 |
 | 20 | The search keeps its memory, and the inputs their bounds: a memory bound in bytes with its reason, the forest's and the formula's depth bounded, aborts turned into errors | `20-memory-and-boundaries.md` | Fable 5.1 | xhigh | 19 |
-| 21 | The defaults a user meets: the copy bound deepening within a default time limit, one thread first, what "unknown" and "unprovable" say | `21-defaults.md` | Fable 5.1 | high | 20 |
-| 22 | Configurable output, no font in LaTeX and Typst, a Typst layout of linlog's own, a compact view (two sessions) | `22-configurable-output.md` | Opus 5.5 | xhigh | 18 |
-| 23 | The library's API and data model in order, ready for quantifiers | `23-api.md` | Fable 5.1 | xhigh | 22 |
-| 24 | The command, the harness, the flake and the documents in order | `24-command-harness-docs.md` (finished at the review of 23) | Opus 5.5 | xhigh | 23 |
-| 25 | A batch mode, LLTP input for the command, and the draft of the header report | `25-batch.md` (finished at the review of 24) | Opus 5.5 | xhigh | 20, 21, 24 |
-| 26 | Ordinary logic through its embeddings: the layer | `26-ordinary-logic.md` (finished at the review of 25) | Opus 5.5 | xhigh | 21, 25 |
-| 27 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own) | `27-web.md` (finished at the reviews of 22 to 24) | Opus 5.5 | xhigh | 18, 22, 23 |
-| 28 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `28-rocq-library.md` (finished at the review of 23) | Fable 5.1 | xhigh for the checker and its proof, high for the rest | 20, 23 |
-| 29 | The focused engine in order, and the dispatch as a measured table | `29-focused-engine.md` (finished at the reviews of 20 and 23) | Fable 5.1 | xhigh | 20, 23 |
-| 30 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `30-horn.md` (finished at the review of 29) | Fable 5.1 | xhigh | 25, 29 |
-| 31 | The third baseline (a night), and the first release prepared | `31-baseline-release.md` (finished at the review of 30) | Opus 5.5 | xhigh | 30 |
-| 32 | MELL proof nets with exponential boxes (two sessions) | `32-mell-nets.md` (finished at the review of 31) | Fable 5.1 | xhigh | 23, 27 |
-| 33 | Cut, and cut elimination on terms and on nets (three sessions) | `33-cut.md` (finished at the review of 32) | Fable 5.1 | xhigh | 32 |
-| 34 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `34-mll-engines.md` (finished at the review of 31) | Fable 5.1 | xhigh | 29, 31 |
-| 35 | Cyclic MLL and the Lambek calculus (two sessions) | `35-lambek.md` (finished at the review of 34) | Fable 5.1 | xhigh | 34 |
-| 36 | The focused inverse method (two sessions) | `36-inverse.md` (finished at the review of 35) | Fable 5.1 | xhigh | 29, 31 |
-| 37 | First-order linear logic (several sessions, a plan of its own) | `37-first-order.md` (finished at the review of 36) | Fable 5.1 | xhigh | 23, 28, 29 |
+| 21 | The defaults a user meets: the copy bound deepening within a default time limit, one thread first, what "unknown" and "unprovable" say | `21-defaults.md` | Opus 5.5 (planned: Fable 5.1 at high) | xhigh | 20 |
+| 22 | Configurable output, no font in LaTeX and Typst, a Typst layout of linlog's own, a compact view (two sessions) | `22-configurable-output.md` | Opus 5.5 | xhigh for the first session, high for the second | 18 |
+| 23 | What every session reads, short and true: the core rules split by module, the stale claims of the rules and CLAUDE.md, README's examples run by a check | `23-session-docs.md` | Opus 5.5 | high | 22 |
+| 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` (finished at the review of 23) | Opus 5.5 | high | 20, 21, 23 |
+| 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` (finished at the review of 24) | Opus 5.5 | high | 21, 24 |
+| 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` (finished at the review of 25) | Fable 5.1 | high, a panel per change of the search | 20, 23 |
+| 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Fable 5.1 | high, with the panel | 24, 26 |
+| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the search and the checker; the reviewers by lens | high | 27 |
+| 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
+| 30 | The third baseline (a night), and the first release prepared | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
+| 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 | xhigh for the checker's proof, high for the rest | 28, 30 |
+| 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
+| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Fable 5.1 | high, with the panel | 28, 32 |
+| 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Fable 5.1 | high, with the panel | 31, 33 |
+| 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Fable 5.1 | high, with the panel | 26, 30 |
+| 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Fable 5.1 | high, with the panel | 35 |
+| 37 | The focused inverse method (two sessions) | `37-inverse.md` (finished at the review of 36) | Fable 5.1 | high, with the panel | 26, 30 |
+| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 | high, with the panel | 26, 28, 31 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
 finish (step 14 took two). Steps 18 to 37 were planned by step 17 from
 its assessment (`reports/17-assessment.md`) and the author's answers to
-it; a prompt marked "finished at the review of N" says what is fixed and
+it, and the steps after 22 were put in a new order and renumbered to 38
+on 2026-10-03 (D23; that day's Status entry maps the old numbers); a prompt marked "finished at the review of N" says what is fixed and
 is completed by the planning session when it reviews step N, as the
 performance pass's was. `later.md` keeps the sketches the prompts point
 at, what is deferred or dropped with the reason, and the follow-up
@@ -77,8 +79,8 @@ lists (the focused engine, intuitionistic mode, interactive proving, the
 exports, parallel search, the benchmarks).
 
 Steps 5–6 and 7 are independent of each other; 10, 11 and 13 are
-independent of each other; 22 is independent of 19 to 21, 28 of 24 to
-27, and 32 to 36 of each other except as their rows say. Everything
+independent of each other; 22 is independent of 19 to 21, 31 of 32, and
+33 to 37 of each other except as their rows say. Everything
 else is in order.
 
 ### Why these models and efforts
@@ -129,6 +131,34 @@ turn, and 10 and 11 have exactly the kind of detail (package syntax
 checked against manuals, XML escaping, arc layout) where more effort on a
 cheaper model pays. Nothing moves to Sonnet: the savings are minor against
 the cost of a step that has to be redone.
+
+Re-evaluated on 2026-10-03, at the review of step 21, against the docs of
+the day (the models overview, choosing a model, the effort page, Claude
+Code's model configuration), Anthropic's help pages on plan limits,
+Artificial Analysis's index and practitioners' reports. The lineup: Fable
+5.1 ($10/$50, default effort `high`), Opus 5.5 (released 2026-09-22,
+$4/$20, default `medium`), Sonnet 5.5 (2026-09-28, $2/$10; Sonnet 5 is a
+legacy model), Haiku 4.5 (knowledge to February 2025, possibly retired
+from 2026-10-15). The author runs every session off a Max 20x plan, so
+the quota binds and not the price: Fable may use at most half of the
+weekly limit and uses it faster than the other models (no ratio is
+published; by API cost, two to three times Opus per task). The
+evidence: effort above `high` buys little (Fable 5.1 scores 51 at
+`high` and 53 at `xhigh` on Artificial Analysis's index for about twice
+the tokens; Opus 5.5 gains 1.4 points at `xhigh` on Anthropic's own
+SWE-bench Pro subset for 2.5 times the cost), and at `max` Opus and
+Sonnet were seen spending their whole output on one answer; Fable led
+on hard correctness tasks in independent tests and was seen deleting a
+delay to make a flaky test pass; Opus 5.5 finds a different mix of bugs
+than Fable. So from step 22's second session on: Fable 5.1 at `high` for
+the soundness-critical steps, Opus 5.5 at `high` for the rest, `xhigh`
+only for the Rocq library's proof of the checker and for a session that
+is visibly stuck, never `max`, and no Haiku. A change of the search is
+reviewed by a panel of three agents of different models, each trying to
+refute it in one way (step 26's prompt), which costs less than a whole
+session at `xhigh` and catches what one reviewer misses; step 28's
+audit picks its reviewers by lens. `conduct.md` forbids weakening a test
+to make it pass.
 
 ### How the prompts are written
 
@@ -205,7 +235,9 @@ reviewers; Opus 5.5 at `xhigh` took the second baseline and wrote the
 comparison without a slip in the procedure, and attributed the memory of
 fourteen crashed runs to the wrong component, which the review found by
 running the command. So: diagnosis and soundness to Fable, breadth and
-procedure to Opus. The choices:
+procedure to Opus. The choices (in that day's numbers, which D23
+changed after step 22; the re-evaluation at the review of step 21, under
+"Why these models and efforts", supersedes the efforts):
 
 - **Fable 5.1 at `xhigh`** for the checker's rewrite (18), the engine's
   stops and bounds (19, 20), the API and data model with quantifiers in
@@ -253,25 +285,28 @@ claude --model claude-fable-5-1 --effort xhigh --name step-19 ((open --raw plan/
 claude --model claude-fable-5-1 --effort xhigh --name step-20 ((open --raw plan/20-memory-and-boundaries.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-fable-5-1 --effort high --name step-21 ((open --raw plan/21-defaults.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort xhigh --name step-22 ((open --raw plan/22-configurable-output.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-23 ((open --raw plan/23-api.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort xhigh --name step-24 ((open --raw plan/24-command-harness-docs.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort xhigh --name step-25 ((open --raw plan/25-batch.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort xhigh --name step-26 ((open --raw plan/26-ordinary-logic.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort xhigh --name step-27 ((open --raw plan/27-web.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-28 ((open --raw plan/28-rocq-library.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-29 ((open --raw plan/29-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-30 ((open --raw plan/30-horn.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort xhigh --name step-31 ((open --raw plan/31-baseline-release.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-32 ((open --raw plan/32-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-33 ((open --raw plan/33-cut.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-34 ((open --raw plan/34-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-35 ((open --raw plan/35-lambek.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-36 ((open --raw plan/36-inverse.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort xhigh --name step-37 ((open --raw plan/37-first-order.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-23 ((open --raw plan/23-session-docs.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-24 ((open --raw plan/24-batch.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-25 ((open --raw plan/25-ordinary-logic.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28-audit-and-refactor.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-29 ((open --raw plan/29-comparison.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-30 ((open --raw plan/30-baseline-release.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort xhigh --name step-31 ((open --raw plan/31-rocq-library.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-32 ((open --raw plan/32-web.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-33 ((open --raw plan/33-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-34 ((open --raw plan/34-cut.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-35 ((open --raw plan/35-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-36 ((open --raw plan/36-lambek.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-37 ((open --raw plan/37-inverse.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-38 ((open --raw plan/38-first-order.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-A step of several sessions is started again with the same command (step
-28's later sessions at `--effort high`, as its row says); a session
+A step of several sessions is started again with the same command, with
+the changes its row names (step 22's second session and step 31's
+sessions after the checker's proof at `--effort high`; step 28's
+session on the search with `--model claude-fable-5-1`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
 work for `--model`. The flags are
 documented at code.claude.com/docs/en/cli-reference.
@@ -502,20 +537,20 @@ in its report, and never makes an expert's setting the only one.
 
 **D17. Quantifiers are coming, and the propositional case does not pay
 for them** (the author, 2026-10-03). First-order linear logic will be
-implemented (step 37). Every step that settles a type or an interface
-(23, 28, 29, 33, 35) keeps the place for terms, binders, substitutions
+implemented (step 38). Every step that settles a type or an interface
+(26, 28, 31, 34, 36) keeps the place for terms, binders, substitutions
 and witnesses, and says in its report where they go. The propositional
 engines must not become meaningfully slower for it: the target set's
 counters stay identical and its pinned CPU time within a few percent,
 by generics or by a duplicated fast path where that is what it takes.
 
 **D18. Until the first release the API is free to change; after it, a
-change is a version** (the author, 2026-10-03). Steps 22 to 29 make the
+change is a version** (the author, 2026-10-03). Steps 22 to 28 make the
 library idiomatic, efficient and ergonomic for a caller who is not this
 repository, without regard for what they rename or remove. The
 command's behaviour, the JSON forms and the snapshots are not "the API"
 in this sense: they change only where a step says so. From 0.1.0 on
-(step 31) the crates follow semantic versioning.
+(step 30) the crates follow semantic versioning.
 
 **D19. Every sequent gets the engine that is fastest for it,
 automatically** (the author's aim from the start, restated 2026-10-03).
@@ -524,8 +559,8 @@ that separates the engines (the shape of a Horn program, equal literals
 under one tree, width) the dispatch picks a tailored engine. A
 specialised engine is built where there is reason to expect it to win
 and is the default exactly where a measurement shows it winning; D8's
-table is kept as data with the measurement beside each row (step 29),
-and steps 30, 34 and 36 add rows. D7 stands beside it: one engine per
+table is kept as data with the measurement beside each row (step 26),
+and steps 27, 35 and 37 add rows. D7 stands beside it: one engine per
 algorithm, never two implementations of one.
 
 **D20. The Rocq library is `linlog`, under `rocq/`** (the author,
@@ -553,7 +588,7 @@ the organization from the start, with a toolchain, a release rhythm and
 an address of its own, taking this repository as a pinned input (the
 author, 2026-10-03, on the planning's recommendation); the Rocq library lives under `rocq/` until it has a
 release rhythm of its own, and may then get a repository; benchmark data
-may move to release assets. The first release is 0.1.0 at step 31: the
+may move to release assets. The first release is 0.1.0 at step 30: the
 crates `linlog` and `linlog-cli` on crates.io, a tag and a GitHub
 release, a `CITATION.cff` and a DOI. Later, in this order: `rocq-linlog`
 in Rocq's opam archive once the library has a release; `linlog-web` when
@@ -567,6 +602,23 @@ GitHub (the author, 2026-10-03; an organization is free, and the name
 repository to it before the first publication, since the repository's
 address goes into metadata that cannot be changed. A session prepares; pushing, tagging, transferring and
 publishing are the author's acts.
+
+**D23. The order to the release, and the audit once** (the author,
+2026-10-03, on the planning's recommendations at the review of step
+21). The thorough audit and refactor of the API, the data model, the
+command, the harness and the documents runs once, right before the
+release (step 28), so that it is not paid again after the steps that add
+to the code: six reviewers with one lens each, cross-examined, then
+fixes by area and check rounds until no confirmed must-fix or
+should-fix finding is open. What would otherwise cost every session
+before it comes first (step 23: the rules split by module, the stale
+claims of the files every session reads, README's examples run by a
+check). A comparison with the other provers comes before the release
+(step 29): its published numbers are measured on the author's machine,
+and a CI job reproduces them and commits nothing. The Rocq library
+comes right after the release (step 31), when the proof term it mirrors
+is settled, so that cut and first-order logic only extend it; the web
+client follows it (step 32).
 
 ## Status
 
@@ -1624,3 +1676,20 @@ publishing are the author's acts.
   copy per task, `SYJ204` on the pool, `LCL181+1` on one thread and the
   unbounded backward share to 29; the race's rows on sixteen cores to
   31. Next: step 22.
+- 2026-10-03 (late evening): the steps after 22 re-planned and
+  renumbered (D23), on the author's decisions at the review of step 21
+  (the web client after the release; the audit and the refactor once,
+  right before it; a comparison with the other provers before it) and
+  the planning's recommendations (the Rocq library right after the
+  release; a lean step first that saves every later session its
+  tokens). Old to new: 23 and 24 → 28 (with the audit), except the
+  rules split, the stale claims of the rules and CLAUDE.md and README's
+  examples run by a check, which are the new 23; 25 → 24, 26 → 25,
+  29 → 26, 30 → 27, the comparison is the new 29, 31 → 30, 28 → 31,
+  27 → 32, 32 → 33, 33 → 34, 34 → 35, 35 → 36, 36 → 37, 37 → 38.
+  Earlier entries and reports keep the numbers they were written with.
+  The models and efforts re-evaluated ("Why these models and efforts"):
+  Fable 5.1 and Opus 5.5 at `high`, panels for changes of the search,
+  and `conduct.md` forbids weakening a test. New: `23-session-docs.md`,
+  `28-audit-and-refactor.md`, `29-comparison.md` and
+  `notes/comparison.md` (the tools and the method, researched today).

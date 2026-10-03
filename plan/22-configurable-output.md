@@ -126,7 +126,7 @@ Second session:
   change by that and by what is added, and the report lists every other
   difference.
 - No new export target. The surface of the library around the exports
-  (errors, ownership, names) is step 23's; change here only what an
+  (errors, ownership, names) is step 28's; change here only what an
   option needs.
 
 ## Verification
@@ -142,4 +142,4 @@ tree forty inferences high compiling under Typst.
 - Thematic jj commits.
 - `plan/reports/22-configurable-output.md`: every option, its default,
   and how the command, the web front end and a third wrapper set it;
-  decisions, deviations, open questions, what steps 23 and 27 must know.
+  decisions, deviations, open questions, what steps 28 and 32 must know.
