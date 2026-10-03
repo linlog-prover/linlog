@@ -3,15 +3,17 @@
 
 //! Proof structures as formula trees under their axiom links: the
 //! literals side by side along the top in occurrence order, which is left
-//! to right in every tree, each connective one layer below the lower of
-//! its premises and halfway between them, the conclusions on the bottom
+//! to right in every tree, their edges and links meeting each at the
+//! middle of its atom (not of a negated literal's whole `A⊥`), each
+//! connective one layer below the lower of its premises and halfway
+//! between them, the conclusions on the bottom
 //! layer with an edge hanging from each, and every link a half-ellipse
 //! over the two literals it joins, as high as it is wide times a fixed
 //! ratio. Two links over nested pairs of literals are nested half-ellipses
 //! of one shape, which never cross; links over interleaved pairs cross.
 
 use super::font::{AXIS, HEIGHT};
-use super::{NOTATION, PLAIN, Style, document, escaped, run, text};
+use super::{NOTATION, PLAIN, RAISED_BOT, Style, document, escaped, run, text};
 use crate::nets::{NetError, ProofStructure};
 use crate::occurrences::OccId;
 use crate::sequents::Kind;
@@ -44,8 +46,10 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     let (margin, stroke) = (i64::from(style.margin), i64::from(style.stroke_width));
     let label_size = i64::from(style.label_size);
 
-    // The literals from left to right, and every connective halfway
-    // between its premises, one layer below the lower one.
+    // The literals from left to right, each with its edges at the middle
+    // of its atom, so a raised `⊥` leaves them where the atom is; every
+    // connective halfway between its premises, one layer below the lower
+    // one.
     let mut x = vec![0; n];
     let mut layer = vec![0; n];
     let mut literals = Vec::new();
@@ -54,9 +58,14 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
         formula.clear();
         NOTATION.term(&mut formula, forest.sequent(), forest.term(o), false);
         let label = run(&formula, 1000, &style.font);
-        x[o.index()] = next + label.width / 2;
-        next += label.width + gap;
-        literals.push((o, label));
+        let atom = match forest.kind(o) {
+            Kind::DualVar => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
+            _ => label.width,
+        };
+        x[o.index()] = next + atom / 2;
+        let width = label.width;
+        literals.push((o, next, label));
+        next += width + gap;
     }
     for o in forest.ids().rev() {
         if let (Some(l), Some(r)) = (forest.left(o), forest.right(o)) {
@@ -107,16 +116,9 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
     let (mut marked, mut texts) = (String::new(), String::new());
     let dash = format!("{} {}", 3 * stroke, 3 * stroke);
-    for (o, label) in &literals {
+    for (o, left, label) in &literals {
         let id = format!(r#" id="o{}""#, o.get());
-        text(
-            &mut texts,
-            x[o.index()] - label.width / 2,
-            baseline,
-            label,
-            &id,
-            None,
-        );
+        text(&mut texts, *left, baseline, label, &id, None);
     }
     for o in forest.ids().filter(|&o| !forest.is_literal(o)) {
         let centre = (x[o.index()], y(o));

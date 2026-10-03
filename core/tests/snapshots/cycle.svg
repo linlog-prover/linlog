@@ -1,25 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" role="img" width="60.016" height="67.072" viewBox="0 0 3751 4192" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="60.016" height="65.616" viewBox="0 0 3751 4101" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A ⊗ A⊥</title>
 <desc>⊢ A ⊗ ~A
 A[1] — ~A[2]
 not a proof net: a switching cycle runs through A ⊗ ~A[0], A[1], ~A[2]</desc>
 <g fill="none" stroke="black" stroke-width="40">
-<circle id="o0" cx="1722" cy="3102" r="380"/>
-<path d="M1722 3482V3852"/>
+<circle id="o0" cx="1570" cy="3011" r="380"/>
+<path d="M1570 3391V3761"/>
 </g>
 <g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
 </g>
 <g fill="none" stroke="black" stroke-width="40">
 </g>
 <g fill="none" stroke="#d55e00" stroke-width="40">
-<path d="M1506 2789L685 1952"/>
-<path d="M1938 2790L2760 1952"/>
-<path id="l1-2" d="M685 962A1037 622 0 0 1 2760 962"/>
+<path d="M1377 2684L685 1861"/>
+<path d="M1763 2684L2455 1861"/>
+<path id="l1-2" d="M685 871A885 531 0 0 1 2455 871"/>
 </g>
-<text x="300" y="1852" textLength="770" lengthAdjust="spacing" id="o1">𝐴</text>
+<text x="300" y="1761" textLength="770" lengthAdjust="spacing" id="o1">𝐴</text>
 <g id="o2">
-<text x="2070" y="1852" textLength="770" lengthAdjust="spacing">𝐴</text>
-<text x="2840" y="1452" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2070" y="1761" textLength="770" lengthAdjust="spacing">𝐴</text>
+<text x="2840" y="1361" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
 </g>
-<text x="1455" y="3302" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="1303" y="3211" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
 </svg>
