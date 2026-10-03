@@ -69,6 +69,14 @@ to 9.
   (`Derivation::write_steps`), or a net as its links. The PNG carries
   title and description as iTXt and declares sRGB and its density (192
   dpi at the default scale 2, so it shows at the drawing's size).
+- **A drawing format writes a whole drawing or nothing** (found when
+  the author asked whether every output is well-formed): an unprovable
+  sequent had left an empty `.png` or `.pdf`, and an SVG that was its
+  verdict comment alone, no XML document (the latter since step 11, and
+  pinned by a test, which now pins the new behaviour). The SVG's verdict
+  now waits for the drawing, and without one goes to standard error
+  with no file made; a derivation cut short by the time limit leaves no
+  file in any format.
 - **`--net` replaces the formats `net` and `net-svg`** (the author:
   no aliases, the command is free until the first release): it writes
   the proof net instead of the derivation in text, svg, png or pdf.

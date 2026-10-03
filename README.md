@@ -565,7 +565,9 @@ $ linlog seq print --format svg "A |- A"
 page (its text selectable), in the Euler Math font the command carries;
 with `--output` the extension names the format, which `--format`
 overrides, and the verdict goes to standard error. Neither is written to
-a terminal. The PDF is an archival PDF/A-4 document (PDF 2.0);
+a terminal. A drawing format writes a whole drawing or nothing: for an
+unprovable sequent the verdict goes to standard error and no file is
+made. The PDF is an archival PDF/A-4 document (PDF 2.0);
 `--style pdf.compatible=true` makes it PDF/A-2u (PDF 1.7) for tools and
 archives that take nothing newer, and `--style pdf.accessible=true` an
 accessible PDF/UA-1 document (PDF/A-2a), whose drawing a screen reader
