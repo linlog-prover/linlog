@@ -51,7 +51,7 @@ fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
 fn height(rx: i64, style: &Style) -> i64 {
     let ratio = i64::from(style.link_height);
     match style.link_cap.map(i64::from) {
-        Some(cap) if rx > cap => ratio * (cap * rx).isqrt() / 1000,
+        Some(cap) if rx > cap => ratio * cap.saturating_mul(rx).isqrt() / 1000,
         _ => rx * ratio / 1000,
     }
 }
