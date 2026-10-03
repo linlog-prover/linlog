@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use linlog::{Forest, Sequent};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Reads all of a file, or of standard input for `None` or `-`. Refuses to
 /// wait on a terminal, where the user most likely forgot the input.
@@ -105,5 +105,107 @@ pub fn write(path: Option<&Path>, text: &str) -> Result<()> {
             let mut stdout = io::stdout().lock();
             writeln!(stdout, "{text}").context("cannot write to standard output")
         }
+    }
+}
+
+/// Where a command's output goes while it is written: standard output, or
+/// a file of another name that takes the output's name once it is whole
+/// (`finish`), so that the file never holds half an output. It takes text
+/// as a [`std::fmt::Write`] and keeps the first error of the stream for
+/// `finish`. An output dropped unfinished, after an error, writes nothing
+/// more: what its buffer holds is dropped with it, so that an error found
+/// before the derivation is written leaves standard output as empty as a
+/// file.
+pub struct Output {
+    /// The stream, until it is finished.
+    sink: Option<io::BufWriter<Box<dyn Write>>>,
+    /// The file the output is for and the one it is written to meanwhile,
+    /// for an output into a regular file.
+    rename: Option<(PathBuf, PathBuf)>,
+    /// The first error of the stream.
+    error: Option<io::Error>,
+}
+
+impl Output {
+    /// Opens the output: the file at `path`, or standard output for
+    /// `None`.
+    pub fn open(path: Option<&Path>) -> Result<Self> {
+        let (sink, rename): (Box<dyn Write>, _) = match path {
+            None => (Box::new(io::stdout().lock()), None),
+            Some(path) if fs::metadata(path).is_ok_and(|m| !m.is_file()) => {
+                let file = fs::File::create(path)
+                    .with_context(|| format!("cannot write {}", path.display()))?;
+                (Box::new(file), None)
+            }
+            Some(path) => {
+                let mut partial = path.as_os_str().to_owned();
+                partial.push(format!(".{}.partial", std::process::id()));
+                let partial = PathBuf::from(partial);
+                let file = fs::File::create(&partial)
+                    .with_context(|| format!("cannot write {}", path.display()))?;
+                (Box::new(file), Some((path.to_owned(), partial)))
+            }
+        };
+        Ok(Self {
+            sink: Some(io::BufWriter::new(sink)),
+            rename,
+            error: None,
+        })
+    }
+
+    /// The stream itself, for a writer of bytes such as serde_json's; an
+    /// error it meets is the writer's to report.
+    pub fn stream(&mut self) -> &mut impl Write {
+        self.sink.as_mut().expect("written before it is finished")
+    }
+
+    /// Ends the output with a newline and, for a file, gives it its name;
+    /// fails with the stream's first error, and then leaves a file as it
+    /// was.
+    pub fn finish(mut self) -> Result<()> {
+        let mut sink = self.sink.take().expect("finished once");
+        let done = match self.error.take() {
+            Some(error) => Err(error),
+            None => sink.write_all(b"\n").and_then(|()| sink.flush()),
+        };
+        let what = match &self.rename {
+            Some((path, _)) => format!("cannot write {}", path.display()),
+            None => "cannot write to standard output".to_owned(),
+        };
+        let done = done.and_then(|()| match &self.rename {
+            Some((path, partial)) => fs::rename(partial, path),
+            None => Ok(()),
+        });
+        if done.is_err()
+            && let Some((_, partial)) = &self.rename
+        {
+            let _ = fs::remove_file(partial);
+        }
+        done.context(what)
+    }
+}
+
+impl Drop for Output {
+    /// Drops what an output that was never finished still buffers, and
+    /// removes its file.
+    fn drop(&mut self) {
+        if let Some(sink) = self.sink.take() {
+            let _ = sink.into_parts();
+        }
+        if let Some((_, partial)) = &self.rename {
+            let _ = fs::remove_file(partial);
+        }
+    }
+}
+
+impl std::fmt::Write for Output {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        if self.error.is_some() {
+            return Err(std::fmt::Error);
+        }
+        self.stream().write_all(s.as_bytes()).map_err(|e| {
+            self.error = Some(e);
+            std::fmt::Error
+        })
     }
 }

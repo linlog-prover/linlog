@@ -1,10 +1,86 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! What the layout knows of the Euler Math font (version 0.75, 1000 units
-//! per em): the advance of every character the drawings set, and the
-//! vertical metrics of a line. The advances were read from the font's
+//! What the layout knows of the font: the advance of every character the
+//! drawings set, from the table of the Euler Math font (version 0.75, 1000
+//! units per em) by default, and the vertical metrics of a line, which are
+//! Euler Math's for every font. The advances were read from the font's
 //! `hmtx` table once; nothing is measured at run time.
+
+use std::collections::BTreeMap;
+
+/// The font a drawing asks for and the advances its layout gives the
+/// characters.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
+pub struct Font {
+    /// The font families the document asks for, as CSS lists them.
+    pub family: String,
+    /// The advance of every character.
+    pub advances: Advances,
+}
+
+impl Font {
+    /// Euler Math, with Neo Euler and any serif font after it, and its
+    /// own advances.
+    pub fn euler() -> Self {
+        Self {
+            family: "'Euler Math', 'Neo Euler', serif".to_owned(),
+            advances: Advances::Euler,
+        }
+    }
+
+    /// Any monospace font, every character [`MONOSPACE`] thousandths of
+    /// an em wide: for a viewer without a math font.
+    pub fn monospace() -> Self {
+        Self {
+            family: "monospace".to_owned(),
+            advances: Advances::Fixed(MONOSPACE),
+        }
+    }
+}
+
+impl Default for Font {
+    /// Returns [`Font::euler`].
+    fn default() -> Self {
+        Self::euler()
+    }
+}
+
+/// The advance of a character in [`Font::monospace`], in thousandths of
+/// an em: what most monospace fonts have.
+pub const MONOSPACE: u32 = 600;
+
+/// The advance widths a layout gives characters, in thousandths of an em.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Advances {
+    /// The committed table of Euler Math, with a fallback of 650 outside
+    /// it.
+    Euler,
+    /// One advance for every character.
+    Fixed(u32),
+    /// A table of the user's, and the advance of a character outside it.
+    Table {
+        /// The advance of each character.
+        table: BTreeMap<char, u32>,
+        /// The advance of a character outside the table.
+        fallback: u32,
+    },
+}
+
+impl Advances {
+    /// Returns the advance of a character, in thousandths of an em.
+    pub fn advance(&self, c: char) -> u32 {
+        match self {
+            Self::Euler => advance(c),
+            Self::Fixed(advance) => *advance,
+            Self::Table { table, fallback } => table.get(&c).copied().unwrap_or(*fallback),
+        }
+    }
+}
 
 /// The advance width of every character the drawings set, in thousandths
 /// of an em, sorted by character: printable ASCII, the mathematical italic
@@ -245,8 +321,9 @@ pub(super) const RAISE: i64 = 400;
 /// the text it belongs to.
 pub(super) const LOWER: i64 = 150;
 
-/// Returns the advance of a character, in thousandths of an em.
-pub(super) fn advance(c: char) -> u32 {
+/// Returns the advance of a character in Euler Math, in thousandths of an
+/// em.
+fn advance(c: char) -> u32 {
     match ADVANCES.binary_search_by_key(&c, |&(d, _)| d) {
         Ok(i) => u32::from(ADVANCES[i].1),
         Err(_) => FALLBACK,

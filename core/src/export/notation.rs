@@ -7,8 +7,9 @@
 //! time.
 
 use crate::occurrences::{Forest, OccId, Position, Reading};
-use crate::proofs::{Derivation, InfId};
+use crate::proofs::{Derivation, InfId, WriteError};
 use crate::sequents::{Kind, Sequent, Term, TermId, Visit, Walk};
+use std::fmt::Write;
 
 /// How a target writes formulas and sequents: the spelling of every
 /// connective, unit and of the turnstile, and how an atom's name is
@@ -141,7 +142,8 @@ impl Notation {
     /// Writes a sequent of a derivation, occurrences in ascending order:
     /// one-sided, or two-sided under a reading with the hypotheses in id
     /// order before the turnstile and the goal after it, which `aligned`
-    /// lines up with the turnstiles above and below.
+    /// lines up with the turnstiles above and below. With `marks`, every
+    /// formula stands between the two characters `'\u{2}'` and `'\u{3}'`.
     pub(crate) fn sequent(
         &self,
         out: &mut String,
@@ -149,12 +151,16 @@ impl Notation {
         reading: Option<&Reading>,
         sequent: &[OccId],
         aligned: bool,
+        marks: bool,
     ) {
+        let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
         let Some(reading) = reading else {
             out.push_str(self.turnstile);
             for (i, &o) in sequent.iter().enumerate() {
                 out.push_str(if i == 0 { " " } else { ", " });
+                out.push_str(open);
                 self.term(out, forest.sequent(), forest.term(o), false);
+                out.push_str(close);
             }
             return;
         };
@@ -168,7 +174,9 @@ impl Notation {
             if hypotheses > 0 {
                 out.push_str(", ");
             }
+            out.push_str(open);
             self.ill(out, reading, o, false);
+            out.push_str(close);
             hypotheses += 1;
         }
         if hypotheses > 0 {
@@ -180,7 +188,9 @@ impl Notation {
         out.push_str(self.turnstile);
         if let Some(goal) = goal {
             out.push(' ');
+            out.push_str(open);
             self.ill(out, reading, goal, false);
+            out.push_str(close);
         }
     }
 }
@@ -196,17 +206,39 @@ pub(crate) enum Step {
 
 /// Walks a derivation depth-first from the root, premises in their order,
 /// and hands `visit` every inference once on the way up and once on the
-/// way down. Exits alone come in postfix order. The walk keeps its own
-/// stack, so a derivation of any height fits.
-pub(crate) fn walk(derivation: &Derivation, mut visit: impl FnMut(Step)) {
+/// way down, until it fails. Exits alone come in postfix order. The walk
+/// keeps its own stack, so a derivation of any height fits.
+pub(crate) fn walk<E>(
+    derivation: &Derivation,
+    mut visit: impl FnMut(Step) -> Result<(), E>,
+) -> Result<(), E> {
     let mut stack = vec![Step::Enter(derivation.root(), 0)];
     while let Some(step) = stack.pop() {
-        visit(step);
+        visit(step)?;
         if let Step::Enter(id, depth) = step {
             stack.push(Step::Exit(id, depth));
             for &p in derivation.inference(id).premises.iter().rev() {
                 stack.push(Step::Enter(p, depth + 1));
             }
         }
+    }
+    Ok(())
+}
+
+/// Writes what `buffer` holds to `out`, empties it, and fails if `stop`
+/// says so: the emitters make one inference at a time in a buffer and
+/// hand it on, so that they hold one inference's text and can be stopped
+/// between two.
+pub(crate) fn flush(
+    out: &mut impl Write,
+    buffer: &mut String,
+    stop: &mut impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    out.write_str(buffer)?;
+    buffer.clear();
+    if stop() {
+        Err(WriteError::Stopped)
+    } else {
+        Ok(())
     }
 }

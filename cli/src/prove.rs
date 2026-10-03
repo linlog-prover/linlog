@@ -6,16 +6,17 @@ use crate::argument_parsing::{
 };
 use crate::io;
 use crate::limit::{Deadline, Notice};
+use crate::style::Styles;
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
-use linlog::export::svg::{self, Style};
+use linlog::export::svg;
 use linlog::export::{Form, latex, rocq, typst};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
 use linlog::{
     Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size, ViewError,
-    ViewOptions,
+    ViewOptions, WriteError,
 };
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::io::IsTerminal;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -158,10 +159,6 @@ pub(crate) enum Stop {
     Interrupt,
 }
 
-/// How many screens of lines a proof tree may fill and still be printed
-/// on a terminal without being asked for.
-const SCREENS: u64 = 3;
-
 /// How many inferences are built, or pieces of text written, between two
 /// looks at the time limit and the Ctrl-C flag while a derivation is made.
 const STEPS_PER_CLOCK: u32 = 256;
@@ -171,26 +168,46 @@ const STEPS_PER_CLOCK: u32 = 256;
 pub(crate) struct Show {
     /// The format.
     format: Format,
-    /// The form of a LaTeX, Typst or Rocq derivation.
-    form: Form,
+    /// The options of every format.
+    pub(crate) styles: Styles,
     /// The bound on what is built.
     view: ViewOptions,
-    /// When the text tree is printed.
+    /// When the derivation is written.
     tree: Tree,
     /// The columns and rows of the terminal the output goes to, if it goes
     /// to one.
     terminal: Option<(u64, u64)>,
+    /// How many screens of lines a text tree may fill on a terminal.
+    screens: Option<u64>,
+    /// Whether the verdict line is written, and so whether a newline
+    /// separates the derivation from it.
+    pub(crate) verdict: bool,
+    /// The most characters of a sequent in a verdict line.
+    abbreviate: Option<usize>,
+}
+
+/// Returns the name a format's options have in the styles, if it has
+/// options.
+fn style_key(format: Format) -> Option<&'static str> {
+    match format {
+        Format::Text => Some("text"),
+        Format::Latex => Some("latex"),
+        Format::Typst => Some("typst"),
+        Format::Svg | Format::NetSvg => Some("svg"),
+        Format::Rocq => Some("rocq"),
+        Format::Json | Format::Net => None,
+    }
 }
 
 impl Show {
-    /// Reads the output arguments; `exported` says the format has a
-    /// document form.
+    /// Reads the output arguments.
     pub(crate) fn new(output: &OutputArgs) -> Result<Self> {
         let format = output.format;
-        let form = form(
+        form(
             output.standalone,
             matches!(format, Format::Latex | Format::Typst | Format::Rocq),
         )?;
+        let styles = Styles::read(&output.style, style_key(format), output.standalone)?;
         // The size of the terminal that standard output is, and of no
         // other stream's.
         let stdout = std::io::stdout();
@@ -203,10 +220,13 @@ impl Show {
         };
         Ok(Self {
             format,
-            form,
+            styles,
             view: output.derivation_limit.into(),
             tree: output.tree,
             terminal,
+            screens: output.screens.0.map(u64::from),
+            verdict: !output.no_verdict,
+            abbreviate: output.abbreviate.0.map(|n| n as usize),
         })
     }
 
@@ -217,15 +237,18 @@ impl Show {
         self
     }
 
-    /// The text tree of any size within `view`, wherever it goes: what a
-    /// session prints when asked for a proof.
-    pub(crate) fn text(view: ViewOptions) -> Self {
+    /// A derivation of any size within `view` in `format`, wherever it
+    /// goes, under `styles`: what a session writes when asked for a proof.
+    pub(crate) fn session(format: Format, view: ViewOptions, styles: Styles) -> Self {
         Self {
-            format: Format::Text,
-            form: Form::Fragment,
+            format,
+            styles,
             view,
             tree: Tree::Always,
             terminal: None,
+            screens: None,
+            verdict: true,
+            abbreviate: None,
         }
     }
 
@@ -233,9 +256,10 @@ impl Show {
     /// when the output is a terminal and the switch leaves it to the fit.
     fn fit(&self) -> Option<(u64, u64)> {
         match (self.tree, self.format, self.terminal) {
-            (Tree::Auto, Format::Text, Some((columns, rows))) => {
-                Some((columns, rows.saturating_mul(SCREENS)))
-            }
+            (Tree::Auto, Format::Text, Some((columns, rows))) => Some((
+                columns,
+                self.screens.map_or(u64::MAX, |s| rows.saturating_mul(s)),
+            )),
             _ => None,
         }
     }
@@ -243,43 +267,93 @@ impl Show {
     /// Writes a line about a derivation that was left out: after the
     /// verdict when the output is a terminal, to standard error otherwise,
     /// so that a file or a pipe gets what it would get from a small proof.
-    fn left_out(&self, text: &mut String, line: &str) {
+    fn left_out(&self, out: &mut impl Write, line: &str) -> std::fmt::Result {
         if self.terminal.is_some() {
-            text.push('\n');
-            text.push_str(&note(self.format, line));
+            self.note(out, line)
         } else {
             eprintln!("{line}");
+            Ok(())
         }
+    }
+
+    /// Writes a line as a comment of the format on a line of its own,
+    /// after what came before it if anything did.
+    fn note(&self, out: &mut impl Write, line: &str) -> std::fmt::Result {
+        write!(out, "\n{}", note(self.format, line))
     }
 }
 
 /// What became of the derivation of a proof.
 pub(crate) enum Shown {
-    /// It was written, as this text.
-    Written(String),
-    /// It was left out, for the reason this line gives with the ways to
-    /// get it.
+    /// It was written.
+    Written,
+    /// It was left out, or cut short, for the reason this line gives with
+    /// the ways to get it.
     LeftOut(String),
     /// It was not asked for.
     Nothing,
 }
 
-/// A text that takes what is written to it until a stop condition fires.
-struct Halting<'a> {
-    /// What was written.
-    text: String,
-    /// The stop condition.
-    halt: &'a mut dyn FnMut() -> bool,
+/// A writer that writes a prefix before the first text it passes on, so
+/// that what writes nothing leaves nothing.
+struct Prefixed<'a, W> {
+    /// Where the text goes.
+    out: &'a mut W,
+    /// The prefix, until it is written.
+    prefix: Option<&'a str>,
 }
 
-impl Write for Halting<'_> {
+impl<W: Write> Write for Prefixed<'_, W> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        if (self.halt)() {
-            return Err(std::fmt::Error);
+        if let Some(prefix) = self.prefix.take() {
+            self.out.write_str(prefix)?;
         }
-        self.text.push_str(s);
-        Ok(())
+        self.out.write_str(s)
     }
+}
+
+/// A writer that passes on at most `left` characters and then fails,
+/// setting `cut`.
+struct Budget<'a, W> {
+    /// Where the text goes.
+    out: &'a mut W,
+    /// The characters it still passes on.
+    left: usize,
+    /// Whether text was held back.
+    cut: bool,
+}
+
+impl<W: Write> Write for Budget<'_, W> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        let n = s.chars().count();
+        if n <= self.left {
+            self.left -= n;
+            return self.out.write_str(s);
+        }
+        let head: String = s.chars().take(self.left).collect();
+        self.out.write_str(&head)?;
+        (self.left, self.cut) = (0, true);
+        Err(std::fmt::Error)
+    }
+}
+
+/// Returns a value's text, cut after `limit` characters with `…` and
+/// the number of formulas it has in all.
+pub(crate) fn abbreviated(value: &impl Display, limit: Option<usize>, formulas: usize) -> String {
+    let mut text = String::new();
+    let Some(limit) = limit else {
+        write!(text, "{value}").expect("a string takes any text");
+        return text;
+    };
+    let mut budget = Budget {
+        out: &mut text,
+        left: limit,
+        cut: false,
+    };
+    if write!(budget, "{value}").is_err() && budget.cut {
+        write!(text, "… ({formulas} formulas)").expect("a string takes any text");
+    }
+    text
 }
 
 /// Returns a number of bytes in the largest binary unit that leaves it at
@@ -314,9 +388,8 @@ pub(crate) fn count_text(count: u64) -> String {
 fn unfit(inferences: u64, width: &str, lines: u64, columns: u64, most: u64) -> String {
     format!(
         "the proof tree is not shown: {} inferences, {width} columns by {} lines, for a \
-         terminal of {columns} columns and at most {most} lines ({SCREENS} screens); print \
-         it with --tree always, write it with --output FILE, or get the proof with --format \
-         json",
+         terminal of {columns} columns and at most {most} lines (--screens); print it with \
+         --tree always, write it with --output FILE, or get the proof with --format json",
         count_text(inferences),
         count_text(lines)
     )
@@ -359,25 +432,32 @@ fn over_memory(size: &Size, limit: u64) -> String {
     )
 }
 
-/// Makes the derivation of a proof as `show` asks, two-sided in
-/// intuitionistic mode: a LaTeX or Typst proof tree, a Rocq script, an
-/// SVG document or a text tree; or says why it is left out: a text tree
-/// that does not fit the terminal, a derivation past the limit, or one
-/// that `halt` stopped, which is polled as it is built and written and
-/// whose reason `why` then gives. Fails with the checker's complaint,
-/// with formulas, on a proof that is none.
+/// Writes the derivation of a proof into `out` as `show` asks, two-sided
+/// in intuitionistic mode, after a newline: a text tree, a LaTeX or
+/// Typst proof tree, an SVG document or a Rocq script; or says why it is
+/// left out: a text tree that does not fit the terminal, a derivation
+/// past the limit, or one that `halt` stopped, which is polled as it is
+/// built and written and whose reason `why` then gives. A derivation cut
+/// short by `halt` stays written as far as it came. Fails with the
+/// checker's complaint, with formulas, on a proof that is none, and on a
+/// derivation that has no certificate, before anything is written.
 pub(crate) fn derivation(
     proof: &Proof,
     mode: Mode,
     show: &Show,
     mut halt: impl FnMut() -> bool,
     why: impl Fn() -> String,
+    out: &mut impl Write,
 ) -> Result<Shown> {
     if show.tree == Tree::Never {
         return Ok(Shown::Nothing);
     }
-    let invalid =
-        |e: linlog::CheckError| anyhow!("the proof is invalid: {}", e.describe(proof.forest()));
+    let invalid = |e: linlog::CheckError| {
+        anyhow!(
+            "the proof is invalid: {}",
+            e.describe(proof.forest()).abbreviated(show.abbreviate)
+        )
+    };
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
     // A tree that cannot fit is known from its size alone, before
     // anything is built.
@@ -424,8 +504,9 @@ pub(crate) fn derivation(
         // Any other bound of the view's: the error says which.
         Err(error) => return Ok(Shown::LeftOut(error.to_string())),
     };
+    let styles = &show.styles;
     if let Some((columns, most)) = fit {
-        let (width, lines) = d.text_size();
+        let (width, lines) = d.text_size(&styles.text);
         let (width, lines) = (width as u64, lines as u64);
         if width > columns || lines > most {
             let inferences = d.inferences().len() as u64;
@@ -438,47 +519,52 @@ pub(crate) fn derivation(
             )));
         }
     }
-    Ok(Shown::Written(match show.format {
-        Format::Latex => latex::derivation(&d, show.form),
-        Format::Typst => typst::derivation(&d, show.form),
-        Format::Svg => svg::derivation(&d, &Style::default()),
-        Format::Rocq => {
-            rocq::derivation(&d, show.form, &rocq::Options::default()).context("no certificate")?
-        }
+    let mut out = Prefixed {
+        out,
+        prefix: show.verdict.then_some("\n"),
+    };
+    let written = match show.format {
+        Format::Latex => latex::write(&d, &styles.latex, &mut out, &mut halt),
+        Format::Typst => typst::write(&d, &styles.typst, &mut out, &mut halt),
+        Format::Svg => svg::write(&d, &styles.svg, &mut out, &mut halt),
+        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, &mut halt),
         Format::Text | Format::Json | Format::Net | Format::NetSvg => {
-            let mut out = Halting {
-                text: String::new(),
-                halt: &mut halt,
-            };
-            if write!(out, "{d}").is_err() {
-                return Ok(stopped());
-            }
-            out.text
+            d.write_text(&styles.text, &mut out, &mut halt)
         }
-    }))
+    };
+    match written {
+        Ok(()) => Ok(Shown::Written),
+        Err(WriteError::Stopped) => Ok(Shown::LeftOut(format!(
+            "the derivation is cut short: {}",
+            why()
+        ))),
+        Err(WriteError::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
+        // The output's own error, which finishing it reports.
+        Err(_) => Ok(Shown::Written),
+    }
 }
 
 /// Returns a sequent as text: one-sided, or two-sided in intuitionistic
 /// mode when it has an intuitionistic reading.
 pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
-    sequent_in(sequent, mode, SequentFormat::Text, Form::Fragment)
+    sequent_in(sequent, mode, SequentFormat::Text, &Styles::default())
 }
 
 /// Returns a sequent in a format, one-sided, or two-sided in
-/// intuitionistic mode when it has an intuitionistic reading; LaTeX and
-/// Typst in `form`, SVG as a document.
+/// intuitionistic mode when it has an intuitionistic reading, under the
+/// format's options.
 pub fn sequent_in(
     sequent: &Sequent,
     mode: Mode,
     format: SequentFormat,
-    form: Form,
+    styles: &Styles,
 ) -> Result<String> {
     if !mode.intuitionistic {
         return Ok(match format {
             SequentFormat::Text => sequent.to_string(),
-            SequentFormat::Latex => latex::sequent(sequent, form),
-            SequentFormat::Typst => typst::sequent(sequent, form),
-            SequentFormat::Svg => svg::sequent(sequent, &Style::default()),
+            SequentFormat::Latex => latex::sequent(sequent, &styles.latex),
+            SequentFormat::Typst => typst::sequent(sequent, &styles.typst),
+            SequentFormat::Svg => svg::sequent(sequent, &styles.svg),
         });
     }
     // The sequent was admitted when it was read.
@@ -487,9 +573,9 @@ pub fn sequent_in(
         .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
     Ok(match format {
         SequentFormat::Text => reading.to_string(),
-        SequentFormat::Latex => latex::two_sided(&reading, form),
-        SequentFormat::Typst => typst::two_sided(&reading, form),
-        SequentFormat::Svg => svg::two_sided(&reading, &Style::default()),
+        SequentFormat::Latex => latex::two_sided(&reading, &styles.latex),
+        SequentFormat::Typst => typst::two_sided(&reading, &styles.typst),
+        SequentFormat::Svg => svg::two_sided(&reading, &styles.svg),
     })
 }
 
@@ -536,28 +622,35 @@ pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
 
 /// Returns a proof net as the format writes it: an SVG document for
 /// `net-svg`, text otherwise.
-fn net_in(net: &ProofStructure, format: Format) -> String {
+fn net_in(net: &ProofStructure, format: Format, styles: &Styles) -> String {
     match format {
-        Format::NetSvg => svg::net(net, &Style::default()),
+        Format::NetSvg => svg::net(net, &styles.svg),
         _ => net.to_string(),
     }
 }
 
 /// Returns the proof net of a proof in a format, or why its links are not
 /// one.
-fn net(proof: &Proof, mode: Mode, format: Format) -> Result<String> {
+fn net(proof: &Proof, mode: Mode, format: Format, styles: &Styles) -> Result<String> {
     Ok(net_in(
         &ProofStructure::from_proof(proof, mode.mix)?,
         format,
+        styles,
     ))
 }
 
 /// Returns the proof net of an outcome in a format: the net the net
 /// engine found, or the net of the proof another engine found.
-fn net_of(outcome: &Outcome, proof: &Proof, mode: Mode, format: Format) -> Result<String> {
+fn net_of(
+    outcome: &Outcome,
+    proof: &Proof,
+    mode: Mode,
+    format: Format,
+    styles: &Styles,
+) -> Result<String> {
     match &outcome.net {
-        Some(found) => Ok(net_in(found, format)),
-        None => net(proof, mode, format),
+        Some(found) => Ok(net_in(found, format, styles)),
+        None => net(proof, mode, format, styles),
     }
 }
 
@@ -628,7 +721,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     catch_interrupt();
 
-    let (outcome, stop, elapsed, derivation) = on_large_stack(options.stack_size(), || {
+    let status = on_large_stack(options.stack_size(), || {
         let start = Instant::now();
         let notice = Notice::start(NOTICE_AFTER, notice_line(deadline.limit(), deepens));
         // Both conditions are flags, so every poll asks both.
@@ -640,6 +733,27 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let stop = stopped(&deadline);
         drop(notice);
         let elapsed = start.elapsed();
+        let status = match outcome.verdict {
+            Verdict::Proved(_) => Status::Yes,
+            Verdict::Unprovable(_) => Status::No,
+            Verdict::Unknown(_) => Status::Unknown,
+        };
+        let mut out = io::Output::open(args.output.output.as_deref())?;
+        if format == Format::Json {
+            serde_json::to_writer(out.stream(), &outcome)?;
+            out.finish()?;
+            return Ok(status);
+        }
+        // The verdict first, then the derivation as it is made.
+        let ended = Ended {
+            stop,
+            elapsed,
+            recursion_limit: args.recursion_limit,
+        };
+        if show.verdict {
+            let line = verdict_line(&outcome, args.fragment.is_some(), &ended);
+            out.write_str(&note(format, &line))?;
+        }
         // The time limit and Ctrl-C hold for the derivation as for the
         // search.
         let over = || interrupted() || deadline.passed();
@@ -653,64 +767,34 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             Some(t) => format!("the time limit of {t:?} was reached"),
             None => "stopped".to_owned(),
         };
-        let derivation = match (&outcome.verdict, format, quiet) {
-            (
-                Verdict::Proved(proof),
-                Format::Text | Format::Latex | Format::Typst | Format::Svg | Format::Rocq,
-                false,
-            ) if over() => {
-                let _ = proof;
+        let shown = match (&outcome.verdict, format, quiet) {
+            (Verdict::Proved(_), Format::Net | Format::NetSvg, false) => {
+                let Verdict::Proved(proof) = &outcome.verdict else {
+                    unreachable!("matched above")
+                };
+                let net = net_of(&outcome, proof, mode, format, &show.styles)?;
+                let separator = if show.verdict { "\n" } else { "" };
+                write!(out, "{separator}{net}")?;
+                Shown::Written
+            }
+            (Verdict::Proved(_), _, false) if over() => {
                 Shown::LeftOut(format!("the derivation is not written: {}", why()))
             }
-            (
-                Verdict::Proved(proof),
-                Format::Text | Format::Latex | Format::Typst | Format::Svg | Format::Rocq,
-                false,
-            ) => derivation(proof, mode, &show, halt, why)?,
-            (Verdict::Proved(proof), Format::Net | Format::NetSvg, false) => {
-                Shown::Written(net_of(&outcome, proof, mode, format)?)
+            (Verdict::Proved(proof), _, false) => {
+                derivation(proof, mode, &show, halt, why, &mut out)?
             }
             _ => Shown::Nothing,
         };
-        anyhow::Ok((outcome, stop, elapsed, derivation))
-    })??;
-
-    let text = match format {
-        Format::Json => serde_json::to_string(&outcome)?,
-        Format::Text
-        | Format::Net
-        | Format::Latex
-        | Format::Typst
-        | Format::Svg
-        | Format::NetSvg
-        | Format::Rocq => {
-            let ended = Ended {
-                stop,
-                elapsed,
-                recursion_limit: args.recursion_limit,
-            };
-            let mut text = note(
-                format,
-                &verdict_line(&outcome, args.fragment.is_some(), &ended),
-            );
-            match derivation {
-                Shown::Written(derivation) => write!(text, "\n{derivation}")?,
-                Shown::LeftOut(line) => show.left_out(&mut text, &line),
-                Shown::Nothing => {}
-            }
-            if args.stats {
-                let statistics = statistics(&outcome, elapsed);
-                write!(text, "\n{}", note(format, &statistics))?;
-            }
-            text
+        if let Shown::LeftOut(line) = shown {
+            show.left_out(&mut out, &line)?;
         }
-    };
-    io::write(args.output.output.as_deref(), &text)?;
-    Ok(match outcome.verdict {
-        Verdict::Proved(_) => Status::Yes,
-        Verdict::Unprovable(_) => Status::No,
-        Verdict::Unknown(_) => Status::Unknown,
-    })
+        if args.stats {
+            show.note(&mut out, &statistics(&outcome, elapsed))?;
+        }
+        out.finish()?;
+        anyhow::Ok(status)
+    })??;
+    Ok(status)
 }
 
 /// How a search ended, as far as the command knows it beyond the outcome.
@@ -822,15 +906,25 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     let mode = args.mode.mode();
     let quiet = args.output.quiet;
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
-    let (valid, text) = on_large_stack(Options::default().stack_size(), || {
-        check_text(&proof, mode, &show, quiet)
+    let path = args.output.output.clone();
+    let valid = on_large_stack(Options::default().stack_size(), move || {
+        let mut out = io::Output::open(path.as_deref())?;
+        let valid = check_into(&proof, mode, &show, quiet, &mut out)?;
+        out.finish()?;
+        anyhow::Ok(valid)
     })??;
-    io::write(args.output.output.as_deref(), &text)?;
     Ok(if valid { Status::Yes } else { Status::No })
 }
 
-/// Checks the proof and returns whether it is valid, with the output text.
-fn check_text(proof: &Proof, mode: Mode, show: &Show, quiet: bool) -> Result<(bool, String)> {
+/// Checks the proof, writes the verdict and the derivation into `out`,
+/// and returns whether the proof is valid.
+fn check_into(
+    proof: &Proof,
+    mode: Mode,
+    show: &Show,
+    quiet: bool,
+    out: &mut io::Output,
+) -> Result<bool> {
     let format = show.format;
     let result = proof.check_within(mode, show.view.memory);
     if let Err(refusal) = &result
@@ -838,50 +932,57 @@ fn check_text(proof: &Proof, mode: Mode, show: &Show, quiet: bool) -> Result<(bo
     {
         bail!("the proof is not checked: {refusal}; raise the limit with --memory-limit");
     }
-    let text = match format {
-        Format::Json => serde_json::json!({
+    let report = |e: &linlog::CheckError| {
+        e.describe(proof.forest())
+            .abbreviated(show.abbreviate)
+            .to_string()
+    };
+    if format == Format::Json {
+        let verdict = serde_json::json!({
             "valid": result.is_ok(),
             "mode": mode,
-            "error": result.as_ref().err().map(|e| e.describe(proof.forest()).to_string()),
-        })
-        .to_string(),
-        Format::Text
-        | Format::Net
-        | Format::Latex
-        | Format::Typst
-        | Format::Svg
-        | Format::NetSvg
-        | Format::Rocq => {
-            // A sequent with no intuitionistic reading is an invalid proof
-            // in intuitionistic mode, printed one-sided.
-            let sequent =
-                sequent_text(proof.sequent(), mode).unwrap_or_else(|_| proof.sequent().to_string());
-            let valid = note(format, &format!("valid proof of {sequent} ({mode})"));
-            match &result {
-                Ok(()) if quiet => valid,
-                Ok(()) if matches!(format, Format::Net | Format::NetSvg) => {
-                    nets_exist(proof.sequent(), mode)?;
-                    format!("{valid}\n{}", net(proof, mode, format)?)
-                }
-                Ok(()) => {
-                    let mut text = valid;
-                    let stopped = || "stopped".to_owned();
-                    match derivation(proof, mode, show, || false, stopped)? {
-                        Shown::Written(derivation) => write!(text, "\n{derivation}")?,
-                        Shown::LeftOut(line) => show.left_out(&mut text, &line),
-                        Shown::Nothing => {}
-                    }
-                    text
-                }
-                Err(e) => note(
-                    format,
-                    &format!(
-                        "invalid proof of {sequent} ({mode}): {}",
-                        e.describe(proof.forest())
-                    ),
-                ),
-            }
-        }
+            "error": result.as_ref().err().map(report),
+        });
+        serde_json::to_writer(out.stream(), &verdict)?;
+        return Ok(result.is_ok());
+    }
+    // A sequent with no intuitionistic reading is an invalid proof in
+    // intuitionistic mode, printed one-sided.
+    let formulas = proof.sequent().roots().len();
+    let sequent = match Forest::new(proof.sequent())
+        .ok()
+        .filter(|_| mode.intuitionistic)
+        .and_then(|forest| {
+            Reading::new(&forest)
+                .ok()
+                .map(|reading| abbreviated(&reading, show.abbreviate, formulas))
+        }) {
+        Some(two_sided) => two_sided,
+        None => abbreviated(proof.sequent(), show.abbreviate, formulas),
     };
-    Ok((result.is_ok(), text))
+    let line = match &result {
+        Ok(()) => format!("valid proof of {sequent} ({mode})"),
+        Err(e) => format!("invalid proof of {sequent} ({mode}): {}", report(e)),
+    };
+    if show.verdict || result.is_err() {
+        out.write_str(&note(format, &line))?;
+    }
+    if result.is_err() || quiet {
+        return Ok(result.is_ok());
+    }
+    if matches!(format, Format::Net | Format::NetSvg) {
+        nets_exist(proof.sequent(), mode)?;
+        let separator = if show.verdict { "\n" } else { "" };
+        write!(
+            out,
+            "{separator}{}",
+            net(proof, mode, format, &show.styles)?
+        )?;
+        return Ok(true);
+    }
+    let stopped = || "stopped".to_owned();
+    if let Shown::LeftOut(line) = derivation(proof, mode, show, || false, stopped, out)? {
+        show.left_out(out, &line)?;
+    }
+    Ok(true)
 }

@@ -99,15 +99,15 @@ fn walk(json: &str, fragment: Fragment) {
 
     #[cfg(feature = "latex")]
     {
-        use linlog::export::{Form, latex};
-        assert!(latex::sequent(&sequent, Form::Fragment).len() > DEPTH);
-        assert!(latex::two_sided(&reading, Form::Fragment).len() > DEPTH);
+        use linlog::export::latex;
+        assert!(latex::sequent(&sequent, &latex::Options::default()).len() > DEPTH);
+        assert!(latex::two_sided(&reading, &latex::Options::default()).len() > DEPTH);
     }
     #[cfg(feature = "typst")]
     {
-        use linlog::export::{Form, typst};
-        assert!(typst::sequent(&sequent, Form::Fragment).len() > DEPTH);
-        assert!(typst::two_sided(&reading, Form::Fragment).len() > DEPTH);
+        use linlog::export::typst;
+        assert!(typst::sequent(&sequent, &typst::Options::default()).len() > DEPTH);
+        assert!(typst::two_sided(&reading, &typst::Options::default()).len() > DEPTH);
     }
     #[cfg(feature = "svg")]
     {
@@ -125,9 +125,8 @@ fn walk(json: &str, fragment: Fragment) {
     assert!(derivation.to_string().ends_with(&printed));
     #[cfg(feature = "rocq")]
     {
-        use linlog::export::Form;
         use linlog::export::rocq::{self, Options};
-        let certificate = rocq::derivation(&derivation, Form::Fragment, &Options::default());
+        let certificate = rocq::derivation(&derivation, &Options::default());
         assert!(certificate.unwrap().len() > DEPTH);
     }
 }

@@ -53,7 +53,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     for o in forest.ids().filter(|&o| forest.is_literal(o)) {
         formula.clear();
         NOTATION.term(&mut formula, forest.sequent(), forest.term(o), false);
-        let label = run(&formula, 1000);
+        let label = run(&formula, 1000, &style.font);
         x[o.index()] = next + label.width / 2;
         next += label.width + gap;
         literals.push((o, label));
@@ -115,6 +115,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
             baseline,
             label,
             &id,
+            None,
         );
     }
     for o in forest.ids().filter(|&o| !forest.is_literal(o)) {
@@ -131,7 +132,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
             Kind::Par => ("⅋", PAR_MIDDLE),
             _ => ("⊗", AXIS),
         };
-        let label = run(symbol, label_size);
+        let label = run(symbol, label_size, &style.font);
         let symbol_y = centre.1 + middle * label_size / 1000;
         let size = format!(r#" font-size="{label_size}""#);
         text(
@@ -140,6 +141,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
             symbol_y,
             &label,
             &size,
+            None,
         );
         for child in forest.children(o) {
             let target = (x[child.index()], y(child));

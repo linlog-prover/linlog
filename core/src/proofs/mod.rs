@@ -31,12 +31,17 @@ mod multiset;
 mod oracle;
 /// The size of a derivation, without building it.
 pub mod size;
+/// The labels of rules, the shape of an open goal, and why a derivation was
+/// not written whole, which every output that draws a derivation shares.
+pub mod style;
 
 pub use check::{CheckError, Described, Dyadic, Problem};
 pub use derivation::{Derivation, InfId, Inference, Rule, UnknownRule, ViewError, ViewOptions};
+pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
 pub use interactive::{Interactive, Refusal};
 pub use size::Size;
+pub use style::{Labels, OpenGoal, WriteError};
 
 use crate::Error;
 use crate::fragment::Mode;

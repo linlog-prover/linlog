@@ -8,35 +8,42 @@
 //! above the row below it.
 
 use super::font::{AXIS, DEPTH, HEIGHT};
-use super::{NOTATION, PLAIN, Run, Style, document, run, text};
-use crate::export::notation::{Step, walk};
-use crate::proofs::{Derivation, Rule};
+use super::{NOTATION, PLAIN, Run, Style, drawn, escaped, head, label, run, text};
+use crate::export::notation::{Step, flush, walk};
+use crate::proofs::{Derivation, OpenGoal, Rule, WriteError};
 use std::fmt::Write;
 
 /// Where an inference and the subtree above it go, within the box that
-/// holds the subtree and the rule names in it.
-#[derive(Clone, Debug, Default)]
+/// holds the subtree and the rule names in it. A conclusion is laid out
+/// again when it is written, so that the layout holds a few numbers per
+/// inference and no text.
+#[derive(Clone, Copy, Debug, Default)]
 struct Place {
     /// The left end of the box, relative to the left end of the box of the
     /// inference below; 0 for the root.
     offset: i64,
     /// The width of the box.
     width: i64,
-    /// The conclusion, laid out.
-    conclusion: Run,
+    /// The width of the conclusion.
+    conclusion: i64,
     /// The left end of the conclusion within the box.
     left: i64,
     /// The ends of the inference line within the box, or none for an
-    /// open goal.
+    /// open goal drawn without one.
     bar: Option<(i64, i64)>,
-    /// The rule's name, laid out; empty for an open goal.
-    label: Run,
 }
 
-/// Returns a derivation as an SVG document of its proof tree, titled with
-/// its conclusion in plain text.
-pub(super) fn draw(derivation: &Derivation, style: &Style) -> String {
+/// Writes a derivation as an SVG document of its proof tree into `out`,
+/// titled with its conclusion in plain text, and asks `stop` after the
+/// elements of each inference.
+pub(super) fn draw(
+    derivation: &Derivation,
+    style: &Style,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
     let (forest, reading) = (derivation.forest(), derivation.reading());
+    let font = &style.font;
     let line_height = i64::from(style.line_height);
     let label_size = i64::from(style.label_size);
     let (gap, label_gap) = (i64::from(style.premise_gap), i64::from(style.label_gap));
@@ -46,8 +53,29 @@ pub(super) fn draw(derivation: &Derivation, style: &Style) -> String {
     // name has its math axis on the line; the dots over an open goal stand
     // where its premises would.
     let rise = (line_height + HEIGHT - DEPTH) / 2;
-    let dots = run("⋮", 1000);
+    let dots = run("⋮", 1000, font);
     let dots_rise = line_height - DEPTH;
+    // The label of every rule, and of an open goal its mark, laid out
+    // once.
+    let labels: Vec<Option<Run>> = Rule::ALL
+        .iter()
+        .map(|&rule| match (rule, &style.open) {
+            (Rule::Open, OpenGoal::Mark(mark)) => Some(mark.as_str()),
+            _ => style.labels.markup(rule),
+        })
+        .map(|markup| markup.map(|m| run(&label(m), label_size, font)))
+        .collect();
+    let empty = Run::default();
+    let label_of = |rule: Rule| labels[rule as usize].as_ref().unwrap_or(&empty);
+    let bare = matches!(style.open, OpenGoal::Bare);
+    let dotted = matches!(style.open, OpenGoal::Dots);
+    let marks = style.ids;
+    let conclusion = |sequent: &mut String, id| {
+        sequent.clear();
+        let inference = derivation.inference(id);
+        NOTATION.sequent(sequent, forest, reading, &inference.sequent, false, marks);
+        run(sequent, 1000, font)
+    };
 
     // Up the tree: sizes, the premises' offsets, and the highest point of
     // the drawing relative to the root's baseline.
@@ -56,28 +84,30 @@ pub(super) fn draw(derivation: &Derivation, style: &Style) -> String {
     let mut sequent = String::new();
     walk(derivation, |step| {
         let Step::Exit(id, depth) = step else {
-            return;
+            return Ok::<_, WriteError>(());
         };
         let inference = derivation.inference(id);
-        sequent.clear();
-        NOTATION.sequent(&mut sequent, forest, reading, &inference.sequent, false);
-        let conclusion = run(&sequent, 1000);
+        let width = conclusion(&mut sequent, id).width;
         let baseline = -(depth as i64) * line_height;
         top = top.min(baseline - HEIGHT);
-        let width = conclusion.width;
-        if inference.rule == Rule::Open {
-            top = top.min(baseline - dots_rise - HEIGHT);
+        if inference.rule == Rule::Open && (bare || dotted) {
+            if dotted {
+                top = top.min(baseline - dots_rise - HEIGHT);
+            }
+            let reach = if dotted { dots.width } else { 0 };
             places[id.index()] = Place {
-                width: width.max(dots.width),
-                left: (dots.width - width).max(0) / 2,
-                conclusion,
+                width: width.max(reach),
+                conclusion: width,
+                left: (reach - width).max(0) / 2,
                 ..Place::default()
             };
-            return;
+            return Ok(());
         }
-        let label = run(inference.rule.name(), label_size);
+        let label = label_of(inference.rule);
         top = top.min(baseline - rise - stroke / 2);
-        top = top.min(baseline - rise + (AXIS - HEIGHT) * label_size / 1000);
+        if !label.pieces.is_empty() {
+            top = top.min(baseline - rise + (AXIS - HEIGHT) * label_size / 1000);
+        }
 
         // The premises side by side from 0, and the span of their
         // conclusions.
@@ -85,7 +115,7 @@ pub(super) fn draw(derivation: &Derivation, style: &Style) -> String {
         for &p in &inference.premises {
             let place = &mut places[p.index()];
             place.offset = x;
-            let (start, end) = (x + place.left, x + place.left + place.conclusion.width);
+            let (start, end) = (x + place.left, x + place.left + place.conclusion);
             span = Some(span.map_or((start, end), |(s, _)| (s, end)));
             x += place.width + gap;
         }
@@ -101,61 +131,104 @@ pub(super) fn draw(derivation: &Derivation, style: &Style) -> String {
         for &p in &inference.premises {
             places[p.index()].offset += shift;
         }
-        let right = row.max(bar.1 + label_gap + label.width);
+        let named = if label.pieces.is_empty() {
+            0
+        } else {
+            label_gap + label.width
+        };
+        let right = row.max(bar.1 + named);
         places[id.index()] = Place {
             offset: 0,
             width: right + shift,
-            conclusion,
+            conclusion: width,
             left: left + shift,
             bar: Some((bar.0 + shift, bar.1 + shift)),
-            label,
         };
-    });
+        Ok(())
+    })?;
 
-    // Down the tree: every box at its place, and what it draws.
+    // Down the tree: every box at its place.
     let mut xs = vec![0; places.len()];
     xs[derivation.root().index()] = margin;
-    let (mut lines, mut texts) = (String::new(), String::new());
     walk(derivation, |step| {
-        let Step::Enter(id, depth) = step else {
-            return;
-        };
-        let (place, x) = (&places[id.index()], xs[id.index()]);
-        for &p in &derivation.inference(id).premises {
-            xs[p.index()] = x + places[p.index()].offset;
-        }
-        let y = margin - top - depth as i64 * line_height;
-        let id = format!(r#" id="i{}""#, id.get());
-        text(&mut texts, x + place.left, y, &place.conclusion, &id);
-        match place.bar {
-            None => {
-                let dots_x = x + (place.width - dots.width) / 2;
-                text(&mut texts, dots_x, y - dots_rise, &dots, "");
-            }
-            Some((start, end)) => {
-                let y = y - rise;
-                writeln!(lines, r#"<path d="M{} {y}H{}"/>"#, x + start, x + end).unwrap();
-                let size = format!(r#" font-size="{label_size}""#);
-                let baseline = y + AXIS * label_size / 1000;
-                text(
-                    &mut texts,
-                    x + end + label_gap,
-                    baseline,
-                    &place.label,
-                    &size,
-                );
+        if let Step::Enter(id, _) = step {
+            for &p in &derivation.inference(id).premises {
+                xs[p.index()] = xs[id.index()] + places[p.index()].offset;
             }
         }
-    });
+        Ok::<_, WriteError>(())
+    })?;
+    let y = |depth: usize| margin - top - depth as i64 * line_height;
 
     let root = derivation.root();
     let mut title = String::new();
-    let conclusion = &derivation.inference(root).sequent;
-    PLAIN.sequent(&mut title, forest, reading, conclusion, false);
-    let body = format!(
-        "<g fill=\"none\" stroke=\"{}\" stroke-width=\"{stroke}\">\n{lines}</g>\n{texts}",
-        super::escaped(&style.line)
-    );
+    let root_sequent = &derivation.inference(root).sequent;
+    PLAIN.sequent(&mut title, forest, reading, root_sequent, false, false);
     let width = places[root.index()].width + 2 * margin;
-    document(style, &title, width, DEPTH - top + 2 * margin, &body)
+    head(out, style, &title, (width, DEPTH - top + 2 * margin))?;
+
+    // The lines, then the texts, each in the order of the walk.
+    writeln!(
+        out,
+        "<g fill=\"none\" stroke=\"{}\" stroke-width=\"{stroke}\">",
+        escaped(&style.line)
+    )?;
+    let mut buffer = String::new();
+    let dashed = matches!(style.open, OpenGoal::Dashed);
+    walk(derivation, |step| {
+        let Step::Enter(id, depth) = step else {
+            return Ok(());
+        };
+        let (place, x) = (&places[id.index()], xs[id.index()]);
+        if let Some((start, end)) = place.bar {
+            let y = y(depth) - rise;
+            write!(buffer, r#"<path d="M{} {y}H{}""#, x + start, x + end)?;
+            if dashed && derivation.inference(id).rule == Rule::Open {
+                write!(buffer, r#" stroke-dasharray="{0} {0}""#, 3 * stroke)?;
+            }
+            buffer.push_str("/>\n");
+        }
+        flush(out, &mut buffer, &mut stop)
+    })?;
+    out.write_str("</g>\n")?;
+    let size = format!(r#" font-size="{label_size}""#);
+    let mut positions = Vec::new();
+    walk(derivation, |step| {
+        let Step::Enter(id, depth) = step else {
+            return Ok(());
+        };
+        let (place, x, y) = (&places[id.index()], xs[id.index()], y(depth));
+        let inference = derivation.inference(id);
+        let attributes = format!(r#" id="i{}""#, id.get());
+        let ids = marks.then(|| {
+            positions = drawn(reading, &inference.sequent);
+            (id.get(), positions.as_slice())
+        });
+        let line = conclusion(&mut sequent, id);
+        text(&mut buffer, x + place.left, y, &line, &attributes, ids);
+        match place.bar {
+            None if dotted => {
+                let dots_x = x + (place.width - dots.width) / 2;
+                text(&mut buffer, dots_x, y - dots_rise, &dots, "", None);
+            }
+            None => {}
+            Some((_, end)) => {
+                let label = label_of(inference.rule);
+                if !label.pieces.is_empty() {
+                    let baseline = y - rise + AXIS * label_size / 1000;
+                    text(
+                        &mut buffer,
+                        x + end + label_gap,
+                        baseline,
+                        label,
+                        &size,
+                        None,
+                    );
+                }
+            }
+        }
+        flush(out, &mut buffer, &mut stop)
+    })?;
+    out.write_str("</svg>")?;
+    Ok(())
 }

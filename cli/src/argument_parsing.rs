@@ -269,6 +269,10 @@ pub struct InteractArgs {
     /// `prove --derivation-limit`
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit::default())]
     pub derivation_limit: Limit,
+    /// How `show` and `proof` write; a `--style` key names its format
+    /// with a prefix here, `latex.labels=subscript`.
+    #[command(flatten)]
+    pub style: StyleArgs,
 }
 
 /// The time limit of `prove` and of a session's `close` when none is
@@ -390,6 +394,9 @@ pub enum SeqCommand {
         /// Write to this file instead of standard output
         #[arg(short, long, value_name = "PATH")]
         output: Option<PathBuf>,
+        /// How the output looks.
+        #[command(flatten)]
+        style: StyleArgs,
     },
     /// Print a sequent as JSON, the form `--json-input` reads
     #[command(after_help = SYNTAX)]
@@ -513,17 +520,35 @@ pub struct OutputArgs {
     #[arg(short, long)]
     pub quiet: bool,
     /// Write a document that compiles on its own instead of a fragment to
-    /// paste (latex and typst)
+    /// paste (latex, typst and rocq)
     #[arg(long)]
     pub standalone: bool,
-    /// When to print the proof tree of the text format
+    /// Leave out the verdict line, so that the output is the derivation
+    /// alone; the exit status still gives the verdict
+    #[arg(long)]
+    pub no_verdict: bool,
+    /// When to write the derivation, in every format
     ///
-    /// By default a tree is printed on a terminal only if it fits: no line
-    /// wider than the terminal and no more than three screens of lines.
-    /// Otherwise one line says how large the tree is and how to get it.
-    /// Into a file or a pipe the tree is always written.
+    /// By default the text tree is printed on a terminal only if it fits:
+    /// no line wider than the terminal and no more lines than
+    /// `--screens` screens. Otherwise one line says how large the tree is
+    /// and how to get it. Into a file or a pipe, and in every other
+    /// format, the derivation is written whatever its size, up to
+    /// `--derivation-limit`; `never` writes the verdict alone.
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = Tree::Auto)]
     pub tree: Tree,
+    /// How many screens of lines a text tree may fill and still be
+    /// printed on a terminal by `--tree auto`, or `none` for any number
+    #[arg(long, value_name = "N", value_parser = parse_bound, default_value_t = Bound(Some(SCREENS)))]
+    pub screens: Bound,
+    /// The most characters of a sequent in a verdict line, and of a list
+    /// of formulas in an error report, or `none` for no limit; a longer
+    /// one is cut with `…` and the number of its formulas
+    #[arg(long, value_name = "CHARS", value_parser = parse_bound, default_value_t = Bound(Some(ABBREVIATE)))]
+    pub abbreviate: Bound,
+    /// How the output looks.
+    #[command(flatten)]
+    pub style: StyleArgs,
     /// The largest derivation to build, by its estimated size: a number
     /// of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
     ///
@@ -537,15 +562,59 @@ pub struct OutputArgs {
     pub derivation_limit: Limit,
 }
 
-/// When the text format prints its proof tree.
+/// When a command writes the derivation of a proof.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tree {
-    /// On a terminal if it fits, into a file or a pipe always
+    /// The text tree on a terminal if it fits, everything else always
     Auto,
     /// Whatever its size, up to `--derivation-limit`
     Always,
     /// Not at all
     Never,
+}
+
+/// How many screens of lines a text tree may fill on a terminal by
+/// default.
+pub const SCREENS: u32 = 3;
+
+/// The most characters of a sequent in a verdict line by default: two
+/// or three lines of a terminal.
+pub const ABBREVIATE: u32 = 200;
+
+/// How the outputs look: one options value per format, read from a file
+/// and changed by flags.
+#[derive(Args, Clone, Debug, Default)]
+pub struct StyleArgs {
+    /// Set an option of an output format, such as `labels=subscript`,
+    /// `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+    ///
+    /// KEY is a field of the format's options, dotted into nested ones,
+    /// as `--style-file` holds them; without a prefix `text.`, `latex.`,
+    /// `typst.`, `svg.` or `rocq.` it names the format `--format` gives.
+    /// VALUE is JSON, or else a string: `gap=5`, `ids=true`,
+    /// `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields:
+    /// text: labels, open, bar, gap; latex: form, labels, open, align,
+    /// ebproof, preamble; typst: form, labels, open, import, page; svg:
+    /// font (family, advances), labels, open, ids, font_size, label_size,
+    /// line_height, premise_gap, literal_gap, label_gap, margin,
+    /// stroke_width, link_height, node_radius, text, line, par, link,
+    /// highlight, background; rocq: form, lemma, prelude. Labels are
+    /// upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is
+    /// dots, bare, dashed or {"mark":TEXT}
+    #[arg(long = "style", value_name = "KEY=VALUE")]
+    pub style: Vec<String>,
+    /// Read the options of the output formats from a JSON file: an object
+    /// with a key per format (text, latex, typst, svg, rocq), each holding
+    /// the fields `--style` names; a field left out keeps its default
+    #[arg(long, value_name = "PATH")]
+    pub style_file: Option<PathBuf>,
+    /// The name of the lemma of a Rocq certificate (rocq.lemma)
+    #[arg(long, value_name = "NAME")]
+    pub lemma: Option<String>,
+    /// The lines a standalone Rocq file starts with, before the lemma
+    /// (rocq.prelude)
+    #[arg(long, value_name = "TEXT")]
+    pub prelude: Option<String>,
 }
 
 /// The largest derivation a command builds, in bytes of its estimated
@@ -674,7 +743,7 @@ pub enum Format {
     /// of the curryst package
     Typst,
     /// The verdict as an XML comment, then the derivation drawn as an SVG
-    /// document, set in the Euler Math font
+    /// document, set in the Euler Math font unless `--style` names another
     Svg,
     /// The verdict as an XML comment, then the proof net of the proof
     /// drawn as an SVG document: the formula trees with the axiom links as
@@ -685,7 +754,8 @@ pub enum Format {
     /// nanoyalla directory of github.com/ComputerAidedLL/click-and-collect,
     /// built with Rocq 9 and its standard library, no Yalla needed): a
     /// lemma stating the sequent one-sided, proved rule by rule and closed
-    /// by Qed; `--standalone` adds the import line; a proof with Mix or
+    /// by Qed; `--standalone` adds the import line (`--prelude`), and
+    /// `--lemma` names the lemma; a proof with Mix or
     /// with the weakening of affine mode is refused
     Rocq,
 }

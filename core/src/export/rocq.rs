@@ -38,7 +38,6 @@
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::rocq::{self, Options};
-//! use linlog::export::Form;
 //! use linlog::{Mode, Options as Search, Sequent, Verdict, prove};
 //!
 //! let sequent: Sequent = "A, A -o B |- B".parse()?;
@@ -47,7 +46,7 @@
 //!     panic!("provable");
 //! };
 //! assert_eq!(
-//!     rocq::derivation(&proof.derivation()?, Form::Fragment, &Options::default())?,
+//!     rocq::derivation(&proof.derivation()?, &Options::default())?,
 //!     "Lemma certificate (A B : formula) : ll [dual A; tens A (dual B); B].
 //! Proof.
 //! apply (tens_r_ext [dual A]); cbn_sequent.
@@ -63,9 +62,9 @@
 //! ```
 
 use super::Form;
-use super::notation::{Step, walk};
+use super::notation::{Step, flush, walk};
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Derivation, InfId, Rule};
+use crate::proofs::{Derivation, InfId, Rule, WriteError};
 use crate::sequents::{Sequent, Term, TermId, Visit, Walk};
 use std::fmt::Write;
 use thiserror::Error;
@@ -79,7 +78,10 @@ pub const NANOYALLA: &str = "1.1.3";
 /// What a user may vary in a certificate.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
 pub struct Options {
+    /// The lemma alone, or a whole file that starts with the prelude.
+    pub form: Form,
     /// The name of the lemma.
     pub lemma: String,
     /// The lines a standalone file starts with, before the lemma: what
@@ -89,10 +91,11 @@ pub struct Options {
 }
 
 impl Default for Options {
-    /// Returns the lemma `certificate` and the import of NanoYalla's
-    /// `macroll`.
+    /// Returns the lemma `certificate` alone, and the import of
+    /// NanoYalla's `macroll` as the prelude of a whole file.
     fn default() -> Self {
         Self {
+            form: Form::Fragment,
             lemma: "certificate".to_owned(),
             prelude: "From NanoYalla Require Import macroll.".to_owned(),
         }
@@ -515,18 +518,30 @@ impl Script<'_> {
 }
 
 /// Returns a derivation as a Rocq lemma with its proof script for
-/// NanoYalla, as a fragment or a standalone file, or why it has no
-/// certificate.
-pub fn derivation(
+/// NanoYalla, in the options' form, or why it has no certificate.
+pub fn derivation(derivation: &Derivation, options: &Options) -> Result<String, Unsupported> {
+    let mut out = String::new();
+    match write(derivation, options, &mut out, || false) {
+        Ok(()) => Ok(out),
+        Err(WriteError::Unsupported(unsupported)) => Err(unsupported),
+        Err(_) => unreachable!("a string takes any text and nothing stops"),
+    }
+}
+
+/// Writes a derivation as [`derivation`] returns it into `out`, one
+/// inference at a time, and asks `stop` after each; a derivation without
+/// a certificate is refused before anything is written.
+pub fn write(
     derivation: &Derivation,
-    form: Form,
     options: &Options,
-) -> Result<String, Unsupported> {
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
     for inference in derivation.inferences() {
         match inference.rule {
-            Rule::Open => return Err(Unsupported::Open),
-            Rule::Mix => return Err(Unsupported::Mix),
-            Rule::AffineWeakening => return Err(Unsupported::AffineWeakening),
+            Rule::Open => return Err(Unsupported::Open.into()),
+            Rule::Mix => return Err(Unsupported::Mix.into()),
+            Rule::AffineWeakening => return Err(Unsupported::AffineWeakening.into()),
             _ => {}
         }
     }
@@ -545,35 +560,38 @@ pub fn derivation(
     let root = derivation.root();
     script.goals[root.index()] = derivation.inference(root).sequent.clone();
 
-    write!(script.out, "Lemma {}", options.lemma).unwrap();
+    if options.form == Form::Standalone {
+        write!(out, "{}\n\n", options.prelude.trim_end())?;
+    }
+    write!(script.out, "Lemma {}", options.lemma)?;
     if !script.names.is_empty() {
-        write!(script.out, " ({} : formula)", script.names.join(" ")).unwrap();
+        write!(script.out, " ({} : formula)", script.names.join(" "))?;
     }
     script.out.push_str(" : ll ");
     let conclusion = script.list(&script.goals[root.index()]);
     script.out.push_str(&conclusion);
     script.out.push_str(".\nProof.\n");
-    walk(derivation, |step| match step {
-        Step::Enter(id, _) => {
-            if script.braced[id.index()] {
-                script.line("{");
-                script.depth += 1;
+    walk(derivation, |step| {
+        match step {
+            Step::Enter(id, _) => {
+                if script.braced[id.index()] {
+                    script.line("{");
+                    script.depth += 1;
+                }
+                let goal = std::mem::take(&mut script.goals[id.index()]);
+                script.inference(id, goal);
             }
-            let goal = std::mem::take(&mut script.goals[id.index()]);
-            script.inference(id, goal);
-        }
-        Step::Exit(id, _) => {
-            if script.braced[id.index()] {
-                script.depth -= 1;
-                script.line("}");
+            Step::Exit(id, _) => {
+                if script.braced[id.index()] {
+                    script.depth -= 1;
+                    script.line("}");
+                }
             }
         }
-    });
-    script.out.push_str("Qed.");
-    match form {
-        Form::Fragment => Ok(script.out),
-        Form::Standalone => Ok(format!("{}\n\n{}", options.prelude, script.out)),
-    }
+        flush(out, &mut script.out, &mut stop)
+    })?;
+    out.write_str("Qed.")?;
+    Ok(())
 }
 
 #[cfg(test)]

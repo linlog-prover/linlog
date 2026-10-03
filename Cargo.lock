@@ -257,6 +257,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "linlog",
+ "serde",
  "serde_json",
  "terminal_size",
 ]

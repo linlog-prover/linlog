@@ -58,7 +58,7 @@ impl InfId {
 /// intuitionistic linear logic that an intuitionistic derivation shows
 /// instead, each the classical rule on the hypothesis or the goal it acts
 /// on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Rule {
     /// `ax`
     Ax,
@@ -132,6 +132,47 @@ pub enum Rule {
 }
 
 impl Rule {
+    /// Every rule, in the order of declaration.
+    pub const ALL: [Self; 34] = {
+        use Rule::*;
+        [
+            Ax,
+            Tensor,
+            Par,
+            One,
+            Bot,
+            With,
+            PlusLeft,
+            PlusRight,
+            Top,
+            Promotion,
+            Dereliction,
+            Contraction,
+            Weakening,
+            Mix,
+            AffineWeakening,
+            ImpLeft,
+            ImpRight,
+            TensorLeft,
+            TensorRight,
+            WithLeft1,
+            WithLeft2,
+            WithRight,
+            PlusLeftRule,
+            PlusRight1,
+            PlusRight2,
+            OneLeft,
+            OneRight,
+            ZeroLeft,
+            TopRight,
+            BangLeft,
+            BangRight,
+            BangContraction,
+            BangWeakening,
+            Open,
+        ]
+    };
+
     /// Returns the rule's usual spelling.
     pub const fn name(self) -> &'static str {
         use Rule::*;

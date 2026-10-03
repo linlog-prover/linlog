@@ -12,9 +12,8 @@
 //! document is of the `standalone` class, which crops the page to the
 //! content, and compiles with pdfLaTeX. Neither chooses a font: the output
 //! is set in the fonts of the document it goes into. The turnstiles of two-sided
-//! sequents are aligned in the tree with ebproof's `&`; one-sided
-//! sequents are centred. An open goal of a proof in progress is its
-//! sequent under vertical dots, with no inference line.
+//! sequents are aligned in the tree with ebproof's `&` unless
+//! [`Options::align`] is off; one-sided sequents are centred.
 //!
 //! An atom named by one ASCII letter is written as it is, in math italic;
 //! any other name goes into `\mathit{…}`, with `\ { } $ # % & _` escaped by
@@ -27,18 +26,19 @@
 //!
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
-//! use linlog::export::{Form, latex};
+//! use linlog::export::latex;
 //! use linlog::{Mode, Options, Sequent, Verdict, prove};
 //!
 //! let sequent: Sequent = "A, A -o B |- B".parse()?;
-//! assert_eq!(latex::sequent(&sequent, Form::Fragment), r"$\vdash A^\bot, A \otimes B^\bot, B$");
+//! let options = latex::Options::default();
+//! assert_eq!(latex::sequent(&sequent, &options), r"$\vdash A^\bot, A \otimes B^\bot, B$");
 //!
 //! let outcome = prove(&sequent, Mode::INTUITIONISTIC, &Options::default())?;
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
 //! assert_eq!(
-//!     latex::derivation(&proof.two_sided_derivation()?, Form::Fragment),
+//!     latex::derivation(&proof.two_sided_derivation()?, &options),
 //!     r"\begin{prooftree}
 //! \infer0[$\mathrm{ax}$]{A &\vdash A}
 //! \infer0[$\mathrm{ax}$]{B &\vdash B}
@@ -49,10 +49,12 @@
 //! ```
 
 use super::Form;
-use super::notation::{Notation, Step, walk};
+use super::notation::{Notation, Step, flush, walk};
 use crate::occurrences::Reading;
-use crate::proofs::{Derivation, Rule};
+use crate::proofs::style::{Part, parts};
+use crate::proofs::{Derivation, Labels, OpenGoal, Rule, WriteError};
 use crate::sequents::Sequent;
+use std::fmt::Write;
 
 /// The LaTeX spelling of formulas and sequents.
 const NOTATION: Notation = Notation {
@@ -91,126 +93,229 @@ fn atom(out: &mut String, name: &str) {
     }
     out.push_str(r"\mathit{");
     for c in name.chars() {
-        match c {
-            '\\' => out.push_str(r"\mbox{\textbackslash}"),
-            '{' | '}' | '$' | '#' | '%' | '&' | '_' => {
-                out.push('\\');
-                out.push(c);
-            }
-            '^' => out.push_str(r"\mbox{\textasciicircum}"),
-            '~' => out.push_str(r"\mbox{\textasciitilde}"),
-            ' ' => out.push_str(r"\ "),
-            c => out.push(c),
-        }
+        escape(out, c);
     }
     out.push('}');
 }
 
-/// Returns the label of a rule in math mode; an open goal has none.
-const fn label(rule: Rule) -> &'static str {
-    use Rule::*;
-    match rule {
-        Ax => r"\mathrm{ax}",
-        Tensor => r"\otimes",
-        Par => r"\parr",
-        One => r"\mathbf{1}",
-        Bot => r"\bot",
-        With => r"\with",
-        PlusLeft => r"\oplus_1",
-        PlusRight => r"\oplus_2",
-        Top => r"\top",
-        Promotion => r"\oc",
-        Dereliction => r"\wn\mathrm{d}",
-        Contraction => r"\wn\mathrm{c}",
-        Weakening => r"\wn\mathrm{w}",
-        Mix => r"\mathrm{mix}",
-        AffineWeakening => r"\mathrm{wk}",
-        ImpLeft => r"\multimap\mathrm{L}",
-        ImpRight => r"\multimap\mathrm{R}",
-        TensorLeft => r"\otimes\mathrm{L}",
-        TensorRight => r"\otimes\mathrm{R}",
-        WithLeft1 => r"\with\mathrm{L}_1",
-        WithLeft2 => r"\with\mathrm{L}_2",
-        WithRight => r"\with\mathrm{R}",
-        PlusLeftRule => r"\oplus\mathrm{L}",
-        PlusRight1 => r"\oplus\mathrm{R}_1",
-        PlusRight2 => r"\oplus\mathrm{R}_2",
-        OneLeft => r"\mathbf{1}\mathrm{L}",
-        OneRight => r"\mathbf{1}\mathrm{R}",
-        ZeroLeft => r"0\mathrm{L}",
-        TopRight => r"\top\mathrm{R}",
-        BangLeft => r"\oc\mathrm{L}",
-        BangRight => r"\oc\mathrm{R}",
-        BangContraction => r"\oc\mathrm{c}",
-        BangWeakening => r"\oc\mathrm{w}",
-        Open => "",
+/// Writes a character of text in math mode, escaped.
+fn escape(out: &mut String, c: char) {
+    match c {
+        '\\' => out.push_str(r"\mbox{\textbackslash}"),
+        '{' | '}' | '$' | '#' | '%' | '&' | '_' => {
+            out.push('\\');
+            out.push(c);
+        }
+        '^' => out.push_str(r"\mbox{\textasciicircum}"),
+        '~' => out.push_str(r"\mbox{\textasciitilde}"),
+        ' ' => out.push_str(r"\ "),
+        c => out.push(c),
     }
 }
 
-/// Returns `body` as a standalone document, with `ebproof` loaded if
-/// `tree` is set.
-fn document(body: &str, tree: bool) -> String {
-    let ebproof = if tree { "\\usepackage{ebproof}\n" } else { "" };
-    format!("{PREAMBLE}{ebproof}\\begin{{document}}\n{body}\n\\end{{document}}")
+/// What a user may vary in the LaTeX output.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
+pub struct Options {
+    /// A fragment to paste, or a document that compiles on its own.
+    pub form: Form,
+    /// The labels of the rules.
+    pub labels: Labels,
+    /// How an open goal is drawn: under `\vdots`, bare (`\hypo`), under a
+    /// line with a mark, or under ebproof's dashed line.
+    pub open: OpenGoal,
+    /// Whether the turnstiles of a two-sided tree line up (ebproof's `&`).
+    pub align: bool,
+    /// The options of every `prooftree` environment, as ebproof reads
+    /// them between brackets, or empty for none.
+    pub ebproof: String,
+    /// What a standalone document starts with, before
+    /// `\begin{document}`, or `None` for a `standalone` class cropped to
+    /// the content with `amssymb`, `cmll` and, for a tree, `ebproof`. A
+    /// preamble of the user's must load those packages itself.
+    pub preamble: Option<String>,
 }
 
-/// Returns a sequent one-sided, `$\vdash A^\bot, A$`, as a fragment or a
-/// standalone document.
-pub fn sequent(sequent: &Sequent, form: Form) -> String {
+impl Default for Options {
+    /// Returns a fragment with upright labels, an open goal under
+    /// vertical dots, aligned turnstiles, no ebproof options and the
+    /// `standalone` preamble.
+    fn default() -> Self {
+        Self {
+            form: Form::Fragment,
+            labels: Labels::Upright,
+            open: OpenGoal::Dots,
+            align: true,
+            ebproof: String::new(),
+            preamble: None,
+        }
+    }
+}
+
+/// Writes a label's markup in math mode: symbols as the connectives,
+/// text in `\mathrm`, subscripts after `_`.
+fn label(out: &mut String, markup: &str) {
+    let text = |out: &mut String, text: &str| {
+        out.push_str(r"\mathrm{");
+        for c in text.chars() {
+            escape(out, c);
+        }
+        out.push('}');
+    };
+    for part in parts(markup) {
+        match part {
+            Part::Symbol(c) => out.push_str(match c {
+                '⊗' => NOTATION.tensor,
+                '⅋' => NOTATION.par,
+                '&' => NOTATION.with,
+                '⊕' => NOTATION.plus,
+                '⊸' => NOTATION.lollipop,
+                '!' => r"\oc",
+                '?' => r"\wn",
+                '⊤' => NOTATION.top,
+                '⊥' => NOTATION.bot,
+                '1' => NOTATION.one,
+                _ => NOTATION.zero,
+            }),
+            Part::Text(t) => text(out, t),
+            Part::Sub(t) if t.len() == 1 && t.chars().all(|c| c.is_ascii_digit()) => {
+                out.push('_');
+                out.push_str(t);
+            }
+            Part::Sub(t) => {
+                out.push_str("_{");
+                text(out, t);
+                out.push('}');
+            }
+        }
+    }
+}
+
+/// Writes the start of a standalone document, with `ebproof` loaded if
+/// `tree` is set.
+fn begin(out: &mut impl Write, options: &Options, tree: bool) -> std::fmt::Result {
+    match &options.preamble {
+        Some(preamble) => writeln!(out, "{}", preamble.trim_end())?,
+        None => {
+            out.write_str(PREAMBLE)?;
+            if tree {
+                out.write_str("\\usepackage{ebproof}\n")?;
+            }
+        }
+    }
+    out.write_str("\\begin{document}\n")
+}
+
+/// Returns `math` in the options' form: as it is, or in a standalone
+/// document.
+fn formed(math: String, options: &Options) -> String {
+    match options.form {
+        Form::Fragment => math,
+        Form::Standalone => {
+            let mut out = String::new();
+            begin(&mut out, options, false).expect("a string takes any text");
+            out.push_str(&math);
+            out.push_str("\n\\end{document}");
+            out
+        }
+    }
+}
+
+/// Returns a sequent one-sided, `$\vdash A^\bot, A$`, in the options' form.
+pub fn sequent(sequent: &Sequent, options: &Options) -> String {
     let mut out = String::from("$");
     NOTATION.one_sided(&mut out, sequent);
     out.push('$');
-    match form {
-        Form::Fragment => out,
-        Form::Standalone => document(&out, false),
-    }
+    formed(out, options)
 }
 
 /// Returns the sequent of an intuitionistic reading two-sided,
-/// `$A, A \multimap B \vdash B$`, as a fragment or a standalone document.
-pub fn two_sided(reading: &Reading, form: Form) -> String {
+/// `$A, A \multimap B \vdash B$`, in the options' form.
+pub fn two_sided(reading: &Reading, options: &Options) -> String {
     let forest = reading.forest();
     let mut out = String::from("$");
-    NOTATION.sequent(&mut out, forest, Some(reading), forest.roots(), false);
+    NOTATION.sequent(
+        &mut out,
+        forest,
+        Some(reading),
+        forest.roots(),
+        false,
+        false,
+    );
     out.push('$');
-    match form {
-        Form::Fragment => out,
-        Form::Standalone => document(&out, false),
-    }
+    formed(out, options)
 }
 
 /// Returns a derivation as an ebproof `prooftree` environment, two-sided
-/// if the derivation is, as a fragment or a standalone document.
-pub fn derivation(derivation: &Derivation, form: Form) -> String {
+/// if the derivation is, in the options' form.
+pub fn derivation(derivation: &Derivation, options: &Options) -> String {
+    let mut out = String::new();
+    write(derivation, options, &mut out, || false).expect("a string takes any text");
+    out
+}
+
+/// Writes a derivation as [`derivation`] returns it into `out`, one
+/// inference at a time, and asks `stop` after each.
+pub fn write(
+    derivation: &Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
     let (forest, reading) = (derivation.forest(), derivation.reading());
-    let mut out = String::from("\\begin{prooftree}\n");
-    let conclusion = |out: &mut String, id| {
-        out.push('{');
-        let sequent = &derivation.inference(id).sequent;
-        NOTATION.sequent(out, forest, reading, sequent, true);
-        out.push_str("}\n");
-    };
+    let standalone = options.form == Form::Standalone;
+    if standalone {
+        begin(out, options, true)?;
+    }
+    out.write_str("\\begin{prooftree}")?;
+    if !options.ebproof.is_empty() {
+        write!(out, "[{}]", options.ebproof)?;
+    }
+    out.write_char('\n')?;
+    let mut buffer = String::new();
     walk(derivation, |step| {
         let Step::Exit(id, _) = step else {
-            return;
+            return Ok(());
         };
         let inference = derivation.inference(id);
-        if inference.rule == Rule::Open {
-            out.push_str("\\hypo{\\vdots}\n\\infer[no rule]1");
-        } else {
-            out.push_str("\\infer");
-            out.push_str(&inference.premises.len().to_string());
-            out.push_str("[$");
-            out.push_str(label(inference.rule));
-            out.push_str("$]");
+        let markup = options.labels.markup(inference.rule);
+        match (inference.rule, &options.open) {
+            (Rule::Open, OpenGoal::Dots) => buffer.push_str("\\hypo{\\vdots}\n\\infer[no rule]1"),
+            (Rule::Open, OpenGoal::Bare) => buffer.push_str("\\hypo"),
+            (Rule::Open, OpenGoal::Dashed) => buffer.push_str("\\infer[dashed]0"),
+            (Rule::Open, OpenGoal::Mark(mark)) => {
+                buffer.push_str("\\infer0[$");
+                label(&mut buffer, mark);
+                buffer.push_str("$]");
+            }
+            _ => {
+                buffer.push_str("\\infer");
+                buffer.push_str(&inference.premises.len().to_string());
+                if let Some(markup) = markup {
+                    buffer.push_str("[$");
+                    label(&mut buffer, markup);
+                    buffer.push_str("$]");
+                }
+            }
         }
-        conclusion(&mut out, id);
-    });
-    out.push_str("\\end{prooftree}");
-    match form {
-        Form::Fragment => out,
-        Form::Standalone => document(&out, true),
+        buffer.push('{');
+        NOTATION.sequent(
+            &mut buffer,
+            forest,
+            reading,
+            &inference.sequent,
+            options.align,
+            false,
+        );
+        buffer.push_str("}\n");
+        flush(out, &mut buffer, &mut stop)
+    })?;
+    out.write_str("\\end{prooftree}")?;
+    if standalone {
+        out.write_str("\n\\end{document}")?;
     }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -41,13 +41,21 @@ fn snapshot(name: &str, actual: &str) {
 /// Pins a derivation in every target as the snapshots `name.tex`,
 /// `name.typ` and `name.svg`.
 fn pin(name: &str, derivation: &Derivation) {
+    let latex = latex::Options {
+        form: Form::Standalone,
+        ..latex::Options::default()
+    };
     snapshot(
         &format!("{name}.tex"),
-        &latex::derivation(derivation, Form::Standalone),
+        &latex::derivation(derivation, &latex),
     );
+    let typst = typst::Options {
+        form: Form::Standalone,
+        ..typst::Options::default()
+    };
     snapshot(
         &format!("{name}.typ"),
-        &typst::derivation(derivation, Form::Standalone),
+        &typst::derivation(derivation, &typst),
     );
     snapshot(
         &format!("{name}.svg"),
@@ -67,7 +75,11 @@ fn proof(input: &str, mode: Mode) -> Proof {
 
 /// Pins a derivation's certificate as the snapshot `name.v`.
 fn pin_certificate(name: &str, derivation: &Derivation) {
-    let script = rocq::derivation(derivation, Form::Standalone, &rocq::Options::default());
+    let options = rocq::Options {
+        form: Form::Standalone,
+        ..rocq::Options::default()
+    };
+    let script = rocq::derivation(derivation, &options);
     snapshot(&format!("{name}.v"), &script.unwrap());
 }
 
@@ -106,7 +118,7 @@ fn open_goal() {
     pin("open", &state.derivation());
     let options = rocq::Options::default();
     assert_eq!(
-        rocq::derivation(&state.derivation(), Form::Fragment, &options),
+        rocq::derivation(&state.derivation(), &options),
         Err(Unsupported::Open)
     );
 }
@@ -120,10 +132,11 @@ fn certificates() {
     let derivation = ll.derivation().unwrap();
     pin_certificate("ll", &derivation);
     let options = rocq::Options {
+        form: Form::Standalone,
         lemma: "bang_with".to_owned(),
         prelude: "Require Import kernel.".to_owned(),
     };
-    let script = rocq::derivation(&derivation, Form::Standalone, &options).unwrap();
+    let script = rocq::derivation(&derivation, &options).unwrap();
     assert!(script.starts_with("Require Import kernel.\n\nLemma bang_with (A B : formula) : ll ["));
     assert!(script.contains("apply (co_r_ext []); cbn_sequent.\n"));
     assert!(script.ends_with("\nQed."));
@@ -131,12 +144,12 @@ fn certificates() {
     let options = rocq::Options::default();
     let mix = proof("A, B |- A, B", Mode::CLASSICAL.with_mix());
     assert_eq!(
-        rocq::derivation(&mix.derivation().unwrap(), Form::Fragment, &options),
+        rocq::derivation(&mix.derivation().unwrap(), &options),
         Err(Unsupported::Mix)
     );
     let affine = proof("A, B |- A", Mode::CLASSICAL.affine());
     assert_eq!(
-        rocq::derivation(&affine.derivation().unwrap(), Form::Fragment, &options),
+        rocq::derivation(&affine.derivation().unwrap(), &options),
         Err(Unsupported::AffineWeakening)
     );
 }
@@ -147,11 +160,11 @@ fn certificates() {
 fn sequents() {
     let sequent: Sequent = "x_1 * foo, !A |- ?B & 1, B".parse().unwrap();
     assert_eq!(
-        latex::sequent(&sequent, Form::Fragment),
+        latex::sequent(&sequent, &latex::Options::default()),
         r"$\vdash \mathit{x\_1}^\bot \parr \mathit{foo}^\bot, \wn A^\bot, B, \wn B \with \mathbf{1}$"
     );
     assert_eq!(
-        typst::sequent(&sequent, Form::Fragment),
+        typst::sequent(&sequent, &typst::Options::default()),
         r#"$⊢ italic("x_1")^⊥ ⅋ italic("foo")^⊥, class("normal", ?)A^⊥, B, class("normal", ?)B class("binary", \&) bold(1)$"#
     );
 
@@ -159,11 +172,11 @@ fn sequents() {
     let forest = Forest::new(&sequent).unwrap();
     let reading = Reading::new(&forest).unwrap();
     assert_eq!(
-        latex::two_sided(&reading, Form::Fragment),
+        latex::two_sided(&reading, &latex::Options::default()),
         r"$\oc A, A \multimap (B \oplus \top) \vdash B \with 0$"
     );
     assert_eq!(
-        typst::two_sided(&reading, Form::Fragment),
+        typst::two_sided(&reading, &typst::Options::default()),
         r#"$!A, A ⊸ (B ⊕ ⊤) ⊢ B class("binary", \&) 0$"#
     );
     assert!(

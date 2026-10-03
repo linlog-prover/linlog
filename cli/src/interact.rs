@@ -1,6 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use crate::argument_parsing::Format;
 use crate::argument_parsing::Threads;
 use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
@@ -8,10 +9,10 @@ use crate::prove::{
     Ended, Show, Shown, alone_first, bytes_text, count_text, derivation, describe, notice_line,
     on_large_stack, stopped, unknown,
 };
+use crate::style::Styles;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
-use linlog::export::svg::{self, Style};
-use linlog::export::{Form, latex, typst};
+use linlog::export::{latex, svg, typst};
 use linlog::search::{Options, Outcome, Verdict, prove_goal};
 use linlog::{Error, InfId, Interactive, Position, Reading, Refusal, Rule, ViewError, ViewOptions};
 use std::fmt::Write as _;
@@ -26,9 +27,12 @@ rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
 undo                retract the last step
 close [G]           let the search close goal G, or every open goal
-show [latex|typst|svg]
-                    the derivation so far, as text, as a LaTeX or Typst proof tree, or as SVG
-proof [FILE]        check the finished proof and print it, or write it as JSON
+show [--FORMAT]     the derivation so far, as text, as a LaTeX or Typst proof tree, or as
+                    SVG: --text, --latex, --typst or --svg (or the name without dashes)
+proof [--FORMAT] [FILE]
+                    check the finished proof and print it or write it to FILE: as text,
+                    or --json, --latex, --typst, --svg, or --rocq for a certificate;
+                    with a FILE and no format, as JSON
 save FILE           write the session as JSON
 load FILE           resume a session written by save
 help                this list
@@ -61,7 +65,9 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     let options = options.jobs(threads.jobs);
     catch_interrupt();
     let stack_size = options.stack_size();
+    let styles = Styles::read(&args.style, None, false)?;
     let mut session = Session {
+        styles,
         state,
         options,
         view: ViewOptions {
@@ -83,8 +89,11 @@ fn load(path: &Path) -> Result<Interactive> {
         .with_context(|| format!("{} is not a saved session", path.display()))
 }
 
-/// A running session: the state and the search settings.
+/// A running session: the state, the search settings and the styles of
+/// the outputs.
 struct Session {
+    /// How `show` and `proof` write each format.
+    styles: Styles,
     /// The proof in progress.
     state: Interactive,
     /// The search settings of `close`.
@@ -208,30 +217,64 @@ impl Session {
                 }
                 text
             }
-            "show" => match rest.first() {
-                None => self.state.derivation().to_string(),
-                Some(&"latex") => latex::derivation(&self.state.derivation(), Form::Fragment),
-                Some(&"typst") => typst::derivation(&self.state.derivation(), Form::Fragment),
-                Some(&"svg") => svg::derivation(&self.state.derivation(), &Style::default()),
-                Some(other) => bail!("show {other}? the formats are latex, typst and svg"),
-            },
+            "show" => {
+                let derivation = self.state.derivation();
+                let styles = &self.styles;
+                match rest.first().map(|w| w.trim_start_matches("--")) {
+                    None | Some("text") => {
+                        let mut text = String::new();
+                        derivation.write_text(&styles.text, &mut text, || false)?;
+                        text
+                    }
+                    Some("latex") => latex::derivation(&derivation, &styles.latex),
+                    Some("typst") => typst::derivation(&derivation, &styles.typst),
+                    Some("svg") => svg::derivation(&derivation, &styles.svg),
+                    Some(other) => {
+                        bail!("show {other}? the formats are --text, --latex, --typst and --svg")
+                    }
+                }
+            }
             "proof" => {
+                let (format, path) = match rest {
+                    [] => (None, None),
+                    [word] if word.starts_with("--") => (Some(proof_format(word)?), None),
+                    [path] => (None, Some(*path)),
+                    [word, path] if word.starts_with("--") => {
+                        (Some(proof_format(word)?), Some(*path))
+                    }
+                    _ => bail!("proof [--FORMAT] [FILE]: one format and one file at most"),
+                };
                 let proof = self.state.proof()?;
                 let mode = self.state.mode();
-                match rest.first() {
+                let format = match (format, path) {
+                    (Some(format), _) => format,
+                    (None, Some(_)) => Format::Json,
+                    (None, None) => Format::Text,
+                };
+                let mut text = String::new();
+                if path.is_none() {
+                    text = format!("valid proof ({mode})");
+                }
+                if format == Format::Json {
+                    let separator = if text.is_empty() { "" } else { "\n" };
+                    text = format!("{text}{separator}{}", serde_json::to_string(&proof)?);
+                } else {
+                    let mut show = Show::session(format, self.view, self.styles.clone());
+                    show.verdict = path.is_none();
+                    let stopped = || "stopped".to_owned();
+                    if let Shown::LeftOut(line) =
+                        derivation(&proof, mode, &show, || false, stopped, &mut text)?
+                    {
+                        text.push('\n');
+                        text.push_str(&line);
+                    }
+                }
+                match path {
                     Some(path) => {
-                        io::write(Some(Path::new(path)), &serde_json::to_string(&proof)?)?;
+                        io::write(Some(Path::new(path)), &text)?;
                         format!("valid proof written to {path}")
                     }
-                    None => {
-                        let show = Show::text(self.view);
-                        let stopped = || "stopped".to_owned();
-                        match derivation(&proof, mode, &show, || false, stopped)? {
-                            Shown::Written(tree) => format!("valid proof ({mode})\n{tree}"),
-                            Shown::LeftOut(line) => format!("valid proof ({mode})\n{line}"),
-                            Shown::Nothing => format!("valid proof ({mode})"),
-                        }
-                    }
+                    None => text,
                 }
             }
             "save" => {
@@ -366,6 +409,21 @@ impl Session {
         }
         line
     }
+}
+
+/// Returns the format a word of `proof` names, `--latex` and so on.
+fn proof_format(word: &str) -> Result<Format> {
+    Ok(match word {
+        "--text" => Format::Text,
+        "--json" => Format::Json,
+        "--latex" => Format::Latex,
+        "--typst" => Format::Typst,
+        "--svg" => Format::Svg,
+        "--rocq" => Format::Rocq,
+        _ => bail!(
+            "proof {word}? the formats are --text, --json, --latex, --typst, --svg and --rocq"
+        ),
+    })
 }
 
 /// Returns the verdict of a `close` as one line.

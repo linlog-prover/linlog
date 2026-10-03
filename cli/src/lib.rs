@@ -15,6 +15,8 @@ pub mod io;
 mod limit;
 /// The `prove` and `check` commands.
 pub mod prove;
+/// The options of every output format, from a file and flags.
+pub mod style;
 
 use anyhow::Result;
 use argument_parsing::{Cli, Command, SeqCommand, SequentFormat};
@@ -173,16 +175,24 @@ fn run(cli: &Cli) -> Result<Status> {
                     format,
                     standalone,
                     output,
+                    style,
                 } => {
                     let mode = Mode {
                         intuitionistic: *intuitionistic,
                         ..Mode::CLASSICAL
                     };
-                    let form = prove::form(
+                    prove::form(
                         *standalone,
                         matches!(format, SequentFormat::Latex | SequentFormat::Typst),
                     )?;
-                    let text = prove::sequent_in(&input.sequent()?, mode, *format, form)?;
+                    let key = match format {
+                        SequentFormat::Text => "text",
+                        SequentFormat::Latex => "latex",
+                        SequentFormat::Typst => "typst",
+                        SequentFormat::Svg => "svg",
+                    };
+                    let styles = style::Styles::read(style, Some(key), *standalone)?;
+                    let text = prove::sequent_in(&input.sequent()?, mode, *format, &styles)?;
                     io::write(output.as_deref(), &text)?;
                 }
                 SeqCommand::Json {

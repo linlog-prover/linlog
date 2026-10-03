@@ -9,11 +9,84 @@
 //! inferences.
 
 use super::derivation::{Derivation, InfId, Rule};
+use super::style::{Labels, OpenGoal, WriteError, plain};
 use crate::occurrences::{Forest, OccId, Position, Reading};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
-/// The columns between two premises.
-const GAP: usize = 3;
+/// What a user may vary in the text tree of a derivation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
+pub struct TextOptions {
+    /// The labels of the rules.
+    pub labels: Labels,
+    /// How an open goal is drawn; a dashed line is a bar of `╌`.
+    pub open: OpenGoal,
+    /// The character of an inference's bar.
+    pub bar: char,
+    /// The columns between two premises.
+    pub gap: usize,
+}
+
+impl TextOptions {
+    /// The default bar character.
+    pub const BAR: char = '─';
+    /// The default gap between premises, in columns.
+    pub const GAP: usize = 3;
+}
+
+impl Default for TextOptions {
+    /// Returns upright labels, an open goal as its bare sequent, bars of
+    /// [`BAR`](Self::BAR) and premises [`GAP`](Self::GAP) columns apart.
+    fn default() -> Self {
+        Self {
+            labels: Labels::Upright,
+            open: OpenGoal::Bare,
+            bar: Self::BAR,
+            gap: Self::GAP,
+        }
+    }
+}
+
+/// What the bar row of an inference holds: the bar's character, its
+/// label as text, and whether the bar is the one character of vertical
+/// dots over an open goal rather than as wide as the inference.
+struct Bar {
+    /// The character the bar is drawn with.
+    line: char,
+    /// The label after the bar, empty for none.
+    label: String,
+    /// Whether the bar is one character wide, centred.
+    dots: bool,
+}
+
+/// Returns the bar row of every rule, in declaration order, under the
+/// options: `None` for an open goal drawn bare.
+fn bars(options: &TextOptions) -> Vec<Option<Bar>> {
+    Rule::ALL
+        .iter()
+        .map(|&rule| {
+            let bar = |line, label: &str, dots| Bar {
+                line,
+                label: plain(label),
+                dots,
+            };
+            if rule != Rule::Open {
+                return Some(bar(
+                    options.bar,
+                    options.labels.markup(rule).unwrap_or(""),
+                    false,
+                ));
+            }
+            match &options.open {
+                OpenGoal::Bare => None,
+                OpenGoal::Dots => Some(bar('⋮', "", true)),
+                OpenGoal::Dashed => Some(bar('╌', "", false)),
+                OpenGoal::Mark(mark) => Some(bar(options.bar, mark, false)),
+            }
+        })
+        .collect()
+}
 
 /// Where an inference and the subtree above it go, within the box that
 /// holds the subtree.
@@ -119,12 +192,11 @@ pub(crate) fn sequent_text(
 
 impl Derivation<'_> {
     /// Lays the tree out: the premises of an inference side by side,
-    /// bottom-aligned and [`GAP`] columns apart, a bar spanning their
+    /// bottom-aligned and `gap` columns apart, a bar spanning their
     /// conclusions or the conclusion, whichever is wider, with the rule's
-    /// name after it, and the conclusion centred under the bar. An open
-    /// goal is its sequent alone, with no bar above it. Returns every
-    /// inference's place, its box positioned in the whole drawing.
-    fn layout(&self) -> Vec<Place> {
+    /// label after it, and the conclusion centred under the bar. Returns
+    /// every inference's place, its box positioned in the whole drawing.
+    fn layout(&self, options: &TextOptions, bars: &[Option<Bar>]) -> Vec<Place> {
         let mut places = vec![Place::default(); self.inferences().len()];
         // Sizes: an inference comes after its premises.
         for (i, inference) in self.inferences().iter().enumerate() {
@@ -137,7 +209,7 @@ impl Derivation<'_> {
             )
             .expect("counting never fails");
             let conclusion = count.0;
-            if inference.rule == Rule::Open {
+            let Some(bar) = &bars[inference.rule as usize] else {
                 places[i] = Place {
                     width: conclusion,
                     height: 1,
@@ -145,13 +217,13 @@ impl Derivation<'_> {
                     ..Place::default()
                 };
                 continue;
-            }
+            };
             // The premises in a row, and the span of their conclusions.
             let (mut row, mut height) = (0, 0);
             let (mut span_left, mut span_right) = (0, 0);
             for (k, p) in inference.premises.iter().enumerate() {
                 let place = &mut places[p.index()];
-                place.x = row + if k == 0 { 0 } else { GAP };
+                place.x = row + if k == 0 { 0 } else { options.gap };
                 if k == 0 {
                     span_left = place.left;
                 }
@@ -171,7 +243,15 @@ impl Derivation<'_> {
             }
             let bar_left = span_left + shift - overhang;
             let left = bar_left + (bar_width - conclusion) / 2;
-            let name = inference.rule.name().chars().count();
+            let (bar_left, bar_width) = if bar.dots {
+                (left + conclusion.saturating_sub(1) / 2, 1)
+            } else {
+                (bar_left, bar_width)
+            };
+            let label = match bar.label.chars().count() {
+                0 => 0,
+                n => n + 1,
+            };
             let premises = if inference.premises.is_empty() {
                 0
             } else {
@@ -180,7 +260,7 @@ impl Derivation<'_> {
             places[i] = Place {
                 x: 0,
                 width: premises
-                    .max(bar_left + bar_width + 1 + name)
+                    .max(bar_left + bar_width + label)
                     .max(left + conclusion),
                 height: height + 2,
                 depth: 0,
@@ -201,18 +281,25 @@ impl Derivation<'_> {
     }
 
     /// Returns the width in characters and the number of lines of the tree
-    /// that [`Display`] draws, without drawing it.
-    pub fn text_size(&self) -> (usize, usize) {
-        let root = self.layout()[self.root().index()];
+    /// that [`write_text`](Self::write_text) draws under the options,
+    /// without drawing it.
+    pub fn text_size(&self, options: &TextOptions) -> (usize, usize) {
+        let root = self.layout(options, &bars(options))[self.root().index()];
         (root.width, root.height)
     }
-}
 
-impl Display for Derivation<'_> {
-    /// Draws the derivation as a tree of sequents, one line per row,
-    /// without a trailing newline.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let places = self.layout();
+    /// Writes the derivation as a tree of sequents, one line per row,
+    /// without a trailing newline, and asks `stop` before every piece of
+    /// a row. The layout takes memory proportional to the inferences and
+    /// the text is written as it is made.
+    pub fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        mut stop: impl FnMut() -> bool,
+    ) -> Result<(), WriteError> {
+        let bars = bars(options);
+        let places = self.layout(options, &bars);
         let height = places[self.root().index()].height;
         // The root's conclusion is the last row, its bar the one above,
         // and every inference further up is two rows higher.
@@ -238,28 +325,42 @@ impl Display for Derivation<'_> {
         pieces.sort_unstable();
         let (mut row, mut column) = (0, 0);
         for piece in pieces {
+            if stop() {
+                return Err(WriteError::Stopped);
+            }
             while row < piece.row {
-                f.write_char('\n')?;
+                out.write_char('\n')?;
                 (row, column) = (row + 1, 0);
             }
-            spaces(f, piece.column - column)?;
+            spaces(out, piece.column - column)?;
             let (place, inference) = (&places[piece.id.index()], self.inference(piece.id));
             column = piece.column;
-            match place.bar {
-                Some((_, width)) if piece.bar => {
+            match (place.bar, &bars[inference.rule as usize]) {
+                (Some((_, width)), Some(bar)) if piece.bar => {
                     for _ in 0..width {
-                        f.write_char('─')?;
+                        out.write_char(bar.line)?;
                     }
-                    let name = inference.rule.name();
-                    write!(f, " {name}")?;
-                    column += width + 1 + name.chars().count();
+                    column += width;
+                    if !bar.label.is_empty() {
+                        write!(out, " {}", bar.label)?;
+                        column += 1 + bar.label.chars().count();
+                    }
                 }
                 _ => {
-                    write_sequent(f, self.forest(), self.reading(), &inference.sequent)?;
+                    write_sequent(out, self.forest(), self.reading(), &inference.sequent)?;
                     column += place.conclusion;
                 }
             }
         }
         Ok(())
+    }
+}
+
+impl Display for Derivation<'_> {
+    /// Draws the derivation as a tree of sequents under the default
+    /// [`TextOptions`], one line per row, without a trailing newline.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.write_text(&TextOptions::default(), f, || false)
+            .map_err(|_| std::fmt::Error)
     }
 }
