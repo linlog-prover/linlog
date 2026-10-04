@@ -42,7 +42,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 21 | The defaults a user meets: the copy bound deepening within a default time limit, one thread first, what "unknown" and "unprovable" say | `21-defaults.md` | Opus 5.5 (planned: Fable 5.1 at high) | xhigh | 20 |
 | 22 | Configurable output, no font in LaTeX and Typst, a Typst layout of linlog's own, a compact view (two sessions) | `22-configurable-output.md` | Opus 5.5 | xhigh for the first session, high for the second | 18 |
 | 23 | What every session reads, short and true: the core rules split by module, the stale claims of the rules and CLAUDE.md, README's examples run by a check | `23-session-docs.md` | Opus 5.5 | high | 22 |
-| 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` (finished at the review of 23) | Opus 5.5 | high | 20, 21, 23 |
+| 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` | Opus 5.5 | high | 20, 21, 23 |
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` (finished at the review of 24) | Opus 5.5 | high | 21, 24 |
 | 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` (finished at the review of 25) | Fable 5.1 | high, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Fable 5.1 | high, with the panel | 24, 26 |
@@ -308,7 +308,10 @@ the changes its row names (step 22's second session and step 31's
 sessions after the checker's proof at `--effort high`; step 28's
 session on the search with `--model claude-fable-5-1`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
-work for `--model`. The flags are
+work for `--model`. A session the author leaves to run at night adds
+`--permission-mode auto`, and its prompt a section like step 23's
+"Tonight: unattended" (decide instead of asking, keep the passphrase's
+cache warm, commit unsigned once it is gone). The flags are
 documented at code.claude.com/docs/en/cli-reference.
 
 ## Review protocol
@@ -1747,3 +1750,22 @@ client follows it (step 32).
   the SVG layout's unpolled first pass to 24; `SYN393+1` in `cbn`,
   which one thread never refutes and a pool of four refutes in 0.7 ms,
   to 26. Next: step 23.
+- 2026-10-04: step 23, one session (Opus 5.5 at high, unattended at
+  night with `--permission-mode auto`; the session wrote no entry here,
+  so this one is the review's summary of `reports/23-session-docs.md`):
+  the core rules file split into an index and ten module files
+  (`core-*.md`), word for word, so that a session reading one core file
+  loads 3 000 to 14 400 words where it loaded 32 000; CLAUDE.md cut from
+  3 741 words to 2 142, its tour of the API moved to the rules files
+  (`flake.md` new); seventeen stale claims of the rules and CLAUDE.md
+  corrected; README's examples run by `cli/tests/readme.rs` (64 of 65
+  commands, compared whole, by shape or by the verdict line, and every
+  file written checked for its kind).
+- 2026-10-04: review of step 23, accepted as it is. Checked: clippy,
+  the tests, both `cargo hack` runs, `cargo deny`, `nix flake check`;
+  the split's coverage independently (212 items, each in exactly one
+  file, ten corrected); the corrections against the code; the README
+  test's timing (every example compared whole decides within 20 ms).
+  Fixed: `conduct.md`, prompt 31 and `later.md` named the old file for
+  what moved. Prompt 24 finished (the rules by module, README's examples
+  as its tests, a memory bound for the whole batch). Next: step 24.

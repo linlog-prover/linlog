@@ -71,8 +71,7 @@ session's transcript is
 
 ## Where things stand
 
-As of 2026-10-04 (night) steps 1 to 22 are finished, reviewed and
-pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
+As of 2026-10-04 steps 1 to 23 are finished, reviewed and pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
 and, on the author's answers, planned steps 18 to 37; at the review of
 step 21 the steps after 22 were put in a new order and renumbered to 38
 (D23: a lean step 23 that saves every later session its tokens, the
@@ -80,7 +79,7 @@ audit and refactor once at step 28 right before the release at step 30,
 a comparison with the other provers at 29, the Rocq library and the web
 client after the release). The step table, the decisions D16 to D23 and
 the commands are in `plan/README.md`, the prompts are `plan/18-…md` to
-`plan/38-…md` (23, 24 and 28 written in full; each later one says
+`plan/38-…md` (24 and 28 written in full; each later one says
 what is fixed and is finished by you at the review its row names), `plan/later.md` says where every candidate and follow-up
 went, and `plan/notes/distribution.md` has the facts on releases,
 repositories and the organization. Step 18 rewrote the checker for
@@ -111,14 +110,20 @@ compact view, and at the author's requests PNG and archival PDF. Its
 review found that nothing bounds a render (a PDF of a derivation the
 default bound admits was killed at 4 GiB; assigned to step 24) and
 fixed five smaller defects, among them a premise gap that wrote 23.6 GB
-past the time limit. The next command is step 23:
+past the time limit. Step 23 split the core rules into an index and
+ten module files (`.claude/rules/core-*.md`, loaded per module), cut
+CLAUDE.md to what every session needs, and made README's examples a
+test (`cli/tests/readme.rs`); it ran unattended at night with
+`--permission-mode auto` and a prompt section that told it to decide
+instead of asking (the recipe is under the commands in
+`plan/README.md`). The next command is step 24:
 
 ```nu
-claude --model claude-opus-5-5 --effort high --name step-23 ((open --raw plan/23-session-docs.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-24 ((open --raw plan/24-batch.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-At its review, finish `plan/24-batch.md` (its item 7, the drawing
-bounds, is written already).
+At its review, finish `plan/25-ordinary-logic.md`, and check that
+`plan/notes/lltp-headers.md` exists.
 
 Models and efforts were re-evaluated on 2026-10-03 ("Why these models
 and efforts" in `plan/README.md`): the author runs off a Max 20x plan,

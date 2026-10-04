@@ -331,3 +331,38 @@ in a test", "Split the core rules file by module", "Correct the stale
 claims of the rules files", "Keep in CLAUDE.md what every session
 needs", and this report. No commit needs `jj sign -r
 'main@origin..@-'` in the morning; it would do no harm.
+
+## From the review (2026-10-04)
+
+Accepted as it is. The planning session read the report, the split, the
+corrections, the new CLAUDE.md and the README test, and ran clippy, the
+tests with and without `parallel`, both `cargo hack` runs, `cargo deny`
+and `nix flake check`, all passing.
+
+- **Nothing lost, checked independently**: the old file cut into its
+  212 paragraphs and bullets, every one is in exactly one file at the
+  split commit (the title and the introduction aside), and at the end
+  all but the ten this step corrected, which are the ten the report
+  lists.
+- **The corrections**, spot-checked against the code: `bias_under` is
+  the engine's one reader of the bias, `close_with` and
+  `derivation_ids` are the session's API as written, `run::TAIL` is 25,
+  and `bench/COMPARISON.md` says what `core-search.md` now cites.
+- **The paths**: every file of the core crate loads its module's file
+  besides the index, except `lib.rs`, `errors/`, `hash.rs`,
+  `Cargo.toml` and `tests/depth.rs`, for which the index's crate-wide
+  rules are the right ones.
+- **The README test is not timing-bound**: run with the release binary,
+  every example compared whole decides in 20 ms or less; the three that
+  run into a time limit (2 s, 2 s, 1 s) are the blocks marked `machine`.
+- **Fixed in the review** (the report's first open item): `conduct.md`
+  told every session to record notes in `.claude/rules/core.md`; it now
+  names the module's rules file. Prompt 31 and four passages of
+  `plan/later.md` pointed at sections that moved, and now name
+  `core-proofs.md`, `core-export.md`, `core-focus.md` and
+  `core-parallel.md`. Earlier prompts and Status entries keep the name
+  they were written with.
+- **The unattended run** took 25 minutes; the passphrase's cache held,
+  so every commit is signed, and nothing waited on an answer.
+- Not run: the library sweep and the target set, since no code but a
+  test and a help string changed.

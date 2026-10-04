@@ -2,8 +2,7 @@
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
-every item, the verification table, no pushing. This prompt is finished
-at the review of step 23. Read before you start:
+every item, the verification table, no pushing. Read before you start:
 
 - `plan/later.md`: "A batch mode for the CLI" (its six headings are the
   requirement), and under "Follow-ups: the benchmarks" the wrong
@@ -13,7 +12,10 @@ at the review of step 23. Read before you start:
 - `plan/reports/19-time-limits.md`, `20-memory-and-boundaries.md`,
   `21-defaults.md`, `22-configurable-output.md`, `23-session-docs.md`.
 - `plan/README.md`: D15, D16.
-- `core/src/lltp.rs`, `cli/**`, `bench/src/problems.rs`, `bench/src/run.rs`.
+- `.claude/rules/cli.md`, `core-inputs.md`, `core-export.md` (the
+  renderers) and `bench.md`, which load with the files they are about.
+- `core/src/lltp.rs`, `cli/**`, `cli/tests/readme.rs`,
+  `bench/src/problems.rs`, `bench/src/run.rs`.
 
 ## What the earlier steps left you
 
@@ -34,6 +36,21 @@ SVG layout's first pass over the inferences polls nothing (0.67 s on a
 tree of 2 400 inferences of 1 200 atoms, with the limit lifted). A
 batch that writes drawings into a directory meets all of it per
 sequent, in a process that lives on.
+
+Step 23 split the rules by module: what a later session must know of
+the batch goes into the rules file of the module that holds it (a new
+module of the core crate gets a file of its own, with its paths, and a
+row in `core.md`'s table; the command's side goes into `cli.md`). It
+also made README's examples a test (`cli/tests/readme.rs`): every
+`console` block runs against the binary, so the examples of the batch
+and of LLTP input go into README and are checked there, a block whose
+output is the machine's is marked as the test's doc comment says, and
+a directory of drawings is checked by its files' kinds.
+
+The default of a single call is a race (step 21): one thread, then a
+pool beside it, each within the whole `--memory-limit`, so one sequent
+may hold twice the bound; the race is written twice, in the command and
+in the harness, which step 28 takes up.
 
 ## Goal
 
@@ -60,8 +77,11 @@ script talks to, and what every later measurement by day runs through.
    the order error, unknown, unprovable, proved.
 4. **Limits**: the time limit per sequent and one for the whole batch;
    the memory bound of step 20 per sequent, which is what lets one
-   process hold a batch; `--isolate` for a child per sequent where that
-   is not enough.
+   process hold a batch, and one for the batch as a whole, since workers
+   side by side add up (sixteen at the default of 1 GiB, each perhaps
+   racing two searches, would be up to 32 GiB): say how the workers
+   share it; `--isolate` for a child per sequent where that is not
+   enough.
 5. **Cores** go across the sequents by default, one sequent per worker
    on the sequential engines; within one sequent when the batch is short
    or the user says so (D16: the default is sensible and both are
@@ -107,11 +127,14 @@ loop pays against the batch (named here: two pinned cores, under ten
 minutes, detached). For item 7, the review's inputs again (the 400-atom
 tensor as PDF and PNG under the defaults, the net of 6 000 links with
 `--net`), each in a memory-capped scope: refused at once, or drawn
-within the bounds and the time limit.
+within the bounds and the time limit. README's examples pass with the
+new ones among them.
 
 ## Deliverables
 
 - Thematic jj commits.
 - `plan/notes/lltp-headers.md`.
+- README's usage with the batch and LLTP input, and the rules files of
+  the modules touched.
 - `plan/reports/24-batch.md`: the options and how each front end sets
   them, the timing, decisions, deviations, open questions.
