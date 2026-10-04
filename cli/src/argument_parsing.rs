@@ -199,7 +199,8 @@ pub struct ProveArgs {
     /// The default is 100ms when `--jobs` is not given, and 0 when it is.
     /// The single thread goes on searching beside a pool of the other
     /// threads, which starts the search afresh, and the first to decide
-    /// answers; each holds at most `--memory-limit`.
+    /// answers; each holds at most `--memory-limit`. The additive and the
+    /// Horn engine run on one thread and get no pool.
     #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
     pub pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input

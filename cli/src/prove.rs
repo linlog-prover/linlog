@@ -11,7 +11,7 @@ use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::{Form, RenderError, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
-use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
+use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
     Compact, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size,
     ViewError, ViewOptions, WriteError,
@@ -51,13 +51,17 @@ pub(crate) fn on_large_stack<T: Send>(size: usize, f: impl FnOnce() -> T + Send)
 /// thread decides within the limit stays decided. Each is the search it
 /// would be alone, within the memory bound of the options: a halved bound
 /// starves the memo of a wide sequent, whose every entry is large, and
-/// the search with it. `halt` is the command's stop condition, and
-/// `search` runs a search with the options and stop condition given. The
-/// outcome of two searches has the counters of both.
+/// the search with it. `halt` is the command's stop condition, `search`
+/// runs a search with the options and stop condition given, and
+/// `parallel`, asked only when the pool would start, says whether the
+/// engine that runs searches on a pool at all: one that runs on one
+/// thread whatever the options say would only search again beside
+/// itself. The outcome of two searches has the counters of both.
 pub(crate) fn alone_first<E: Send>(
     options: &Options,
     threads: Threads,
     halt: &(dyn Fn() -> bool + Sync),
+    parallel: impl FnOnce() -> bool,
     search: impl Fn(&Options, &mut dyn FnMut() -> bool) -> Result<Outcome, E> + Sync,
 ) -> Result<Outcome, E> {
     let Some(alone) = threads.alone else {
@@ -93,7 +97,7 @@ pub(crate) fn alone_first<E: Send>(
                 .join()
                 .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
         };
-        if finished.recv_timeout(alone).is_ok() || halt() {
+        if finished.recv_timeout(alone).is_ok() || halt() || !parallel() {
             return join(single);
         }
         let pooled = search(&options.clone().jobs(pool), &mut || {
@@ -1023,7 +1027,9 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let notice = Notice::start(NOTICE_AFTER, notice_line(deadline.limit(), deepens));
         // Both conditions are flags, so every poll asks both.
         let halt = || interrupted() || deadline.passed();
-        let outcome = alone_first(&options, threads, &halt, |options, halt| {
+        let parallel =
+            || engine_for(&forest, forest.roots(), mode, &options).is_ok_and(Engine::parallel);
+        let outcome = alone_first(&options, threads, &halt, parallel, |options, halt| {
             prove_goal(&forest, forest.roots(), mode, options, halt)
         })
         .map_err(|e| describe(e, sequent))?;

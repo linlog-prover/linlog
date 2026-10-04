@@ -13,7 +13,7 @@ use crate::style::Styles;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
 use linlog::export::{latex, svg, typst};
-use linlog::search::{Options, Outcome, Verdict, prove_goal};
+use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{Error, InfId, Interactive, Position, Reading, Refusal, Rule, ViewError, ViewOptions};
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
@@ -365,9 +365,15 @@ impl Session {
         let halt = || interrupted() || deadline.passed();
         let goal_sequent = self.state.goal(goal).ok_or(Refusal::NoGoal(goal))?.to_vec();
         let (forest, mode) = (self.state.forest(), self.state.mode());
-        let searched = alone_first(&self.options, self.threads, &halt, |options, halt| {
-            prove_goal(forest, &goal_sequent, mode, options, halt)
-        });
+        let parallel =
+            || engine_for(forest, &goal_sequent, mode, &self.options).is_ok_and(Engine::parallel);
+        let searched = alone_first(
+            &self.options,
+            self.threads,
+            &halt,
+            parallel,
+            |options, halt| prove_goal(forest, &goal_sequent, mode, options, halt),
+        );
         let closed = searched.and_then(|outcome| {
             if let Verdict::Proved(proof) = &outcome.verdict {
                 self.state.close_with(goal, proof, &self.view, halt)?;

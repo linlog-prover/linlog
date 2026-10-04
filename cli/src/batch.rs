@@ -18,7 +18,7 @@ use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
-use linlog::search::{Options, Outcome, Pool, Verdict, prove_goal};
+use linlog::search::{Engine, Options, Outcome, Pool, Verdict, engine_for, prove_goal};
 use linlog::{Forest, Mode};
 use std::collections::{HashSet, VecDeque};
 use std::ffi::OsString;
@@ -520,7 +520,9 @@ impl Shared {
         let start = Instant::now();
         let halt = || interrupted() || deadline.passed() || self.batch.passed();
         let outcome = if search.job_count() > 1 {
-            alone_first(search, self.threads, &halt, |options, halt| {
+            let parallel =
+                || engine_for(&forest, forest.roots(), mode, search).is_ok_and(Engine::parallel);
+            alone_first(search, self.threads, &halt, parallel, |options, halt| {
                 prove_goal(&forest, forest.roots(), mode, options, halt)
             })
         } else {

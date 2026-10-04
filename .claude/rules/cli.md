@@ -272,7 +272,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Options::MAX_JOBS`, is taken as that many with a note on standard
   error).
   `alone_first` in `prove.rs` runs the search on a thread of its own
-  and waits for it up to `Threads::alone`; if it has not decided, a pool
+  and waits for it up to `Threads::alone`; if it has not decided, and
+  the engine searches on a pool at all (`search::engine_for` and
+  `Engine::parallel`, asked only then: the additive and the Horn engine
+  run on one thread, and a pool beside them was the same search again at
+  twice the memory, which a panel of step 27 found), a pool
   of the other threads (`jobs − 1`, at least two: a pool of one would be
   the same search again) searches beside it, each within the whole of
   `--memory-limit` (a halved bound starved the memo of a wide sequent:
