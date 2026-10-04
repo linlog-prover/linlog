@@ -58,10 +58,13 @@ pub(super) fn build(
     }
     // The nodes, and a pair of a body literal and its token for each, at
     // most a node each.
-    let bytes = nodes as usize * (size_of::<Node>() + size_of::<(OccId, OccId)>());
-    if !account.fits(bytes) {
+    let bytes = usize::try_from(nodes)
+        .ok()
+        .and_then(|nodes| nodes.checked_mul(size_of::<Node>() + size_of::<(OccId, OccId)>()))
+        .filter(|&bytes| account.fits(bytes));
+    let Some(bytes) = bytes else {
         return Err(Reason::MemoryLimit(account.limit()));
-    }
+    };
     charged.charge(bytes);
     let pairs = replay(forest, program, &clauses, nodes as usize);
     let mut builder = Builder {

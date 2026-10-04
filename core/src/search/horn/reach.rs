@@ -63,6 +63,9 @@ type Entry = Reverse<(u64, u32)>;
 struct Search<'a> {
     /// The program.
     program: &'a Program,
+    /// The tokens of the target, the distance to it of the empty
+    /// marking: at most the forest's occurrences.
+    target_total: u64,
     /// The markings kept, one after the other, each as its marked places
     /// in increasing order, a place as its distance from the one before
     /// less one and then its count less one, both in LEB128: a function
@@ -128,6 +131,7 @@ impl<'a> Search<'a> {
         }
         Self {
             program,
+            target_total: program.target.iter().map(|&t| u64::from(t)).sum(),
             bytes: Vec::new(),
             ends: Vec::new(),
             hashes: Vec::new(),
@@ -192,7 +196,7 @@ impl<'a> Search<'a> {
     /// which the two differ.
     fn distance(&self) -> u64 {
         let target = &self.program.target;
-        let unmarked: u64 = target.iter().map(|&t| u64::from(t)).sum::<u64>()
+        let unmarked: u64 = self.target_total
             - self
                 .marked
                 .iter()
@@ -245,7 +249,10 @@ impl<'a> Search<'a> {
         let before = self.frontier.capacity() * size_of::<Entry>();
         if self.frontier.capacity() - self.frontier.len() < successors.len() {
             let more = successors.len().max(self.frontier.capacity());
-            if !self.charged.account().fits(more * size_of::<Entry>()) {
+            let fits = more
+                .checked_mul(size_of::<Entry>())
+                .is_some_and(|bytes| self.charged.account().fits(bytes));
+            if !fits {
                 return Err(Reason::MemoryLimit(self.charged.account().limit()));
             }
             self.frontier.reserve_exact(more);
@@ -397,13 +404,14 @@ impl<'a> Search<'a> {
     /// Doubles the table, or returns false when the bound has no room for
     /// it.
     fn grow_table(&mut self) -> bool {
-        let size = (self.slots.len() * 2).max(16);
+        let Some(size) = self.slots.len().checked_mul(2).map(|size| size.max(16)) else {
+            return false;
+        };
         let before = bytes_of(&self.slots);
-        if !self
-            .charged
-            .account()
-            .fits((size * size_of::<u32>()).saturating_sub(before))
-        {
+        let fits = size
+            .checked_mul(size_of::<u32>())
+            .is_some_and(|bytes| self.charged.account().fits(bytes.saturating_sub(before)));
+        if !fits {
             return false;
         }
         self.slots = vec![0; size];
@@ -502,13 +510,19 @@ fn room<T>(buffer: &mut Vec<T>, more: usize, charged: &mut Charged<'_>) -> bool 
         return true;
     }
     let before = bytes_of(buffer);
-    let capacity = (buffer.len() + more).max(buffer.capacity() * 2).max(16);
-    if !charged
-        .account()
-        .fits((capacity * size_of::<T>()).saturating_sub(before))
-    {
+    // On a target of 32 bits these could pass `usize::MAX`: that is a
+    // buffer the bound cannot have room for.
+    let capacity = buffer
+        .len()
+        .checked_add(more)
+        .zip(buffer.capacity().checked_mul(2))
+        .map(|(needed, doubled)| needed.max(doubled).max(16));
+    let fits = capacity
+        .and_then(|capacity| capacity.checked_mul(size_of::<T>()))
+        .is_some_and(|bytes| charged.account().fits(bytes.saturating_sub(before)));
+    let (true, Some(capacity)) = (fits, capacity) else {
         return false;
-    }
+    };
     buffer.reserve_exact(capacity - buffer.len());
     charged.resize(before, bytes_of(buffer));
     true
