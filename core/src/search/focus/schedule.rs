@@ -11,7 +11,7 @@ use super::arena::{Arena, Kept};
 use super::classes::Classes;
 use super::counts::Counts;
 use super::memo::{Memo, Table};
-use super::{Engine, Rules, Search, reason};
+use super::{Engine, Problem, Search, reason};
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Bias, Forest, OccId, Reading};
 use crate::proofs::Node;
@@ -131,13 +131,18 @@ impl Rule {
         account: &'a Account,
         stop: Stop<'a>,
     ) -> (Search, Vec<Node>, Statistics, bool) {
-        let rules = Rules::new(fragment, mode, counts);
-        let mut engine = Engine::new(
+        let problem = Problem::new(
             forest,
-            rules,
             reading,
             (counts, classes),
-            &options.clone().copies(Some(self.copies)),
+            fragment,
+            mode,
+            options,
+            self.copies,
+            account,
+        );
+        let mut engine = Engine::new(
+            problem,
             stop,
             Table::Own(Memo::new(options.memo_limit)),
             Arena::new(Kept::Own(Vec::new()), account),

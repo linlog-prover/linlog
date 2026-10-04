@@ -17,7 +17,7 @@ use crate::search::memory::{Charged, bytes_of};
 impl Engine<'_> {
     /// Takes an empty set from the pool.
     pub(super) fn take_set(&mut self) -> OccSet {
-        match self.sets.pop() {
+        match self.pools.sets.pop() {
             Some(mut set) => {
                 set.clear();
                 set
@@ -31,12 +31,12 @@ impl Engine<'_> {
 
     /// Returns a set to the pool.
     pub(super) fn give_set(&mut self, set: OccSet) {
-        self.sets.push(set);
+        self.pools.sets.push(set);
     }
 
     /// Takes an empty linear zone from the pool.
     pub(super) fn take_context(&mut self) -> Context {
-        match self.contexts.pop() {
+        match self.pools.contexts.pop() {
             Some(mut context) => {
                 context.clear();
                 context
@@ -50,12 +50,12 @@ impl Engine<'_> {
 
     /// Returns a linear zone to the pool.
     pub(super) fn give_context(&mut self, context: Context) {
-        self.contexts.push(context);
+        self.pools.contexts.push(context);
     }
 
     /// Takes a memo key from the pool, with any contents.
     pub(super) fn take_key(&mut self) -> Key {
-        self.keys.pop().unwrap_or_else(|| {
+        self.pools.keys.pop().unwrap_or_else(|| {
             self.scratch.charge(self.key_bytes());
             Key {
                 theta: self.forest.empty_set(),
@@ -66,12 +66,12 @@ impl Engine<'_> {
 
     /// Returns a memo key to the pool.
     pub(super) fn give_key(&mut self, key: Key) {
-        self.keys.push(key);
+        self.pools.keys.push(key);
     }
 
     /// Takes an empty list from the pool.
     pub(super) fn take_list(&mut self) -> Pooled<OccId> {
-        let mut list = self.lists.pop().unwrap_or_default();
+        let mut list = self.pools.lists.pop().unwrap_or_default();
         list.clear();
         list
     }
@@ -79,12 +79,12 @@ impl Engine<'_> {
     /// Returns a list to the pool.
     pub(super) fn give_list(&mut self, mut list: Pooled<OccId>) {
         list.settle(&mut self.scratch);
-        self.lists.push(list);
+        self.pools.lists.push(list);
     }
 
     /// Takes an empty tally from the pool.
     pub(super) fn take_tally(&mut self) -> Tally {
-        match self.tallies.pop() {
+        match self.pools.tallies.pop() {
             Some(mut tally) => {
                 tally.clear();
                 tally
@@ -98,12 +98,12 @@ impl Engine<'_> {
 
     /// Returns a tally to the pool.
     pub(super) fn give_tally(&mut self, tally: Tally) {
-        self.tallies.push(tally);
+        self.pools.tallies.push(tally);
     }
 
     /// Takes the counts of a split with no member from the pool.
     pub(super) fn take_split(&mut self) -> Box<Split> {
-        match self.splits.pop() {
+        match self.pools.splits.pop() {
             Some(mut split) => {
                 split.clear();
                 split
@@ -117,12 +117,12 @@ impl Engine<'_> {
 
     /// Returns the counts of a split to the pool.
     pub(super) fn give_split(&mut self, split: Box<Split>) {
-        self.splits.push(split);
+        self.pools.splits.push(split);
     }
 
     /// Takes an empty trail from the pool.
     pub(super) fn take_trail(&mut self) -> Pooled<Side> {
-        let mut trail = self.trails.pop().unwrap_or_default();
+        let mut trail = self.pools.trails.pop().unwrap_or_default();
         trail.clear();
         trail
     }
@@ -130,12 +130,12 @@ impl Engine<'_> {
     /// Returns a trail to the pool.
     pub(super) fn give_trail(&mut self, mut trail: Pooled<Side>) {
         trail.settle(&mut self.scratch);
-        self.trails.push(trail);
+        self.pools.trails.push(trail);
     }
 
     /// Takes an empty list of links from the pool.
     pub(super) fn take_links(&mut self) -> Pooled<(OccId, NodeId, bool)> {
-        let mut links = self.links.pop().unwrap_or_default();
+        let mut links = self.pools.links.pop().unwrap_or_default();
         links.clear();
         links
     }
@@ -143,12 +143,12 @@ impl Engine<'_> {
     /// Returns a list of links to the pool.
     pub(super) fn give_links(&mut self, mut links: Pooled<(OccId, NodeId, bool)>) {
         links.settle(&mut self.scratch);
-        self.links.push(links);
+        self.pools.links.push(links);
     }
 
     /// Takes cursors at the head of every list from the pool.
     pub(super) fn take_cursors(&mut self) -> Cursors {
-        self.cursors.pop().unwrap_or_else(|| {
+        self.pools.cursors.pop().unwrap_or_else(|| {
             let lists = 2 * self.forest.sequent().atom_names().len();
             self.scratch.charge(lists * size_of::<u32>());
             Cursors {
@@ -163,8 +163,34 @@ impl Engine<'_> {
         for list in cursors.moved.drain(..) {
             cursors.passed[list as usize] = 0;
         }
-        self.cursors.push(cursors);
+        self.pools.cursors.push(cursors);
     }
+}
+
+/// The spare buffers of an engine, one pool of each kind.
+#[derive(Default)]
+pub(super) struct Pools {
+    /// Spare occurrence sets of the forest's width.
+    sets: Vec<OccSet>,
+    /// Spare linear zones of the forest's width.
+    contexts: Vec<Context>,
+    /// Spare memo keys of the forest's width.
+    keys: Vec<Key>,
+    /// Spare lists of occurrences.
+    lists: Vec<Pooled<OccId>>,
+    /// Spare tallies of the forest's atoms.
+    tallies: Vec<Tally>,
+    /// Spare counts of splits, boxed so that a split search holds a
+    /// pointer on the stack and not the counts: a level of recursion
+    /// through a searched split took 1.5 KiB with them in the frame.
+    #[allow(clippy::vec_box)]
+    splits: Vec<Box<Split>>,
+    /// Spare trails of split searches.
+    trails: Vec<Pooled<Side>>,
+    /// Spare lists of the links of a chain of forced splits.
+    links: Vec<Pooled<(OccId, NodeId, bool)>>,
+    /// Spare cursors of a chain of forced splits.
+    cursors: Vec<Cursors>,
 }
 
 /// A list from one of the engine's pools, which knows how much of its

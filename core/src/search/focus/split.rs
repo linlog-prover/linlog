@@ -7,7 +7,9 @@
 
 use super::context::Context;
 use super::counts::{Split, Tally};
-use super::{Engine, FORCED_PER_POLL, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search};
+use super::{
+    Cuts, Engine, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search, Step,
+};
 use crate::occurrences::{OccId, OccSet, Position};
 use crate::proofs::{Node, NodeId, Side};
 use crate::search::Reason;
@@ -77,13 +79,7 @@ impl Engine<'_> {
     /// The `⊗` rule on `F = A ⊗ B` with context `Γ`: the forced split when
     /// a factor allows only one, else a search over the members of `Γ` for
     /// the splits whose two sides pass the counts.
-    pub(super) fn split(
-        &mut self,
-        theta: &OccSet,
-        gamma: &Context,
-        f: OccId,
-        budget: u32,
-    ) -> Search {
+    pub(super) fn split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
         if self.forced_factor(f).is_none() {
             return self.free_split(theta, gamma, f, budget);
         }
@@ -96,7 +92,10 @@ impl Engine<'_> {
         self.give_cursors(cursors);
         self.give_context(rest);
         let result = match result {
-            Ok(Some(mut node)) => {
+            Ok(Found {
+                node: Some(mut node),
+                cuts,
+            }) => {
                 for &(f, x_node, x_is_left) in links.iter().rev() {
                     let (left, right) = if x_is_left {
                         (x_node, node)
@@ -105,11 +104,14 @@ impl Engine<'_> {
                     };
                     node = self.push(Node::Tensor(f, left, right));
                 }
-                Ok(Some(node))
+                Ok(Found {
+                    node: Some(node),
+                    cuts,
+                })
             }
-            Ok(None) => {
+            Ok(failed) => {
                 self.nodes.release(mark);
-                Ok(None)
+                Ok(failed)
             }
             Err(reason) => Err(reason),
         };
@@ -135,20 +137,24 @@ impl Engine<'_> {
         mut f: OccId,
         (links, cursors): (&mut Vec<(OccId, NodeId, bool)>, &mut Cursors),
         budget: u32,
-    ) -> Search {
+    ) -> Step {
+        // What the focuses on forcing factors along the chain cut.
+        let mut cuts = Cuts::NONE;
         loop {
             let Some((forced, x, y, x_is_left)) = self.forced_factor(f) else {
-                return self.focus(theta, rest, f, budget);
+                return Ok(self.focus(theta, rest, f, budget)?.after(cuts));
             };
             self.statistics.splits += 1;
             self.poll_forced()?;
             let x_node = match forced {
-                Forced::Nothing => return Ok(None),
+                Forced::Nothing => return Ok(Found::failed(cuts)),
                 Forced::Empty => {
                     let empty = self.take_context();
-                    let node = self.focus(theta, &empty, x, budget);
+                    let found = self.focus(theta, &empty, x, budget);
                     self.give_context(empty);
-                    node?
+                    let found = found?;
+                    cuts = cuts.and(found.cuts);
+                    found.node
                 }
                 // The dual in `Γ` when there is one, and the axiom on the
                 // two; otherwise the side stays empty and the initial rule
@@ -163,7 +169,7 @@ impl Engine<'_> {
                         Some(self.push(Node::Ax(x, dual)))
                     } else if let Some(d) = self.dual_in(x, |d| theta.contains(d)) {
                         if budget == 0 {
-                            self.exhausted = true;
+                            cuts = cuts.and(Cuts::BUDGET);
                             None
                         } else {
                             let ax = self.push(Node::Ax(x, d));
@@ -179,11 +185,11 @@ impl Engine<'_> {
                 Forced::Duals => self.literal_tensor(x, rest, cursors)?,
             };
             let Some(x_node) = x_node else {
-                return Ok(None);
+                return Ok(Found::failed(cuts));
             };
             links.push((f, x_node, x_is_left));
             if self.forest.kind(y) != Kind::Tensor {
-                return self.focus(theta, rest, y, budget);
+                return Ok(self.focus(theta, rest, y, budget)?.after(cuts));
             }
             f = y;
         }
@@ -251,7 +257,7 @@ impl Engine<'_> {
     /// The `⊗` rule on a formula no factor of which forces its split: a
     /// search over the members of `Γ` for the splits whose two sides pass
     /// the counts.
-    fn free_split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Search {
+    fn free_split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
         let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
         let mut members = self.take_list();
         members.extend(gamma.iter());
@@ -371,7 +377,7 @@ impl Engine<'_> {
         split: &mut Split,
         join: Join,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         let rules = self.rules;
         let mut trail = self.take_trail();
         trail.extend((0..members.len()).map(|i| {
@@ -383,6 +389,8 @@ impl Engine<'_> {
         }));
         // The members before `next` are assigned, as the trail says.
         let mut next = start;
+        // What the premises of the splits tried cut.
+        let mut cuts = Cuts::NONE;
         let found = 'search: loop {
             self.statistics.splits += 1;
             self.poll_splits()?;
@@ -410,11 +418,12 @@ impl Engine<'_> {
                 let joined = match join {
                     Join::Tensor(f, a, b) => self.premises(theta, left, right, f, a, b, budget)?,
                     // A Mix needs two parts.
-                    Join::Mix if right.is_empty() => None,
+                    Join::Mix if right.is_empty() => Found::NOTHING,
                     Join::Mix => self.parts(theta, left, right, budget)?,
                 };
-                if joined.is_some() {
-                    break joined;
+                cuts = cuts.and(joined.cuts);
+                if joined.node.is_some() {
+                    break joined.node;
                 }
             }
             // Back to the last member assigned to the right, which goes to
@@ -439,7 +448,7 @@ impl Engine<'_> {
             }
         };
         self.give_trail(trail);
-        Ok(found)
+        Ok(Found { node: found, cuts })
     }
 
     /// Polls the stop condition once every [`SPLITS_PER_POLL`] steps of
@@ -472,19 +481,23 @@ impl Engine<'_> {
         a: OccId,
         b: OccId,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         let mark = self.nodes.mark();
-        let Some(l) = self.focus(theta, left, a, budget)? else {
-            return Ok(None);
+        let l = self.focus(theta, left, a, budget)?;
+        let Some(l_node) = l.node else {
+            return Ok(l);
         };
-        let held = self.nodes.hold(l);
-        let r = self.focus(theta, right, b, budget)?;
-        let l = self.nodes.unhold(held);
-        let Some(r) = r else {
+        let held = self.nodes.hold(l_node);
+        let r = self.focus(theta, right, b, budget)?.after(l.cuts);
+        let l_node = self.nodes.unhold(held);
+        let Some(r_node) = r.node else {
             self.nodes.release(mark);
-            return Ok(None);
+            return Ok(r);
         };
-        Ok(Some(self.push(Node::Tensor(f, l, r))))
+        Ok(Found {
+            node: Some(self.push(Node::Tensor(f, l_node, r_node))),
+            cuts: r.cuts,
+        })
     }
 
     /// The Mix rule on a stable sequent no focus proves: a split into two
@@ -499,9 +512,9 @@ impl Engine<'_> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         if members.len() < 2 || (self.rules.equation && !tally.admits_mix()) {
-            return Ok(None);
+            return Ok(Found::NOTHING);
         }
         let mut left = self.take_context();
         left.insert(members[0]);
@@ -530,19 +543,23 @@ impl Engine<'_> {
     }
 
     /// Both parts of a Mix, and the Mix node if both are provable.
-    fn parts(&mut self, theta: &OccSet, left: &Context, right: &Context, budget: u32) -> Search {
+    fn parts(&mut self, theta: &OccSet, left: &Context, right: &Context, budget: u32) -> Step {
         let mark = self.nodes.mark();
-        let Some(l) = self.prove(theta, left, budget)? else {
-            return Ok(None);
+        let l = self.prove(theta, left, budget)?;
+        let Some(l_node) = l.node else {
+            return Ok(l);
         };
-        let held = self.nodes.hold(l);
-        let r = self.prove(theta, right, budget)?;
-        let l = self.nodes.unhold(held);
-        let Some(r) = r else {
+        let held = self.nodes.hold(l_node);
+        let r = self.prove(theta, right, budget)?.after(l.cuts);
+        let l_node = self.nodes.unhold(held);
+        let Some(r_node) = r.node else {
             self.nodes.release(mark);
-            return Ok(None);
+            return Ok(r);
         };
-        Ok(Some(self.push(Node::Mix(l, r))))
+        Ok(Found {
+            node: Some(self.push(Node::Mix(l_node, r_node))),
+            cuts: r.cuts,
+        })
     }
 }
 

@@ -68,8 +68,8 @@ use self::context::Context;
 use self::counts::{Counts, Split, Tally};
 use self::memo::{Entry, Failure, Inserted, Key, Table};
 use self::schedule::{plan, turns};
-use self::scratch::Pooled;
-use self::split::Cursors;
+use self::scratch::Pools;
+use self::split::Join;
 use super::memory::{Account, Charged};
 use super::{Options, Reason, Refutation, Statistics, Stop, Verdict, set_up_stopped};
 use crate::fragment::{Fragment, Mode};
@@ -363,13 +363,195 @@ impl Rules {
     }
 }
 
-/// The result of a search step: the node proving the sequent, `None` when
-/// it is unprovable, or the reason the whole search stops.
+/// The result of a search: the node proving the goal, `None` when it is
+/// unprovable, or the reason the search stopped.
 pub(crate) type Search = Result<Option<NodeId>, Reason>;
 
+/// What a failure below a step rests on besides the sequents it searched:
+/// a branch cut by the copy budget, or a prune by the loop check, which
+/// is a fact about the branch and not about the sequent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Cuts {
+    /// Whether some branch failed because its copy budget was spent: a
+    /// level whose search failed with this is not `Unprovable`.
+    exhausted: bool,
+    /// The shallowest stack depth of an ancestor that a pruned sequent
+    /// repeated, or [`NO_DEPENDENCY`]: a failure that rests on such a
+    /// prune is not memoized.
+    dependency: u32,
+}
+
+impl Cuts {
+    /// Nothing cut, nothing pruned.
+    const NONE: Self = Self {
+        exhausted: false,
+        dependency: NO_DEPENDENCY,
+    };
+
+    /// A branch cut by the copy budget.
+    const BUDGET: Self = Self {
+        exhausted: true,
+        dependency: NO_DEPENDENCY,
+    };
+
+    /// A sequent pruned as a repeat of the ancestor at `depth` on the
+    /// branch stack.
+    fn repeat(depth: u32) -> Self {
+        Self {
+            exhausted: false,
+            dependency: depth,
+        }
+    }
+
+    /// Both together: a cut if either was, the shallower dependency.
+    fn and(self, other: Self) -> Self {
+        Self {
+            exhausted: self.exhausted || other.exhausted,
+            dependency: self.dependency.min(other.dependency),
+        }
+    }
+}
+
+/// What a step of the search found: the node proving its sequent, if any,
+/// and the cuts of every step it ran, whatever those found. A step that
+/// runs others adds their cuts to its own, so a stable sequent reads off
+/// its decision's result what its memo entry may say.
+#[derive(Clone, Copy, Debug)]
+struct Found {
+    /// The node proving the sequent, or `None`.
+    node: Option<NodeId>,
+    /// The cuts of the steps run.
+    cuts: Cuts,
+}
+
+impl Found {
+    /// Nothing proved and nothing cut: a failure that is a fact.
+    const NOTHING: Self = Self {
+        node: None,
+        cuts: Cuts::NONE,
+    };
+
+    /// A proof, with nothing cut.
+    fn proved(node: NodeId) -> Self {
+        Self {
+            node: Some(node),
+            cuts: Cuts::NONE,
+        }
+    }
+
+    /// A failure with these cuts.
+    fn failed(cuts: Cuts) -> Self {
+        Self { node: None, cuts }
+    }
+
+    /// The same result after steps with the cuts given ran first.
+    fn after(self, cuts: Cuts) -> Self {
+        Self {
+            node: self.node,
+            cuts: cuts.and(self.cuts),
+        }
+    }
+
+    /// The same result with the proof, if there is one, wrapped by `wrap`.
+    fn map(self, wrap: impl FnOnce(NodeId) -> NodeId) -> Self {
+        Self {
+            node: self.node.map(wrap),
+            cuts: self.cuts,
+        }
+    }
+}
+
+/// The result of a step of the search: what it found, or the reason the
+/// whole search stops.
+type Step = Result<Found, Reason>;
+
+/// An alternative of a choice: what one thread tries in its order and a
+/// pool's search runs as a task of its own.
+#[derive(Clone, Copy)]
+enum Alternative<'m> {
+    /// A focus on a member of `Γ`, which leaves the context.
+    Focus(OccId),
+    /// A copy of a member of `Θ` in focus, at one unit less of the budget.
+    Copy(OccId),
+    /// A side of a `⊕` in focus, with the subformula on that side.
+    Side(OccId, Side, OccId),
+    /// The free splits of a `⊗` that assign the first `fixed` members as
+    /// the bits of `pattern` say, one for the left premise, from the sides
+    /// and counts before any member moved.
+    Splits {
+        /// The `⊗` rule the sides are the premises of.
+        join: Join,
+        /// The members of the context that the search assigns.
+        members: &'m [OccId],
+        /// How many of them the pattern assigns.
+        fixed: usize,
+        /// Their assignment.
+        pattern: u64,
+        /// The sides before any member moved.
+        sides: (&'m Context, &'m Context),
+        /// Their counts, the members open.
+        split: &'m Split,
+    },
+}
+
+/// What every engine of one search reads and none changes: the problem,
+/// the rules it is searched under, the account its memory is charged to,
+/// and its limits. A pool's workers are built from the same one.
+#[derive(Clone, Copy)]
+struct Problem<'a> {
+    /// The forest.
+    forest: &'a Forest,
+    /// Its intuitionistic reading, for a two-sided search.
+    reading: Option<&'a Reading<'a>>,
+    /// Its count invariants.
+    counts: &'a Counts,
+    /// Its classes of interchangeable occurrences.
+    classes: &'a Classes,
+    /// The rules in force.
+    rules: Rules,
+    /// The search's account, which the memo, the arena and the buffers are
+    /// charged to.
+    account: &'a Account,
+    /// Whether the memo takes entries: a proof it refers to is kept.
+    memoizes: bool,
+    /// The deepest nesting allowed.
+    recursion_limit: u32,
+    /// The most copies a branch may take at the last deepening level.
+    copies: u32,
+}
+
+impl<'a> Problem<'a> {
+    /// The problem of a search of the forest under the fragment and the
+    /// mode, given its reading, counts and classes, with the limits of
+    /// the options and a copy bound of `copies`, charging `account`.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn new(
+        forest: &'a Forest,
+        reading: Option<&'a Reading<'a>>,
+        (counts, classes): (&'a Counts, &'a Classes),
+        fragment: Fragment,
+        mode: Mode,
+        options: &Options,
+        copies: u32,
+        account: &'a Account,
+    ) -> Self {
+        Self {
+            forest,
+            reading,
+            counts,
+            classes,
+            rules: Rules::new(fragment, mode, counts),
+            account,
+            memoizes: options.memo_limit != 0,
+            recursion_limit: options.recursion_limit,
+            copies,
+        }
+    }
+}
+
 /// The state of one run: the problem, the memo, the proof arena, the
-/// counters, the bound bookkeeping, and pools of scratch buffers so that no
-/// step allocates once the pools are warm.
+/// counters, the branch, and pools of scratch buffers so that no step
+/// allocates once the pools are warm.
 struct Engine<'a> {
     /// The problem.
     forest: &'a Forest,
@@ -410,15 +592,6 @@ struct Engine<'a> {
     recursion_limit: u32,
     /// The most copies a branch may take at the last deepening level.
     copies: u32,
-    /// Whether, since the flag was last cleared, some branch failed because
-    /// its copy budget was spent: the level's answer is then not
-    /// `Unprovable`.
-    exhausted: bool,
-    /// The shallowest stack depth of an ancestor that a pruned sequent
-    /// below the current one contained (or repeated), or `NO_DEPENDENCY`:
-    /// a failure that rests on such a prune is a fact about the branch,
-    /// not about the sequent, and is not memoized.
-    dependency: u32,
     /// The stop condition.
     stop: Stop<'a>,
     /// The runtime, when the search runs on several threads.
@@ -435,27 +608,8 @@ struct Engine<'a> {
     hashes: Vec<u64>,
     /// How many entries of the stack are live.
     stack_len: usize,
-    /// Spare occurrence sets of the forest's width.
-    sets: Vec<OccSet>,
-    /// Spare linear zones of the forest's width.
-    contexts: Vec<Context>,
-    /// Spare memo keys of the forest's width.
-    keys: Vec<Key>,
-    /// Spare lists of occurrences.
-    lists: Vec<Pooled<OccId>>,
-    /// Spare tallies of the forest's atoms.
-    tallies: Vec<Tally>,
-    /// Spare counts of splits, boxed so that a split search holds a
-    /// pointer on the stack and not the counts: a level of recursion
-    /// through a searched split took 1.5 KiB with them in the frame.
-    #[allow(clippy::vec_box)]
-    splits: Vec<Box<Split>>,
-    /// Spare trails of split searches.
-    trails: Vec<Pooled<Side>>,
-    /// Spare lists of the links of a chain of forced splits.
-    links: Vec<Pooled<(OccId, NodeId, bool)>>,
-    /// Spare cursors of a chain of forced splits.
-    cursors: Vec<Cursors>,
+    /// The spare buffers.
+    pools: Pools,
     /// Per list of a literal's occurrences, twice the atom plus the sign
     /// as the forest numbers them: the stamp of the last stable sequent
     /// that had such a literal in its linear zone when its copies were
@@ -468,19 +622,21 @@ struct Engine<'a> {
 }
 
 impl<'a> Engine<'a> {
-    /// Prepares a run on the forest with the rules given, its counts and
-    /// classes, the stop condition, the memo and the arena to use.
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        forest: &'a Forest,
-        rules: Rules,
-        reading: Option<&'a Reading<'a>>,
-        (counts, classes): (&'a Counts, &'a Classes),
-        options: &Options,
-        stop: Stop<'a>,
-        memo: Table<'a>,
-        nodes: Arena<'a>,
-    ) -> Self {
+    /// Prepares a run on the problem with the stop condition, the memo and
+    /// the arena to use, at the root of its branch; a pool's worker is one
+    /// that is then given the branch it continues.
+    fn new(problem: Problem<'a>, stop: Stop<'a>, memo: Table<'a>, nodes: Arena<'a>) -> Self {
+        let Problem {
+            forest,
+            reading,
+            counts,
+            classes,
+            rules,
+            account,
+            memoizes,
+            recursion_limit,
+            copies,
+        } = problem;
         Self {
             forest,
             reading,
@@ -488,19 +644,17 @@ impl<'a> Engine<'a> {
             classes,
             rules,
             memo,
-            account: nodes.account,
-            scratch: Charged::new(nodes.account),
+            account,
+            scratch: Charged::new(account),
             nodes,
-            memoizes: options.memo_limit != 0,
+            memoizes,
             statistics: Statistics::default(),
             steps: 0,
             forced: 0,
             work: 0,
             depth: 0,
-            recursion_limit: options.recursion_limit,
-            copies: options.copy_bound(),
-            exhausted: false,
-            dependency: NO_DEPENDENCY,
+            recursion_limit,
+            copies,
             stop,
             #[cfg(feature = "parallel")]
             runtime: None,
@@ -508,17 +662,24 @@ impl<'a> Engine<'a> {
             stack: Vec::new(),
             hashes: Vec::new(),
             stack_len: 0,
-            sets: Vec::new(),
-            contexts: Vec::new(),
-            keys: Vec::new(),
-            lists: Vec::new(),
-            tallies: Vec::new(),
-            splits: Vec::new(),
-            trails: Vec::new(),
-            links: Vec::new(),
-            cursors: Vec::new(),
+            pools: Pools::default(),
             present: Vec::new(),
             stamp: 0,
+        }
+    }
+
+    /// The problem this engine searches, as it was given.
+    fn problem(&self) -> Problem<'a> {
+        Problem {
+            forest: self.forest,
+            reading: self.reading,
+            counts: self.counts,
+            classes: self.classes,
+            rules: self.rules,
+            account: self.account,
+            memoizes: self.memoizes,
+            recursion_limit: self.recursion_limit,
+            copies: self.copies,
         }
     }
 
@@ -546,8 +707,6 @@ impl<'a> Engine<'a> {
         // none and is never reached (`Options::copy_bound`).
         for budget in 0..=levels {
             self.statistics.copies = budget;
-            self.exhausted = false;
-            self.dependency = NO_DEPENDENCY;
             let mut gamma = self.take_context();
             let mut list = self.take_list();
             // A stack: the first formula is decomposed first.
@@ -556,10 +715,10 @@ impl<'a> Engine<'a> {
             self.give_context(gamma);
             self.give_list(list);
             match result {
-                Ok(None) if self.exhausted => {}
+                Ok(Found { node: None, cuts }) if cuts.exhausted => {}
                 decided => {
                     self.give_set(theta);
-                    return decided;
+                    return decided.map(|found| found.node);
                 }
             }
         }
@@ -578,7 +737,7 @@ impl<'a> Engine<'a> {
         gamma: &mut Context,
         list: &mut Vec<OccId>,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         self.enter()?;
         let result = self.decompose(theta, gamma, list, budget);
         self.leave();
@@ -595,7 +754,7 @@ impl<'a> Engine<'a> {
         gamma: &mut Context,
         list: &mut Vec<OccId>,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         // The `⅋`, `⊥` and `?` rules applied, to wrap around the proof of
         // what remains; the first applied is the lowest.
         let mut applied = self.take_list();
@@ -612,7 +771,7 @@ impl<'a> Engine<'a> {
                     applied.push(o);
                 }
                 Kind::Bot => applied.push(o),
-                Kind::Top => break Ok(Some(self.push(Node::Top(o)))),
+                Kind::Top => break Ok(Found::proved(self.push(Node::Top(o)))),
                 Kind::With => {
                     break self.with(grown.as_ref().unwrap_or(theta), gamma, list, o, budget);
                 }
@@ -640,8 +799,8 @@ impl<'a> Engine<'a> {
         if let Some(larger) = grown {
             self.give_set(larger);
         }
-        let result = result.map(|proved| {
-            proved.map(|mut node| {
+        let result = result.map(|found| {
+            found.map(|mut node| {
                 for &o in applied.iter().rev() {
                     node = self.push(match self.forest.kind(o) {
                         Kind::Par => Node::Par(o, node),
@@ -656,9 +815,9 @@ impl<'a> Engine<'a> {
         result
     }
 
-    /// The `&` rule: both premises with the same context, the left one on
-    /// copies of the state, the right one on the state itself; each
-    /// premise keeps the whole copy budget.
+    /// The `&` rule: both premises with the same context, each keeping the
+    /// whole copy budget; the right one is searched only once the left one
+    /// is proved. On several threads both are searched at once.
     fn with(
         &mut self,
         theta: &OccSet,
@@ -666,38 +825,65 @@ impl<'a> Engine<'a> {
         list: &mut Vec<OccId>,
         o: OccId,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return self.with_parallel(theta, gamma, list, o, budget);
         }
-        let mut left_gamma = self.take_context();
-        left_gamma.clone_from(gamma);
-        let mut left_list = self.take_list();
-        left_list.clone_from(list);
-        left_list.push(self.forest.left(o).unwrap());
         let mark = self.nodes.mark();
-        let left = self.asynchronous(theta, &mut left_gamma, &mut left_list, budget);
-        self.give_context(left_gamma);
-        self.give_list(left_list);
-        let Some(left) = left? else {
-            return Ok(None);
+        let left = self.premise(theta, gamma, list, self.forest.left(o).unwrap(), budget)?;
+        let Some(left_node) = left.node else {
+            return Ok(left);
         };
+        // The right premise on the state itself, which the rule leaves.
         list.push(self.forest.right(o).unwrap());
-        let held = self.nodes.hold(left);
+        let held = self.nodes.hold(left_node);
         let right = self.asynchronous(theta, gamma, list, budget)?;
-        let left = self.nodes.unhold(held);
-        let Some(right) = right else {
+        let left_node = self.nodes.unhold(held);
+        Ok(self.both(o, (left_node, left.cuts), right, mark))
+    }
+
+    /// A premise of the `&` rule on copies of the state: the context and
+    /// the list with the subformula on top.
+    fn premise(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        list: &[OccId],
+        sub: OccId,
+        budget: u32,
+    ) -> Step {
+        let mut premise_gamma = self.take_context();
+        premise_gamma.clone_from(gamma);
+        let mut premise_list = self.take_list();
+        premise_list.extend_from_slice(list);
+        premise_list.push(sub);
+        let result = self.asynchronous(theta, &mut premise_gamma, &mut premise_list, budget);
+        self.give_context(premise_gamma);
+        self.give_list(premise_list);
+        result
+    }
+
+    /// The `&` node on `o` from the proof of its left premise, with the
+    /// cuts of its search, and what the search of the right one found;
+    /// nothing, with the nodes pending since `mark` released, when the
+    /// right one failed.
+    fn both(&mut self, o: OccId, (left, cuts): (NodeId, Cuts), right: Found, mark: usize) -> Found {
+        let right = right.after(cuts);
+        let Some(right_node) = right.node else {
             self.nodes.release(mark);
-            return Ok(None);
+            return right;
         };
-        Ok(Some(self.push(Node::With(o, left, right))))
+        Found {
+            node: Some(self.push(Node::With(o, left, right_node))),
+            cuts: right.cuts,
+        }
     }
 
     /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check and the
     /// affine prune, the immediate tests, then a focus on each positive
     /// formula in turn, first from `Γ`, then copied from `Θ`, then Mix.
-    fn prove(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Search {
+    fn prove(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
         self.enter()?;
         let result = self.prove_stable(theta, gamma, budget);
         self.leave();
@@ -706,7 +892,7 @@ impl<'a> Engine<'a> {
 
     /// The body of `prove`: the memo and the branch stack around the
     /// decision.
-    fn prove_stable(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Search {
+    fn prove_stable(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
         self.statistics.nodes += 1;
         let work = NODE_WORK
             + (self.forest.len() / OCCURRENCES_PER_WORK) as u64
@@ -739,19 +925,19 @@ impl<'a> Engine<'a> {
             Some(Entry::Proved(node)) => {
                 self.give_key(key);
                 self.give_key(canonical);
-                return Ok(Some(node));
+                return Ok(Found::proved(node));
             }
             Some(Entry::Failed(Failure::Complete)) => {
                 self.give_key(key);
                 self.give_key(canonical);
-                return Ok(None);
+                return Ok(Found::NOTHING);
             }
             Some(Entry::Failed(Failure::Exhausted(_))) | None => {}
         }
         // A sequent that repeats an ancestor on its branch is pruned: a
         // smallest proof of the ancestor never passes through it. The
-        // failure this causes above is a fact about the branch, so it is
-        // remembered as a dependency on the ancestor's depth and keeps the
+        // failure this causes above is a fact about the branch, so it
+        // carries a dependency on the ancestor's depth, which keeps the
         // sequents between them out of the memo, until the ancestor itself
         // is decided. (A sequent that merely contains an ancestor is not
         // redundant, with or without weakening: a proof of the larger
@@ -765,19 +951,19 @@ impl<'a> Engine<'a> {
         if self.rules.stack {
             for depth in 0..self.stack_len {
                 if self.hashes[depth] == hash && self.stack[depth] == key {
-                    self.dependency = self.dependency.min(depth as u32);
                     self.give_key(key);
                     self.give_key(canonical);
-                    return Ok(None);
+                    // A depth of the stack, which is as deep as the
+                    // recursion limit allows.
+                    return Ok(Found::failed(Cuts::repeat(depth as u32)));
                 }
             }
         }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
-            self.exhausted = true;
             self.give_key(key);
             self.give_key(canonical);
-            return Ok(None);
+            return Ok(Found::failed(Cuts::BUDGET));
         }
         if self.rules.stack {
             if self.stack_len < self.stack.len() {
@@ -792,43 +978,49 @@ impl<'a> Engine<'a> {
             }
             self.stack_len += 1;
         }
-        let saved_exhausted = self.exhausted;
-        let saved_dependency = self.dependency;
-        self.exhausted = false;
-        self.dependency = NO_DEPENDENCY;
         let mark = self.nodes.mark();
-        let mut result = self.decide(theta, gamma, budget);
+        let result = self.decide(theta, gamma, budget);
         let own_depth = if self.rules.stack {
             self.stack_len -= 1;
             self.stack_len as u32
         } else {
             NO_DEPENDENCY
         };
-        let exhausted = self.exhausted;
-        // A dependency on this very sequent is settled with it: the pruned
-        // descendants could only have proved what this sequent proves.
-        let dependency = if self.dependency >= own_depth {
-            NO_DEPENDENCY
-        } else {
-            self.dependency
+        let found = match result {
+            Ok(found) => found,
+            Err(reason) => {
+                self.give_key(key);
+                self.give_key(canonical);
+                return Err(reason);
+            }
         };
-        self.exhausted = saved_exhausted || exhausted;
-        self.dependency = saved_dependency.min(dependency);
-        match result {
-            Ok(Some(node)) if self.memoizes => {
+        // What the decision rests on, as the steps it ran returned it. A
+        // dependency on this very sequent is settled with it: the pruned
+        // descendants could only have proved what this sequent proves.
+        let cuts = Cuts {
+            exhausted: found.cuts.exhausted,
+            dependency: if found.cuts.dependency >= own_depth {
+                NO_DEPENDENCY
+            } else {
+                found.cuts.dependency
+            },
+        };
+        let mut node = found.node;
+        match node {
+            Some(proof) if self.memoizes => {
                 // The entry outlives the branch, so the proof is kept.
-                let node = self.nodes.keep(mark, node)?;
-                result = match self.remember(&key, Entry::Proved(node))? {
-                    Entry::Proved(node) => Ok(Some(node)),
+                let proof = self.nodes.keep(mark, proof)?;
+                node = match self.remember(&key, Entry::Proved(proof))? {
+                    Entry::Proved(proof) => Some(proof),
                     Entry::Failed(_) => unreachable!("the entry of a proof"),
                 };
             }
-            Ok(None) => {
+            None => {
                 self.nodes.release(mark);
-                if dependency == NO_DEPENDENCY {
+                if cuts.dependency == NO_DEPENDENCY {
                     // A complete failure answers for every relative; one
                     // cut by the budget stays the sequent's own.
-                    if exhausted {
+                    if cuts.exhausted {
                         self.remember(&key, Entry::Failed(Failure::Exhausted(budget)))?;
                     } else {
                         let key = if renamed { &canonical } else { &key };
@@ -836,11 +1028,11 @@ impl<'a> Engine<'a> {
                     }
                 }
             }
-            _ => {}
+            Some(_) => {}
         }
         self.give_key(key);
         self.give_key(canonical);
-        result
+        Ok(Found { node, cuts })
     }
 
     /// Records what the search found out about a stable sequent. A memo
@@ -919,7 +1111,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Decides a stable sequent the memo does not know.
-    fn decide(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Search {
+    fn decide(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
         let mut members = self.take_list();
         members.extend(gamma.iter());
         let mut tally = self.take_tally();
@@ -952,7 +1144,7 @@ impl<'a> Engine<'a> {
         candidates: &mut Vec<OccId>,
         copies: &mut Vec<OccId>,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         let affine = self.rules.affine;
         // One pass over the members: the counts, a `0`, and the positive
         // formulas worth focusing on. `1` and `!` only when alone, since
@@ -977,16 +1169,18 @@ impl<'a> Engine<'a> {
         // stable sequent fatal, which overlooks this.) With weakening the
         // `0` is discarded at a leaf like anything else.
         if zero && !affine && !tally.absorbs() && !theta.iter().any(|a| self.counts.absorbs(a)) {
-            return Ok(None);
+            return Ok(Found::NOTHING);
         }
-        if let Some(node) = self.initial(theta, gamma, members, budget)? {
-            return Ok(Some(node));
+        let initial = self.initial(theta, gamma, members, budget)?;
+        if initial.node.is_some() {
+            return Ok(initial);
         }
+        let mut cuts = initial.cuts;
         if self.rules.intervals && !tally.balanced() {
-            return Ok(None);
+            return Ok(Found::failed(cuts));
         }
         if self.rules.equation && !tally.equation(self.rules.mix) {
-            return Ok(None);
+            return Ok(Found::failed(cuts));
         }
 
         // Of interchangeable candidates one is enough: the focus on either
@@ -1006,7 +1200,9 @@ impl<'a> Engine<'a> {
             if budget == 0 {
                 // A branch cut by the bound: the level cannot claim
                 // completeness, unless nothing was there to copy.
-                self.exhausted |= !copies.is_empty();
+                if !copies.is_empty() {
+                    cuts = cuts.and(Cuts::BUDGET);
+                }
                 copies.clear();
             } else {
                 // By id, those that meet a member first: the heuristic is
@@ -1030,29 +1226,135 @@ impl<'a> Engine<'a> {
                 self.give_list(others);
             }
         }
+        let alternatives = candidates
+            .iter()
+            .map(|&f| Alternative::Focus(f))
+            .chain(copies.iter().map(|&a| Alternative::Copy(a)));
+        let chosen = self.choose(theta, gamma, alternatives, budget)?.after(cuts);
+        if chosen.node.is_some() {
+            return Ok(chosen);
+        }
+        Ok(self
+            .last_resort(theta, gamma, members, tally, budget)?
+            .after(chosen.cuts))
+    }
+
+    /// Decides a choice among alternatives: in their order on this thread,
+    /// the first that proves the sequent ending it, or within the first
+    /// levels of a pool's search on its threads. The cuts are those of
+    /// the alternatives searched.
+    fn choose<'m>(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        alternatives: impl Iterator<Item = Alternative<'m>>,
+        budget: u32,
+    ) -> Step {
         #[cfg(feature = "parallel")]
-        if let Some(result) = self.choices_parallel(theta, gamma, candidates, copies, budget) {
-            if let Some(node) = result? {
-                return Ok(Some(node));
+        if self.cubes() {
+            let alternatives: Vec<Alternative<'m>> = alternatives.collect();
+            if alternatives.len() >= 2 {
+                return self.choose_parallel(theta, gamma, &alternatives, budget);
             }
-            return self.last_resort(theta, gamma, members, tally, budget);
+            return self.choose_here(theta, gamma, alternatives.into_iter(), budget);
         }
-        let mut rest = self.take_context();
-        for &f in candidates.iter() {
-            rest.clone_from(gamma);
-            rest.remove(f);
-            if let Some(node) = self.focus(theta, &rest, f, budget)? {
-                self.give_context(rest);
-                return Ok(Some(node));
+        self.choose_here(theta, gamma, alternatives, budget)
+    }
+
+    /// Decides a choice among alternatives on this engine, in their order.
+    fn choose_here<'m>(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        alternatives: impl Iterator<Item = Alternative<'m>>,
+        budget: u32,
+    ) -> Step {
+        let mut cuts = Cuts::NONE;
+        let mut rest = None;
+        for alternative in alternatives {
+            let found = self.alternative(theta, gamma, alternative, &mut rest, budget)?;
+            cuts = cuts.and(found.cuts);
+            if found.node.is_some() {
+                if let Some(rest) = rest {
+                    self.give_context(rest);
+                }
+                return Ok(Found {
+                    node: found.node,
+                    cuts,
+                });
             }
         }
-        self.give_context(rest);
-        for &a in copies.iter() {
-            if let Some(node) = self.focus(theta, gamma, a, budget - 1)? {
-                return Ok(Some(self.push(Node::Copy(a, node))));
+        if let Some(rest) = rest {
+            self.give_context(rest);
+        }
+        Ok(Found::failed(cuts))
+    }
+
+    /// Searches one alternative of a choice on this engine. `rest` is the
+    /// context a focus on a member of `Γ` leaves, taken from the pool the
+    /// first time one needs it.
+    fn alternative(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        alternative: Alternative<'_>,
+        rest: &mut Option<Context>,
+        budget: u32,
+    ) -> Step {
+        match alternative {
+            Alternative::Focus(f) => {
+                if rest.is_none() {
+                    *rest = Some(self.take_context());
+                }
+                let rest = rest.as_mut().expect("taken");
+                rest.clone_from(gamma);
+                rest.remove(f);
+                self.focus(theta, rest, f, budget)
+            }
+            Alternative::Copy(a) => Ok(self
+                .focus(theta, gamma, a, budget - 1)?
+                .map(|node| self.push(Node::Copy(a, node)))),
+            Alternative::Side(f, side, sub) => Ok(self
+                .focus(theta, gamma, sub, budget)?
+                .map(|node| self.push(Node::Plus(f, side, node)))),
+            Alternative::Splits {
+                join,
+                members,
+                fixed,
+                pattern,
+                sides,
+                split,
+            } => {
+                let mut left = self.take_context();
+                left.clone_from(sides.0);
+                let mut right = self.take_context();
+                right.clone_from(sides.1);
+                let mut counts = self.take_split();
+                (*counts).clone_from(split);
+                for (i, &m) in members.iter().enumerate().take(fixed) {
+                    if pattern >> i & 1 == 1 {
+                        right.remove(m);
+                        left.insert(m);
+                        counts.assign(self.counts, m, Side::Left);
+                    } else {
+                        counts.assign(self.counts, m, Side::Right);
+                    }
+                }
+                let result = self.search_splits(
+                    theta,
+                    members,
+                    (fixed, pattern),
+                    (&mut left, &mut right),
+                    &mut counts,
+                    join,
+                    budget,
+                );
+                self.give_context(left);
+                self.give_context(right);
+                self.give_split(counts);
+                result
             }
         }
-        self.last_resort(theta, gamma, members, tally, budget)
     }
 
     /// Keeps, of the occurrences that are interchangeable, the one with
@@ -1071,29 +1373,24 @@ impl<'a> Engine<'a> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         if self.rules.mix {
             return self.mix(theta, gamma, members, tally, budget);
         }
-        Ok(None)
+        Ok(Found::NOTHING)
     }
 
     /// The initial rules on a stable sequent: a dual pair in `Γ`, or a
     /// literal of `Γ` whose dual lies in `Θ`, which is copied and counts
     /// against the budget; exactly that in linear mode, with anything else
     /// in `Γ` weakened away in affine mode.
-    fn initial(
-        &mut self,
-        theta: &OccSet,
-        gamma: &Context,
-        members: &[OccId],
-        budget: u32,
-    ) -> Search {
+    fn initial(&mut self, theta: &OccSet, gamma: &Context, members: &[OccId], budget: u32) -> Step {
         let f = self.forest;
         let dual = |p: OccId, q: OccId| {
             f.is_literal(p) && f.atom(p) == f.atom(q) && f.sign(p) != f.sign(q)
         };
         let affine = self.rules.affine;
+        let mut cuts = Cuts::NONE;
         for (i, &p) in members.iter().enumerate() {
             if !f.is_literal(p) || (!affine && members.len() > 2) {
                 continue;
@@ -1103,7 +1400,7 @@ impl<'a> Engine<'a> {
             {
                 let ax = self.push(Node::Ax(p, q));
                 if !affine {
-                    return Ok(Some(ax));
+                    return Ok(Found::proved(ax).after(cuts));
                 }
                 let mut rest = self.take_context();
                 rest.clone_from(gamma);
@@ -1111,7 +1408,7 @@ impl<'a> Engine<'a> {
                 rest.remove(q);
                 let node = self.weakened(&rest, ax);
                 self.give_context(rest);
-                return Ok(Some(node));
+                return Ok(Found::proved(node).after(cuts));
             }
             if (affine || members.len() == 1)
                 && let Some(d) = self.dual_in(p, |d| theta.contains(d))
@@ -1119,23 +1416,23 @@ impl<'a> Engine<'a> {
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
-                    self.exhausted = true;
+                    cuts = Cuts::BUDGET;
                     continue;
                 }
                 let ax = self.push(Node::Ax(p, d));
                 let copy = self.push(Node::Copy(d, ax));
                 if !affine {
-                    return Ok(Some(copy));
+                    return Ok(Found::proved(copy).after(cuts));
                 }
                 let mut rest = self.take_context();
                 rest.clone_from(gamma);
                 rest.remove(p);
                 let node = self.weakened(&rest, copy);
                 self.give_context(rest);
-                return Ok(Some(node));
+                return Ok(Found::proved(node).after(cuts));
             }
         }
-        Ok(None)
+        Ok(Found::failed(cuts))
     }
 
     /// The first occurrence of the literal dual to `literal` that is `within`
@@ -1199,7 +1496,7 @@ impl<'a> Engine<'a> {
     /// `focus(Θ ; Γ ⇓ F)` with `F` taken out of `Γ` (or copied from `Θ`):
     /// the positive rules along `F`, and a release into the asynchronous
     /// phase once `F` is negative.
-    fn focus(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Search {
+    fn focus(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
         self.enter()?;
         let result = self.focus_on(theta, gamma, f, budget);
         self.leave();
@@ -1207,33 +1504,26 @@ impl<'a> Engine<'a> {
     }
 
     /// The body of `focus`.
-    fn focus_on(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Search {
+    fn focus_on(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
         match self.forest.kind(f) {
             Kind::Plus => {
-                #[cfg(feature = "parallel")]
-                if self.cubes() {
-                    return self.plus_parallel(theta, gamma, f, budget);
-                }
-                for (side, sub) in [
-                    (Side::Left, self.forest.left(f).unwrap()),
-                    (Side::Right, self.forest.right(f).unwrap()),
-                ] {
-                    if let Some(node) = self.focus(theta, gamma, sub, budget)? {
-                        return Ok(Some(self.push(Node::Plus(f, side, node))));
-                    }
-                }
-                Ok(None)
+                let sides = [
+                    Alternative::Side(f, Side::Left, self.forest.left(f).unwrap()),
+                    Alternative::Side(f, Side::Right, self.forest.right(f).unwrap()),
+                ];
+                self.choose(theta, gamma, sides.into_iter(), budget)
             }
             Kind::Tensor => self.split(theta, gamma, f, budget),
-            Kind::One => Ok(self.leftover(gamma).then(|| {
+            Kind::One if self.leftover(gamma) => {
                 let one = self.push(Node::One(f));
-                self.weakened(gamma, one)
-            })),
+                Ok(Found::proved(self.weakened(gamma, one)))
+            }
+            Kind::One => Ok(Found::NOTHING),
             Kind::Bang => {
                 // Promotion: the subformula is released into an empty
                 // linear zone, and what was there is weakened below.
                 if !self.leftover(gamma) {
-                    return Ok(None);
+                    return Ok(Found::NOTHING);
                 }
                 let mut released = self.take_context();
                 let mut list = self.take_list();
@@ -1246,7 +1536,7 @@ impl<'a> Engine<'a> {
                     self.weakened(gamma, bang)
                 }))
             }
-            Kind::Zero => Ok(None),
+            Kind::Zero => Ok(Found::NOTHING),
             Kind::Var | Kind::DualVar if self.counts.positive(self.forest, f) => {
                 // The initial rules: the context is the dual literal, or
                 // nothing and the dual lies in `Θ`.

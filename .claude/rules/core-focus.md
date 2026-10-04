@@ -14,13 +14,15 @@ memory account counts are in `core-search.md`; the pool it runs on is
 
 ## The focused engine
 
-**Files.** `mod.rs` holds the engine (`Engine`) and its phases; `split.rs`
-the `⊗` rule and Mix (forced chains, the split search); `arena.rs` the
-proof arena; `scratch.rs` the pools of buffers; `schedule.rs` the two
-searches of the default bias (`plan`, `chains`, `Rule`, `turns`, and the
-threaded `alternate` with its baton); `parallel.rs` the engine on a pool;
-`tests.rs` the tests; `classes.rs`, `context.rs`, `counts.rs`, `memo.rs`
-as named below.
+**Files.** `mod.rs` holds the engine (`Engine`, built only by
+`Engine::new` from a `Problem`: the forest, reading, counts, classes,
+rules, account and limits every engine of a search shares) and its
+phases; `split.rs` the `⊗` rule and Mix (forced chains, the split
+search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
+(`Pools`); `schedule.rs` the two searches of the default bias (`plan`,
+`chains`, `Rule`, `turns`, and the threaded `alternate` with its baton);
+`parallel.rs` the engine on a pool; `tests.rs` the tests; `classes.rs`,
+`context.rs`, `counts.rs`, `memo.rs` as named below.
 
 `search/focus/mod.rs` is the spec's MALL-Seq and MELL-Seq in one engine, for
 every classical fragment up to full LL, with units, Mix, the exponentials
@@ -86,12 +88,12 @@ relies on:
   fired. The library's default keeps `DEFAULT_COPIES` (3): `prove` has
   no stop condition, and a search without a bound ends only when it
   decides; the command's default is `None` under a time limit. A
-  level whose search skipped a copy for lack of budget sets `exhausted`;
-  `Unprovable` is answered only by a level that ends with the flag clear,
-  and `Reason::CopyBound` when every level set it. The flag is saved and
-  cleared around each stable sequent's decision so the memo entry can say
-  whether *that* subtree was cut. Without exponentials there is one level
-  with budget 0 and nothing can set the flag.
+  level whose search skipped a copy for lack of budget returns
+  `Cuts::exhausted`; `Unprovable` is answered only by a level whose
+  result has it clear, and `Reason::CopyBound` when every level's has it.
+  Each stable sequent reads the cuts its decision returned, so the memo
+  entry says whether *that* subtree was cut. Without exponentials there
+  is one level with budget 0 and nothing is cut.
 - **Memo contract with the bound** (`focus/memo.rs`). The key is both
   zones. `Proved(NodeId)` is a fact at any budget (a proof is a proof; one
   found with more copies than the current level allows is still returned,
@@ -103,7 +105,7 @@ relies on:
   fact at any budget, since more budget adds nothing that was not tried.
   `Failed(Exhausted(r))`, cut by the budget with `r` copies left, applies
   only when at most `r` are left now (`Memo::get`), and its hit sets
-  `exhausted`; a later entry only raises `r`, and `Complete` or `Proved`
+  `Cuts::BUDGET`; a later entry only raises `r`, and `Complete` or `Proved`
   replace it. Entries survive across levels; that is where the
   re-exploration of deepening is recovered. Never memoize across forests.
 - **The memo's layout** (`focus/memo.rs`): an entry is a record of
@@ -158,14 +160,15 @@ relies on:
   live up to `stack_len`, entries reused), on with exponentials only: a
   stable sequent equal to an ancestor is pruned, because a smallest proof
   of the ancestor never passes through it. Such a failure is a fact about
-  the branch, not the sequent: `dependency` records the shallowest
+  the branch, not the sequent: `Cuts::dependency` carries the shallowest
   ancestor depth a prune below relied on, a failure that carries a
   dependency on an ancestor is not memoized, and the dependency is
   discharged at that ancestor, whose own failure is genuine (a proof of
   the repeat would be a proof of the ancestor). Order in `prove_stable`: a
   `Proved` or `Complete` memo entry answers first; then the stack; then an
   `Exhausted` entry, so that a repeated sequent is pruned rather than
-  reported as cut by the budget. Pruned branches never set `exhausted`.
+  reported as cut by the budget. Pruned branches are never cut by the
+  budget.
   Every stack entry has its hash beside it (`hashes`), compared before
   the sequents: the ancestors of a branch mostly share `Θ` and the set
   of `Γ`, so a comparison of sequents ran over both bitsets before it
@@ -408,7 +411,8 @@ relies on:
   id); a failed step *releases* them (`release`, a truncation). The
   release points are `prove_stable` on a failure and the four places
   where a first premise is proved and the second fails (`premises`, the
-  forced split, `with`, `parts`); every other failure pushes nothing. The
+  forced split, `both` for `with`, `parts`); every other failure pushes
+  nothing. The
   argument that a release is safe: node ids travel only upwards as return
   values, so nothing outside the failed call holds an id pushed after its
   mark, and a memo entry holds kept ids only. The argument for `keep`:
@@ -441,7 +445,7 @@ relies on:
   when the collection runs), a premise of a pending node, the result a
   call is about to return (the root given), and a local of a rule that
   holds the proof of its first premise while it searches the second.
-  The last are `with`, `premises` and `parts`, which put the id on the
+  The last are `with` (and `both`), `premises` and `parts`, which put the id on the
   arena's `held` stack around the second search (`hold`, `unhold`) and
   read it back, since it may have moved; the forced split's `links`
   hold pending ids only (a forcing factor's proof ends in a node pushed
@@ -732,10 +736,20 @@ relies on:
   about the branch, so a run with the memo may answer `Unknown` where a
   memo-free run answers `Unprovable` (or the reverse); the generated tests
   assert only that the two never contradict.
-- **`exhausted` and `dependency` are engine-wide flags** saved, cleared and
-  restored by hand inside `prove_stable`; an early return between the
-  decision and the restore, or a stack push anywhere else, silently
-  breaks the level's completeness claim.
+- **The cuts are values a step returns** (`Cuts` in a step's `Found`:
+  `exhausted`, a branch cut by the copy budget, and `dependency`, the
+  shallowest ancestor a loop-check prune below relied on). Every step
+  returns the cuts of every step it ran, whatever those found: a proof
+  carries those of the failed alternatives before it, a two-premise rule
+  those of both premises it searched. That is exactly what the engine-wide
+  flags they replace held, so the search and its counters did not move.
+  `prove_stable` reads its decision's cuts to choose the memo entry
+  (`Exhausted`, `Complete`, or none under a dependency), settles a
+  dependency on itself and returns the rest; `run` reads a level's. A new
+  rule adds the cuts of every step it runs to its result (`Found::after`,
+  `Cuts::and`): a cut dropped there is a wrong `Unprovable`, which the
+  reference test (`search::reference`) may catch and the counters do not.
+  On a pool the merge differs (`core-parallel.md`).
 - **Every proof passes the checker**: in `prove_goal` for a proof of the
   roots, in every build; `debug_assert!` in `search` besides, and
   every test that gets a proof calls `check`. The test-only generator

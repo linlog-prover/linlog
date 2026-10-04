@@ -29,15 +29,14 @@ use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
 use super::schedule::{Rule, merged};
 use super::split::Join;
-use super::{Engine, NO_DEPENDENCY, Rules, Search};
+use super::{Alternative, Cuts, Engine, Found, Problem, Search, Step};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
-use crate::proofs::{Node, NodeId, Side};
-use crate::search::memory::{Account, Charged};
+use crate::proofs::{Node, NodeId};
+use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, Runtime};
 use crate::search::{Options, Reason, Statistics, Stop, set_up_stopped};
-use std::hash::BuildHasher as _;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -141,23 +140,29 @@ impl Rule {
             Ok(counts) => counts,
             Err(reason) => return (Err(reason), Vec::new(), Statistics::default()),
         };
-        let rules = Rules::new(fragment, mode, &counts);
         let memo = Shared::new(options.memo_limit);
         let arena = Mutex::new(Vec::new());
         let (result, statistics) = {
-            let mut engine = Engine::new(
+            let problem = Problem::new(
                 forest,
-                rules,
                 reading,
                 (&counts, classes),
-                &options.clone().copies(Some(self.copies)),
+                fragment,
+                mode,
+                options,
+                self.copies,
+                account,
+            );
+            let mut engine = Engine::new(
+                problem,
                 Stop::Flags(flags),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
             );
             engine.runtime = (runtime.threads() > 1).then_some(runtime);
-            let result = engine.run(goal);
-            let result = engine.exported(result);
+            let result = engine
+                .run(goal)
+                .and_then(|root| root.map(|root| engine.nodes.keep(0, root)).transpose());
             (result, engine.statistics())
         };
         let nodes = arena
@@ -167,134 +172,59 @@ impl Rule {
     }
 }
 
-/// What a worker starts from: the state of the engine that spawns it at
+/// What a worker starts from: the problem of the engine that spawns it at
 /// a parallel choice, the shared parts by reference and the branch's by
 /// copy.
 struct Spawn<'s> {
     /// The problem.
-    forest: &'s Forest,
-    /// Its intuitionistic reading.
-    reading: Option<&'s Reading<'s>>,
-    /// Its count invariants.
-    counts: &'s Counts,
-    /// Its classes of interchangeable occurrences.
-    classes: &'s Classes,
-    /// The rules in force.
-    rules: Rules,
+    problem: Problem<'s>,
     /// The shared memo.
     memo: &'s Shared,
     /// The shared arena.
     arena: &'s Mutex<Vec<Node>>,
-    /// The search's account.
-    account: &'s Account,
-    /// Whether the memo takes entries.
-    memoizes: bool,
     /// The runtime.
     runtime: &'s Runtime,
     /// The spawning engine's stop flags, which the worker's chain to.
     flags: Flags<'s>,
     /// The live branch stack at the choice.
     stack: &'s [Key],
+    /// The hash of each of its entries.
+    hashes: &'s [u64],
     /// The nesting of engine calls at the choice.
     depth: u32,
-    /// The deepest nesting allowed.
-    recursion_limit: u32,
-    /// The copy bound of the last level.
-    copies: u32,
     /// The workers' levels of cube-and-conquer.
     or_depth: u32,
 }
 
 impl<'s> Spawn<'s> {
-    /// Starts a worker: a fresh engine on the spawn's state, stopped by
-    /// the spawn's flags or by `cancel`.
+    /// Starts a worker: a fresh engine on the spawn's problem that
+    /// continues its branch, stopped by the spawn's flags or by `cancel`.
     fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Engine<'w> {
-        Engine {
-            forest: self.forest,
-            reading: self.reading,
-            counts: self.counts,
-            classes: self.classes,
-            rules: self.rules,
-            memo: Table::Shared(self.memo),
-            nodes: Arena::new(Kept::Shared(self.arena), self.account),
-            account: self.account,
-            scratch: Charged::new(self.account),
-            memoizes: self.memoizes,
-            statistics: Statistics::default(),
-            steps: 0,
-            forced: 0,
-            work: 0,
-            depth: self.depth,
-            recursion_limit: self.recursion_limit,
-            copies: self.copies,
-            exhausted: false,
-            dependency: NO_DEPENDENCY,
-            stop: Stop::Flags(self.flags.child(cancel)),
-            runtime: Some(self.runtime),
-            or_depth: self.or_depth,
-            stack: self.stack.to_vec(),
-            hashes: self
-                .stack
-                .iter()
-                .map(|key| crate::hash::BuildHasher::default().hash_one(key))
-                .collect(),
-            stack_len: self.stack.len(),
-            sets: Vec::new(),
-            contexts: Vec::new(),
-            keys: Vec::new(),
-            lists: Vec::new(),
-            tallies: Vec::new(),
-            splits: Vec::new(),
-            trails: Vec::new(),
-            links: Vec::new(),
-            cursors: Vec::new(),
-            present: Vec::new(),
-            stamp: 0,
-        }
+        let mut worker = Engine::new(
+            self.problem,
+            Stop::Flags(self.flags.child(cancel)),
+            Table::Shared(self.memo),
+            Arena::new(Kept::Shared(self.arena), self.problem.account),
+        );
+        worker.runtime = Some(self.runtime);
+        worker.depth = self.depth;
+        worker.or_depth = self.or_depth;
+        worker.stack = self.stack.to_vec();
+        worker.hashes = self.hashes.to_vec();
+        worker.stack_len = self.stack.len();
+        worker
     }
 }
 
-/// An alternative of a parallel choice.
-#[derive(Clone, Copy)]
-enum Alternative<'m> {
-    /// A focus on a member of `Γ`, which leaves the context.
-    Focus(OccId),
-    /// A copy of a member of `Θ` in focus, at one unit less of the budget.
-    Copy(OccId),
-    /// A side of a `⊕` in focus, with the subformula on that side.
-    Side(OccId, Side, OccId),
-    /// The free splits of a `⊗` that assign the first `fixed` members as
-    /// the bits of `pattern` say, one for the left premise, from the sides
-    /// and counts before any member moved.
-    Splits {
-        /// The `⊗` rule the sides are the premises of.
-        join: Join,
-        /// The members of the context that the search assigns.
-        members: &'m [OccId],
-        /// How many of them the pattern assigns.
-        fixed: usize,
-        /// Their assignment.
-        pattern: u64,
-        /// The sides before any member moved.
-        sides: (&'m Context, &'m Context),
-        /// Their counts, the members open.
-        split: &'m Split,
-    },
-}
-
 /// What the workers of a choice among alternatives report.
-#[derive(Default)]
 struct Collected {
     /// The first proof found.
     proof: Option<NodeId>,
     /// The first error, a stop that a cancellation caused excepted, a
     /// stop giving way to any other reason.
     error: Option<Reason>,
-    /// Whether some failed alternative was cut by the copy budget.
-    exhausted: bool,
-    /// The shallowest ancestor a prune below a failed alternative relied
-    /// on.
-    dependency: u32,
+    /// What the failed alternatives cut.
+    cuts: Cuts,
     /// The workers' counters.
     statistics: Statistics,
 }
@@ -303,24 +233,25 @@ impl Collected {
     /// Nothing reported yet.
     fn new() -> Self {
         Self {
-            dependency: NO_DEPENDENCY,
-            ..Self::default()
+            proof: None,
+            error: None,
+            cuts: Cuts::NONE,
+            statistics: Statistics::default(),
         }
     }
 
     /// Takes a worker's result: a proof or an error settles the choice
-    /// and raises its flag, a failure merges the worker's flags.
-    fn take(&mut self, result: Search, worker: &Engine<'_>, cancel: &AtomicBool) {
+    /// and raises its flag, a failure adds its cuts.
+    fn take(&mut self, result: Step, worker: &Engine<'_>, cancel: &AtomicBool) {
         self.statistics.add(&worker.statistics);
         match result {
-            Ok(Some(node)) => {
+            Ok(Found {
+                node: Some(node), ..
+            }) => {
                 self.proof.get_or_insert(node);
                 cancel.store(true, Ordering::Relaxed);
             }
-            Ok(None) => {
-                self.exhausted |= worker.exhausted;
-                self.dependency = self.dependency.min(worker.dependency);
-            }
+            Ok(failed) => self.cuts = self.cuts.and(failed.cuts),
             Err(Reason::Stopped) if cancel.load(Ordering::Relaxed) => {}
             Err(reason) => {
                 if self.error.is_none_or(|old| old == Reason::Stopped) {
@@ -349,23 +280,17 @@ impl Collected {
 
 /// A premise of a `&` searched on a worker.
 struct Premise {
-    /// The result.
-    result: Search,
-    /// Whether the search was cut by the copy budget.
-    exhausted: bool,
-    /// The shallowest ancestor a prune below relied on.
-    dependency: u32,
+    /// What the search found, with its cuts.
+    result: Step,
     /// The worker's counters.
     statistics: Statistics,
 }
 
 impl Premise {
-    /// What a worker found on a premise, with its flags and counters.
-    fn of(worker: &Engine<'_>, result: Search) -> Self {
+    /// What a worker found on a premise, with its counters.
+    fn of(worker: &Engine<'_>, result: Step) -> Self {
         Self {
             result,
-            exhausted: worker.exhausted,
-            dependency: worker.dependency,
             statistics: worker.statistics,
         }
     }
@@ -377,9 +302,9 @@ impl<'a> Engine<'a> {
         self.runtime.is_some() && self.or_depth < LEVELS
     }
 
-    /// The state a worker starts from, with the branch stack given and
-    /// `or_depth` levels of cube-and-conquer above it.
-    fn spawn<'s>(&self, stack: &'s [Key], or_depth: u32) -> Spawn<'s>
+    /// The state a worker starts from, with the branch stack and its
+    /// hashes given and `or_depth` levels of cube-and-conquer above it.
+    fn spawn<'s>(&self, (stack, hashes): (&'s [Key], &'s [u64]), or_depth: u32) -> Spawn<'s>
     where
         'a: 's,
     {
@@ -389,29 +314,29 @@ impl<'a> Engine<'a> {
             unreachable!("a parallel choice is met on a worker of the pool")
         };
         Spawn {
-            forest: self.forest,
-            reading: self.reading,
-            counts: self.counts,
-            classes: self.classes,
-            rules: self.rules,
+            problem: self.problem(),
             memo,
             arena,
-            account: self.account,
-            memoizes: self.memoizes,
             runtime,
             flags: *flags,
             stack,
+            hashes,
             depth: self.depth,
-            recursion_limit: self.recursion_limit,
-            copies: self.copies,
             or_depth,
         }
     }
 
     /// A result as it leaves this engine for another: the proof's pending
     /// nodes kept, since a pending id means nothing outside its engine.
-    fn exported(&mut self, result: Search) -> Search {
-        result.and_then(|node| node.map(|node| self.nodes.keep(0, node)).transpose())
+    fn exported(&mut self, result: Step) -> Step {
+        let found = result?;
+        let Some(node) = found.node else {
+            return Ok(found);
+        };
+        Ok(Found {
+            node: Some(self.nodes.keep(0, node)?),
+            cuts: found.cuts,
+        })
     }
 
     /// Locks what the workers report.
@@ -421,87 +346,41 @@ impl<'a> Engine<'a> {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    /// Runs one alternative of a choice on this engine.
-    fn alternative(
+    /// Searches one alternative of a choice on a worker of its own and
+    /// returns what leaves it.
+    fn run_alternative(
         &mut self,
         theta: &OccSet,
         gamma: &Context,
         alternative: Alternative<'_>,
         budget: u32,
-    ) -> Search {
-        match alternative {
-            Alternative::Focus(f) => {
-                let mut rest = self.take_context();
-                rest.clone_from(gamma);
-                rest.remove(f);
-                let result = self.focus(theta, &rest, f, budget);
-                self.give_context(rest);
-                result
-            }
-            Alternative::Copy(a) => Ok(self
-                .focus(theta, gamma, a, budget - 1)?
-                .map(|node| self.push(Node::Copy(a, node)))),
-            Alternative::Side(f, side, sub) => Ok(self
-                .focus(theta, gamma, sub, budget)?
-                .map(|node| self.push(Node::Plus(f, side, node)))),
-            Alternative::Splits {
-                join,
-                members,
-                fixed,
-                pattern,
-                sides,
-                split,
-            } => {
-                let mut left = self.take_context();
-                left.clone_from(sides.0);
-                let mut right = self.take_context();
-                right.clone_from(sides.1);
-                let mut counts = self.take_split();
-                (*counts).clone_from(split);
-                for (i, &m) in members.iter().enumerate().take(fixed) {
-                    if pattern >> i & 1 == 1 {
-                        right.remove(m);
-                        left.insert(m);
-                        counts.assign(self.counts, m, Side::Left);
-                    } else {
-                        counts.assign(self.counts, m, Side::Right);
-                    }
-                }
-                let result = self.search_splits(
-                    theta,
-                    members,
-                    (fixed, pattern),
-                    (&mut left, &mut right),
-                    &mut counts,
-                    join,
-                    budget,
-                );
-                self.give_context(left);
-                self.give_context(right);
-                self.give_split(counts);
-                result
-            }
+    ) -> Step {
+        let mut rest = None;
+        let result = self.alternative(theta, gamma, alternative, &mut rest, budget);
+        if let Some(rest) = rest {
+            self.give_context(rest);
         }
+        self.exported(result)
     }
 
     /// Decides a choice among alternatives on the pool: a worker per
     /// alternative, the first one on this thread, and the first to
     /// succeed or to fail with an error cancels the rest. Returns the
-    /// proof, or `None` when every alternative failed, their flags merged
-    /// into this engine's, or the first error (a stop a cancellation
-    /// caused is none). A proof found by any alternative wins over an
-    /// error of another, so the pool may decide where one thread gives
-    /// up.
-    fn choose_parallel(
+    /// proof, or nothing when every alternative failed, with their cuts,
+    /// or the first error (a stop a cancellation caused is none). A proof
+    /// found by any alternative wins over an error of another, so the
+    /// pool may decide where one thread gives up.
+    pub(super) fn choose_parallel(
         &mut self,
         theta: &OccSet,
         gamma: &Context,
         alternatives: &[Alternative<'_>],
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         let cancel = AtomicBool::new(false);
         let stack = self.stack[..self.stack_len].to_vec();
-        let spawn = self.spawn(&stack, self.or_depth + 1);
+        let hashes = self.hashes[..self.stack_len].to_vec();
+        let spawn = self.spawn((&stack, &hashes), self.or_depth + 1);
         let collected = Mutex::new(Collected::new());
         let (&first, rest) = alternatives
             .split_first()
@@ -522,16 +401,14 @@ impl<'a> Engine<'a> {
                         return;
                     }
                     let mut worker = spawn.worker(cancel);
-                    let result = worker.alternative(theta, gamma, alternative, budget);
-                    let result = worker.exported(result);
+                    let result = worker.run_alternative(theta, gamma, alternative, budget);
                     Self::lock(collected).take(result, &worker, cancel);
                 });
             }
             // The first alternative on this thread, on a worker of its
             // own so that it polls the choice's flag like the others.
             let mut worker = spawn.worker(&cancel);
-            let result = worker.alternative(theta, gamma, first, budget);
-            let result = worker.exported(result);
+            let result = worker.run_alternative(theta, gamma, first, budget);
             Self::lock(&collected).take(result, &worker, &cancel);
         });
         let collected = collected
@@ -539,52 +416,10 @@ impl<'a> Engine<'a> {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         self.statistics.add(&collected.statistics);
         match (collected.proof, collected.error) {
-            (Some(node), _) => Ok(Some(node)),
+            (Some(node), _) => Ok(Found::proved(node)),
             (None, Some(reason)) => Err(reason),
-            (None, None) => {
-                self.exhausted |= collected.exhausted;
-                self.dependency = self.dependency.min(collected.dependency);
-                Ok(None)
-            }
+            (None, None) => Ok(Found::failed(collected.cuts)),
         }
-    }
-
-    /// The choice of a focus on a stable sequent on the pool: every
-    /// candidate and every copy as an alternative. `None` when the choice
-    /// is not one to run on the pool, or has at most one alternative,
-    /// which the sequential loops handle as well.
-    pub(super) fn choices_parallel(
-        &mut self,
-        theta: &OccSet,
-        gamma: &Context,
-        candidates: &[OccId],
-        copies: &[OccId],
-        budget: u32,
-    ) -> Option<Search> {
-        if !self.cubes() || candidates.len() + copies.len() < 2 {
-            return None;
-        }
-        let alternatives: Vec<Alternative<'_>> = candidates
-            .iter()
-            .map(|&f| Alternative::Focus(f))
-            .chain(copies.iter().map(|&a| Alternative::Copy(a)))
-            .collect();
-        Some(self.choose_parallel(theta, gamma, &alternatives, budget))
-    }
-
-    /// The `⊕` rule on the pool: its two sides as alternatives.
-    pub(super) fn plus_parallel(
-        &mut self,
-        theta: &OccSet,
-        gamma: &Context,
-        f: OccId,
-        budget: u32,
-    ) -> Search {
-        let alternatives = [
-            Alternative::Side(f, Side::Left, self.forest.left(f).unwrap()),
-            Alternative::Side(f, Side::Right, self.forest.right(f).unwrap()),
-        ];
-        self.choose_parallel(theta, gamma, &alternatives, budget)
     }
 
     /// The free splits of `F = A ⊗ B` on the pool: the assignments of the
@@ -600,7 +435,7 @@ impl<'a> Engine<'a> {
         split: &Split,
         join: Join,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         let threads = self.runtime.map_or(1, Runtime::threads);
         let bits = (2 * threads).next_power_of_two().trailing_zeros() as usize;
         let fixed = bits.clamp(1, MAX_FIXED).min(members.len());
@@ -632,10 +467,8 @@ impl<'a> Engine<'a> {
     /// thread, the right one on a worker of the pool, the first to fail
     /// or to give up cancelling the other, whose stop then gives way to
     /// the first one's reason; an engine that is stopped already starts
-    /// neither. The flags of a premise count when it ran to
-    /// its end and the other did not fail before it, as in the sequential
-    /// rule, where the right premise runs only after the left one
-    /// succeeded.
+    /// neither. The cuts of a premise count when it ran to its end and
+    /// the other did not fail before it.
     pub(super) fn with_parallel(
         &mut self,
         theta: &OccSet,
@@ -643,7 +476,7 @@ impl<'a> Engine<'a> {
         list: &[OccId],
         o: OccId,
         budget: u32,
-    ) -> Search {
+    ) -> Step {
         // The asynchronous phase polls nowhere else before its stable
         // sequents: without this poll a premise that is stopped already
         // would still start both premises of every `&` below it, two to
@@ -653,20 +486,16 @@ impl<'a> Engine<'a> {
         }
         let cancel = AtomicBool::new(false);
         let stack = self.stack[..self.stack_len].to_vec();
-        let spawn = self.spawn(&stack, self.or_depth);
+        let hashes = self.hashes[..self.stack_len].to_vec();
+        let spawn = self.spawn((&stack, &hashes), self.or_depth);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
         let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
-        // A premise on a worker: the context and the list with the
-        // subformula on top, as the sequential rule sets them up.
+        // A premise on a worker, which cancels the other unless it is
+        // proved.
         let search = |worker: &mut Engine<'_>, sub: OccId| {
-            let mut premise_gamma = worker.take_context();
-            premise_gamma.clone_from(gamma);
-            let mut premise_list = worker.take_list();
-            premise_list.extend_from_slice(list);
-            premise_list.push(sub);
-            let result = worker.asynchronous(theta, &mut premise_gamma, &mut premise_list, budget);
+            let result = worker.premise(theta, gamma, list, sub, budget);
             let result = worker.exported(result);
-            if !matches!(result, Ok(Some(_))) {
+            if !matches!(result, Ok(Found { node: Some(_), .. })) {
                 cancel.store(true, Ordering::Relaxed);
             }
             result
@@ -688,27 +517,19 @@ impl<'a> Engine<'a> {
             .expect("the worker reports before the scope ends");
         self.statistics.add(&left.statistics);
         self.statistics.add(&right.statistics);
-        let merge = |engine: &mut Self, premise: &Premise| {
-            engine.exhausted |= premise.exhausted;
-            engine.dependency = engine.dependency.min(premise.dependency);
-        };
         match (left.result, right.result) {
-            (Ok(Some(l)), Ok(Some(r))) => {
-                merge(self, &left);
-                merge(self, &right);
-                Ok(Some(self.push(Node::With(o, l, r))))
-            }
-            (Ok(None), _) => {
-                merge(self, &left);
-                Ok(None)
-            }
-            (_, Ok(None)) => {
-                merge(self, &right);
-                Ok(None)
-            }
+            (
+                Ok(Found {
+                    node: Some(l),
+                    cuts,
+                }),
+                Ok(right @ Found { node: Some(_), .. }),
+            ) => Ok(self.both(o, (l, cuts), right, self.nodes.mark())),
+            (Ok(failed @ Found { node: None, .. }), _)
+            | (_, Ok(failed @ Found { node: None, .. })) => Ok(failed),
             // A premise that the other's error cancelled reports a stop,
             // which is not the reason: the error is.
-            (Err(Reason::Stopped), Err(reason)) | (Err(reason), _) | (Ok(Some(_)), Err(reason)) => {
+            (Err(Reason::Stopped), Err(reason)) | (Err(reason), _) | (Ok(_), Err(reason)) => {
                 Err(reason)
             }
         }

@@ -136,10 +136,12 @@ has no or-choices worth sharing out). What the code relies on:
   skip's stop included) is recorded. Mix stays sequential after the
   parallel alternatives failed (`last_resort`).
 - **A worker is a copy of the branch, not of the engine** (`Spawn`,
-  `Spawn::worker`): the shared parts by reference (forest, reading,
-  counts, rules, memo, arena, runtime, flags), the branch's by copy (the
-  live stack of keys, `depth`, `copies`, `or_depth`), fresh pools and
-  counters, `exhausted` clear and `dependency` none. The copied stack is
+  `Spawn::worker`): `Engine::new` builds it, the one constructor of an
+  engine, from the spawning engine's `Problem` (forest, reading, counts,
+  classes, rules, account and limits), with the shared memo and arena by
+  reference and fresh pools and counters, and then gives it the branch
+  by copy: the live stack of keys with their hashes (copied, not hashed
+  again), `depth` and `or_depth`. The copied stack is
   what keeps the loop check's prunes below the cube; `depth` keeps the
   recursion limit's meaning for the counter, not for the stack: a pool
   thread that waits at a scope runs stolen tasks on its own stack, so
@@ -147,20 +149,31 @@ has no or-choices worth sharing out). What the code relies on:
   levels) plus the stolen task's, and nested waits compound; the 2×
   margin of `Options::stack_size` and its 8 MiB floor cover this at the
   default limit, and a raised limit is where an overflow would first
-  show. `Engine::new` takes the counts, the rules, the memo (`Table`)
-  and the arena (`Arena`) from outside for that reason; `search_goal`
-  builds them and owns them.
-- **Merging is the sequential rule's**: a choice's result is a proof if
-  any alternative found one (a proof of one alternative wins over an
-  error of another, so the pool may decide where one thread gives up
-  with `RecursionLimit`), else the first error that is not a stop caused
-  by cancellation (a worker's `Stopped` is ignored only when the choice's
-  own `cancel` flag is raised), else a failure with `exhausted` or-ed and
-  `dependency` min-ed over the alternatives that ran to their end
-  (`Collected::take`); a cancelled alternative's flags are dropped, as
-  the sequential engine never ran it. For `&`, a failed premise decides
-  and the other's flags are dropped, both premises' flags count when both
-  ran to the end (`with_parallel`). Success raises `cancel` at an
+  show.
+- **Each rule is written once; the merge of cuts is the scheduler's.**
+  A choice's alternatives are one type (`focus::Alternative`: a focus on
+  a member of `Γ`, a copy, a side of a `⊕`, the splits under a pattern)
+  with one implementation (`Engine::alternative`), which one thread runs
+  in order (`Engine::choose_here`) and a pool as tasks within its first
+  `LEVELS` choices (`Engine::choose`, `choose_parallel`); a `&` premise
+  is `Engine::premise` and its node `Engine::both` on either. A choice's
+  result is a proof if any alternative found one (a proof of one
+  alternative wins over an error of another, so the pool may decide
+  where one thread gives up with `RecursionLimit`), else the first error
+  that is not a stop caused by cancellation (a worker's `Stopped` is
+  ignored only when the choice's own `cancel` flag is raised), else a
+  failure with the cuts (`focus::Cuts`) of the alternatives that ran to
+  their end (`Collected::take`). What one thread and a pool still do
+  differently is the cuts of a proof: one thread's proof carries those
+  of the alternatives it tried before (as the engine-wide flags did),
+  the pool's carries none of its alternatives', and at a `&` whose left
+  premise was proved and right one failed, one thread returns both
+  premises' cuts and the pool the failed one's. Both are sound, since a
+  proof makes the cuts of its failed siblings irrelevant to any failure
+  above it; making one thread drop them too changes its memo entries,
+  hence its counters, and is a change of the search. For `&`, a failed
+  premise decides, both premises' cuts count when both were proved
+  (`with_parallel`). Success raises `cancel` at an
   or-node, failure or error at the `&`. A premise that the other's
   error cancelled returns `Stopped`, which gives way to that error in
   the `&`'s result as it does in `Collected::take`: the match took the
@@ -210,9 +223,9 @@ has no or-choices worth sharing out). What the code relies on:
   nothing on the pool either.
 - **Levels never overlap**: `run` deepens the copy bound on the root
   engine, which spawns nothing until its first choice and reads
-  `exhausted` after every task of the level has ended (the scope waits),
+  the level's cuts after every task of the level has ended (the scope waits),
   so the or-reduction over the workers is the merge above and a level is
-  `Unprovable` only with every worker's flag clear.
+  `Unprovable` only with no worker's failure cut.
 - **The net engine's cubes are what is left of the search, split at
   its choices** (`net::parallel::search`). A cube is the links of a
   branch nobody has followed yet, and the list of cubes is kept in the
