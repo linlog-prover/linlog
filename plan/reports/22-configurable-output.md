@@ -1,10 +1,106 @@
 # Step 22 report: configurable output, and no font in LaTeX and Typst
 
-Status: first session, items 1 to 6 done, with PNG and PDF export and
-`--net` added at the author's request; the second session owes items 7
-to 9.
+Status: done. The first session did items 1 to 6, with PNG and PDF
+export and `--net` added at the author's request; the second session
+(2026-10-04) did items 7 to 9.
 
-## Outcome so far
+## Outcome of the second session
+
+- **A Typst tree of any height** (item 7). `typst::Options::layout`
+  (`typst::Layout`: `auto`, `curryst`, `linlog`) chooses between curryst
+  and a layout of linlog's own, which the output carries as Typst code:
+  a `#context` block that lists the inferences from the root in preorder,
+  `(premises, label, conclusion)` one per line, and then a fixed script
+  (`typst::LAYOUT`) that measures every sequent and label, lays the tree
+  out as the SVG drawing does (premises side by side, their conclusions
+  centred over the conclusion, the line spanning both, the label after
+  it), and places every piece in one box. Nothing is nested per level,
+  so no height reaches Typst's depth limits, and no package is needed.
+  The default, `auto`, keeps curryst up to `typst::CURRYST_HEIGHT`, nine
+  inferences on the longest branch, and uses the own layout above, so
+  every snapshot of before is unchanged. Its spacing is four new fields,
+  Typst lengths with curryst's values as defaults. The snapshot
+  `high.typ`, 41 inferences high, compiles with Typst 0.15.1 (this
+  session, by hand, and in the `export` check), and so do
+  `open-linlog.typ` (an open goal under dots in the own layout) and a
+  41-high scratch tree with a Mix and an open goal.
+- **A compact view** (item 8). `ViewOptions::compact` (`linlog::Compact`:
+  `auto`, `always`, `never`) draws a run of one structural rule (`?w`,
+  `?c`, `wk`, `!w`, `!c`) as one inference, `Inference::times` saying how
+  many it stands for and its label getting a star: `?w*` in text and
+  SVG, `\wn\mathrm{w}^{*}` in LaTeX, `? upright(w)^*` in Typst. The
+  default, `auto`, compacts only where the whole derivation is over a
+  bound, so every derivation that was shown before is shown as before;
+  the command's `--compact auto|always|never` sets it, and on a terminal
+  `auto` also tries the compact tree where the whole one does not fit.
+  The builder merges a run in place and counts what it holds, giving up
+  at the bound; the size pass returns a lower bound of the compact view
+  (the inferences that are no weakening or contraction), so that an
+  attempt compaction cannot rescue is refused before it starts. A Rocq
+  certificate refuses a compact derivation (`Unsupported::Compact`) and
+  the command never builds one for it; a session's grafts are never
+  compact. Snapshots `compact.{tex,typ,svg}` pin the starred label in
+  every drawn target.
+- **What it does on the Petri net that motivated it**
+  (`TokenRing-40-unfolded_1_1`, 65 643 clauses, run once on one core in
+  a 2 GiB scope): the compact derivation has 128 inferences instead of
+  65 767, the 65 640 `!w` steps drawn as one. It is still estimated at
+  1.3 GB rather than 998 GiB, over the default bound of 64 MiB, so the
+  command leaves it out as before (in 1.1 s, 65 MB, refused by the lower
+  bound without a build): the 40 or so `⊗L` steps that decompose the
+  initial marking sit *below* the run and each carries all 65 643
+  formulas. Showing this net needs the translation to weaken unused `?`
+  formulas at the root (below), which is not a compact view and not
+  done here.
+- **The smaller follow-ups** (item 9), done by a sub-agent in a jj
+  workspace of its own and reviewed here: the LaTeX export writes Greek
+  letters as their commands (a one-letter name bare, `\alpha`; inside
+  `\mathit` in braces) and the `‿` and `·` of `lltp::read`'s names as
+  `{\smallsmile}` and `{\cdotp}`, so that pdfLaTeX compiles them
+  (snapshot `names.tex`); a proof net's edges and links meet a negated
+  literal at its atom rather than at the middle of `A⊥`; wide axiom
+  links grow with the square root of their half-width beyond
+  `svg::Style::link_cap` (8 em by default), which keeps nested arcs from
+  crossing (the argument is at `svg::net::height`, a unit test checks
+  it); and a disconnected structure has every part but the first in the
+  highlight colour, as a switching cycle has (snapshot
+  `disconnected.svg`).
+- **Two bugs found and fixed on the way**: the text tree panicked on any
+  tree wider than 65 535 columns (a width in a format string is a `u16`
+  in this Rust; the compact tree of the net above reached it), and the
+  capped arc's product `cap · rx` could overflow on an enormous drawing.
+- **Snapshot differences**: new `compact.{svg,tex,typ}`, `high.typ`,
+  `open-linlog.typ`, `names.tex`, `disconnected.svg`; changed `net.svg`
+  and `cycle.svg` only, by the anchors at the atom (the edges, links and
+  nodes of negated literals move onto the atom, the text stays, and the
+  wider arcs make each view box 92 units taller). No other snapshot
+  changed; `link_cap`'s default changes none.
+
+Verified in the second session, every run in a memory-capped scope on
+cores 4 to 9: see "Verification of the second session" below.
+
+## Verification of the second session
+
+Every cargo run in a scope of its own (`systemd-run --user --scope -p
+MemoryMax=8G -p MemorySwapMax=0`, `taskset -c 4-9`, six build jobs, four
+test threads), on the final tree: `cargo test --workspace` (core 159
+passed and 2 ignored, export 11, CLI 19, the rest passing),
+`cargo clippy --workspace --all-targets -- --deny warnings`, `cargo hack
+check --each-feature -p linlog` and `--feature-powerset --depth 2`, all
+clean; `BLESS=1` once for each change, the diffs read (the list above).
+Typst 0.15.1 with curryst 0.6.0 (the check's, from nixpkgs) compiled
+`high.typ`, `open-linlog.typ`, `compact.typ` and a scratch tree of 41
+inferences with a Mix and an open goal, and gave "maximum show rule depth
+exceeded" for curryst trees ten high with a binary rule. The Petri net
+ran four times on one core in a 2 GiB scope (debug build, `--jobs 1`):
+`--compact never` and `auto` each 1.1 s and 65 MB, left out at 64 MiB;
+`always` with `--derivation-limit 1GiB` refused by the lower bound;
+`always` with no bound built the 128 inferences within 71 MB and then
+hit the width panic, which the fix of that commit removes (its test
+draws a tree 140 000 columns wide). Not run: the text of that compact
+tree written whole (about 160 MB).
+
+## Outcome of the first session
 
 - **No font in LaTeX and Typst.** The standalone LaTeX preamble no longer
   loads `eulervm`, the Typst page no longer sets `Euler Math`;
@@ -170,6 +266,13 @@ JSON through serde.
 | command | screens a tree may fill | 3 (`SCREENS`) | `--screens N\|none` |
 | command | sequent in a verdict line | 200 characters (`ABBREVIATE`) | `--abbreviate N\|none` |
 | command | verdict line | written | `--no-verdict` |
+| typst | `layout` | `auto`: curryst up to `CURRYST_HEIGHT` (9), linlog's own above | `--style layout=linlog` |
+| typst | `premise_gap` | `1.5em` | `--style premise_gap=2em` (own layout) |
+| typst | `label_gap` | `0.2em` | `--style label_gap=0.3em` (own layout) |
+| typst | `band` | `0.8em` | `--style band=1em` (own layout) |
+| typst | `stroke` | `0.05em` | `--style stroke=0.5pt` (own layout) |
+| svg | `link_cap` | 8000 (8 em of half-width) | `--style link_cap=4000`, `--style link_cap=null` for none |
+| view | `ViewOptions::compact` | `auto` | `--compact auto\|always\|never` |
 
 Labels are `upright`, `subscript`, `off` or `{"table": {"⊸L": "⊸_L",
 …}}` (a rule the table leaves out keeps its upright label); an open goal
@@ -261,19 +364,89 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
   with that reason, to be dropped when krilla moves on; this was this
   session's call, which the author may reverse.
 
-## For the second session
+## Decisions of the second session
 
-- Items 7 to 9 as the prompt has them. The Typst layout of linlog's own
-  can reuse `svg/tree.rs`'s two passes, which now keep only numbers per
-  inference; a dashed open goal in Typst is a `grid.hline` over a grid
-  of one column, which compiles (the `open-dashed` fragment).
-- The compact view changes what `derivation` draws, so it is an option
-  of `TextOptions`, `latex::Options`, `typst::Options` and `svg::Style`
-  alike, and with it the PNG and PDF.
+- **The compact view is a field of `ViewOptions`, not of each output's
+  options** (the first session's note proposed the latter). Only the
+  builder can avoid building the whole derivation, which is what the
+  bound is about, and every output that draws a tree reads a derivation
+  built under `ViewOptions`, so one field reaches the text tree, LaTeX,
+  Typst, SVG, PNG and PDF alike; the web front end holds it in the same
+  JSON as the bounds.
+- **A run is a run of one rule**, as the step words it: consecutive
+  inferences of the same structural rule, compared after the
+  intuitionistic renaming. Derelictions are not structural and are not
+  merged; nothing is permuted.
+- **`auto` compacts only past a bound, and only under a bound in
+  bytes.** Within the bounds the derivation is drawn as before, which is
+  what keeps the defaults' output. The compact build is not measured
+  beforehand (an exact compact size in the size pass would track runs
+  across nodes and through what a `⊤` absorbs); it counts as it goes and
+  gives up at the bound, and the size pass's lower bound refuses the
+  hopeless cases at once. The first version tried a compact build
+  without any bound when both were lifted; a core test that expects
+  `TooMany` on 2⁷⁰ inferences then took the machine's memory until it
+  froze and had to be reset (the run was not in a capped scope, against
+  the step's rule). Now `auto` never tries without a bound, and the
+  rules file says why.
+- **The star**: `*` became a symbol of the label markup, a superscript
+  in LaTeX and Typst and a plain star in text and SVG, so a user's table
+  can use it too. A count (`?w×65640`) was not chosen: the star is the
+  usual notation, and the count is in `Inference::times`, in the JSON a
+  front end builds from it and in the drawing's description
+  (`by !w 3 times`).
+- **`CURRYST_HEIGHT` is 9**, measured with Typst 0.15.1 and curryst
+  0.6.0: a tree whose longest branch has a binary rule fails at ten
+  (chains of `⊗` with the leaf on either side, full binary trees), while
+  one-premise chains compile at thirteen. The switch is by height alone,
+  so a one-premise chain of ten to thirteen goes to the own layout though
+  curryst would set it; that costs nothing but the package's look.
+- **The own layout is Typst code in the output, measured by Typst**,
+  not widths from linlog's advance table: the output chooses no font
+  (D12), so only Typst knows the widths. Rows share a baseline by a
+  measurement (the depth a strut reveals), and pieces are placed in one
+  box, so nothing nests per level. The script is written after the data
+  so that the inferences stream out as they are made.
+- **The session has no `--compact`**: its derivation is made a rule at a
+  time and its grafts are read rule by rule (`proof()` would translate a
+  run wrongly), so `of_goal` forces `never`.
 
 ## Open questions, and what later steps must know
 
+- **The Petri net's derivation stays out at the default bound**, compact
+  or not (above). What would show it is a translation that weakens a
+  `?` formula unused above at the root rather than where the term's `?`
+  step sits, so that no sequent above carries it; the run would then be
+  one inference at the bottom and the rest of the tree small. That
+  changes the derivation view's shape for every proof with unused `?`
+  formulas and the size pass with it, so it is a decision for a later
+  step (with the size pass's exactness argument redone), not a part of
+  the compact view.
+- **The left-out line names the whole derivation's size** even where
+  the compact view was tried; it could add the compact view's lower
+  bound (`size::Firm`), which needs a field in `ViewError`: step 28.
+- **A compact view of a session's drawing** is not offered: its
+  inference ids are the goals' handles (`derivation_ids`), which a merge
+  would renumber. If the web front end wants one, it is a pass over
+  `Interactive::derivation()` with the id map carried through.
+- **Quantifiers (D17)**: a first-order rule is a new `Rule` with an
+  entry in both label tables; the Typst layout and the compact view read
+  nothing of the rules but the label and `Rule::is_structural`, so `∀`
+  and `∃` need no change there, and a structural rule of a later calculus
+  says so in `is_structural`.
+- **`\cdotp` is punctuation** in TeX; inside braces it is an ordinary
+  symbol, which is how the LaTeX names write it.
 
+
+- Step 28, from the second session: `Inference::times` is a public
+  field every constructor now sets (one outside a compact view); the
+  Typst layout's four spacing fields are Typst code written verbatim,
+  like `import` and `page`, and not checked; `Compact` sits at the crate
+  root beside `ViewOptions`.
+- Step 32, from the second session: `ViewOptions` with `compact` is the
+  JSON the client sends with a derivation request; `auto` already does
+  what a page that must stay responsive wants. The own Typst layout
+  needs nothing of the client.
 - Step 28 (the API's surface): `RenderError` stands outside `Error` as
   the other export errors do; `rocq::Options::lemma` is not checked to
   be an identifier; the exports' `String` functions and their `write`
