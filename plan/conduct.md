@@ -95,8 +95,10 @@ proof file of 131 nodes for an unprovable sequent, because 64 doublings
 wrapped a counter that no random term had come near.
 
 Record what a future session must know and cannot see in the code in
-`.claude/rules/core.md` (invariants, why a choice was made, what a check
-cannot catch), one point per bullet, and in your step report. Update an
+the rules file of the module it is about (`.claude/rules/core-*.md` for
+the core crate, whose index `core.md` lists them; `cli.md`, `bench.md`,
+`flake.md`, `ci.md`): invariants, why a choice was made, what a check
+cannot catch, one point per bullet; and in your step report. Update an
 existing note rather than adding a duplicate; delete what turns out to be
 wrong. Code comments and doc comments never mention this session, the
 prompt, the plan, its steps or its decision numbers: they say what the

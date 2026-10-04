@@ -130,7 +130,7 @@ paths. The CLI maps `--style KEY=VALUE` flags or a `--style-file` (JSON,
 the options' serde form) onto the options; the web front end holds the
 JSON in its settings and sends it back with each request; an editor
 plugin or a notebook reuses the same JSON. The step that does this
-records in `.claude/rules/core.md` that a new export option is a field,
+records in `.claude/rules/core-export.md` that a new export option is a field,
 never a constant, and its report says how each front end sets each
 option. Opus 5.5, xhigh (it wrote these exports in steps 10 and 11).
 
@@ -644,7 +644,7 @@ from the frontier.
 
 - **The default bias with exponentials**, built by the second session of
   step 15 (`Bias::Auto` runs the backward and the forward search and
-  answers with the first that decides; `.claude/rules/core.md` has the
+  answers with the first that decides; `.claude/rules/core-focus.md` has the
   scheme). What it leaves open:
   - *The unit of work is rough.* The two searches share one core by
     work the engine counts (a split step, a stable sequent weighted by
@@ -753,7 +753,7 @@ from the frontier.
   level before); a deepening that can tell "cut" from "cut because a
   relative was cut" would get the saving back. Keying `Θ` up to
   interchangeable members would merge more as well; it is sound by the
-  lemma in `.claude/rules/core.md` and costs a pass over `Θ`.
+  lemma in `.claude/rules/core-focus.md` and costs a pass over `Θ`.
 - **A free split still costs a level of recursion per link** of a chain
   of `⊗`; only forced chains and `?` rules run in a loop. Two sampled
   ILLTP-SYJ problems still end at the limit of 2 048.
@@ -1032,7 +1032,7 @@ claim that a pool proves exactly where one thread proves. That is false
 (`b, ((a * 1) -o !a), !(b -o 1), !(1 -o ((1 * 1) -o a)), b |- (!!a * b)`
 with a copy bound of 2 is at its bound on one thread and proved on
 four, every time); the test passes on its samples only. The contract in
-`.claude/rules/core.md` is the true one (decisiveness within the bound
+`.claude/rules/core-parallel.md` is the true one (decisiveness within the bound
 may differ either way); the helper should assert that and no more.
 
 Left open by step 13 (`plan/reports/13-parallel.md`, "Open questions").

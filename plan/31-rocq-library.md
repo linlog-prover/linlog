@@ -49,8 +49,8 @@ proof term. The NanoYalla export stays exactly as it is.
    the mode where the user did not choose.
 
 7. **The algorithm to verify** is `core/src/proofs/check.rs` as steps
-   18 and 20 leave it, whose rules `.claude/rules/core.md` states under
-   "The checker": per node a state `⊢ Θ ; Γ` with the absorbing flag,
+   18 and 20 leave it, whose rules `.claude/rules/core-proofs.md` states
+   under "The checker": per node a state `⊢ Θ ; Γ` with the absorbing flag,
    `Θ` the least unrestricted zone, the rule table of `Pass::rule`, the
    one-succedent condition as three clauses, and the conclusion at the
    root. The Rust pass is one of several ways to run that algorithm
