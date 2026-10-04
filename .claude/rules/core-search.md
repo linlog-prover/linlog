@@ -102,40 +102,38 @@ the net engine's, and the others stay zero.
   documented there, never refused, since the dispatch may pick an engine
   the caller did not name. A new engine is a variant, an implementation
   of `Decide`, a line in `Engine::implementation`, and where it is the
-  default a row in `dispatch`.
-- The dispatch is plan decision D8 (`dispatch`). Unit-free MLL (the empty fragment
-  included) in classical mode goes to `net` when no literal occurs more
-  than `NET_MULTIPLICITY` (2) times (`prefers_net`: equal literals are
-  interchangeable partners, and the linking search pays a permutation's
-  worth of nodes for every wrong choice among them, which the focused
-  engine's counts refute at once), else to `focus`. Multiplicity is a
-  proxy, measured by the benchmarks (the `engines` runs of
-  `bench/RESULTS.md`, read in `plan/reports/14-benchmarks.md`): the net engine loses on Horn encodings (literals six times and
-  more, by one to four orders of magnitude) and on equal literals inside
-  one pure `⊗` or `⅋` tree (a sequent of five blocks `x ⊗ x ⊗ x ⊗ x`
-  against `~x ⅋ ~x ⅋ ~x ⅋ ~x` with one defect: over 10 s against 20 ms at
-  multiplicity 4). Its wins were measured against the focused engine
-  that enumerated its splits (five orders of magnitude on literals
-  repeated three or four times across different conclusions, `wide-m3`
-  and `wide-m4`); since the focused engine searches its splits by their
-  counts it proves `wide-m3` at 30 and `wide-m4` at 28 in 0.15 ms, as
-  fast as the net engine (0.23 and 0.38 ms), and `wide-m1` at 256 in
-  7 ms against 11 ms. What still needs the net engine is width at the
-  default recursion limit: a free split costs the focused engine a
-  level per link, so `wide-m1` at 2 048 ends at the limit where the net
-  engine proves it in 0.8 s. The second baseline found the focused engine
-  as fast as the net engine or faster on every MLL family but the wide
-  sequents at 2 048 literals, where it meets the recursion limit
-  (`bench/COMPARISON.md`, "Focus against net"); the dispatch stays as it
-  is until the net engine's own work (`plan/later.md`, "Net-engine
-  pruning and routing"). The feature that hurts the net engine is equal
-  literals under one pure tree, which the leaf symmetry break
-  (`core-nets.md`, "Where it loses") would take from its weaknesses. Every other
-  classical input, exponentials included, and everything in affine mode
-  goes to `focus`.
-  Before both: exactly two roots in the additive fragment with at least
-  one additive connective go to `additive` (atoms alone stay with `net`).
-  Intuitionistic mode first computes the `Reading`
+  default a row in `DISPATCH`.
+- **The dispatch is a table** (`DISPATCH`, plan decision D8 as D19
+  keeps it): rows of a largest fragment, the modes (`Modes`), a feature
+  (`Feature`) and the engine, read from the first down (`dispatch`); the
+  last two rows take every goal, intuitionistic to `two_sided` and
+  classical to `focus`. The measurement behind each row is on `Engine`'s
+  documentation ("Which engine decides a goal"), the rustdoc being the
+  manual, and in `plan/reports/26-focused-engine.md`. A new engine's row
+  goes where it wins and names its feature as a variant of `Feature`
+  (step 27's Horn programs, for one); the order of the rows is the
+  priority. Rows now: two formulas of the additive fragment with a
+  connective or unit (`TwoFormulas`) to `additive`; unit-free MLL in a
+  linear mode, the roots with no literal more than `NET_MULTIPLICITY`
+  (2) times (`FewEqualLiterals`) to `net`; the rest by mode.
+- **Why the net row is kept** (measured at step 26 on one thread): on
+  unit-free MLL with few equal literals the focused engines are as fast
+  as the net engine or faster (the classical `wide` sequents from 8 to
+  1 024 literals within a factor of three; intuitionistic wide and
+  curried sequents of 1 024 and 4 096 atoms 7 to 18 times faster), but
+  they recurse once per link of a chain of stable sequents, and only the
+  net engine decides `wide-m1` at 2 048 (0.64 s) and the chain
+  `a₀, a₀ ⊸ a₁, … ⊢ aₙ` at 1 024 and 4 096 links (71 ms, 0.54 s) within
+  the default recursion limit. The feature that would pick the faster
+  engine is the depth a derivation needs, which no pass computes; a
+  focused search that hands over to the net engine at the recursion
+  limit is the follow-up. Multiplicity is the proxy for where the net
+  engine loses: equal literals are interchangeable partners, and the
+  linking search pays a permutation's worth of nodes for every wrong
+  choice among them (Horn encodings: Partition and 3-Partition 10 to
+  10⁵ times slower, intuitionistic and classical alike, `bench/RESULTS.md`
+  and the step-26 run).
+- **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
   would have no goal); then the same rows, with `two_sided` in place of

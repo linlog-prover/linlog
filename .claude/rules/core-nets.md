@@ -210,7 +210,7 @@ What the code relies on:
   leaves of a `⊗` tree share every switching's component, and a `⅋` tree
   opens to interchangeable conclusions) is a follow-up (`plan/later.md`,
   "Net-engine pruning and routing"); until then the dispatch routes MLL with a literal of
-  multiplicity above 2 to the focused engine (`prefers_net`).
+  multiplicity above 2 to the focused engine (`Feature::FewEqualLiterals`, a row of `search::DISPATCH`).
 - **Every proof passes the checker** (in `prove_goal`, in every build;
   `debug_assert!` in `search` besides; every test), and every net is the
   net of its proof (`from_proof` in the tests' `run`). The differential test against the focused engine

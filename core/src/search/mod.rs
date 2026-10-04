@@ -423,27 +423,114 @@ pub(crate) trait Decide {
     ) -> Result<Answer, Error>;
 }
 
-/// The engine the dispatch picks for a goal: two formulas of the additive
-/// fragment, some additive among them, go to the additive path; the roots
-/// of unit-free MLL with mostly distinct atoms to the net engine (in
-/// intuitionistic mode by the embedding of IMLL into MLL), except in
-/// affine mode; every other goal to the focused engine, one-sided or
-/// two-sided by the mode.
+/// The engine the dispatch picks for a goal: that of the first row of
+/// [`DISPATCH`] that takes it.
 fn dispatch(task: &Task<'_>) -> Engine {
-    let fragment = task.fragment;
-    let is_additive = Fragment::ALL.contains(fragment) && task.goal.len() == 2;
-    if is_additive && !fragment.is_empty() {
-        Engine::Additive
-    } else if task.roots
-        && Fragment::MLL.contains(fragment)
-        && !task.mode.affine
-        && prefers_net(task.forest)
-    {
-        Engine::Net
-    } else if task.mode.intuitionistic {
-        Engine::TwoSided
-    } else {
-        Engine::Focus
+    DISPATCH
+        .iter()
+        .find(|row| row.takes(task))
+        .map(|row| row.engine)
+        .expect("the last two rows take every goal")
+}
+
+/// The dispatch, read from the first row down: for each fragment, mode and
+/// feature of a goal, the engine a measurement shows fastest there, as the
+/// documentation of [`Engine`] tabulates with the measurements. The last
+/// two rows take every goal, each in its own modes.
+const DISPATCH: [Row; 4] = [
+    Row {
+        fragment: Fragment::ALL,
+        modes: Modes::Any,
+        feature: Feature::TwoFormulas,
+        engine: Engine::Additive,
+    },
+    Row {
+        fragment: Fragment::MLL,
+        modes: Modes::Linear,
+        feature: Feature::FewEqualLiterals,
+        engine: Engine::Net,
+    },
+    Row {
+        fragment: Fragment::LL,
+        modes: Modes::Intuitionistic,
+        feature: Feature::Any,
+        engine: Engine::TwoSided,
+    },
+    Row {
+        fragment: Fragment::LL,
+        modes: Modes::Classical,
+        feature: Feature::Any,
+        engine: Engine::Focus,
+    },
+];
+
+/// A row of the dispatch: a goal whose fragment lies within `fragment`,
+/// searched in one of `modes`, with `feature`, goes to `engine`.
+#[derive(Clone, Copy, Debug)]
+struct Row {
+    /// The largest fragment the row takes.
+    fragment: Fragment,
+    /// The modes it takes.
+    modes: Modes,
+    /// What it asks of a goal besides.
+    feature: Feature,
+    /// The engine its goals go to.
+    engine: Engine,
+}
+
+impl Row {
+    /// Whether the row takes the goal.
+    fn takes(&self, task: &Task<'_>) -> bool {
+        self.fragment.contains(task.fragment) && self.modes.take(task.mode) && self.feature.of(task)
+    }
+}
+
+/// The modes a row of the dispatch takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Modes {
+    /// Every mode.
+    Any,
+    /// Every mode without weakening.
+    Linear,
+    /// Classical mode, with or without weakening and Mix.
+    Classical,
+    /// Intuitionistic mode, with or without weakening.
+    Intuitionistic,
+}
+
+impl Modes {
+    /// Whether a mode is one of these.
+    fn take(self, mode: Mode) -> bool {
+        match self {
+            Modes::Any => true,
+            Modes::Linear => !mode.affine,
+            Modes::Classical => !mode.intuitionistic,
+            Modes::Intuitionistic => mode.intuitionistic,
+        }
+    }
+}
+
+/// What a row of the dispatch asks of a goal beyond its fragment and mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Feature {
+    /// Nothing more.
+    Any,
+    /// Exactly two formulas, with an additive connective or unit among
+    /// them (two literals are no additive problem).
+    TwoFormulas,
+    /// The sequent itself, with no literal occurring more than
+    /// [`NET_MULTIPLICITY`] times.
+    FewEqualLiterals,
+}
+
+impl Feature {
+    /// Whether the goal has the feature.
+    fn of(self, task: &Task<'_>) -> bool {
+        match self {
+            Feature::Any => true,
+            Feature::TwoFormulas => task.goal.len() == 2 && !task.fragment.is_empty(),
+            Feature::FewEqualLiterals => task.roots && few_equal_literals(task.forest),
+        }
     }
 }
 
@@ -464,19 +551,17 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// the net engine to be the default on it.
 const NET_MULTIPLICITY: usize = 2;
 
-/// Whether the net engine is the better default for an MLL sequent: when
-/// no literal occurs more than [`NET_MULTIPLICITY`] times. Equal literals
-/// under one connective are interchangeable partners, so the linking
-/// search explores every permutation of a wrong choice before a cycle
-/// shows, and the focused engine, whose count prunes see the mistake at
-/// once, wins by orders of magnitude on such sequents; with distinct atoms
-/// the linking is nearly forced and the net engine is linear where the
-/// focused engine searches context splits.
-fn prefers_net(forest: &Forest) -> bool {
+/// Whether no literal of the sequent occurs more than [`NET_MULTIPLICITY`]
+/// times. Equal literals under one connective are interchangeable
+/// partners, so the linking search explores every permutation of a wrong
+/// choice before a cycle shows, and the focused engine, whose count prunes
+/// see the mistake at once, wins by orders of magnitude on such sequents;
+/// with distinct atoms the linking is nearly forced.
+fn few_equal_literals(forest: &Forest) -> bool {
     use crate::occurrences::Sign;
     let atoms = forest.sequent().atom_names().len() as u32;
     (0..atoms).all(|a| {
-        let atom = crate::sequents::Atom::new(a);
+        let atom = Atom::new(a);
         forest.literals(atom, Sign::Var).len() <= NET_MULTIPLICITY
             && forest.literals(atom, Sign::DualVar).len() <= NET_MULTIPLICITY
     })
@@ -484,6 +569,24 @@ fn prefers_net(forest: &Forest) -> bool {
 
 /// The engines, by which an outcome names the one that ran and the options
 /// force one.
+///
+/// # Which engine decides a goal
+///
+/// Unless [`Options::engine`] forces one, a goal goes to the engine of the
+/// first row it fits, by the fragment it lies in (detected, or asserted by
+/// [`Options::fragment`]), its mode and one more feature; each row is the
+/// engine that measured fastest there, or the one that decides there at
+/// all:
+///
+/// | fragment | mode | feature | engine | measured (one thread) |
+/// |---|---|---|---|---|
+/// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
+/// | unit-free MLL | linear, classical or intuitionistic | the sequent itself, no literal more than twice | [`Net`](Engine::Net) | as fast as the focused engines up to three times slower (`wide` sequents of 8 to 1 024 literals; intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 7 to 18 times slower), but the only engine that decides a long chain within the default recursion limit: `wide` with 2 048 literals in 0.64 s, a chain of 1 024 implications `a₀, a₀ ⊸ a₁, … ⊢ a₁₀₂₄` in 71 ms, where the focused engines recurse once per link |
+/// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on equal literals, as in the Horn encodings of Partition, 10 to 10⁵ times faster than the net engine, which is not the default there for that reason |
+/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent |
+///
+/// The bias of the focused engines, [`Bias::Auto`], is chosen per goal as
+/// well, by the measurements its documentation names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Engine {
@@ -569,7 +672,17 @@ pub enum Bias {
     /// each rule and answers with the first that decides, so it decides
     /// whatever either does: the backward one within the copy bound, the
     /// forward one within a bound of its own where the sequent is a Horn
-    /// program.
+    /// program. Each choice is what measured best there: without
+    /// exponentials the factor rule visits up to a third of the stable
+    /// sequents of the rarer one (unsolvable 3-Partition with bins of
+    /// five 971 against 3 373, a random QBF of 20 variables 60 883
+    /// against 105 667); under weakening nothing forces a split, and the
+    /// factor rule visited up to 700 times the stable sequents of the
+    /// rarer one on random affine sequents; with exponentials neither
+    /// rule wins (of the Petri nets of the LLTP library within 5 s, the
+    /// two searches together decide 1 520, the backward one alone 442,
+    /// the forward one alone 1 576, and the pair costs 1.3 times the
+    /// backward search and 1.6 times the forward one where each decides).
     #[default]
     Auto,
     /// The literal with fewer occurrences in the sequent is positive, `Var`
