@@ -462,8 +462,9 @@ impl<'a> Engine<'a> {
 
     /// The `&` rule on the pool: the left premise on a worker on this
     /// thread, the right one on a worker of the pool, the first to fail
-    /// cancelling the other; a failure of either is the rule's, else a
-    /// premise's reason for giving up, a stop giving way to any other.
+    /// cancelling the other, and the left one that gives up the right; a
+    /// failure of either is the rule's, else a premise's reason for giving
+    /// up, a stop giving way to any other.
     /// An engine that is stopped already starts neither.
     pub(super) fn with_parallel(
         &mut self,
@@ -485,13 +486,14 @@ impl<'a> Engine<'a> {
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
         let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
         // A premise on a worker, which cancels the other when it fails:
-        // the rule fails then, whatever the other finds. A premise that
-        // gives up does not cancel the other, whose failure would still
-        // decide the rule, as it does on one thread when it is the left.
-        let search = |worker: &mut Engine<'_>, sub: OccId| {
+        // the rule fails then, whatever the other finds. A left premise
+        // that gives up cancels the right one too, which one thread never
+        // starts then; a right one that gives up leaves the left to run,
+        // since its failure still decides the rule, as on one thread.
+        let search = |worker: &mut Engine<'_>, sub: OccId, left: bool| {
             let result = worker.premise(theta, gamma, list, sub, budget);
             let result = worker.exported(result);
-            if matches!(result, Ok(Found::Failed(_))) {
+            if matches!(result, Ok(Found::Failed(_))) || (left && result.is_err()) {
                 cancel.store(true, Ordering::Relaxed);
             }
             result
@@ -500,11 +502,11 @@ impl<'a> Engine<'a> {
             let (spawn, cancel, premise, search) = (&spawn, &cancel, &premise, &search);
             scope.spawn(move |_| {
                 let mut worker = spawn.worker(cancel);
-                let result = search(&mut worker, right_sub);
+                let result = search(&mut worker, right_sub, false);
                 *Self::lock(premise) = Some(Premise::of(&worker, result));
             });
             let mut worker = spawn.worker(cancel);
-            let result = search(&mut worker, left_sub);
+            let result = search(&mut worker, left_sub, true);
             Premise::of(&worker, result)
         });
         let right = premise
@@ -691,6 +693,32 @@ mod tests {
                 matches!(outcome.verdict, Verdict::Unprovable(_)),
                 "{:?} on {jobs} threads",
                 outcome.verdict
+            );
+        }
+    }
+
+    /// Premises that give up cancel no more than one thread skips: below
+    /// sixteen `&`, one after the other in the asynchronous phase, every
+    /// leaf reaches the recursion limit on a chain of `⊕` forty deep, and
+    /// premises that cancelled nothing when they gave up searched every one
+    /// of the 2¹⁶ leaves.
+    #[test]
+    fn nested_premises_that_give_up_search_no_tree() {
+        let chain = format!("{}0{}", "(0 + ".repeat(40), ")".repeat(40));
+        let withs = vec!["bot & bot"; 16].join(", ");
+        let sequent: Sequent = format!("|- {withs}, {chain}").parse().unwrap();
+        for jobs in [2, 4] {
+            let options = Options::default().recursion_limit(36).jobs(jobs);
+            let outcome = prove(&sequent, Mode::CLASSICAL, &options).unwrap();
+            assert!(
+                matches!(outcome.verdict, Verdict::Unknown(Reason::RecursionLimit)),
+                "{:?} on {jobs} threads",
+                outcome.verdict
+            );
+            assert!(
+                outcome.statistics.nodes < 1_000,
+                "{} stable sequents on {jobs} threads",
+                outcome.statistics.nodes
             );
         }
     }

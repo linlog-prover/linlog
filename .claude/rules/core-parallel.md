@@ -177,12 +177,22 @@ has no or-choices worth sharing out). What the code relies on:
   alternatives tried before it and a proved premise's cuts went into
   its sibling's failure, which was sound and less decisive at the copy
   bound. For `&`, a failed premise decides, whatever the other found.
-  Success raises `cancel` at an or-node, **failure alone at the `&`**:
-  a premise that gives up (the recursion limit, the memory bound) does
-  not cancel the other, whose failure still decides the rule, as it
-  does on one thread when it is the left premise; it cancelled it
-  before, so the pool answered `RecursionLimit` where one thread answered
-  `Unprovable` (`a_premise_that_gives_up_cancels_no_other`). A premise
+  Success raises `cancel` at an or-node; at the `&`, **a failure of
+  either premise, and the left premise's giving up**: a right premise
+  that gives up (the recursion limit, the memory bound) does not cancel
+  the left, whose failure still decides the rule, as on one thread, which
+  searches the left first; it cancelled it before, so the pool answered
+  `RecursionLimit` where one thread answered
+  `Unprovable` (`a_premise_that_gives_up_cancels_no_other`). A left
+  premise that gives up still cancels the right, which one thread never
+  starts then: with neither cancelling on a give-up, `k` nested `&` whose
+  leaves all reach the limit searched all `2ᵏ` leaves where one thread
+  stops at the first (a panel's finding,
+  `nested_premises_that_give_up_search_no_tree`). An error at a choice
+  still cancels its siblings, so a pool may answer `RecursionLimit` where
+  one thread, whose memo spared it the depth, refutes (`|- !?~c, (?(a *
+  c) par ?!~c)` under Mix at a limit of 9 on four threads): the or-node
+  mirror of the case the `&` lost, a follow-up. A premise
   stopped by an ancestor's flag returns `Stopped`, which gives way to
   the other's reason in the `&`'s result as it does in
   `Collected::take`. **What stays**: a premise's failure raises the flag
