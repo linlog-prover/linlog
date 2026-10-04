@@ -6,6 +6,36 @@
 use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
+use crate::search::{Verdict, prove_goal};
+
+/// Runs the focused engine on the roots of the forest in the fragment
+/// and the mode given, two-sided in intuitionistic mode (the reading is
+/// the forest's, which the front door reads itself), polling `stop`, and
+/// returns the verdict with the statistics; the proof unchecked, as the
+/// tests check it themselves.
+fn search(
+    forest: &Forest,
+    fragment: Fragment,
+    mode: Mode,
+    reading: Option<&Reading>,
+    options: &Options,
+    stop: &mut dyn FnMut() -> bool,
+) -> (Verdict, Statistics) {
+    assert_eq!(reading.is_some(), mode.intuitionistic);
+    let engine = if mode.intuitionistic {
+        crate::search::Engine::TwoSided
+    } else {
+        crate::search::Engine::Focus
+    };
+    let options = options
+        .clone()
+        .engine(Some(engine))
+        .fragment(Some(fragment))
+        .check(false);
+    let outcome = prove_goal(forest, forest.roots(), mode, &options, stop)
+        .unwrap_or_else(|e| panic!("{}: {e}", forest.sequent()));
+    (outcome.verdict, outcome.statistics)
+}
 
 /// Runs the engine on `input` under `mode` with `options`, checks the
 /// proof if there is one, and returns the verdict and the statistics.

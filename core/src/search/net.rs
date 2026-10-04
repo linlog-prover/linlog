@@ -20,7 +20,10 @@
 //! count equation is the connectedness equation of a complete acyclic
 //! linking. The net is sequentialized into the proof term returned.
 
-use super::{Options, Reason, Refutation, Statistics, Stop, Verdict};
+use super::memory::Account;
+use super::{Answer, Decide, Options, Reason, Statistics, Stop, Task};
+use crate::Error;
+use crate::fragment::Fragment;
 use crate::fragment::Mode;
 use crate::nets::{ProofStructure, Scratch};
 use crate::occurrences::{Forest, OccId, Sign};
@@ -37,43 +40,94 @@ const PERIOD: u32 = 4;
 /// The raw index that stands for "no occurrence".
 const NONE: u32 = u32::MAX;
 
+/// The proof-net engine as the front door calls it.
+pub(crate) struct Nets;
+
+impl Decide for Nets {
+    /// Refuses a fragment beyond unit-free MLL, affine mode and a goal
+    /// other than the roots: a structure's conclusions are the forest's
+    /// roots.
+    fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
+        if !Fragment::MLL.contains(task.fragment) {
+            return Err(Error::NetFragment(task.fragment));
+        }
+        if task.mode.affine {
+            return Err(Error::NetMode(task.mode));
+        }
+        if !task.roots {
+            return Err(Error::NetGoal);
+        }
+        Ok(())
+    }
+
+    /// Links the roots on one thread, or with the feature `parallel` on
+    /// [`Options::jobs`] threads.
+    fn decide(
+        &self,
+        task: &Task<'_>,
+        options: &Options,
+        _account: &Account,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<Answer, Error> {
+        #[cfg(feature = "parallel")]
+        if options.job_count() > 1 {
+            let runtime = super::parallel::Lent::take(
+                options.pool.as_ref(),
+                options.job_count(),
+                options.stack_size(),
+            )?;
+            return Ok(parallel::search(
+                task.forest,
+                task.mode,
+                options,
+                &runtime,
+                stop,
+            ));
+        }
+        Ok(search(task.forest, task.mode, options, stop))
+    }
+}
+
 /// Runs the proof-net engine on the forest of a sequent of unit-free MLL
-/// under `mode`, polling `stop` once per literal chosen, and returns the
-/// verdict with the statistics of the run and, for a proved sequent, the
-/// proof net the proof was read off.
+/// under `mode`, polling `stop` once per literal chosen, and returns its
+/// answer, with the proof net the proof was read off for a proved
+/// sequent.
 pub(crate) fn search(
     forest: &Forest,
     mode: Mode,
     options: &Options,
     stop: &mut dyn FnMut() -> bool,
-) -> (Verdict, Statistics, Option<ProofStructure>) {
+) -> Answer {
     if !counts_admit(forest, mode.mix) {
-        return (
-            Verdict::Unprovable(Refutation::Exhausted),
-            Statistics::default(),
-            None,
-        );
+        return answer(Ok(false), Statistics::default(), None);
     }
     let mut engine = Engine::new(forest, mode, options, Stop::Closure(stop));
-    match engine.run() {
-        Ok(true) => {
-            let proof = engine
-                .net
+    let result = engine.run();
+    let statistics = engine.statistics;
+    let net = matches!(result, Ok(true)).then_some(engine.net);
+    answer(result, statistics, net)
+}
+
+/// The answer of a search that linked the roots (`Ok(true)`, with the net
+/// found), found that no linking is a proof net (`Ok(false)`), or stopped:
+/// the net sequentialized into the proof it is.
+fn answer(
+    result: Result<bool, Reason>,
+    statistics: Statistics,
+    net: Option<ProofStructure>,
+) -> Answer {
+    let result = result.map(|linked| {
+        linked.then(|| {
+            net.as_ref()
+                .expect("a proof net was found")
                 .sequentialize()
-                .expect("a complete linking that passed the exact test is a proof net");
-            debug_assert_eq!(proof.check(mode), Ok(()), "the engine's proof");
-            (
-                Verdict::Proved(Box::new(proof)),
-                engine.statistics,
-                Some(engine.net),
-            )
-        }
-        Ok(false) => (
-            Verdict::Unprovable(Refutation::Exhausted),
-            engine.statistics,
-            None,
-        ),
-        Err(reason) => (Verdict::Unknown(reason), engine.statistics, None),
+                .expect("a complete linking that passed the exact test is a proof net")
+        })
+    });
+    Answer {
+        result,
+        statistics,
+        net,
     }
 }
 
@@ -454,7 +508,7 @@ impl<'a> Engine<'a> {
 pub(super) mod tests {
     use super::*;
     use crate::search::generate::{self, Rng, Rules};
-    use crate::search::{Engine, focus};
+    use crate::search::{Engine, Verdict, prove};
     use crate::sequents::Sequent;
     use std::time::{Duration, Instant};
 
@@ -463,8 +517,9 @@ pub(super) mod tests {
     /// and returns the verdict and the statistics.
     fn run(input: &str, mode: Mode, options: &Options) -> (Verdict, Statistics) {
         let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
-        let forest = Forest::new(&s).unwrap();
-        let (verdict, statistics, net) = search(&forest, mode, options, &mut || false);
+        let options = options.clone().engine(Some(Engine::Net));
+        let outcome = prove(&s, mode, &options).unwrap_or_else(|e| panic!("{input:?}: {e}"));
+        let (verdict, statistics, net) = (outcome.verdict, outcome.statistics, outcome.net);
         match (&verdict, &net) {
             (Verdict::Proved(proof), Some(net)) => {
                 assert_eq!(proof.sequent(), &s);
@@ -627,29 +682,20 @@ pub(super) mod tests {
         let s: Sequent = "|- a * b, ~a, ~b".parse().unwrap();
         let forest = Forest::new(&s).unwrap();
         let mut polls = 0;
-        let (verdict, statistics, net) =
-            search(&forest, Mode::CLASSICAL, &Options::default(), &mut || {
-                polls += 1;
-                polls == 2
-            });
-        assert!(matches!(verdict, Verdict::Unknown(Reason::Stopped)));
-        assert!(net.is_none());
-        assert_eq!(statistics.nodes, 2);
-        assert_eq!(statistics.links, 1);
+        let answer = search(&forest, Mode::CLASSICAL, &Options::default(), &mut || {
+            polls += 1;
+            polls == 2
+        });
+        assert_eq!(answer.result.err(), Some(Reason::Stopped));
+        assert!(answer.net.is_none());
+        assert_eq!(answer.statistics.nodes, 2);
+        assert_eq!(answer.statistics.links, 1);
     }
 
     /// Decides `input` with the focused engine.
     fn focus_verdict(s: &Sequent, mode: Mode) -> bool {
-        let forest = Forest::new(s).unwrap();
-        let (verdict, _) = focus::search(
-            &forest,
-            s.fragment(),
-            mode,
-            None,
-            &Options::default(),
-            &mut || false,
-        );
-        match verdict {
+        let options = Options::default().engine(Some(Engine::Focus));
+        match prove(s, mode, &options).unwrap().verdict {
             Verdict::Proved(proof) => {
                 assert_eq!(proof.check(mode), Ok(()));
                 true
@@ -803,7 +849,7 @@ pub(crate) mod parallel {
     use crate::nets::ProofStructure;
     use crate::occurrences::{Forest, OccId};
     use crate::search::parallel::Runtime;
-    use crate::search::{Options, Reason, Refutation, Statistics, Stop, Verdict};
+    use crate::search::{Answer, Options, Reason, Statistics, Stop};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -847,13 +893,9 @@ pub(crate) mod parallel {
         options: &Options,
         runtime: &Runtime,
         stop: &mut dyn FnMut() -> bool,
-    ) -> (Verdict, Statistics, Option<ProofStructure>) {
+    ) -> Answer {
         if !counts_admit(forest, mode.mix) {
-            return (
-                Verdict::Unprovable(Refutation::Exhausted),
-                Statistics::default(),
-                None,
-            );
+            return super::answer(Ok(false), Statistics::default(), None);
         }
         let threads = runtime.threads();
         let (result, statistics, net) = runtime.drive(stop, |flags| {
@@ -932,19 +974,7 @@ pub(crate) mod parallel {
                 (None, None) => (Ok(false), collected.statistics, None),
             }
         });
-        let verdict = match result {
-            Ok(true) => {
-                let net = net.as_ref().expect("a proof net was found");
-                let proof = net
-                    .sequentialize()
-                    .expect("a complete linking that passed the exact test is a proof net");
-                debug_assert_eq!(proof.check(mode), Ok(()), "the engine's proof");
-                Verdict::Proved(Box::new(proof))
-            }
-            Ok(false) => Verdict::Unprovable(Refutation::Exhausted),
-            Err(reason) => Verdict::Unknown(reason),
-        };
-        (verdict, statistics, net)
+        super::answer(result, statistics, net)
     }
 
     /// Locks what the workers report.

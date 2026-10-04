@@ -16,8 +16,9 @@ memory account counts are in `core-search.md`; the pool it runs on is
 
 **Files.** `mod.rs` holds the engine (`Engine`, built only by
 `Engine::new` from a `Problem`: the forest, reading, counts, classes,
-rules, account and limits every engine of a search shares) and its
-phases; `split.rs` the `⊗` rule and Mix (forced chains, the split
+rules, account and limits every engine of a search shares), its phases
+and the interface the front door calls (`Focused`, `ONE_SIDED`,
+`TWO_SIDED`); `split.rs` the `⊗` rule and Mix (forced chains, the split
 search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
 (`Pools`); `schedule.rs` the two searches of the default bias (`plan`,
 `chains`, `Rule`, `turns`, and the threaded `alternate` with its baton);

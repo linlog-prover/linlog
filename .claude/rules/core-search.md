@@ -19,7 +19,9 @@ own: `core-focus.md`, `core-nets.md` (the net engine) and
 &options)` and `prove_until(…, stop)` return `Result<Outcome, Error>`, and
 `prove_goal(&forest, goal, mode, &options, stop)` decides any multiset of
 occurrences of a forest, given in any order, `prove_until` being that on
-the roots: the goal's own fragment (`goal_fragment`, over the subtrees)
+the roots (the roots in any order are the roots, `is_roots`, and the
+engines get them in the forest's order, so the net engine takes them and
+the proof is checked): the goal's own fragment (`goal_fragment`, over the subtrees)
 picks the prunes and the engine, the net engine only for the roots
 (`Error::NetGoal` when forced elsewhere, since a structure's conclusions
 are the forest's roots), the additive path for any two additive-only
@@ -81,7 +83,27 @@ the net engine's, and the others stay zero.
   time is one more `Counts` pass on a refuted sequent. Without a
   refutation from the counts (a `⊤` absorbs, weakening, exponential
   atoms) the answer is `Exhausted`, never a guess.
-- The dispatch is plan decision D8. Unit-free MLL (the empty fragment
+- **One interface every engine implements** (`Decide`, crate-private):
+  `admits(&task)` refuses a goal with the error a forced engine answers
+  (`NetFragment`, `NetMode`, `NetGoal`, `EngineMode`, `NotAdditive`), and
+  `decide(&task, &options, &account, stop)` returns an `Answer`: the
+  proof (`Ok(Some)`), an exhausted search (`Ok(None)`) or the reason it
+  stopped, the counters, and the net the net engine found.
+  `Engine::implementation` maps each public variant to its
+  implementation (`focus::ONE_SIDED`, `focus::TWO_SIDED`, `net::Nets`,
+  `additive::Additive`); a `Task` is what they are handed (forest, goal,
+  fragment, mode, reading, whether it is the roots). An engine that keeps
+  its proof as nodes of an arena answers through `Answer::of_arena`.
+  **`prove_goal` is the one place an answer becomes a `Verdict`**: the
+  refutation of an exhausted search, the check of a proof of the roots
+  (and, with the check off, a `debug_assert!` of it), whatever engine
+  ran. Which options each engine reads is said on its `Engine` variant
+  and on each setter of `Options`; an option an engine does not read is
+  documented there, never refused, since the dispatch may pick an engine
+  the caller did not name. A new engine is a variant, an implementation
+  of `Decide`, a line in `Engine::implementation`, and where it is the
+  default a row in `dispatch`.
+- The dispatch is plan decision D8 (`dispatch`). Unit-free MLL (the empty fragment
   included) in classical mode goes to `net` when no literal occurs more
   than `NET_MULTIPLICITY` (2) times (`prefers_net`: equal literals are
   interchangeable partners, and the linking search pays a permutation's
@@ -122,10 +144,10 @@ the net engine's, and the others stay zero.
   unit-free MLL, asserted or detected, is `Error::NetFragment`, and in
   affine mode `Error::NetMode`; `Focus` in intuitionistic mode and
   `TwoSided` in classical mode are `Error::EngineMode`; `Additive` on
-  anything but two additive-only formulas is `Error::NotAdditive`. A new
-  engine gets an `Engine` variant (its `Display` is its name in text and
-  JSON), a row in `prove_until`, and a value of `--engine` in the CLI
-  (`.claude/rules/cli.md`).
+  anything but two additive-only formulas is `Error::NotAdditive` (each
+  engine's `Decide::admits`). A new engine's `Engine` variant has a
+  `Display` that is its name in text and JSON, and a value of `--engine`
+  in the CLI (`.claude/rules/cli.md`).
 - **IMLL by embedding.** In intuitionistic mode the net engine runs on the
   one-sided sequent unchanged and its proof is returned as it is: every
   cut-free MLL proof of a sequent with one output-shaped root keeps

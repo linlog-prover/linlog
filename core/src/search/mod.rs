@@ -35,7 +35,7 @@ use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Bias, Forest, OccId, Reading};
-use crate::proofs::{Bytes, Proof};
+use crate::proofs::{Bytes, Node, NodeId, Proof};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -242,11 +242,7 @@ pub fn prove_goal(
         Some(asserted) => asserted,
         None => detected,
     };
-    // The dispatch: two additive-only formulas go to the additive path;
-    // unit-free MLL with mostly distinct atoms to the net engine (in
-    // intuitionistic mode by the embedding of IMLL into MLL); every other
-    // fragment, and every fragment in affine mode, to the focused engine,
-    // one-sided or two-sided by the mode. Mix has no intuitionistic form.
+    // Mix has no intuitionistic form.
     if mode.intuitionistic && mode.mix {
         return Err(Error::IntuitionisticMix);
     }
@@ -260,38 +256,20 @@ pub fn prove_goal(
     } else {
         None
     };
-    let is_roots = goal == forest.roots();
-    let is_mll = Fragment::MLL.contains(fragment);
-    // Two formulas of the additive fragment; by default only when some
-    // additive occurs, since atoms alone are the net engine's.
-    let is_additive = Fragment::ALL.contains(fragment) && goal.len() == 2;
-    let engine = options.engine.unwrap_or({
-        if is_additive && !fragment.is_empty() {
-            Engine::Additive
-        } else if is_roots && is_mll && !mode.affine && prefers_net(forest) {
-            Engine::Net
-        } else if mode.intuitionistic {
-            Engine::TwoSided
-        } else {
-            Engine::Focus
-        }
-    });
-    match engine {
-        Engine::Net if !is_mll => return Err(Error::NetFragment(fragment)),
-        Engine::Net if mode.affine => return Err(Error::NetMode(mode)),
-        Engine::Net if !is_roots => return Err(Error::NetGoal),
-        Engine::Focus if mode.intuitionistic => return Err(Error::EngineMode { engine, mode }),
-        Engine::TwoSided if !mode.intuitionistic => {
-            return Err(Error::EngineMode { engine, mode });
-        }
-        Engine::Additive if !is_additive => {
-            return Err(Error::NotAdditive {
-                fragment,
-                roots: goal.len(),
-            });
-        }
-        _ => {}
-    }
+    // The roots in any order are the sequent itself, which the engines
+    // are handed in the forest's order.
+    let roots = is_roots(forest, goal);
+    let task = Task {
+        forest,
+        goal: if roots { forest.roots() } else { goal },
+        fragment,
+        mode,
+        reading: reading.as_ref(),
+        roots,
+    };
+    let engine = options.engine.unwrap_or_else(|| dispatch(&task));
+    let implementation = engine.implementation();
+    implementation.admits(&task)?;
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
     if set_up_stopped(forest, &mut stop) {
@@ -306,100 +284,167 @@ pub fn prove_goal(
     }
     // What the search allocates is counted against the bound.
     let account = memory::Account::new(options.memory_limit);
-    // Several threads run the focused engine and the net engine on pools
-    // of their own; the additive path is sequential in every case.
     #[cfg(feature = "parallel")]
     let options = &options.clone().jobs(parallel::threads(options.jobs));
-    let (mut verdict, statistics, net) = match engine {
-        #[cfg(feature = "parallel")]
-        Engine::Net if options.jobs > 1 => {
-            let runtime =
-                parallel::Lent::take(options.pool.as_ref(), options.jobs, options.stack_size())?;
-            net::parallel::search(forest, mode, options, &runtime, &mut stop)
+    let answer = implementation.decide(&task, options, &account, &mut stop)?;
+    // The one place an engine's answer becomes a verdict. A refutation
+    // says what the counts of the goal rule out, under the same limits as
+    // the search.
+    let verdict = match answer.result {
+        Ok(Some(proof)) => Verdict::Proved(Box::new(proof)),
+        Ok(None) => {
+            let account = memory::Account::new(options.memory_limit);
+            Verdict::Unprovable(focus::refutation(
+                forest, task.goal, fragment, mode, &account, &mut stop,
+            ))
         }
-        Engine::Net => net::search(forest, mode, options, &mut stop),
-        Engine::Focus | Engine::TwoSided | Engine::Additive => {
-            let (result, nodes, statistics) = if engine == Engine::Additive {
-                additive::search_goal(forest, goal, options, &account, &mut stop)
-            } else {
-                #[cfg(feature = "parallel")]
-                if options.jobs > 1 {
-                    focus::parallel::search_goal(
-                        forest,
-                        goal,
-                        fragment,
-                        mode,
-                        reading.as_ref(),
-                        options,
-                        &account,
-                        &mut stop,
-                    )?
-                } else {
-                    focus::search_goal(
-                        forest,
-                        goal,
-                        fragment,
-                        mode,
-                        reading.as_ref(),
-                        options,
-                        &account,
-                        &mut stop,
-                    )
-                }
-                #[cfg(not(feature = "parallel"))]
-                focus::search_goal(
-                    forest,
-                    goal,
-                    fragment,
-                    mode,
-                    reading.as_ref(),
-                    options,
-                    &account,
-                    &mut stop,
-                )
-            };
-            let verdict = match result {
-                Ok(Some(root)) => {
-                    let proof = Proof::new(forest.clone(), nodes, root)
-                        .expect("the engine pushes premises before conclusions");
-                    Verdict::Proved(Box::new(proof))
-                }
-                Ok(None) => Verdict::Unprovable(Refutation::Exhausted),
-                Err(reason) => Verdict::Unknown(reason),
-            };
-            (verdict, statistics, None)
-        }
+        Err(reason) => Verdict::Unknown(reason),
     };
-    // A refutation says what the counts of the goal rule out, under the
-    // same limits as the search.
-    if let Verdict::Unprovable(refutation) = &mut verdict {
-        let account = memory::Account::new(options.memory_limit);
-        *refutation = focus::refutation(forest, goal, fragment, mode, &account, &mut stop);
-    }
     // No engine is trusted with its own proof: the checker has the last
     // word on every proof of the sequent, in every build.
-    if options.check
-        && is_roots
-        && let Verdict::Proved(proof) = &verdict
+    if let Verdict::Proved(proof) = &verdict
+        && roots
     {
-        proof
-            .check_within(mode, options.memory_limit)
-            .map_err(|e| {
-                if e.is_refusal() {
-                    Error::Unchecked(e)
-                } else {
-                    Error::Rejected(Box::new(e))
-                }
-            })?;
+        if options.check {
+            proof
+                .check_within(mode, options.memory_limit)
+                .map_err(|e| {
+                    if e.is_refusal() {
+                        Error::Unchecked(e)
+                    } else {
+                        Error::Rejected(Box::new(e))
+                    }
+                })?;
+        } else {
+            debug_assert_eq!(proof.check(mode), Ok(()), "the {engine} engine's proof");
+        }
     }
     Ok(Outcome {
         verdict,
         fragment,
         mode,
         engine,
-        statistics,
-        net,
+        statistics: answer.statistics,
+        net: answer.net,
     })
+}
+
+/// Whether a goal is the forest's roots, in any order.
+fn is_roots(forest: &Forest, goal: &[OccId]) -> bool {
+    let roots = forest.roots();
+    if goal.len() != roots.len() {
+        return false;
+    }
+    if goal == roots {
+        return true;
+    }
+    let mut sorted = goal.to_vec();
+    sorted.sort_unstable();
+    let mut roots = roots.to_vec();
+    roots.sort_unstable();
+    sorted == roots
+}
+
+/// A goal as the engines are handed it: the occurrences of the forest it
+/// consists of, the fragment and the mode it is searched in, and in
+/// intuitionistic mode the forest's reading.
+pub(crate) struct Task<'a> {
+    /// The forest.
+    pub(crate) forest: &'a Forest,
+    /// The goal's occurrences; the roots in the forest's order when the
+    /// goal is the sequent itself.
+    pub(crate) goal: &'a [OccId],
+    /// The fragment searched in: the goal's own, or the one the options
+    /// assert.
+    pub(crate) fragment: Fragment,
+    /// The mode.
+    pub(crate) mode: Mode,
+    /// The intuitionistic reading, in intuitionistic mode.
+    pub(crate) reading: Option<&'a Reading<'a>>,
+    /// Whether the goal is the sequent's roots.
+    pub(crate) roots: bool,
+}
+
+/// What an engine's search ended with: a proof of the goal, `None` when
+/// the search was exhaustive, or the reason it stopped; its counters; and
+/// the proof net the net engine read its proof off.
+pub(crate) struct Answer {
+    /// The proof, `None` for an unprovable goal, or why the search
+    /// stopped.
+    pub(crate) result: Result<Option<Proof>, Reason>,
+    /// The counters.
+    pub(crate) statistics: Statistics,
+    /// The net found, from the net engine.
+    pub(crate) net: Option<ProofStructure>,
+}
+
+impl Answer {
+    /// The answer of an engine that keeps its proofs as nodes of an arena:
+    /// the result as a node, the arena and the counters.
+    pub(crate) fn of_arena(
+        forest: &Forest,
+        (result, nodes, statistics): (Result<Option<NodeId>, Reason>, Vec<Node>, Statistics),
+    ) -> Self {
+        let result = result.map(|root| {
+            root.map(|root| {
+                Proof::new(forest.clone(), nodes, root)
+                    .expect("the engine pushes premises before conclusions")
+            })
+        });
+        Self {
+            result,
+            statistics,
+            net: None,
+        }
+    }
+}
+
+/// What every engine implements: which goals it takes, and how it decides
+/// one. An engine reads the options its variant of [`Engine`] names and
+/// no others.
+pub(crate) trait Decide {
+    /// Refuses a goal the engine does not decide, with the error the
+    /// options get when they force it there.
+    fn admits(&self, task: &Task<'_>) -> Result<(), Error>;
+
+    /// Decides the goal under the options, polling `stop`, and charges
+    /// what the search holds to `account`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::ThreadPool`] when the threads of a parallel search cannot
+    /// start.
+    fn decide(
+        &self,
+        task: &Task<'_>,
+        options: &Options,
+        account: &memory::Account,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<Answer, Error>;
+}
+
+/// The engine the dispatch picks for a goal: two formulas of the additive
+/// fragment, some additive among them, go to the additive path; the roots
+/// of unit-free MLL with mostly distinct atoms to the net engine (in
+/// intuitionistic mode by the embedding of IMLL into MLL), except in
+/// affine mode; every other goal to the focused engine, one-sided or
+/// two-sided by the mode.
+fn dispatch(task: &Task<'_>) -> Engine {
+    let fragment = task.fragment;
+    let is_additive = Fragment::ALL.contains(fragment) && task.goal.len() == 2;
+    if is_additive && !fragment.is_empty() {
+        Engine::Additive
+    } else if task.roots
+        && Fragment::MLL.contains(fragment)
+        && !task.mode.affine
+        && prefers_net(task.forest)
+    {
+        Engine::Net
+    } else if task.mode.intuitionistic {
+        Engine::TwoSided
+    } else {
+        Engine::Focus
+    }
 }
 
 /// Returns the smallest fragment the goal's subformulas live in: the
@@ -452,7 +497,8 @@ pub enum Engine {
     /// formula of `Γ`, or on a copy from `Θ`, proves. The copies are bounded
     /// per branch and the bound deepens: `Unprovable` comes only from a
     /// level that never met its bound. With Mix a stable sequent may be
-    /// split in two, and in affine mode a leaf weakens what is left.
+    /// split in two, and in affine mode a leaf weakens what is left. It
+    /// reads every option but [`Options::test_period`], the net engine's.
     Focus,
     /// The proof-net engine, for unit-free MLL with or without Mix; in
     /// intuitionistic mode it decides IMLL through the embedding into MLL.
@@ -461,19 +507,41 @@ pub enum Engine {
     /// the first linking the correctness criterion accepts; the count
     /// equation and each atom's balance refuse most unprovable sequents
     /// before any link, and the net found is sequentialized into the proof
-    /// returned.
+    /// returned. Of the options it reads [`Options::jobs`] and the pool,
+    /// [`Options::test_period`], [`Options::check`] and the occurrence
+    /// limit: a unit-free MLL sequent has no copies to bound, and the
+    /// engine keeps no memo and no recursion, so the copy bounds, the
+    /// bias, the memo limit and the recursion limit have nothing to bound
+    /// here, and its structure and scratch, linear in the forest, are not
+    /// counted under [`Options::memory_limit`].
     Net,
     /// The focused sequent engine two-sided: intuitionistic mode. It is
     /// the search of `Focus` on the one-sided sequent, which keeps one goal
     /// on every branch by itself except at the split of a hypothesis
     /// `A ⊸ B`, where the goal must go with `B`: the one place it reads the
-    /// sequent's [`Reading`].
+    /// sequent's [`Reading`]. It reads the options `Focus` does.
     TwoSided,
     /// The fast path for a sequent of two additive-only formulas, in every
     /// mode: a recursion on pairs of subformula occurrences, one below each
     /// root, memoized on the pair, in time proportional to the product of
-    /// the two formulas' sizes.
+    /// the two formulas' sizes. It reads [`Options::memo_limit`],
+    /// [`Options::recursion_limit`], [`Options::memory_limit`] and
+    /// [`Options::check`], and runs on the calling thread whatever
+    /// [`Options::jobs`] says; two additive formulas have no copies and no
+    /// atoms to bias.
     Additive,
+}
+
+impl Engine {
+    /// The implementation of the engine.
+    fn implementation(self) -> &'static dyn Decide {
+        match self {
+            Engine::Focus => &focus::ONE_SIDED,
+            Engine::TwoSided => &focus::TWO_SIDED,
+            Engine::Net => &net::Nets,
+            Engine::Additive => &additive::Additive,
+        }
+    }
 }
 
 impl Display for Engine {
@@ -640,7 +708,9 @@ impl Options {
     /// [`Reason::MemoryLimit`] when what is left still passes the bound,
     /// or leaves the memo no room at all. The two searches that
     /// [`Bias::Auto`] runs on a sequent with exponentials have half the
-    /// bound each. The check of a proof found is under the same bound.
+    /// bound each. The check of a proof found is under the same bound. The
+    /// net engine's structure and scratch, linear in the forest, are not
+    /// counted.
     pub fn memory_limit(self, limit: Option<u64>) -> Self {
         Self {
             memory_limit: limit,
@@ -671,7 +741,9 @@ impl Options {
     /// for some provable sequent and full linear logic is undecidable.
     /// Without exponentials the bound has no effect. A proof found at some
     /// level may reuse a memoized subproof found with more copies left, so
-    /// the bound limits the search, not the proof returned.
+    /// the bound limits the search, not the proof returned. Only the
+    /// focused engine reads it: the goals of the others have no
+    /// exponentials.
     pub fn copies(self, copies: Option<u32>) -> Self {
         Self { copies, ..self }
     }
@@ -704,7 +776,8 @@ impl Options {
     /// on a sequent with exponentials hold a memo of this size each. This
     /// is the finer knob beside [`memory_limit`](Self::memory_limit),
     /// which bounds the memo in bytes: a table that fits the processor's
-    /// cache can be faster than one that fits the memory.
+    /// cache can be faster than one that fits the memory. The focused
+    /// engine and the additive path read it; the net engine keeps no memo.
     pub fn memo_limit(self, limit: usize) -> Self {
         Self {
             memo_limit: limit,
@@ -716,7 +789,8 @@ impl Options {
     /// a branch, three per occurrence at most) before the search gives up
     /// with [`Reason::RecursionLimit`]. The engine recurses on the calling
     /// thread's stack, so a caller that raises the limit runs the search on
-    /// a thread with a stack to match.
+    /// a thread with a stack to match. The focused engine and the additive
+    /// path read it; the net engine keeps stacks of its own.
     pub fn recursion_limit(self, limit: u32) -> Self {
         Self {
             recursion_limit: limit,
@@ -729,7 +803,7 @@ impl Options {
     /// structure of at most 200 occurrences, every fourth link on a larger
     /// one. The test also runs on every complete linking, so the period
     /// trades time per link against how long a doomed branch is followed.
-    /// Zero counts as one.
+    /// Zero counts as one. Only the net engine reads it.
     pub fn test_period(self, period: Option<u32>) -> Self {
         Self {
             test_period: period,
@@ -786,7 +860,8 @@ impl Options {
     /// both searches, the backward one within [`copies`](Self::copies) and
     /// the forward one within [`forward_copies`](Self::forward_copies),
     /// and answers with the first that decides. Either of the two named
-    /// explicitly is that search alone, within `copies`.
+    /// explicitly is that search alone, within `copies`. Only the focused
+    /// engine reads it.
     pub fn bias(self, bias: Bias) -> Self {
         Self { bias, ..self }
     }
@@ -801,6 +876,7 @@ impl Options {
     /// On any other sequent, under another bias, under Mix, under
     /// weakening and without a copy bound it has no effect: unbounded, the
     /// forward search deepens as far as its share of the work takes it.
+    /// Only the focused engine reads it.
     pub fn forward_copies(self, copies: u32) -> Self {
         Self {
             forward_copies: copies,
@@ -1174,6 +1250,24 @@ mod tests {
                 "{input:?}"
             );
         }
+    }
+
+    /// A goal is a multiset: the roots in another order are the sequent
+    /// itself, which the net engine takes, forced or by default.
+    #[test]
+    fn goal_in_any_order() {
+        let s = sequent("a, a -o b |- b");
+        let forest = Forest::new(&s).unwrap();
+        let mut goal = forest.roots().to_vec();
+        goal.reverse();
+        assert_ne!(goal, forest.roots());
+        let classical = Mode::CLASSICAL;
+        let outcome = prove_goal(&forest, &goal, classical, &Options::default(), || false).unwrap();
+        assert_eq!(outcome.engine, Engine::Net);
+        assert!(outcome.verdict.proof().is_some());
+        let net = Options::default().engine(Some(Engine::Net));
+        let outcome = prove_goal(&forest, &goal, classical, &net, || false).unwrap();
+        assert!(outcome.verdict.proof().is_some());
     }
 
     /// `Options::engine` forces an engine: the focused engine on MLL, the

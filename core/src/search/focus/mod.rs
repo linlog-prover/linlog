@@ -71,10 +71,11 @@ use self::schedule::{plan, turns};
 use self::scratch::Pools;
 use self::split::Join;
 use super::memory::{Account, Charged};
-use super::{Options, Reason, Refutation, Statistics, Stop, Verdict, set_up_stopped};
+use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task, set_up_stopped};
+use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Bias, Forest, OccId, OccSet, Reading};
-use crate::proofs::{Node, NodeId, Proof, Side};
+use crate::proofs::{Node, NodeId, Side};
 use crate::sequents::Kind;
 use std::hash::BuildHasher as _;
 
@@ -112,39 +113,65 @@ const MEETS_PER_WORK: usize = 16;
 /// forest's width.
 const OCCURRENCES_PER_LEAF: usize = 512;
 
-/// Runs the focused engine on the forest of a sequent of `fragment` under
-/// `mode`, two-sided when the sequent's intuitionistic reading is given,
-/// polling `stop` at every stable sequent, and returns the verdict with the
-/// statistics of the run.
-pub(crate) fn search(
-    forest: &Forest,
-    fragment: Fragment,
-    mode: Mode,
-    reading: Option<&Reading>,
-    options: &Options,
-    stop: &mut dyn FnMut() -> bool,
-) -> (Verdict, Statistics) {
-    let (result, nodes, statistics) = search_goal(
-        forest,
-        forest.roots(),
-        fragment,
-        mode,
-        reading,
-        options,
-        &Account::new(options.memory_limit),
-        stop,
-    );
-    let verdict = match result {
-        Ok(Some(root)) => {
-            let proof = Proof::new(forest.clone(), nodes, root)
-                .expect("the engine pushes premises before conclusions");
-            debug_assert_eq!(proof.check(mode), Ok(()), "the engine's proof");
-            Verdict::Proved(Box::new(proof))
+/// The focused engine as the front door calls it, one-sided or two-sided.
+pub(crate) struct Focused {
+    /// Whether it is the two-sided engine of intuitionistic mode.
+    two_sided: bool,
+}
+
+/// The focused engine of classical mode.
+pub(crate) const ONE_SIDED: Focused = Focused { two_sided: false };
+
+/// The focused engine of intuitionistic mode.
+pub(crate) const TWO_SIDED: Focused = Focused { two_sided: true };
+
+impl Decide for Focused {
+    /// Refuses the one-sided engine in intuitionistic mode and the
+    /// two-sided one in classical mode.
+    fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
+        if task.mode.intuitionistic == self.two_sided {
+            return Ok(());
         }
-        Ok(None) => Verdict::Unprovable(Refutation::Exhausted),
-        Err(reason) => Verdict::Unknown(reason),
-    };
-    (verdict, statistics)
+        let engine = if self.two_sided {
+            super::Engine::TwoSided
+        } else {
+            super::Engine::Focus
+        };
+        Err(Error::EngineMode {
+            engine,
+            mode: task.mode,
+        })
+    }
+
+    /// Searches the goal on one thread, or with the feature `parallel` on
+    /// [`Options::jobs`] threads.
+    fn decide(
+        &self,
+        task: &Task<'_>,
+        options: &Options,
+        account: &Account,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<Answer, Error> {
+        let Task {
+            forest,
+            goal,
+            fragment,
+            mode,
+            reading,
+            ..
+        } = *task;
+        #[cfg(feature = "parallel")]
+        if options.job_count() > 1 {
+            let found = parallel::search_goal(
+                forest, goal, fragment, mode, reading, options, account, stop,
+            )?;
+            return Ok(Answer::of_arena(forest, found));
+        }
+        let found = search_goal(
+            forest, goal, fragment, mode, reading, options, account, stop,
+        );
+        Ok(Answer::of_arena(forest, found))
+    }
 }
 
 /// Runs the focused engine from a goal: a multiset of occurrences of the

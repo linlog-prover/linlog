@@ -23,35 +23,41 @@
 
 use super::focus::Search;
 use super::memory::{Account, bytes_of};
-use super::{Options, Reason, Refutation, Statistics, Verdict};
-use crate::fragment::Mode;
+use super::{Answer, Decide, Options, Reason, Statistics, Task};
+use crate::Error;
+use crate::fragment::Fragment;
 use crate::hash::HashMap;
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Node, NodeId, Proof, Side};
+use crate::proofs::{Node, NodeId, Side};
 use crate::sequents::Kind;
 
-/// Runs the additive fast path on the forest of a sequent of exactly two
-/// additive-only formulas under `mode`, polling `stop` at every pair of
-/// occurrences, and returns the verdict with the statistics of the run.
-pub(crate) fn search(
-    forest: &Forest,
-    mode: Mode,
-    options: &Options,
-    stop: &mut dyn FnMut() -> bool,
-) -> (Verdict, Statistics) {
-    let account = Account::new(options.memory_limit);
-    let (result, nodes, statistics) = search_goal(forest, forest.roots(), options, &account, stop);
-    let verdict = match result {
-        Ok(Some(root)) => {
-            let proof = Proof::new(forest.clone(), nodes, root)
-                .expect("the engine pushes premises before conclusions");
-            debug_assert_eq!(proof.check(mode), Ok(()), "the engine's proof");
-            Verdict::Proved(Box::new(proof))
+/// The additive fast path as the front door calls it.
+pub(crate) struct Additive;
+
+impl Decide for Additive {
+    /// Refuses anything but two formulas of the additive fragment.
+    fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
+        if Fragment::ALL.contains(task.fragment) && task.goal.len() == 2 {
+            return Ok(());
         }
-        Ok(None) => Verdict::Unprovable(Refutation::Exhausted),
-        Err(reason) => Verdict::Unknown(reason),
-    };
-    (verdict, statistics)
+        Err(Error::NotAdditive {
+            fragment: task.fragment,
+            roots: task.goal.len(),
+        })
+    }
+
+    /// Decides the pair on the calling thread, whatever
+    /// [`Options::jobs`] says.
+    fn decide(
+        &self,
+        task: &Task<'_>,
+        options: &Options,
+        account: &Account,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<Answer, Error> {
+        let found = search_goal(task.forest, task.goal, options, account, stop);
+        Ok(Answer::of_arena(task.forest, found))
+    }
 }
 
 /// Runs the additive fast path on a goal of exactly two additive-only
@@ -257,8 +263,9 @@ impl Engine<'_> {
 mod tests {
     use super::*;
     use crate::Sequent;
+    use crate::fragment::Mode;
     use crate::search::generate::Rng;
-    use crate::search::{Engine as Which, prove};
+    use crate::search::{Engine as Which, Verdict, prove};
 
     /// Parses `input`.
     fn sequent(input: &str) -> Sequent {
