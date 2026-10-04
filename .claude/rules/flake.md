@@ -31,7 +31,8 @@ veraPDF: every profile conforms), offline; `rocq.nix` is the `rocq`
 check, which builds NanoYalla from the non-flake input `nanoyalla`
 (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA` names
 the version) with nixpkgs' Rocq and standard library and compiles the
-`.v` snapshots and two CLI certificates against it, requiring Rocq to
+`.v` snapshots and four CLI certificates against it (two of them over
+`Prop`, of ordinary logic, classical and intuitionistic), requiring Rocq to
 print nothing; `bench.nix` is the `linlog-bench` package, the `bench`
 check (the harness on the smallest instance of every family and on the
 problem file, failing on a verdict against a known one, a `MISMATCH`)

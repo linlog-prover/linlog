@@ -9,12 +9,14 @@
 use crate::argument_parsing::{CoresArg, Format, InputFormat, ProveArgs, Threads, threads};
 use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
+use crate::ordinary;
 use crate::prove::{
     Ended, STEPS_PER_CLOCK, Show, Shown, alone_first, derivation, describe, net_into, nets_exist,
     on_large_stack, statistics, stopped, verdict_line,
 };
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
+use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
 use linlog::search::{Options, Outcome, Pool, Verdict, prove_goal};
 use linlog::{Forest, Mode};
@@ -84,6 +86,8 @@ struct Entries {
     pending: VecDeque<Pending>,
     /// The format the flag names.
     format: InputFormat,
+    /// Whether the inputs are ordinary logic, a `.p` file a TPTP problem.
+    ordinary: bool,
     /// The directories walked, by their canonical paths, so that a link
     /// back up is walked once.
     walked: HashSet<PathBuf>,
@@ -118,6 +122,7 @@ impl Entries {
         Ok(Self {
             pending,
             format: args.input.input_format,
+            ordinary: args.logic.logic.is_some(),
             walked: HashSet::new(),
         })
     }
@@ -127,8 +132,9 @@ impl Entries {
     fn takes(&self, path: &Path) -> bool {
         let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         match self.format {
+            InputFormat::Auto if self.ordinary => extension == "p",
             InputFormat::Auto => matches!(extension, "p" | "json"),
-            InputFormat::Lltp => extension == "p",
+            InputFormat::Lltp | InputFormat::Tptp => extension == "p",
             InputFormat::Json => extension == "json",
             InputFormat::Jsonl => extension == "jsonl",
             InputFormat::Text | InputFormat::Lines | InputFormat::Problems => extension == "txt",
@@ -165,7 +171,7 @@ impl Entries {
         let format = if path == Path::new("-") {
             self.format
         } else {
-            self.format.of(&path)
+            self.format.of(&path, self.ordinary)
         };
         if !format.is_many() {
             return Some(Entry {
@@ -475,16 +481,22 @@ impl Shared {
         let deadline = Deadline::start(args.timeout.0, Instant::now())?;
         let most = args.input.most();
         let source = entry.source;
-        let loaded = deadline.within(move || -> Result<Forest> {
-            let sequent = match source {
+        let logic = args.logic.clone();
+        let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
+            let (text, format) = match source {
                 Source::Bad(why) => return Err(anyhow!(why)),
-                Source::Text(text, format) => sequent_in(&text, format)?,
-                Source::File(path, format) => {
-                    let text = io::read(Some(&path), "sequent")?;
-                    sequent_in(&text, format)?
-                }
+                Source::Text(text, format) => (text, format),
+                Source::File(path, format) => (io::read(Some(&path), "sequent")?, format),
             };
-            Ok(Forest::from_owned(admit(sequent, most)?, most)?)
+            let (sequent, image) = if logic.logic.is_some() {
+                let image = ordinary::image(&logic, &ordinary::sequent_in(&text, format)?)?;
+                (image.sequent().clone(), Some(image))
+            } else if format == InputFormat::Tptp {
+                bail!("--input-format tptp holds ordinary logic, which --logic reads");
+            } else {
+                (sequent_in(&text, format)?, None)
+            };
+            Ok((Forest::from_owned(admit(sequent, most)?, most)?, image))
         })?;
         let Some(forest) = loaded else {
             let limit = deadline.limit().expect("only a limit passes");
@@ -496,9 +508,12 @@ impl Shared {
                 status: Status::Unknown,
             });
         };
-        let forest = forest?;
+        let (forest, image) = forest?;
         let sequent = forest.sequent();
-        let mode = entry.mode.unwrap_or(args.mode.mode());
+        let mode = match &image {
+            Some(image) => image.mode(),
+            None => entry.mode.unwrap_or(args.mode.mode()),
+        };
         if self.show.net {
             nets_exist(sequent, mode)?;
         }
@@ -524,7 +539,10 @@ impl Shared {
             elapsed,
             recursion_limit: args.recursion_limit,
         };
-        let line = verdict_line(&outcome, args.fragment.is_some(), &ended);
+        let line = match &image {
+            Some(image) => ordinary::verdict_line(&outcome, image, &ended),
+            None => verdict_line(&outcome, args.fragment.is_some(), &ended),
+        };
         let mut text = if self.json_lines() {
             let mut body = serde_json::to_string(&outcome)?;
             if args.stats {
@@ -537,7 +555,14 @@ impl Shared {
         };
         let over = || interrupted() || deadline.passed() || self.batch.passed();
         if let Some(directory) = &self.directory
-            && let Some(note) = self.write(&entry.name, directory, &outcome, mode, &line, over)?
+            && let Some(note) = self.write(
+                &entry.name,
+                directory,
+                &outcome,
+                (mode, image.as_ref()),
+                &line,
+                over,
+            )?
         {
             text.push_str(&format!("\n  {note}"));
         }
@@ -557,7 +582,7 @@ impl Shared {
         name: &str,
         directory: &Path,
         outcome: &Outcome,
-        mode: Mode,
+        (mode, image): (Mode, Option<&Image>),
         line: &str,
         over: impl Fn() -> bool,
     ) -> Result<Option<String>> {
@@ -606,7 +631,18 @@ impl Shared {
                 steps = steps.wrapping_add(1);
                 steps.is_multiple_of(STEPS_PER_CLOCK) && over()
             };
-            derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)?
+            match (image, self.args.linear) {
+                (Some(image), false) => crate::ordinary::derivation(
+                    image,
+                    proof,
+                    show,
+                    halt,
+                    why,
+                    prefix.as_deref(),
+                    &mut out,
+                )?,
+                _ => derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)?,
+            }
         };
         match shown {
             Shown::Written => out.finish()?,
@@ -845,6 +881,7 @@ fn cgroup_memory() -> Option<u64> {
 /// and writes one result per entry in order; the status is the worst
 /// verdict, an error before unknown before unprovable before proved.
 pub fn run(args: &ProveArgs) -> Result<Status> {
+    crate::prove::ordinary_mode(args)?;
     let start = Instant::now();
     let format = args.output.format();
     let directory = args.output.output.clone();

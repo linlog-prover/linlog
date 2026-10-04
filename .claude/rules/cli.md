@@ -32,7 +32,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   standard input, refused when standard input is a terminal; output to
   `--output` or standard output. A file's kind is `--input-format`
   (`InputFormat`), else its extension's (`InputFormat::of`: `.p` an LLTP
-  problem through `lltp::read`, `.json` a JSON sequent, else text), never
+  problem through `lltp::read`, or under `--logic` a TPTP problem,
+  `.json` a JSON sequent, else text), never
   guessed from the text (`A` is an atom and a file name alike);
   `sequent_in` reads the three formats of one sequent, `admit` applies
   `--occurrence-limit`. The formats of many (`lines`, `jsonl`,
@@ -53,6 +54,25 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--entry-name`/`--entry-mode`, as a batch of one whose line the parent
   relays; a child that outlives its time limit by `CHILD_GRACE` is
   killed.
+- `ordinary.rs`: ordinary logic under `--logic` (`LogicArgs`, flattened
+  into `prove` and `seq print`; `--translation`, and `prove`'s `--linear`,
+  require it, and `ordinary_mode` refuses `-i`, `-a` and `--mix` beside it, exit 2 (clap's `conflicts_with` cannot name flags `seq print` lacks): the image's
+  mode is the translation's). `SequentInput::image` reads the input as
+  ordinary text, or as a TPTP problem for `--input-format tptp` or a `.p`
+  file under `--logic` (`InputFormat::of(path, ordinary)`; without
+  `--logic` a `.p` file stays LLTP and `tptp` is refused), translates it
+  and admits the image under `--occurrence-limit`. The verdict line is
+  `valid`/`not valid`/`unknown` with the logic, the translation and its
+  target (`ordinary::verdict_line`); the exit statuses are the image's.
+  The derivation shown is the read-back (`ordinary::derivation`: the
+  linear derivation under the view's bounds, `read_back`, `check`, then
+  the format's `ordinary` writer, Rocq's being the certificate over
+  `Prop`), or with `--linear` the linear proof as without `--logic`. A
+  read-back that fails its check is an error (exit 2), a defect. JSON is
+  the search's outcome on the image, unchanged. `seq print --logic`
+  prints the image (two-sided for ILL). In a batch the logic applies to
+  every entry, `lines` being ordinary sequents, and JSON and LLTP inputs
+  refused per entry.
 - `interact.rs`: `interact`, a line-based session over `Interactive`:
   the state comes from the sequent argument or `--state FILE` (a session
   `save` wrote; the mode is then the file's), the commands from standard

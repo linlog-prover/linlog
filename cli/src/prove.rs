@@ -10,6 +10,7 @@ use crate::style::Styles;
 use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::{Form, RenderError, latex, pdf, png, rocq, svg, typst};
+use linlog::ordinary::Image;
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
 use linlog::{
     Compact, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size,
@@ -175,9 +176,9 @@ pub(crate) struct Show {
     /// The options of every format.
     pub(crate) styles: Styles,
     /// The bound on what is built.
-    view: ViewOptions,
+    pub(crate) view: ViewOptions,
     /// When the derivation is written.
-    tree: Tree,
+    pub(crate) tree: Tree,
     /// The columns and rows of the terminal the output goes to, if it goes
     /// to one.
     terminal: Option<(u64, u64)>,
@@ -283,7 +284,7 @@ impl Show {
 
     /// The columns and lines a text tree may take to be printed unasked,
     /// when the output is a terminal and the switch leaves it to the fit.
-    fn fit(&self) -> Option<(u64, u64)> {
+    pub(crate) fn fit(&self) -> Option<(u64, u64)> {
         match (self.tree, self.format, self.terminal) {
             (Tree::Auto, Format::Text, Some((columns, rows))) => Some((
                 columns,
@@ -431,11 +432,11 @@ pub(crate) enum Shown {
 
 /// A writer that writes a prefix before the first text it passes on, so
 /// that what writes nothing leaves nothing.
-struct Prefixed<'a, W> {
+pub(crate) struct Prefixed<'a, W> {
     /// Where the text goes.
-    out: &'a mut W,
+    pub(crate) out: &'a mut W,
     /// The prefix, until it is written.
-    prefix: Option<&'a str>,
+    pub(crate) prefix: Option<&'a str>,
 }
 
 impl<W: Write> Write for Prefixed<'_, W> {
@@ -520,7 +521,7 @@ pub(crate) fn count_text(count: u64) -> String {
 }
 
 /// Returns the line for a tree that does not fit the terminal.
-fn unfit(inferences: u64, width: &str, lines: u64, columns: u64, most: u64) -> String {
+pub(crate) fn unfit(inferences: u64, width: &str, lines: u64, columns: u64, most: u64) -> String {
     format!(
         "the proof tree is not shown: {} inferences, {width} columns by {} lines, for a \
          terminal of {columns} columns and at most {most} lines (--screens); print it with \
@@ -531,7 +532,7 @@ fn unfit(inferences: u64, width: &str, lines: u64, columns: u64, most: u64) -> S
 }
 
 /// Returns the line for a derivation past the limit.
-fn too_large(size: &Size, limit: u64) -> String {
+pub(crate) fn too_large(size: &Size, limit: u64) -> String {
     format!(
         "the derivation is not written: its {} inferences with {} characters of sequents are \
          estimated at {}, over the limit of {}; --format json writes the proof itself, \
@@ -545,7 +546,7 @@ fn too_large(size: &Size, limit: u64) -> String {
 
 /// Returns the line for a derivation whose proof could not be read
 /// within the memory limit.
-fn proof_unread(limit: u64) -> String {
+pub(crate) fn proof_unread(limit: u64) -> String {
     format!(
         "the derivation is not written: reading the proof for it takes more than the memory \
          limit of {}; --format json writes the proof itself, and --memory-limit SIZE raises \
@@ -555,7 +556,7 @@ fn proof_unread(limit: u64) -> String {
 }
 
 /// Returns the line for a derivation past the memory limit.
-fn over_memory(size: &Size, limit: u64) -> String {
+pub(crate) fn over_memory(size: &Size, limit: u64) -> String {
     format!(
         "the derivation is not written: its {} inferences with {} characters of sequents are \
          estimated at {}, over the memory limit of {}; --format json writes the proof itself, \
@@ -978,16 +979,23 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     if crate::batch::is_batch(args) {
         return crate::batch::run(args);
     }
+    ordinary_mode(args)?;
     let deadline = Deadline::start(args.timeout.0, Instant::now())?;
     let input = args.input.clone();
-    let loaded = deadline.within(move || input.forest())?;
+    let logic = args.logic.clone();
+    let loaded = deadline.within(move || match logic.logic {
+        Some(_) => input
+            .image(&logic)
+            .map(|(forest, image)| (forest, Some(image))),
+        None => input.forest().map(|forest| (forest, None)),
+    })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");
         return unread(args, limit);
     };
-    let forest = forest?;
+    let (forest, image) = forest?;
     let sequent = forest.sequent();
-    let mode = args.mode.mode();
+    let mode = image.as_ref().map_or(args.mode.mode(), Image::mode);
     if args.output.net {
         nets_exist(sequent, mode)?;
     }
@@ -1039,9 +1047,10 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             elapsed,
             recursion_limit: args.recursion_limit,
         };
-        let line = show
-            .verdict
-            .then(|| verdict_line(&outcome, args.fragment.is_some(), &ended));
+        let line = show.verdict.then(|| match &image {
+            Some(image) => crate::ordinary::verdict_line(&outcome, image, &ended),
+            None => verdict_line(&outcome, args.fragment.is_some(), &ended),
+        });
         let prefix = show.open(&mut out, line.as_deref())?;
         // The time limit and Ctrl-C hold for the derivation as for the
         // search.
@@ -1073,9 +1082,18 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             (Verdict::Proved(_), _, false) if over() => {
                 Shown::LeftOut(format!("the derivation is not written: {}", why()))
             }
-            (Verdict::Proved(proof), _, false) => {
-                derivation(proof, mode, &show, halt, why, prefix.as_deref(), &mut out)?
-            }
+            (Verdict::Proved(proof), _, false) => match (&image, args.linear) {
+                (Some(image), false) => crate::ordinary::derivation(
+                    image,
+                    proof,
+                    &show,
+                    halt,
+                    why,
+                    prefix.as_deref(),
+                    &mut out,
+                )?,
+                _ => derivation(proof, mode, &show, halt, why, prefix.as_deref(), &mut out)?,
+            },
             _ => Shown::Nothing,
         };
         let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));
@@ -1089,6 +1107,16 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         anyhow::Ok(status)
     })??;
     Ok(status)
+}
+
+/// Refuses a mode flag beside `--logic`, whose translation decides the
+/// mode.
+pub(crate) fn ordinary_mode(args: &ProveArgs) -> Result<()> {
+    let mode = &args.mode;
+    if args.logic.logic.is_some() && (mode.intuitionistic || mode.affine || mode.mix) {
+        bail!("the logic's translation decides the mode: leave out -i, -a and --mix");
+    }
+    Ok(())
 }
 
 /// How a search ended, as far as the command knows it beyond the outcome.

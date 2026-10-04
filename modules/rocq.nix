@@ -44,6 +44,12 @@
             cp ${snapshots}/*.v .
             linlog prove --format rocq --standalone --output cli.v 'A * top |- A * (B + top)'
             linlog prove -i --format rocq --standalone --output cli_ill.v '!A, A -o B |- B * !A'
+            # Certificates over Prop of ordinary logic: classical through the
+            # excluded middle, intuitionistic with no axiom.
+            linlog prove --logic classical --format rocq --standalone --output cli_lk.v \
+              '(a <-> b) -> ~(a /\ ~b) /\ (((a -> c) -> a) -> a)'
+            linlog prove --logic intuitionistic --copies 8 --format rocq --standalone --output cli_lj.v \
+              'a \/ b, ~a, (b -> c) /\ true |- ~~c'
             for file in *.v; do
               rocq compile -R nanoyalla NanoYalla "$file" 2>&1 | tee log
               if [ -s log ]; then exit 1; fi

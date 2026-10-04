@@ -13,8 +13,9 @@ conventions and pointers. Guidance for one area of the tree goes in
 ## Project
 
 linlog is a linear logic suite: it decides, checks, proves step by step
-and exports sequents of classical and intuitionistic linear logic
-(README's "What exists and what is planned"). It is written in Rust with
+and exports sequents of classical and intuitionistic linear logic, and
+decides ordinary propositional logic through its embeddings (README's
+"What exists and what is planned"). It is written in Rust with
 WebAssembly in mind for a planned `linlog-web` crate: the library reads
 no clock and uses threads only behind a feature. Performance is a stated
 goal: the data structures are compact and cache-friendly.
@@ -54,7 +55,7 @@ per bullet, what a later session must know and cannot see in the code.
 
 | rules file | loads for | holds |
 |---|---|---|
-| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the eleven module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs), each loaded for its own module |
+| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the twelve module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs, ordinary logic), each loaded for its own module |
 | `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `flake.md` | `flake.nix`, `flake.lock`, `modules/**` | what each flake module holds and checks |
@@ -80,6 +81,7 @@ cargo deny check                                           # licenses, bans, sou
 cargo run -p linlog-cli -- <args>
 cargo run --release -p linlog-bench -- run --family partition-no=3,4 --engines focus,net
 nix build .#lltp -o bench/lltp   # the LLTP library (1.1 GB, GPL-3.0, fetched at a pinned commit)
+nix build .#iltp -o bench/iltp   # the ILTP library's 274 propositional problems (no licence stated, fetched at v1.1.2)
 bench/targets.sh LABEL            # the focused engine's target set into bench/targets/LABEL.csv (two cores, about 20 min, detached)
 bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to 07:00 (about 11.5 h, so it may need a second night): bench/results/DAY/, bench/RESULTS.md
 

@@ -1,8 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::argument_parsing::{InputFormat, SequentInput};
+use crate::argument_parsing::{InputFormat, LogicArgs, SequentInput};
 use anyhow::{Context, Result, bail};
+use linlog::ordinary::Image;
 use linlog::{Forest, Sequent};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
@@ -91,15 +92,16 @@ pub fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
 }
 
 impl SequentInput {
-    /// Reads the one sequent from the argument, the file or standard
-    /// input, in the format the flag or the file's extension names.
-    pub fn sequent(&self) -> Result<Sequent> {
+    /// Reads the one input from the argument, the file or standard input,
+    /// and returns it with the format the flag or the file's extension
+    /// names, a `.p` file being a TPTP problem when `ordinary` is set.
+    fn text(&self, ordinary: bool) -> Result<(String, InputFormat)> {
         if self.file.len() > 1 {
             bail!("this command reads one sequent: give --file once");
         }
         let file = self.file.first().map(PathBuf::as_path);
         let format = match file {
-            Some(path) if path != Path::new("-") => self.input_format.of(path),
+            Some(path) if path != Path::new("-") => self.input_format.of(path, ordinary),
             _ => self.input_format,
         };
         if format.is_many() {
@@ -113,7 +115,27 @@ impl SequentInput {
             Some(text) => text.clone(),
             None => read(file, "sequent")?,
         };
+        Ok((text, format))
+    }
+
+    /// Reads the one sequent from the argument, the file or standard
+    /// input, in the format the flag or the file's extension names.
+    pub fn sequent(&self) -> Result<Sequent> {
+        let (text, format) = self.text(false)?;
+        if format == InputFormat::Tptp {
+            bail!("--input-format tptp holds ordinary logic, which --logic reads");
+        }
         admit(sequent_in(&text, format)?, self.most())
+    }
+
+    /// Reads one formula or sequent of ordinary logic and returns its image
+    /// under the translation the flags choose, with the image's forest,
+    /// within the limit on its occurrences.
+    pub fn image(&self, logic: &LogicArgs) -> Result<(Forest, Image)> {
+        let (text, format) = self.text(true)?;
+        let image = crate::ordinary::image(logic, &crate::ordinary::sequent_in(&text, format)?)?;
+        let sequent = admit(image.sequent().clone(), self.most())?;
+        Ok((Forest::from_owned(sequent, self.most())?, image))
     }
 
     /// Returns the most occurrences the sequent may have.

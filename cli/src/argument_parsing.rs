@@ -17,7 +17,14 @@ Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
   negation  ~A, A^            exponentials  !A, ?A
   units  1, bot, ⊥, top, ⊤, 0
 Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, and last -o, which
-groups to the right.";
+groups to the right.
+
+With --logic the input is ordinary logic: `a, a -> b |- b`, or a formula alone.
+  and  a /\\ b, a ∧ b         or   a \\/ b, a ∨ b
+  implies  a -> b, a → b      iff  a <-> b, a ↔ b
+  not  ~a, ¬a                 constants  true, ⊤, false, ⊥
+Binding, tightest first: ~, /\\, \\/, then -> and <->, which group to the
+right.";
 
 /// Decide, print and convert sequents of linear logic.
 #[derive(Parser, Debug)]
@@ -80,6 +87,13 @@ pub struct ProveArgs {
     /// The logic.
     #[command(flatten)]
     pub mode: ModeArgs,
+    /// The ordinary logic the input is in, if any.
+    #[command(flatten)]
+    pub logic: LogicArgs,
+    /// With --logic, show the linear proof of the image instead of the
+    /// proof read back as LK or LJ
+    #[arg(long, requires = "logic")]
+    pub linear: bool,
     /// Search in this fragment instead of the detected one
     ///
     /// A sequent outside it is an error. A larger fragment than the detected
@@ -475,6 +489,10 @@ pub enum SeqCommand {
         /// reads it
         #[arg(short, long)]
         intuitionistic: bool,
+        /// Read ordinary logic and print its image under the translation:
+        /// one-sided in affine MALL, two-sided in ILL
+        #[command(flatten)]
+        logic: LogicArgs,
         /// The output format
         #[arg(long, value_enum, value_name = "FORMAT", default_value_t = SequentFormat::Text)]
         format: SequentFormat,
@@ -556,7 +574,8 @@ pub struct SequentInput {
 /// How an input is read.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InputFormat {
-    /// By the file's extension: `.p` lltp, `.json` json, else text
+    /// By the file's extension: `.p` lltp (tptp with --logic), `.json`
+    /// json, else text
     Auto,
     /// One sequent in the text syntax, which may span lines
     Text,
@@ -572,6 +591,10 @@ pub enum InputFormat {
     /// {"name": …, "mode": …, "sequent": …} with the sequent in JSON or as
     /// text and the mode named as in `problems`; blank lines are skipped
     Jsonl,
+    /// A problem of ordinary propositional logic in TPTP syntax, as the
+    /// ILTP library writes them: its axioms ⊢ its conjecture (with --logic,
+    /// where a `.p` file is one)
+    Tptp,
     /// The benchmark harness's problem files: `NAME; MODE; EXPECTED;
     /// COPIES; SEQUENT` per line, MODE one of classical, mix, affine,
     /// intuitionistic or intuitionistic-affine; EXPECTED and COPIES are
@@ -581,12 +604,14 @@ pub enum InputFormat {
 
 impl InputFormat {
     /// Returns the format of a file: this one, or for `Auto` the one its
-    /// extension names.
-    pub fn of(self, path: &std::path::Path) -> Self {
+    /// extension names, a `.p` file being a TPTP problem of ordinary logic
+    /// when `ordinary` is set and an LLTP problem otherwise.
+    pub fn of(self, path: &std::path::Path, ordinary: bool) -> Self {
         if self != Self::Auto {
             return self;
         }
         match path.extension().and_then(|e| e.to_str()) {
+            Some("p") if ordinary => Self::Tptp,
             Some("p") => Self::Lltp,
             Some("json") => Self::Json,
             _ => Self::Text,
@@ -629,6 +654,79 @@ fn parse_most(text: &str) -> Result<Most, String> {
     text.parse()
         .map(|most| Most(Some(most)))
         .map_err(|_| format!("{text:?} is neither a number nor `none`"))
+}
+
+/// The ordinary logic an input is in, and the translation that decides
+/// it.
+#[derive(Args, Clone, Debug)]
+pub struct LogicArgs {
+    /// Read the input as ordinary logic, decided through its translation
+    /// into linear logic
+    ///
+    /// The input is a formula or a sequent of propositional logic in the
+    /// syntax below (a `.p` file a TPTP problem, as the ILTP library writes
+    /// them), and a proof is read back as a derivation of LK (classical) or
+    /// LJ (intuitionistic, minimal), which is checked by the rules of the
+    /// logic before it is shown. Classical logic is decided in affine MALL,
+    /// with no copy bound; intuitionistic and minimal logic in ILL, under
+    /// the time limit, so they may be answered unknown. The JSON output is
+    /// the search's outcome on the image.
+    #[arg(long, value_enum, value_name = "LOGIC")]
+    pub logic: Option<LogicArg>,
+    /// The translation into linear logic: affine for classical logic, cbn
+    /// (by default), cbv or 01 for intuitionistic and minimal logic
+    #[arg(long, value_enum, value_name = "TRANSLATION", requires = "logic")]
+    pub translation: Option<TranslationArg>,
+}
+
+/// An ordinary logic.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogicArg {
+    /// Classical propositional logic, derivations in LK
+    Classical,
+    /// Intuitionistic propositional logic, derivations in LJ
+    Intuitionistic,
+    /// Minimal logic: intuitionistic without ex falso, false an atom
+    Minimal,
+}
+
+impl From<LogicArg> for linlog::ordinary::Logic {
+    fn from(logic: LogicArg) -> Self {
+        match logic {
+            LogicArg::Classical => Self::Classical,
+            LogicArg::Intuitionistic => Self::Intuitionistic,
+            LogicArg::Minimal => Self::Minimal,
+        }
+    }
+}
+
+/// A translation of ordinary logic into linear logic.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TranslationArg {
+    /// Classical logic into affine MALL: negation normal form, ∧ as &, ∨
+    /// as ⅋
+    Affine,
+    /// Girard's call-by-name translation into ILL: A → B as !A ⊸ B, A ∨ B
+    /// as !A ⊕ !B, hypotheses under !
+    Cbn,
+    /// Girard's call-by-value translation into ILL: atoms as !a, A → B as
+    /// !(A ⊸ B), ∧ as ⊗
+    Cbv,
+    /// Liang and Miller's 0/1 translation into ILL, as the LLTP library
+    /// states it
+    #[value(name = "01")]
+    ZeroOne,
+}
+
+impl From<TranslationArg> for linlog::ordinary::Translation {
+    fn from(translation: TranslationArg) -> Self {
+        match translation {
+            TranslationArg::Affine => Self::Affine,
+            TranslationArg::Cbn => Self::CallByName,
+            TranslationArg::Cbv => Self::CallByValue,
+            TranslationArg::ZeroOne => Self::ZeroOne,
+        }
+    }
 }
 
 /// The logic a sequent is proved in.

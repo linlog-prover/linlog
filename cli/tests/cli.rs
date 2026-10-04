@@ -1252,3 +1252,69 @@ fn batch_inputs_and_exit_status() {
         assert_eq!(status, 2);
     }
 }
+
+/// `--logic` decides ordinary logic through the translation it names:
+/// the exit statuses are the verdicts', the derivation is read back as LK
+/// or LJ, `--linear` shows the image's proof instead, a `.p` file is a
+/// TPTP problem, `seq print` prints the image, and the linear connectives
+/// and a translation into the wrong logic are refused.
+#[test]
+fn ordinary_logic() {
+    let decide = |args: &[&str]| {
+        let mut all = vec!["prove", "--deterministic", "--copies", "6"];
+        all.extend(args);
+        linlog(&all, "")
+    };
+    let (status, out, _) = decide(&["--logic", "classical", "~~a -> a"]);
+    assert_eq!(status, 0);
+    assert!(out.starts_with("valid (classical logic by the affine translation into affine MALL"));
+    assert!(out.contains("¬R") && out.contains("→R"), "{out}");
+    let (status, out, _) = decide(&["--logic", "intuitionistic", "~~a -> a"]);
+    assert_eq!(status, 1);
+    assert!(out.starts_with("not valid (intuitionistic logic by the cbn translation into ILL"));
+    let (status, _, _) = decide(&["--logic", "intuitionistic", "--quiet", "a |- b"]);
+    assert_eq!(status, 1);
+    let (status, out, _) = decide(&[
+        "--logic",
+        "minimal",
+        "--translation",
+        "cbv",
+        "a, a -> b |- b",
+    ]);
+    assert_eq!(status, 0);
+    assert!(out.contains("→L") && out.contains("a, a → b ⊢ b"), "{out}");
+    let (_, out, _) = decide(&["--logic", "intuitionistic", "--linear", "a, a -> b |- b"]);
+    assert!(out.contains("⊸L") && !out.contains("→L"), "{out}");
+
+    let dir = std::env::temp_dir().join(format!("linlog-ordinary-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("SYN.p");
+    std::fs::write(
+        &file,
+        "fof(a, axiom, p => q).\nfof(c, conjecture, ~q => ~p).\n",
+    )
+    .unwrap();
+    let (status, _, _) = decide(&[
+        "--logic",
+        "intuitionistic",
+        "--quiet",
+        "--file",
+        file.to_str().unwrap(),
+    ]);
+    assert_eq!(status, 0);
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    let (status, out, _) = linlog(
+        &["seq", "print", "--logic", "intuitionistic", "a -> b |- b"],
+        "",
+    );
+    assert_eq!((status, out.trim_end()), (0, "!(!a ⊸ b) ⊢ b"));
+    for refused in [
+        &["--logic", "classical", "a & b"][..],
+        &["--logic", "classical", "--translation", "cbn", "a"],
+        &["--logic", "intuitionistic", "|- a, b"],
+        &["--logic", "intuitionistic", "-i", "a"],
+    ] {
+        assert_eq!(decide(refused).0, 2, "{refused:?}");
+    }
+}

@@ -15,6 +15,9 @@ pub mod interact;
 pub mod io;
 /// The time limit of a command.
 mod limit;
+/// Ordinary logic: its input, its verdict line and the derivation read
+/// back.
+pub mod ordinary;
 /// The `prove` and `check` commands.
 pub mod prove;
 /// The options of every output format, from a file and flags.
@@ -208,6 +211,7 @@ fn run(cli: &Cli) -> Result<Status> {
                 SeqCommand::Print {
                     input,
                     intuitionistic,
+                    logic,
                     format,
                     standalone,
                     output,
@@ -215,9 +219,24 @@ fn run(cli: &Cli) -> Result<Status> {
                     memory_limit,
                 } => {
                     exit_on_interrupt();
-                    let mode = Mode {
-                        intuitionistic: *intuitionistic,
-                        ..Mode::CLASSICAL
+                    if logic.logic.is_some() && *intuitionistic {
+                        bail!(
+                            "the logic decides how its image is printed: leave out --intuitionistic"
+                        );
+                    }
+                    let (sequent, mode) = match logic.logic {
+                        Some(_) => {
+                            let image = input.image(logic)?.1;
+                            let mode = image.mode();
+                            (image.sequent().clone(), mode)
+                        }
+                        None => (
+                            input.sequent()?,
+                            Mode {
+                                intuitionistic: *intuitionistic,
+                                ..Mode::CLASSICAL
+                            },
+                        ),
                     };
                     prove::form(
                         *standalone,
@@ -233,7 +252,7 @@ fn run(cli: &Cli) -> Result<Status> {
                     };
                     let mut styles = style::Styles::read(style, Some(key), *standalone)?;
                     prove::bound_renders(&mut styles, memory_limit.0);
-                    let text = prove::sequent_in(&input.sequent()?, mode, *format, &styles)?;
+                    let text = prove::sequent_in(&sequent, mode, *format, &styles)?;
                     match binary {
                         None => io::write(output.as_deref(), &text)?,
                         Some(format) => {

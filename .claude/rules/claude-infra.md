@@ -61,7 +61,9 @@ Current contents:
   - `rules/core-batch.md` (`search/batch.rs`): many sequents in one
     call;
   - `rules/core-inputs.md` (`lltp.rs`, `families.rs`): the benchmark
-    inputs.
+    inputs;
+  - `rules/core-ordinary.md` (`ordinary/`): ordinary logic through its
+    embeddings, the read-back to LK and LJ and its checker.
 - `rules/cli.md` (`cli/**`): the `linlog` command's layout, exit statuses,
   search thread, stop polling, the interactive session, and where a new
   engine, output format or session command plugs in.
