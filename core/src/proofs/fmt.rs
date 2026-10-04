@@ -156,9 +156,17 @@ impl Write for Count {
     }
 }
 
-/// Writes `width` spaces.
+/// Writes `width` spaces, a run at a time: a width in a format string
+/// is at most 65 535, and a tree's columns are not.
 fn spaces(out: &mut impl Write, width: usize) -> FmtResult {
-    write!(out, "{:width$}", "")
+    const RUN: &str = "                                                                ";
+    let mut left = width;
+    while left > 0 {
+        let n = left.min(RUN.len());
+        out.write_str(&RUN[..n])?;
+        left -= n;
+    }
+    Ok(())
 }
 
 /// Writes a sequent: `⊢` and its formulas, comma-separated; two-sided
@@ -427,5 +435,31 @@ impl Display for Derivation<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.write_text(&TextOptions::default(), f, || false)
             .map_err(|_| std::fmt::Error)
+    }
+}
+
+#[cfg(all(test, feature = "parse"))]
+mod tests {
+    use crate::{Mode, Options, Sequent, Verdict, prove};
+
+    /// A tree whose premises start beyond the widest column a format
+    /// string pads to is drawn.
+    #[test]
+    fn wider_than_a_format_width() {
+        let name = "a".repeat(70_000);
+        let sequent: Sequent = format!("|- {name}, ~{name} * ~b, b").parse().unwrap();
+        let outcome = prove(&sequent, Mode::CLASSICAL, &Options::default()).unwrap();
+        let Verdict::Proved(proof) = outcome.verdict else {
+            panic!("provable");
+        };
+        let tree = proof.derivation().unwrap().to_string();
+        // The premises' bars, then their conclusions.
+        let premises = tree.lines().nth(1).unwrap();
+        assert!(premises.len() > 140_000, "{}", premises.len());
+        assert!(
+            premises.ends_with("⊢ ~b, b"),
+            "{}",
+            &premises[premises.len() - 40..]
+        );
     }
 }
