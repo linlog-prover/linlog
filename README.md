@@ -794,7 +794,8 @@ chooses, and `--workers N` caps the sequents decided at once.
 `--timeout` is each sequent's limit, reading included, and
 `--batch-timeout` the whole batch's. Each search holds at most
 `--memory-limit`, and as many run at once as `--batch-memory` holds (by
-default half the machine's memory), so that a batch never holds more
+default half the memory the process may use, the machine's or its
+control group's), so that a batch never holds more
 than that for its searches; `--isolate` decides each sequent in a child
 process of its own, so that one that exhausts the memory or the stack
 ends only itself.

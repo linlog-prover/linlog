@@ -164,7 +164,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   format's extension added. Defaults: `--workers` the machine's threads,
   `--cores auto` (`Within` on a stream from standard input, which cannot
   be read ahead of), `--batch-memory` half of `/proc/meminfo`'s
-  `MemTotal` (`machine_memory`) else the library's 4 GiB,
+  `MemTotal` or of the least `memory.max` of the process's control
+  groups, whichever is less (`machine_memory`: a batch in an 8 GiB scope
+  on a machine of 62 GB was killed for its memory when it read
+  `MemTotal` alone), else the library's 4 GiB,
   `--batch-timeout none`. The first Ctrl-C stops the running searches
   and ends the input; the batch's own limit answers the entries not yet
   begun as unknown without reading them. A load thread left behind by a

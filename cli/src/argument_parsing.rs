@@ -249,7 +249,8 @@ pub struct BatchArgs {
     #[arg(long, value_enum, value_name = "WHERE", default_value_t = CoresArg::Auto)]
     pub cores: CoresArg,
     /// The most memory all the searches of a batch hold together: a size
-    /// such as 8GiB, or `none`; by default half the machine's memory
+    /// such as 8GiB, or `none`; by default half the memory the process may
+    /// use (the machine's, or its control group's limit where one is set)
     ///
     /// Each search holds at most --memory-limit, and as many run at once
     /// as this holds; within one sequent the race of one thread and a

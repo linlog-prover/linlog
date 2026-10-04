@@ -792,13 +792,53 @@ fn child_arguments() -> Vec<OsString> {
     kept
 }
 
-/// Returns the machine's memory where the system says how much it has;
-/// half of it is the default of `--batch-memory`.
+/// Returns the memory the process may use where the system says: the
+/// machine's (`MemTotal`), or less where a control group bounds it, as a
+/// container, a systemd scope or a CI runner does. Half of it is the
+/// default of `--batch-memory`.
 pub fn machine_memory() -> Option<u64> {
-    let info = fs::read_to_string("/proc/meminfo").ok()?;
-    let line = info.lines().find(|l| l.starts_with("MemTotal:"))?;
-    let kib: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
-    Some(kib.saturating_mul(1024))
+    let total = fs::read_to_string("/proc/meminfo").ok().and_then(|info| {
+        let line = info.lines().find(|l| l.starts_with("MemTotal:"))?;
+        let kib: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
+        Some(kib.saturating_mul(1024))
+    });
+    [total, cgroup_memory()].into_iter().flatten().min()
+}
+
+/// Returns the least memory limit of the control groups the process is
+/// in, if one is set: cgroup v2's `memory.max` of its group and of every
+/// group above it, else cgroup v1's `memory.limit_in_bytes`. A limit of
+/// `max` is none.
+fn cgroup_memory() -> Option<u64> {
+    let groups = fs::read_to_string("/proc/self/cgroup").ok()?;
+    let limit = |file: PathBuf| fs::read_to_string(file).ok()?.trim().parse::<u64>().ok();
+    let root = Path::new("/sys/fs/cgroup");
+    if let Some(group) = groups.lines().find_map(|line| line.strip_prefix("0::")) {
+        let mut directory = root.join(group.trim_start_matches('/'));
+        let mut least = None;
+        loop {
+            if let Some(bytes) = limit(directory.join("memory.max")) {
+                least = Some(least.map_or(bytes, |least: u64| least.min(bytes)));
+            }
+            if directory == root || !directory.pop() {
+                return least;
+            }
+        }
+    }
+    let group = groups.lines().find_map(|line| {
+        let mut fields = line.splitn(3, ':');
+        let controllers = fields.nth(1)?;
+        let path = fields.next()?;
+        controllers
+            .split(',')
+            .any(|c| c == "memory")
+            .then_some(path)
+    })?;
+    limit(
+        root.join("memory")
+            .join(group.trim_start_matches('/'))
+            .join("memory.limit_in_bytes"),
+    )
 }
 
 /// Runs a batch: reads the entries, decides them on the library's batch,
