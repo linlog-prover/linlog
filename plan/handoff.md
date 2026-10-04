@@ -197,7 +197,11 @@ on what is written or rendered. The derivation's bound admitted an SVG
 that a PDF renderer took 4 GiB for, and a style value (a gap of four
 billion columns) multiplied a tiny proof into 23.6 GB past its time
 limit. Feed every new option and every new output its largest value
-and its largest admitted input. The lesson of step 25: feed a new reader
+and its largest admitted input. The planning session runs on Opus 5.5,
+the model of steps 22 to 27: its review of an Opus step is a second
+reading by the same model, whose blind spots and fondness for its own
+output it shares, so weigh what it runs (calls, sweeps, ground truth,
+deliberate faults) above what it reads. The lesson of step 25: feed a new reader
 many distinct names, not only deep nesting. Its arena found an atom by
 a scan of the names; the depth tests never meet that, and 100 000 atoms
 did. Whenever the command's output path

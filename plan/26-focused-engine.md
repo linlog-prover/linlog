@@ -192,7 +192,16 @@ wrong "unprovable". Steps 27, 35 and 37 add their engines to this test.
 Before the engines are compared with it, a fresh-context reviewer (a
 sub-agent on your model) reads the reference against the calculus in
 the rules files and decides a dozen small sequents with it by hand: the
-oracle is checked before it judges. And in the session that changes the
+oracle is checked before it judges. Since that reviewer, you and the
+planning session that reviews you are one model, whose blind spots are
+shared, two checks rest on no model's reading: the reference agrees
+with every verdict the families know by construction
+(`linlog::families`, at the sizes it finishes); and a handful of
+deliberate faults made in a scratch copy of it (a rule dropped, a side
+condition flipped, a copy bound off by one) each make the committed
+comparison test fail, the report listing which. The engines it is
+compared with were written, nearly all of them, by sessions on Fable
+5.1, so the comparison itself sets two models' work side by side. And in the session that changes the
 search, a fresh-context agent (Opus 5.5 at `high`) writes a second
 reference of its own from the calculus, sharing no code with the
 committed one, and keeps it outside the repository; every panel's
