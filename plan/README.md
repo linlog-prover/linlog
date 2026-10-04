@@ -1976,3 +1976,9 @@ client follows it (step 32).
   judges of a refutation with `!`, the paired measurement on four
   cores, a review between its sessions); step 26's follow-ups are in
   `later.md`. Next: step 27.
+- 2026-10-04: step 27's first session to run unattended in the evening,
+  on the author's word: prompt 27 gains "The first session runs
+  unattended" (never ask and decide on the measurement, how a turn ends
+  so that Opus 5.5 does not stop at a progress report, the cores of the
+  night: the measurement on 2 to 5, builds and probes on 6 to 11, the
+  panels on 12 to 15, the signing loop and unsigned commits after it).

@@ -144,8 +144,12 @@ Mix prune, the chain loop, Mix left out in affine mode on the author's
 decision). The next command is step 27's first session:
 
 ```nu
-claude --model claude-opus-5-5 --effort xhigh --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 ```
+
+It runs unattended (the prompt's section of that name); at its review,
+sign what it committed unsigned (`jj sign -r 'main@origin..@-'`, with
+the author present for the passphrase) before anything else.
 
 Review it before its second session (`--name step-27b`). At the review
 of the second, finish `plan/28-audit-and-refactor.md`.
