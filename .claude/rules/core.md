@@ -92,7 +92,8 @@ Each entry point is described in the file of its module:
 
 **The rustdoc is the library's manual**, published from `main`. What a
 user of the crate needs and the code keeps private is said on a public
-item: the text syntax on `Sequent` (the parser is private), every JSON
+item: the text syntax on `Sequent` and the ordinary one on
+`ordinary::Sequent` (the parsers are private), every JSON
 form on its type (`Sequent`, `Proof`, `Outcome`, `ProofStructure`,
 `Interactive`; `serialize` is private), each engine on its `Engine`
 variant (the engine modules are private), the features in the crate

@@ -5,11 +5,13 @@
 //! form, with parsing, printing and serialization; the fragment a sequent
 //! lives in and the mode proof search runs in; the occurrence forest of a
 //! sequent, the numbering of its subformula occurrences that proof search,
-//! proof checking and proof nets are built on; and proofs as terms over
-//! those occurrences, with the checker that validates them, the derivation
-//! view that renders them, and their serialization; and proof search, which
+//! proof checking and proof nets are built on; proofs as terms over those
+//! occurrences, with the checker that validates them, the derivation view
+//! that renders them, and their serialization; proof search, which
 //! decides a sequent with the engine its fragment calls for and returns a
-//! checked proof.
+//! checked proof; and [`ordinary`] propositional logic, classical,
+//! intuitionistic and minimal, decided through its embeddings into linear
+//! logic, with the proof read back as a derivation of LK or LJ.
 //!
 //! # The common path
 //!
@@ -73,12 +75,14 @@
 //! JSON is. The JSON forms are the interchange format of the command, of
 //! front ends and of files; those of [`Proof`], [`Outcome`],
 //! [`ProofStructure`] and `Interactive` are described on those types.
+//! [`ordinary::Sequent`] says how a sequent of ordinary logic is written.
 //!
 //! # Features
 //!
-//! On by default: `parse` (the text syntax, the LLTP reader `lltp` and the
-//! generated `families`), `serialize` (the JSON forms, through serde),
-//! `interactive` (`Interactive`, proving step by step), and the exports
+//! On by default: `parse` (the text syntaxes, the LLTP reader `lltp`, the
+//! generated `families` and the TPTP reader `ordinary::read_tptp`),
+//! `serialize` (the JSON forms, through serde), `interactive`
+//! (`Interactive`, proving step by step), and the exports
 //! `latex`, `typst`, `svg` and `rocq` (under [`export`]). Off by default:
 //! `parallel` (the search on a pool of [`Options::jobs`] threads, and a
 //! pool kept across searches, `search::Pool`; never for WebAssembly), and

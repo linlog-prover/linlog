@@ -331,6 +331,8 @@ impl std::str::FromStr for Sequent {
 }
 
 /// A problem of ordinary logic read from a TPTP file.
+///
+/// Needs the cargo feature `parse` (on by default).
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Problem {
