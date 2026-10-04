@@ -73,13 +73,23 @@ struct Certificate<'a> {
 }
 
 impl Certificate<'_> {
-    /// Returns a formula in Rocq's syntax, in brackets if binary.
+    /// Returns a formula in Rocq's syntax, in brackets if binary or a
+    /// negation, so that it stands as an argument.
     fn formula(&self, id: NodeId) -> String {
         let mut out = String::new();
         let formulas: &Formulas = self.derivation.formulas();
+        // A negation is an application, which an argument needs in
+        // brackets as much as a binary formula.
+        let negation = matches!(formulas.node(id), super::Node::Not(_));
+        if negation {
+            out.push('(');
+        }
         formulas.write(&mut out, id, true, &ROCQ, |o, a| {
             o.push_str(&self.atoms[a as usize])
         });
+        if negation {
+            out.push(')');
+        }
         out
     }
 

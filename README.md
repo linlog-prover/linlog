@@ -796,7 +796,7 @@ $ linlog prove --logic classical --format rocq 'a \/ ~a'
 (* valid (classical logic by the affine translation into affine MALL, focus engine) *)
 Lemma certificate : forall a : Prop, (a \/ ~ a).
 Proof.
-  exact (fun (a : Prop) => NNPP (a \/ ~ a) (fun k'1 : ~ (a \/ ~ a) => (let k'2 : ~ a := fun x' => k'1 (or_introl x') in let k'3 : ~ ~ a := fun x' => k'1 (or_intror x') in (k'3 (fun h'4 : a => (k'2 h'4)))))).
+  exact (fun (a : Prop) => NNPP (a \/ ~ a) (fun k'1 : ~ (a \/ ~ a) => (let k'2 : ~ a := fun x' => k'1 (or_introl x') in let k'3 : ~ (~ a) := fun x' => k'1 (or_intror x') in (k'3 (fun h'4 : a => (k'2 h'4)))))).
 Qed.
 ```
 
