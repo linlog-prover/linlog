@@ -671,7 +671,7 @@ pub enum Bias {
     /// with a `!` or a `?` in linear mode the search runs a search under
     /// each rule and answers with the first that decides, so it decides
     /// whatever either does: the backward one within the copy bound, the
-    /// forward one within a bound of its own where the sequent is a Horn
+    /// forward one within a bound of its own where the goal is a Horn
     /// program. Each choice is what measured best there: without
     /// exponentials the factor rule visits up to a third of the stable
     /// sequents of the rarer one (unsolvable 3-Partition with bins of
@@ -1015,12 +1015,12 @@ impl Options {
 
     /// Sets the most copies of `?` formulas one branch may take in the
     /// forward search that [`Bias::Auto`] runs beside the backward one on
-    /// a Horn program: clauses `!(a ⊗ b ⊸ c ⊗ d)`, a marking and a goal
-    /// of atoms, as a Petri net is. A forward chain takes a copy per
+    /// a Horn program: clauses `!(a ⊗ b ⊸ c ⊗ d)` (or one used once), a
+    /// marking and a goal of atoms, as a Petri net is. A forward chain takes a copy per
     /// step, all on one branch, so it wants a larger bound than
     /// [`copies`](Self::copies), which this is when it is the larger of
     /// the two; the forward search never runs within less than `copies`.
-    /// On any other sequent, under another bias, under Mix, under
+    /// On any other goal, under another bias, under Mix, under
     /// weakening and without a copy bound it has no effect: unbounded, the
     /// forward search deepens as far as its share of the work takes it.
     /// Only the focused engine reads it.

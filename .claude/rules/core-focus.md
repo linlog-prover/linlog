@@ -300,13 +300,21 @@ relies on:
     and `Options::forward_copies` (`DEFAULT_FORWARD_COPIES`) where the
     goal is a Horn program (`chains`, which reads the goal's members: a
     goal off the roots, as an interactive close hands over, gets the
-    bound by its own shape, `the_horn_test_reads_the_goal`) and the mode has no Mix. A
-    program: every root under a `?` is a clause, a tensor of body
-    literals, all of one sign throughout the sequent, with at most one
-    factor a head instead, a literal of the other sign or a `⅋` of
-    such (what `!(a ⊗ b ⊸ c ⊗ d)` lowers to); every other root is a
-    marking, a `⅋` of head literals, or a goal, a tensor of body
-    literals; `1` and `⊥` stand for an empty body, goal or head. A
+    bound by its own shape, and a clause used once, as a dereliction leaves
+    one in the linear zone, is a step of the program like a copy;
+    `the_horn_test_reads_the_goal`) and the mode has no Mix. A
+    program: every member of the goal under a `?` is a clause, a tensor
+    of body literals, all of one sign throughout the goal, with at most
+    one factor a head instead, a literal of the other sign or a `⅋` of
+    such (what `!(a ⊗ b ⊸ c ⊗ d)` lowers to); every other member is a
+    marking, a `⅋` of head literals, a goal, a tensor of body literals,
+    or a clause used once; `1` and `⊥` stand for an empty body, goal or
+    head. Off the roots the bound moves an answer both ways between
+    decided and "unknown" (a panel measured 529 runs decided only with
+    the goal's test and 310 only with the roots', before the clause used
+    once was taken), and under a stop a forward search that runs on
+    keeps its share of the work, so an "unknown" by the copy bound may
+    become one by the time limit. A
     Petri net with a marking to reach is exactly that. Why a bound of its own: a forward chain takes
     one copy per step on one branch, where the same derivation
     backward takes as many as its tree is deep, so no multiple of

@@ -1414,6 +1414,24 @@ fn the_horn_test_reads_the_goal() {
     };
     assert_eq!(forward(roots), Options::DEFAULT_COPIES);
     assert_eq!(forward(&program), 30);
+
+    // A clause that a dereliction left in the linear zone, used once, is
+    // a step of the program too: the goal it leaves to close is proved
+    // within the forward bound, as the sequent is.
+    let sequent: Sequent =
+        "!(a -o b), !(b -o c), !(c -o d), !(d -o e), !(e -o f), !(f -o g), a |- g"
+            .parse()
+            .unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let mut goal = forest.roots().to_vec();
+    for derelicted in &mut goal[1..3] {
+        *derelicted = forest.left(*derelicted).unwrap();
+    }
+    assert!(schedule::chains(&forest, &goal));
+    for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+        let outcome = prove_goal(&forest, &goal, mode, &Options::default(), || false).unwrap();
+        assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
+    }
 }
 
 /// Under Mix, a sequent none of whose parts is provable is refuted by its

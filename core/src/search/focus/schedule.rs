@@ -214,7 +214,8 @@ pub(crate) fn plan(
 }
 
 /// Whether a goal is a Horn program: every member under a `?` a clause,
-/// every other member a marking or a goal. With the atoms of the
+/// every other member a marking, a goal or a clause used once, as a
+/// clause is in the linear zone that an interactive dereliction leaves. With the atoms of the
 /// bodies written `a` (or all of them `~a`), a clause is a tensor of body
 /// literals of which at most one factor is a head instead, a literal of
 /// the other sign or a `⅋` of such, which is what `!(a ⊗ b ⊸ c ⊗ d)` is
@@ -235,14 +236,12 @@ pub(super) fn chains(forest: &Forest, goal: &[OccId]) -> bool {
             })
         };
         let head = |o: OccId| tree(o, Kind::Par, Kind::Bot, !body);
+        // A tensor of body literals with at most one factor a head.
         let mut factors = Vec::new();
-        goal.iter().all(|&root| {
-            if forest.kind(root) != Kind::Quest {
-                return head(root) || tree(root, Kind::Tensor, Kind::One, body);
-            }
+        let mut clause = |o: OccId| {
             let mut heads = 0;
             factors.clear();
-            factors.push(forest.left(root).unwrap());
+            factors.push(o);
             while let Some(x) = factors.pop() {
                 match forest.kind(x) {
                     Kind::Tensor => factors.extend(forest.children(x)),
@@ -257,6 +256,13 @@ pub(super) fn chains(forest: &Forest, goal: &[OccId]) -> bool {
                 }
             }
             true
+        };
+        goal.iter().all(|&member| {
+            if forest.kind(member) == Kind::Quest {
+                clause(forest.left(member).unwrap())
+            } else {
+                head(member) || clause(member)
+            }
         })
     })
 }
