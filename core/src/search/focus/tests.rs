@@ -1435,3 +1435,19 @@ fn unprovable_parts_cost_no_partitions() {
     assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
     assert!(statistics.nodes <= 12 << 12, "{statistics:?}");
 }
+
+/// A tensor of three hundred factors whose splits are searched is one
+/// chain, in a loop and not a level of recursion per link: it is proved
+/// under a recursion limit of a hundred.
+#[test]
+fn a_chain_of_free_splits_costs_one_level() {
+    let sequent = crate::families::wide(300, 1);
+    let options = Options::default()
+        .engine(Some(crate::search::Engine::Focus))
+        .recursion_limit(100);
+    let outcome = crate::search::prove(&sequent, Mode::CLASSICAL, &options).unwrap();
+    let Verdict::Proved(proof) = outcome.verdict else {
+        panic!("{:?}", outcome.verdict);
+    };
+    assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
+}

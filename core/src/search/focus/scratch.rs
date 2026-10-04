@@ -8,7 +8,7 @@
 use super::Engine;
 use super::context::Context;
 use super::counts::{Split, Tally};
-use super::split::Cursors;
+use super::split::{Cursors, Frame};
 use crate::occurrences::{OccId, OccSet};
 use crate::proofs::{NodeId, Side};
 use crate::search::memory::{Charged, bytes_of};
@@ -146,6 +146,18 @@ impl Engine<'_> {
         self.pools.links.push(links);
     }
 
+    /// Takes an empty list of the frames of a chain of free splits from
+    /// the pool.
+    pub(super) fn take_frames(&mut self) -> Vec<Frame> {
+        self.pools.frames.pop().unwrap_or_default()
+    }
+
+    /// Returns a list of frames to the pool, emptied.
+    pub(super) fn give_frames(&mut self, frames: Vec<Frame>) {
+        debug_assert!(frames.is_empty(), "the frames are closed");
+        self.pools.frames.push(frames);
+    }
+
     /// Takes cursors at the head of every list from the pool.
     pub(super) fn take_cursors(&mut self) -> Cursors {
         self.pools.cursors.pop().unwrap_or_else(|| {
@@ -189,6 +201,8 @@ pub(super) struct Pools {
     links: Vec<Pooled<(OccId, NodeId, bool)>>,
     /// Spare cursors of a chain of forced splits.
     cursors: Vec<Cursors>,
+    /// Spare lists of the frames of a chain of free splits.
+    frames: Vec<Vec<Frame>>,
 }
 
 /// A list from one of the engine's pools, which knows how much of its

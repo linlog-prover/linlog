@@ -760,10 +760,22 @@ relies on:
   promotes) has another context and takes cursors of its own from the
   pool. None of this changes a counter
   on the sequential targets; what changes is which sequents reach the
-  limit. Free splits still cost a level per link. Measured stack per
-  level, on a chain of tensors whose splits are searched, which is the
-  deepest set of frames (`focus`, `split`, `free_split`,
-  `search_splits`, `premises`): 3.6 KiB in debug builds, 0.9 KiB in
+  limit. **A chain of free splits** (a `⊗` whose left factor is a `⊗`
+  that no factor forces, and so on) runs in a loop too (`split::chain`,
+  on the thread that searches it; the pool's first levels keep their
+  tasks): each link's split search is a resumable `Walk` in a `Frame`,
+  the left premise of a split it reaches is the next frame, and the
+  result goes back to the frame below, which searches the right premise
+  and resumes; `search_splits` is the same `next_split` loop with
+  `premises` in place of the next frame, so the steps, nodes and
+  counters are those of the recursion, and only the levels are not taken.
+  `wide-m1` at 2 048 literals, which met the recursion limit, is proved
+  in 0.35 s; at 4 096 the counts of a split per link (a frame keeps its
+  own, as the recursion kept them on the stack) reach the memory bound.
+  Measured stack per level, before the loop, on a chain of tensors whose
+  splits are searched, which was the deepest set of frames (`focus`,
+  `split`, `free_split`, `search_splits`, `premises`; the other cycles
+  take three levels for some ten frames): 3.6 KiB in debug builds, 0.9 KiB in
   release, with the split's counts boxed in their pool (1.5 KiB with
   them in the frame, which overflowed the stack `Options::stack_size`
   gives at a raised limit; it now allows twice the measured). So the

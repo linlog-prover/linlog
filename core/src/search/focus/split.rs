@@ -7,6 +7,7 @@
 
 use super::context::Context;
 use super::counts::{Split, Tally};
+use super::scratch::Pooled;
 use super::{
     Cuts, Engine, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search, Step,
 };
@@ -253,8 +254,46 @@ impl Engine<'_> {
 
     /// The `⊗` rule on a formula no factor of which forces its split: a
     /// search over the members of `Γ` for the splits whose two sides pass
-    /// the counts.
+    /// the counts. A left factor whose split is free again continues the
+    /// search as a chain ([`Self::chain`]), in the same order.
     fn free_split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
+        let mut opened = self.open_split(gamma, f);
+        #[cfg(feature = "parallel")]
+        if self.cubes() && opened.members.len() >= 2 {
+            let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
+            let result = self.split_parallel(
+                theta,
+                &opened.members,
+                (&opened.left, &opened.right),
+                &opened.split,
+                Join::Tensor(f, a, b),
+                budget,
+            );
+            self.close_split(opened);
+            return result;
+        }
+        if self.chains_on(opened.a) {
+            return self.chain(theta, opened, budget);
+        }
+        let join = Join::Tensor(f, opened.a, opened.b);
+        let result = self.search_splits(
+            theta,
+            &opened.members,
+            (0, 0),
+            (&mut opened.left, &mut opened.right),
+            &mut opened.split,
+            join,
+            budget,
+        );
+        self.close_split(opened);
+        result
+    }
+
+    /// The search for the free splits of `F = A ⊗ B` over `Γ`, before its
+    /// first step: the members in the order they are assigned and open in
+    /// the counts, every member on the right, and, two-sided, on a
+    /// hypothesis `A ⊸ B`, the goal on the consequent's side.
+    fn open_split(&mut self, gamma: &Context, f: OccId) -> Opened {
         let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
         let mut members = self.take_list();
         members.extend(gamma.iter());
@@ -285,37 +324,134 @@ impl Engine<'_> {
         }
         self.open(&mut members, &mut split, &placed);
         self.give_list(placed);
-        let join = Join::Tensor(f, a, b);
+        Opened {
+            f,
+            a,
+            b,
+            members,
+            left,
+            right,
+            split,
+        }
+    }
 
+    /// Gives the buffers of a split search back to the pools.
+    fn close_split(&mut self, opened: Opened) {
+        self.give_list(opened.members);
+        self.give_context(opened.left);
+        self.give_context(opened.right);
+        self.give_split(opened.split);
+    }
+
+    /// Whether a focus on `a`, the left factor of a `⊗` whose split is
+    /// searched on this thread, searches its split too: a `⊗` that no
+    /// factor forces.
+    fn chains_on(&self, a: OccId) -> bool {
         #[cfg(feature = "parallel")]
-        let result = if self.cubes() && members.len() >= 2 {
-            self.split_parallel(theta, &members, (&left, &right), &split, join, budget)
-        } else {
-            self.search_splits(
-                theta,
-                &members,
-                (0, 0),
-                (&mut left, &mut right),
-                &mut split,
-                join,
-                budget,
-            )
-        };
-        #[cfg(not(feature = "parallel"))]
-        let result = self.search_splits(
-            theta,
-            &members,
-            (0, 0),
-            (&mut left, &mut right),
-            &mut split,
-            join,
-            budget,
-        );
-        self.give_list(members);
-        self.give_context(left);
-        self.give_context(right);
-        self.give_split(split);
+        if self.cubes() {
+            return false;
+        }
+        self.forest.kind(a) == Kind::Tensor && self.forced_factor(a).is_none()
+    }
+
+    /// The free splits of a chain of `⊗`, each the left factor of the one
+    /// before, in a loop: each link's search is a frame on a list, the
+    /// focus on the left factor of a split that the search reaches is the
+    /// frame of the next link, and its result is given back to the frame
+    /// below, which then searches the right premise and goes on as
+    /// [`Self::search_splits`] does. The order of the steps, the nodes and
+    /// the counters are those of the recursion through [`Self::focus`];
+    /// only the levels of recursion are not taken, one per link, which a
+    /// tensor of thousands of factors whose splits are searched used to
+    /// run out of.
+    fn chain(&mut self, theta: &OccSet, first: Opened, budget: u32) -> Step {
+        let mut frames = self.take_frames();
+        let walk = self.walk(first.members.len(), (0, 0));
+        frames.push(Frame {
+            opened: first,
+            walk,
+            cuts: Cuts::NONE,
+            mark: 0,
+        });
+        let result = self.run_chain(theta, &mut frames, budget);
+        while let Some(frame) = frames.pop() {
+            self.close_frame(frame);
+        }
+        self.give_frames(frames);
         result
+    }
+
+    /// The loop of [`Self::chain`] over its frames, the last on top.
+    fn run_chain(&mut self, theta: &OccSet, frames: &mut Vec<Frame>, budget: u32) -> Step {
+        // What the left premise of the frame on top was found to be, once
+        // the frame has asked for it.
+        let mut given: Option<Found> = None;
+        loop {
+            let frame = frames.last_mut().expect("a frame until the first returns");
+            match given.take() {
+                Some(Found::Proved(l_node)) => {
+                    let held = self.nodes.hold(l_node);
+                    let r = self.focus(theta, &frame.opened.right, frame.opened.b, budget)?;
+                    let l_node = self.nodes.unhold(held);
+                    match r {
+                        Found::Proved(r_node) => {
+                            let node = self.push(Node::Tensor(frame.opened.f, l_node, r_node));
+                            let frame = frames.pop().expect("the frame on top");
+                            self.close_frame(frame);
+                            if frames.is_empty() {
+                                return Ok(Found::proved(node));
+                            }
+                            given = Some(Found::proved(node));
+                            continue;
+                        }
+                        Found::Failed(failed) => {
+                            self.nodes.release(frame.mark);
+                            frame.cuts = frame.cuts.and(failed);
+                        }
+                    }
+                }
+                Some(Found::Failed(failed)) => frame.cuts = frame.cuts.and(failed),
+                None => {}
+            }
+            let Opened {
+                members,
+                left,
+                right,
+                split,
+                ..
+            } = &mut frame.opened;
+            if !self.next_split(&mut frame.walk, members, (left, right), split)? {
+                let cuts = frame.cuts;
+                let frame = frames.pop().expect("the frame on top");
+                self.close_frame(frame);
+                if frames.is_empty() {
+                    return Ok(Found::failed(cuts));
+                }
+                given = Some(Found::failed(cuts));
+                continue;
+            }
+            self.work += (self.forest.len() / OCCURRENCES_PER_LEAF) as u64;
+            frame.mark = self.nodes.mark();
+            let a = frame.opened.a;
+            if self.chains_on(a) {
+                let opened = self.open_split(&frame.opened.left, a);
+                let walk = self.walk(opened.members.len(), (0, 0));
+                frames.push(Frame {
+                    opened,
+                    walk,
+                    cuts: Cuts::NONE,
+                    mark: 0,
+                });
+                continue;
+            }
+            given = Some(self.focus(theta, &frame.opened.left, a, budget)?);
+        }
+    }
+
+    /// Gives the buffers of a frame of a chain back to the pools.
+    fn close_frame(&mut self, frame: Frame) {
+        self.give_trail(frame.walk.trail);
+        self.close_split(frame.opened);
     }
 
     /// Puts the members a split search assigns in the order it decides
@@ -374,80 +510,125 @@ impl Engine<'_> {
         join: Join,
         budget: u32,
     ) -> Step {
-        let rules = self.rules;
+        let mut walk = self.walk(members.len(), (start, prefix));
+        // What the premises of the splits tried cut.
+        let mut cuts = Cuts::NONE;
+        let found = loop {
+            match self.next_split(&mut walk, members, (left, right), split) {
+                Ok(true) => {}
+                Ok(false) => break Ok(None),
+                Err(reason) => break Err(reason),
+            }
+            self.work += (self.forest.len() / OCCURRENCES_PER_LEAF) as u64;
+            let joined = match join {
+                Join::Tensor(f, a, b) => self.premises(theta, left, right, f, a, b, budget),
+                // A Mix needs two parts.
+                Join::Mix if right.is_empty() => Ok(Found::NOTHING),
+                Join::Mix => self.parts(theta, left, right, budget),
+            };
+            match joined {
+                Ok(Found::Proved(node)) => break Ok(Some(node)),
+                Ok(Found::Failed(failed)) => cuts = cuts.and(failed),
+                Err(reason) => break Err(reason),
+            }
+        };
+        self.give_trail(walk.trail);
+        Ok(match found? {
+            Some(node) => Found::proved(node),
+            None => Found::failed(cuts),
+        })
+    }
+
+    /// The walk of a split search over `len` members before its first
+    /// step, the members before `start` assigned as the bits of `prefix`
+    /// say (one for the left), the others on the right.
+    fn walk(&mut self, len: usize, (start, prefix): (usize, u64)) -> Walk {
         let mut trail = self.take_trail();
-        trail.extend((0..members.len()).map(|i| {
+        trail.extend((0..len).map(|i| {
             if i < start && prefix >> i & 1 == 1 {
                 Side::Left
             } else {
                 Side::Right
             }
         }));
-        // The members before `next` are assigned, as the trail says.
-        let mut next = start;
-        // What the premises of the splits tried cut.
-        let mut cuts = Cuts::NONE;
-        let found = 'search: loop {
-            self.statistics.splits += 1;
-            self.poll_splits()?;
-            if split.feasible(rules.intervals, rules.equation, rules.mix) {
-                if next < members.len() {
-                    let m = members[next];
-                    // On the left at once when the member before it is
-                    // interchangeable and went left: the lowest ids do.
-                    let side = if next > 0
-                        && trail[next - 1] == Side::Left
-                        && self.classes.same(members[next - 1], m)
-                    {
-                        right.remove(m);
-                        left.insert(m);
-                        Side::Left
-                    } else {
-                        Side::Right
-                    };
-                    split.assign(self.counts, m, side);
-                    trail[next] = side;
-                    next += 1;
-                    continue;
-                }
-                self.work += (self.forest.len() / OCCURRENCES_PER_LEAF) as u64;
-                let joined = match join {
-                    Join::Tensor(f, a, b) => self.premises(theta, left, right, f, a, b, budget)?,
-                    // A Mix needs two parts.
-                    Join::Mix if right.is_empty() => Found::NOTHING,
-                    Join::Mix => self.parts(theta, left, right, budget)?,
-                };
-                match joined {
-                    Found::Proved(node) => break Some(node),
-                    Found::Failed(failed) => cuts = cuts.and(failed),
+        Walk {
+            trail,
+            next: start,
+            start,
+            at_leaf: false,
+        }
+    }
+
+    /// Takes a split search to its next split whose two sides pass the
+    /// counts, from the one it stopped at, and returns whether there is
+    /// one. The members are assigned one by one, in their order, each to
+    /// the right first and then to the left, and a partial assignment is
+    /// given up as soon as the counts show that no way of assigning the
+    /// rest lets both sides pass; of interchangeable members the left side
+    /// takes those with the lowest ids, so that only their number varies.
+    fn next_split(
+        &mut self,
+        walk: &mut Walk,
+        members: &[OccId],
+        (left, right): (&mut Context, &mut Context),
+        split: &mut Split,
+    ) -> Result<bool, Reason> {
+        let rules = self.rules;
+        let trail = &mut walk.trail;
+        // From a split already given, back to the last member assigned to
+        // the right first.
+        let mut back = std::mem::take(&mut walk.at_leaf);
+        'search: loop {
+            if !back {
+                self.statistics.splits += 1;
+                self.poll_splits()?;
+                if split.feasible(rules.intervals, rules.equation, rules.mix) {
+                    if walk.next < members.len() {
+                        let next = walk.next;
+                        let m = members[next];
+                        // On the left at once when the member before it is
+                        // interchangeable and went left: the lowest ids do.
+                        let side = if next > 0
+                            && trail[next - 1] == Side::Left
+                            && self.classes.same(members[next - 1], m)
+                        {
+                            right.remove(m);
+                            left.insert(m);
+                            Side::Left
+                        } else {
+                            Side::Right
+                        };
+                        split.assign(self.counts, m, side);
+                        trail[next] = side;
+                        walk.next += 1;
+                        continue;
+                    }
+                    walk.at_leaf = true;
+                    return Ok(true);
                 }
             }
+            back = false;
             // Back to the last member assigned to the right, which goes to
             // the left; those after it are open again.
             loop {
-                if next == start {
-                    break 'search None;
+                if walk.next == walk.start {
+                    return Ok(false);
                 }
-                next -= 1;
-                let m = members[next];
-                if trail[next] == Side::Right {
+                walk.next -= 1;
+                let m = members[walk.next];
+                if trail[walk.next] == Side::Right {
                     split.flip(self.counts, m, Side::Left);
                     right.remove(m);
                     left.insert(m);
-                    trail[next] = Side::Left;
-                    next += 1;
+                    trail[walk.next] = Side::Left;
+                    walk.next += 1;
                     continue 'search;
                 }
                 split.unassign(self.counts, m, Side::Left);
                 left.remove(m);
                 right.insert(m);
             }
-        };
-        self.give_trail(trail);
-        Ok(match found {
-            Some(node) => Found::proved(node),
-            None => Found::failed(cuts),
-        })
+        }
     }
 
     /// Polls the stop condition once every [`SPLITS_PER_POLL`] steps of
@@ -637,4 +818,51 @@ pub(super) enum Forced {
     /// One dual literal per literal of the factor, a tensor of positive
     /// literals.
     Duals,
+}
+
+/// A search for the free splits of a `⊗` over its context, opened: the
+/// members it assigns, the two sides and their counts.
+pub(super) struct Opened {
+    /// The `⊗`.
+    f: OccId,
+    /// Its left factor.
+    a: OccId,
+    /// Its right factor.
+    b: OccId,
+    /// The members the search assigns, in its order.
+    members: Pooled<OccId>,
+    /// The left side.
+    left: Context,
+    /// The right side.
+    right: Context,
+    /// The counts of the two sides.
+    split: Box<Split>,
+}
+
+/// Where a split search stands: the side of every member, how many are
+/// assigned, from which member on it searches, and whether it stands at
+/// a split it has given.
+pub(super) struct Walk {
+    /// Per member, its side, as far as it is assigned.
+    trail: Pooled<Side>,
+    /// The members before it are assigned.
+    next: usize,
+    /// The first member the search assigns.
+    start: usize,
+    /// Whether the search stands at a split it returned.
+    at_leaf: bool,
+}
+
+/// A link of a chain of free splits: its split search, what the splits
+/// it tried cut, and the arena's mark when its last split's premises
+/// began.
+pub(super) struct Frame {
+    /// The split search.
+    opened: Opened,
+    /// Where it stands.
+    walk: Walk,
+    /// What the premises of the splits tried cut.
+    cuts: Cuts,
+    /// The pending nodes from here on are the last split's premises'.
+    mark: usize,
 }
