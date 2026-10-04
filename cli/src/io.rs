@@ -35,9 +35,8 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 pub fn sequent_in(text: &str, format: InputFormat) -> Result<Sequent> {
     match format {
         InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
-        InputFormat::Lltp => Ok(linlog::lltp::read(text)
-            .context("not an LLTP problem")?
-            .sequent),
+        // The library's error says that the text is no LLTP problem.
+        InputFormat::Lltp => Ok(linlog::lltp::read(text)?.sequent),
         _ => text.parse().map_err(|e| crate::parse_error(text, e)),
     }
 }
