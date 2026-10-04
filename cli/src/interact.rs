@@ -6,8 +6,8 @@ use crate::argument_parsing::Threads;
 use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
-    Ended, Show, Shown, alone_first, bytes_text, count_text, derivation, describe, notice_line,
-    on_large_stack, render, stopped, unknown,
+    Ended, Rendered, Show, Shown, alone_first, bound_renders, bytes_text, count_text, derivation,
+    describe, notice_line, on_large_stack, render, stopped, unknown,
 };
 use crate::style::Styles;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
@@ -68,7 +68,8 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     let options = options.jobs(threads.jobs);
     catch_interrupt();
     let stack_size = options.stack_size();
-    let styles = Styles::read(&args.style, None, false)?;
+    let mut styles = Styles::read(&args.style, None, false)?;
+    bound_renders(&mut styles, args.memory_limit.0);
     let mut session = Session {
         styles,
         state,
@@ -254,13 +255,25 @@ impl Session {
                 match (path, format.is_binary()) {
                     (None, true) => bail!("a {} needs a FILE to be written to", format.title()),
                     (None, false) => text,
-                    (Some(path), binary) => {
-                        let mut out = io::Output::open(Some(Path::new(path)), binary)?;
-                        if binary {
-                            out.stream().write_all(&render(&text, format, styles)?)?;
-                        } else {
-                            out.write_str(&text)?;
+                    (Some(path), true) => {
+                        // A Ctrl-C of an earlier `close` must not stop it.
+                        clear_interrupt();
+                        match render(text, format, styles, &interrupted)? {
+                            Rendered::Bytes(bytes) => {
+                                let mut out = io::Output::open(Some(Path::new(path)), true)?;
+                                out.stream().write_all(&bytes)?;
+                                out.finish()?;
+                                format!("derivation so far written to {path}")
+                            }
+                            Rendered::Refused(line) => line,
+                            Rendered::Stopped => {
+                                "the derivation so far is not written: interrupted".to_owned()
+                            }
                         }
+                    }
+                    (Some(path), false) => {
+                        let mut out = io::Output::open(Some(Path::new(path)), false)?;
+                        out.write_str(&text)?;
                         out.finish()?;
                         format!("derivation so far written to {path}")
                     }
@@ -296,9 +309,12 @@ impl Session {
                 } else {
                     let mut show = Show::session(format, self.view, self.styles.clone());
                     show.verdict = path.is_none();
-                    let stopped = || "stopped".to_owned();
+                    // A Ctrl-C of an earlier `close` must not stop it.
+                    clear_interrupt();
+                    let stopped = || "interrupted".to_owned();
                     let prefix = (!text.is_empty()).then_some("\n");
-                    match derivation(&proof, mode, &show, || false, stopped, prefix, &mut text)? {
+                    match derivation(&proof, mode, &show, interrupted, stopped, prefix, &mut text)?
+                    {
                         Shown::LeftOut(line) | Shown::Cut(line) => {
                             text.push('\n');
                             text.push_str(&line);

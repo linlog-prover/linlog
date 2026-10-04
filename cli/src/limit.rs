@@ -104,6 +104,44 @@ impl Deadline {
     }
 }
 
+/// How often a wait for work on a thread of its own asks its stop
+/// condition.
+const POLL: Duration = Duration::from_millis(5);
+
+/// Runs `work` on a thread of its own and returns its result, or `None`
+/// when `stop` fires first, which is asked every [`POLL`]. A renderer
+/// cannot be stopped from inside, so the thread is then left behind: it
+/// ends with the process, or finishes its work and drops it; nothing it
+/// makes is written. The wait is the poll of a call that holds no
+/// condition of its own.
+pub(crate) fn detached<T: Send + 'static>(
+    name: &str,
+    work: impl FnOnce() -> T + Send + 'static,
+    stop: &dyn Fn() -> bool,
+) -> Result<Option<T>> {
+    let (sender, receiver) = channel();
+    let thread = thread::Builder::new()
+        .name(name.into())
+        .stack_size(LOAD_STACK)
+        .spawn(move || {
+            // The receiver is gone when the wait was stopped.
+            let _ = sender.send(work());
+        })
+        .with_context(|| format!("cannot start the {name} thread"))?;
+    loop {
+        match receiver.recv_timeout(POLL) {
+            Ok(done) => return Ok(Some(done)),
+            Err(RecvTimeoutError::Timeout) if stop() => return Ok(None),
+            Err(RecvTimeoutError::Timeout) => {}
+            // The thread ended without a result: it panicked.
+            Err(RecvTimeoutError::Disconnected) => match thread.join() {
+                Err(panic) => std::panic::resume_unwind(panic),
+                Ok(()) => unreachable!("the thread sends before it ends"),
+            },
+        }
+    }
+}
+
 /// A line on standard error while a search runs long, taken back when it
 /// ends, so that a wait at a terminal is never silent and the output is
 /// what it would be without it. Nothing is written when standard error is

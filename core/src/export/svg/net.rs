@@ -85,9 +85,97 @@ fn components(net: &ProofStructure) -> Vec<usize> {
     (0..forest.len()).map(|o| find(&mut parent, o)).collect()
 }
 
+/// The bytes of a drawing's start, its groups and its end, beyond what
+/// [`estimate`] counts per part.
+const DOCUMENT: u64 = 1000;
+
+/// The bytes of a literal's text, beside its name: two `<text>` elements
+/// in a group, for the atom and a raised `⊥`, with coordinates of up to
+/// twelve digits.
+const LITERAL: u64 = 300;
+
+/// The bytes of a connective: its circle, its symbol and its two premise
+/// edges.
+const CONNECTIVE: u64 = 400;
+
+/// The bytes of the edge below a conclusion.
+const ROOT: u64 = 60;
+
+/// The bytes of a link's arc.
+const LINK: u64 = 120;
+
+/// A writer that counts the bytes of what it is given escaped for XML,
+/// and fails once they pass `most`.
+struct Count {
+    /// The bytes counted.
+    bytes: u64,
+    /// The most it counts before it fails.
+    most: u64,
+}
+
+impl Write for Count {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        for c in s.chars() {
+            let escaped = match c {
+                '&' => "&amp;".len(),
+                '<' | '>' => "&lt;".len(),
+                '"' => "&quot;".len(),
+                c => c.len_utf8(),
+            };
+            self.bytes = self.bytes.saturating_add(escaped as u64);
+        }
+        if self.bytes > self.most {
+            return Err(std::fmt::Error);
+        }
+        Ok(())
+    }
+}
+
+/// Returns the bytes of a structure's drawing, estimated from the
+/// structure without drawing it, and at least what the drawing has; once
+/// past `most`, some number past it. Saturating, so that no structure is
+/// estimated small.
+pub(super) fn estimate(net: &ProofStructure, style: &Style, most: u64) -> u64 {
+    let forest = net.forest();
+    let sequent = forest.sequent();
+    let mut bytes = DOCUMENT;
+    for o in forest.ids() {
+        bytes = bytes.saturating_add(match forest.atom(o) {
+            // The name drawn with letters of four bytes and in the title
+            // as it is, with a `⊥` in either.
+            Some(atom) => {
+                let name = sequent.atom_name(atom).len() as u64;
+                LITERAL
+                    .saturating_add(name.saturating_mul(5))
+                    .saturating_add(6)
+            }
+            // In the title, the symbol with a space on either side and
+            // its brackets.
+            None => CONNECTIVE + 9,
+        });
+    }
+    let roots = forest.roots().len() as u64;
+    let links = net.links().len() as u64;
+    bytes = bytes
+        .saturating_add(roots.saturating_mul(ROOT + 2))
+        .saturating_add(links.saturating_mul(LINK));
+    if style.description && bytes <= most {
+        // The text form, as the drawing writes it: its sequent, its links
+        // and the verdict, which names the occurrences of a switching
+        // cycle or of the parts of a disconnected structure.
+        let mut count = Count {
+            bytes: 0,
+            most: most - bytes,
+        };
+        let _ = write!(count, "{net}");
+        bytes = bytes.saturating_add(count.bytes);
+    }
+    bytes
+}
+
 /// Returns a proof structure as an SVG document, titled with its sequent
-/// in plain text.
-pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
+/// in plain text; `verdict` is its [`ProofStructure::is_correct`].
+pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), NetError>) -> String {
     let forest = net.forest();
     let n = forest.len();
     let line_height = i64::from(style.line_height);
@@ -152,7 +240,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style) -> String {
     // structure: every occurrence's component in the switching that keeps
     // each left premise, and the first part's, which stays unmarked.
     let (mut cycle, mut parts) = (Vec::new(), None);
-    match net.is_correct() {
+    match verdict {
         Err(NetError::SwitchingCycle(vertices)) => {
             let next = vertices.iter().cycle().skip(1);
             cycle = vertices

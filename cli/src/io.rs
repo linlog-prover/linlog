@@ -7,6 +7,37 @@ use linlog::{Forest, Sequent};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
+
+/// The files under another name that this process writes outputs to
+/// until they are whole, so that an interrupt can remove them.
+static PARTIAL: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// Returns the name an output to `path` is written under until it is
+/// whole, which an interrupt removes until [`settled`] is called.
+fn partial(path: &Path) -> PathBuf {
+    let mut partial = path.as_os_str().to_owned();
+    partial.push(format!(".{}.partial", std::process::id()));
+    let partial = PathBuf::from(partial);
+    let mut files = PARTIAL.lock().unwrap_or_else(PoisonError::into_inner);
+    files.push(partial.clone());
+    partial
+}
+
+/// Forgets a file of [`partial`] that was renamed or removed.
+fn settled(partial: &Path) {
+    let mut files = PARTIAL.lock().unwrap_or_else(PoisonError::into_inner);
+    files.retain(|file| file != partial);
+}
+
+/// Removes every file an output of this process is being written to:
+/// what an interrupt that ends the process does first.
+pub fn remove_partial_files() {
+    let files = PARTIAL.lock().unwrap_or_else(PoisonError::into_inner);
+    for file in files.iter() {
+        let _ = fs::remove_file(file);
+    }
+}
 
 /// Reads all of a file, or of standard input for `None` or `-`. Refuses to
 /// wait on a terminal, where the user most likely forgot the input.
@@ -110,14 +141,14 @@ fn write_file(path: &Path, text: &str) -> io::Result<()> {
     if fs::metadata(path).is_ok_and(|m| !m.is_file()) {
         return whole(path);
     }
-    let mut partial = path.as_os_str().to_owned();
-    partial.push(format!(".{}.partial", std::process::id()));
-    let partial = Path::new(&partial);
-    whole(partial)
-        .and_then(|()| fs::rename(partial, path))
+    let partial = partial(path);
+    let done = whole(&partial)
+        .and_then(|()| fs::rename(&partial, path))
         .inspect_err(|_| {
-            let _ = fs::remove_file(partial);
-        })
+            let _ = fs::remove_file(&partial);
+        });
+    settled(&partial);
+    done
 }
 
 /// Writes `text` and a newline to the file, which then holds all of it or
@@ -166,10 +197,9 @@ impl Output {
                 (Box::new(file), None)
             }
             Some(path) => {
-                let mut partial = path.as_os_str().to_owned();
-                partial.push(format!(".{}.partial", std::process::id()));
-                let partial = PathBuf::from(partial);
+                let partial = partial(path);
                 let file = fs::File::create(&partial)
+                    .inspect_err(|_| settled(&partial))
                     .with_context(|| format!("cannot write {}", path.display()))?;
                 (Box::new(file), Some((path.to_owned(), partial)))
             }
@@ -206,10 +236,11 @@ impl Output {
             Some((path, partial)) => fs::rename(partial, path),
             None => Ok(()),
         });
-        if done.is_err()
-            && let Some((_, partial)) = &self.rename
-        {
-            let _ = fs::remove_file(partial);
+        if let Some((_, partial)) = self.rename.take() {
+            if done.is_err() {
+                let _ = fs::remove_file(&partial);
+            }
+            settled(&partial);
         }
         done.context(what)
     }
@@ -224,6 +255,7 @@ impl Drop for Output {
         }
         if let Some((_, partial)) = &self.rename {
             let _ = fs::remove_file(partial);
+            settled(partial);
         }
     }
 }

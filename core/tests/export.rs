@@ -342,13 +342,19 @@ fn sequents() {
 #[test]
 fn nets() {
     let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
-    snapshot("net.svg", &svg::net(&net.unwrap(), &Style::default()));
+    snapshot(
+        "net.svg",
+        &svg::net(&net.unwrap(), &Style::default(), None).unwrap(),
+    );
 
     let forest = Forest::new(&"|- A * ~A".parse().unwrap()).unwrap();
     let links = [(OccId::new(1), OccId::new(2))];
     let cyclic = ProofStructure::from_links(forest, false, &links).unwrap();
     assert!(cyclic.is_correct().is_err());
-    snapshot("cycle.svg", &svg::net(&cyclic, &Style::default()));
+    snapshot(
+        "cycle.svg",
+        &svg::net(&cyclic, &Style::default(), None).unwrap(),
+    );
 
     // ⊢ A ⅋ B, ~A, ~B: the part of `B` and `~B` hangs off the right premise.
     let forest = Forest::new(&"|- A par B, ~A, ~B".parse().unwrap()).unwrap();
@@ -357,10 +363,38 @@ fn nets() {
         (OccId::new(2), OccId::new(4)),
     ];
     let parted = ProofStructure::from_links(forest, false, &links).unwrap();
-    let drawing = svg::net(&parted, &Style::default());
+    let drawing = svg::net(&parted, &Style::default(), None).unwrap();
     let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
     assert!(drawing.contains(&highlight), "{drawing}");
     snapshot("disconnected.svg", &drawing);
+}
+
+/// A net's drawing estimated past its limit is not drawn; the estimate is
+/// at least the drawing's bytes and within a few times of them.
+#[test]
+fn net_limit() {
+    let style = Style::default();
+    let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
+    let net = net.unwrap();
+    let drawing = svg::net(&net, &style, None).unwrap();
+    let bytes = drawing.len() as u64;
+    assert!(matches!(
+        svg::net(&net, &style, Some(bytes)),
+        Err(svg::TooLarge { estimate, limit }) if estimate > bytes && limit == bytes
+    ));
+    assert_eq!(svg::net(&net, &style, Some(4 * bytes)), Ok(drawing));
+}
+
+/// The SVG layout asks its stop condition in its first pass over the
+/// inferences, before anything is written.
+#[test]
+fn svg_stops_in_its_layout() {
+    let proof = proof("A * B |- B * A", Mode::CLASSICAL);
+    let derivation = proof.derivation().unwrap();
+    let mut out = String::new();
+    let written = svg::write(&derivation, &Style::default(), &mut out, || true);
+    assert!(matches!(written, Err(linlog::WriteError::Stopped)));
+    assert_eq!(out, "");
 }
 
 /// Parses an SVG document, checks that every text, circle and path lies
@@ -453,7 +487,10 @@ fn svg_structure() {
     );
 
     let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
-    assert_eq!(structure(&svg::net(&net.unwrap(), &style)), [8, 8, 2]);
+    assert_eq!(
+        structure(&svg::net(&net.unwrap(), &style, None).unwrap()),
+        [8, 8, 2]
+    );
 
     let sequent: Sequent = "x_1 * foo |- A".parse().unwrap();
     assert_eq!(structure(&svg::sequent(&sequent, &style)), [5, 0, 0]);
@@ -501,5 +538,42 @@ fn renders() {
     assert_eq!(
         pdf::from_svg(&drawing, &[&font], &pdf::Options::default()),
         Err(RenderError::NoDate)
+    );
+}
+
+/// The bounds of a render are compared before the SVG is parsed: a text
+/// of many glyphs that is no document passes neither the memory bound
+/// nor, with the size its root declares, the pixel bound, and each
+/// refusal says so rather than that the document does not read.
+#[cfg(all(feature = "png", feature = "pdf"))]
+#[test]
+fn render_bounds_come_first() {
+    use linlog::export::{RenderError, pdf, png};
+    let glyphs = format!("<svg><text>{}</text>", "x".repeat(1 << 16));
+    let memory = Some(64 << 20);
+    let png = png::Options {
+        memory,
+        ..png::Options::default()
+    };
+    assert!(matches!(
+        png::from_svg(&glyphs, &[], &png),
+        Err(RenderError::Memory { estimate, limit: 67_108_864 }) if estimate > 1000 << 16
+    ));
+    let pdf = pdf::Options {
+        memory,
+        date: Some(pdf::Date::from_unix(0)),
+        ..pdf::Options::default()
+    };
+    assert!(matches!(
+        pdf::from_svg(&glyphs, &[], &pdf),
+        Err(RenderError::Memory { .. })
+    ));
+    let wide = r#"<svg width="100000" height="1000.5px"><text>"#;
+    assert_eq!(
+        png::from_svg(wide, &[], &png::Options::default()),
+        Err(RenderError::TooLarge {
+            pixels: 200_000 * 2002,
+            limit: png::Options::DEFAULT_PIXELS
+        })
     );
 }

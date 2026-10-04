@@ -88,7 +88,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   pdf instead of the derivation. PNG and PDF (`Format::is_binary`) are
   the SVG drawing rendered by `render` with the Euler Math font the
   command embeds (`FONT`, `cli/fonts/`, its OFL beside it; the crane
-  source keeps that directory), never written to a terminal, their
+  source keeps that directory), on a thread of its own
+  (`limit::detached`) while the caller's stop is asked every 5 ms;
+  `render(svg, format, &styles, &stop)` answers `Rendered::Bytes`,
+  `Refused(line)` (a bound of the library's refused it before the
+  parse) or `Stopped`, and is what a batch of drawings calls too.
+  Binary outputs are never written to a terminal, their
   verdict and notes on standard error and their output without a
   closing newline. A PDF's date is `SOURCE_DATE_EPOCH` when it is set,
   else the clock (`made`); the tests set it, so their PDFs are byte for
@@ -336,9 +341,13 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   format's comment syntax that says it is cut short; an SVG on standard
   output, which is a drawing or nothing, is not finished, so what was
   flushed of it stays and the line goes to standard error. Into a file,
-  no file is made. The verdict stands. Not polled: the PNG and PDF
-  renderers (one call each into resvg and krilla) and the SVG layout's
-  first pass over the inferences.
+  no file is made. The verdict stands. A PNG or PDF render is waited
+  for on its own thread and left out with the reason when the stop
+  fires; the renderers cannot be stopped from inside, so the thread
+  finishes or ends with the process, within the memory bound that its
+  estimate kept (in a batch it lives on, at most about 8 s at the
+  default bound). `halt` looks at the flags once in `STEPS_PER_CLOCK`
+  calls, so the derivation's render calls it that many times per poll.
 - **Shortened lines**: `check`'s verdict line abbreviates the sequent
   and its error report every formula list (`--abbreviate`, `ABBREVIATE`
   200 characters, `none`), through `abbreviated` and the library's
@@ -348,7 +357,18 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Options::DEFAULT_MEMORY_LIMIT`; on `prove` and `interact`) is
   `Options::memory_limit`: a search that passes it answers `unknown …
   the memory limit of 1 GiB was reached; raise it with --memory-limit`,
-  exit status 3. `--occurrence-limit N|none` (`Most`, default
+  exit status 3. It is also the bound of a PNG or PDF render
+  (`bound_renders`, through `Show::within` and in `interact` and `seq
+  print`, which has the flag for that alone): it replaces
+  `png.memory`/`pdf.memory` where the styles leave them at the library's
+  default, so `--style pdf.memory=BYTES` (or `null`) still sets that
+  bound alone. A render the bound or the pixel bound refuses is a
+  left-out line (`Shown::LeftOut`, as past `--derivation-limit`, naming
+  `--memory-limit` or `--style png.pixels`), in a session the command's
+  output; in `seq print`, whose drawing is all its output, an error,
+  exit 2. `--derivation-limit` is also the bound of a net's drawing
+  (`svg::net`'s `limit`; `net_too_large`'s line names the flag).
+  `--occurrence-limit N|none` (`Most`, default
   `Forest::DEFAULT_LIMIT`) is on `SequentInput`, so on every command
   that reads a sequent: `SequentInput::sequent` compares
   `Sequent::occurrences()` with it and refuses with exit status 2
@@ -360,11 +380,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   file are read by serde, which takes no options: their sequents are
   under the default whatever the flag says.
 - **Ctrl-C** (`ctrlc`, whose handler runs on a thread of its own once per
-  signal): the first sets a flag the search polls, so the outcome is
-  unknown and `--stats` still prints; the second exits with 130. The
+  signal): the first sets a flag the search, the derivation and the
+  render's wait poll, so the outcome is unknown and `--stats` still
+  prints; the second removes every file an output is being written to
+  (`io::remove_partial_files`: `io::partial` registers each
+  `FILE.PID.partial` that `Output::open` and `io::write` make, and
+  `settled` forgets it once renamed or removed) and exits with 130. The
   handler is installed by `catch_interrupt`, which `prove` and
-  `interact` call (`check` and `seq` run no search and keep the default
-  of the signal).
+  `interact` call; `check` and `seq print` run no search and install
+  `exit_on_interrupt`, which removes those files and exits with 130 at
+  the first. A session's `show` and `proof` clear the flag first, as
+  `close` does.
 - **JSON output is core's `Outcome` serialization**, unchanged; `check`
   reads it as a `Proof` because the proof's keys are flattened into it.
   The time is not in the JSON (core has no clock, and the output stays

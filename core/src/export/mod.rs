@@ -85,6 +85,19 @@ pub enum RenderError {
         /// The limit in force.
         limit: u64,
     },
+    /// The render is estimated to take more than the options' `memory`
+    /// allows (`png::Options::memory`, `pdf::Options::memory`); nothing
+    /// was parsed.
+    #[error(
+        "the render is estimated to take {estimate} bytes, more than the bound of {limit} \
+         that the options' memory sets"
+    )]
+    Memory {
+        /// The estimate, in bytes.
+        estimate: u64,
+        /// The bound in force.
+        limit: u64,
+    },
     /// A PDF/A document needs the date it was made, and none was given.
     #[error("a PDF/A document needs the date it was made: give pdf::Options::date")]
     NoDate,
@@ -122,4 +135,267 @@ fn parse(svg: &str, fonts: &[&[u8]]) -> Result<resvg::usvg::Tree, RenderError> {
         database.load_font_data(font.to_vec());
     }
     resvg::usvg::Tree::from_str(svg, &options).map_err(|e| RenderError::Svg(e.to_string()))
+}
+
+/// What a render costs per unit of a [`Measure`], in bytes: each the
+/// larger of the memory it was measured to take and the time it was
+/// measured to take at [`BYTES_PER_MICROSECOND`], a quarter more, so that
+/// a bound on the estimate bounds both. Measured with usvg 0.47 and
+/// krilla 0.8 in a release build on one slow core of an x86-64 desktop
+/// (peak resident memory and wall time), on derivations of
+/// `a0 ⊗ … ⊗ aN ⊢ a0 ⊗ … ⊗ aN` (N from 50 to 200, atom names of 2 to 4
+/// and of 20 characters: 0.9 to 13 MB of SVG, up to
+/// 1.2 GB and 5 s as a PDF), a sequent of 40 000 literals on one line
+/// (160 million units wide), and nets of `a0 ⅋ … ⅋ aN, aN⊥ ⅋ … ⅋ a0⊥`
+/// and of crossing links under Mix (500 to 6 000 links, up to 5.7 MB of
+/// SVG and 15 s).
+#[cfg(any(feature = "png", feature = "pdf"))]
+#[derive(Clone, Copy, Debug)]
+struct Costs {
+    /// What every render takes whatever its drawing: the fonts, the
+    /// renderer's own tables.
+    base: u64,
+    /// Per byte of the SVG text, which is read and parsed whole.
+    byte: u64,
+    /// Per element: 3 750 bytes measured in usvg's tree, 3 490 in the
+    /// PDF.
+    element: u64,
+    /// Per glyph: usvg sets each as a path, 795 bytes and 4.7 µs; the
+    /// PDF 1 035 bytes and 6.2 µs with text embedded, 1 600 bytes and
+    /// 12 µs with text as outlines.
+    glyph: u64,
+    /// Per pixel of the image: 6.0 to 6.5 bytes measured, and 33 to 76 ns
+    /// drawing and encoding it.
+    pixel: u64,
+    /// How often the arcs are stroked: once to bound them in the parse,
+    /// and again when the image is drawn.
+    arc_passes: u64,
+}
+
+/// The rate at which the measured renderers fill memory, 128 MiB a
+/// second (usvg and krilla filled 167 MB a second on glyphs): a cost
+/// that takes time and little memory, an arc or a pixel, is charged the
+/// bytes they would fill in that time.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const BYTES_PER_MICROSECOND: u64 = 134;
+
+/// The costs of a PNG: usvg's parse, then the image.
+#[cfg(feature = "png")]
+const PNG: Costs = Costs {
+    base: 32 << 20,
+    byte: 2,
+    element: 4700,
+    glyph: 1000,
+    pixel: 14,
+    arc_passes: 2,
+};
+
+/// The costs of a PDF with its text embedded as text: usvg's parse, then
+/// krilla.
+#[cfg(feature = "pdf")]
+const PDF: Costs = Costs {
+    base: 32 << 20,
+    byte: 2,
+    element: 4400,
+    glyph: 1300,
+    pixel: 0,
+    arc_passes: 1,
+};
+
+/// The costs of a PDF with its text as outlines.
+#[cfg(feature = "pdf")]
+const PDF_OUTLINES: Costs = Costs { glyph: 2000, ..PDF };
+
+/// The microseconds usvg takes at least to stroke an arc, when bounding
+/// it in the parse.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const ARC_LEAST: u64 = 200;
+
+/// The microseconds an arc takes beyond [`ARC_LEAST`] per million units
+/// its start point lies from the origin ([`arc_micros`]).
+#[cfg(any(feature = "png", feature = "pdf"))]
+const ARC_PER_MILLION: u64 = 2000;
+
+/// The microseconds a wide arc takes beyond the others, wherever it
+/// starts: 1.4 ms measured for a half-width of 10 million at the origin.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const ARC_WIDE: u64 = 1500;
+
+/// The half-width from which an arc is wide.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const WIDE: f64 = 5e5;
+
+/// The most microseconds an arc was measured to take, 35 ms, a seventh
+/// more.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const ARC_MOST: u64 = 40_000;
+
+/// Returns the microseconds usvg may take to stroke an arc that starts
+/// `start` units from the origin and has the larger radius `radius`.
+/// usvg computes in single precision, and strokes an arc that starts
+/// millions of units out in many pieces: arcs of half-width 100 000
+/// starting at 8 million units took 11 ms each, at 30 million 24 ms, at
+/// 50 to 200 million 29 to 35 ms, at a billion almost nothing again; a
+/// wide arc near the origin took 1.4 ms. The line through `ARC_LEAST` and
+/// `ARC_PER_MILLION`, `ARC_WIDE` above it for a wide arc, capped at
+/// `ARC_MOST`, lies above every point of a grid of starts from 0 to 10
+/// billion units and half-widths from 1 000 to 30 million, 50 arcs each.
+#[cfg(any(feature = "png", feature = "pdf"))]
+fn arc_micros(start: f64, radius: f64) -> u64 {
+    if !start.is_finite() || !radius.is_finite() {
+        return ARC_MOST;
+    }
+    let out = (start.abs() / 1e6 * ARC_PER_MILLION as f64) as u64;
+    let wide = if radius.abs() >= WIDE { ARC_WIDE } else { 0 };
+    ARC_LEAST
+        .saturating_add(out)
+        .saturating_add(wide)
+        .min(ARC_MOST)
+}
+
+/// What a drawing holds that decides what a render takes, read off its
+/// SVG text without parsing it: usvg sets every glyph as a path and
+/// strokes every arc to bound it before anything can be compared with a
+/// bound.
+#[cfg(any(feature = "png", feature = "pdf"))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Measure {
+    /// The bytes of the text.
+    bytes: u64,
+    /// The elements.
+    elements: u64,
+    /// The characters of the text content but its white space, outside
+    /// `<title>` and `<desc>`: the glyphs of the drawing.
+    glyphs: u64,
+    /// The microseconds stroking the arcs of every path may take
+    /// ([`arc_micros`]).
+    arcs: u64,
+}
+
+#[cfg(any(feature = "png", feature = "pdf"))]
+impl Measure {
+    /// Returns the measure of an SVG document. Every count saturates, so
+    /// that no text, however large, makes the estimate small.
+    fn of(svg: &str) -> Self {
+        let count = |text: &str| text.chars().filter(|c| !c.is_whitespace()).count() as u64;
+        let mut measure = Self {
+            bytes: svg.len() as u64,
+            ..Self::default()
+        };
+        let mut rest = svg;
+        while let Some(start) = rest.find('<') {
+            measure.glyphs = measure.glyphs.saturating_add(count(&rest[..start]));
+            rest = &rest[start..];
+            // What the markup ends with, and the end of it.
+            let end = if rest.starts_with("<!--") {
+                "-->"
+            } else if rest.starts_with("<title") {
+                "</title>"
+            } else if rest.starts_with("<desc") {
+                "</desc>"
+            } else {
+                ">"
+            };
+            let close = rest.find(end).map_or(rest.len(), |i| i + end.len());
+            let tag = &rest[..close];
+            if tag.as_bytes().get(1).is_some_and(u8::is_ascii_alphabetic) {
+                measure.elements = measure.elements.saturating_add(1);
+                if end == ">" {
+                    measure.arcs = measure.arcs.saturating_add(arcs(tag));
+                }
+            }
+            rest = &rest[close..];
+        }
+        measure.glyphs = measure.glyphs.saturating_add(count(rest));
+        measure
+    }
+
+    /// Returns the bytes a render of the drawing is estimated to take at
+    /// `costs`, with an image of `pixels`; saturating, so that a huge
+    /// drawing is refused rather than estimated small.
+    fn estimate(&self, costs: &Costs, pixels: u64) -> u64 {
+        [
+            (self.bytes, costs.byte),
+            (self.elements, costs.element),
+            (self.glyphs, costs.glyph),
+            (pixels, costs.pixel),
+            (
+                self.arcs,
+                BYTES_PER_MICROSECOND.saturating_mul(costs.arc_passes),
+            ),
+        ]
+        .into_iter()
+        .fold(costs.base, |sum, (n, cost)| {
+            sum.saturating_add(n.saturating_mul(cost))
+        })
+    }
+}
+
+/// Returns the microseconds stroking the arcs of a start tag's path data
+/// (its `d` attribute) may take, by [`arc_micros`] of each arc's start
+/// point and radii; saturating. The start point is followed through absolute moves
+/// and lines; an arc after any other command, or in data that does not
+/// read, is taken at [`ARC_MOST`].
+#[cfg(any(feature = "png", feature = "pdf"))]
+fn arcs(tag: &str) -> u64 {
+    let Some(start) = tag.find(" d=\"").map(|i| i + 4) else {
+        return 0;
+    };
+    let data = &tag[start..];
+    let data = &data[..data.find('"').unwrap_or(data.len())];
+    let mut point = Some((0.0f64, 0.0f64));
+    let mut micros = 0u64;
+    let mut rest = data;
+    while let Some(letter) = rest.chars().next() {
+        let end = rest[letter.len_utf8()..]
+            .find(|c: char| c.is_ascii_alphabetic())
+            .map_or(rest.len(), |i| i + letter.len_utf8());
+        let numbers: Option<Vec<f64>> = rest[letter.len_utf8()..end]
+            .split([' ', ','])
+            .filter(|n| !n.is_empty())
+            .map(|n| n.parse().ok())
+            .collect();
+        let numbers = numbers.unwrap_or_default();
+        point = match (letter, numbers.as_slice(), point) {
+            ('M' | 'L', [.., x, y], _) => Some((*x, *y)),
+            ('H', [.., x], Some((_, y))) => Some((*x, y)),
+            ('V', [.., y], Some((x, _))) => Some((x, *y)),
+            ('A', arcs, mut at) if !arcs.is_empty() && arcs.len() % 7 == 0 => {
+                for arc in arcs.chunks(7) {
+                    micros = micros.saturating_add(match at {
+                        Some((x, y)) => {
+                            arc_micros(x.abs().max(y.abs()), arc[0].abs().max(arc[1].abs()))
+                        }
+                        None => ARC_MOST,
+                    });
+                    at = Some((arc[5], arc[6]));
+                }
+                at
+            }
+            ('A' | 'a', ..) => {
+                micros = micros.saturating_add(ARC_MOST);
+                None
+            }
+            _ => None,
+        };
+        rest = &rest[end..];
+    }
+    micros
+}
+
+/// Returns the width and height an SVG document's root declares, in
+/// pixels, read off its start tag without parsing the document: plain
+/// numbers or numbers of `px`, as every drawing of
+/// [`svg`](crate::export::svg) has them; `None` for anything else.
+#[cfg(feature = "png")]
+fn declared_size(svg: &str) -> Option<(f64, f64)> {
+    let root = &svg[svg.find("<svg")?..];
+    let root = &root[..root.find('>')?];
+    let attribute = |name: &str| -> Option<f64> {
+        let value = &root[root.find(&format!(" {name}=\""))? + name.len() + 3..];
+        let value = &value[..value.find('"')?];
+        let number: f64 = value.strip_suffix("px").unwrap_or(value).parse().ok()?;
+        (number.is_finite() && number > 0.0).then_some(number)
+    };
+    Some((attribute("width")?, attribute("height")?))
 }

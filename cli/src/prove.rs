@@ -5,11 +5,11 @@ use crate::argument_parsing::{
     CheckArgs, Format, OutputArgs, ProveArgs, SequentFormat, Threads, Tree, threads,
 };
 use crate::io;
-use crate::limit::{Deadline, Notice};
+use crate::limit::{Deadline, Notice, detached};
 use crate::style::Styles;
-use crate::{Status, catch_interrupt, interrupted};
+use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
-use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
+use linlog::export::{Form, RenderError, latex, pdf, png, rocq, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
 use linlog::{
     Compact, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size,
@@ -256,10 +256,11 @@ impl Show {
         })
     }
 
-    /// The same, with every derivation and the check behind it within
-    /// `memory` bytes.
+    /// The same, with every derivation and the check behind it, and every
+    /// render, within `memory` bytes.
     pub(crate) fn within(mut self, memory: Option<u64>) -> Self {
         self.view.memory = memory;
+        bound_renders(&mut self.styles, memory);
         self
     }
 
@@ -659,10 +660,19 @@ pub(crate) fn derivation(
     }
     if show.format.is_binary() {
         let mut drawing = String::new();
-        return match svg::write(&d, &styles.svg, &mut drawing, &mut halt) {
-            Ok(()) => Ok(Shown::Rendered(render(&drawing, show.format, styles)?)),
-            Err(_) => Ok(stopped()),
-        };
+        if svg::write(&d, &styles.svg, &mut drawing, &mut halt).is_err() {
+            return Ok(stopped());
+        }
+        drop(d);
+        // `halt` looks at its condition once in `STEPS_PER_CLOCK` calls,
+        // and the render's wait asks every few milliseconds.
+        let halt = std::cell::RefCell::new(halt);
+        let stop = || (0..STEPS_PER_CLOCK).any(|_| (halt.borrow_mut())());
+        return Ok(match render(drawing, show.format, styles, &stop)? {
+            Rendered::Bytes(bytes) => Shown::Rendered(bytes),
+            Rendered::Refused(line) => Shown::LeftOut(line),
+            Rendered::Stopped => stopped(),
+        });
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
@@ -770,12 +780,52 @@ pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
 /// licence is `fonts/OFL.txt`.
 const FONT: &[u8] = include_bytes!("../fonts/Euler-Math.otf");
 
-/// Returns an SVG document rendered in a binary format, PNG or PDF, with
-/// the Euler Math font and whatever font the style names that the
-/// renderer knows of.
-pub(crate) fn render(svg: &str, format: Format, styles: &Styles) -> Result<Vec<u8>> {
-    match format {
-        Format::Png => Ok(png::from_svg(svg, &[FONT], &styles.png)?),
+/// What became of a drawing handed to a renderer.
+pub(crate) enum Rendered {
+    /// The bytes of the image or the document.
+    Bytes(Vec<u8>),
+    /// A bound refused it before the render began, for the reason this
+    /// line gives with the flag that raises the bound.
+    Refused(String),
+    /// The stop condition fired before the render ended.
+    Stopped,
+}
+
+/// Sets the bound on what a PNG or PDF render takes to `memory`, the
+/// command's `--memory-limit`, where the styles leave it at the library's
+/// default.
+pub(crate) fn bound_renders(styles: &mut Styles, memory: Option<u64>) {
+    if styles.png.memory == Some(png::Options::DEFAULT_MEMORY) {
+        styles.png.memory = memory;
+    }
+    if styles.pdf.memory == Some(pdf::Options::DEFAULT_MEMORY) {
+        styles.pdf.memory = memory;
+    }
+}
+
+/// Renders an SVG document in a binary format, PNG or PDF, with the Euler
+/// Math font and whatever font the style names that the renderer knows
+/// of, on a thread of its own while `stop` is asked every few
+/// milliseconds: the renderers cannot be stopped from inside. Returns the
+/// bytes, the line of a bound that refused the drawing before it was
+/// parsed, or that `stop` fired; the thread of a stopped render is left
+/// to finish, within the memory bound that its estimate kept, and what
+/// it makes is dropped.
+pub(crate) fn render(
+    svg: String,
+    format: Format,
+    styles: &Styles,
+    stop: &dyn Fn() -> bool,
+) -> Result<Rendered> {
+    let rendered = match format {
+        Format::Png => {
+            let options = styles.png.clone();
+            detached(
+                "render",
+                move || png::from_svg(&svg, &[FONT], &options),
+                stop,
+            )?
+        }
         _ => {
             let mut options = styles.pdf.clone();
             if options.date.is_none() {
@@ -788,9 +838,31 @@ pub(crate) fn render(svg: &str, format: Format, styles: &Styles) -> Result<Vec<u
                      and a long proof may still be hard to follow"
                 );
             }
-            Ok(pdf::from_svg(svg, &[FONT], &options)?)
+            detached(
+                "render",
+                move || pdf::from_svg(&svg, &[FONT], &options),
+                stop,
+            )?
         }
-    }
+    };
+    Ok(match rendered {
+        None => Rendered::Stopped,
+        Some(Ok(bytes)) => Rendered::Bytes(bytes),
+        Some(Err(RenderError::Memory { estimate, limit })) => Rendered::Refused(format!(
+            "the drawing is not rendered: the {} is estimated to take {}, over the memory limit \
+             of {}; --memory-limit SIZE raises the limit, and the svg format writes the drawing \
+             without rendering it",
+            format.title(),
+            bytes_text(estimate),
+            bytes_text(limit)
+        )),
+        Some(Err(RenderError::TooLarge { pixels, limit })) => Rendered::Refused(format!(
+            "the drawing is not rendered: the image would have {pixels} pixels, over the limit \
+             of {limit}; --style png.pixels=N raises the limit, and the svg format writes the \
+             drawing without rendering it"
+        )),
+        Some(Err(error)) => return Err(error.into()),
+    })
 }
 
 /// Returns the date a document is made: `SOURCE_DATE_EPOCH`, the seconds
@@ -808,17 +880,36 @@ fn made() -> Result<pdf::Date> {
     Ok(pdf::Date::from_unix(seconds))
 }
 
+/// Returns the line for a proof net whose drawing is past the limit.
+fn net_too_large(net: &ProofStructure, error: svg::TooLarge) -> String {
+    format!(
+        "the proof net is not drawn: its {} occurrences and {} links are estimated at {}, over \
+         the limit of {}; the text format writes the net itself, --derivation-limit SIZE raises \
+         the limit and --derivation-limit none lifts it",
+        net.forest().len(),
+        net.links().len(),
+        bytes_text(error.estimate),
+        bytes_text(error.limit)
+    )
+}
+
 /// Writes the proof net of a proof into `out` as `show` asks: as text, or
-/// drawn as an SVG document, a PNG image or a PDF document. `found` is the
-/// net the net engine found, if it ran.
+/// drawn as an SVG document, a PNG image or a PDF document; or says why
+/// the drawing is left out: it is estimated past the derivation limit, a
+/// bound of the render refused it, or `stop` fired while it was rendered,
+/// for the reason `why` gives. `found` is the net the net engine found,
+/// if it ran.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn net_into(
     found: Option<&ProofStructure>,
     proof: &Proof,
     mode: Mode,
     show: &Show,
+    stop: &dyn Fn() -> bool,
+    why: &dyn Fn() -> String,
     prefix: Option<&str>,
     out: &mut io::Output,
-) -> Result<()> {
+) -> Result<Shown> {
     let made;
     let net = match found {
         Some(net) => net,
@@ -828,16 +919,23 @@ pub(crate) fn net_into(
         }
     };
     let separator = prefix.unwrap_or("");
-    match show.format {
-        Format::Svg => write!(out, "{separator}{}", svg::net(net, &show.styles.svg))?,
-        Format::Png | Format::Pdf => {
-            let drawing = svg::net(net, &show.styles.svg);
-            out.stream()
-                .write_all(&render(&drawing, show.format, &show.styles)?)?;
-        }
-        _ => write!(out, "{separator}{net}")?,
+    if !matches!(show.format, Format::Svg | Format::Png | Format::Pdf) {
+        write!(out, "{separator}{net}")?;
+        return Ok(Shown::Written);
     }
-    Ok(())
+    let drawing = match svg::net(net, &show.styles.svg, show.view.limit) {
+        Ok(drawing) => drawing,
+        Err(error) => return Ok(Shown::LeftOut(net_too_large(net, error))),
+    };
+    if show.format == Format::Svg {
+        write!(out, "{separator}{drawing}")?;
+        return Ok(Shown::Written);
+    }
+    Ok(match render(drawing, show.format, &show.styles, stop)? {
+        Rendered::Bytes(bytes) => Shown::Rendered(bytes),
+        Rendered::Refused(line) => Shown::LeftOut(line),
+        Rendered::Stopped => Shown::LeftOut(format!("the proof net is not drawn: {}", why())),
+    })
 }
 
 /// Fails unless proof nets exist for the sequent in the mode: unit-free
@@ -961,8 +1059,16 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let shown = match (&outcome.verdict, format, quiet) {
             (Verdict::Proved(proof), _, false) if show.net => {
                 let found = outcome.net.as_ref();
-                net_into(found, proof, mode, &show, prefix.as_deref(), &mut out)?;
-                Shown::Written
+                net_into(
+                    found,
+                    proof,
+                    mode,
+                    &show,
+                    &over,
+                    &why,
+                    prefix.as_deref(),
+                    &mut out,
+                )?
             }
             (Verdict::Proved(_), _, false) if over() => {
                 Shown::LeftOut(format!("the derivation is not written: {}", why()))
@@ -1095,6 +1201,7 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     let quiet = args.output.quiet;
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     let path = args.output.output.clone();
+    exit_on_interrupt();
     let valid = on_large_stack(Options::default().stack_size(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let (valid, keep) = check_into(&proof, mode, &show, quiet, &mut out)?;
@@ -1163,8 +1270,18 @@ fn check_into(
     }
     if show.net {
         nets_exist(proof.sequent(), mode)?;
-        net_into(None, proof, mode, show, prefix.as_deref(), out)?;
-        return Ok((true, true));
+        let stopped = || "stopped".to_owned();
+        let shown = net_into(
+            None,
+            proof,
+            mode,
+            show,
+            &|| false,
+            &stopped,
+            prefix.as_deref(),
+            out,
+        )?;
+        return Ok((true, show.close(out, shown, line.as_deref())?));
     }
     let stopped = || "stopped".to_owned();
     let shown = derivation(proof, mode, show, || false, stopped, prefix.as_deref(), out)?;

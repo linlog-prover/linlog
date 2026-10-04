@@ -89,16 +89,28 @@ pub fn clear_interrupt() {
     INTERRUPTED.store(false, Ordering::Relaxed);
 }
 
-/// Makes the first Ctrl-C stop the search, so that its verdict is unknown
-/// and the statistics still print, and a second one end the program as
-/// Ctrl-C usually does.
+/// Makes the first Ctrl-C stop the search, or the derivation or drawing
+/// made after it, so that its verdict is unknown and the statistics still
+/// print, and a second one end the program as Ctrl-C usually does, after
+/// removing the files its outputs were being written to.
 pub fn catch_interrupt() {
     // The handler runs on a thread of its own, once per signal, so it may
     // exit. Without it Ctrl-C ends the program, which is a fine fallback.
     let _ = ctrlc::set_handler(|| {
         if INTERRUPTED.swap(true, Ordering::Relaxed) {
+            io::remove_partial_files();
             std::process::exit(130);
         }
+    });
+}
+
+/// Makes Ctrl-C end the program as it usually does, after removing the
+/// files its outputs were being written to: for a command that runs no
+/// search.
+pub fn exit_on_interrupt() {
+    let _ = ctrlc::set_handler(|| {
+        io::remove_partial_files();
+        std::process::exit(130);
     });
 }
 
@@ -200,7 +212,9 @@ fn run(cli: &Cli) -> Result<Status> {
                     standalone,
                     output,
                     style,
+                    memory_limit,
                 } => {
+                    exit_on_interrupt();
                     let mode = Mode {
                         intuitionistic: *intuitionistic,
                         ..Mode::CLASSICAL
@@ -217,7 +231,8 @@ fn run(cli: &Cli) -> Result<Status> {
                         SequentFormat::Png => ("png", Some(Format::Png)),
                         SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
                     };
-                    let styles = style::Styles::read(style, Some(key), *standalone)?;
+                    let mut styles = style::Styles::read(style, Some(key), *standalone)?;
+                    prove::bound_renders(&mut styles, memory_limit.0);
                     let text = prove::sequent_in(&input.sequent()?, mode, *format, &styles)?;
                     match binary {
                         None => io::write(output.as_deref(), &text)?,
@@ -227,9 +242,15 @@ fn run(cli: &Cli) -> Result<Status> {
                                     "a {format:?} is not for a terminal: write it with --output FILE"
                                 );
                             }
+                            // The sequent is all the output: a render the
+                            // bound refuses is an error.
+                            let bytes = match prove::render(text, format, &styles, &|| false)? {
+                                prove::Rendered::Bytes(bytes) => bytes,
+                                prove::Rendered::Refused(line) => bail!("{line}"),
+                                prove::Rendered::Stopped => unreachable!("nothing stops it"),
+                            };
                             let mut out = io::Output::open(output.as_deref(), true)?;
-                            out.stream()
-                                .write_all(&prove::render(&text, format, &styles)?)?;
+                            out.stream().write_all(&bytes)?;
                             out.finish()?;
                         }
                     }

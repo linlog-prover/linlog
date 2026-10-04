@@ -582,30 +582,33 @@ impl Shared {
         let mut out = open()?;
         let prefix = (show.verdict && !show.format.is_binary())
             .then(|| format!("{}\n", crate::prove::note(show.format, line)));
-        if show.net {
-            net_into(
-                outcome.net.as_ref(),
-                proof,
-                mode,
-                show,
-                prefix.as_deref(),
-                &mut out,
-            )?;
-            out.finish()?;
-            return Ok(None);
-        }
-        let mut steps = 0u32;
-        let halt = || {
-            steps = steps.wrapping_add(1);
-            steps.is_multiple_of(STEPS_PER_CLOCK) && over()
-        };
         let why = || match self.args.timeout.0 {
             _ if interrupted() => "interrupted".to_owned(),
             _ if self.batch.passed() => "the batch's time limit was reached".to_owned(),
             Some(t) => format!("the time limit of {t:?} was reached"),
             None => "stopped".to_owned(),
         };
-        match derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)? {
+        let shown = if show.net {
+            let found = outcome.net.as_ref();
+            net_into(
+                found,
+                proof,
+                mode,
+                show,
+                &over,
+                &why,
+                prefix.as_deref(),
+                &mut out,
+            )?
+        } else {
+            let mut steps = 0u32;
+            let halt = || {
+                steps = steps.wrapping_add(1);
+                steps.is_multiple_of(STEPS_PER_CLOCK) && over()
+            };
+            derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)?
+        };
+        match shown {
             Shown::Written => out.finish()?,
             Shown::Rendered(bytes) => {
                 out.stream().write_all(&bytes)?;

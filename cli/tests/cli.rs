@@ -294,6 +294,60 @@ fn derivation_limit_and_tree_switch() {
     );
 }
 
+/// A drawing past a bound is left out with a line that names the flag,
+/// and no file is made: a PNG or PDF render the memory bound refuses
+/// before it starts, and a proof net's drawing past `--derivation-limit`;
+/// `seq print`, whose drawing is its whole output, fails instead.
+#[test]
+fn bounded_drawings() {
+    let file = scratch("bounded.pdf");
+    let path = file.to_str().unwrap();
+    let args = ["prove", "-o", path, "--style", "pdf.memory=1000", "A |- A"];
+    let (status, out, err) = linlog(&args, "");
+    assert_eq!((status, out.as_str()), (0, ""));
+    assert!(
+        err.starts_with(
+            "provable (MLL, classical, net engine)\nthe drawing is not rendered: the PDF is \
+             estimated to take "
+        ) && err.contains("over the memory limit of 1000 B; --memory-limit SIZE raises the limit"),
+        "{err}"
+    );
+    assert!(!file.exists());
+
+    let net = [
+        "prove",
+        "--net",
+        "--format",
+        "svg",
+        "--derivation-limit",
+        "100",
+    ];
+    let (status, out, err) = linlog(&[&net[..], &["A * B |- B * A"]].concat(), "");
+    assert_eq!((status, out.as_str()), (0, ""));
+    assert!(
+        err.contains("the proof net is not drawn: its 6 occurrences and 2 links are estimated at ")
+            && err.contains("--derivation-limit SIZE raises the limit"),
+        "{err}"
+    );
+
+    let file = scratch("bounded.png");
+    let args = [
+        "seq",
+        "print",
+        "--format",
+        "png",
+        "-o",
+        file.to_str().unwrap(),
+    ];
+    let (status, _, err) = linlog(
+        &[&args[..], &["--memory-limit", "1KiB", "A |- A"]].concat(),
+        "",
+    );
+    assert_eq!(status, 2);
+    assert!(err.contains("the drawing is not rendered"), "{err}");
+    assert!(!file.exists());
+}
+
 /// `prove` prints the verdict line and the derivation, and exits 0 for
 /// provable, 1 for unprovable, 3 for unknown and 2 for an error.
 #[test]
@@ -1022,6 +1076,8 @@ fn every_style_option() {
         (&ill, "svg", "background", "\"white\"", true),
         (&ill, "png", "scale", "1", true),
         (&ill, "png", "pixels", "100", true),
+        (&ill, "png", "memory", "1000", true),
+        (&ill, "pdf", "memory", "1000", true),
         (&ill, "pdf", "embed_text", "false", true),
         (&ill, "pdf", "compatible", "true", true),
         (&ill, "pdf", "accessible", "true", true),

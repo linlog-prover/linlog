@@ -10,7 +10,7 @@
 //! size, and carries the drawing's title and description as its `Title`
 //! and `Description`.
 
-use super::{RenderError, parse, texts};
+use super::{Measure, PNG, RenderError, declared_size, parse, texts};
 use resvg::tiny_skia::{Pixmap, Transform};
 
 /// What a user may vary in a PNG beyond the drawing's style.
@@ -22,9 +22,18 @@ pub struct Options {
     pub scale: u32,
     /// The most pixels the image may have, or `None` for no bound: an
     /// image takes up to eight bytes per pixel while it is drawn and
-    /// encoded. The bound is compared once the SVG is parsed, which takes
-    /// memory of its own, some 80 bytes per byte of SVG.
+    /// encoded. The bound is compared before the SVG is parsed, with the
+    /// size its root declares, and again after.
     pub pixels: Option<u64>,
+    /// The most bytes the render may take, by an estimate made before the
+    /// SVG is parsed, or `None` for no bound. The estimate counts the
+    /// glyphs of the drawing (usvg sets each as a path, some 1 000 bytes),
+    /// its elements, the arcs usvg strokes to bound them and the pixels
+    /// of the image; what takes time rather than memory is counted as the
+    /// memory the renderer fills in that time, so that the bound keeps a
+    /// render short as well: the default is about 8 s of rendering on a
+    /// slow core at most.
+    pub memory: Option<u64>,
 }
 
 impl Options {
@@ -33,44 +42,68 @@ impl Options {
     /// The default bound on the pixels, 64 million: about 512 MiB while
     /// drawn.
     pub const DEFAULT_PIXELS: u64 = 1 << 26;
+    /// The default bound on what a render takes, 1 GiB, the crate's
+    /// [`DEFAULT_MEMORY_LIMIT`](crate::DEFAULT_MEMORY_LIMIT).
+    pub const DEFAULT_MEMORY: u64 = crate::DEFAULT_MEMORY_LIMIT;
 }
 
 impl Default for Options {
-    /// Returns [`DEFAULT_SCALE`](Self::DEFAULT_SCALE) and
-    /// [`DEFAULT_PIXELS`](Self::DEFAULT_PIXELS).
+    /// Returns [`DEFAULT_SCALE`](Self::DEFAULT_SCALE),
+    /// [`DEFAULT_PIXELS`](Self::DEFAULT_PIXELS) and
+    /// [`DEFAULT_MEMORY`](Self::DEFAULT_MEMORY).
     fn default() -> Self {
         Self {
             scale: Self::DEFAULT_SCALE,
             pixels: Some(Self::DEFAULT_PIXELS),
+            memory: Some(Self::DEFAULT_MEMORY),
         }
     }
 }
 
 /// Returns an SVG document rendered as a PNG image, its text set in
-/// `fonts` (the data of font files), or why it is not: the text is no
-/// document the renderer reads, or the image would pass the bound.
+/// `fonts` (the data of font files), or why it is not: the image would
+/// pass the bound on its pixels, the render the bound on its memory
+/// (both compared before the SVG is parsed, the pixels again after), or
+/// the text is no document the renderer reads.
 pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, RenderError> {
-    let tree = parse(svg, fonts)?;
     let scale = options.scale.max(1);
-    let size = tree.size().to_int_size();
-    let (width, height) = (
-        u64::from(size.width()) * u64::from(scale),
-        u64::from(size.height()) * u64::from(scale),
-    );
-    let pixels = width * height;
-    let too_large = || RenderError::TooLarge {
+    let pixels_of = |(width, height): (u64, u64)| {
+        let side = |n: u64| n.saturating_mul(u64::from(scale));
+        (
+            side(width),
+            side(height),
+            side(width).saturating_mul(side(height)),
+        )
+    };
+    let too_large = |pixels| RenderError::TooLarge {
         pixels,
         limit: options.pixels.unwrap_or(u64::MAX),
     };
-    if options.pixels.is_some_and(|limit| pixels > limit) {
-        return Err(too_large());
-    }
+    let measure = Measure::of(svg);
+    // Within the bounds, or why not, for an image of `pixels`.
+    let check = |pixels: u64| {
+        if options.pixels.is_some_and(|limit| pixels > limit) {
+            return Err(too_large(pixels));
+        }
+        let estimate = measure.estimate(&PNG, pixels);
+        match options.memory {
+            Some(limit) if estimate > limit => Err(RenderError::Memory { estimate, limit }),
+            _ => Ok(()),
+        }
+    };
+    // usvg rounds the declared size up to whole pixels.
+    let declared = declared_size(svg).map(|(w, h)| pixels_of((w.ceil() as u64, h.ceil() as u64)));
+    check(declared.map_or(0, |(_, _, pixels)| pixels))?;
+    let tree = parse(svg, fonts)?;
+    let size = tree.size().to_int_size();
+    let (width, height, pixels) = pixels_of((u64::from(size.width()), u64::from(size.height())));
+    check(pixels)?;
     // tiny-skia refuses what its own sizes cannot hold.
     let fits = |n: u64| u32::try_from(n).ok();
     let mut pixmap = fits(width)
         .zip(fits(height))
         .and_then(|(w, h)| Pixmap::new(w, h))
-        .ok_or_else(too_large)?;
+        .ok_or_else(|| too_large(pixels))?;
     let factor = scale as f32;
     resvg::render(
         &tree,

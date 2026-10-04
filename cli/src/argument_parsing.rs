@@ -153,7 +153,11 @@ pub struct ProveArgs {
     /// built from it are under the same limit: a derivation estimated
     /// above it is left out even with `--derivation-limit none`. By
     /// default one thread and, after `--pool-after`, a pool beside it
-    /// search at once, each within the limit.
+    /// search at once, each within the limit. A png or pdf render is
+    /// estimated before it starts, its time counted as the memory the
+    /// renderer fills in it, and left out above the limit (the default
+    /// is a few seconds of rendering); `--style png.memory=BYTES` or
+    /// `pdf.memory` sets that bound alone.
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
     pub memory_limit: Limit,
     /// The deepest nesting of rules on one branch before the search gives up
@@ -323,7 +327,8 @@ pub struct InteractArgs {
     /// `prove --memo-limit`
     #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
     pub memo_limit: usize,
-    /// The most memory a `close` may hold; see `prove --memory-limit`
+    /// The most memory a `close` may hold, and a png or pdf render of
+    /// `show` or `proof`; see `prove --memory-limit`
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
     pub memory_limit: Limit,
     /// The deepest nesting of rules on one branch before a `close` gives
@@ -426,7 +431,8 @@ pub struct CheckArgs {
     ///
     /// A proof whose check would pass it is neither valid nor invalid:
     /// the command ends with an error. A derivation estimated above it
-    /// is left out, as past `--derivation-limit`.
+    /// is left out, as past `--derivation-limit`, and so is a png or pdf
+    /// render; see `prove --memory-limit`.
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
     pub memory_limit: Limit,
     /// The proof file, or standard input when absent or `-`
@@ -472,6 +478,11 @@ pub enum SeqCommand {
         /// How the output looks.
         #[command(flatten)]
         style: StyleArgs,
+        /// The most memory a png or pdf render may take, by its estimate:
+        /// a number of bytes with a unit such as 512MiB or 4GiB, or `none`
+        /// for no limit; see `prove --memory-limit`
+        #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
+        memory_limit: Limit,
     },
     /// Print a sequent as JSON, the form `--json-input` reads
     #[command(after_help = SYNTAX)]
@@ -699,6 +710,8 @@ pub struct OutputArgs {
     /// limit is not built, in any format: the verdict is reported without
     /// it, with a line that says how large it is, and the exit status is
     /// the verdict's. `--format json` writes the proof itself at any size.
+    /// The drawing of a proof net (`--net`) is estimated before it is
+    /// drawn and left out above the same limit.
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit::default())]
     pub derivation_limit: Limit,
     /// When a run of one structural rule, such as the weakenings of every

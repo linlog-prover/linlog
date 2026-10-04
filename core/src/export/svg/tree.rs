@@ -37,8 +37,8 @@ struct Place {
 }
 
 /// Writes a derivation as an SVG document of its proof tree into `out`,
-/// titled with its conclusion in plain text, and asks `stop` after the
-/// elements of each inference.
+/// titled with its conclusion in plain text, and asks `stop` after
+/// laying out each inference and after writing its elements.
 pub(super) fn draw(
     derivation: &Derivation,
     style: &Style,
@@ -102,6 +102,9 @@ pub(super) fn draw(
         let Step::Exit(id, depth) = step else {
             return Ok::<_, WriteError>(());
         };
+        if stop() {
+            return Err(WriteError::Stopped);
+        }
         let inference = derivation.inference(id);
         let width = conclusion(&mut sequent, id).width;
         let baseline = -(depth as i64) * line_height;

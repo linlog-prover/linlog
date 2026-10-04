@@ -22,9 +22,10 @@ for NanoYalla. What the code relies on:
   &options)`, `two_sided(&reading, &options)` and `derivation(&derivation,
   &options)`, finished or with open goals, as a fragment or a standalone
   document by `Options::form`; `svg` draws `sequent`, `two_sided`,
-  `derivation` and `net(&structure, &style)` under a `Style` (the font
+  `derivation` and `net(&structure, &style, limit)` under a `Style` (the font
   and its advances, labels, the open goal's shape, ids per formula,
-  sizes, gaps, colours); `rocq::derivation` writes the lemma
+  sizes, gaps, colours; `net` answers `svg::TooLarge` past `limit`);
+  `rocq::derivation` writes the lemma
   `Options::lemma`, or a file that starts with `Options::prelude`, and
   refuses an open goal, Mix, affine weakening and a compact derivation
   with `Unsupported`; `png::from_svg` and `pdf::from_svg` render a
@@ -190,14 +191,43 @@ for NanoYalla. What the code relies on:
   page cannot collide (SVG-AAM takes them from the elements).
 - **The PNG declares itself**: sRGB, a density of 96 dpi times the
   scale (so a viewer shows it at the drawing's size), `Title` and
-  `Description` as iTXt; a pixel bound (`png::Options::pixels`)
-  refuses before the image is allocated, which is up to eight bytes a
-  pixel, but after the SVG is parsed. **Nothing bounds the renderers
-  yet**: usvg's parse takes some 80 bytes per byte of SVG (it sets every
-  glyph as a path), krilla's PDF 90 to 145, so a derivation the default
-  `ViewOptions` admits (an SVG of 52 MB) took over 4 GiB as a PDF; and
-  usvg strokes every wide arc of a net to bound it, 17 s for a net of
-  6 000 links (4.4 MB of SVG), which no stop reaches.
+  `Description` as iTXt. Its pixel bound (`png::Options::pixels`) is
+  compared before the parse with the `width`/`height` the root declares
+  (`declared_size`, plain or `px` numbers, rounded up as usvg does) and
+  again after it, for a size the text did not give.
+- **A render is bounded before usvg parses anything**
+  (`png::Options::memory`, `pdf::Options::memory`, default 1 GiB, the
+  crate's `DEFAULT_MEMORY_LIMIT`; `RenderError::Memory`): usvg sets
+  every glyph as a path and strokes every arc to bound it inside one
+  call, so nothing can be compared or polled once it runs. The estimate
+  is `Measure::of` (bytes, elements, glyphs outside `<title>`/`<desc>`,
+  and each arc's time by `arc_micros`, all read off the text in one
+  pass) times a `Costs` per output (`PNG`, `PDF`, `PDF_OUTLINES`; the
+  PNG adds its pixels and strokes arcs twice). Every coefficient is the
+  larger of the memory and the time measured per unit, time counted at
+  `BYTES_PER_MICROSECOND` (128 MiB/s), a quarter more: so the bound
+  bounds memory and time at once, 1 GiB being at most 8 s of render on a
+  slow core (measured on core 6 of the author's desktop; the measured
+  peaks and times are 1.3 to 9 times below the estimate). The doc
+  comments on `Costs` and `arc_micros` say what was measured; a new
+  renderer version or an output with other elements is measured again
+  the same way (peak RSS with `/usr/bin/time -v`, one core, capped).
+- **usvg's cost of an arc is a precision fault, not its size**: it
+  computes in `f32`, and an arc starting millions of units out (a net
+  wider than a few thousand literals) is stroked in many pieces, up to
+  35 ms each (50 to 200 million units), against microseconds near the
+  origin; past a billion units it is cheap again. `arc_micros` is a line
+  in the start's distance capped at 35 ms plus 1.4 ms for a wide arc. A
+  link drawn in coordinates of its own (a `translate` on each arc) would
+  avoid the fault; the drawing does not do it yet.
+- **A net's drawing has a size bound like a derivation's**: `svg::net`
+  estimates its bytes from the structure (`net::estimate`: fixed bytes
+  per literal plus its name, per connective, conclusion and link, and
+  the description counted by writing the net's text form into a counter
+  that gives up past the limit) and refuses past `limit`; the estimate
+  is at least the drawing (`net_limit` checks it within four times).
+- The SVG tree asks `stop` after laying out each inference in its first
+  pass too (before the head is written), not only while it writes.
 - **Dependency versions**: krilla-svg pins usvg 0.47, so resvg stays at
   0.47 with it: one usvg tree serves both, and `deny.toml` ignores the
   unmaintained rustybuzz and ttf-parser beneath them until krilla moves

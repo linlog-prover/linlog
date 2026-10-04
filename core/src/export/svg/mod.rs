@@ -605,8 +605,31 @@ pub fn write(
 /// has the edges, conclusions and links of every part but the first in
 /// it. Literals and connectives are the
 /// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
-pub fn net(net: &ProofStructure, style: &Style) -> String {
-    net::draw(net, style)
+///
+/// A drawing estimated at more than `limit` bytes is not drawn, as a
+/// derivation past [`ViewOptions::limit`](crate::ViewOptions) is not
+/// built: the estimate counts every literal, connective, conclusion and
+/// link from the structure, at least what the drawing has, and `None`
+/// lifts the bound.
+pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<String, TooLarge> {
+    if let Some(limit) = limit {
+        let estimate = net::estimate(net, style, limit);
+        if estimate > limit {
+            return Err(TooLarge { estimate, limit });
+        }
+    }
+    Ok(net::draw(net, style, &net.is_correct()))
+}
+
+/// A drawing estimated at more bytes than the limit it was given; nothing
+/// was drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("the drawing is estimated at {estimate} bytes, more than the limit of {limit}")]
+pub struct TooLarge {
+    /// The estimate, in bytes; once past the limit, some number past it.
+    pub estimate: u64,
+    /// The limit in force.
+    pub limit: u64,
 }
 
 #[cfg(test)]
