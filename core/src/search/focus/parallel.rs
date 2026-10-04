@@ -32,7 +32,7 @@ use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId, Side};
 use crate::search::memory::{Account, Charged};
-use crate::search::parallel::{Flags, Runtime};
+use crate::search::parallel::{Flags, Lent, Runtime};
 use crate::search::{Options, Reason, Statistics, Stop, set_up_stopped};
 use std::hash::BuildHasher as _;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -87,7 +87,7 @@ pub(crate) fn search_goal(
         )
     };
     let Some(second) = second else {
-        let runtime = Runtime::new(options.jobs, stack)?;
+        let runtime = Lent::take(options.pool.as_ref(), options.jobs, stack)?;
         let (result, nodes, statistics) =
             runtime.drive(stop, |flags| search(first, &runtime, account, flags));
         let result = result.map_err(|r| super::reason(r, options));
@@ -97,8 +97,8 @@ pub(crate) fn search_goal(
     // of the other when its own search has decided.
     let threads = options.jobs / 2;
     let runtimes = (
-        Runtime::new(threads, stack)?,
-        Runtime::new(options.jobs - threads, stack)?,
+        Lent::take(options.pool.as_ref(), threads, stack)?,
+        Lent::take(options.pool.as_ref(), options.jobs - threads, stack)?,
     );
     // Each search has half the memory, as each has its own memo.
     let accounts = (account.share(2), account.share(2));

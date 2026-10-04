@@ -44,7 +44,8 @@ the `Mode`, the `Engine` that ran, the `Statistics`, and `net`, the
 `ProofStructure` the net engine found (`None` from the focused engine).
 `Options` has private fields and setters (`memo_limit`, `recursion_limit`,
 `engine`, `fragment`, `test_period`, `copies`, `jobs`,
-`bias`, `forward_copies`, `check`, `memory_limit`, `occurrence_limit`),
+`bias`, `forward_copies`, `check`, `memory_limit`, `occurrence_limit`,
+and with `parallel` `pool`, the `search::Pool` of `core-parallel.md`),
 the constants `DEFAULT_MEMO_LIMIT`, `DEFAULT_RECURSION_LIMIT`,
 `DEFAULT_COPIES` (the library's default bound; `copies` takes an
 `Option`, `None` for none), `DEFAULT_FORWARD_COPIES`, `DEFAULT_MEMORY_LIMIT` (one

@@ -21,6 +21,9 @@ pub mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
 
+#[cfg(feature = "parallel")]
+pub use parallel::Pool;
+
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::nets::ProofStructure;
@@ -303,7 +306,8 @@ pub fn prove_goal(
     let (mut verdict, statistics, net) = match engine {
         #[cfg(feature = "parallel")]
         Engine::Net if options.jobs > 1 => {
-            let runtime = parallel::Runtime::new(options.jobs, options.stack_size())?;
+            let runtime =
+                parallel::Lent::take(options.pool.as_ref(), options.jobs, options.stack_size())?;
             net::parallel::search(forest, mode, options, &runtime, &mut stop)
         }
         Engine::Net => net::search(forest, mode, options, &mut stop),
@@ -504,6 +508,10 @@ pub struct Options {
     memory_limit: Option<u64>,
     /// The most subformula occurrences a sequent may unfold to.
     occurrence_limit: u64,
+    /// The thread pools a parallel search borrows, or `None` for pools
+    /// of its own.
+    #[cfg(feature = "parallel")]
+    pool: Option<Pool>,
 }
 
 impl Default for Options {
@@ -534,6 +542,8 @@ impl Default for Options {
             check: Self::DEFAULT_CHECK,
             memory_limit: Some(Self::DEFAULT_MEMORY_LIMIT),
             occurrence_limit: Self::DEFAULT_OCCURRENCE_LIMIT,
+            #[cfg(feature = "parallel")]
+            pool: None,
         }
     }
 }
@@ -721,6 +731,17 @@ impl Options {
             jobs: jobs.clamp(1, Self::MAX_JOBS),
             ..self
         }
+    }
+
+    /// Sets the thread pools a parallel search borrows instead of
+    /// starting threads of its own, or `None`, the default, for a pool
+    /// built for the search and dropped with it. A pool changes nothing
+    /// a search does or finds, only that its threads are started once for
+    /// many searches. Options are equal only if they name clones of the
+    /// same pool or both name none.
+    #[cfg(feature = "parallel")]
+    pub fn pool(self, pool: Option<Pool>) -> Self {
+        Self { pool, ..self }
     }
 
     /// Sets how the focused engine picks the positive literal of every

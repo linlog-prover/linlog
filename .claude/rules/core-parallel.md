@@ -23,10 +23,11 @@ has no or-choices worth sharing out). What the code relies on:
 - **One pool per search, no global.** `Runtime::new(jobs, stack_size)`
   builds a rayon pool of `jobs` threads with stacks of
   `Options::stack_size()` (the engine recurses on the worker's stack as
-  it does on the caller's), which the search drops with the outcome
-  (the net engine's in `prove_goal`, the focused engine's in
-  `focus::parallel::search_goal`, which builds two for the two searches
-  of the default bias with exponentials and splits `jobs` between them);
+  it does on the caller's), which the search drops with the outcome, or
+  gives back to the caller's `Pool` (below); the two places that take
+  one are the net engine's in `prove_goal` and the focused engine's in
+  `focus::parallel::search_goal`, which takes two for the two searches
+  of the default bias with exponentials and splits `jobs` between them;
   `Error::ThreadPool` when the threads cannot start. **A search starts
   no more threads than the machine runs at once**: `prove_goal` takes
   `Options::jobs` through `parallel::threads`, the smaller of it and
@@ -39,6 +40,29 @@ has no or-choices worth sharing out). What the code relies on:
   global pool: a library must not size or seed it, and `RAYON_NUM_THREADS`
   is read only when a builder's thread count is zero, which ours never
   is.
+- **A `Pool` keeps runtimes across searches and changes no search.**
+  `search::Pool` (public, cloneable, an `Arc` of the idle runtimes;
+  `Options::pool(Some(pool))`) is the caller's, never global. Every
+  runtime a search takes goes through `Lent::take(options.pool, threads,
+  stack)`: an idle runtime of exactly `threads` workers (the engines
+  read `Runtime::threads` for the cube count and the split tasks, so a
+  larger one would change the search) and a stack at least the one
+  asked (the stack bounds only overflow; the recursion limit is
+  counted), else a new one. `Lent`'s `Drop` gives it back, on a
+  return, an error (the first of the two-bias pair when the second
+  fails to start) or a panic, always after the scopes on it ended.
+  A taken runtime is removed from the idle list under its lock, so a
+  runtime is held by one search at a time: two searches through one
+  pool at once, or the two searches of the default bias, each run on
+  their own. A rayon pool between searches holds no state (idle
+  workers, empty deques, and the engines keep no thread-locals), so a
+  kept runtime runs the search a fresh one runs. `MAX_KEPT` (4) bounds
+  the idle list, what two searches at once with two runtimes each
+  hold; the one given back longest ago is dropped past it. `Options` compares
+  pools by identity (`Arc::ptr_eq`). A new place that starts a rayon
+  pool takes it through `Lent::take`, never `Runtime::new`;
+  `parallel::tests::searches_share_a_kept_runtime` counts the runtimes
+  a pool builds (a test-only counter).
 - **The stop closure is polled on the calling thread.** `Runtime::drive`
   spawns the work into the pool from an `in_place_scope` and, on the
   calling thread, waits on a channel for the result with a one

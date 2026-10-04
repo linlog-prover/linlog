@@ -65,7 +65,8 @@ Each entry point is described in the file of its module:
 - `prove`, `prove_until`, `prove_goal` with `Options`, returning an
   `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,
   `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
-  one of `search::focus`, `search::net` and `search::additive`
+  one of `search::focus`, `search::net` and `search::additive`,
+  `Options::pool` names a `search::Pool` kept across searches
   (`core-search.md`, `core-focus.md`, `core-nets.md`, with `parallel`
   `core-parallel.md`);
 - `ProofStructure`: `from_links`, `link`/`unlink`, `is_correct()`,
