@@ -100,8 +100,8 @@ for its faults independently.
    | performance (profiles read as text, never drawn) | Opus 5.5, `high` |
    | the API, idiom and structure | Opus 5.5, `high` |
    | doc comments, names, comments | Opus 5.5, `medium` |
-   | tests: missing for a stated behaviour, or in excess | Sonnet (Claude Code's `sonnet`), `high` |
-   | coherence of README, CLAUDE.md, the rules, the help texts with the code | Sonnet (Claude Code's `sonnet`), `high` |
+   | tests: missing for a stated behaviour, or in excess | Sonnet 5.5, `high` |
+   | coherence of README, CLAUDE.md, the rules, the help texts with the code | Sonnet 5.5, `high` |
 
    Round one is independent: a finding has a file and a line, the
    criterion, a severity, its evidence (a quote, a failing test, a
@@ -112,8 +112,8 @@ for its faults independently.
    adds what its own lens missed. Duplicates are merged by code, and
    near-duplicates by one agent. Matters of taste are not voted on: they
    go to the author as a short decision list. No reviewer runs at `max`.
-   In a workflow `sonnet` is the alias Claude Code resolves, which was
-   Sonnet 5 on 2026-10-04, not the API's Sonnet 5.5.
+   In a workflow name Sonnet 5.5 as `sonnet`, which `.claude/settings.json`
+   maps to `claude-sonnet-5-5`.
    An agent that runs programs (the performance lens may run the release
    binary and callgrind on small rows; the soundness lens may run the
    tests) gets the rules of `plan/conduct.md` in its prompt: named

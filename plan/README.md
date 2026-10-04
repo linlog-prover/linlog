@@ -205,9 +205,11 @@ panelist starts in a fresh context without the session's reasoning,
 derives the invariant before reading the argument, and backs a
 refutation with a witness the session reproduces. A second reference
 prover, written fresh once per session that changes the search, runs
-beside the committed one. In a workflow the third member is Claude
-Code's `sonnet` alias, which step 26's panels showed resolving to Sonnet
-5 (`claude-sonnet-5`), not the API's Sonnet 5.5; the prompts say so.
+beside the committed one. In a workflow the third member is named by
+the alias `sonnet`, which step 26's panels showed Claude Code resolving
+to Sonnet 5 (`claude-sonnet-5`); on the author's word the repository's
+`.claude/settings.json` maps it to Sonnet 5.5 since (the author updates
+Claude Code to a version whose catalog has it).
 
 From step 28 Fable may be used again, and the author asked that no
 tokens be wasted. Fable weighs about twice Opus against the allowance,
@@ -1982,3 +1984,11 @@ client follows it (step 32).
   so that Opus 5.5 does not stop at a progress report, the cores of the
   night: the measurement on 2 to 5, builds and probes on 6 to 11, the
   panels on 12 to 15, the signing loop and unsigned commits after it).
+- 2026-10-04: on the author's word the panels' third member is Sonnet
+  5.5: `.claude/settings.json` maps the alias `sonnet` to
+  `claude-sonnet-5-5` (`ANTHROPIC_DEFAULT_SONNET_MODEL`), which reaches
+  the workflows' agents and `crate-source-explorer`; prompts 26 to 28 say
+  so. The Claude Code of the day does not have the id in its catalog
+  (it answers, with a warning and a context window assumed at 200k), so
+  the author updates Claude Code and restarts step 27, whose first start
+  ran three minutes and committed nothing.

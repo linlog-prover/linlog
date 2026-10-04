@@ -132,7 +132,9 @@ software verification are what it is measured on.
   markings enumerated), sharing no code with the engine.
 - **Every refutation is a change of the search**, reviewed by the panel
   step 26's prompt describes, with the same models (the integers on
-  Claude Code's `sonnet`, which ran Sonnet 5 in step 26).
+  Sonnet 5.5: name `sonnet` in the workflow, which
+  `.claude/settings.json` maps to `claude-sonnet-5-5`; step 26's panels
+  ran Sonnet 5 before that mapping).
 - **The target set**: rows the dispatch sends to the new engine change
   engine and counters; the focused engine's own rows, forced, keep
   theirs, which `bench/targets.sh` shows.
