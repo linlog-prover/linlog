@@ -84,8 +84,7 @@ impl Engine<'_> {
             return self.free_split(theta, gamma, f, budget);
         }
         let mark = self.nodes.mark();
-        let mut rest = self.take_context();
-        rest.clone_from(gamma);
+        let mut rest = self.take_context_from(gamma);
         let mut links = self.take_links();
         let mut cursors = self.take_cursors();
         let result = self.forced_splits(theta, &mut rest, f, (&mut links, &mut cursors), budget);
@@ -262,8 +261,7 @@ impl Engine<'_> {
         let mut members = self.take_list();
         members.extend(gamma.iter());
         let mut left = self.take_context();
-        let mut right = self.take_context();
-        right.clone_from(gamma);
+        let mut right = self.take_context_from(gamma);
         let mut split = self.take_split();
         split.place(self.counts, a, Side::Left);
         split.place(self.counts, b, Side::Right);
@@ -518,8 +516,7 @@ impl Engine<'_> {
         }
         let mut left = self.take_context();
         left.insert(members[0]);
-        let mut right = self.take_context();
-        right.clone_from(gamma);
+        let mut right = self.take_context_from(gamma);
         right.remove(members[0]);
         let mut split = self.take_split();
         split.place(self.counts, members[0], Side::Left);

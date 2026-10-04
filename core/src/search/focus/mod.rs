@@ -68,7 +68,7 @@ use self::arena::Arena;
 use self::classes::Classes;
 use self::context::Context;
 use self::counts::{Counts, Split, Tally};
-use self::memo::{Entry, Failure, Inserted, Key, Table};
+use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{plan, turns};
 use self::scratch::Pools;
 use self::split::Join;
@@ -80,7 +80,6 @@ use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId, Side};
 use crate::sequents::Kind;
-use std::hash::BuildHasher as _;
 
 /// The stack depth that stands for "no pruned sequent depends on an
 /// ancestor".
@@ -883,8 +882,7 @@ impl<'a> Engine<'a> {
         sub: OccId,
         budget: u32,
     ) -> Step {
-        let mut premise_gamma = self.take_context();
-        premise_gamma.clone_from(gamma);
+        let mut premise_gamma = self.take_context_from(gamma);
         let mut premise_list = self.take_list();
         premise_list.extend_from_slice(list);
         premise_list.push(sub);
@@ -933,33 +931,42 @@ impl<'a> Engine<'a> {
         if self.account.over() {
             self.relieve()?;
         }
-        let mut key = self.take_key();
-        key.assign(theta, gamma);
+        // The memo and the loop check read the zones where they are, under
+        // one hash.
+        let key = Zones { theta, gamma };
+        let hash = if self.memoizes || self.rules.stack {
+            key.hash()
+        } else {
+            0
+        };
         // Complete failures are recorded up to interchangeable members:
         // under the canonical key, where it differs from the sequent's own.
-        let mut canonical = self.take_key();
-        let renamed =
-            !self.classes.distinct() && canonical.gamma.canonical_from(gamma, self.classes);
+        let mut canonical = self.take_context_any();
+        let renamed = !self.classes.distinct() && canonical.canonical_from(gamma, self.classes);
+        let canonical_key = Zones {
+            theta,
+            gamma: &canonical,
+        };
+        let canonical_hash = if renamed && self.memoizes {
+            canonical_key.hash()
+        } else {
+            0
+        };
         // A proof or a complete failure from the memo settles it; a
         // failure cut by the budget waits for the loop check, which may
         // give the stronger answer that the branch is redundant.
-        let entry = if renamed && {
-            canonical.theta.clone_from(theta);
-            self.memo.refuted(&canonical)
-        } {
+        let entry = if renamed && self.memo.refuted(canonical_key, canonical_hash) {
             Some(Entry::Failed(Failure::Complete))
         } else {
-            self.memo.get(&key, budget)
+            self.memo.get(key, hash, budget)
         };
         match entry {
             Some(Entry::Proved(node)) => {
-                self.give_key(key);
-                self.give_key(canonical);
+                self.give_context(canonical);
                 return Ok(Found::proved(node));
             }
             Some(Entry::Failed(Failure::Complete)) => {
-                self.give_key(key);
-                self.give_key(canonical);
+                self.give_context(canonical);
                 return Ok(Found::NOTHING);
             }
             Some(Entry::Failed(Failure::Exhausted(_))) | None => {}
@@ -973,16 +980,10 @@ impl<'a> Engine<'a> {
         // redundant, with or without weakening: a proof of the larger
         // sequent proves nothing about the smaller one, and ⊢ ?(a ⅋ ~a) is
         // proved only through ⊢ a ⅋ ~a ; a, ~a.)
-        let hash = if self.rules.stack {
-            crate::hash::BuildHasher::default().hash_one(&key)
-        } else {
-            0
-        };
         if self.rules.stack {
             for depth in 0..self.stack_len {
-                if self.hashes[depth] == hash && self.stack[depth] == key {
-                    self.give_key(key);
-                    self.give_key(canonical);
+                if self.hashes[depth] == hash && key.of(&self.stack[depth]) {
+                    self.give_context(canonical);
                     // A depth of the stack, which is as deep as the
                     // recursion limit allows.
                     return Ok(Found::failed(Cuts::repeat(depth as u32)));
@@ -991,19 +992,21 @@ impl<'a> Engine<'a> {
         }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
-            self.give_key(key);
-            self.give_key(canonical);
+            self.give_context(canonical);
             return Ok(Found::failed(Cuts::BUDGET));
         }
         if self.rules.stack {
             if self.stack_len < self.stack.len() {
                 // Into the entry's own buffers: a derived `clone_from`
                 // would allocate both zones anew.
-                self.stack[self.stack_len].assign(&key.theta, &key.gamma);
+                self.stack[self.stack_len].assign(key);
                 self.hashes[self.stack_len] = hash;
             } else {
                 self.scratch.charge(self.key_bytes() + size_of::<u64>());
-                self.stack.push(key.clone());
+                self.stack.push(Key {
+                    theta: theta.clone(),
+                    gamma: gamma.clone(),
+                });
                 self.hashes.push(hash);
             }
             self.stack_len += 1;
@@ -1019,8 +1022,7 @@ impl<'a> Engine<'a> {
         let found = match result {
             Ok(found) => found,
             Err(reason) => {
-                self.give_key(key);
-                self.give_key(canonical);
+                self.give_context(canonical);
                 return Err(reason);
             }
         };
@@ -1036,32 +1038,45 @@ impl<'a> Engine<'a> {
             },
         };
         let mut node = found.node;
-        match node {
+        let canonical_key = Zones {
+            theta,
+            gamma: &canonical,
+        };
+        let recorded = match node {
             Some(proof) if self.memoizes => {
                 // The entry outlives the branch, so the proof is kept.
-                let proof = self.nodes.keep(mark, proof)?;
-                node = match self.remember(&key, Entry::Proved(proof))? {
-                    Entry::Proved(proof) => Some(proof),
-                    Entry::Failed(_) => unreachable!("the entry of a proof"),
-                };
+                self.nodes.keep(mark, proof).and_then(|proof| {
+                    match self.remember(key, hash, Entry::Proved(proof))? {
+                        Entry::Proved(proof) => Ok(Some(proof)),
+                        Entry::Failed(_) => unreachable!("the entry of a proof"),
+                    }
+                })
             }
             None => {
                 self.nodes.release(mark);
+                let mut recorded = Ok(None);
                 if cuts.dependency == NO_DEPENDENCY {
                     // A complete failure answers for every relative; one
                     // cut by the budget stays the sequent's own.
-                    if cuts.exhausted {
-                        self.remember(&key, Entry::Failed(Failure::Exhausted(budget)))?;
+                    recorded = if cuts.exhausted {
+                        self.remember(key, hash, Entry::Failed(Failure::Exhausted(budget)))
+                    } else if renamed {
+                        self.remember(
+                            canonical_key,
+                            canonical_hash,
+                            Entry::Failed(Failure::Complete),
+                        )
                     } else {
-                        let key = if renamed { &canonical } else { &key };
-                        self.remember(key, Entry::Failed(Failure::Complete))?;
+                        self.remember(key, hash, Entry::Failed(Failure::Complete))
                     }
+                    .map(|_| None);
                 }
+                recorded
             }
-            Some(_) => {}
-        }
-        self.give_key(key);
-        self.give_key(canonical);
+            Some(proof) => Ok(Some(proof)),
+        };
+        self.give_context(canonical);
+        node = recorded?;
         Ok(Found { node, cuts })
     }
 
@@ -1071,8 +1086,8 @@ impl<'a> Engine<'a> {
     /// entry comes back as recorded, a proof's node under the id it has
     /// after that. Fails when even the emptied memo has no room: the
     /// search's memory is at its bound without it.
-    fn remember(&mut self, key: &Key, entry: Entry) -> Result<Entry, Reason> {
-        if self.memo.insert(key, entry, self.account) == Inserted::Done {
+    fn remember(&mut self, key: Zones<'_>, hash: u64, entry: Entry) -> Result<Entry, Reason> {
+        if self.memo.insert(key, hash, entry, self.account) == Inserted::Done {
             return Ok(entry);
         }
         self.memo.clear();
@@ -1087,7 +1102,7 @@ impl<'a> Engine<'a> {
                 failed
             }
         };
-        if self.memo.insert(key, entry, self.account) == Inserted::Done {
+        if self.memo.insert(key, hash, entry, self.account) == Inserted::Done {
             return Ok(entry);
         }
         // Not even the first entry fits: what the proofs dropped leave
@@ -1103,7 +1118,7 @@ impl<'a> Engine<'a> {
                 failed
             }
         };
-        match self.memo.insert(key, entry, self.account) {
+        match self.memo.insert(key, hash, entry, self.account) {
             Inserted::Done => Ok(entry),
             _ => Err(Reason::MemoryLimit(self.account.limit())),
         }
@@ -1334,7 +1349,7 @@ impl<'a> Engine<'a> {
         match alternative {
             Alternative::Focus(f) => {
                 if rest.is_none() {
-                    *rest = Some(self.take_context());
+                    *rest = Some(self.take_context_any());
                 }
                 let rest = rest.as_mut().expect("taken");
                 rest.clone_from(gamma);
@@ -1355,10 +1370,8 @@ impl<'a> Engine<'a> {
                 sides,
                 split,
             } => {
-                let mut left = self.take_context();
-                left.clone_from(sides.0);
-                let mut right = self.take_context();
-                right.clone_from(sides.1);
+                let mut left = self.take_context_from(sides.0);
+                let mut right = self.take_context_from(sides.1);
                 let mut counts = self.take_split();
                 (*counts).clone_from(split);
                 for (i, &m) in members.iter().enumerate().take(fixed) {
@@ -1432,8 +1445,7 @@ impl<'a> Engine<'a> {
                 if !affine {
                     return Ok(Found::proved(ax).after(cuts));
                 }
-                let mut rest = self.take_context();
-                rest.clone_from(gamma);
+                let mut rest = self.take_context_from(gamma);
                 rest.remove(p);
                 rest.remove(q);
                 let node = self.weakened(&rest, ax);
@@ -1454,8 +1466,7 @@ impl<'a> Engine<'a> {
                 if !affine {
                     return Ok(Found::proved(copy).after(cuts));
                 }
-                let mut rest = self.take_context();
-                rest.clone_from(gamma);
+                let mut rest = self.take_context_from(gamma);
                 rest.remove(p);
                 let node = self.weakened(&rest, copy);
                 self.give_context(rest);
@@ -1573,8 +1584,7 @@ impl<'a> Engine<'a> {
                 let mut members = self.take_list();
                 members.push(f);
                 members.extend(gamma.iter());
-                let mut whole = self.take_context();
-                whole.clone_from(gamma);
+                let mut whole = self.take_context_from(gamma);
                 whole.insert(f);
                 let result = self.initial(theta, &whole, &members, budget);
                 self.give_list(members);
@@ -1583,8 +1593,7 @@ impl<'a> Engine<'a> {
             }
             _ => {
                 // Negative: release.
-                let mut released = self.take_context();
-                released.clone_from(gamma);
+                let mut released = self.take_context_from(gamma);
                 let mut list = self.take_list();
                 list.push(f);
                 let result = self.asynchronous(theta, &mut released, &mut list, budget);

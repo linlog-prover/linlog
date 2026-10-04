@@ -39,9 +39,44 @@ pub(crate) struct Key {
 
 impl Key {
     /// Makes this key a copy of the zones, reusing the buffers.
-    pub(crate) fn assign(&mut self, theta: &OccSet, gamma: &Context) {
-        self.theta.clone_from(theta);
-        self.gamma.clone_from(gamma);
+    pub(crate) fn assign(&mut self, zones: Zones<'_>) {
+        self.theta.clone_from(zones.theta);
+        self.gamma.clone_from(zones.gamma);
+    }
+
+    /// The key's zones.
+    pub(crate) fn zones(&self) -> Zones<'_> {
+        Zones {
+            theta: &self.theta,
+            gamma: &self.gamma,
+        }
+    }
+}
+
+/// A stable sequent as the memo reads it: the two zones, where they are.
+/// A lookup or an insertion copies nothing; an insertion copies the words
+/// into the memo's own record.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Zones<'a> {
+    /// The unrestricted zone.
+    pub(crate) theta: &'a OccSet,
+    /// The linear zone.
+    pub(crate) gamma: &'a Context,
+}
+
+impl Zones<'_> {
+    /// The hash of the sequent: that of a [`Key`] of the same zones.
+    pub(crate) fn hash(self) -> u64 {
+        use std::hash::{Hash as _, Hasher as _};
+        let mut hasher = crate::hash::BuildHasher::default().build_hasher();
+        self.theta.hash(&mut hasher);
+        self.gamma.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Whether a key holds these zones.
+    pub(crate) fn of(self, key: &Key) -> bool {
+        key.theta == *self.theta && key.gamma == *self.gamma
     }
 }
 
@@ -180,11 +215,6 @@ impl Memo {
         }
     }
 
-    /// The hash of a key.
-    fn hash(key: &Key) -> u64 {
-        crate::hash::BuildHasher::default().hash_one(key)
-    }
-
     /// The words of record `e`.
     fn record(&self, e: usize) -> &[u64] {
         let at = (e & ((1 << self.shift) - 1)) * self.stride;
@@ -198,7 +228,7 @@ impl Memo {
     }
 
     /// Whether a record is the key's.
-    fn matches(&self, record: &[u64], key: &Key) -> bool {
+    fn matches(&self, record: &[u64], key: Zones<'_>) -> bool {
         let width = (self.stride - HEADER) / 2;
         let (start, len) = ((record[2] >> 32) as usize, record[2] as u32 as usize);
         record[HEADER..HEADER + width] == *key.theta.words()
@@ -207,7 +237,7 @@ impl Memo {
     }
 
     /// The record of a key with the hash given, if there is one.
-    fn find(&self, key: &Key, hash: u64) -> Option<usize> {
+    fn find(&self, key: Zones<'_>, hash: u64) -> Option<usize> {
         if self.slots.is_empty() {
             return None;
         }
@@ -223,16 +253,24 @@ impl Memo {
         }
     }
 
-    /// Returns what is known about a stable sequent that applies with
-    /// `remaining` copies left: a proof or a complete failure always, a
-    /// failure cut by the budget only when at most as many copies are left
-    /// now as were then, since a larger budget could prove more.
-    pub(crate) fn get(&mut self, key: &Key, remaining: u32) -> Option<Entry> {
-        self.get_hashed(key, Self::hash(key), remaining)
+    /// [`insert_hashed`](Self::insert_hashed) for a key.
+    #[cfg(test)]
+    fn insert(&mut self, key: &Key, entry: Entry, account: &Account) -> Inserted {
+        self.insert_hashed(key.zones(), key.zones().hash(), entry, account)
     }
 
-    /// [`get`](Self::get) for a key whose hash is known.
-    fn get_hashed(&mut self, key: &Key, hash: u64, remaining: u32) -> Option<Entry> {
+    /// [`get_hashed`](Self::get_hashed) for a key.
+    #[cfg(test)]
+    fn get(&mut self, key: &Key, remaining: u32) -> Option<Entry> {
+        self.get_hashed(key.zones(), key.zones().hash(), remaining)
+    }
+
+    /// Returns what is known about a stable sequent, whose hash is given,
+    /// that applies with `remaining` copies left: a proof or a complete
+    /// failure always, a failure cut by the budget only when at most as
+    /// many copies are left now as were then, since a larger budget could
+    /// prove more.
+    fn get_hashed(&mut self, key: Zones<'_>, hash: u64, remaining: u32) -> Option<Entry> {
         let entry = Entry::of(self.record(self.find(key, hash)?)[1]);
         if let Entry::Failed(Failure::Exhausted(then)) = entry
             && remaining > then
@@ -243,15 +281,17 @@ impl Memo {
         Some(entry)
     }
 
-    /// Returns whether a complete failure is recorded under a canonical
-    /// key: the answer for every sequent the key stands for. Whatever else
-    /// the key holds is about the canonical sequent alone.
-    pub(crate) fn refuted(&mut self, key: &Key) -> bool {
-        self.refuted_hashed(key, Self::hash(key))
+    /// [`refuted_hashed`](Self::refuted_hashed) for a key.
+    #[cfg(test)]
+    fn refuted(&mut self, key: &Key) -> bool {
+        self.refuted_hashed(key.zones(), key.zones().hash())
     }
 
-    /// [`refuted`](Self::refuted) for a key whose hash is known.
-    fn refuted_hashed(&mut self, key: &Key, hash: u64) -> bool {
+    /// Returns whether a complete failure is recorded under a canonical
+    /// key, whose hash is given: the answer for every sequent the key
+    /// stands for. Whatever else the key holds is about the canonical
+    /// sequent alone.
+    fn refuted_hashed(&mut self, key: Zones<'_>, hash: u64) -> bool {
         let refuted = self
             .find(key, hash)
             .is_some_and(|e| self.record(e)[1] == Entry::Failed(Failure::Complete).code());
@@ -266,13 +306,14 @@ impl Memo {
     /// only raises the budget an earlier such failure recorded. The memory
     /// a new chunk or a larger index takes is charged to `account`, and
     /// only taken while it leaves an eighth of the bound to what the
-    /// search cannot empty ([`Account::spares`]).
-    pub(crate) fn insert(&mut self, key: &Key, entry: Entry, account: &Account) -> Inserted {
-        self.insert_hashed(key, Self::hash(key), entry, account)
-    }
-
-    /// [`insert`](Self::insert) for a key whose hash is known.
-    fn insert_hashed(&mut self, key: &Key, hash: u64, entry: Entry, account: &Account) -> Inserted {
+    /// search cannot empty ([`Account::spares`]). The key's hash is given.
+    fn insert_hashed(
+        &mut self,
+        key: Zones<'_>,
+        hash: u64,
+        entry: Entry,
+        account: &Account,
+    ) -> Inserted {
         if self.limit == 0 {
             return Inserted::Done;
         }
@@ -335,7 +376,7 @@ impl Memo {
     /// last is full and an index of twice the size when half its slots are
     /// taken, each only if the account has the memory. Returns whether
     /// there is room.
-    fn reserve(&mut self, key: &Key, account: &Account) -> bool {
+    fn reserve(&mut self, key: Zones<'_>, account: &Account) -> bool {
         if self.stride == 0 {
             self.stride = HEADER + 2 * key.theta.words().len();
             // Under a small bound the chunks are small: a sixteenth of
@@ -445,24 +486,21 @@ impl Shared {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    /// [`Memo::get`] on the key's shard.
-    pub(crate) fn get(&self, key: &Key, remaining: u32) -> Option<Entry> {
-        let hash = Memo::hash(key);
+    /// [`Memo::get_hashed`] on the key's shard.
+    pub(crate) fn get(&self, key: Zones<'_>, hash: u64, remaining: u32) -> Option<Entry> {
         self.shard(hash).get_hashed(key, hash, remaining)
     }
 
-    /// [`Memo::refuted`] on the key's shard.
-    pub(crate) fn refuted(&self, key: &Key) -> bool {
-        let hash = Memo::hash(key);
+    /// [`Memo::refuted_hashed`] on the key's shard.
+    pub(crate) fn refuted(&self, key: Zones<'_>, hash: u64) -> bool {
         self.shard(hash).refuted_hashed(key, hash)
     }
 
-    /// [`Memo::insert`] on the key's shard, which is emptied first when it
-    /// is full. An entry that even the empty shard has no memory for is
-    /// dropped: the other shards hold it, and the search says so when it
-    /// finds itself over its bound.
-    pub(crate) fn insert(&self, key: &Key, entry: Entry, account: &Account) {
-        let hash = Memo::hash(key);
+    /// [`Memo::insert_hashed`] on the key's shard, which is emptied first
+    /// when it is full. An entry that even the empty shard has no memory
+    /// for is dropped: the other shards hold it, and the search says so
+    /// when it finds itself over its bound.
+    pub(crate) fn insert(&self, key: Zones<'_>, hash: u64, entry: Entry, account: &Account) {
         let mut shard = self.shard(hash);
         if shard.insert_hashed(key, hash, entry, account) == Inserted::Full {
             shard.clear();
@@ -500,29 +538,35 @@ pub(crate) enum Table<'a> {
 }
 
 impl Table<'_> {
-    /// [`Memo::get`].
-    pub(crate) fn get(&mut self, key: &Key, remaining: u32) -> Option<Entry> {
+    /// [`Memo::get_hashed`].
+    pub(crate) fn get(&mut self, key: Zones<'_>, hash: u64, remaining: u32) -> Option<Entry> {
         match self {
-            Self::Own(memo) => memo.get(key, remaining),
-            Self::Shared(shared) => shared.get(key, remaining),
+            Self::Own(memo) => memo.get_hashed(key, hash, remaining),
+            Self::Shared(shared) => shared.get(key, hash, remaining),
         }
     }
 
-    /// [`Memo::refuted`].
-    pub(crate) fn refuted(&mut self, key: &Key) -> bool {
+    /// [`Memo::refuted_hashed`].
+    pub(crate) fn refuted(&mut self, key: Zones<'_>, hash: u64) -> bool {
         match self {
-            Self::Own(memo) => memo.refuted(key),
-            Self::Shared(shared) => shared.refuted(key),
+            Self::Own(memo) => memo.refuted_hashed(key, hash),
+            Self::Shared(shared) => shared.refuted(key, hash),
         }
     }
 
-    /// [`Memo::insert`]. A shared memo makes its own room and always
+    /// [`Memo::insert_hashed`]. A shared memo makes its own room and always
     /// answers [`Inserted::Done`].
-    pub(crate) fn insert(&mut self, key: &Key, entry: Entry, account: &Account) -> Inserted {
+    pub(crate) fn insert(
+        &mut self,
+        key: Zones<'_>,
+        hash: u64,
+        entry: Entry,
+        account: &Account,
+    ) -> Inserted {
         match self {
-            Self::Own(memo) => memo.insert(key, entry, account),
+            Self::Own(memo) => memo.insert_hashed(key, hash, entry, account),
             Self::Shared(shared) => {
-                shared.insert(key, entry, account);
+                shared.insert(key, hash, entry, account);
                 Inserted::Done
             }
         }

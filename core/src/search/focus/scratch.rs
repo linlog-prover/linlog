@@ -8,7 +8,6 @@
 use super::Engine;
 use super::context::Context;
 use super::counts::{Split, Tally};
-use super::memo::Key;
 use super::split::Cursors;
 use crate::occurrences::{OccId, OccSet};
 use crate::proofs::{NodeId, Side};
@@ -48,25 +47,26 @@ impl Engine<'_> {
         }
     }
 
-    /// Returns a linear zone to the pool.
-    pub(super) fn give_context(&mut self, context: Context) {
-        self.pools.contexts.push(context);
-    }
-
-    /// Takes a memo key from the pool, with any contents.
-    pub(super) fn take_key(&mut self) -> Key {
-        self.pools.keys.pop().unwrap_or_else(|| {
-            self.scratch.charge(self.key_bytes());
-            Key {
-                theta: self.forest.empty_set(),
-                gamma: Context::empty(self.forest.len()),
-            }
+    /// Takes a linear zone from the pool with any contents, for a caller
+    /// that overwrites it whole: clearing it first would write the
+    /// forest's width once more.
+    pub(super) fn take_context_any(&mut self) -> Context {
+        self.pools.contexts.pop().unwrap_or_else(|| {
+            self.scratch.charge(self.set_bytes());
+            Context::empty(self.forest.len())
         })
     }
 
-    /// Returns a memo key to the pool.
-    pub(super) fn give_key(&mut self, key: Key) {
-        self.pools.keys.push(key);
+    /// Takes a linear zone from the pool that is a copy of `gamma`.
+    pub(super) fn take_context_from(&mut self, gamma: &Context) -> Context {
+        let mut context = self.take_context_any();
+        context.clone_from(gamma);
+        context
+    }
+
+    /// Returns a linear zone to the pool.
+    pub(super) fn give_context(&mut self, context: Context) {
+        self.pools.contexts.push(context);
     }
 
     /// Takes an empty list from the pool.
@@ -174,8 +174,6 @@ pub(super) struct Pools {
     sets: Vec<OccSet>,
     /// Spare linear zones of the forest's width.
     contexts: Vec<Context>,
-    /// Spare memo keys of the forest's width.
-    keys: Vec<Key>,
     /// Spare lists of occurrences.
     lists: Vec<Pooled<OccId>>,
     /// Spare tallies of the forest's atoms.
