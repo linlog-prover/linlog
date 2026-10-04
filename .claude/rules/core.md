@@ -19,7 +19,7 @@ it; only what holds for the whole crate goes here.
 | `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, the atom bias, literal lists), `OccSet`, the intuitionistic reading |
 | `core-proofs.md` | `proofs/mod.rs`, `check.rs`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
 | `core-derivations.md` | `proofs/derivation.rs`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive.rs` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
-| `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs` | the front door (`prove_goal`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path |
+| `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs`, `reference.rs` | the front door (`prove_goal`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path, the test-only reference prover |
 | `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
 | `core-nets.md` | `nets/`, `search/net.rs` | proof structures, the correctness criterion, sequentialization, the net engine |
 | `core-parallel.md` | `search/parallel.rs`, `search/focus/parallel.rs`, `search/net.rs` | the pool, stops, cube-and-conquer, the shared memo and arena, the net engine's cubes, what a pool promises |
@@ -41,7 +41,8 @@ memory account in `memory`, the focused engine in `focus/` with
 `classes`, `context`, `counts`, `memo` and `parallel`, the net engine in
 `net`, the runtime of the pool in `parallel` behind the feature of that
 name, the additive path in `additive`, the test-only `generate` with its
-classical and intuitionistic proof generators), `nets` (structures and
+classical and intuitionistic proof generators and the test-only
+`reference` prover), `nets` (structures and
 the criterion's front door in `mod.rs`, the graph and the Yeo test in
 `graph`, the union-find in `skeleton`, `sequentialize`), `export` (the
 shared `notation`, and `latex`, `typst`, `svg` with `font`, `tree` and

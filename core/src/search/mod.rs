@@ -24,6 +24,9 @@ pub(crate) mod memory;
 pub(crate) mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
+/// A reference prover for the tests: the plain unfocused calculus.
+#[cfg(test)]
+pub(crate) mod reference;
 
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;

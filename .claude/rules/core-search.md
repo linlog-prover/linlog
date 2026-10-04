@@ -3,12 +3,13 @@ paths:
   - "core/src/search/mod.rs"
   - "core/src/search/memory.rs"
   - "core/src/search/additive.rs"
+  - "core/src/search/reference.rs"
 ---
 
-# linlog core: proof search, its front door, its memory bound and the additive path
+# linlog core: proof search, its front door, its memory bound, the additive path and the reference prover
 
 Loaded, beside `core.md`, when the search's front door, its memory
-account or the additive path is read. The engines have files of their
+account, the additive path or the reference prover is read. The engines have files of their
 own: `core-focus.md`, `core-nets.md` (the net engine) and
 `core-parallel.md` (the pool).
 
@@ -298,3 +299,39 @@ first implementation, which kept a `Θ` bitset of the forest's width for
 every node (262 141 nodes of 32 KB at depth 16, 7.6 GB): the first
 baseline's "8 GB of memo" was this, measured by the peak before and
 after the check. The checker no longer keeps one ("The checker").
+
+## The reference prover
+
+`search/reference.rs` (test-only) decides a small sequent by the plain
+rules of the unfocused calculus, one-sided classical and two-sided
+intuitionistic, linear and affine, with and without Mix, every rule on
+every formula, with contraction bounded per branch and the bound deepened
+from zero, so that every budget's answer is given; it shares no code with
+the engines (its formulas are its own, read from the generator's `Tree`s
+or a sequent's terms). Its tests compare every engine configuration
+(the dispatch, each engine forced, the focused engines under each bias,
+and with `parallel` the dispatch on two threads) on generated sequents,
+their mutants and a few that need contractions, and the families'
+verdicts at the sizes it decides; what they assert is what the contract
+allows: never a proof against a refutation, either way.
+
+- **It refutes nothing whose search can contract**: a failing branch with
+  a `?` formula (or a `!` hypothesis) contracts to an empty budget and is
+  cut. With exponentials it judges an engine's "unprovable" only; an
+  engine's proof is the checker's.
+- **Its budget counts contractions per branch**, one less than an
+  engine's copies of a formula; the two are never compared.
+- **`VISITS`** (a million sequents and splits per decision) bounds its
+  work; a split enumeration is lazy and each split counts, since Mix and
+  `⊗` have `2ⁿ` splits of `n` formulas.
+- **What was checked before it judged**: a fresh-context review against
+  the calculus (sixty sequents decided by hand, no disagreement; memo on
+  and off, budget monotonicity and mode consistency on about 2 800 more),
+  and eleven deliberate faults in a scratch copy (a rule dropped, a side
+  condition flipped, a copy bound off by one, a cut flag dropped, a cut
+  failure memoized as a refutation), each of which makes the committed
+  tests fail. A fault in the bound only shows on sequents that need
+  contractions, which the generators make seldom: hence
+  `engines_agree_where_contractions_are_needed`, and the deepening, which
+  asks the reference at every budget below the one given.
+- A new engine joins `configurations` in its tests.
