@@ -134,21 +134,21 @@ pub struct RunArgs {
     /// threads (at least two) searches beside it, the first to decide
     /// answering, as the command does by default (default: the threads
     /// from the start)
-    #[arg(long, value_name = "SECONDS")]
+    #[arg(value_parser = seconds, long, value_name = "SECONDS")]
     pool_after: Option<f64>,
     /// The time limit per run, in seconds
-    #[arg(long, default_value_t = 60.0)]
+    #[arg(value_parser = seconds, long, default_value_t = 60.0)]
     timeout: f64,
     /// The seconds a child may run past its time limit, counted from the
     /// end of its load, before it is killed: for the pool's teardown and
     /// the proof check
     /// (default: a tenth of the limit and five seconds)
-    #[arg(long, value_name = "SECONDS")]
+    #[arg(value_parser = seconds, long, value_name = "SECONDS")]
     grace: Option<f64>,
     /// Seconds a child may take to load its problem before its search
     /// starts and the time limit counts; a child that takes longer is
     /// killed
-    #[arg(long, value_name = "SECONDS", default_value_t = DEFAULT_LOAD_LIMIT)]
+    #[arg(value_parser = seconds, long, value_name = "SECONDS", default_value_t = DEFAULT_LOAD_LIMIT)]
     load_limit: f64,
     /// How often to run a problem whose first run took less than
     /// `--repeat-under` seconds; the summary takes the median
@@ -204,10 +204,10 @@ pub struct OneArgs {
     #[arg(long)]
     recursion_limit: Option<u32>,
     /// Seconds one thread searches before the pool takes over
-    #[arg(long)]
+    #[arg(value_parser = seconds, long)]
     pool_after: Option<f64>,
     /// The time limit, in seconds
-    #[arg(long)]
+    #[arg(value_parser = seconds, long)]
     timeout: f64,
 }
 
@@ -239,6 +239,17 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// Parses a number of seconds, refusing what no duration is: a negative
+/// number, NaN or infinity.
+fn seconds(text: &str) -> Result<f64, String> {
+    let value: f64 = text
+        .parse()
+        .map_err(|_| format!("{text:?} is not a number of seconds"))?;
+    std::time::Duration::try_from_secs_f64(value)
+        .map(|_| value)
+        .map_err(|_| format!("{text:?} is not a number of seconds a time limit can be"))
 }
 
 #[cfg(test)]
