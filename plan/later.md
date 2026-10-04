@@ -448,7 +448,12 @@ search vehicle. Assess first.
 ## A batch mode for the CLI
 
 *Done in step 24* (`plan/reports/24-batch.md`); what it left open is
-listed there.
+listed there. One candidate from its review: the second pass inside the
+command (a flag that runs what the pass across the cores left unknown
+again within, as README now shows by hand). Across, the batch decided
+57 fewer LLTP problems than single calls on four cores; within, all 57
+were decided in 64 s. Worth building when a user asks for it in one
+call; it keeps every answer a function of its input and its pass.
 
 The CLI decides one sequent per call (the author's question,
 2026-10-03): `prove` takes it as an argument, from `--file` or from

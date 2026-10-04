@@ -352,3 +352,12 @@ library through the command.
 - Also fixed: the help of `seq json` named `--json-input`, which this
   step replaced.
 - Not run: the target set, since the sequential engines did not change.
+- **More time or the whole machine** (the author's question after the
+  review): of the 57 problems the batch across left unknown, one thread
+  decided 29 at 4 s and 43 at 8 s (the race's core-time on four cores),
+  and `--cores within` all 57 at 2 s in 64 s. The default stays across,
+  the canonical per-instance model of benchmark harnesses and job
+  runners, since a longer limit multiplies the time of every hopeless
+  sequent; `--cores`' help, README (a second pass of the unknowns with
+  `--cores within`, checked by hand) and `cli.md` say what it gives up.
+  A second pass inside the command is a candidate in `plan/later.md`.
