@@ -66,10 +66,32 @@ script talks to, and what every later measurement by day runs through.
    as iterators, with one options value; the command is its first
    caller. The batch takes the command's flags; an options file waits for
    the options' wire form, which step 28 gives every options value.
-2. **Input**: one sequent per line with comments and optional names;
-   several `--file` arguments; a directory; the harness's problem files;
-   LLTP files, which `lltp::read` reads and the command cannot take
-   today, also for a single `prove`.
+2. **Input**, every form chosen by a flag or an extension and never
+   guessed from a line's text (`A` is an atom and a file name alike): a
+   file stays one sequent, which may span lines as today; lines of
+   sequents with comments and optional names, in the text syntax or as
+   JSON Lines (what `seq json` writes, or a record with a name and a
+   mode beside the sequent); several `--file` arguments; a directory;
+   a list of paths (`--files-from LIST`, as `tar -T` and `rsync
+   --files-from` have it, `-` for standard input, read as it streams,
+   and a NUL-separated form for `find -print0`); the harness's problem
+   files, which are `.txt` too and so need their flag; LLTP files,
+   which `lltp::read` reads and the command cannot take today, also for
+   a single `prove`. What to settle and say in the help: paths relative
+   to the current directory, as `tar` and `git --pathspec-from-file`
+   take them, and literal (no glob, no `~`); a file's kind by its
+   extension (`.p` LLTP, `.json` a JSON sequent, else text) unless a
+   flag says otherwise; the mode from the flags, a problem file's
+   column or a record, never from a directory's name (an LLTP file does
+   not say whether it is intuitionistic; the harness reads that off the
+   `ILL` directory); a directory walked in sorted order, symlinks
+   followed without loops; every entry named by its path as given,
+   since LLTP repeats a file name across its translations
+   (`SYJ212+1.020.p` is in `01`, `cbn` and `cbv`), so neither results
+   nor drawn files overwrite each other; a missing or unreadable file
+   that entry's error; the read and parse of each entry under its time
+   limit, as `prove` reads its one input today (the largest LLTP file
+   is 86 MB, read whole before the occurrence limit can apply).
 3. **Output**: one result per sequent in input order, as it is decided,
    as a line of text or a JSON Lines record with what `--format json`
    and `--stats` carry; for the drawing formats a directory. A malformed
