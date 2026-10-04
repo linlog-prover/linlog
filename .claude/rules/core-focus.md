@@ -111,7 +111,8 @@ relies on:
   by an insertion, kept by a removal), so that `clear`, `iter`, `len` and
   `is_empty` cost the range and `clone_from` the union of both ranges,
   one copy (the source's words outside its range are empty, so they
-  clear the target's); equality and the hash are of the members, never
+  clear the target's); a zone of at most `NARROW` (8) words keeps every
+  word in range, since there the bookkeeping cost more than it saved; equality and the hash are of the members, never
   of the range, since the memo and the loop check compare zones by
   them. On a net of tens of thousands of occurrences a stable sequent's
   members lie in a few words: the free splits of
@@ -781,6 +782,14 @@ relies on:
   and resumes; `search_splits` is the same `next_split` loop with
   `premises` in place of the next frame, so the steps, nodes and
   counters are those of the recursion, and only the levels are not taken.
+  Only a left factor of `CHAIN_SIZE` (256) occurrences or more starts a
+  frame: the frames' bookkeeping, and the split search made resumable
+  at all, cost Petri nets whose clause bodies are tensors of a few
+  factors up to a fifth of their stable sequents per second, so a short
+  chain recurses as before (with `next_split`'s place in locals and the
+  search's parts given back one by one, which won most of it back;
+  `TCPcondis_tcp15_20_1` still visits 15 % fewer in its 5 s, the price
+  of the loop, against the wide nets' gains of the zone's range).
   `wide-m1` at 2 048 literals, which met the recursion limit, is proved
   in 0.35 s; at 4 096 the counts of a split per link (a frame keeps its
   own, as the recursion kept them on the stack) reach the memory bound.
@@ -839,7 +848,17 @@ relies on:
   rests on its own premise alone (until step 26, one thread's proofs
   carried the cuts of the alternatives tried before them, as the
   engine-wide flags these values replaced did; dropping them made more
-  failures complete and was a change of the search with its panel).
+  failures complete and was a change of the search with its panel). Why
+  that is sound (the panel's argument, sharper than the first one): a
+  failed premise was searched under the same branch stack and the same
+  budget as the rule's conclusion, so every proof through the rule
+  contains a proof of that premise under the same conditions and its
+  cuts are all the rule's failure rests on; what a proved sibling's
+  search leaves for later is a memo entry, and an entry is a proof or a
+  failure free of dependencies, the stack is popped back before the
+  sibling runs, and the minimality argument discharges a dependency per
+  rule instance. It changes the pool's workers below the parallel
+  levels too, which run the same rules.
   `prove_stable` reads its decision's cuts to choose the memo entry
   (`Exhausted`, `Complete`, or none under a dependency), settles a
   dependency on itself and returns the rest; `run` reads a level's. A

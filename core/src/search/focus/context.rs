@@ -31,6 +31,11 @@ pub(crate) struct Context {
     hi: usize,
 }
 
+/// The most words of a zone that keeps every word in its range: on a
+/// forest of a few hundred occurrences the bookkeeping of a range costs
+/// more than it saves.
+const NARROW: usize = 8;
+
 impl PartialEq for Context {
     fn eq(&self, other: &Self) -> bool {
         self.set == other.set && self.extra == other.extra
@@ -51,12 +56,14 @@ impl Hash for Context {
 impl Context {
     /// Returns the empty zone over `len` occurrence ids.
     pub(crate) fn empty(len: usize) -> Self {
-        Self {
+        let mut zone = Self {
             set: OccSet::empty(len),
             extra: Vec::new(),
             lo: 0,
             hi: 0,
-        }
+        };
+        zone.clear();
+        zone
     }
 
     /// Returns the occurrences present, each once.
@@ -75,8 +82,13 @@ impl Context {
         self.extra.binary_search_by_key(&o, |&(x, _)| x)
     }
 
-    /// Widens the range of words that may hold a member to `o`'s.
+    /// Widens the range of words that may hold a member to `o`'s; a
+    /// narrow zone's range is all of them already.
+    #[inline]
     fn reach(&mut self, o: OccId) {
+        if self.hi - self.lo == self.set.words().len() {
+            return;
+        }
         let word = o.index() / 64;
         if self.lo == self.hi {
             (self.lo, self.hi) = (word, word + 1);
@@ -125,10 +137,13 @@ impl Context {
         1 + self.slot(o).map_or(0, |i| self.extra[i].1)
     }
 
-    /// Removes every member.
+    /// Removes every member. A zone of a forest of at most
+    /// [`NARROW`] words keeps them all in range, which costs less than
+    /// keeping track.
     pub(crate) fn clear(&mut self) {
         self.set.clear_words(self.lo, self.hi);
-        (self.lo, self.hi) = (0, 0);
+        let width = self.set.words().len();
+        (self.lo, self.hi) = if width <= NARROW { (0, width) } else { (0, 0) };
         self.extra.clear();
     }
 

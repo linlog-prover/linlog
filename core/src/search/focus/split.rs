@@ -256,11 +256,12 @@ impl Engine<'_> {
     /// search over the members of `Γ` for the splits whose two sides pass
     /// the counts. A left factor whose split is free again continues the
     /// search as a chain ([`Self::chain`]), in the same order.
+    #[inline(always)]
     fn free_split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
-        let mut opened = self.open_split(gamma, f);
+        let opened = self.open_split(gamma, f);
         #[cfg(feature = "parallel")]
         if self.cubes() && opened.members.len() >= 2 {
-            let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
+            let (a, b) = (opened.a, opened.b);
             let result = self.split_parallel(
                 theta,
                 &opened.members,
@@ -275,17 +276,30 @@ impl Engine<'_> {
         if self.chains_on(opened.a) {
             return self.chain(theta, opened, budget);
         }
-        let join = Join::Tensor(f, opened.a, opened.b);
+        // The parts given back one by one: moving the whole search on a
+        // free split of every clause body was a tenth of a net's time.
+        let Opened {
+            a,
+            b,
+            members,
+            mut left,
+            mut right,
+            mut split,
+            ..
+        } = opened;
         let result = self.search_splits(
             theta,
-            &opened.members,
+            &members,
             (0, 0),
-            (&mut opened.left, &mut opened.right),
-            &mut opened.split,
-            join,
+            (&mut left, &mut right),
+            &mut split,
+            Join::Tensor(f, a, b),
             budget,
         );
-        self.close_split(opened);
+        self.give_list(members);
+        self.give_context(left);
+        self.give_context(right);
+        self.give_split(split);
         result
     }
 
@@ -293,6 +307,7 @@ impl Engine<'_> {
     /// first step: the members in the order they are assigned and open in
     /// the counts, every member on the right, and, two-sided, on a
     /// hypothesis `A ⊸ B`, the goal on the consequent's side.
+    #[inline(always)]
     fn open_split(&mut self, gamma: &Context, f: OccId) -> Opened {
         let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
         let mut members = self.take_list();
@@ -344,14 +359,19 @@ impl Engine<'_> {
     }
 
     /// Whether a focus on `a`, the left factor of a `⊗` whose split is
-    /// searched on this thread, searches its split too: a `⊗` that no
-    /// factor forces.
+    /// searched on this thread, continues the search as a chain: a `⊗`
+    /// that no factor forces, large enough to be a long one. A chain of a
+    /// few links, a clause's body, recurses: the frames' bookkeeping cost
+    /// a seventh of the stable sequents per second on Petri nets whose
+    /// clauses have such bodies.
     fn chains_on(&self, a: OccId) -> bool {
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return false;
         }
-        self.forest.kind(a) == Kind::Tensor && self.forced_factor(a).is_none()
+        self.forest.size(a) >= CHAIN_SIZE
+            && self.forest.kind(a) == Kind::Tensor
+            && self.forced_factor(a).is_none()
     }
 
     /// The free splits of a chain of `⊗`, each the left factor of the one
@@ -566,6 +586,7 @@ impl Engine<'_> {
     /// given up as soon as the counts show that no way of assigning the
     /// rest lets both sides pass; of interchangeable members the left side
     /// takes those with the lowest ids, so that only their number varies.
+    #[inline(always)]
     fn next_split(
         &mut self,
         walk: &mut Walk,
@@ -574,17 +595,22 @@ impl Engine<'_> {
         split: &mut Split,
     ) -> Result<bool, Reason> {
         let rules = self.rules;
-        let trail = &mut walk.trail;
+        // The walk's place in locals while it moves, written back where it
+        // stops.
+        let (start, mut next) = (walk.start, walk.next);
+        let trail = &mut walk.trail[..];
         // From a split already given, back to the last member assigned to
         // the right first.
         let mut back = std::mem::take(&mut walk.at_leaf);
-        'search: loop {
+        let found = 'search: loop {
             if !back {
                 self.statistics.splits += 1;
-                self.poll_splits()?;
+                if let Err(reason) = self.poll_splits() {
+                    walk.next = next;
+                    return Err(reason);
+                }
                 if split.feasible(rules.intervals, rules.equation, rules.mix) {
-                    if walk.next < members.len() {
-                        let next = walk.next;
+                    if next < members.len() {
                         let m = members[next];
                         // On the left at once when the member before it is
                         // interchangeable and went left: the lowest ids do.
@@ -600,35 +626,37 @@ impl Engine<'_> {
                         };
                         split.assign(self.counts, m, side);
                         trail[next] = side;
-                        walk.next += 1;
+                        next += 1;
                         continue;
                     }
-                    walk.at_leaf = true;
-                    return Ok(true);
+                    break true;
                 }
             }
             back = false;
             // Back to the last member assigned to the right, which goes to
             // the left; those after it are open again.
             loop {
-                if walk.next == walk.start {
-                    return Ok(false);
+                if next == start {
+                    break 'search false;
                 }
-                walk.next -= 1;
-                let m = members[walk.next];
-                if trail[walk.next] == Side::Right {
+                next -= 1;
+                let m = members[next];
+                if trail[next] == Side::Right {
                     split.flip(self.counts, m, Side::Left);
                     right.remove(m);
                     left.insert(m);
-                    trail[walk.next] = Side::Left;
-                    walk.next += 1;
+                    trail[next] = Side::Left;
+                    next += 1;
                     continue 'search;
                 }
                 split.unassign(self.counts, m, Side::Left);
                 left.remove(m);
                 right.insert(m);
             }
-        }
+        };
+        walk.next = next;
+        walk.at_leaf = found;
+        Ok(found)
     }
 
     /// Polls the stop condition once every [`SPLITS_PER_POLL`] steps of
@@ -819,6 +847,12 @@ pub(super) enum Forced {
     /// literals.
     Duals,
 }
+
+/// The occurrences a left factor of a `⊗` must have for its free split
+/// to run as the next link of a loop and not recursively: a chain of
+/// tensors of that size has some dozens of links, far below the
+/// recursion limit, and recursing through it is cheaper.
+const CHAIN_SIZE: u32 = 256;
 
 /// A search for the free splits of a `⊗` over its context, opened: the
 /// members it assigns, the two sides and their counts.
