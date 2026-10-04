@@ -144,11 +144,26 @@ Every commit that claims no change of the search leaves `nodes`,
 `bench/targets.sh` identical; a commit that changes the search says so,
 is measured, and is reviewed by a panel before it is called done. Use a
 workflow for each such review (the author's choice, 2026-10-03): three
-agents, each trying to refute the change in one way, and it stands when
-none does: counterexamples against the committed reference prover and
-the generators (Opus 5.5 at `high`), the argument read line by line
-against the code (Fable 5.1 at `high`), and the integers and limits it
-rests on (Sonnet 5.5 at `high`). An agent that runs programs gets the
+agents, each in a fresh context that holds the diff, the claim and the
+code but not your reasoning, each trying to refute the change in one
+way; the change stands when none does.
+
+- **Counterexamples** (Opus 5.5 at `high`): both references (below) and
+  the generators against the changed engine, on more sequents and
+  larger ones than the committed test runs, within the scope's bounds.
+- **The argument** (Opus 5.5 at `xhigh`): the invariant the change
+  relies on, stated from the code before your argument is read, then
+  checked line by line at every site that relies on it.
+- **The integers and limits** it rests on (Sonnet 5.5 at `high`), each
+  driven to its limit by an input.
+
+A refutation carries its witness (the sequent with both verdicts, or the
+input and the line), and you reproduce it before acting on it. The three
+are all Anthropic models, whose errors correlate (models of one
+developer more than others), and a model judges what it wrote more
+kindly: so the panel's independence comes from its methods, executable
+witnesses, two references and an argument derived before it is
+compared, not from its members. An agent that runs programs gets the
 rules of `plan/conduct.md` in its prompt: named cores, a memory-capped
 scope, bounded runs. Pinned CPU time does not rise.
 
@@ -174,9 +189,36 @@ the rules file names), so none of those runs can be repeated on the
 engine as it is today; the checker guards a
 wrong "proved" in every build, and only the engines themselves guard a
 wrong "unprovable". Steps 27, 35 and 37 add their engines to this test.
-A fresh-context reviewer still writes a reference of their own for a
-change of the search: the committed one is for repeating, theirs for
-independence.
+Before the engines are compared with it, a fresh-context reviewer (a
+sub-agent on your model) reads the reference against the calculus in
+the rules files and decides a dozen small sequents with it by hand: the
+oracle is checked before it judges. And in the session that changes the
+search, a fresh-context agent (Opus 5.5 at `high`) writes a second
+reference of its own from the calculus, sharing no code with the
+committed one, and keeps it outside the repository; every panel's
+counterexample agent runs both. The committed one is for repeating, the
+second for independence.
+
+## How the step runs
+
+Two sessions, both on Opus 5.5 at `xhigh`: Fable's share of the weekly
+allowance is spent (2026-10-04), and `xhigh` is the level Anthropic
+names for agentic coding of more than half an hour.
+
+- **The first session** builds the reference prover and its test before
+  anything else changes, has it reviewed as above, takes the profile at
+  the start (item 5) and the measurements of item 6, and does items 1
+  to 3, the refactoring that claims no change: every commit keeps the
+  target set's counters. It ends with the report's first part, and the
+  planning session reviews it before the second session starts.
+- **The second session** starts from the report: items 4 to 6 (the
+  dispatch as data, the hot spots, every change of the search with its
+  panel), the profile at the end, and item 7.
+
+Keep the step's items as a checklist in the report as you go, each with
+its state and its evidence. A session ends when its part of the list is
+done or something on it is blocked, not at a milestone to report it:
+status notes go with the next tool call.
 
 ## What waits
 

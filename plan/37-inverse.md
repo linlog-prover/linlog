@@ -26,7 +26,9 @@ are left for it, sequents with many hypotheses and a small goal that the
 backward search still loses on, and whatever of Mix the prune of step 26
 does not take. Its first session ends with a measurement on the third
 baseline's undecided rows and the families; if no row is won, the engine
-stays an option (`--engine inverse`) and the report says so. Fable 5.1
-at `xhigh`.
+stays an option (`--engine inverse`) and the report says so.
+Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
+the panel step 26's prompt describes, its argument read on Fable 5.1 at
+`high`.
 
 Deliverable: thematic jj commits; `plan/reports/37-inverse.md`.

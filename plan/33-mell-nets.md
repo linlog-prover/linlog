@@ -29,6 +29,8 @@ enumeration on small structures, as step 5 had; second session the
 drawing and the front ends. The choice of `?` nodes (dereliction,
 contraction and weakening as nodes, or one generalised node) is the
 session's, argued from what makes desequentialization canonical and
-weakening checkable. Fable 5.1 at `xhigh`.
+weakening checkable. Opus 5.5 at `high`; every change of a search or a
+criterion is reviewed by the panel step 26's prompt describes, its
+argument read on Fable 5.1 at `high`.
 
 Deliverable: thematic jj commits; `plan/reports/33-mell-nets.md`.

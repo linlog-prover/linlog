@@ -29,7 +29,9 @@ propositional search untouched (every proof it returns stays cut-free)
 and `plan/notes/api.md` followed for where quantifiers will go (D17).
 The second is elimination on terms, the third on nets with the drawing.
 Termination and the preservation of the conclusion are tested on
-generated proofs with cuts, every result through the checker. Fable 5.1
-at `xhigh`.
+generated proofs with cuts, every result through the checker.
+Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
+the panel step 26's prompt describes, its argument read on Fable 5.1 at
+`high`.
 
 Deliverable: thematic jj commits; `plan/reports/34-cut.md`.

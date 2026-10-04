@@ -132,18 +132,26 @@ its own, and writes certificates over `Prop`; the ILTP library's 274
 problems are fetched by the flake (`.#iltp`). Its review made the
 reading of atoms linear (a scan of the names had made 100 000 atoms take
 8.5 s) and left to step 26 a quadratic first look of the affine search
-that predates it. The next command is step 26:
+that predates it. The next command is step 26's first session:
 
 ```nu
-claude --model claude-fable-5-1 --effort high --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-At its review, finish `plan/27-horn.md`.
+Review it before the second session (`--name step-26b`, same command
+otherwise): read the reference prover against the calculus and its
+test, and check that every commit kept the target set's counters. At
+the review of the second session, finish `plan/27-horn.md`.
 
-Models and efforts were re-evaluated on 2026-10-03 ("Why these models
-and efforts" in `plan/README.md`): the author runs off a Max 20x plan,
-where Fable may use at most half of the weekly limit; Fable 5.1 and
-Opus 5.5 at `high`, `xhigh` only where the row says, never `max`.
+Models and efforts were re-evaluated on 2026-10-03 and again on
+2026-10-04 ("Why these models and efforts" in `plan/README.md`, with
+its sources): the author runs off a Max 20x plan, where Fable may use
+at most half of the weekly limit, and that half was spent on
+2026-10-04. Steps 26 and 27 run on Opus 5.5 at `xhigh`; from step 28
+every session runs on Opus 5.5 at `high`, and Fable 5.1 only where the
+hardest reasoning decides in a small context (the panel's argument
+read, the audit's soundness lens, the judge of the API note) and at
+`xhigh` for the Rocq checker's proof. Never `max`.
 Workflows (multi-agent orchestration) are used where a prompt says so
 in as many words, which is the author's opt-in: the panels for changes
 of the search (step 26 on) and the audit of step 28.

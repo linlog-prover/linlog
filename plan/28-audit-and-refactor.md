@@ -130,14 +130,16 @@ Each session takes the rubric, the decision list and its area's
 findings, and the items below. Fixes are sequential in the one working
 copy.
 
-1. **The library's API and data model** (Opus 5.5 at `high`; Fable 5.1
-   at `high` for the checker). A design note first,
+1. **The library's API and data model** (Opus 5.5 at `high`; a change
+   of the checker is reviewed by the panel, as a change of the search
+   is). A design note first,
    `plan/notes/api.md`: the public surface after this step, and how
    first-order logic enters it (atoms as predicates over terms, binders
    in the arena, a substitution beside the forest, witnesses in proofs),
    with what stays untouched for the propositional case and how that is
    measured; written as a workflow of three independent drafts from
-   different angles, judged, and synthesised. Then: what is `pub` and
+   different angles (Opus 5.5 at `high`), judged (Fable 5.1 at `high`),
+   and synthesised. Then: what is `pub` and
    need not be; names that differ between neighbours (the `Engine`
    structs beside the enum, the types called `Rule` or `Rules`);
    `#[non_exhaustive]` and builders applied evenly; `Mode` where a
@@ -151,10 +153,11 @@ copy.
    seams; the lint allowances of `core/src/lib.rs` removed; the
    invariants of section 1.3 as types, assertions or tests where one
    sentence of code does it.
-2. **The search** (Fable 5.1 at `high`): the audit's findings under
+2. **The search** (Opus 5.5 at `high`): the audit's findings under
    `core/src/search/`. A commit that claims no change of the search
    keeps the target set's counters; one that changes it is reviewed by
-   the panel step 26's prompt describes.
+   the panel step 26's prompt describes, its argument read on Fable 5.1
+   at `high` again.
 3. **The command, the harness, the flake and the documents** (Opus 5.5
    at `high`): `prove` and `interact` share their search flags, the
    building of `Options`, the stop closure and the verdict line; a new

@@ -40,5 +40,7 @@ essential-net engine if it wins over the embedding.
    and the drawing of an essential net, which teaching wants whatever
    the measurement says.
 
-Fable 5.1 at `xhigh`. Deliverable: thematic jj commits;
+Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
+the panel step 26's prompt describes, its argument read on Fable 5.1 at
+`high`. Deliverable: thematic jj commits;
 `plan/reports/35-mll-engines.md`.

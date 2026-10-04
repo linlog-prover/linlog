@@ -44,19 +44,19 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 23 | What every session reads, short and true: the core rules split by module, the stale claims of the rules and CLAUDE.md, README's examples run by a check | `23-session-docs.md` | Opus 5.5 | high | 22 |
 | 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` | Opus 5.5 | high | 20, 21, 23 |
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
-| 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` | Fable 5.1 | high, a panel per change of the search | 20, 23 |
-| 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Fable 5.1 | high, with the panel | 24, 26 |
-| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the search and the checker; the reviewers by lens | high | 27 |
+| 26 | The focused engine in order, and the dispatch as a measured table (two sessions, a review between) | `26-focused-engine.md` | Opus 5.5 (Fable's allowance spent) | xhigh, a panel per change of the search | 20, 23 |
+| 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Opus 5.5 (Fable's allowance spent) | xhigh, with the panel | 24, 26 |
+| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the audit's soundness lens, the judge of the API note and the panel's argument; the other reviewers by lens | high | 27 |
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The third baseline (a night), and the first release prepared | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
-| 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 | xhigh for the checker's proof, high for the rest | 28, 30 |
+| 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
 | 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
-| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Fable 5.1 | high, with the panel | 28, 32 |
-| 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Fable 5.1 | high, with the panel | 31, 33 |
-| 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Fable 5.1 | high, with the panel | 26, 30 |
-| 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Fable 5.1 | high, with the panel | 35 |
-| 37 | The focused inverse method (two sessions) | `37-inverse.md` (finished at the review of 36) | Fable 5.1 | high, with the panel | 26, 30 |
-| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 | high, with the panel | 26, 28, 31 |
+| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 32 |
+| 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 33 |
+| 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
+| 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
+| 37 | The focused inverse method (two sessions) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
+| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -159,6 +159,67 @@ refute it in one way (step 26's prompt), which costs less than a whole
 session at `xhigh` and catches what one reviewer misses; step 28's
 audit picks its reviewers by lens. `conduct.md` forbids weakening a test
 to make it pass.
+
+Re-evaluated on 2026-10-04, at the review of step 25: Fable's half of
+the weekly allowance was spent, and the author asked for the steps
+before 28 on Opus at most, accepting more tokens. Read that day:
+Anthropic's "Choosing a model", the effort page and "Prompting Claude
+Opus 5.5" (platform.claude.com/docs/en/…), Claude Code's model
+configuration (code.claude.com/docs/en/model-config), Artificial
+Analysis's article on Opus 5.5, CodeRabbit's and Snorkel's evaluations
+of it, Simon Willison's post of 2026-09-22, Kim et al., "Correlated
+Errors in Large Language Models" (ICML 2025), and Panickssery, Bowman
+and Feng, "LLM Evaluators Recognize and Favor Their Own Generations"
+(NeurIPS 2024). What they say:
+
+- The docs' path is Opus 5.5 first, raised to `xhigh` or `max`, and
+  Fable 5.1 only where those still fall short on demanding reasoning or
+  long horizons. `xhigh` is for agentic coding of more than half an hour
+  with budgets in the millions of tokens; Opus 5.5 thinks more per turn
+  there than Opus 5 did, and the docs set `max_tokens` to 128 000 for it
+  (the repository's settings do).
+- Opus 5.5 is level with Fable 5.1 or ahead on the published measures:
+  Terminal-Bench 4.0 66.4 % against 55.8 % (Anthropic), the Artificial
+  Analysis index 56 at `xhigh` and 58 at `max`, the top score measured,
+  and Snorkel's coding set 68 % against 49 %. Fable keeps an edge on the
+  hardest reasoning: Anthropic's pairing of Opus 5.5 at `high` with Fable
+  as an advisor gained 1.7 points on SWE-bench Pro for 2.1 times the
+  cost, about what more effort buys.
+- `max` overthinks. Claude Code's docs say so; Opus 5.5 at `max` spent
+  all 128 000 output tokens on one answer in Willison's test and
+  averages about 119 000 per task on Artificial Analysis's index; a turn
+  that reaches the limit is lost.
+- A reviewer at higher effort finds more of the hard defects at lower
+  precision: CodeRabbit's Opus 5.5 at `max` caught 10 of 13 hard cases
+  against 8 at its standard setting, at 52 % precision against 67 %.
+- Models of one developer err alike, more than models of different
+  developers (Kim et al.), and a model judges its own output more kindly
+  (Panickssery et al.). A panel of Anthropic models gets its
+  independence from its methods, not from its members.
+
+So steps 26 and 27 run on Opus 5.5 at `xhigh`, never `max`. Step 26 is
+split into two sessions with a review between, so that the reference
+prover is checked before it judges the engine. The panel's argument
+read moves from Fable 5.1 at `high` to Opus 5.5 at `xhigh`. Every
+panelist starts in a fresh context without the session's reasoning,
+derives the invariant before reading the argument, and backs a
+refutation with a witness the session reproduces. A second reference
+prover, written fresh once per session that changes the search, runs
+beside the committed one.
+
+From step 28 Fable may be used again, and the author asked that no
+tokens be wasted. Fable weighs about twice Opus against the allowance,
+and its edge is the hardest reasoning, so it goes where that reasoning
+decides and its context is small, as Anthropic's advisor pattern places
+it: the panel's argument read (Fable 5.1 at `high` again from step 28),
+the audit's soundness lens, the judge of the API note's three drafts,
+and the Rocq library's proof of the checker (Fable 5.1 at `xhigh`, the
+one session where a stuck model costs most and the kernel checks the
+result). Every other session runs on Opus 5.5 at `high`, the engine
+steps 33 to 38 included, where the panel and the references carry the
+assurance; `xhigh` is for a session that is visibly stuck, and `max`
+for none. The step 28 session on the search moves from Fable to Opus
+for the same reason.
 
 ### How the prompts are written
 
@@ -288,25 +349,26 @@ claude --model claude-opus-5-5 --effort xhigh --name step-22 ((open --raw plan/2
 claude --model claude-opus-5-5 --effort high --name step-23 ((open --raw plan/23-session-docs.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-24 ((open --raw plan/24-batch.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-25 ((open --raw plan/25-ordinary-logic.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28-audit-and-refactor.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-29 ((open --raw plan/29-comparison.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-30 ((open --raw plan/30-baseline-release.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-fable-5-1 --effort xhigh --name step-31 ((open --raw plan/31-rocq-library.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-32 ((open --raw plan/32-web.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-33 ((open --raw plan/33-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-34 ((open --raw plan/34-cut.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-35 ((open --raw plan/35-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-36 ((open --raw plan/36-lambek.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-37 ((open --raw plan/37-inverse.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-fable-5-1 --effort high --name step-38 ((open --raw plan/38-first-order.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-33 ((open --raw plan/33-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-34 ((open --raw plan/34-cut.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-35 ((open --raw plan/35-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-36 ((open --raw plan/36-lambek.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-37 ((open --raw plan/37-inverse.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38-first-order.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
-the changes its row names (step 22's second session and step 31's
-sessions after the checker's proof at `--effort high`; step 28's
-session on the search with `--model claude-fable-5-1`); a session
+the changes its row names (step 26's second session as its first,
+with `--name step-26b`; step 22's second session at `--effort high`;
+step 31's sessions after the checker's proof with `--model
+claude-opus-5-5 --effort high`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
 work for `--model`. A session the author leaves to run at night adds
 `--permission-mode auto`, and its prompt a section like step 23's
@@ -1832,3 +1894,16 @@ client follows it (step 32).
   of literals (100 000 atoms: 3 s, past the time limit; it predates
   step 25). Termination on dyadic sequents: a step of its own if the
   author wants one (`later.md`). Prompt 26 finished. Next: step 26.
+- 2026-10-04: Fable's share of the weekly allowance spent; on the
+  author's word, steps 26 and 27 run on Opus 5.5 at `xhigh` (the
+  re-evaluation of this date under "Why these models and efforts", with
+  its sources). Step 26 becomes two sessions with a review between (the
+  reference prover checked before it judges), its panel's argument read
+  moves to Opus 5.5 at `xhigh`, panelists work without the session's
+  reasoning and back refutations with witnesses, and a second reference
+  is written fresh once per session that changes the search. Steps 28 to
+  38, on the author's word that Fable may be used from 28 but no tokens
+  wasted: every session on Opus 5.5 at `high`, Fable 5.1 at `high` only
+  for the panel's argument read, the audit's soundness lens and the
+  judge of the API note, and at `xhigh` for the Rocq checker's proof.
+  Prompts 28 and 33 to 38 and the commands say so.

@@ -27,6 +27,8 @@ form that `plan/notes/api.md` should have left room for; say in the
 report what it cost. The embedding of the Lambek calculus into
 first-order MILL (Moot and Piazza, 2001) is the other route and is
 weighed against the planar search once step 38 exists; this step builds
-the planar one. Fable 5.1 at `xhigh`.
+the planar one. Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
+the panel step 26's prompt describes, its argument read on Fable 5.1 at
+`high`.
 
 Deliverable: thematic jj commits; `plan/reports/36-lambek.md`.
