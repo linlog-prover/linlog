@@ -53,7 +53,8 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   then `optimize_roots`. Equal terms are interchangeable (an image equal
   as a term is equal as a tree), so any pairing among them is right.
 - **Minimal logic**: false is the atom `FALSE` (`false`, which the ordinary
-  syntax cannot name), so no `0` exists and `⊥L` cannot arise; the checker
+  syntax cannot name, but a TPTP problem can: then `_`s are appended until
+  the name is free, and `false_is_no_atom_of_the_sequent` pins it), so no `0` exists and `⊥L` cannot arise; the checker
   refuses `⊥L` in minimal logic anyway. An intuitionistic or minimal
   sequent with nothing right of `⊢` is decided as `Γ ⊢ ⊥`, and `Image::ordinary`
   is that sequent; more than one formula right is `Error::Succedents`.
@@ -72,7 +73,10 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   rule against the principal formula (a position given), the premises as
   multisets either sharing the context or splitting it (G1c/G1i/G1m of
   Troelstra and Schwichtenberg with additive variants, all derivable),
-  at most one formula right in LJ, no `⊥L` in minimal logic, the root
+  at most one formula right in LJ, exactly one in minimal logic (G1m: an
+  empty right side is `⊥` to LK's `¬L` and anything to `WR` or a split
+  `∨L`, which together are ex falso; a review forged `a, ¬a ⊢ b` that way,
+  `minimal_logic_refuses_an_empty_right_side` pins it), no `⊥L` in minimal logic, the root
   concluding the image's ordinary sequent. `¬L` and `¬R` take both
   forms, LK's (one premise; `Γ, A ⊢` for `¬R`) and that of `A → ⊥`. It has
   no counter that can wrap: it compares sorted vectors.
@@ -83,7 +87,11 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   import `Stdlib`'s `Classical_Prop`). Variables are `h'n`/`k'n`, which no
   atom identifier contains; atoms go through `export::rocq::identifiers`
   plus the names the terms use (`USED`). Every `match` has a `return`,
-  and `↔` goes through a cast to the conjunction it unfolds to.
+  and `↔` goes through a cast to the conjunction it unfolds to. A
+  negation is bracketed like a binary formula, since it is an
+  application. Minimal logic's `⊥` is Rocq's `False`, so a certificate
+  of minimal logic proves the intuitionistic statement only (minimality
+  rests on the checker).
 - **Deciding** is the caller's: `prove(image.sequent(), image.mode(), …)`
   with the command's defaults (no copy bound, the time limit), affine
   classical mode for `Affine`, intuitionistic mode otherwise. The

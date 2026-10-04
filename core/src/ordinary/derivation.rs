@@ -38,8 +38,10 @@ impl Side {
 /// of LJ does); an axiom `A ⊢ A` has no context, while `⊤R` and `⊥L` take
 /// any. `¬A` is a connective of its own; in LJ its left rule has the form
 /// of `→L` for `A → ⊥`, and in LK the one premise `Γ ⊢ A, Δ`. Every LJ
-/// sequent has at most one formula right of `⊢`, and minimal logic has no
-/// `⊥L`.
+/// sequent has at most one formula right of `⊢`; minimal logic has no
+/// `⊥L` and exactly one formula right of `⊢` in every sequent (G1m), since
+/// an empty right side would be read as `⊥` by one rule and as anything
+/// by another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Rule {
     /// `ax`: `A ⊢ A`.
@@ -333,6 +335,11 @@ impl Derivation {
             }
             if self.logic != Logic::Classical && inference.right.len() > 1 {
                 return Err(fail(n, "more than one formula right of ⊢".to_owned()));
+            }
+            // An empty right side is ⊥ for one rule and anything for
+            // another (`WR`, a split `∨L`), which is ex falso.
+            if self.logic == Logic::Minimal && inference.right.is_empty() {
+                return Err(fail(n, "no formula right of ⊢ in minimal logic".to_owned()));
             }
             self.check_one(inference).map_err(|why| fail(n, why))?;
         }
@@ -941,5 +948,50 @@ mod tests {
         let width = tree.lines().map(|l| l.chars().count()).max();
         let size = derivation.text_size(&crate::TextOptions::default());
         assert_eq!(Some(size), width.map(|w| (w, tree.lines().count())));
+    }
+
+    /// Ex falso through an empty right side, `a, ¬a ⊢` weakened to
+    /// `a, ¬a ⊢ b`, is refused in minimal logic and accepted in
+    /// intuitionistic logic.
+    #[test]
+    fn minimal_logic_refuses_an_empty_right_side() {
+        let sequent: Sequent = "a, ~a |- b".parse().unwrap();
+        let f = sequent.formulas();
+        let (a, not_a, b) = (sequent.left()[0], sequent.left()[1], sequent.right()[0]);
+        let inference = |left: Vec<NodeId>, right, rule, principal, premises: &[u32]| Inference {
+            left,
+            right,
+            rule,
+            principal,
+            premises: premises.iter().map(|&p| InfId::new(p)).collect(),
+        };
+        let forged = |logic| Derivation {
+            logic,
+            formulas: f.clone(),
+            left: vec![a, not_a],
+            right: vec![b],
+            inferences: vec![
+                inference(vec![a], vec![a], Rule::Axiom, None, &[]),
+                inference(
+                    vec![a, not_a],
+                    vec![],
+                    Rule::NotLeft,
+                    Some((Side::Left, 1)),
+                    &[0],
+                ),
+                inference(
+                    vec![a, not_a],
+                    vec![b],
+                    Rule::WeakenRight,
+                    Some((Side::Right, 0)),
+                    &[1],
+                ),
+            ],
+        };
+        assert!(forged(Logic::Intuitionistic).check().is_ok());
+        assert!(matches!(
+            forged(Logic::Minimal).check(),
+            Err(Error::ReadBack { .. })
+        ));
     }
 }

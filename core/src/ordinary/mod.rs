@@ -579,6 +579,26 @@ mod tests {
         }
     }
 
+    /// In minimal logic false is an atom of its own, also beside an atom
+    /// that a TPTP problem names `false`.
+    #[test]
+    fn false_is_no_atom_of_the_sequent() {
+        let problem =
+            read_tptp("fof(a, axiom, p). fof(b, axiom, ~p). fof(c, conjecture, false).").unwrap();
+        for translation in [
+            Translation::CallByName,
+            Translation::CallByValue,
+            Translation::ZeroOne,
+        ] {
+            let image = translate(&problem.sequent, Logic::Minimal, translation).unwrap();
+            let outcome = prove(image.sequent(), image.mode(), &Search::default()).unwrap();
+            assert!(
+                !matches!(outcome.verdict, Verdict::Proved(_)),
+                "{translation}"
+            );
+        }
+    }
+
     /// Every translation decides the sequents of its logic as the logic
     /// does, and every proof reads back as a derivation its checker
     /// accepts: the connectives on both sides, nested negations, the
