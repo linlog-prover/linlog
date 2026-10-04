@@ -55,11 +55,16 @@ and changed only where the behaviour it pins was meant to change, which
 the commit says.
 
 The machine is shared with its owner's other work. Every scratch program,
-yours or a sub-agent's, runs in a memory-capped scope of its own
-(`systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 …`) with
-its enumerations bounded by size, because an unbounded checker once took
-62 GB and the kernel killed the whole terminal with the session in it;
-say so in every sub-agent's brief. Anything that runs for more than a few
+and every build and test (`cargo test`, `cargo clippy`, `cargo hack`, a
+call of the command), yours or a sub-agent's, runs in a memory-capped
+scope of its own on a few cores (`systemd-run --user --scope -p
+MemoryMax=8G -p MemorySwapMax=0 taskset -c 4-9 …`, with
+`CARGO_BUILD_JOBS=6` and `RUST_TEST_THREADS=4`) with its enumerations
+bounded by size, because an unbounded checker once took 62 GB and the
+kernel killed the whole terminal with the session in it, and a bare
+`cargo test` whose new test built without a bound froze the machine
+for ten minutes until its owner switched it off; say so in every
+sub-agent's brief. Anything that runs for more than a few
 minutes runs detached from the terminal (a systemd user unit) so that it
 survives the session. Do not use every core or run `bench/baseline.sh`
 unless the step says the machine is free. A benchmark or probe run by

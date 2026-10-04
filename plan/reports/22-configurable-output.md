@@ -259,7 +259,7 @@ JSON through serde.
 | svg | `ids` | `false` | `--style ids=true` |
 | svg | `font_size` … `background` | as before (`Style::default()`) | `--style background=white` |
 | png | `scale` | 2 (`png::Options::DEFAULT_SCALE`) | `--style png.scale=3` |
-| png | `pixels` | 2²⁶ (`DEFAULT_PIXELS`) | `--style pixels=none` |
+| png | `pixels` | 2²⁶ (`DEFAULT_PIXELS`) | `--style pixels=null` |
 | pdf | `embed_text` | `true` | `--style embed_text=false` |
 | pdf | `compatible` | `false` (PDF/A-4) | `--style pdf.compatible=true` (PDF/A-2u) |
 | pdf | `accessible` | `false` | `--style pdf.accessible=true` (PDF/A-2a + PDF/UA-1) |
@@ -479,3 +479,91 @@ is `dots`, `bare`, `dashed` or `{"mark": "?"}`.
   without whose level it is (the `Statistics` has one number; step 26
   owns the schedulers); `rocq::Options::lemma` is not checked to be an
   identifier (step 28, the API's boundaries).
+
+## From the review (2026-10-04)
+
+The planning session read the command's output path (`io.rs`, `Show`,
+`derivation`, `close`), the style surface, the renderers, the compact
+view's bounds and the size pass's lower bound; ran the checks; probed the
+outputs by hand with crafted inputs, each in a memory-capped scope on
+pinned cores; and ran the whole LLTP library through the command itself
+under its defaults, four cores per run, so that the new output path wrote
+every proof the library has (a scratch converter wrote each problem as a
+JSON sequent for `--json-input`).
+
+- **Nothing bounds a render** (assigned to step 24, whose prompt has the
+  numbers). `png::from_svg` and `pdf::from_svg` parse the whole SVG with
+  usvg before any bound, at some 80 bytes per byte of SVG (every glyph
+  becomes a path), and krilla's PDF takes 90 to 145 bytes per byte in
+  all. Under the defaults, the proof of `a0 ⊗ … ⊗ a399 ⊢ a0 ⊗ … ⊗ a399`
+  (an SVG of 52 MB, admitted by the derivation's bound) was killed at
+  4 GiB as a PDF after 20 s; at 200 atoms the PDF took 1.2 GB and 5.9 s
+  under a time limit of 2 s. usvg strokes every wide arc of a net to
+  bound it: a net of 6 000 links with `--mix` (4.4 MB of SVG) took 17 s
+  as a PDF and 17 s to be refused as a PNG, its pixel bound being
+  compared after the parse. The net's drawing has no bound of its own.
+  The first Ctrl-C does not reach a render either, and the second exits
+  with 130 and leaves the output's `FILE.PID.partial` behind.
+  The rules file now says all this, and that a PNG takes up to eight
+  bytes a pixel (463 MB at 65 million pixels), not four.
+- **The text tree's premise gap** entered no bound: `--style
+  gap=4294967295` wrote 23.6 GB for a proof of two axioms past a time
+  limit of 10 s (a gap is one piece between two polls), and at
+  `usize::MAX` the layout's sum wrapped and the command wrote spaces
+  until it was killed. Fixed: `TextOptions::gap` is a `u16` ("Bound the
+  text tree's premise gap to 65 535 columns").
+- **An SVG on standard output cut short by the time limit lost its
+  reason**: the output holds its verdict and is not finished, so the
+  line written into it went with the buffer, and what had been flushed
+  stayed as a truncated document with nothing on standard error to say
+  why. Fixed: the line goes to standard error ("Say on standard error
+  why an SVG on standard output was cut short"). The cut came at 0.67 s
+  whatever the limit, on a tree of 2 400 inferences of 1 200 atoms with
+  the bound lifted: the SVG layout's first pass polls nothing (assigned
+  to 24).
+- **A session's `proof FILE` wrote JSON whatever the extension**, so
+  `proof p.pdf` made a `.pdf` file holding JSON, against README and
+  against `show FILE`. Fixed: the extension names the format, JSON
+  otherwise; messages that said "a Png" say "a PNG".
+- **The `--style` help** named neither `png.` and `pdf.` nor their
+  fields nor `svg.description`; it does now, and says that `null` lifts
+  a bound (the table above said `pixels=none`, which is refused: it is
+  `pixels=null`, corrected there). `deny.toml` gave the author and a
+  date for the BSD licences instead of the reason.
+- **The compact view had one test**, a single `?w` run. A differential
+  test now builds every proof of the checker's samples whole and
+  compact, one-sided and two-sided, and compares the compact view with
+  the whole one merged run by run afterwards ("Test the compact view
+  against the whole derivation with its runs merged"). The samples have
+  runs of `?w`, `wk` and `!w` only, so the test adds a proof whose `⊗`
+  contracts two `?` formulas, for runs of `?c` and `!c`; all agree.
+- **Typst refuses a formula nested 255 brackets deep** ("maximum parsing
+  depth exceeded": a chain of 256 atoms under `⅋`; 255 compile), in
+  either layout, which the rules file now says beside TeX's width. The
+  own layout compiled a tree of 400 inferences of 200-atom sequents in
+  18 s and 1.5 GB of Typst.
+- By hand besides: a derivation cut short by the time limit in text,
+  LaTeX and SVG, to standard output and to a file (no file is made);
+  every way of naming a session's file; a directory, a device and a
+  missing directory as `--output`; style values at their limits (refused
+  with serde's message); `SOURCE_DATE_EPOCH` from 0 to `u64::MAX` (years
+  past 9999 come out as 9999 with the real month and day, krilla's
+  clamp; left as it is).
+- **The library under the default on four cores**: the 4 512 problems
+  of `ILL` and `CLL` through `linlog prove` without flags, in two
+  detached halves (cores 4 to 7 in order, 8 to 11 reversed) that met.
+  2 239 proved, 152 refuted, 2 121 unknown, no error, no run past
+  2.15 s with the derivation written, and no verdict against step 21's
+  sweep of the harness. The command lost 17 of that sweep's decisions
+  and gained 3: the three are what step 21's review fixed; 15 of the 17
+  are Petri nets the harness decided after 0.9 to 2.0 s of search, the
+  command's limit also counting the read and the forest; the others are
+  `SYJ204+1.014` (known) and `SYN393+1` in `cbn`, which one thread never
+  refutes and a pool of four from the start refutes in 0.7 ms (assigned
+  to 26 beside `LCL181+1`). Of the 2 239 proofs, 345 had their
+  derivation left out by the default bound of 64 MiB, all by the
+  estimate; none was cut short by the time limit; the largest written
+  was 86 MB of text, 9.2 GB in all. The peak was 2.6 GB, two searches
+  of 1 GiB each beside the forest of `SYJ212+1.020`.
+- Not rerun: the target set, since no file of the search or the harness
+  changed.

@@ -15,6 +15,26 @@ at the review of step 23. Read before you start:
 - `plan/README.md`: D15, D16.
 - `core/src/lltp.rs`, `cli/**`, `bench/src/problems.rs`, `bench/src/run.rs`.
 
+## What the earlier steps left you
+
+Step 22 drew proofs as PNG and PDF, and its review found that nothing
+bounds the drawing once a derivation is admitted. `png::from_svg` and
+`pdf::from_svg` hand the whole SVG to usvg, whose parse sets every glyph
+as a path, some 80 bytes per byte of SVG, before any bound is compared;
+krilla's PDF takes 90 to 145 bytes per byte in all, the more the denser
+the text. So a derivation the default `ViewOptions` admits took over
+4 GiB as a PDF and was killed (`a0 ⊗ … ⊗ a399 ⊢ a0 ⊗ … ⊗ a399`, an SVG
+of 52 MB), and one of 13 MB took 1.2 GB and 5.9 s, three times the
+default time limit, which no poll reaches inside the two crates. usvg
+also strokes every wide arc of a net to bound it: a net of 6 000 links
+(`--mix`, 4.4 MB of SVG) took 17 s as a PDF and 17 s to be refused as a
+PNG. The PNG's pixel bound is compared only after the parse, the net's
+drawing (`svg::net`, `--net`) has no bound of its own at all, and the
+SVG layout's first pass over the inferences polls nothing (0.67 s on a
+tree of 2 400 inferences of 1 200 atoms, with the limit lifted). A
+batch that writes drawings into a directory meets all of it per
+sequent, in a process that lives on.
+
 ## Goal
 
 `linlog prove` decides many sequents in one call: a file of them, several
@@ -49,7 +69,22 @@ script talks to, and what every later measurement by day runs through.
 6. **A stream**: standard input read line by line and each answer
    flushed, so that the same command serves a program that asks, waits
    and asks again.
-7. **The draft of the header report.** With LLTP input in the command,
+7. **Bounded drawings**, before the batch writes any (D16): a bound on
+   what a render takes, compared before usvg parses anything, in the
+   library (a field of `png::Options` and `pdf::Options` with a
+   `RenderError` for what it refuses, which the command sets from
+   `--memory-limit`), from a measure that follows the cost: the glyphs
+   and the arcs of the drawing rather than its bytes, measured as above
+   on derivations of short and of long atom names and on nets; the
+   PNG's pixel bound read off the SVG's size before the parse; a bound
+   on a net's drawing like the derivation's; and the time limit over a
+   render. A thread the command stops waiting for, as `Deadline::within`
+   does for the read, ends with the process in a single call but lives
+   on with its memory in a batch, so the bound in bytes must also keep
+   a render short; say what it promises in seconds. Today the first
+   Ctrl-C does not reach a render, and the second exits with 130 and
+   leaves the output's `FILE.PID.partial` behind, which nothing removes.
+8. **The draft of the header report.** With LLTP input in the command,
    write `plan/notes/lltp-headers.md`: the 28 files whose headers
    contradict them, each with linlog's verdict, the checked proof as
    JSON or the classical countermodel, the bound it needed, and where
@@ -69,7 +104,10 @@ The checks of CLAUDE.md's table and `nix flake check`. The batch against
 single calls on `bench/problems/slow-tests.txt` and on a sample of two
 hundred LLTP problems, in both orders of cores; a timing of what a shell
 loop pays against the batch (named here: two pinned cores, under ten
-minutes, detached).
+minutes, detached). For item 7, the review's inputs again (the 400-atom
+tensor as PDF and PNG under the defaults, the net of 6 000 links with
+`--net`), each in a memory-capped scope: refused at once, or drawn
+within the bounds and the time limit.
 
 ## Deliverables
 

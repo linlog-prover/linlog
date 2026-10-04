@@ -55,7 +55,10 @@ else, and what it reads is true.
    output depends on the machine (a time, a copy bound reached under a
    time limit, a thread count) is marked as such and checked for its
    verdict line's shape only; pinned blocks name `--copies`,
-   `--timeout` and `--deterministic` as they need.
+   `--timeout` and `--deterministic` as they need. Since step 22 some
+   blocks write files (`--output proof.pdf`, a session's `show
+   part.pdf`): check that the file is made and is of its kind, not its
+   bytes, which carry a date unless `SOURCE_DATE_EPOCH` is set.
 
 ## Constraints
 

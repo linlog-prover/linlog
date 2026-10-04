@@ -1693,3 +1693,57 @@ client follows it (step 32).
   and `conduct.md` forbids weakening a test. New: `23-session-docs.md`,
   `28-audit-and-refactor.md`, `29-comparison.md` and
   `notes/comparison.md` (the tools and the method, researched today).
+- 2026-10-04: step 22, in two sessions (Opus 5.5 at xhigh, then at
+  high; the sessions wrote no entry here, so this one is the review's
+  summary of `reports/22-configurable-output.md`): every output has one
+  options value with serde (`TextOptions`, `latex::Options`,
+  `typst::Options`, `svg::Style`, `png::Options`, `pdf::Options`,
+  `rocq::Options`), set from the command by `--style KEY=VALUE`,
+  `--style-file`, `--lemma` and `--prelude`; one `write` signature into
+  any `fmt::Write` with a stop, so that the command writes the verdict
+  first and the derivation as it is made; the rule labels as one table
+  per convention; no font in LaTeX and Typst; a Typst layout of
+  linlog's own above curryst's nine inferences of height; a compact
+  view that draws a run of one structural rule as one starred
+  inference, by default where the whole derivation is over its bound;
+  ids a client can click; snapshots of every rule label, compiled.
+  At the author's requests beyond the prompt: PNG and PDF (resvg,
+  krilla; BSD licences allowed), every PDF archival (PDF/A-4,
+  PDF/A-2u with `compatible`, PDF/A-2a with PDF/UA-1 with
+  `accessible`), accessible SVG, `--net` in place of the net formats,
+  the format from the output's extension, and a file made only with a
+  derivation or a net in it. A bare test run of the second session
+  froze the machine (a compact build tried with every bound lifted);
+  the build now never tries without a bound unless asked, and every
+  run since is in a capped scope.
+- 2026-10-04: review of step 22 (its entry is above), accepted with
+  six fixes. Read: the report, the command's output path, the style
+  surface, the renderers, the compact view's bounds; no comment names
+  the plan, and the four new source files have their header. Checked:
+  clippy, the tests with and without `parallel`, both `cargo hack`
+  runs, `cargo deny`, `nix flake check` before and after the fixes.
+  **Found, assigned to step 24**: nothing bounds a render. usvg parses
+  the whole SVG first (80 bytes per byte), krilla's PDF takes up to
+  145, so a derivation the default bound admits was killed at 4 GiB as
+  a PDF and one of 13 MB took 5.9 s under a limit of 2 s; a net of
+  6 000 links took 17 s as a PDF, its arcs stroked one by one; the
+  net's drawing has no bound at all. **Fixed**: the text tree's gap
+  (`--style gap=4294967295` wrote 23.6 GB past its time limit, and
+  `usize::MAX` wrapped and never ended) is a `u16`; a cut-short SVG on
+  standard output says why on standard error instead of losing the
+  line with its buffer; a session's `proof FILE` takes the format its
+  extension names (`proof p.pdf` wrote JSON); the `--style` help names
+  PNG, PDF and `null`; `deny.toml` gives the reason for the BSD
+  licences; a differential test of the compact view against the whole
+  derivation merged run by run, with contraction runs added. Recorded
+  in the rules: Typst refuses a formula nested 255 brackets deep, a
+  PNG takes up to eight bytes a pixel. Run by hand: the whole library
+  through the command without flags on four cores per run (2 239
+  proved, 152 refuted, no error, none past 2.15 s, no verdict against
+  step 21's sweep; 345 derivations left out by the default bound),
+  cuts by the time limit in every text format, the session's files,
+  style values and dates at their limits, the own Typst layout on 400
+  inferences. Assigned: the renderers' bounds, the net's drawing and
+  the SVG layout's unpolled first pass to 24; `SYN393+1` in `cbn`,
+  which one thread never refutes and a pool of four refutes in 0.7 ms,
+  to 26. Next: step 23.

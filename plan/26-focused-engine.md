@@ -74,7 +74,13 @@ case.
    one thread: it deepens past a million levels in two seconds, every
    one of them cut. A pool refutes it at level 32 to 565, so it is the
    order of the memo's cut entries against the loop check that one
-   thread loses on. Without a copy bound the backward search of the
+   thread loses on. Step 22's review met a second: `SYN393+1` in `cbn`
+   deepens to 2.6 million levels in 10 s on one thread, and two threads
+   do no better, where a pool of four from the start refutes it in
+   0.7 ms; the default on four cores (one thread, then a pool of three
+   beside it) does not within its 2 s, the default on eight does in
+   0.1 s, and the step-21 sweep on four cores had it refuted in 0.24 s,
+   so which pool decides it is a matter of the interleaving. Without a copy bound the backward search of the
    default bias keeps its share of the work for good, where a bound
    used to end it and hand the core to the forward one
    (`SYJ212+1.014` in `cbn`). Each of these is a measurement to take,

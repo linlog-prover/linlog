@@ -71,7 +71,7 @@ session's transcript is
 
 ## Where things stand
 
-As of 2026-10-03 (evening) steps 1 to 21 are finished, reviewed and
+As of 2026-10-04 (night) steps 1 to 22 are finished, reviewed and
 pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
 and, on the author's answers, planned steps 18 to 37; at the review of
 step 21 the steps after 22 were put in a new order and renumbered to 38
@@ -80,7 +80,7 @@ audit and refactor once at step 28 right before the release at step 30,
 a comparison with the other provers at 29, the Rocq library and the web
 client after the release). The step table, the decisions D16 to D23 and
 the commands are in `plan/README.md`, the prompts are `plan/18-…md` to
-`plan/38-…md` (22 to 24 and 28 written in full; each later one says
+`plan/38-…md` (23, 24 and 28 written in full; each later one says
 what is fixed and is finished by you at the review its row names), `plan/later.md` says where every candidate and follow-up
 went, and `plan/notes/distribution.md` has the facts on releases,
 repositories and the organization. Step 18 rewrote the checker for
@@ -103,12 +103,22 @@ the limit, the time and the copy bound, and "unprovable" says why where
 the counts tell. Its review found the pool honouring a stop up to 15 s
 late on Petri nets (queued tasks of a choice built their workers before
 their first poll), which the default met on every large net, and fixed
-it. The next command is step 22, run twice (two sessions, the second
-from the first's report, with `--effort high`):
+it. Step 22 (two sessions, Opus 5.5) gave every output one options
+value with serde and the command a style surface, streamed the
+derivation after the verdict, took the font out of LaTeX and Typst,
+set Typst trees of any height in a layout of linlog's own, added a
+compact view, and at the author's requests PNG and archival PDF. Its
+review found that nothing bounds a render (a PDF of a derivation the
+default bound admits was killed at 4 GiB; assigned to step 24) and
+fixed five smaller defects, among them a premise gap that wrote 23.6 GB
+past the time limit. The next command is step 23:
 
 ```nu
-claude --model claude-opus-5-5 --effort xhigh --name step-22 ((open --raw plan/22-configurable-output.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-23 ((open --raw plan/23-session-docs.md) + "\n" + (open --raw plan/conduct.md))
 ```
+
+At its review, finish `plan/24-batch.md` (its item 7, the drawing
+bounds, is written already).
 
 Models and efforts were re-evaluated on 2026-10-03 ("Why these models
 and efforts" in `plan/README.md`): the author runs off a Max 20x plan,
@@ -154,7 +164,15 @@ measured on two cores, where the pool runs the two searches side by side
 and no cubes; on four, its default missed the time limit by 15 s on
 Petri nets, and the review's own earlier sweeps of the pool had left
 the nets out. Sweep the whole library under the default on four cores
-per run.
+per run. The lesson of step 22: a bound on what is built is not a bound
+on what is written or rendered. The derivation's bound admitted an SVG
+that a PDF renderer took 4 GiB for, and a style value (a gap of four
+billion columns) multiplied a tiny proof into 23.6 GB past its time
+limit. Feed every new option and every new output its largest value
+and its largest admitted input. Whenever the command's output path
+changed, sweep the library through the command, not only the harness:
+until step 24 lets the command read LLTP files, a scratch converter to
+JSON sequents does it, as at step 22's review.
 
 ## What a review is
 
@@ -216,7 +234,9 @@ what the steps so far showed.
   library by one options value designed for the CLI, the web front end
   and other wrappers at once (D15). LaTeX and Typst output never sets a
   font; Euler math is the font where linlog draws itself (SVG, the web).
-- The machine is shared: scratch programs in memory-capped scopes, long
+- The machine is shared: scratch programs in memory-capped scopes, and
+  `cargo test`, `clippy` and `hack` too (a bare test run of step 22 froze
+  the machine for ten minutes until the author forced it off), long
   runs detached as systemd user units, nothing on every core by day, no
   polling through a night.
 - Prompts are written for the model and effort that will run them, say
