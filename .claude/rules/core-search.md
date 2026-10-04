@@ -99,10 +99,14 @@ the net engine's, and the others stay zero.
   7 ms against 11 ms. What still needs the net engine is width at the
   default recursion limit: a free split costs the focused engine a
   level per link, so `wide-m1` at 2 048 ends at the limit where the net
-  engine proves it in 0.8 s. Whether `net` stays the default anywhere
-  else is for the second baseline's `engines` runs to say; the feature
-  that hurts it is equal literals under one pure tree, which the leaf
-  symmetry break below would take from its weaknesses. Every other
+  engine proves it in 0.8 s. The second baseline found the focused engine
+  as fast as the net engine or faster on every MLL family but the wide
+  sequents at 2 048 literals, where it meets the recursion limit
+  (`bench/COMPARISON.md`, "Focus against net"); the dispatch stays as it
+  is until the net engine's own work (`plan/later.md`, "Net-engine
+  pruning and routing"). The feature that hurts the net engine is equal
+  literals under one pure tree, which the leaf symmetry break
+  (`core-nets.md`, "Where it loses") would take from its weaknesses. Every other
   classical input, exponentials included, and everything in affine mode
   goes to `focus`.
   Before both: exactly two roots in the additive fragment with at least

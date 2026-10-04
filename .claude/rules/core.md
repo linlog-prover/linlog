@@ -28,20 +28,25 @@ it; only what holds for the whole crate goes here.
 
 ## Layout
 
-`sequents` (arena, printing), `parse`, `serialize`, `fragment`, `occurrences`
-(forest, sets, and the intuitionistic `reading`), `proofs` (terms in
-`mod.rs`, `check`, `derivation`, the renderer `fmt`, the crate-private
-`multiset`, and `interactive` behind the feature of that name), `search`
-(the front door in `mod.rs`, the focused engine in
-`focus/` with `counts` and `memo`, the net engine in `net`, the additive
-path in `additive`, the test-only `generate` with its classical and
-intuitionistic proof generators), `nets` (structures and the criterion's front door
-in `mod.rs`, the graph and the Yeo test in `graph`, the union-find in
-`skeleton`, `sequentialize`), and `export` (the shared `notation`, and
-`latex`, `typst`, `svg` and `rocq` behind the features of those names). `lib.rs`
-re-exports the public types, so users write
-`linlog::Sequent`, `linlog::Proof`, `linlog::prove`, and so on. `hash` is
-crate-private.
+`sequents` (the arena, its terms, and the formula walk `fmt`), `parse`,
+`serialize`, `fragment`, `errors` (the one `Error` and the parse error),
+`occurrences` (forest, sets, and the intuitionistic `reading`), `proofs`
+(terms in `mod.rs`, `check`, the checker's first implementation `oracle`
+for tests only, `derivation`, `size`, the text tree `fmt`, the rule
+labels `style`, the crate-private `multiset`, and `interactive` behind
+the feature of that name), `search` (the front door in `mod.rs`, the
+memory account in `memory`, the focused engine in `focus/` with
+`classes`, `context`, `counts`, `memo` and `parallel`, the net engine in
+`net`, the runtime of the pool in `parallel` behind the feature of that
+name, the additive path in `additive`, the test-only `generate` with its
+classical and intuitionistic proof generators), `nets` (structures and
+the criterion's front door in `mod.rs`, the graph and the Yeo test in
+`graph`, the union-find in `skeleton`, `sequentialize`), `export` (the
+shared `notation`, and `latex`, `typst`, `svg` with `font`, `tree` and
+`net`, `png`, `pdf` and `rocq` behind the features of those names),
+and `lltp` and `families` behind `parse`. `lib.rs` re-exports the
+public types, so users write `linlog::Sequent`, `linlog::Proof`,
+`linlog::prove`, and so on. `hash` is crate-private.
 
 ## Crate-wide rules
 

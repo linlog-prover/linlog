@@ -44,7 +44,8 @@ of terms. Invariants the code relies on:
   limit holds wherever no caller names another.
 - **Atom bias** (`Forest::bias`, computed once in `Forest::new`, a
   function of the sequent alone, so a run stays deterministic; the
-  focused engine is its only reader, through `polarity(o)`). Focusing is
+  focused engine is its only reader, through `Forest::bias_under`).
+  Focusing is
   complete for every assignment of polarities to atoms, so the bias is
   chosen for speed and can never change what is provable. Without an
   exponential in the sequent: per atom, the literal that is more often a

@@ -116,7 +116,7 @@ for NanoYalla. What the code relies on:
   check compiles exactly those files plus two CLI outputs with pdfLaTeX
   and Typst, which is what catches output that matches its snapshot but
   does not compile. The crane source keeps that directory
-  (`modules/workspace.nix`), since `cleanCargoSource` alone drops it.
+  (`modules/workspace.nix`), since `commonCargoSources` alone drops it.
   `typst::CURRYST` and the nixpkgs curryst in `modules/export.nix` move
   together.
 - **No font in LaTeX and Typst, Euler in SVG.** The LaTeX and Typst

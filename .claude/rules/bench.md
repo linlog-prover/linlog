@@ -31,7 +31,7 @@ beyond clap and anyhow, which the CLI already has.
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
   and with the library's own check off (`Options::check(false)`), prints
-  the 22-field tail of the CSV row with the search's verdict, and for a
+  the 25-field tail of the CSV row (`TAIL`) with the search's verdict, and for a
   proof checks it outside the timed part and prints the tail once more
   with `checked` and `check_ms`. The parent takes the last tail. It kills
   a child that has not said `loaded` within `--load-limit` seconds
@@ -90,8 +90,10 @@ beyond clap and anyhow, which the CLI already has.
   not `HEADER`, since the rows it would append do not fit. Fields never contain commas (`clean` turns them into `;`),
   so the files are split on commas without quoting.
 - **`verdict` and `reason`**: `proved`, `unprovable`, `unknown` (reasons
-  `timeout`, `copy_bound`, `context_too_wide`, `recursion_limit`,
-  `killed`, `crash …`), `refused` (`NetFragment`, `NetMode`, `EngineMode`,
+  `timeout`, `copy_bound`, `recursion_limit`, `memory_limit`,
+  `index_limit`, `other` for a `Reason` added since, `killed`,
+  `crash …`; `context_too_wide` is gone with its reason and only read in
+  older files), `refused` (`NetFragment`, `NetMode`, `EngineMode`,
   `NotAdditive`, `IntuitionisticMix`: the configuration does not apply)
   and `error` (every other `Error`, a parse failure, a missing reading;
   these are findings, not configurations). `checked` is `ok` or the
@@ -320,8 +322,8 @@ beyond clap and anyhow, which the CLI already has.
   counters of `after`, those with them the sum over the turns of both
   searches); `bench/TARGETS.md` has the table. A later change that must
   not alter the search runs the script under a label of its own and
-  compares with `after-bias.csv`, or with `after.csv` under an explicit
-  `--bias`; trial labels `scratch-*` are ignored by jj. `baseline-2026-10-02`
+  compares with `after-bias.csv` (the script names no `--bias`, so its
+  runs take the default); trial labels `scratch-*` are ignored by jj. `baseline-2026-10-02`
   is the set-up check of the second baseline: the engine it measured
   reproduces every decided row of `after-bias.csv`. `after-check` is the
   first label with the column `check_ms` (the rewritten checker, and the

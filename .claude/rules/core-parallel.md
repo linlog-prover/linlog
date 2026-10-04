@@ -45,9 +45,9 @@ has no or-choices worth sharing out). What the code relies on:
   millisecond timeout, polling the caller's closure at each timeout and
   raising the root `AtomicBool` when it fires. So `prove_goal`'s closure
   needs no `Send` and is polled about a thousand times a second, not
-  once per node: a caller that reads the clock every `n` polls (the CLI
-  does, on one thread) must read it every poll on several
-  (`polls_per_clock` in the CLI). A worker polls its `Flags`, the chain
+  once per node: a caller that read the clock every `n` polls would
+  have to read it at every poll on several (the CLI and the harness read
+  a flag that a timer thread raises, at every poll). A worker polls its `Flags`, the chain
   of its own cancel flag and its ancestors' up to the root, at every
   stable sequent (`prove_stable`) or literal chosen (`decide`), through
   `Stop::Flags`; the sequential engines poll the closure through

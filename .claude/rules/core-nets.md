@@ -208,8 +208,8 @@ What the code relies on:
   and wide contexts are where the net engine wins. Symmetry breaking for
   the leaves of a pure `⊗` or `⅋` tree of equal literals (sound: the
   leaves of a `⊗` tree share every switching's component, and a `⅋` tree
-  opens to interchangeable conclusions) is the follow-up the plan's step
-  14 should measure; until then the dispatch routes MLL with a literal of
+  opens to interchangeable conclusions) is a follow-up (`plan/later.md`,
+  "Net-engine pruning and routing"); until then the dispatch routes MLL with a literal of
   multiplicity above 2 to the focused engine (`prefers_net`).
 - **Every proof passes the checker** (in `prove_goal`, in every build;
   `debug_assert!` in `search` besides; every test), and every net is the

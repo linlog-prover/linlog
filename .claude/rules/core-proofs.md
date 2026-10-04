@@ -22,7 +22,7 @@ empty linear zone; `Weaken` exists for affine mode and `Mix` for Mix. The
 ILL rules have no tags of their own: on the lowered sequent (D1) every one
 is a classical rule (`⊸L` is `⊗`, `⊸R` and `⊗L` are `⅋`, `&L` is `⊕`, `⊕L`
 is `&`, `1L` is `⊥`, `0L` is `⊤`, `!L` is dereliction), so the same terms
-serve step 8. Invariants:
+serve intuitionistic mode. Invariants:
 
 - **A premise precedes its conclusion** (strictly smaller index), the root
   is the last node, and every node is reachable from the root. `Proof::new`

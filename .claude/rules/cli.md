@@ -143,8 +143,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   does not make is written by `fixtures`. A change of output is a
   README change in the same commit; an example whose output a fast
   machine could change gets `machine`, and a pinned one names
-  `--deterministic`, `--copies` or `--timeout` as it needs. The crane
-  source keeps `README.md` for it (`modules/workspace.nix`).
+  `--deterministic`, `--copies` or `--timeout` as it needs. The `-j 4`
+  example adds a note on a machine of fewer than four threads, so the
+  test assumes four. The crane source keeps `README.md` for it
+  (`modules/workspace.nix`).
 - **The search runs on its own thread** (`on_large_stack`) with the stack
   core's `Options::stack_size` computes for the recursion limit: twice
   the engine's measured cost per level (4 KiB unoptimized, 1 KiB
@@ -187,7 +189,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   thread first (`threads` in `argument_parsing.rs` makes `Threads`:
   without `--jobs` every thread the machine runs at once after
   `DEFAULT_POOL_AFTER`, 100 ms; `--jobs N` from the start unless
-  `--pool-after` is given; `--deterministic` one thread throughout).
+  `--pool-after` is given; `--deterministic` one thread throughout; a
+  `--jobs` above what the machine runs at once, or above
+  `Options::MAX_JOBS`, is taken as that many with a note on standard
+  error).
   `alone_first` in `prove.rs` runs the search on a thread of its own
   and waits for it up to `Threads::alone`; if it has not decided, a pool
   of the other threads (`jobs − 1`, at least two: a pool of one would be
@@ -317,7 +322,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **Ctrl-C** (`ctrlc`, whose handler runs on a thread of its own once per
   signal): the first sets a flag the search polls, so the outcome is
   unknown and `--stats` still prints; the second exits with 130. The
-  handler is installed by `prove` only.
+  handler is installed by `catch_interrupt`, which `prove` and
+  `interact` call (`check` and `seq` run no search and keep the default
+  of the signal).
 - **JSON output is core's `Outcome` serialization**, unchanged; `check`
   reads it as a `Proof` because the proof's keys are flattened into it.
   The time is not in the JSON (core has no clock, and the output stays
@@ -359,7 +366,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   still compiles with the verdict in it. A format with a document form
   takes `--standalone` (`form` lists which formats have one); one that
   draws nets gets an arm in `net_into` and `--net`'s list in
-  `Show::new`; a binary one is `is_binary`.
+  `Show::new`; a binary one is `is_binary` and has its arm in `render`;
+  one that cannot show a run of a structural rule as one inference is
+  built with `Compact::Never` in `Show::new`, as Rocq is. The matches with a
+  wildcard (`Show::fit`, that compact choice) take a new format
+  silently: read them.
 - **A new `Reason`**: its arm in `unknown` (`prove.rs`), which turns a
   generic phrase into advice (`RecursionLimit`, `CopyBound` and
   `MemoryLimit` name the flag to raise); the default arm prints

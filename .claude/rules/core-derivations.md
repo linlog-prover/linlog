@@ -20,7 +20,7 @@ one-sided inferences (`Inference { sequent, rule, principal, premises }`,
 premises before conclusions, root last, `Rule` with the usual spellings).
 The sequent is the ids in ascending order with repeats; `principal` is a
 position in it, `None` for `ax` (its sequent is the two literals) and Mix.
-Step 5 reads axiom links off the `ax` inferences (or the `Ax` nodes).
+`ProofStructure::from_proof` reads the axiom links off the `Ax` nodes.
 
 `Derivation::two_sided` (`Proof::two_sided_derivation`) is the same tree
 read two-sided: it checks the proof in intuitionistic affine mode (so
@@ -227,7 +227,14 @@ draws it.
 holds for step-by-step proving: the forest, the mode, the inferences of a
 derivation of the standard calculus with open goals as leaves, and the
 steps taken. It reuses `Inference` and `Rule` and shares no second
-representation with anything. What the code relies on:
+representation with anything. Its API: `new(&sequent, mode)`, `goals()`
+and `goal(id)`, `rules(goal, position)` (or a `Refusal` that says why no
+rule applies), `apply(goal, position, rule, left)`, `undo()`,
+`close(goal, options, view, stop)` (the search, then the graft),
+`close_with(goal, &proof, view, stop)` (the graft of a proof the caller's
+own search found, as the command's race does) and `close_all`,
+`derivation()` with open goals as `Rule::Open` leaves and
+`derivation_ids()` (a drawn inference's id in the state), and `proof()`. What the code relies on:
 
 - **The arena is top-down.** Inference 0 concludes the sequent; a step
   closes one open goal in place (its rule, principal and premises are

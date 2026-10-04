@@ -306,8 +306,7 @@ relies on:
     forward one has ended (`Baton::caught_up`). It used to wait for the
     whole slice on the condition variable, and a slice is counted in
     work, not in time. A condition that counts its polls or reads a
-    clock every `n` of them, as the CLI does every 1 024 on one thread,
-    therefore sees what it sees of one search; polled only once per
+    clock every `n` of them therefore sees what it sees of one search; polled only once per
     wake-up, it was a second late (a review's finding). The backward
     search reads `Baton::halt` at every poll. `StopOnPanic` stops it
     when the caller's condition panics. `Ended`, dropped on return and
