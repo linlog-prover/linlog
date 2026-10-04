@@ -2311,6 +2311,9 @@ for NanoYalla. What the code relies on:
   for that reason, and moves with the two versions. ebproof compiled a
   120-high tree; TeX fails with "Arithmetic overflow" on a sequent line
   wider than its largest dimension (about 5.7 m), which no layout fixes.
+  Typst 0.15.1 refuses a formula nested 255 brackets deep ("maximum
+  parsing depth exceeded": a chain of 256 atoms under `⅋`, every binary
+  subformula being bracketed; 255 atoms compile), in either layout.
 - **linlog's own Typst layout** (`typst::Layout`, `Auto` by default:
   curryst up to `CURRYST_HEIGHT`, the own layout above; `LAYOUT`): the
   output lists the inferences in preorder as `(premises, label,
@@ -2397,7 +2400,13 @@ for NanoYalla. What the code relies on:
 - **The PNG declares itself**: sRGB, a density of 96 dpi times the
   scale (so a viewer shows it at the drawing's size), `Title` and
   `Description` as iTXt; a pixel bound (`png::Options::pixels`)
-  refuses before anything is allocated.
+  refuses before the image is allocated, which is up to eight bytes a
+  pixel, but after the SVG is parsed. **Nothing bounds the renderers
+  yet**: usvg's parse takes some 80 bytes per byte of SVG (it sets every
+  glyph as a path), krilla's PDF 90 to 145, so a derivation the default
+  `ViewOptions` admits (an SVG of 52 MB) took over 4 GiB as a PDF; and
+  usvg strokes every wide arc of a net to bound it, 17 s for a net of
+  6 000 links (4.4 MB of SVG), which no stop reaches.
 - **Dependency versions**: krilla-svg pins usvg 0.47, so resvg stays at
   0.47 with it: one usvg tree serves both, and `deny.toml` ignores the
   unmaintained rustybuzz and ttf-parser beneath them until krilla moves

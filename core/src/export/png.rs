@@ -21,14 +21,17 @@ pub struct Options {
     /// The pixels of the image per pixel of the SVG document.
     pub scale: u32,
     /// The most pixels the image may have, or `None` for no bound: an
-    /// image takes four bytes per pixel while it is drawn.
+    /// image takes up to eight bytes per pixel while it is drawn and
+    /// encoded. The bound is compared once the SVG is parsed, which takes
+    /// memory of its own, some 80 bytes per byte of SVG.
     pub pixels: Option<u64>,
 }
 
 impl Options {
     /// The default scale, sharp on a screen of twice the usual density.
     pub const DEFAULT_SCALE: u32 = 2;
-    /// The default bound on the pixels, 64 million: 256 MiB while drawn.
+    /// The default bound on the pixels, 64 million: about 512 MiB while
+    /// drawn.
     pub const DEFAULT_PIXELS: u64 = 1 << 26;
 }
 
