@@ -242,13 +242,11 @@ impl Collected {
     fn take(&mut self, result: Step, worker: &Engine<'_>, cancel: &AtomicBool) {
         self.statistics.add(&worker.statistics);
         match result {
-            Ok(Found {
-                node: Some(node), ..
-            }) => {
+            Ok(Found::Proved(node)) => {
                 self.proof.get_or_insert(node);
                 cancel.store(true, Ordering::Relaxed);
             }
-            Ok(failed) => self.cuts = self.cuts.and(failed.cuts),
+            Ok(Found::Failed(failed)) => self.cuts = self.cuts.and(failed),
             Err(Reason::Stopped) if cancel.load(Ordering::Relaxed) => {}
             Err(reason) => {
                 if self.error.is_none_or(|old| old == Reason::Stopped) {
@@ -334,14 +332,10 @@ impl<'a> Engine<'a> {
     /// A result as it leaves this engine for another: the proof's pending
     /// nodes kept, since a pending id means nothing outside its engine.
     fn exported(&mut self, result: Step) -> Step {
-        let found = result?;
-        let Some(node) = found.node else {
-            return Ok(found);
-        };
-        Ok(Found {
-            node: Some(self.nodes.keep(0, node)?),
-            cuts: found.cuts,
-        })
+        match result? {
+            Found::Proved(node) => Ok(Found::proved(self.nodes.keep(0, node)?)),
+            failed => Ok(failed),
+        }
     }
 
     /// Locks what the workers report.
@@ -496,7 +490,7 @@ impl<'a> Engine<'a> {
         let search = |worker: &mut Engine<'_>, sub: OccId| {
             let result = worker.premise(theta, gamma, list, sub, budget);
             let result = worker.exported(result);
-            if !matches!(result, Ok(Found { node: Some(_), .. })) {
+            if !matches!(result, Ok(Found::Proved(_))) {
                 cancel.store(true, Ordering::Relaxed);
             }
             result
@@ -519,15 +513,10 @@ impl<'a> Engine<'a> {
         self.statistics.add(&left.statistics);
         self.statistics.add(&right.statistics);
         match (left.result, right.result) {
-            (
-                Ok(Found {
-                    node: Some(l),
-                    cuts,
-                }),
-                Ok(right @ Found { node: Some(_), .. }),
-            ) => Ok(self.both(o, (l, cuts), right, self.nodes.mark())),
-            (Ok(failed @ Found { node: None, .. }), _)
-            | (_, Ok(failed @ Found { node: None, .. })) => Ok(failed),
+            (Ok(Found::Proved(l)), Ok(right @ Found::Proved(_))) => {
+                Ok(self.both(o, l, right, self.nodes.mark()))
+            }
+            (Ok(failed @ Found::Failed(_)), _) | (_, Ok(failed @ Found::Failed(_))) => Ok(failed),
             // A premise that the other's error cancelled reports a stop,
             // which is not the reason: the error is.
             (Err(Reason::Stopped), Err(reason)) | (Err(reason), _) | (Ok(_), Err(reason)) => {

@@ -91,10 +91,7 @@ impl Engine<'_> {
         self.give_cursors(cursors);
         self.give_context(rest);
         let result = match result {
-            Ok(Found {
-                node: Some(mut node),
-                cuts,
-            }) => {
+            Ok(Found::Proved(mut node)) => {
                 for &(f, x_node, x_is_left) in links.iter().rev() {
                     let (left, right) = if x_is_left {
                         (x_node, node)
@@ -103,10 +100,7 @@ impl Engine<'_> {
                     };
                     node = self.push(Node::Tensor(f, left, right));
                 }
-                Ok(Found {
-                    node: Some(node),
-                    cuts,
-                })
+                Ok(Found::proved(node))
             }
             Ok(failed) => {
                 self.nodes.release(mark);
@@ -151,9 +145,13 @@ impl Engine<'_> {
                     let empty = self.take_context();
                     let found = self.focus(theta, &empty, x, budget);
                     self.give_context(empty);
-                    let found = found?;
-                    cuts = cuts.and(found.cuts);
-                    found.node
+                    match found? {
+                        Found::Proved(node) => Some(node),
+                        Found::Failed(failed) => {
+                            cuts = cuts.and(failed);
+                            None
+                        }
+                    }
                 }
                 // The dual in `Γ` when there is one, and the axiom on the
                 // two; otherwise the side stays empty and the initial rule
@@ -419,9 +417,9 @@ impl Engine<'_> {
                     Join::Mix if right.is_empty() => Found::NOTHING,
                     Join::Mix => self.parts(theta, left, right, budget)?,
                 };
-                cuts = cuts.and(joined.cuts);
-                if joined.node.is_some() {
-                    break joined.node;
+                match joined {
+                    Found::Proved(node) => break Some(node),
+                    Found::Failed(failed) => cuts = cuts.and(failed),
                 }
             }
             // Back to the last member assigned to the right, which goes to
@@ -446,7 +444,10 @@ impl Engine<'_> {
             }
         };
         self.give_trail(trail);
-        Ok(Found { node: found, cuts })
+        Ok(match found {
+            Some(node) => Found::proved(node),
+            None => Found::failed(cuts),
+        })
     }
 
     /// Polls the stop condition once every [`SPLITS_PER_POLL`] steps of
@@ -482,20 +483,17 @@ impl Engine<'_> {
     ) -> Step {
         let mark = self.nodes.mark();
         let l = self.focus(theta, left, a, budget)?;
-        let Some(l_node) = l.node else {
+        let Found::Proved(l_node) = l else {
             return Ok(l);
         };
         let held = self.nodes.hold(l_node);
-        let r = self.focus(theta, right, b, budget)?.after(l.cuts);
+        let r = self.focus(theta, right, b, budget)?;
         let l_node = self.nodes.unhold(held);
-        let Some(r_node) = r.node else {
+        let Found::Proved(r_node) = r else {
             self.nodes.release(mark);
             return Ok(r);
         };
-        Ok(Found {
-            node: Some(self.push(Node::Tensor(f, l_node, r_node))),
-            cuts: r.cuts,
-        })
+        Ok(Found::proved(self.push(Node::Tensor(f, l_node, r_node))))
     }
 
     /// The Mix rule on a stable sequent no focus proves: a split into two
@@ -543,20 +541,17 @@ impl Engine<'_> {
     fn parts(&mut self, theta: &OccSet, left: &Context, right: &Context, budget: u32) -> Step {
         let mark = self.nodes.mark();
         let l = self.prove(theta, left, budget)?;
-        let Some(l_node) = l.node else {
+        let Found::Proved(l_node) = l else {
             return Ok(l);
         };
         let held = self.nodes.hold(l_node);
-        let r = self.prove(theta, right, budget)?.after(l.cuts);
+        let r = self.prove(theta, right, budget)?;
         let l_node = self.nodes.unhold(held);
-        let Some(r_node) = r.node else {
+        let Found::Proved(r_node) = r else {
             self.nodes.release(mark);
             return Ok(r);
         };
-        Ok(Found {
-            node: Some(self.push(Node::Mix(l_node, r_node))),
-            cuts: r.cuts,
-        })
+        Ok(Found::proved(self.push(Node::Mix(l_node, r_node))))
     }
 }
 

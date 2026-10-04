@@ -441,51 +441,58 @@ impl Cuts {
     }
 }
 
-/// What a step of the search found: the node proving its sequent, if any,
-/// and the cuts of every step it ran, whatever those found. A step that
-/// runs others adds their cuts to its own, so a stable sequent reads off
-/// its decision's result what its memo entry may say.
+/// What a step of the search found: a proof of its sequent, or that
+/// there is none with the cuts of every step it ran. A failure rests on
+/// the failures below it and on nothing else, so a step that runs others
+/// adds the cuts of those that failed to its own; a proof is a fact that
+/// rests on nothing, so it carries no cuts, and a failure of a rule whose
+/// other premise was proved rests on its own premise's cuts alone. A
+/// stable sequent reads off its decision's result what its memo entry may
+/// say.
 #[derive(Clone, Copy, Debug)]
-struct Found {
-    /// The node proving the sequent, or `None`.
-    node: Option<NodeId>,
-    /// The cuts of the steps run.
-    cuts: Cuts,
+enum Found {
+    /// A proof, by this node.
+    Proved(NodeId),
+    /// No proof, with the cuts of the steps run.
+    Failed(Cuts),
 }
 
 impl Found {
     /// Nothing proved and nothing cut: a failure that is a fact.
-    const NOTHING: Self = Self {
-        node: None,
-        cuts: Cuts::NONE,
-    };
+    const NOTHING: Self = Self::Failed(Cuts::NONE);
 
-    /// A proof, with nothing cut.
+    /// A proof.
     fn proved(node: NodeId) -> Self {
-        Self {
-            node: Some(node),
-            cuts: Cuts::NONE,
-        }
+        Self::Proved(node)
     }
 
     /// A failure with these cuts.
     fn failed(cuts: Cuts) -> Self {
-        Self { node: None, cuts }
+        Self::Failed(cuts)
     }
 
-    /// The same result after steps with the cuts given ran first.
+    /// The node of the proof, if there is one.
+    fn node(self) -> Option<NodeId> {
+        match self {
+            Self::Proved(node) => Some(node),
+            Self::Failed(_) => None,
+        }
+    }
+
+    /// The same result after steps with the cuts given failed first: a
+    /// failure rests on them too, a proof on nothing.
     fn after(self, cuts: Cuts) -> Self {
-        Self {
-            node: self.node,
-            cuts: cuts.and(self.cuts),
+        match self {
+            Self::Proved(node) => Self::Proved(node),
+            Self::Failed(own) => Self::Failed(cuts.and(own)),
         }
     }
 
     /// The same result with the proof, if there is one, wrapped by `wrap`.
     fn map(self, wrap: impl FnOnce(NodeId) -> NodeId) -> Self {
-        Self {
-            node: self.node.map(wrap),
-            cuts: self.cuts,
+        match self {
+            Self::Proved(node) => Self::Proved(wrap(node)),
+            failed => failed,
         }
     }
 }
@@ -776,10 +783,10 @@ impl<'a> Engine<'a> {
             self.give_context(gamma);
             self.give_list(list);
             match result {
-                Ok(Found { node: None, cuts }) if cuts.exhausted => {}
+                Ok(Found::Failed(cuts)) if cuts.exhausted => {}
                 decided => {
                     self.give_set(theta);
-                    return decided.map(|found| found.node);
+                    return decided.map(Found::node);
                 }
             }
         }
@@ -893,7 +900,7 @@ impl<'a> Engine<'a> {
         }
         let mark = self.nodes.mark();
         let left = self.premise(theta, gamma, list, self.forest.left(o).unwrap(), budget)?;
-        let Some(left_node) = left.node else {
+        let Found::Proved(left_node) = left else {
             return Ok(left);
         };
         // The right premise on the state itself, which the rule leaves.
@@ -901,7 +908,7 @@ impl<'a> Engine<'a> {
         let held = self.nodes.hold(left_node);
         let right = self.asynchronous(theta, gamma, list, budget)?;
         let left_node = self.nodes.unhold(held);
-        Ok(self.both(o, (left_node, left.cuts), right, mark))
+        Ok(self.both(o, left_node, right, mark))
     }
 
     /// A premise of the `&` rule on copies of the state: the context and
@@ -924,20 +931,15 @@ impl<'a> Engine<'a> {
         result
     }
 
-    /// The `&` node on `o` from the proof of its left premise, with the
-    /// cuts of its search, and what the search of the right one found;
-    /// nothing, with the nodes pending since `mark` released, when the
-    /// right one failed.
-    fn both(&mut self, o: OccId, (left, cuts): (NodeId, Cuts), right: Found, mark: usize) -> Found {
-        let right = right.after(cuts);
-        let Some(right_node) = right.node else {
+    /// The `&` node on `o` from the proof of its left premise and what the
+    /// search of the right one found; the right one's failure, with the
+    /// nodes pending since `mark` released, when it failed.
+    fn both(&mut self, o: OccId, left: NodeId, right: Found, mark: usize) -> Found {
+        let Found::Proved(right) = right else {
             self.nodes.release(mark);
             return right;
         };
-        Found {
-            node: Some(self.push(Node::With(o, left, right_node))),
-            cuts: right.cuts,
-        }
+        Found::proved(self.push(Node::With(o, left, right)))
     }
 
     /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check and the
@@ -1056,18 +1058,23 @@ impl<'a> Engine<'a> {
                 return Err(reason);
             }
         };
-        // What the decision rests on, as the steps it ran returned it. A
+        // What a failure rests on, as the steps it ran returned it. A
         // dependency on this very sequent is settled with it: the pruned
         // descendants could only have proved what this sequent proves.
-        let cuts = Cuts {
-            exhausted: found.cuts.exhausted,
-            dependency: if found.cuts.dependency >= own_depth {
-                NO_DEPENDENCY
-            } else {
-                found.cuts.dependency
-            },
+        let (node, cuts) = match found {
+            Found::Proved(node) => (Some(node), Cuts::NONE),
+            Found::Failed(cuts) => (
+                None,
+                Cuts {
+                    exhausted: cuts.exhausted,
+                    dependency: if cuts.dependency >= own_depth {
+                        NO_DEPENDENCY
+                    } else {
+                        cuts.dependency
+                    },
+                },
+            ),
         };
-        let mut node = found.node;
         let canonical_key = Zones {
             theta,
             gamma: &canonical,
@@ -1106,8 +1113,10 @@ impl<'a> Engine<'a> {
             Some(proof) => Ok(Some(proof)),
         };
         self.give_context(canonical);
-        node = recorded?;
-        Ok(Found { node, cuts })
+        Ok(match recorded? {
+            Some(node) => Found::proved(node),
+            None => Found::failed(cuts),
+        })
     }
 
     /// The depth of the stable sequent of the branch that `key`, of hash
@@ -1267,11 +1276,10 @@ impl<'a> Engine<'a> {
         if zero && !affine && !tally.absorbs() && !theta.iter().any(|a| self.counts.absorbs(a)) {
             return Ok(Found::NOTHING);
         }
-        let initial = self.initial(theta, gamma, members, budget)?;
-        if initial.node.is_some() {
-            return Ok(initial);
-        }
-        let mut cuts = initial.cuts;
+        let mut cuts = match self.initial(theta, gamma, members, budget)? {
+            Found::Failed(cuts) => cuts,
+            proved => return Ok(proved),
+        };
         if self.rules.intervals && !tally.balanced() {
             return Ok(Found::failed(cuts));
         }
@@ -1325,13 +1333,13 @@ impl<'a> Engine<'a> {
             .iter()
             .map(|&f| Alternative::Focus(f))
             .chain(copies.iter().map(|&a| Alternative::Copy(a)));
-        let chosen = self.choose(theta, gamma, alternatives, budget)?.after(cuts);
-        if chosen.node.is_some() {
-            return Ok(chosen);
-        }
+        let cuts = match self.choose(theta, gamma, alternatives, budget)?.after(cuts) {
+            Found::Failed(cuts) => cuts,
+            proved => return Ok(proved),
+        };
         Ok(self
             .last_resort(theta, gamma, members, tally, budget)?
-            .after(chosen.cuts))
+            .after(cuts))
     }
 
     /// Decides a choice among alternatives: in their order on this thread,
@@ -1367,16 +1375,14 @@ impl<'a> Engine<'a> {
         let mut cuts = Cuts::NONE;
         let mut rest = None;
         for alternative in alternatives {
-            let found = self.alternative(theta, gamma, alternative, &mut rest, budget)?;
-            cuts = cuts.and(found.cuts);
-            if found.node.is_some() {
-                if let Some(rest) = rest {
-                    self.give_context(rest);
+            match self.alternative(theta, gamma, alternative, &mut rest, budget)? {
+                Found::Failed(failed) => cuts = cuts.and(failed),
+                proved => {
+                    if let Some(rest) = rest {
+                        self.give_context(rest);
+                    }
+                    return Ok(proved);
                 }
-                return Ok(Found {
-                    node: found.node,
-                    cuts,
-                });
             }
         }
         if let Some(rest) = rest {
@@ -1547,14 +1553,14 @@ impl<'a> Engine<'a> {
                 let q = self.lists[dual].first;
                 let ax = self.push(Node::Ax(p, q));
                 if !affine {
-                    return Ok(Found::proved(ax).after(cuts));
+                    return Ok(Found::proved(ax));
                 }
                 let mut rest = self.take_context_from(gamma);
                 rest.remove(p);
                 rest.remove(q);
                 let node = self.weakened(&rest, ax);
                 self.give_context(rest);
-                return Ok(Found::proved(node).after(cuts));
+                return Ok(Found::proved(node));
             }
             // Without exponentials `Θ` is empty; with them, a literal's
             // dual is looked up in `Θ` once, since another copy of it finds
@@ -1576,13 +1582,13 @@ impl<'a> Engine<'a> {
                 let ax = self.push(Node::Ax(p, d));
                 let copy = self.push(Node::Copy(d, ax));
                 if !affine {
-                    return Ok(Found::proved(copy).after(cuts));
+                    return Ok(Found::proved(copy));
                 }
                 let mut rest = self.take_context_from(gamma);
                 rest.remove(p);
                 let node = self.weakened(&rest, copy);
                 self.give_context(rest);
-                return Ok(Found::proved(node).after(cuts));
+                return Ok(Found::proved(node));
             }
         }
         Ok(Found::failed(cuts))

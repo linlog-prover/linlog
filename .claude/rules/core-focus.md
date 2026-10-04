@@ -778,20 +778,24 @@ relies on:
   about the branch, so a run with the memo may answer `Unknown` where a
   memo-free run answers `Unprovable` (or the reverse); the generated tests
   assert only that the two never contradict.
-- **The cuts are values a step returns** (`Cuts` in a step's `Found`:
-  `exhausted`, a branch cut by the copy budget, and `dependency`, the
-  shallowest ancestor a loop-check prune below relied on). Every step
-  returns the cuts of every step it ran, whatever those found: a proof
-  carries those of the failed alternatives before it, a two-premise rule
-  those of both premises it searched. That is exactly what the engine-wide
-  flags they replace held, so the search and its counters did not move.
+- **The cuts are values a step returns** (`Found`: a proof, or a
+  failure with its `Cuts`: `exhausted`, a branch cut by the copy budget,
+  and `dependency`, the shallowest ancestor a loop-check prune below
+  relied on). A failure carries the cuts of every failed step it rests
+  on; a proof carries none, since it is a fact at every budget and on
+  every branch, and a failure of a rule whose other premise was proved
+  rests on its own premise alone (until step 26, one thread's proofs
+  carried the cuts of the alternatives tried before them, as the
+  engine-wide flags these values replaced did; dropping them made more
+  failures complete and was a change of the search with its panel).
   `prove_stable` reads its decision's cuts to choose the memo entry
   (`Exhausted`, `Complete`, or none under a dependency), settles a
-  dependency on itself and returns the rest; `run` reads a level's. A new
-  rule adds the cuts of every step it runs to its result (`Found::after`,
-  `Cuts::and`): a cut dropped there is a wrong `Unprovable`, which the
-  reference test (`search::reference`) may catch and the counters do not.
-  On a pool the merge differs (`core-parallel.md`).
+  dependency on itself and returns the rest; `run` reads a level's. A
+  new rule adds the cuts of every failed step it runs to its failure
+  (`Found::after`, `Cuts::and`): a cut dropped there is a wrong
+  `Unprovable`, which the reference tests (`search::reference`) may
+  catch and the counters do not. The pool merges them the same way
+  (`core-parallel.md`).
 - **Every proof passes the checker**: in `prove_goal` for a proof of the
   roots, in every build; `debug_assert!` in `search` besides, and
   every test that gets a proof calls `check`. The test-only generator
