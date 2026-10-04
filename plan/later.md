@@ -41,9 +41,11 @@ per-worker proof arena, the duplicated exploration of `&` premises, a
 thread sanitizer (no measurement asks); sharing more among
 interchangeable sequents, the order of a split search's members, the
 intersection for `&` (no target asks); the net engine on a sub-forest
-(no client asks). Dropped: the restart of a copy-bound level from the
-frontier and the tuning of the unit of work, if step 27's engine takes
-the nets; the member list, `OccSet` and link-time optimisation among the
+(no client asks). Dropped by step 27, whose Horn engine takes the nets
+by default: the restart of a copy-bound level from the frontier, the
+tuning of the unit of work (the default's contract at the limit), and
+the throughput of short clause bodies (`TCPcondis`), each of which only
+served the focused engine on nets. Dropped before: the member list, `OccSet` and link-time optimisation among the
 constant factors; Matsuoka's 3D-Matching family.
 
 ## Code audit and refactoring
@@ -251,6 +253,15 @@ check of their proofs runs out of 12 GiB (the review of step 16; the
 focused engine's follow-ups have both). Every LLTP net is a theorem, so
 the library cannot show refutation; the nets beyond 5 s are what a
 reachability route would be measured on.
+
+Step 27's first session built the engine (`core/src/search/horn/`,
+`Engine::Horn`): reachability by an explicit-state search of the
+markings, the proof read off the firing sequence, a refutation when the
+reachable markings are exhausted, and the default for Horn programs with
+a clause under `!` in linear mode (`plan/reports/27-horn.md` has the
+measurement). Its follow-ups are under "Follow-ups: the Horn engine";
+coverability in affine mode and the qcover suite are the step's second
+session.
 
 ## Cyclic MLL and the Lambek calculus
 
@@ -729,8 +740,6 @@ there:
 - **The Mix parts' cost** (3 to 10 % more stable sequents on generated
   Mix sequents), and `mix(11)`'s splits, still `3ⁿ` under `⊕ 0`, which no
   count cuts.
-- **Short clause bodies**: `TCPcondis_tcp15_20_1` keeps 15 % less
-  throughput since the split search became resumable.
 - **Mix in affine mode** is left out of the search (admissible with
   weakening); a panel measured 3 decisions lost at a copy bound against
   1 638 gained, kept on the author's decision.
@@ -828,11 +837,6 @@ from the frontier.
   spend their time limit at one stable sequent (69 of the 113 sampled
   LLTP problems time out). The forward bias removes those splits; a
   count for exponential atoms that is sound under copies does not exist.
-- **The restart of a copy-bound level from the frontier** was not built:
-  on the counter and the sampled nets the levels below the last are 24
-  to 37 % of the stable sequents, so that is the most it could save;
-  on `chain` and `growing`, whose bound is in the hundreds, the levels
-  are quadratic in all and a restart would make them linear.
 - **Constant factors the profile showed and step 15 did not take**, in
   the order of their share: hashing and comparing memo keys (29 % of the
   samples on a Petri net with 12 926 occurrences, where both zones are
@@ -959,18 +963,45 @@ meets first on a large problem, and come before any new engine:
   one thread are. Somewhere between two stable sequents the forward
   search does thousands of split steps without a poll. Other stops come
   up to 3.1 s late on one thread (`PaceMaker_20_1` under `--bias
-  rarer`) and 1.6 s on a pool.
-- **The default's contract at the limit**: `ResAllocation_RAS-C-100_5_1`
-  is proved in 2.71 s by the backward search alone and not within 5 s by
-  the default, inside the two thirds of the limit that the default's
-  share of the work was argued to keep (and `Diffusion2D_2D8_gradient_40x40_100_5_1`
-  at 4.50 s); the slices are counted in work, and the work of the two
-  searches is not the same time.
+  rarer`) and 1.6 s on a pool. Since step 27 the nets go to the Horn
+  engine, so this is met only with `--engine focus` or `two-sided`, or
+  on a Horn-shaped goal the Horn engine does not take (affine mode).
 - **The copy bound**: of the 832 problems outside the nets that the first
   baseline ended at the copy bound of 3, a bound of 10 decides 369; the
   forward search alone at 30 copies decides 288 problems outside the nets
   that the default leaves at 3, all in under 5 s. Whether `--copies`
   should rise is step 17's question.
+
+## Follow-ups: the Horn engine
+
+Left by step 27's first session (`plan/reports/27-horn.md`):
+
+- **The nets it leaves undecided** within 5 s (⟨N⟩ of the library's 3 137):
+  goals far from the initial marking in large state spaces (the BART,
+  CloudDeployment, DES and AutoFlight models), where the distance in
+  tokens leads the greedy search onto plateaus. Candidates, each to be
+  measured: the state equation (`M₀ + C·x = M` over the integers, or its
+  rational relaxation) as a prune and a heuristic, partial-order
+  reduction (stubborn sets), and structural reductions of the net.
+- **A refutation is only an exhaustion**: a net whose markings grow
+  without end is searched until the stop or the memory bound even where
+  a place invariant or the state equation refutes it at once
+  (`!(A -o A * A), !(B * B -o C), A, B |- C` runs to its time limit).
+- **The frontier keeps duplicates**: successors are written out only
+  when taken, so a marking reached by many paths is on the frontier many
+  times (sixteen bytes each); on nets of high branching that is what
+  meets the memory bound (`DNAwalker_dnawalk-18_20_1` after 1.3 s).
+- **Constant factors**: `Program::read` runs three times per call (the
+  dispatch's feature, `admits`, `decide`), and the distance of the
+  marking at hand sums the target over every place at each expansion.
+- **A shortest firing sequence** (breadth-first) would give the smallest
+  proof, for teaching; the order is the engine's scheduling today, not an
+  option.
+- **Horn programs without `!`** stay with the focused engine, whose
+  counts decide the Partition encodings 10 to 100 times faster
+  (`partition-yes` 12: 15 ms against 2.0 s; 16 and 20 not within 10 s).
+- **The classical library's nets** (`CLL`) go to the same engine and
+  were not measured on their own.
 
 ## Follow-ups: intuitionistic mode
 
