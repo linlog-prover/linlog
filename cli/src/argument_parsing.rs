@@ -630,7 +630,8 @@ pub struct StyleArgs {
     ///
     /// KEY is a field of the format's options, dotted into nested ones,
     /// as `--style-file` holds them; without a prefix `text.`, `latex.`,
-    /// `typst.`, `svg.` or `rocq.` it names the format `--format` gives.
+    /// `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format
+    /// `--format` gives.
     /// VALUE is JSON, or else a string: `gap=5`, `ids=true`,
     /// `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields:
     /// text: labels, open, bar, gap; latex: form, labels, open, align,
@@ -638,17 +639,20 @@ pub struct StyleArgs {
     /// layout (auto, curryst or linlog: curryst for a tree up to nine
     /// inferences high, linlog's own code above), premise_gap, label_gap,
     /// band, stroke (Typst lengths for linlog's own layout); svg:
-    /// font (family, advances), labels, open, ids, font_size, label_size,
-    /// line_height, premise_gap, literal_gap, label_gap, margin,
-    /// stroke_width, link_height, link_cap, node_radius, text, line, par,
-    /// link, highlight, background; rocq: form, lemma, prelude. Labels are
-    /// upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is
-    /// dots, bare, dashed or {"mark":TEXT}
+    /// font (family, advances), labels, open, ids, description, font_size,
+    /// label_size, line_height, premise_gap, literal_gap, label_gap,
+    /// margin, stroke_width, link_height, link_cap, node_radius, text,
+    /// line, par, link, highlight, background; png: scale, pixels; pdf:
+    /// embed_text, compatible, accessible, title, language, date; rocq:
+    /// form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels
+    /// are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal
+    /// is dots, bare, dashed or {"mark":TEXT}
     #[arg(long = "style", value_name = "KEY=VALUE")]
     pub style: Vec<String>,
     /// Read the options of the output formats from a JSON file: an object
-    /// with a key per format (text, latex, typst, svg, rocq), each holding
-    /// the fields `--style` names; a field left out keeps its default
+    /// with a key per format (text, latex, typst, svg, png, pdf, rocq),
+    /// each holding the fields `--style` names; a field left out keeps its
+    /// default
     #[arg(long, value_name = "PATH")]
     pub style_file: Option<PathBuf>,
     /// The name of the lemma of a Rocq certificate (rocq.lemma)

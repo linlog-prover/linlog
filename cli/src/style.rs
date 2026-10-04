@@ -65,7 +65,7 @@ impl Styles {
                     Some(format) => path.insert(0, format),
                     None => bail!(
                         "--style {setting}: name the format the key is of, as in \
-                         latex.{key} (text, latex, typst, svg or rocq)"
+                         latex.{key} (text, latex, typst, svg, png, pdf or rocq)"
                     ),
                 }
             }
