@@ -354,7 +354,8 @@ pub(crate) fn split_passes(
 /// The rules in force beyond the core ones, switched by fragment and mode.
 #[derive(Clone, Copy, Debug)]
 struct Rules {
-    /// The Mix rule, tried last on a stable sequent.
+    /// The Mix rule, tried last on a stable sequent; off under weakening,
+    /// which makes it admissible.
     mix: bool,
     /// The `MLL` count equation as a prune: only without additives and
     /// exponentials anywhere in the problem, and never with weakening.
@@ -375,11 +376,15 @@ struct Rules {
 impl Rules {
     /// The rules for a fragment and a mode: the count equation only in the
     /// multiplicative fragments without weakening, the interval check
-    /// unless weakening or a `⊤` under an exponential defeats it.
+    /// unless weakening or a `⊤` under an exponential defeats it, and Mix
+    /// only without weakening.
     fn new(fragment: Fragment, mode: Mode, counts: &Counts) -> Self {
         let exponentials = fragment.has_exponentials();
         Self {
-            mix: mode.mix,
+            // With weakening Mix proves nothing new: the proof of one part
+            // proves the whole with the other part weakened at its leaves,
+            // with the same copies on every branch.
+            mix: mode.mix && !mode.affine,
             equation: !mode.affine
                 && !fragment.has_additives()
                 && !fragment.has_additive_units()

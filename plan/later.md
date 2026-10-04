@@ -836,6 +836,19 @@ from the frontier.
   argument does not give one directly; the spec's was unsound) is a
   research question to keep open; until then affine mode stays bounded.
 - The interval of `&` could be the intersection instead of the hull.
+- *The Horn forward bound under affine with Mix* (from step 26): the
+  forward search's own copy bound stays off whenever `mode.mix` is set
+  (`schedule::plan`), for a reason (a chain's stable sequents tried in
+  every partition) that no longer holds where affine mode leaves Mix
+  out of the search. Following it would move answers between decided
+  and unknown, so it needs its own measurement.
+- *A free split under weakening is monotone* (from step 26): in affine
+  mode a split `(L, R)` of `Γ` for `A ⊗ B` works only if `⊢ Θ ; Γ, A`
+  and `⊢ Θ ; Γ, B` are provable (weaken the rest in), so a complete
+  failure of either refutes every split at once, where the search now
+  enumerates all `2ⁿ` (no count prunes under weakening; the test sequent
+  of `stops_inside_a_split_search` has `2⁴²`). Cuts and the order of the
+  search need the same care as the Mix prune's.
 
 From the second baseline (`plan/reports/16-baseline.md`, as its review
 on 2026-10-03 corrected it: the Status log of `plan/README.md` has what

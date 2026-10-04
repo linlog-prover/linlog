@@ -1488,3 +1488,28 @@ fn the_parts_of_a_mix_decide_only_as_facts() {
     let (verdict, _) = run("|- ~b, ~c, b, (bot + ~b), ?(c * b)", mode, &options);
     assert!(verdict.proof().is_some(), "{verdict:?}");
 }
+
+/// With weakening Mix proves nothing new, so the engine leaves it out:
+/// affine mode with Mix searches exactly what affine mode does, and
+/// refutes the four pairs of the Mix family in 32 265 stable sequents
+/// where trying Mix as well took 46 537.
+#[test]
+fn affine_mode_leaves_mix_out() {
+    let sequent = crate::families::mix(4);
+    let forest = Forest::new(&sequent).unwrap();
+    let decide = |mode: Mode| {
+        search(
+            &forest,
+            sequent.fragment(),
+            mode,
+            None,
+            &Options::default(),
+            &mut || false,
+        )
+    };
+    let (with, with_statistics) = decide(Mode::CLASSICAL.affine().with_mix());
+    let (without, without_statistics) = decide(Mode::CLASSICAL.affine());
+    assert!(matches!(with, Verdict::Unprovable(_)), "{with:?}");
+    assert!(matches!(without, Verdict::Unprovable(_)), "{without:?}");
+    assert_eq!(with_statistics, without_statistics);
+}

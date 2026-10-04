@@ -727,6 +727,22 @@ relies on:
   partitions searched by `search_splits` like the splits of a `⊗`, and
   each part decided by `prove` with the same `Θ` and budget, so the memo
   shares parts between partitions.
+- **Mix is left out of the search in affine mode** (`Rules::new`: `mix`
+  is `mode.mix && !mode.affine`; `Mode`, the checker, the interactive
+  rules and the net engine's refusal are untouched). With weakening it
+  proves nothing new: carry the other part down the proof of one part;
+  its members sit in stable zones, so no asynchronous rule touches them
+  (a `&`, `⊤`, `?` or `!` inside is never decomposed), they ride along
+  through every rule (both premises of a `&`, either side of a `⊗`,
+  where nothing forces the side in affine mode) and are weakened at the
+  leaves (`Ax`, `Copy`+`Ax`, `1`, `!`, `⊤`), with no copy added or moved
+  on any branch. So a proof at a level stays one, and "unprovable" stays
+  sound. What the argument does not give: that no answer moves to
+  "unknown", since the Mix search's memo entries for its parts can spare
+  a later visit a budget cut. Measured instead (15 360 generated runs,
+  every rule set, copy bounds 0 to 5, memo default and 2): no decision
+  lost, 25 gained, 26 times fewer stable sequents; the mix family's four
+  pairs 32 265 against 46 537 (`affine_mode_leaves_mix_out`).
 - **Hereditary failures** (`Failure::Hereditary`, `parts_fail`,
   `prove_part`): under Mix a stable sequent `P` fails *hereditarily*
   when no non-empty sub-multiset of its `Γ` is provable with its `Θ`.
