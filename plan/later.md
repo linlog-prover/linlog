@@ -447,6 +447,9 @@ search vehicle. Assess first.
 
 ## A batch mode for the CLI
 
+*Done in step 24* (`plan/reports/24-batch.md`); what it left open is
+listed there.
+
 The CLI decides one sequent per call (the author's question,
 2026-10-03): `prove` takes it as an argument, from `--file` or from
 standard input, and `check`, `interact` and `seq` likewise take one. The
