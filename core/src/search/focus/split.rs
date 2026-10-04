@@ -500,7 +500,12 @@ impl Engine<'_> {
     /// non-empty provable parts, searched over the members after the
     /// first, which stays on the left, so that each unordered partition
     /// comes up once. In the multiplicative fragments only when the count
-    /// equation admits a Mix.
+    /// equation admits a Mix. First, the parts with one member less: when
+    /// each of them fails hereditarily, no part of this sequent's is
+    /// provable, so no partition is searched and `hereditary` is set. A
+    /// sequent of `n` members whose parts all fail then costs its `2ⁿ`
+    /// parts `n` lookups each, where the partitions of every part cost
+    /// `3ⁿ`.
     pub(super) fn mix(
         &mut self,
         theta: &OccSet,
@@ -508,9 +513,14 @@ impl Engine<'_> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
+        hereditary: &mut bool,
     ) -> Step {
         if members.len() < 2 || (self.rules.equation && !tally.admits_mix()) {
             return Ok(Found::NOTHING);
+        }
+        if let Some(cuts) = self.parts_fail(theta, gamma, members, budget)? {
+            *hereditary = true;
+            return Ok(Found::failed(cuts));
         }
         let mut left = self.take_context();
         left.insert(members[0]);
@@ -535,6 +545,45 @@ impl Engine<'_> {
         self.give_context(right);
         self.give_split(split);
         result
+    }
+
+    /// Whether every part of `Γ` with one member less fails hereditarily:
+    /// then, as the sequent itself failed without Mix, no non-empty part of
+    /// it is provable, since every proper part lies in one of them and a
+    /// Mix of the whole would be of two proper parts. Returns the cuts the
+    /// failures rest on, or `None` at the first part that is proved or
+    /// may have a provable part. Of members that are interchangeable or
+    /// repeated one is left out, since the others leave a relative.
+    fn parts_fail(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        members: &[OccId],
+        budget: u32,
+    ) -> Result<Option<Cuts>, Reason> {
+        let mut left_out = self.take_list();
+        left_out.extend_from_slice(members);
+        self.one_of_each(&mut left_out);
+        let mut cuts = Some(Cuts::NONE);
+        for i in 0..left_out.len() {
+            let mut part = self.take_context_from(gamma);
+            part.remove(left_out[i]);
+            let found = self.prove_part(theta, &part, budget);
+            self.give_context(part);
+            match found {
+                Ok((Found::Failed(failed), true)) => cuts = cuts.map(|c| c.and(failed)),
+                Ok(_) => {
+                    cuts = None;
+                    break;
+                }
+                Err(reason) => {
+                    self.give_list(left_out);
+                    return Err(reason);
+                }
+            }
+        }
+        self.give_list(left_out);
+        Ok(cuts)
     }
 
     /// Both parts of a Mix, and the Mix node if both are provable.

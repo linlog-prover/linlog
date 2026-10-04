@@ -98,6 +98,10 @@ pub(crate) enum Failure {
     /// Some branch below it was cut by the copy budget when this many
     /// copies were left: unprovable with at most that many copies left.
     Exhausted(u32),
+    /// A complete failure, and with Mix one of every part of the linear
+    /// zone as well: no non-empty sub-multiset of it is provable with the
+    /// same unrestricted zone, at any budget.
+    Hereditary,
 }
 
 impl Entry {
@@ -108,6 +112,7 @@ impl Entry {
             Self::Proved(node) => u64::from(node.get()),
             Self::Failed(Failure::Complete) => 1 << 32,
             Self::Failed(Failure::Exhausted(left)) => (2 << 32) | u64::from(left),
+            Self::Failed(Failure::Hereditary) => 3 << 32,
         }
     }
 
@@ -116,6 +121,7 @@ impl Entry {
         match code >> 32 {
             0 => Self::Proved(NodeId::new(code as u32)),
             1 => Self::Failed(Failure::Complete),
+            3 => Self::Failed(Failure::Hereditary),
             _ => Self::Failed(Failure::Exhausted(code as u32)),
         }
     }
@@ -285,17 +291,21 @@ impl Memo {
     #[cfg(test)]
     fn refuted(&mut self, key: &Key) -> bool {
         self.refuted_hashed(key.zones(), key.zones().hash())
+            .is_some()
     }
 
-    /// Returns whether a complete failure is recorded under a canonical
-    /// key, whose hash is given: the answer for every sequent the key
-    /// stands for. Whatever else the key holds is about the canonical
+    /// Returns the complete failure recorded under a canonical key, whose
+    /// hash is given, if there is one: the answer for every sequent the
+    /// key stands for. Whatever else the key holds is about the canonical
     /// sequent alone.
-    fn refuted_hashed(&mut self, key: Zones<'_>, hash: u64) -> bool {
+    fn refuted_hashed(&mut self, key: Zones<'_>, hash: u64) -> Option<Failure> {
         let refuted = self
             .find(key, hash)
-            .is_some_and(|e| self.record(e)[1] == Entry::Failed(Failure::Complete).code());
-        self.hits += u64::from(refuted);
+            .and_then(|e| match Entry::of(self.record(e)[1]) {
+                Entry::Failed(failure @ (Failure::Complete | Failure::Hereditary)) => Some(failure),
+                _ => None,
+            });
+        self.hits += u64::from(refuted.is_some());
         refuted
     }
 
@@ -322,17 +332,27 @@ impl Memo {
             debug_assert!(
                 !matches!(
                     (old, entry),
-                    (Entry::Proved(_), Entry::Failed(Failure::Complete))
+                    (
+                        Entry::Proved(_),
+                        Entry::Failed(Failure::Complete | Failure::Hereditary)
+                    )
                 ),
                 "a complete failure of a proved sequent"
             );
-            match (old, entry) {
+            let keep = match (old, entry) {
                 (
                     Entry::Failed(Failure::Exhausted(then)),
                     Entry::Failed(Failure::Exhausted(now)),
-                ) if now <= then => {}
-                (Entry::Proved(_) | Entry::Failed(Failure::Complete), Entry::Failed(_)) => {}
-                _ => self.record_mut(e)[1] = entry.code(),
+                ) => now <= then,
+                (Entry::Proved(_) | Entry::Failed(Failure::Hereditary), Entry::Failed(_)) => true,
+                (
+                    Entry::Failed(Failure::Complete),
+                    Entry::Failed(Failure::Complete | Failure::Exhausted(_)),
+                ) => true,
+                _ => false,
+            };
+            if !keep {
+                self.record_mut(e)[1] = entry.code();
             }
             return Inserted::Done;
         }
@@ -492,7 +512,7 @@ impl Shared {
     }
 
     /// [`Memo::refuted_hashed`] on the key's shard.
-    pub(crate) fn refuted(&self, key: Zones<'_>, hash: u64) -> bool {
+    pub(crate) fn refuted(&self, key: Zones<'_>, hash: u64) -> Option<Failure> {
         self.shard(hash).refuted_hashed(key, hash)
     }
 
@@ -547,7 +567,7 @@ impl Table<'_> {
     }
 
     /// [`Memo::refuted_hashed`].
-    pub(crate) fn refuted(&mut self, key: Zones<'_>, hash: u64) -> bool {
+    pub(crate) fn refuted(&mut self, key: Zones<'_>, hash: u64) -> Option<Failure> {
         match self {
             Self::Own(memo) => memo.refuted_hashed(key, hash),
             Self::Shared(shared) => shared.refuted(key, hash),

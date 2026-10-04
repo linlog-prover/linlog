@@ -946,6 +946,17 @@ impl<'a> Engine<'a> {
     /// affine prune, the immediate tests, then a focus on each positive
     /// formula in turn, first from `Γ`, then copied from `Θ`, then Mix.
     fn prove(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
+        Ok(self.prove_part(theta, gamma, budget)?.0)
+    }
+
+    /// [`Self::prove`], and whether a failure is hereditary: no non-empty
+    /// sub-multiset of `Γ` is provable either.
+    fn prove_part(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        budget: u32,
+    ) -> Result<(Found, bool), Reason> {
         self.enter()?;
         let result = self.prove_stable(theta, gamma, budget);
         self.leave();
@@ -953,8 +964,13 @@ impl<'a> Engine<'a> {
     }
 
     /// The body of `prove`: the memo and the branch stack around the
-    /// decision.
-    fn prove_stable(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
+    /// decision. Says whether a failure is hereditary.
+    fn prove_stable(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        budget: u32,
+    ) -> Result<(Found, bool), Reason> {
         self.statistics.nodes += 1;
         let work = NODE_WORK
             + (self.forest.len() / OCCURRENCES_PER_WORK) as u64
@@ -989,19 +1005,23 @@ impl<'a> Engine<'a> {
         // A proof or a complete failure from the memo settles it; a
         // failure cut by the budget waits for the loop check, which may
         // give the stronger answer that the branch is redundant.
-        let entry = if renamed && self.memo.refuted(canonical_key, canonical_hash) {
-            Some(Entry::Failed(Failure::Complete))
+        let refuted = if renamed {
+            self.memo.refuted(canonical_key, canonical_hash)
         } else {
-            self.memo.get(key, hash, budget)
+            None
+        };
+        let entry = match refuted {
+            Some(failure) => Some(Entry::Failed(failure)),
+            None => self.memo.get(key, hash, budget),
         };
         match entry {
             Some(Entry::Proved(node)) => {
                 self.give_context(canonical);
-                return Ok(Found::proved(node));
+                return Ok((Found::proved(node), false));
             }
-            Some(Entry::Failed(Failure::Complete)) => {
+            Some(Entry::Failed(failure @ (Failure::Complete | Failure::Hereditary))) => {
                 self.give_context(canonical);
-                return Ok(Found::NOTHING);
+                return Ok((Found::NOTHING, failure == Failure::Hereditary));
             }
             Some(Entry::Failed(Failure::Exhausted(_))) | None => {}
         }
@@ -1020,12 +1040,12 @@ impl<'a> Engine<'a> {
             self.give_context(canonical);
             // A depth of the branch, which is as deep as the recursion
             // limit allows.
-            return Ok(Found::failed(Cuts::repeat(depth as u32)));
+            return Ok((Found::failed(Cuts::repeat(depth as u32)), false));
         }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
             self.give_context(canonical);
-            return Ok(Found::failed(Cuts::BUDGET));
+            return Ok((Found::failed(Cuts::BUDGET), false));
         }
         if self.rules.stack {
             if self.stack_len < self.stack.len() {
@@ -1044,7 +1064,8 @@ impl<'a> Engine<'a> {
             self.stack_len += 1;
         }
         let mark = self.nodes.mark();
-        let result = self.decide(theta, gamma, budget);
+        let mut hereditary = false;
+        let result = self.decide(theta, gamma, budget, &mut hereditary);
         let own_depth = if self.rules.stack {
             self.stack_len -= 1;
             (self.above() + self.stack_len) as u32
@@ -1095,16 +1116,17 @@ impl<'a> Engine<'a> {
                 if cuts.dependency == NO_DEPENDENCY {
                     // A complete failure answers for every relative; one
                     // cut by the budget stays the sequent's own.
+                    let complete = if hereditary {
+                        Failure::Hereditary
+                    } else {
+                        Failure::Complete
+                    };
                     recorded = if cuts.exhausted {
                         self.remember(key, hash, Entry::Failed(Failure::Exhausted(budget)))
                     } else if renamed {
-                        self.remember(
-                            canonical_key,
-                            canonical_hash,
-                            Entry::Failed(Failure::Complete),
-                        )
+                        self.remember(canonical_key, canonical_hash, Entry::Failed(complete))
                     } else {
-                        self.remember(key, hash, Entry::Failed(Failure::Complete))
+                        self.remember(key, hash, Entry::Failed(complete))
                     }
                     .map(|_| None);
                 }
@@ -1114,8 +1136,8 @@ impl<'a> Engine<'a> {
         };
         self.give_context(canonical);
         Ok(match recorded? {
-            Some(node) => Found::proved(node),
-            None => Found::failed(cuts),
+            Some(node) => (Found::proved(node), false),
+            None => (Found::failed(cuts), hereditary),
         })
     }
 
@@ -1215,8 +1237,17 @@ impl<'a> Engine<'a> {
         self.forest.len().div_ceil(64) * size_of::<u64>()
     }
 
-    /// Decides a stable sequent the memo does not know.
-    fn decide(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
+    /// Decides a stable sequent the memo does not know, and sets
+    /// `hereditary`, under Mix, when it fails and no non-empty part of `Γ`
+    /// is provable either: `Γ` has one member, or Mix found each part with
+    /// one member less hereditarily failed.
+    fn decide(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        budget: u32,
+        hereditary: &mut bool,
+    ) -> Step {
         let mut members = self.take_list();
         members.extend(gamma.iter());
         let mut tally = self.take_tally();
@@ -1230,7 +1261,11 @@ impl<'a> Engine<'a> {
             &mut candidates,
             &mut copies,
             budget,
+            hereditary,
         );
+        if self.rules.mix && members.len() == 1 && matches!(result, Ok(Found::Failed(_))) {
+            *hereditary = true;
+        }
         self.give_list(members);
         self.give_tally(tally);
         self.give_list(candidates);
@@ -1249,6 +1284,7 @@ impl<'a> Engine<'a> {
         candidates: &mut Vec<OccId>,
         copies: &mut Vec<OccId>,
         budget: u32,
+        hereditary: &mut bool,
     ) -> Step {
         let affine = self.rules.affine;
         // One pass over the members: the counts, a `0`, and the positive
@@ -1338,7 +1374,7 @@ impl<'a> Engine<'a> {
             proved => return Ok(proved),
         };
         Ok(self
-            .last_resort(theta, gamma, members, tally, budget)?
+            .last_resort(theta, gamma, members, tally, budget, hereditary)?
             .after(cuts))
     }
 
@@ -1509,7 +1545,8 @@ impl<'a> Engine<'a> {
     }
 
     /// What is tried on a stable sequent after every focus failed: Mix,
-    /// when the rules have it.
+    /// when the rules have it, which sets `hereditary` when it fails
+    /// because no part of `Γ` is provable.
     fn last_resort(
         &mut self,
         theta: &OccSet,
@@ -1517,9 +1554,10 @@ impl<'a> Engine<'a> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
+        hereditary: &mut bool,
     ) -> Step {
         if self.rules.mix {
-            return self.mix(theta, gamma, members, tally, budget);
+            return self.mix(theta, gamma, members, tally, budget, hereditary);
         }
         Ok(Found::NOTHING)
     }

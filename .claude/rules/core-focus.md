@@ -705,8 +705,34 @@ relies on:
   trivial partition skipped (a leaf with an empty right side), the
   partitions searched by `search_splits` like the splits of a `⊗`, and
   each part decided by `prove` with the same `Θ` and budget, so the memo
-  shares parts between partitions. Refuting a
-  wide sequent with Mix costs about `3^k` stable sequents for `k` members.
+  shares parts between partitions.
+- **Hereditary failures** (`Failure::Hereditary`, `parts_fail`,
+  `prove_part`): under Mix a stable sequent `P` fails *hereditarily*
+  when no non-empty sub-multiset of its `Γ` is provable with its `Θ`.
+  That holds when `P` has one member and fails, or when every rule but
+  Mix failed on `P` and every `P \ {x}` fails hereditarily: every proper
+  part lies in some `P \ {x}`, and a Mix of `P` is of two proper parts.
+  So before searching partitions `mix` decides the parts with one member
+  less (one per class of interchangeable or repeated members, since the
+  others leave relatives) and, if each fails hereditarily, fails without
+  a partition, `n` lookups for each of `2ⁿ` parts where the partitions of
+  every part cost `3ⁿ`; the first part proved or not hereditary sends it
+  to the partitions as before. The flag travels as a value
+  (`prove_stable` returns it, `decide` takes it as an out-parameter that
+  only `mix` and a one-member failure set), never in `Found`, so no
+  other rule's failure can carry it. A hereditary failure is memoized as
+  a complete one that says so, under the canonical key (a replacement
+  maps parts to parts), and with the cuts of every part's failure; a
+  failure of a part that a cut or a dependency qualifies is still
+  hereditary for its caller under those cuts, and the cluster argument
+  of the loop check carries over: of all provable parts of `P` take one
+  with a smallest proof; it has no repeat of `P` or of a sequent between,
+  else a part would have a smaller proof. Measured: `mix(7)` (14 members)
+  114 675 stable sequents against 1 586 132, `mix(8)` 524 273 against
+  14 316 140; the time hardly moves (1.39 s against 1.43 s at 8), since
+  the focus on `~aᵢ ⊗ ~bᵢ` searches `2ᵐ` splits of the other members,
+  which no count cuts under `⊕ 0`, and those splits are now the `3ⁿ`
+  (34.6 million at 8 against 51.7 million before).
 - **Recursion.** `prove`, `focus` and `asynchronous` count one level each;
   `Options::recursion_limit` stops the search with
   `Reason::RecursionLimit`. Two chains cost no level per link, since the

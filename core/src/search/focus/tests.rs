@@ -1415,3 +1415,23 @@ fn the_horn_test_reads_the_goal() {
     assert_eq!(forward(roots), Options::DEFAULT_COPIES);
     assert_eq!(forward(&program), 30);
 }
+
+/// Under Mix, a sequent none of whose parts is provable is refuted by its
+/// parts with one member less: the twelve members of `mix(6)` cost at
+/// most `12 · 2¹²` stable sequents, where searching the partitions of
+/// every part visited 175 100, a third of `3¹²`.
+#[test]
+fn unprovable_parts_cost_no_partitions() {
+    let sequent = crate::families::mix(6);
+    let forest = Forest::new(&sequent).unwrap();
+    let (verdict, statistics) = search(
+        &forest,
+        sequent.fragment(),
+        Mode::CLASSICAL.with_mix(),
+        None,
+        &Options::default(),
+        &mut || false,
+    );
+    assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
+    assert!(statistics.nodes <= 12 << 12, "{statistics:?}");
+}
