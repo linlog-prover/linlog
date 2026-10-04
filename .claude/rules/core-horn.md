@@ -13,7 +13,9 @@ front door, the dispatch and the memory account it plugs into are in
 
 - **Files.** `mod.rs` holds `Horn` (the `Decide` implementation,
   `Engine::Horn`), `Program` (a goal read as a Petri net) and
-  `is_program`, the shape test alone; `reach.rs` the
+  `is_net`, the dispatch's feature (a program with a clause under `!`:
+  the goal's own `?` members, since the fragment the options assert may
+  have exponentials the goal lacks); `reach.rs` the
   search over markings; `proof.rs` the proof read off a firing
   sequence; `tests.rs` the engine's own tests (the reference comparison
   is `engines_agree_on_horn_programs` in `search/reference.rs`).
@@ -70,10 +72,22 @@ front door, the dispatch and the memory account it plugs into are in
   nothing balances, `|- b, ?~c` or `c, !c |- a`, is an infinite net the
   search would run to the memory bound, where the focused engines
   refute it at once from the same counts. Atoms under a `?` have no rows
-  in the counts, so on a net proper (every atom in a clause) the test
-  says nothing and costs one pass. Found when the Horn row made such
-  sequents the Horn engine's by default: three tests of the focused
-  engines answered "the memory limit" instead of "unprovable".
+  in the counts, so on a net proper (every atom in a clause under `!`)
+  the test says nothing and costs the counts' set-up, a few passes; an
+  atom outside every `!` in nested tensors (a long clause used once, a
+  goal of thousands of distinct atoms) has rows quadratic in the nesting,
+  the cost the focused engines pay on the same sequent (a goal of 20 000
+  distinct atoms: 0.95 s to the 1 GiB bound, which `--engine horn` met
+  in 20 ms before). The counts are charged to a fork of the search's
+  account (`Account::fork`), which goes with them: charged to the
+  search's own, they stayed counted and cost the search decisions near
+  its bound (the second panel's finding). When they refute,
+  `prove_goal` computes them again to say why, so a stop that fires
+  between the two on a forest of 65 536 occurrences or more makes the
+  reason "exhausted" for a goal no search touched: the verdict is right.
+  Found when the Horn row made such sequents the Horn engine's by
+  default: three tests of the focused engines answered "the memory
+  limit" instead of "unprovable".
 - **Intuitionistic mode** additionally requires the reading to put
   exactly the outputs above on the right of `⊢` (`Program::read` checks
   every occurrence's `Position`): the proof built has one output on

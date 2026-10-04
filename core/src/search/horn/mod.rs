@@ -53,13 +53,15 @@ impl Decide for Horn {
     ) -> Result<Answer, Error> {
         // What the counts of the goal's literals rule out needs no
         // search: a goal that never balances an atom, whose net may be
-        // infinite and searched until the memory bound otherwise.
+        // infinite and searched until the memory bound otherwise. The
+        // counts are charged to an account of their own, which they give
+        // back when they go, so that the search has the whole bound.
         let counted = super::focus::refutation(
             task.forest,
             task.goal,
             task.fragment,
             task.mode,
-            account,
+            &account.fork(),
             stop,
         );
         if counted != Refutation::Exhausted {
@@ -84,10 +86,10 @@ impl Decide for Horn {
     }
 }
 
-/// Whether a goal is a Horn program the engine decides: the feature of
-/// its row in the dispatch.
-pub(crate) fn is_program(task: &Task<'_>) -> bool {
-    Program::read(task).is_some()
+/// Whether a goal is a Horn program with a clause under `!`, a Petri net:
+/// the feature of the engine's row in the dispatch.
+pub(crate) fn is_net(task: &Task<'_>) -> bool {
+    Program::read(task).is_some_and(|program| !program.quests.is_empty())
 }
 
 /// A list of arcs: places with their weights.

@@ -125,7 +125,8 @@ the net engine's, and the others stay zero.
   linear mode, the roots with no literal more than `NET_MULTIPLICITY`
   (2) times (`FewEqualLiterals`) to `net`; a Horn program with a
   clause under `!` in a linear mode (`PetriNet`: the fragment has
-  exponentials and `horn::is_program` reads the goal) to `horn`; the
+  exponentials and `horn::is_net` finds a program with a `?` member in
+  the goal itself, whatever fragment the options assert) to `horn`; the
   rest by mode.
 - **Why the Horn row takes only programs with `!`** (measured at step
   27): on the library's nets the Horn engine decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103, but on Horn

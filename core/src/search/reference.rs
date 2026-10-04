@@ -711,8 +711,8 @@ mod tests {
         judge_within(text, mode, copies, reference, tally, u64::MAX);
     }
 
-    /// [`judge`] with every run stopped after `polls` polls of its stop
-    /// condition.
+    /// [`judge`] with every run that may reach the Horn engine stopped
+    /// after `polls` polls of its stop condition.
     fn judge_within(
         text: &str,
         mode: Mode,
@@ -727,7 +727,12 @@ mod tests {
             tally.decided += 1;
         }
         for (name, options) in configurations(copies) {
-            let mut left = polls;
+            // The bound is for the Horn engine, forced or by the dispatch;
+            // the focused engines end within their copies.
+            let mut left = match options.engine {
+                None | Some(Engine::Horn) => polls,
+                Some(_) => u64::MAX,
+            };
             let stop = || {
                 left = left.saturating_sub(1);
                 left == 0

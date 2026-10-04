@@ -595,7 +595,9 @@ impl Feature {
             Feature::Any => true,
             Feature::TwoFormulas => task.goal.len() == 2 && !task.fragment.is_empty(),
             Feature::FewEqualLiterals => task.roots && few_equal_literals(task.forest),
-            Feature::PetriNet => task.fragment.has_exponentials() && horn::is_program(task),
+            // The fragment, which the options may assert larger than the
+            // goal's, only spares a non-Horn goal the reading.
+            Feature::PetriNet => task.fragment.has_exponentials() && horn::is_net(task),
         }
     }
 }
