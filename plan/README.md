@@ -44,7 +44,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 23 | What every session reads, short and true: the core rules split by module, the stale claims of the rules and CLAUDE.md, README's examples run by a check | `23-session-docs.md` | Opus 5.5 | high | 22 |
 | 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` | Opus 5.5 | high | 20, 21, 23 |
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
-| 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` (finished at the review of 25) | Fable 5.1 | high, a panel per change of the search | 20, 23 |
+| 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` | Fable 5.1 | high, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Fable 5.1 | high, with the panel | 24, 26 |
 | 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the search and the checker; the reviewers by lens | high | 27 |
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
@@ -1811,3 +1811,24 @@ client follows it (step 32).
   misread problems, SYN915 (`T`) and SYN977 (grouping). The ILTP run
   leaves 35 non-theorems to a loop check and 131 problems to the cost of
   the search. Report: `reports/25-ordinary-logic.md`.
+- 2026-10-04: review of step 25, accepted with three fixes. **Fixed**:
+  ordinary atoms were found by a scan of the names, so 100 000 distinct
+  atoms took 8.5 s to read (now a map: 0.17 s, a million in 3.4 s); the
+  help and README did not say that `<->` binds more loosely than `->`;
+  the crate docs did not name ordinary logic, nor `ordinary::Problem`
+  its feature. The note on LLTP's headers, a draft for the library's
+  maintainers, no longer names the step or a path of the plan. Checked:
+  the tests, clippy, both `cargo hack` runs, `cargo deny`, `nix flake
+  check`, the API lints and the rustdoc; the checker rule by rule; the
+  ILTP library by default on four cores per logic and translation with
+  every proof read back and checked (within one problem of the report,
+  no contradiction among translations, logics and ILTP's statuses, no
+  read-back refused); certificates of formulas 2 000 deep and of atoms
+  named like Rocq's words, compiled. Left to step 28: a stop for the
+  read-back and its check (4.5 s past the time limit on 11.6 million
+  inferences, under `--derivation-limit none` only), the JSON forms of
+  ordinary logic, the certificate's import as an option. Left to step
+  26: the affine search's first look at a sequent compares every pair
+  of literals (100 000 atoms: 3 s, past the time limit; it predates
+  step 25). Termination on dyadic sequents: a step of its own if the
+  author wants one (`later.md`). Prompt 26 finished. Next: step 26.

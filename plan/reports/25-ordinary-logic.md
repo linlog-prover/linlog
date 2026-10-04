@@ -422,3 +422,66 @@ each with a test that pins the refusal.
   passed as well.
 - Every cargo command ran in a scope capped at 8 GB on cores 4 to 9, or 6
   to 9 while the runs held 4 and 5.
+
+## From the review
+
+Accepted, with three fixes of the review's own and one to a note.
+
+- **Fixed: atoms were found by a scan.** `Formulas::atom` looked a name
+  up in the list of names, so reading took time quadratic in the
+  distinct atoms: 100 000 of them took 8.5 s, where the linear reader
+  takes 0.63 s for a million. A map now finds them: 0.17 s, a million in
+  3.4 s ("Find an ordinary atom by its name in a map, not by a scan").
+- **Fixed: the binding of `<->`.** The help and README said "then ->
+  and <->, which group to the right", which reads as one level; `<->`
+  binds more loosely than `->`, and both now say so.
+- **Fixed: the crate's front page** did not name ordinary logic, and
+  `ordinary::Problem`, which needs `parse`, did not say so, as
+  `core.md`'s rustdoc rule asks; `core.md` now names the ordinary syntax
+  on `ordinary::Sequent` beside the linear one.
+- **Fixed in the note on LLTP's headers**, a draft for the library's
+  maintainers: its new paragraph named "step 25" and a path under
+  `plan/`. It now says how linlog translated the originals and lists
+  the verdicts that differ.
+- **Checked**: clippy, the tests (and `cargo test -p linlog`), both
+  `cargo hack` runs, `cargo deny`, `nix flake check`, the lints for
+  unreachable and unnameable items, and the rustdoc with warnings
+  denied. The checker read rule by rule against G1c, G1i and G1m: every
+  rule it accepts is sound in its logic, LJ's at most one formula right
+  and minimal logic's exactly one included.
+- **The ILTP run again**, by default on four of the slowest cores, one
+  run per logic and translation, every proof read back, checked and
+  written (`--output`): cbn 67 valid, 27 not valid, 179 unknown; cbv 71,
+  16, 186; 01 56, 12, 205 (106 decided together); classical 155, 1, 116;
+  minimal 65, 30, 178. That is within one problem of the report's runs
+  on two cores. No translation contradicts another or ILTP's status,
+  and no logic contradicts another. No read-back failed its check: each
+  proof was written, or left out by `--derivation-limit` (7, 2, 0 and 32
+  as the report says). SYN007+1.014 is refused at once; with
+  `--occurrence-limit none` it is killed for memory as any sequent of a
+  billion occurrences is, since that limit is the bound on reading.
+- **Certificates**: those of formulas 1 000 and 2 000 deep (implications,
+  conjunctions, negations), in every logic that decides them, compile
+  with Rocq 9.1 and its standard library (the classical ones are 3.5 to
+  7 MB, each formula written out at every `NNPP`). So do those whose
+  atoms are named like the terms' constants or Rocq's keywords, or
+  collide once mapped to identifiers (`é` and `_e9_`).
+- **Memory in a batch**: the classical run peaked at 5.4 GB with
+  drawings, 4.3 GB without, and 5.9 GB with `--linear`. The derivations
+  are outside the batch's bound by design (`core-batch.md`), and the
+  read-back holds no more than the linear derivation it reads.
+- **Left to the audit (step 28)**: `Image::read_back` and
+  `Derivation::check` take no stop. On SYJ206+1.005 classically with
+  `--derivation-limit none` (11.6 million inferences) they ran 4.5 s past
+  the time limit, and Ctrl-C would wait as long; under the default
+  derivation limit they take under a tenth of a second. Also follow-up
+  1 (the JSON forms, the wire form a front end needs) and 4 (the
+  classical certificate's import as an option).
+- **Left to step 26**: `focus::Engine::initial` in affine mode compares
+  every pair of literals. `a₀, …, aₙ ⊢ aₙ` in affine mode takes 32 ms
+  with 10 000 atoms, 0.37 s with 30 000 and 3.05 s with 100 000, past a
+  2 s time limit, since nothing polls there, on both threads of the
+  race. A linear input meets it as much as an image; it predates this
+  step.
+- Follow-ups 2, 3, 5 and 6 are in `plan/later.md` ("Follow-ups:
+  ordinary logic").

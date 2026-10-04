@@ -71,7 +71,7 @@ session's transcript is
 
 ## Where things stand
 
-As of 2026-10-04 steps 1 to 24 are finished, reviewed and pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
+As of 2026-10-04 steps 1 to 25 are finished, reviewed and pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
 and, on the author's answers, planned steps 18 to 37; at the review of
 step 21 the steps after 22 were put in a new order and renumbered to 38
 (D23: a lean step 23 that saves every later session its tokens, the
@@ -79,8 +79,9 @@ audit and refactor once at step 28 right before the release at step 30,
 a comparison with the other provers at 29, the Rocq library and the web
 client after the release). The step table, the decisions D16 to D23 and
 the commands are in `plan/README.md`, the prompts are `plan/18-…md` to
-`plan/38-…md` (25 and 28 written in full; each later one says
-what is fixed and is finished by you at the review its row names), `plan/later.md` says where every candidate and follow-up
+`plan/38-…md` (finished up to 26, and 28 written in full; each later
+one says what is fixed and is finished by you at the review its row
+names), `plan/later.md` says where every candidate and follow-up
 went, and `plan/notes/distribution.md` has the facts on releases,
 repositories and the organization. Step 18 rewrote the checker for
 linear memory, made every proof pass it in every build and bounded what
@@ -123,14 +124,21 @@ library), bounded renders before they parse, and drafted
 checked independently. Its review fixed the batch's memory default,
 which ignored a control group's limit; before it, on the author's
 request, the rustdoc was made to show the whole public API ("The
-rustdoc is the library's manual" in `.claude/rules/core.md`). The next
-command is step 25:
+rustdoc is the library's manual" in `.claude/rules/core.md`). Step 25
+decides classical, intuitionistic and minimal propositional logic
+through their translations into linear logic (`linlog::ordinary`,
+`prove --logic`), reads every proof back as LK or LJ under a checker of
+its own, and writes certificates over `Prop`; the ILTP library's 274
+problems are fetched by the flake (`.#iltp`). Its review made the
+reading of atoms linear (a scan of the names had made 100 000 atoms take
+8.5 s) and left to step 26 a quadratic first look of the affine search
+that predates it. The next command is step 26:
 
 ```nu
-claude --model claude-opus-5-5 --effort high --name step-25 ((open --raw plan/25-ordinary-logic.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-26 ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-At its review, finish `plan/26-focused-engine.md`.
+At its review, finish `plan/27-horn.md`.
 
 Models and efforts were re-evaluated on 2026-10-03 ("Why these models
 and efforts" in `plan/README.md`): the author runs off a Max 20x plan,
@@ -181,7 +189,10 @@ on what is written or rendered. The derivation's bound admitted an SVG
 that a PDF renderer took 4 GiB for, and a style value (a gap of four
 billion columns) multiplied a tiny proof into 23.6 GB past its time
 limit. Feed every new option and every new output its largest value
-and its largest admitted input. Whenever the command's output path
+and its largest admitted input. The lesson of step 25: feed a new reader
+many distinct names, not only deep nesting. Its arena found an atom by
+a scan of the names; the depth tests never meet that, and 100 000 atoms
+did. Whenever the command's output path
 changed, sweep the library through the command, not only the harness:
 until step 24 lets the command read LLTP files, a scratch converter to
 JSON sequents does it, as at step 22's review.
@@ -229,7 +240,14 @@ what the steps so far showed.
 
 - When you give the command for the next step, recap briefly what that
   step does first: its goal, its main items, anything notable (several
-  sessions, a night of the machine). Asked on 2026-10-04.
+  sessions, a night of the machine); and what orchestration it will
+  start, with every model and effort: the session's own (its row in
+  the table), the workflows its prompt opts into (the panels, the
+  audit) with each agent's model and effort, and the sub-agents it may
+  spawn (the `crate-source-explorer` agent on Sonnet at `medium`, its
+  frontmatter's; a fresh-context reviewer inherits the session's model
+  and effort unless the session names others). Both asked on
+  2026-10-04.
 - jj only, never git. Every commit is authored, committed and signed as
   `flgrubm@grubmueller.dev`; the gpg agent is used for signing and for
   nothing else. The earlier session kept the agent's cache warm with a

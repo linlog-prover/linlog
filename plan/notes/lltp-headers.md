@@ -579,14 +579,20 @@ are headed Unsolved or have more atoms than a truth table can take
 here. Generating the translations again after fixing the grammar
 settles all of them at once.
 
-linlog's own translations of the ILTP originals (step 25, `linlog
---logic`) confirm the list for the 72 ILTP problems among the 101: in each
-of the three translations the image differs from LLTP's file exactly on
-those 72, on SYN915+1 under cbn (the atom `T`), and on SYN977+1, where
-only the grouping of `a | b | c` differs, without changing the formula's
-meaning. On the misread problems that both sides decide at 2 s, linlog's
-verdicts on its own images agree with the ILTP statuses where LLTP's
-files contradict them (`plan/reports/25-ordinary-logic.md`).
+linlog translates the ILTP originals itself (`linlog prove --logic
+intuitionistic --translation cbn|cbv|01`, implemented from the
+translator's source, with `~` as tight as TPTP reads it), and its images
+confirm the list for the 72 ILTP problems among the 101: in each of the
+three translations its image differs from the library's file exactly on
+those 72, on SYN915+1 under cbn (where the file writes true as the atom
+`T`), and on SYN977+1, where only the grouping of `a | b | c` differs,
+without changing the formula's meaning. Where both are decided at 2 s
+and the verdicts differ, linlog's verdict on its own image agrees with
+the ILTP status and the file's contradicts it: SYJ212+1.001 and
+SYN001+1, Non-Theorems, are provable from the files; SYN041+1, a
+Theorem, is unprovable from them, and under cbv so are SYJ103+1 and
+SYJ105+1.003 and .004; under cbn, SYN915+1, a Theorem, is unprovable
+from its file, whose conjecture is the atom `T`.
 
 ## The malformed file
 

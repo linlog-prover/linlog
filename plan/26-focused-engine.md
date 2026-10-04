@@ -2,8 +2,7 @@
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
-every item, the verification table, no pushing. This prompt is finished
-at the review of step 25. Read before you start:
+every item, the verification table, no pushing. Read before you start:
 
 - `plan/reports/17-assessment.md`: section 1.2 (the refactoring's items
   1 to 4, 9, 13 and 14, D8), 1.3, 1.4, and the author's answers 4, 5
@@ -11,8 +10,14 @@ at the review of step 25. Read before you start:
 - `plan/reports/15-performance.md` ("Constant factors", "The reviews"),
   `19`, `20`, `21`.
 - `plan/later.md`: "Follow-ups: the focused engine".
+- `plan/reports/24-batch.md` (the batch, the pool kept across
+  searches) and `25-ordinary-logic.md` (the ILTP run, its section on
+  termination, and "From the review").
 - `plan/README.md`: D7, D8, D17, D18, D19.
-- The search's rules file and `core/src/search/**` in full.
+- `.claude/rules/core.md` (the index and the crate-wide rules) and the
+  module files of the search it names: `core-search.md`,
+  `core-focus.md`, `core-parallel.md`, `core-nets.md`, `core-batch.md`;
+  and `core/src/search/**` in full.
 
 ## Goal
 
@@ -89,6 +94,49 @@ case.
    bindings would go and which prunes assume ground atoms, for the design
    note of step 28 (`plan/notes/api.md`) to take up.
 
+## What the earlier steps left you
+
+Steps 22 to 25 did not change the search, but they changed what calls
+it and what reads its proofs.
+
+- **The batch** (step 24, `core-batch.md`): `search::batch` decides many
+  sequents under one `Options`, across the cores with one thread per
+  sequent (as `--deterministic`), or within them on a `search::Pool`
+  kept across searches. The one interface of item 3 is what the batch
+  calls, and a pool built once stays usable from one search to the next.
+- **Ordinary logic** (step 25, `core-ordinary.md`): `linlog::ordinary`
+  decides classical logic through affine MALL (the focused engine, no
+  copy bound) and intuitionistic and minimal logic through ILL (the
+  two-sided engine, deepening), and reads each proof back as LK or LJ
+  from its derivation. A change of a proof's shape (which inferences a
+  step builds, which premise keeps the goal) is caught by
+  `ordinary::tests::decides_and_reads_back` and by the ILTP run with
+  `--output`, which reads back and checks every proof; the counters do
+  not see it. The ILTP images are a workload of their own for item 4's
+  measurement: 274 problems per translation (`nix build .#iltp`, then
+  `linlog prove --logic intuitionistic --translation cbn|cbv|01 --file
+  bench/iltp/Problems`, and `--logic classical`), with step 25's counts
+  as the before.
+- **From step 25's review**, for item 5: `focus::Engine::initial` in
+  affine mode compares every pair of literals, and polls no stop.
+  `a₀, …, aₙ ⊢ aₙ` with `-a` takes 32 ms with 10 000 atoms, 0.37 s with
+  30 000 and 3.05 s with 100 000, past a 2 s time limit, on both threads
+  of the race. The forest's lists of each literal's occurrences, which
+  `dual_in` reads, would make it linear.
+- **The rules are per module** (step 23): what a later session must know
+  of the engine goes into `core-focus.md`, `core-search.md` or
+  `core-parallel.md`, and a file this step splits off gets its paths
+  there and, as a new module file, a row in `core.md`'s table.
+- **The rustdoc is the manual** (`core.md`): each engine is described on
+  its `Engine` variant, so item 4's table is said there too, with the
+  measurement behind each row.
+- **Termination on dyadic sequents is not this step's.** Step 25's
+  report measured what a loop check that refutes would decide (35 ILTP
+  problems, all Non-Theorems), and it is a step of its own if the author
+  wants one (`plan/later.md`). Item 6's `LCL181+1` and `SYN393+1` are
+  where the engine's cut entries meet its loop check: measure them, as
+  item 6 says.
+
 ## The oracle
 
 Every commit that claims no change of the search leaves `nodes`,
@@ -136,7 +184,27 @@ Whether the engine's recursion becomes an explicit stack: only if the
 web client (step 32, after the release) shows that it needs a search
 that can be suspended.
 
+## Verification
+
+The checks of CLAUDE.md's table on every commit, and `nix flake check`.
+The target set (`bench/targets.sh LABEL`, two cores, detached) against
+`bench/targets/after-bias.csv` for every commit that claims no change
+of the search; for every one that changes it, the measurement and its
+panel. The reference prover's test. The pool against one thread with
+recursion limits of 4 to 16 (item 6). The profile at the start and at
+the end (item 5). The ILTP library per translation and classically
+through the command's batch with `--output`, set beside step 25's
+table. The library through the batch by default on four cores, set
+beside step 24's review (4 512 answers, 2 193 proved, 142 refuted).
+Every run in a memory-capped scope on named cores, the long ones
+detached.
+
 ## Deliverables
 
-Thematic jj commits, each building and passing alone;
-`plan/reports/26-focused-engine.md`.
+Thematic jj commits, each building and passing alone; the reference
+prover and its test; the rules files of the search brought up to date
+(and `core.md`'s table where a file is added); README where the
+command's behaviour changes; `plan/reports/26-focused-engine.md` with
+the two profiles side by side, the dispatch table and the measurement
+behind each row, each panel's verdict, the target set's counters before
+and after, the ILTP and library runs, and item 7's note.

@@ -23,7 +23,7 @@ heading.
 | A Rocq library of linlog's own | 31 (after the release, D23) | named `linlog`, under `rocq/` (D20). The Mix reduction is machine-checked in Yalla without cut (`mix2_to_ll`); Yalla's general Mix is on its untagged master only; a Lean target exists now (`leanprover/cslib` has classical linear logic with units), deferred until after step 31 |
 | MALL proof nets | dropped | non-canonical or exponentially large: a display feature without a use |
 | A batch mode for the CLI | 24 | with LLTP input and the draft of the header report |
-| Ordinary logic through its embeddings | 25 | the layer; termination on the image of a translation is deferred and assessed in step 25's report (the literature terminates on the intuitionistic side: Dyckhoff's LJT, loop-checked LJ) |
+| Ordinary logic through its embeddings | 25 (done) | the layer; termination on the image of a translation is deferred and assessed in step 25's report (the literature terminates on the intuitionistic side: Dyckhoff's LJT, loop-checked LJ): a loop check would refute 35 of ILTP's 274 problems, a step of its own if the author wants it; the follow-ups under "Follow-ups: ordinary logic" |
 | The web front end | 32 (after the release, D23) | the bindings (`linlog-web`) in the workspace, the client in a repository of its own under the organization (D22) |
 | Problems from practice | 27 | the coverability suite of `blondimi/qcover` (176 instances, real non-theorems). Deferred: Model Checking Contest nets beyond the 76 LLTP used, and planning domains, for which no collection in linear logic exists. Dropped: Granule's synthesis benchmarks (graded signatures with data types, few of them propositional ILL) and llprover's examples (one file of 70 lines without a licence) |
 
@@ -601,6 +601,19 @@ termination on dyadic sequents first, since it stands without the rest
 and the layer is of little use without it; it depends on what step 17
 decides about the default copy bound.
 
+*Done as step 25 (2026-10-04), the layer alone.* The default deepening
+(step 21) made the layer useful without the termination: at 2 s, cbn
+decides 96 of the 274 ILTP problems, cbv 88, 01 68, 108 together, and
+classical logic 156. What termination would add is measured in step
+25's report: of the 166 problems no intuitionistic translation decides,
+35 deepen past a copy bound of 30 with every level cheap and none
+proved, all Non-Theorems, which a loop check on the branch would refute
+(SYJ207 to SYJ211, SYN392, SYN393); the other 131, the 48 undecided
+Theorems among them, stay below 30 because each level is too expensive,
+which no loop check changes. So the engine work is a step of its own
+if refuting intuitionistic non-theorems matters for teaching, and not
+worth one for the theorems.
+
 ## The web front end
 
 `linlog-web`: the `core` crate compiled to wasm without the `parallel`
@@ -883,6 +896,24 @@ user of the two-sided print or the certificates asks. The additive path on
 more than two roots, and on a `!` of an additive formula, is decided by
 the focused engine today. The canonical choice among identical hypotheses
 (step 15) applies two-sided as well.
+
+## Follow-ups: ordinary logic
+
+Left by step 25 (`plan/reports/25-ordinary-logic.md`); 1 and 4 of its
+list, the JSON forms and the certificate's import as an option, and a
+stop for `Image::read_back` and `Derivation::check`, went to step 28.
+
+- `interact --logic`: a session over the image whose display is read
+  back, the goals shown as ordinary sequents.
+- A loop check for dyadic sequents (the section above): 35 of the ILTP
+  problems, all refutations.
+- Classical logic through affine MALL costs one branch per way through
+  the conjunctions: 116 of the 274 are unknown at 2 s, all large SYJ2xx
+  instances. Not a SAT solver, and not to be offered as one.
+- A derivation read back from a proof that shares subproofs unfolds
+  exponentially: seven classical proofs (8 to 32 million inferences)
+  could not be checked within 6 GiB. A read-back on the proof term (a
+  DAG), with a checker on terms, would avoid it.
 
 ## Follow-ups: interactive proving
 
