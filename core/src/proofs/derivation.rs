@@ -1820,6 +1820,86 @@ mod tests {
         assert!(matches!(none, Err(ViewError::TooLarge { .. })), "both over");
     }
 
+    /// The compact view is the whole derivation with every run of one
+    /// structural rule drawn as its lowest inference, standing for the run
+    /// and resting on the premises of its highest, on the proofs of the
+    /// checker's differential test, one-sided and two-sided.
+    #[test]
+    fn compact_is_the_whole_with_its_runs_merged() {
+        /// An inference as the test compares it: its sequent, rule,
+        /// principal, times and number of premises.
+        type Shape = (Vec<OccId>, Rule, Option<usize>, u32, usize);
+        /// Returns the tree of a derivation in preorder; with `merge`, a
+        /// run of one structural rule as its lowest inference.
+        fn shape(d: &Derivation, merge: bool) -> Vec<Shape> {
+            let (mut out, mut stack) = (vec![], vec![d.root()]);
+            while let Some(id) = stack.pop() {
+                let low = d.inference(id);
+                let (mut high, mut times) = (low, low.times);
+                while merge && low.rule.is_structural() && high.premises.len() == 1 {
+                    let above = d.inference(high.premises[0]);
+                    if above.rule != low.rule {
+                        break;
+                    }
+                    (high, times) = (above, times + above.times);
+                }
+                let premises = high.premises.len();
+                out.push((
+                    low.sequent.clone(),
+                    low.rule,
+                    low.principal,
+                    times,
+                    premises,
+                ));
+                stack.extend(high.premises.iter().rev().copied());
+            }
+            out
+        }
+        let mut proofs = crate::proofs::oracle::proofs();
+        // Two `?` formulas that both premises of a `⊗` use, which no sample
+        // has: a run of contractions below it.
+        let sequent: Sequent = "!a, !b |- (a * b) * (a * b)".parse().unwrap();
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let outcome = crate::prove(&sequent, mode, &crate::Options::default()).unwrap();
+            let crate::Verdict::Proved(proof) = outcome.verdict else {
+                panic!("provable");
+            };
+            proofs.push((*proof, mode));
+        }
+        let mut runs = vec![];
+        for (proof, mode) in proofs {
+            let sides: &[bool] = if mode.intuitionistic {
+                &[false, true]
+            } else {
+                &[false]
+            };
+            for &two_sided in sides {
+                let build = |compact| {
+                    let view = ViewOptions::UNBOUNDED.compact(compact);
+                    let built = if two_sided {
+                        Derivation::two_sided(&proof, &view, || false)
+                    } else {
+                        Derivation::new(&proof, &view, || false)
+                    };
+                    built.unwrap()
+                };
+                let (whole, compact) = (build(Compact::Never), build(Compact::Always));
+                let context = format!("{} ({mode}, two-sided: {two_sided})", proof.sequent());
+                assert_eq!(shape(&compact, false), shape(&whole, true), "{context}");
+                runs.extend(
+                    compact
+                        .inferences()
+                        .iter()
+                        .filter(|i| i.times > 1)
+                        .map(|i| i.rule),
+                );
+            }
+        }
+        for rule in [Rule::Weakening, Rule::Contraction, Rule::BangContraction] {
+            assert!(runs.contains(&rule), "no run of {rule}");
+        }
+    }
+
     /// A derivation of any height is built on a small stack: 120 000
     /// inferences, one above the other, on a thread with 256 KiB.
     #[test]
