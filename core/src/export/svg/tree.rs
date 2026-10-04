@@ -12,7 +12,8 @@ use super::{
     Escaping, NOTATION, PLAIN, Run, Style, backdrop, drawn, escaped, head, label, run, text,
 };
 use crate::export::notation::{Step, flush, walk};
-use crate::proofs::{Derivation, OpenGoal, Rule, WriteError};
+use crate::proofs::style::RUN;
+use crate::proofs::{Derivation, Inference, OpenGoal, Rule, WriteError};
 use std::fmt::Write;
 
 /// Where an inference and the subtree above it go, within the box that
@@ -58,17 +59,30 @@ pub(super) fn draw(
     let dots = run("⋮", 1000, font);
     let dots_rise = line_height - DEPTH;
     // The label of every rule, and of an open goal its mark, laid out
-    // once.
+    // once; then the label of every rule for a run of it.
+    let runs = Rule::ALL
+        .iter()
+        .map(|&rule| style.labels.markup(rule).map(|m| format!("{m}{RUN}")));
     let labels: Vec<Option<Run>> = Rule::ALL
         .iter()
         .map(|&rule| match (rule, &style.open) {
-            (Rule::Open, OpenGoal::Mark(mark)) => Some(mark.as_str()),
-            _ => style.labels.markup(rule),
+            (Rule::Open, OpenGoal::Mark(mark)) => Some(mark.clone()),
+            _ => style.labels.markup(rule).map(str::to_owned),
         })
-        .map(|markup| markup.map(|m| run(&label(m), label_size, font)))
+        .chain(runs)
+        .map(|markup| markup.map(|m| run(&label(&m), label_size, font)))
         .collect();
     let empty = Run::default();
-    let label_of = |rule: Rule| labels[rule as usize].as_ref().unwrap_or(&empty);
+    let label_of = |inference: &Inference| {
+        let run = if inference.times > 1 {
+            Rule::ALL.len()
+        } else {
+            0
+        };
+        labels[inference.rule as usize + run]
+            .as_ref()
+            .unwrap_or(&empty)
+    };
     let bare = matches!(style.open, OpenGoal::Bare);
     let dotted = matches!(style.open, OpenGoal::Dots);
     let marks = style.ids;
@@ -105,7 +119,7 @@ pub(super) fn draw(
             };
             return Ok(());
         }
-        let label = label_of(inference.rule);
+        let label = label_of(inference);
         top = top.min(baseline - rise - stroke / 2);
         if !label.pieces.is_empty() {
             top = top.min(baseline - rise + (AXIS - HEIGHT) * label_size / 1000);
@@ -222,7 +236,7 @@ pub(super) fn draw(
             }
             None => {}
             Some((_, end)) => {
-                let label = label_of(inference.rule);
+                let label = label_of(inference);
                 if !label.pieces.is_empty() {
                     let baseline = y - rise + AXIS * label_size / 1000;
                     text(

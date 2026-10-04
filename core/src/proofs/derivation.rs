@@ -214,6 +214,16 @@ impl Rule {
         }
     }
 
+    /// Returns whether the rule is structural: a weakening or a
+    /// contraction, which a compact view draws a run of as one inference.
+    pub const fn is_structural(self) -> bool {
+        use Rule::*;
+        matches!(
+            self,
+            Contraction | Weakening | AffineWeakening | BangContraction | BangWeakening
+        )
+    }
+
     /// Returns the classical rule an intuitionistic rule name stands for on
     /// the one-sided sequent (`⊸L` and `⊗R` are `⊗`, `!L` is `?d`, and so
     /// on), and every other rule unchanged.
@@ -358,6 +368,25 @@ pub struct ViewOptions {
     /// `limit` is what a reader or a typesetter still takes, this is
     /// what the machine has.
     pub memory: Option<u64>,
+    /// Whether a run of one structural rule is drawn as one inference.
+    pub compact: Compact,
+}
+
+/// Whether a derivation draws a run of one structural rule, such as the
+/// weakenings of every unused `?` formula, as one inference labelled with
+/// a star.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Compact {
+    /// Every rule as its own inference, unless the derivation would then
+    /// pass a bound of the options and the compact one would not.
+    #[default]
+    Auto,
+    /// Every run as one inference.
+    Always,
+    /// Every rule as its own inference.
+    Never,
 }
 
 impl ViewOptions {
@@ -372,6 +401,7 @@ impl ViewOptions {
     pub const UNBOUNDED: Self = Self {
         limit: None,
         memory: Some(DEFAULT_MEMORY_LIMIT),
+        compact: Compact::Auto,
     };
 
     /// Returns the options with the size bound set, or lifted with `None`.
@@ -384,15 +414,22 @@ impl ViewOptions {
     pub const fn memory(self, memory: Option<u64>) -> Self {
         Self { memory, ..self }
     }
+
+    /// Returns the options with the compact view set.
+    pub const fn compact(self, compact: Compact) -> Self {
+        Self { compact, ..self }
+    }
 }
 
 impl Default for ViewOptions {
-    /// A size bound of [`DEFAULT_LIMIT`](Self::DEFAULT_LIMIT) and a memory
-    /// bound of [`DEFAULT_MEMORY_LIMIT`].
+    /// A size bound of [`DEFAULT_LIMIT`](Self::DEFAULT_LIMIT), a memory
+    /// bound of [`DEFAULT_MEMORY_LIMIT`], and the compact view where the
+    /// derivation would otherwise pass one of them.
     fn default() -> Self {
         Self {
             limit: Some(Self::DEFAULT_LIMIT),
             memory: Some(DEFAULT_MEMORY_LIMIT),
+            compact: Compact::Auto,
         }
     }
 }
@@ -515,6 +552,11 @@ pub struct Inference {
     pub principal: Option<usize>,
     /// The premises, in the rule's order.
     pub premises: Vec<InfId>,
+    /// How many applications of the rule the inference stands for: one,
+    /// or more for a run of a structural rule that a compact view draws
+    /// as one inference ([`Compact`]), whose principal formula is then
+    /// that of the lowest application.
+    pub times: u32,
 }
 
 /// A derivation in the standard sequent calculus: the tree of inferences a
@@ -641,7 +683,9 @@ impl<'a> Derivation<'a> {
         stop: impl FnMut() -> bool,
     ) -> Result<Vec<Inference>, ViewError> {
         let reading = check::reading(proof, mode)?;
-        unfold(proof, goal, mode.affine(), reading.as_ref(), view, stop)
+        // A graft is read rule by rule, never drawn compact.
+        let view = view.compact(Compact::Never);
+        unfold(proof, goal, mode.affine(), reading.as_ref(), &view, stop)
     }
 
     /// Returns the forest the sequents' occurrences index.
@@ -678,6 +722,10 @@ impl<'a> Derivation<'a> {
 /// the checker for the size, which must be within the bounds, a second for
 /// what the translation reads, then the translation. Every pass holds no
 /// more than the memory bound, and so does the derivation by its estimate.
+/// Where the options ask for the compact view, or allow it and the whole
+/// derivation is over a bound, the translation draws runs of a structural
+/// rule as one inference and counts what it holds as it goes, giving up
+/// with the whole derivation's error once that passes the bound.
 fn unfold(
     proof: &Proof,
     goal: &[OccId],
@@ -686,23 +734,45 @@ fn unfold(
     view: &ViewOptions,
     mut stop: impl FnMut() -> bool,
 ) -> Result<Vec<Inference>, ViewError> {
-    let size = size::measure(proof, goal, mode, reading, view.memory)?;
-    if let Some(limit) = view.limit
+    let (size, firm) = size::measured(proof, goal, mode, reading, view.memory)?;
+    let over = if let Some(limit) = view.limit
         && size.bytes() > limit
     {
-        return Err(ViewError::TooLarge { size, limit });
-    }
-    if let Some(limit) = view.memory
+        Some(ViewError::TooLarge { size, limit })
+    } else if let Some(limit) = view.memory
         && size.bytes() > limit
     {
-        return Err(ViewError::Memory {
+        Some(ViewError::Memory {
             size: Some(size),
             limit,
-        });
-    }
-    if size.inferences > Derivation::MOST {
-        return Err(ViewError::TooMany { size });
-    }
+        })
+    } else if size.inferences > Derivation::MOST {
+        Some(ViewError::TooMany { size })
+    } else {
+        None
+    };
+    let compact = match (view.compact, over) {
+        (Compact::Never, Some(error)) => return Err(error),
+        (Compact::Never | Compact::Auto, None) => None,
+        (Compact::Always, None) => Some(Budget {
+            most: None,
+            error: ViewError::TooMany { size },
+        }),
+        (compact, Some(error)) => {
+            let most = [view.limit, view.memory].into_iter().flatten().min();
+            // What a compact view cannot do without is known before it is
+            // built. Without a bound in bytes it is tried only when asked
+            // for, since nothing would then end the attempt but the count
+            // of inferences.
+            if (compact == Compact::Auto && most.is_none())
+                || most.is_some_and(|most| firm.bytes > most)
+                || firm.inferences > Derivation::MOST
+            {
+                return Err(error);
+            }
+            Some(Budget { most, error })
+        }
+    };
     let mut record = Record::new(proof);
     check::examine(proof, goal, mode, reading, view.memory, &mut record)?;
     let mut build = Build {
@@ -710,14 +780,60 @@ fn unfold(
         record: &record,
         reading,
         // As many as the size says, which fit a `usize` since they fit a
-        // `u32`.
-        inferences: Vec::with_capacity(size.inferences as usize),
+        // `u32`; a compact view has fewer.
+        inferences: match compact {
+            None => Vec::with_capacity(size.inferences as usize),
+            Some(_) => Vec::new(),
+        },
         tasks: Vec::new(),
         done: Vec::new(),
         stop: &mut stop,
+        compact: compact.map(|budget| Held {
+            weights: size::weights(proof.forest()),
+            bytes: 0,
+            budget,
+        }),
     };
     build.run(proof.root(), Multiset::of(goal.iter().copied()))?;
     Ok(build.inferences)
+}
+
+/// Returns the length of a list of distinct nodes or occurrences, which
+/// fits a `u32` as their ids do.
+fn count(len: usize) -> u32 {
+    u32::try_from(len).unwrap_or(u32::MAX)
+}
+
+/// The bound of a compact view, which is not measured before it is built.
+struct Budget {
+    /// The most bytes the derivation may take by [`Size::bytes`]'s
+    /// estimate, or `None` for no bound but [`Derivation::MOST`].
+    most: Option<u64>,
+    /// The error to give up with: the whole derivation's.
+    error: ViewError,
+}
+
+/// What a compact view holds so far, by the estimate of [`Size::bytes`].
+struct Held {
+    /// The characters of every occurrence's formula and its separator.
+    weights: Vec<u32>,
+    /// The bytes of the inferences made so far; it saturates.
+    bytes: u64,
+    /// The bound.
+    budget: Budget,
+}
+
+impl Held {
+    /// Returns the bytes an inference with this sequent takes.
+    fn cost(&self, sequent: &[OccId]) -> u64 {
+        sequent
+            .iter()
+            .fold(0u64, |sum, o| {
+                sum.saturating_add(u64::from(self.weights[o.index()]))
+            })
+            .saturating_mul(Size::BYTES_PER_CHARACTER)
+            .saturating_add(Size::BYTES_PER_INFERENCE)
+    }
 }
 
 /// What the translation reads off the checker's pass: for every node a
@@ -834,6 +950,8 @@ enum Task {
         principal: Option<OccId>,
         /// How many premises it has.
         premises: usize,
+        /// How many applications of the rule it stands for.
+        times: u32,
     },
     /// Weaken `?` formulas one by one below the subtree finished last.
     Weaken {
@@ -869,6 +987,9 @@ struct Build<'a> {
     done: Vec<InfId>,
     /// The caller's stop condition, polled once per node.
     stop: &'a mut dyn FnMut() -> bool,
+    /// What a compact view holds and may hold, or `None` for a derivation
+    /// that shows every rule.
+    compact: Option<Held>,
 }
 
 impl<'a> Build<'a> {
@@ -904,6 +1025,15 @@ impl<'a> Build<'a> {
     fn run(&mut self, root: NodeId, conclusion: Multiset) -> Result<(), ViewError> {
         self.tasks.push(Task::Unfold(root, conclusion));
         while let Some(task) = self.tasks.pop() {
+            // A task adds one inference at most to a compact view, so a
+            // view that stops here holds no more than one beyond its
+            // bound, and never more than an id counts.
+            if let Some(held) = &self.compact {
+                let most = held.budget.most.unwrap_or(u64::MAX);
+                if held.bytes > most || self.inferences.len() as u64 >= Derivation::MOST {
+                    return Err(held.budget.error.clone());
+                }
+            }
             match task {
                 Task::Unfold(id, actual) => {
                     if (self.stop)() {
@@ -917,10 +1047,17 @@ impl<'a> Build<'a> {
                     rule,
                     principal,
                     premises,
+                    times,
                 } => {
                     let premises = self.done.split_off(self.done.len() - premises);
-                    let inference = self.infer(sequent, rule, principal, premises);
+                    let inference = self.infer(sequent, rule, principal, premises, times);
                     self.done.push(inference);
+                }
+                Task::Weaken { sequent, unused } if self.compact.is_some() => {
+                    if let Some(&lowest) = unused.as_slice().last() {
+                        let times = count(unused.as_slice().len());
+                        self.below(sequent.sum(&unused), Rule::Weakening, lowest, times);
+                    }
                 }
                 Task::Weaken {
                     mut sequent,
@@ -928,14 +1065,23 @@ impl<'a> Build<'a> {
                 } => {
                     for &q in unused.as_slice() {
                         sequent.insert(q);
-                        self.below(sequent.clone(), Rule::Weakening, q);
+                        self.below(sequent.clone(), Rule::Weakening, q, 1);
+                    }
+                }
+                Task::Contract { sequent, id } if self.compact.is_some() => {
+                    let shared = self.shared(id);
+                    if let Some(&lowest) = shared.last() {
+                        let quests = Multiset::of(shared.iter().map(|&a| self.quest(a)));
+                        let times = count(shared.len());
+                        let sequent = sequent.difference(&quests);
+                        self.below(sequent, Rule::Contraction, self.quest(lowest), times);
                     }
                 }
                 Task::Contract { mut sequent, id } => {
                     for &a in self.shared(id) {
                         let q = self.quest(a);
                         sequent.remove(q);
-                        self.below(sequent.clone(), Rule::Contraction, q);
+                        self.below(sequent.clone(), Rule::Contraction, q, 1);
                     }
                 }
             }
@@ -943,45 +1089,81 @@ impl<'a> Build<'a> {
         Ok(())
     }
 
-    /// Adds an inference and returns its id; in a two-sided derivation the
-    /// rule gets its intuitionistic name.
+    /// Adds an inference that stands for `times` applications of its rule
+    /// and returns its id; in a two-sided derivation the rule gets its
+    /// intuitionistic name. In a compact view, a structural rule whose
+    /// premise is a run of the same rule extends that run instead.
     fn infer(
         &mut self,
         sequent: Multiset,
         rule: Rule,
         principal: Option<OccId>,
         premises: Vec<InfId>,
+        times: u32,
     ) -> InfId {
         let rule = match (self.reading, principal) {
             (Some(reading), Some(o)) => rule.intuitionistic(reading.position(o)),
             _ => rule,
         };
         let principal = principal.map(|o| sequent.position(o).unwrap());
+        if let Some(held) = &mut self.compact {
+            let sequent = sequent.into_vec();
+            let cost = held.cost(&sequent);
+            held.bytes = held.bytes.saturating_add(cost);
+            if let [p] = premises[..]
+                && rule.is_structural()
+                && self.inferences[p.index()].rule == rule
+            {
+                // The premise of a rule with one premise is the subtree
+                // finished last, so its root is the last inference.
+                debug_assert_eq!(p.index() + 1, self.inferences.len());
+                let run = &mut self.inferences[p.index()];
+                held.bytes = held.bytes.saturating_sub(held.cost(&run.sequent));
+                run.sequent = sequent;
+                run.principal = principal;
+                run.times = run.times.saturating_add(times);
+                return p;
+            }
+            return self.push(Inference {
+                sequent,
+                rule,
+                principal,
+                premises,
+                times,
+            });
+        }
+        self.push(Inference {
+            sequent: sequent.into_vec(),
+            rule,
+            principal,
+            premises,
+            times,
+        })
+    }
+
+    /// Adds an inference and returns its id.
+    fn push(&mut self, inference: Inference) -> InfId {
         // The size of the derivation was counted before it was begun, and
         // one of more inferences than an id counts was refused.
         let id = u32::try_from(self.inferences.len())
             .ok()
             .filter(|&id| u64::from(id) < Derivation::MOST)
             .expect("a derivation has no more inferences than its size says");
-        self.inferences.push(Inference {
-            sequent: sequent.into_vec(),
-            rule,
-            principal,
-            premises,
-        });
+        self.inferences.push(inference);
         InfId::new(id)
     }
 
     /// Adds an inference without premises: a subtree of its own.
     fn leaf(&mut self, sequent: Multiset, rule: Rule, principal: Option<OccId>) {
-        let inference = self.infer(sequent, rule, principal, vec![]);
+        let inference = self.infer(sequent, rule, principal, vec![], 1);
         self.done.push(inference);
     }
 
-    /// Adds an inference on `principal` below the subtree finished last.
-    fn below(&mut self, sequent: Multiset, rule: Rule, principal: OccId) {
+    /// Adds an inference of `times` applications on `principal` below the
+    /// subtree finished last.
+    fn below(&mut self, sequent: Multiset, rule: Rule, principal: OccId, times: u32) {
         let premise = self.done.pop().expect("a subtree is finished");
-        let inference = self.infer(sequent, rule, Some(principal), vec![premise]);
+        let inference = self.infer(sequent, rule, Some(principal), vec![premise], times);
         self.done.push(inference);
     }
 
@@ -993,6 +1175,7 @@ impl<'a> Build<'a> {
             rule,
             principal: Some(principal),
             premises: 1,
+            times: 1,
         });
         self.tasks.push(Task::Unfold(p, up));
     }
@@ -1020,6 +1203,11 @@ impl<'a> Build<'a> {
             }
             up
         };
+        if self.compact.is_some()
+            && let Some(o) = self.weakened(id)
+        {
+            return self.weaken_run(id, o, actual);
+        }
         match self.proof.node(id) {
             Ax(..) => self.leaf(actual, Rule::Ax, None),
             One(o) => self.leaf(actual, Rule::One, Some(o)),
@@ -1075,6 +1263,7 @@ impl<'a> Build<'a> {
                         rule: Rule::Contraction,
                         principal: Some(q),
                         premises: 1,
+                        times: 1,
                     });
                     self.from(derelicted, Rule::Dereliction, q, p, up);
                 } else {
@@ -1092,6 +1281,7 @@ impl<'a> Build<'a> {
                     rule: Rule::With,
                     principal: Some(o),
                     premises: 2,
+                    times: 1,
                 });
                 self.tasks.push(Task::Pad(r, up_r));
                 self.tasks.push(Task::Pad(l, up_l));
@@ -1172,9 +1362,58 @@ impl<'a> Build<'a> {
             rule,
             principal,
             premises: 2,
+            times: 1,
         });
         self.tasks.push(Task::Unfold(r, up_r));
         self.tasks.push(Task::Unfold(l, up_l));
+    }
+
+    /// Returns the `?` formula the node at `id` weakens, if it is a
+    /// weakening: a `?` step whose formula is not used above, or a
+    /// weakening of a `?` formula.
+    fn weakened(&self, id: NodeId) -> Option<OccId> {
+        match self.proof.node(id) {
+            Node::Quest(o, _) if !self.record.used[id.index()] => Some(o),
+            Node::Weaken(o, _) if self.forest().kind(o) == Kind::Quest => Some(o),
+            _ => None,
+        }
+    }
+
+    /// Plans, in a compact view, the run of weakenings that starts at the
+    /// node at `id`, which weakens `o`, under the conclusion `actual`: one
+    /// inference for every weakening of the same rule down the chain of
+    /// nodes, through the `?` steps whose formula is used above, which
+    /// are no inference, without a sequent per step.
+    fn weaken_run(&mut self, id: NodeId, o: OccId, actual: Multiset) {
+        let rule = |o: OccId| match self.reading {
+            Some(reading) => Rule::Weakening.intuitionistic(reading.position(o)),
+            None => Rule::Weakening,
+        };
+        let first = rule(o);
+        let mut removed = vec![o];
+        let mut next = self.proof.node(id).premises().next().unwrap();
+        loop {
+            match self.proof.node(next) {
+                Node::Quest(_, p) if self.record.used[next.index()] => next = p,
+                _ => match self.weakened(next) {
+                    Some(o) if rule(o) == first => {
+                        removed.push(o);
+                        next = self.proof.node(next).premises().next().unwrap();
+                    }
+                    _ => break,
+                },
+            }
+        }
+        let up = actual.difference(&Multiset::of(removed.iter().copied()));
+        self.tasks.push(Task::Infer {
+            sequent: actual,
+            rule: Rule::Weakening,
+            principal: Some(o),
+            premises: 1,
+            // Distinct nodes, fewer than 2³².
+            times: count(removed.len()),
+        });
+        self.tasks.push(Task::Unfold(next, up));
     }
 
     /// Plans the subproof at `id` under a conclusion that may hold `?`
@@ -1547,6 +1786,40 @@ mod tests {
         assert!(p.two_sided_derivation().is_err());
     }
 
+    /// A compact view draws a run of one structural rule as one starred
+    /// inference: always when asked, and by default only where the whole
+    /// derivation passes a bound that the compact one does not.
+    #[test]
+    fn compact_runs() {
+        let s: Sequent = "|- ?a, ?b, ?c, ?d, 1".parse().unwrap();
+        let options = crate::Options::default();
+        let outcome = crate::prove(&s, Mode::default(), &options).unwrap();
+        let crate::Verdict::Proved(p) = outcome.verdict else {
+            panic!("provable");
+        };
+        let view = |compact, limit| ViewOptions::default().compact(compact).limit(limit);
+        let full = p.derivation_with(&view(Compact::Never, None), || false);
+        assert_eq!(full.unwrap().inferences().len(), 5);
+        let compact = p.derivation_with(&view(Compact::Always, None), || false);
+        let compact = compact.unwrap();
+        assert_eq!(compact.inferences().len(), 2);
+        assert_eq!(compact.inference(compact.root()).times, 4);
+        assert_eq!(
+            compact.to_string(),
+            "        ─── 1\n        ⊢ 1\n─────────────────── ?w*\n⊢ ?a, ?b, ?c, ?d, 1"
+        );
+        let bytes = p.derivation_size(false).unwrap().bytes();
+        let tight = Some(bytes - 1);
+        let auto = p.derivation_with(&view(Compact::Auto, tight), || false);
+        assert_eq!(auto.unwrap().inferences().len(), 2, "over the bound");
+        let auto = p.derivation_with(&view(Compact::Auto, Some(bytes)), || false);
+        assert_eq!(auto.unwrap().inferences().len(), 5, "within the bound");
+        let never = p.derivation_with(&view(Compact::Never, tight), || false);
+        assert!(matches!(never, Err(ViewError::TooLarge { .. })));
+        let none = p.derivation_with(&view(Compact::Auto, Some(10)), || false);
+        assert!(matches!(none, Err(ViewError::TooLarge { .. })), "both over");
+    }
+
     /// A derivation of any height is built on a small stack: 120 000
     /// inferences, one above the other, on a thread with 256 KiB.
     #[test]
@@ -1738,6 +2011,7 @@ mod tests {
             rule,
             principal,
             premises: premises.to_vec(),
+            times: 1,
         };
         assert_eq!(
             d.inferences(),

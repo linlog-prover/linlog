@@ -36,7 +36,9 @@ pub mod size;
 pub mod style;
 
 pub use check::{CheckError, Described, Dyadic, Problem};
-pub use derivation::{Derivation, InfId, Inference, Rule, UnknownRule, ViewError, ViewOptions};
+pub use derivation::{
+    Compact, Derivation, InfId, Inference, Rule, UnknownRule, ViewError, ViewOptions,
+};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
 pub use interactive::{Interactive, Refusal};

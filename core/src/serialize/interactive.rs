@@ -79,6 +79,7 @@ impl TryFrom<Interactive> for State {
                 rule: step.rule.unwrap_or(Rule::Open),
                 principal: step.principal,
                 premises: step.premises.into_iter().map(InfId::new).collect(),
+                times: 1,
             })
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();

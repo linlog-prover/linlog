@@ -1090,3 +1090,29 @@ fn verdict_lines() {
     assert_eq!(status, 0);
     assert!(out.starts_with("\\begin{prooftree}\n"), "{out}");
 }
+
+/// `--compact` draws a run of weakenings as one starred inference, and
+/// never in a certificate.
+#[test]
+fn compact_runs() {
+    let input = "!A, !B, !C |- 1";
+    let (status, out, _) = linlog(&["prove", "-i", "--compact", "always", input], "");
+    assert_eq!(status, 0);
+    assert!(out.contains("!w*"), "{out}");
+    let (_, out, _) = linlog(&["prove", "-i", "--compact", "never", input], "");
+    assert!(!out.contains('*'), "{out}");
+    let (status, out, _) = linlog(
+        &[
+            "prove",
+            "-i",
+            "--compact",
+            "always",
+            "--format",
+            "rocq",
+            input,
+        ],
+        "",
+    );
+    assert_eq!(status, 0);
+    assert!(out.contains("wk_r_ext"), "{out}");
+}

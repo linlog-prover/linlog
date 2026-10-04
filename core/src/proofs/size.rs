@@ -135,6 +135,41 @@ struct Sub {
     goal: u64,
     /// Whether a `⊤` in it absorbs any context.
     absorbs: bool,
+    /// Its inferences that are no weakening or contraction.
+    firm: Firm,
+}
+
+/// The inferences of a derivation that are no weakening or contraction,
+/// which a compact view draws as they are: what it holds at least.
+/// Both numbers saturate.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Firm {
+    /// How many there are.
+    pub(crate) inferences: u64,
+    /// Their bytes by [`Size::bytes`], with nothing a `⊤` absorbs.
+    pub(crate) bytes: u64,
+}
+
+impl Firm {
+    /// Returns these and one more inference whose sequent has
+    /// `characters`.
+    fn and(self, characters: u64) -> Self {
+        Self {
+            inferences: self.inferences.saturating_add(1),
+            bytes: characters
+                .saturating_mul(Size::BYTES_PER_CHARACTER)
+                .saturating_add(Size::BYTES_PER_INFERENCE)
+                .saturating_add(self.bytes),
+        }
+    }
+
+    /// Returns these and `other`'s.
+    fn with(self, other: Self) -> Self {
+        Self {
+            inferences: self.inferences.saturating_add(other.inferences),
+            bytes: self.bytes.saturating_add(other.bytes),
+        }
+    }
 }
 
 /// The observer that adds up the sizes.
@@ -155,7 +190,7 @@ struct Measure<'a> {
 /// Returns, for every occurrence of a forest, the characters of its
 /// formula in one-sided notation plus two for the separator after it,
 /// saturating.
-fn weights(forest: &Forest) -> Vec<u32> {
+pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
     let sequent = forest.sequent();
     let names: Vec<u32> = sequent
         .atom_names()
@@ -456,7 +491,28 @@ impl Observer for Measure<'_> {
                 }
             }
         };
-        self.subs[id.index()] = sub;
+        // A compact view draws every inference but the weakenings and
+        // contractions as the derivation does.
+        let firm = |p: NodeId| self.subs[p.index()].firm;
+        let quest = |a: OccId| self.characters(forest.parent(a).unwrap());
+        let firm = match self.proof.node(id) {
+            Ax(..) | One(_) | Top(_) => Firm::default().and(sub.weight),
+            Bot(_, p) | Par(_, p) | Plus(_, _, p) | Bang(_, p) => firm(p).and(sub.weight),
+            Weaken(_, p) | Quest(_, p) => firm(p),
+            // The dereliction's sequent holds the formula twice.
+            Copy(a, p) if facts.used => firm(p).and(sub.weight.saturating_add(quest(a))),
+            Copy(_, p) => firm(p).and(sub.weight),
+            Tensor(_, l, r) | Mix(l, r) => {
+                let doubled = facts
+                    .shared
+                    .iter()
+                    .map(|&a| quest(a))
+                    .fold(sub.weight, u64::saturating_add);
+                firm(l).with(firm(r)).and(doubled)
+            }
+            With(_, l, r) => firm(l).with(firm(r)).and(sub.weight),
+        };
+        self.subs[id.index()] = Sub { firm, ..sub };
     }
 }
 
@@ -471,6 +527,18 @@ pub(crate) fn measure(
     reading: Option<&Reading>,
     memory: Option<u64>,
 ) -> Result<Size, CheckError> {
+    measured(proof, goal, mode, reading, memory).map(|(size, _)| size)
+}
+
+/// Returns the size as [`measure`] does, and what a compact view of the
+/// derivation holds at least.
+pub(crate) fn measured(
+    proof: &Proof,
+    goal: &[OccId],
+    mode: Mode,
+    reading: Option<&Reading>,
+    memory: Option<u64>,
+) -> Result<(Size, Firm), CheckError> {
     // Before the tables are made: they are several times the proof.
     check::afford(proof, Measure::tables(proof), memory)?;
     let mut measure = Measure {
@@ -500,21 +568,23 @@ pub(crate) fn measure(
     // wherever it stands, so the characters are not known: more than can
     // be said, rather than a sum that is too low.
     if measure.weights.contains(&u32::MAX) {
-        return Ok(Size {
+        let size = Size {
             inferences: root.inferences,
             characters: u64::MAX,
             height: root.height,
             width: u64::MAX,
             exact: false,
-        });
+        };
+        return Ok((size, root.firm));
     }
-    Ok(Size {
+    let size = Size {
         inferences: root.inferences,
         characters,
         height: root.height,
         width: root.width.max(all),
         exact: measure.exact,
-    })
+    };
+    Ok((size, root.firm))
 }
 
 #[cfg(all(test, feature = "parse"))]

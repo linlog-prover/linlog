@@ -259,6 +259,7 @@ fn label(out: &mut String, markup: &str) {
                 '⊤' => NOTATION.top,
                 '⊥' => NOTATION.bot,
                 '1' => NOTATION.one,
+                '*' => "^{*}",
                 _ => NOTATION.zero,
             }),
             Part::Text(t) => text(out, t),
@@ -362,7 +363,8 @@ pub fn write(
             return Ok(());
         };
         let inference = derivation.inference(id);
-        let markup = options.labels.markup(inference.rule);
+        let markup = options.labels.of(inference);
+        let markup = markup.as_deref();
         match (inference.rule, &options.open) {
             (Rule::Open, OpenGoal::Dots) => buffer.push_str("\\hypo{\\vdots}\n\\infer[no rule]1"),
             (Rule::Open, OpenGoal::Bare) => buffer.push_str("\\hypo"),

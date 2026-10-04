@@ -12,8 +12,8 @@ use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, prove_goal};
 use linlog::{
-    Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size, ViewError,
-    ViewOptions, WriteError,
+    Compact, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size,
+    ViewError, ViewOptions, WriteError,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -240,7 +240,11 @@ impl Show {
             net: output.net,
             file: output.output.is_some(),
             styles,
-            view: output.derivation_limit.into(),
+            view: ViewOptions::from(output.derivation_limit).compact(match format {
+                // A certificate names every formula it weakens.
+                Format::Rocq => Compact::Never,
+                _ => output.compact.into(),
+            }),
             tree: output.tree,
             terminal,
             screens: output.screens.0.map(u64::from),
@@ -586,8 +590,9 @@ pub(crate) fn derivation(
     };
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
     // A tree that cannot fit is known from its size alone, before
-    // anything is built.
+    // anything is built; the compact one may fit where it does not.
     let fit = show.fit();
+    let mut view = show.view;
     if let Some((columns, most)) = fit {
         let size = match proof.derivation_size_within(mode.intuitionistic, show.view.memory) {
             Ok(size) => size,
@@ -597,7 +602,9 @@ pub(crate) fn derivation(
             }
             Err(e) => return Err(invalid(e)),
         };
-        if size.width > columns || size.lines() > most {
+        if (size.width > columns || size.lines() > most) && view.compact != Compact::Never {
+            view = view.compact(Compact::Always);
+        } else if size.width > columns || size.lines() > most {
             let width = format!("at least {}", size.width);
             return Ok(Shown::LeftOut(unfit(
                 size.inferences,
@@ -609,9 +616,9 @@ pub(crate) fn derivation(
         }
     }
     let built = if mode.intuitionistic {
-        proof.two_sided_derivation_with(&show.view, &mut halt)
+        proof.two_sided_derivation_with(&view, &mut halt)
     } else {
-        proof.derivation_with(&show.view, &mut halt)
+        proof.derivation_with(&view, &mut halt)
     };
     let d = match built {
         Ok(d) => d,

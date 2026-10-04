@@ -27,7 +27,9 @@
 //! They write one inference at a time and keep their own stack, so the
 //! text grows with the derivation, not with its width, and a derivation of
 //! any height fits. Rules are labelled as [`Labels`](crate::Labels) says,
-//! an open goal is drawn as [`OpenGoal`](crate::OpenGoal) says.
+//! an open goal is drawn as [`OpenGoal`](crate::OpenGoal) says, and an
+//! inference of a compact derivation that stands for a run of a
+//! structural rule ([`Compact`](crate::Compact)) has its label starred.
 
 #[cfg(feature = "latex")]
 pub mod latex;

@@ -180,6 +180,7 @@ fn label(out: &mut String, markup: &str) {
                 '!' => "!",
                 '⊤' => "⊤",
                 '⊥' => "⊥",
+                '*' => "^*",
                 _ => "0",
             }),
             Part::Text(t) => {
@@ -308,7 +309,8 @@ pub fn write(
                         buffer.push_str("),\n");
                     }
                     _ => {
-                        let markup = options.labels.markup(inference.rule);
+                        let markup = options.labels.of(inference);
+                        let markup = markup.as_deref();
                         let name = |out: &mut String| {
                             if let Some(markup) = markup {
                                 out.push_str("name: $");

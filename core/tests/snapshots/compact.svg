@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="157.552" height="86.592" viewBox="0 0 9847 5412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>!A, !B, !C ⊢ 1 ⊗ 1</title>
+<desc>1. ⊢ 1, by 1R.
+2. ⊢ 1, by 1R.
+3. ⊢ 1 ⊗ 1, by ⊗R from 1 and 2.
+4. !A, !B, !C ⊢ 1 ⊗ 1, by !w 3 times from 3.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 3812H8240"/>
+<path d="M1447 2312H7093"/>
+<path d="M1447 812H2977"/>
+<path d="M5563 812H7093"/>
+</g>
+<text x="300" y="4902" textLength="7940" lengthAdjust="spacing" id="i3">!𝐴, !𝐵, !𝐶 ⊢ 1 ⊗ 1</text>
+<text x="8440" y="4012" textLength="1107" lengthAdjust="spacing" font-size="800">!w*</text>
+<text x="2589" y="3402" textLength="3363" lengthAdjust="spacing" id="i2">⊢ 1 ⊗ 1</text>
+<text x="7293" y="2512" textLength="1021" lengthAdjust="spacing" font-size="800">⊗R</text>
+<text x="1447" y="1902" textLength="1530" lengthAdjust="spacing" id="i0">⊢ 1</text>
+<text x="3177" y="1012" textLength="886" lengthAdjust="spacing" font-size="800">1R</text>
+<text x="5563" y="1902" textLength="1530" lengthAdjust="spacing" id="i1">⊢ 1</text>
+<text x="7293" y="1012" textLength="886" lengthAdjust="spacing" font-size="800">1R</text>
+</svg>

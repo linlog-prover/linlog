@@ -9,9 +9,11 @@
 //! output sets in its own way: the connective and unit characters `⊗ ⅋ &
 //! ⊕ ⊸ ! ? ⊤ ⊥ 0 1` are symbols, `_x` or `_{xy}` is a subscript, and every
 //! other character is text set upright. `⊸L` is the upright `L` after
-//! `⊸`, `&L_1` has the subscript `1`.
+//! `⊸`, `&L_1` has the subscript `1`. A `*` is a symbol too, a superscript
+//! where the output sets one: the mark of a run of a rule (`?w*`).
 
-use super::derivation::Rule;
+use super::derivation::{Inference, Rule};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -63,7 +65,21 @@ impl Labels {
         };
         (rule != Rule::Open && !label.is_empty()).then_some(label)
     }
+
+    /// Returns the label of an inference as [`markup`](Self::markup)
+    /// does, followed by [`RUN`] when it stands for a run of its rule.
+    pub(crate) fn of(&self, inference: &Inference) -> Option<Cow<'_, str>> {
+        let markup = self.markup(inference.rule)?;
+        Some(match inference.times {
+            1 => Cow::Borrowed(markup),
+            _ => Cow::Owned(format!("{markup}{RUN}")),
+        })
+    }
 }
+
+/// What the label of an inference that stands for a run of a structural
+/// rule ends with: `?w*`.
+pub(crate) const RUN: &str = "*";
 
 /// One part of a label's markup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +94,7 @@ pub(crate) enum Part<'a> {
 
 /// Whether a character of a label is a symbol.
 fn symbol(c: char) -> bool {
-    "⊗⅋&⊕⊸!?⊤⊥01".contains(c)
+    "⊗⅋&⊕⊸!?⊤⊥01*".contains(c)
 }
 
 /// Returns the parts of a label's markup in order. A `_` at the end, or

@@ -1,0 +1,12 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathbf{1}\mathrm{R}$]{&\vdash \mathbf{1}}
+\infer0[$\mathbf{1}\mathrm{R}$]{&\vdash \mathbf{1}}
+\infer2[$\otimes\mathrm{R}$]{&\vdash \mathbf{1} \otimes \mathbf{1}}
+\infer1[$\oc\mathrm{w}^{*}$]{\oc A, \oc B, \oc C &\vdash \mathbf{1} \otimes \mathbf{1}}
+\end{prooftree}
+\end{document}

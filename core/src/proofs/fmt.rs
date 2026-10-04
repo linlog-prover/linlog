@@ -8,8 +8,8 @@
 //! takes time proportional to its text and memory proportional to its
 //! inferences.
 
-use super::derivation::{Derivation, InfId, Rule};
-use super::style::{Labels, OpenGoal, WriteError, plain};
+use super::derivation::{Derivation, InfId, Inference, Rule};
+use super::style::{Labels, OpenGoal, RUN, WriteError, plain};
 use crate::occurrences::{Forest, OccId, Position, Reading};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -61,8 +61,19 @@ struct Bar {
 }
 
 /// Returns the bar row of every rule, in declaration order, under the
-/// options: `None` for an open goal drawn bare.
+/// options, and then of every rule for a run of it ([`bar`]): `None` for
+/// an open goal drawn bare.
 fn bars(options: &TextOptions) -> Vec<Option<Bar>> {
+    let runs = Rule::ALL.iter().map(|&rule| {
+        Some(Bar {
+            line: options.bar,
+            label: options
+                .labels
+                .markup(rule)
+                .map_or_else(String::new, |label| plain(label) + RUN),
+            dots: false,
+        })
+    });
     Rule::ALL
         .iter()
         .map(|&rule| {
@@ -85,7 +96,18 @@ fn bars(options: &TextOptions) -> Vec<Option<Bar>> {
                 OpenGoal::Mark(mark) => Some(bar(options.bar, mark, false)),
             }
         })
+        .chain(runs)
         .collect()
+}
+
+/// Returns the bar row of an inference among those [`bars`] returns.
+fn bar<'a>(bars: &'a [Option<Bar>], inference: &Inference) -> &'a Option<Bar> {
+    let run = if inference.times > 1 {
+        Rule::ALL.len()
+    } else {
+        0
+    };
+    &bars[inference.rule as usize + run]
 }
 
 /// Where an inference and the subtree above it go, within the box that
@@ -209,7 +231,7 @@ impl Derivation<'_> {
             )
             .expect("counting never fails");
             let conclusion = count.0;
-            let Some(bar) = &bars[inference.rule as usize] else {
+            let Some(bar) = bar(bars, inference) else {
                 places[i] = Place {
                     width: conclusion,
                     height: 1,
@@ -335,7 +357,7 @@ impl Derivation<'_> {
             spaces(out, piece.column - column)?;
             let (place, inference) = (&places[piece.id.index()], self.inference(piece.id));
             column = piece.column;
-            match (place.bar, &bars[inference.rule as usize]) {
+            match (place.bar, bar(&bars, inference)) {
                 (Some((_, width)), Some(bar)) if piece.bar => {
                     for _ in 0..width {
                         out.write_char(bar.line)?;
@@ -359,7 +381,8 @@ impl Derivation<'_> {
 impl Derivation<'_> {
     /// Writes the derivation as a numbered list of its inferences, one per
     /// line, premises before their conclusion and the conclusion last:
-    /// `3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.` An open goal is `open`.
+    /// `3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.` An open goal is `open`, a
+    /// run of a structural rule `by ?w 3 times`.
     /// This is the reading of a derivation for a screen reader, which
     /// cannot follow a tree. Asks `stop` before every line.
     pub fn write_steps(
@@ -381,6 +404,9 @@ impl Derivation<'_> {
                 continue;
             }
             write!(out, ", by {}", inference.rule.name())?;
+            if inference.times > 1 {
+                write!(out, " {} times", inference.times)?;
+            }
             for (k, p) in inference.premises.iter().enumerate() {
                 let joint = match k {
                     0 => " from ",

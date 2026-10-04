@@ -211,6 +211,7 @@ impl Interactive {
             rule: Rule::Open,
             principal: None,
             premises: vec![],
+            times: 1,
         };
         Ok(Self {
             forest,
@@ -553,6 +554,7 @@ impl Interactive {
                 rule: Rule::Open,
                 principal: None,
                 premises: vec![],
+                times: 1,
             });
         }
         let inference = &mut self.inferences[goal.index()];
@@ -895,6 +897,7 @@ impl Interactive {
                         .iter()
                         .map(|&p| new_id[p.index()])
                         .collect(),
+                    times: inference.times,
                 }
             })
             .collect();

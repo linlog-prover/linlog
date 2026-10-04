@@ -3,7 +3,7 @@
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::search::{Engine, Options};
-use linlog::{Bias, Forest, Fragment, Mode, ViewOptions};
+use linlog::{Bias, Compact, Forest, Fragment, Mode, ViewOptions};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -572,6 +572,34 @@ pub struct OutputArgs {
     /// the verdict's. `--format json` writes the proof itself at any size.
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit::default())]
     pub derivation_limit: Limit,
+    /// When a run of one structural rule, such as the weakenings of every
+    /// unused `?` formula, is drawn as one inference labelled with a
+    /// star (`?w*`), in every format but rocq
+    #[arg(long, value_enum, value_name = "WHEN", default_value_t = CompactArg::Auto)]
+    pub compact: CompactArg,
+}
+
+/// When a derivation draws a run of one structural rule as one inference.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompactArg {
+    /// Where the whole derivation would pass `--derivation-limit` or, as
+    /// a text tree on a terminal, not fit it
+    Auto,
+    /// Always
+    Always,
+    /// Never: every rule its own inference
+    Never,
+}
+
+impl From<CompactArg> for Compact {
+    /// Returns the library's value of the switch.
+    fn from(compact: CompactArg) -> Self {
+        match compact {
+            CompactArg::Auto => Self::Auto,
+            CompactArg::Always => Self::Always,
+            CompactArg::Never => Self::Never,
+        }
+    }
 }
 
 /// When a command writes the derivation of a proof.

@@ -116,6 +116,12 @@ pub enum Unsupported {
         "NanoYalla weakens ? formulas only, so a proof with the weakening of affine mode has no certificate"
     )]
     AffineWeakening,
+    /// The derivation draws a run of a structural rule as one inference,
+    /// which names none of the formulas after the first.
+    #[error(
+        "a compact derivation names one formula of a run of structural rules, so it has no certificate: build the derivation with every rule"
+    )]
+    Compact,
 }
 
 /// Rocq's keywords and the names of the kernel a script uses, which no
@@ -538,6 +544,9 @@ pub fn write(
     mut stop: impl FnMut() -> bool,
 ) -> Result<(), WriteError> {
     for inference in derivation.inferences() {
+        if inference.times > 1 {
+            return Err(Unsupported::Compact.into());
+        }
         match inference.rule {
             Rule::Open => return Err(Unsupported::Open.into()),
             Rule::Mix => return Err(Unsupported::Mix.into()),

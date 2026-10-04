@@ -19,7 +19,10 @@
 use linlog::export::rocq::{self, Unsupported};
 use linlog::export::svg::{self, Style};
 use linlog::export::{Form, latex, typst};
-use linlog::{Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure};
+use linlog::{
+    Compact, Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure,
+    ViewOptions,
+};
 use linlog::{Labels, OpenGoal, Reading, Rule, Sequent, Verdict, prove};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -106,6 +109,17 @@ fn derivations() {
     pin_proof("mall", "A + B, 1 |- B + A", Mode::CLASSICAL);
     pin_proof("mell", "!A, !B |- !(A * A)", Mode::CLASSICAL);
     pin_proof("ill", "1, A & B, B -o C |- C", Mode::INTUITIONISTIC);
+}
+
+/// A compact derivation draws a run of weakenings as one inference with a
+/// starred label in every drawn target.
+#[test]
+fn compact_view() {
+    let view = ViewOptions::default().compact(Compact::Always);
+    let proof = proof("!A, !B, !C |- 1 * 1", Mode::INTUITIONISTIC);
+    let derivation = proof.two_sided_derivation_with(&view, || false).unwrap();
+    assert!(derivation.inferences().iter().any(|i| i.times == 3));
+    pin("compact", &derivation);
 }
 
 /// An open goal of a proof in progress is its sequent under vertical dots,
