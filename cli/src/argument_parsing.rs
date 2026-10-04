@@ -484,7 +484,7 @@ pub enum SeqCommand {
         #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
         memory_limit: Limit,
     },
-    /// Print a sequent as JSON, the form `--json-input` reads
+    /// Print a sequent as JSON, the form `--input-format json` reads
     #[command(after_help = SYNTAX)]
     Json {
         /// The sequent.
