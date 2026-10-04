@@ -828,12 +828,19 @@ relies on:
   Measured stack per level, before the loop, on a chain of tensors whose
   splits are searched, which was the deepest set of frames (`focus`,
   `split`, `free_split`, `search_splits`, `premises`; the other cycles
-  take three levels for some ten frames): 3.6 KiB in debug builds, 0.9 KiB in
+  take three levels for some ten frames); since the free split's search
+  is inlined into it, a panel measured 5.6 KiB in debug builds and
+  1.1 KiB in release on a right-nested chain (the shape that still
+  recurses), and `PER_LEVEL` allows twice that (12 KiB, 2.25 KiB).
+  Before: 3.6 KiB in debug builds, 0.9 KiB in
   release, with the split's counts boxed in their pool (1.5 KiB with
   them in the frame, which overflowed the stack `Options::stack_size`
   gives at a raised limit; it now allows twice the measured). So the
-  default of 2048 fits an 8 MiB main-thread stack, in a debug build only
-  just; it stays, since of
+  default of 2048 fits an 8 MiB main-thread stack in a release build;
+  in a debug build such a recursion to the limit takes 11 MiB, which
+  the threads `stack_size` sizes have and a debug caller's main thread
+  does not (it was already 9.8 MiB before the inlining); the limit
+  stays, since of
   the 24 sampled problems that ended at the limit only two (ILLTP-SYJ
   problems whose search is that deep) still do.
 - **No allocation per node once warm**: sets, contexts, keys, member lists,

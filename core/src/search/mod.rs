@@ -1045,8 +1045,9 @@ impl Options {
     pub fn stack_size(&self) -> usize {
         /// The stack one level of recursion may take: twice the most the
         /// search was measured to take, on a chain of tensors whose splits
-        /// are searched (3.6 KiB unoptimized, 0.9 KiB optimized).
-        const PER_LEVEL: usize = if cfg!(debug_assertions) { 8192 } else { 2048 };
+        /// are searched and recursed into (5.6 KiB unoptimized, 1.1 KiB
+        /// optimized).
+        const PER_LEVEL: usize = if cfg!(debug_assertions) { 12288 } else { 2304 };
         /// A main thread's stack.
         const MIN: usize = 8 << 20;
         (self.recursion_limit as usize)
