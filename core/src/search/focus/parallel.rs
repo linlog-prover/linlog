@@ -186,10 +186,9 @@ struct Spawn<'s> {
     runtime: &'s Runtime,
     /// The spawning engine's stop flags, which the worker's chain to.
     flags: Flags<'s>,
-    /// The live branch stack at the choice.
-    stack: &'s [Key],
-    /// The hash of each of its entries.
-    hashes: &'s [u64],
+    /// The branch at the choice: the spawning engine's ancestors and its
+    /// live stack, with their hashes, read in place.
+    branch: Vec<(&'s [Key], &'s [u64])>,
     /// The nesting of engine calls at the choice.
     depth: u32,
     /// The workers' levels of cube-and-conquer.
@@ -209,9 +208,7 @@ impl<'s> Spawn<'s> {
         worker.runtime = Some(self.runtime);
         worker.depth = self.depth;
         worker.or_depth = self.or_depth;
-        worker.stack = self.stack.to_vec();
-        worker.hashes = self.hashes.to_vec();
-        worker.stack_len = self.stack.len();
+        worker.ancestors = self.branch.clone();
         worker
     }
 }
@@ -302,9 +299,10 @@ impl<'a> Engine<'a> {
         self.runtime.is_some() && self.or_depth < LEVELS
     }
 
-    /// The state a worker starts from, with the branch stack and its
-    /// hashes given and `or_depth` levels of cube-and-conquer above it.
-    fn spawn<'s>(&self, (stack, hashes): (&'s [Key], &'s [u64]), or_depth: u32) -> Spawn<'s>
+    /// The state a worker starts from, with `or_depth` levels of
+    /// cube-and-conquer above it. The branch is read in place, so the
+    /// engine's own stack stays as it is while the workers run.
+    fn spawn<'s>(&'s self, or_depth: u32) -> Spawn<'s>
     where
         'a: 's,
     {
@@ -319,8 +317,15 @@ impl<'a> Engine<'a> {
             arena,
             runtime,
             flags: *flags,
-            stack,
-            hashes,
+            branch: self
+                .ancestors
+                .iter()
+                .copied()
+                .chain([(
+                    &self.stack[..self.stack_len],
+                    &self.hashes[..self.stack_len],
+                )])
+                .collect(),
             depth: self.depth,
             or_depth,
         }
@@ -378,9 +383,7 @@ impl<'a> Engine<'a> {
         budget: u32,
     ) -> Step {
         let cancel = AtomicBool::new(false);
-        let stack = self.stack[..self.stack_len].to_vec();
-        let hashes = self.hashes[..self.stack_len].to_vec();
-        let spawn = self.spawn((&stack, &hashes), self.or_depth + 1);
+        let spawn = self.spawn(self.or_depth + 1);
         let collected = Mutex::new(Collected::new());
         let (&first, rest) = alternatives
             .split_first()
@@ -485,9 +488,7 @@ impl<'a> Engine<'a> {
             return Err(Reason::Stopped);
         }
         let cancel = AtomicBool::new(false);
-        let stack = self.stack[..self.stack_len].to_vec();
-        let hashes = self.hashes[..self.stack_len].to_vec();
-        let spawn = self.spawn((&stack, &hashes), self.or_depth);
+        let spawn = self.spawn(self.or_depth);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
         let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
         // A premise on a worker, which cancels the other unless it is

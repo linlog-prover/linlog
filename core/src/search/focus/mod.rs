@@ -658,6 +658,11 @@ struct Engine<'a> {
     hashes: Vec<u64>,
     /// How many entries of the stack are live.
     stack_len: usize,
+    /// The stable sequents of the branch above the stack, the root end
+    /// first, with their hashes: the parts of the branch stacks of the
+    /// engines this worker of a pool was spawned from, read in place. The
+    /// depth of an entry of `stack` counts these first.
+    ancestors: Vec<(&'a [Key], &'a [u64])>,
     /// The spare buffers.
     pools: Pools,
     /// Per list of a literal's occurrences, twice the atom plus the sign
@@ -713,6 +718,7 @@ impl<'a> Engine<'a> {
             stack: Vec::new(),
             hashes: Vec::new(),
             stack_len: 0,
+            ancestors: Vec::new(),
             pools: Pools::default(),
             lists: Vec::new(),
             stamp: 0,
@@ -1006,15 +1012,13 @@ impl<'a> Engine<'a> {
         // redundant, with or without weakening: a proof of the larger
         // sequent proves nothing about the smaller one, and ⊢ ?(a ⅋ ~a) is
         // proved only through ⊢ a ⅋ ~a ; a, ~a.)
-        if self.rules.stack {
-            for depth in 0..self.stack_len {
-                if self.hashes[depth] == hash && key.of(&self.stack[depth]) {
-                    self.give_context(canonical);
-                    // A depth of the stack, which is as deep as the
-                    // recursion limit allows.
-                    return Ok(Found::failed(Cuts::repeat(depth as u32)));
-                }
-            }
+        if self.rules.stack
+            && let Some(depth) = self.repeated(key, hash)
+        {
+            self.give_context(canonical);
+            // A depth of the branch, which is as deep as the recursion
+            // limit allows.
+            return Ok(Found::failed(Cuts::repeat(depth as u32)));
         }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
@@ -1041,7 +1045,7 @@ impl<'a> Engine<'a> {
         let result = self.decide(theta, gamma, budget);
         let own_depth = if self.rules.stack {
             self.stack_len -= 1;
-            self.stack_len as u32
+            (self.above() + self.stack_len) as u32
         } else {
             NO_DEPENDENCY
         };
@@ -1104,6 +1108,27 @@ impl<'a> Engine<'a> {
         self.give_context(canonical);
         node = recorded?;
         Ok(Found { node, cuts })
+    }
+
+    /// The depth of the stable sequent of the branch that `key`, of hash
+    /// `hash`, repeats, if any: the ancestors spawning engines hold first,
+    /// then the stack's live entries.
+    fn repeated(&self, key: Zones<'_>, hash: u64) -> Option<usize> {
+        let own = (
+            &self.stack[..self.stack_len],
+            &self.hashes[..self.stack_len],
+        );
+        self.ancestors
+            .iter()
+            .chain([&own])
+            .flat_map(|&(keys, hashes)| keys.iter().zip(hashes))
+            .position(|(entry, &h)| h == hash && key.of(entry))
+    }
+
+    /// How many stable sequents of the branch lie above this engine's
+    /// stack.
+    fn above(&self) -> usize {
+        self.ancestors.iter().map(|(keys, _)| keys.len()).sum()
     }
 
     /// Records what the search found out about a stable sequent. A memo

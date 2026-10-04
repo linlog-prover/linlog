@@ -123,9 +123,9 @@ has no or-choices worth sharing out). What the code relies on:
   polls before it spawns. **So does every task of a choice, before it
   builds its worker** (`choose_parallel`, `Collected::skip`): a choice
   queues a task per alternative, hundreds on a stable sequent of a
-  Petri net, and a worker copies the branch's stack of keys, each two
-  bitsets of the forest's width, so the tasks the pool reached after a
-  stop or a sibling's proof spent seconds before their first poll. On
+  Petri net, and a worker used to copy the branch's stack of keys, so
+  the tasks the pool reached after a stop or a sibling's proof spent
+  seconds before their first poll. On
   `GlobalResAllocation_galloc_res-5_100_1` on four threads a stop came
   21 s late and a proof that one thread finds in 0.14 s took 17 s;
   with the poll, 0.5 s and 0.13 s. A task skipped for an ancestor's
@@ -135,21 +135,28 @@ has no or-choices worth sharing out). What the code relies on:
   is raised only under the choice's lock once a proof or an error (a
   skip's stop included) is recorded. Mix stays sequential after the
   parallel alternatives failed (`last_resort`).
-- **A worker is a copy of the branch, not of the engine** (`Spawn`,
-  `Spawn::worker`): `Engine::new` builds it, the one constructor of an
-  engine, from the spawning engine's `Problem` (forest, reading, counts,
-  classes, rules, account and limits), with the shared memo and arena by
-  reference and fresh pools and counters, and then gives it the branch
-  by copy: the live stack of keys with their hashes (copied, not hashed
-  again), `depth` and `or_depth`. The copied stack is
-  what keeps the loop check's prunes below the cube; `depth` keeps the
-  recursion limit's meaning for the counter, not for the stack: a pool
-  thread that waits at a scope runs stolen tasks on its own stack, so
-  its frames are the scope's (a choice near the root, a few dozen
-  levels) plus the stolen task's, and nested waits compound; the 2×
-  margin of `Options::stack_size` and its 8 MiB floor cover this at the
-  default limit, and a raised limit is where an overflow would first
-  show.
+- **A worker reads its branch in place, and is not a copy of the
+  engine** (`Spawn`, `Spawn::worker`): `Engine::new` builds it, the one
+  constructor of an engine, from the spawning engine's `Problem`
+  (forest, reading, counts, classes, rules, account and limits), with
+  the shared memo and arena by reference and fresh pools and counters,
+  and then gives it the branch: `depth`, `or_depth`, and as `ancestors`
+  the spawning engine's own ancestors and live stack of keys with their
+  hashes, as slices (`Engine::repeated` reads them before its own stack,
+  `Engine::above` counts them into a depth). Nothing is copied: the
+  spawning engine waits at the scope while its workers run, so its
+  stack cannot change under them. Copying it, two bitsets of the
+  forest's width per stable sequent of the branch, for every task of a
+  choice, was a fifth of the samples of a Petri net on four threads (with
+  hashing the keys again, which a copy of the hashes had removed before).
+  The ancestors are what keeps the loop check's prunes below the cube;
+  `depth` keeps the recursion limit's meaning for the counter, not for
+  the stack: a pool thread that waits at a scope runs stolen tasks on
+  its own stack, so its frames are the scope's (a choice near the root,
+  a few dozen levels) plus the stolen task's, and nested waits compound;
+  the 2× margin of `Options::stack_size` and its 8 MiB floor cover this
+  at the default limit, and a raised limit is where an overflow would
+  first show.
 - **Each rule is written once; the merge of cuts is the scheduler's.**
   A choice's alternatives are one type (`focus::Alternative`: a focus on
   a member of `Γ`, a copy, a side of a `⊕`, the splits under a pattern)
