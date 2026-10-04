@@ -125,6 +125,26 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **Exit status**: 0 proved, valid or done; 1 unprovable or invalid; 2 an
   error, the same status clap uses for bad arguments; 3 unknown. Scripts
   depend on it, and `cli/tests/cli.rs` pins it.
+- **README's examples are a test** (`cli/tests/readme.rs`): every
+  command of every `console` block of `README.md` runs through `sh`, in a
+  directory of its block's own with the binary under test first on the
+  path, and its standard output and error together are compared with
+  the block, `> ` lines being its standard input and every time after
+  "after " or "time: " read as `…`. A comment on the line before a block
+  says how much is the machine's: `<!-- readme-check: machine -->`
+  compares the shape (every number as `#`: a copy bound reached under a
+  time limit, a thread count), `terminal` the first line only (the tree
+  heuristic needs a terminal), `skip, why` nothing. A file a command
+  writes must exist and be of the kind its extension names
+  (`not_of_its_kind`), never compared byte for byte. Programs other than
+  `linlog`, `cat` and `echo` are skipped by name (`OTHER_PROGRAMS`: the
+  harness, pdfLaTeX, Rocq, which flake checks of their own cover); an
+  unknown one fails the test. A file an example reads and the README
+  does not make is written by `fixtures`. A change of output is a
+  README change in the same commit; an example whose output a fast
+  machine could change gets `machine`, and a pinned one names
+  `--deterministic`, `--copies` or `--timeout` as it needs. The crane
+  source keeps `README.md` for it (`modules/workspace.nix`).
 - **The search runs on its own thread** (`on_large_stack`) with the stack
   core's `Options::stack_size` computes for the recursion limit: twice
   the engine's measured cost per level (4 KiB unoptimized, 1 KiB

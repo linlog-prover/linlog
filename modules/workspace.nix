@@ -16,14 +16,16 @@
     }:
     let
       # Manifests, the lock, *.rs and *.toml, the export snapshots the
-      # core tests compare with, and the font the CLI embeds for PNG and
-      # PDF: editing anything else rebuilds nothing.
+      # core tests compare with, the font the CLI embeds for PNG and PDF,
+      # and the README whose examples a CLI test runs: editing anything
+      # else rebuilds nothing.
       src = lib.fileset.toSource {
         root = ../.;
         fileset = lib.fileset.unions [
           (craneLib.fileset.commonCargoSources ../.)
           ../core/tests/snapshots
           ../cli/fonts
+          ../README.md
         ];
       };
 

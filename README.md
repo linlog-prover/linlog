@@ -73,7 +73,7 @@ literals chosen: 2
 links tried: 2
 exact tests run: 2
 time: 63.45µs
-$ linlog prove --engine focus --stats --quiet "|- A * B, C * (~A par ~B), ~C"
+$ linlog prove --engine focus --stats --quiet --deterministic "|- A * B, C * (~A par ~B), ~C"
 provable (MLL, classical, focus engine)
 stable sequents visited: 2 (0 from the memo)
 memo entries at most: 2
@@ -140,6 +140,7 @@ only when a bound was searched exhaustively without ever hitting it, and
 ended the search first. The line says which, after how long, at which copy
 bound, and which flag changes it; `--stats` adds the copy bound reached:
 
+<!-- readme-check: machine -->
 ```console
 $ linlog prove -q "!(A & B) |- A * B"
 provable (LL, classical, focus engine)
@@ -182,6 +183,7 @@ derivation shows as `wk` below the leaf that leaves it over. With
 exponentials the affine search deepens its copy bound like the linear
 one:
 
+<!-- readme-check: machine -->
 ```console
 $ linlog prove -a "A, B |- A"
 provable (MLL, classical affine, focus engine)
@@ -244,9 +246,14 @@ unknown (MELL, classical, focus engine): the copy bound of 1 was reached after 1
 and parsing the sequent as well as the search, and the command answers
 within a fraction of a second of it, on one thread and on several:
 
+<!-- readme-check: machine -->
 ```console
 $ linlog prove -q --copies 12 --forward-copies 12 --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
 unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 12; --timeout DURATION gives the search longer
+```
+
+<!-- readme-check: skip, the file is the LLTP library's -->
+```console
 $ linlog prove -q -i --timeout 1s --file SYJ212+1.020.txt
 unknown: the time limit of 1s was reached while the sequent was read
 ```
@@ -272,6 +279,7 @@ as one thread does; the additive engine is sequential in every case. A
 search never uses more threads than the machine runs at once, and a
 larger `--jobs` is taken as that many, with a note:
 
+<!-- readme-check: machine -->
 ```console
 $ linlog prove -q -j 4 --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 1.79ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
@@ -354,6 +362,7 @@ most three screens long (`--tree always` prints it regardless, `--tree
 never` leaves it out; into a file or a pipe it is always written). On a
 terminal 30 columns wide:
 
+<!-- readme-check: terminal -->
 ```console
 $ linlog prove "A, A -o B, B -o C, C -o D |- D"
 provable (MLL, classical, net engine)
