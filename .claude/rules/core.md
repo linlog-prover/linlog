@@ -66,7 +66,8 @@ Each entry point is described in the file of its module:
 - `prove`, `prove_until`, `prove_goal` with `Options`, returning an
   `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,
   `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
-  one of `search::focus`, `search::net` and `search::additive`,
+  an `Engine`, whose variants describe the engines of the crate-private
+  `search::focus`, `search::net` and `search::additive`,
   `Options::pool` names a `search::Pool` kept across searches
   (`core-search.md`, `core-focus.md`, `core-nets.md`, with `parallel`
   `core-parallel.md`);
@@ -80,6 +81,20 @@ Each entry point is described in the file of its module:
 - `lltp::read` and `families` (`core-inputs.md`).
 
 ## Crate-wide rules
+
+**The rustdoc is the library's manual**, published from `main`. What a
+user of the crate needs and the code keeps private is said on a public
+item: the text syntax on `Sequent` (the parser is private), every JSON
+form on its type (`Sequent`, `Proof`, `Outcome`, `ProofStructure`,
+`Interactive`; `serialize` is private), each engine on its `Engine`
+variant (the engine modules are private), the features in the crate
+docs, and "Needs the cargo feature" on every feature-gated public module
+and item (`doc(cfg)` is unstable on the pinned toolchain). A change to
+any of these changes those docs in the same commit. No public module is
+left without public items, and `RUSTFLAGS="-W unreachable_pub -W
+unnameable_types" cargo check -p linlog --all-features` stays clean: a
+`pub` item is reachable from the root, and a type in a public signature
+can be named.
 
 **Nothing recurses over a formula.** A sequent read from JSON can be nested
 as deep as it is long, and a recursion per level ends the process where

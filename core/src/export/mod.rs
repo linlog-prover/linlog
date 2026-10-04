@@ -55,6 +55,8 @@ pub mod typst;
 
 /// Whether an export is a fragment to paste into a document or a document
 /// of its own.
+///
+/// Needs one of the cargo features `latex`, `typst` or `rocq`.
 #[cfg(any(feature = "latex", feature = "typst", feature = "rocq"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -70,6 +72,8 @@ pub enum Form {
 }
 
 /// Why an SVG document was not rendered.
+///
+/// Needs one of the cargo features `png` or `pdf`.
 #[cfg(any(feature = "png", feature = "pdf"))]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

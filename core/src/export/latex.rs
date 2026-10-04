@@ -28,6 +28,8 @@
 //!
 //! # Examples
 //!
+//!
+//! Needs the cargo feature `latex` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::latex;

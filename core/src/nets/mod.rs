@@ -168,6 +168,16 @@ impl Display for Described<'_> {
 /// assert_eq!(net.partner(o(2)), Some(o(0)));
 /// # Ok::<(), linlog::Error>(())
 /// ```
+///
+/// # JSON
+///
+/// With the feature `serialize` a structure is `{"sequent": …, "mix": …,
+/// "links": [[x, y], …]}`: its sequent in [`Sequent`]'s form, whether Mix
+/// is allowed, and its axiom links as pairs of occurrence ids in the order
+/// they were made. Reading validates the links as
+/// [`from_links`](Self::from_links) does and takes a partial or incorrect
+/// structure, since whether it is a net is
+/// [`is_correct`](Self::is_correct)'s question.
 #[derive(Clone, Debug)]
 pub struct ProofStructure {
     /// The forest of the sequent.

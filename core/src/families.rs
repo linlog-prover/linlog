@@ -25,6 +25,8 @@
 //! assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
 //! # Ok::<(), linlog::Error>(())
 //! ```
+//!
+//! Needs the cargo feature `parse` (on by default).
 
 use crate::{Mode, Sequent};
 

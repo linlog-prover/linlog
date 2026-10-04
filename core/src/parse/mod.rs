@@ -5,17 +5,8 @@
 //! reads straight into the arena, so that neither the nesting of a formula
 //! nor its length costs any of the caller's stack.
 //!
-//! A sequent is `formulas ⊢ formulas`, each side a list separated by commas
-//! and possibly empty, with whitespace allowed between any two tokens. From
-//! the loosest binding to the tightest, a formula is built with `-o`/`⊸`
-//! (to the right), `+`/`⊕`, `&`, `|`/`par`/`⅋`, `*`/`⊗` (these to the
-//! left), the prefix operators `~`, `!` and `?`, and the postfix `^`, over
-//! the constants `0`, `1`, `bot`/`⊥` and `top`/`⊤`, variables and
-//! parentheses. A variable is a Unicode identifier (it starts with `_` or a
-//! character of `XID_Start` and goes on with characters of `XID_Continue`);
-//! `bot`, `top` and `par` are that constant or connective only as whole
-//! identifiers, and `par` only where a connective can stand, so that it is
-//! a variable where a formula starts.
+//! The syntax it reads is documented on [`Sequent`](crate::Sequent), the
+//! type a library user meets it on.
 //!
 //! The arena holds the formulas in negation normal form, one-sided: the
 //! formulas left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a

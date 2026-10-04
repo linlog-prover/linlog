@@ -4,6 +4,8 @@
 use std::fmt;
 
 /// Where and why parsing failed, owned so that it outlives the input.
+///
+/// Needs the cargo feature `parse` (on by default).
 #[derive(Debug)]
 pub struct ParseError {
     /// The byte range of the input where parsing failed.

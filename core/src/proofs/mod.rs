@@ -289,6 +289,22 @@ impl Display for Node {
 /// );
 /// # Ok::<(), linlog::Error>(())
 /// ```
+///
+/// # JSON
+///
+/// With the feature `serialize` a proof is `{"sequent": …, "proof": […]}`:
+/// its sequent in [`Sequent`]'s form, and its nodes, premises before
+/// conclusions and the root last, each an object of one key, the rule:
+/// `{"ax": [x, y]}` on two literals, `{"1": o}` and `{"⊤": o}` on one
+/// occurrence, `{"⊗": [o, l, r]}` and `{"&": [o, l, r]}` with the indices
+/// of two premises, `{"mix": [l, r]}`, and `{"⅋": [o, p]}` with one, as
+/// `⊥`, `⊕₁`, `⊕₂`, `!`, `?`, `copy` and `wk` have it. An occurrence is
+/// an id of the sequent's [`Forest`], a premise a node's index: a proof of
+/// `A, B ⊢ A ⊗ B` is `[{"ax": [0, 3]}, {"ax": [1, 4]}, {"⊗": [2, 0, 1]}]`.
+/// Reading rebuilds the forest and checks the indices and their order;
+/// whether the proof is one is [`Proof::check`]'s question, since the
+/// mode is not in it. The command's `check` reads this form, and the
+/// output of `prove --format json` holds it.
 #[derive(Clone, Debug)]
 pub struct Proof {
     /// The forest of the sequent the proof is of.

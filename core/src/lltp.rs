@@ -27,6 +27,8 @@
 //! assert_eq!(problem.sequent, "!(a -o b), a |- b * 1".parse()?);
 //! # Ok::<(), linlog::Error>(())
 //! ```
+//!
+//! Needs the cargo feature `parse` (on by default).
 
 use crate::{Error, Sequent};
 

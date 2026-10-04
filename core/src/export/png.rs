@@ -9,6 +9,8 @@
 //! times 96 pixels per inch, so that a viewer shows it at the drawing's
 //! size, and carries the drawing's title and description as its `Title`
 //! and `Description`.
+//!
+//! Needs the cargo feature `png` (off by default).
 
 use super::{Measure, PNG, RenderError, declared_size, parse, texts};
 use resvg::tiny_skia::{Pixmap, Transform};

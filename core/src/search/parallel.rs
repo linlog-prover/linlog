@@ -49,6 +49,8 @@ const MAX_KEPT: usize = 4;
 /// one handle each run on pools of their own. At most four pools are
 /// kept; their threads end when the last clone of the handle is dropped
 /// and no search holds them. Clones share the pools; nothing is global.
+///
+/// Needs the cargo feature `parallel` (off by default).
 #[derive(Clone, Default)]
 pub struct Pool {
     /// The shared state.

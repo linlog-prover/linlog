@@ -17,6 +17,8 @@
 //! step appends the goals it opens at the end, so a premise has a larger
 //! index than its conclusion, the reverse of a [`Derivation`], which
 //! [`Interactive::derivation`] renumbers.
+//!
+//! Needs the cargo feature `interactive` (on by default).
 
 use super::derivation::{Derivation, InfId, Inference, Rule, ViewOptions};
 use super::multiset::Multiset;
@@ -30,6 +32,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Why a rule does not apply to a goal as asked. Positions are those in the
 /// goal's sequent, as the client named them.
+///
+/// Needs the cargo feature `interactive` (on by default).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refusal {
@@ -176,6 +180,20 @@ impl std::error::Error for Refusal {}
 /// assert_eq!(proof.nodes().len(), 3);
 /// # Ok::<(), linlog::Error>(())
 /// ```
+///
+/// # JSON
+///
+/// With the feature `serialize` a session is `{"sequent": …, "mode": …,
+/// "inferences": […], "history": […]}`: the inferences in the state's own
+/// order, the conclusion first, each `{"sequent": [ids], "rule": name,
+/// "principal": position, "premises": [indices]}` with the rule's
+/// [`name`](Rule::name), an open goal as its sequent alone; and the
+/// history as the inferences the steps closed, in order. Reading it back
+/// replays every inference, so a state read is as sound as one built
+/// through [`apply`](Self::apply). It is what a front end keeps between
+/// requests, and what the command's session saves.
+///
+/// Needs the cargo feature `interactive` (on by default).
 #[derive(Clone, Debug)]
 pub struct Interactive {
     /// The forest of the sequent being proved.

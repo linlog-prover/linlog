@@ -2,24 +2,26 @@
 // Licensed under the EUPL
 
 //! Proof search: the front door `prove` with its options and outcome, the
-//! dispatch on fragment and mode, and one submodule per engine: proof-net
-//! search for unit-free MLL, the focused sequent engine for everything
-//! else, one-sided in classical mode and two-sided in intuitionistic mode,
-//! and the additive fast path for two additive-only formulas.
+//! dispatch on fragment and mode, the engines, which [`Engine`] lists and
+//! describes (proof-net search for unit-free MLL, the focused sequent
+//! engine for everything else, one-sided in classical mode and two-sided
+//! in intuitionistic mode, and the additive fast path for two
+//! additive-only formulas), and the [`batch`](crate::search::batch) of
+//! many sequents.
 
 /// The additive fast path.
-pub mod additive;
+pub(crate) mod additive;
 /// Many sequents decided in one call.
 pub mod batch;
 /// The focused sequent engine.
-pub mod focus;
+pub(crate) mod focus;
 /// Random provable sequents for the tests.
 #[cfg(test)]
 pub(crate) mod generate;
 /// The count of the bytes a search holds.
 pub(crate) mod memory;
 /// The proof-net engine.
-pub mod net;
+pub(crate) mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
 
@@ -437,16 +439,37 @@ fn prefers_net(forest: &Forest) -> bool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Engine {
-    /// The focused sequent engine of [`focus`], one-sided: classical mode.
+    /// The focused sequent engine, one-sided: classical mode, every
+    /// fragment. It searches backward over dyadic sequents `⊢ Θ ; Γ`, `Θ`
+    /// the formulas that came under a `?` and may be copied, `Γ` the
+    /// formulas each used once. The asynchronous phase decomposes the
+    /// negative formulas without a choice until a stable sequent remains,
+    /// which a memo of stable sequents decides, or the counts of each
+    /// atom's literals refute without a search, or a focus on a positive
+    /// formula of `Γ`, or on a copy from `Θ`, proves. The copies are bounded
+    /// per branch and the bound deepens: `Unprovable` comes only from a
+    /// level that never met its bound. With Mix a stable sequent may be
+    /// split in two, and in affine mode a leaf weakens what is left.
     Focus,
-    /// The proof-net engine of [`net`], for unit-free MLL only; in
+    /// The proof-net engine, for unit-free MLL with or without Mix; in
     /// intuitionistic mode it decides IMLL through the embedding into MLL.
+    /// A cut-free proof of MLL is its axiom linking, so the engine links
+    /// dual literals by backtracking over a [`ProofStructure`] and keeps
+    /// the first linking the correctness criterion accepts; the count
+    /// equation and each atom's balance refuse most unprovable sequents
+    /// before any link, and the net found is sequentialized into the proof
+    /// returned.
     Net,
-    /// The focused sequent engine of [`focus`] two-sided, keeping one goal
-    /// on every branch: intuitionistic mode.
+    /// The focused sequent engine two-sided: intuitionistic mode. It is
+    /// the search of `Focus` on the one-sided sequent, which keeps one goal
+    /// on every branch by itself except at the split of a hypothesis
+    /// `A ⊸ B`, where the goal must go with `B`: the one place it reads the
+    /// sequent's [`Reading`].
     TwoSided,
-    /// The fast path of [`additive`] for two additive-only formulas, in
-    /// every mode.
+    /// The fast path for a sequent of two additive-only formulas, in every
+    /// mode: a recursion on pairs of subformula occurrences, one below each
+    /// root, memoized on the pair, in time proportional to the product of
+    /// the two formulas' sizes.
     Additive,
 }
 
@@ -741,6 +764,8 @@ impl Options {
     /// a search does or finds, only that its threads are started once for
     /// many searches. Options are equal only if they name clones of the
     /// same pool or both name none.
+    ///
+    /// Needs the cargo feature `parallel` (off by default).
     #[cfg(feature = "parallel")]
     pub fn pool(self, pool: Option<Pool>) -> Self {
         Self { pool, ..self }
@@ -805,6 +830,18 @@ impl Options {
 }
 
 /// What a search returned: the verdict, and how it was reached.
+///
+/// # JSON
+///
+/// With the feature `serialize` an outcome is written, never read, as one
+/// object: `verdict` (`"proved"`, `"unprovable"` or `"unknown"`), with
+/// `refutation` for an unprovable sequent and `reason` for an unknown one
+/// (a tag such as `"stopped"`, or `{"copy_bound": 3}`), `fragment` (its
+/// name in the mode, as [`Fragment::name_in`] gives it), `mode`
+/// (`{"intuitionistic": …, "affine": …, "mix": …}`), `engine`,
+/// `statistics`, and for a proved sequent the proof's own keys `sequent`
+/// and `proof`, so that the outcome reads back as a [`Proof`]. The
+/// command's `prove --format json` writes it.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Outcome {

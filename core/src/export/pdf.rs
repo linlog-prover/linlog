@@ -12,6 +12,8 @@
 //! set in the fonts the caller gives and no other. The document carries
 //! the date the caller gives and no random identifier, so the same
 //! drawing and date give the same bytes.
+//!
+//! Needs the cargo feature `pdf` (off by default).
 
 use super::{Measure, PDF, PDF_OUTLINES, RenderError, parse, texts};
 use krilla::configure::{Accessibility, Archival, ConfigurationBuilder, PdfVersion};

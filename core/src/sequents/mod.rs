@@ -14,6 +14,51 @@ use crate::hash::HashMap;
 
 /// A one-sided sequent in negation normal form: root formulas over an arena of
 /// shared subterms.
+///
+/// # Syntax
+///
+/// With the feature `parse`, `"…".parse::<Sequent>()` reads a sequent
+/// written `formulas ⊢ formulas` (or `|-`), each side a list separated by
+/// commas and possibly empty, with whitespace allowed between any two
+/// tokens. From the loosest binding to the tightest, a formula is built
+/// with `-o`/`⊸` (to the right), `+`/`⊕`, `&`, `|`/`par`/`⅋`, `*`/`⊗`
+/// (these to the left), the prefix operators `~`, `!` and `?`, and the
+/// postfix `^`, over the constants `0`, `1`, `bot`/`⊥` and `top`/`⊤`,
+/// variables and parentheses. A variable is a Unicode identifier (it
+/// starts with `_` or a character of `XID_Start` and goes on with
+/// characters of `XID_Continue`); `bot`, `top` and `par` are that constant
+/// or connective only as whole identifiers, and `par` only where a
+/// connective can stand, so that it is a variable where a formula starts.
+/// Text that is no sequent is `Error::SequentParsing`, whose
+/// `ParseError` says where.
+///
+/// The sequent is kept one-sided in negation normal form: the formulas
+/// left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a negation
+/// is pushed to the atoms, so `A |- A` is `⊢ ~A, A`, which is what
+/// `Display` writes; [`Reading`](crate::Reading) reads an intuitionistic
+/// sequent back two-sided.
+///
+/// # JSON
+///
+/// With the feature `serialize` a sequent is the object `{"terms": […],
+/// "ids": […], "var_dict": […]}`. `terms` is the arena: a unit is its
+/// symbol (`"1"`, `"⊥"`, `"⊤"`, `"0"`), any other term an object of one
+/// key, its tag, which names terms by their index in `terms`, each before
+/// it (`{"⊗": [0, 1]}`, and `⅋`, `&`, `⊕` alike; `{"!": 2}`, `{"?": 2}`),
+/// or an atom by its index in `var_dict` (`{"V": 0}` the atom, `{"D": 0}`
+/// its dual). `ids` are the root formulas. Reading checks that every term
+/// names only terms before it and takes a name the dictionary repeats as
+/// one atom. The command's `seq json` writes this form.
+///
+#[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
+#[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]
+/// let sequent: linlog::Sequent = "A |- A".parse()?;
+/// assert_eq!(
+///     serde_json::to_string(&sequent)?,
+///     r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}"#
+/// );
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sequent {
     /// Every subformula; a term refers only to terms at lower indices.

@@ -65,6 +65,25 @@
 //! Errors are one type, [`Error`], whose messages say what is wrong with the
 //! input; a proof that fails the checker gives a [`CheckError`], which
 //! [`CheckError::describe`] prints with formulas.
+//!
+//! # Syntax and JSON
+//!
+//! [`Sequent`] says how a sequent is written, which is the text that
+//! `"…".parse::<Sequent>()` reads and its `Display` writes, and what its
+//! JSON is. The JSON forms are the interchange format of the command, of
+//! front ends and of files; those of [`Proof`], [`Outcome`],
+//! [`ProofStructure`] and `Interactive` are described on those types.
+//!
+//! # Features
+//!
+//! On by default: `parse` (the text syntax, the LLTP reader `lltp` and the
+//! generated `families`), `serialize` (the JSON forms, through serde),
+//! `interactive` (`Interactive`, proving step by step), and the exports
+//! `latex`, `typst`, `svg` and `rocq` (under [`export`]). Off by default:
+//! `parallel` (the search on a pool of [`Options::jobs`] threads, and a
+//! pool kept across searches, `search::Pool`; never for WebAssembly), and
+//! `png` and `pdf` (the SVG drawings rendered). An item that needs a
+//! feature says so.
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -115,6 +134,7 @@ pub use proofs::{
 #[cfg(feature = "interactive")]
 pub use proofs::{Interactive, Refusal};
 pub use search::{
-    Engine, Options, Outcome, Reason, Statistics, Verdict, prove, prove_goal, prove_until,
+    Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
+    prove_until,
 };
 pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};
