@@ -792,6 +792,17 @@ only a pool decides within its time limit stays unknown), and within one
 sequent, as for a single call, when the batch has fewer sequents than
 workers or is a stream from standard input; `--cores across|within`
 chooses, and `--workers N` caps the sequents decided at once.
+Across the cores a batch answers the most sequents in a given time, and
+each answer is a function of its input; what it leaves unknown is
+worth a second pass on the whole machine, which costs little because
+it is a few sequents:
+
+```sh
+linlog prove -i --file problems/ > results.txt
+grep ': unknown' results.txt | cut -d: -f1 > unknown.txt
+linlog prove -i --files-from unknown.txt --cores within > second.txt
+```
+
 `--timeout` is each sequent's limit, reading included, and
 `--batch-timeout` the whole batch's. Each search holds at most
 `--memory-limit`, and as many run at once as `--batch-memory` holds (by

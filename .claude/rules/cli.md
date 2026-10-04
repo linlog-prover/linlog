@@ -168,7 +168,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   groups, whichever is less (`machine_memory`: a batch in an 8 GiB scope
   on a machine of 62 GB was killed for its memory when it read
   `MemTotal` alone), else the library's 4 GiB,
-  `--batch-timeout none`. The first Ctrl-C stops the running searches
+  `--batch-timeout none`.
+  **Why the default goes across the cores** (measured at the review of
+  step 24, on the LLTP library, four cores): across, a sequent gets one
+  thread for its time limit, so the batch answered 2 335 problems in 19
+  minutes where single calls (the race) answered 2 391 on eight cores in
+  37. Of the 57 the batch missed, one thread decided 29 at 4 s and 43 at
+  8 s, the race's own core-time, and `--cores within` all 57 at 2 s in
+  64 s: the pool's search differs, it is not only more time. A longer
+  default per sequent would multiply the time of every hopeless
+  sequent, most of the library; so the default stays, and `--cores`'
+  help and README give the second pass with `--cores within`. The first Ctrl-C stops the running searches
   and ends the input; the batch's own limit answers the entries not yet
   begun as unknown without reading them. A load thread left behind by a
   time limit lives on in a batch until its read and parse end (linear in

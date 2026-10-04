@@ -246,6 +246,15 @@ pub struct BatchArgs {
     #[arg(long, value_name = "N")]
     pub workers: Option<usize>,
     /// Where a batch's threads go
+    ///
+    /// Across the sequents, each gets one thread for its --timeout, as with
+    /// --deterministic, which answers the most sequents in a given time and
+    /// gives every answer as a function of its input; a sequent that needs
+    /// the pool a single call races beside one thread, or more time on one
+    /// thread, stays unknown there. Within, each sequent gets the race on
+    /// every thread, as a single call does. To decide what a batch across
+    /// left unknown, run those sequents again with --cores within or a
+    /// longer --timeout.
     #[arg(long, value_enum, value_name = "WHERE", default_value_t = CoresArg::Auto)]
     pub cores: CoresArg,
     /// The most memory all the searches of a batch hold together: a size
