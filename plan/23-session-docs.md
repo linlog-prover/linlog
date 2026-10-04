@@ -11,6 +11,39 @@ every item, the verification table, no pushing. Read before you start:
 - `.claude/rules/claude-infra.md` (what loads when), every rules file,
   CLAUDE.md, README.md.
 
+## Tonight: unattended
+
+The author starts this session at night and is asleep until morning:
+nobody answers. Never ask (no question tool, no turn that ends waiting
+for an answer). Where a choice is open, take the most idiomatic, current
+best-practice option you can recommend, and record each such choice
+with the alternatives you set aside in the report, under "Decided
+unattended", for the author to read in the morning. What `conduct.md`
+says to ask for first (a probe, a run the step does not name) you run
+without asking tonight, capped on cores 4 to 9 and detached if it takes
+more than a few minutes. Nothing outward-facing: no push, no `gh`.
+
+Signing: the author enters the passphrase just before starting you, and
+`max-cache-ttl` gives about two hours of signatures from then. Start the
+warm loop first, before any commit:
+
+```sh
+systemd-run --user --unit=step23-gpg-warm /run/current-system/sw/bin/bash -c 'while echo x | gpg --batch --pinentry-mode error --local-user flgrubm@grubmueller.dev --sign -o /dev/null 2>/dev/null; do sleep 240; done; touch /tmp/linlog-step23-unsigned'
+```
+
+It never opens a pinentry and leaves `/tmp/linlog-step23-unsigned`
+once the cache is gone. Before every jj command that can write (a
+commit, a split, a describe, and `jj st` once files changed), check
+that the file is absent and that `gpg-connect-agent 'KEYINFO
+2DD4A80714617BA2CF92FF8C2A544F9421F92E27' /bye` shows `1` in its
+seventh field; from the first time either fails, run every jj command
+with `--config signing.behavior=drop`, which commits unsigned instead
+of waiting on a pinentry, and go on committing thematically as before.
+If a command hangs on signing all the same, run
+`/home/tux/.claude/hooks/unwedge-gpg-lock.sh` and repeat it with that
+option. End the report with the unsigned commits and the one command
+that signs them in the morning, `jj sign -r 'main@origin..@-'`.
+
 ## What the earlier steps left you
 
 `.claude/rules/core.md` is 2 463 lines, about 27 000 words, and loads
