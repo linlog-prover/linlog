@@ -27,14 +27,34 @@ opened stays in CLAUDE.md. Block-level `<!-- -->` comments in CLAUDE.md are
 stripped before injection, so they are free notes for maintainers.
 
 Current contents:
-- `rules/core.md` (`core/**`): the arena/NNF data model, fragments, the
-  occurrence forest and its intuitionistic reading, proof terms, the
-  checker and the derivation view, interactive proving and its
-  translation back to terms, the LaTeX, Typst, SVG and Rocq exports, the search
-  front door (sequents and goals), the focused engine (one- and
-  two-sided), the parallel runtime (the pool, the stop flags, the
-  shared memo and arena, cubes), the additive path, proof nets and
-  their criterion, and their invariants.
+- `rules/core.md` (`core/**`): the crate's layout, the rules that hold
+  for the whole crate (nothing recurses over a formula, the doc examples'
+  fences), and the table of the core files below, one per module, each
+  loaded beside it for its own paths:
+  - `rules/core-sequents.md` (`sequents/`, `parse/`, `fragment.rs`,
+    `serialize/`, the parse and serialize tests): the arena, negation
+    normal form, terms, fragments and modes, the parser, the JSON forms;
+  - `rules/core-forest.md` (`occurrences/`): the occurrence forest, the
+    atom bias, `OccSet`, the intuitionistic reading;
+  - `rules/core-proofs.md` (`proofs/mod.rs`, `check.rs`, `oracle.rs`):
+    proof terms and the checker;
+  - `rules/core-derivations.md` (`proofs/derivation.rs`, `size.rs`,
+    `fmt.rs`, `multiset.rs`, `interactive.rs`): the derivation view, its
+    size and bounds, the compact view, the text tree, interactive proving;
+  - `rules/core-search.md` (`search/mod.rs`, `memory.rs`, `additive.rs`):
+    the search's front door, where every engine polls, the memory bound,
+    the additive path;
+  - `rules/core-focus.md` (`search/focus/`, `search/generate.rs`): the
+    focused engine, one- and two-sided;
+  - `rules/core-nets.md` (`nets/`, `search/net.rs`): proof nets, their
+    criterion and the net engine;
+  - `rules/core-parallel.md` (`search/parallel.rs`,
+    `search/focus/parallel.rs`, `search/net.rs`): the pool, the stop
+    flags, the shared memo and arena, cubes;
+  - `rules/core-export.md` (`export/`, `proofs/style.rs`, the export test
+    and snapshots): LaTeX, Typst, SVG, PNG, PDF and Rocq;
+  - `rules/core-inputs.md` (`lltp.rs`, `families.rs`): the benchmark
+    inputs.
 - `rules/cli.md` (`cli/**`): the `linlog` command's layout, exit statuses,
   search thread, stop polling, the interactive session, and where a new
   engine, output format or session command plugs in.

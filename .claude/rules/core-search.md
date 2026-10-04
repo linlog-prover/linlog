@@ -1,0 +1,295 @@
+---
+paths:
+  - "core/src/search/mod.rs"
+  - "core/src/search/memory.rs"
+  - "core/src/search/additive.rs"
+---
+
+# linlog core: proof search, its front door, its memory bound and the additive path
+
+Loaded, beside `core.md`, when the search's front door, its memory
+account or the additive path is read. The engines have files of their
+own: `core-focus.md`, `core-nets.md` (the net engine) and
+`core-parallel.md` (the pool).
+
+## Proof search: the front door
+
+`search/mod.rs` is what a front end calls: `prove(&sequent, mode,
+&options)` and `prove_until(…, stop)` return `Result<Outcome, Error>`, and
+`prove_goal(&forest, goal, mode, &options, stop)` decides any multiset of
+occurrences of a forest, given in any order, `prove_until` being that on
+the roots: the goal's own fragment (`goal_fragment`, over the subtrees)
+picks the prunes and the engine, the net engine only for the roots
+(`Error::NetGoal` when forced elsewhere, since a structure's conclusions
+are the forest's roots), the additive path for any two additive-only
+occurrences (`additive::search_goal`), the focused engine otherwise; in
+intuitionistic mode a goal must have exactly one occurrence in output
+position (`Error::GoalOutputs`). **Every proof of the roots has passed
+the checker when it is returned, in every build** (`Options::check`,
+`DEFAULT_CHECK` true; the check is at the end of `prove_goal`, one place
+for every engine, and a proof it rejects is `Error::Rejected`, an error
+and never a verdict). The engines' own `debug_assert!`s on their proofs
+stay, and the flake's `test-debug-assertions` check is what runs them,
+since crane tests in the release profile. The harness switches the check
+off to time the search alone and checks the proof itself. The proof of a
+goal other than the roots
+has a root that concludes the goal, so `Proof::check` rejects it; only
+`Interactive` consumes such proofs, by grafting their derivation, and
+`Derivation::of_goal` checks them against the goal on the way. Where
+`Outcome` carries the `Verdict` (`Proved(Box<Proof>)`, `Unprovable(Refutation)`
+only after an exhaustive search, which with exponentials means a
+deepening level that never hit the copy bound, `Unknown(Reason)`, with
+`Reason::CopyBound` when every level up to a bound hit it), the `Fragment` searched in,
+the `Mode`, the `Engine` that ran, the `Statistics`, and `net`, the
+`ProofStructure` the net engine found (`None` from the focused engine).
+`Options` has private fields and setters (`memo_limit`, `recursion_limit`,
+`engine`, `fragment`, `test_period`, `copies`, `jobs`,
+`bias`, `forward_copies`, `check`, `memory_limit`, `occurrence_limit`),
+the constants `DEFAULT_MEMO_LIMIT`, `DEFAULT_RECURSION_LIMIT`,
+`DEFAULT_COPIES` (the library's default bound; `copies` takes an
+`Option`, `None` for none), `DEFAULT_FORWARD_COPIES`, `DEFAULT_MEMORY_LIMIT` (one
+gibibyte) and `DEFAULT_OCCURRENCE_LIMIT` (`Forest::DEFAULT_LIMIT`),
+which the CLI shows as its defaults, `MAX_JOBS` (256: `jobs` takes more
+as that many, and zero as one), and `stack_size()`,
+the stack a thread needs at the recursion limit, which sizes the CLI's
+search thread and the parallel pool's workers alike;
+`Reason`, `Statistics`, `Engine` and `Outcome` are `#[non_exhaustive]` so
+later steps add variants and fields without a breaking change.
+`Statistics` has one set of counters for both engines: `nodes` is stable
+sequents for `focus` and literals chosen for `net`; `memo_hits`,
+`memo_entries` and `splits` are the focused engine's, `links` and `tests`
+the net engine's, and the others stay zero.
+
+- **A refutation says what the counts rule out** (`Refutation`,
+  `focus::refutation`, called by `prove_goal` on every `Unprovable` of
+  every engine, which construct `Refutation::Exhausted`). It builds the
+  focused engine's `Counts` (fresh account, the caller's stop: a pass
+  given up is `Exhausted`, which is always true of the verdict), tallies
+  the goal's members, and reports the first atom by the sequent's order
+  whose summed interval excludes zero (`Tally::unbalanced`, through
+  `Counts::ranked`, the atoms that have rows by rank), else the count
+  equation when `Rules` applies it, with the goal's `⊗`, `⅋`, `1` and
+  `⊥` counted. Why the goal's sums are a refutation although the engine
+  tests stable sequents only: the asynchronous phase keeps them (a `⅋`
+  adds a member and a `−1` of weight, a `⊥` takes a member and a `+1`,
+  a premise of `&` lies in its hull, a `?` moves a formula whose atoms
+  have no rows), so every stable sequent the goal reaches fails the same
+  test, under the same `Rules` the engine searched with. It runs only on
+  a refutation, after the search, so no counter of a run moves; its
+  time is one more `Counts` pass on a refuted sequent. Without a
+  refutation from the counts (a `⊤` absorbs, weakening, exponential
+  atoms) the answer is `Exhausted`, never a guess.
+- The dispatch is plan decision D8. Unit-free MLL (the empty fragment
+  included) in classical mode goes to `net` when no literal occurs more
+  than `NET_MULTIPLICITY` (2) times (`prefers_net`: equal literals are
+  interchangeable partners, and the linking search pays a permutation's
+  worth of nodes for every wrong choice among them, which the focused
+  engine's counts refute at once), else to `focus`. Multiplicity is a
+  proxy, measured by the benchmarks (the `engines` runs of
+  `bench/RESULTS.md`, read in `plan/reports/14-benchmarks.md`): the net engine loses on Horn encodings (literals six times and
+  more, by one to four orders of magnitude) and on equal literals inside
+  one pure `⊗` or `⅋` tree (a sequent of five blocks `x ⊗ x ⊗ x ⊗ x`
+  against `~x ⅋ ~x ⅋ ~x ⅋ ~x` with one defect: over 10 s against 20 ms at
+  multiplicity 4). Its wins were measured against the focused engine
+  that enumerated its splits (five orders of magnitude on literals
+  repeated three or four times across different conclusions, `wide-m3`
+  and `wide-m4`); since the focused engine searches its splits by their
+  counts it proves `wide-m3` at 30 and `wide-m4` at 28 in 0.15 ms, as
+  fast as the net engine (0.23 and 0.38 ms), and `wide-m1` at 256 in
+  7 ms against 11 ms. What still needs the net engine is width at the
+  default recursion limit: a free split costs the focused engine a
+  level per link, so `wide-m1` at 2 048 ends at the limit where the net
+  engine proves it in 0.8 s. Whether `net` stays the default anywhere
+  else is for the second baseline's `engines` runs to say; the feature
+  that hurts it is equal literals under one pure tree, which the leaf
+  symmetry break below would take from its weaknesses. Every other
+  classical input, exponentials included, and everything in affine mode
+  goes to `focus`.
+  Before both: exactly two roots in the additive fragment with at least
+  one additive connective go to `additive` (atoms alone stay with `net`).
+  Intuitionistic mode first computes the `Reading`
+  (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
+  with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
+  would have no goal); then the same rows, with `two_sided` in place of
+  `focus`, and `net` on unit-free IMLL by the embedding (below).
+  `Options::engine` forces an engine; `Engine::Net` on a fragment outside
+  unit-free MLL, asserted or detected, is `Error::NetFragment`, and in
+  affine mode `Error::NetMode`; `Focus` in intuitionistic mode and
+  `TwoSided` in classical mode are `Error::EngineMode`; `Additive` on
+  anything but two additive-only formulas is `Error::NotAdditive`. A new
+  engine gets an `Engine` variant (its `Display` is its name in text and
+  JSON), a row in `prove_until`, and a value of `--engine` in the CLI
+  (`.claude/rules/cli.md`).
+- **IMLL by embedding.** In intuitionistic mode the net engine runs on the
+  one-sided sequent unchanged and its proof is returned as it is: every
+  cut-free MLL proof of a sequent with one output-shaped root keeps
+  exactly one output on every sequent (an all-input MLL sequent without
+  units is unprovable, since every leaf has an output, so the split of a
+  hypothesis `A ⊸ B` can never take the goal to the antecedent's side),
+  hence any sequentialization of a classical net of an IMLL sequent passes
+  the intuitionistic checker and no essential-net condition is needed for
+  the verdict. With `1` the lowered sequent has units and goes two-sided.
+- `Options::fragment` asserts a fragment: a sequent outside it is
+  `Error::FragmentMismatch`, and the search runs in the asserted fragment,
+  which switches off the prunes that only hold in the smaller one and
+  picks the engine (`--fragment mall` on an MLL input runs `focus`).
+- The crate has no clock (D11): a time limit is a closure the caller gives
+  `prove_until`, and it answers `Unknown (Reason::Stopped)`. **Where it
+  is polled**, which is every place a search can spend time without
+  reaching another of them:
+  - *The focused engine*: once per stable sequent (`prove_stable`); once
+    every `SPLITS_PER_POLL` (4096) steps of its searches for the splits
+    of a `⊗` or a Mix (`poll_splits`, on a counter of its own,
+    `Engine::steps`: a split search whose splits fail in focus visits no
+    stable sequent and can run for minutes); once every
+    `FORCED_PER_POLL` (4096) forced splits and literals of tensors
+    closed in place (`poll_forced`, counter `Engine::forced`: a chain of
+    forced splits visits no stable sequent either, and a marking of a
+    Petri net is a tensor of thousands of literals); and on a pool at
+    every `&` (`with_parallel`, below). The first two pass the work
+    done since the last poll (`Stop::fired(work)`), which only the two
+    searches of the default bias count (`Stop::Slice`, `Stop::Turn`);
+    the chain's poll passes none, so that the slices of those two
+    searches are what they were before it existed and the counters of a
+    decided run did not move.
+  - *The net engine*: once per literal chosen (`decide`) and once per
+    exact test that fails (`explore`): a run of failures chooses no
+    literal.
+  - *The set-up*, on a forest of `SET_UP_POLL` (65 536) occurrences or
+    more (`set_up_stopped`): in `prove_goal` once the fragment, the
+    reading and the dispatch are done, in `focus::search_goal` (and the
+    pool's) after the classes and after the plan, and inside
+    `Counts::new_until` every 65 536 occurrences visited, which is the
+    longest pass. On the library's largest problem (`SYJ212+1.020` in
+    its cbv translation, 27.8 million occurrences) the first poll comes
+    after 0.12 s and no two are more than 0.2 s apart; without them the
+    first came after 1.27 s. A smaller forest gets none of these polls:
+    a pass takes under a millisecond there, and a condition that counts
+    its polls (a test, a front end that counts work) sees the engine's
+    own and no others.
+  - *Not polled*: `Forest::new` (0.43 s on that problem; a caller with
+    a deadline builds the forest itself, as the CLI does, and calls
+    `prove_goal`), a single pass over the forest, the check of the
+    proof at the end of `prove_goal` and the size pass of a derivation
+    (below), `sequentialize`, and the collection of the kept arena
+    when a memo is emptied (one pass over the kept nodes, milliseconds
+    at a million of them). Freeing a full memo is no longer among
+    them: its entries are records in chunks ("The memory bound",
+    below), so emptying one resets a count and dropping one frees a few
+    hundred blocks. When every key was two allocations, a memo at its
+    cap of 2²⁰ entries took 0.15 to 0.55 s to free, which was what a
+    stop was late by and a fifth of the time of a memo-bound search;
+    now a stop on `qbf/40#1` with its memo full comes 14 to 21 ms
+    after the limit on the machine's three kinds of core.
+  - *The check and the size pass are not polled because they are
+    short*: on the largest proof the engines find in the LLTP library
+    (`SYJ202+1.005` in its cbv translation, 566 490 inferences) the
+    check takes 22 ms and `Proof::derivation_size`, the same pass with
+    an observer, 39 ms; on the largest Petri nets proved 3 to 6 ms and
+    5 to 8 ms. Poll them when a proof a hundred times that size is in
+    reach.
+  A condition must be cheap, because it is asked at every poll, and it
+  must not ration its own work by counting polls: polls come millions
+  of times a second on a small problem and 30 ms apart on a forest of
+  millions of occurrences, so "look at the clock every 1 024 polls" was
+  exact on the first and half a minute late on the second. The CLI and
+  the harness read a flag that a timer thread raises. The crate docs in
+  `lib.rs` show the common path (parse, fragment, prove, derivation, JSON)
+  as a doc test; keep it the shortest correct program when the API moves.
+  The focused engine recurses on the caller's stack, bounded by
+  `Options::recursion_limit`; a caller that raises the limit runs the
+  search on a thread with a larger stack (`Options::stack_size`). The net
+  engine and its sequentialization keep stacks of their own.
+
+## The memory bound
+
+`Options::memory_limit` (`DEFAULT_MEMORY_LIMIT`, one gibibyte; `None`
+lifts it) bounds what a search holds, and `search/memory.rs` is how:
+an `Account` (the bound and an atomic count of bytes) that everything
+which grows charges where it allocates, by the capacity allocated and
+not by what is in use. `prove_goal` makes one per search.
+
+- **What counts**: the focused memo (its chunks, its index, the extra
+  copies), the kept arena and every engine's pending stack, the branch
+  stack of keys, every pool buffer (sets, contexts, keys, tallies,
+  split counts, cursors when made; lists, trails and links by what they
+  had grown to when last given back), the `Counts` (rows and
+  per-occurrence arrays) and the `Classes` of the set-up, and the
+  additive path's memo and arena. **What does not**: the forest and the
+  sequent (the caller's; `Options::occurrence_limit` bounds them,
+  below), the proof returned, a `Tally`'s and a `Split`'s `touched`
+  lists (bounded by the rows of a sequent's members), a context's
+  extra list, the table a collection uses while it runs (four bytes a
+  kept node), the stacks of the threads, the net engine (a structure
+  and a scratch linear in the forest, per thread), and the allocator's
+  own overhead. Measured, the process's peak is the count plus what it
+  takes to hold the input: R8 (`SYJ202+1.008` in cbv) under 256 MiB
+  ends by the bound at a peak of 253 MiB, under 16 MiB at 20 MiB.
+- **The order of answers** when memory runs short: a memo that has no
+  room for a new key is emptied and the kept arena collected
+  (`Engine::remember`; the same as at `memo_limit`, which stays as the
+  finer knob: it is what the pinned counters depend on, and a table
+  that fits the cache can beat one that fits the memory); a search
+  that finds itself over the bound at a stable sequent empties the
+  memo, collects, and if that is not enough gives the memo's memory
+  back (`Engine::relieve`); `Unknown(Reason::MemoryLimit(bytes))` when
+  what is left, the branch's own buffers and proofs as allocated, is
+  still over, or when an empty memo cannot have its first chunk. The
+  value in the reason is the option's, whatever share a search had
+  (`focus::reason`). `relieve` does not squeeze the arena to fit: the
+  next `keep` would double it again, and a search at its bound would
+  copy its arena at every node (seen: 170 stable sequents a second
+  where there were 400 000).
+- **The memo leaves an eighth of the bound free** (`Account::spares`):
+  it would otherwise take every byte, and the first growth of anything
+  that cannot be emptied would cost the whole memo, at every node.
+- **`Reason::IndexLimit`** is what a structure answers when it outgrows
+  its `u32` indices, which only a search without a memory bound can:
+  the arena at 2³¹ nodes, the counts' rows at 2³² entries, a forest of
+  2³¹ occurrences or more for the counts (their balances are `i32`
+  sums over a subtree), the additive path's arena at 2³² nodes.
+- **`Options::occurrence_limit`** (`Forest::DEFAULT_LIMIT`, fifty
+  million) is the bound on the input: `prove` and `prove_until` build
+  their forest with `Forest::within`, the command checks
+  `Sequent::occurrences()` when it reads a sequent, before any command
+  unfolds or prints it. `Forest::new`, and with it `Interactive::new`
+  and every deserializer (a proof file, a session's state, a net), has
+  the default and no way to pass another, since `Deserialize` takes no
+  options: a proof file whose sequent has more occurrences is refused
+  whatever a flag says.
+- **On a pool** the workers share the account, each engine's own
+  buffers are released when it goes (`Charged`), and the shared arena
+  only grows. A pool therefore reaches the bound sooner than one
+  thread on a search that proves much and keeps it.
+
+## The additive fast path
+
+`search/additive.rs` decides a sequent of exactly two additive-only
+formulas by a recursion on pairs of subformula occurrences, one below each
+root, memoized on the pair: `⊤` closes, `&` on either side needs both
+subformulas against the other, two dual literals are an axiom, `⊕` on
+either side tries one subformula at a time, and nothing else proves
+anything. `&` is invertible and goes first; **which `⊕` to decompose is a
+real choice** (a `&` below the other formula's `⊕` may need both sides of
+this one: `⊢ ~c ⊕ ~a, b ⊕ (c & a)`), so both formulas' `⊕` are tried and
+the memo is what bounds the work by `|A|·|B|`; a first version that
+returned after the first formula's `⊕` was caught by the review. The
+procedure is the same in every mode: additive rules keep one output by
+themselves, and neither weakening nor Mix can help a two-formula sequent
+(a proof of one formula alone ends in `⊤` leaves, which absorb the other).
+`Statistics::nodes` is pairs visited, `memo_hits` and `memo_entries` the
+memo's. Its memo and its arena are charged to the search's account at
+every pair (`settle`): over the bound the memo goes, and the arena
+alone over the bound is `MemoryLimit` (the arena is append-only here:
+nothing collects it, since a pair's proof is one node and the memo is
+what bounds the pairs). The memo holds at most `Options::memo_limit` pairs and is emptied
+when full, like the focused memo (zero switches it off); the product
+bound on the time then no longer holds in theory, but the identity of
+depth 16 (7.9 million pairs without a cap) is decided with the default
+limit of 2²⁰ in 11.7 million visits instead of 10.7 million, in less
+time (a table that fits the cache) and in 0.1 GB instead of 0.46 GB.
+What took gigabytes on such a proof was not the search but the checker's
+first implementation, which kept a `Θ` bitset of the forest's width for
+every node (262 141 nodes of 32 KB at depth 16, 7.6 GB): the first
+baseline's "8 GB of memo" was this, measured by the peak before and
+after the check. The checker no longer keeps one ("The checker").

@@ -1,0 +1,273 @@
+---
+paths:
+  - "core/src/search/parallel.rs"
+  - "core/src/search/focus/parallel.rs"
+  - "core/src/search/net.rs"
+---
+
+# linlog core: the parallel runtime
+
+Loaded, beside `core.md`, when the runtime or one of the two engines on
+it is read (`net::parallel` is inside `search/net.rs`).
+
+## The parallel runtime
+
+`search/parallel.rs` (feature `parallel`, off by default, on in the CLI,
+never on wasm: it is the one place the crate needs threads) is the
+runtime; `focus/parallel.rs` and `net::parallel` are the two engines on
+it. `prove_goal` takes the parallel path when `Options::jobs` is above one
+and the engine is `Focus`, `TwoSided` or `Net`; the additive path stays
+sequential (it is linear-time in the product of the formulas' sizes and
+has no or-choices worth sharing out). What the code relies on:
+
+- **One pool per search, no global.** `Runtime::new(jobs, stack_size)`
+  builds a rayon pool of `jobs` threads with stacks of
+  `Options::stack_size()` (the engine recurses on the worker's stack as
+  it does on the caller's), which the search drops with the outcome
+  (the net engine's in `prove_goal`, the focused engine's in
+  `focus::parallel::search_goal`, which builds two for the two searches
+  of the default bias with exponentials and splits `jobs` between them);
+  `Error::ThreadPool` when the threads cannot start. **A search starts
+  no more threads than the machine runs at once**: `prove_goal` takes
+  `Options::jobs` through `parallel::threads`, the smaller of it and
+  `std::thread::available_parallelism()` (which on Linux follows the
+  process's CPU set and quota; where the platform does not tell, the
+  options' own bound `MAX_JOBS` is all there is), and one thread left
+  is the sequential path. So the tests' `jobs(4)` is two threads on a
+  machine of two, and a harness row never names more threads than its
+  process may run (`linlog-bench run` refuses the count). Never touch rayon's
+  global pool: a library must not size or seed it, and `RAYON_NUM_THREADS`
+  is read only when a builder's thread count is zero, which ours never
+  is.
+- **The stop closure is polled on the calling thread.** `Runtime::drive`
+  spawns the work into the pool from an `in_place_scope` and, on the
+  calling thread, waits on a channel for the result with a one
+  millisecond timeout, polling the caller's closure at each timeout and
+  raising the root `AtomicBool` when it fires. So `prove_goal`'s closure
+  needs no `Send` and is polled about a thousand times a second, not
+  once per node: a caller that reads the clock every `n` polls (the CLI
+  does, on one thread) must read it every poll on several
+  (`polls_per_clock` in the CLI). A worker polls its `Flags`, the chain
+  of its own cancel flag and its ancestors' up to the root, at every
+  stable sequent (`prove_stable`) or literal chosen (`decide`), through
+  `Stop::Flags`; the sequential engines poll the closure through
+  `Stop::Closure`. rayon tasks cannot be killed, so a place that stops
+  polling is a place cancellation does not reach.
+- **The split searches poll too** (`poll_splits`, every
+  `SPLITS_PER_POLL` steps, through the same `Stop`): before, the poll
+  there was tied to `Statistics::splits` being a multiple of 4 096, and a
+  loop that adds two to the counter per round (its own split and a forced
+  one below) from an odd value never hit one. That is how 90 one-thread
+  LLTP runs of the first baseline ran past their kill, 166 more at 16
+  threads, and two Petri nets were proved minutes after their limit.
+  `focus::tests::stops_inside_a_split_search` and the second half of
+  `focus::parallel::tests::stops` pin it on a sequent whose 2⁴² splits
+  all fail in focus (affine mode, so no count cuts them).
+- **Cube-and-conquer is nested fork-join at the first `LEVELS` (2)
+  choices of a branch**, not a static enumeration: at a choice among
+  alternatives (`decide_with`'s candidates and copies together, the two
+  sides of a `⊕`, the free splits of a `⊗` with the assignment of the
+  first `fixed` members per task, `fixed` giving the pool twice its
+  threads in tasks and at most `MAX_FIXED` = 6 bits) an engine whose
+  `or_depth` is below `LEVELS` spawns a worker per alternative but the
+  first and runs the first on one more worker on its own thread
+  (`choose_parallel`); workers have `or_depth + 1`. Every alternative
+  runs on a worker, never on the spawning engine itself, because a
+  worker's stop chain holds the choice's cancel flag and the spawning
+  engine's does not: an alternative run in place would never be
+  cancelled by a sibling's proof (a review measured a whole refutation
+  spent that way). Below the levels a worker is the sequential engine.
+  rayon's work stealing is what makes this "when the pool has idle
+  workers": a spawned task nobody steals runs on the spawning thread
+  after its own alternative. The `&` rule within the levels runs its
+  right premise on a worker of the pool and its left one on a worker on
+  its own thread (`with_parallel`); the `⊗` premises stay sequential
+  (the first usually fails fast). **`with_parallel` polls the engine's
+  flags before it starts anything.** The asynchronous phase polls
+  nowhere else (its stable sequents do), and the `&` rule on the pool,
+  unlike the sequential one, starts its right premise without waiting
+  for the left: a worker that was cancelled or stopped therefore went
+  on to start both premises of every `&` below it, each of which did
+  the same, and only their stable sequents ended them. With `n` `&` in
+  one asynchronous phase that is `2ⁿ` workers. `SYJ202+1.008` in its
+  cbv translation (19 KB) has such a tower: under a 5 s limit two
+  threads ended after 46 s and four not within 150 s, with 578 stable
+  sequents really searched and 268 million stopped at their poll; the
+  first failed premise alone set it off, long before the limit.
+  `a_cancelled_premise_starts_no_other` pins it on forty roots `a & b`
+  (2⁴⁰ premises without the poll). A new rule that fans out on the pool
+  polls before it spawns. **So does every task of a choice, before it
+  builds its worker** (`choose_parallel`, `Collected::skip`): a choice
+  queues a task per alternative, hundreds on a stable sequent of a
+  Petri net, and a worker copies the branch's stack of keys, each two
+  bitsets of the forest's width, so the tasks the pool reached after a
+  stop or a sibling's proof spent seconds before their first poll. On
+  `GlobalResAllocation_galloc_res-5_100_1` on four threads a stop came
+  21 s late and a proof that one thread finds in 0.14 s took 17 s;
+  with the poll, 0.5 s and 0.13 s. A task skipped for an ancestor's
+  flag records a stop, never a failure, since what was never searched
+  cannot have failed (`a_skipped_alternative_is_no_failure`); one
+  skipped for the choice's own flag records nothing, because that flag
+  is raised only under the choice's lock once a proof or an error (a
+  skip's stop included) is recorded. Mix stays sequential after the
+  parallel alternatives failed (`last_resort`).
+- **A worker is a copy of the branch, not of the engine** (`Spawn`,
+  `Spawn::worker`): the shared parts by reference (forest, reading,
+  counts, rules, memo, arena, runtime, flags), the branch's by copy (the
+  live stack of keys, `depth`, `copies`, `or_depth`), fresh pools and
+  counters, `exhausted` clear and `dependency` none. The copied stack is
+  what keeps the loop check's prunes below the cube; `depth` keeps the
+  recursion limit's meaning for the counter, not for the stack: a pool
+  thread that waits at a scope runs stolen tasks on its own stack, so
+  its frames are the scope's (a choice near the root, a few dozen
+  levels) plus the stolen task's, and nested waits compound; the 2×
+  margin of `Options::stack_size` and its 8 MiB floor cover this at the
+  default limit, and a raised limit is where an overflow would first
+  show. `Engine::new` takes the counts, the rules, the memo (`Table`)
+  and the arena (`Arena`) from outside for that reason; `search_goal`
+  builds them and owns them.
+- **Merging is the sequential rule's**: a choice's result is a proof if
+  any alternative found one (a proof of one alternative wins over an
+  error of another, so the pool may decide where one thread gives up
+  with `RecursionLimit`), else the first error that is not a stop caused
+  by cancellation (a worker's `Stopped` is ignored only when the choice's
+  own `cancel` flag is raised), else a failure with `exhausted` or-ed and
+  `dependency` min-ed over the alternatives that ran to their end
+  (`Collected::take`); a cancelled alternative's flags are dropped, as
+  the sequential engine never ran it. For `&`, a failed premise decides
+  and the other's flags are dropped, both premises' flags count when both
+  ran to the end (`with_parallel`). Success raises `cancel` at an
+  or-node, failure or error at the `&`. A premise that the other's
+  error cancelled returns `Stopped`, which gives way to that error in
+  the `&`'s result as it does in `Collected::take`: the match took the
+  left premise's reason first, so a right premise at the recursion
+  limit made the pool answer `Unknown (Stopped)` with no stop fired
+  (a review's finding; `a_cancelled_premise_is_no_stop`). What stays:
+  an error of one premise cancels the other, so the pool answers
+  `RecursionLimit` where the left premise would have failed and one
+  thread, which never starts the right one, answers `Unprovable`; and
+  a premise's result raises the flag only once its worker has left its
+  nested scopes, where a waiting thread may have stolen a task of the
+  sibling premise that nothing cancels until then (seen once: an answer
+  that came only with the caller's stop, five seconds late). A worker inserts into the memo
+  only what its own `prove_stable` decided, so a cancelled worker leaves
+  facts and nothing half-done.
+- **The shared memo is 64 shards of the sequential `Memo`** behind one
+  `Mutex` each (`memo::Shared`, the key's top hash bits choosing the
+  shard, the cap split among them), and `Memo::insert`'s merge under the
+  shard's lock is the compare-and-swap the bound needs: a larger
+  `Exhausted` budget wins, `Complete` and `Proved` win over `Exhausted`,
+  a proof stays, so an entry's validity only grows whatever the
+  interleaving, and two workers deciding one sequent cost duplicated
+  work, never a weaker entry. A lock is held for one map operation and
+  never across a recursive call. `dashmap` was not taken: the notes
+  record its maintenance as thin, the shards are twenty lines, and the
+  speedup table shows no contention worth a dependency. `hits` and `peak`
+  are summed over the shards (`peak` is an upper bound). A shard that is
+  full, by its entries or by the memory left, is emptied by itself
+  under its lock; one that is empty and has no memory for its first
+  chunk drops the entry (the other shards hold the memory), and a
+  worker that finds the search over its bound releases every shard
+  (`Shared::release`). The chunks of a shard are 64 KiB, not a
+  mebibyte, so that 64 shards with one entry each are not 64 MiB.
+- **The kept arena is shared behind one `Mutex<Vec<Node>>`**
+  (`Kept::Shared`), and every engine of a parallel search has a pending
+  stack of its own. Truncating a shared arena would be unsafe (another
+  worker's nodes lie above one's mark), so nothing pending is shared: a
+  `keep` takes the lock once and appends the whole segment, so a kept id
+  is a position in the one arena every `Proved` entry refers to, a
+  segment's premises are in it or were kept before it, and the order
+  `Proof::new` needs holds across threads; the memo insert happens after
+  the keep, so a hit always finds a complete subtree. A pending id means
+  nothing outside its engine, so a result that leaves a worker (an
+  alternative's, a `&` premise's, the root's) is kept first
+  (`Engine::exported`); the spawning engine wraps kept ids in pending
+  nodes of its own. Failed branches therefore cost the shared arena
+  nothing on the pool either.
+- **Levels never overlap**: `run` deepens the copy bound on the root
+  engine, which spawns nothing until its first choice and reads
+  `exhausted` after every task of the level has ended (the scope waits),
+  so the or-reduction over the workers is the merge above and a level is
+  `Unprovable` only with every worker's flag clear.
+- **The net engine's cubes are what is left of the search, split at
+  its choices** (`net::parallel::search`). A cube is the links of a
+  branch nobody has followed yet, and the list of cubes is kept in the
+  order in which the sequential search would reach them. The root
+  engine starts from the one cube without a link and, while there are
+  fewer than `CUBES_PER_THREAD` (16) cubes per thread, makes a pass
+  over the list that replaces every cube in place (`reset`, `seed`) by
+  the branches of its next choice (`explore(Some(1), …)`: the search
+  below the seed with every branch recorded and taken back at its first
+  link of a literal with more than one admissible partner; the forced
+  links on the way to that choice are made and stay in the cube). So
+  after `d` passes the cubes are the branches of the first `d` choices
+  that the tests do not reject. A branch
+  that dies leaves no cube, a proof net found on the way ends
+  everything, and an empty list is `Unprovable`. So nothing is searched twice: the cubes
+  partition the remaining search at every moment, and a sequent whose
+  links are all forced is decided by the first `explore`, which is the
+  sequential search, link for link (`forced_links_are_made_once` pins
+  equal statistics on `wide(64, 1)`). Before, the cubes were the
+  branches of the first `d` links found by a search from the root for
+  `d = 1, 2, …`; with forced links there is one branch at every depth,
+  the count was never reached, and `wide-m1` at 512 pairs made
+  1 + 2 + … + 1 024 = 524 800 links (9.5 s on two threads against
+  33 ms on one). What it costs now where the queue stays short: the
+  seed's links again per cube taken, without their tests, which is of
+  the order of the `choose` the sequential search pays per node.
+  Workers pull cubes from an atomic counter with one engine each, so
+  the per-worker state is allocated once; a worker that finds a net
+  stores it and raises the flag; `Unprovable` needs every cube to have
+  ended `Ok(false)`, and any error or a real stop makes the verdict
+  `Unknown`. **The order is what keeps a pool from being slower than
+  one thread on a provable sequent**: the workers take cubes in the
+  sequential search's order, so the cube with the proof one thread
+  finds is taken no later than one thread reaches it. A first version
+  kept the cubes in a queue and appended a cube's branches at its end;
+  the workers then searched cubes that one thread never enters before
+  the one with the proof, and Partition with the items 1, 1, 2, 4 took
+  two threads 2.2 s and 253 852 literals against 1.3 s and 109 627 on
+  one. **A pass is always whole.** Stopping in the middle of one, as
+  soon as the count is reached, left the unsplit cubes at the end of
+  the list one choice coarser than the rest, and the refutations of
+  3-Partition were 3 to 4.5 % slower on two and four threads than with
+  cubes of one depth; the count may therefore overshoot by a level's
+  branching, as it always could.
+  No state is shared beyond the flags: the structure and the scratch
+  are per worker. A cube's seed must reproduce the root engine's state
+  at the record: the links in order, which the structure's undo log and
+  the test cadence (a multiple of the period in links) both follow.
+- **A parallel run may return another proof, never another verdict**:
+  every level is searched to its end by some worker with no cube
+  abandoned unless a proof or an error ends it, so `Proved` and
+  `Unprovable` agree with the sequential engine; only decisiveness within
+  the copy bound may differ (as it does between memo and no memo), since
+  the memo's contents depend on the interleaving. A parallel run may
+  answer `Proved` where the sequential one answers `Unknown
+  (RecursionLimit)` on another alternative. `Unknown (Stopped)` is the
+  caller's stop, never a cancellation. **What a pool promises about
+  time**: a stop is honoured by every worker at its next poll (the
+  list under "Proof search: the front door"), the driver asks the
+  caller's condition once a millisecond, and a pool costs its start
+  (some tens of microseconds per thread) plus, on the net engine, the
+  seeds above; it promises no speedup, and on the focused engine no
+  bound on the work relative to one thread (and-parallel `&` premises
+  and cubes search what one thread might have skipped). The tests
+  (`focus::parallel::tests`, `net::parallel_tests`) assert exactly this
+  on the generated samples with two and four threads; every proof is
+  checked. For the focused engine that is `agree`: the two verdicts
+  never contradict each other, and nothing is asserted about which of
+  them decides within the bound (`b, ((a * 1) -o !a), !(b -o 1),
+  !(1 -o ((1 * 1) -o a)), b |- (!!a * b)` with a copy bound of 2 is at
+  its bound on one thread and proved on four, every time).
+- **There is no portfolio of worker orders.** An option gave every
+  worker a seed that ordered the candidates and copies within their
+  classes; two baselines showed no gain (the second: 627 problems
+  decided against 623, 10 gained and 6 lost, at the same time), and it
+  was removed. The two searches of the default bias are the portfolio
+  that pays: two orders that differ in the one choice that changes the
+  search. Candidates and copies are ordered by id on every engine.
+- **Statistics** add every worker's counters (`Statistics::add`, the
+  memo's read off the shared table once), so a parallel `nodes` is the
+  work done, not the work one thread would have done, and the CLI's
+  pinned counts use `--deterministic`.
