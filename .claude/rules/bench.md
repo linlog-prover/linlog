@@ -342,7 +342,13 @@ beyond clap and anyhow, which the CLI already has.
   name `--copies 3` (the command's default deepening, the refutation
   computed after a search that refutes): the 99 decided rows have the
   counters of `after-memory`, the 66 undecided ones their reasons, and
-  the decided rows' CPU time is 2.1 % above, by day.
+  the decided rows' CPU time is 2.1 % above, by day. `after-horn` is the first with
+  the Horn engine as the default for Horn programs with `!`: 109 runs
+  moved to it (the counters, the unreachable counter, the sampled nets,
+  of which 85 are decided where `after-panels` decided 53, in 28 s of
+  CPU against 197), and the 154 that kept their engine have every
+  counter of their 116 decided rows equal to `after-panels`. A later
+  change compares with it.
 
 ## Extension points
 
