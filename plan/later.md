@@ -992,8 +992,16 @@ Left by step 27's first session (`plan/reports/27-horn.md`):
   times (sixteen bytes each); on nets of high branching that is what
   meets the memory bound (`DNAwalker_dnawalk-18_20_1` after 1.3 s).
 - **Constant factors**: `Program::read` runs three times per call (the
-  dispatch's feature, `admits`, `decide`), and the distance of the
-  marking at hand sums the target over every place at each expansion.
+  dispatch's feature, `admits`, `decide`), and a goal refuted by the
+  counts or by exhaustion has its counts built twice (the engine's test
+  before the search, `prove_goal`'s reason after).
+- **The counts before the search are quadratic** where atoms outside
+  every `!` sit in nested tensors (a long clause used once, a goal of
+  thousands of distinct atoms: 20 000 meet the 1 GiB bound, which the
+  search alone decided in 20 ms). Only atoms with rows can refute, so a
+  test that builds rows only for atoms the goal could leave unbalanced,
+  or skips the counts when every atom is in a clause under `!`, would
+  keep the cheap case cheap.
 - **A shortest firing sequence** (breadth-first) would give the smallest
   proof, for teaching; the order is the engine's scheduling today, not an
   option.
