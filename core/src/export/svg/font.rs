@@ -86,7 +86,7 @@ impl Advances {
 /// of an em, sorted by character: printable ASCII, the mathematical italic
 /// Latin letters, Greek, and the connectives, units, turnstile and
 /// vertical dots.
-const ADVANCES: [(char, u16); 203] = [
+const ADVANCES: [(char, u16); 208] = [
     (' ', 333),
     ('!', 295),
     ('"', 214),
@@ -182,6 +182,7 @@ const ADVANCES: [(char, u16); 203] = [
     ('|', 213),
     ('}', 345),
     ('~', 551),
+    ('¬', 773),
     ('Α', 770),
     ('Β', 655),
     ('Γ', 428),
@@ -232,6 +233,10 @@ const ADVANCES: [(char, u16); 203] = [
     ('ω', 851),
     ('ℎ', 621),
     ('⅋', 737),
+    ('→', 1000),
+    ('↔', 1000),
+    ('∧', 775),
+    ('∨', 775),
     ('⊕', 668),
     ('⊗', 668),
     ('⊢', 698),

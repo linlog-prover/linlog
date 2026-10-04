@@ -185,9 +185,10 @@ for NanoYalla. What the code relies on:
   cross: `net::height` says why). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
   it); all coordinates are integers, so the output is byte-stable. The
-  ordinary connectives `¬ ∧ ∨ → ↔` are not in that table yet and take
-  the fallback of 650; their advances belong in `ADVANCES`, read from
-  the font's `hmtx` as the others were, which moves `ordinary.svg`.
+  ordinary connectives `¬ ∧ ∨ → ↔` are in the table from the font's
+  `hmtx` (`ttx -t cmap -t hmtx` of `cli/fonts/Euler-Math.otf`, which
+  also gives `⊗` 668 as the table has it); a character added to a printer
+  gets its advance the same way, or takes the fallback of 650.
 - **PNG and PDF render the SVG** (`export/png.rs` with resvg and the
   png encoder, `export/pdf.rs` with krilla and krilla-svg, features
   `png` and `pdf`, `export::parse` and `export::texts` shared):
