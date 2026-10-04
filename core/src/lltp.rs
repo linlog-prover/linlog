@@ -80,6 +80,49 @@ pub enum Status {
 /// clause with another role, and
 /// [`Error::SequentParsing`] for a formula this crate's parser rejects.
 pub fn read(text: &str) -> Result<Problem, Error> {
+    let clauses = clauses(text, Error::Lltp)?;
+    let sequent = format!(
+        "{} |- {}",
+        clauses.hypotheses().collect::<Vec<_>>().join(", "),
+        clauses.conjectures().collect::<Vec<_>>().join(", ")
+    )
+    .parse()?;
+    Ok(Problem {
+        sequent,
+        status: clauses.status,
+    })
+}
+
+/// The clauses of a TPTP-style file: its text with names made readable,
+/// the ranges of its formulas in that text by role, and its status.
+pub(crate) struct Clauses {
+    /// The file's text without comments, a `-` inside a name as
+    /// [`HYPHEN`] and a `.` as [`DOT`].
+    code: String,
+    /// The formulas of the clauses with the role `axiom` or `hypothesis`.
+    hypotheses: Vec<std::ops::Range<usize>>,
+    /// The formulas of the clauses with the role `conjecture`.
+    conjectures: Vec<std::ops::Range<usize>>,
+    /// The provability the header claims.
+    pub(crate) status: Option<Status>,
+}
+
+impl Clauses {
+    /// Returns the hypotheses' formulas, in the order of the file.
+    pub(crate) fn hypotheses(&self) -> impl Iterator<Item = &str> {
+        self.hypotheses.iter().map(|r| &self.code[r.clone()])
+    }
+
+    /// Returns the conjectures' formulas, in the order of the file.
+    pub(crate) fn conjectures(&self) -> impl Iterator<Item = &str> {
+        self.conjectures.iter().map(|r| &self.code[r.clone()])
+    }
+}
+
+/// Splits a file of `fof(name, role, formula).` clauses as [`read`]
+/// describes, with every error of the file's form made by `error`. The
+/// conjectures are not empty.
+pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses, Error> {
     // The status of a line for the logic of the problem, and of a plain one.
     let (mut status, mut plain) = (None, None);
     let mut code = String::with_capacity(text.len());
@@ -133,14 +176,14 @@ pub fn read(text: &str) -> Result<Problem, Error> {
             .strip_prefix("fof")
             .map(str::trim_start)
             .and_then(|r| r.strip_prefix('('))
-            .ok_or_else(|| Error::Lltp(format!("expected `fof(` at `{}`", excerpt(rest))))?;
-        let (name, body) = body.split_once(',').ok_or_else(|| {
-            Error::Lltp(format!("a clause without a role at `{}`", excerpt(rest)))
-        })?;
+            .ok_or_else(|| error(format!("expected `fof(` at `{}`", excerpt(rest))))?;
+        let (name, body) = body
+            .split_once(',')
+            .ok_or_else(|| error(format!("a clause without a role at `{}`", excerpt(rest))))?;
         let name = name.trim();
         let (role, body) = body
             .split_once(',')
-            .ok_or_else(|| Error::Lltp(format!("clause `{name}` has no formula")))?;
+            .ok_or_else(|| error(format!("clause `{name}` has no formula")))?;
         // The formula runs to the parenthesis that closes `fof(`; a comma
         // outside its parentheses starts an annotation.
         let mut depth = 1usize;
@@ -154,19 +197,21 @@ pub fn read(text: &str) -> Result<Problem, Error> {
                 }
                 depth == 0 || (depth == 1 && c == ',')
             })
-            .ok_or_else(|| Error::Lltp(format!("clause `{name}` is not closed")))?;
+            .ok_or_else(|| error(format!("clause `{name}` is not closed")))?;
         if end.1 == ',' {
-            return Err(Error::Lltp(format!(
+            return Err(error(format!(
                 "clause `{name}` has an annotation, which this reader does not take"
             )));
         }
         let end = end.0;
         let formula = body[..end].trim();
+        let start = formula.as_ptr() as usize - code.as_ptr() as usize;
+        let range = start..start + formula.len();
         match role.trim() {
-            "axiom" | "hypothesis" => hypotheses.push(formula),
-            "conjecture" => conjectures.push(formula),
+            "axiom" | "hypothesis" => hypotheses.push(range),
+            "conjecture" => conjectures.push(range),
             other => {
-                return Err(Error::Lltp(format!(
+                return Err(error(format!(
                     "clause `{name}` has the role `{other}`, not axiom, hypothesis or conjecture"
                 )));
             }
@@ -174,15 +219,16 @@ pub fn read(text: &str) -> Result<Problem, Error> {
         rest = body[end + 1..]
             .trim_start()
             .strip_prefix('.')
-            .ok_or_else(|| Error::Lltp(format!("clause `{name}` does not end with `).`")))?
+            .ok_or_else(|| error(format!("clause `{name}` does not end with `).`")))?
             .trim_start();
     }
     if conjectures.is_empty() {
-        return Err(Error::Lltp("no conjecture".to_owned()));
+        return Err(error("no conjecture".to_owned()));
     }
-    let sequent = format!("{} |- {}", hypotheses.join(", "), conjectures.join(", ")).parse()?;
-    Ok(Problem {
-        sequent,
+    Ok(Clauses {
+        code,
+        hypotheses,
+        conjectures,
         status: status.or(plain),
     })
 }

@@ -239,7 +239,7 @@ fn identifier(name: &str) -> String {
 /// Returns the identifiers of atoms with these names, in their order,
 /// each free of clashes with the keywords, the kernel, `lemma` and the
 /// others.
-fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
+pub(crate) fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::with_capacity(atoms.len());
     for name in atoms {
         let mut id = identifier(name);
@@ -603,6 +603,24 @@ pub fn write(
     })?;
     out.write_str("Qed.")?;
     Ok(())
+}
+
+/// Writes the certificate of a derivation of LK or LJ, which must have
+/// passed [`check`](crate::ordinary::Derivation::check): the lemma
+/// `options.lemma` stating the ordinary sequent over `Prop`, every atom a
+/// proposition bound by `forall`, the hypotheses as premises and the
+/// formulas right of `⊢` as their disjunction (`False` for none), proved
+/// by a term made rule by rule. It needs no library; a classical one uses
+/// the excluded middle of the standard library (`NNPP`), which a
+/// standalone file imports instead of `options.prelude`. Asks `stop` after
+/// each inference.
+pub fn ordinary(
+    derivation: &crate::ordinary::Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    crate::ordinary::rocq::write(derivation, options, out, stop)
 }
 
 #[cfg(test)]

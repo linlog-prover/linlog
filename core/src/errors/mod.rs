@@ -52,6 +52,33 @@ pub enum Error {
     #[cfg(feature = "parse")]
     #[error("not an LLTP problem: {0}")]
     Lltp(String),
+    /// The input is not a TPTP problem of propositional logic, for the
+    /// reason given.
+    #[cfg(feature = "parse")]
+    #[error("not a TPTP problem: {0}")]
+    Tptp(String),
+    /// The translation does not decide the logic: the affine one decides
+    /// classical logic, the others intuitionistic and minimal logic.
+    #[error("the {translation} translation does not decide {logic} logic")]
+    Translation {
+        /// The translation.
+        translation: crate::ordinary::Translation,
+        /// The logic.
+        logic: crate::ordinary::Logic,
+    },
+    /// An intuitionistic or minimal sequent has more than one formula
+    /// right of `⊢` (their number).
+    #[error("an intuitionistic sequent has at most one formula right of ⊢, not {0}")]
+    Succedents(usize),
+    /// A derivation read back from a linear proof is not one of LK or LJ,
+    /// for the reason given: a defect of this crate.
+    #[error("the proof read back is not a derivation of {calculus}: {reason}")]
+    ReadBack {
+        /// LK or LJ.
+        calculus: &'static str,
+        /// What is wrong, and at which inference.
+        reason: String,
+    },
     /// A proof node index (first) lies outside the arena (its length second).
     #[error("a proof refers to node {0}, but it has {1} nodes")]
     NodeIndexOutOfBounds(usize, usize),

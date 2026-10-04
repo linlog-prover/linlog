@@ -180,7 +180,7 @@ impl Sequent {
     }
 
     /// Sorts the root indices and checks that each names a term.
-    fn optimize_roots(&mut self) -> Result<(), crate::Error> {
+    pub(crate) fn optimize_roots(&mut self) -> Result<(), crate::Error> {
         self.roots.sort();
         self.roots.shrink_to_fit();
         let Some(n) = self.roots.last() else {
@@ -200,7 +200,7 @@ impl Sequent {
     /// Drops the terms no root formula reaches and merges equal terms, keeping
     /// the arena topologically sorted. Fails if an index breaks that order or
     /// points outside the arena.
-    fn optimize_terms(&mut self) -> Result<(), crate::Error> {
+    pub(crate) fn optimize_terms(&mut self) -> Result<(), crate::Error> {
         let num_terms = self.terms.len();
 
         let mut reachable = vec![false; num_terms];
@@ -257,7 +257,7 @@ impl Sequent {
     }
 
     /// Merges atoms of the same name, numbered in order of first occurrence.
-    fn optimize_atoms(&mut self) -> Result<(), crate::Error> {
+    pub(crate) fn optimize_atoms(&mut self) -> Result<(), crate::Error> {
         use Term::*;
         let num_atoms = self.atoms.len();
         let mut atoms = Vec::<String>::with_capacity(num_atoms);

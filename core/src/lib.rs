@@ -107,6 +107,8 @@ pub mod lltp;
 pub mod nets;
 /// The occurrence forest of a sequent and sets over it.
 pub mod occurrences;
+/// Ordinary propositional logic through its embeddings into linear logic.
+pub mod ordinary;
 /// Parsing sequents from text.
 #[cfg(feature = "parse")]
 mod parse;
