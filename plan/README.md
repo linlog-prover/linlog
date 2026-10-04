@@ -1922,3 +1922,25 @@ client follows it (step 32).
   identical at the split and at the end (99 decided rows, every
   verdict), at the same CPU time. Report: `reports/26-focused-engine.md`
   (first part). Next: the review of the first session, then the second.
+- 2026-10-04: while step 26's first session ran, on the author's
+  question whether an unprovable sequent can be certified in Rocq: step
+  31 takes the cheap refutation certificates (item 8: the search's
+  invariants `Unbalanced` and `Equation`, the classical reading with a
+  falsifying assignment, classical "not valid" of ordinary logic over
+  `Prop`), and `later.md` ("Certified refutations") keeps the escalations
+  as goals (Kripke countermodels, finite phase models, failure
+  certificates with a verified checker, a decision procedure by
+  reflection). Committed from a second jj workspace so that the
+  session's working copy was not touched, and rebased under the
+  session's commits at its review.
+- 2026-10-04: review of step 26's first session, accepted without a fix.
+  Checked: the tests, clippy, both `cargo hack` runs, `cargo deny`,
+  `nix flake check`; the target set run again by the review (every
+  verdict, and every counter of the decided rows, equal to
+  `after-bias.csv`); ten faults of the review's own in a scratch copy of
+  the reference prover, each caught by the committed tests; the pool
+  after item 1's rewrite on the 57 problems only a pool decided, the
+  ILTP images and `CLL` (no contradiction, no verdict lost to the
+  rewrite). The second session first repeats the pool's comparison with
+  one thread at recursion limits 4 to 16, which ran before item 1.
+  Next: step 26's second session.

@@ -220,9 +220,12 @@ names for agentic coding of more than half an hour.
   to 3, the refactoring that claims no change: every commit keeps the
   target set's counters. It ends with the report's first part, and the
   planning session reviews it before the second session starts.
-- **The second session** starts from the report: items 4 to 6 (the
-  dispatch as data, the hot spots, every change of the search with its
-  panel), the profile at the end, and item 7.
+- **The second session** starts from the report and its review: first
+  the pool against one thread at recursion limits 4 to 16 again, on the
+  code as it stands (it ran before item 1 rewrote how a pool runs a
+  choice), then items 4 to 6 (the dispatch as data, the hot spots, every
+  change of the search with its panel), the profile at the end, and
+  item 7.
 
 Keep the step's items as a checklist in the report as you go, each with
 its state and its evidence. A session ends when its part of the list is

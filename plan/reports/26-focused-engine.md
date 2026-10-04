@@ -566,3 +566,39 @@ counterexample agent) belongs to the session that changes the search.
    and how a CPU profile is taken, in `.claude/rules/bench.md`)
 
 Nothing is pushed.
+
+## From the review of the first session
+
+Accepted without a fix. The commits were rebased onto "Plan: certified
+refutations, the cheap ones in step 31 and the rest as later goals",
+made while the session ran, without a conflict.
+
+- **Checked**: clippy, the tests (and `cargo test -p linlog`), both
+  `cargo hack` runs, `cargo deny`, `nix flake check`.
+- **The target set again**, by the review on the reviewed code
+  (`bench/targets.sh` on cores 2 and 3): every verdict of every row and
+  the counters of every decided row equal `after-bias.csv`, and the CPU
+  time is 1.009 times `after-values.csv`'s on the decided rows over
+  100 ms.
+- **Ten more faults** in a scratch copy of the reference, chosen by the
+  review and none of the session's eleven, each make the committed tests
+  fail. Five make it prove less (a `⊕` disjunct and a `&` component
+  dropped, `0L` and `1L` removed, `⊤` only alone); `!R` without its side
+  condition and an additive `⊗` make it prove more; the split with an
+  empty left part skipped and `⊸R` without its antecedent make it prove
+  less again. The review read the reference against the calculus too,
+  but it is the session's model, so the faults are the weightier
+  evidence.
+- **The pool after item 1**, which the counters of one thread do not
+  see: the 57 problems only the pool decided at step 24's review, the
+  ILTP images and `CLL`, with `--cores within` (one thread raced against
+  a pool, on four cores). No verdict against ILTP's statuses or the
+  one-thread runs, and the pool decided 14 problems more than one thread
+  per problem. Six Petri nets of the 57 were unknown at 2 s on the
+  slowest cores; on the same cores, three rounds each, the binary before
+  the step decided them in 14 of 18 runs and this one in 17 of 18, so it
+  is the time limit, not the rewrite.
+- **For the second session**: the comparison of the pool with one thread
+  at recursion limits 4 to 16 ran before item 1 rewrote how a pool runs
+  a choice. Repeat it on the code as it stands before the first change of
+  the search, so that a later difference is the change's.
