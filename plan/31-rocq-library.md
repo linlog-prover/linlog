@@ -63,6 +63,37 @@ proof term. The NanoYalla export stays exactly as it is.
    (`core/src/proofs/oracle.rs`, lists and no tables) is the closer text
    to translate.
 
+8. **Certified refutations, where one lemma makes them cheap** (the
+   author, 2026-10-04), a stage after the positive certificates of every
+   mode. An unprovable sequent gets a certificate when its reason is an
+   invariant every derivation keeps: the lemma is proved once over the
+   library's calculus, the certificate is a few numbers or an
+   assignment, and the kernel checks it by computation. The statement is
+   that the calculus does not derive the sequent, over its inductive,
+   never a negation over `Prop`, which Rocq cannot prove for a classical
+   theorem such as excluded middle. Three of them:
+   - `Refutation::Unbalanced` and `Refutation::Equation`, which the
+     search states today: an atom's literals cannot all meet in axioms,
+     and the count equation of the multiplicatives, each in exactly the
+     modes and fragments where the search relies on it.
+   - The classical reading: erase `!` and `?`, read `⊗` and `&` as
+     "and", `⅋` and `⊕` as "or", `⊸` as implication, `1` and `⊤` as true,
+     `0` and `⊥` as false; every derivable sequent, in every mode, is then
+     a tautology, so a falsifying assignment certifies. The search finds
+     none today: the exporter looks for one over the atoms, within a
+     bound it states, when the search answers unprovable, and says so
+     where none is found. This is how the note on LLTP's headers refuted
+     its nineteen files.
+   - Classical "not valid" from the ordinary layer needs no library: a
+     falsifying assignment proves `~ (forall a b : Prop, F)` by
+     instantiating the atoms with `True` and `False`, written by
+     `export::rocq::ordinary` beside its positive certificate.
+
+   What goes beyond these, the countermodels of the other logics, failure
+   certificates and a decision procedure in Rocq, is in `plan/later.md`
+   ("Certified refutations"), and the report says which of them the
+   library's shape makes easier.
+
 ## What comes later
 
 The proof term's API was settled by step 28, before the release. Cut

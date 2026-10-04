@@ -21,6 +21,7 @@ heading.
 | Cyclic MLL and the Lambek calculus | 36 | – |
 | First-order linear logic | 38 | wanted (D17). First-order MALL is NEXPTIME-complete (Lincoln and Shankar 1994 for membership) |
 | A Rocq library of linlog's own | 31 (after the release, D23) | named `linlog`, under `rocq/` (D20). The Mix reduction is machine-checked in Yalla without cut (`mix2_to_ll`); Yalla's general Mix is on its untagged master only; a Lean target exists now (`leanprover/cslib` has classical linear logic with units), deferred until after step 31 |
+| Certified refutations (2026-10-04) | 31 for the cheap ones (the search's invariants, the classical reading, classical "not valid" over `Prop`); the rest are goals for later | a negative answer certified by a lemma proved once and a small certificate; see the section of that name |
 | MALL proof nets | dropped | non-canonical or exponentially large: a display feature without a use |
 | A batch mode for the CLI | 24 | with LLTP input and the draft of the header report |
 | Ordinary logic through its embeddings | 25 (done) | the layer; termination on the image of a translation is deferred and assessed in step 25's report (the literature terminates on the intuitionistic side: Dyckhoff's LJT, loop-checked LJ): a loop check would refute 35 of ILTP's 274 problems, a step of its own if the author wants it; the follow-ups under "Follow-ups: ordinary logic" |
@@ -438,6 +439,54 @@ makes Rocq compute `permL_of_perm`, whose cost grows with the sequent's
 width (a chain of `ex_t_r` swaps if a wide sequent turns out slow), and
 identifier escaping writes non-ASCII as code points where Rocq would
 accept many Unicode letters.
+
+## Certified refutations
+
+The author asked on 2026-10-04 whether an unprovable sequent can be
+certified in Rocq other than by listing every derivation. It can, in
+three standard ways, and what is possible depends on the fragment: MALL
+is decidable and PSPACE-complete, affine linear logic with exponentials
+is decidable (Kopylov 1995), MELL's decidability is open and full
+linear logic is undecidable (Lincoln, Mitchell, Scedrov and Shankar
+1992), so no method certifies every refutation once exponentials
+appear. Every such statement is about a calculus as an inductive, never
+a negation over `Prop`: Rocq cannot prove `~ (forall P : Prop, P \/ ~ P)`,
+since excluded middle may be added to it consistently, but it can prove
+that LJ does not derive it.
+
+Step 31 takes the cheap ones (item 8 of its prompt): the invariants the
+search already states (`Unbalanced`, `Equation`), the classical reading
+with a falsifying assignment, and classical "not valid" of ordinary
+logic over `Prop`. The escalations, each a potential goal of its own:
+
+- **Kripke countermodels** for intuitionistic and minimal "not valid":
+  a deep embedding of LJ, the soundness of Kripke semantics proved once,
+  and a finite Kripke model as the certificate. linlog's route through
+  ILL produces none, so it needs a countermodel search of its own, most
+  naturally from a terminating calculus for intuitionistic logic
+  (Dyckhoff's G4ip, formalised in Coq by Férée and van Gool, CPP 2023),
+  which is also the loop check's alternative of step 25's report.
+- **Finite phase models** for MALL and the affine fragments: phase
+  semantics is complete for linear logic, and these fragments have the
+  finite model property (Lafont 1997; Okada and Terui 1999 for the
+  intuitionistic ones), so a finite model refutes every unprovable
+  sequent there. Its soundness is a short proof; finding a model is a
+  search of its own, and a model can be large. Research.
+- **Failure certificates with a verified checker**, the pattern by
+  which SAT solvers certify "unsatisfiable" (DRAT and LRAT, checked by
+  verified checkers such as cake_lpr): the focused engine records its
+  exhaustive failure as a DAG of its synchronous choices, the memo's
+  sharing kept, so that its size is the search's work and not the
+  number of derivations; a checker proved sound once accepts it. That
+  proof needs the completeness of the focused calculus for the
+  fragment, the largest proof in this list. MALL and affine mode first.
+- **Proof by reflection**: the decision procedure written in Rocq,
+  proved sound and complete, and run by the kernel. No certificate at
+  all, the largest development, and the kernel runs the whole search:
+  for small MALL instances, and G4ip for intuitionistic logic.
+- **With exponentials** a refutation is certified only where it rests
+  on a bound proved sufficient for the sequent, which is the loop check
+  or the bound for dyadic sequents of step 25's report.
 
 ## MALL proof nets
 
