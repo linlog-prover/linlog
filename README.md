@@ -423,7 +423,7 @@ reads a sequent: a sequent in JSON can share subformulas, so a file of
 occurrences, and is refused before anything unfolds it:
 
 ```console
-$ linlog seq fragment --json-input --file shared.json
+$ linlog seq fragment --file shared.json
 error: the sequent unfolds to 67108863 subformula occurrences, more than the limit of 50000000; raise it with --occurrence-limit
 ```
 
@@ -494,7 +494,7 @@ type, whose JSON form is what a web client will hold between requests.
 
 `linlog seq` prints a sequent one-sided in negation normal form, or
 two-sided as intuitionistic linear logic reads it, converts it to JSON
-(which `--json-input` reads back), or names its fragment:
+(which a `.json` file or `--input-format json` reads back), or names its fragment:
 
 ```console
 $ linlog seq print "A * B -o C |- ~C -o ~(A * B)"

@@ -434,11 +434,19 @@ pub struct SequentInput {
     #[arg(value_name = "SEQUENT", conflicts_with = "file")]
     pub sequent: Option<String>,
     /// Read the sequent from this file, or `-` for standard input
-    #[arg(short, long, value_name = "PATH")]
-    pub file: Option<PathBuf>,
-    /// Read the sequent as JSON, as `seq json` writes it, instead of as text
-    #[arg(long)]
-    pub json_input: bool,
+    ///
+    /// The file's kind is its extension's unless --input-format says
+    /// otherwise: `.p` an LLTP problem, `.json` a JSON sequent, anything
+    /// else the text syntax, which may span lines. `prove` takes the flag
+    /// more than once, and a directory, as a batch.
+    #[arg(short, long, value_name = "PATH", action = clap::ArgAction::Append)]
+    pub file: Vec<PathBuf>,
+    /// How to read the input, rather than by the file's extension
+    ///
+    /// `lines`, `jsonl` and `problems` hold many sequents, which `prove`
+    /// decides as a batch.
+    #[arg(long, value_enum, value_name = "FORMAT", default_value_t = InputFormat::Auto)]
+    pub input_format: InputFormat,
     /// The most subformula occurrences the sequent may have, or `none`
     ///
     /// A sequent in JSON can share subformulas, so a small file may stand
@@ -447,6 +455,52 @@ pub struct SequentInput {
     /// search, and no limit lets through more than about four billion.
     #[arg(long, value_name = "N", value_parser = parse_most, default_value_t = Most::default())]
     pub occurrence_limit: Most,
+}
+
+/// How an input is read.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputFormat {
+    /// By the file's extension: `.p` lltp, `.json` json, else text
+    Auto,
+    /// One sequent in the text syntax, which may span lines
+    Text,
+    /// One sequent in JSON, as `seq json` writes it
+    Json,
+    /// A problem of the LLTP library: its axioms ⊢ its conjecture; the file
+    /// does not say whether it is intuitionistic, the flags do
+    Lltp,
+    /// One sequent per line in the text syntax, as `NAME: SEQUENT` or
+    /// `SEQUENT`; blank lines and everything from `#` on are skipped
+    Lines,
+    /// One JSON value per line: a sequent as `seq json` writes it, or
+    /// {"name": …, "mode": …, "sequent": …} with the sequent in JSON or as
+    /// text and the mode named as in `problems`; blank lines are skipped
+    Jsonl,
+    /// The benchmark harness's problem files: `NAME; MODE; EXPECTED;
+    /// COPIES; SEQUENT` per line, MODE one of classical, mix, affine,
+    /// intuitionistic or intuitionistic-affine; EXPECTED and COPIES are
+    /// not read
+    Problems,
+}
+
+impl InputFormat {
+    /// Returns the format of a file: this one, or for `Auto` the one its
+    /// extension names.
+    pub fn of(self, path: &std::path::Path) -> Self {
+        if self != Self::Auto {
+            return self;
+        }
+        match path.extension().and_then(|e| e.to_str()) {
+            Some("p") => Self::Lltp,
+            Some("json") => Self::Json,
+            _ => Self::Text,
+        }
+    }
+
+    /// Whether an input in the format holds many sequents.
+    pub fn is_many(self) -> bool {
+        matches!(self, Self::Lines | Self::Jsonl | Self::Problems)
+    }
 }
 
 /// The most occurrences a sequent may have, or none for no limit but the

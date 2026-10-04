@@ -48,7 +48,7 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     let state = match &args.state {
         Some(path) => load(path)?,
         None => {
-            if args.input.sequent.is_none() && args.input.file.is_none() {
+            if args.input.sequent.is_none() && args.input.file.is_empty() {
                 bail!(
                     "no sequent given: pass it as an argument or with --file, since standard input carries the commands"
                 );

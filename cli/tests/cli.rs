@@ -187,7 +187,7 @@ fn limits_on_memory_and_occurrences() {
         &["seq", "print"],
         &["seq", "fragment"],
     ] {
-        let (status, out, err) = linlog(&[command, &["--json-input"]].concat(), &shared);
+        let (status, out, err) = linlog(&[command, &["--input-format", "json"]].concat(), &shared);
         assert_eq!(
             (status, out.as_str(), err.as_str()),
             (
@@ -803,7 +803,7 @@ fn seq_commands() {
         "{\"terms\":[{\"D\":0},{\"V\":0},{\"D\":1},{\"⊗\":[1,2]},{\"V\":1}],\
          \"ids\":[0,3,4],\"var_dict\":[\"A\",\"B\"]}\n"
     );
-    let printed = linlog(&["seq", "print", "--json-input"], &json);
+    let printed = linlog(&["seq", "print", "--input-format", "json"], &json);
     assert_eq!(printed, (0, "⊢ ~A, A ⊗ ~B, B\n".into(), String::new()));
     let fragment = linlog(&["seq", "fragment", "--file", "-"], "A & B |- 1");
     assert_eq!(fragment, (0, "MALL\n".into(), String::new()));

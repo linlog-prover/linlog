@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::argument_parsing::SequentInput;
+use crate::argument_parsing::{InputFormat, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::{Forest, Sequent};
 use std::fs;
@@ -29,34 +29,61 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
     }
 }
 
+/// Returns the sequent `text` holds in `format`, one of the formats of a
+/// single sequent: text (a parse error points into `text`), JSON or an
+/// LLTP problem.
+pub fn sequent_in(text: &str, format: InputFormat) -> Result<Sequent> {
+    match format {
+        InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
+        InputFormat::Lltp => Ok(linlog::lltp::read(text)
+            .context("not an LLTP problem")?
+            .sequent),
+        _ => text.parse().map_err(|e| crate::parse_error(text, e)),
+    }
+}
+
+/// Refuses a sequent that unfolds to more than `most` occurrences, before
+/// any command unfolds or prints it.
+pub fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
+    let occurrences = sequent.occurrences();
+    if occurrences > most {
+        bail!(
+            "the sequent unfolds to {} subformula occurrences, more than the limit of {most}; \
+             raise it with --occurrence-limit",
+            if occurrences == u64::MAX {
+                "more than 10¹⁹".to_owned()
+            } else {
+                occurrences.to_string()
+            },
+        );
+    }
+    Ok(sequent)
+}
+
 impl SequentInput {
-    /// Reads the sequent from the argument, the file or standard input, as
-    /// text or as JSON.
+    /// Reads the one sequent from the argument, the file or standard
+    /// input, in the format the flag or the file's extension names.
     pub fn sequent(&self) -> Result<Sequent> {
-        let text = match &self.sequent {
-            Some(text) => text.clone(),
-            None => read(self.file.as_deref(), "sequent")?,
+        if self.file.len() > 1 {
+            bail!("this command reads one sequent: give --file once");
+        }
+        let file = self.file.first().map(PathBuf::as_path);
+        let format = match file {
+            Some(path) if path != Path::new("-") => self.input_format.of(path),
+            _ => self.input_format,
         };
-        let sequent: Sequent = if self.json_input {
-            serde_json::from_str(&text).context("not a sequent in JSON")?
-        } else {
-            text.parse().map_err(|e| crate::parse_error(&text, e))?
-        };
-        // Refused here, before any command unfolds or prints it.
-        let occurrences = sequent.occurrences();
-        if occurrences > self.most() {
+        if format.is_many() {
+            let name = clap::ValueEnum::to_possible_value(&format).expect("no value is skipped");
             bail!(
-                "the sequent unfolds to {} subformula occurrences, more than the limit of {}; \
-                 raise it with --occurrence-limit",
-                if occurrences == u64::MAX {
-                    "more than 10¹⁹".to_owned()
-                } else {
-                    occurrences.to_string()
-                },
-                self.most()
+                "--input-format {} holds many sequents, which `prove` reads as a batch",
+                name.get_name()
             );
         }
-        Ok(sequent)
+        let text = match &self.sequent {
+            Some(text) => text.clone(),
+            None => read(file, "sequent")?,
+        };
+        admit(sequent_in(&text, format)?, self.most())
     }
 
     /// Returns the most occurrences the sequent may have.
