@@ -43,7 +43,10 @@ Workspace crates:
   (`style.rs`); `--tree
   auto|always|never` prints the text tree on a terminal only where it
   fits, `--derivation-limit SIZE|none` bounds the derivation any format
-  builds (the verdict and its exit status stand without it), and
+  builds (the verdict and its exit status stand without it),
+  `--compact auto|always|never` draws a run of one structural rule as
+  one starred inference (by default where the whole tree is over the
+  limit or does not fit the terminal), and
   `--no-check` skips the check every proof otherwise passes. The tree and its
   `--help` text are the doc comments in `argument_parsing.rs`; `prove.rs`
   runs the search on a thread sized from `--recursion-limit` and owns the
@@ -115,7 +118,10 @@ and no verdict),
 names, whose `Display` draws the tree, `derivation_size(two_sided)` for
 the `Size` of either without building it, and `derivation_with(&view,
 stop)` under a `ViewOptions` (the bound on the estimated size that every
-path which builds a derivation honours, `ViewError::TooLarge` beyond it);
+path which builds a derivation honours, `ViewError::TooLarge` beyond it,
+and `compact`, which draws a run of one structural rule as one inference
+with `Inference::times`, by default where the whole derivation is over a
+bound);
 and `prove(&sequent, mode,
 &options)` (or `prove_until` with a stop closure, which every engine
 polls wherever it can spend time: `.claude/rules/core.md` lists the
@@ -169,8 +175,9 @@ does not apply.
 `export::latex` and `export::typst` (features of the same names) write
 `sequent(&sequent, &options)`, `two_sided(&reading, &options)` and
 `derivation(&derivation, &options)` (finished or with open goals) as
-LaTeX for ebproof and Typst for curryst, a fragment or a standalone
-document by `Options::form`, choosing no font; `export::svg` (feature
+LaTeX for ebproof and Typst for curryst, or above `CURRYST_HEIGHT` in a
+Typst layout of linlog's own (`typst::Layout`), a fragment or a
+standalone document by `Options::form`, choosing no font; `export::svg` (feature
 `svg`) draws `sequent`, `two_sided`, `derivation` and `net` with a
 `Style` (the font and its advances, Euler Math by default, labels, the
 open goal's shape, ids per formula, sizes, gaps, colours; presets
@@ -178,7 +185,8 @@ open goal's shape, ids per formula, sizes, gaps, colours; presets
 writes `derivation(&derivation, &options)` as a Rocq lemma with its
 proof script for NanoYalla (`NANOYALLA` is the version), the lemma or a
 file starting with `Options::prelude`, named by `Options::lemma`,
-refusing an open goal, Mix and affine weakening with `Unsupported`.
+refusing an open goal, Mix, affine weakening and a compact derivation
+with `Unsupported`.
 Every output has one options value with serde (D15; the text tree's is
 `TextOptions`), the rule labels are one table per convention (`Labels`,
 `proofs/style.rs`), and every one writes a derivation through one

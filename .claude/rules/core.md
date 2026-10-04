@@ -557,8 +557,9 @@ most bytes of `Size::bytes()` a derivation may be estimated at,
 `DEFAULT_LIMIT` 64 MiB, `None` for no bound; and `memory`, the most
 bytes the making of one may hold, `DEFAULT_MEMORY_LIMIT`, `None` for no
 bound, which bounds every pass of the checker on the way and the
-derivation by the same estimate. `UNBOUNDED` lifts `limit` and keeps the
-default `memory`; `UNBOUNDED.memory(None)` is no bound at all). `unfold`
+derivation by the same estimate; and `compact`, above. `UNBOUNDED` lifts
+`limit` and keeps the default `memory`; `UNBOUNDED.memory(None)` is no
+bound at all). `unfold`
 is the one place derivations are made, for `Derivation::new`,
 `two_sided` and `of_goal` alike: the size first, always (a pass of the
 checker); `ViewError::TooLarge { size, limit }` past `limit`, else
@@ -585,6 +586,47 @@ proved it; what it then tells the user is the front end's to say. The
 builder needs no stack to speak of, so a front end on a small one (the
 web) builds what the bounds allow; `Size::height` is what it asks to
 know whether a tree fits a view.
+
+**The compact view** (`ViewOptions::compact`, `Compact::Auto` by
+default, `Always`, `Never`; `Inference::times`, how many applications of
+its rule an inference stands for). What the code relies on:
+- **A run is merged where it is made**: in `Build::infer`, a structural
+  rule (`Rule::is_structural`: `?w`, `?c`, `wk`, `!w`, `!c`, compared
+  after the intuitionistic renaming) whose one premise has the same rule
+  replaces that premise in place and adds to its `times`. The premise of
+  a rule with one premise is the subtree finished last, so it is the last
+  inference (debug-asserted), and the order "premises before
+  conclusions, root last" holds. The principal is the lowest
+  application's. The weakenings above a `&` premise and the contractions
+  below a `⊗` become one inference without a sequent per step
+  (`Multiset::sum`, `difference`), and a chain of `?` steps that weaken
+  (through the `?` steps whose formula is used above, which are no
+  inference) is walked in one go (`weaken_run`): a sequent per node of a
+  chain of 65 000 `?` steps over a sequent of 65 000 formulas is 17 GB
+  of copying.
+- **`Auto` compacts only where the whole derivation is over a bound, and
+  only under a bound in bytes.** The size pass also returns what a
+  compact view holds at least (`size::Firm`: the inferences that are no
+  weakening or contraction and their bytes, which compaction never
+  changes); an attempt is refused at once when that is over the bound or
+  over `Derivation::MOST`. Otherwise the builder counts what it holds by
+  `Size::bytes`'s estimate (`Held`) and gives up at the bound with the
+  whole derivation's error, so a failed attempt costs at most the bound.
+  Without any bound in bytes `Auto` does not try at all: an attempt on
+  `tower(70)` (2⁷⁰ inferences, both bounds lifted, `TooMany` expected)
+  had nothing to end it, and the test run took the machine's memory
+  until it froze. `Always` without a bound is the caller's explicit
+  request. `Never` is the old behaviour exactly.
+- **Never compact**: a graft (`of_goal` forces `Never`: the session reads
+  it rule by rule, and `proof()` would translate a run wrongly), the
+  interactive state's own derivation (its inferences are made one rule
+  at a time), and a Rocq certificate (`Unsupported::Compact`: a run names
+  one formula; the command builds Rocq's derivation with `Never`).
+- The label of a run is the rule's label and `*` (`Labels::of`, `RUN`),
+  `write_steps` says `by ?w 3 times`, the text tree's `bars` have a
+  second half for runs. On a terminal the command tries the compact tree
+  when the whole one does not fit (`--compact auto`), and lays out
+  whichever it builds before it decides.
 
 `Rule::Open` is the rule of an open goal in the derivation of a proof in
 progress (below) and appears nowhere else; `Rule::classical` maps every
@@ -2222,7 +2264,8 @@ for NanoYalla. What the code relies on:
   `UPRIGHT`, `SUBSCRIPT`, indexed by `rule as usize` in the order of
   `Rule::ALL`, plus the user's `Labels::Table`), written in a markup
   that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`,
-  `_x`/`_{xy}` subscripts, other text upright; `latex::label`,
+  `_x`/`_{xy}` subscripts, `*` a superscript star where the target sets
+  one (the mark of a run), other text upright; `latex::label`,
   `typst::label`, `svg::label`, `style::plain` for text). The upright
   table read as plain text is `Rule::name` exactly, and
   `Rule::from_str(rule.name())` is the rule, for every rule
@@ -2259,12 +2302,32 @@ for NanoYalla. What the code relies on:
   `upright(L)` (a string in math keeps the space before it). Only the
   two-sided LaTeX tree aligns turnstiles (`&\vdash`); a one-sided
   sequent would align at its left edge, so it stays centred.
-- **Limits of the packages, not of the emitters**: Typst 0.15 refuses a
-  curryst 0.6.0 tree more than about eleven inferences high ("maximum
-  show rule depth exceeded": curryst nests several layout elements per
-  level), while ebproof compiled a 120-high tree; TeX fails with
-  "Arithmetic overflow" on a sequent line wider than its largest
-  dimension (about 5.7 m). Neither can be fixed in the output.
+- **Limits of the packages, not of the emitters**: Typst 0.15.1 refuses
+  a curryst 0.6.0 tree ("maximum show rule depth exceeded": curryst nests
+  several layout elements per level) ten inferences high with a binary
+  rule on the branch (nine compiles, measured on chains of `⊗` with a
+  leaf on either side and on full binary trees), while chains of
+  one-premise rules compile at thirteen; `typst::CURRYST_HEIGHT` is 9
+  for that reason, and moves with the two versions. ebproof compiled a
+  120-high tree; TeX fails with "Arithmetic overflow" on a sequent line
+  wider than its largest dimension (about 5.7 m), which no layout fixes.
+- **linlog's own Typst layout** (`typst::Layout`, `Auto` by default:
+  curryst up to `CURRYST_HEIGHT`, the own layout above; `LAYOUT`): the
+  output lists the inferences in preorder as `(premises, label,
+  conclusion)` (`none` premises for an open goal, drawn as `open` says)
+  and then a fixed script in a `#context` block that measures every
+  sequent and label, lays the tree out as `svg/tree.rs` does (widths
+  bottom-up over the reversed preorder with a stack, positions top-down),
+  and places every piece in one `box` with `place`. Nothing is nested
+  per level, which is what makes any height compile (41 in the `high`
+  snapshot). Rows share a baseline: a sequent's ascent is its measured
+  height less its depth, and the depth is what a strut of `3em` placed
+  before it adds to the height. Typst code joins the value of every
+  expression statement into the output, so a `pop()` whose value is not
+  wanted is `let _ = …pop()`, and a closure cannot change a captured
+  variable (loops instead of `map`). The spacing fields (`premise_gap`,
+  `label_gap`, `band`, `stroke`) are Typst lengths written verbatim, as
+  `import` and `page` are; their defaults are curryst's.
 - **Snapshots**: `core/tests/export.rs` pins standalone documents in
   `core/tests/snapshots/` (`BLESS=1` rewrites them); the flake's `export`
   check compiles exactly those files plus two CLI outputs with pdfLaTeX

@@ -234,6 +234,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   would hold for a small proof minus the tree. In a session the line is
   the command's output, and a `close` whose graft is refused leaves the
   goal open.
+- **`--compact`** (`CompactArg`, onto `ViewOptions::compact`, on `prove`
+  and `check`) draws a run of one structural rule as one starred
+  inference: `auto` (the default) where the whole derivation is over
+  `--derivation-limit` or the memory bound, or, as a text tree on a
+  terminal, where the whole tree's `Size` does not fit (`derivation`
+  then builds with `Compact::Always` and the second fit test decides on
+  the compact tree). Rocq's derivation is always built with
+  `Compact::Never`, since a certificate names every formula it weakens.
+  The session has no flag: its grafts are never compact.
 - **A text tree that does not fit the terminal is not printed** (`--tree
   auto`, the default; `Show::fit`): when standard output is a terminal,
   there is no `--output` and the format is `text`, the tree is printed

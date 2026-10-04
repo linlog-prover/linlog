@@ -372,6 +372,22 @@ $ cat verdict.txt
 provable (MLL, classical, net engine)
 ```
 
+A run of one structural rule, such as the weakenings of every `?`
+formula a proof does not use, can be drawn as one inference whose label
+has a star: `--compact always` does so in every format but Rocq, and the
+default, `--compact auto`, does so where the whole derivation would pass
+`--derivation-limit` or not fit the terminal; `--compact never` draws
+every rule.
+
+```console
+$ linlog prove -i --compact always '!A, !B, !C |- 1'
+provable (IMELL, intuitionistic, two-sided engine)
+     ─── 1R
+     ⊢ 1
+────────────── !w*
+!A, !B, !C ⊢ 1
+```
+
 `--timeout` and Ctrl-C hold while a derivation is built and written as
 they do during the search, and an `--output` file holds a whole output or
 is left as it was.
@@ -523,9 +539,29 @@ $⊢ (A ⊗ B) ⊗ C^⊥, C ⅋ (A^⊥ ⅋ B^⊥)$
 to the tree. Neither form chooses a font: the output takes the fonts of
 the document it goes into. `pdflatex` needs the ebproof, cmll, amsfonts
 and standalone packages, and `typst compile` fetches curryst 0.6.0 on
-first use. Typst
-refuses a curryst tree more than about eleven inferences high; the LaTeX
-tree has no such limit.
+first use. Typst refuses a curryst tree with binary rules more than nine
+inferences high, so a higher tree is written in a layout of linlog's own
+instead: a `#context` block that lists the inferences and the Typst code
+that measures and places them, which needs no package and sets a tree of
+any height. `--style layout=linlog` asks for it at any height,
+`layout=curryst` for curryst always, and `premise_gap`, `label_gap`,
+`band` and `stroke` set its spacing:
+
+```console
+$ linlog prove --format typst --style layout=linlog "A & B |- A + B" | head -12
+// provable (ALL, classical, additive engine)
+#context {
+  let open = "dots"
+  let gap = (1.5em).to-absolute()
+  let name-gap = (0.2em).to-absolute()
+  let band = (0.8em).to-absolute()
+  let stroke = 0.05em
+  let dots = $dots.v$
+  let nodes = (
+    (1, $⊕_1$, $⊢ A^⊥ ⊕ B^⊥, A ⊕ B$),
+    (1, $⊕_1$, $⊢ A^⊥, A ⊕ B$),
+    (0, $"ax"$, $⊢ A^⊥, A$),
+```
 
 ```console
 $ linlog prove --format latex --standalone --output proof.tex "!A |- A * !A"
@@ -534,7 +570,9 @@ $ pdflatex proof.tex
 
 Names of more than one letter are set in italics (`\mathit{foo}`,
 `italic("foo")`), with the characters LaTeX or Typst treat specially
-escaped. In `interact`, `show --latex` and `show --typst` draw the
+escaped; LaTeX writes Greek letters as their commands (`\alpha`) and the
+`‿` and `·` of the names read from the LLTP library as `\smallsmile` and
+`\cdotp`, so that pdfLaTeX compiles them. In `interact`, `show --latex` and `show --typst` draw the
 derivation so far, an open goal as its sequent under vertical dots.
 
 `--format svg` draws the derivation as an SVG image instead, and with
@@ -824,11 +862,13 @@ Built:
   goal, translation of the finished derivation into a term the checker
   validates, and a JSON form of the session.
 - Export of sequents and derivations, finished or in progress, to LaTeX
-  (ebproof proof trees) and Typst (curryst proof trees), as fragments or
-  standalone documents that choose no font, and drawings of sequents,
+  (ebproof proof trees) and Typst (curryst proof trees, and trees of any
+  height in a layout of linlog's own), as fragments or standalone
+  documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG, laid out with the character widths
-  of the Euler Math font (or another font's), a switching cycle of an
-  incorrect net highlighted, with a reading for screen readers, and
+  of the Euler Math font (or another font's), a switching cycle or the
+  parts of a disconnected structure highlighted, with a reading for
+  screen readers, and
   rendered as PNG and as archival (PDF/A-4, PDF/A-2u) or accessible
   (PDF/UA-1) PDF.
 - Output configured through the library: one options value per format,
@@ -868,8 +908,10 @@ Built:
   limits, Ctrl-C, statistics, JSON output, proof nets, LaTeX, Typst,
   SVG and Rocq output, and `--jobs`, `--pool-after` and `--deterministic`
   for the search;
-  a proof tree is printed on a terminal where it fits, and a derivation
-  past `--derivation-limit` is left out with a line that says so.
+  a proof tree is printed on a terminal where it fits, a run of one
+  structural rule is drawn as one inference where the whole tree would
+  not fit or pass `--derivation-limit`, and a derivation past the limit
+  either way is left out with a line that says so.
 - Benchmarks: a reader for the problems of the LLTP library, generated
   families with known verdicts (the hard families of the literature and
   the cases where one engine is known to be slow), and `linlog-bench`,
@@ -882,7 +924,6 @@ Built:
 
 Planned, in roughly this order:
 
-- Typst trees of any height, and a compact view of large derivations.
 - A batch mode: many sequents per call, from files, directories and
   standard input, in the LLTP library's format as well.
 - Ordinary classical, intuitionistic and minimal propositional logic
