@@ -98,7 +98,12 @@ Current contents:
   HEAD. `env` also raises `CLAUDE_CODE_MAX_OUTPUT_TOKENS` to 128000, the
   most a current model produces in one reply: the default of 64000 counts
   thinking and text together, and a session that designs a whole module in
-  one turn can exceed it, which discards the turn. It also enables the
+  one turn can exceed it, which discards the turn. And it maps the `sonnet`
+  alias to `claude-sonnet-5-5` (`ANTHROPIC_DEFAULT_SONNET_MODEL`), so that
+  a workflow agent or a sub-agent that names `sonnet` (the panels'
+  integers reviewer, `crate-source-explorer`) runs Sonnet 5.5: without it
+  the Claude Code of 2026-10-04 resolved the alias to Sonnet 5, and one
+  that predates Sonnet 5.5 warns that the id is not in its catalog. It also enables the
   `rust-analyzer-lsp` plugin (code intelligence;
   needs `rust-analyzer` on PATH, which the devshell provides).
 
