@@ -170,30 +170,30 @@ has no or-choices worth sharing out). What the code relies on:
   that is not a stop caused by cancellation (a worker's `Stopped` is
   ignored only when the choice's own `cancel` flag is raised), else a
   failure with the cuts (`focus::Cuts`) of the alternatives that ran to
-  their end (`Collected::take`). What one thread and a pool still do
-  differently is the cuts of a proof: one thread's proof carries those
-  of the alternatives it tried before (as the engine-wide flags did),
-  the pool's carries none of its alternatives', and at a `&` whose left
-  premise was proved and right one failed, one thread returns both
-  premises' cuts and the pool the failed one's. Both are sound, since a
-  proof makes the cuts of its failed siblings irrelevant to any failure
-  above it; making one thread drop them too changes its memo entries,
-  hence its counters, and is a change of the search. For `&`, a failed
-  premise decides, both premises' cuts count when both were proved
-  (`with_parallel`). Success raises `cancel` at an
-  or-node, failure or error at the `&`. A premise that the other's
-  error cancelled returns `Stopped`, which gives way to that error in
-  the `&`'s result as it does in `Collected::take`: the match took the
-  left premise's reason first, so a right premise at the recursion
-  limit made the pool answer `Unknown (Stopped)` with no stop fired
-  (a review's finding; `a_cancelled_premise_is_no_stop`). What stays:
-  an error of one premise cancels the other, so the pool answers
-  `RecursionLimit` where the left premise would have failed and one
-  thread, which never starts the right one, answers `Unprovable`; and
-  a premise's result raises the flag only once its worker has left its
-  nested scopes, where a waiting thread may have stolen a task of the
-  sibling premise that nothing cancels until then (seen once: an answer
-  that came only with the caller's stop, five seconds late). A worker inserts into the memo
+  their end (`Collected::take`). **A proof carries no cuts**, on one
+  thread as on the pool (`Found` is a proof or a failure with its cuts):
+  a failure after a proved premise or alternative rests on its own cuts
+  alone. Until step 26 one thread's proof carried those of the
+  alternatives tried before it and a proved premise's cuts went into
+  its sibling's failure, which was sound and less decisive at the copy
+  bound. For `&`, a failed premise decides, whatever the other found.
+  Success raises `cancel` at an or-node, **failure alone at the `&`**:
+  a premise that gives up (the recursion limit, the memory bound) does
+  not cancel the other, whose failure still decides the rule, as it
+  does on one thread when it is the left premise; it cancelled it
+  before, so the pool answered `RecursionLimit` where one thread answered
+  `Unprovable` (`a_premise_that_gives_up_cancels_no_other`). A premise
+  stopped by an ancestor's flag returns `Stopped`, which gives way to
+  the other's reason in the `&`'s result as it does in
+  `Collected::take`. **What stays**: a premise's failure raises the flag
+  only once its worker has left its nested scopes, where a waiting
+  thread may have stolen a task of the sibling premise that nothing
+  cancels until then (seen once: an answer that came only with the
+  caller's stop, five seconds late); the stolen task polls the `&`'s
+  flag, but the failed premise's continuation runs only after the stolen
+  task returns, on the same stack, and a choice's failure inside the
+  premise implies the premise's only in tail position, so raising the
+  flag earlier needs that knowledge passed down. A worker inserts into the memo
   only what its own `prove_stable` decided, so a cancelled worker leaves
   facts and nothing half-done.
 - **The shared memo is 64 shards of the sequential `Memo`** behind one

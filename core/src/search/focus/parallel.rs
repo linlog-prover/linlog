@@ -462,10 +462,9 @@ impl<'a> Engine<'a> {
 
     /// The `&` rule on the pool: the left premise on a worker on this
     /// thread, the right one on a worker of the pool, the first to fail
-    /// or to give up cancelling the other, whose stop then gives way to
-    /// the first one's reason; an engine that is stopped already starts
-    /// neither. The cuts of a premise count when it ran to its end and
-    /// the other did not fail before it.
+    /// cancelling the other; a failure of either is the rule's, else a
+    /// premise's reason for giving up, a stop giving way to any other.
+    /// An engine that is stopped already starts neither.
     pub(super) fn with_parallel(
         &mut self,
         theta: &OccSet,
@@ -485,12 +484,14 @@ impl<'a> Engine<'a> {
         let spawn = self.spawn(self.or_depth);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
         let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
-        // A premise on a worker, which cancels the other unless it is
-        // proved.
+        // A premise on a worker, which cancels the other when it fails:
+        // the rule fails then, whatever the other finds. A premise that
+        // gives up does not cancel the other, whose failure would still
+        // decide the rule, as it does on one thread when it is the left.
         let search = |worker: &mut Engine<'_>, sub: OccId| {
             let result = worker.premise(theta, gamma, list, sub, budget);
             let result = worker.exported(result);
-            if !matches!(result, Ok(Found::Proved(_))) {
+            if matches!(result, Ok(Found::Failed(_))) {
                 cancel.store(true, Ordering::Relaxed);
             }
             result
@@ -668,28 +669,26 @@ mod tests {
         );
     }
 
-    /// A premise of a `&` that ends at the recursion limit cancels the
-    /// other, and the answer names that limit, not a stop nobody asked
-    /// for: the right premise's chain of `⊕` is forty deep under a limit
-    /// of 24, while the left one's refutation under Mix takes a thousand
-    /// times as long.
+    /// A premise of a `&` that ends at the recursion limit cancels
+    /// nothing: the other premise's refutation decides the rule, as on one
+    /// thread, which searches the left premise first, and the answer is
+    /// neither the limit nor a stop nobody asked for. The right premise's
+    /// chain of `⊕` is forty deep under a limit of 24, while the left
+    /// one's refutation under Mix takes a hundred times as long.
     #[test]
-    fn a_cancelled_premise_is_no_stop() {
+    fn a_premise_that_gives_up_cancels_no_other() {
         let chain = format!("{}0{}", "(0 + ".repeat(40), ")".repeat(40));
-        let pairs: Vec<String> = (0..7)
+        let pairs: Vec<String> = (0..6)
             .map(|i| format!("(a{i} * b{i}) + 0, (~a{i} * ~b{i}) + 0"))
             .collect();
         let sequent: Sequent = format!("|- bot & {chain}, {}", pairs.join(", "))
             .parse()
             .unwrap();
-        for jobs in [2, 4] {
+        for jobs in [1, 2, 4] {
             let options = Options::default().recursion_limit(24).jobs(jobs);
             let outcome = prove(&sequent, Mode::CLASSICAL.with_mix(), &options).unwrap();
             assert!(
-                matches!(
-                    outcome.verdict,
-                    Verdict::Unknown(Reason::RecursionLimit) | Verdict::Unprovable(_)
-                ),
+                matches!(outcome.verdict, Verdict::Unprovable(_)),
                 "{:?} on {jobs} threads",
                 outcome.verdict
             );
