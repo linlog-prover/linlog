@@ -1907,3 +1907,18 @@ client follows it (step 32).
   for the panel's argument read, the audit's soundness lens and the
   judge of the API note, and at `xhigh` for the Rocq checker's proof.
   Prompts 28 and 33 to 38 and the commands say so.
+- 2026-10-04: step 26, first session (Opus 5.5 at xhigh; sub-agents for
+  the profile, the measurements and the reference's review): the
+  reference prover in the repository (`search::reference`, the plain
+  unfocused calculus, test-only), reviewed before it judged (no wrong
+  answer; its work bound fixed) and checked by eleven deliberate faults,
+  all caught; every engine agrees with it. The profile of the 44 slow
+  rows of the target set and every case of item 6, measured before any
+  change. Items 1 to 3 without a change of the search: the cuts as
+  values, each rule once for one thread and the pool, one constructor
+  of an engine; `focus/mod.rs` cut into six files; the `Decide`
+  interface with one place that builds a verdict, the options each
+  engine reads documented, a goal's roots in any order. The target set
+  identical at the split and at the end (99 decided rows, every
+  verdict), at the same CPU time. Report: `reports/26-focused-engine.md`
+  (first part). Next: the review of the first session, then the second.

@@ -422,3 +422,36 @@ $H/heaptrack_print -f OUT.zst -t 0 -p 0 -a 0 -T 0 --flamegraph-cost-type peak -F
 - A run under heaptrack is slower by the allocations it makes, so a
   profile of five seconds is not five seconds of search: compare bytes
   per entry and allocations per stable sequent, not totals.
+
+## CPU profiles
+
+What the search spends its time on is read with perf from the flake's
+nixpkgs, as text (`perf report`), never as a drawing:
+
+```sh
+CARGO_PROFILE_RELEASE_DEBUG=true cargo build --release --locked -p linlog-bench --target-dir target/symbols
+P=$(nix build --no-link --print-out-paths --inputs-from . nixpkgs#perf)/bin
+systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 taskset -c 10 \
+  $P/perf record -e cpu_atom/cycles/u -F 999 --call-graph lbr -o OUT.data \
+  target/symbols/release/linlog-bench one --problem P --mode given --engine auto --jobs 1 --timeout 5
+$P/perf report -i OUT.data --no-children --sort symbol --stdio   # self time
+```
+
+- **LBR call stacks, not DWARF**: perf 7.2.8's libdw unwinder takes a
+  wrong load bias for this binary (lld puts the text segment at its file
+  offset plus a page), so two thirds of the samples fail to unwind and
+  the rest stop after a frame or two. LBR stacks are exact but 32 calls
+  deep: self time and the callers of a leaf are right, the inclusive
+  share of an outer frame (`prove`, `run`) is too low. `cpu_atom` is the
+  event of the cores 4 to 15 (`cpu_core` of 0 to 3, as
+  `/sys/devices/cpu_*/cpus` say); `perf_event_paranoid` is 2, so user
+  space only (`:u`).
+- Two perf sessions at once exceed the per-user `perf_event_mlock_kb`:
+  give each `-m 32`.
+- `linlog-bench one` runs the problem in-process; under the default
+  bias with exponentials it is two threads taking turns, which perf
+  samples both of.
+- The step that changes the engine takes the same rows with the same
+  command on the same cores before and after (its report has the
+  rows); for differences of a few percent, instruction counts
+  (callgrind) and not times.
