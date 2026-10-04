@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="232" height="110.592" viewBox="0 0 14500 6912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>a → b, b → c ⊢ a → c</title>
+<desc>1. a ⊢ a, by ax.
+2. b ⊢ b, by ax.
+3. a, a → b ⊢ b, by →L from 1 and 2.
+4. c ⊢ c, by ax.
+5. a, a → b, b → c ⊢ c, by →L from 3 and 4.
+6. a → b, b → c ⊢ a → c, by →R from 5.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M2534 5312H11822"/>
+<path d="M1323 3812H13033"/>
+<path d="M300 2312H8030"/>
+<path d="M300 812H2882"/>
+<path d="M5490 812H8030"/>
+<path d="M10697 2312H13033"/>
+</g>
+<text x="2534" y="6402" textLength="9288" lengthAdjust="spacing" id="i5">𝑎 → 𝑏, 𝑏 → 𝑐 ⊢ 𝑎 → 𝑐</text>
+<text x="12022" y="5512" textLength="1007" lengthAdjust="spacing" font-size="800">→R</text>
+<text x="2887" y="4902" textLength="8582" lengthAdjust="spacing" id="i4">𝑎, 𝑎 → 𝑏, 𝑏 → 𝑐 ⊢ 𝑐</text>
+<text x="13233" y="4012" textLength="967" lengthAdjust="spacing" font-size="800">→L</text>
+<text x="1323" y="3402" textLength="5684" lengthAdjust="spacing" id="i2">𝑎, 𝑎 → 𝑏 ⊢ 𝑏</text>
+<text x="8230" y="2512" textLength="967" lengthAdjust="spacing" font-size="800">→L</text>
+<text x="300" y="1902" textLength="2582" lengthAdjust="spacing" id="i0">𝑎 ⊢ 𝑎</text>
+<text x="3082" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="5490" y="1902" textLength="2540" lengthAdjust="spacing" id="i1">𝑏 ⊢ 𝑏</text>
+<text x="8230" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="10697" y="3402" textLength="2336" lengthAdjust="spacing" id="i3">𝑐 ⊢ 𝑐</text>
+<text x="13233" y="2512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

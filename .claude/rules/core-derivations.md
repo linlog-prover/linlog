@@ -184,7 +184,7 @@ its rule an inference stands for). What the code relies on:
   interactive state's own derivation (its inferences are made one rule
   at a time), and a Rocq certificate (`Unsupported::Compact`: a run names
   one formula; the command builds Rocq's derivation with `Never`).
-- The label of a run is the rule's label and `*` (`Labels::of`, `RUN`),
+- The label of a run is the rule's label and `*` (`Drawn::label`, `RUN`),
   `write_steps` says `by ?w 3 times`, the text tree's `bars` have a
   second half for runs. On a terminal the command tries the compact tree
   when the whole one does not fit (`--compact auto`), and lays out
@@ -219,7 +219,14 @@ subtree as a block of padded lines and copied it at every level (24 s and
 moves the premises right (`shift`), exactly as the block renderer padded
 them. `Derivation::text_size` is the width and height from the first pass
 alone, which is how a front end learns whether a tree fits before it
-draws it.
+draws it. The layout, `text_size`, `write_text` and `write_steps` are
+free functions of `fmt.rs` generic over `style::Drawn`
+(`core-export.md`), and the methods of `proofs::Derivation` and of
+`ordinary::Derivation` (`write_text`, `text_size`, `Display`) call
+them, so the two trees are one layout. A derivation of LK or LJ has no
+open goal and no run (`times` is 1), writes `Γ ⊢ Δ` with both sides in
+their stored order, and builds each sequent in a `String` before it is
+counted or written (`write_sides`), once per inference and pass.
 
 ## Interactive proving
 

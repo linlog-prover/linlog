@@ -52,10 +52,31 @@ for NanoYalla. What the code relies on:
   character of sequent). `derivation(…) -> String` is the same with a
   string and no stop. The command writes the verdict and then the
   derivation into its output as it is made (`cli/src/io.rs`, `Output`).
+  A derivation of LK or LJ (`ordinary::Derivation`) has the same
+  signature in `latex::ordinary`, `typst::ordinary`, `svg::ordinary` and
+  `ordinary::Derivation::write_text` (with `text_size` and `Display`);
+  Rocq certifies it separately (`ordinary/rocq.rs`, `core-ordinary.md`).
+- **Every emitter is generic over the crate-private trait
+  `proofs::style::Drawn`**, implemented by `proofs::Derivation` (in
+  `style.rs`) and `ordinary::Derivation` (in `ordinary/derivation.rs`):
+  the root, the premises, a rule as a number below `RULES` (`OPEN` the
+  open goal's, `None` for LK/LJ), `markup(rule, labels)`, `times` (1 for
+  LK/LJ), `label` (the markup and `RUN` for a run), the sequent as the
+  text tree writes it (`write_sequent`) and in a `Notation`
+  (`sequent(out, notation, id, aligned, marks)`), and the SVG's
+  `positions` for `Style::ids`. The text tree, the steps of `<desc>`,
+  `notation::walk` and the LaTeX, Typst (both layouts) and SVG trees are
+  each one generic function; the public `write`/`ordinary` are
+  non-generic wrappers, since a public function cannot name a
+  crate-private bound. A new kind of derivation implements `Drawn` and
+  adds one wrapper per target; the per-rule label tables (the text
+  tree's `bars`, the SVG's laid-out labels) are indexed by `rule`, plus
+  `RULES` for a run.
 - **Rule labels are one table per convention** (`proofs/style.rs`:
   `UPRIGHT`, `SUBSCRIPT`, indexed by `rule as usize` in the order of
   `Rule::ALL`, plus the user's `Labels::Table`), written in a markup
-  that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`,
+  that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`
+  and the ordinary `∧∨→¬↔`,
   `_x`/`_{xy}` subscripts, `*` a superscript star where the target sets
   one (the mark of a run), other text upright; `latex::label`,
   `typst::label`, `svg::label`, `style::plain` for text). The upright
@@ -63,15 +84,28 @@ for NanoYalla. What the code relies on:
   `Rule::from_str(rule.name())` is the rule, for every rule
   (`names_round_trip`): the interactive JSON depends on both. A new rule
   is a new entry in `Rule::ALL`, both tables, `name` and `from_str`.
+  The labels of LK and LJ are `ordinary::Rule::markup(subscript)`
+  (`Upright` the upright one, `Subscript` with `subscript`, `Off` none);
+  a `Labels::Table` is keyed by the linear rules, so it leaves them
+  upright. Their order is `ordinary::Rule::ALL`, which `rule as usize`
+  indexes, so a new ordinary rule goes there too.
 - **One table per target, one printer.** `notation::Notation` is the
   symbol table (connectives, units, dual mark, turnstile, the alignment
-  mark, the atom escaper); `Notation::term` and `Notation::ill` are the
+  mark, the atom escaper, and `ordinary`, the `ordinary::Symbols` of
+  `¬ ∧ ∨ → ↔ ⊤ ⊥`: LaTeX's `\lnot ` keeps its space, since `¬` is
+  written straight before its operand; Typst and SVG take
+  `Symbols::UNICODE`); `Notation::term` and `Notation::ill` are the
   bracketing of `Sequent`'s and `Reading`'s `Display` over it, and must
-  stay in step with them. A new target is a new table. `Notation::sequent`
+  stay in step with them, and `Notation::ordinary` writes a sequent of
+  LK or LJ two-sided over `Formulas::write` (the walk of the ordinary
+  `Display`), lined up at the turnstile as a two-sided linear sequent
+  is. A new target is a new table. `Notation::sequent`
   with `marks` puts `\u{2}`/`\u{3}` around every formula, which the SVG
   layout turns into a group per formula (`Style::ids`: `i<n>-<p>` for
   position `p` of inference `n`'s sequent, the position being the one
-  `Interactive::apply` takes, in the drawn order hypotheses first).
+  `Interactive::apply` takes, in the drawn order hypotheses first; in a
+  derivation of LK or LJ the hypotheses are `0..left.len()` and the
+  formulas right of `⊢` follow, which is also the drawn order).
 - **The walk keeps its own stack** (`notation::walk`, enter and exit
   events): exits are ebproof's postfix order, enter/exit brackets
   curryst's nesting. Nothing in the emitters recurses over the tree, so
@@ -124,8 +158,9 @@ for NanoYalla. What the code relies on:
   `label_gap`, `band`, `stroke`) are Typst lengths written verbatim, as
   `import` and `page` are; their defaults are curryst's.
 - **Snapshots**: `core/tests/export.rs` pins standalone documents in
-  `core/tests/snapshots/` (`BLESS=1` rewrites them); the flake's `export`
-  check compiles exactly those files plus two CLI outputs with pdfLaTeX
+  `core/tests/snapshots/` (`BLESS=1` rewrites them; `ordinary.*` is an
+  LJ derivation read back through the public API); the flake's `export`
+  check compiles every file there, by a glob, plus two CLI outputs with pdfLaTeX
   and Typst, which is what catches output that matches its snapshot but
   does not compile. The crane source keeps that directory
   (`modules/workspace.nix`), since `commonCargoSources` alone drops it.
@@ -149,7 +184,10 @@ for NanoYalla. What the code relies on:
   `Style::link_cap` and to its square root beyond, so nested links never
   cross: `net::height` says why). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
-  it); all coordinates are integers, so the output is byte-stable.
+  it); all coordinates are integers, so the output is byte-stable. The
+  ordinary connectives `¬ ∧ ∨ → ↔` are not in that table yet and take
+  the fallback of 650; their advances belong in `ADVANCES`, read from
+  the font's `hmtx` as the others were, which moves `ordinary.svg`.
 - **PNG and PDF render the SVG** (`export/png.rs` with resvg and the
   png encoder, `export/pdf.rs` with krilla and krilla-svg, features
   `png` and `pdf`, `export::parse` and `export::texts` shared):

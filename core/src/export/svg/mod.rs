@@ -43,7 +43,8 @@ mod tree;
 
 use super::notation::Notation;
 use crate::nets::ProofStructure;
-use crate::occurrences::{OccId, Position, Reading};
+use crate::occurrences::Reading;
+use crate::ordinary::{self, Symbols};
 use crate::proofs::style::{Part, parts};
 use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
 use crate::sequents::Sequent;
@@ -203,16 +204,6 @@ fn label(markup: &str) -> String {
     out
 }
 
-/// Returns the positions of a sequent's formulas in the order the
-/// notation writes them: as they are one-sided, the goal last two-sided.
-fn drawn(reading: Option<&Reading>, sequent: &[OccId]) -> Vec<usize> {
-    let mut positions: Vec<usize> = (0..sequent.len()).collect();
-    if let Some(reading) = reading {
-        positions.sort_by_key(|&p| reading.position(sequent[p]) == Position::Output);
-    }
-    positions
-}
-
 /// The character that stands for the raised `⊥` of a negated atom in the
 /// text the notation writes, a control character that no atom name keeps.
 const RAISED_BOT: char = '\u{1}';
@@ -235,6 +226,7 @@ const NOTATION: Notation = Notation {
     turnstile: "⊢",
     align: "",
     atom: italic,
+    ordinary: Symbols::UNICODE,
 };
 
 /// The spelling of formulas and sequents in a drawing's title: plain
@@ -586,6 +578,24 @@ pub fn derivation(derivation: &Derivation, style: &Style) -> String {
 /// it holds besides is a few numbers per inference.
 pub fn write(
     derivation: &Derivation,
+    style: &Style,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    tree::draw(derivation, style, out, stop)
+}
+
+/// Writes a derivation of LK or LJ into `out` as [`write()`] draws a
+/// linear one, two-sided, the connectives and constants their Unicode
+/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥`, the labels those of [`ordinary::Rule`] (a
+/// label table of [`Labels::Table`] is keyed by the linear rules, so it
+/// leaves them upright), the formula at position `p` of inference `n`'s
+/// sequent the group `i<n>-<p>` with [`Style::ids`], hypotheses first,
+/// and the `<desc>` its numbered inferences.
+///
+/// Needs the cargo feature `svg` (on by default).
+pub fn ordinary(
+    derivation: &ordinary::Derivation,
     style: &Style,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,

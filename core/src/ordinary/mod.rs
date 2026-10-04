@@ -3,12 +3,16 @@
 
 //! Ordinary propositional logic, classical, intuitionistic and minimal,
 //! decided through its embeddings into linear logic: a sequent of
-//! ordinary formulas ([`Sequent`]), its image under a named
-//! [`Translation`] ([`translate`], an [`Image`] holding a linear
+//! ordinary formulas ([`Sequent`](crate::ordinary::Sequent)), its image
+//! under a named [`Translation`](crate::ordinary::Translation)
+//! ([`translate`](crate::ordinary::translate), an
+//! [`Image`](crate::ordinary::Image) holding a linear
 //! [`Sequent`](crate::Sequent) and the mode to prove it in), and the
-//! linear proof read back as a derivation of LK or LJ ([`Image::read_back`],
-//! a [`Derivation`] that [`Derivation::check`] checks by the rules of the
-//! logic).
+//! linear proof read back as a derivation of LK or LJ
+//! ([`Image::read_back`](crate::ordinary::Image::read_back), a
+//! [`Derivation`](crate::ordinary::Derivation) that
+//! [`Derivation::check`](crate::ordinary::Derivation::check) checks by the
+//! rules of the logic).
 //!
 //! Classical logic goes into affine MALL without exponentials: the
 //! one-sided sequent in negation normal form with `∧` as `&`, `∨` as `⅋`,
@@ -23,16 +27,17 @@
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::ordinary::{Logic, Sequent, Translation, translate};
-//! use linlog::{Options, Verdict, prove};
+//! use linlog::{Options, Verdict, ViewOptions, prove};
 //!
 //! let sequent: Sequent = "a -> b, b -> c |- a -> c".parse()?;
 //! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName)?;
-//! assert_eq!(image.sequent().to_string(), "⊢ ?(a ⊗ ~b), ?(b ⊗ ~c), ?~a ⅋ c");
+//! assert_eq!(image.sequent().to_string(), "⊢ ?~a ⅋ c, ?(!a ⊗ ~b), ?(!b ⊗ ~c)");
 //! let outcome = prove(image.sequent(), image.mode(), &Options::default())?;
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
-//! let derivation = image.read_back(proof)?;
+//! let linear = image.linear_derivation(proof, &ViewOptions::default(), || false)?;
+//! let derivation = image.read_back(&linear)?;
 //! derivation.check()?;
 //! assert_eq!(derivation.inference(derivation.root()).rule.name(), "→R");
 //! # Ok::<(), linlog::Error>(())

@@ -6,10 +6,11 @@
 //! passes over the inferences, sizes from the leaves down and positions
 //! from the root up, and written row by row, so that drawing a tree
 //! takes time proportional to its text and memory proportional to its
-//! inferences.
+//! inferences. The functions here draw any `Drawn` derivation: the
+//! linear ones and those of LK and LJ.
 
-use super::derivation::{Derivation, InfId, Inference, Rule};
-use super::style::{Labels, OpenGoal, RUN, WriteError, plain};
+use super::derivation::{Derivation, InfId};
+use super::style::{Drawn, Labels, OpenGoal, RUN, WriteError, plain};
 use crate::occurrences::{Forest, OccId, Position, Reading};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -62,32 +63,29 @@ struct Bar {
     dots: bool,
 }
 
-/// Returns the bar row of every rule, in declaration order, under the
+/// Returns the bar row of every rule of `T`, in its order, under the
 /// options, and then of every rule for a run of it ([`bar`]): `None` for
 /// an open goal drawn bare.
-fn bars(options: &TextOptions) -> Vec<Option<Bar>> {
-    let runs = Rule::ALL.iter().map(|&rule| {
+fn bars<T: Drawn>(options: &TextOptions) -> Vec<Option<Bar>> {
+    let runs = (0..T::RULES).map(|rule| {
         Some(Bar {
             line: options.bar,
-            label: options
-                .labels
-                .markup(rule)
+            label: T::markup(rule, &options.labels)
                 .map_or_else(String::new, |label| plain(label) + RUN),
             dots: false,
         })
     });
-    Rule::ALL
-        .iter()
-        .map(|&rule| {
+    (0..T::RULES)
+        .map(|rule| {
             let bar = |line, label: &str, dots| Bar {
                 line,
                 label: plain(label),
                 dots,
             };
-            if rule != Rule::Open {
+            if T::OPEN != Some(rule) {
                 return Some(bar(
                     options.bar,
-                    options.labels.markup(rule).unwrap_or(""),
+                    T::markup(rule, &options.labels).unwrap_or(""),
                     false,
                 ));
             }
@@ -103,13 +101,9 @@ fn bars(options: &TextOptions) -> Vec<Option<Bar>> {
 }
 
 /// Returns the bar row of an inference among those [`bars`] returns.
-fn bar<'a>(bars: &'a [Option<Bar>], inference: &Inference) -> &'a Option<Bar> {
-    let run = if inference.times > 1 {
-        Rule::ALL.len()
-    } else {
-        0
-    };
-    &bars[inference.rule as usize + run]
+fn bar<'a, T: Drawn>(bars: &'a [Option<Bar>], tree: &T, id: InfId) -> &'a Option<Bar> {
+    let run = if tree.times(id) > 1 { T::RULES } else { 0 };
+    &bars[tree.rule(id) + run]
 }
 
 /// Where an inference and the subtree above it go, within the box that
@@ -173,7 +167,7 @@ fn spaces(out: &mut impl Write, width: usize) -> FmtResult {
 
 /// Writes a sequent: `⊢` and its formulas, comma-separated; two-sided
 /// under a reading, the hypotheses before `⊢` and the goal after it.
-fn write_sequent(
+pub(super) fn write_sequent(
     out: &mut impl Write,
     forest: &Forest,
     reading: Option<&Reading>,
@@ -222,102 +216,208 @@ pub(crate) fn sequent_text(
     text
 }
 
-impl Derivation<'_> {
-    /// Lays the tree out: the premises of an inference side by side,
-    /// bottom-aligned and `gap` columns apart, a bar spanning their
-    /// conclusions or the conclusion, whichever is wider, with the rule's
-    /// label after it, and the conclusion centred under the bar. Returns
-    /// every inference's place, its box positioned in the whole drawing.
-    fn layout(&self, options: &TextOptions, bars: &[Option<Bar>]) -> Vec<Place> {
-        let mut places = vec![Place::default(); self.inferences().len()];
-        // Sizes: an inference comes after its premises.
-        for (i, inference) in self.inferences().iter().enumerate() {
-            let mut count = Count(0);
-            write_sequent(
-                &mut count,
-                self.forest(),
-                self.reading(),
-                &inference.sequent,
-            )
+/// Lays a tree out: the premises of an inference side by side,
+/// bottom-aligned and `gap` columns apart, a bar spanning their
+/// conclusions or the conclusion, whichever is wider, with the rule's
+/// label after it, and the conclusion centred under the bar. Returns
+/// every inference's place, its box positioned in the whole drawing.
+fn layout<T: Drawn>(tree: &T, options: &TextOptions, bars: &[Option<Bar>]) -> Vec<Place> {
+    let mut places = vec![Place::default(); tree.len()];
+    // Sizes: an inference comes after its premises.
+    for i in 0..places.len() {
+        let id = InfId::new(i as u32);
+        let mut count = Count(0);
+        tree.write_sequent(&mut count, id)
             .expect("counting never fails");
-            let conclusion = count.0;
-            let Some(bar) = bar(bars, inference) else {
-                places[i] = Place {
-                    width: conclusion,
-                    height: 1,
-                    conclusion,
-                    ..Place::default()
-                };
-                continue;
-            };
-            // The premises in a row, and the span of their conclusions.
-            let (mut row, mut height) = (0, 0);
-            let (mut span_left, mut span_right) = (0, 0);
-            for (k, p) in inference.premises.iter().enumerate() {
-                let place = &mut places[p.index()];
-                place.x = row + if k == 0 { 0 } else { usize::from(options.gap) };
-                if k == 0 {
-                    span_left = place.left;
-                }
-                span_right = place.x + place.left + place.conclusion;
-                row = place.x + place.width;
-                height = height.max(place.height);
-            }
-            // The bar covers the premises' conclusions and the conclusion,
-            // whichever is wider, centred on the other; a bar that would
-            // start left of the box moves the premises right instead.
-            let span = span_right - span_left;
-            let bar_width = conclusion.max(span);
-            let overhang = (bar_width - span) / 2;
-            let shift = overhang.saturating_sub(span_left);
-            for p in &inference.premises {
-                places[p.index()].x += shift;
-            }
-            let bar_left = span_left + shift - overhang;
-            let left = bar_left + (bar_width - conclusion) / 2;
-            let (bar_left, bar_width) = if bar.dots {
-                (left + conclusion.saturating_sub(1) / 2, 1)
-            } else {
-                (bar_left, bar_width)
-            };
-            let label = match bar.label.chars().count() {
-                0 => 0,
-                n => n + 1,
-            };
-            let premises = if inference.premises.is_empty() {
-                0
-            } else {
-                row + shift
-            };
+        let conclusion = count.0;
+        let premises = tree.premises(id);
+        let Some(bar) = bar(bars, tree, id) else {
             places[i] = Place {
-                x: 0,
-                width: premises
-                    .max(bar_left + bar_width + label)
-                    .max(left + conclusion),
-                height: height + 2,
-                depth: 0,
-                left,
+                width: conclusion,
+                height: 1,
                 conclusion,
-                bar: Some((bar_left, bar_width)),
+                ..Place::default()
             };
+            continue;
+        };
+        // The premises in a row, and the span of their conclusions.
+        let (mut row, mut height) = (0, 0);
+        let (mut span_left, mut span_right) = (0, 0);
+        for (k, p) in premises.iter().enumerate() {
+            let place = &mut places[p.index()];
+            place.x = row + if k == 0 { 0 } else { usize::from(options.gap) };
+            if k == 0 {
+                span_left = place.left;
+            }
+            span_right = place.x + place.left + place.conclusion;
+            row = place.x + place.width;
+            height = height.max(place.height);
         }
-        // Positions: an inference comes before its premises.
-        for (i, inference) in self.inferences().iter().enumerate().rev() {
-            let (x, depth) = (places[i].x, places[i].depth);
-            for p in &inference.premises {
-                places[p.index()].x += x;
-                places[p.index()].depth = depth + 1;
+        // The bar covers the premises' conclusions and the conclusion,
+        // whichever is wider, centred on the other; a bar that would
+        // start left of the box moves the premises right instead.
+        let span = span_right - span_left;
+        let bar_width = conclusion.max(span);
+        let overhang = (bar_width - span) / 2;
+        let shift = overhang.saturating_sub(span_left);
+        for p in premises {
+            places[p.index()].x += shift;
+        }
+        let bar_left = span_left + shift - overhang;
+        let left = bar_left + (bar_width - conclusion) / 2;
+        let (bar_left, bar_width) = if bar.dots {
+            (left + conclusion.saturating_sub(1) / 2, 1)
+        } else {
+            (bar_left, bar_width)
+        };
+        let label = match bar.label.chars().count() {
+            0 => 0,
+            n => n + 1,
+        };
+        let premises = if premises.is_empty() { 0 } else { row + shift };
+        places[i] = Place {
+            x: 0,
+            width: premises
+                .max(bar_left + bar_width + label)
+                .max(left + conclusion),
+            height: height + 2,
+            depth: 0,
+            left,
+            conclusion,
+            bar: Some((bar_left, bar_width)),
+        };
+    }
+    // Positions: an inference comes before its premises.
+    for i in (0..places.len()).rev() {
+        let (x, depth) = (places[i].x, places[i].depth);
+        for p in tree.premises(InfId::new(i as u32)) {
+            places[p.index()].x += x;
+            places[p.index()].depth = depth + 1;
+        }
+    }
+    places
+}
+
+/// Returns the width in characters and the number of lines of the tree
+/// that [`write_text`] draws under the options, without drawing it.
+pub(crate) fn text_size<T: Drawn>(tree: &T, options: &TextOptions) -> (usize, usize) {
+    let root = layout(tree, options, &bars::<T>(options))[tree.root().index()];
+    (root.width, root.height)
+}
+
+/// Writes a tree of sequents, one line per row, without a trailing
+/// newline, and asks `stop` before every piece of a row. The layout takes
+/// memory proportional to the inferences and the text is written as it is
+/// made.
+pub(crate) fn write_text<T: Drawn>(
+    tree: &T,
+    options: &TextOptions,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    let bars = bars::<T>(options);
+    let places = layout(tree, options, &bars);
+    let height = places[tree.root().index()].height;
+    // The root's conclusion is the last row, its bar the one above, and
+    // every inference further up is two rows higher.
+    let mut pieces = Vec::with_capacity(2 * places.len());
+    for (i, place) in places.iter().enumerate() {
+        let id = InfId::new(i as u32);
+        let row = height - 1 - 2 * place.depth;
+        pieces.push(Piece {
+            row,
+            column: place.x + place.left,
+            id,
+            bar: false,
+        });
+        if let Some((left, _)) = place.bar {
+            pieces.push(Piece {
+                row: row - 1,
+                column: place.x + left,
+                id,
+                bar: true,
+            });
+        }
+    }
+    pieces.sort_unstable();
+    let (mut row, mut column) = (0, 0);
+    for piece in pieces {
+        if stop() {
+            return Err(WriteError::Stopped);
+        }
+        while row < piece.row {
+            out.write_char('\n')?;
+            (row, column) = (row + 1, 0);
+        }
+        spaces(out, piece.column - column)?;
+        let place = &places[piece.id.index()];
+        column = piece.column;
+        match (place.bar, bar(&bars, tree, piece.id)) {
+            (Some((_, width)), Some(bar)) if piece.bar => {
+                for _ in 0..width {
+                    out.write_char(bar.line)?;
+                }
+                column += width;
+                if !bar.label.is_empty() {
+                    write!(out, " {}", bar.label)?;
+                    column += 1 + bar.label.chars().count();
+                }
+            }
+            _ => {
+                tree.write_sequent(out, piece.id)?;
+                column += place.conclusion;
             }
         }
-        places
     }
+    Ok(())
+}
 
+/// Writes a derivation as a numbered list of its inferences, one per
+/// line, premises before their conclusion and the conclusion last, and
+/// asks `stop` before every line: what [`Derivation::write_steps`] says.
+pub(crate) fn write_steps<T: Drawn>(
+    tree: &T,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    for i in 0..tree.len() {
+        if stop() {
+            return Err(WriteError::Stopped);
+        }
+        if i > 0 {
+            out.write_char('\n')?;
+        }
+        let id = InfId::new(i as u32);
+        write!(out, "{}. ", i + 1)?;
+        tree.write_sequent(out, id)?;
+        if tree.is_open(id) {
+            out.write_str(", open.")?;
+            continue;
+        }
+        write!(out, ", by {}", tree.name(id))?;
+        if tree.times(id) > 1 {
+            write!(out, " {} times", tree.times(id))?;
+        }
+        let premises = tree.premises(id);
+        for (k, p) in premises.iter().enumerate() {
+            let joint = match k {
+                0 => " from ",
+                _ if k + 1 == premises.len() => " and ",
+                _ => ", ",
+            };
+            write!(out, "{joint}{}", p.index() + 1)?;
+        }
+        out.write_char('.')?;
+    }
+    Ok(())
+}
+
+impl Derivation<'_> {
     /// Returns the width in characters and the number of lines of the tree
     /// that [`write_text`](Self::write_text) draws under the options,
     /// without drawing it.
     pub fn text_size(&self, options: &TextOptions) -> (usize, usize) {
-        let root = self.layout(options, &bars(options))[self.root().index()];
-        (root.width, root.height)
+        text_size(self, options)
     }
 
     /// Writes the derivation as a tree of sequents, one line per row,
@@ -328,67 +428,11 @@ impl Derivation<'_> {
         &self,
         options: &TextOptions,
         out: &mut impl Write,
-        mut stop: impl FnMut() -> bool,
+        stop: impl FnMut() -> bool,
     ) -> Result<(), WriteError> {
-        let bars = bars(options);
-        let places = self.layout(options, &bars);
-        let height = places[self.root().index()].height;
-        // The root's conclusion is the last row, its bar the one above,
-        // and every inference further up is two rows higher.
-        let mut pieces = Vec::with_capacity(2 * places.len());
-        for (i, place) in places.iter().enumerate() {
-            let id = InfId::new(i as u32);
-            let row = height - 1 - 2 * place.depth;
-            pieces.push(Piece {
-                row,
-                column: place.x + place.left,
-                id,
-                bar: false,
-            });
-            if let Some((left, _)) = place.bar {
-                pieces.push(Piece {
-                    row: row - 1,
-                    column: place.x + left,
-                    id,
-                    bar: true,
-                });
-            }
-        }
-        pieces.sort_unstable();
-        let (mut row, mut column) = (0, 0);
-        for piece in pieces {
-            if stop() {
-                return Err(WriteError::Stopped);
-            }
-            while row < piece.row {
-                out.write_char('\n')?;
-                (row, column) = (row + 1, 0);
-            }
-            spaces(out, piece.column - column)?;
-            let (place, inference) = (&places[piece.id.index()], self.inference(piece.id));
-            column = piece.column;
-            match (place.bar, bar(&bars, inference)) {
-                (Some((_, width)), Some(bar)) if piece.bar => {
-                    for _ in 0..width {
-                        out.write_char(bar.line)?;
-                    }
-                    column += width;
-                    if !bar.label.is_empty() {
-                        write!(out, " {}", bar.label)?;
-                        column += 1 + bar.label.chars().count();
-                    }
-                }
-                _ => {
-                    write_sequent(out, self.forest(), self.reading(), &inference.sequent)?;
-                    column += place.conclusion;
-                }
-            }
-        }
-        Ok(())
+        write_text(self, options, out, stop)
     }
-}
 
-impl Derivation<'_> {
     /// Writes the derivation as a numbered list of its inferences, one per
     /// line, premises before their conclusion and the conclusion last:
     /// `3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.` An open goal is `open`, a
@@ -398,36 +442,9 @@ impl Derivation<'_> {
     pub fn write_steps(
         &self,
         out: &mut impl Write,
-        mut stop: impl FnMut() -> bool,
+        stop: impl FnMut() -> bool,
     ) -> Result<(), WriteError> {
-        for (i, inference) in self.inferences().iter().enumerate() {
-            if stop() {
-                return Err(WriteError::Stopped);
-            }
-            if i > 0 {
-                out.write_char('\n')?;
-            }
-            write!(out, "{}. ", i + 1)?;
-            write_sequent(out, self.forest(), self.reading(), &inference.sequent)?;
-            if inference.rule == Rule::Open {
-                out.write_str(", open.")?;
-                continue;
-            }
-            write!(out, ", by {}", inference.rule.name())?;
-            if inference.times > 1 {
-                write!(out, " {} times", inference.times)?;
-            }
-            for (k, p) in inference.premises.iter().enumerate() {
-                let joint = match k {
-                    0 => " from ",
-                    _ if k + 1 == inference.premises.len() => " and ",
-                    _ => ", ",
-                };
-                write!(out, "{joint}{}", p.index() + 1)?;
-            }
-            out.write_char('.')?;
-        }
-        Ok(())
+        write_steps(self, out, stop)
     }
 }
 

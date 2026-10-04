@@ -20,7 +20,7 @@ pub mod check;
 /// The derivation view.
 pub mod derivation;
 /// Text rendering of derivations.
-mod fmt;
+pub(crate) mod fmt;
 /// Step-by-step proving.
 #[cfg(feature = "interactive")]
 pub mod interactive;

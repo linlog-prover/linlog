@@ -64,8 +64,9 @@
 use super::Form;
 use super::notation::{Notation, Step, flush, walk};
 use crate::occurrences::Reading;
-use crate::proofs::style::{Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal, Rule, WriteError};
+use crate::ordinary::{self, Symbols};
+use crate::proofs::style::{Drawn, Part, parts};
+use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -91,6 +92,7 @@ const NOTATION: Notation = Notation {
     turnstile: "⊢",
     align: "",
     atom,
+    ordinary: Symbols::UNICODE,
 };
 
 /// Writes an atom's name in math mode.
@@ -230,6 +232,11 @@ fn label(out: &mut String, markup: &str) {
                 '⊤' => "⊤",
                 '⊥' => "⊥",
                 '*' => "^*",
+                '∧' => "∧",
+                '∨' => "∨",
+                '→' => "→",
+                '¬' => "¬",
+                '↔' => "↔",
                 _ => "0",
             }),
             Part::Text(t) => {
@@ -305,6 +312,34 @@ pub fn write(
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
 ) -> Result<(), WriteError> {
+    tree(derivation, options, out, stop)
+}
+
+/// Writes a derivation of LK or LJ as a proof tree into `out`, two-sided,
+/// in the options' form and layout, one inference at a time, and asks
+/// `stop` after each: the connectives and constants are their Unicode
+/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥`, and the labels those of
+/// [`ordinary::Rule`] (a label table of [`Labels::Table`] is keyed by the
+/// linear rules, so it leaves them upright).
+///
+/// Needs the cargo feature `typst` (on by default).
+pub fn ordinary(
+    derivation: &ordinary::Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    tree(derivation, options, out, stop)
+}
+
+/// Writes any derivation as [`write()`] does, in the layout the options
+/// choose.
+fn tree<T: Drawn>(
+    derivation: &T,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
     let own = match options.layout {
         Layout::Curryst => false,
         Layout::Linlog => true,
@@ -318,11 +353,12 @@ pub fn write(
 }
 
 /// Returns the inferences on the longest branch of a derivation.
-fn height(derivation: &Derivation) -> usize {
+fn height<T: Drawn>(derivation: &T) -> usize {
     // Premises come before their conclusions, the root last.
-    let mut heights = vec![0; derivation.inferences().len()];
-    for (i, inference) in derivation.inferences().iter().enumerate() {
-        let above = inference.premises.iter().map(|p| heights[p.index()]);
+    let mut heights = vec![0; derivation.len()];
+    for i in 0..heights.len() {
+        let premises = derivation.premises(crate::InfId::new(i as u32));
+        let above = premises.iter().map(|p| heights[p.index()]);
         heights[i] = 1 + above.max().unwrap_or(0);
     }
     heights.last().copied().unwrap_or(0)
@@ -451,13 +487,12 @@ const LAYOUT: &str = r#"  let n = nodes.len()
 
 /// Writes a derivation in linlog's own layout into `out`, one inference
 /// at a time, and asks `stop` after each.
-fn laid_out(
-    derivation: &Derivation,
+fn laid_out<T: Drawn>(
+    derivation: &T,
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
 ) -> Result<(), WriteError> {
-    let (forest, reading) = (derivation.forest(), derivation.reading());
     if options.form == Form::Standalone {
         write!(out, "{}\n\n", options.page.trim_end())?;
     }
@@ -478,12 +513,11 @@ fn laid_out(
         let Step::Enter(id, _) = step else {
             return Ok(());
         };
-        let inference = derivation.inference(id);
-        let markup = options.labels.of(inference);
-        let (premises, name) = match (inference.rule, &options.open) {
-            (Rule::Open, OpenGoal::Mark(mark)) => ("0".to_owned(), Some(mark.as_str())),
-            (Rule::Open, _) => ("none".to_owned(), None),
-            _ => (inference.premises.len().to_string(), markup.as_deref()),
+        let markup = derivation.label(id, &options.labels);
+        let (premises, name) = match (derivation.is_open(id), &options.open) {
+            (true, OpenGoal::Mark(mark)) => ("0".to_owned(), Some(mark.as_str())),
+            (true, _) => ("none".to_owned(), None),
+            _ => (derivation.premises(id).len().to_string(), markup.as_deref()),
         };
         write!(buffer, "    ({premises}, ")?;
         match name {
@@ -495,14 +529,7 @@ fn laid_out(
             None => buffer.push_str("none"),
         }
         buffer.push_str(", $");
-        NOTATION.sequent(
-            &mut buffer,
-            forest,
-            reading,
-            &inference.sequent,
-            false,
-            false,
-        );
+        derivation.sequent(&mut buffer, &NOTATION, id, false, false);
         buffer.push_str("$),\n");
         flush(out, &mut buffer, &mut stop)
     })?;
@@ -513,13 +540,12 @@ fn laid_out(
 
 /// Writes a derivation as a curryst tree into `out`, one inference at a
 /// time, and asks `stop` after each.
-fn curryst(
-    derivation: &Derivation,
+fn curryst<T: Drawn>(
+    derivation: &T,
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
 ) -> Result<(), WriteError> {
-    let (forest, reading) = (derivation.forest(), derivation.reading());
     if options.form == Form::Standalone {
         write!(
             out,
@@ -536,15 +562,14 @@ fn curryst(
     };
     let conclusion = |out: &mut String, id| {
         out.push('$');
-        let sequent = &derivation.inference(id).sequent;
-        NOTATION.sequent(out, forest, reading, sequent, false, false);
+        derivation.sequent(out, &NOTATION, id, false, false);
         out.push('$');
     };
     let mut buffer = String::new();
     walk(derivation, |step| {
         match step {
             Step::Enter(id, depth) => {
-                let inference = derivation.inference(id);
+                let premises = derivation.premises(id);
                 indent(&mut buffer, depth + 1);
                 // A grid of one column is as wide as the sequent, and so
                 // is a line across it.
@@ -553,21 +578,21 @@ fn curryst(
                     conclusion(out, id);
                     out.push_str("),\n");
                 };
-                match (inference.rule, &options.open) {
-                    (Rule::Open, OpenGoal::Dots) => open(
+                match (derivation.is_open(id), &options.open) {
+                    (true, OpenGoal::Dots) => open(
                         &mut buffer,
                         "grid(align: center, row-gutter: 0.4em, $dots.v$, ",
                     ),
-                    (Rule::Open, OpenGoal::Dashed) => open(
+                    (true, OpenGoal::Dashed) => open(
                         &mut buffer,
                         "grid(align: center, inset: (top: 0.3em), \
                          grid.hline(stroke: (dash: \"dashed\")), ",
                     ),
-                    (Rule::Open, OpenGoal::Bare) => {
+                    (true, OpenGoal::Bare) => {
                         conclusion(&mut buffer, id);
                         buffer.push_str(",\n");
                     }
-                    (Rule::Open, OpenGoal::Mark(mark)) => {
+                    (true, OpenGoal::Mark(mark)) => {
                         buffer.push_str("rule(name: $");
                         label(&mut buffer, mark);
                         buffer.push_str("$, ");
@@ -575,7 +600,7 @@ fn curryst(
                         buffer.push_str("),\n");
                     }
                     _ => {
-                        let markup = options.labels.of(inference);
+                        let markup = derivation.label(id, &options.labels);
                         let markup = markup.as_deref();
                         let name = |out: &mut String| {
                             if let Some(markup) = markup {
@@ -585,7 +610,7 @@ fn curryst(
                             }
                         };
                         buffer.push_str("rule(");
-                        if inference.premises.is_empty() {
+                        if premises.is_empty() {
                             name(&mut buffer);
                             if markup.is_some() {
                                 buffer.push_str(", ");
@@ -604,7 +629,7 @@ fn curryst(
                 }
             }
             Step::Exit(id, depth) => {
-                if !derivation.inference(id).premises.is_empty() {
+                if !derivation.premises(id).is_empty() {
                     indent(&mut buffer, depth + 2);
                     conclusion(&mut buffer, id);
                     buffer.push_str(",\n");

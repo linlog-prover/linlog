@@ -41,7 +41,7 @@ pub mod latex;
     feature = "svg",
     feature = "rocq"
 ))]
-mod notation;
+pub(crate) mod notation;
 #[cfg(feature = "pdf")]
 pub mod pdf;
 #[cfg(feature = "png")]

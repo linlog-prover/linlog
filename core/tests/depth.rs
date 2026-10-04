@@ -145,3 +145,37 @@ fn deep_formulas_need_no_stack() {
     });
     walks.unwrap().join().unwrap();
 }
+
+/// Prints an ordinary formula nested `DEPTH` deep, which reads back as
+/// the text it was parsed from with Unicode symbols, and translates it with
+/// every translation, each in a logic it decides.
+#[cfg(feature = "parse")]
+fn ordinary(text: &str, unicode: &str) {
+    use linlog::ordinary::{Logic, Translation, translate};
+    let sequent: linlog::ordinary::Sequent = text.parse().unwrap();
+    assert!(sequent.to_string() == format!("⊢ {unicode}"), "printed");
+    for translation in Translation::ALL {
+        let logic = match translation {
+            Translation::Affine => Logic::Classical,
+            _ => Logic::Intuitionistic,
+        };
+        let image = translate(&sequent, logic, translation).unwrap();
+        assert!(image.sequent().to_string().starts_with('⊢'));
+    }
+}
+
+/// Ordinary formulas nested 100 000 deep, a tower of negations and
+/// implications nested to the right in brackets, are parsed, printed and
+/// translated on a stack of 256 KiB.
+#[cfg(feature = "parse")]
+#[test]
+fn deep_ordinary_formulas_need_no_stack() {
+    let walks = std::thread::Builder::new().stack_size(STACK).spawn(|| {
+        let negations = format!("{}a", "~".repeat(DEPTH));
+        ordinary(&negations, &negations.replace('~', "¬"));
+        let nested = DEPTH - 1;
+        let implications = format!("{}a -> a{}", "a -> (".repeat(nested), ")".repeat(nested));
+        ordinary(&implications, &implications.replace("->", "→"));
+    });
+    walks.unwrap().join().unwrap();
+}

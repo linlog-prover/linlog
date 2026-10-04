@@ -57,8 +57,9 @@
 use super::Form;
 use super::notation::{Notation, Step, flush, walk};
 use crate::occurrences::Reading;
-use crate::proofs::style::{Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal, Rule, WriteError};
+use crate::ordinary::{self, Symbols};
+use crate::proofs::style::{Drawn, Part, parts};
+use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -79,6 +80,15 @@ const NOTATION: Notation = Notation {
     turnstile: r"\vdash",
     align: "&",
     atom,
+    ordinary: Symbols {
+        not: r"\lnot ",
+        and: r"\land",
+        or: r"\lor",
+        implies: r"\to",
+        iff: r"\leftrightarrow",
+        truth: r"\top",
+        falsity: r"\bot",
+    },
 };
 
 /// The preamble of a standalone document: `amssymb` for `\multimap`,
@@ -262,6 +272,11 @@ fn label(out: &mut String, markup: &str) {
                 '⊥' => NOTATION.bot,
                 '1' => NOTATION.one,
                 '*' => "^{*}",
+                '∧' => NOTATION.ordinary.and,
+                '∨' => NOTATION.ordinary.or,
+                '→' => NOTATION.ordinary.implies,
+                '¬' => r"\lnot",
+                '↔' => NOTATION.ordinary.iff,
                 _ => NOTATION.zero,
             }),
             Part::Text(t) => text(out, t),
@@ -347,9 +362,37 @@ pub fn write(
     derivation: &Derivation,
     options: &Options,
     out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    tree(derivation, options, out, stop)
+}
+
+/// Writes a derivation of LK or LJ as an ebproof `prooftree` environment
+/// into `out`, two-sided with the turnstiles lined up unless
+/// [`Options::align`] is off, in the options' form, one inference at a
+/// time, and asks `stop` after each: the connectives are `\lnot`, `\land`,
+/// `\lor`, `\to` and `\leftrightarrow`, the constants `\top` and `\bot`,
+/// and the labels those of [`ordinary::Rule`] (a label table of
+/// [`Labels::Table`] is keyed by the linear rules, so it leaves them
+/// upright).
+///
+/// Needs the cargo feature `latex` (on by default).
+pub fn ordinary(
+    derivation: &ordinary::Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    tree(derivation, options, out, stop)
+}
+
+/// Writes any derivation as [`write()`] does.
+fn tree<T: Drawn>(
+    derivation: &T,
+    options: &Options,
+    out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
 ) -> Result<(), WriteError> {
-    let (forest, reading) = (derivation.forest(), derivation.reading());
     let standalone = options.form == Form::Standalone;
     if standalone {
         begin(out, options, true)?;
@@ -364,21 +407,20 @@ pub fn write(
         let Step::Exit(id, _) = step else {
             return Ok(());
         };
-        let inference = derivation.inference(id);
-        let markup = options.labels.of(inference);
+        let markup = derivation.label(id, &options.labels);
         let markup = markup.as_deref();
-        match (inference.rule, &options.open) {
-            (Rule::Open, OpenGoal::Dots) => buffer.push_str("\\hypo{\\vdots}\n\\infer[no rule]1"),
-            (Rule::Open, OpenGoal::Bare) => buffer.push_str("\\hypo"),
-            (Rule::Open, OpenGoal::Dashed) => buffer.push_str("\\infer[dashed]0"),
-            (Rule::Open, OpenGoal::Mark(mark)) => {
+        match (derivation.is_open(id), &options.open) {
+            (true, OpenGoal::Dots) => buffer.push_str("\\hypo{\\vdots}\n\\infer[no rule]1"),
+            (true, OpenGoal::Bare) => buffer.push_str("\\hypo"),
+            (true, OpenGoal::Dashed) => buffer.push_str("\\infer[dashed]0"),
+            (true, OpenGoal::Mark(mark)) => {
                 buffer.push_str("\\infer0[$");
                 label(&mut buffer, mark);
                 buffer.push_str("$]");
             }
             _ => {
                 buffer.push_str("\\infer");
-                buffer.push_str(&inference.premises.len().to_string());
+                buffer.push_str(&derivation.premises(id).len().to_string());
                 if let Some(markup) = markup {
                     buffer.push_str("[$");
                     label(&mut buffer, markup);
@@ -387,14 +429,7 @@ pub fn write(
             }
         }
         buffer.push('{');
-        NOTATION.sequent(
-            &mut buffer,
-            forest,
-            reading,
-            &inference.sequent,
-            options.align,
-            false,
-        );
+        derivation.sequent(&mut buffer, &NOTATION, id, options.align, false);
         buffer.push_str("}\n");
         flush(out, &mut buffer, &mut stop)
     })?;

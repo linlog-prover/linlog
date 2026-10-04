@@ -10,11 +10,18 @@
 //! ⊕ ⊸ ! ? ⊤ ⊥ 0 1` are symbols, `_x` or `_{xy}` is a subscript, and every
 //! other character is text set upright. `⊸L` is the upright `L` after
 //! `⊸`, `&L_1` has the subscript `1`. A `*` is a symbol too, a superscript
-//! where the output sets one: the mark of a run of a rule (`?w*`).
+//! where the output sets one: the mark of a run of a rule (`?w*`). The
+//! connectives of ordinary logic `∧ ∨ → ¬ ↔` are symbols as well, for the
+//! labels of LK and LJ (`→L`, `∧_{L1}`).
+//!
+//! Every output draws a derivation through the crate-private trait
+//! `Drawn`, which the linear derivations and those of LK and LJ
+//! implement.
 
-use super::derivation::{Inference, Rule};
+use super::derivation::{Derivation, InfId, Rule};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::fmt::Write;
 use thiserror::Error;
 
 /// How the rules of a derivation are labelled.
@@ -65,16 +72,6 @@ impl Labels {
         };
         (rule != Rule::Open && !label.is_empty()).then_some(label)
     }
-
-    /// Returns the label of an inference as [`markup`](Self::markup)
-    /// does, followed by [`RUN`] when it stands for a run of its rule.
-    pub(crate) fn of(&self, inference: &Inference) -> Option<Cow<'_, str>> {
-        let markup = self.markup(inference.rule)?;
-        Some(match inference.times {
-            1 => Cow::Borrowed(markup),
-            _ => Cow::Owned(format!("{markup}{RUN}")),
-        })
-    }
 }
 
 /// What the label of an inference that stands for a run of a structural
@@ -94,7 +91,7 @@ pub(crate) enum Part<'a> {
 
 /// Whether a character of a label is a symbol.
 fn symbol(c: char) -> bool {
-    "⊗⅋&⊕⊸!?⊤⊥01*".contains(c)
+    "⊗⅋&⊕⊸!?⊤⊥01*∧∨→¬↔".contains(c)
 }
 
 /// Returns the parts of a label's markup in order. A `_` at the end, or
@@ -140,6 +137,145 @@ pub(crate) fn plain(markup: &str) -> String {
         }
     }
     out
+}
+
+/// What an output needs of a derivation to draw it: the tree, the rule
+/// of every inference and its label, and its sequent in the text tree's
+/// characters or in a target's notation. The linear derivations and those
+/// of LK and LJ implement it, so that every output draws both.
+pub(crate) trait Drawn {
+    /// How many rules the calculus has: a rule is a number below it.
+    const RULES: usize;
+
+    /// The rule of an open goal, if the calculus has one.
+    const OPEN: Option<usize>;
+
+    /// Returns the label of a rule in the markup of this module under
+    /// `labels`, or `None` where it has none: an open goal, or every rule
+    /// when labels are off.
+    fn markup(rule: usize, labels: &Labels) -> Option<&str>;
+
+    /// Returns the number of inferences.
+    fn len(&self) -> usize;
+
+    /// Returns the root, the last inference.
+    fn root(&self) -> InfId;
+
+    /// Returns the premises of an inference, in the rule's order; each
+    /// precedes it.
+    fn premises(&self, id: InfId) -> &[InfId];
+
+    /// Returns the rule of an inference, a number below [`RULES`](Self::RULES).
+    fn rule(&self, id: InfId) -> usize;
+
+    /// Returns the name of an inference's rule, as the reading of the
+    /// steps says it.
+    fn name(&self, id: InfId) -> &'static str;
+
+    /// Returns how many applications of its rule an inference stands for.
+    fn times(&self, id: InfId) -> u32;
+
+    /// Writes the sequent an inference concludes as the text tree shows
+    /// it, in Unicode.
+    fn write_sequent(&self, out: &mut impl Write, id: InfId) -> std::fmt::Result;
+
+    /// Writes the sequent an inference concludes in a target's notation,
+    /// as [`Notation::sequent`](crate::export::notation::Notation::sequent)
+    /// does with `aligned` and `marks`.
+    #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
+    fn sequent(
+        &self,
+        out: &mut String,
+        notation: &crate::export::notation::Notation,
+        id: InfId,
+        aligned: bool,
+        marks: bool,
+    );
+
+    /// Returns the positions of the formulas of an inference's sequent in
+    /// the order [`sequent`](Self::sequent) writes them, hypotheses first.
+    #[cfg(feature = "svg")]
+    fn positions(&self, id: InfId) -> Vec<usize>;
+
+    /// Returns whether an inference is an open goal.
+    fn is_open(&self, id: InfId) -> bool {
+        Self::OPEN == Some(self.rule(id))
+    }
+
+    /// Returns the label of an inference as [`markup`](Self::markup)
+    /// does, followed by [`RUN`] when it stands for a run of its rule.
+    fn label<'l>(&self, id: InfId, labels: &'l Labels) -> Option<Cow<'l, str>> {
+        let markup = Self::markup(self.rule(id), labels)?;
+        Some(match self.times(id) {
+            1 => Cow::Borrowed(markup),
+            _ => Cow::Owned(format!("{markup}{RUN}")),
+        })
+    }
+}
+
+impl Drawn for Derivation<'_> {
+    const RULES: usize = Rule::ALL.len();
+    const OPEN: Option<usize> = Some(Rule::Open as usize);
+
+    fn markup(rule: usize, labels: &Labels) -> Option<&str> {
+        labels.markup(Rule::ALL[rule])
+    }
+
+    fn len(&self) -> usize {
+        self.inferences().len()
+    }
+
+    fn root(&self) -> InfId {
+        Derivation::root(self)
+    }
+
+    fn premises(&self, id: InfId) -> &[InfId] {
+        &self.inference(id).premises
+    }
+
+    fn rule(&self, id: InfId) -> usize {
+        self.inference(id).rule as usize
+    }
+
+    fn name(&self, id: InfId) -> &'static str {
+        self.inference(id).rule.name()
+    }
+
+    fn times(&self, id: InfId) -> u32 {
+        self.inference(id).times
+    }
+
+    fn write_sequent(&self, out: &mut impl Write, id: InfId) -> std::fmt::Result {
+        super::fmt::write_sequent(
+            out,
+            self.forest(),
+            self.reading(),
+            &self.inference(id).sequent,
+        )
+    }
+
+    #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
+    fn sequent(
+        &self,
+        out: &mut String,
+        notation: &crate::export::notation::Notation,
+        id: InfId,
+        aligned: bool,
+        marks: bool,
+    ) {
+        let sequent = &self.inference(id).sequent;
+        notation.sequent(out, self.forest(), self.reading(), sequent, aligned, marks);
+    }
+
+    #[cfg(feature = "svg")]
+    fn positions(&self, id: InfId) -> Vec<usize> {
+        let sequent = &self.inference(id).sequent;
+        let mut positions: Vec<usize> = (0..sequent.len()).collect();
+        if let Some(reading) = self.reading() {
+            positions.sort_by_key(|&p| reading.position(sequent[p]) == crate::Position::Output);
+        }
+        positions
+    }
 }
 
 /// How an open goal of a proof in progress is drawn.

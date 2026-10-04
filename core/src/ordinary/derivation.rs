@@ -2,10 +2,14 @@
 // Licensed under the EUPL
 
 use super::translate::{Core, Image, pattern};
-use super::{Formulas, Logic, Node, NodeId, Translation};
+use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
 use crate::occurrences::OccId;
-use crate::proofs::{Compact, InfId, Rule as Linear, ViewError, ViewOptions};
+use crate::proofs::style::Drawn;
+use crate::proofs::{
+    Compact, InfId, Labels, Rule as Linear, TextOptions, ViewError, ViewOptions, WriteError,
+};
 use crate::{Error, Proof};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// A side of the turnstile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -91,6 +95,39 @@ pub enum Rule {
 }
 
 impl Rule {
+    /// Every rule, in the order of declaration, which is the order of
+    /// `rule as usize`.
+    pub(crate) const ALL: [Self; 25] = {
+        use Rule::*;
+        [
+            Axiom,
+            WeakenLeft,
+            WeakenRight,
+            ContractLeft,
+            ContractRight,
+            AndLeft,
+            AndLeft1,
+            AndLeft2,
+            AndRight,
+            OrLeft,
+            OrRight,
+            OrRight1,
+            OrRight2,
+            ImpliesLeft,
+            ImpliesRight,
+            NotLeft,
+            NotRight,
+            IffLeft,
+            IffLeft1,
+            IffLeft2,
+            IffRight,
+            FalseLeft,
+            FalseRight,
+            TrueLeft,
+            TrueRight,
+        ]
+    };
+
     /// Returns the rule's usual spelling.
     pub const fn name(self) -> &'static str {
         use Rule::*;
@@ -182,9 +219,9 @@ impl Rule {
     }
 }
 
-impl std::fmt::Display for Rule {
+impl Display for Rule {
     /// Writes the rule's [`name`](Self::name).
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
     }
 }
@@ -441,6 +478,112 @@ impl Derivation {
     }
 }
 
+impl Derivation {
+    /// Returns the width in characters and the number of lines of the tree
+    /// that [`write_text`](Self::write_text) draws under the options,
+    /// without drawing it.
+    pub fn text_size(&self, options: &TextOptions) -> (usize, usize) {
+        crate::proofs::fmt::text_size(self, options)
+    }
+
+    /// Writes the derivation as a tree of sequents `Γ ⊢ Δ`, one line per
+    /// row, without a trailing newline, as
+    /// [`crate::Derivation::write_text`] draws a linear one, and asks
+    /// `stop` before every piece of a row. The labels are those of
+    /// [`Rule`] (a label table of [`Labels::Table`] is keyed by the
+    /// linear rules, so it leaves them upright).
+    pub fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        stop: impl FnMut() -> bool,
+    ) -> Result<(), WriteError> {
+        crate::proofs::fmt::write_text(self, options, out, stop)
+    }
+}
+
+impl Display for Derivation {
+    /// Draws the derivation as a tree of sequents under the default
+    /// [`TextOptions`], one line per row, without a trailing newline.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.write_text(&TextOptions::default(), f, || false)
+            .map_err(|_| std::fmt::Error)
+    }
+}
+
+impl Drawn for Derivation {
+    const RULES: usize = Rule::ALL.len();
+    const OPEN: Option<usize> = None;
+
+    fn markup(rule: usize, labels: &Labels) -> Option<&str> {
+        let rule = Rule::ALL[rule];
+        match labels {
+            Labels::Upright | Labels::Table(_) => Some(rule.markup(false)),
+            Labels::Subscript => Some(rule.markup(true)),
+            Labels::Off => None,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.inferences.len()
+    }
+
+    fn root(&self) -> InfId {
+        Derivation::root(self)
+    }
+
+    fn premises(&self, id: InfId) -> &[InfId] {
+        &self.inference(id).premises
+    }
+
+    fn rule(&self, id: InfId) -> usize {
+        self.inference(id).rule as usize
+    }
+
+    fn name(&self, id: InfId) -> &'static str {
+        self.inference(id).rule.name()
+    }
+
+    fn times(&self, _: InfId) -> u32 {
+        1
+    }
+
+    fn write_sequent(&self, out: &mut impl Write, id: InfId) -> FmtResult {
+        let inference = self.inference(id);
+        let mut text = String::new();
+        let sides = (&inference.left[..], &inference.right[..]);
+        write_sides(
+            &mut text,
+            &self.formulas,
+            sides.0,
+            sides.1,
+            &Symbols::UNICODE,
+            "⊢",
+        );
+        out.write_str(&text)
+    }
+
+    #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
+    fn sequent(
+        &self,
+        out: &mut String,
+        notation: &crate::export::notation::Notation,
+        id: InfId,
+        aligned: bool,
+        marks: bool,
+    ) {
+        let inference = self.inference(id);
+        let sides = (&inference.left[..], &inference.right[..]);
+        notation.ordinary(out, &self.formulas, sides, aligned, marks);
+    }
+
+    #[cfg(feature = "svg")]
+    fn positions(&self, id: InfId) -> Vec<usize> {
+        let inference = self.inference(id);
+        (0..inference.left.len() + inference.right.len()).collect()
+    }
+}
+
 /// Returns whether two lists are the same multiset.
 fn same(a: &[NodeId], b: &[NodeId]) -> bool {
     let (mut a, mut b) = (a.to_vec(), b.to_vec());
@@ -504,8 +647,9 @@ impl Image {
     /// dereliction or a promotion is no inference, a contraction or a
     /// weakening is one of the ordinary formula, and a classical negation,
     /// which has no image of its own, is a `¬` rule where its operand is
-    /// taken apart. The derivation is from [`linear_derivation`]
-    /// (Self::linear_derivation); [`Derivation::check`] checks the result.
+    /// taken apart. The derivation is from
+    /// [`linear_derivation`](Self::linear_derivation);
+    /// [`Derivation::check`] checks the result.
     ///
     /// # Errors
     ///
@@ -658,12 +802,7 @@ impl Image {
     /// image of their own, to the formula whose connective its image has:
     /// returns the negations passed and that formula. Other translations
     /// pass none.
-    fn unwind(
-        &self,
-        mut node: NodeId,
-        mut function: u8,
-        mut side: Side,
-    ) -> Unwound {
+    fn unwind(&self, mut node: NodeId, mut function: u8, mut side: Side) -> Unwound {
         let mut chain = Vec::new();
         if self.translation == Translation::Affine {
             while let Node::Not(a) = self.ordinary.formulas.node(node) {
@@ -765,4 +904,42 @@ fn negations(
         id = push(out, members, at, rule, vec![id]);
     }
     id
+}
+
+#[cfg(all(test, feature = "parse"))]
+mod tests {
+    use super::super::{Sequent, translate};
+    use super::*;
+    use crate::{Options, Verdict, prove};
+
+    /// The text tree draws `Γ ⊢ Δ` with the rules of LJ, and its size is
+    /// that of the text.
+    #[test]
+    fn text_tree() {
+        let sequent: Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
+        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+        let Verdict::Proved(proof) = &outcome.verdict else {
+            panic!("provable");
+        };
+        let linear = image
+            .linear_derivation(proof, &ViewOptions::default(), || false)
+            .unwrap();
+        let derivation = image.read_back(&linear).unwrap();
+        let tree = derivation.to_string();
+        assert_eq!(
+            tree,
+            "───── ax   ───── ax\n\
+             a ⊢ a      b ⊢ b\n\
+             ──────────────── →L   ───── ax\n\
+            \x20 a, a → b ⊢ b        c ⊢ c\n\
+            \x20 ───────────────────────── →L\n\
+            \x20    a, a → b, b → c ⊢ c\n\
+            \x20    ──────────────────── →R\n\
+            \x20    a → b, b → c ⊢ a → c"
+        );
+        let width = tree.lines().map(|l| l.chars().count()).max();
+        let size = derivation.text_size(&crate::TextOptions::default());
+        assert_eq!(Some(size), width.map(|w| (w, tree.lines().count())));
+    }
 }

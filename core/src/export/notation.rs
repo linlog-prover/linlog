@@ -7,7 +7,9 @@
 //! time.
 
 use crate::occurrences::{Forest, OccId, Position, Reading};
-use crate::proofs::{Derivation, InfId, WriteError};
+use crate::ordinary::{Formulas, NodeId, Symbols};
+use crate::proofs::style::Drawn;
+use crate::proofs::{InfId, WriteError};
 use crate::sequents::{Kind, Sequent, Term, TermId, Visit, Walk};
 use std::fmt::Write;
 
@@ -48,6 +50,8 @@ pub(crate) struct Notation {
     pub(crate) align: &'static str,
     /// Writes an atom's name.
     pub(crate) atom: fn(&mut String, &str),
+    /// The connectives and constants of ordinary formulas.
+    pub(crate) ordinary: Symbols,
 }
 
 impl Notation {
@@ -195,6 +199,48 @@ impl Notation {
     }
 }
 
+impl Notation {
+    /// Writes a sequent of ordinary formulas two-sided, `left ⊢ right`
+    /// in the order given, with the turnstile lined up as
+    /// [`sequent`](Self::sequent) does when `aligned` is set, and with
+    /// `marks` every formula between `'\u{2}'` and `'\u{3}'`.
+    pub(crate) fn ordinary(
+        &self,
+        out: &mut String,
+        formulas: &Formulas,
+        sides: (&[NodeId], &[NodeId]),
+        aligned: bool,
+        marks: bool,
+    ) {
+        let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
+        let formula = |out: &mut String, id: NodeId| {
+            out.push_str(open);
+            formulas.write(out, id, false, &self.ordinary, |o, a| {
+                (self.atom)(o, formulas.atom_name(a));
+            });
+            out.push_str(close);
+        };
+        let (left, right) = sides;
+        for (i, &id) in left.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            formula(out, id);
+        }
+        if !left.is_empty() {
+            out.push(' ');
+        }
+        if aligned {
+            out.push_str(self.align);
+        }
+        out.push_str(self.turnstile);
+        for (i, &id) in right.iter().enumerate() {
+            out.push_str(if i == 0 { " " } else { ", " });
+            formula(out, id);
+        }
+    }
+}
+
 /// One step of the walk over a derivation.
 #[derive(Clone, Copy)]
 pub(crate) enum Step {
@@ -208,8 +254,8 @@ pub(crate) enum Step {
 /// and hands `visit` every inference once on the way up and once on the
 /// way down, until it fails. Exits alone come in postfix order. The walk
 /// keeps its own stack, so a derivation of any height fits.
-pub(crate) fn walk<E>(
-    derivation: &Derivation,
+pub(crate) fn walk<T: Drawn, E>(
+    derivation: &T,
     mut visit: impl FnMut(Step) -> Result<(), E>,
 ) -> Result<(), E> {
     let mut stack = vec![Step::Enter(derivation.root(), 0)];
@@ -217,7 +263,7 @@ pub(crate) fn walk<E>(
         visit(step)?;
         if let Step::Enter(id, depth) = step {
             stack.push(Step::Exit(id, depth));
-            for &p in derivation.inference(id).premises.iter().rev() {
+            for &p in derivation.premises(id).iter().rev() {
                 stack.push(Step::Enter(p, depth + 1));
             }
         }

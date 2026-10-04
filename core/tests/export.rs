@@ -141,6 +141,41 @@ fn typst_layout() {
     );
 }
 
+/// A derivation of LJ read back from the linear proof of its image is
+/// drawn two-sided in every drawn target, with the ordinary connectives
+/// and the rules of LJ.
+#[test]
+fn ordinary_derivation() {
+    use linlog::ordinary::{self, Logic, Translation};
+    let sequent: ordinary::Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
+    let image =
+        ordinary::translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+    let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+    let Verdict::Proved(proof) = outcome.verdict else {
+        panic!("provable");
+    };
+    let linear = image
+        .linear_derivation(&proof, &ViewOptions::default(), || false)
+        .unwrap();
+    let derivation = image.read_back(&linear).unwrap();
+    derivation.check().unwrap();
+    let (mut tex, mut typ, mut drawing) = (String::new(), String::new(), String::new());
+    let latex = latex::Options {
+        form: Form::Standalone,
+        ..latex::Options::default()
+    };
+    latex::ordinary(&derivation, &latex, &mut tex, || false).unwrap();
+    snapshot("ordinary.tex", &tex);
+    let typst = typst::Options {
+        form: Form::Standalone,
+        ..typst::Options::default()
+    };
+    typst::ordinary(&derivation, &typst, &mut typ, || false).unwrap();
+    snapshot("ordinary.typ", &typ);
+    svg::ordinary(&derivation, &Style::default(), &mut drawing, || false).unwrap();
+    snapshot("ordinary.svg", &drawing);
+}
+
 /// A compact derivation draws a run of weakenings as one inference with a
 /// starred label in every drawn target.
 #[test]
