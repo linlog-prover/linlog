@@ -355,3 +355,11 @@ allows: never a proof against a refutation, either way.
   `engines_agree_where_contractions_are_needed`, and the deepening, which
   asks the reference at every budget below the one given.
 - A new engine joins `configurations` in its tests.
+- **A second reference, kept outside the repository**, judged every
+  change of the search at step 26: written by a fresh agent from the
+  calculus alone (its own parser of the text syntax, every rule on every
+  formula, contraction budgeted per branch), it agreed with this one on
+  every sequent both decided. It lives in that session's scratchpad and
+  is not maintained; a step that changes the search writes or asks for
+  its own, so that the panel's independence does not rest on this one
+  file.

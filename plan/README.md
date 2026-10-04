@@ -1944,3 +1944,19 @@ client follows it (step 32).
   rewrite). The second session first repeats the pool's comparison with
   one thread at recursion limits 4 to 16, which ran before item 1.
   Next: step 26's second session.
+- 2026-10-04: step 26, second session (Opus 5.5 at xhigh; six panels of
+  three fresh-context reviewers run as workflows, a second reference
+  written by a fresh agent outside the repository): the dispatch as a
+  table with the measurement behind each row (no row moved), the atom
+  bias in the focused engine; six hot spots at identical counters
+  (NeoElection 9.7 to 11.9 times its throughput, the widest nets 2 to 3
+  times); five changes of the search, each with its panel (a proof
+  carries no cuts, the `&` on a pool cancels as one thread would, the
+  Horn test on the goal, the Mix prune to `n·2ⁿ`, a loop for long chains
+  of free splits), and on the author's decision an external reviewer's
+  finding (Mix left out in affine mode). No panel found a wrong verdict;
+  four found a cost or a lost decision, each reproduced, fixed and
+  pinned by a test. The profile at the end beside the start, item 7's
+  note for quantifiers, ILTP and LLTP through the batch with no
+  contradiction. Report: `reports/26-focused-engine.md` (second part).
+  Next: the review of the second session.

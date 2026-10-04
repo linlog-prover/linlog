@@ -738,11 +738,17 @@ relies on:
   leaves (`Ax`, `Copy`+`Ax`, `1`, `!`, `⊤`), with no copy added or moved
   on any branch. So a proof at a level stays one, and "unprovable" stays
   sound. What the argument does not give: that no answer moves to
-  "unknown", since the Mix search's memo entries for its parts can spare
-  a later visit a budget cut. Measured instead (15 360 generated runs,
-  every rule set, copy bounds 0 to 5, memo default and 2): no decision
-  lost, 25 gained, 26 times fewer stable sequents; the mix family's four
-  pairs 32 265 against 46 537 (`affine_mode_leaves_mix_out`).
+  "unknown", since the memo's state differs without the Mix search's
+  entries, and a proof at a level may rest on entries reused below
+  their budget. Measured: 15 360 generated runs (every rule set, copy
+  bounds 0 to 5, memo default and 2) lost nothing and gained 25; a
+  panel's 696 024 runs found no wrong verdict, 3 decisions lost (`|-
+  ?(~c par ~c), ?(~b * ~b), !?(?b * c)` with Mix at three copies, proved
+  before at that bound by memo proofs reused below their budget, now at
+  four; two refutations at bound 2 under a memo of two entries, now at
+  3) and 1 638 gained, at 26 times fewer stable sequents; the mix
+  family's four pairs 32 265 against 46 537
+  (`affine_mode_leaves_mix_out`). The author kept it on these numbers.
 - **Hereditary failures** (`Failure::Hereditary`, `parts_fail`,
   `prove_part`): under Mix a stable sequent `P` fails *hereditarily*
   when no non-empty sub-multiset of its `Γ` is provable with its `Θ`.
