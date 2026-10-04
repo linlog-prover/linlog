@@ -713,6 +713,93 @@ The syntax: `*`/`⊗` tensor, `|`/`par`/`⅋` par, `&` with, `+`/`⊕` plus,
 `-o`/`⊸` linear implication, `~A` or `A^` negation, `!` and `?`, and the
 units `1`, `bot`/`⊥`, `top`/`⊤`, `0`; `|-` or `⊢` separates the sides.
 
+### Ordinary logic
+
+`--logic classical`, `intuitionistic` or `minimal` reads a formula or a
+sequent of ordinary propositional logic instead, written with `->`/`→`,
+`/\`/`∧`, `\/`/`∨`, `~`/`¬`, `<->`/`↔`, `true`/`⊤` and `false`/`⊥`
+(`~` binds tightest, then `/\`, `\/`, and `->` and `<->` group to the
+right). It is decided by its translation into linear logic, and the proof
+is read back as a derivation of LK or LJ, which is checked by the rules of
+the logic before it is shown:
+
+```console
+$ linlog prove --logic classical '((a -> b) -> a) -> a'
+valid (classical logic by the affine translation into affine MALL, focus engine)
+  ───── ax
+  a ⊢ a
+ ──────── WR
+ a ⊢ b, a
+────────── →R   ───── ax
+⊢ a → b, a      a ⊢ a
+───────────────────── →L
+   (a → b) → a ⊢ a
+ ─────────────────── →R
+ ⊢ ((a → b) → a) → a
+$ linlog prove --logic intuitionistic 'a \/ b -> b \/ a'
+valid (intuitionistic logic by the cbn translation into ILL, two-sided engine)
+  ───── ax        ───── ax
+  a ⊢ a           b ⊢ b
+───────── ∨R₂   ───────── ∨R₁
+a ⊢ b ∨ a       b ⊢ b ∨ a
+───────────────────────── ∨L
+      a ∨ b ⊢ b ∨ a
+   ─────────────────── →R
+   ⊢ (a ∨ b) → (b ∨ a)
+$ linlog prove --logic intuitionistic '~~a -> a'
+not valid (intuitionistic logic by the cbn translation into ILL, two-sided engine): the image is unprovable: the search was exhaustive
+```
+
+Classical logic goes into affine MALL without exponentials (negation
+normal form, `∧` as `&`, `∨` as `⅋`), where the search needs no copy
+bound. Intuitionistic logic goes into ILL by `--translation cbn`
+(Girard's call-by-name translation, the default), `cbv` (his call-by-value
+one) or `01` (Liang and Miller's 0/1 translation); minimal logic is the
+same with false an atom. There the search deepens its copy bound under
+the time limit, so an intuitionistic formula may be answered unknown
+(exit status 3). `seq print` shows the image, and `--linear` the linear
+proof of it:
+
+```console
+$ linlog seq print --logic intuitionistic --translation cbv 'a, a -> b |- b'
+!a, !(!a ⊸ !b) ⊢ !b
+$ linlog seq print --logic minimal '~a |- a -> b'
+!(!a ⊸ false) ⊢ !a ⊸ b
+$ linlog prove --logic intuitionistic --linear 'a, a -> b |- b'
+valid (intuitionistic logic by the cbn translation into ILL, two-sided engine)
+───── ax
+a ⊢ a
+────── !L
+!a ⊢ a
+─────── !R   ───── ax
+!a ⊢ !a      b ⊢ b
+────────────────── ⊸L
+  !a, !a ⊸ b ⊢ b
+ ───────────────── !L
+ !a, !(!a ⊸ b) ⊢ b
+```
+
+A `.p` file under `--logic` is a problem in TPTP's syntax, as the ILTP
+library writes them (`nix build .#iltp` fetches its 274 propositional
+problems), and the batch takes a directory of them. `--format latex`,
+`typst`, `svg`, `png` and `pdf` draw the derivation of LK or LJ, and
+`--format rocq` writes a certificate over `Prop` that needs no library
+(a classical one the standard library's excluded middle):
+
+```console
+$ echo 'fof(pel1, conjecture, (p => q) <=> (~ q => ~ p)).' > pel1.p
+$ linlog prove --logic intuitionistic --quiet --file pel1.p
+not valid (intuitionistic logic by the cbn translation into ILL, two-sided engine): the image is unprovable: the search was exhaustive
+$ linlog prove --logic classical --quiet --file pel1.p
+valid (classical logic by the affine translation into affine MALL, focus engine)
+$ linlog prove --logic classical --format rocq 'a \/ ~a'
+(* valid (classical logic by the affine translation into affine MALL, focus engine) *)
+Lemma certificate : forall a : Prop, (a \/ ~ a).
+Proof.
+  exact (fun (a : Prop) => NNPP (a \/ ~ a) (fun k'1 : ~ (a \/ ~ a) => (let k'2 : ~ a := fun x' => k'1 (or_introl x') in let k'3 : ~ ~ a := fun x' => k'1 (or_intror x') in (k'3 (fun h'4 : a => (k'2 h'4)))))).
+Qed.
+```
+
 ### Many sequents in one call
 
 `prove` decides many sequents in one call, a batch, when it is given
@@ -1026,6 +1113,14 @@ Built:
   per sequent in input order, with a time limit per sequent and for the
   batch, a memory bound for the batch, and a child process per sequent
   on request.
+- Ordinary classical, intuitionistic and minimal propositional logic
+  decided through their embeddings into linear logic: a syntax of its
+  own and a reader for TPTP problems, the translations by name (classical
+  logic into affine MALL, Girard's call-by-name and call-by-value
+  translations and the 0/1 translation into ILL, minimal logic with false
+  an atom) with the image printable, the linear proof read back as a
+  derivation of LK or LJ that a checker of its own validates and every
+  output draws, and a certificate over `Prop` for Rocq.
 - Benchmarks: a reader for the problems of the LLTP library, generated
   families with known verdicts (the hard families of the literature and
   the cases where one engine is known to be slow), and `linlog-bench`,
@@ -1038,8 +1133,6 @@ Built:
 
 Planned, in roughly this order:
 
-- Ordinary classical, intuitionistic and minimal propositional logic
-  through their translations into linear logic.
 - A web front end for proving step by step in the browser.
 - A Rocq library of linlog's own with certificates for every mode, next
   to the NanoYalla export.
