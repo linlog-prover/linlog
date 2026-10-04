@@ -70,7 +70,7 @@ use self::context::Context;
 use self::counts::{Counts, Split, Tally};
 use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{plan, turns};
-use self::scratch::Pools;
+use self::scratch::{Pooled, Pools};
 use self::split::Join;
 use super::Bias;
 use super::memory::{Account, Charged};
@@ -578,6 +578,27 @@ impl<'a> Problem<'a> {
     }
 }
 
+/// What the members marked last have on one list of a literal's
+/// occurrences.
+#[derive(Clone, Copy, Debug)]
+struct Marks {
+    /// The stamp of the marking that last found a member on the list.
+    stamp: u64,
+    /// The first member that marking found there.
+    first: OccId,
+    /// The stamp of the marking whose initial rules last looked for the
+    /// list's literal in `Θ`.
+    tried: u64,
+}
+
+/// The members of an unrestricted zone in the order of their classes.
+struct ByClass {
+    /// The zone; `None` before the first.
+    zone: Option<OccSet>,
+    /// Its members with their classes, by class and then by id.
+    members: Pooled<(OccId, OccId)>,
+}
+
 /// The state of one run: the problem, the memo, the proof arena, the
 /// counters, the branch, and pools of scratch buffers so that no step
 /// allocates once the pools are warm.
@@ -640,14 +661,15 @@ struct Engine<'a> {
     /// The spare buffers.
     pools: Pools,
     /// Per list of a literal's occurrences, twice the atom plus the sign
-    /// as the forest numbers them: the stamp of the last stable sequent
-    /// that had such a literal in its linear zone when its copies were
-    /// ranked. Empty until the first ranking.
-    present: Vec<u64>,
-    /// The stamp of the stable sequent whose copies were ranked last. A
-    /// search that ranks a billion a second takes five centuries to wrap
-    /// it.
+    /// as the forest numbers them: what the members marked last have on
+    /// it. Empty until the first marking.
+    lists: Vec<Marks>,
+    /// The stamp of the members marked last. A search that marks a
+    /// billion sets a second takes five centuries to wrap it.
     stamp: u64,
+    /// The unrestricted zone of the stable sequent whose copies were
+    /// listed last, with its members by class.
+    by_class: ByClass,
 }
 
 impl<'a> Engine<'a> {
@@ -692,8 +714,12 @@ impl<'a> Engine<'a> {
             hashes: Vec::new(),
             stack_len: 0,
             pools: Pools::default(),
-            present: Vec::new(),
+            lists: Vec::new(),
             stamp: 0,
+            by_class: ByClass {
+                zone: None,
+                members: Pooled::default(),
+            },
         }
     }
 
@@ -1238,10 +1264,9 @@ impl<'a> Engine<'a> {
         // in `Γ` skipped (a second copy cannot help before the first is
         // used), those that can meet a literal of `Γ` first, then by id.
         if self.rules.exponentials {
-            copies.extend(theta.iter().filter(|&a| !gamma.contains(a)));
+            let unconsumed = self.one_of_each_copy(theta, gamma, copies);
             // Each is looked up in `Γ`, compared with its class and sorted.
-            self.work += 2 * copies.len() as u64;
-            self.one_of_each(copies);
+            self.work += 2 * unconsumed as u64;
             if budget == 0 {
                 // A branch cut by the bound: the level cannot claim
                 // completeness, unless nothing was there to copy.
@@ -1400,6 +1425,51 @@ impl<'a> Engine<'a> {
         }
     }
 
+    /// Lists in `copies`, of the members of `Θ` without a copy in `Γ`, one
+    /// of each class, the lowest id, in the order of their classes, which
+    /// is [`Self::one_of_each`] on them; returns how many members `Θ` has
+    /// without a copy in `Γ`. `Θ`'s members by class are kept from the
+    /// stable sequent before when it had the same `Θ`, as along a branch
+    /// it mostly has: sorting them anew for every stable sequent was most
+    /// of what one cost on a net of thousands of transitions.
+    fn one_of_each_copy(
+        &mut self,
+        theta: &OccSet,
+        gamma: &Context,
+        copies: &mut Vec<OccId>,
+    ) -> usize {
+        let by_class = &mut self.by_class;
+        if by_class.zone.as_ref() != Some(theta) {
+            match &mut by_class.zone {
+                Some(zone) => zone.clone_from(theta),
+                None => {
+                    self.scratch
+                        .charge(self.forest.len().div_ceil(64) * size_of::<u64>());
+                    by_class.zone = Some(theta.clone());
+                }
+            }
+            by_class.members.clear();
+            by_class
+                .members
+                .extend(theta.iter().map(|a| (self.classes.of(a), a)));
+            by_class.members.sort_unstable();
+            by_class.members.settle(&mut self.scratch);
+        }
+        let mut unconsumed = 0;
+        let mut last = None;
+        for &(class, a) in self.by_class.members.iter() {
+            if gamma.contains(a) {
+                continue;
+            }
+            unconsumed += 1;
+            if last != Some(class) {
+                copies.push(a);
+                last = Some(class);
+            }
+        }
+        unconsumed
+    }
+
     /// Keeps, of the occurrences that are interchangeable, the one with
     /// the lowest id.
     fn one_of_each(&self, occurrences: &mut Vec<OccId>) {
@@ -1426,21 +1496,30 @@ impl<'a> Engine<'a> {
     /// The initial rules on a stable sequent: a dual pair in `Γ`, or a
     /// literal of `Γ` whose dual lies in `Θ`, which is copied and counts
     /// against the budget; exactly that in linear mode, with anything else
-    /// in `Γ` weakened away in affine mode.
+    /// in `Γ` weakened away in affine mode. The first literal of the
+    /// members, in their order, with a dual among them pairs with the first
+    /// such dual, else the first with a dual in `Θ` is copied. One pass
+    /// marks the lists of the members' literals, so that the test is
+    /// linear in the members: comparing every pair was quadratic under
+    /// weakening, where any number of members may close a sequent.
     fn initial(&mut self, theta: &OccSet, gamma: &Context, members: &[OccId], budget: u32) -> Step {
-        let f = self.forest;
-        let dual = |p: OccId, q: OccId| {
-            f.is_literal(p) && f.atom(p) == f.atom(q) && f.sign(p) != f.sign(q)
-        };
         let affine = self.rules.affine;
+        if !affine && members.len() > 2 {
+            return Ok(Found::NOTHING);
+        }
+        self.mark_literals(members);
+        let f = self.forest;
         let mut cuts = Cuts::NONE;
-        for (i, &p) in members.iter().enumerate() {
-            if !f.is_literal(p) || (!affine && members.len() > 2) {
+        for &p in members {
+            let (Some(atom), Some(sign)) = (f.atom(p), f.sign(p)) else {
                 continue;
-            }
-            if (affine || members.len() == 2)
-                && let Some(&q) = members[i + 1..].iter().find(|&&q| dual(p, q))
-            {
+            };
+            let dual = 2 * atom.index() + (!sign) as usize;
+            // No member before `p` has a dual among the members, else the
+            // pair would have closed the sequent there, so `p`'s first dual
+            // comes after it.
+            if (affine || members.len() == 2) && self.lists[dual].stamp == self.stamp {
+                let q = self.lists[dual].first;
                 let ax = self.push(Node::Ax(p, q));
                 if !affine {
                     return Ok(Found::proved(ax).after(cuts));
@@ -1452,9 +1531,17 @@ impl<'a> Engine<'a> {
                 self.give_context(rest);
                 return Ok(Found::proved(node).after(cuts));
             }
-            if (affine || members.len() == 1)
-                && let Some(d) = self.dual_in(p, |d| theta.contains(d))
+            // Without exponentials `Θ` is empty; with them, a literal's
+            // dual is looked up in `Θ` once, since another copy of it finds
+            // what the first found.
+            if !(affine || members.len() == 1)
+                || !self.rules.exponentials
+                || self.lists[dual].tried == self.stamp
             {
+                continue;
+            }
+            self.lists[dual].tried = self.stamp;
+            if let Some(d) = self.dual_in(p, |d| theta.contains(d)) {
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
@@ -1485,21 +1572,35 @@ impl<'a> Engine<'a> {
         f.literals(atom, !sign).iter().copied().find(|&d| within(d))
     }
 
-    /// Marks the literals among the members of a stable sequent for
-    /// [`Self::meets`], under a stamp of their own. One pass over the
+    /// Marks the lists of the literals among the members of a stable
+    /// sequent, under a stamp of their own, with the first member on each,
+    /// for [`Self::initial`] and [`Self::meets`]. One pass over the
     /// members, so that ranking the copies costs the members and the
     /// formulas of `Θ` once each and not their product, which on a
     /// marking of thousands of tokens under clauses of thousands of
     /// literals was a quarter of a second per stable sequent.
     fn mark_literals(&mut self, members: &[OccId]) {
         let f = self.forest;
-        if self.present.is_empty() {
-            self.present = vec![0; 2 * f.sequent().atom_names().len()];
+        if self.lists.is_empty() {
+            let lists = 2 * f.sequent().atom_names().len();
+            self.scratch.charge(lists * size_of::<Marks>());
+            self.lists = vec![
+                Marks {
+                    stamp: 0,
+                    first: OccId::new(0),
+                    tried: 0,
+                };
+                lists
+            ];
         }
         self.stamp += 1;
         for &m in members {
             if let (Some(atom), Some(sign)) = (f.atom(m), f.sign(m)) {
-                self.present[2 * atom.index() + sign as usize] = self.stamp;
+                let list = &mut self.lists[2 * atom.index() + sign as usize];
+                if list.stamp != self.stamp {
+                    list.stamp = self.stamp;
+                    list.first = m;
+                }
             }
         }
     }
@@ -1511,7 +1612,7 @@ impl<'a> Engine<'a> {
         let f = self.forest;
         f.subtree(a).any(|l| match (f.atom(l), f.sign(l)) {
             (Some(atom), Some(sign)) => {
-                self.present[2 * atom.index() + (!sign) as usize] == self.stamp
+                self.lists[2 * atom.index() + (!sign) as usize].stamp == self.stamp
             }
             _ => false,
         })

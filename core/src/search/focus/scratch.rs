@@ -215,7 +215,7 @@ impl<T> Default for Pooled<T> {
 impl<T> Pooled<T> {
     /// Charges the account what the list's allocation grew by since it
     /// was last charged.
-    fn settle(&mut self, account: &mut Charged<'_>) {
+    pub(super) fn settle(&mut self, account: &mut Charged<'_>) {
         let bytes = bytes_of(&self.items);
         if bytes != self.charged {
             account.resize(self.charged, bytes);
