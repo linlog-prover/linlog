@@ -454,4 +454,38 @@ $P/perf report -i OUT.data --no-children --sort symbol --stdio   # self time
 - The step that changes the engine takes the same rows with the same
   command on the same cores before and after (its report has the
   rows); for differences of a few percent, instruction counts
-  (callgrind) and not times.
+  (callgrind) and not times, which moved by −6 to +4 % between two runs
+  of unchanged code by day.
+
+## Instruction counts
+
+valgrind's callgrind from the flake's nixpkgs, as perf, on the binary
+with symbols, one row per core:
+
+```sh
+V=$(nix build --no-link --print-out-paths --inputs-from . nixpkgs#valgrind.out)/bin
+systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 taskset -c 9 \
+  $V/valgrind --tool=callgrind --callgrind-out-file=OUT --toggle-collect='*Engine*run*' \
+  target/symbols/release/linlog-bench one --problem P --mode given --engine auto --jobs 1 \
+  --timeout 900 --copies 3 --bias factors
+$V/callgrind_annotate OUT | head -40   # by function; "Collected" in the log is the total
+```
+
+- **`nixpkgs#valgrind.out`, not `nixpkgs#valgrind`**: the default
+  output printed first is the manual's, without `bin/`.
+- **Collect inside `Engine::run` only** (`--toggle-collect`): the
+  parse, the set-up and the check are the same before and after, and
+  the default bias with exponentials alternates two searches whose
+  waiting thread wakes once a millisecond, a count that depends on the
+  time; name the bias (`--bias factors` or `rarer`) so that one search
+  runs, and a row that ends at its copy bound counts as well as a
+  decided one, since both are a function of the input.
+- **A `memset` above 2 KiB counts per byte**: glibc clears with
+  `rep stosb` there, which callgrind counts as one instruction a byte, so
+  a change that moves bytes from a copy to a clear shows thousands of
+  times its cost (a zone's range cleared and then copied read four times
+  the instructions of the full copy it replaced, at a 40 % longer time);
+  compare times or throughput where clears change.
+- **Fifty times slower** than the run itself: a row of 0.1 s takes five
+  seconds. The rows step 26 counted, and its before and after, are in
+  its report.
