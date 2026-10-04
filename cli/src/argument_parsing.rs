@@ -23,8 +23,8 @@ With --logic the input is ordinary logic: `a, a -> b |- b`, or a formula alone.
   and  a /\\ b, a ∧ b         or   a \\/ b, a ∨ b
   implies  a -> b, a → b      iff  a <-> b, a ↔ b
   not  ~a, ¬a                 constants  true, ⊤, false, ⊥
-Binding, tightest first: ~, /\\, \\/, then -> and <->, which group to the
-right.";
+Binding, tightest first: ~, /\\, \\/, ->, and last <->; -> and <-> group to
+the right.";
 
 /// Decide, print and convert sequents of linear logic.
 #[derive(Parser, Debug)]

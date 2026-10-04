@@ -718,10 +718,10 @@ units `1`, `bot`/`⊥`, `top`/`⊤`, `0`; `|-` or `⊢` separates the sides.
 `--logic classical`, `intuitionistic` or `minimal` reads a formula or a
 sequent of ordinary propositional logic instead, written with `->`/`→`,
 `/\`/`∧`, `\/`/`∨`, `~`/`¬`, `<->`/`↔`, `true`/`⊤` and `false`/`⊥`
-(`~` binds tightest, then `/\`, `\/`, and `->` and `<->` group to the
-right). It is decided by its translation into linear logic, and the proof
-is read back as a derivation of LK or LJ, which is checked by the rules of
-the logic before it is shown:
+(`~` binds tightest, then `/\`, `\/`, `->`, and last `<->`; `->` and
+`<->` group to the right). It is decided by its translation into linear
+logic, and the proof is read back as a derivation of LK or LJ, which is
+checked by the rules of the logic before it is shown:
 
 ```console
 $ linlog prove --logic classical '((a -> b) -> a) -> a'
