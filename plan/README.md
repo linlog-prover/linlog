@@ -43,7 +43,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 22 | Configurable output, no font in LaTeX and Typst, a Typst layout of linlog's own, a compact view (two sessions) | `22-configurable-output.md` | Opus 5.5 | xhigh for the first session, high for the second | 18 |
 | 23 | What every session reads, short and true: the core rules split by module, the stale claims of the rules and CLAUDE.md, README's examples run by a check | `23-session-docs.md` | Opus 5.5 | high | 22 |
 | 24 | A batch mode, LLTP input for the command, and the draft of the header report | `24-batch.md` | Opus 5.5 | high | 20, 21, 23 |
-| 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` (finished at the review of 24) | Opus 5.5 | high | 21, 24 |
+| 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
 | 26 | The focused engine in order, and the dispatch as a measured table | `26-focused-engine.md` (finished at the review of 25) | Fable 5.1 | high, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Fable 5.1 | high, with the panel | 24, 26 |
 | 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the search and the checker; the reviewers by lens | high | 27 |
@@ -1769,3 +1769,32 @@ client follows it (step 32).
   Fixed: `conduct.md`, prompt 31 and `later.md` named the old file for
   what moved. Prompt 24 finished (the rules by module, README's examples
   as its tests, a memory bound for the whole batch). Next: step 24.
+- 2026-10-04: step 24, one session (Opus 5.5 at high; summarized here
+  from `reports/24-batch.md`, the session wrote no entry): `linlog
+  prove` decides many sequents in one call (files, directories,
+  `--files-from`, lines, JSON Lines, the harness's problem files, LLTP
+  files, a stream), in order, with a time limit per sequent and per
+  batch, a memory bound for the whole batch, `--isolate`, and the cores
+  across the sequents or within one; the library has it as
+  `search::batch`, with a thread pool kept across searches
+  (`search::Pool`). A single `prove` reads `.p` and `.json` files.
+  Renders are bounded before they parse (an estimate from glyphs,
+  elements and arcs), a net's drawing has a bound, and the time limit
+  and Ctrl-C reach a render. `plan/notes/lltp-headers.md` drafts the
+  report on the wrong headers: 28 files, 24 of them and 21 more from one
+  fault of the translator.
+- 2026-10-04: review of step 24, accepted with one fix. Before it, the
+  author's request made while the step ran: the rustdoc shows the whole
+  public API (the syntax on `Sequent`, every JSON form on its type, the
+  engines on `Engine` with their empty modules made private, the
+  features in the crate docs and on every gated item, `Refutation` at
+  the root; the lints for unreachable and unnameable items stay clean).
+  **Fixed**: a default batch in a control group of 8 GiB was killed for
+  memory with nothing written, since the default read `MemTotal` alone;
+  it now takes the group's `memory.max` where that is less. Checked: the
+  tests, clippy, both `cargo hack` runs, `cargo deny`, `nix flake check`;
+  the header report's 40 countermodels and nine proofs, independently;
+  the batch's paths, errors, stream, isolation and Ctrl-C by hand; the
+  library through the batch on four cores (4 512 answers, no error, no
+  contradiction; 57 decided only by single calls' pool). Prompt 25
+  finished. Next: step 25.

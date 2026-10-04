@@ -71,7 +71,7 @@ session's transcript is
 
 ## Where things stand
 
-As of 2026-10-04 steps 1 to 23 are finished, reviewed and pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
+As of 2026-10-04 steps 1 to 24 are finished, reviewed and pushed. Step 17 assessed the project (`plan/reports/17-assessment.md`)
 and, on the author's answers, planned steps 18 to 37; at the review of
 step 21 the steps after 22 were put in a new order and renumbered to 38
 (D23: a lean step 23 that saves every later session its tokens, the
@@ -79,7 +79,7 @@ audit and refactor once at step 28 right before the release at step 30,
 a comparison with the other provers at 29, the Rocq library and the web
 client after the release). The step table, the decisions D16 to D23 and
 the commands are in `plan/README.md`, the prompts are `plan/18-…md` to
-`plan/38-…md` (24 and 28 written in full; each later one says
+`plan/38-…md` (25 and 28 written in full; each later one says
 what is fixed and is finished by you at the review its row names), `plan/later.md` says where every candidate and follow-up
 went, and `plan/notes/distribution.md` has the facts on releases,
 repositories and the organization. Step 18 rewrote the checker for
@@ -116,14 +116,21 @@ CLAUDE.md to what every session needs, and made README's examples a
 test (`cli/tests/readme.rs`); it ran unattended at night with
 `--permission-mode auto` and a prompt section that told it to decide
 instead of asking (the recipe is under the commands in
-`plan/README.md`). The next command is step 24:
+`plan/README.md`). Step 24 made `linlog prove` a batch (files,
+directories, lists, streams, LLTP files; `search::batch` in the
+library), bounded renders before they parse, and drafted
+`plan/notes/lltp-headers.md`, whose countermodels and proofs the review
+checked independently. Its review fixed the batch's memory default,
+which ignored a control group's limit; before it, on the author's
+request, the rustdoc was made to show the whole public API ("The
+rustdoc is the library's manual" in `.claude/rules/core.md`). The next
+command is step 25:
 
 ```nu
-claude --model claude-opus-5-5 --effort high --name step-24 ((open --raw plan/24-batch.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-25 ((open --raw plan/25-ordinary-logic.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-At its review, finish `plan/25-ordinary-logic.md`, and check that
-`plan/notes/lltp-headers.md` exists.
+At its review, finish `plan/26-focused-engine.md`.
 
 Models and efforts were re-evaluated on 2026-10-03 ("Why these models
 and efforts" in `plan/README.md`): the author runs off a Max 20x plan,

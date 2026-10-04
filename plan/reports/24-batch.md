@@ -303,3 +303,52 @@ only when its thread count is exactly the one asked for.
 - `--isolate`'s argument filter does not see a short flag cluster that
   ends in `f` (`-qf FILE`). Such a cluster is passed to the child
   unchanged, which then reads the file as well.
+
+## From the review (2026-10-04)
+
+Accepted, with one fix of the batch's memory default. The planning
+session first finished what the author had asked for while this step
+ran: the rustdoc shows the whole public API ("Show the whole public API
+in the docs: the syntax, the JSON forms, the engines and the
+features"), then read the report and the batch, ran the checks and the
+library through the command.
+
+- **The default batch was killed in a control group** (fixed: "Size a
+  batch's default memory by its control group's limit as well as the
+  machine's"). `--batch-memory` took half of `/proc/meminfo`'s
+  `MemTotal`, which a container, a systemd scope or a CI runner does
+  not lower. The sixteen heaviest problems of the library as one default
+  batch in a scope of 8 GiB, on this machine's 62 GB and sixteen
+  threads, ran sixteen workers and were killed for memory with no line
+  written, where every single call fits. The default now takes the
+  least `memory.max` of the process's cgroups (v2, or v1's limit) when
+  that is less: the same batch ends in 8.3 s at 6.2 GB with all sixteen
+  answers.
+- **The header report holds**: every one of its 40 countermodels makes
+  every formula of its file false under the classical reading it
+  states, checked by an evaluator of the files' JSON that shares no
+  code with the step's script, with no atom left unassigned; the nine
+  proofs it attaches pass `linlog check -i`.
+- **By hand**, in capped scopes: entries named `../b.txt`, an absolute
+  path, `../../evil` and `/abs/x` all wrote inside `--output DIR`; a
+  malformed line was that line's error and the exit status the worst;
+  a program asking over pipes got each answer as soon as it was decided
+  (0.1 to 1.6 ms beyond the search); `--isolate` gave the same lines; a
+  first Ctrl-C answered the running entries as interrupted and ended the
+  input, leaving the others without a line, as the rules say; step 22's
+  drawings were refused before any parse (the 400-atom PDF at an
+  estimate of 5.9 GiB in 0.29 s, the 6 000-link net at 16.3 GiB, the
+  100-atom PNG by its pixels) and the smaller ones drawn.
+- **The library through the batch**, by default on four cores: the
+  `ILL` directory in 19 minutes and `CLL` at once, 4 512 answers, none
+  twice, no error, and no verdict against step 22's single calls. 2 193
+  proved and 142 refuted, against 2 239 and 152: 57 problems were
+  decided only by the single calls, whose default races a pool beside
+  one thread where the batch gives each sequent one thread (`LCL181+1`,
+  the `SYJ208+1` refutations in `cbv`, forty Petri nets near the limit),
+  and one only by the batch (`SYJ204+1.014` in `cbv`). README now says
+  what the cores across the sequents give up. The single calls had
+  taken eight cores for 37 minutes.
+- Also fixed: the help of `seq json` named `--json-input`, which this
+  step replaced.
+- Not run: the target set, since the sequential engines did not change.
