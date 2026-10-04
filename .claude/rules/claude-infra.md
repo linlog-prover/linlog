@@ -22,7 +22,12 @@ Put each thing in the cheapest mechanism that can carry it:
 | `.claude/settings.json` hooks / permissions | enforced by the harness | what must happen, or must not, regardless of what Claude decides |
 
 A `paths:` rule cannot fire for a file that does not exist yet, and it does not
-fire just because a tool touches a path. Anything needed *before* a file is
+fire just because a tool touches a path. Several rules files may match one
+path, and all of them load (`search/net.rs` loads `core.md`,
+`core-nets.md` and `core-parallel.md`): a rules file is scoped to a
+module so that a session reads the rules of what it touches and no
+others, and a point two modules need lives in one file that the other
+names. Anything needed *before* a file is
 opened stays in CLAUDE.md. Block-level `<!-- -->` comments in CLAUDE.md are
 stripped before injection, so they are free notes for maintainers.
 
@@ -61,7 +66,10 @@ Current contents:
 - `rules/bench.md` (`bench/**`): the benchmark harness's layout, the CSV
   columns as its interface, what a mismatch means, where a family, a
   problem source or a configuration axis plugs in.
-- `rules/ci.md` (`.github/**`): how the GitHub workflows are written and pinned.
+- `rules/flake.md` (`flake.nix`, `flake.lock`, `modules/**`): what each
+  flake module holds and what each check runs.
+- `rules/ci.md` (`.github/**`): what the GitHub workflows run, and how they
+  are written and pinned.
 - `agents/crate-source-explorer.md`: read-only, answers dependency-API questions
   against the Cargo.lock-pinned sources in `~/.cargo/registry`, never the web.
 - `skills/update-deps/`: the lock-file bump procedure (verify, then commit).

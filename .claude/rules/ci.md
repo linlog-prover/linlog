@@ -7,6 +7,13 @@ paths:
 
 Loaded when a file under `.github/` is read.
 
+GitHub Actions runs `.github/workflows/ci.yml` on every push to `main`, on
+every pull request and weekly: `nix flake check`, and the online
+`cargo deny check advisories` in the devshell. A workflow installs nothing
+but Nix, so CI checks with exactly the tools flake.lock pins.
+`.github/workflows/docs.yml` publishes the flake's `doc` package, the rustdoc
+of `main`, to GitHub Pages on every push to `main`.
+
 - **Every tool comes from the flake.** A job installs Nix and runs
   `nix flake check`, `nix build` or `nix develop --command …`. No
   `setup-rust`, `apt` or `cargo install`: they would check with other versions

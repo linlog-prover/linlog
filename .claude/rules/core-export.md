@@ -18,6 +18,17 @@ view's (`core-derivations.md`).
 amssymb symbols) and Typst (curryst trees), draws them and proof
 structures as SVG documents, and writes derivations as Rocq proof scripts
 for NanoYalla. What the code relies on:
+- **The entry points**: `latex` and `typst` write `sequent(&sequent,
+  &options)`, `two_sided(&reading, &options)` and `derivation(&derivation,
+  &options)`, finished or with open goals, as a fragment or a standalone
+  document by `Options::form`; `svg` draws `sequent`, `two_sided`,
+  `derivation` and `net(&structure, &style)` under a `Style` (the font
+  and its advances, labels, the open goal's shape, ids per formula,
+  sizes, gaps, colours); `rocq::derivation` writes the lemma
+  `Options::lemma`, or a file that starts with `Options::prelude`, and
+  refuses an open goal, Mix, affine weakening and a compact derivation
+  with `Unsupported`; `png::from_svg` and `pdf::from_svg` render a
+  drawing.
 - **A new export option is a field, never a constant.** Every output
   has one plain-data options value with `Default`, `Clone`, `PartialEq`
   and serde behind `serialize` (`serde(default, deny_unknown_fields)`,

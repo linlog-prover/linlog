@@ -48,6 +48,33 @@ and `lltp` and `families` behind `parse`. `lib.rs` re-exports the
 public types, so users write `linlog::Sequent`, `linlog::Proof`,
 `linlog::prove`, and so on. `hash` is crate-private.
 
+## The public API at a glance
+
+Each entry point is described in the file of its module:
+- sequents: `"…".parse::<Sequent>()`, `Display`, serde, `fragment()`,
+  `occurrences()`; `Fragment`, `Mode` (`core-sequents.md`);
+- `Forest::new(&sequent)` and `Forest::within(&sequent, limit)`
+  (`Error::TooManyOccurrences` past the limit), `Reading::new(&forest)`
+  or a `ShapeError` (`core-forest.md`);
+- `Proof::new(forest, nodes, root)`, `check(mode)`,
+  `check_within(mode, memory)` and `CheckError::is_refusal`
+  (`core-proofs.md`);
+- `derivation()`, `two_sided_derivation()`, `derivation_size(two_sided)`,
+  `derivation_with(&view, stop)` under `ViewOptions`, `write_text`;
+  `Interactive` (`core-derivations.md`);
+- `prove`, `prove_until`, `prove_goal` with `Options`, returning an
+  `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,
+  `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
+  one of `search::focus`, `search::net` and `search::additive`
+  (`core-search.md`, `core-focus.md`, `core-nets.md`, with `parallel`
+  `core-parallel.md`);
+- `ProofStructure`: `from_links`, `link`/`unlink`, `is_correct()`,
+  `sequentialize()`, `from_proof(&proof, mix)` (`core-nets.md`);
+- `export::latex`, `typst`, `svg`, `png`, `pdf`, `rocq`, each with one
+  options value and `write(&derivation, &options, out, stop)`
+  (`core-export.md`);
+- `lltp::read` and `families` (`core-inputs.md`).
+
 ## Crate-wide rules
 
 **Nothing recurses over a formula.** A sequent read from JSON can be nested

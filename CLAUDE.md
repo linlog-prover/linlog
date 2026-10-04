@@ -12,208 +12,54 @@ conventions and pointers. Guidance for one area of the tree goes in
 
 ## Project
 
-linlog is a linear logic suite: parse, print, serialize and eventually prove
-sequents, build proof nets, and export to various formats (see the README
-roadmap). It is written in Rust with WebAssembly in mind for a planned
-`linlog-web` crate, which does not exist yet. Performance is a stated goal: the
-data structures are designed to be compact and cache-friendly.
+linlog is a linear logic suite: it decides, checks, proves step by step
+and exports sequents of classical and intuitionistic linear logic
+(README's "What exists and what is planned"). It is written in Rust with
+WebAssembly in mind for a planned `linlog-web` crate: the library reads
+no clock and uses threads only behind a feature. Performance is a stated
+goal: the data structures are compact and cache-friendly.
 
 Workspace crates:
-- `core/` is package **`linlog`**: all logic.
-  It has seven optional default features, `parse` (the text parser, with
-  unicode-ident for the identifiers), `serialize`
-  (serde), `interactive` (step-by-step proving), and `latex`, `typst`,
-  `svg` and `rocq` (the exports), and three off by default, `parallel`
-  (rayon: the search on a thread pool, off for wasm), `png` (resvg) and
-  `pdf` (krilla), which render the SVG with fonts the caller gives; the
-  CLI enables the last eight.
+- `core/` is package **`linlog`**: all logic. It has seven optional
+  default features, `parse` (the text parser, with unicode-ident for the
+  identifiers, and the LLTP reader and the generated families),
+  `serialize` (serde), `interactive` (step-by-step proving), and
+  `latex`, `typst`, `svg` and `rocq` (the exports), and three off by
+  default, `parallel` (rayon: the search on a thread pool, off for
+  wasm), `png` (resvg) and `pdf` (krilla), which render the SVG with
+  fonts the caller gives; the CLI enables the last eight.
 - `cli/` is package **`linlog-cli`**, library **`linlog_cli`** and binary
   **`linlog`** (one call into the library; `doc = false` because it shares
-  the core crate's name): a clap front end with `prove`, `check`,
-  `interact` (a line-based session that reads commands from standard
-  input, `interact.rs`) and `seq print|json|fragment`, and the output
-  formats `text`, `json`, `latex`, `typst` and `rocq` (with
-  `--standalone` for a document), `svg`, `png` and `pdf` (the last two
-  with the Euler Math font the command embeds, `cli/fonts/` with its
-  OFL; the PDF is PDF/A-4, PDF/A-2u with `pdf.compatible`, PDF/A-2a and
-  PDF/UA-1 with `pdf.accessible`, dated by `SOURCE_DATE_EPOCH` or the
-  clock), by `--format` or else the `--output` file's extension; `--net`
-  writes the proof net instead of the derivation; `--style KEY=VALUE`,
-  `--style-file`, `--lemma` and `--prelude` set every format's options
-  (`style.rs`); `--tree
-  auto|always|never` prints the text tree on a terminal only where it
-  fits, `--derivation-limit SIZE|none` bounds the derivation any format
-  builds (the verdict and its exit status stand without it),
-  `--compact auto|always|never` draws a run of one structural rule as
-  one starred inference (by default where the whole tree is over the
-  limit or does not fit the terminal), and
-  `--no-check` skips the check every proof otherwise passes. The tree and its
-  `--help` text are the doc comments in `argument_parsing.rs`; `prove.rs`
-  runs the search on a thread sized from `--recursion-limit` and owns the
-  output; `--copies N|none` bounds the copies of `?` formulas per branch
-  (default none: the deepening goes on while the time limit lasts) and
-  `--bias` picks the focused engines' atom bias (`--forward-copies` the
-  bound of the forward search that the default runs on Horn programs
-  under a `--copies` bound); by default one thread searches for
-  `--pool-after` (100 ms) and then a pool of the other cores joins it, `--jobs
-  N` runs N threads from the start (the most a search uses is every
-  core; more is taken as that with a note) and `--deterministic` the
-  sequential engines; `--timeout DURATION|none` (default 2 s) counts from
-  the command's start, reading and parsing included (`limit.rs`: a flag a
-  timer thread raises, read at every poll); an "unknown" says which bound
-  or limit ended the search, after how long and at which copy bound, an
-  "unprovable" why where the counts tell (`Refutation`); `--memory-limit SIZE|none`
-  (default one gibibyte) bounds what a search holds, and
-  `--occurrence-limit N|none` (default fifty million, on every command
-  that reads a sequent) what a sequent may unfold to; exit status 0 proved/valid,
-  1 unprovable/invalid, 2 error, 3 unknown. Its
-  invariants and extension points live in `.claude/rules/cli.md`, which
-  loads when a file under `cli/` is read.
-- `bench/` is package **`linlog-bench`**, binary `linlog-bench` (not
-  published, `doc = false`): the benchmark harness. `run` times the
-  generated families (`linlog::families`), LLTP problems (`--lltp`, under
-  an `ILL` directory intuitionistic) and problem files
-  (`bench/problems/*.txt`, lines `name; mode; expected; copies; sequent`)
-  in every mode, engine and thread count asked for, one child process per
-  run (the hidden `one` command) with a time limit and a kill after it,
-  one CSV row per run; `summary` prints Markdown tables of CSV files, or
-  with `--before DIR` compares them problem by problem with the files of
-  the same names in an earlier baseline (`--against FILE`: with one file
-  of the same baseline).
-  `bench/baseline.sh` takes a baseline into `bench/results/DAY/` (DAY
-  the day it started: CSV files, `starts.txt` with the commit measured,
-  `RESULTS.md`) and copies its tables to `bench/RESULTS.md`, the latest
-  baseline's; it needs the machine to itself for a night, 20:00 to
-  07:00. The first baseline is `bench/results/2026-09-30/`, taken before
-  the performance pass in two nights (the second added the reruns); the
-  second, `bench/results/2026-10-02/`, after it in one night, with its
-  reruns on the first's problems and the library under each bias alone;
-  `bench/COMPARISON.md` compares the two.
-  `bench/targets.sh LABEL` runs the target set of that pass (the
-  instances the focused engine lost on, 165 runs on two pinned cores in
-  a memory-capped user unit, about twenty minutes) into
-  `bench/targets/LABEL.csv`; `bench/TARGETS.md` compares `before`,
-  `after-search` and `after`. Its invariants live in
-  `.claude/rules/bench.md`, which loads when a file under `bench/` is
-  read.
+  the core crate's name): `prove`, `check`, `interact` and `seq
+  print|json|fragment`. README's usage section shows every command,
+  format and flag with its output, and `cli/tests/readme.rs` runs those
+  examples; `linlog <command> --help` is the doc comments of
+  `cli/src/argument_parsing.rs`. Exit status 0 proved/valid, 1
+  unprovable/invalid, 2 error, 3 unknown.
+- `bench/` is package **`linlog-bench`** (not published, `doc = false`):
+  the benchmark harness, the baselines under `bench/results/DAY/`
+  (`bench/RESULTS.md`, `bench/COMPARISON.md`) and the focused engine's
+  target set (`bench/targets.sh`, `bench/TARGETS.md`).
 
-The core API the CLI builds on: `"…".parse::<Sequent>()`, `Display` for
-pretty-printing, serde behind `serialize`, `Sequent::fragment()` for the
-fragment a sequent lives in (`Fragment::name_in(mode)` for its
-intuitionistic name), `Forest::new(&sequent)` for the occurrence forest
-that proof search works on (refused with `Error::TooManyOccurrences` when
-the sequent unfolds to more than `Forest::DEFAULT_LIMIT` occurrences,
-which `Sequent::occurrences()` counts; `Forest::within(&sequent, limit)`
-for another limit), `Reading::new(&forest)` for the intuitionistic
-reading of a sequent (the `Position` of every occurrence, the goal, and
-two-sided printing `Γ ⊢ A`, or a `ShapeError`), and `Proof` for a proof
-term over the forest: `Proof::new(forest, nodes, root)`, `check(mode)` for
-the independent checker (in intuitionistic mode also the one-succedent
-condition; one pass, in memory proportional to the proof and within
-`DEFAULT_MEMORY_LIMIT`, or `check_within(mode, memory)` for another
-bound: a check given up there is a refusal, `CheckError::is_refusal`,
-and no verdict),
-`derivation()` for the standard-calculus view and
-`two_sided_derivation()` for the intuitionistic one with the ILL rule
-names, whose `Display` draws the tree, `derivation_size(two_sided)` for
-the `Size` of either without building it, and `derivation_with(&view,
-stop)` under a `ViewOptions` (the bound on the estimated size that every
-path which builds a derivation honours, `ViewError::TooLarge` beyond it,
-and `compact`, which draws a run of one structural rule as one inference
-with `Inference::times`, by default where the whole derivation is over a
-bound);
-and `prove(&sequent, mode,
-&options)` (or `prove_until` with a stop closure, which every engine
-polls wherever it can spend time: `.claude/rules/core.md` lists the
-places) for proof search, which
-dispatches on the fragment and the mode and returns an `Outcome` with a
-three-valued `Verdict` (`Unprovable` with a `Refutation`: the atom
-whose literals cannot pair up, the count equation, or the exhausted
-search), its proof checked before it is returned
-(`Options::check`), within `Options::memory_limit` bytes (the memo is
-emptied first; `Reason::MemoryLimit` when that is not enough:
-"The memory bound" in `.claude/rules/core.md` says what counts) on a
-sequent of at most `Options::occurrence_limit` occurrences. The engines: `search::net` (axiom-linking search
-over a proof structure, the default for unit-free MLL with or without Mix
-when no literal occurs more than twice, in intuitionistic mode by the
-embedding of IMLL into MLL, whose `Outcome` also carries the net found),
-`search::focus` (the focused sequent engine for everything else: MLL with
-units, MALL, MELL and full LL on dyadic sequents with a per-branch copy
-bound that deepens iteratively, `Options::copies` (3 in the library's
-default, `None` to deepen until decided or stopped, how far in
-`Statistics::copies`), answering
-`Reason::CopyBound` when it binds, and `Options::bias` for how each atom's
-positive literal is picked, `Bias::Rarer` or `Factors`, which
-changes speed and the copies a proof needs, never provability, or
-`Bias::Auto`, which on a sequent with exponentials runs a search under
-each and answers with the first that decides, the forward one within
-`Options::forward_copies` where the sequent is a Horn program
-(alternating in slices on one core, or in turns from their start without
-the `parallel` feature, and side by side on a pool);
-affine
-mode, the same search with
-weakening at the leaves; and, given the reading, the two-sided search of
-intuitionistic mode, `Engine::TwoSided`, the same engine keeping the goal
-on the consequent's side of every `⊸L` split) and `search::additive` (two
-additive-only formulas, by a memoized recursion on subformula pairs, in
-every mode); `Options::engine` forces one. `prove_goal(&forest, goal, mode,
-&options, stop)` decides any multiset of occurrences of a forest, the
-roots being the sequent itself. With the `parallel` feature and
-`Options::jobs` above one, the focused and the net engine run on a rayon
-pool of their own (`search::parallel`: cube-and-conquer over the choices
-near the root, and-parallel `&` premises, a sharded memo and one arena
-shared by the workers, cubes of the first choices for the net engine; the
-caller's stop closure is polled on the calling thread and raises the
-workers' flag; never more threads than the machine runs at once, nor
-than `Options::MAX_JOBS`); the additive path stays sequential. `Interactive` (`proofs::interactive`,
-feature `interactive`) is a proof in progress: `new(&sequent, mode)`,
-`goals()`, `rules(goal, position)`, `apply(goal, position, rule, left)`,
-`undo()`, `close(goal, options, view, stop)`/`close_all`, `derivation()` with open goals as
-`Rule::Open` leaves, `proof()` translating the finished derivation into a
-checked `Proof`, serde behind `serialize`, and `Refusal` saying why a rule
-does not apply.
-`export::latex` and `export::typst` (features of the same names) write
-`sequent(&sequent, &options)`, `two_sided(&reading, &options)` and
-`derivation(&derivation, &options)` (finished or with open goals) as
-LaTeX for ebproof and Typst for curryst, or above `CURRYST_HEIGHT` in a
-Typst layout of linlog's own (`typst::Layout`), a fragment or a
-standalone document by `Options::form`, choosing no font; `export::svg` (feature
-`svg`) draws `sequent`, `two_sided`, `derivation` and `net` with a
-`Style` (the font and its advances, Euler Math by default, labels, the
-open goal's shape, ids per formula, sizes, gaps, colours; presets
-`Style::dark()`, `Style::monospace()`); `export::rocq` (feature `rocq`)
-writes `derivation(&derivation, &options)` as a Rocq lemma with its
-proof script for NanoYalla (`NANOYALLA` is the version), the lemma or a
-file starting with `Options::prelude`, named by `Options::lemma`,
-refusing an open goal, Mix, affine weakening and a compact derivation
-with `Unsupported`.
-Every output has one options value with serde (D15; the text tree's is
-`TextOptions`), the rule labels are one table per convention (`Labels`,
-`proofs/style.rs`), and every one writes a derivation through one
-signature, `write(&derivation, &options, out, stop)` into any
-`fmt::Write` (`Derivation::write_text` for the text tree), returning
-`WriteError`; the command's `--style KEY=VALUE`, `--style-file`,
-`--lemma` and `--prelude` set them (`cli/src/style.rs`, `Styles`).
-`core/tests/snapshots/` pins the derivations, nets and
-certificates (`BLESS=1 cargo test -p linlog --test export` rewrites
-them).
-`ProofStructure` (`nets`) is a proof net of unit-free MLL over the forest:
-`from_links`, `link`/`unlink`, `is_correct()` (the Danos–Regnier criterion
-through Yeo's deletion test, independent of the search and the checker),
-`sequentialize()` to a `Proof`, `from_proof(&proof, mix)` back, and a
-`Display` that the CLI's `--format net` prints. Sequents are
-one-sided arena DAGs in negation normal form; fragments and modes are
-runtime values, and indices are `u32` newtypes. The invariants live in
-`.claude/rules/core.md`, which loads when a file under `core/` is read.
-`lltp::read` (feature `parse`) reads a problem of the LLTP library
-(`fof(name, role, formula).` clauses, the formulas in this crate's own
-syntax) into a `Sequent` and the status its header claims; `families`
-(feature `parse`) generates problem families with known verdicts at any
-size, seeded (`FAMILIES`, `find`, `Family::instance`, and the encodings
-themselves: `three_partition`, `three_partition_mll`, `partition`, `qbf`,
-`counter`, `wide`, `mix`), which the harness and the engines' tests use.
 `plan/README.md` is the proof-search plan the code follows, `plan/reports/`
 what each step of it did.
+
+## Where the rules are
+
+A file under `.claude/rules/` loads when a file under its `paths` is
+read, and holds that area's invariants, the reasons behind them, what a
+check cannot catch, and where a new engine, format, family or option
+plugs in. Read it before changing the area, and record there, one point
+per bullet, what a later session must know and cannot see in the code.
+
+| rules file | loads for | holds |
+|---|---|---|
+| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the ten module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the parallel runtime, proof nets and the net engine, the exports, the benchmark inputs), each loaded for its own module |
+| `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
+| `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
+| `flake.md` | `flake.nix`, `flake.lock`, `modules/**` | what each flake module holds and checks |
+| `ci.md` | `.github/**` | how the workflows are written and pinned |
+| `claude-infra.md` | `.claude/**`, `CLAUDE.md` | this Claude Code setup |
 
 ## Commands
 
@@ -251,50 +97,25 @@ Verify as much as the change needs:
 | any `.rs` edit | `cargo clippy …` and `cargo test --workspace` |
 | touches `#[cfg(feature = …)]` or `[features]` | add `cargo hack check --each-feature -p linlog` and `cargo hack check --feature-powerset --depth 2 -p linlog` (both cover `parallel`, which is off by default: `--each-feature`'s `--all-features` run is the one that differs from the defaults) |
 | touches `bench/` or `core/src/families.rs` | add `cargo run --release -p linlog-bench -- run --all-families --timeout 5` for the verdicts (a `MISMATCH` in `summary` is a bug); timings only from `bench/baseline.sh` on an idle machine |
-| changes how the focused engine searches, or must not (a refactoring) | add `bench/targets.sh LABEL` and compare the columns `verdict`, `nodes`, `splits`, `memo_hits` and `memo_entries` of `bench/targets/LABEL.csv` with those of `bench/targets/after-bias.csv` (or of `after.csv` when both runs name a `--bias`): on one thread they are a function of the input, so a decided row has them equal exactly when the search is (`linlog-bench summary` of the two files sets the times side by side) |
+| changes how the focused engine searches, or must not (a refactoring) | add `bench/targets.sh LABEL` and compare the columns `verdict`, `nodes`, `splits`, `memo_hits` and `memo_entries` of `bench/targets/LABEL.csv` with those of `bench/targets/after-bias.csv` (the script names no `--bias`, so both take the default): on one thread they are a function of the input, so a decided row has them equal exactly when the search is (`linlog-bench summary` of the two files sets the times side by side) |
+| changes what the command prints, or a console block of README | `cargo test --workspace` runs README's examples (`cli/tests/readme.rs`); a change of output changes README in the same commit |
 | touches `search/parallel.rs`, `focus/parallel.rs` or `net::parallel` | `cargo test --workspace` covers them (the CLI depends on `parallel`, and cargo unifies features across a workspace run); `cargo test -p linlog` alone needs `--features parallel` |
 | adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0, Zlib, BSD-2-Clause or BSD-3-Clause |
 | `flake.nix`, `modules/`, `.github/`, the toolchain, a lock bump, or before a push | `nix flake check`, which runs all of the above |
 
 ## The flake
 
-Dendritic flake-parts: `flake.nix` only declares inputs, and import-tree loads
-every `.nix` file under `modules/` as a flake-parts module. No file is ever
-added to an imports list; a path segment starting with `_` is skipped. One
-aspect per file, contributing to every output it needs (`treefmt.nix` also puts
-treefmt in the shell). Modules share values through `_module.args`:
-`rustToolchain` and `craneLib` (`toolchain.nix`), `workspace` (the crane
-arguments, `workspace.nix`, whose source is what `cleanCargoSource` keeps
-plus `core/tests/snapshots` and `cli/fonts`). `checks.nix`, `devshell.nix`, `treefmt.nix`
-and `systems.nix` are what their names say; `export.nix` is the `export`
-check, which compiles the snapshots (the fragments inside a document of
-its own) and a CLI proof with pdfLaTeX and with Typst and the curryst of
-nixpkgs (the version `export::typst::CURRYST` names), with no font but
-Typst's own, renders the SVG snapshots and CLI drawings with resvg with
-only the Euler Math font of nixpkgs' TeX Live, and checks the CLI's PNG
-(pngcheck) and PDF (poppler: the font embedded, the text extractable;
-veraPDF: every profile conforms),
-offline; `rocq.nix`
-is the `rocq` check, which builds NanoYalla from the non-flake input
-`nanoyalla` (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA`
-names the version) with nixpkgs' Rocq and standard library and compiles
-the `.v` snapshots and two CLI certificates against it, requiring Rocq
-to print nothing; `bench.nix` is the `linlog-bench` package, the `bench`
-check (the harness on the smallest instance of every family and on the
-problem file, failing on a verdict against a known one) and the `lltp`
-package, the LLTP library fetched at a pinned commit with its Petri-net
-archives unpacked and its one malformed file repaired, which no check
-uses.
+Dendritic flake-parts: `flake.nix` only declares inputs, and import-tree
+loads every `.nix` file under `modules/` (a path segment starting with `_`
+skipped) as a flake-parts module, one aspect per file contributing to
+every output it needs; no file is ever added to an imports list.
 
 ## CI
 
-GitHub Actions runs `.github/workflows/ci.yml` on every push to `main`, on
-every pull request and weekly: `nix flake check`, and the online
-`cargo deny check advisories` in the devshell. A workflow installs nothing
-but Nix, so CI checks with exactly the tools flake.lock pins.
-`.github/workflows/docs.yml` publishes the flake's `doc` package, the rustdoc
-of `main`, to GitHub Pages on every push to `main`. The rules for editing
-workflows are in `.claude/rules/ci.md`, which loads under `.github/`.
+`ci.yml` runs `nix flake check` and the online `cargo deny check
+advisories` on every push to `main`, every pull request and weekly, with
+nothing installed but Nix; `docs.yml` publishes the rustdoc of `main` to
+GitHub Pages.
 
 ## Version control: jj only
 
@@ -373,20 +194,19 @@ even to read.** Every operation goes through `jj`, including lock updates:
   and is scoped to it: only the crate that uses it, behind the feature that
   needs it (or in `[dev-dependencies]`), with only the crate features used.
   Never add one for its own sake.
-- `core/src/lib.rs` allows `dead_code` and `unused_variables` crate-wide while
-  things are scaffolded.
+- `core/src/lib.rs` allows `dead_code` and `unused_variables` crate-wide:
+  some items are live under one feature only or used by tests only, and
+  a few are dead; the audit before the release sorts them out.
 - `scratchpad*.md` are the author's gitignored notes. `scratchpad1.md` is about
   250 KB, so don't read it in full.
 
 ## Claude Code setup
 
-`.claude/` is checked in. It holds the hooks (the git and `jj new -m` guards,
-the formatter, a SessionStart note on the jj working copy), permission rules,
-the `crate-source-explorer` agent (dependency APIs against the locked sources;
-use it before guessing at a dependency's API), the `update-deps` skill, the
-`new-tool` skill (use it whenever a crate or tool is added or adopted), and the
-path-scoped rules. Claude Code's built-in git instructions and git status
-snapshot are switched off (`env` in `settings.json`).
-`.claude/rules/claude-infra.md` documents it and loads when anything under
-`.claude/` is opened. When the repo changes shape, amend `.claude/` and this
-file in the same change.
+`.claude/` is checked in: the hooks (the git and `jj new -m` guards, the
+formatter, a SessionStart note on the jj working copy), permission rules,
+the `crate-source-explorer` agent (use it before guessing at a
+dependency's API), the `update-deps` and `new-tool` skills (the latter
+whenever a crate or tool is added or adopted) and the rules above.
+Claude Code's built-in git instructions and status snapshot are off.
+When the repo changes shape, amend `.claude/` and this file in the same
+change.
