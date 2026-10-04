@@ -705,6 +705,36 @@ pool's split of threads between the two searches: measured in 30. A
 sound affine prune: step 27 answers it for Horn programs. The rest stays
 as written.
 
+*Left by step 26 (2026-10-04, `plan/reports/26-focused-engine.md`).*
+The reference prover, the Horn test on the goal, the Mix prune, the
+chain loop and the profile's hot spots are done. Left, each measured
+there:
+
+- **A sparse memo key**: both zones are still hashed, compared and
+  stored at the forest's width per stable sequent, now the largest cost
+  on the widest nets (hashing and comparison 31 % and 27 % of
+  `CloudDeployment_deploy_5_b_100_1`); the zone's range made the rest
+  proportional to the members.
+- **The canonical key** is built for every stable sequent of a forest
+  with two equal formulas (38 % of `HypercubeGrid_hc3k4p4b12_5_1`).
+- **A focused search that hands over to the net engine at the recursion
+  limit**, the feature the dispatch's net rows stand in for (the net
+  engine decides chains of thousands of links that the focused engines
+  recurse through).
+- **A choice's error still cancels its siblings on a pool**, the mirror
+  of the `&` case step 26 fixed: a pool may answer the recursion limit
+  where one thread refutes (`|- !?~c, (?(a * c) par ?!~c)` with Mix at a
+  limit of 9 on four threads). The late cancellation at a `&` stays
+  unreproduced.
+- **The Mix parts' cost** (3 to 10 % more stable sequents on generated
+  Mix sequents), and `mix(11)`'s splits, still `3ⁿ` under `⊕ 0`, which no
+  count cuts.
+- **Short clause bodies**: `TCPcondis_tcp15_20_1` keeps 15 % less
+  throughput since the split search became resumable.
+- **Mix in affine mode** is left out of the search (admissible with
+  weakening); a panel measured 3 decisions lost at a copy bound against
+  1 638 gained, kept on the author's decision.
+
 
 Left open by step 15 (`plan/reports/15-performance.md`, which has the
 numbers behind each). Step 15 took the canonical choice among identical

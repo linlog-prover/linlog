@@ -205,7 +205,9 @@ panelist starts in a fresh context without the session's reasoning,
 derives the invariant before reading the argument, and backs a
 refutation with a witness the session reproduces. A second reference
 prover, written fresh once per session that changes the search, runs
-beside the committed one.
+beside the committed one. In a workflow the third member is Claude
+Code's `sonnet` alias, which step 26's panels showed resolving to Sonnet
+5 (`claude-sonnet-5`), not the API's Sonnet 5.5; the prompts say so.
 
 From step 28 Fable may be used again, and the author asked that no
 tokens be wasted. Fable weighs about twice Opus against the allowance,
@@ -365,8 +367,8 @@ claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38
 ```
 
 A step of several sessions is started again with the same command, with
-the changes its row names (step 26's second session as its first,
-with `--name step-26b`; step 22's second session at `--effort high`;
+the changes its row names (step 26's and step 27's second sessions as
+their first, with `--name step-26b` and `step-27b`; step 22's second session at `--effort high`;
 step 31's sessions after the checker's proof with `--model
 claude-opus-5-5 --effort high`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
@@ -1960,3 +1962,17 @@ client follows it (step 32).
   note for quantifiers, ILTP and LLTP through the batch with no
   contradiction. Report: `reports/26-focused-engine.md` (second part).
   Next: the review of the second session.
+- 2026-10-04: review of step 26's second session, accepted without a fix
+  to the code. Checked: the tests, clippy, both `cargo hack` runs,
+  `cargo deny`, `nix flake check`; the target set again (every verdict
+  and every decided counter equal to the step's last recording; only the
+  Mix rows differ from the first session's end, at 0.80 times the CPU
+  time); the families (no mismatch); the LLTP library by default on four
+  cores (no contradiction, 2 194 proved and 142 refuted, the differences
+  at the time limit); the Mix parts' recursion at depth 10 000 and the
+  time limit in it. Found: the panels' integers member ran Sonnet 5, the
+  workflow alias `sonnet` in Claude Code, not Sonnet 5.5; the prompts now
+  say so. Prompt 27 finished (the engine as a row of `DISPATCH`, the
+  judges of a refutation with `!`, the paired measurement on four
+  cores, a review between its sessions); step 26's follow-ups are in
+  `later.md`. Next: step 27.

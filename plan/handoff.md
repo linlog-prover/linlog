@@ -136,14 +136,19 @@ that predates it. Step 26's first session built the reference prover
 (`core/src/search/reference.rs`, test-only), took the profile at the
 start and the measurements of item 6, and refactored the engine without
 changing a counter; its review ran ten faults of its own against the
-reference and the pool on the libraries. The next command is step 26's
-second session:
+reference and the pool on the libraries. The second session made the
+dispatch a table (`search::DISPATCH`), took the profile's hot spots at
+identical counters, and made six changes of the search under panels (a
+proof carries no cuts, the `&` on a pool, the Horn test on the goal, the
+Mix prune, the chain loop, Mix left out in affine mode on the author's
+decision). The next command is step 27's first session:
 
 ```nu
-claude --model claude-opus-5-5 --effort xhigh --name step-26b ((open --raw plan/26-focused-engine.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-At its review, finish `plan/27-horn.md`.
+Review it before its second session (`--name step-27b`). At the review
+of the second, finish `plan/28-audit-and-refactor.md`.
 
 Models and efforts were re-evaluated on 2026-10-03 and again on
 2026-10-04 ("Why these models and efforts" in `plan/README.md`, with

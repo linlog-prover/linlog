@@ -154,7 +154,8 @@ way; the change stands when none does.
 - **The argument** (Opus 5.5 at `xhigh`): the invariant the change
   relies on, stated from the code before your argument is read, then
   checked line by line at every site that relies on it.
-- **The integers and limits** it rests on (Sonnet 5.5 at `high`), each
+- **The integers and limits** it rests on (Claude Code's `sonnet`, Sonnet
+  5 on 2026-10-04, at `high`), each
   driven to its limit by an input.
 
 A refutation carries its witness (the sequent with both verdicts, or the

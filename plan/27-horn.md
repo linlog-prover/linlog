@@ -3,8 +3,7 @@
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes two
-sessions; this prompt is finished at the review of step 26. Read before
-you start:
+sessions. Read before you start:
 
 - `plan/reports/17-assessment.md`: 2.1, 2.5, 3.7, 3.15, 5.4.
 - `plan/later.md`: "The !-Horn fragment through Petri-net reachability",
@@ -12,6 +11,11 @@ you start:
 - `plan/reports/15-performance.md` ("The default bias"), `16-baseline.md`,
   `26-focused-engine.md`.
 - `plan/README.md`: D8, D19.
+- `.claude/rules/core.md` and the module files of the search:
+  `core-search.md` (the engine interface, the dispatch table, the
+  reference prover), `core-focus.md` (the Horn shape, the forward
+  search), `core-parallel.md`; `bench.md` and `flake.md` for the suite
+  and its runs, `cli.md` for `--engine`.
 
 ## Goal
 
@@ -44,11 +48,73 @@ software verification are what it is measured on.
    (the unit of work, the restart from the frontier), if the engine
    takes the nets.
 
+## What the earlier steps left you
+
+- **An engine is a row** (step 26): every engine implements
+  `search::Decide` (`admits`, `decide` returning an `Answer`),
+  `prove_goal` alone builds a `Verdict`, and `search::DISPATCH` is a
+  table of rows (fragment, modes, `Feature`, engine), each documented on
+  `Engine` with the measurement behind it. The Horn engine is a row with
+  a `Feature` of its own: the Horn shape as `schedule::chains` reads it
+  from the goal's members (a clause used once counts as a step since
+  step 26's panel). `Engine` is public, so the new variant is described
+  on itself and named by `--engine`, and README says so.
+- **Today a Horn program goes to the focused engine's forward search**
+  (the factor bias, chosen in `schedule::plan`). `lltp-forward.csv`, the
+  second baseline's run of that configuration (`--bias factors --copies
+  30`), is an older binary: step 26 changed the nets' throughput (the
+  zone's range: NeoElection twelve times the stable sequents, TCPcondis
+  15 % fewer), so the comparison below runs both engines on this step's
+  binary and cores.
+- **The references cannot judge a refutation with `!`.** The committed
+  reference prover (`search::reference`) and step 26's second one
+  refute nothing whose search can contract, so they judge the new
+  engines' proofs against their own and nothing else; the checker judges
+  every proof. Add the engines to the reference test's
+  `configurations`. The new engines' refutations (an exhausted finite
+  set of markings in linear mode, the backward algorithm's answer in
+  affine mode) have three judges instead: the qcover suite's expected
+  results, the families whose verdicts are known (`counter`,
+  `counter-over`, the Horn encodings of Partition and 3-Partition), and
+  an independent check that the panel's counterexample agent writes for
+  the purpose (a Karp–Miller coverability tree; for a bounded net, its
+  markings enumerated), sharing no code with the engine.
+- **Every refutation is a change of the search**, reviewed by the panel
+  step 26's prompt describes, with the same models (the integers on
+  Claude Code's `sonnet`, which ran Sonnet 5 in step 26).
+- **The target set**: rows the dispatch sends to the new engine change
+  engine and counters; the focused engine's own rows, forced, keep
+  theirs, which `bench/targets.sh` shows.
+
 ## Measurement
 
-Named when the prompt is finished; by day on pinned cores, the library's
-nets at 5 s against `lltp-forward.csv`.
+By day, detached, in capped scopes on four pinned cores (2 to 5), on
+this step's binary: the library's 3 137 Petri nets (`ILL/petri-nets`)
+at 5 s, once with the new engine forced and once with the forward
+focused search as `lltp-forward.csv` configured it, so that the two are
+paired (about two hours for both); the 176 qcover instances with both
+at the same limit; and the families. The default moves to the new
+engine only where these numbers show it faster or deciding more (D19),
+and the report gives the table.
+
+## How the step runs
+
+Two sessions on Opus 5.5 at `xhigh`, as the step table says, with the
+planning session's review between them: the first ends with
+reachability, its measurement and its decision about the default (or
+with the reason the step ends there), and the second starts from that
+report and its review. Keep the step's items as a checklist in the
+report, each with its state and its evidence.
+
+## Verification
+
+The checks of CLAUDE.md's table on every commit, and `nix flake check`;
+the reference test with the new engines in it; the target set; a panel
+for every refutation the new engines give; the measurement above.
 
 ## Deliverables
 
-Thematic jj commits; `plan/reports/27-horn.md`.
+Thematic jj commits; the engines and their row of the dispatch; the
+suite's flake package and its reader; a rules file for the new module,
+with its paths and a row in `core.md`'s table; README for the engine and
+the suite; `plan/reports/27-horn.md`.

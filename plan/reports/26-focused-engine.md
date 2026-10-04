@@ -1408,3 +1408,43 @@ instances are renamed apart in a table beside the forest.
 23. Report step 26, second session (this part, the plan's status entry, the second reference in the search rules)
 
 Nothing is pushed.
+
+## From the review of the second session
+
+Accepted without a fix to the code. The prompts were amended (below).
+
+- **Checked**: clippy, the tests (and `cargo test -p linlog`), both
+  `cargo hack` runs, `cargo deny`, `nix flake check`.
+- **The target set again**, by the review on the head (cores 2 and 3):
+  every verdict and every counter of the decided rows equal
+  `after-panels.csv`, so the last two commits (Mix left out in affine
+  mode, which no row has, and the stack per level) move none, at 0.92
+  times its CPU time; against `after-values.csv` only the three Mix rows
+  differ, at 0.80 times.
+- **The families** through the harness (`linlog-bench run
+  --all-families --timeout 5`): no mismatch and no error (61 proved, 36
+  refuted, 26 unknown).
+- **The LLTP library** through the batch by default on the slowest four
+  cores: 4 512 answers, 2 194 proved and 142 refuted, against step 24's
+  review 2 193 and 142, with no verdict against it. Five nets decided
+  only now (DLCshifumi, Diffusion2D, two PolyORBLF, SimpleLoadBal), four
+  problems only then, all at the 2 s limit: paired on one core the
+  two-sided engine's time moves both ways by up to 8 % on the ILTP images
+  (`SYJ203+1.008` in `cbv` 1.90 to 2.03 s, `SYJ204+1.014` in `01` 2.10 to
+  1.98 s, `SYJ203+1.008` in `01` unchanged).
+- **Inputs at the new code's limits**: the Mix parts' recursion counts
+  against the recursion limit (10 000 copies of `(a * ~a) + 0` under Mix
+  meet the default limit as an unknown, and with the limit raised are
+  refuted at a depth of 10 000 without a fault, the thread sized by the
+  new per-level estimate); the time limit holds in the parts' search; in
+  affine mode with Mix, 1 000 such members are refuted at once where the
+  binary before the step reached its time limit (the splits of
+  interchangeable members stay quadratic, and polled).
+- **The panels' third member ran Sonnet 5.** Claude Code resolves the
+  workflow alias `sonnet` to `claude-sonnet-5`, not the API's Sonnet
+  5.5 the prompt named: 1 046 of the agents' requests carry that id. The
+  prompts now name the alias and what it resolves to.
+- **Kept**: step 26's second reference lives in that session's scratch
+  directory under `/tmp`, which a reboot clears. It judges proofs and
+  refutations without `!` only, as the committed one does, so step 27's
+  prompt names other judges for the Horn engines' refutations.
