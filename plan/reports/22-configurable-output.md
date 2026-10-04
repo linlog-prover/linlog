@@ -100,6 +100,13 @@ hit the width panic, which the fix of that commit removes (its test
 draws a tree 140 000 columns wide). Not run: the text of that compact
 tree written whole (about 160 MB).
 
+The flake's `export` check passed on the final code (pdfLaTeX on
+`names.tex` and `compact.tex`, Typst on `high.typ`, `open-linlog.typ` and
+`compact.typ`, resvg on `disconnected.svg` and the changed nets, with
+every snapshot of before), and `nix flake check` passed on the tree with
+this report (every check, in a detached user unit, six cores, one job at
+a time).
+
 ## Outcome of the first session
 
 - **No font in LaTeX and Typst.** The standalone LaTeX preamble no longer
