@@ -1,0 +1,916 @@
+// linlog © Fabian Lukas Grubmüller 2026
+// Licensed under the EUPL
+
+//! `prove` over many sequents: the entries of the inputs in order, each
+//! decided by a worker of the library's batch under its own time limit,
+//! and one result per entry written as soon as it and those before it
+//! are decided.
+
+use crate::argument_parsing::{CoresArg, Format, InputFormat, ProveArgs, Threads, threads};
+use crate::io::{self, admit, sequent_in};
+use crate::limit::Deadline;
+use crate::prove::{
+    Ended, STEPS_PER_CLOCK, Show, Shown, alone_first, derivation, describe, net_into, nets_exist,
+    on_large_stack, statistics, stopped, verdict_line,
+};
+use crate::{Status, catch_interrupt, interrupted};
+use anyhow::{Context, Result, anyhow, bail};
+use linlog::search::batch::{self, Cores};
+use linlog::search::{Options, Outcome, Pool, Verdict, prove_goal};
+use linlog::{Forest, Mode};
+use std::collections::{HashSet, VecDeque};
+use std::ffi::OsString;
+use std::fs;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Component, Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+/// Whether the arguments ask for a batch: several files, a directory, a
+/// list of paths, or a format of many sequents.
+pub fn is_batch(args: &ProveArgs) -> bool {
+    let input = &args.input;
+    input.file.len() > 1
+        || input.file.iter().any(|f| f.is_dir())
+        || args.batch.files_from.is_some()
+        || input.input_format.is_many()
+        || args.batch.entry_name.is_some()
+}
+
+/// One sequent of a batch: its name, its mode if it names one, and where
+/// it comes from.
+struct Entry {
+    /// The path as given, or the line's name.
+    name: String,
+    /// The mode a problem file's column or a record names.
+    mode: Option<Mode>,
+    /// Where the sequent is.
+    source: Source,
+}
+
+/// Where an entry's sequent is.
+enum Source {
+    /// Text read already, in a format of one sequent.
+    Text(String, InputFormat),
+    /// A file, read when the entry is decided, in a format of one sequent.
+    File(PathBuf, InputFormat),
+    /// Why there is no sequent: an unreadable file, a malformed line.
+    Bad(String),
+}
+
+/// What is still to be read, in order.
+enum Pending {
+    /// A path: a file, or a directory to walk.
+    Path(PathBuf),
+    /// Lines of sequents, from a file or standard input named `origin`.
+    Lines {
+        /// The lines.
+        reader: Box<dyn BufRead + Send>,
+        /// The name of their file, `-` for standard input.
+        origin: String,
+        /// Their format: lines, jsonl or problems.
+        format: InputFormat,
+        /// The number of the last line read.
+        number: usize,
+    },
+    /// A list of paths, one per line or separated by NUL.
+    List(Box<dyn BufRead + Send>, u8),
+}
+
+/// The entries of the inputs, in order, read as they are asked for.
+struct Entries {
+    /// What is left, first first.
+    pending: VecDeque<Pending>,
+    /// The format the flag names.
+    format: InputFormat,
+    /// The directories walked, by their canonical paths, so that a link
+    /// back up is walked once.
+    walked: HashSet<PathBuf>,
+}
+
+/// Returns a reader of standard input, or of the file at `path`.
+fn reader(path: &Path) -> std::io::Result<Box<dyn BufRead + Send>> {
+    if path == Path::new("-") {
+        return Ok(Box::new(BufReader::new(std::io::stdin())));
+    }
+    Ok(Box::new(BufReader::new(fs::File::open(path)?)))
+}
+
+impl Entries {
+    /// The entries of the arguments: the files given, then the list.
+    fn new(args: &ProveArgs) -> Result<Self> {
+        let mut pending: VecDeque<Pending> =
+            args.input.file.iter().cloned().map(Pending::Path).collect();
+        if let Some(list) = &args.batch.files_from {
+            let reader = reader(list).with_context(|| format!("cannot read {}", list.display()))?;
+            pending.push_back(Pending::List(
+                reader,
+                if args.batch.null { 0 } else { b'\n' },
+            ));
+        }
+        if pending.is_empty() {
+            if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+                bail!("no sequents given: pass --file, --files-from, or lines on standard input");
+            }
+            pending.push_back(Pending::Path("-".into()));
+        }
+        Ok(Self {
+            pending,
+            format: args.input.input_format,
+            walked: HashSet::new(),
+        })
+    }
+
+    /// Whether a file met in a directory walk is an input: its extension
+    /// is the format's, or for `auto` `.p` or `.json`.
+    fn takes(&self, path: &Path) -> bool {
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        match self.format {
+            InputFormat::Auto => matches!(extension, "p" | "json"),
+            InputFormat::Lltp => extension == "p",
+            InputFormat::Json => extension == "json",
+            InputFormat::Jsonl => extension == "jsonl",
+            InputFormat::Text | InputFormat::Lines | InputFormat::Problems => extension == "txt",
+        }
+    }
+
+    /// Returns the entries of a path, or puts what it holds in front of
+    /// what is pending.
+    fn path(&mut self, path: PathBuf) -> Option<Entry> {
+        let name = path.display().to_string();
+        let bad = |why: String| {
+            Some(Entry {
+                name: name.clone(),
+                mode: None,
+                source: Source::Bad(why),
+            })
+        };
+        if path != Path::new("-") && path.is_dir() {
+            let canonical = fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            if !self.walked.insert(canonical) {
+                return None;
+            }
+            let mut inside: Vec<PathBuf> = match fs::read_dir(&path) {
+                Ok(entries) => entries.filter_map(|e| e.ok().map(|e| e.path())).collect(),
+                Err(e) => return bad(format!("cannot read the directory: {e}")),
+            };
+            inside.sort();
+            inside.retain(|p| p.is_dir() || self.takes(p));
+            for p in inside.into_iter().rev() {
+                self.pending.push_front(Pending::Path(p));
+            }
+            return None;
+        }
+        let format = if path == Path::new("-") {
+            self.format
+        } else {
+            self.format.of(&path)
+        };
+        if !format.is_many() {
+            return Some(Entry {
+                name,
+                mode: None,
+                source: Source::File(path, format),
+            });
+        }
+        match reader(&path) {
+            Ok(reader) => {
+                self.pending.push_front(Pending::Lines {
+                    reader,
+                    origin: name,
+                    format,
+                    number: 0,
+                });
+                None
+            }
+            Err(e) => bad(format!("cannot read it: {e}")),
+        }
+    }
+}
+
+impl Iterator for Entries {
+    type Item = Entry;
+
+    fn next(&mut self) -> Option<Entry> {
+        while !interrupted() {
+            let entry = match self.pending.front_mut()? {
+                Pending::Path(_) => {
+                    let Some(Pending::Path(path)) = self.pending.pop_front() else {
+                        unreachable!("the front is a path")
+                    };
+                    self.path(path)
+                }
+                Pending::List(reader, separator) => {
+                    let mut bytes = Vec::new();
+                    match reader.read_until(*separator, &mut bytes) {
+                        Ok(0) => {
+                            self.pending.pop_front();
+                            continue;
+                        }
+                        Ok(_) => {
+                            if bytes.last() == Some(separator) {
+                                bytes.pop();
+                            }
+                            if *separator == b'\n' && bytes.last() == Some(&b'\r') {
+                                bytes.pop();
+                            }
+                            if bytes.is_empty() {
+                                continue;
+                            }
+                            self.path(path_of(bytes))
+                        }
+                        Err(e) => {
+                            self.pending.pop_front();
+                            Some(Entry {
+                                name: "--files-from".into(),
+                                mode: None,
+                                source: Source::Bad(format!("cannot read the list: {e}")),
+                            })
+                        }
+                    }
+                }
+                Pending::Lines {
+                    reader,
+                    origin,
+                    format,
+                    number,
+                } => {
+                    let mut line = String::new();
+                    match reader.read_line(&mut line) {
+                        Ok(0) => {
+                            self.pending.pop_front();
+                            continue;
+                        }
+                        Ok(_) => {
+                            *number += 1;
+                            entry_of(&line, origin, *number, *format)
+                        }
+                        Err(e) => {
+                            *number += 1;
+                            let name = format!("{origin}:{number}");
+                            self.pending.pop_front();
+                            Some(Entry {
+                                name,
+                                mode: None,
+                                source: Source::Bad(format!("cannot read the line: {e}")),
+                            })
+                        }
+                    }
+                }
+            };
+            if entry.is_some() {
+                return entry;
+            }
+        }
+        None
+    }
+}
+
+/// Returns the path a list names, its bytes as they are on Unix.
+fn path_of(bytes: Vec<u8>) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        PathBuf::from(OsString::from_vec(bytes))
+    }
+    #[cfg(not(unix))]
+    PathBuf::from(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Reads a mode's name as problem files and records write it.
+fn mode_named(name: &str) -> Result<Mode> {
+    Ok(match name {
+        "classical" => Mode::CLASSICAL,
+        "mix" => Mode::CLASSICAL.with_mix(),
+        "affine" => Mode::CLASSICAL.affine(),
+        "intuitionistic" => Mode::INTUITIONISTIC,
+        "intuitionistic-affine" => Mode::INTUITIONISTIC.affine(),
+        _ => bail!(
+            "unknown mode `{name}`: classical, mix, affine, intuitionistic or intuitionistic-affine"
+        ),
+    })
+}
+
+/// Returns the entry a line holds, or `None` for a blank line or a
+/// comment; a line that is none of the format's is that line's error.
+fn entry_of(line: &str, origin: &str, number: usize, format: InputFormat) -> Option<Entry> {
+    let place = format!("{origin}:{number}");
+    let code = match format {
+        InputFormat::Jsonl => line.trim(),
+        _ => line.split_once('#').map_or(line, |(code, _)| code).trim(),
+    };
+    if code.is_empty() {
+        return None;
+    }
+    let entry = |name: Option<&str>, mode, source| Entry {
+        name: name.filter(|n| !n.is_empty()).unwrap_or(&place).to_owned(),
+        mode,
+        source,
+    };
+    let text = |s: &str| Source::Text(s.to_owned(), InputFormat::Text);
+    Some(match format {
+        InputFormat::Problems => {
+            let fields: Vec<&str> = code.splitn(5, ';').map(str::trim).collect();
+            let [name, mode, _, _, sequent] = fields[..] else {
+                let why = "not a problem line `NAME; MODE; EXPECTED; COPIES; SEQUENT`".into();
+                return Some(entry(None, None, Source::Bad(why)));
+            };
+            match mode_named(mode) {
+                Ok(mode) => entry(Some(name), Some(mode), text(sequent)),
+                Err(e) => entry(Some(name), None, Source::Bad(e.to_string())),
+            }
+        }
+        InputFormat::Jsonl => match record(code) {
+            Ok((name, mode, source)) => entry(name.as_deref(), mode, source),
+            Err(e) => entry(None, None, Source::Bad(format!("{e:#}"))),
+        },
+        _ => match code.split_once(':') {
+            Some((name, sequent)) => entry(Some(name.trim()), None, text(sequent)),
+            None => entry(None, None, text(code)),
+        },
+    })
+}
+
+/// Reads a JSON line: a sequent, or a record with a name, a mode and the
+/// sequent in JSON or as text.
+fn record(line: &str) -> Result<(Option<String>, Option<Mode>, Source)> {
+    let value: serde_json::Value = serde_json::from_str(line).context("not JSON")?;
+    let Some(sequent) = value.get("sequent") else {
+        return Ok((None, None, Source::Text(line.to_owned(), InputFormat::Json)));
+    };
+    let name = match value.get("name") {
+        None => None,
+        Some(serde_json::Value::String(name)) => Some(name.clone()),
+        Some(_) => bail!("the record's name is not a string"),
+    };
+    let mode = match value.get("mode") {
+        None => None,
+        Some(serde_json::Value::String(mode)) => Some(mode_named(mode)?),
+        Some(_) => bail!("the record's mode is not a string"),
+    };
+    let source = match sequent {
+        serde_json::Value::String(text) => Source::Text(text.clone(), InputFormat::Text),
+        json => Source::Text(json.to_string(), InputFormat::Json),
+    };
+    Ok((name, mode, source))
+}
+
+/// The answer to one entry: what is written for it, and its verdict.
+struct Done {
+    /// The line, or lines, written for it.
+    text: String,
+    /// Its verdict.
+    status: Status,
+}
+
+/// What every worker shares.
+struct Shared {
+    /// The arguments.
+    args: Arc<ProveArgs>,
+    /// The output's options, with a directory as the output if there is
+    /// one.
+    show: Show,
+    /// The batch's own time limit.
+    batch: Deadline,
+    /// The threads of a sequent searched within the cores.
+    threads: Threads,
+    /// The directory the derivations go to.
+    directory: Option<PathBuf>,
+}
+
+/// The extension of a file a derivation is written to in a format.
+fn extension(format: Format) -> &'static str {
+    match format {
+        Format::Text => "txt",
+        Format::Json => "json",
+        Format::Latex => "tex",
+        Format::Typst => "typ",
+        Format::Svg => "svg",
+        Format::Png => "png",
+        Format::Pdf => "pdf",
+        Format::Rocq => "v",
+    }
+}
+
+/// Returns the file in `directory` for an entry named `name`: the name as
+/// a relative path (`..` written `__`, a root dropped) with the format's
+/// extension added, so that entries of the same file name in different
+/// directories, or of different kinds, get different files.
+fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
+    let mut path = directory.to_owned();
+    for component in Path::new(name).components() {
+        match component {
+            Component::Normal(part) => path.push(part),
+            Component::ParentDir => path.push("__"),
+            _ => {}
+        }
+    }
+    let mut file = path.into_os_string();
+    file.push(".");
+    file.push(extension(format));
+    file.into()
+}
+
+/// Returns the JSON of a record: the entry's name, then the fields of
+/// `body`, a JSON object.
+fn record_json(name: &str, body: &str) -> String {
+    let name = serde_json::to_string(name).expect("a string is JSON");
+    match body.strip_prefix('{') {
+        Some("}") => format!("{{\"name\":{name}}}"),
+        Some(rest) => format!("{{\"name\":{name},{rest}"),
+        None => unreachable!("the body is an object"),
+    }
+}
+
+impl Shared {
+    /// Returns what is written for an entry: in JSON a record, else
+    /// `NAME: LINE`.
+    fn line(&self, name: &str, kind: &str, line: &str) -> String {
+        if self.json_lines() {
+            let body = serde_json::json!({ kind: line }).to_string();
+            record_json(name, &body)
+        } else if kind == "error" {
+            format!("{name}: error: {line}")
+        } else {
+            format!("{name}: {line}")
+        }
+    }
+
+    /// Whether the results are JSON Lines: JSON without a directory.
+    fn json_lines(&self) -> bool {
+        self.show.format == Format::Json && self.directory.is_none()
+    }
+
+    /// Decides an entry, writes its derivation if one is asked for, and
+    /// returns what is written for it.
+    fn answer(&self, entry: Entry, search: &Options) -> Done {
+        let name = entry.name.clone();
+        let failed = |e: anyhow::Error| Done {
+            text: self.line(&name, "error", &format!("{e:#}")),
+            status: Status::Error,
+        };
+        if self.batch.passed() || interrupted() {
+            let why = match self.batch.limit() {
+                _ if interrupted() => "interrupted before it was searched".to_owned(),
+                Some(t) => {
+                    format!("the batch's time limit of {t:?} was reached before it was searched")
+                }
+                None => unreachable!("only a limit passes"),
+            };
+            return Done {
+                text: self.line(&name, "unknown", &format!("unknown: {why}")),
+                status: Status::Unknown,
+            };
+        }
+        if self.args.batch.isolate {
+            return self.isolated(entry).unwrap_or_else(failed);
+        }
+        self.decide(entry, search).unwrap_or_else(failed)
+    }
+
+    /// Decides an entry in this process.
+    fn decide(&self, entry: Entry, search: &Options) -> Result<Done> {
+        let args = &self.args;
+        let deadline = Deadline::start(args.timeout.0, Instant::now())?;
+        let most = args.input.most();
+        let source = entry.source;
+        let loaded = deadline.within(move || -> Result<Forest> {
+            let sequent = match source {
+                Source::Bad(why) => return Err(anyhow!(why)),
+                Source::Text(text, format) => sequent_in(&text, format)?,
+                Source::File(path, format) => {
+                    let text = io::read(Some(&path), "sequent")?;
+                    sequent_in(&text, format)?
+                }
+            };
+            Ok(Forest::from_owned(admit(sequent, most)?, most)?)
+        })?;
+        let Some(forest) = loaded else {
+            let limit = deadline.limit().expect("only a limit passes");
+            let line = format!(
+                "unknown: the time limit of {limit:?} was reached while the sequent was read"
+            );
+            return Ok(Done {
+                text: self.line(&entry.name, "unknown", &line),
+                status: Status::Unknown,
+            });
+        };
+        let forest = forest?;
+        let sequent = forest.sequent();
+        let mode = entry.mode.unwrap_or(args.mode.mode());
+        if self.show.net {
+            nets_exist(sequent, mode)?;
+        }
+        let start = Instant::now();
+        let halt = || interrupted() || deadline.passed() || self.batch.passed();
+        let outcome = if search.job_count() > 1 {
+            alone_first(search, self.threads, &halt, |options, halt| {
+                prove_goal(&forest, forest.roots(), mode, options, halt)
+            })
+        } else {
+            prove_goal(&forest, forest.roots(), mode, search, halt)
+        }
+        .map_err(|e| describe(e, sequent))?;
+        let elapsed = start.elapsed();
+        let stop = stopped(&deadline).or_else(|| stopped(&self.batch));
+        let status = match outcome.verdict {
+            Verdict::Proved(_) => Status::Yes,
+            Verdict::Unprovable(_) => Status::No,
+            Verdict::Unknown(_) => Status::Unknown,
+        };
+        let ended = Ended {
+            stop,
+            elapsed,
+            recursion_limit: args.recursion_limit,
+        };
+        let line = verdict_line(&outcome, args.fragment.is_some(), &ended);
+        let mut text = if self.json_lines() {
+            let mut body = serde_json::to_string(&outcome)?;
+            if args.stats {
+                body.pop();
+                body.push_str(&format!(",\"seconds\":{}}}", elapsed.as_secs_f64()));
+            }
+            record_json(&entry.name, &body)
+        } else {
+            format!("{}: {line}", entry.name)
+        };
+        let over = || interrupted() || deadline.passed() || self.batch.passed();
+        if let Some(directory) = &self.directory
+            && let Some(note) = self.write(&entry.name, directory, &outcome, mode, &line, over)?
+        {
+            text.push_str(&format!("\n  {note}"));
+        }
+        if args.stats && !self.json_lines() {
+            for counter in statistics(&outcome, elapsed).lines() {
+                text.push_str(&format!("\n  {counter}"));
+            }
+        }
+        Ok(Done { text, status })
+    }
+
+    /// Writes the outcome, or the proof's derivation or net, into its file
+    /// in `directory`, and returns the line that says why nothing was
+    /// written when a proof's file is not.
+    fn write(
+        &self,
+        name: &str,
+        directory: &Path,
+        outcome: &Outcome,
+        mode: Mode,
+        line: &str,
+        over: impl Fn() -> bool,
+    ) -> Result<Option<String>> {
+        let show = &self.show;
+        let path = file_for(directory, name, show.format);
+        let open = || -> Result<io::Output> {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("cannot make {}", parent.display()))?;
+            }
+            io::Output::open(Some(&path), show.format.is_binary())
+        };
+        if show.format == Format::Json {
+            let mut out = open()?;
+            serde_json::to_writer(out.stream(), outcome)?;
+            out.finish()?;
+            return Ok(None);
+        }
+        let (Verdict::Proved(proof), false) = (&outcome.verdict, self.args.output.quiet) else {
+            return Ok(None);
+        };
+        let mut out = open()?;
+        let prefix = (show.verdict && !show.format.is_binary())
+            .then(|| format!("{}\n", crate::prove::note(show.format, line)));
+        if show.net {
+            net_into(
+                outcome.net.as_ref(),
+                proof,
+                mode,
+                show,
+                prefix.as_deref(),
+                &mut out,
+            )?;
+            out.finish()?;
+            return Ok(None);
+        }
+        let mut steps = 0u32;
+        let halt = || {
+            steps = steps.wrapping_add(1);
+            steps.is_multiple_of(STEPS_PER_CLOCK) && over()
+        };
+        let why = || match self.args.timeout.0 {
+            _ if interrupted() => "interrupted".to_owned(),
+            _ if self.batch.passed() => "the batch's time limit was reached".to_owned(),
+            Some(t) => format!("the time limit of {t:?} was reached"),
+            None => "stopped".to_owned(),
+        };
+        match derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)? {
+            Shown::Written => out.finish()?,
+            Shown::Rendered(bytes) => {
+                out.stream().write_all(&bytes)?;
+                out.finish()?;
+            }
+            Shown::LeftOut(reason) => return Ok(Some(reason)),
+            Shown::Cut(reason) => return Ok(Some(format!("{reason}; no file is written"))),
+            Shown::Nothing => {}
+        }
+        Ok(None)
+    }
+
+    /// Decides an entry in a child process of this command, which is given
+    /// the command's own arguments without the batch's and the entry
+    /// alone, and answers as a batch of one.
+    fn isolated(&self, entry: Entry) -> Result<Done> {
+        let exe = std::env::current_exe().context("cannot find this program to start a child")?;
+        let mut command = Command::new(exe);
+        command
+            .args(child_arguments())
+            .arg("--entry-name")
+            .arg(&entry.name);
+        if let Some(mode) = entry.mode {
+            command.arg("--entry-mode").arg(mode_name(mode));
+        }
+        let mut stdin = None;
+        match entry.source {
+            Source::Bad(why) => bail!(why),
+            Source::File(path, format) => {
+                command
+                    .arg("--file")
+                    .arg(path)
+                    .arg("--input-format")
+                    .arg(format_name(format));
+            }
+            Source::Text(text, format) => {
+                command.arg("--input-format").arg(format_name(format));
+                stdin = Some(text);
+            }
+        }
+        let mut child = command
+            .stdin(if stdin.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("cannot start a child process")?;
+        if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
+            pipe.write_all(text.as_bytes())
+                .context("cannot write to the child")?;
+        }
+        // The child keeps its own time limit; a child that outlives it by
+        // the grace is stopped.
+        let end = self
+            .args
+            .timeout
+            .0
+            .map(|t| Instant::now() + t + CHILD_GRACE);
+        let (mut out, mut err) = (child.stdout.take(), child.stderr.take());
+        let reading = std::thread::spawn(move || {
+            let mut text = String::new();
+            if let Some(out) = out.as_mut() {
+                let _ = out.read_to_string(&mut text);
+            }
+            let mut error = String::new();
+            if let Some(err) = err.as_mut() {
+                let _ = err.read_to_string(&mut error);
+            }
+            (text, error)
+        });
+        let status = loop {
+            if let Some(status) = child.try_wait()? {
+                break status;
+            }
+            if end.is_some_and(|end| Instant::now() > end) || interrupted() {
+                let _ = child.kill();
+                let _ = child.wait();
+                let why = if interrupted() {
+                    "interrupted"
+                } else {
+                    "outlived its time limit"
+                };
+                bail!("the child process {why} and was stopped");
+            }
+            std::thread::sleep(CHILD_POLL);
+        };
+        let (text, error) = reading.join().unwrap_or_default();
+        let status = match status.code() {
+            Some(0) => Status::Yes,
+            Some(1) => Status::No,
+            Some(3) => Status::Unknown,
+            Some(_) if !text.trim().is_empty() => Status::Error,
+            code => {
+                let why = error
+                    .lines()
+                    .last()
+                    .unwrap_or("")
+                    .trim_start_matches("error: ");
+                match code {
+                    Some(code) => bail!("the child process ended with status {code}: {why}"),
+                    None => bail!("the child process was killed{}", killed_by(&status)),
+                }
+            }
+        };
+        Ok(Done {
+            text: text.trim_end().to_owned(),
+            status,
+        })
+    }
+}
+
+/// How long a child may outlive its time limit before it is stopped: what
+/// it may still write and render after the search.
+const CHILD_GRACE: Duration = Duration::from_secs(5);
+
+/// How often the parent looks whether a child has ended.
+const CHILD_POLL: Duration = Duration::from_millis(5);
+
+/// Says which signal ended a process, where the platform tells.
+fn killed_by(status: &std::process::ExitStatus) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return format!(" by signal {signal}");
+        }
+    }
+    String::new()
+}
+
+/// Names a mode as `--entry-mode` reads it.
+fn mode_name(mode: Mode) -> &'static str {
+    match (mode.intuitionistic, mode.affine, mode.mix) {
+        (true, true, _) => "intuitionistic-affine",
+        (true, false, _) => "intuitionistic",
+        (false, true, _) => "affine",
+        (false, false, true) => "mix",
+        (false, false, false) => "classical",
+    }
+}
+
+/// Names a format as `--input-format` reads it.
+fn format_name(format: InputFormat) -> String {
+    clap::ValueEnum::to_possible_value(&format)
+        .expect("no value is skipped")
+        .get_name()
+        .to_owned()
+}
+
+/// The command's own arguments without those that name the batch's
+/// inputs and how it runs, for a child that decides one entry.
+fn child_arguments() -> Vec<OsString> {
+    const WITH_VALUE: [&str; 8] = [
+        "--file",
+        "--files-from",
+        "--input-format",
+        "--workers",
+        "--cores",
+        "--batch-memory",
+        "--batch-timeout",
+        "-f",
+    ];
+    const ALONE: [&str; 2] = ["--isolate", "--null"];
+    let mut kept = Vec::new();
+    let mut arguments = std::env::args_os().skip(1);
+    while let Some(argument) = arguments.next() {
+        let text = argument.to_string_lossy();
+        let flag = text.split_once('=').map_or(&*text, |(flag, _)| flag);
+        if WITH_VALUE.contains(&flag) {
+            if !text.contains('=') {
+                arguments.next();
+            }
+        } else if ALONE.contains(&flag) || (text.starts_with("-f") && !text.starts_with("--")) {
+        } else {
+            kept.push(argument);
+        }
+    }
+    kept
+}
+
+/// Returns the machine's memory where the system says how much it has;
+/// half of it is the default of `--batch-memory`.
+pub fn machine_memory() -> Option<u64> {
+    let info = fs::read_to_string("/proc/meminfo").ok()?;
+    let line = info.lines().find(|l| l.starts_with("MemTotal:"))?;
+    let kib: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
+    Some(kib.saturating_mul(1024))
+}
+
+/// Runs a batch: reads the entries, decides them on the library's batch,
+/// and writes one result per entry in order; the status is the worst
+/// verdict, an error before unknown before unprovable before proved.
+pub fn run(args: &ProveArgs) -> Result<Status> {
+    let start = Instant::now();
+    let format = args.output.format();
+    let directory = args.output.output.clone();
+    if directory.is_none() && !matches!(format, Format::Text | Format::Json) {
+        bail!(
+            "a batch writes each {} into a directory: give it with --output DIR",
+            format.title()
+        );
+    }
+    if let Some(directory) = &directory {
+        fs::create_dir_all(directory)
+            .with_context(|| format!("cannot make the directory {}", directory.display()))?;
+    }
+    let show = Show::new(&args.output)?.within(args.memory_limit.0);
+    let threads = threads(args.jobs, args.pool_after, args.deterministic);
+    let search = Options::default()
+        .memo_limit(args.memo_limit)
+        .recursion_limit(args.recursion_limit)
+        .engine(args.engine.into())
+        .fragment(args.fragment.map(Into::into))
+        .copies(args.copies.0)
+        .bias(args.bias.into())
+        .forward_copies(args.forward_copies)
+        .check(!args.no_check)
+        .memory_limit(args.memory_limit.0)
+        .occurrence_limit(args.input.most())
+        .jobs(threads.jobs)
+        .pool(Some(Pool::new()));
+    let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
+    let cores = match args.batch.cores {
+        // A program that writes a question and waits for its answer
+        // cannot be read ahead of.
+        CoresArg::Auto if stdin_stream => Cores::Within,
+        CoresArg::Auto => Cores::Auto,
+        CoresArg::Across => Cores::Across,
+        CoresArg::Within => Cores::Within,
+    };
+    let machine = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let options = batch::Options {
+        search,
+        mode: args.mode.mode(),
+        cores,
+        workers: args
+            .batch
+            .workers
+            .unwrap_or(machine)
+            .clamp(1, Options::MAX_JOBS),
+        memory_limit: match args.batch.batch_memory {
+            Some(limit) => limit.0,
+            None => Some(machine_memory().map_or(batch::Options::DEFAULT_MEMORY_LIMIT, |m| m / 2)),
+        },
+    };
+    let mut entries = Entries::new(args)?;
+    if let Some(name) = &args.batch.entry_name {
+        let mut entry = entries.next().ok_or_else(|| anyhow!("no sequent given"))?;
+        entry.name.clone_from(name);
+        entry.mode = args
+            .batch
+            .entry_mode
+            .as_deref()
+            .map(mode_named)
+            .transpose()?;
+        return one(args, show, threads, directory, &options, entry);
+    }
+    catch_interrupt();
+    let shared = Arc::new(Shared {
+        args: Arc::new(args.clone()),
+        show,
+        batch: Deadline::start(args.batch.batch_timeout.0, start)?,
+        threads,
+        directory,
+    });
+    let worker = shared.clone();
+    let stack = options.search.stack_size();
+    on_large_stack(stack, move || {
+        let results = batch::run(entries, &options, move |entry, search| {
+            worker.answer(entry, search)
+        });
+        let mut worst = Status::Yes;
+        let mut stdout = std::io::stdout().lock();
+        for done in results {
+            writeln!(stdout, "{}", done.text)
+                .and_then(|()| stdout.flush())
+                .context("cannot write to standard output")?;
+            worst = worst.worse(done.status);
+        }
+        Ok(worst)
+    })?
+}
+
+/// Decides the one entry of a child's batch on this thread's stack and
+/// writes its result.
+fn one(
+    args: &ProveArgs,
+    show: Show,
+    threads: Threads,
+    directory: Option<PathBuf>,
+    options: &batch::Options,
+    entry: Entry,
+) -> Result<Status> {
+    let search = options.search.clone();
+    let shared = Shared {
+        args: Arc::new(args.clone()),
+        show,
+        batch: Deadline::start(None, Instant::now())?,
+        threads,
+        directory,
+    };
+    let done = on_large_stack(search.stack_size(), || shared.answer(entry, &search))?;
+    println!("{}", done.text);
+    Ok(done.status)
+}

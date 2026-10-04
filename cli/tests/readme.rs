@@ -19,9 +19,9 @@
 //!   first line, the verdict, is compared;
 //! - `skip`, then why: the block is not run.
 //!
-//! A file a command writes (`--output FILE`, or any file of a known kind
-//! in the block's directory afterwards) must exist and be of the kind its
-//! extension names; its bytes are not compared, since a PDF carries the
+//! A file a command writes (`--output FILE`, every file under `--output
+//! DIR` of a batch, or any file of a known kind in the block's directory
+//! afterwards) must exist and be of the kind its extension names; its bytes are not compared, since a PDF carries the
 //! date it was made.
 
 use std::path::{Path, PathBuf};
@@ -225,6 +225,18 @@ fn not_of_its_kind(file: &Path) -> Option<String> {
     (!fine).then(|| format!("{} is no {extension} file", file.display()))
 }
 
+/// Adds the files under a directory a batch wrote its derivations into.
+fn walk(directory: &Path, files: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(directory).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            walk(&path, files);
+        } else {
+            files.push(path);
+        }
+    }
+}
+
 /// Writes the files the examples read and the README does not show how
 /// to make into the directory: `shared.json`, a sequent of 427 bytes that
 /// doubles one atom 25 times.
@@ -285,7 +297,23 @@ fn readme_examples() {
             while let Some(word) = words.next() {
                 if word == "--output" {
                     let name = words.next().unwrap_or("").trim_matches(['"', '\'']);
-                    if !directory.join(name).is_file() {
+                    let output = directory.join(name);
+                    if output.is_dir() {
+                        let mut files = Vec::new();
+                        walk(&output, &mut files);
+                        failures.extend(
+                            files
+                                .iter()
+                                .filter_map(|file| not_of_its_kind(file))
+                                .map(|why| format!("README.md:{}: {why}", example.line)),
+                        );
+                        if files.is_empty() {
+                            failures.push(format!(
+                                "README.md:{}: $ {}\nno file in {name}",
+                                example.line, example.command
+                            ));
+                        }
+                    } else if !output.is_file() {
                         failures.push(format!(
                             "README.md:{}: $ {}\nno file {name}",
                             example.line, example.command

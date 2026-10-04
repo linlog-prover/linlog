@@ -254,12 +254,12 @@ unknown (MELL, classical, focus engine): the time limit of 1s was reached at a c
 
 <!-- readme-check: skip, the file is the LLTP library's -->
 ```console
-$ linlog prove -q -i --timeout 1s --file SYJ212+1.020.txt
+$ linlog prove -q -i --timeout 1s --file SYJ212+1.020.p
 unknown: the time limit of 1s was reached while the sequent was read
 ```
 
-The second sequent is the largest problem of the LLTP library in linlog's
-syntax, a file of 86 MB that takes twelve seconds to parse; both commands
+The second sequent is the largest problem of the LLTP library, a file of
+86 MB that takes twelve seconds to parse; both commands
 end with exit status 3 a second after they started.
 
 By default the search runs on one thread first, and if that has not
@@ -713,6 +713,92 @@ The syntax: `*`/`⊗` tensor, `|`/`par`/`⅋` par, `&` with, `+`/`⊕` plus,
 `-o`/`⊸` linear implication, `~A` or `A^` negation, `!` and `?`, and the
 units `1`, `bot`/`⊥`, `top`/`⊤`, `0`; `|-` or `⊢` separates the sides.
 
+### Many sequents in one call
+
+`prove` decides many sequents in one call, a batch, when it is given
+`--file` more than once, a directory, a list of paths (`--files-from LIST`,
+one per line, or separated by NUL with `--null` as `find -print0` writes
+them, `-` for standard input), or an input format of many sequents:
+`--input-format lines` (`NAME: SEQUENT` or `SEQUENT` per line, blank lines
+and everything from `#` on skipped), `jsonl` (a sequent as `seq json`
+writes it, or a record with a name, a mode and the sequent, per line) or
+`problems` (the benchmark harness's problem files). Every sequent gets one
+line, in the order of the input and as soon as it is decided, named by
+its path as given, its line's name, or its file and line number:
+
+```console
+$ cat > sequents.txt
+> # a comment, then four sequents
+> identity: A |- A
+> modus ponens: A, A -o B |- B
+> A |- B
+> broken: A |- (
+$ linlog prove --input-format lines --file sequents.txt
+identity: provable (MLL, classical, net engine)
+modus ponens: provable (MLL, classical, net engine)
+sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+broken: error: cannot parse the sequent
+   A |- (
+         ^ unexpected end of input
+$ linlog prove --input-format lines --file sequents.txt --format svg --output drawings
+identity: provable (MLL, classical, net engine)
+modus ponens: provable (MLL, classical, net engine)
+sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+broken: error: cannot parse the sequent
+   A |- (
+         ^ unexpected end of input
+```
+
+The exit status is the worst verdict: an error (2) before unknown (3)
+before unprovable (1) before proved (0), so this one is 2. The second
+command writes each proved sequent's derivation into the directory
+`--output` names, in the format asked for, named after the sequent with
+the format's extension (`drawings/identity.svg`; `ILL/01/X.p` becomes
+`DIR/ILL/01/X.p.svg`, so the LLTP library's translations of one problem
+do not overwrite each other). A file's kind
+is its extension's unless `--input-format` says otherwise: `.p` is a
+problem of the LLTP library, `.json` a sequent in JSON, anything else the
+text syntax, for a single `prove` as well. An LLTP problem does not say
+whether it is intuitionistic (the library keeps those under `ILL/`), so
+the flags say it:
+
+```console
+$ cat > problem.p
+> % Status (intuit.) : Theorem
+> fof(rule, axiom, !(a -o b)).
+> fof(fact, axiom, a).
+> fof(goal, conjecture, b * 1).
+$ linlog prove -i -q --file problem.p
+provable (IMELL, intuitionistic, two-sided engine)
+```
+
+A directory is walked in sorted order, links followed, for the files of
+the input format's extension (`.p` and `.json` by default); paths are
+taken literally, relative to the current directory. On standard input
+the batch is a stream: each line is answered as soon as it is decided,
+so a program can ask, wait for the answer and ask again. With `--format
+json` every answer is a JSON Lines record, the name first and then what
+`--format json` writes for one sequent; the mode is the flags', a problem
+file's column or a record's:
+
+```console
+$ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
+{"name":"pair","verdict":"proved","fragment":"IMLL","mode":{"intuitionistic":true,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"ids":[0,1,4],"var_dict":["A","B"]},"proof":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
+```
+
+By default the cores go across the sequents, one sequent per worker on
+the sequential engines (as with `--deterministic`), and within one
+sequent, as for a single call, when the batch has fewer sequents than
+workers or is a stream from standard input; `--cores across|within`
+chooses, and `--workers N` caps the sequents decided at once.
+`--timeout` is each sequent's limit, reading included, and
+`--batch-timeout` the whole batch's. Each search holds at most
+`--memory-limit`, and as many run at once as `--batch-memory` holds (by
+default half the machine's memory), so that a batch never holds more
+than that for its searches; `--isolate` decides each sequent in a child
+process of its own, so that one that exhausts the memory or the stack
+ends only itself.
+
 ### Benchmarks
 
 `linlog-bench` (`cargo run --release -p linlog-bench -- …` in a checkout,
@@ -921,6 +1007,12 @@ Built:
   structural rule is drawn as one inference where the whole tree would
   not fit or pass `--derivation-limit`, and a derivation past the limit
   either way is left out with a line that says so.
+- Many sequents in one call: files, directories, lists of paths and
+  streams on standard input, in the text syntax, as JSON Lines, in the
+  harness's problem files and in the LLTP library's format, one answer
+  per sequent in input order, with a time limit per sequent and for the
+  batch, a memory bound for the batch, and a child process per sequent
+  on request.
 - Benchmarks: a reader for the problems of the LLTP library, generated
   families with known verdicts (the hard families of the literature and
   the cases where one engine is known to be slow), and `linlog-bench`,
@@ -933,8 +1025,6 @@ Built:
 
 Planned, in roughly this order:
 
-- A batch mode: many sequents per call, from files, directories and
-  standard input, in the LLTP library's format as well.
 - Ordinary classical, intuitionistic and minimal propositional logic
   through their translations into linear logic.
 - A web front end for proving step by step in the browser.

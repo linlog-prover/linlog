@@ -7,6 +7,8 @@
 
 /// The command line arguments.
 pub mod argument_parsing;
+/// `prove` over many sequents.
+pub mod batch;
 /// The `interact` command.
 pub mod interact;
 /// Reading input and writing output.
@@ -36,6 +38,26 @@ pub enum Status {
     No,
     /// The search stopped before deciding: 3.
     Unknown,
+    /// An entry of a batch was an error: 2.
+    Error,
+}
+
+impl Status {
+    /// Returns the worse of two verdicts of a batch: an error before
+    /// unknown before unprovable before proved.
+    pub fn worse(self, other: Self) -> Self {
+        let rank = |s| match s {
+            Status::Yes => 0,
+            Status::No => 1,
+            Status::Unknown => 2,
+            Status::Error => 3,
+        };
+        if rank(other) > rank(self) {
+            other
+        } else {
+            self
+        }
+    }
 }
 
 /// The exit status of an error: bad arguments (as clap reports them),
@@ -49,6 +71,7 @@ impl From<Status> for ExitCode {
             Status::Yes => 0,
             Status::No => 1,
             Status::Unknown => 3,
+            Status::Error => ERROR,
         })
     }
 }

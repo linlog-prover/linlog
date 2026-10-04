@@ -1145,3 +1145,54 @@ fn compact_runs() {
     assert_eq!(status, 0);
     assert!(out.contains("wk_r_ext"), "{out}");
 }
+
+/// A batch walks a directory in sorted order, links followed without
+/// loops, for the files its format takes; reads a NUL-separated list and
+/// problem lines; answers one line per entry in order, a malformed or
+/// missing entry being that entry's error; ends with the worst status;
+/// and answers the same in a child per entry.
+#[test]
+fn batch_inputs_and_exit_status() {
+    let dir = scratch("batch");
+    std::fs::create_dir_all(dir.join("b")).unwrap();
+    std::fs::write(
+        dir.join("b/x.p"),
+        "fof(a, axiom, a).\nfof(c, conjecture, a).\n",
+    )
+    .unwrap();
+    let (_, json, _) = linlog(&["seq", "json", "A |- B"], "");
+    std::fs::write(dir.join("a.json"), json).unwrap();
+    std::fs::write(dir.join("c.txt"), "not read").unwrap();
+    #[cfg(unix)]
+    let _ = std::os::unix::fs::symlink("..", dir.join("b/up"));
+    let d = dir.display();
+    let (status, out, _) = linlog(&["prove", "--file", &dir.to_string_lossy()], "");
+    assert_eq!(
+        out,
+        format!(
+            "{d}/a.json: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A \
+             in the one-sided sequent, so they cannot all meet in axioms\n\
+             {d}/b/x.p: provable (MLL, classical, net engine)\n"
+        )
+    );
+    assert_eq!(status, 1);
+    let list = format!("{d}/b/x.p\0{d}/missing.p\0");
+    let (status, out, _) = linlog(&["prove", "--files-from", "-", "--null", "-q"], &list);
+    assert!(out.starts_with(&format!("{d}/b/x.p: provable")), "{out}");
+    assert!(
+        out.contains(&format!("{d}/missing.p: error: cannot read")),
+        "{out}"
+    );
+    assert_eq!(status, 2);
+    let problems = "one; intuitionistic; -; -; A, A -o B |- B\ntwo; nonsense; -; -; A |- A\n";
+    for isolate in [&[][..], &["--isolate"]] {
+        let args = [&["prove", "--input-format", "problems"][..], isolate].concat();
+        let (status, out, _) = linlog(&args, problems);
+        assert_eq!(
+            out,
+            "one: provable (IMLL, intuitionistic, net engine)\ntwo: error: unknown mode \
+             `nonsense`: classical, mix, affine, intuitionistic or intuitionistic-affine\n"
+        );
+        assert_eq!(status, 2);
+    }
+}

@@ -72,7 +72,7 @@ pub enum Command {
 }
 
 /// The arguments of `prove`.
-#[derive(Args, Debug)]
+#[derive(Args, Clone, Debug)]
 pub struct ProveArgs {
     /// The sequent.
     #[command(flatten)]
@@ -207,6 +207,81 @@ pub struct ProveArgs {
     /// text.
     #[arg(long)]
     pub stats: bool,
+    /// How a batch of many sequents runs.
+    #[command(flatten)]
+    pub batch: BatchArgs,
+}
+
+/// How `prove` decides many sequents in one call: given several times
+/// `--file`, a directory, `--files-from`, or an input format of many
+/// sequents (`lines`, `jsonl`, `problems`; on standard input a stream,
+/// answered line by line). Paths are relative to the current directory
+/// and taken literally, with no glob or `~`; a directory is walked in
+/// sorted order, links followed, for the files of the input format's
+/// extension (`.p` and `.json` for `auto`). Each sequent is named by
+/// its path as given, or by its line's name or `FILE:LINE`, and gets
+/// one line of output in input order, `NAME: VERDICT`, as soon as it
+/// is decided; with `--format json` a JSON Lines record with the name.
+/// The mode is the flags', or a problem file's column or a record's.
+/// The exit status is the worst verdict: an error (2) before unknown
+/// (3) before unprovable (1) before proved (0).
+#[derive(Args, Clone, Debug)]
+pub struct BatchArgs {
+    /// Read the paths of the inputs from this file, one per line, or
+    /// `-` for standard input, read as it streams
+    #[arg(long, value_name = "LIST")]
+    pub files_from: Option<PathBuf>,
+    /// The paths of --files-from are separated by NUL, as `find -print0`
+    /// writes them
+    #[arg(long)]
+    pub null: bool,
+    /// How many sequents of a batch are decided at once, across the
+    /// cores; by default as many as the machine runs threads, fewer when
+    /// --batch-memory does not hold that many searches at
+    /// --memory-limit each
+    #[arg(long, value_name = "N")]
+    pub workers: Option<usize>,
+    /// Where a batch's threads go
+    #[arg(long, value_enum, value_name = "WHERE", default_value_t = CoresArg::Auto)]
+    pub cores: CoresArg,
+    /// The most memory all the searches of a batch hold together: a size
+    /// such as 8GiB, or `none`; by default half the machine's memory
+    ///
+    /// Each search holds at most --memory-limit, and as many run at once
+    /// as this holds; within one sequent the race of one thread and a
+    /// pool is two searches, which share it.
+    #[arg(long, value_name = "SIZE", value_parser = parse_limit)]
+    pub batch_memory: Option<Limit>,
+    /// Give up on the rest of a batch after this long, or `none`
+    ///
+    /// The sequents still searched are stopped and those not begun are
+    /// unknown; --timeout is each sequent's own limit.
+    #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(None))]
+    pub batch_timeout: Time,
+    /// Decide each sequent of a batch in a child process of its own, so
+    /// that one that exhausts the memory or the stack ends only itself
+    #[arg(long)]
+    pub isolate: bool,
+    /// The name of the one sequent a child of --isolate decides.
+    #[arg(long, hide = true, value_name = "NAME")]
+    pub entry_name: Option<String>,
+    /// The mode of the one sequent a child of --isolate decides.
+    #[arg(long, hide = true, value_name = "MODE")]
+    pub entry_mode: Option<String>,
+}
+
+/// Where a batch's threads go.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoresArg {
+    /// Across the sequents when the batch has at least as many as
+    /// --workers, else within; within on a stream from standard input,
+    /// whose next question may wait for an answer
+    Auto,
+    /// One sequent per worker, each on one thread: the sequential
+    /// engines, as with --deterministic
+    Across,
+    /// One sequent at a time, with the threads --jobs gives
+    Within,
 }
 
 /// The arguments of `interact`.
@@ -536,7 +611,7 @@ fn parse_most(text: &str) -> Result<Most, String> {
 }
 
 /// The logic a sequent is proved in.
-#[derive(Args, Debug)]
+#[derive(Args, Clone, Debug)]
 pub struct ModeArgs {
     /// Intuitionistic linear logic: one formula on the right of ⊢, pars
     /// only as implications, and two-sided derivations
@@ -562,7 +637,7 @@ impl ModeArgs {
 }
 
 /// Where and how a command writes its result.
-#[derive(Args, Debug)]
+#[derive(Args, Clone, Debug)]
 pub struct OutputArgs {
     /// The output format; by default the one the extension of the
     /// `--output` file names (.txt, .json, .tex, .typ, .svg, .png, .pdf,

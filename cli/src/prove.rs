@@ -160,7 +160,7 @@ pub(crate) enum Stop {
 
 /// How many inferences are built, or pieces of text written, between two
 /// looks at the time limit and the Ctrl-C flag while a derivation is made.
-const STEPS_PER_CLOCK: u32 = 256;
+pub(crate) const STEPS_PER_CLOCK: u32 = 256;
 
 /// How a derivation is to be shown: what the output arguments ask for and
 /// where the output goes.
@@ -738,7 +738,7 @@ pub fn form(standalone: bool, exported: bool) -> Result<Form> {
 
 /// Returns a line or lines of text as the format writes them next to its
 /// output: as they are, or as LaTeX, Typst, XML or Rocq comments.
-fn note(format: Format, text: &str) -> String {
+pub(crate) fn note(format: Format, text: &str) -> String {
     let comment = |line: &str| match format {
         Format::Latex => format!("% {line}"),
         Format::Typst => format!("// {line}"),
@@ -811,7 +811,7 @@ fn made() -> Result<pdf::Date> {
 /// Writes the proof net of a proof into `out` as `show` asks: as text, or
 /// drawn as an SVG document, a PNG image or a PDF document. `found` is the
 /// net the net engine found, if it ran.
-fn net_into(
+pub(crate) fn net_into(
     found: Option<&ProofStructure>,
     proof: &Proof,
     mode: Mode,
@@ -843,7 +843,7 @@ fn net_into(
 /// Fails unless proof nets exist for the sequent in the mode: unit-free
 /// MLL, linear, with or without Mix, classical or intuitionistic (where
 /// the net is the one of the one-sided sequent).
-fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
+pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
     if mode.affine {
         bail!("proof nets exist in linear mode only, with or without --mix, not in {mode} mode");
     }
@@ -877,6 +877,9 @@ fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
 /// read, parsed and laid out as a forest under it, on a thread the
 /// command stops waiting for when the limit passes.
 pub fn prove(args: &ProveArgs) -> Result<Status> {
+    if crate::batch::is_batch(args) {
+        return crate::batch::run(args);
+    }
     let deadline = Deadline::start(args.timeout.0, Instant::now())?;
     let input = args.input.clone();
     let loaded = deadline.within(move || input.forest())?;
@@ -994,7 +997,7 @@ pub(crate) struct Ended {
 
 /// Returns the first line of the text output: the verdict, where the
 /// search ran, and for an undecided sequent why.
-fn verdict_line(outcome: &Outcome, asserted: bool, ended: &Ended) -> String {
+pub(crate) fn verdict_line(outcome: &Outcome, asserted: bool, ended: &Ended) -> String {
     let context = format!(
         "{}{}, {}, {} engine",
         outcome.fragment.name_in(outcome.mode),
@@ -1049,7 +1052,7 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
 /// Returns the statistics as text, one counter per line: the counters the
 /// engine that ran keeps, and the copy bound it reached where the
 /// fragment has exponentials.
-fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
+pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
     let s = &outcome.statistics;
     match outcome.engine {
         Engine::Additive => format!(

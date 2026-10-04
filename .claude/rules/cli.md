@@ -30,9 +30,29 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the core crate, and documenting it would overwrite the library's docs.
 - `io.rs`: input from the argument, `--file` (`-` is standard input) or
   standard input, refused when standard input is a terminal; output to
-  `--output` or standard output. The text goes to the parser as it was
-  read, untrimmed, so that the line and character a parse error names
-  are those of the file.
+  `--output` or standard output. A file's kind is `--input-format`
+  (`InputFormat`), else its extension's (`InputFormat::of`: `.p` an LLTP
+  problem through `lltp::read`, `.json` a JSON sequent, else text), never
+  guessed from the text (`A` is an atom and a file name alike);
+  `sequent_in` reads the three formats of one sequent, `admit` applies
+  `--occurrence-limit`. The formats of many (`lines`, `jsonl`,
+  `problems`) are refused outside `prove`'s batch. The text goes to the
+  parser as it was read, untrimmed, so that the line and character a
+  parse error names are those of the file.
+- `batch.rs`: `prove` over many sequents (`is_batch`: `--file` more than
+  once or a directory, `--files-from`, a format of many). `Entries` reads
+  the inputs lazily in order (a directory sorted, links followed, a
+  canonical path walked once; a list line by line or by NUL; a file of
+  lines as it is read), so a stream on standard input is answered line by
+  line. Each entry is decided by `Shared::answer` on a worker of the
+  library's `search::batch::run`, which keeps the order; the main thread
+  writes and flushes each result. `--isolate` runs `linlog` itself per
+  entry with the command's own arguments minus the batch's
+  (`child_arguments`, which filters the raw arguments by name: a new
+  batch flag with a value goes into its list) and the hidden
+  `--entry-name`/`--entry-mode`, as a batch of one whose line the parent
+  relays; a child that outlives its time limit by `CHILD_GRACE` is
+  killed.
 - `interact.rs`: `interact`, a line-based session over `Interactive`:
   the state comes from the sequent argument or `--state FILE` (a session
   `save` wrote; the mode is then the file's), the commands from standard
@@ -125,6 +145,26 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **Exit status**: 0 proved, valid or done; 1 unprovable or invalid; 2 an
   error, the same status clap uses for bad arguments; 3 unknown. Scripts
   depend on it, and `cli/tests/cli.rs` pins it.
+- **A batch's results are those of single calls**, verdict for verdict:
+  an entry runs what `prove` runs (the read and parse under its own
+  `Deadline::within`, the same `Options`, `alone_first` within the cores
+  and the sequential engines across them, as `--deterministic` does),
+  and its line is `NAME: ` and `verdict_line`, or a JSON Lines record
+  whose first key is the name and the rest `Outcome`'s JSON (`seconds`
+  with `--stats`). Its exit status is the worst (`Status::worse`: error,
+  unknown, unprovable, proved); `Status::Error` is an entry's error,
+  printed as its line, never an `error:` of the command. A drawn format
+  needs `--output DIR`; a file per proved sequent is
+  `file_for(DIR, name)`, the name's path with `..` as `__` and the
+  format's extension added. Defaults: `--workers` the machine's threads,
+  `--cores auto` (`Within` on a stream from standard input, which cannot
+  be read ahead of), `--batch-memory` half of `/proc/meminfo`'s
+  `MemTotal` (`machine_memory`) else the library's 4 GiB,
+  `--batch-timeout none`. The first Ctrl-C stops the running searches
+  and ends the input; the batch's own limit answers the entries not yet
+  begun as unknown without reading them. A load thread left behind by a
+  time limit lives on in a batch until its read and parse end (linear in
+  the input).
 - **README's examples are a test** (`cli/tests/readme.rs`): every
   command of every `console` block of `README.md` runs through `sh`, in a
   directory of its block's own with the binary under test first on the
