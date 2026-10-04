@@ -965,7 +965,10 @@ impl Options {
     /// the sequential engines, whose proof is a function of the input.
     /// More than one, with the `parallel` feature, runs the focused engine
     /// and the net engine on that many threads of a pool of their own,
-    /// which may find a different proof but never a different verdict;
+    /// which may find a different proof but never contradict the
+    /// sequential verdict: one of the two may decide where the other
+    /// stops at the copy bound or the recursion limit, and which one
+    /// depends on how the threads interleave;
     /// without the feature, or for the additive path, the search stays
     /// sequential. Zero counts as one, and more than
     /// [`MAX_JOBS`](Self::MAX_JOBS) as that many. A search starts no more
