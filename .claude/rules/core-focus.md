@@ -106,7 +106,19 @@ relies on:
   occurrence (a copied `~a ⅋ ~a` releases the same `~a` twice), which is
   the one allocation on the hot path. Member lists (`gamma.iter()`) carry
   repeats, and a split search assigns positions, so it reads a member's
-  side off its own trail, never off `contains`.
+  side off its own trail, never off `contains`. A `Context` keeps the
+  range of its bitset's words that may hold a member (`lo..hi`, widened
+  by an insertion, kept by a removal), so that `clear`, `iter`, `len` and
+  `is_empty` cost the range and `clone_from` the union of both ranges,
+  one copy (the source's words outside its range are empty, so they
+  clear the target's); equality and the hash are of the members, never
+  of the range, since the memo and the loop check compare zones by
+  them. On a net of tens of thousands of occurrences a stable sequent's
+  members lie in a few words: the free splits of
+  `NeoElection_neoelection-7.unf_10_1` listed, copied and cleared the
+  whole width per split (86 % of its time); with the range it visits ten
+  times the stable sequents in its 5 s. The memo's key still holds both
+  zones at the forest's width (a sparse key is the follow-up).
 - **Stable sequents only.** The asynchronous phase runs to completion (`⅋`
   opens, `⊥` drops, `⊤` closes with a `Top` node and the pending `⅋`/`⊥`
   nodes wrapped around it, `&` branches on copies of the state, `?` moves

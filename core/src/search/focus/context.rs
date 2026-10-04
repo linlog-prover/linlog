@@ -5,19 +5,47 @@
 //! occurrence ids, kept as a bitset of the occurrences present plus a list
 //! of the extra copies, which is empty until a copy from the unrestricted
 //! zone repeats an occurrence, so that the common case costs a bitset and
-//! only a repeat allocates.
+//! only a repeat allocates. The zone keeps the range of the bitset's words
+//! that may hold a member, so that clearing, copying and listing it cost
+//! that range and not the forest's width: on a net of a hundred thousand
+//! occurrences a stable sequent's members lie in a few of its words.
 
 use super::classes::Classes;
 use crate::occurrences::{OccId, OccSet};
+use std::hash::{Hash, Hasher};
 
-/// A multiset of occurrence ids over one forest.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// A multiset of occurrence ids over one forest. Two zones are equal, and
+/// hash alike, when they hold the same members, whatever their ranges.
+#[derive(Clone, Debug)]
 pub(crate) struct Context {
     /// The occurrences present at least once.
     set: OccSet,
     /// Per occurrence present more than once, in ascending id order, how
     /// many copies beyond the first it has.
     extra: Vec<(OccId, u32)>,
+    /// The first word of `set` that may hold a member: every word before
+    /// it and from `hi` on is empty.
+    lo: usize,
+    /// One past the last word of `set` that may hold a member; `lo` when
+    /// none may.
+    hi: usize,
+}
+
+impl PartialEq for Context {
+    fn eq(&self, other: &Self) -> bool {
+        self.set == other.set && self.extra == other.extra
+    }
+}
+
+impl Eq for Context {}
+
+impl Hash for Context {
+    /// The members' hash: the set's and the extra copies', as a key of the
+    /// memo hashes them.
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.set.hash(state);
+        self.extra.hash(state);
+    }
 }
 
 impl Context {
@@ -26,6 +54,8 @@ impl Context {
         Self {
             set: OccSet::empty(len),
             extra: Vec::new(),
+            lo: 0,
+            hi: 0,
         }
     }
 
@@ -45,9 +75,21 @@ impl Context {
         self.extra.binary_search_by_key(&o, |&(x, _)| x)
     }
 
+    /// Widens the range of words that may hold a member to `o`'s.
+    fn reach(&mut self, o: OccId) {
+        let word = o.index() / 64;
+        if self.lo == self.hi {
+            (self.lo, self.hi) = (word, word + 1);
+        } else {
+            self.lo = self.lo.min(word);
+            self.hi = self.hi.max(word + 1);
+        }
+    }
+
     /// Adds one copy of `o`.
     pub(crate) fn insert(&mut self, o: OccId) {
         if self.set.insert(o) {
+            self.reach(o);
             return;
         }
         match self.slot(o) {
@@ -85,13 +127,26 @@ impl Context {
 
     /// Removes every member.
     pub(crate) fn clear(&mut self) {
-        self.set.clear();
+        self.set.clear_words(self.lo, self.hi);
+        (self.lo, self.hi) = (0, 0);
         self.extra.clear();
     }
 
-    /// Makes this zone a copy of `other`, reusing the buffers.
+    /// Makes this zone a copy of `other`, a zone of the same forest,
+    /// reusing the buffers.
     pub(crate) fn clone_from(&mut self, other: &Self) {
-        self.set.clone_from(&other.set);
+        debug_assert_eq!(self.set.capacity(), other.set.capacity(), "one forest");
+        // One copy over both ranges: the words of `other` outside its own
+        // are empty, so they clear what this zone held there.
+        let (lo, hi) = if self.lo == self.hi {
+            (other.lo, other.hi)
+        } else if other.lo == other.hi {
+            (self.lo, self.hi)
+        } else {
+            (self.lo.min(other.lo), self.hi.max(other.hi))
+        };
+        self.set.copy_words(&other.set, lo, hi);
+        (self.lo, self.hi) = (other.lo, other.hi);
         self.extra.clone_from(&other.extra);
     }
 
@@ -104,7 +159,7 @@ impl Context {
         let mut replaced = false;
         // The extra list is in ascending order, like the set.
         let mut extra = other.extra.iter().peekable();
-        for o in other.set.iter() {
+        for o in other.set.iter_words(other.lo, other.hi) {
             let copies = 1 + extra.next_if(|&&(x, _)| x == o).map_or(0, |&(_, n)| n);
             let class = classes.of(o);
             replaced |= class != o;
@@ -116,6 +171,7 @@ impl Context {
     /// Adds `copies` copies of `o`, at least one.
     fn add(&mut self, o: OccId, copies: u32) {
         let extra = if self.set.insert(o) {
+            self.reach(o);
             copies - 1
         } else {
             copies
@@ -131,18 +187,22 @@ impl Context {
 
     /// Returns whether the zone has no member.
     pub(crate) fn is_empty(&self) -> bool {
-        self.set.is_empty()
+        self.set.words()[self.lo..self.hi].iter().all(|&w| w == 0)
     }
 
     /// Returns the number of members, copies counted.
     pub(crate) fn len(&self) -> usize {
-        self.set.len() + self.extra.iter().map(|&(_, n)| n as usize).sum::<usize>()
+        self.set.words()[self.lo..self.hi]
+            .iter()
+            .map(|w| w.count_ones() as usize)
+            .sum::<usize>()
+            + self.extra.iter().map(|&(_, n)| n as usize).sum::<usize>()
     }
 
     /// Returns the members in ascending order, an occurrence repeated as
     /// often as it is present.
     pub(crate) fn iter(&self) -> impl Iterator<Item = OccId> + '_ {
-        self.set.iter().flat_map(move |o| {
+        self.set.iter_words(self.lo, self.hi).flat_map(move |o| {
             let copies = 1 + self.slot(o).map_or(0, |i| self.extra[i].1);
             std::iter::repeat_n(o, copies as usize)
         })

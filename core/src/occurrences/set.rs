@@ -125,6 +125,27 @@ impl OccSet {
         self.iter().next()
     }
 
+    /// Returns the members in the words `lo..hi`, in ascending order:
+    /// every member, where the words outside are empty.
+    pub(crate) fn iter_words(&self, lo: usize, hi: usize) -> Iter<'_> {
+        let words = &self.words[..hi];
+        Iter {
+            words,
+            index: lo,
+            current: words.get(lo).copied().unwrap_or(0),
+        }
+    }
+
+    /// Empties the words `lo..hi`.
+    pub(crate) fn clear_words(&mut self, lo: usize, hi: usize) {
+        self.words[lo..hi].fill(0);
+    }
+
+    /// Makes the words `lo..hi` those of `other`, a set of the same width.
+    pub(crate) fn copy_words(&mut self, other: &Self, lo: usize, hi: usize) {
+        self.words[lo..hi].copy_from_slice(&other.words[lo..hi]);
+    }
+
     /// Returns the members in ascending order.
     pub fn iter(&self) -> Iter<'_> {
         Iter {
