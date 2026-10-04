@@ -403,6 +403,8 @@ fn prove_verdicts_and_exit_statuses() {
             &[
                 "prove",
                 "-q",
+                "--engine",
+                "focus",
                 "--copies",
                 "0",
                 "--forward-copies",

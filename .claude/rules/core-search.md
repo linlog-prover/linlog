@@ -90,6 +90,13 @@ the net engine's, and the others stay zero.
   `decide(&task, &options, &account, stop)` returns an `Answer`: the
   proof (`Ok(Some)`), an exhausted search (`Ok(None)`) or the reason it
   stopped, the counters, and the net the net engine found.
+  `engine_for` answers which engine `prove_goal` would run on a goal
+  (the passes before the search: the fragment, the reading, the
+  dispatch, `admits`), and `Engine::parallel` whether that engine uses
+  `Options::jobs` at all (the additive and the Horn engine do not); the
+  command asks both before it adds a pool beside a single thread.
+  `prove_goal` and `engine_for` share `fragment_of`, `read` and
+  `prepare`, in the order of the errors a call answers.
   `Engine::implementation` maps each public variant to its
   implementation (`focus::ONE_SIDED`, `focus::TWO_SIDED`, `net::Nets`,
   `additive::Additive`, `horn::Horn`); a `Task` is what they are handed (forest, goal,
@@ -116,7 +123,19 @@ the net engine's, and the others stay zero.
   priority. Rows now: two formulas of the additive fragment with a
   connective or unit (`TwoFormulas`) to `additive`; unit-free MLL in a
   linear mode, the roots with no literal more than `NET_MULTIPLICITY`
-  (2) times (`FewEqualLiterals`) to `net`; the rest by mode.
+  (2) times (`FewEqualLiterals`) to `net`; a Horn program with a
+  clause under `!` in a linear mode (`PetriNet`: the fragment has
+  exponentials and `horn::is_program` reads the goal) to `horn`; the
+  rest by mode.
+- **Why the Horn row takes only programs with `!`** (measured at step
+  27): on the library's nets the Horn engine decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103, but on Horn
+  programs without exponentials (the Partition encodings, clauses used
+  once) the focused engine's counts win by up to a hundredfold
+  (`partition-yes` with 12 items 15 ms against 2.0 s, with 16 and 20
+  items 0.2 and 0.5 s against over 10 s), while on `partition-no` the
+  Horn engine is two to three times faster at the same node counts. The
+  row's feature is the fragment's exponentials and the shape, nothing
+  finer.
 - **Why the net row is kept** (measured at step 26 on one thread): on
   unit-free MLL with few equal literals the focused engines are as fast
   as the net engine or faster (the classical `wide` sequents from 8 to

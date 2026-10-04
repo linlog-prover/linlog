@@ -394,6 +394,16 @@ beyond clap and anyhow, which the CLI already has.
   problems not decided within 100 ms with the single thread kept beside
   the pool at half the memory each (`race-half-memory.csv`), and eight
   of them again with the whole bound each (`race-recheck.csv`).
+  `horn-nets.csv` is the measurement that made the Horn engine the
+  default for Horn programs with a clause under `!`: the library's 3 137
+  Petri nets (`ILL/petri-nets`) at 5 s, each with `--engines
+  horn,two-sided --bias factors --copies 30` (the Horn engine, which
+  reads neither flag, and the forward focused search as
+  `lltp-forward.csv` ran it), the two runs of a net back to back on one
+  core, four streams on cores 2 to 5 split by every fourth net
+  (`--only`). `horn-families.csv` is the default against `--engines
+  horn` on the Horn families (Partition, the counters) at 10 s, which
+  kept the row to programs with `!`.
 
 ## Heap profiles
 

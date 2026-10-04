@@ -233,45 +233,11 @@ pub fn prove_goal(
     options: &Options,
     mut stop: impl FnMut() -> bool,
 ) -> Result<Outcome, Error> {
-    if let Some(o) = goal.iter().find(|o| o.index() >= forest.len()) {
-        return Err(Error::OccurrenceIndexOutOfBounds(o.index(), forest.len()));
-    }
-    let detected = goal_fragment(forest, goal);
-    let fragment = match options.fragment {
-        Some(asserted) if !asserted.contains(detected) => {
-            return Err(Error::FragmentMismatch { asserted, detected });
-        }
-        Some(asserted) => asserted,
-        None => detected,
-    };
-    // Mix has no intuitionistic form.
-    if mode.intuitionistic && mode.mix {
-        return Err(Error::IntuitionisticMix);
-    }
-    let reading = if mode.intuitionistic {
-        let reading = Reading::new(forest).map_err(Error::NotIntuitionistic)?;
-        let outputs = reading.outputs(goal.iter().copied());
-        if outputs != 1 {
-            return Err(Error::GoalOutputs(outputs));
-        }
-        Some(reading)
-    } else {
-        None
-    };
-    // The roots in any order are the sequent itself, which the engines
-    // are handed in the forest's order.
-    let roots = is_roots(forest, goal);
-    let task = Task {
-        forest,
-        goal: if roots { forest.roots() } else { goal },
-        fragment,
-        mode,
-        reading: reading.as_ref(),
-        roots,
-    };
-    let engine = options.engine.unwrap_or_else(|| dispatch(&task));
+    let fragment = fragment_of(forest, goal, options)?;
+    let reading = read(forest, mode)?;
+    let (task, engine) = prepare(forest, goal, mode, fragment, options, reading.as_ref())?;
+    let roots = task.roots;
     let implementation = engine.implementation();
-    implementation.admits(&task)?;
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
     if set_up_stopped(forest, &mut stop) {
@@ -329,6 +295,94 @@ pub fn prove_goal(
         statistics: answer.statistics,
         net: answer.net,
     })
+}
+
+/// Returns the engine [`prove_goal`] runs on a goal under the options:
+/// the one they force, or the one the dispatch picks, or the error the
+/// search would answer before it starts. It costs what `prove_goal` does
+/// before it searches: a pass over the goal for its fragment, in
+/// intuitionistic mode the reading of the forest, and the dispatch's
+/// test of the goal's shape. A front end that runs a search on one thread
+/// first and adds a pool when it takes long asks this before it adds one,
+/// since an engine that runs on one thread
+/// ([`Engine::parallel`]) would only search again.
+///
+/// # Errors
+///
+/// Those of [`prove_goal`] that come before the search.
+pub fn engine_for(
+    forest: &Forest,
+    goal: &[OccId],
+    mode: Mode,
+    options: &Options,
+) -> Result<Engine, Error> {
+    let fragment = fragment_of(forest, goal, options)?;
+    let reading = read(forest, mode)?;
+    prepare(forest, goal, mode, fragment, options, reading.as_ref()).map(|(_, engine)| engine)
+}
+
+/// The fragment a goal is searched in, the options' or its own, once its
+/// occurrences are checked.
+fn fragment_of(forest: &Forest, goal: &[OccId], options: &Options) -> Result<Fragment, Error> {
+    if let Some(o) = goal.iter().find(|o| o.index() >= forest.len()) {
+        return Err(Error::OccurrenceIndexOutOfBounds(o.index(), forest.len()));
+    }
+    let detected = goal_fragment(forest, goal);
+    match options.fragment {
+        Some(asserted) if !asserted.contains(detected) => {
+            Err(Error::FragmentMismatch { asserted, detected })
+        }
+        Some(asserted) => Ok(asserted),
+        None => Ok(detected),
+    }
+}
+
+/// The forest's intuitionistic reading in intuitionistic mode, which has
+/// no Mix.
+fn read(forest: &Forest, mode: Mode) -> Result<Option<Reading<'_>>, Error> {
+    // Mix has no intuitionistic form.
+    if mode.intuitionistic && mode.mix {
+        return Err(Error::IntuitionisticMix);
+    }
+    if !mode.intuitionistic {
+        return Ok(None);
+    }
+    Reading::new(forest)
+        .map(Some)
+        .map_err(Error::NotIntuitionistic)
+}
+
+/// The task of a goal searched in `fragment` and the engine that decides
+/// it, which admits it; in intuitionistic mode the goal has one output
+/// under the reading given.
+fn prepare<'a>(
+    forest: &'a Forest,
+    goal: &'a [OccId],
+    mode: Mode,
+    fragment: Fragment,
+    options: &Options,
+    reading: Option<&'a Reading<'a>>,
+) -> Result<(Task<'a>, Engine), Error> {
+    if let Some(reading) = reading {
+        let outputs = reading.outputs(goal.iter().copied());
+        if outputs != 1 {
+            return Err(Error::GoalOutputs(outputs));
+        }
+    }
+    // The roots in any order are the sequent itself, which the engines
+    // are handed in the forest's order.
+    let roots = is_roots(forest, goal);
+    let task = Task {
+        forest,
+        goal: if roots { forest.roots() } else { goal },
+        fragment,
+        mode,
+        reading,
+        roots,
+    };
+    let engine = options.engine.unwrap_or_else(|| dispatch(&task));
+    engine.implementation().admits(&task)?;
+    Ok((task, engine))
 }
 
 /// Whether a goal is the forest's roots, in any order.
@@ -439,7 +493,7 @@ fn dispatch(task: &Task<'_>) -> Engine {
 /// feature of a goal, the engine a measurement shows fastest there, as the
 /// documentation of [`Engine`] tabulates with the measurements. The last
 /// two rows take every goal, each in its own modes.
-const DISPATCH: [Row; 4] = [
+const DISPATCH: [Row; 5] = [
     Row {
         fragment: Fragment::ALL,
         modes: Modes::Any,
@@ -451,6 +505,12 @@ const DISPATCH: [Row; 4] = [
         modes: Modes::Linear,
         feature: Feature::FewEqualLiterals,
         engine: Engine::Net,
+    },
+    Row {
+        fragment: Fragment::MELL,
+        modes: Modes::Linear,
+        feature: Feature::PetriNet,
+        engine: Engine::Horn,
     },
     Row {
         fragment: Fragment::LL,
@@ -523,6 +583,9 @@ enum Feature {
     /// The sequent itself, with no literal occurring more than
     /// [`NET_MULTIPLICITY`] times.
     FewEqualLiterals,
+    /// A Horn program with a clause under `!`: a Petri net with a marking
+    /// to reach.
+    PetriNet,
 }
 
 impl Feature {
@@ -532,6 +595,7 @@ impl Feature {
             Feature::Any => true,
             Feature::TwoFormulas => task.goal.len() == 2 && !task.fragment.is_empty(),
             Feature::FewEqualLiterals => task.roots && few_equal_literals(task.forest),
+            Feature::PetriNet => task.fragment.has_exponentials() && horn::is_program(task),
         }
     }
 }
@@ -584,6 +648,7 @@ fn few_equal_literals(forest: &Forest) -> bool {
 /// |---|---|---|---|---|
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | unit-free MLL | linear, classical or intuitionistic | the sequent itself, no literal more than twice | [`Net`](Engine::Net) | as fast as the focused engines up to three times slower (`wide` sequents of 8 to 1 024 literals; intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 7 to 18 times slower), but the only engine that decides a long chain within the default recursion limit: `wide` with 2 048 literals in 0.64 s, a chain of 1 024 implications `a₀, a₀ ⊸ a₁, … ⊢ a₁₀₂₄` in 71 ms, where the focused engines recurse once per link |
+/// | MELL | linear, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
 /// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on equal literals, as in the Horn encodings of Partition, 10 to 10⁵ times faster than the net engine, which is not the default there for that reason |
 /// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent |
 ///
@@ -649,7 +714,8 @@ pub enum Engine {
     /// and whose head adds its atoms to the context. Every marking
     /// reached having been expanded without reaching the goal is
     /// `Unprovable`, since a proof of a Horn program is a firing sequence
-    /// read upward. A net whose markings grow without end is searched
+    /// read upward; so is, before any search, a goal whose atom counts
+    /// cannot balance, as for every engine. A net whose markings grow without end is searched
     /// until the stop or [`Options::memory_limit`], which counts the
     /// markings kept. Linear mode only, classical or intuitionistic, with
     /// or without Mix (which no proof of such a goal can use). It reads
@@ -661,6 +727,14 @@ pub enum Engine {
 }
 
 impl Engine {
+    /// Whether the engine searches on several threads when
+    /// [`Options::jobs`] asks for them: the focused engines and the net
+    /// engine do; the additive and the Horn engine run on the calling
+    /// thread whatever it says.
+    pub fn parallel(self) -> bool {
+        !matches!(self, Engine::Additive | Engine::Horn)
+    }
+
     /// The implementation of the engine.
     fn implementation(self) -> &'static dyn Decide {
         match self {
@@ -1280,8 +1354,11 @@ pub enum Reason {
     /// memo at all.
     MemoryLimit(u64),
     /// A structure of the search outgrew what its indices address: the
-    /// proof arena at 2³¹ nodes, the count invariants at 2³² row entries.
-    /// Only a search without a memory bound gets this far.
+    /// proof arena at 2³¹ nodes, the count invariants at 2³² row entries,
+    /// the Horn engine's markings at 2³² or a count of its tokens at 2³².
+    /// Only a search without a memory bound gets this far, but for the
+    /// tokens, which a clause that adds thousands of them at each firing
+    /// can pass in a few hundred thousand markings.
     IndexLimit,
 }
 
@@ -1515,26 +1592,52 @@ mod tests {
         );
     }
 
-    /// Affine mode and the exponentials go to the focused engine, and the
-    /// net engine is refused in affine mode.
+    /// A Horn program with a clause under `!` goes to the Horn engine in
+    /// linear mode, with Mix too; affine mode and the other sequents with
+    /// exponentials to the focused engine; and the net engine is refused
+    /// in affine mode.
     #[test]
     fn dispatch_by_mode() {
-        for (input, mode, fragment) in [
-            ("a, b |- a", Mode::CLASSICAL.affine(), Fragment::EMPTY),
-            ("!a |- a", Mode::CLASSICAL, Fragment::EXPONENTIALS),
+        for (input, mode, fragment, engine) in [
+            (
+                "a, b |- a",
+                Mode::CLASSICAL.affine(),
+                Fragment::EMPTY,
+                Engine::Focus,
+            ),
+            (
+                "!a |- a",
+                Mode::CLASSICAL,
+                Fragment::EXPONENTIALS,
+                Engine::Horn,
+            ),
+            (
+                "!(a -o a * b), a |- a * b * b",
+                Mode::CLASSICAL.with_mix(),
+                Fragment::MLL | Fragment::EXPONENTIALS,
+                Engine::Horn,
+            ),
+            (
+                "a |- !a -o a",
+                Mode::CLASSICAL,
+                Fragment::MLL | Fragment::EXPONENTIALS,
+                Engine::Focus,
+            ),
             (
                 "!a |- a & a",
                 Mode::CLASSICAL.with_mix(),
                 Fragment::ADDITIVES | Fragment::EXPONENTIALS,
+                Engine::Focus,
             ),
             (
                 "!a, b |- a",
                 Mode::CLASSICAL.affine(),
                 Fragment::EXPONENTIALS,
+                Engine::Focus,
             ),
         ] {
             let outcome = prove(&sequent(input), mode, &Options::default()).unwrap();
-            assert_eq!(outcome.engine, Engine::Focus, "{input:?}");
+            assert_eq!(outcome.engine, engine, "{input:?}");
             assert_eq!(outcome.fragment, fragment, "{input:?}");
             assert!(outcome.verdict.proof().is_some(), "{input:?}");
         }
@@ -1548,7 +1651,8 @@ mod tests {
     }
 
     /// Intuitionistic mode: IMLL without units goes to the net engine by
-    /// the embedding, everything else to the two-sided engine; a sequent
+    /// the embedding, a Horn program with a clause under `!` to the Horn
+    /// engine, everything else to the two-sided engine; a sequent
     /// with no intuitionistic reading, Mix, and an engine forced for the
     /// other mode are errors.
     #[test]
@@ -1563,8 +1667,9 @@ mod tests {
             (
                 "!a |- a * a",
                 Fragment::MLL | Fragment::EXPONENTIALS,
-                Engine::TwoSided,
+                Engine::Horn,
             ),
+            ("!a |- !a", Fragment::EXPONENTIALS, Engine::TwoSided),
         ] {
             let outcome = prove(&sequent(input), i, &Options::default()).unwrap();
             assert_eq!(outcome.fragment, fragment, "{input:?}");

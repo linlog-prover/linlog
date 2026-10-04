@@ -302,8 +302,13 @@ fn outcome_json_format() {
         serde_json::to_string(&outcome).unwrap(),
         r#"{"verdict":"unknown","reason":"stopped","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":true},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
     );
+    // The focused engine, whose copy bound this is; the dispatch's Horn
+    // engine has none and proves the sequent.
     let s: Sequent = "!A |- A".parse().unwrap();
-    let options = Options::default().copies(Some(0)).forward_copies(0);
+    let options = Options::default()
+        .engine(Some(Engine::Focus))
+        .copies(Some(0))
+        .forward_copies(0);
     let outcome = prove(&s, Mode::CLASSICAL, &options).unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),

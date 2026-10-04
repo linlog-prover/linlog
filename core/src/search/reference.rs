@@ -666,7 +666,7 @@ mod tests {
     use crate::families::FAMILIES;
     use crate::search::Bias;
     use crate::search::generate::{self, IllRules, Rng, Rules};
-    use crate::search::{Engine, Options, Verdict, prove};
+    use crate::search::{Engine, Options, Verdict, prove_until};
 
     /// The configurations of the engines that the reference judges: the
     /// dispatch, each engine forced, and the focused engines under each
@@ -678,14 +678,7 @@ mod tests {
         for engine in [Engine::Net, Engine::Additive] {
             all.push((format!("{engine}"), base.clone().engine(Some(engine))));
         }
-        // A net whose markings grow without end is searched until the
-        // memory bound: a small one keeps such a run short.
-        all.push((
-            "horn".to_owned(),
-            base.clone()
-                .engine(Some(Engine::Horn))
-                .memory_limit(Some(1 << 22)),
-        ));
+        all.push(("horn".to_owned(), base.clone().engine(Some(Engine::Horn))));
         for engine in [Engine::Focus, Engine::TwoSided] {
             for bias in [Bias::Auto, Bias::Rarer, Bias::Factors] {
                 all.push((
@@ -715,13 +708,31 @@ mod tests {
     /// refutation where the reference proves. Every proof of the roots is
     /// checked by `prove` itself.
     fn judge(text: &str, mode: Mode, copies: u32, reference: Answer, tally: &mut Tally) {
+        judge_within(text, mode, copies, reference, tally, u64::MAX);
+    }
+
+    /// [`judge`] with every run stopped after `polls` polls of its stop
+    /// condition.
+    fn judge_within(
+        text: &str,
+        mode: Mode,
+        copies: u32,
+        reference: Answer,
+        tally: &mut Tally,
+        polls: u64,
+    ) {
         let sequent: Sequent = text.parse().unwrap_or_else(|e| panic!("{text:?}: {e}"));
         tally.cases += 1;
         if reference != Answer::Unknown {
             tally.decided += 1;
         }
         for (name, options) in configurations(copies) {
-            let outcome = match prove(&sequent, mode, &options) {
+            let mut left = polls;
+            let stop = || {
+                left = left.saturating_sub(1);
+                left == 0
+            };
+            let outcome = match prove_until(&sequent, mode, &options, stop) {
                 Ok(outcome) => outcome,
                 Err(
                     Error::NetFragment(_)
@@ -918,13 +929,23 @@ mod tests {
             };
             formulas.push(goal.clone());
             let copies = 3;
+            // The Horn engine, forced or by the dispatch, searches a net
+            // whose markings grow without end until it is stopped.
+            let polls = 5_000;
             let text = generate::two_sided(&hypotheses, &goal);
             let reference = intuitionistic(&hypotheses, &goal, Mode::INTUITIONISTIC, copies);
-            judge(&text, Mode::INTUITIONISTIC, copies, reference, &mut tally);
+            judge_within(
+                &text,
+                Mode::INTUITIONISTIC,
+                copies,
+                reference,
+                &mut tally,
+                polls,
+            );
             let text = generate::sequent(&formulas);
             for mode in [Mode::CLASSICAL, Mode::CLASSICAL.with_mix()] {
                 let reference = classical(&formulas, mode, copies);
-                judge(&text, mode, copies, reference, &mut tally);
+                judge_within(&text, mode, copies, reference, &mut tally, polls);
             }
         }
         assert!(

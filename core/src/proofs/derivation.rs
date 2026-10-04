@@ -1859,8 +1859,15 @@ mod tests {
         // Two `?` formulas that both premises of a `⊗` use, which no sample
         // has: a run of contractions below it.
         let sequent: Sequent = "!a, !b |- (a * b) * (a * b)".parse().unwrap();
-        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
-            let outcome = crate::prove(&sequent, mode, &crate::Options::default()).unwrap();
+        for (mode, engine) in [
+            (Mode::CLASSICAL, crate::search::Engine::Focus),
+            (Mode::INTUITIONISTIC, crate::search::Engine::TwoSided),
+        ] {
+            // The focused engines, whose proof copies both `?` formulas on
+            // both premises; the dispatch's Horn engine copies each where
+            // it fires.
+            let options = crate::Options::default().engine(Some(engine));
+            let outcome = crate::prove(&sequent, mode, &options).unwrap();
             let crate::Verdict::Proved(proof) = outcome.verdict else {
                 panic!("provable");
             };

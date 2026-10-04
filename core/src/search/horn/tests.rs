@@ -117,6 +117,9 @@ fn refuses_at_its_limits() {
     let (found, _) = reach::search(&growing, &account, reach::MOST_MARKINGS, &mut || false);
     assert_eq!(found, Err(Reason::IndexLimit));
 
+    // The counts do not refute this one: `b` comes from a clause, from a
+    // `c` that nothing produces, and the tokens `a` grow without end.
+    let sequent: Sequent = "!(a -o a * a), !(c -o b), a |- b".parse().unwrap();
     let outcome = prove(&sequent, Mode::CLASSICAL, &horn().memory_limit(Some(4096))).unwrap();
     assert!(
         matches!(outcome.verdict, Verdict::Unknown(Reason::MemoryLimit(4096))),

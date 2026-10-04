@@ -17,7 +17,7 @@ mod reach;
 mod tests;
 
 use super::memory::Account;
-use super::{Answer, Decide, Engine, Options, Task};
+use super::{Answer, Decide, Engine, Options, Refutation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
 use crate::occurrences::{Forest, OccId, Position, Sign};
@@ -51,6 +51,23 @@ impl Decide for Horn {
         account: &Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {
+        // What the counts of the goal's literals rule out needs no
+        // search: a goal that never balances an atom, whose net may be
+        // infinite and searched until the memory bound otherwise.
+        let counted = super::focus::refutation(
+            task.forest,
+            task.goal,
+            task.fragment,
+            task.mode,
+            account,
+            stop,
+        );
+        if counted != Refutation::Exhausted {
+            return Ok(Answer::of_arena(
+                task.forest,
+                (Ok(None), Vec::new(), Statistics::default()),
+            ));
+        }
         let program = Program::read(task).expect("the engine admitted the goal");
         let (found, statistics) = reach::search(&program, account, reach::MOST_MARKINGS, stop);
         let (result, nodes) = match found {

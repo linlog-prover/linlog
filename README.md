@@ -47,11 +47,13 @@ additive alternatives a proof takes), or the count equation of the
 multiplicatives; otherwise it says that the search was exhaustive. The
 JSON output carries the same as `refutation`.
 
-Three engines serve classical logic: for MLL without units whose literals
+Four engines serve classical logic: for MLL without units whose literals
 occur at most twice each, the *net engine* searches for an axiom linking
 that makes the sequent's formula trees a proof net; for two additive-only
-formulas the *additive engine* recurses on pairs of subformulas; and for
-everything else the *focus engine* runs a focused sequent search over
+formulas the *additive engine* recurses on pairs of subformulas; for a
+Horn program with clauses under `!`, which is a Petri net, the *Horn
+engine* searches its markings (below); and for everything else the
+*focus engine* runs a focused sequent search over
 bitsets (on repeated literals its count-based pruning beats the linking
 search by orders of magnitude). `--mix`, `--affine` and `--intuitionistic`
 choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
@@ -109,7 +111,7 @@ N. The derivation shows the standard rules: dereliction, contraction,
 weakening and promotion.
 
 ```console
-$ linlog prove "!A |- A * A"
+$ linlog prove "!A |- !(A * A)"
 provable (MELL, classical, focus engine)
 ─────── ax    ─────── ax
 ⊢ ~A, A       ⊢ ~A, A
@@ -119,18 +121,50 @@ provable (MELL, classical, focus engine)
   ⊢ ?~A, ?~A, A ⊗ A
   ───────────────── ?c
     ⊢ ?~A, A ⊗ A
+   ─────────────── !
+   ⊢ ?~A, !(A ⊗ A)
+```
+
+A *Horn program* is atoms, implications between tensors of atoms used
+once, such implications under `!`, used any number of times, and one goal
+that is a tensor of atoms: `!(a * b -o c * d)` is a transition of a Petri
+net, the atoms on the left of `⊢` its marking, and the goal the marking to
+reach. With a clause under `!` it goes to the Horn engine, which searches
+the markings instead of sequents, each reached once and the one nearest
+the goal first, and reads the proof off the firing sequence it finds:
+each firing a copy of its clause, whose body takes its atoms by axioms.
+It needs no copy bound, and when every reachable marking has been seen
+without the goal, or the counts of an atom's literals rule the goal out,
+it answers "unprovable"; a net whose markings grow without end is
+searched until the time or the memory limit. In linear
+mode only, classical or intuitionistic; affine mode goes to the focus
+engine. `--stats` counts the markings:
+
+```console
 $ linlog prove "!A, !(A -o B), !(B -o C) |- C"
-provable (MELL, classical, focus engine)
-              ─────── ax   ─────── ax
-              ⊢ ~B, B      ⊢ ~C, C
-─────── ax    ──────────────────── ⊗
-⊢ ~A, A         ⊢ ~B, B ⊗ ~C, C
-──────── ?d    ────────────────── ?d
-⊢ ?~A, A       ⊢ ~B, ?(B ⊗ ~C), C
-───────────────────────────────── ⊗
-   ⊢ ?~A, A ⊗ ~B, ?(B ⊗ ~C), C
+provable (MELL, classical, horn engine)
+             ─────── ax   ─────── ax
+             ⊢ ~B, B      ⊢ ~C, C
+             ──────────────────── ⊗
+               ⊢ ~B, B ⊗ ~C, C
+─────── ax    ────────────────── ?d
+⊢ ~A, A       ⊢ ~B, ?(B ⊗ ~C), C
+──────────────────────────────── ⊗
+   ⊢ ~A, A ⊗ ~B, ?(B ⊗ ~C), C
+  ───────────────────────────── ?d
+  ⊢ ~A, ?(A ⊗ ~B), ?(B ⊗ ~C), C
   ────────────────────────────── ?d
   ⊢ ?~A, ?(A ⊗ ~B), ?(B ⊗ ~C), C
+$ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
+provable (MELL, classical, horn engine)
+markings reached: 7 (0 of them again)
+markings kept: 7
+time: 45.06µs
+$ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d * a"
+unprovable (MELL, classical, horn engine): the search was exhaustive
+markings reached: 12 (2 of them again)
+markings kept: 10
+time: 31.81µs
 ```
 
 Provability in MELL has no known decision procedure, and full linear logic
@@ -148,7 +182,7 @@ $ linlog prove -q --copies 1 "!(A & B) |- A * B"
 unknown (LL, classical, focus engine): the copy bound of 1 was reached after 54.08µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q "A |- !A"
 unprovable (MELL, classical, focus engine): the search was exhaustive
-$ linlog prove -q "!(A -o A * A), !(B * B -o C), A, B |- C"
+$ linlog prove -q "!(A -o A * A), !(B * B -o C), A, B |- C * ?D"
 unknown (MELL, classical, focus engine): the time limit of 2s was reached at a copy bound of 512; --timeout DURATION gives the search longer
 ```
 
@@ -159,14 +193,14 @@ bound (`--copies`) or lifts the limit (`--timeout none`), and
 `--deterministic` (below) makes the statistics a function of the input:
 
 ```console
-$ linlog prove -q --deterministic --stats --bias rarer --copies 3 "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
+$ linlog prove -q --deterministic --stats --engine focus --bias rarer --copies 3 "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 36.65µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 stable sequents visited: 10 (0 from the memo)
 memo entries at most: 4
 splits examined: 24
 copy bound reached: 3
 time: 36.65µs
-$ linlog prove -q --deterministic --stats --bias rarer --timeout none "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
+$ linlog prove -q --deterministic --stats --engine focus --bias rarer --timeout none "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
 provable (MELL, classical, focus engine)
 stable sequents visited: 15 (0 from the memo)
 memo entries at most: 5
@@ -201,44 +235,45 @@ names the rule. `factors` makes the literal positive that is more often a
 direct factor of a `⊗` (such a `⊗` needs no search for its split), `rarer`
 the one with fewer occurrences. Without exponentials the default, `auto`,
 is `factors`, and under `--affine` it is `rarer`. With exponentials
-neither wins: on Horn clauses under `!`, a Petri net for one, `factors`
-chains forward from the facts and is often faster by orders of magnitude,
-but a forward chain takes one copy per step on a single branch, where
-`rarer` chains backward from the goal within a few. So on a sequent with
-exponentials `auto` runs both searches and answers with the first that
-decides: alternating in slices of work on one core, so that the run stays
-a function of the input, and side by side on several. By default both
-deepen while the time limit lasts. Under `--copies N` the backward search
-keeps to the bound; so does the forward one, except on a Horn program
-(clauses such as `!(a * b -o c * d)`, a marking and a goal of atoms, which
-is what a Petri net is), where it runs within `--forward-copies` (30 by
-default), a bound in steps of the chain:
+neither wins: on Horn clauses under `!` (which the focused engines meet
+in affine mode, inside larger sequents, or forced by `--engine`),
+`factors` chains forward from the facts and is often faster by orders of
+magnitude, but a forward chain takes one copy per step on a single
+branch, where `rarer` chains backward from the goal within a few. So on a
+sequent with exponentials `auto` runs both searches and answers with the
+first that decides: alternating in slices of work on one core, so that
+the run stays a function of the input, and side by side on several. By
+default both deepen while the time limit lasts. Under `--copies N` the
+backward search keeps to the bound; so does the forward one, except on a
+Horn program (clauses such as `!(a * b -o c * d)`, a marking and a goal
+of atoms, which is what a Petri net is), where it runs within
+`--forward-copies` (30 by default), a bound in steps of the chain:
 
 ```console
-$ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
+$ linlog prove -q --deterministic --stats --engine focus "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
 stable sequents visited: 47 (5 from the memo)
 memo entries at most: 9
 splits examined: 151
 copy bound reached: 7
 time: 136.45µs
-$ linlog prove -q --deterministic --stats --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
+$ linlog prove -q --deterministic --stats --engine focus --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
 stable sequents visited: 14228 (13935 from the memo)
 memo entries at most: 190
 splits examined: 42105
 copy bound reached: 3
 time: 1.79ms
-$ linlog prove -q --deterministic --stats --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
+$ linlog prove -q --deterministic --stats --engine focus --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 55.51µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 stable sequents visited: 11 (0 from the memo)
 memo entries at most: 5
 splits examined: 31
 copy bound reached: 3
 time: 55.51µs
-$ linlog prove -q --copies 1 "!A, !(A -o B), !(B -o C) |- C"
+$ linlog prove -q --engine focus --copies 1 "!A, !(A -o B), !(B -o C) |- C"
 provable (MELL, classical, focus engine)
-$ linlog prove -q --copies 1 --forward-copies 1 "!A, !(A -o B), !(B -o C) |- C"
+$ linlog prove -q --engine focus --copies 1 --forward-copies 1 "!A, !(A -o B), !(B -o C) |- C"
 unknown (MELL, classical, focus engine): the copy bound of 1 was reached after 149.56µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 ```
 
@@ -248,7 +283,7 @@ within a fraction of a second of it, on one thread and on several:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q --copies 12 --forward-copies 12 --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
+$ linlog prove -q --engine focus --copies 12 --forward-copies 12 --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
 unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 12; --timeout DURATION gives the search longer
 ```
 
@@ -264,7 +299,8 @@ end with exit status 3 a second after they started.
 
 By default the search runs on one thread first, and if that has not
 decided within a tenth of a second (`--pool-after`), a pool of the
-machine's other cores searches beside it, the first to decide answering: a
+machine's other cores searches beside it, the first to decide answering
+(the additive and the Horn engine run on one thread and get none): a
 small sequent is decided at once and always the same way, a hard one gets
 the machine, and what one thread decides within the limit stays decided.
 `--jobs N` (`-j`) runs N threads from the start (with `--pool-after`, after
@@ -281,9 +317,9 @@ larger `--jobs` is taken as that many, with a note:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q -j 4 --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A"
+$ linlog prove -q -j 4 --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 1.79ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
-$ linlog prove -q --deterministic --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A"
+$ linlog prove -q --deterministic --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 2.55ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q -j 10000 "A |- A"
 note: --jobs 10000 is more than the 16 threads a search uses at most on this machine; it uses 16
@@ -297,8 +333,9 @@ fragment, and the derivation is two-sided with the rules of ILL. IMLL
 without units goes to the net engine (the classical net of the one-sided
 sequent is always an intuitionistic proof), a sequent of two additive-only
 formulas to the *additive engine* (a recursion on pairs of subformulas,
-linear in the product of their sizes, in every mode), and everything else
-to the *two-sided engine*, the focused search keeping one goal on every
+linear in the product of their sizes, in every mode), a Horn program
+with a clause under `!` to the Horn engine, as classically, and
+everything else to the *two-sided engine*, the focused search keeping one goal on every
 branch, with the same copy bound and affine mode as the classical one:
 
 ```console
@@ -390,7 +427,7 @@ every rule.
 
 ```console
 $ linlog prove -i --compact always '!A, !B, !C |- 1'
-provable (IMELL, intuitionistic, two-sided engine)
+provable (IMELL, intuitionistic, horn engine)
      ─── 1R
      ⊢ 1
 ────────────── !w*
@@ -856,7 +893,7 @@ $ cat > problem.p
 > fof(fact, axiom, a).
 > fof(goal, conjecture, b * 1).
 $ linlog prove -i -q --file problem.p
-provable (IMELL, intuitionistic, two-sided engine)
+provable (IMELL, intuitionistic, horn engine)
 ```
 
 A directory is walked in sorted order, links followed, for the files of
@@ -1014,7 +1051,7 @@ Built:
   sequent is read two-sided by the polarization of its subformulas (one
   goal, hypotheses, `⊸` recovered from `~A ⅋ B`), printed as `Γ ⊢ A`, and
   proved by the two-sided focused search, by the embedding of IMLL into
-  MLL proof nets, or by the additive fast path.
+  MLL proof nets, by the additive fast path, or by the Horn engine.
 - Proofs as compact terms over subformula occurrences, an independent
   checker that decides whether a term proves its sequent (in
   intuitionistic mode also that every sequent of the proof has one goal)
@@ -1043,8 +1080,11 @@ Built:
   MLL without units a proof-net engine that searches the axiom linkings
   with count checks, constant-time cycle rejections, the exact acyclicity
   test and a symmetry break for repeated literal conclusions, then
-  sequentializes the net it finds; and for two additive-only formulas a
-  recursion on subformula pairs. Which engine decides a goal is a table
+  sequentializes the net it finds; for two additive-only formulas a
+  recursion on subformula pairs; and for Horn programs with clauses under
+  `!` (Petri nets) in linear mode a search of the reachable markings, kept
+  sparse and taken nearest the goal first, whose firing sequence is the
+  proof and whose exhaustion refutes. Which engine decides a goal is a table
   of rows, by fragment, mode and one more feature, each the engine
   measured fastest there or the one that decides there at all; the
   library's documentation of `Engine` has it with the measurements.
@@ -1142,8 +1182,8 @@ Planned, in roughly this order:
 - A web front end for proving step by step in the browser.
 - A Rocq library of linlog's own with certificates for every mode, next
   to the NanoYalla export.
-- An engine for Horn programs (Petri nets), with coverability as a
-  decision procedure in affine mode.
+- Coverability as a decision procedure for Horn programs in affine mode,
+  and the coverability problems of software verification as a benchmark.
 - A first release.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for MLL and intuitionistic MLL (pruned
@@ -1178,7 +1218,8 @@ tree of explicit sequents of the standard sequent calculus, one-sided or
 two-sided. A proof net is the same forest with axiom links, checked by its
 own criterion and convertible to and from a proof term. Proof search
 decides a sequent, or any goal within one, with the engine its fragment
-and mode call for, sequent search, net search or the additive recursion,
+and mode call for, sequent search, net search, the additive recursion or
+the search of a Petri net's markings,
 and returns a checked proof, that there is none, or why it could not tell.
 Interactive proving holds a derivation with open goals over the same
 forest, with the same inferences as the derivation view, and turns it back

@@ -30,22 +30,50 @@ front door, the dispatch and the memory account it plugs into are in
   which also takes a goal under `?` (`growing`), no goal or several:
   there the correspondence below fails (`⊢ ~a, a, ~b, b` is reachable as
   a net and unprovable without Mix).
-- **Why a proof is a firing sequence, and a refutation sound.** Call a
-  subformula an output when it is the goal or lies in a body (a body
-  literal, a `1`, a tensor of them), an input otherwise (markings, heads,
-  clauses, the tensors on the path to a head). In every rule of a
-  proof, `q − 1 = (Mix rules above) + (outputs weakened above)`, `q` the
-  outputs of the sequent: an axiom pairs one body literal with one head
-  literal (`q = 1`), `1` is an output, a tensor on a clause's path to its
-  head gives its body factors' premises one output each and takes it,
-  `⅋`, `⊥`, copies and weakening of inputs keep `q`. The root has
+- **Why a proof is a firing sequence, and a refutation sound.** Every
+  literal of the bodies' sign is an output, every literal of the other
+  sign an input, and `⅋` and `⊥` occur in inputs only; call a subformula
+  an output when it is the goal or lies in a body (a body literal, a
+  `1`, a tensor holding no head), an input otherwise (markings, heads,
+  the `?` members, the clauses and the tensors on a clause's path to its
+  head), and let `q` be the outputs of a sequent. Then `q − 1 = (Mix
+  rules above) + (outputs weakened above)`, rule by rule over the
+  checker's calculus: an axiom pairs a body literal with a head literal
+  (`q = 1`); `1` is an output (`q = 1`); a tensor on a path to a head
+  has `q = q₁ − 1 + q₂` (its body factor is its premise's one output
+  less), a tensor in a body or the goal `q = q₁ + q₂ − 1`; `⅋`, `⊥`,
+  `Quest`, `Copy` and the weakening of an input keep `q`; the checker's
+  Mix is binary (no Mix of nothing), `q = q₁ + q₂`. The root has
   `q = 1`, so no proof of such a goal uses Mix or weakens an output, and
-  every sequent of it has exactly one output: it is an ILL proof, and
-  ILL proofs of Horn sequents are firing sequences (Kanovich, "The
-  complexity of Horn fragments of linear logic", 1995). Hence
+  every sequent of it has exactly one output. From such a proof a firing
+  sequence follows by induction on the dyadic proof, with a partial
+  clause `B₁ ⊸ … ⊸ H` in the linear zone used once and a clause in `Θ`
+  any number of times: axiom and `1` fire nothing; `⊥` and `⅋` keep the
+  marking; a tensor of body factors runs its premises' sequences one
+  after the other; a tensor on a path to a head (a `⊸L`) runs the body
+  premise's sequence, then the other's with the body's tokens carried;
+  `Copy` and `Quest` are the clause's transition under `!`. That covers
+  everything `Program::read` accepts, which is wider than Kanovich's
+  Horn implications `X ⊸ Y` ("The complexity of Horn fragments of
+  linear logic", 1995): curried clauses with the head anywhere in the
+  tensor tree, `1` in bodies, clauses without a body, `⊥` in heads,
+  lone head literals as markings, the goal `1`, and bodies written `~a`
+  (by the symmetry that swaps every atom with its negation). Hence
   `Unprovable` from an exhausted set of reachable markings is sound in
   classical and intuitionistic mode, with or without Mix. The argument
-  is in prose here and in the step's report; no test can exhaust it.
+  is prose here and in step 27's report; the panel that reviewed it
+  checked the count rule by rule and wrote the induction independently;
+  no test can exhaust it.
+- **What the counts rule out is refuted before the search**
+  (`Horn::decide` calls `focus::refutation`, the test the front door
+  applies to every engine's `Unprovable`): a goal with an atom that
+  nothing balances, `|- b, ?~c` or `c, !c |- a`, is an infinite net the
+  search would run to the memory bound, where the focused engines
+  refute it at once from the same counts. Atoms under a `?` have no rows
+  in the counts, so on a net proper (every atom in a clause) the test
+  says nothing and costs one pass. Found when the Horn row made such
+  sequents the Horn engine's by default: three tests of the focused
+  engines answered "the memory limit" instead of "unprovable".
 - **Intuitionistic mode** additionally requires the reading to put
   exactly the outputs above on the right of `⊢` (`Program::read` checks
   every occurrence's `Position`): the proof built has one output on
@@ -82,6 +110,13 @@ front door, the dispatch and the memory account it plugs into are in
   the LLTP nets has some 50 000 places: dense `u32` vectors met the 1 GiB
   bound after 4 096 markings). The encoding is a function of the
   marking, so the table compares bytes.
+- **Clauses used once cost their tickets in every marking**: a class
+  of equal clauses is one place, but distinct clauses used once are a
+  place each, and every marking holds a token per unused clause, so a
+  chain of `n` distinct clauses used once costs `n²` bytes over its `n`
+  markings (50 000 links meet the 1 GiB bound after 9 000 markings;
+  under `!` the same chain is proved in 0.4 s). Such programs have no
+  `!` and stay with the focused engines by default.
 - **The frontier holds successors unwritten**: a key (the successor's
   distance to the target above, its parent's index complemented below)
   and the transition. A successor is written out only when it is taken,
@@ -97,6 +132,10 @@ front door, the dispatch and the memory account it plugs into are in
   marking expanded.
 - **The goal is tested when a successor is generated** (distance zero),
   so the target is never kept.
+- **Arithmetic on `usize` is checked** where a buffer's size is
+  computed (`room`, `grow_table`, the frontier's growth, the proof's
+  bytes): on a target of 32 bits a product could pass `usize::MAX`, and
+  a size the bound cannot hold is a refusal there.
 - **Limits, each a refusal tested in `refuses_at_its_limits`**: the
   markings kept (`MOST_MARKINGS`, their indices are `u32`), a count past
   `u32::MAX`, the proof's nodes (`proof::MOST_NODES`), and the memory
@@ -105,9 +144,19 @@ front door, the dispatch and the memory account it plugs into are in
   (`room`, checked before each growth). The buffers sized by the program
   (the dense counts of the marking at hand, the index of transitions,
   the enabled list) are not counted, like the forest.
+- **An expansion costs the marked places and the transitions indexed by
+  them**, never every place: the distance of a marking is the target's
+  total, kept once (`target_total`), corrected over its marked places. A
+  first version summed the target at every expansion, which made a
+  chain of 160 000 places take 6.4 s instead of 0.17 s (the panel's
+  finding).
 - **Polled** once per successor taken from the frontier: an expansion
   costs the transitions indexed by the marked places, which on the
   largest LLTP net (33 676 transitions) is well under a millisecond.
+- **It runs on the calling thread** whatever `Options::jobs` says
+  (`Engine::parallel` is false), so the command adds no pool beside it
+  (`search::engine_for`, asked when the pool would start): a pool would
+  run the same search again, at twice the memory bound.
 
 ## The proof (`proof.rs`)
 
