@@ -105,7 +105,7 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "Zlib",
   # tiny-skia, which PNG and PDF rendering need, and arrayref under it
-  # (the author, 2026-10-03).
+  # (permissive, as MIT is).
   "BSD-2-Clause",
   "BSD-3-Clause",
 ]
