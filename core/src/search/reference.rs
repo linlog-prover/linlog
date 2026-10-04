@@ -664,7 +664,7 @@ mod tests {
     use super::*;
     use crate::Error;
     use crate::families::FAMILIES;
-    use crate::occurrences::Bias;
+    use crate::search::Bias;
     use crate::search::generate::{self, IllRules, Rng, Rules};
     use crate::search::{Engine, Options, Verdict, prove};
 

@@ -6,8 +6,9 @@
 //! the `MLL` count equation sums. Both are necessary conditions on a
 //! provable sequent, computed once per forest and summed per sequent.
 
-use crate::occurrences::{Bias, Forest, OccId, Sign};
+use crate::occurrences::{Forest, OccId, Sign};
 use crate::proofs::Side;
+use crate::search::Bias;
 use crate::search::memory::{Account, bytes_of};
 use crate::search::{Reason, set_up_stopped};
 use crate::sequents::{Atom, Kind};
@@ -194,7 +195,7 @@ impl Counts {
         if n > i32::MAX as usize {
             return Err(Reason::IndexLimit);
         }
-        let positive = forest.bias_under(bias);
+        let positive = super::bias::signs(forest, bias);
         // An atom with a literal below a `?` or `!` anywhere in the problem
         // can be copied or discarded any number of times, so its balance
         // says nothing: such atoms get no row entries at all.

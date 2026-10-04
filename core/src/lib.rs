@@ -132,7 +132,7 @@ pub use errors::ParseError;
 pub use errors::Error;
 pub use fragment::{Fragment, Mode};
 pub use nets::{NetError, ProofStructure, Scratch};
-pub use occurrences::{Bias, Forest, OccId, OccSet, Polarity, Position, Reading, ShapeError, Sign};
+pub use occurrences::{Forest, OccId, OccSet, Polarity, Position, Reading, ShapeError, Sign};
 pub use proofs::{
     CheckError, Compact, DEFAULT_MEMORY_LIMIT, Derivation, InfId, Inference, Labels, Node, NodeId,
     OpenGoal, Proof, Rule, Side, Size, TextOptions, ViewError, ViewOptions, WriteError,
@@ -140,7 +140,7 @@ pub use proofs::{
 #[cfg(feature = "interactive")]
 pub use proofs::{Interactive, Refusal};
 pub use search::{
-    Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
+    Bias, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
     prove_until,
 };
 pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};

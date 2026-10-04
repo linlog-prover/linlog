@@ -34,7 +34,7 @@ pub use parallel::Pool;
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::nets::ProofStructure;
-use crate::occurrences::{Bias, Forest, OccId, Reading};
+use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::{Bytes, Node, NodeId, Proof};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -554,6 +554,37 @@ impl Display for Engine {
             Engine::Additive => f.write_str("additive"),
         }
     }
+}
+
+/// How the focused engine chooses the positive literal of every atom.
+/// Focusing is complete for every choice, so the rules differ in speed
+/// and, with exponentials, in the copies a branch of the proofs they lead
+/// to needs: never in what is provable.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Bias {
+    /// [`Factors`](Self::Factors) for a sequent without exponentials and
+    /// [`Rarer`](Self::Rarer) for a search with weakening. For a sequent
+    /// with a `!` or a `?` in linear mode the search runs a search under
+    /// each rule and answers with the first that decides, so it decides
+    /// whatever either does: the backward one within the copy bound, the
+    /// forward one within a bound of its own where the sequent is a Horn
+    /// program.
+    #[default]
+    Auto,
+    /// The literal with fewer occurrences in the sequent is positive, `Var`
+    /// when both have the same number. With Horn-like hypotheses this
+    /// mostly chains backward from the goal, which keeps the copies per
+    /// branch low.
+    Rarer,
+    /// The literal that is more often a direct factor of a `⊗` is
+    /// positive, an occurrence counting half for every `&` or `⊕` above
+    /// it; the rarer literal on a tie. A `⊗` with a positive literal for a
+    /// factor takes exactly the dual literal for it, so its split needs no
+    /// search. With Horn-like hypotheses this chains forward from the
+    /// facts, one copy per step on a single branch: fast, and in need of a
+    /// copy bound as large as the number of steps.
+    Factors,
 }
 
 /// The knobs of a search: how much to remember, how deep to go, and which

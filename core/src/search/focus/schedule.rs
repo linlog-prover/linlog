@@ -13,8 +13,9 @@ use super::counts::Counts;
 use super::memo::{Memo, Table};
 use super::{Engine, Problem, Search, reason};
 use crate::fragment::{Fragment, Mode};
-use crate::occurrences::{Bias, Forest, OccId, Reading};
+use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::Node;
+use crate::search::Bias;
 use crate::search::memory::Account;
 use crate::search::{Options, Reason, Statistics, Stop};
 use crate::sequents::Kind;
@@ -207,7 +208,7 @@ pub(crate) fn plan(
         bias: Bias::Rarer,
         copies,
     };
-    let same = forest.bias_under(Bias::Factors) == forest.bias_under(Bias::Rarer);
+    let same = super::bias::signs(forest, Bias::Factors) == super::bias::signs(forest, Bias::Rarer);
     (forward, (!same).then_some(backward))
 }
 

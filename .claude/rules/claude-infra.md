@@ -39,8 +39,8 @@ Current contents:
   - `rules/core-sequents.md` (`sequents/`, `parse/`, `fragment.rs`,
     `serialize/`, the parse and serialize tests): the arena, negation
     normal form, terms, fragments and modes, the parser, the JSON forms;
-  - `rules/core-forest.md` (`occurrences/`): the occurrence forest, the
-    atom bias, `OccSet`, the intuitionistic reading;
+  - `rules/core-forest.md` (`occurrences/`): the occurrence forest,
+    `OccSet`, the intuitionistic reading;
   - `rules/core-proofs.md` (`proofs/mod.rs`, `check.rs`, `oracle.rs`):
     proof terms and the checker;
   - `rules/core-derivations.md` (`proofs/derivation.rs`, `size.rs`,
@@ -51,7 +51,7 @@ Current contents:
     every engine polls, the memory bound, the additive path, the reference
     prover;
   - `rules/core-focus.md` (`search/focus/`, `search/generate.rs`): the
-    focused engine, one- and two-sided;
+    focused engine, one- and two-sided, and its atom bias;
   - `rules/core-nets.md` (`nets/`, `search/net.rs`): proof nets, their
     criterion and the net engine;
   - `rules/core-parallel.md` (`search/parallel.rs`,

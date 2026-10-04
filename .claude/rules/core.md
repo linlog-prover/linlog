@@ -16,11 +16,11 @@ it; only what holds for the whole crate goes here.
 | file | loads for | what it holds |
 |---|---|---|
 | `core-sequents.md` | `sequents/`, `parse/`, `fragment.rs`, `serialize/`, the parse and serialize tests | the arena and its order, negation normal form, terms, kinds, fragments and modes, the parser, the JSON forms of every value |
-| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, the atom bias, literal lists), `OccSet`, the intuitionistic reading |
+| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading |
 | `core-proofs.md` | `proofs/mod.rs`, `check.rs`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
 | `core-derivations.md` | `proofs/derivation.rs`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive.rs` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
 | `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs`, `reference.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path, the test-only reference prover |
-| `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
+| `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: the atom bias, dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
 | `core-nets.md` | `nets/`, `search/net.rs` | proof structures, the correctness criterion, sequentialization, the net engine |
 | `core-parallel.md` | `search/parallel.rs`, `search/focus/parallel.rs`, `search/net.rs` | the pool, stops, cube-and-conquer, the shared memo and arena, the net engine's cubes, what a pool promises |
 | `core-export.md` | `export/`, `proofs/style.rs`, the export test and snapshots | the options values, the one signature, rule labels, notations, the packages' limits, Typst's own layout, fonts, SVG, PNG, PDF, Rocq |
@@ -38,7 +38,7 @@ for tests only, `derivation`, `size`, the text tree `fmt`, the rule
 labels `style`, the crate-private `multiset`, and `interactive` behind
 the feature of that name), `search` (the front door in `mod.rs`, the
 memory account in `memory`, the focused engine in `focus/` with
-`arena`, `classes`, `context`, `counts`, `memo`, `schedule`, `scratch`,
+`arena`, `bias`, `classes`, `context`, `counts`, `memo`, `schedule`, `scratch`,
 `split`, `tests` and `parallel`, the net engine in
 `net`, the runtime of the pool in `parallel` behind the feature of that
 name, the additive path in `additive`, the test-only `generate` with its

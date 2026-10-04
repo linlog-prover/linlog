@@ -7,8 +7,7 @@ paths:
 # linlog core: the focused engine
 
 Loaded, beside `core.md`, when a file of the focused engine or the
-test-only generator is read. The atom bias it reads is the forest's
-(`core-forest.md`, "Atom bias"); where it polls its stop and what its
+test-only generator is read. Where it polls its stop and what its
 memory account counts are in `core-search.md`; the pool it runs on is
 `core-parallel.md`.
 
@@ -22,8 +21,8 @@ and the interface the front door calls (`Focused`, `ONE_SIDED`,
 search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
 (`Pools`); `schedule.rs` the two searches of the default bias (`plan`,
 `chains`, `Rule`, `turns`, and the threaded `alternate` with its baton);
-`parallel.rs` the engine on a pool; `tests.rs` the tests; `classes.rs`,
-`context.rs`, `counts.rs`, `memo.rs` as named below.
+`parallel.rs` the engine on a pool; `tests.rs` the tests; `bias.rs`,
+`classes.rs`, `context.rs`, `counts.rs`, `memo.rs` as named below.
 
 `search/focus/mod.rs` is the spec's MALL-Seq and MELL-Seq in one engine, for
 every classical fragment up to full LL, with units, Mix, the exponentials
@@ -35,6 +34,48 @@ functions are the spec's rules: `asynchronous` (the phase `⊢ Θ ; Γ ⇑ L`),
 `initial` (the two initial rules), `split` (the `⊗` rule), `mix`. What it
 relies on:
 
+- **Atom bias** (`focus/bias.rs`, `signs(forest, rule)`, a function of
+  the sequent alone, so a run stays deterministic; `Counts::new_until`
+  reads it once per search and the engine reads polarities off
+  `Counts::positive`, so that the option reaches every place a literal's
+  polarity matters, `literal_tensor` included; it lived in the forest
+  until the forest's only reader was this engine).
+  Focusing is
+  complete for every assignment of polarities to atoms, so the bias is
+  chosen for speed and can never change what is provable. Without an
+  exponential in the sequent: per atom, the literal that is more often a
+  direct factor of a `⊗` is positive, each occurrence weighted by ½ per
+  `&` or `⊕` above it (a proof takes one side of a choice, so the two
+  heads `~d` of a clause `(… ⊗ ~d) ⊕ (… ⊗ ~d)` count as one); a `⊗`
+  with a positive literal factor has its split forced. On a tie, and
+  whenever the sequent has a `!` or `?`, the old rule: the literal with
+  fewer occurrences is positive, a tie makes `Var` positive, so an atom
+  with one sign only has all its literals negative. The engine takes
+  the old rule in affine mode as well (`schedule::plan`): nothing forces a
+  split there, so the factors have nothing to say, and a review measured
+  up to 700 times the stable sequents on generated affine sequents with
+  the factor rule. With exponentials the bias decides the shape of the
+  focused proofs, hence the copies a branch needs, and neither rule
+  wins: the counter family chains forward under the factor rule and
+  needs `n − 1` copies on its one branch where the rarer-literal rule
+  needs `log₂ n`, and at a bound of `n − 1` the factor rule decides the
+  counter with 16 tokens in 19 stable sequents instead of 473 232. So
+  `Bias::Auto` is the rarer-literal rule there, and the engine's
+  default runs a search under each ("The default bias with exponentials
+  is two searches", below). `Options::bias` names the rules:
+  `Bias::Rarer` and `Bias::Factors` for any sequent. Rules tried on the
+  exponential-free targets and not taken: `Var` always (as good on the
+  families written two-sided, where it is forward chaining, but it
+  depends on how the atoms happen to be written and loses the gains on
+  Partition and the wide sequents), `DualVar` always (30 to 300 times
+  more stable sequents on the Horn families), the factor count without
+  the ½ (the heads of the 3-Partition clauses outvote the goal: 317 138
+  stable sequents against 923 at bins of four). Measured, old rule and
+  new (stable sequents, splits): unsolvable 3-Partition with bins of
+  five 3 373 and 41 160 against 971 and 36 072; QBF 20 #2 105 667 and
+  1 037 858 against 60 883 and 97 394; Partition with seven items 179
+  and 6 008 against 178 and 2 078; `wide-m3` at 30 91 and 768 against 31
+  and 688.
 - **Two-sided is one constraint.** Every rule of the two-sided focused
   calculus is a rule of this engine on the lowered sequent (`⊸R` and `⊗L`
   are `⅋`, `⊸L` is a `⊗` in input position, `!L` is `quest` plus a copy,

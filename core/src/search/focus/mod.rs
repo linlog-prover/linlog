@@ -43,6 +43,8 @@
 
 /// The proof arena: pending and kept nodes.
 mod arena;
+/// The atom bias.
+mod bias;
 /// Interchangeable occurrences.
 mod classes;
 /// The linear zone as a multiset.
@@ -70,11 +72,12 @@ use self::memo::{Entry, Failure, Inserted, Key, Table};
 use self::schedule::{plan, turns};
 use self::scratch::Pools;
 use self::split::Join;
+use super::Bias;
 use super::memory::{Account, Charged};
 use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task, set_up_stopped};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
-use crate::occurrences::{Bias, Forest, OccId, OccSet, Reading};
+use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId, Side};
 use crate::sequents::Kind;
 use std::hash::BuildHasher as _;
