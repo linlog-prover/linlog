@@ -94,7 +94,8 @@ beyond clap and anyhow, which the CLI already has.
   `index_limit`, `other` for a `Reason` added since, `killed`,
   `crash …`; `context_too_wide` is gone with its reason and only read in
   older files), `refused` (`NetFragment`, `NetMode`, `EngineMode`,
-  `NotAdditive`, `IntuitionisticMix`: the configuration does not apply)
+  `NotAdditive`, `NotHorn`, `IntuitionisticMix`: the configuration does
+  not apply)
   and `error` (every other `Error`, a parse failure, a missing reading;
   these are findings, not configurations). `checked` is `ok` or the
   checker's message for a proof of the roots, or `failed: …` with how the

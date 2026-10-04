@@ -18,6 +18,8 @@ pub(crate) mod focus;
 /// Random provable sequents for the tests.
 #[cfg(test)]
 pub(crate) mod generate;
+/// The Horn engine: reachability of markings.
+pub(crate) mod horn;
 /// The count of the bytes a search holds.
 pub(crate) mod memory;
 /// The proof-net engine.
@@ -633,6 +635,29 @@ pub enum Engine {
     /// [`Options::jobs`] says; two additive formulas have no copies and no
     /// atoms to bias.
     Additive,
+    /// The engine for Horn programs: clauses under `!` that may be used
+    /// any number of times, implications used once, atoms, and one goal
+    /// that is a tensor of atoms, which is a Petri net with a marking to
+    /// reach (`!(a ⊗ b ⊸ c), a, b ⊢ c`: the clause is a transition, the
+    /// atoms on the left the tokens, the goal the marking). It searches
+    /// the markings instead of sequents: each reached once, kept as a
+    /// count of tokens per atom, and expanded nearest to the goal first,
+    /// the distance being the tokens by which the two differ; an
+    /// implication used once is a transition that takes a token of its
+    /// own. A firing sequence that reaches the goal is the proof: every
+    /// firing a copy of its clause, whose body takes its tokens by axioms
+    /// and whose head adds its atoms to the context. Every marking
+    /// reached having been expanded without reaching the goal is
+    /// `Unprovable`, since a proof of a Horn program is a firing sequence
+    /// read upward. A net whose markings grow without end is searched
+    /// until the stop or [`Options::memory_limit`], which counts the
+    /// markings kept. Linear mode only, classical or intuitionistic, with
+    /// or without Mix (which no proof of such a goal can use). It reads
+    /// [`Options::memory_limit`] and [`Options::check`], runs on the
+    /// calling thread whatever [`Options::jobs`] says, and needs no copy
+    /// bound, memo limit or recursion limit: it keeps every marking once
+    /// and recurses nowhere.
+    Horn,
 }
 
 impl Engine {
@@ -643,18 +668,21 @@ impl Engine {
             Engine::TwoSided => &focus::TWO_SIDED,
             Engine::Net => &net::Nets,
             Engine::Additive => &additive::Additive,
+            Engine::Horn => &horn::Horn,
         }
     }
 }
 
 impl Display for Engine {
-    /// Writes the engine's name: `focus`, `net`, `two-sided` or `additive`.
+    /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive` or
+    /// `horn`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Engine::Focus => f.write_str("focus"),
             Engine::Net => f.write_str("net"),
             Engine::TwoSided => f.write_str("two-sided"),
             Engine::Additive => f.write_str("additive"),
+            Engine::Horn => f.write_str("horn"),
         }
     }
 }

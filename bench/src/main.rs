@@ -97,7 +97,7 @@ pub struct RunArgs {
     #[arg(long, value_delimiter = ',', default_value = "given")]
     modes: Vec<run::ModeChoice>,
     /// The engines to run every problem with: `auto` (the one the fragment
-    /// calls for), `focus`, `net`, `two-sided` or `additive`; a forced
+    /// calls for), `focus`, `net`, `two-sided`, `additive` or `horn`; a forced
     /// engine that does not apply to a problem gives a `refused` row
     #[arg(long, value_delimiter = ',', default_value = "auto")]
     engines: Vec<run::EngineChoice>,

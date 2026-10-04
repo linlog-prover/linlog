@@ -1168,6 +1168,10 @@ pub enum EngineArg {
     /// The fast path for a sequent of two additive-only formulas, in every
     /// mode
     Additive,
+    /// Reachability of markings, for Horn programs: atoms, implications
+    /// between tensors of atoms, such implications under !, and one goal
+    /// that is a tensor of atoms, in linear mode
+    Horn,
 }
 
 impl From<EngineArg> for Option<Engine> {
@@ -1179,6 +1183,7 @@ impl From<EngineArg> for Option<Engine> {
             EngineArg::Net => Some(Engine::Net),
             EngineArg::TwoSided => Some(Engine::TwoSided),
             EngineArg::Additive => Some(Engine::Additive),
+            EngineArg::Horn => Some(Engine::Horn),
         }
     }
 }

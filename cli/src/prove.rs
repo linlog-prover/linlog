@@ -1195,6 +1195,12 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
              time: {elapsed:.2?}",
             s.nodes, s.memo_hits, s.memo_entries
         ),
+        Engine::Horn => format!(
+            "markings reached: {} ({} of them again)\n\
+             markings kept: {}\n\
+             time: {elapsed:.2?}",
+            s.nodes, s.memo_hits, s.memo_entries
+        ),
         Engine::Net => format!(
             "literals chosen: {}\n\
              links tried: {}\n\

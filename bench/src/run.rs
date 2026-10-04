@@ -167,6 +167,8 @@ pub enum EngineChoice {
     TwoSided,
     /// The additive fast path
     Additive,
+    /// The Horn engine
+    Horn,
 }
 
 impl EngineChoice {
@@ -178,6 +180,7 @@ impl EngineChoice {
             Self::Net => Some(Engine::Net),
             Self::TwoSided => Some(Engine::TwoSided),
             Self::Additive => Some(Engine::Additive),
+            Self::Horn => Some(Engine::Horn),
         }
     }
 }
@@ -633,6 +636,7 @@ fn tail(args: &OneArgs) -> String {
                 | Error::NetMode(_)
                 | Error::EngineMode { .. }
                 | Error::NotAdditive { .. }
+                | Error::NotHorn
                 | Error::IntuitionisticMix => "refused",
                 _ => "error",
             };

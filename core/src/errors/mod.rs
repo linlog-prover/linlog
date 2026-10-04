@@ -142,6 +142,12 @@ pub enum Error {
         /// How many formulas the sequent has.
         roots: usize,
     },
+    /// The Horn engine, forced by the options, decides only Horn programs.
+    #[error(
+        "the horn engine decides a Horn program only: atoms, implications between tensors of \
+         atoms, such implications under !, and one goal that is a tensor of atoms"
+    )]
+    NotHorn,
     /// Mix was asked for in intuitionistic mode, where it has no form: a
     /// premise of a Mix would have no goal.
     #[error("Mix has no intuitionistic form: a premise of a Mix would have no goal")]

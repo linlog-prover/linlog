@@ -678,6 +678,14 @@ mod tests {
         for engine in [Engine::Net, Engine::Additive] {
             all.push((format!("{engine}"), base.clone().engine(Some(engine))));
         }
+        // A net whose markings grow without end is searched until the
+        // memory bound: a small one keeps such a run short.
+        all.push((
+            "horn".to_owned(),
+            base.clone()
+                .engine(Some(Engine::Horn))
+                .memory_limit(Some(1 << 22)),
+        ));
         for engine in [Engine::Focus, Engine::TwoSided] {
             for bias in [Bias::Auto, Bias::Rarer, Bias::Factors] {
                 all.push((
@@ -719,7 +727,8 @@ mod tests {
                     Error::NetFragment(_)
                     | Error::NetMode(_)
                     | Error::EngineMode { .. }
-                    | Error::NotAdditive { .. },
+                    | Error::NotAdditive { .. }
+                    | Error::NotHorn,
                 ) => continue,
                 Err(e) => panic!("{text:?} in {mode} mode, {name}: {e}"),
             };
@@ -816,6 +825,111 @@ mod tests {
         assert!(
             4 * tally.decided >= 3 * tally.cases,
             "the reference decided {} of {} sequents ({} runs judged)",
+            tally.decided,
+            tally.cases,
+            tally.judged
+        );
+    }
+
+    /// Random Horn programs, Petri nets with a marking to reach, written
+    /// two-sided for intuitionistic mode and one-sided for the classical
+    /// modes: no engine contradicts the reference. Where a clause is
+    /// under `!` the reference proves within the copies or decides
+    /// nothing, and without one it refutes as well.
+    #[test]
+    fn engines_agree_on_horn_programs() {
+        use Tree::{Bang, Bot, Dual, Lolli, One, Par, Quest, Tensor, Var};
+        let b = Box::new;
+        /// A tensor of atoms, `1` for none, or a `⅋` of their negations,
+        /// `⊥` for none.
+        fn join(atoms: &[u8], negated: bool) -> Tree {
+            let atom = |&a: &u8| if negated { Dual(a) } else { Var(a) };
+            let unit = if negated { Bot } else { One };
+            atoms
+                .iter()
+                .map(atom)
+                .reduce(|l, r| {
+                    if negated {
+                        Par(Box::new(l), Box::new(r))
+                    } else {
+                        Tensor(Box::new(l), Box::new(r))
+                    }
+                })
+                .unwrap_or(unit)
+        }
+        let mut rng = Rng::new(2_700);
+        let atoms = |rng: &mut Rng, most: usize| -> Vec<u8> {
+            (0..rng.below(most + 1))
+                .map(|_| rng.below(3) as u8)
+                .collect()
+        };
+        let mut tally = Tally::default();
+        for case in 0..300 {
+            let (mut hypotheses, mut formulas) = (Vec::new(), Vec::new());
+            // Every other program reaches its goal by construction: the
+            // marking after a few firings of its clauses under `!`.
+            let walk = case % 2 == 0;
+            let mut clauses = Vec::new();
+            for reusable in [true, true, false, false] {
+                if rng.below(2) == 0 || (walk && !reusable) {
+                    continue;
+                }
+                let (body, head) = (atoms(&mut rng, 2), atoms(&mut rng, 2));
+                let clause = Lolli(b(join(&body, false)), b(join(&head, false)));
+                let negated = Tensor(b(join(&body, false)), b(join(&head, true)));
+                if reusable {
+                    hypotheses.push(Bang(b(clause)));
+                    formulas.push(Quest(b(negated)));
+                } else {
+                    hypotheses.push(clause);
+                    formulas.push(negated);
+                }
+                clauses.push((body, head));
+            }
+            let mut marking = atoms(&mut rng, 3);
+            for &a in &marking {
+                hypotheses.push(Var(a));
+                formulas.push(Dual(a));
+            }
+            let goal = if walk {
+                for _ in 0..rng.below(3) {
+                    let enabled: Vec<_> = clauses
+                        .iter()
+                        .filter(|(body, _)| {
+                            body.iter().all(|a| {
+                                body.iter().filter(|&b| b == a).count()
+                                    <= marking.iter().filter(|&b| b == a).count()
+                            })
+                        })
+                        .collect();
+                    if enabled.is_empty() {
+                        break;
+                    }
+                    let (body, head) = enabled[rng.below(enabled.len())];
+                    for a in body {
+                        let at = marking.iter().position(|b| b == a).unwrap();
+                        marking.remove(at);
+                    }
+                    marking.extend(head);
+                }
+                join(&marking, false)
+            } else {
+                join(&atoms(&mut rng, 2), false)
+            };
+            formulas.push(goal.clone());
+            let copies = 3;
+            let text = generate::two_sided(&hypotheses, &goal);
+            let reference = intuitionistic(&hypotheses, &goal, Mode::INTUITIONISTIC, copies);
+            judge(&text, Mode::INTUITIONISTIC, copies, reference, &mut tally);
+            let text = generate::sequent(&formulas);
+            for mode in [Mode::CLASSICAL, Mode::CLASSICAL.with_mix()] {
+                let reference = classical(&formulas, mode, copies);
+                judge(&text, mode, copies, reference, &mut tally);
+            }
+        }
+        assert!(
+            2 * tally.decided >= tally.cases,
+            "the reference decided {} of {} programs ({} runs judged)",
             tally.decided,
             tally.cases,
             tally.judged

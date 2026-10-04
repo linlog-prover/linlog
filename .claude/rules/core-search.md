@@ -85,13 +85,14 @@ the net engine's, and the others stay zero.
   atoms) the answer is `Exhausted`, never a guess.
 - **One interface every engine implements** (`Decide`, crate-private):
   `admits(&task)` refuses a goal with the error a forced engine answers
-  (`NetFragment`, `NetMode`, `NetGoal`, `EngineMode`, `NotAdditive`), and
+  (`NetFragment`, `NetMode`, `NetGoal`, `EngineMode`, `NotAdditive`,
+  `NotHorn`), and
   `decide(&task, &options, &account, stop)` returns an `Answer`: the
   proof (`Ok(Some)`), an exhausted search (`Ok(None)`) or the reason it
   stopped, the counters, and the net the net engine found.
   `Engine::implementation` maps each public variant to its
   implementation (`focus::ONE_SIDED`, `focus::TWO_SIDED`, `net::Nets`,
-  `additive::Additive`); a `Task` is what they are handed (forest, goal,
+  `additive::Additive`, `horn::Horn`); a `Task` is what they are handed (forest, goal,
   fragment, mode, reading, whether it is the roots). An engine that keeps
   its proof as nodes of an arena answers through `Answer::of_arena`.
   **`prove_goal` is the one place an answer becomes a `Verdict`**: the
@@ -142,8 +143,9 @@ the net engine's, and the others stay zero.
   unit-free MLL, asserted or detected, is `Error::NetFragment`, and in
   affine mode `Error::NetMode`; `Focus` in intuitionistic mode and
   `TwoSided` in classical mode are `Error::EngineMode`; `Additive` on
-  anything but two additive-only formulas is `Error::NotAdditive` (each
-  engine's `Decide::admits`). A new engine's `Engine` variant has a
+  anything but two additive-only formulas is `Error::NotAdditive`; `Horn`
+  on a goal that is no Horn program is `Error::NotHorn`, and in affine
+  mode `Error::EngineMode` (each engine's `Decide::admits`). A new engine's `Engine` variant has a
   `Display` that is its name in text and JSON, and a value of `--engine`
   in the CLI (`.claude/rules/cli.md`).
 - **IMLL by embedding.** In intuitionistic mode the net engine runs on the

@@ -54,7 +54,7 @@ formulas the *additive engine* recurses on pairs of subformulas; and for
 everything else the *focus engine* runs a focused sequent search over
 bitsets (on repeated literals its count-based pruning beats the linking
 search by orders of magnitude). `--mix`, `--affine` and `--intuitionistic`
-choose the logic, `--fragment` and `--engine focus|net|two-sided|additive`
+choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
 and `--stats` what the search cost, in the counters of the engine that
