@@ -268,7 +268,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `write` asks between two inferences). A derivation stopped while it is
   built is left out with the reason (`why`); one stopped while it is
   written stays written as far as it came, followed by a line in the
-  format's comment syntax that says it is cut short. The verdict stands.
+  format's comment syntax that says it is cut short; an SVG on standard
+  output, which is a drawing or nothing, is not finished, so what was
+  flushed of it stays and the line goes to standard error. Into a file,
+  no file is made. The verdict stands. Not polled: the PNG and PDF
+  renderers (one call each into resvg and krilla) and the SVG layout's
+  first pass over the inferences.
 - **Shortened lines**: `check`'s verdict line abbreviates the sequent
   and its error report every formula list (`--abbreviate`, `ABBREVIATE`
   200 characters, `none`), through `abbreviated` and the library's

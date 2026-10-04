@@ -350,7 +350,8 @@ impl Show {
     /// it, so without one no file is made. A derivation cut short in a
     /// file leaves no file either: the verdict and the reason go to
     /// standard error. Cut short on standard output, it stays as far as it
-    /// came, with the reason after it.
+    /// came, with the reason after it, except in an output that holds its
+    /// verdict: that is not finished, so the reason goes to standard error.
     fn close(&self, out: &mut io::Output, shown: Shown, line: Option<&str>) -> Result<bool> {
         let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));
         match shown {
@@ -364,6 +365,7 @@ impl Show {
                 eprintln!("{reason}; the output file is not written");
                 return Ok(false);
             }
+            Shown::Cut(reason) if self.holds() => eprintln!("{reason}"),
             Shown::Cut(reason) => self.note(out, &reason)?,
             Shown::Written | Shown::Nothing => {}
         }
