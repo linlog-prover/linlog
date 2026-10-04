@@ -24,15 +24,17 @@ pub struct TextOptions {
     pub open: OpenGoal,
     /// The character of an inference's bar.
     pub bar: char,
-    /// The columns between two premises.
-    pub gap: usize,
+    /// The columns between two premises, at most 65 535: the gaps are
+    /// written as spaces, which the bound on a derivation's size does not
+    /// count.
+    pub gap: u16,
 }
 
 impl TextOptions {
     /// The default bar character.
     pub const BAR: char = '─';
     /// The default gap between premises, in columns.
-    pub const GAP: usize = 3;
+    pub const GAP: u16 = 3;
 }
 
 impl Default for TextOptions {
@@ -253,7 +255,7 @@ impl Derivation<'_> {
             let (mut span_left, mut span_right) = (0, 0);
             for (k, p) in inference.premises.iter().enumerate() {
                 let place = &mut places[p.index()];
-                place.x = row + if k == 0 { 0 } else { options.gap };
+                place.x = row + if k == 0 { 0 } else { usize::from(options.gap) };
                 if k == 0 {
                     span_left = place.left;
                 }
