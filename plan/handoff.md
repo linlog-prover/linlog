@@ -220,6 +220,9 @@ what the steps so far showed.
 
 ## What the author has asked for, standing
 
+- When you give the command for the next step, recap briefly what that
+  step does first: its goal, its main items, anything notable (several
+  sessions, a night of the machine). Asked on 2026-10-04.
 - jj only, never git. Every commit is authored, committed and signed as
   `flgrubm@grubmueller.dev`; the gpg agent is used for signing and for
   nothing else. The earlier session kept the agent's cache warm with a
