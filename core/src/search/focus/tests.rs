@@ -401,7 +401,7 @@ fn default_bias_takes_turns() {
     let forest = Forest::new(&sequent).unwrap();
     let classes = Classes::new(&forest, None);
     let in_turns = || {
-        let (first, second) = plan(&forest, sequent.fragment(), m, &options);
+        let (first, second) = plan(&forest, forest.roots(), sequent.fragment(), m, &options);
         let second = second.expect("two searches");
         let counts = [first, second].map(|rule| Counts::new(&forest, rule.bias));
         let account = Account::new(None);
@@ -1387,4 +1387,31 @@ fn horn_programs() {
 fn three_partition_solved() {
     let yes = crate::families::three_partition(&[1, 2, 3, 1, 2, 3], 2, 6).to_string();
     assert!(provable(&yes, Mode::CLASSICAL), "{yes}");
+}
+
+/// The Horn test reads the goal, not the forest's roots: a goal of the
+/// clause, the marking and the goal of a program is one, inside a sequent
+/// whose other hypothesis, a `&`, is none, so the forward search gets
+/// its own bound there and not on the whole sequent.
+#[test]
+fn the_horn_test_reads_the_goal() {
+    let sequent: Sequent = "!(a -o b), a, c & d |- b".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let roots = forest.roots();
+    let program: Vec<OccId> = roots
+        .iter()
+        .copied()
+        .filter(|&r| forest.kind(r) != Kind::Plus)
+        .collect();
+    assert_eq!(program.len(), 3);
+    assert!(!schedule::chains(&forest, roots));
+    assert!(schedule::chains(&forest, &program));
+    let options = Options::default().forward_copies(30);
+    let forward = |goal: &[OccId]| {
+        plan(&forest, goal, sequent.fragment(), Mode::CLASSICAL, &options)
+            .0
+            .copies
+    };
+    assert_eq!(forward(roots), Options::DEFAULT_COPIES);
+    assert_eq!(forward(&program), 30);
 }

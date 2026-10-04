@@ -78,7 +78,7 @@ pub(crate) fn search_goal(
         return stopped();
     }
     let stack = options.stack_size();
-    let (first, second) = super::plan(forest, fragment, mode, options);
+    let (first, second) = super::plan(forest, goal, fragment, mode, options);
     if set_up_stopped(forest, stop) {
         return stopped();
     }

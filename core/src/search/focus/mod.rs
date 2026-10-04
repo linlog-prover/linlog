@@ -202,7 +202,7 @@ pub(crate) fn search_goal(
     if set_up_stopped(forest, stop) {
         return gave_up(Reason::Stopped);
     }
-    let (first, second) = plan(forest, fragment, mode, options);
+    let (first, second) = plan(forest, goal, fragment, mode, options);
     if set_up_stopped(forest, stop) {
         return gave_up(Reason::Stopped);
     }

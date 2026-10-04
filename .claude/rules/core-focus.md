@@ -285,7 +285,9 @@ relies on:
     the work (on one core) until the stop.
   - **The forward bound** is `Options::copies`, and the larger of that
     and `Options::forward_copies` (`DEFAULT_FORWARD_COPIES`) where the
-    sequent is a Horn program (`chains`) and the mode has no Mix. A
+    goal is a Horn program (`chains`, which reads the goal's members: a
+    goal off the roots, as an interactive close hands over, gets the
+    bound by its own shape, `the_horn_test_reads_the_goal`) and the mode has no Mix. A
     program: every root under a `?` is a clause, a tensor of body
     literals, all of one sign throughout the sequent, with at most one
     factor a head instead, a literal of the other sign or a `⅋` of
@@ -301,7 +303,7 @@ relies on:
     the memo holds once each; on arbitrary formulas a deeper bound
     multiplies the search by the copies' alternatives per level, and
     with the bound applied everywhere the generated tests no longer
-    finished. The test is on the whole sequent and on the signs because
+    finished. The test is on the whole goal and on the signs because
     a first version that looked only at the shape of the formulas under
     `?` let through `(c ⊸ c), !((c ⊸ b) ⊸ c), 1 ⊢ 1 ⊸ 1 ⊗ c`, which
     answered "unknown" in 0.02 s before and took sevenfold per copy
