@@ -219,7 +219,10 @@ impl Show {
         }
         let stdout = std::io::stdout();
         if format.is_binary() && output.output.is_none() && stdout.is_terminal() {
-            bail!("a {format:?} is not for a terminal: write it with --output FILE");
+            bail!(
+                "a {} is not for a terminal: write it with --output FILE",
+                format.title()
+            );
         }
         form(
             output.standalone,

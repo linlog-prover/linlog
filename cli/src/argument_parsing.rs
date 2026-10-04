@@ -827,6 +827,20 @@ impl Format {
     pub fn is_binary(self) -> bool {
         matches!(self, Self::Png | Self::Pdf)
     }
+
+    /// Returns the format's name as a message writes it.
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Json => "JSON",
+            Self::Latex => "LaTeX",
+            Self::Typst => "Typst",
+            Self::Svg => "SVG",
+            Self::Png => "PNG",
+            Self::Pdf => "PDF",
+            Self::Rocq => "Rocq",
+        }
+    }
 }
 
 impl OutputArgs {

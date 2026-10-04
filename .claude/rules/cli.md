@@ -43,7 +43,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the checked proof in any format, `--rocq` the certificate; PNG and
   PDF go into a FILE only; a format is a word with dashes so that it
   never reads as a file name, and a FILE without one is written in the
-  format its extension names, JSON for `proof`, text for `show`),
+  format its extension names, else JSON for `proof` and text for `show`),
   every command's output or `error: …` goes to standard output and the
   session goes on,
   and the whole loop runs inside `on_large_stack` so that `close` and the

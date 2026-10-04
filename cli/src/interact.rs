@@ -35,7 +35,7 @@ proof [--FORMAT] [FILE]
                     check the finished proof and print it or write it to FILE: as text,
                     or --json, --latex, --typst, --svg, --png, --pdf, or --rocq for a
                     certificate (--png and --pdf need a FILE);
-                    with a FILE and no format, as JSON
+                    with a FILE and no format, the one its extension names, else JSON
 save FILE           write the session as JSON
 load FILE           resume a session written by save
 help                this list
@@ -252,7 +252,7 @@ impl Session {
                     ),
                 };
                 match (path, format.is_binary()) {
-                    (None, true) => bail!("a {format:?} needs a FILE to be written to"),
+                    (None, true) => bail!("a {} needs a FILE to be written to", format.title()),
                     (None, false) => text,
                     (Some(path), binary) => {
                         let mut out = io::Output::open(Some(Path::new(path)), binary)?;
@@ -278,11 +278,11 @@ impl Session {
                 };
                 let format = match (format, path) {
                     (Some(format), _) => format,
-                    (None, Some(_)) => Format::Json,
+                    (None, Some(path)) => Format::of_path(Path::new(path)).unwrap_or(Format::Json),
                     (None, None) => Format::Text,
                 };
                 if format.is_binary() && path.is_none() {
-                    bail!("a {format:?} needs a FILE to be written to");
+                    bail!("a {} needs a FILE to be written to", format.title());
                 }
                 let proof = self.state.proof()?;
                 let mode = self.state.mode();
