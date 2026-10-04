@@ -9,7 +9,9 @@
 # `lltp' is the LLTP problem library at a pinned commit with its Petri-net
 # archives unpacked, for `linlog-bench run --lltp': it is GPL-3.0, so it is
 # fetched on demand rather than kept in this repository, and at 1.1 GB it
-# is no input of any check.
+# is no input of any check. `iltp' is the propositional part of the ILTP
+# library (274 problems of intuitionistic logic in TPTP syntax), fetched at
+# a pinned version for the same reason: it states no licence.
 {
   perSystem =
     {
@@ -34,6 +36,11 @@
     {
       packages = {
         inherit linlog-bench;
+
+        iltp = pkgs.fetchzip {
+          url = "https://www.iltp.de/download/ILTP-v1.1.2-propositional.tar.gz";
+          hash = "sha256-kN3ek+bFUljgw42GclZ+pyHB/U/P+GuZGZmnnYVtPAc=";
+        };
 
         lltp = pkgs.fetchFromGitHub {
           owner = "meta-logic";

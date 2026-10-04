@@ -5,6 +5,8 @@
 result*
 # The LLTP library, `nix build .#lltp -o bench/lltp`
 /bench/lltp
+# The ILTP library's propositional problems, `nix build .#iltp -o bench/iltp`
+/bench/iltp
 .direnv/
 
 # Tracked even where a global ignore excludes .envrc files.

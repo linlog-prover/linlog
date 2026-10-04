@@ -37,4 +37,8 @@ check (the harness on the smallest instance of every family and on the
 problem file, failing on a verdict against a known one, a `MISMATCH`)
 and the `lltp` package, the LLTP library fetched at a pinned commit with
 its Petri-net archives unpacked and its one malformed file repaired,
-which no check uses.
+which no check uses, and the `iltp` package, the ILTP library's
+propositional part (v1.1.2, 274 TPTP problems, the input of the
+ordinary-logic run) as its site serves it, fetched because it states no
+licence; `nix build .#iltp -o bench/iltp` puts it where `.gitignore`
+expects it.
