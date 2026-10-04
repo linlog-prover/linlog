@@ -38,7 +38,8 @@ for tests only, `derivation`, `size`, the text tree `fmt`, the rule
 labels `style`, the crate-private `multiset`, and `interactive` behind
 the feature of that name), `search` (the front door in `mod.rs`, the
 memory account in `memory`, the focused engine in `focus/` with
-`classes`, `context`, `counts`, `memo` and `parallel`, the net engine in
+`arena`, `classes`, `context`, `counts`, `memo`, `schedule`, `scratch`,
+`split`, `tests` and `parallel`, the net engine in
 `net`, the runtime of the pool in `parallel` behind the feature of that
 name, the additive path in `additive`, the test-only `generate` with its
 classical and intuitionistic proof generators and the test-only

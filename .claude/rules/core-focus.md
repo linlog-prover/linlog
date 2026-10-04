@@ -14,6 +14,14 @@ memory account counts are in `core-search.md`; the pool it runs on is
 
 ## The focused engine
 
+**Files.** `mod.rs` holds the engine (`Engine`) and its phases; `split.rs`
+the `⊗` rule and Mix (forced chains, the split search); `arena.rs` the
+proof arena; `scratch.rs` the pools of buffers; `schedule.rs` the two
+searches of the default bias (`plan`, `chains`, `Rule`, `turns`, and the
+threaded `alternate` with its baton); `parallel.rs` the engine on a pool;
+`tests.rs` the tests; `classes.rs`, `context.rs`, `counts.rs`, `memo.rs`
+as named below.
+
 `search/focus/mod.rs` is the spec's MALL-Seq and MELL-Seq in one engine, for
 every classical fragment up to full LL, with units, Mix, the exponentials
 and affine mode as rule switches (`Rules`, from `Fragment` and `Mode`), and
@@ -286,7 +294,7 @@ relies on:
     backward search's share a hundred times too long on Petri nets (a
     poll in a split search is 4 096 steps), and a flat cost per stable
     sequent starved a net's backward proof.
-  - **On one core with threads** (`focus::parallel::alternate`, feature
+  - **On one core with threads** (`focus::schedule::alternate`, feature
     `parallel`, whatever `Options::jobs` says below two): the forward
     search runs on the calling thread and the backward one on a scoped
     thread of `Options::stack_size()`, and a `Baton` lets one of them
@@ -320,7 +328,7 @@ relies on:
     1.9 s (`NeighborGrid_z_2d_3n_1m_t_1_2_10_1`, `UtahNoC_5_1`
     classically) were not proved within 5 s, the forward search's units
     being slower there.
-  - **On one thread without threads** (`focus::turns`, the fallback when
+  - **On one thread without threads** (`focus::schedule::turns`, the fallback when
     the feature is off or the thread cannot start; `FIRST_TURN`,
     `TURN_GROWTH`, `Stop::Turn`): round `i` gives the forward search
     `FIRST_TURN · 4^i` units and the backward one twice that, each
