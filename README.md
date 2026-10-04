@@ -1036,12 +1036,18 @@ Built:
   (with exponentials a forward and a backward search together), a
   per-branch bound on the copies of `?` formulas that deepens
   iteratively, without end or up to a bound, and a loop check, one-sided
-  or two-sided; for
+  or two-sided (under Mix, a sequent none of whose parts is provable is
+  refuted through its parts with one member less, not its partitions;
+  a tensor whose splits are searched costs one level of recursion
+  however long); for
   MLL without units a proof-net engine that searches the axiom linkings
   with count checks, constant-time cycle rejections, the exact acyclicity
   test and a symmetry break for repeated literal conclusions, then
   sequentializes the net it finds; and for two additive-only formulas a
-  recursion on subformula pairs.
+  recursion on subformula pairs. Which engine decides a goal is a table
+  of rows, by fragment, mode and one more feature, each the engine
+  measured fastest there or the one that decides there at all; the
+  library's documentation of `Engine` has it with the measurements.
 - Affine mode, where weakening is allowed, in every fragment.
 - Proof nets for MLL, with or without Mix, as a representation of their
   own: proof structures over the subformula occurrences, an independent
