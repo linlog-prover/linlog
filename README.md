@@ -787,7 +787,8 @@ $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' 
 ```
 
 By default the cores go across the sequents, one sequent per worker on
-the sequential engines (as with `--deterministic`), and within one
+the sequential engines (as with `--deterministic`, so a sequent that
+only a pool decides within its time limit stays unknown), and within one
 sequent, as for a single call, when the batch has fewer sequents than
 workers or is a stream from standard input; `--cores across|within`
 chooses, and `--workers N` caps the sequents decided at once.
