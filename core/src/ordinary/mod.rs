@@ -276,6 +276,8 @@ pub struct Formulas {
     nodes: Vec<Node>,
     /// The atom names, by the index `Node::Atom` holds.
     atoms: Vec<String>,
+    /// The index of every atom name.
+    names: HashMap<String, u32>,
     /// The id of every node, for sharing.
     ids: HashMap<Node, NodeId>,
 }
@@ -330,14 +332,16 @@ impl Formulas {
 
     /// Returns the atom called `name`, adding it unless the arena has it.
     pub fn atom(&mut self, name: &str) -> Result<NodeId, Error> {
-        let index = match self.atoms.iter().position(|n| n == name) {
-            Some(index) => index,
+        let index = match self.names.get(name) {
+            Some(&index) => index,
             None => {
+                let index = self.atoms.len() as u32;
                 self.atoms.push(name.to_owned());
-                self.atoms.len() - 1
+                self.names.insert(name.to_owned(), index);
+                index
             }
         };
-        self.add(Node::Atom(index as u32))
+        self.add(Node::Atom(index))
     }
 
     /// Returns the formula at `id` as a value that prints it.
