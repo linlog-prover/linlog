@@ -709,12 +709,13 @@ impl Engine<'_> {
     /// non-empty provable parts, searched over the members after the
     /// first, which stays on the left, so that each unordered partition
     /// comes up once. In the multiplicative fragments only when the count
-    /// equation admits a Mix. First, the parts with one member less: when
-    /// each of them fails hereditarily, no part of this sequent's is
-    /// provable, so no partition is searched and `hereditary` is set. A
-    /// sequent of `n` members whose parts all fail then costs its `2ⁿ`
-    /// parts `n` lookups each, where the partitions of every part cost
-    /// `3ⁿ`.
+    /// equation admits a Mix. First, with a memo, the parts with one
+    /// member less: when each of them fails hereditarily and completely,
+    /// no part of this sequent's is provable, so no partition is searched
+    /// and `hereditary` is set. A sequent of `n` members whose parts all
+    /// fail then costs its `2ⁿ` parts `n` lookups each, where the
+    /// partitions of every part cost `3ⁿ`; without a memo every part is
+    /// searched again at every level, and the partitions are cheaper.
     pub(super) fn mix(
         &mut self,
         theta: &OccSet,
@@ -727,9 +728,9 @@ impl Engine<'_> {
         if members.len() < 2 || (self.rules.equation && !tally.admits_mix()) {
             return Ok(Found::NOTHING);
         }
-        if let Some(cuts) = self.parts_fail(theta, gamma, members, budget)? {
+        if self.memoizes && self.parts_fail(theta, gamma, members, budget)? {
             *hereditary = true;
-            return Ok(Found::failed(cuts));
+            return Ok(Found::NOTHING);
         }
         let mut left = self.take_context();
         left.insert(members[0]);
@@ -756,12 +757,16 @@ impl Engine<'_> {
         result
     }
 
-    /// Whether every part of `Γ` with one member less fails hereditarily:
-    /// then, as the sequent itself failed without Mix, no non-empty part of
-    /// it is provable, since every proper part lies in one of them and a
-    /// Mix of the whole would be of two proper parts. Returns the cuts the
-    /// failures rest on, or `None` at the first part that is proved or
-    /// may have a provable part. Of members that are interchangeable or
+    /// Whether every part of `Γ` with one member less fails hereditarily
+    /// and completely, at any budget and on any branch: then, as the
+    /// sequent itself failed without Mix, no non-empty part of it is
+    /// provable, since every proper part lies in one of them and a Mix of
+    /// the whole would be of two proper parts. False at the first part
+    /// that is proved, may have a provable part, or failed only within
+    /// the budget or the branch: such a part, which the partitions would
+    /// not all visit, must not qualify the sequent's failure (one cut by
+    /// the budget kept `⊢ a, !?(s ⅋ a)` under Mix at its copy bound where
+    /// the partitions refute it). Of members that are interchangeable or
     /// repeated one is left out, since the others leave a relative.
     fn parts_fail(
         &mut self,
@@ -769,20 +774,20 @@ impl Engine<'_> {
         gamma: &Context,
         members: &[OccId],
         budget: u32,
-    ) -> Result<Option<Cuts>, Reason> {
+    ) -> Result<bool, Reason> {
         let mut left_out = self.take_list();
         left_out.extend_from_slice(members);
         self.one_of_each(&mut left_out);
-        let mut cuts = Some(Cuts::NONE);
+        let mut fail = true;
         for i in 0..left_out.len() {
             let mut part = self.take_context_from(gamma);
             part.remove(left_out[i]);
             let found = self.prove_part(theta, &part, budget);
             self.give_context(part);
             match found {
-                Ok((Found::Failed(failed), true)) => cuts = cuts.map(|c| c.and(failed)),
+                Ok((Found::Failed(cuts), true)) if cuts == Cuts::NONE => {}
                 Ok(_) => {
-                    cuts = None;
+                    fail = false;
                     break;
                 }
                 Err(reason) => {
@@ -792,7 +797,7 @@ impl Engine<'_> {
             }
         }
         self.give_list(left_out);
-        Ok(cuts)
+        Ok(fail)
     }
 
     /// Both parts of a Mix, and the Mix node if both are provable.

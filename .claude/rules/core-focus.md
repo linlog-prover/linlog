@@ -733,20 +733,28 @@ relies on:
   That holds when `P` has one member and fails, or when every rule but
   Mix failed on `P` and every `P \ {x}` fails hereditarily: every proper
   part lies in some `P \ {x}`, and a Mix of `P` is of two proper parts.
-  So before searching partitions `mix` decides the parts with one member
-  less (one per class of interchangeable or repeated members, since the
-  others leave relatives) and, if each fails hereditarily, fails without
-  a partition, `n` lookups for each of `2ⁿ` parts where the partitions of
-  every part cost `3ⁿ`; the first part proved or not hereditary sends it
-  to the partitions as before. The flag travels as a value
+  So before searching partitions `mix`, where the engine memoizes,
+  decides the parts with one member less (one per class of
+  interchangeable or repeated members, since the others leave
+  relatives) and, if each fails hereditarily *and completely* (no copy
+  budget cut, no loop-check dependency), fails without a partition, `n`
+  lookups for each of `2ⁿ` parts where the partitions of every part cost
+  `3ⁿ`; the first part proved, not hereditary or qualified by a cut sends
+  it to the partitions as before. **Both conditions are a panel's
+  findings**: a part cut by the budget, which the partitions never visit
+  (they keep the first member on the left), qualified the sequent's own
+  failure, so `⊢ a, !?(s ⅋ a)` under Mix stayed at its copy bound where
+  the partitions refute it in two stable sequents (the command spent its
+  whole time limit on it); and without a memo the parts are searched
+  again at every level and took two more levels of recursion than the
+  partitions (`the_parts_of_a_mix_decide_only_as_facts`). The flag
+  travels as a value
   (`prove_stable` returns it, `decide` takes it as an out-parameter that
   only `mix` and a one-member failure set), never in `Found`, so no
   other rule's failure can carry it. A hereditary failure is memoized as
   a complete one that says so, under the canonical key (a replacement
-  maps parts to parts), and with the cuts of every part's failure; a
-  failure of a part that a cut or a dependency qualifies is still
-  hereditary for its caller under those cuts, and the cluster argument
-  of the loop check carries over: of all provable parts of `P` take one
+  maps parts to parts), only when nothing qualifies it; the argument of
+  the loop check carries over: of all provable parts of `P` take one
   with a smallest proof; it has no repeat of `P` or of a sequent between,
   else a part would have a smaller proof. Measured: `mix(7)` (14 members)
   114 675 stable sequents against 1 586 132, `mix(8)` 524 273 against

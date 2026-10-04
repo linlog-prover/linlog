@@ -1469,3 +1469,22 @@ fn a_chain_of_free_splits_costs_one_level() {
     };
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
 }
+
+/// The parts of a Mix decide a sequent only where they are complete
+/// facts and a memo keeps them: a part cut by the copy budget, which the
+/// partitions never visit, left `⊢ a, !?(s ⅋ a)` at its copy bound where
+/// the partitions refute it; and without a memo, searching the parts
+/// again at every level took two more levels of recursion than the
+/// partitions to prove `⊢ ~b, ~c, b, ⊥ ⊕ ~b, ?(c ⊗ b)`.
+#[test]
+fn the_parts_of_a_mix_decide_only_as_facts() {
+    let mode = Mode::CLASSICAL.with_mix();
+    let (verdict, _) = run("|- a, !?(s par a)", mode, &Options::default());
+    assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
+    let options = Options::default()
+        .copies(Some(1))
+        .recursion_limit(9)
+        .memo_limit(0);
+    let (verdict, _) = run("|- ~b, ~c, b, (bot + ~b), ?(c * b)", mode, &options);
+    assert!(verdict.proof().is_some(), "{verdict:?}");
+}
