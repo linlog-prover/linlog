@@ -24,6 +24,7 @@ it; only what holds for the whole crate goes here.
 | `core-nets.md` | `nets/`, `search/net.rs` | proof structures, the correctness criterion, sequentialization, the net engine |
 | `core-parallel.md` | `search/parallel.rs`, `search/focus/parallel.rs`, `search/net.rs` | the pool, stops, cube-and-conquer, the shared memo and arena, the net engine's cubes, what a pool promises |
 | `core-export.md` | `export/`, `proofs/style.rs`, the export test and snapshots | the options values, the one signature, rule labels, notations, the packages' limits, Typst's own layout, fonts, SVG, PNG, PDF, Rocq |
+| `core-batch.md` | `search/batch.rs` | many sequents in one call: the order of results, the workers and the stream, how the batch's memory bound is shared |
 | `core-inputs.md` | `lltp.rs`, `families.rs` | the LLTP reader and the generated families |
 
 ## Layout
@@ -74,6 +75,8 @@ Each entry point is described in the file of its module:
 - `export::latex`, `typst`, `svg`, `png`, `pdf`, `rocq`, each with one
   options value and `write(&derivation, &options, out, stop)`
   (`core-export.md`);
+- `search::batch::run` and `prove`, many sequents under one options
+  value (`core-batch.md`);
 - `lltp::read` and `families` (`core-inputs.md`).
 
 ## Crate-wide rules

@@ -9,6 +9,8 @@
 
 /// The additive fast path.
 pub mod additive;
+/// Many sequents decided in one call.
+pub mod batch;
 /// The focused sequent engine.
 pub mod focus;
 /// Random provable sequents for the tests.
@@ -776,6 +778,11 @@ impl Options {
             forward_copies: copies,
             ..self
         }
+    }
+
+    /// Returns how many threads the search may use.
+    pub fn job_count(&self) -> usize {
+        self.jobs
     }
 
     /// Returns the stack, in bytes, a thread needs to run the search at

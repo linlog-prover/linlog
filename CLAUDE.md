@@ -30,8 +30,8 @@ Workspace crates:
   fonts the caller gives; the CLI enables the last eight.
 - `cli/` is package **`linlog-cli`**, library **`linlog_cli`** and binary
   **`linlog`** (one call into the library; `doc = false` because it shares
-  the core crate's name): `prove`, `check`, `interact` and `seq
-  print|json|fragment`. README's usage section shows every command,
+  the core crate's name): `prove` (one sequent, or a batch of many),
+  `check`, `interact` and `seq print|json|fragment`. README's usage section shows every command,
   format and flag with its output, and `cli/tests/readme.rs` runs those
   examples; `linlog <command> --help` is the doc comments of
   `cli/src/argument_parsing.rs`. Exit status 0 proved/valid, 1
@@ -54,7 +54,7 @@ per bullet, what a later session must know and cannot see in the code.
 
 | rules file | loads for | holds |
 |---|---|---|
-| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the ten module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the parallel runtime, proof nets and the net engine, the exports, the benchmark inputs), each loaded for its own module |
+| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the eleven module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs), each loaded for its own module |
 | `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `flake.md` | `flake.nix`, `flake.lock`, `modules/**` | what each flake module holds and checks |

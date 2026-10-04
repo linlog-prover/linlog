@@ -58,6 +58,8 @@ Current contents:
     flags, the shared memo and arena, cubes;
   - `rules/core-export.md` (`export/`, `proofs/style.rs`, the export test
     and snapshots): LaTeX, Typst, SVG, PNG, PDF and Rocq;
+  - `rules/core-batch.md` (`search/batch.rs`): many sequents in one
+    call;
   - `rules/core-inputs.md` (`lltp.rs`, `families.rs`): the benchmark
     inputs.
 - `rules/cli.md` (`cli/**`): the `linlog` command's layout, exit statuses,
