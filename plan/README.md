@@ -1798,3 +1798,16 @@ client follows it (step 32).
   library through the batch on four cores (4 512 answers, no error, no
   contradiction; 57 decided only by single calls' pool). Prompt 25
   finished. Next: step 25.
+- 2026-10-04: step 25, one session (Opus 5.5 at high, a sub-agent for
+  the exports): `linlog::ordinary` (an ordinary syntax that refuses the
+  linear symbols, a TPTP reader, the translations affine, cbn, cbv and
+  01 as one pattern table, the read-back to LK and LJ with a checker of
+  its own, a certificate over `Prop`), every derivation output drawing
+  LK and LJ, `prove --logic`/`--translation`/`--linear`, `seq print
+  --logic`, `--input-format tptp`, the flake's `iltp` package. On ILTP's
+  274 problems at 2 s: cbn 96 decided, cbv 88, 01 68 (108 together, no
+  verdict against a status or another translation), classical 156; cbn
+  stays the default. The images equal LLTP's files except on the 72
+  misread problems, SYN915 (`T`) and SYN977 (grouping). The ILTP run
+  leaves 35 non-theorems to a loop check and 131 problems to the cost of
+  the search. Report: `reports/25-ordinary-logic.md`.

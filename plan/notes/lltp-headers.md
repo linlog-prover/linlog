@@ -579,6 +579,15 @@ are headed Unsolved or have more atoms than a truth table can take
 here. Generating the translations again after fixing the grammar
 settles all of them at once.
 
+linlog's own translations of the ILTP originals (step 25, `linlog
+--logic`) confirm the list for the 72 ILTP problems among the 101: in each
+of the three translations the image differs from LLTP's file exactly on
+those 72, on SYN915+1 under cbn (the atom `T`), and on SYN977+1, where
+only the grouping of `a | b | c` differs, without changing the formula's
+meaning. On the misread problems that both sides decide at 2 s, linlog's
+verdicts on its own images agree with the ILTP statuses where LLTP's
+files contradict them (`plan/reports/25-ordinary-logic.md`).
+
 ## The malformed file
 
 `ILLTP-SYJ-01/SYJ206+1.018.p` has a tab character where a closing
