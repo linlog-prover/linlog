@@ -111,6 +111,36 @@ fn derivations() {
     pin_proof("ill", "1, A & B, B -o C |- C", Mode::INTUITIONISTIC);
 }
 
+/// A tree higher than curryst sets is laid out by linlog's own Typst
+/// code, which the `export` check compiles at 41 inferences high; the
+/// own layout of a proof in progress draws its open goal under dots.
+#[test]
+fn typst_layout() {
+    let bots = vec!["bot"; 30].join(", ");
+    let input = format!("|- {bots}, 1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * 1)))))))))");
+    let high = proof(&input, Mode::CLASSICAL);
+    let high = high.derivation().unwrap();
+    let options = typst::Options {
+        form: Form::Standalone,
+        ..typst::Options::default()
+    };
+    let written = typst::derivation(&high, &options);
+    assert!(written.contains("#context"), "past curryst's height");
+    snapshot("high.typ", &written);
+    let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
+    let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
+    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
+    let options = typst::Options {
+        layout: typst::Layout::Linlog,
+        ..options
+    };
+    snapshot(
+        "open-linlog.typ",
+        &typst::derivation(&state.derivation(), &options),
+    );
+}
+
 /// A compact derivation draws a run of weakenings as one inference with a
 /// starred label in every drawn target.
 #[test]

@@ -3,7 +3,8 @@
 
 //! Export of sequents and derivations: to LaTeX with the `ebproof` package
 //! ([`latex`](crate::export::latex), feature `latex`), to Typst with the
-//! `curryst` package ([`typst`](crate::export::typst), feature `typst`),
+//! `curryst` package or a layout of linlog's own
+//! ([`typst`](crate::export::typst), feature `typst`),
 //! to SVG, with proof nets ([`svg`](crate::export::svg), feature `svg`),
 //! and to Rocq as proof scripts for the NanoYalla kernel
 //! ([`rocq`](crate::export::rocq), feature `rocq`).

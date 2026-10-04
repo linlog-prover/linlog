@@ -1,9 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! Typst: formulas in math mode, and derivations as proof trees of the
+//! Typst: formulas in math mode, and derivations as proof trees, of the
 //! `curryst` package, whose `rule(name: …, premises…, conclusion)` nests
-//! the premises inside their conclusion.
+//! the premises inside their conclusion, or of linlog's own layout.
 //!
 //! The connectives are written as their Unicode characters (`⊗ ⅋ ⊕ ⊸ ⊢
 //! ⊥ ⊤`), which Typst's math reads with their Unicode math class and which
@@ -17,8 +17,13 @@
 //! turnstiles, so every sequent is centred. An open goal of a proof in
 //! progress is its sequent under vertical dots, with no inference line.
 //! curryst nests its layout at every level of the tree, so Typst refuses a
-//! tree more than about eleven inferences high ("maximum show rule depth
-//! exceeded"); the LaTeX export has no such limit.
+//! tree with two premises on a branch more than [`CURRYST_HEIGHT`]
+//! inferences high ("maximum show rule depth exceeded"). A higher tree is
+//! therefore written by default in linlog's own layout ([`Layout`]): a
+//! `#context` block that lists the inferences and measures, lays out and
+//! places them in one box, the SVG drawing's layout with Typst's
+//! measurements, so that no height reaches a limit and no package is
+//! needed.
 //!
 //! An atom named by one letter is written as it is, in math italic; any
 //! other name is a string in `italic(…)`, with `"` and `\` escaped, since
@@ -109,6 +114,27 @@ fn atom(out: &mut String, name: &str) {
 /// content.
 pub const PAGE: &str = "#set page(width: auto, height: auto, margin: 5pt)";
 
+/// The highest tree, in inferences on its longest branch, that curryst
+/// [`CURRYST`] sets: Typst refuses a higher one with two premises
+/// anywhere on the branch ("maximum show rule depth exceeded").
+pub const CURRYST_HEIGHT: usize = 9;
+
+/// Which code sets a Typst proof tree.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Layout {
+    /// curryst for a tree of at most [`CURRYST_HEIGHT`] inferences on
+    /// its longest branch, linlog's own layout for a higher one.
+    #[default]
+    Auto,
+    /// curryst's `prooftree` and `rule`, which a document imports.
+    Curryst,
+    /// Typst code of linlog's own in the output, which measures every
+    /// sequent and places it, with no package and no limit on the height.
+    Linlog,
+}
+
 /// What a user may vary in the Typst output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -126,12 +152,28 @@ pub struct Options {
     pub import: String,
     /// The page setup of a standalone document.
     pub page: String,
+    /// Which code sets the tree.
+    pub layout: Layout,
+    /// The least space between two premises side by side in linlog's own
+    /// layout, a Typst length.
+    pub premise_gap: String,
+    /// The space between an inference line and its rule's label in
+    /// linlog's own layout, a Typst length.
+    pub label_gap: String,
+    /// The least height of the space an inference line stands in, between
+    /// its premises and its conclusion, in linlog's own layout, a Typst
+    /// length; a taller label makes it taller.
+    pub band: String,
+    /// The thickness of an inference line in linlog's own layout, a Typst
+    /// length.
+    pub stroke: String,
 }
 
 impl Default for Options {
     /// Returns a fragment with upright labels, an open goal under
-    /// vertical dots, the import of curryst [`CURRYST`] and the page
-    /// [`PAGE`].
+    /// vertical dots, the import of curryst [`CURRYST`], the page
+    /// [`PAGE`], curryst up to its height and linlog's own layout above
+    /// it, with curryst's spacing and line.
     fn default() -> Self {
         Self {
             form: Form::Fragment,
@@ -139,6 +181,11 @@ impl Default for Options {
             open: OpenGoal::Dots,
             import: format!("#import \"@preview/curryst:{CURRYST}\": prooftree, rule"),
             page: PAGE.to_owned(),
+            layout: Layout::Auto,
+            premise_gap: "1.5em".to_owned(),
+            label_gap: "0.2em".to_owned(),
+            band: "0.8em".to_owned(),
+            stroke: "0.05em".to_owned(),
         }
     }
 }
@@ -236,9 +283,12 @@ pub fn two_sided(reading: &Reading, options: &Options) -> String {
     formed(out, options)
 }
 
-/// Returns a derivation as a curryst `#prooftree(…)` call, two-sided if
-/// the derivation is, in the options' form. A rule with premises spans
-/// several lines, indented by its depth; a leaf is one line.
+/// Returns a derivation as a proof tree, two-sided if the derivation is,
+/// in the options' form: a curryst `#prooftree(…)` call, in which a rule
+/// with premises spans several lines, indented by its depth, and a leaf is
+/// one line; or a `#context` block of linlog's own layout
+/// ([`Options::layout`]), the inferences listed first, from the root in
+/// preorder, one line each, then the code that sets them.
 pub fn derivation(derivation: &Derivation, options: &Options) -> String {
     let mut out = String::new();
     write(derivation, options, &mut out, || false).expect("a string takes any text");
@@ -248,6 +298,220 @@ pub fn derivation(derivation: &Derivation, options: &Options) -> String {
 /// Writes a derivation as [`derivation`] returns it into `out`, one
 /// inference at a time, and asks `stop` after each.
 pub fn write(
+    derivation: &Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    let own = match options.layout {
+        Layout::Curryst => false,
+        Layout::Linlog => true,
+        Layout::Auto => height(derivation) > CURRYST_HEIGHT,
+    };
+    if own {
+        laid_out(derivation, options, out, stop)
+    } else {
+        curryst(derivation, options, out, stop)
+    }
+}
+
+/// Returns the inferences on the longest branch of a derivation.
+fn height(derivation: &Derivation) -> usize {
+    // Premises come before their conclusions, the root last.
+    let mut heights = vec![0; derivation.inferences().len()];
+    for (i, inference) in derivation.inferences().iter().enumerate() {
+        let above = inference.premises.iter().map(|p| heights[p.index()]);
+        heights[i] = 1 + above.max().unwrap_or(0);
+    }
+    heights.last().copied().unwrap_or(0)
+}
+
+/// The Typst code of linlog's own layout, which follows the inferences
+/// (`nodes`: premises, label and conclusion, from the root in preorder;
+/// `none` premises for an open goal drawn as `open` says) and the spacing
+/// in a `#context` block. It measures every sequent and label, lays the
+/// tree out as the SVG drawing does (premises side by side `gap` apart,
+/// their conclusions centred over the conclusion, the line spanning both
+/// with the label after it) and places every piece in one box: nothing is
+/// nested per level, so no height reaches a limit of Typst's. A sequent's
+/// ascent is its height less its depth, which a strut of `tall` above it
+/// reveals, so that the sequents of a row share a baseline.
+const LAYOUT: &str = r#"  let n = nodes.len()
+  let tall = (3em).to-absolute()
+  let metrics(c) = {
+    let size = measure(box(c))
+    let low = measure(box[#box(height: tall, width: 0pt)#c]).height - tall
+    (size.width, size.height - low, low)
+  }
+  let (dots-width, dots-up, dots-down) = metrics(dots)
+  let (width, up, down, wide, left, offset) = ((0pt,) * n,) * 6
+  let bar = (none,) * n
+  let names = (none,) * n
+  let stack = ()
+  for i in range(n - 1, -1, step: -1) {
+    let (k, name, c) = nodes.at(i)
+    let (w, a, d) = metrics(c)
+    width.at(i) = w
+    up.at(i) = a
+    down.at(i) = d
+    if k == none {
+      let reach = if open == "dots" { dots-width } else { 0pt }
+      wide.at(i) = calc.max(w, reach)
+      left.at(i) = calc.max(reach - w, 0pt) / 2
+      if open == "dashed" { bar.at(i) = (left.at(i), left.at(i) + w) }
+      stack.push(i)
+      continue
+    }
+    let kids = ()
+    for _ in range(k) { kids.push(stack.pop()) }
+    let x = 0pt
+    let span = none
+    for p in kids {
+      offset.at(p) = x
+      let s = x + left.at(p)
+      span = (if span == none { s } else { span.at(0 ) }, s + width.at(p))
+      x += wide.at(p) + gap
+    }
+    let (l, b) = if span == none { (0pt, (0pt, w)) } else {
+      let l = (span.at(0) + span.at(1) - w) / 2
+      (l, (calc.min(span.at(0), l), calc.max(span.at(1), l + w)))
+    }
+    let shift = calc.max(-l, 0pt)
+    for p in kids { offset.at(p) += shift }
+    let named = 0pt
+    if name != none {
+      let size = measure(box(name))
+      names.at(i) = (size.width, size.height)
+      named = name-gap + size.width
+    }
+    let row = if k == 0 { 0pt } else { x - gap }
+    wide.at(i) = calc.max(row, b.at(1) + named) + shift
+    left.at(i) = l + shift
+    bar.at(i) = (b.at(0) + shift, b.at(1) + shift)
+    stack.push(i)
+  }
+  let (x, depth) = ((0pt,) * n, (0,) * n)
+  let parents = ()
+  for i in range(n) {
+    if parents.len() > 0 {
+      let (p, r) = parents.last()
+      x.at(i) = x.at(p) + offset.at(i)
+      depth.at(i) = depth.at(p) + 1
+      if r == 1 { let _ = parents.pop() } else { parents.at(-1) = (p, r - 1) }
+    }
+    let k = nodes.at(i).at(0)
+    if k != none and k > 0 { parents.push((i, k)) }
+  }
+  let rows = calc.max(..depth) + 2
+  let (row-up, row-down, between) = ((0pt,) * rows,) * 3
+  for i in range(n) {
+    let j = depth.at(i)
+    row-up.at(j) = calc.max(row-up.at(j), up.at(i))
+    row-down.at(j) = calc.max(row-down.at(j), down.at(i))
+    if bar.at(i) != none {
+      let tall = if names.at(i) == none { 0pt } else { names.at(i).at(1) }
+      between.at(j) = calc.max(between.at(j), band, tall)
+    }
+    if nodes.at(i).at(0) == none and open == "dots" {
+      between.at(j) = calc.max(between.at(j), band / 2)
+      row-up.at(j + 1) = calc.max(row-up.at(j + 1), dots-up)
+      row-down.at(j + 1) = calc.max(row-down.at(j + 1), dots-down)
+    }
+  }
+  let base = (0pt,) * rows
+  base.at(rows - 1) = row-up.at(rows - 1)
+  for j in range(rows - 2, -1, step: -1) {
+    base.at(j) = base.at(j + 1) + row-down.at(j + 1) + between.at(j) + row-up.at(j)
+  }
+  box(width: wide.at(0), height: base.at(0) + row-down.at(0), baseline: row-down.at(0), {
+    for i in range(n) {
+      let (k, name, c) = nodes.at(i)
+      let (j, at) = (depth.at(i), x.at(i))
+      place(dx: at + left.at(i), dy: base.at(j) - up.at(i), box(c))
+      if k == none and open == "dots" {
+        let dx = at + (wide.at(i) - dots-width) / 2
+        place(dx: dx, dy: base.at(j + 1) - dots-up, box(dots))
+      }
+      if bar.at(i) != none {
+        let (start, end) = bar.at(i)
+        let y = base.at(j) - row-up.at(j) - between.at(j) / 2
+        let dash = if k == none { "dashed" } else { none }
+        place(dx: at + start, dy: y, line(length: end - start, stroke: (thickness: stroke, dash: dash)))
+        if names.at(i) != none {
+          let (w, h) = names.at(i)
+          place(dx: at + end + name-gap, dy: y - h / 2, box(name))
+        }
+      }
+    }
+  })
+}
+"#;
+
+/// Writes a derivation in linlog's own layout into `out`, one inference
+/// at a time, and asks `stop` after each.
+fn laid_out(
+    derivation: &Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), WriteError> {
+    let (forest, reading) = (derivation.forest(), derivation.reading());
+    if options.form == Form::Standalone {
+        write!(out, "{}\n\n", options.page.trim_end())?;
+    }
+    let open = match options.open {
+        OpenGoal::Dots => "dots",
+        OpenGoal::Dashed => "dashed",
+        OpenGoal::Bare | OpenGoal::Mark(_) => "bare",
+    };
+    write!(
+        out,
+        "#context {{\n  let open = \"{open}\"\n  let gap = ({}).to-absolute()\n  \
+         let name-gap = ({}).to-absolute()\n  let band = ({}).to-absolute()\n  \
+         let stroke = {}\n  let dots = $dots.v$\n  let nodes = (\n",
+        options.premise_gap, options.label_gap, options.band, options.stroke
+    )?;
+    let mut buffer = String::new();
+    walk(derivation, |step| {
+        let Step::Enter(id, _) = step else {
+            return Ok(());
+        };
+        let inference = derivation.inference(id);
+        let markup = options.labels.of(inference);
+        let (premises, name) = match (inference.rule, &options.open) {
+            (Rule::Open, OpenGoal::Mark(mark)) => ("0".to_owned(), Some(mark.as_str())),
+            (Rule::Open, _) => ("none".to_owned(), None),
+            _ => (inference.premises.len().to_string(), markup.as_deref()),
+        };
+        write!(buffer, "    ({premises}, ")?;
+        match name {
+            Some(name) => {
+                buffer.push('$');
+                label(&mut buffer, name);
+                buffer.push('$');
+            }
+            None => buffer.push_str("none"),
+        }
+        buffer.push_str(", $");
+        NOTATION.sequent(
+            &mut buffer,
+            forest,
+            reading,
+            &inference.sequent,
+            false,
+            false,
+        );
+        buffer.push_str("$),\n");
+        flush(out, &mut buffer, &mut stop)
+    })?;
+    out.write_str("  )\n")?;
+    out.write_str(LAYOUT.trim_end())?;
+    Ok(())
+}
+
+/// Writes a derivation as a curryst tree into `out`, one inference at a
+/// time, and asks `stop` after each.
+fn curryst(
     derivation: &Derivation,
     options: &Options,
     out: &mut impl Write,
