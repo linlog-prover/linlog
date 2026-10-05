@@ -128,6 +128,7 @@ fn answer(
         result,
         statistics,
         net,
+        refutation: None,
     }
 }
 

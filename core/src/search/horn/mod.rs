@@ -4,11 +4,14 @@
 //! The Horn engine: a goal that is a Horn program, clauses that may be
 //! used any number of times under `!`, clauses used once, atoms and one
 //! goal of atoms, is a Petri net with a marking to reach, and is decided
-//! by a search over the markings instead of over sequents. A firing of a
-//! clause is a copy of it, a split of the linear zone that hands the
-//! clause's body exactly the tokens it consumes, and a decomposition of
-//! its head into new tokens, so the firing sequence found is the proof.
+//! by a search over the markings instead of over sequents. A firing of a clause is a copy of it, a split
+//! of the linear zone that hands the clause's body exactly the tokens it
+//! consumes, and a decomposition of its head into new tokens, so the
+//! firing sequence found is the proof. Beside the search, the net's state
+//! equation may refute.
 
+/// The state equation, and the weights that refute it.
+mod equation;
 /// The proof read off a firing sequence.
 mod proof;
 /// The search over markings.
@@ -17,11 +20,12 @@ mod reach;
 mod tests;
 
 use super::memory::Account;
-use super::{Answer, Decide, Engine, Options, Refutation, Statistics, Task};
+use super::{Answer, Decide, Engine, Options, Reason, Refutation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
 use crate::occurrences::{Forest, OccId, Position, Sign};
 use crate::sequents::Kind;
+use equation::Equation;
 
 /// The engine, as [`Engine::Horn`] names it.
 pub(crate) struct Horn;
@@ -42,8 +46,8 @@ impl Decide for Horn {
     }
 
     /// Searches the markings on the calling thread, whatever
-    /// [`Options::jobs`] says, and reads the proof off the firing sequence
-    /// found.
+    /// [`Options::jobs`] says, with the state equation beside the search,
+    /// and reads the proof off the firing sequence found.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -71,7 +75,16 @@ impl Decide for Horn {
             ));
         }
         let program = Program::read(task).expect("the engine admitted the goal");
-        let (found, statistics) = reach::search(&program, account, reach::MOST_MARKINGS, stop);
+        let mut equation = Equation::new(false, account);
+        let most = reach::MOST_MARKINGS;
+        let (mut found, statistics) = reach::search(&program, account, most, &mut equation, stop);
+        // A search that ran out of room has given its memory back: the
+        // state equation may still refute, and has the rest of the time.
+        if let Err(Reason::MemoryLimit(_) | Reason::IndexLimit) = found
+            && let Ok(true) = equation.run(&program, u64::MAX, stop)
+        {
+            found = Ok(None);
+        }
         let (result, nodes) = match found {
             Ok(Some(firings)) => {
                 match proof::build(task.forest, &program, &firings, account, proof::MOST_NODES) {
@@ -82,7 +95,11 @@ impl Decide for Horn {
             Ok(None) => (Ok(None), Vec::new()),
             Err(reason) => (Err(reason), Vec::new()),
         };
-        Ok(Answer::of_arena(task.forest, (result, nodes, statistics)))
+        let mut answer = Answer::of_arena(task.forest, (result, nodes, statistics));
+        answer.refutation = equation
+            .certificate()
+            .map(|weights| program.refutation(task.forest, weights));
+        Ok(answer)
     }
 }
 
@@ -94,6 +111,30 @@ pub(crate) fn is_net(task: &Task<'_>) -> bool {
 
 /// A list of arcs: places with their weights.
 type Arcs = Vec<(u32, u32)>;
+
+impl Program {
+    /// The refutation that weights for the places, a place and its weight
+    /// each, give: the atoms' weights by name, and whether a class of
+    /// clauses used once weighs something.
+    fn refutation(&self, forest: &Forest, weights: &[(u32, i64)]) -> Refutation {
+        let mut weight = vec![0; self.places];
+        for &(p, w) in weights {
+            weight[p as usize] = w;
+        }
+        let names = forest.sequent().atom_names();
+        let atoms = self.places - self.once.len();
+        Refutation::StateEquation {
+            weights: self
+                .place_of
+                .iter()
+                .enumerate()
+                .filter(|&(_, &p)| p != u32::MAX && weight[p as usize] != 0)
+                .map(|(a, &p)| (names[a].clone(), weight[p as usize]))
+                .collect(),
+            once: weight[atoms..].iter().any(|&w| w != 0),
+        }
+    }
+}
 
 /// What a clause fired is: one under a `?`, whose occurrence is copied at
 /// every firing, or one of a class of interchangeable clauses used once.

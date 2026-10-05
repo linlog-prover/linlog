@@ -260,12 +260,13 @@ pub fn prove_goal(
     // the search.
     let verdict = match answer.result {
         Ok(Some(proof)) => Verdict::Proved(Box::new(proof)),
-        Ok(None) => {
-            let account = memory::Account::new(options.memory_limit);
-            Verdict::Unprovable(focus::refutation(
-                forest, task.goal, fragment, mode, &account, &mut stop,
-            ))
-        }
+        Ok(None) => Verdict::Unprovable(match answer.refutation {
+            Some(refutation) => refutation,
+            None => {
+                let account = memory::Account::new(options.memory_limit);
+                focus::refutation(forest, task.goal, fragment, mode, &account, &mut stop)
+            }
+        }),
         Err(reason) => Verdict::Unknown(reason),
     };
     // No engine is trusted with its own proof: the checker has the last
@@ -432,6 +433,9 @@ pub(crate) struct Answer {
     pub(crate) statistics: Statistics,
     /// The net found, from the net engine.
     pub(crate) net: Option<ProofStructure>,
+    /// For an unprovable goal, why, where the engine knows more than that
+    /// its search was exhaustive.
+    pub(crate) refutation: Option<Refutation>,
 }
 
 impl Answer {
@@ -451,6 +455,7 @@ impl Answer {
             result,
             statistics,
             net: None,
+            refutation: None,
         }
     }
 }
@@ -717,9 +722,18 @@ pub enum Engine {
     /// reached having been expanded without reaching the goal is
     /// `Unprovable`, since a proof of a Horn program is a firing sequence
     /// read upward; so is, before any search, a goal whose atom counts
-    /// cannot balance, as for every engine. A net whose markings grow without end is searched
-    /// until the stop or [`Options::memory_limit`], which counts the
-    /// markings kept. Linear mode only, classical or intuitionistic, with
+    /// cannot balance, as for every engine. Beside the search, a slice at
+    /// a time and never more work than the search has done, a simplex
+    /// solves the net's state equation, whether the goal's tokens are the
+    /// start's plus some number of firings of each clause: where it has no
+    /// solution, Farkas' lemma gives each atom a weight under which no
+    /// clause raises the weighted count of the tokens while the goal asks
+    /// it raised, which an exact check in integers confirms, and the goal
+    /// is `Unprovable` with that [`Refutation::StateEquation`], however
+    /// many markings the net has. A net whose markings grow without end
+    /// and whose equation has a solution is searched until the stop or
+    /// [`Options::memory_limit`], which counts the markings kept and the
+    /// simplex's tableau. Linear mode only, classical or intuitionistic, with
     /// or without Mix (which no proof of such a goal can use). It reads
     /// [`Options::memory_limit`] and [`Options::check`], runs on the
     /// calling thread whatever [`Options::jobs`] says, and needs no copy
@@ -1258,6 +1272,21 @@ pub enum Refutation {
         /// Whether Mix was allowed.
         mix: bool,
     },
+    /// The goal is a Horn program, a Petri net, whose state equation has
+    /// no solution: weighting the tokens of each atom as given, and each
+    /// clause used once that is not yet used by a weight of its own, no
+    /// clause raises the weighted count, while the goal's tokens ask it
+    /// raised. So no sequence of firings yields them, as Farkas' lemma
+    /// says of the equation `goal = start + Σ firings × effect`, and in
+    /// affine mode, where the weights are not negative, none yields more
+    /// than them either.
+    StateEquation {
+        /// The atoms whose tokens weigh something, in the order of the
+        /// sequent's atoms, by name, with their weights.
+        weights: Vec<(String, i64)>,
+        /// Whether some clause used once weighs something too.
+        once: bool,
+    },
 }
 
 impl Refutation {
@@ -1333,6 +1362,30 @@ impl Display for Refutation {
                      #⅋ − #1 + #⊥ + 2 formulas, here {tensors} − {pars} − {ones} + {bottoms} + 2 = \
                      {needed}, and this one has {formulas}",
                     if *mix { "at least " } else { "exactly " },
+                )
+            }
+            Refutation::StateEquation { weights, once } => {
+                f.write_str(
+                    "the state equation of the Petri net has no solution, so no firing of its \
+                     clauses yields the goal's atoms: weighting",
+                )?;
+                for (i, (name, weight)) in weights.iter().enumerate() {
+                    let sign = if *weight < 0 { "−" } else { "" };
+                    let between = match i {
+                        0 => " each",
+                        _ if i + 1 == weights.len() && !once => " and",
+                        _ => ",",
+                    };
+                    write!(f, "{between} {name} by {sign}{}", weight.unsigned_abs())?;
+                }
+                if *once {
+                    let between = if weights.is_empty() { "" } else { " and" };
+                    f.write_str(between)?;
+                    f.write_str(" the clauses used once by weights of their own")?;
+                }
+                f.write_str(
+                    ", no clause raises the weighted count of the atoms, and the goal asks it \
+                     raised",
                 )
             }
         }

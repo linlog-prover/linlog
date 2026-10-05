@@ -135,8 +135,12 @@ the goal first, and reads the proof off the firing sequence it finds:
 each firing a copy of its clause, whose body takes its atoms by axioms.
 It needs no copy bound, and when every reachable marking has been seen
 without the goal, or the counts of an atom's literals rule the goal out,
-it answers "unprovable"; a net whose markings grow without end is
-searched until the time or the memory limit. In linear
+it answers "unprovable". So it does when the net's state equation has no
+solution, which a simplex beside the search finds out: then weights for
+the atoms, checked exactly, show that no firing raises the weighted
+count of the tokens while the goal needs it raised, however many
+markings the net has. A net whose markings grow without end and whose
+equation has a solution is searched until the time or the memory limit. In linear
 mode only, classical or intuitionistic; affine mode goes to the focus
 engine. `--stats` counts the markings:
 
@@ -161,10 +165,12 @@ markings reached: 7 (0 of them again)
 markings kept: 7
 time: 45.06µs
 $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d * a"
-unprovable (MELL, classical, horn engine): the search was exhaustive
-markings reached: 12 (2 of them again)
-markings kept: 10
-time: 31.81µs
+unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by 1, b by 2, c by 4 and d by 8, no clause raises the weighted count of the atoms, and the goal asks it raised
+markings reached: 4 (0 of them again)
+markings kept: 4
+time: 227.40µs
+$ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
+unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause raises the weighted count of the atoms, and the goal asks it raised
 ```
 
 Provability in MELL has no known decision procedure, and full linear logic

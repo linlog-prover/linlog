@@ -64,9 +64,15 @@ sequents for `focus` and literals chosen for `net`; `memo_hits`,
 `memo_entries` and `splits` are the focused engine's, `links` and `tests`
 the net engine's, and the others stay zero.
 
+- **An engine's own refutation** goes in `Answer::refutation`, which
+  `prove_goal` takes as it is: the Horn engine's
+  `Refutation::StateEquation` (weights for the atoms that an exact check
+  confirmed, `core-horn.md`), the one refutation not computed from the
+  counts. Every other `Unprovable` gets the counts' below.
 - **A refutation says what the counts rule out** (`Refutation`,
   `focus::refutation`, called by `prove_goal` on every `Unprovable` of
-  every engine, which construct `Refutation::Exhausted`). It builds the
+  every engine that gives none of its own, which construct
+  `Refutation::Exhausted`). It builds the
   focused engine's `Counts` (fresh account, the caller's stop: a pass
   given up is `Exhausted`, which is always true of the verdict), tallies
   the goal's members, and reports the first atom by the sequent's order

@@ -131,6 +131,22 @@ enum WhyNot<'a> {
         /// Whether Mix was allowed.
         mix: bool,
     },
+    /// The state equation of the Petri net has no solution.
+    StateEquation {
+        /// The atoms that weigh something, each with its weight.
+        weights: Vec<Weight<'a>>,
+        /// Whether some clause used once weighs something too.
+        once: bool,
+    },
+}
+
+/// An atom's weight in a refutation by the state equation.
+#[derive(Serialize)]
+struct Weight<'a> {
+    /// The atom's name.
+    atom: &'a str,
+    /// Its weight.
+    weight: i64,
 }
 
 impl<'a> From<&'a Refutation> for WhyNot<'a> {
@@ -159,6 +175,16 @@ impl<'a> From<&'a Refutation> for WhyNot<'a> {
                 ones,
                 bottoms,
                 mix,
+            },
+            Refutation::StateEquation { weights, once } => WhyNot::StateEquation {
+                weights: weights
+                    .iter()
+                    .map(|(atom, weight)| Weight {
+                        atom,
+                        weight: *weight,
+                    })
+                    .collect(),
+                once: *once,
             },
             _ => WhyNot::Exhausted,
         }

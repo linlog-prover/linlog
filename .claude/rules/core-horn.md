@@ -16,7 +16,8 @@ front door, the dispatch and the memory account it plugs into are in
   `is_net`, the dispatch's feature (a program with a clause under `!`:
   the goal's own `?` members, since the fragment the options assert may
   have exponentials the goal lacks); `reach.rs` the
-  search over markings; `proof.rs` the proof read off a firing
+  search over markings; `equation.rs` the state equation and the exact
+  check of its refutation; `proof.rs` the proof read off a firing
   sequence; `tests.rs` the engine's own tests (the reference comparison
   is `engines_agree_on_horn_programs` in `search/reference.rs`).
 - **The shape** (`Program::read`), one-sided, with the bodies' atoms of
@@ -97,6 +98,10 @@ front door, the dispatch and the memory account it plugs into are in
 - **Affine mode is refused** (`Error::EngineMode`): there a proof may
   weaken leftover tokens and unused clauses, which makes the question
   coverability, a different search.
+- **The state equation refutes beside the search** (`equation.rs`,
+  below): the second way to `Unprovable`, the one that reaches nets whose
+  markings grow without end (`!d, !((c * d * d) -o 1) |- c * c`, where
+  nothing makes `c`).
 
 ## The net
 
@@ -171,6 +176,50 @@ front door, the dispatch and the memory account it plugs into are in
   (`Engine::parallel` is false), so the command adds no pool beside it
   (`search::engine_for`, asked when the pool would start): a pool would
   run the same search again, at twice the memory bound.
+
+## The state equation (`equation.rs`)
+
+- **What refutes.** A firing sequence from `M₀` to `M` fires each
+  transition `t` some `xₜ ≥ 0` times, so `M − M₀ = Σ xₜ·Cₜ`, `Cₜ` its
+  effect (the tickets of clauses used once are places, so their count
+  is in it). Integer weights `y` per place with `y·Cₜ ≤ 0` for every
+  transition and `y·(M − M₀) > 0` make that impossible: `y·(M − M₀) =
+  Σ xₜ·(y·Cₜ) ≤ 0`. That is Farkas' lemma for the rational relaxation;
+  `certify` checks exactly those inequalities, in `i128` with checked
+  operations (a weight below 2⁶³ times an arc's weight below 2³², fewer
+  than 2³² terms: no sum reaches 2¹²⁷), over every transition of the
+  `Program`, including the ones the tableau left out. Only a vector it
+  accepts becomes `Refutation::StateEquation`; nothing else of the
+  module bears on soundness.
+- **Who proposes the weights.** A dense tableau of the simplex's first
+  phase (`Tableau`): a row per place that a transition changes or the
+  target names, signed so the right-hand side is not negative; a column
+  per transition with an effect, an artificial column per row. Bland's
+  rule (first improving column, first basic column among tied rows) at
+  a tolerance of 10⁻⁹; at the optimum, an objective above zero means no
+  solution, and the duals read off the artificial columns' reduced costs
+  (`yᵢ = σᵢ(1 − dᵢ)`) are the weights. Floating point, so they are read
+  as fractions of denominator at most 2²⁰ (continued fractions), brought
+  to integers by the common denominator (at most 2⁴⁰) and divided by
+  their gcd; a vector that rounding spoiled fails the check and costs a
+  refutation, never makes a wrong one. No crate: an LP solver from
+  crates.io would neither poll the caller's stop nor charge the memory
+  account, and `microlp`, the maintained pure-Rust one, reads a clock.
+- **Interleaved with the search by work** (`Equation::wants`, `run`):
+  the search counts its work (transitions examined and markings written
+  in `reach.rs`), and the simplex may touch `ENTRIES_PER_UNIT` (16)
+  tableau entries per unit, its setup counting the whole tableau; so a
+  net the search decides at once never builds a tableau, and one it
+  cannot decide gets the simplex at no more than about the time the
+  search had. The library's nets are all reachable, so there the
+  equation can only cost. The tableau is charged to the search's
+  account; one that does not fit is never built. Bland's rule ends in
+  exact arithmetic; in floating point the simplex gives up after `64 ×
+  (rows + columns)` pivots. The stop is polled at every pivot.
+- **After the search runs out of room** (`MemoryLimit`, `IndexLimit`) its
+  memory is given back and the simplex runs to its end with the rest of
+  the time: an unbounded net is what fills the memory, and what the
+  equation is for.
 
 ## The proof (`proof.rs`)
 

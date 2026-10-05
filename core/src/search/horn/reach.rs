@@ -11,6 +11,7 @@
 //! bound.
 
 use super::Program;
+use super::equation::{ENTRIES_PER_UNIT, Equation};
 use crate::search::memory::{Account, Charged, bytes_of};
 use crate::search::{Reason, Statistics};
 use std::cmp::Reverse;
@@ -27,10 +28,11 @@ pub(super) const MOST_MARKINGS: usize = u32::MAX as usize - 1;
 const ROOT: u32 = u32::MAX;
 
 /// Searches the program's markings from the initial one for the target,
-/// polling `stop` at every successor taken from the frontier and keeping
-/// at most `most` markings, and returns the transitions of a firing
-/// sequence that reaches it, `None` when the reachable markings are
-/// exhausted, or the reason it stopped; and the counters: the initial
+/// polling `stop` at every successor taken from the frontier, keeping at
+/// most `most` markings and giving `equation` its share of the work, and
+/// returns the transitions of a firing sequence that reaches it, `None`
+/// when the reachable markings are exhausted or the state equation
+/// refutes, or the reason it stopped; and the counters: the initial
 /// marking and the successors taken from the frontier as `nodes`, those
 /// of them kept already as `memo_hits`, the markings kept, each expanded
 /// once, as `memo_entries`.
@@ -38,10 +40,11 @@ pub(super) fn search(
     program: &Program,
     account: &Account,
     most: usize,
+    equation: &mut Equation<'_>,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
     let mut search = Search::new(program, account);
-    let result = search.run(most, stop);
+    let result = search.run(most, equation, stop);
     let statistics = Statistics {
         nodes: search.parents.len() as u64 + search.repeated,
         memo_hits: search.repeated,
@@ -102,6 +105,8 @@ struct Search<'a> {
     charged: Charged<'a>,
     /// The successors taken from the frontier that were kept already.
     repeated: u64,
+    /// The work done, in transitions examined and markings written.
+    work: u64,
 }
 
 impl<'a> Search<'a> {
@@ -147,6 +152,7 @@ impl<'a> Search<'a> {
             written: Vec::new(),
             charged: Charged::new(account),
             repeated: 0,
+            work: 0,
         }
     }
 
@@ -154,6 +160,7 @@ impl<'a> Search<'a> {
     fn run(
         &mut self,
         most: usize,
+        equation: &mut Equation<'_>,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Option<Vec<u32>>, Reason> {
         let program = self.program;
@@ -186,6 +193,10 @@ impl<'a> Search<'a> {
             };
             if stop() {
                 return Err(Reason::Stopped);
+            }
+            let budget = self.work.saturating_mul(ENTRIES_PER_UNIT);
+            if equation.wants(budget) && equation.run(program, budget, stop)? {
+                return Ok(None);
             }
             (parent, transition) = (u32::MAX - key as u32, t);
             self.successor(parent, transition)?;
@@ -229,7 +240,9 @@ impl<'a> Search<'a> {
             }));
         let counts = &self.counts;
         let mut successors = Vec::new();
+        let mut examined = 0;
         for t in candidates {
+            examined += 1;
             let transition = &program.transitions[t as usize];
             let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
             if inputs.iter().any(|&(p, w)| counts[p as usize] < w) {
@@ -245,6 +258,7 @@ impl<'a> Search<'a> {
             let rank = d.min(u64::from(u32::MAX));
             successors.push(Reverse((rank << 32 | u64::from(u32::MAX - index), t)));
         }
+        self.work += examined;
         self.marked = marked;
         let before = self.frontier.capacity() * size_of::<Entry>();
         if self.frontier.capacity() - self.frontier.len() < successors.len() {
@@ -324,6 +338,7 @@ impl<'a> Search<'a> {
 
     /// Writes the marking at hand into `written`.
     fn write(&mut self) {
+        self.work += 1;
         self.written.clear();
         let mut from = 0;
         for &p in &self.marked {
