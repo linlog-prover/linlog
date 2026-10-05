@@ -23,10 +23,17 @@ use crate::search::Reason;
 use crate::search::memory::{Account, Charged};
 
 /// The entries of the simplex's basis and columns it may touch for each
-/// unit of work the search beside it has done: a unit is a transition
-/// examined or a marking written, which takes some sixteen times an
-/// entry's update.
-pub(super) const ENTRIES_PER_UNIT: u64 = 16;
+/// unit of work the search beside it has done in affine mode: a unit is a
+/// marking computed, an element compared or a lookup, which takes some
+/// sixteen times an entry's update, so the simplex has about half the
+/// time. A coverability problem from verification is mostly safe, and the
+/// equation refutes most of those.
+const AFFINE_ENTRIES_PER_UNIT: u64 = 16;
+
+/// The same in linear mode, where a unit is a transition examined or a
+/// marking written: about a fifth of the time, beside a search that on
+/// the nets of practice mostly proves the goal.
+const LINEAR_ENTRIES_PER_UNIT: u64 = 4;
 
 /// What the tolerance of the simplex counts as zero. The tableau starts
 /// with small integers, and what the simplex gets wrong by more than this
@@ -85,6 +92,16 @@ impl<'a> Equation<'a> {
         }
     }
 
+    /// The entries the simplex may touch for the search's `work`.
+    pub(super) fn budget(&self, work: u64) -> u64 {
+        let per_unit = if self.affine {
+            AFFINE_ENTRIES_PER_UNIT
+        } else {
+            LINEAR_ENTRIES_PER_UNIT
+        };
+        work.saturating_mul(per_unit)
+    }
+
     /// Whether the simplex would run within `budget` entries: it is
     /// neither done nor yielded and has spent less.
     pub(super) fn wants(&self, budget: u64) -> bool {
@@ -130,10 +147,12 @@ impl<'a> Equation<'a> {
     ) -> Result<bool, Reason> {
         if let State::Waiting = self.state {
             // The set-up reads every arc and lays out a basis of up to a
-            // row per place: it waits until the search has done as much.
+            // row per place, and a pivot touches it twice: the simplex
+            // waits until the search has done as much as both.
             let places = program.places as u64;
             let set_up = places
                 .saturating_mul(places)
+                .saturating_mul(3)
                 .saturating_add(program.arcs.len() as u64);
             if budget < set_up {
                 return Ok(false);
@@ -150,7 +169,8 @@ impl<'a> Equation<'a> {
             return Ok(false);
         };
         let weights = loop {
-            if self.spent >= budget {
+            // A pivot is made only within the budget.
+            if self.spent.saturating_add(tableau.entries()) > budget {
                 return Ok(false);
             }
             if stop() {

@@ -19,7 +19,7 @@
 //! and the caller's stop do.
 
 use super::Program;
-use super::equation::{ENTRIES_PER_UNIT, Equation};
+use super::equation::Equation;
 use super::reach::room;
 use crate::hash::HashMap;
 use crate::search::memory::{Account, Charged};
@@ -176,7 +176,7 @@ impl<'a> Search<'a> {
             if stop() {
                 return Err(Reason::Stopped);
             }
-            let budget = self.work.saturating_mul(ENTRIES_PER_UNIT);
+            let budget = equation.budget(self.work);
             if equation.wants(budget) && equation.run(program, budget, stop)? {
                 return Ok(None);
             }

@@ -20,9 +20,10 @@
 //! without end forward often have few backward.
 
 use super::Program;
-use super::equation::{ENTRIES_PER_UNIT, Equation};
+use super::equation::Equation;
 use crate::search::memory::{Account, Charged, bytes_of};
 use crate::search::{Reason, Statistics};
+use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::hash::BuildHasher;
@@ -36,10 +37,12 @@ pub(super) const MOST_MARKINGS: usize = u32::MAX as usize - 1;
 /// The parent of the initial marking.
 const ROOT: u32 = u32::MAX;
 
-/// The work the forward search does alone before the backward search
-/// starts beside it: a net decided within it is searched exactly as
-/// without the backward search, which most nets of practice are.
-const BACKWARD_AFTER: u64 = 1 << 16;
+/// The markings the forward search keeps alone before the backward
+/// search starts beside it: a net decided within them is searched exactly
+/// as without the backward search, which most nets of practice are (a
+/// count of work instead started it after a few expansions of the
+/// library's largest nets).
+const BACKWARD_AFTER: usize = 1 << 14;
 
 /// The backward search's share: it may do one unit of work for every
 /// this many of the forward search's.
@@ -62,34 +65,43 @@ pub(super) fn search(
     equation: &mut Equation<'_>,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
-    let reversed = program.reversed();
+    // The reversed program and the backward search are made only when the
+    // backward search starts: most nets are decided before.
+    let reversed = OnceCell::new();
     let mut forward = Search::new(program, account, Vec::new());
-    let mut backward = Search::new(&reversed, account, program.caps());
-    let result = both(&mut forward, &mut backward, most, equation, stop);
+    let mut backward = None;
+    let result = both(&mut forward, &mut backward, &reversed, most, equation, stop);
+    let (nodes, hits, kept) = backward
+        .as_ref()
+        .map_or((0, 0, 0), |b: &Search<'_>| (b.nodes(), b.repeated, b.kept));
     let statistics = Statistics {
-        nodes: forward.nodes() + backward.nodes(),
-        memo_hits: forward.repeated + backward.repeated,
-        memo_entries: forward.kept + backward.kept,
+        nodes: forward.nodes() + nodes,
+        memo_hits: forward.repeated + hits,
+        memo_entries: forward.kept + kept,
         ..Statistics::default()
     };
     (result, statistics)
 }
 
 /// The forward search with the state equation and the backward search
-/// beside it, as [`search`] describes.
-fn both(
-    forward: &mut Search<'_>,
-    backward: &mut Search<'_>,
+/// beside it, as [`search`] describes; the backward search is made in
+/// `backward` when it starts, on the program reversed in `reversed`.
+fn both<'a>(
+    forward: &mut Search<'a>,
+    backward: &mut Option<Search<'a>>,
+    reversed: &'a OnceCell<Program>,
     most: usize,
     equation: &mut Equation<'_>,
     stop: &mut dyn FnMut() -> bool,
 ) -> Result<Option<Vec<u32>>, Reason> {
     let program = forward.program;
+    let account = forward.charged.account();
     // Out of room, the forward search takes back the simplex's memory,
     // then the backward search's, and tries once more.
-    if let Some(firings) =
-        forward.start(most, &mut || equation.release() || backward.give_back())?
-    {
+    let release = |equation: &mut Equation<'_>, backward: &mut Option<Search<'a>>| {
+        equation.release() || backward.as_mut().is_some_and(Search::give_back)
+    };
+    if let Some(firings) = forward.start(most, &mut || release(equation, backward))? {
         return Ok(Some(firings));
     }
     loop {
@@ -97,25 +109,31 @@ fn both(
             return Err(Reason::Stopped);
         }
         let work = forward.work;
-        let budget = work.saturating_mul(ENTRIES_PER_UNIT);
+        let budget = equation.budget(work);
         if equation.wants(budget) && equation.run(program, budget, stop)? {
             return Ok(None);
         }
-        if work >= BACKWARD_AFTER && backward.alive {
-            match backward.advance(work / BACKWARD_SHARE, most, stop) {
-                Ok(Slice::Found(mut firings)) => {
-                    firings.reverse();
-                    return Ok(Some(firings));
+        if forward.kept >= BACKWARD_AFTER {
+            let behind = backward.get_or_insert_with(|| {
+                let reversed = reversed.get_or_init(|| program.reversed());
+                Search::new(reversed, account, program.caps())
+            });
+            if behind.alive {
+                match behind.advance(work / BACKWARD_SHARE, most, stop) {
+                    Ok(Slice::Found(mut firings)) => {
+                        firings.reverse();
+                        return Ok(Some(firings));
+                    }
+                    Ok(Slice::Exhausted) => return Ok(None),
+                    Ok(Slice::Paused) => {}
+                    Err(Reason::MemoryLimit(_) | Reason::IndexLimit) => {
+                        behind.give_back();
+                    }
+                    Err(reason) => return Err(reason),
                 }
-                Ok(Slice::Exhausted) => return Ok(None),
-                Ok(Slice::Paused) => {}
-                Err(Reason::MemoryLimit(_) | Reason::IndexLimit) => {
-                    backward.give_back();
-                }
-                Err(reason) => return Err(reason),
             }
         }
-        match forward.step(most, &mut || equation.release() || backward.give_back())? {
+        match forward.step(most, &mut || release(equation, backward))? {
             Slice::Paused => {}
             Slice::Found(firings) => return Ok(Some(firings)),
             Slice::Exhausted => return Ok(None),

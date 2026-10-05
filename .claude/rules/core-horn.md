@@ -191,8 +191,9 @@ front door, the dispatch and the memory account it plugs into are in
   chain of 160 000 places take 6.4 s instead of 0.17 s (the panel's
   finding).
 - **A backward search beside the forward one** (`both`): once the
-  forward search has done `BACKWARD_AFTER` (2¹⁶) units of work without
-  deciding, the same search runs on the reversed program
+  forward search has kept `BACKWARD_AFTER` (2¹⁴) markings without
+  deciding (a count of work started it after a few expansions of the
+  library's largest nets, a quarter slower in the median), the same search runs on the reversed program
   (`Program::reversed`: every transition's inputs and outputs swapped,
   the initial and the target marking swapped), a unit of work for every
   `BACKWARD_SHARE` (4) of the forward's. Its finding its target, the
@@ -204,7 +205,11 @@ front door, the dispatch and the memory account it plugs into are in
   a marking above a cap is dropped, counted with `memo_hits`): every
   marking such a sequence passes has at most that many, and without the
   caps the tickets of clauses used once grow without end backward. Nets
-  decided within the first 2¹⁶ units are searched exactly as before.
+  decided within the first 2¹⁴ markings are searched as before, but for
+  the order among successors at the same distance from the same marking,
+  which the transitions' indices break and the dropped dead transitions
+  shift. The reversed program and the backward search are made only when
+  it starts.
   Measured on random programs near the Horn shape (step 27's report):
   with the state equation and the dead transitions, the backward search
   is what refutes the rest of what the focused engine refutes
@@ -317,13 +322,22 @@ front door, the dispatch and the memory account it plugs into are in
 - **Interleaved with the search by work** (`Equation::wants`, `run`):
   the search counts its work (transitions examined and markings written
   in `reach.rs`; transitions tried, elements compared and the trie's
-  lookups in `cover.rs`), and the simplex may touch `ENTRIES_PER_UNIT`
-  (16) entries per unit. Its set-up waits until that budget reaches the
-  places squared plus the arcs (a basis of up to a row per place, every
-  arc read once, each transition's effect merged from its sorted arcs in
-  one pass), so a net the search decides at once never builds one, and
-  one it cannot decide gets the simplex at no more than about the time
-  the search had. The first panel of the second session found the set-up
+  lookups in `cover.rs`), and the simplex may touch
+  `LINEAR_ENTRIES_PER_UNIT` (4, about a fifth of the time, beside a
+  search that on the nets of practice mostly proves) or
+  `AFFINE_ENTRIES_PER_UNIT` (16, about half, since coverability problems
+  from verification are mostly safe and the equation refutes most of
+  them) entries per unit (`Equation::budget`). Its set-up waits until
+  that budget reaches three times the places squared plus the arcs (a
+  basis of up to a row per place laid out, a first pivot touching it
+  twice, every arc read once, each transition's effect merged from its
+  sorted arcs in one pass), and a pivot is made only within the budget:
+  so a net the search decides at once never builds one, and one it
+  cannot decide gets the simplex at no more than its share. With the
+  share at 16 for both, and the set-up waiting for the places squared
+  alone, the library's nets took 1.6 times as long in the median of a
+  sample of 50 (2.2 ms against 3.7 ms); now the median is the first
+  session's. The first panel of the second session found the set-up
   built at the first poll whatever the budget, with a quadratic merge:
   a clause of 100 000 outputs took 2.6 s where the search alone took
   22 ms, a chain of 5 000 clauses 279 ms against 3.5 ms now. The library's nets are all reachable, so there the

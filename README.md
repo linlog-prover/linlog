@@ -173,10 +173,10 @@ markings reached: 7 (0 of them again)
 markings kept: 7
 time: 45.06µs
 $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d * a"
-unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by 1, b by 2, c by 4 and d by 8, no clause raises the weighted count of the atoms, and the goal asks it raised
-markings reached: 4 (0 of them again)
-markings kept: 4
-time: 227.40µs
+unprovable (MELL, classical, horn engine): the search was exhaustive
+markings reached: 12 (2 of them again)
+markings kept: 10
+time: 31.81µs
 $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
 unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause raises the weighted count of the atoms, and the goal asks it raised
 $ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"

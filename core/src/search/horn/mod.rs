@@ -169,9 +169,13 @@ impl Program {
     fn caps(&self) -> Vec<u32> {
         let mut raised = vec![false; self.places];
         for t in &self.transitions {
-            let inputs = &self.arcs[t.inputs as usize..t.outputs as usize];
+            // The inputs and the outputs are each sorted by place.
+            let mut inputs = self.arcs[t.inputs as usize..t.outputs as usize]
+                .iter()
+                .peekable();
             for &(p, w) in &self.arcs[t.outputs as usize..t.end as usize] {
-                let taken = inputs.iter().find(|&&(q, _)| q == p).map_or(0, |&(_, v)| v);
+                while inputs.next_if(|&&(q, _)| q < p).is_some() {}
+                let taken = inputs.next_if(|&&(q, _)| q == p).map_or(0, |&(_, v)| v);
                 if w > taken {
                     raised[p as usize] = true;
                 }
