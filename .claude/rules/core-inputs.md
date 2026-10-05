@@ -44,8 +44,11 @@ the generated families are read; the harness that runs them is
   are clauses `!(line -o goal)` to a fresh atom (`goal`, else `goal_1`,
   …), which in affine mode is covered exactly when a line is. Every form
   of the qcover suite's 176 files is read (guards `x >= k`, updates `x' =
-  x ± k`, init `=` and `>=`, `#` comments, an `invariants` section, which
-  is skipped); an update from another counter, a counter updated twice,
+  x ± k`, init `=` and `>=`, `#` comments, a comma at the end of a line
+  or at the start of the next joining the two, as the bug-tracking files
+  write their initial markings, an `invariants` section, which is
+  skipped); rules and targets are kept sparse, since a file declares up
+  to 66 950 counters and 213 625 rules; an update from another counter, a counter updated twice,
   and the names `top` and `bot` (units in this syntax) are refused. The
   expected result is the first line's `#expected result: safe|unsafe`,
   which only 12 of the suite's files state (`Safety::Unsafe` is

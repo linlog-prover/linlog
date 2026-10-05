@@ -352,15 +352,21 @@ impl<'a> Reader<'a> {
         }
     }
 
-    /// Reads a comma if one comes next, and returns whether one did or the
-    /// line goes on: a comma at the end of a line joins it to the next.
+    /// Reads a comma if one comes next, on this line or first on a later
+    /// one, and returns whether one did or the line goes on: a comma at the
+    /// end of a line or at the start of the next joins the two, as
+    /// qcover's files write long initial markings.
     fn comma_or_line(&mut self) -> bool {
-        match self.tokens.get(self.at) {
+        let mut at = self.at;
+        while self.tokens.get(at) == Some(&Token::Line) {
+            at += 1;
+        }
+        match self.tokens.get(at) {
             Some(Token::Word(",")) => {
-                self.at += 1;
+                self.at = at + 1;
                 true
             }
-            Some(Token::Word(_)) => true,
+            Some(Token::Word(_)) => at == self.at,
             _ => false,
         }
     }
@@ -452,7 +458,8 @@ mod tests {
     use super::*;
 
     /// Rules over several lines, guards above a decrement, a decrement
-    /// without a guard, a rule without guards, comments, parameters, a
+    /// without a guard, a rule without guards, comments, parameters, lines
+    /// joined by a comma at the end of one or the start of the next, a
     /// target of two lines and a counter left out of `init`, and malformed
     /// files refused.
     #[test]
@@ -462,8 +469,8 @@ mod tests {
                     rules\n  a >= 2 ->\n    a' = a - 1,\n    b' = b + 1;\n\
                     \x20 b >= 1 -> c' = c - 1;   # takes a c it does not test\n\
                     \x20 -> a' = a + 1;\n\
-                    init\n  a = 1, b >= 2\n\
-                    target\n  c >= 1, b >= 1\n  a >= 3\n\
+                    init\n  a = 1\n  , b >= 2\n\
+                    target\n  c >= 1,\n  b >= 1\n  a >= 3\n\
                     invariants\n  a = 1, b = 1\n";
         let problem = read(text).unwrap();
         assert_eq!(problem.expected, None);
