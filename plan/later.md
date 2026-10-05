@@ -259,9 +259,14 @@ Step 27's first session built the engine (`core/src/search/horn/`,
 markings, the proof read off the firing sequence, a refutation when the
 reachable markings are exhausted, and the default for Horn programs with
 a clause under `!` in linear mode (`plan/reports/27-horn.md` has the
-measurement). Its follow-ups are under "Follow-ups: the Horn engine";
-coverability in affine mode and the qcover suite are the step's second
-session.
+measurement). Its second session added coverability in affine mode (the
+backward algorithm, with a trie of its elements), the net's state
+equation in both modes (a revised simplex proposes Farkas weights, an
+exact check in integers confirms them), dropped dead transitions and a
+backward reachability search beside the forward one, made the Horn row
+take affine mode too, and fetched the qcover suite with a reader for
+its `.spec` format. Its follow-ups are under "Follow-ups: the Horn
+engine".
 
 ## Cyclic MLL and the Lambek calculus
 
@@ -981,23 +986,54 @@ meets first on a large problem, and come before any new engine:
 
 Left by step 27's first session (`plan/reports/27-horn.md`):
 
-- **The nets it leaves undecided** within 5 s (⟨N⟩ of the library's 3 137):
-  goals far from the initial marking in large state spaces (the BART,
-  CloudDeployment, DES and AutoFlight models), where the distance in
-  tokens leads the greedy search onto plateaus. Candidates, each to be
+- **The nets it leaves undecided** within 5 s (66 of the library's 3 137
+  after step 27's second session, 60 at the time limit and 6 at the
+  memory bound): goals far from the initial marking in large state
+  spaces (the BART, CloudDeployment, DES and AutoFlight models), where
+  the distance in tokens leads the greedy search onto plateaus. Candidates, each to be
   measured: the state equation (`M₀ + C·x = M` over the integers, or its
   rational relaxation) as a prune and a heuristic, partial-order
   reduction (stubborn sets), and structural reductions of the net.
-- **A refutation is only an exhaustion**: a net whose markings grow
-  without end is searched until the stop or the memory bound even where
-  a place invariant or the state equation refutes it at once
-  (`!(A -o A * A), !(B * B -o C), A, B |- C` runs to its time limit).
+- **What no refutation reaches yet** (step 27's second session added the
+  state equation, dead transitions and the backward search): a net whose
+  markings grow without end both ways while its state equation has a
+  rational solution and its goal is unreachable for a reason of
+  integers or order (`!(a -o a * a * a), !(a * a -o b), !(d -o d * d),
+  !(d * d -o d), a, d |- b * d`: the `a` stay odd). Candidates: the
+  state equation over the integers, trap constraints (Esparza and
+  Melzer), and the equation refined by the backward search's markings.
+- **The state equation misses certificates whose weights span more than
+  2²⁰** in the ratio of the largest (a chain of forty doublings, exact
+  weights `2ⁱ`): the floating-point simplex's vertex reads as zero below
+  10⁻⁹ of the largest weight. An exact rational simplex on small nets,
+  or reading the weights off the basis exactly, would find them.
+- **The simplex's basis is dense**: a net of tens of thousands of places
+  (qcover's largest has 66 950) never gets the equation, its basis
+  passing the memory bound. A sparse factorization (an LU of the basis,
+  updated per pivot) would reach them.
+- **Memory at tight bounds**: the trie of the backward coverability
+  search takes 30 to 75 % more memory than a scan would, its hash table
+  is charged at about 14 % under what hashbrown allocates, and at a bound
+  of a few kilobytes the checker gives up checking a proof the engine
+  found (an error, exit 2), as before step 27.
+- **The shares are set by a sample**: the simplex's fifth of the time in
+  linear mode and half in affine mode, the backward search's quarter and
+  its start after 2¹⁴ markings were chosen on a sample of 50 library
+  nets and the qcover runs; a baseline should look at them again.
+- **Coverability that the backward search leaves**: the counter is
+  exponential backward (128 tokens: 6 s in affine mode, 2.5 ms forward in
+  linear mode); a forward search for a covering marking beside the
+  backward one would prove such goals. qcover's own algorithm prunes
+  every backward element whose rational state equation from the initial
+  marking has no solution (an LP per element), which is what its paper
+  measures on the problems this engine leaves at 5 s.
 - **The frontier keeps duplicates**: successors are written out only
   when taken, so a marking reached by many paths is on the frontier many
   times (sixteen bytes each); on nets of high branching that is what
   meets the memory bound (`DNAwalker_dnawalk-18_20_1` after 1.3 s).
 - **Constant factors**: `Program::read` runs three times per call (the
-  dispatch's feature, `admits`, `decide`), and a goal refuted by the
+  dispatch's feature, `admits`, `decide`; the dead transitions are
+  dropped in `decide` alone), and a goal refuted by the
   counts or by exhaustion has its counts built twice (the engine's test
   before the search, `prove_goal`'s reason after).
 - **The counts before the search are quadratic** where atoms outside
