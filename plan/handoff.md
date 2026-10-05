@@ -147,17 +147,22 @@ decision). The next command is step 27's first session:
 claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-Its first session ran unattended overnight and was reviewed on
-2026-10-05 (three commits signed then). The next command is its second
-session, which also runs unattended (the prompt's "Both sessions run
-unattended"); at its review, sign what it committed unsigned first:
+Both its sessions ran unattended (overnight, then by day) and were
+reviewed on 2026-10-05, the unsigned commits signed at each review: the
+Horn engine decides Horn programs with a clause under `!` in every mode
+(reachability, coverability, the state equation with an exactly checked
+Farkas certificate, dead transitions, a backward search), and reads the
+qcover suite (`linlog::mist`). The next command is step 28's first
+stage, the audit:
 
 ```nu
-claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step-27b ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28-audit-and-refactor.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-Review it before its second session (`--name step-27b`). At the review
-of the second, finish `plan/28-audit-and-refactor.md`.
+Its stage 1 ends with a decision list for the author; each later stage
+is a session of its own, started with the same command (`--name
+step-28b`, `step-28c`, …), and reviewed before the next. At the review
+of its last check round, finish `plan/29-comparison.md`.
 
 Models and efforts were re-evaluated on 2026-10-03 and again on
 2026-10-04 ("Why these models and efforts" in `plan/README.md`, with

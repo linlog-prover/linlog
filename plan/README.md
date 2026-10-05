@@ -46,7 +46,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
 | 26 | The focused engine in order, and the dispatch as a measured table (two sessions, a review between) | `26-focused-engine.md` | Opus 5.5 (Fable's allowance spent) | xhigh, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Opus 5.5 (Fable's allowance spent) | xhigh, with the panel | 24, 26 |
-| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` (finished at the review of 27) | Opus 5.5; Fable 5.1 for the audit's soundness lens, the judge of the API note and the panel's argument; the other reviewers by lens | high | 27 |
+| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` | Opus 5.5; Fable 5.1 for the audit's soundness lens, the judge of the API note and the panel's argument; the other reviewers by lens | high | 27 |
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The third baseline (a night), and the first release prepared | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
@@ -522,7 +522,8 @@ and whether the bounds are the right ones, the second baseline says.
 Since steps 26 and 27 the table lives in the code, `search::DISPATCH`,
 documented on `Engine` with the measurement behind each row; the table
 above is the original design. Step 27 added the Horn engine's row:
-Horn programs with a clause under `!`, in linear mode.
+Horn programs with a clause under `!`, in every mode (reachability in
+linear mode, coverability in affine mode).
 
 **D9. Outcomes are three-valued.** `Proved(proof)`, `Unprovable` (only when
 the search was exhaustive) and `Unknown` (bound or time limit hit, with the
@@ -2017,3 +2018,17 @@ client follows it (step 32).
   prompt 27's section becomes "Both sessions run unattended" (the second
   session's completion condition, the cores, `nix flake check` never
   beside a timed run, a signing loop and marker file of its own).
+- 2026-10-05: review of step 27's second session (unattended by day;
+  five commits signed at the review), accepted without a fix to the
+  code. The Horn engine takes Horn programs with a clause under `!` in
+  every mode: coverability by the backward algorithm in affine mode, the
+  state equation with an exactly checked Farkas certificate, dead
+  transitions and a backward search in linear mode; the qcover suite is
+  fetched and read (`linlog::mist`, `--input-format spec`). Checked: the
+  tests, clippy, both `cargo hack` runs, `cargo deny`, `nix flake check`,
+  the target set, the families, qcover (59 proved, 102 refuted, the 12
+  stated results right), the library (3 750 proved, 142 refuted, no
+  contradiction), and the first review's 7 000 near-Horn sequents (no
+  contradiction; the linear row now loses 1, 1, 0 of the focused engine's
+  refutations where it lost 84, 80, 53, a parity case the integer state
+  equation would take). Prompt 28 finished. Next: step 28's audit.

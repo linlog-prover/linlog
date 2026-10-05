@@ -673,6 +673,50 @@ cache ran out at 11:02):
 30. `9f1b2ec2` Record the Horn engine's measurements (**unsigned**).
 31. This report and the follow-ups in `plan/later.md` (**unsigned**).
 
+### From the review of the second session
+
+Accepted without a fix to the code.
+
+- **Signed**: the five commits made after the passphrase's cache ran
+  out, at the review with the author present.
+- **Checked**: clippy, the tests (and `cargo test -p linlog`), both
+  `cargo hack` runs, `cargo deny`, `nix flake check`.
+- **The target set again** (cores 2 and 3): every row, verdict and
+  counter equal to `after-coverability.csv`, the Horn rows included.
+- **The families**: no mismatch (62 proved, 38 refuted, 23 unknown).
+- **qcover, run again** (`-i -a`, 5 s, two of the slower cores): 59
+  proved, 102 refuted, 15 unknown; the 12 files that state a result all
+  answered as stated; the proofs within the literature's 61 unsafe, the
+  refutations within its 115 safe. The largest file (18 MB, 914 053
+  lines) is read and searched within the 2 s limit at 250 MB, and
+  printed in 0.34 s.
+- **The LLTP library** by default on four cores: 3 750 proved and 142
+  refuted (the session's 3 753 and 142), no contradiction, no net
+  refuted; against the first session's review 52 decided more and 3
+  fewer, `SYJ` problems of the two-sided engine at the 2 s limit.
+- **The review's own 7 000 programs near the Horn shape**, the very
+  sequents of the first review, on the new binary against the focused
+  engines forced, at 1 s: no contradiction and no error in any of five
+  modes. In linear mode the Horn engine now decides 267, 272 and 298
+  that the focused engine does not, and loses 1, 1 and 0 where it lost
+  84, 80 and 53; in affine mode it decides all 3 751 the row takes,
+  1 383 and 762 more than the focused engine, and loses none.
+- **The one loss is the follow-up the report names**:
+  `!((c * d) -o (d * 1)), !(a -o 1), (a -o (b * d)), !((d * d) -o 1),
+  !a |- b`, intuitionistic or classical. It is unreachable by parity (once
+  the clause used once fires, `d` stays odd: no clause adds a `d`, only
+  pairs are removed, and the clause that takes a single `d` needs a `c`
+  that never comes), the rational state equation has a solution (half a
+  firing), and `!a` makes the markings grow, so neither search ends;
+  the focused engine refutes it, the Horn engine meets the memory bound
+  at 10 s. The session's own generator met no such program, so its
+  "loses none" holds for its programs; for the review's it is 1 of
+  3 751 against 267 gained. The integer state equation (modulo small
+  `k`, as panel C's judge used) is the follow-up that refutes it.
+- **Prompt 28 is finished** (the items steps 22 to 27 left it, the qcover
+  run among its checks), and D8's note says the Horn row takes every
+  mode.
+
 ## The first session
 
 The first session's report as it was written, with the review that

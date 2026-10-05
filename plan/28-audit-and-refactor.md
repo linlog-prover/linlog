@@ -4,8 +4,8 @@ You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes several
 sessions: the audit, then one session per area of fixes, each followed by
-a check round; every session starts from the reports before it. This
-prompt is finished at the review of step 27. Read before you start:
+a check round; every session starts from the reports before it. Read
+before you start:
 
 - `plan/reports/17-assessment.md`: section 1 in full (1.1's stale
   claims, 1.2's refactoring list, 1.3's invariants, 1.4's tests), "The
@@ -56,10 +56,45 @@ report:
   one account both draw from is the question); `--jobs 2` with
   `--pool-after` runs three threads; the harness's `--pool-after` and
   `--timeout` panic on a negative or NaN value.
-- **From step 26**: where a trail of bindings would go in the focused
-  engine and which prunes assume ground atoms (its report).
-- **From steps 22 to 27**: whatever their reports leave to "step 28" or
-  to "the audit".
+- **From step 22**: the left-out line of a derivation names the whole
+  derivation's size even where the compact view was tried (its lower
+  bound, `size::Firm`, needs a field in `ViewError`);
+  `Inference::times` is a public field every constructor sets;
+  `Compact` sits at the crate root beside `ViewOptions`; the Typst
+  layout's spacing fields are Typst code written verbatim and unchecked;
+  `RenderError` stands outside `Error` as the other export errors do;
+  `rocq::Options::lemma` is not checked to be an identifier; the
+  exports' `String` functions and their `write` twins could be one
+  generic call.
+- **From step 23**: the stale claims outside the rules files and
+  CLAUDE.md (README's "returning a checked proof", the `--help` texts
+  section 1.1 lists), and the lint allowances of `core/src/lib.rs`,
+  whose reason is items live under one feature only, test-only items and
+  a few dead ones.
+- **From step 24**: `batch::Options` gets its wire form with the search
+  options'; `--jobs 2` races one thread against a pool of two (three
+  threads), the race written twice and its memory doubled (above).
+- **From step 25**: `Image::read_back` and `Derivation::check` take no
+  stop (4.5 s past the time limit on a read-back of 11.6 million
+  inferences, under `--derivation-limit none` only); `ordinary::Sequent`
+  and `ordinary::Derivation` have no JSON form, which the web front end
+  needs; the classical certificate's import line is a constant of
+  `ordinary::rocq`, an option of `rocq::Options` by D15.
+- **From step 26**: the engine interface (`search::Decide`, `Answer`,
+  one place that builds a `Verdict`) and the dispatch as data
+  (`search::DISPATCH`) are the shape the API keeps; its report's item 7
+  says where a trail of bindings would go in the focused engine and
+  which prunes assume ground atoms, the input of `plan/notes/api.md`'s
+  first-order plan. Its other follow-ups (a sparse memo key, a pool's
+  choice whose error cancels its siblings) are in `plan/later.md`.
+- **From step 27**: the Horn engine reuses `Statistics` (`nodes` the
+  markings reached, `memo_hits` and `memo_entries` the markings reached
+  again and kept), so the meaning of a counter depends on the engine;
+  `Refutation::StateEquation` names weights, and `Refutation` now lists
+  every JSON form; `search::engine_for` and `Engine::parallel` are public
+  queries for a front end that schedules threads; `linlog::mist` reads
+  Mist's `.spec` format, beside `lltp`; `Error::NotHorn` beside the other
+  refusals of a forced engine.
 
 ## Goal
 
@@ -212,7 +247,9 @@ most three rounds; what remains goes to `plan/later.md` with its reason.
 
 Every check after every commit that touches code: clippy, the tests,
 both `cargo hack` runs; `bench/targets.sh` after any commit that touches
-`search/`; `linlog-bench run --all-families --timeout 5`; `summary
+`search/` (its Horn rows included); the qcover suite through the harness
+(`--spec bench/qcover`, intuitionistic affine) after any commit that
+touches `search/horn/`; `linlog-bench run --all-families --timeout 5`; `summary
 --before` on the committed baselines reproducing `bench/COMPARISON.md`;
 `nix flake check`; `nix build .#doc`, and the rustdoc front page read as
 a stranger would read it.

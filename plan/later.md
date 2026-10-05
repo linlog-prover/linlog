@@ -1002,6 +1002,10 @@ Left by step 27's first session (`plan/reports/27-horn.md`):
   !(d * d -o d), a, d |- b * d`: the `a` stay odd). Candidates: the
   state equation over the integers, trap constraints (Esparza and
   Melzer), and the equation refined by the backward search's markings.
+  The step's review met one on its random programs near the Horn shape,
+  which the focused engine refutes and the row now leaves unknown (1 of
+  3 751, linear mode): `!((c * d) -o (d * 1)), !(a -o 1), (a -o (b *
+  d)), !((d * d) -o 1), !a |- b`, where `d` stays odd.
 - **The state equation misses certificates whose weights span more than
   2²⁰** in the ratio of the largest (a chain of forty doublings, exact
   weights `2ⁱ`): the floating-point simplex's vertex reads as zero below
