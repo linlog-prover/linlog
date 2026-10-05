@@ -7,6 +7,8 @@ result*
 /bench/lltp
 # The ILTP library's propositional problems, `nix build .#iltp -o bench/iltp`
 /bench/iltp
+# The qcover coverability suite, `nix build .#qcover -o bench/qcover`
+/bench/qcover
 .direnv/
 
 # Tracked even where a global ignore excludes .envrc files.
