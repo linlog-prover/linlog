@@ -86,38 +86,42 @@ pub(super) fn build(
         return Err(Reason::IndexLimit);
     }
     // The nodes, and a pair of a body literal and its token for each, at
-    // most a node each, which the replay writes once and orders once more;
-    // the tokens it keeps, a literal each; and the clauses fired.
-    let per_node = size_of::<Node>() + 2 * size_of::<(OccId, OccId)>() + size_of::<OccId>();
+    // most a node each; the tokens the replay keeps, a literal each; and
+    // the clauses fired, with where each one's pairs start.
+    let per_node = size_of::<Node>() + size_of::<(OccId, OccId)>() + size_of::<OccId>();
+    let per_firing = size_of::<(OccId, bool)>() + size_of::<usize>();
     let bytes = usize::try_from(nodes)
         .ok()
         .and_then(|nodes| nodes.checked_mul(per_node))
-        .and_then(|bytes| bytes.checked_add(clauses.len() * size_of::<(OccId, bool)>()))
+        .and_then(|bytes| bytes.checked_add(clauses.len() * per_firing))
         .filter(|&bytes| account.fits(bytes));
     let Some(bytes) = bytes else {
         return Err(Reason::MemoryLimit(account.limit()));
     };
     charged.charge(bytes);
-    let (pairs, left) = replay(forest, program, &clauses, nodes as usize);
+    let (pairs, starts, left) = replay(forest, program, &clauses, nodes as usize);
     let mut builder = Builder {
         forest,
         body: program.body,
         nodes: Vec::with_capacity(nodes as usize),
         values: Vec::new(),
     };
-    let mut pairs = pairs.as_slice();
-    let mut root = builder.clause(program.goal, None, &mut pairs, NodeId::new(0));
+    // The goal's pairs come last in the replay, each firing's in its place.
+    let mut goal = &pairs[starts[clauses.len()]..];
+    let mut root = builder.clause(program.goal, None, &mut goal, NodeId::new(0));
+    debug_assert!(goal.is_empty());
     for &weakened in left.iter().chain(&unused) {
         root = builder.push(Node::Weaken(weakened, root));
     }
-    for &(clause, reusable) in clauses.iter().rev() {
+    for (i, &(clause, reusable)) in clauses.iter().enumerate().rev() {
         let head = head_of(forest, program.body, clause);
-        root = builder.clause(clause, head, &mut pairs, root);
+        let mut fired = &pairs[starts[i]..starts[i + 1]];
+        root = builder.clause(clause, head, &mut fired, root);
+        debug_assert!(fired.is_empty());
         if reusable {
             root = builder.push(Node::Copy(clause, root));
         }
     }
-    debug_assert!(pairs.is_empty());
     for &marking in &program.markings {
         root = builder.head(marking, root);
     }
@@ -135,17 +139,18 @@ fn literals_of(marking: &[u32]) -> u64 {
 /// Replays the firings on the tokens, which are occurrences of head
 /// literals, from those of the markings: every body literal of a clause
 /// fired takes a token of its atom, and its head's literals become
-/// tokens. Returns the pairs of a body literal and its token in the order
-/// the proof is built in: the goal's first, then each firing's from the
-/// last to the first, and within each in decreasing order of the body
-/// literals' ids; and the tokens the goal leaves, which only a firing
-/// sequence that covers the target and does not reach it leaves.
+/// tokens. Returns the pairs of a body literal and its token, each
+/// firing's and then the goal's, each in decreasing order of the body
+/// literals' ids, which is the order the proof takes them in; where each
+/// firing's pairs start, and the goal's last; and the tokens the goal
+/// leaves, which only a firing sequence that covers the target and does
+/// not reach it leaves.
 fn replay(
     forest: &Forest,
     program: &Program,
     clauses: &[(OccId, bool)],
     capacity: usize,
-) -> (Vec<(OccId, OccId)>, Vec<OccId>) {
+) -> (Vec<(OccId, OccId)>, Vec<usize>, Vec<OccId>) {
     let place = |literal: OccId| {
         program.place_of[forest.atom(literal).expect("a literal").index()] as usize
     };
@@ -155,7 +160,7 @@ fn replay(
             tokens[place(x)].push(x);
         }
     }
-    // Each firing's pairs, and where they start.
+    // Each firing's pairs and the goal's, and where they start.
     let mut pairs = Vec::with_capacity(capacity);
     let mut starts = Vec::with_capacity(clauses.len() + 1);
     let take =
@@ -178,12 +183,8 @@ fn replay(
         }
     }
     starts.push(pairs.len());
-    let mut ordered = Vec::with_capacity(pairs.len() + forest.size(program.goal) as usize);
-    take(program.goal, None, &mut tokens, &mut ordered);
-    for window in starts.windows(2).rev() {
-        ordered.extend_from_slice(&pairs[window[0]..window[1]]);
-    }
-    (ordered, tokens.into_iter().flatten().collect())
+    take(program.goal, None, &mut tokens, &mut pairs);
+    (pairs, starts, tokens.into_iter().flatten().collect())
 }
 
 /// What builds the nodes: the forest, the sign of the bodies, the arena,
