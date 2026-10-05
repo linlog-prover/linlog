@@ -64,6 +64,9 @@ enum State {
     Waiting,
     /// Pivoting.
     Solving(Tableau),
+    /// Its tableau given back to a search that ran out of room; it starts
+    /// again only after the search, from [`Equation::finish`].
+    Yielded,
     /// Done: refuted, solved, or given up.
     Done,
 }
@@ -81,10 +84,36 @@ impl<'a> Equation<'a> {
         }
     }
 
-    /// Whether the simplex would run within `budget` entries: it is not
-    /// done and has spent less.
+    /// Whether the simplex would run within `budget` entries: it is
+    /// neither done nor yielded and has spent less.
     pub(super) fn wants(&self, budget: u64) -> bool {
-        !matches!(self.state, State::Done) && self.spent < budget
+        !matches!(self.state, State::Done | State::Yielded) && self.spent < budget
+    }
+
+    /// Gives the tableau's memory back, for a search that has no room
+    /// left: returns whether there was a tableau to give. The search never
+    /// loses a decision to the simplex's memory.
+    pub(super) fn release(&mut self) -> bool {
+        if !matches!(self.state, State::Solving(_)) {
+            return false;
+        }
+        self.state = State::Yielded;
+        self.charged = Charged::new(self.charged.account());
+        true
+    }
+
+    /// Runs the simplex to its end after a search that ran out of room and
+    /// gave its memory back, starting afresh if it had yielded; returns
+    /// what [`run`](Self::run) does.
+    pub(super) fn finish(
+        &mut self,
+        program: &Program,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<bool, Reason> {
+        if let State::Yielded = self.state {
+            self.state = State::Waiting;
+        }
+        self.run(program, u64::MAX, stop)
     }
 
     /// Runs the simplex until it has touched `budget` entries in all, or

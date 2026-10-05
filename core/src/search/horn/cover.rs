@@ -215,7 +215,14 @@ impl<'a> Search<'a> {
                     if dominated {
                         self.covered += 1;
                     } else {
-                        self.keep(e, t, most)?;
+                        // Out of room, the search takes back the simplex's
+                        // memory and tries once more.
+                        match self.keep(e, t, most) {
+                            Err(Reason::MemoryLimit(_)) if equation.release() => {
+                                self.keep(e, t, most)?;
+                            }
+                            kept => kept?,
+                        }
                     }
                 }
             }

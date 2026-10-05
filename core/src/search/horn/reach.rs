@@ -180,8 +180,19 @@ impl<'a> Search<'a> {
             if self.find().is_some() {
                 self.repeated += 1;
             } else {
-                let index = self.keep(parent, transition, most)?;
-                if let Some(t) = self.expand(index)? {
+                // Out of room, the search takes back the simplex's memory
+                // and tries once more.
+                let index = match self.keep(parent, transition, most) {
+                    Err(Reason::MemoryLimit(_)) if equation.release() => {
+                        self.keep(parent, transition, most)?
+                    }
+                    kept => kept?,
+                };
+                let found = match self.expand(index) {
+                    Err(Reason::MemoryLimit(_)) if equation.release() => self.expand(index)?,
+                    expanded => expanded?,
+                };
+                if let Some(t) = found {
                     let mut firings = self.path(index);
                     firings.push(t);
                     return Ok(Some(firings));

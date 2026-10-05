@@ -301,10 +301,20 @@ front door, the dispatch and the memory account it plugs into are in
   places, would need 36 GB). Bland's rule ends in exact arithmetic; in
   floating point the simplex gives up after `64 × (columns + 2m)`
   pivots. The stop is polled at every pivot.
+- **The search never loses a decision to the simplex's memory.** The
+  tableau is charged to the search's own account, so when the search has
+  no room for a marking, an element or the frontier, the simplex gives
+  its tableau back (`Equation::release`, state `Yielded`) and the search
+  tries once more; the simplex then waits for the search's end. Before
+  a proof is built the tableau goes too. The first panel of the second
+  session found goals the search proved before ending at the memory
+  limit, the tableau of a chain of 8 190 clauses taking the whole GiB.
 - **After the search runs out of room** (`MemoryLimit`, `IndexLimit`) its
   memory is given back and the simplex runs to its end with the rest of
-  the time: an unbounded net is what fills the memory, and what the
-  equation is for.
+  the time (`Equation::finish`, starting afresh if it had yielded): an
+  unbounded net is what fills the memory, and what the equation is for.
+  The reason then reported is the search's, after the time the simplex
+  took too.
 
 ## The proof (`proof.rs`)
 
