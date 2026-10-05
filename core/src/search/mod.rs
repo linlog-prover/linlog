@@ -513,7 +513,7 @@ const DISPATCH: [Row; 5] = [
     },
     Row {
         fragment: Fragment::MELL,
-        modes: Modes::Linear,
+        modes: Modes::Any,
         feature: Feature::PetriNet,
         engine: Engine::Horn,
     },
@@ -655,7 +655,7 @@ fn few_equal_literals(forest: &Forest) -> bool {
 /// |---|---|---|---|---|
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | unit-free MLL | linear, classical or intuitionistic | the sequent itself, no literal more than twice | [`Net`](Engine::Net) | as fast as the focused engines up to three times slower (`wide` sequents of 8 to 1 024 literals; intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 7 to 18 times slower), but the only engine that decides a long chain within the default recursion limit: `wide` with 2 048 literals in 0.64 s, a chain of 1 024 implications `a₀, a₀ ⊸ a₁, … ⊢ a₁₀₂₄` in 71 ms, where the focused engines recurse once per link |
-/// | MELL | linear, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
+/// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 149 (59 provable, 90 not) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; random affine programs of one to four atoms and clauses: decides all, at most 0.2 ms each, where the two-sided engine leaves 813 of 9 765 undecided at 1 s. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
 /// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on equal literals, as in the Horn encodings of Partition, 10 to 10⁵ times faster than the net engine, which is not the default there for that reason |
 /// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent |
 ///
@@ -733,7 +733,12 @@ pub enum Engine {
     /// many markings the net has. A net whose markings grow without end
     /// and whose equation has a solution is searched until the stop or
     /// [`Options::memory_limit`], which counts the markings kept and the
-    /// simplex's tableau. In affine mode, where the tokens and the clauses
+    /// simplex's basis. Two more refutations reach such nets: a clause
+    /// with an atom that no reachable marking holds never fires and is
+    /// left out, and once the search has done some work, the same search
+    /// runs backward from the goal beside it, a quarter of the work, whose
+    /// exhausting its markings refutes and whose firing sequence, read
+    /// backward, proves. In affine mode, where the tokens and the clauses
     /// a firing sequence leaves are weakened, the question is whether a
     /// marking that covers the goal is reachable, and the engine decides
     /// it backward: from the goal, the least markings from which a firing
@@ -1661,9 +1666,9 @@ mod tests {
     }
 
     /// A Horn program with a clause under `!` goes to the Horn engine in
-    /// linear mode, with Mix too; affine mode and the other sequents with
-    /// exponentials to the focused engine; and the net engine is refused
-    /// in affine mode.
+    /// every mode, with Mix and in affine mode too; the other sequents
+    /// with exponentials to the focused engine; and the net engine is
+    /// refused in affine mode.
     #[test]
     fn dispatch_by_mode() {
         for (input, mode, fragment, engine) in [
@@ -1701,6 +1706,12 @@ mod tests {
                 "!a, b |- a",
                 Mode::CLASSICAL.affine(),
                 Fragment::EXPONENTIALS,
+                Engine::Horn,
+            ),
+            (
+                "!a, b |- a & a",
+                Mode::CLASSICAL.affine(),
+                Fragment::ADDITIVES | Fragment::EXPONENTIALS,
                 Engine::Focus,
             ),
         ] {

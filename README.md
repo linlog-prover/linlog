@@ -141,11 +141,16 @@ the atoms, checked exactly, show that no firing raises the weighted
 count of the tokens while the goal needs it raised, however many
 markings the net has. A net whose markings grow without end and whose
 equation has a solution is searched until the time or the memory limit.
-In affine mode, where the tokens and clauses left over may be weakened,
-the question is whether some reachable marking covers the goal, and
-`--engine horn` decides it backward from the goal, the least markings
-from which a firing covers it kept until one lies below the start or no
-new one comes. `--stats` counts the markings:
+Two more refutations reach nets whose markings grow without end: a
+clause with an atom no reachable marking holds can never fire and is
+left out, and once the search has run a while, the same search runs
+backward from the goal beside it, where such a net often has few
+markings. In affine mode, where the tokens and clauses left over may be
+weakened, the question is whether some reachable marking covers the
+goal, and the engine decides it backward from the goal: the least
+markings from which a firing covers it are kept until one lies below the
+start, or none is new, which always comes. `--stats` counts the
+markings:
 
 ```console
 $ linlog prove "!A, !(A -o B), !(B -o C) |- C"
@@ -174,7 +179,18 @@ markings kept: 4
 time: 227.40µs
 $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
 unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause raises the weighted count of the atoms, and the goal asks it raised
+$ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"
+provable (MELL, classical affine, horn engine)
+markings computed backward: 1 (0 of them covered already)
+markings kept: 1
+time: 268.07µs
+$ linlog prove -q --affine "!(a * a -o b * b * b), a, a, a |- b * b * b * b"
+unprovable (MELL, classical affine, horn engine): the search was exhaustive
 ```
+
+The last goal's state equation has a solution, one and a third firings
+of the clause, so only the search refutes it; the `a` left over in the
+proof above is weakened.
 
 Provability in MELL has no known decision procedure, and full linear logic
 is undecidable, so the verdict is three-valued: "unprovable" is reported
@@ -890,8 +906,9 @@ the format's extension (`drawings/identity.svg`; `ILL/01/X.p` becomes
 `DIR/ILL/01/X.p.svg`, so the LLTP library's translations of one problem
 do not overwrite each other). A file's kind
 is its extension's unless `--input-format` says otherwise: `.p` is a
-problem of the LLTP library, `.json` a sequent in JSON, anything else the
-text syntax, for a single `prove` as well. An LLTP problem does not say
+problem of the LLTP library, `.spec` a coverability problem in the format
+of the Mist tool, `.json` a sequent in JSON, anything else the text
+syntax, for a single `prove` as well. An LLTP problem does not say
 whether it is intuitionistic (the library keeps those under `ILL/`), so
 the flags say it:
 
@@ -903,6 +920,27 @@ $ cat > problem.p
 > fof(goal, conjecture, b * 1).
 $ linlog prove -i -q --file problem.p
 provable (IMELL, intuitionistic, horn engine)
+```
+
+A `.spec` problem is a Petri net or a vector addition system as the
+coverability suites of software verification write it: counters, rules
+that test and change them, an initial marking (`x >= k` for at least `k`
+tokens, any number more), and the markings to cover, a line each. It is
+read as a Horn program, the rules under `!` and the initial tokens left
+of `⊢`, and covering is a question of affine mode, which the flags ask
+for. Two processes in the critical section at once, for any number of
+processes and one lock:
+
+```console
+$ cat > mutex.spec
+> vars idle critical lock
+> rules
+>   idle >= 1, lock >= 1 -> idle' = idle - 1, lock' = lock - 1, critical' = critical + 1;
+>   critical >= 1 -> critical' = critical - 1, idle' = idle + 1, lock' = lock + 1;
+> init idle >= 1, lock = 1
+> target critical >= 2
+$ linlog prove -i --affine -q --file mutex.spec
+unprovable (IMELL, intuitionistic affine, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each lock by 1 and critical by 1, no clause raises the weighted count of the atoms, and the goal asks it raised
 ```
 
 A directory is walked in sorted order, links followed, for the files of
@@ -948,15 +986,18 @@ ends only itself.
 ### Benchmarks
 
 `linlog-bench` (`cargo run --release -p linlog-bench -- …` in a checkout,
-or `nix build .#linlog-bench`) times the engines on three kinds of
+or `nix build .#linlog-bench`) times the engines on four kinds of
 problems: generated families with known verdicts (`linlog-bench families`
 lists them: 3-Partition as a Horn program and as an MLL sequent,
 Matsuoka's Partition, random QBF, wide sequents, contexts under Mix,
 Petri-net counters and more, each at any size), the problems of the
 [LLTP library](https://github.com/meta-logic/lltp) (`nix build .#lltp -o
 bench/lltp` fetches it at a pinned commit; its problems under `ILL/` run
-intuitionistically), and problem files of lines `name; mode; expected;
-copies; sequent` such as `bench/problems/slow-tests.txt`. `run` runs every
+intuitionistically), coverability problems in the `.spec` format with
+`--spec` (the 176 of the [qcover](https://github.com/blondimi/qcover)
+suite: `nix build .#qcover -o bench/qcover`; they run intuitionistic
+affine), and problem files of lines `name; mode; expected; copies;
+sequent` such as `bench/problems/slow-tests.txt`. `run` runs every
 problem in every mode, engine and thread count asked for, each run in a
 child process of its own with a time limit, and writes one CSV row per
 run with the verdict, the time and the engine's counters; `summary`
@@ -1091,9 +1132,14 @@ Built:
   test and a symmetry break for repeated literal conclusions, then
   sequentializes the net it finds; for two additive-only formulas a
   recursion on subformula pairs; and for Horn programs with clauses under
-  `!` (Petri nets) in linear mode a search of the reachable markings, kept
-  sparse and taken nearest the goal first, whose firing sequence is the
-  proof and whose exhaustion refutes. Which engine decides a goal is a table
+  `!` (Petri nets) a decision of the net's markings: in linear mode a
+  search of the reachable markings, kept sparse and taken nearest the
+  goal first, with a search backward from the goal beside it, whose
+  firing sequence is the proof and whose exhaustion refutes; in affine
+  mode the backward coverability algorithm, which always ends; and in
+  both the net's state equation, whose refutation is a weighting of the
+  atoms that no clause raises and the goal needs raised, found by a
+  simplex and checked exactly. Which engine decides a goal is a table
   of rows, by fragment, mode and one more feature, each the engine
   measured fastest there or the one that decides there at all; the
   library's documentation of `Engine` has it with the measurements.
@@ -1176,7 +1222,8 @@ Built:
   an atom) with the image printable, the linear proof read back as a
   derivation of LK or LJ that a checker of its own validates and every
   output draws, and a certificate over `Prop` for Rocq.
-- Benchmarks: a reader for the problems of the LLTP library, generated
+- Benchmarks: readers for the problems of the LLTP library and for
+  coverability problems in the `.spec` format of the Mist tool, generated
   families with known verdicts (the hard families of the literature and
   the cases where one engine is known to be slow), and `linlog-bench`,
   which runs them with a time limit per run, writes CSV and summarises it,
@@ -1191,8 +1238,6 @@ Planned, in roughly this order:
 - A web front end for proving step by step in the browser.
 - A Rocq library of linlog's own with certificates for every mode, next
   to the NanoYalla export.
-- Coverability as a decision procedure for Horn programs in affine mode,
-  and the coverability problems of software verification as a benchmark.
 - A first release.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for MLL and intuitionistic MLL (pruned

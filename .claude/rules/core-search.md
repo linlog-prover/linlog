@@ -130,10 +130,17 @@ the net engine's, and the others stay zero.
   connective or unit (`TwoFormulas`) to `additive`; unit-free MLL in a
   linear mode, the roots with no literal more than `NET_MULTIPLICITY`
   (2) times (`FewEqualLiterals`) to `net`; a Horn program with a
-  clause under `!` in a linear mode (`PetriNet`: the fragment has
+  clause under `!` in any mode (`PetriNet`: the fragment has
   exponentials and `horn::is_net` finds a program with a `?` member in
   the goal itself, whatever fragment the options assert) to `horn`; the
   rest by mode.
+- **Why the Horn row takes affine mode too** (measured at step 27's
+  second session): on qcover's 176 coverability problems at 5 s it
+  decides 149 where the two-sided engine, the default before, decides 8
+  (no verdict against another); on 9 765 random affine Horn programs it
+  decides every one in at most 0.2 ms, the two-sided engine 8 951 at
+  1 s; the focused engines seldom refute an affine goal with `!` (2 of
+  qcover's 176), their copy bound deepening without end.
 - **Why the Horn row takes only programs with `!`** (measured at step
   27): on the library's nets the Horn engine decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103, but on Horn
   programs without exponentials (the Partition encodings, clauses used
