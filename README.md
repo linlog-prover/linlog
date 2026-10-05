@@ -178,7 +178,7 @@ markings reached: 12 (2 of them again)
 markings kept: 10
 time: 31.81µs
 $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
-unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause raises the weighted count of the atoms, and the goal asks it raised
+unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
 $ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"
 provable (MELL, classical affine, horn engine)
 markings computed backward: 1 (0 of them covered already)
@@ -940,7 +940,7 @@ $ cat > mutex.spec
 > init idle >= 1, lock = 1
 > target critical >= 2
 $ linlog prove -i --affine -q --file mutex.spec
-unprovable (IMELL, intuitionistic affine, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each lock by 1 and critical by 1, no clause raises the weighted count of the atoms, and the goal asks it raised
+unprovable (IMELL, intuitionistic affine, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each lock by 1 and critical by 1, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
 ```
 
 A directory is walked in sorted order, links followed, for the files of
