@@ -34,7 +34,7 @@ struct Cli {
 enum Command {
     /// Run problems, each in a child process with a time limit, and write
     /// one CSV row per run
-    Run(RunArgs),
+    Run(Box<RunArgs>),
     /// Print Markdown tables of CSV files that `run` wrote: the problems
     /// solved within the time limit per family and configuration, and the
     /// time of every generated or listed problem per configuration
@@ -79,6 +79,11 @@ pub struct RunArgs {
     /// classical; repeatable
     #[arg(long, value_name = "PATH")]
     lltp: Vec<PathBuf>,
+    /// A coverability problem in Mist's `.spec` format, or a directory
+    /// searched for `*.spec` files, run in intuitionistic affine mode;
+    /// repeatable
+    #[arg(long, value_name = "PATH")]
+    spec: Vec<PathBuf>,
     /// A problem file of lines `name; mode; expected; copies; sequent` (see
     /// `bench/problems/`); repeatable
     #[arg(long, value_name = "FILE")]
@@ -173,7 +178,7 @@ pub struct RunArgs {
 #[derive(Args, Debug)]
 pub struct OneArgs {
     /// The problem, as `run` names it (`family:NAME:SIZE:INDEX`,
-    /// `lltp:PATH`, `file:PATH:LINE`)
+    /// `lltp:PATH`, `spec:PATH`, `file:PATH:LINE`)
     #[arg(long)]
     problem: String,
     /// The mode to run in

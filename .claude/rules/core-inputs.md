@@ -1,15 +1,17 @@
 ---
 paths:
   - "core/src/lltp.rs"
+  - "core/src/mist.rs"
   - "core/src/families.rs"
 ---
 
 # linlog core: the benchmark inputs
 
-Loaded, beside `core.md`, when the LLTP reader or the generated
-families are read; the harness that runs them is `bench.md`'s.
+Loaded, beside `core.md`, when the LLTP reader, the `.spec` reader or
+the generated families are read; the harness that runs them is
+`bench.md`'s.
 
-## Benchmark inputs: LLTP and the families
+## Benchmark inputs: LLTP, `.spec` and the families
 
 - **`lltp::read`** (feature `parse`) turns an LLTP file into `axioms ⊢
   conjectures` by assembling text for the crate's own parser: the
@@ -30,6 +32,25 @@ families are read; the harness that runs them is `bench.md`'s.
   is not in the file: the caller decides (the harness by the `ILL`
   directory). A header's status is the library's claim, not a fact: the
   statuses of translated problems are those of the intuitionistic source.
+- **`mist::read`** (feature `parse`) turns a coverability problem in
+  Mist's `.spec` format into a Horn program for affine mode, by
+  assembling text for the crate's parser: a rule `guards -> updates`
+  becomes `!(in -o out)`, `in` taking from each counter the most of its
+  guard and its decrement (a decrement without a guard still needs the
+  tokens: counters do not go below zero) and `out` giving that less the
+  decrement plus the increment; an initial `x = k` is `k` tokens, `x >=
+  k` is `k` tokens and `!x` (any number more); the target's lines are a
+  disjunction of conjunctions, so one line is the goal itself and several
+  are clauses `!(line -o goal)` to a fresh atom (`goal`, else `goal_1`,
+  …), which in affine mode is covered exactly when a line is. Every form
+  of the qcover suite's 176 files is read (guards `x >= k`, updates `x' =
+  x ± k`, init `=` and `>=`, `#` comments, an `invariants` section, which
+  is skipped); an update from another counter, a counter updated twice,
+  and the names `top` and `bot` (units in this syntax) are refused. The
+  expected result is the first line's `#expected result: safe|unsafe`,
+  which only 12 of the suite's files state (`Safety::Unsafe` is
+  provable). The mode is not in the file: a coverability question is
+  affine, and the harness runs it intuitionistic affine.
 - **`families`** (feature `parse`): `FAMILIES` lists the benchmark
   families, each a name, a summary, default sizes, instances per size and
   a generator `(size, index) → Instance` (sequent, mode, `provable`,

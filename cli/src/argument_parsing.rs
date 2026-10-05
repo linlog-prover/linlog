@@ -575,8 +575,8 @@ pub struct SequentInput {
 /// How an input is read.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InputFormat {
-    /// By the file's extension: `.p` lltp (tptp with --logic), `.json`
-    /// json, else text
+    /// By the file's extension: `.p` lltp (tptp with --logic), `.spec`
+    /// spec, `.json` json, else text
     Auto,
     /// One sequent in the text syntax, which may span lines
     Text,
@@ -585,6 +585,10 @@ pub enum InputFormat {
     /// A problem of the LLTP library: its axioms ⊢ its conjecture; the file
     /// does not say whether it is intuitionistic, the flags do
     Lltp,
+    /// A coverability problem in the .spec format of the Mist tool: its
+    /// rules under !, its initial marking ⊢ its target, a question of
+    /// affine mode, which --affine asks for
+    Spec,
     /// One sequent per line in the text syntax, as `NAME: SEQUENT` or
     /// `SEQUENT`; blank lines and everything from `#` on are skipped
     Lines,
@@ -614,6 +618,7 @@ impl InputFormat {
         match path.extension().and_then(|e| e.to_str()) {
             Some("p") if ordinary => Self::Tptp,
             Some("p") => Self::Lltp,
+            Some("spec") => Self::Spec,
             Some("json") => Self::Json,
             _ => Self::Text,
         }

@@ -196,6 +196,7 @@ fn name(value: &impl ValueEnum) -> String {
 pub fn run(args: &RunArgs) -> Result<()> {
     let mut references = problems::families(&args.family, args.all_families)?;
     references.extend(problems::lltp(&args.lltp)?);
+    references.extend(problems::specs(&args.spec)?);
     references.extend(problems::files(&args.problems)?);
     if !args.only.is_empty() {
         references.retain(|r| {

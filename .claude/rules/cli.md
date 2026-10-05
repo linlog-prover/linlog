@@ -33,9 +33,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--output` or standard output. A file's kind is `--input-format`
   (`InputFormat`), else its extension's (`InputFormat::of`: `.p` an LLTP
   problem through `lltp::read`, or under `--logic` a TPTP problem,
-  `.json` a JSON sequent, else text), never
+  `.spec` a coverability problem through `mist::read`, `.json` a JSON
+  sequent, else text), never
   guessed from the text (`A` is an atom and a file name alike);
-  `sequent_in` reads the three formats of one sequent, `admit` applies
+  `sequent_in` reads the four formats of one sequent, `admit` applies
   `--occurrence-limit`. The formats of many (`lines`, `jsonl`,
   `problems`) are refused outside `prove`'s batch. The text goes to the
   parser as it was read, untrimmed, so that the line and character a

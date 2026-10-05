@@ -63,8 +63,8 @@ Current contents:
     and snapshots): LaTeX, Typst, SVG, PNG, PDF and Rocq;
   - `rules/core-batch.md` (`search/batch.rs`): many sequents in one
     call;
-  - `rules/core-inputs.md` (`lltp.rs`, `families.rs`): the benchmark
-    inputs;
+  - `rules/core-inputs.md` (`lltp.rs`, `mist.rs`, `families.rs`): the
+    benchmark inputs;
   - `rules/core-ordinary.md` (`ordinary/`): ordinary logic through its
     embeddings, the read-back to LK and LJ and its checker.
 - `rules/cli.md` (`cli/**`): the `linlog` command's layout, exit statuses,

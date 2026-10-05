@@ -14,14 +14,18 @@ beyond clap and anyhow, which the CLI already has.
 
 - `src/main.rs`: the clap tree (`run`, `summary`, `families`, and the
   hidden `one`); doc comments are the `--help` text, as in the CLI.
-- `src/problems.rs`: the three sources. The parent lists `Reference`s
-  (family and size, an LLTP path, a problem file and line) and never
-  parses a problem file's formulas; the child `load`s the one its `id`
-  names. An LLTP problem is intuitionistic when a component of its path
-  is `ILL` (the library's layout), classical otherwise; its expected
-  verdict is its header's `Status`, and a run in another mode than the
-  problem's own (`--modes classical` on an ILL problem) has none, since
-  the verdict may differ there. A problem file's line is `name; mode;
+- `src/problems.rs`: the four sources. The parent lists `Reference`s
+  (family and size, an LLTP path, a `.spec` path, a problem file and
+  line) and never parses a problem file's formulas; the child `load`s
+  the one its `id` names. An LLTP problem is intuitionistic when a
+  component of its path is `ILL` (the library's layout), classical
+  otherwise; its expected verdict is its header's `Status`, and a run in
+  another mode than the problem's own (`--modes classical` on an ILL
+  problem) has none, since the verdict may differ there. A `.spec`
+  problem (`--spec`, a file or a directory, as `--lltp`) is a
+  coverability question, run intuitionistic affine; its expected verdict
+  is the first line's `#expected result`, which 12 of qcover's 176 files
+  state (`unsafe` provable). A problem file's line is `name; mode;
   expected; copies; sequent`; the name's part before `/` is the family.
 - `src/run.rs`: the parent (`run`) and the child (`one`). One child
   process per run: the child loads the problem, builds the forest (for

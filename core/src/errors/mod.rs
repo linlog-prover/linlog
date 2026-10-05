@@ -52,6 +52,11 @@ pub enum Error {
     #[cfg(feature = "parse")]
     #[error("not an LLTP problem: {0}")]
     Lltp(String),
+    /// The input is not a coverability problem in Mist's `.spec` format,
+    /// for the reason given.
+    #[cfg(feature = "parse")]
+    #[error("not a .spec problem: {0}")]
+    Mist(String),
     /// The input is not a TPTP problem of propositional logic, for the
     /// reason given.
     #[cfg(feature = "parse")]

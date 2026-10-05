@@ -62,13 +62,14 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 }
 
 /// Returns the sequent `text` holds in `format`, one of the formats of a
-/// single sequent: text (a parse error points into `text`), JSON or an
-/// LLTP problem.
+/// single sequent: text (a parse error points into `text`), JSON, an LLTP
+/// problem or a `.spec` problem.
 pub fn sequent_in(text: &str, format: InputFormat) -> Result<Sequent> {
     match format {
         InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
         // The library's error says that the text is no LLTP problem.
         InputFormat::Lltp => Ok(linlog::lltp::read(text)?.sequent),
+        InputFormat::Spec => Ok(linlog::mist::read(text)?.sequent),
         _ => text.parse().map_err(|e| crate::parse_error(text, e)),
     }
 }

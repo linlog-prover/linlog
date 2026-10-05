@@ -80,7 +80,8 @@
 //! # Features
 //!
 //! On by default: `parse` (the text syntaxes, the LLTP reader `lltp`, the
-//! generated `families` and the TPTP reader `ordinary::read_tptp`),
+//! reader of coverability problems `mist`, the generated `families` and
+//! the TPTP reader `ordinary::read_tptp`),
 //! `serialize` (the JSON forms, through serde), `interactive`
 //! (`Interactive`, proving step by step), and the exports
 //! `latex`, `typst`, `svg` and `rocq` (under [`export`]). Off by default:
@@ -107,6 +108,9 @@ mod hash;
 /// Problems of the LLTP benchmark library.
 #[cfg(feature = "parse")]
 pub mod lltp;
+/// Coverability problems in the `.spec` format of the Mist tool.
+#[cfg(feature = "parse")]
+pub mod mist;
 /// Proof nets.
 pub mod nets;
 /// The occurrence forest of a sequent and sets over it.

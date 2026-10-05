@@ -26,7 +26,7 @@ it; only what holds for the whole crate goes here.
 | `core-parallel.md` | `search/parallel.rs`, `search/focus/parallel.rs`, `search/net.rs` | the pool, stops, cube-and-conquer, the shared memo and arena, the net engine's cubes, what a pool promises |
 | `core-export.md` | `export/`, `proofs/style.rs`, the export test and snapshots | the options values, the one signature, rule labels, notations, the packages' limits, Typst's own layout, fonts, SVG, PNG, PDF, Rocq |
 | `core-batch.md` | `search/batch.rs` | many sequents in one call: the order of results, the workers and the stream, how the batch's memory bound is shared |
-| `core-inputs.md` | `lltp.rs`, `families.rs` | the LLTP reader and the generated families |
+| `core-inputs.md` | `lltp.rs`, `mist.rs`, `families.rs` | the LLTP reader, the `.spec` reader of coverability problems and the generated families |
 | `core-ordinary.md` | `ordinary/` | ordinary logic: its syntax and TPTP reader, the translations as one pattern table, the read-back to LK and LJ, its checker, the certificate over `Prop` |
 
 ## Layout
@@ -51,8 +51,8 @@ shared `notation`, and `latex`, `typst`, `svg` with `font`, `tree` and
 `net`, `png`, `pdf` and `rocq` behind the features of those names),
 `ordinary` (the arena and syntax in `mod.rs`, `parse` behind the
 feature of that name, `translate`, `derivation` with the read-back and
-its checker, `rocq` behind that feature), and `lltp` and `families`
-behind `parse`. `lib.rs` re-exports the
+its checker, `rocq` behind that feature), and `lltp`, `mist` and
+`families` behind `parse`. `lib.rs` re-exports the
 public types, so users write `linlog::Sequent`, `linlog::Proof`,
 `linlog::prove`, and so on. `hash` is crate-private.
 
@@ -85,7 +85,7 @@ Each entry point is described in the file of its module:
   (`core-export.md`);
 - `search::batch::run` and `prove`, many sequents under one options
   value (`core-batch.md`);
-- `lltp::read` and `families` (`core-inputs.md`);
+- `lltp::read`, `mist::read` and `families` (`core-inputs.md`);
 - `ordinary`: `"…".parse::<ordinary::Sequent>()`, `read_tptp`,
   `translate(&sequent, logic, translation)` to an `Image`,
   `Image::linear_derivation` and `read_back` to a `Derivation` of LK or

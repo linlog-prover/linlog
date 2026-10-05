@@ -135,6 +135,7 @@ impl Entries {
             InputFormat::Auto if self.ordinary => extension == "p",
             InputFormat::Auto => matches!(extension, "p" | "json"),
             InputFormat::Lltp | InputFormat::Tptp => extension == "p",
+            InputFormat::Spec => extension == "spec",
             InputFormat::Json => extension == "json",
             InputFormat::Jsonl => extension == "jsonl",
             InputFormat::Text | InputFormat::Lines | InputFormat::Problems => extension == "txt",

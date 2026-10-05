@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! The three sources of problems. The parent lists [`Reference`]s without
+//! The four sources of problems. The parent lists [`Reference`]s without
 //! building a sequent from a file, so that an input that crashes the
 //! parser crashes a child, not the run; the child [`load`]s the one it is
 //! given.
@@ -17,16 +17,18 @@
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::families::{FAMILIES, find};
 use linlog::lltp::{self, Status};
+use linlog::mist::{self, Safety};
 use linlog::{Mode, Sequent};
 use std::path::{Path, PathBuf};
 
 /// A problem as the parent names it.
 #[derive(Clone, Debug)]
 pub struct Reference {
-    /// Where it comes from: `family`, `lltp` or `file`.
+    /// Where it comes from: `family`, `lltp`, `spec` or `file`.
     pub source: &'static str,
-    /// Its family: a generated family, an LLTP directory (relative to the
-    /// parent of the path given), or a problem file's group.
+    /// Its family: a generated family, an LLTP or `.spec` directory
+    /// (relative to the parent of the path given), or a problem file's
+    /// group.
     pub family: String,
     /// The size of a generated problem.
     pub size: Option<u32>,
@@ -37,7 +39,7 @@ pub struct Reference {
     /// The mode it is meant for.
     pub mode: Mode,
     /// How the child is told which problem to load: `family:NAME:SIZE:INDEX`,
-    /// `lltp:PATH` or `file:PATH:LINE`.
+    /// `lltp:PATH`, `spec:PATH` or `file:PATH:LINE`.
     pub id: String,
 }
 
@@ -95,17 +97,38 @@ pub fn families(specs: &[String], all: bool) -> Result<Vec<Reference>> {
 
 /// Lists the LLTP problems under the paths, in path order.
 pub fn lltp(paths: &[PathBuf]) -> Result<Vec<Reference>> {
+    listed(paths, "lltp", "p", lltp_mode)
+}
+
+/// Lists the coverability problems under the paths, in path order, each
+/// for intuitionistic affine mode: the question whether a marking that
+/// covers the target is reachable.
+pub fn specs(paths: &[PathBuf]) -> Result<Vec<Reference>> {
+    listed(paths, "spec", "spec", |_| Mode::INTUITIONISTIC.affine())
+}
+
+/// Lists the files of a source under the paths, in path order: each path
+/// a file, or a directory searched for files with the extension; the
+/// family of a file is its directory relative to the parent of the path
+/// given.
+fn listed(
+    paths: &[PathBuf],
+    source: &'static str,
+    extension: &str,
+    mode: fn(&Path) -> Mode,
+) -> Result<Vec<Reference>> {
     let mut references = Vec::new();
     for root in paths {
         let mut files = Vec::new();
-        collect(root, &mut files).with_context(|| format!("reading {}", root.display()))?;
+        collect(root, extension, &mut files)
+            .with_context(|| format!("reading {}", root.display()))?;
         files.sort();
         let base = root.parent().unwrap_or(Path::new(""));
         for file in files {
             let directory = file.parent().unwrap_or(Path::new(""));
             let family = directory.strip_prefix(base).unwrap_or(directory);
             references.push(Reference {
-                source: "lltp",
+                source,
                 family: family.display().to_string(),
                 size: None,
                 index: None,
@@ -114,17 +137,17 @@ pub fn lltp(paths: &[PathBuf]) -> Result<Vec<Reference>> {
                     .unwrap_or_default()
                     .to_string_lossy()
                     .into_owned(),
-                mode: lltp_mode(&file),
-                id: format!("lltp:{}", file.display()),
+                mode: mode(&file),
+                id: format!("{source}:{}", file.display()),
             });
         }
     }
     Ok(references)
 }
 
-/// Adds `path` if it is a file, and the `*.p` files below it if it is a
-/// directory.
-fn collect(path: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
+/// Adds `path` if it is a file, and the files with the extension below it
+/// if it is a directory.
+fn collect(path: &Path, extension: &str, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
     if !path.is_dir() {
         files.push(path.to_owned());
         return Ok(());
@@ -132,8 +155,8 @@ fn collect(path: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
     for entry in std::fs::read_dir(path)? {
         let path = entry?.path();
         if path.is_dir() {
-            collect(&path, files)?;
-        } else if path.extension().is_some_and(|e| e == "p") {
+            collect(&path, extension, files)?;
+        } else if path.extension().is_some_and(|e| e == extension) {
             files.push(path);
         }
     }
@@ -239,6 +262,16 @@ pub fn load(id: &str) -> Result<Problem> {
                 sequent: problem.sequent,
                 mode: lltp_mode(Path::new(rest)),
                 expected: problem.status.map(|s| s == Status::Theorem),
+                copies: None,
+            })
+        }
+        "spec" => {
+            let text = std::fs::read_to_string(rest).with_context(|| format!("reading {rest}"))?;
+            let problem = mist::read(&text)?;
+            Ok(Problem {
+                sequent: problem.sequent,
+                mode: Mode::INTUITIONISTIC.affine(),
+                expected: problem.expected.map(|s| s == Safety::Unsafe),
                 copies: None,
             })
         }
