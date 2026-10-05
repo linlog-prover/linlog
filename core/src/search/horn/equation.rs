@@ -22,9 +22,10 @@ use super::Program;
 use crate::search::Reason;
 use crate::search::memory::{Account, Charged};
 
-/// The tableau's entries the simplex may touch for each unit of work the
-/// search beside it has done: a unit is a transition examined or a
-/// marking written, which takes some sixteen times an entry's update.
+/// The entries of the simplex's basis and columns it may touch for each
+/// unit of work the search beside it has done: a unit is a transition
+/// examined or a marking written, which takes some sixteen times an
+/// entry's update.
 pub(super) const ENTRIES_PER_UNIT: u64 = 16;
 
 /// What the tolerance of the simplex counts as zero. The tableau starts
@@ -149,42 +150,61 @@ enum Step {
     GiveUp,
 }
 
-/// The tableau of the first phase of the simplex for `A·x (= or ≥) b`,
-/// `x ≥ 0`, one row per place the net touches, each signed so that its
-/// right-hand side is not negative: the columns of the transitions'
-/// effects, in affine mode a surplus column per row, an artificial column
-/// per row, and the right-hand side. The objective is the sum of the
-/// artificial variables, zero exactly when the equation has a solution.
+/// The first phase of the revised simplex for `A·x (= or ≥) b`, `x ≥ 0`:
+/// one row per place the net touches, each signed so that its right-hand
+/// side is not negative; a column per distinct effect of a transition, in
+/// affine mode a surplus column per row, and an artificial column per row,
+/// whose sum is the objective, zero exactly when the equation has a
+/// solution. The basis is kept as its dense inverse and the columns
+/// sparse, so a pivot costs the square of the rows and a pass over the
+/// columns' entries, not the rows times the columns: a net of practice has
+/// hundreds of places and tens of thousands of transitions.
 struct Tableau {
-    /// The rows, one after the other, `width` entries each.
-    rows: Vec<f64>,
-    /// The reduced cost of every column, and the objective's value negated
-    /// last.
-    cost: Vec<f64>,
-    /// The entries of a row: the columns and the right-hand side.
-    width: usize,
-    /// The columns of the transitions and the surplus columns, before the
-    /// artificial ones.
-    structural: usize,
+    /// The columns of the transitions' effects, each its rows and entries,
+    /// signed as the rows are.
+    columns: Vec<Vec<(u32, f64)>>,
     /// The place of each row, and its sign.
     places: Vec<(u32, f64)>,
-    /// The basic column of each row.
+    /// Whether each row has a surplus column, for `≥`.
+    surplus: bool,
+    /// The inverse of the basis, row after row.
+    inverse: Vec<f64>,
+    /// The values of the basic variables, one per row.
+    values: Vec<f64>,
+    /// The basic column of each row: a transition's below the number of
+    /// columns, then the surplus columns, then the artificial ones.
     basis: Vec<usize>,
+    /// The prices of the rows, the objective's coefficients of the basis
+    /// times its inverse: the weights, at the optimum.
+    prices: Vec<f64>,
+    /// The entering column times the inverse.
+    column: Vec<f64>,
     /// The pivots made.
     pivots: u64,
-    /// The most pivots before the simplex gives up: Bland's rule ends in
-    /// exact arithmetic, and a floating-point tableau that has not ended
-    /// after this many is taken to cycle on rounding.
+    /// The most pivots before the simplex gives up: in floating point a
+    /// simplex that has not ended after this many is taken to cycle on
+    /// rounding.
     most_pivots: u64,
+    /// The pivots in a row that did not move the objective; above
+    /// [`STALLED`], Bland's rule chooses the columns, which ends in exact
+    /// arithmetic.
+    stalled: u32,
 }
 
+/// The pivots in a row without progress after which the simplex chooses
+/// by Bland's rule (the first improving column) instead of the steepest
+/// one, which may cycle.
+const STALLED: u32 = 64;
+
 impl Tableau {
-    /// The tableau of a program's state equation, or `None` when the
-    /// memory bound has no room for it; charged to `charged`.
+    /// The simplex of a program's state equation, or `None` when the memory
+    /// bound has no room for its basis; charged to `charged`.
     fn new(program: &Program, affine: bool, charged: &mut Charged<'_>) -> Option<Self> {
         let places = program.places;
-        // The effect of each transition on each place it changes.
+        // The effect of each transition on each place it changes, each
+        // distinct effect once.
         let mut effects: Vec<Vec<(u32, i64)>> = Vec::new();
+        let mut seen = crate::hash::HashSet::default();
         let mut touched = vec![false; places];
         for transition in &program.transitions {
             let mut effect: Vec<(u32, i64)> = Vec::new();
@@ -198,7 +218,8 @@ impl Tableau {
                 }
             }
             effect.retain(|&(_, e)| e != 0);
-            if !effect.is_empty() {
+            effect.sort_unstable();
+            if !effect.is_empty() && seen.insert(effect.clone()) {
                 for &(p, _) in &effect {
                     touched[p as usize] = true;
                 }
@@ -215,131 +236,201 @@ impl Tableau {
             row_of[p as usize] = r as u32;
         }
         let height = rows.len();
-        let structural = effects.len() + if affine { height } else { 0 };
-        let width = structural.checked_add(height)?.checked_add(1)?;
+        let entries: usize = effects.iter().map(Vec::len).sum();
         let bytes = height
-            .checked_add(1)?
-            .checked_mul(width)?
-            .checked_mul(size_of::<f64>())?;
+            .checked_mul(height)?
+            .checked_add(height.checked_mul(4)?)?
+            .checked_mul(size_of::<f64>())?
+            .checked_add(entries.checked_mul(size_of::<(u32, f64)>())?)?;
         if !charged.account().fits(bytes) {
             return None;
         }
         charged.charge(bytes);
-        let mut table = vec![0.0; height * width];
-        let mut signs = Vec::with_capacity(height);
-        for (r, &p) in rows.iter().enumerate() {
-            let sign = if goal(p as usize) < 0 { -1.0 } else { 1.0 };
-            signs.push((p, sign));
-            let row = &mut table[r * width..(r + 1) * width];
-            row[width - 1] = sign * goal(p as usize) as f64;
-            if affine {
-                row[effects.len() + r] = -sign;
-            }
-            row[structural + r] = 1.0;
-        }
-        for (t, effect) in effects.iter().enumerate() {
-            for &(p, e) in effect {
-                let r = row_of[p as usize] as usize;
-                table[r * width + t] = signs[r].1 * e as f64;
-            }
-        }
-        // The reduced costs of the sum of the artificial variables over
-        // the basis of the artificial columns: minus the column sums.
-        let mut cost = vec![0.0; width];
+        let places: Vec<(u32, f64)> = rows
+            .iter()
+            .map(|&p| (p, if goal(p as usize) < 0 { -1.0 } else { 1.0 }))
+            .collect();
+        let columns = effects
+            .into_iter()
+            .map(|effect| {
+                effect
+                    .into_iter()
+                    .map(|(p, e)| {
+                        let r = row_of[p as usize];
+                        (r, places[r as usize].1 * e as f64)
+                    })
+                    .collect()
+            })
+            .collect::<Vec<Vec<(u32, f64)>>>();
+        let mut inverse = vec![0.0; height * height];
         for r in 0..height {
-            for (j, c) in cost.iter_mut().enumerate() {
-                if j < structural || j == width - 1 {
-                    *c -= table[r * width + j];
-                }
-            }
+            inverse[r * height + r] = 1.0;
         }
+        let structural = columns.len() + if affine { height } else { 0 };
         Some(Self {
-            rows: table,
-            cost,
-            width,
-            structural,
-            places: signs,
+            values: places
+                .iter()
+                .map(|&(p, sign)| sign * goal(p as usize) as f64)
+                .collect(),
             basis: (0..height).map(|r| structural + r).collect(),
+            prices: vec![1.0; height],
+            column: vec![0.0; height],
+            most_pivots: 64 * (structural as u64 + 2 * height as u64),
+            columns,
+            places,
+            surplus: affine,
+            inverse,
             pivots: 0,
-            most_pivots: 64 * (width as u64 + height as u64),
+            stalled: 0,
         })
     }
 
-    /// The entries one pivot touches.
+    /// The entries one pivot touches: the inverse twice, and every column
+    /// once to price it.
     fn entries(&self) -> u64 {
-        (self.basis.len() as u64 + 1) * self.width as u64
+        let height = self.places.len() as u64;
+        let priced: usize = self.columns.iter().map(Vec::len).sum();
+        2 * height * height + priced as u64 + height
     }
 
-    /// Makes one pivot by Bland's rule, the first column that improves the
-    /// objective entering and, among the rows that bound it, the one whose
-    /// basic column comes first leaving.
+    /// The columns before the artificial ones.
+    fn structural(&self) -> usize {
+        self.columns.len() + if self.surplus { self.places.len() } else { 0 }
+    }
+
+    /// The reduced cost of a column: its cost, one for an artificial
+    /// column, less the prices times its entries.
+    fn reduced(&self, j: usize) -> f64 {
+        let (n, structural) = (self.columns.len(), self.structural());
+        if j < n {
+            -self.columns[j]
+                .iter()
+                .map(|&(r, a)| self.prices[r as usize] * a)
+                .sum::<f64>()
+        } else if j < structural {
+            let r = j - n;
+            self.prices[r] * self.places[r].1
+        } else {
+            1.0 - self.prices[j - structural]
+        }
+    }
+
+    /// Makes one pivot: the column of the most negative reduced cost
+    /// enters, or the first such column after [`STALLED`] pivots without
+    /// progress, and among the rows that bound it the one whose basic
+    /// column comes first leaves.
     fn pivot(&mut self) -> Step {
-        let width = self.width;
-        let Some(column) = (0..width - 1).find(|&j| self.cost[j] < -EPSILON) else {
+        let height = self.places.len();
+        let columns = self.structural() + height;
+        let entering = if self.stalled < STALLED {
+            (0..columns)
+                .map(|j| (j, self.reduced(j)))
+                .filter(|&(_, d)| d < -EPSILON)
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+                .map(|(j, _)| j)
+        } else {
+            (0..columns).find(|&j| self.reduced(j) < -EPSILON)
+        };
+        let Some(q) = entering else {
             return Step::Optimal;
         };
         if self.pivots >= self.most_pivots {
             return Step::GiveUp;
         }
+        // The entering column in the basis' terms.
+        let (n, structural) = (self.columns.len(), self.structural());
+        for (i, x) in self.column.iter_mut().enumerate() {
+            let row = &self.inverse[i * height..(i + 1) * height];
+            *x = if q < n {
+                self.columns[q]
+                    .iter()
+                    .map(|&(r, a)| row[r as usize] * a)
+                    .sum()
+            } else if q < structural {
+                let r = q - n;
+                -row[r] * self.places[r].1
+            } else {
+                row[q - structural]
+            };
+        }
         let mut leaving: Option<(usize, f64)> = None;
-        for r in 0..self.basis.len() {
-            let a = self.rows[r * width + column];
+        for i in 0..height {
+            let a = self.column[i];
             if a > EPSILON {
-                let ratio = self.rows[r * width + width - 1] / a;
+                let ratio = self.values[i] / a;
                 let better = match leaving {
                     None => true,
                     Some((best, least)) => {
                         ratio < least - EPSILON
-                            || (ratio <= least + EPSILON && self.basis[r] < self.basis[best])
+                            || (ratio <= least + EPSILON && self.basis[i] < self.basis[best])
                     }
                 };
                 if better {
-                    leaving = Some((r, ratio));
+                    leaving = Some((i, ratio));
                 }
             }
         }
         // The objective is bounded below by zero, so a column that
         // improves it is bounded by some row, but for rounding.
-        let Some((row, _)) = leaving else {
+        let Some((p, ratio)) = leaving else {
             return Step::GiveUp;
         };
         self.pivots += 1;
-        let pivot = self.rows[row * width + column];
-        for x in &mut self.rows[row * width..(row + 1) * width] {
+        self.stalled = if ratio > EPSILON { 0 } else { self.stalled + 1 };
+        let pivot = self.column[p];
+        for x in &mut self.inverse[p * height..(p + 1) * height] {
             *x /= pivot;
         }
-        let (before, rest) = self.rows.split_at_mut(row * width);
-        let (pivot_row, after) = rest.split_at_mut(width);
-        for other in before
-            .chunks_exact_mut(width)
-            .chain(after.chunks_exact_mut(width))
-            .chain(std::iter::once(&mut self.cost[..]))
+        self.values[p] /= pivot;
+        let (before, rest) = self.inverse.split_at_mut(p * height);
+        let (pivot_row, after) = rest.split_at_mut(height);
+        let value = self.values[p];
+        for (i, row) in before
+            .chunks_exact_mut(height)
+            .chain(after.chunks_exact_mut(height))
+            .enumerate()
         {
-            let factor = other[column];
+            let i = if i < p { i } else { i + 1 };
+            let factor = self.column[i];
             if factor != 0.0 {
-                for (x, &p) in other.iter_mut().zip(pivot_row.iter()) {
-                    *x -= factor * p;
+                for (x, &y) in row.iter_mut().zip(pivot_row.iter()) {
+                    *x -= factor * y;
+                }
+                self.values[i] -= factor * value;
+            }
+        }
+        self.basis[p] = q;
+        // The prices: the rows of the inverse whose basic column is
+        // artificial, summed.
+        self.prices.fill(0.0);
+        for i in 0..height {
+            if self.basis[i] >= structural {
+                let row = &self.inverse[i * height..(i + 1) * height];
+                for (y, &x) in self.prices.iter_mut().zip(row) {
+                    *y += x;
                 }
             }
         }
-        self.basis[row] = column;
         Step::Pivoted
     }
 
-    /// At the optimum, the weights the dual gives each place when the
-    /// objective is above zero, that is when the equation has no solution:
-    /// one minus the reduced cost of the row's artificial column, with the
-    /// row's sign. `None` when the equation has a solution.
+    /// At the optimum, the weights the prices give each place when the
+    /// objective is above zero, that is when the equation has no solution,
+    /// with the row's sign. `None` when the equation has a solution.
     fn weights(&self) -> Option<Vec<(u32, f64)>> {
-        let objective = -self.cost[self.width - 1];
+        let structural = self.structural();
+        let objective: f64 = (0..self.places.len())
+            .filter(|&i| self.basis[i] >= structural)
+            .map(|i| self.values[i])
+            .sum();
         if objective <= 1e3 * EPSILON {
             return None;
         }
         Some(
             self.places
                 .iter()
-                .enumerate()
-                .map(|(r, &(p, sign))| (p, sign * (1.0 - self.cost[self.structural + r])))
+                .zip(&self.prices)
+                .map(|(&(p, sign), &y)| (p, sign * y))
                 .collect(),
         )
     }

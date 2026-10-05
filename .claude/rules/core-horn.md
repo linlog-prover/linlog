@@ -246,14 +246,20 @@ front door, the dispatch and the memory account it plugs into are in
   `Program`, including the ones the tableau left out. Only a vector it
   accepts becomes `Refutation::StateEquation`; nothing else of the
   module bears on soundness.
-- **Who proposes the weights.** A dense tableau of the simplex's first
-  phase (`Tableau`): a row per place that a transition changes or the
-  target names, signed so the right-hand side is not negative; a column
-  per transition with an effect, an artificial column per row. Bland's
-  rule (first improving column, first basic column among tied rows) at
-  a tolerance of 10⁻⁹; at the optimum, an objective above zero means no
-  solution, and the duals read off the artificial columns' reduced costs
-  (`yᵢ = σᵢ(1 − dᵢ)`) are the weights. Floating point, so they are read
+- **Who proposes the weights.** The first phase of a revised simplex
+  (`Tableau`): a row per place that a transition changes or the target
+  names, signed so the right-hand side is not negative; a column per
+  distinct effect of a transition, kept sparse, in affine mode a surplus
+  column per row, and an artificial column per row; the basis as its
+  dense inverse. A pivot costs `2m² + nnz` (`m` rows, `nnz` the columns'
+  entries), not `m × columns`: qcover's bug-tracking nets have 754
+  places and 26 672 distinct effects, where a dense tableau of 21 million
+  entries took 20 ms a pivot and never finished in 5 s. The steepest
+  column enters (Dantzig), and after `STALLED` (64) pivots without
+  progress the first improving one (Bland), with the first basic column
+  among tied rows leaving; tolerance 10⁻⁹. At the optimum an objective
+  above zero means no solution, and the prices `c_B·B⁻¹`, the row's sign
+  applied, are the weights. Floating point, so they are read
   as fractions of denominator at most 2²⁰ (continued fractions), brought
   to integers by the common denominator (at most 2⁴⁰) and divided by
   their gcd; a vector that rounding spoiled fails the check and costs a
@@ -263,14 +269,16 @@ front door, the dispatch and the memory account it plugs into are in
 - **Interleaved with the search by work** (`Equation::wants`, `run`):
   the search counts its work (transitions examined and markings written
   in `reach.rs`), and the simplex may touch `ENTRIES_PER_UNIT` (16)
-  tableau entries per unit, its setup counting the whole tableau; so a
+  entries per unit, its setup counting a pivot's worth; so a
   net the search decides at once never builds a tableau, and one it
   cannot decide gets the simplex at no more than about the time the
   search had. The library's nets are all reachable, so there the
   equation can only cost. The tableau is charged to the search's
-  account; one that does not fit is never built. Bland's rule ends in
-  exact arithmetic; in floating point the simplex gives up after `64 ×
-  (rows + columns)` pivots. The stop is polled at every pivot.
+  account (the inverse, the vectors of a row each, the columns' entries);
+  one that does not fit is never built (qcover's largest net, 66 950
+  places, would need 36 GB). Bland's rule ends in exact arithmetic; in
+  floating point the simplex gives up after `64 × (columns + 2m)`
+  pivots. The stop is polled at every pivot.
 - **After the search runs out of room** (`MemoryLimit`, `IndexLimit`) its
   memory is given back and the simplex runs to its end with the rest of
   the time: an unbounded net is what fills the memory, and what the

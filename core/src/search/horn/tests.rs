@@ -205,8 +205,11 @@ fn refuses_at_its_limits() {
     assert_eq!(found, Err(Reason::IndexLimit));
 
     // Backward, a clause that takes almost 2³² tokens and gives one back
-    // asks for more than 2³² before its own output.
-    let sequent: Sequent = "!(a * a -o a), !(a -o b), c |- b".parse().unwrap();
+    // asks for more than 2³² before its own output; the state equation has
+    // a solution, since `c` makes as many `a` as asked.
+    let sequent: Sequent = "!(a * a -o a), !(a -o b), !(c -o c * a), c |- b"
+        .parse()
+        .unwrap();
     let forest = Forest::new(&sequent).unwrap();
     let mut taking = program(&forest);
     for t in 0..2 {
