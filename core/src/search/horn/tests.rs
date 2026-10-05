@@ -128,12 +128,15 @@ fn decides_unbounded_nets() {
             assert_eq!(verdict(text, Mode::CLASSICAL), linear, "{text}");
             assert_eq!(verdict(text, Mode::INTUITIONISTIC), linear, "{text}");
         }
-        assert_eq!(verdict(text, Mode::CLASSICAL.affine()), affine, "{text}");
-        assert_eq!(
-            verdict(text, Mode::INTUITIONISTIC.affine()),
-            affine,
-            "{text}"
-        );
+        // Which of the backward search and the equation refutes first is a
+        // matter of their shares of the work.
+        for mode in [Mode::CLASSICAL.affine(), Mode::INTUITIONISTIC.affine()] {
+            let found = match verdict(text, mode) {
+                "state equation" => "unprovable",
+                found => found,
+            };
+            assert_eq!(found, affine, "{text} in {mode} mode");
+        }
     }
 }
 

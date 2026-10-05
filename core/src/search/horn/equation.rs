@@ -99,6 +99,15 @@ impl<'a> Equation<'a> {
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<bool, Reason> {
         if let State::Waiting = self.state {
+            // The set-up reads every arc and lays out a basis of up to a
+            // row per place: it waits until the search has done as much.
+            let places = program.places as u64;
+            let set_up = places
+                .saturating_mul(places)
+                .saturating_add(program.arcs.len() as u64);
+            if budget < set_up {
+                return Ok(false);
+            }
             self.state = match Tableau::new(program, self.affine, &mut self.charged) {
                 Some(tableau) => {
                     self.spent = self.spent.saturating_add(tableau.entries());
@@ -207,18 +216,35 @@ impl Tableau {
         let mut seen = crate::hash::HashSet::default();
         let mut touched = vec![false; places];
         for transition in &program.transitions {
-            let mut effect: Vec<(u32, i64)> = Vec::new();
-            for &(p, w) in &program.arcs[transition.inputs as usize..transition.outputs as usize] {
-                effect.push((p, -i64::from(w)));
-            }
-            for &(p, w) in &program.arcs[transition.outputs as usize..transition.end as usize] {
-                match effect.iter_mut().find(|(q, _)| *q == p) {
-                    Some((_, e)) => *e += i64::from(w),
-                    None => effect.push((p, i64::from(w))),
+            // The inputs and the outputs are each sorted by place: one merge.
+            let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
+            let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
+            let mut effect: Vec<(u32, i64)> = Vec::with_capacity(inputs.len() + outputs.len());
+            let (mut i, mut o) = (0, 0);
+            while i < inputs.len() || o < outputs.len() {
+                let (p, e) = match (inputs.get(i), outputs.get(o)) {
+                    (Some(&(a, w)), Some(&(b, v))) if a == b => {
+                        (i, o) = (i + 1, o + 1);
+                        (a, i64::from(v) - i64::from(w))
+                    }
+                    (Some(&(a, w)), Some(&(b, _))) if a < b => {
+                        i += 1;
+                        (a, -i64::from(w))
+                    }
+                    (Some(&(a, w)), None) => {
+                        i += 1;
+                        (a, -i64::from(w))
+                    }
+                    (_, Some(&(b, v))) => {
+                        o += 1;
+                        (b, i64::from(v))
+                    }
+                    (None, None) => unreachable!("the loop's condition"),
+                };
+                if e != 0 {
+                    effect.push((p, e));
                 }
             }
-            effect.retain(|&(_, e)| e != 0);
-            effect.sort_unstable();
             if !effect.is_empty() && seen.insert(effect.clone()) {
                 for &(p, _) in &effect {
                     touched[p as usize] = true;
@@ -443,6 +469,10 @@ impl Tableau {
 /// The result is checked by [`certify`], so this need only be right where
 /// it can.
 fn integers(weights: &[(u32, f64)]) -> Option<Vec<(u32, i64)>> {
+    // A weight that is no number would keep the continued fraction going.
+    if weights.iter().any(|&(_, w)| !w.is_finite()) {
+        return None;
+    }
     let largest = weights.iter().map(|&(_, w)| w.abs()).fold(0.0, f64::max);
     if largest <= EPSILON {
         return None;

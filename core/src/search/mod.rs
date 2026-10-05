@@ -1444,20 +1444,25 @@ impl Display for Reason {
 
 /// What a search cost. The focused engine counts stable sequents, memo use
 /// and splits; the net engine counts literals chosen, links and exact
-/// tests; the additive path counts pairs of subformulas; the other
-/// counters stay zero.
+/// tests; the additive path counts pairs of subformulas; the Horn engine
+/// counts markings in the first three; the other counters stay zero.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Statistics {
     /// The nodes of the search: the stable sequents the focused engine
     /// visited, memo hits included, the literals the net engine chose a
-    /// partner for, or the pairs of subformulas the additive path decided.
+    /// partner for, the pairs of subformulas the additive path decided, or
+    /// the markings the Horn engine reached, the initial one included, and
+    /// in affine mode the markings it computed backward from the goal.
     pub nodes: u64,
-    /// The visits answered from the memo.
+    /// The visits answered from the memo; of the Horn engine, the markings
+    /// it had kept already, and in affine mode those a marking kept
+    /// already covers.
     pub memo_hits: u64,
     /// The most stable sequents the memo held at once; of two searches
     /// that ran together, the two memos' together, and of two that took
-    /// turns from their start, the most of one turn.
+    /// turns from their start, the most of one turn; of the Horn engine,
+    /// the markings it kept.
     pub memo_entries: usize,
     /// The context splits examined for `⊗` and Mix, most of them rejected by
     /// the counts.

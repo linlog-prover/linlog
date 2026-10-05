@@ -275,16 +275,26 @@ front door, the dispatch and the memory account it plugs into are in
   as fractions of denominator at most 2²⁰ (continued fractions), brought
   to integers by the common denominator (at most 2⁴⁰) and divided by
   their gcd; a vector that rounding spoiled fails the check and costs a
-  refutation, never makes a wrong one. No crate: an LP solver from
+  refutation, never makes a wrong one. Weights below 10⁻⁹ of the largest
+  read as zero, so certificates whose weights span more (`!(a1 * a1 -o
+  a2), !(a2 -o a1 * a1), …` to `a40`, exact weights `2ⁱ`) are missed; a
+  weight that is no finite number is no certificate (the continued
+  fraction of NaN would not end). No crate: an LP solver from
   crates.io would neither poll the caller's stop nor charge the memory
   account, and `microlp`, the maintained pure-Rust one, reads a clock.
 - **Interleaved with the search by work** (`Equation::wants`, `run`):
   the search counts its work (transitions examined and markings written
-  in `reach.rs`), and the simplex may touch `ENTRIES_PER_UNIT` (16)
-  entries per unit, its setup counting a pivot's worth; so a
-  net the search decides at once never builds a tableau, and one it
-  cannot decide gets the simplex at no more than about the time the
-  search had. The library's nets are all reachable, so there the
+  in `reach.rs`; transitions tried, elements compared and the trie's
+  lookups in `cover.rs`), and the simplex may touch `ENTRIES_PER_UNIT`
+  (16) entries per unit. Its set-up waits until that budget reaches the
+  places squared plus the arcs (a basis of up to a row per place, every
+  arc read once, each transition's effect merged from its sorted arcs in
+  one pass), so a net the search decides at once never builds one, and
+  one it cannot decide gets the simplex at no more than about the time
+  the search had. The first panel of the second session found the set-up
+  built at the first poll whatever the budget, with a quadratic merge:
+  a clause of 100 000 outputs took 2.6 s where the search alone took
+  22 ms, a chain of 5 000 clauses 279 ms against 3.5 ms now. The library's nets are all reachable, so there the
   equation can only cost. The tableau is charged to the search's
   account (the inverse, the vectors of a row each, the columns' entries);
   one that does not fit is never built (qcover's largest net, 66 950
