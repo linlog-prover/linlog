@@ -1243,11 +1243,16 @@ impl Verdict {
     }
 }
 
-/// Why a sequent is unprovable, as far as its counts tell. Every
-/// refutation rests on the search that was exhaustive; where the literals
-/// or the connectives of the sequent alone rule out a proof, the
-/// refutation says which, as the focused engine checks them on every
-/// sequent it searches.
+/// Why a sequent is unprovable. Most refutations rest on the search that
+/// was exhaustive; where the literals or the connectives of the sequent
+/// alone rule out a proof, the refutation says which, as the focused
+/// engine checks them on every sequent it searches; and the Horn engine
+/// may refute a Horn program by its state equation, whatever its search
+/// found. In JSON (feature `serialize`) the outcome's `refutation` is
+/// `"exhausted"`, `{"unbalanced": {"atom", "least", "most"}}`,
+/// `{"equation": {"formulas", "needed", "tensors", "pars", "ones",
+/// "bottoms", "mix"}}` or `{"state_equation": {"weights": [{"atom",
+/// "weight"}, …], "once"}}`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refutation {
