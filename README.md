@@ -261,7 +261,7 @@ direct factor of a `⊗` (such a `⊗` needs no search for its split), `rarer`
 the one with fewer occurrences. Without exponentials the default, `auto`,
 is `factors`, and under `--affine` it is `rarer`. With exponentials
 neither wins: on Horn clauses under `!` (which the focused engines meet
-in affine mode, inside larger sequents, or forced by `--engine`),
+inside larger sequents, or forced by `--engine`),
 `factors` chains forward from the facts and is often faster by orders of
 magnitude, but a forward chain takes one copy per step on a single
 branch, where `rarer` chains backward from the goal within a few. So on a
