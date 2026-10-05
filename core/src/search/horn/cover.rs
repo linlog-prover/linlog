@@ -312,6 +312,9 @@ impl<'a> Search<'a> {
                 }
                 listed = self.after[b as usize];
             }
+            // A lookup in the table costs about what a comparison of
+            // elements does.
+            looked += (marking.len() - from as usize) as u64;
             for (i, &(p, _)) in marking.iter().enumerate().skip(from as usize) {
                 if let Some(&child) = self.edges.get(&(node, p)) {
                     stack.push((child, i as u32 + 1));
