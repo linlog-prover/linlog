@@ -152,16 +152,18 @@ reviewed on 2026-10-05, the unsigned commits signed at each review: the
 Horn engine decides Horn programs with a clause under `!` in every mode
 (reachability, coverability, the state equation with an exactly checked
 Farkas certificate, dead transitions, a backward search), and reads the
-qcover suite (`linlog::mist`). The next command is step 28's first
-stage, the audit:
+qcover suite (`linlog::mist`). The next command is step 28's stage 0
+(requirements, baselines and gates; the prompt's "How the step runs"
+names five stages, each reviewed before the next):
 
 ```nu
 claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28-audit-and-refactor.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-Its stage 1 ends with a decision list for the author; each later stage
-is a session of its own, started with the same command (`--name
-step-28b`, `step-28c`, …), and reviewed before the next. At the review
+Each later stage is a session of its own, started with the same
+command (`--name step-28b`, `step-28c`, …) and reviewed before the
+next; the audit (stage 1) and the design (stage 2) end with decisions
+for the author, and the design's implementers run at `--effort xhigh`. At the review
 of its last check round, finish `plan/29-comparison.md`.
 
 Models and efforts were re-evaluated on 2026-10-03 and again on

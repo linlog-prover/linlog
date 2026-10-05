@@ -46,7 +46,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
 | 26 | The focused engine in order, and the dispatch as a measured table (two sessions, a review between) | `26-focused-engine.md` | Opus 5.5 (Fable's allowance spent) | xhigh, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Opus 5.5 (Fable's allowance spent) | xhigh, with the panel | 24, 26 |
-| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` | Opus 5.5; Fable 5.1 for the audit's soundness lens, the judge of the API note and the panel's argument; the other reviewers by lens | high | 27 |
+| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` | Opus 5.5; Fable 5.1 for the soundness and readiness lenses, the completeness critic, a judge of the design, the reviewers of soundness and the panel's argument; the other reviewers by lens | high; xhigh for the design and the implementers; stages 0 to 4, each reviewed | 27 |
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The third baseline (a night), and the first release prepared | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
@@ -225,6 +225,58 @@ assurance; `xhigh` is for a session that is visibly stuck, and `max`
 for none. The step 28 session on the search moves from Fable to Opus
 for the same reason.
 
+Re-evaluated for step 28 on 2026-10-05, when the author asked for the
+audit and refactor to be thorough, designed for every later step, and
+paid for with more of the quota. Read that day, beside the sources
+above: Claude Code's "Best practices" and "Orchestrate subagents at
+scale with dynamic workflows" (code.claude.com/docs/en/best-practices,
+…/workflows), "Prompting Claude Fable 5.1", Anthropic's "When to use
+multi-agent systems (and when not to)" (2026-01-23) and "How we made
+claude.ai 3x faster in two weeks" (2026-09-23), the Rust API Guidelines
+checklist (rust-lang.github.io/api-guidelines), and Google's API
+Improvement Proposals (google.aip.dev). What they say, and what step 28
+takes from each:
+
+- **Agents for reading and judging, one implementer for coupled
+  work.** Multi-agent setups pay where work splits into independent
+  strands (an audit, a review, a verification) and cost three to ten
+  times the tokens where it does not; planning, implementing and testing
+  one change share too much context to split. So the audit, the design's
+  drafts and judges and the check rounds are workflows, and each area of
+  fixes has one implementer with reviewers beside it.
+- **A check the session can run, and a fresh context to refute.** The
+  docs' first advice is a deterministic gate (a test, a script, a Stop
+  hook or a `/goal` condition) and a reviewer that sees only the diff
+  and the criteria. They warn that a reviewer asked for gaps reports
+  some where the work is sound, so findings must break a criterion or a
+  requirement, and taste is listed apart. Step 28's stage 0 builds the
+  gate, a behaviour lock (characterization tests) and evidence no
+  reviewer supplies: mutation testing and fuzzing.
+- **Measure first, then ratchet.** The claude.ai sprint made measurement
+  the scarce step, used instruction counts as the deterministic proxy
+  after proving that lowering them lowered wall-clock time, wrote tests
+  before every optimisation, kept wins with ceilings a daily job only
+  lowered, scoped each thread to one journey, and let a human rule when
+  a gain cost more code than it was worth. Step 28's efficiency area
+  works the same way, on callgrind counts that stage 0 validates.
+- **Standards over taste.** The Rust API Guidelines checklist is the
+  canonical review list for a Rust library's surface. Google's AIPs are
+  written for resource-oriented network APIs; only their rules for a
+  data format apply to linlog's JSON wire forms (AIP-180 compatibility,
+  AIP-126 enumerations, AIP-193 errors, AIP-140 field names, AIP-151 for
+  a long call a client watches and cancels), and the audit cites them
+  for those alone.
+- **Models.** The workflows mix Fable 5.1, Opus 5.5 and Sonnet 5.5
+  so that a finding is cross-examined by another model, Fable where the
+  hardest reasoning decides (the soundness and readiness lenses, the
+  completeness critic, a design judge, the soundness reviewers, the
+  panel's argument); the design and the implementers run on Opus 5.5 at
+  `xhigh`, the level the docs name for agentic coding of more than half
+  an hour; nothing at `max`. Fable's prompting guide adds two
+  instructions the prompts of autonomous sessions carry: finish the
+  whole task rather than announce the next step, and keep changes to
+  what the request needs.
+
 ### How the prompts are written
 
 Following Anthropic's prompting guidance for Fable 5.1 and Opus 5.5 (the
@@ -370,7 +422,9 @@ claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38
 
 A step of several sessions is started again with the same command, with
 the changes its row names (step 26's and step 27's second sessions as
-their first, with `--name step-26b` and `step-27b`; step 22's second session at `--effort high`;
+their first, with `--name step-26b` and `step-27b`; step 28's stages
+as its first, with `--name step-28b` and on, its design and its fix
+sessions at `--effort xhigh`; step 22's second session at `--effort high`;
 step 31's sessions after the checker's proof with `--model
 claude-opus-5-5 --effort high`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
@@ -2032,3 +2086,16 @@ client follows it (step 32).
   contradiction; the linear row now loses 1, 1, 0 of the focused engine's
   refutations where it lost 84, 80, 53, a parity case the integer state
   equation would take). Prompt 28 finished. Next: step 28's audit.
+- 2026-10-05: on the author's request for a thorough audit and refactor
+  designed for every later step, prompt 28 gains a stage 0
+  (`plan/notes/requirements.md`, the register of later requirements; a
+  behaviour lock; performance journeys validated against wall-clock and
+  ratcheted; mutation testing and fuzzing; one gate), an audit of ten
+  lenses with cross-examination by other models and a completeness
+  critic, a design stage of its own (three drafts, two judges, a
+  walkthrough per later step, a spike for quantifiers), an efficiency
+  area run as Anthropic's performance sprint was, and check rounds that
+  retake stage 0's evidence. The Rust API Guidelines and, for the JSON
+  wire forms only, Google's AIP-180, 126, 193, 140 and 151 are the
+  audit's external standards. Rationale and sources under "Why these
+  models and efforts".
