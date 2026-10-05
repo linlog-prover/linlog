@@ -127,6 +127,61 @@ pub(crate) fn is_net(task: &Task<'_>) -> bool {
 type Arcs = Vec<(u32, u32)>;
 
 impl Program {
+    /// The program with every transition reversed and the initial and the
+    /// target marking swapped: a firing sequence of one is one of the
+    /// other read backward. Only the net is kept, for a search.
+    fn reversed(&self) -> Program {
+        let mut arcs = Vec::with_capacity(self.arcs.len());
+        let transitions = self
+            .transitions
+            .iter()
+            .map(|t| {
+                let inputs = arcs.len() as u32;
+                arcs.extend_from_slice(&self.arcs[t.outputs as usize..t.end as usize]);
+                let outputs = arcs.len() as u32;
+                arcs.extend_from_slice(&self.arcs[t.inputs as usize..t.outputs as usize]);
+                Transition {
+                    clause: t.clause,
+                    inputs,
+                    outputs,
+                    end: arcs.len() as u32,
+                }
+            })
+            .collect();
+        Program {
+            places: self.places,
+            place_of: Vec::new(),
+            transitions,
+            arcs,
+            initial: self.target.clone(),
+            target: self.initial.clone(),
+            body: self.body,
+            quests: Vec::new(),
+            markings: Vec::new(),
+            goal: self.goal,
+            once: Vec::new(),
+        }
+    }
+
+    /// The most tokens each place holds in a marking that a firing
+    /// sequence from the initial marking passes: its initial count where
+    /// no transition raises it, else no bound (`u32::MAX`).
+    fn caps(&self) -> Vec<u32> {
+        let mut raised = vec![false; self.places];
+        for t in &self.transitions {
+            let inputs = &self.arcs[t.inputs as usize..t.outputs as usize];
+            for &(p, w) in &self.arcs[t.outputs as usize..t.end as usize] {
+                let taken = inputs.iter().find(|&&(q, _)| q == p).map_or(0, |&(_, v)| v);
+                if w > taken {
+                    raised[p as usize] = true;
+                }
+            }
+        }
+        (0..self.places)
+            .map(|p| if raised[p] { u32::MAX } else { self.initial[p] })
+            .collect()
+    }
+
     /// The refutation that weights for the places, a place and its weight
     /// each, give: the atoms' weights by name, and whether a class of
     /// clauses used once weighs something.
@@ -460,6 +515,7 @@ impl Reader<'_> {
             push(Clause::Once(class as u32), &inputs, outputs);
         }
         let width = places as usize + once.len();
+        live(&mut transitions, &arcs, &parts.tokens, once.len(), places);
         let mut initial = vec![0; width];
         for p in parts.tokens {
             initial[p as usize] += 1;
@@ -485,6 +541,67 @@ impl Reader<'_> {
             once,
         }
     }
+}
+
+/// Drops the transitions that no firing sequence from the initial
+/// marking can fire: those with an input place that no marking it passes
+/// marks. The places that can be marked are those of the initial marking
+/// (the tokens given, a place each, and the class places of the clauses
+/// used once, after the atoms' `atoms` places) and the outputs of every
+/// transition whose inputs can all be marked, by induction on the firing
+/// sequence; a transition with an input outside them is never enabled.
+fn live(
+    transitions: &mut Vec<Transition>,
+    arcs: &[(u32, u32)],
+    tokens: &[u32],
+    classes: usize,
+    atoms: u32,
+) {
+    let width = atoms as usize + classes;
+    let mut marked = vec![false; width];
+    for &p in tokens {
+        marked[p as usize] = true;
+    }
+    for class in 0..classes {
+        marked[atoms as usize + class] = true;
+    }
+    // The inputs each transition still waits for, and the transitions
+    // waiting for each place.
+    let mut waiting: Vec<u32> = Vec::with_capacity(transitions.len());
+    let mut by_input: Vec<Vec<u32>> = vec![Vec::new(); width];
+    let mut ready = Vec::new();
+    for (t, transition) in transitions.iter().enumerate() {
+        let unmarked = arcs[transition.inputs as usize..transition.outputs as usize]
+            .iter()
+            .filter(|&&(p, _)| !marked[p as usize])
+            .inspect(|&&(p, _)| by_input[p as usize].push(t as u32))
+            .count();
+        waiting.push(unmarked as u32);
+        if unmarked == 0 {
+            ready.push(t as u32);
+        }
+    }
+    let mut enabled = vec![false; transitions.len()];
+    while let Some(t) = ready.pop() {
+        enabled[t as usize] = true;
+        let transition = transitions[t as usize];
+        for &(p, _) in &arcs[transition.outputs as usize..transition.end as usize] {
+            if !marked[p as usize] {
+                marked[p as usize] = true;
+                for &u in &by_input[p as usize] {
+                    waiting[u as usize] -= 1;
+                    if waiting[u as usize] == 0 {
+                        ready.push(u);
+                    }
+                }
+            }
+        }
+    }
+    let mut t = 0;
+    transitions.retain(|_| {
+        t += 1;
+        enabled[t - 1]
+    });
 }
 
 /// The head of a clause: its one factor that is neither a tensor, `1`

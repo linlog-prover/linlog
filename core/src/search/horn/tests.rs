@@ -97,9 +97,11 @@ fn verdict(text: &str, mode: Mode) -> &'static str {
 }
 
 /// Nets whose markings grow without end are refuted by the state
-/// equation where it has no solution; in affine mode the backward search
-/// decides, refuting what no firing covers and proving what one does with
-/// the tokens and the clauses left over weakened.
+/// equation where it has no solution, the transitions that can never fire
+/// left out, or by a backward search whose markings run out; in affine
+/// mode the backward coverability search decides, refuting what no
+/// firing covers and proving what one does with the tokens and the
+/// clauses left over weakened.
 #[test]
 fn decides_unbounded_nets() {
     for (text, linear, affine) in [
@@ -115,8 +117,17 @@ fn decides_unbounded_nets() {
             "state equation",
             "unprovable",
         ),
-        // The equation has a solution, but `c` is never marked.
-        ("!(a -o a * a), !(a * c -o b * c), a |- b", "", "unprovable"),
+        // The clause that makes `b` needs a `c`, which is never marked:
+        // without it, nothing makes `b`.
+        (
+            "!(a -o a * a), !(a * c -o b * c), a |- b",
+            "state equation",
+            "unprovable",
+        ),
+        // The equation has a solution, `a` and the clause used once each
+        // fired once, but the clause needs two `a`; backward, the goal has
+        // no predecessor.
+        ("!(1 -o 1), !a, (a * a -o a) |- 1", "unprovable", "proved"),
         // Covered with an `a`, a `c` and a clause used once to spare.
         (
             "!(a -o a * a), a -o c, c -o b, !(a * a * a -o b), a |- b * b",
@@ -192,17 +203,19 @@ fn refuses_at_its_limits() {
     assert_eq!(found, Err(Reason::IndexLimit));
 
     // A clause that adds almost 2³² tokens passes the count's bound at
-    // its second firing, the state equation having a solution.
-    let sequent: Sequent = "!(a -o a * a), !(a * c -o b * c), a |- b".parse().unwrap();
+    // its second firing; the state equation, which would refute the goal,
+    // has no room here.
+    let sequent: Sequent = "!(a -o a * a), a |- b".parse().unwrap();
     let forest = Forest::new(&sequent).unwrap();
     let mut growing = program(&forest);
     let outputs = growing.transitions[0].outputs as usize;
     growing.arcs[outputs].1 = u32::MAX - 1;
+    let no_room = Account::new(Some(0));
     let (found, _) = reach::search(
         &growing,
         &account,
         reach::MOST_MARKINGS,
-        &mut equation(),
+        &mut Equation::new(false, &no_room),
         &mut || false,
     );
     assert_eq!(found, Err(Reason::IndexLimit));
@@ -228,10 +241,14 @@ fn refuses_at_its_limits() {
     );
     assert_eq!(found, Err(Reason::IndexLimit));
 
-    // Neither the counts nor the state equation refute this one: `b` comes
-    // from a clause that needs a `c`, which nothing produces, and the
-    // tokens `a` grow without end.
-    let sequent: Sequent = "!(a -o a * a), !(a * c -o b * c), a |- b".parse().unwrap();
+    // Nothing refutes this one but its markings, which grow without end in
+    // both directions: the tokens `a` stay odd, so the goal is never
+    // reached, but the state equation has a rational solution, and the
+    // tokens `d` grow and shrink.
+    let sequent: Sequent =
+        "!(a -o a * a * a), !(a * a -o b), !(d -o d * d), !(d * d -o d), a, d |- b * d"
+            .parse()
+            .unwrap();
     let outcome = prove(&sequent, Mode::CLASSICAL, &horn().memory_limit(Some(4096))).unwrap();
     assert!(
         matches!(outcome.verdict, Verdict::Unknown(Reason::MemoryLimit(4096))),

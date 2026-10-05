@@ -126,6 +126,16 @@ front door, the dispatch and the memory account it plugs into are in
 - **Transitions under `?`** with equal arcs are one transition, and one
   whose inputs equal its outputs is dropped; every member under `?` is
   still moved into `Θ` by the proof, used or not.
+- **Transitions that can never fire are dropped** (`live`): the places
+  that some marking reachable from the initial one marks lie within the
+  least set that holds the initial marking's places (the tokens given
+  and the class places) and the outputs of every transition whose inputs
+  it holds all of, by induction on the firing sequence; a transition with
+  an input outside it never fires. Every search, the state equation and
+  its `certify` then see only the transitions that may fire, so the
+  equation's refutation rests on this too (`!(a -o a * a), !(a * c -o
+  b * c), a |- b`: without the clause that needs a `c`, nothing makes
+  `b`). One pass, a count of missing inputs per transition.
 - **Every count of the program fits a `u32`**: a weight counts literals
   of one clause, a marking's count literals of the goal, a place an atom
   or a class, and a forest has fewer than 2³² occurrences. Counts that
@@ -180,6 +190,28 @@ front door, the dispatch and the memory account it plugs into are in
   first version summed the target at every expansion, which made a
   chain of 160 000 places take 6.4 s instead of 0.17 s (the panel's
   finding).
+- **A backward search beside the forward one** (`both`): once the
+  forward search has done `BACKWARD_AFTER` (2¹⁶) units of work without
+  deciding, the same search runs on the reversed program
+  (`Program::reversed`: every transition's inputs and outputs swapped,
+  the initial and the target marking swapped), a unit of work for every
+  `BACKWARD_SHARE` (4) of the forward's. Its finding its target, the
+  forward initial marking, is a firing sequence read backward (the same
+  transition indices); its exhausting its markings refutes, since every
+  marking a firing sequence from the initial marking to the target
+  passes is reached from the target backward. The places that no
+  transition raises are capped at their initial count (`Program::caps`;
+  a marking above a cap is dropped, counted with `memo_hits`): every
+  marking such a sequence passes has at most that many, and without the
+  caps the tickets of clauses used once grow without end backward. Nets
+  decided within the first 2¹⁶ units are searched exactly as before.
+  Measured on random programs near the Horn shape (step 27's report):
+  with the state equation and the dead transitions, the backward search
+  is what refutes the rest of what the focused engine refutes
+  (`!(1 -o 1), !a, (a * a -o a) |- 1`: the goal has no predecessor).
+  Out of room, the forward search takes back the simplex's memory, then
+  the backward search's (`give_back`, which ends it); the backward
+  search out of room ends itself.
 - **Polled** once per successor taken from the frontier: an expansion
   costs the transitions indexed by the marked places, which on the
   largest LLTP net (33 676 transitions) is well under a millisecond.

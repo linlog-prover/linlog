@@ -9,6 +9,15 @@
 //! kept before. A finite set of reachable markings is exhausted, which
 //! refutes the goal; an infinite one runs until the stop or the memory
 //! bound.
+//!
+//! Once the forward search has done some work without deciding, a second
+//! search runs beside it, a share of the work at a time: the same search
+//! on the reversed net, from the target toward the initial marking, with
+//! the places that no transition raises capped at their initial count
+//! (no marking a firing sequence from the initial one passes has more).
+//! Its finding the initial marking is a firing sequence read backward,
+//! and its exhausting its markings refutes: nets whose markings grow
+//! without end forward often have few backward.
 
 use super::Program;
 use super::equation::{ENTRIES_PER_UNIT, Equation};
@@ -27,15 +36,25 @@ pub(super) const MOST_MARKINGS: usize = u32::MAX as usize - 1;
 /// The parent of the initial marking.
 const ROOT: u32 = u32::MAX;
 
+/// The work the forward search does alone before the backward search
+/// starts beside it: a net decided within it is searched exactly as
+/// without the backward search, which most nets of practice are.
+const BACKWARD_AFTER: u64 = 1 << 16;
+
+/// The backward search's share: it may do one unit of work for every
+/// this many of the forward search's.
+const BACKWARD_SHARE: u64 = 4;
+
 /// Searches the program's markings from the initial one for the target,
 /// polling `stop` at every successor taken from the frontier, keeping at
-/// most `most` markings and giving `equation` its share of the work, and
-/// returns the transitions of a firing sequence that reaches it, `None`
-/// when the reachable markings are exhausted or the state equation
-/// refutes, or the reason it stopped; and the counters: the initial
+/// most `most` markings in each direction and giving `equation` and the
+/// backward search their shares of the work, and returns the transitions
+/// of a firing sequence that reaches it, `None` when the markings of
+/// either direction are exhausted or the state equation refutes, or the
+/// reason it stopped; and the counters of both directions: the initial
 /// marking and the successors taken from the frontier as `nodes`, those
-/// of them kept already as `memo_hits`, the markings kept, each expanded
-/// once, as `memo_entries`.
+/// of them kept already or above a cap as `memo_hits`, the markings kept,
+/// each expanded once, as `memo_entries`.
 pub(super) fn search(
     program: &Program,
     account: &Account,
@@ -43,15 +62,75 @@ pub(super) fn search(
     equation: &mut Equation<'_>,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
-    let mut search = Search::new(program, account);
-    let result = search.run(most, equation, stop);
+    let reversed = program.reversed();
+    let mut forward = Search::new(program, account, Vec::new());
+    let mut backward = Search::new(&reversed, account, program.caps());
+    let result = both(&mut forward, &mut backward, most, equation, stop);
     let statistics = Statistics {
-        nodes: search.parents.len() as u64 + search.repeated,
-        memo_hits: search.repeated,
-        memo_entries: search.parents.len(),
+        nodes: forward.nodes() + backward.nodes(),
+        memo_hits: forward.repeated + backward.repeated,
+        memo_entries: forward.kept + backward.kept,
         ..Statistics::default()
     };
     (result, statistics)
+}
+
+/// The forward search with the state equation and the backward search
+/// beside it, as [`search`] describes.
+fn both(
+    forward: &mut Search<'_>,
+    backward: &mut Search<'_>,
+    most: usize,
+    equation: &mut Equation<'_>,
+    stop: &mut dyn FnMut() -> bool,
+) -> Result<Option<Vec<u32>>, Reason> {
+    let program = forward.program;
+    // Out of room, the forward search takes back the simplex's memory,
+    // then the backward search's, and tries once more.
+    if let Some(firings) =
+        forward.start(most, &mut || equation.release() || backward.give_back())?
+    {
+        return Ok(Some(firings));
+    }
+    loop {
+        if stop() {
+            return Err(Reason::Stopped);
+        }
+        let work = forward.work;
+        let budget = work.saturating_mul(ENTRIES_PER_UNIT);
+        if equation.wants(budget) && equation.run(program, budget, stop)? {
+            return Ok(None);
+        }
+        if work >= BACKWARD_AFTER && backward.alive {
+            match backward.advance(work / BACKWARD_SHARE, most, stop) {
+                Ok(Slice::Found(mut firings)) => {
+                    firings.reverse();
+                    return Ok(Some(firings));
+                }
+                Ok(Slice::Exhausted) => return Ok(None),
+                Ok(Slice::Paused) => {}
+                Err(Reason::MemoryLimit(_) | Reason::IndexLimit) => {
+                    backward.give_back();
+                }
+                Err(reason) => return Err(reason),
+            }
+        }
+        match forward.step(most, &mut || equation.release() || backward.give_back())? {
+            Slice::Paused => {}
+            Slice::Found(firings) => return Ok(Some(firings)),
+            Slice::Exhausted => return Ok(None),
+        }
+    }
+}
+
+/// What a step or a slice of a search came to.
+enum Slice {
+    /// The target was reached, by these firings from the initial marking.
+    Found(Vec<u32>),
+    /// The frontier is empty: every reachable marking was expanded.
+    Exhausted,
+    /// Neither yet.
+    Paused,
 }
 
 /// An entry of the frontier: the distance of the successor to the
@@ -103,15 +182,27 @@ struct Search<'a> {
     written: Vec<u8>,
     /// What the buffers that grow hold.
     charged: Charged<'a>,
-    /// The successors taken from the frontier that were kept already.
+    /// The successors taken from the frontier that were kept already or
+    /// above a cap.
     repeated: u64,
+    /// The markings kept.
+    kept: usize,
     /// The work done, in transitions examined and markings written.
     work: u64,
+    /// The most tokens a marking may hold on each place, the marking
+    /// above it dropped; empty for no caps.
+    caps: Vec<u32>,
+    /// Whether the search has started.
+    started: bool,
+    /// Whether the search still holds its markings, not having given its
+    /// memory back.
+    alive: bool,
 }
 
 impl<'a> Search<'a> {
-    /// A search of the program with nothing kept yet.
-    fn new(program: &'a Program, account: &'a Account) -> Self {
+    /// A search of the program with nothing kept yet, with caps per place
+    /// or none.
+    fn new(program: &'a Program, account: &'a Account, caps: Vec<u32>) -> Self {
         let width = program.places;
         let mut starts = vec![0u32; width + 1];
         let mut free = Vec::new();
@@ -152,19 +243,47 @@ impl<'a> Search<'a> {
             written: Vec::new(),
             charged: Charged::new(account),
             repeated: 0,
+            kept: 0,
             work: 0,
+            caps,
+            started: false,
+            alive: true,
         }
     }
 
-    /// The search itself.
-    fn run(
+    /// The markings taken: the kept and the dropped.
+    fn nodes(&self) -> u64 {
+        self.kept as u64 + self.repeated
+    }
+
+    /// Gives back the memory the markings hold, for a search beside this
+    /// one that has no room left: returns whether there was any to give.
+    /// This search then ends without deciding.
+    fn give_back(&mut self) -> bool {
+        if !self.alive {
+            return false;
+        }
+        self.alive = false;
+        self.bytes = Vec::new();
+        self.ends = Vec::new();
+        self.hashes = Vec::new();
+        self.parents = Vec::new();
+        self.slots = Vec::new();
+        self.frontier = BinaryHeap::new();
+        self.charged = Charged::new(self.charged.account());
+        true
+    }
+
+    /// Starts at the initial marking: returns the empty firing sequence
+    /// if it is the target, the firing that reaches the target from it if
+    /// one does, and else nothing, its successors on the frontier.
+    fn start(
         &mut self,
         most: usize,
-        equation: &mut Equation<'_>,
-        stop: &mut dyn FnMut() -> bool,
+        release: &mut dyn FnMut() -> bool,
     ) -> Result<Option<Vec<u32>>, Reason> {
-        let program = self.program;
-        for (p, &count) in program.initial.iter().enumerate() {
+        self.started = true;
+        for (p, &count) in self.program.initial.iter().enumerate() {
             if count > 0 {
                 self.counts[p] = count;
                 self.marked.push(p as u32);
@@ -173,45 +292,84 @@ impl<'a> Search<'a> {
         if self.distance() == 0 {
             return Ok(Some(Vec::new()));
         }
-        let mut parent = ROOT;
-        let mut transition = 0;
-        loop {
-            self.write();
-            if self.find().is_some() {
-                self.repeated += 1;
-            } else {
-                // Out of room, the search takes back the simplex's memory
-                // and tries once more.
-                let index = match self.keep(parent, transition, most) {
-                    Err(Reason::MemoryLimit(_)) if equation.release() => {
-                        self.keep(parent, transition, most)?
-                    }
-                    kept => kept?,
-                };
-                let found = match self.expand(index) {
-                    Err(Reason::MemoryLimit(_)) if equation.release() => self.expand(index)?,
-                    expanded => expanded?,
-                };
-                if let Some(t) = found {
-                    let mut firings = self.path(index);
-                    firings.push(t);
-                    return Ok(Some(firings));
-                }
-            }
-            self.clear();
-            let Some(Reverse((key, t))) = self.frontier.pop() else {
-                return Ok(None);
-            };
+        self.take(ROOT, 0, most, release)
+    }
+
+    /// Takes the next successor from the frontier.
+    fn step(&mut self, most: usize, release: &mut dyn FnMut() -> bool) -> Result<Slice, Reason> {
+        let Some(Reverse((key, t))) = self.frontier.pop() else {
+            return Ok(Slice::Exhausted);
+        };
+        let parent = u32::MAX - key as u32;
+        self.successor(parent, t)?;
+        Ok(match self.take(parent, t, most, release)? {
+            Some(firings) => Slice::Found(firings),
+            None => Slice::Paused,
+        })
+    }
+
+    /// Runs until the work reaches `until`, polling `stop` at every
+    /// successor; out of room, it ends.
+    fn advance(
+        &mut self,
+        until: u64,
+        most: usize,
+        stop: &mut dyn FnMut() -> bool,
+    ) -> Result<Slice, Reason> {
+        if !self.started
+            && let Some(firings) = self.start(most, &mut || false)?
+        {
+            return Ok(Slice::Found(firings));
+        }
+        while self.work < until {
             if stop() {
                 return Err(Reason::Stopped);
             }
-            let budget = self.work.saturating_mul(ENTRIES_PER_UNIT);
-            if equation.wants(budget) && equation.run(program, budget, stop)? {
-                return Ok(None);
+            match self.step(most, &mut || false)? {
+                Slice::Paused => {}
+                decided => return Ok(decided),
             }
-            (parent, transition) = (u32::MAX - key as u32, t);
-            self.successor(parent, transition)?;
         }
+        Ok(Slice::Paused)
+    }
+
+    /// Takes the marking at hand, reached from `parent` by `transition`:
+    /// drops it if it is kept already or above a cap, and else keeps and
+    /// expands it; returns the firing sequence when one of its successors
+    /// is the target. Out of room, it calls `release` and tries once more
+    /// if that gave memory back.
+    fn take(
+        &mut self,
+        parent: u32,
+        transition: u32,
+        most: usize,
+        release: &mut dyn FnMut() -> bool,
+    ) -> Result<Option<Vec<u32>>, Reason> {
+        self.write();
+        let capped = !self.caps.is_empty()
+            && self
+                .marked
+                .iter()
+                .any(|&p| self.counts[p as usize] > self.caps[p as usize]);
+        if capped || self.find().is_some() {
+            self.repeated += 1;
+        } else {
+            let index = match self.keep(parent, transition, most) {
+                Err(Reason::MemoryLimit(_)) if release() => self.keep(parent, transition, most)?,
+                kept => kept?,
+            };
+            let found = match self.expand(index) {
+                Err(Reason::MemoryLimit(_)) if release() => self.expand(index)?,
+                expanded => expanded?,
+            };
+            if let Some(t) = found {
+                let mut firings = self.path(index);
+                firings.push(t);
+                return Ok(Some(firings));
+            }
+        }
+        self.clear();
+        Ok(None)
     }
 
     /// The distance of the marking at hand to the target: the tokens by
@@ -407,6 +565,7 @@ impl<'a> Search<'a> {
             return Err(Reason::MemoryLimit(self.charged.account().limit()));
         }
         let hash = self.hash();
+        self.kept += 1;
         self.bytes.extend_from_slice(&self.written);
         self.ends.push(self.bytes.len() as u64);
         self.hashes.push(hash);
