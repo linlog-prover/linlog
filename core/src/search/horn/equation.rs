@@ -39,8 +39,9 @@ const EPSILON: f64 = 1e-9;
 /// determinants of the tableau, small on nets of small weights.
 const MOST_DENOMINATOR: i64 = 1 << 20;
 
-/// The largest common denominator of the weights: their integers then
-/// stay below 2⁴⁰ · 2²⁰ = 2⁶⁰, which an `i64` holds.
+/// The largest common denominator of the weights: a fraction `n/d` of
+/// the weights' range has `|n| ≤ d`, so its integer `n · (common / d)` is
+/// at most the common denominator, 2⁴⁰, which an `i64` holds.
 const MOST_COMMON_DENOMINATOR: i64 = 1 << 40;
 
 /// The state equation of a program, solved a slice at a time.
