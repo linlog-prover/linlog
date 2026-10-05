@@ -82,6 +82,14 @@ struct Search<'a> {
     edges: HashMap<(u32, u32), u32>,
     /// The first element listed at each node, plus one; zero for none.
     listed: Vec<u32>,
+    /// The first child of each node, plus one; zero for none.
+    first_child: Vec<u32>,
+    /// The next child of each node's parent after it, plus one.
+    sibling: Vec<u32>,
+    /// The place that leads to each node from its parent.
+    place_of_node: Vec<u32>,
+    /// The children of each node.
+    children: Vec<u32>,
     /// The element listed after each at its node, plus one.
     after: Vec<u32>,
     /// The nodes a query has still to visit, with where in the marking's
@@ -98,6 +106,9 @@ struct Search<'a> {
     tried: Vec<u32>,
     /// A marking tested against the elements, as a count per place.
     probe: Vec<u32>,
+    /// The index of each place among the probe's marked places, plus one;
+    /// zero for a place it does not mark.
+    position: Vec<u32>,
     /// A buffer for a computed marking.
     next: Vec<(u32, u32)>,
     /// What the buffers that grow hold.
@@ -139,6 +150,10 @@ impl<'a> Search<'a> {
             parents: Vec::new(),
             edges: HashMap::default(),
             listed: vec![0],
+            first_child: vec![0],
+            sibling: vec![0],
+            place_of_node: vec![0],
+            children: vec![0],
             after: Vec::new(),
             stack: RefCell::new(Vec::new()),
             queue: BinaryHeap::new(),
@@ -146,6 +161,7 @@ impl<'a> Search<'a> {
             by_output,
             tried: vec![0; program.transitions.len()],
             probe: vec![0; width],
+            position: vec![0; width],
             next: Vec::new(),
             charged: Charged::new(account),
             computed: 0,
@@ -183,9 +199,19 @@ impl<'a> Search<'a> {
             let (start, end) = self.span(e);
             // An element kept after this one and at most it covers what
             // this one would.
-            write(&mut self.probe, &self.entries[start..end], false);
+            load(
+                &mut self.probe,
+                &mut self.position,
+                &self.entries[start..end],
+                false,
+            );
             let (superseded, compared) = self.dominated(&self.entries[start..end], e);
-            write(&mut self.probe, &self.entries[start..end], true);
+            load(
+                &mut self.probe,
+                &mut self.position,
+                &self.entries[start..end],
+                true,
+            );
             self.work += compared;
             if superseded {
                 continue;
@@ -208,9 +234,9 @@ impl<'a> Search<'a> {
                         firings.extend(self.path(e));
                         return Ok(Some(firings));
                     }
-                    write(&mut self.probe, &self.next, false);
+                    load(&mut self.probe, &mut self.position, &self.next, false);
                     let (dominated, compared) = self.dominated(&self.next, u32::MAX);
-                    write(&mut self.probe, &self.next, true);
+                    load(&mut self.probe, &mut self.position, &self.next, true);
                     self.work += 1 + compared;
                     if dominated {
                         self.covered += 1;
@@ -319,12 +345,28 @@ impl<'a> Search<'a> {
                 }
                 listed = self.after[b as usize];
             }
-            // A lookup in the table costs about what a comparison of
-            // elements does.
-            looked += (marking.len() - from as usize) as u64;
-            for (i, &(p, _)) in marking.iter().enumerate().skip(from as usize) {
-                if let Some(&child) = self.edges.get(&(node, p)) {
-                    stack.push((child, i as u32 + 1));
+            // The node's children that the rest of the marking's places
+            // lead to: from the side with fewer, the children or the
+            // places, each a step that costs about a comparison.
+            let rest = marking.len() - from as usize;
+            let children = self.children[node as usize] as usize;
+            if children <= rest {
+                looked += children as u64;
+                let mut next = self.first_child[node as usize];
+                while next != 0 {
+                    let child = next - 1;
+                    let at = self.position[self.place_of_node[child as usize] as usize];
+                    if at > from {
+                        stack.push((child, at));
+                    }
+                    next = self.sibling[child as usize];
+                }
+            } else {
+                looked += rest as u64;
+                for (i, &(p, _)) in marking.iter().enumerate().skip(from as usize) {
+                    if let Some(&child) = self.edges.get(&(node, p)) {
+                        stack.push((child, i as u32 + 1));
+                    }
                 }
             }
         }
@@ -348,6 +390,10 @@ impl<'a> Search<'a> {
             || !room(&mut self.sums, 1, &mut self.charged)
             || !room(&mut self.parents, 1, &mut self.charged)
             || !room(&mut self.listed, more, &mut self.charged)
+            || !room(&mut self.first_child, more, &mut self.charged)
+            || !room(&mut self.sibling, more, &mut self.charged)
+            || !room(&mut self.place_of_node, more, &mut self.charged)
+            || !room(&mut self.children, more, &mut self.charged)
             || !room(&mut self.after, 1, &mut self.charged)
             || !self.room_in_edges(more)
             || !self.room_in_queue()
@@ -369,6 +415,12 @@ impl<'a> Search<'a> {
                     let child = self.listed.len() as u32;
                     self.edges.insert((node, p), child);
                     self.listed.push(0);
+                    self.first_child.push(0);
+                    self.sibling.push(self.first_child[node as usize]);
+                    self.first_child[node as usize] = child + 1;
+                    self.place_of_node.push(p);
+                    self.children.push(0);
+                    self.children[node as usize] += 1;
                     child
                 }
             };
@@ -440,10 +492,11 @@ impl<'a> Search<'a> {
     }
 }
 
-/// Writes a marking's counts into a dense vector of counts, or clears
-/// them.
-fn write(dense: &mut [u32], marking: &[(u32, u32)], clear: bool) {
-    for &(p, c) in marking {
-        dense[p as usize] = if clear { 0 } else { c };
+/// Writes a marking's counts into a dense vector of counts and each
+/// place's index among its marked places, plus one, into another, or
+/// clears both.
+fn load(counts: &mut [u32], position: &mut [u32], marking: &[(u32, u32)], clear: bool) {
+    for (i, &(p, c)) in marking.iter().enumerate() {
+        (counts[p as usize], position[p as usize]) = if clear { (0, 0) } else { (c, i as u32 + 1) };
     }
 }
