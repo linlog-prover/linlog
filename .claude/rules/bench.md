@@ -413,7 +413,24 @@ beyond clap and anyhow, which the CLI already has.
   core, four streams on cores 2 to 5 split by every fourth net
   (`--only`). `horn-families.csv` is the default against `--engines
   horn` on the Horn families (Partition, the counters) at 10 s, which
-  kept the row to programs with `!`.
+  kept the row to programs with `!`. Step 27's second session added
+  three: `horn-qcover.csv`, qcover's 176 problems (`--spec`,
+  intuitionistic affine) at 5 s with `--engines horn` (the final engine)
+  beside the two-sided engine's rows of the same day (`--engines
+  two-sided --bias factors --copies 30`, and `--engines auto --copies
+  none`, the default before the affine row), four streams on cores 2 to
+  5 by every fourth problem; `horn-nets-coverability.csv`, the library's
+  3 137 nets with `--engines horn` at 5 s on the final engine, to set
+  beside `horn-nets.csv`; and `horn-near.csv`, which is no harness
+  output but a table drawn from two: 7 000 random programs near the Horn
+  shape (one to four atoms and clauses, used once or under `!`, a
+  marking, a goal replayed or random, mutations at the shape's edge, run
+  as a problem file at 1 s), one row per program the Horn engine takes,
+  with the Horn engine's verdict and time and the focused engine's
+  (forced, `--copies none`) in each of the five modes (the linear ones
+  only where the row takes the program), and the sequent with `;` for
+  `,`. The generator stayed outside the repository; the sequents are
+  the input.
 
 ## Heap profiles
 

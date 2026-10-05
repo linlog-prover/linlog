@@ -136,9 +136,9 @@ the net engine's, and the others stay zero.
   rest by mode.
 - **Why the Horn row takes affine mode too** (measured at step 27's
   second session): on qcover's 176 coverability problems at 5 s it
-  decides 149 where the two-sided engine, the default before, decides 8
-  (no verdict against another); on 9 765 random affine Horn programs it
-  decides every one in at most 0.2 ms, the two-sided engine 8 951 at
+  decides 162 where the two-sided engine, the default before, decides 8
+  (no verdict against another); on 10 464 random affine Horn programs it
+  decides every one in at most 0.2 ms, the focused engines 9 578 at
   1 s; the focused engines seldom refute an affine goal with `!` (2 of
   qcover's 176), their copy bound deepening without end.
 - **Why the Horn row takes only programs with `!`** (measured at step
