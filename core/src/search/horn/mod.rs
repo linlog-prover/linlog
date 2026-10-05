@@ -3,13 +3,16 @@
 
 //! The Horn engine: a goal that is a Horn program, clauses that may be
 //! used any number of times under `!`, clauses used once, atoms and one
-//! goal of atoms, is a Petri net with a marking to reach, and is decided
-//! by a search over the markings instead of over sequents. A firing of a clause is a copy of it, a split
+//! goal of atoms, is a Petri net with a marking to reach, and in affine
+//! mode a marking to cover, and is decided by a search over the markings
+//! instead of over sequents. A firing of a clause is a copy of it, a split
 //! of the linear zone that hands the clause's body exactly the tokens it
 //! consumes, and a decomposition of its head into new tokens, so the
 //! firing sequence found is the proof. Beside the search, the net's state
 //! equation may refute.
 
+/// Coverability by the backward algorithm, for affine mode.
+mod cover;
 /// The state equation, and the weights that refute it.
 mod equation;
 /// The proof read off a firing sequence.
@@ -20,7 +23,7 @@ mod reach;
 mod tests;
 
 use super::memory::Account;
-use super::{Answer, Decide, Engine, Options, Reason, Refutation, Statistics, Task};
+use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
 use crate::occurrences::{Forest, OccId, Position, Sign};
@@ -31,14 +34,8 @@ use equation::Equation;
 pub(crate) struct Horn;
 
 impl Decide for Horn {
-    /// Refuses affine mode, and a goal that is no Horn program.
+    /// Refuses a goal that is no Horn program.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if task.mode.affine {
-            return Err(Error::EngineMode {
-                engine: Engine::Horn,
-                mode: task.mode,
-            });
-        }
         if Program::read(task).is_none() {
             return Err(Error::NotHorn);
         }
@@ -46,8 +43,9 @@ impl Decide for Horn {
     }
 
     /// Searches the markings on the calling thread, whatever
-    /// [`Options::jobs`] says, with the state equation beside the search,
-    /// and reads the proof off the firing sequence found.
+    /// [`Options::jobs`] says, forward for the target in linear mode and
+    /// backward from it in affine mode, with the state equation beside the
+    /// search, and reads the proof off the firing sequence found.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -75,9 +73,14 @@ impl Decide for Horn {
             ));
         }
         let program = Program::read(task).expect("the engine admitted the goal");
-        let mut equation = Equation::new(false, account);
+        let affine = task.mode.affine;
+        let mut equation = Equation::new(affine, account);
         let most = reach::MOST_MARKINGS;
-        let (mut found, statistics) = reach::search(&program, account, most, &mut equation, stop);
+        let (mut found, statistics) = if affine {
+            cover::search(&program, account, most, &mut equation, stop)
+        } else {
+            reach::search(&program, account, most, &mut equation, stop)
+        };
         // A search that ran out of room has given its memory back: the
         // state equation may still refute, and has the rest of the time.
         if let Err(Reason::MemoryLimit(_) | Reason::IndexLimit) = found
@@ -87,7 +90,14 @@ impl Decide for Horn {
         }
         let (result, nodes) = match found {
             Ok(Some(firings)) => {
-                match proof::build(task.forest, &program, &firings, account, proof::MOST_NODES) {
+                match proof::build(
+                    task.forest,
+                    &program,
+                    &firings,
+                    affine,
+                    account,
+                    proof::MOST_NODES,
+                ) {
                     Ok((root, nodes)) => (Ok(Some(root)), nodes),
                     Err(reason) => (Err(reason), Vec::new()),
                 }

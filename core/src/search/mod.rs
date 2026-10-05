@@ -733,8 +733,16 @@ pub enum Engine {
     /// many markings the net has. A net whose markings grow without end
     /// and whose equation has a solution is searched until the stop or
     /// [`Options::memory_limit`], which counts the markings kept and the
-    /// simplex's tableau. Linear mode only, classical or intuitionistic, with
-    /// or without Mix (which no proof of such a goal can use). It reads
+    /// simplex's tableau. In affine mode, where the tokens and the clauses
+    /// a firing sequence leaves are weakened, the question is whether a
+    /// marking that covers the goal is reachable, and the engine decides
+    /// it backward: from the goal, the least markings from which a firing
+    /// leads to one that covers it, each kept unless a smaller one is,
+    /// until one lies below the start (the proof) or no new one comes
+    /// (`Unprovable`), which Dickson's lemma says happens; the state
+    /// equation runs beside it as in linear mode. Classical or
+    /// intuitionistic, with or without Mix (which no proof of such a goal
+    /// can use). It reads
     /// [`Options::memory_limit`] and [`Options::check`], runs on the
     /// calling thread whatever [`Options::jobs`] says, and needs no copy
     /// bound, memo limit or recursion limit: it keeps every marking once

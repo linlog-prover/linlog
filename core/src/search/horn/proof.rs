@@ -7,7 +7,9 @@
 //! used once itself), whose tensors hand each body literal the token it
 //! consumes by an axiom and the rest of the linear zone to the head, whose
 //! `⅋` and `⊥` leave its literals as new tokens beside it. At the top the
-//! goal's tensors meet the tokens left, an axiom each.
+//! goal's tensors meet the tokens left, an axiom each, and in affine mode
+//! the tokens beyond the goal's and the clauses used once that were not
+//! are weakened there.
 
 use super::{Clause, Program, head_of};
 use crate::occurrences::{Forest, OccId, Sign};
@@ -22,13 +24,14 @@ use crate::sequents::Kind;
 pub(super) const MOST_NODES: u64 = u32::MAX as u64;
 
 /// Builds the proof of the program's goal that fires `firings` from the
-/// initial marking, which reaches the target, into an arena of at most
-/// `most` nodes, the arena charged to `account`; returns its root and the
-/// arena, or why it is not built.
+/// initial marking, which reaches the target, or in affine mode covers
+/// it, into an arena of at most `most` nodes, the arena charged to
+/// `account`; returns its root and the arena, or why it is not built.
 pub(super) fn build(
     forest: &Forest,
     program: &Program,
     firings: &[u32],
+    affine: bool,
     account: &Account,
     most: u64,
 ) -> Result<(NodeId, Vec<Node>), Reason> {
@@ -48,11 +51,37 @@ pub(super) fn build(
             ),
         })
         .collect();
+    // In affine mode the clauses used once that the firings left.
+    let unused: Vec<OccId> = once.into_iter().flatten().collect();
+    debug_assert!(affine || unused.is_empty());
     let size = |o: OccId| u64::from(forest.size(o));
     let nodes = clauses.iter().map(|&(c, _)| size(c) + 1).sum::<u64>()
         + size(program.goal)
         + program.markings.iter().map(|&m| size(m)).sum::<u64>()
         + program.quests.len() as u64;
+    if nodes > most {
+        return Err(Reason::IndexLimit);
+    }
+    // A weakening for each token left beside the goal's: the tokens given
+    // and made less those taken, each a literal and so a node counted
+    // above, so that none of these sums passes twice the bound.
+    let atoms = program.places - program.once.len();
+    let literals = |arcs: &[(u32, u32)]| {
+        arcs.iter()
+            .filter(|&&(p, _)| (p as usize) < atoms)
+            .map(|&(_, w)| u64::from(w))
+            .sum::<u64>()
+    };
+    let (mut made, mut taken) = (
+        literals_of(&program.initial[..atoms]),
+        literals_of(&program.target[..atoms]),
+    );
+    for &t in firings {
+        let transition = &program.transitions[t as usize];
+        taken += literals(&program.arcs[transition.inputs as usize..transition.outputs as usize]);
+        made += literals(&program.arcs[transition.outputs as usize..transition.end as usize]);
+    }
+    let nodes = nodes + (made - taken) + unused.len() as u64;
     if nodes > most {
         return Err(Reason::IndexLimit);
     }
@@ -66,7 +95,7 @@ pub(super) fn build(
         return Err(Reason::MemoryLimit(account.limit()));
     };
     charged.charge(bytes);
-    let pairs = replay(forest, program, &clauses, nodes as usize);
+    let (pairs, left) = replay(forest, program, &clauses, nodes as usize);
     let mut builder = Builder {
         forest,
         body: program.body,
@@ -75,6 +104,9 @@ pub(super) fn build(
     };
     let mut pairs = pairs.as_slice();
     let mut root = builder.clause(program.goal, None, &mut pairs, NodeId::new(0));
+    for &weakened in left.iter().chain(&unused) {
+        root = builder.push(Node::Weaken(weakened, root));
+    }
     for &(clause, reusable) in clauses.iter().rev() {
         let head = head_of(forest, program.body, clause);
         root = builder.clause(clause, head, &mut pairs, root);
@@ -92,19 +124,25 @@ pub(super) fn build(
     Ok((root, builder.nodes))
 }
 
+/// The tokens of a marking.
+fn literals_of(marking: &[u32]) -> u64 {
+    marking.iter().map(|&c| u64::from(c)).sum()
+}
+
 /// Replays the firings on the tokens, which are occurrences of head
 /// literals, from those of the markings: every body literal of a clause
 /// fired takes a token of its atom, and its head's literals become
 /// tokens. Returns the pairs of a body literal and its token in the order
 /// the proof is built in: the goal's first, then each firing's from the
 /// last to the first, and within each in decreasing order of the body
-/// literals' ids.
+/// literals' ids; and the tokens the goal leaves, which only a firing
+/// sequence that covers the target and does not reach it leaves.
 fn replay(
     forest: &Forest,
     program: &Program,
     clauses: &[(OccId, bool)],
     capacity: usize,
-) -> Vec<(OccId, OccId)> {
+) -> (Vec<(OccId, OccId)>, Vec<OccId>) {
     let place = |literal: OccId| {
         program.place_of[forest.atom(literal).expect("a literal").index()] as usize
     };
@@ -139,11 +177,10 @@ fn replay(
     starts.push(pairs.len());
     let mut ordered = Vec::with_capacity(pairs.len() + forest.size(program.goal) as usize);
     take(program.goal, None, &mut tokens, &mut ordered);
-    debug_assert!(tokens.iter().all(Vec::is_empty), "the target is reached");
     for window in starts.windows(2).rev() {
         ordered.extend_from_slice(&pairs[window[0]..window[1]]);
     }
-    ordered
+    (ordered, tokens.into_iter().flatten().collect())
 }
 
 /// What builds the nodes: the forest, the sign of the bodies, the arena,

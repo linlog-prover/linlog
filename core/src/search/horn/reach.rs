@@ -520,7 +520,7 @@ fn get(bytes: &[u8], at: &mut usize) -> u32 {
 
 /// Makes room in a buffer for `more` elements, doubling it, and charges
 /// what it grew by; returns false when the bound has no room.
-fn room<T>(buffer: &mut Vec<T>, more: usize, charged: &mut Charged<'_>) -> bool {
+pub(super) fn room<T>(buffer: &mut Vec<T>, more: usize, charged: &mut Charged<'_>) -> bool {
     if buffer.capacity() - buffer.len() >= more {
         return true;
     }

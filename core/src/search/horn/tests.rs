@@ -6,7 +6,7 @@
 #![cfg(feature = "parse")]
 
 use super::equation::{Equation, certify};
-use super::{Program, proof, reach};
+use super::{Program, cover, proof, reach};
 use crate::Error;
 use crate::families::FAMILIES;
 use crate::fragment::Mode;
@@ -97,18 +97,43 @@ fn verdict(text: &str, mode: Mode) -> &'static str {
 }
 
 /// Nets whose markings grow without end are refuted by the state
-/// equation where it has no solution.
+/// equation where it has no solution; in affine mode the backward search
+/// decides, refuting what no firing covers and proving what one does with
+/// the tokens and the clauses left over weakened.
 #[test]
 fn decides_unbounded_nets() {
-    for text in [
+    for (text, linear, affine) in [
         // Nothing makes `c`.
-        "!d, !((c * d * d) -o 1) |- c * c",
+        (
+            "!d, !((c * d * d) -o 1) |- c * c",
+            "state equation",
+            "unprovable",
+        ),
         // The tokens of `A` only grow, and the goal has fewer.
-        "!(A -o A * A), !(B * B -o C), A, B |- C",
+        (
+            "!(A -o A * A), !(B * B -o C), A, B |- C",
+            "state equation",
+            "unprovable",
+        ),
+        // The equation has a solution, but `c` is never marked.
+        ("!(a -o a * a), !(a * c -o b * c), a |- b", "", "unprovable"),
+        // Covered with an `a`, a `c` and a clause used once to spare.
+        (
+            "!(a -o a * a), a -o c, c -o b, !(a * a * a -o b), a |- b * b",
+            "",
+            "proved",
+        ),
     ] {
-        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
-            assert_eq!(verdict(text, mode), "state equation", "{text}");
+        if !linear.is_empty() {
+            assert_eq!(verdict(text, Mode::CLASSICAL), linear, "{text}");
+            assert_eq!(verdict(text, Mode::INTUITIONISTIC), linear, "{text}");
         }
+        assert_eq!(verdict(text, Mode::CLASSICAL.affine()), affine, "{text}");
+        assert_eq!(
+            verdict(text, Mode::INTUITIONISTIC.affine()),
+            affine,
+            "{text}"
+        );
     }
 }
 
@@ -157,8 +182,11 @@ fn refuses_at_its_limits() {
         &mut || false,
     );
     let firings = found.unwrap().expect("the counter is provable");
-    let built = proof::build(&forest, &counter, &firings, &account, 3);
+    let built = proof::build(&forest, &counter, &firings, false, &account, 3);
     assert_eq!(built.err(), Some(Reason::IndexLimit));
+    let affine = || Equation::new(true, &account);
+    let (found, _) = cover::search(&counter, &account, 1, &mut affine(), &mut || false);
+    assert_eq!(found, Err(Reason::IndexLimit));
 
     // A clause that adds almost 2³² tokens passes the count's bound at
     // its second firing, the state equation having a solution.
@@ -172,6 +200,24 @@ fn refuses_at_its_limits() {
         &account,
         reach::MOST_MARKINGS,
         &mut equation(),
+        &mut || false,
+    );
+    assert_eq!(found, Err(Reason::IndexLimit));
+
+    // Backward, a clause that takes almost 2³² tokens and gives one back
+    // asks for more than 2³² before its own output.
+    let sequent: Sequent = "!(a * a -o a), !(a -o b), c |- b".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let mut taking = program(&forest);
+    for t in 0..2 {
+        let inputs = taking.transitions[t].inputs as usize;
+        taking.arcs[inputs].1 = u32::MAX - 1;
+    }
+    let (found, _) = cover::search(
+        &taking,
+        &account,
+        reach::MOST_MARKINGS,
+        &mut affine(),
         &mut || false,
     );
     assert_eq!(found, Err(Reason::IndexLimit));

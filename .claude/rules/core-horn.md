@@ -16,8 +16,9 @@ front door, the dispatch and the memory account it plugs into are in
   `is_net`, the dispatch's feature (a program with a clause under `!`:
   the goal's own `?` members, since the fragment the options assert may
   have exponentials the goal lacks); `reach.rs` the
-  search over markings; `equation.rs` the state equation and the exact
-  check of its refutation; `proof.rs` the proof read off a firing
+  search over markings; `cover.rs` the backward search for affine mode;
+  `equation.rs` the state equation and the exact check of its
+  refutation; `proof.rs` the proof read off a firing
   sequence; `tests.rs` the engine's own tests (the reference comparison
   is `engines_agree_on_horn_programs` in `search/reference.rs`).
 - **The shape** (`Program::read`), one-sided, with the bodies' atoms of
@@ -95,9 +96,19 @@ front door, the dispatch and the memory account it plugs into are in
   every sequent, so the one-succedent check accepts it only if the
   reading agrees. A goal whose reading differs is no program for the
   engine, never a wrong proof.
-- **Affine mode is refused** (`Error::EngineMode`): there a proof may
-  weaken leftover tokens and unused clauses, which makes the question
-  coverability, a different search.
+- **In affine mode the question is coverability** (`cover.rs`): a proof
+  may weaken the tokens and clauses a firing sequence leaves, so the
+  target need only be covered and a clause used once is used at most
+  once (its ticket may stay). The count above holds with weakening too
+  (a weakened input keeps `q`, a weakened output would lower it), so no
+  proof weakens an output and every sequent still has one output; the
+  induction then gives a firing sequence of the lossy net, where a
+  weakening drops tokens (a token, a clause used once, or the rest of a
+  clause whose body part was already paid, which dropped its tokens).
+  Dropping tokens never helps to cover (more tokens enable at least the
+  same firings), so a lossy sequence that covers the target gives one
+  without drops that covers it, and backward coverability decides the
+  goal in affine mode, classical or intuitionistic, with or without Mix.
 - **The state equation refutes beside the search** (`equation.rs`,
   below): the second way to `Unprovable`, the one that reaches nets whose
   markings grow without end (`!d, !((c * d * d) -o 1) |- c * c`, where
@@ -177,6 +188,45 @@ front door, the dispatch and the memory account it plugs into are in
   (`search::engine_for`, asked when the pool would start): a pool would
   run the same search again, at twice the memory bound.
 
+## The backward search (`cover.rs`)
+
+- **The algorithm** (Abdulla, Čerāns, Jonsson and Tsay, 1996): the
+  markings from which the target can be covered are upward-closed and
+  kept as their minimal elements. From an element `m` and a transition
+  `t` with an output on a place `m` marks, `max(m − out(t), 0) + in(t)` is
+  the least marking from which `t` leads to one at least `m`; it is kept
+  unless an element is at most it (`memo_hits`), and a kept one at most
+  the initial marking ends the search with the firing sequence `t`, then
+  the transitions up the line of parents to the target. A transition
+  without an output on `m`'s places gives a marking at least `m`, which
+  `m` already covers, so only the transitions indexed by `m`'s places
+  are tried (`by_output`).
+- **Why it ends, and why the end refutes.** No element is kept that is
+  at least an earlier one (that one, or the kept element at most it,
+  would cover it), and Dickson's lemma says every infinite sequence of
+  count vectors has an element at least an earlier one: the kept
+  sequence is finite. An empty queue means every element's predecessors
+  were computed and covered, so the elements' upward closure is the
+  whole set of markings from which the target is coverable; every kept
+  element was compared with the initial marking when computed, so the
+  initial marking is outside, and the target is not coverable. Dickson
+  bounds nothing: the memory bound and the stop do.
+- **No element is removed.** An element that a later, smaller one covers
+  stays in the index, harmlessly (whatever it covers, the smaller one
+  covers), and is skipped when it comes out of the queue
+  (`dominated(…, e)`), since what it would compute is covered by what
+  the smaller one computes (`max(m − out, 0) + in` is monotone in `m`).
+  The index is by the first marked place: an element at most a marking
+  has its first place marked there, and no more tokens (`sums`).
+- **Order: fewest tokens first**, ties by age; it changes no verdict.
+- **Counts** grow backward by a transition's inputs, checked
+  (`before`): passing `u32::MAX` is `IndexLimit`, tested with inputs of
+  almost 2³²; the elements kept are at most `MOST_MARKINGS` (their
+  indices are `u32`, and `tried` stores an index plus one).
+- **Polled** at every element taken from the queue and every marking
+  computed. The state equation runs beside it as beside the forward
+  search, its work counted in transitions tried and elements compared.
+
 ## The state equation (`equation.rs`)
 
 - **What refutes.** A firing sequence from `M₀` to `M` fires each
@@ -184,7 +234,12 @@ front door, the dispatch and the memory account it plugs into are in
   effect (the tickets of clauses used once are places, so their count
   is in it). Integer weights `y` per place with `y·Cₜ ≤ 0` for every
   transition and `y·(M − M₀) > 0` make that impossible: `y·(M − M₀) =
-  Σ xₜ·(y·Cₜ) ≤ 0`. That is Farkas' lemma for the rational relaxation;
+  Σ xₜ·(y·Cₜ) ≤ 0`. In affine mode the marking reached `M'` need only be
+  at least the target, and weights not below zero give `y·(M' − M₀) ≥
+  y·(M − M₀) > 0` against the same `≤ 0`: there `certify` also asks
+  every weight to be at least zero, and the tableau has a surplus column
+  per row (`C·x ≥ M − M₀`), whose reduced cost at the optimum is that
+  sign. That is Farkas' lemma for the rational relaxation;
   `certify` checks exactly those inequalities, in `i128` with checked
   operations (a weight below 2⁶³ times an arc's weight below 2³², fewer
   than 2³² terms: no sum reaches 2¹²⁷), over every transition of the
@@ -224,7 +279,9 @@ front door, the dispatch and the memory account it plugs into are in
 ## The proof (`proof.rs`)
 
 - Built after the search, premises first: the goal's tensors with an
-  axiom per body literal, then each firing from the last to the first
+  axiom per body literal, in affine mode a `Weaken` for each token left
+  beside the goal's (those the replay leaves) and each clause used once
+  that no firing used, then each firing from the last to the first
   (the clause's tensors over axioms for its body and the proof so far
   above its head, wrapped in the head's `⅋` and `⊥`; a `Copy` for a
   clause under `?`), then the markings' `⅋` and `⊥`, then a `Quest` per

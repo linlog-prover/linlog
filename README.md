@@ -140,9 +140,12 @@ solution, which a simplex beside the search finds out: then weights for
 the atoms, checked exactly, show that no firing raises the weighted
 count of the tokens while the goal needs it raised, however many
 markings the net has. A net whose markings grow without end and whose
-equation has a solution is searched until the time or the memory limit. In linear
-mode only, classical or intuitionistic; affine mode goes to the focus
-engine. `--stats` counts the markings:
+equation has a solution is searched until the time or the memory limit.
+In affine mode, where the tokens and clauses left over may be weakened,
+the question is whether some reachable marking covers the goal, and
+`--engine horn` decides it backward from the goal, the least markings
+from which a firing covers it kept until one lies below the start or no
+new one comes. `--stats` counts the markings:
 
 ```console
 $ linlog prove "!A, !(A -o B), !(B -o C) |- C"

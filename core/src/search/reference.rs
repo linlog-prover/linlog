@@ -847,9 +847,10 @@ mod tests {
         );
     }
 
-    /// Random Horn programs, Petri nets with a marking to reach, written
-    /// two-sided for intuitionistic mode and one-sided for the classical
-    /// modes: no engine contradicts the reference. Where a clause is
+    /// Random Horn programs, Petri nets with a marking to reach or, in
+    /// affine mode, to cover, written two-sided for intuitionistic mode
+    /// and one-sided for the classical modes: no engine contradicts the
+    /// reference. Where a clause is
     /// under `!` the reference proves within the copies or decides
     /// nothing, and without one it refutes as well.
     #[test]
@@ -938,17 +939,16 @@ mod tests {
             // whose markings grow without end until it is stopped.
             let polls = 5_000;
             let text = generate::two_sided(&hypotheses, &goal);
-            let reference = intuitionistic(&hypotheses, &goal, Mode::INTUITIONISTIC, copies);
-            judge_within(
-                &text,
-                Mode::INTUITIONISTIC,
-                copies,
-                reference,
-                &mut tally,
-                polls,
-            );
+            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.affine()] {
+                let reference = intuitionistic(&hypotheses, &goal, mode, copies);
+                judge_within(&text, mode, copies, reference, &mut tally, polls);
+            }
             let text = generate::sequent(&formulas);
-            for mode in [Mode::CLASSICAL, Mode::CLASSICAL.with_mix()] {
+            for mode in [
+                Mode::CLASSICAL,
+                Mode::CLASSICAL.with_mix(),
+                Mode::CLASSICAL.affine(),
+            ] {
                 let reference = classical(&formulas, mode, copies);
                 judge_within(&text, mode, copies, reference, &mut tally, polls);
             }
