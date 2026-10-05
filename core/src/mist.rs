@@ -41,6 +41,7 @@
 //!
 //! Needs the cargo feature `parse` (on by default).
 
+use crate::occurrences::Forest;
 use crate::{Error, Sequent};
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -78,14 +79,30 @@ pub enum Safety {
 /// guard and its decrement, and gives back that less the decrement plus
 /// the increment.
 ///
+/// A count of `k` is `k` occurrences of the counter's atom, so a few bytes
+/// can ask for billions: a problem whose tokens pass
+/// [`Forest::DEFAULT_LIMIT`] is refused before its sequent is written, as
+/// its forest would be; [`read_within`] takes another limit.
+///
 /// # Errors
 ///
 /// [`Error::Mist`] for text that is not such a problem: a section missing
 /// or out of order, a counter not declared, a counter updated twice by one
 /// rule or from another counter, a count that is no number below 2³², or
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
-/// unit; [`Error::SequentParsing`] for a name its parser rejects.
+/// unit; [`Error::TooManyOccurrences`] for more tokens than the limit;
+/// [`Error::SequentParsing`] for a name its parser rejects.
 pub fn read(text: &str) -> Result<Problem, Error> {
+    read_within(text, Forest::DEFAULT_LIMIT)
+}
+
+/// [`read`] with the most tokens, and so occurrences, the sequent may
+/// have given.
+///
+/// # Errors
+///
+/// Those of [`read`].
+pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
     let expected = text.lines().next().and_then(|line| {
         let line = line.trim().strip_prefix('#')?.trim();
         match line.strip_prefix("expected result:")?.trim() {
@@ -155,6 +172,20 @@ pub fn read(text: &str) -> Result<Problem, Error> {
         return Err(error("no target".to_owned()));
     }
 
+    // Every token is an occurrence of its atom.
+    let total = |counts: &[(usize, u32)]| counts.iter().map(|&(_, k)| u64::from(k)).sum::<u64>();
+    let tokens_written = tokens
+        .iter()
+        .map(|&k| u64::from(k))
+        .chain(clauses.iter().map(|(i, o)| total(i) + total(o)))
+        .chain(targets.iter().map(|t| total(t)))
+        .fold(0u64, u64::saturating_add);
+    if tokens_written > most {
+        return Err(Error::TooManyOccurrences {
+            occurrences: tokens_written,
+            limit: most,
+        });
+    }
     let mut sequent = String::new();
     for (inputs, outputs) in &clauses {
         let _ = write!(
@@ -491,5 +522,13 @@ mod tests {
         ] {
             assert!(matches!(read(bad), Err(Error::Mist(_))), "{bad:?}");
         }
+        // Five bytes of a count ask for more tokens than the limit, which
+        // is refused before any is written.
+        let big = "vars a rules init a = 99999 target a >= 1";
+        assert!(read_within(big, 100_000).is_ok());
+        assert!(matches!(
+            read_within(big, 99_999),
+            Err(Error::TooManyOccurrences { .. })
+        ));
     }
 }

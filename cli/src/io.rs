@@ -63,13 +63,21 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 
 /// Returns the sequent `text` holds in `format`, one of the formats of a
 /// single sequent: text (a parse error points into `text`), JSON, an LLTP
-/// problem or a `.spec` problem.
-pub fn sequent_in(text: &str, format: InputFormat) -> Result<Sequent> {
+/// problem or a `.spec` problem, whose counts are refused before they are
+/// written out when their tokens pass `most`.
+pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
     match format {
         InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
         // The library's error says that the text is no LLTP problem.
         InputFormat::Lltp => Ok(linlog::lltp::read(text)?.sequent),
-        InputFormat::Spec => Ok(linlog::mist::read(text)?.sequent),
+        InputFormat::Spec => match linlog::mist::read_within(text, most) {
+            Ok(problem) => Ok(problem.sequent),
+            Err(linlog::Error::TooManyOccurrences { occurrences, .. }) => bail!(
+                "the problem's tokens alone are {occurrences} subformula occurrences, more than \
+                 the limit of {most}; raise it with --occurrence-limit"
+            ),
+            Err(e) => Err(e.into()),
+        },
         _ => text.parse().map_err(|e| crate::parse_error(text, e)),
     }
 }
@@ -126,7 +134,7 @@ impl SequentInput {
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        admit(sequent_in(&text, format)?, self.most())
+        admit(sequent_in(&text, format, self.most())?, self.most())
     }
 
     /// Reads one formula or sequent of ordinary logic and returns its image

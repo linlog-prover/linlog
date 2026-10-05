@@ -495,7 +495,7 @@ impl Shared {
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
             } else {
-                (sequent_in(&text, format)?, None)
+                (sequent_in(&text, format, most)?, None)
             };
             Ok((Forest::from_owned(admit(sequent, most)?, most)?, image))
         })?;

@@ -48,7 +48,12 @@ the generated families are read; the harness that runs them is
   or at the start of the next joining the two, as the bug-tracking files
   write their initial markings, an `invariants` section, which is
   skipped); rules and targets are kept sparse, since a file declares up
-  to 66 950 counters and 213 625 rules; an update from another counter, a counter updated twice,
+  to 66 950 counters and 213 625 rules; a count of `k` is `k` occurrences
+  of an atom, so the tokens are summed before the text is written and a
+  problem with more than the limit is `Error::TooManyOccurrences`
+  (`read_within`; `read` takes `Forest::DEFAULT_LIMIT`, the command
+  `--occurrence-limit`): a 40-byte file asked for 20 million tokens,
+  617 MiB, before the limit counted (the panel's finding); an update from another counter, a counter updated twice,
   and the names `top` and `bot` (units in this syntax) are refused. The
   expected result is the first line's `#expected result: safe|unsafe`,
   which only 12 of the suite's files state (`Safety::Unsafe` is
