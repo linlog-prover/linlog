@@ -66,9 +66,11 @@ by day while the author is away (2026-10-05).
   It never opens a pinentry and leaves `/tmp/linlog-step27b-unsigned`
   once the cache is gone. Before every jj command that can write (a
   commit, a split, a describe, and `jj st` once files changed), check
-  that the file is absent and that `gpg-connect-agent 'KEYINFO
-  2DD4A80714617BA2CF92FF8C2A544F9421F92E27' /bye` shows `1` in its
-  seventh field; from the first time either fails, run every jj command
+  that the file is absent and that `echo x | gpg --batch --pinentry-mode
+  error --local-user flgrubm@grubmueller.dev --sign -o /dev/null`
+  succeeds (the agent's `KEYINFO` flag for the key is no guide: on
+  2026-10-05 it read `-` while signing worked); from the first time
+  either fails, run every jj command
   with `--config signing.behavior=drop`, which commits unsigned instead
   of waiting on a pinentry, and go on committing thematically. If a
   command hangs on signing all the same, run
