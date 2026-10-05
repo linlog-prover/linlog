@@ -82,6 +82,7 @@ cargo run -p linlog-cli -- <args>
 cargo run --release -p linlog-bench -- run --family partition-no=3,4 --engines focus,net
 nix build .#lltp -o bench/lltp   # the LLTP library (1.1 GB, GPL-3.0, fetched at a pinned commit)
 nix build .#iltp -o bench/iltp   # the ILTP library's 274 propositional problems (no licence stated, fetched at v1.1.2)
+nix build .#qcover -o bench/qcover   # the qcover coverability suite's 176 .spec problems (no licence of their own, fetched at a pinned commit); linlog-bench run --spec
 bench/targets.sh LABEL            # the focused engine's target set into bench/targets/LABEL.csv (two cores, about 20 min, detached)
 bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to 07:00 (about 11.5 h, so it may need a second night): bench/results/DAY/, bench/RESULTS.md
 
