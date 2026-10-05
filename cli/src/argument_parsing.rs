@@ -1174,9 +1174,10 @@ pub enum EngineArg {
     /// The fast path for a sequent of two additive-only formulas, in every
     /// mode
     Additive,
-    /// Reachability of markings, for Horn programs: atoms, implications
+    /// Markings of a Petri net, for Horn programs: atoms, implications
     /// between tensors of atoms, such implications under !, and one goal
-    /// that is a tensor of atoms, in linear mode
+    /// that is a tensor of atoms; reachability in linear mode, coverability
+    /// in affine mode
     Horn,
 }
 

@@ -460,7 +460,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   line prints `Engine`'s `Display`; `statistics` in `prove.rs` gets an arm
   only if the engine has counters of its own, as the net, additive and
   Horn engines have (`two-sided` shares the focus engine's; the Horn
-  engine prints markings reached, those reached again and markings kept).
+  engine prints markings reached, those reached again and markings kept,
+  and in affine mode, where it searches backward, the markings computed,
+  those an element kept already covers, and the elements kept).
 - **An `interact` command**: an arm in `Session::command`, a line in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.

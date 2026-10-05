@@ -1201,6 +1201,14 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
              time: {elapsed:.2?}",
             s.nodes, s.memo_hits, s.memo_entries
         ),
+        // Backward, the markings are the least from which the goal can be
+        // covered.
+        Engine::Horn if outcome.mode.affine => format!(
+            "markings computed backward: {} ({} of them covered already)\n\
+             markings kept: {}\n\
+             time: {elapsed:.2?}",
+            s.nodes, s.memo_hits, s.memo_entries
+        ),
         Engine::Horn => format!(
             "markings reached: {} ({} of them again)\n\
              markings kept: {}\n\
