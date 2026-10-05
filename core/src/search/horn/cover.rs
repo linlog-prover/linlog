@@ -12,8 +12,8 @@
 //! the whole set, and the initial marking outside it refutes.
 //!
 //! It ends: every element added is at least no element added before it
-//! (an element at most it would have kept it out, or one at most that
-//! one, which was kept), and an infinite sequence of count vectors in
+//! (that one, which stays in the index, would have kept it out), and an
+//! infinite sequence of count vectors in
 //! which no element is at least an earlier one does not exist (Dickson's
 //! lemma). How long it takes, Dickson does not bound: the memory bound
 //! and the caller's stop do.

@@ -202,8 +202,8 @@ front door, the dispatch and the memory account it plugs into are in
   `m` already covers, so only the transitions indexed by `m`'s places
   are tried (`by_output`).
 - **Why it ends, and why the end refutes.** No element is kept that is
-  at least an earlier one (that one, or the kept element at most it,
-  would cover it), and Dickson's lemma says every infinite sequence of
+  at least an earlier one (that one, which stays in the index, would
+  cover it), and Dickson's lemma says every infinite sequence of
   count vectors has an element at least an earlier one: the kept
   sequence is finite. An empty queue means every element's predecessors
   were computed and covered, so the elements' upward closure is the
