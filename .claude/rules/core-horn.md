@@ -215,8 +215,9 @@ front door, the dispatch and the memory account it plugs into are in
   is what refutes the rest of what the focused engine refutes
   (`!(1 -o 1), !a, (a * a -o a) |- 1`: the goal has no predecessor).
   Out of room, the forward search takes back the simplex's memory, then
-  the backward search's (`give_back`, which ends it); the backward
-  search out of room ends itself.
+  the backward search's (`give_back`, which ends it, and gives nothing
+  before the search started); the backward search out of room ends
+  itself.
 - **Polled** once per successor taken from the frontier: an expansion
   costs the transitions indexed by the marked places, which on the
   largest LLTP net (33 676 transitions) is well under a millisecond.
@@ -259,7 +260,15 @@ front door, the dispatch and the memory account it plugs into are in
   has its places among the marking's, so `dominated` walks from the root
   along the marking's places only (an explicit stack of a node and where
   in the marking its children start) and compares the counts of the
-  elements listed there of no more tokens (`sums`). It answers exactly
+  elements listed there of no more tokens (`sums`). At each node it
+  steps through the smaller side: the node's children (`first_child`,
+  `sibling`, `place_of_node`, counted in `children`), each kept if the
+  marking marks its place after the node's (`position`, an index plus one
+  per place, written with the probe), or the marking's places after the
+  node's, each looked up in `edges`. Looking up every remaining place at
+  every node cost `k²` lookups on markings of `k` places, and a goal of
+  4 000 places that the scan by first place decided in 0.25 s ran past
+  10 s (the second panel's finding; now 71 ms). It answers exactly
   as a scan of every element would: on 4 542 random affine programs and
   qcover's Mist and medical nets the counters equal those of the scan by
   first place that came before it, which took twice as long on
@@ -350,8 +359,14 @@ front door, the dispatch and the memory account it plugs into are in
 - **The search never loses a decision to the simplex's memory.** The
   tableau is charged to the search's own account, so when the search has
   no room for a marking, an element or the frontier, the simplex gives
-  its tableau back (`Equation::release`, state `Yielded`) and the search
-  tries once more; the simplex then waits for the search's end. Before
+  its tableau back (`Equation::release`, state `Yielded`), and in linear
+  mode the backward search its markings, both at once, and the search
+  tries once more; the simplex then waits for the search's end. A
+  simplex whose basis does not fit beside the search waits the same way
+  (`Yielded`, not `Done`), so that `finish` gives it the memory the search
+  gave back. The second panel found both: the release stopped at the
+  simplex while the backward search kept its markings, and a basis that
+  did not fit was never tried again. Before
   a proof is built the tableau goes too. The first panel of the second
   session found goals the search proved before ending at the memory
   limit, the tableau of a chain of 8 190 clauses taking the whole GiB.

@@ -162,7 +162,9 @@ impl<'a> Equation<'a> {
                     self.spent = self.spent.saturating_add(tableau.entries());
                     State::Solving(tableau)
                 }
-                None => State::Done,
+                // No room beside the search: it may have after the
+                // search, from `finish`.
+                None => State::Yielded,
             };
         }
         let State::Solving(tableau) = &mut self.state else {

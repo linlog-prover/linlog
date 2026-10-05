@@ -96,10 +96,12 @@ fn both<'a>(
 ) -> Result<Option<Vec<u32>>, Reason> {
     let program = forward.program;
     let account = forward.charged.account();
-    // Out of room, the forward search takes back the simplex's memory,
-    // then the backward search's, and tries once more.
+    // Out of room, the forward search takes back the simplex's memory and
+    // the backward search's, and tries once more.
     let release = |equation: &mut Equation<'_>, backward: &mut Option<Search<'a>>| {
-        equation.release() || backward.as_mut().is_some_and(Search::give_back)
+        // Both give back, whichever held something.
+        let gave = equation.release();
+        backward.as_mut().is_some_and(Search::give_back) || gave
     };
     if let Some(firings) = forward.start(most, &mut || release(equation, backward))? {
         return Ok(Some(firings));
@@ -278,7 +280,7 @@ impl<'a> Search<'a> {
     /// one that has no room left: returns whether there was any to give.
     /// This search then ends without deciding.
     fn give_back(&mut self) -> bool {
-        if !self.alive {
+        if !self.alive || !self.started {
             return false;
         }
         self.alive = false;
