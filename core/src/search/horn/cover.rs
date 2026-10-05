@@ -21,8 +21,10 @@
 use super::Program;
 use super::equation::{ENTRIES_PER_UNIT, Equation};
 use super::reach::room;
+use crate::hash::HashMap;
 use crate::search::memory::{Account, Charged};
 use crate::search::{Reason, Statistics};
+use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
@@ -72,9 +74,19 @@ struct Search<'a> {
     /// The element each came from and the transition, as
     /// `parent << 32 | transition`; [`ROOT`] above for the target.
     parents: Vec<u64>,
-    /// The elements by their first place: an element at most a marking
-    /// has its first place marked there.
-    by_first: Vec<Vec<u32>>,
+    /// The index of the elements by their places, a trie: the child of a
+    /// node by a place, the root being node zero and a path following
+    /// places in increasing order. An element is listed at the node its
+    /// places lead to, so the elements at most a marking are listed at
+    /// nodes that some of the marking's places lead to.
+    edges: HashMap<(u32, u32), u32>,
+    /// The first element listed at each node, plus one; zero for none.
+    listed: Vec<u32>,
+    /// The element listed after each at its node, plus one.
+    after: Vec<u32>,
+    /// The nodes a query has still to visit, with where in the marking's
+    /// places their children start.
+    stack: RefCell<Vec<(u32, u32)>>,
     /// The elements to take, fewest tokens first.
     queue: BinaryHeap<Reverse<(u64, u32)>>,
     /// The transitions with an output to each place: those of place `p`
@@ -125,7 +137,10 @@ impl<'a> Search<'a> {
             ends: Vec::new(),
             sums: Vec::new(),
             parents: Vec::new(),
-            by_first: vec![Vec::new(); width],
+            edges: HashMap::default(),
+            listed: vec![0],
+            after: Vec::new(),
+            stack: RefCell::new(Vec::new()),
             queue: BinaryHeap::new(),
             starts,
             by_output,
@@ -271,28 +286,39 @@ impl<'a> Search<'a> {
     }
 
     /// Whether an element other than `except` is at most `marking`, which
-    /// the probe holds, and the elements compared: only an element whose
-    /// first place the marking marks can be, and only one of no more
-    /// tokens.
+    /// the probe holds, and the nodes and elements looked at: the index's
+    /// nodes that the marking's places lead to, and of the elements listed
+    /// there, whose places the marking all marks, those of no more tokens.
     fn dominated(&self, marking: &[(u32, u32)], except: u32) -> (bool, u64) {
         let tokens: u64 = marking.iter().map(|&(_, c)| u64::from(c)).sum();
-        let mut compared = 0;
-        for &(p, _) in marking {
-            for &b in &self.by_first[p as usize] {
-                if b == except || self.sums[b as usize] > tokens {
-                    continue;
+        let mut looked = 0;
+        let mut stack = self.stack.borrow_mut();
+        stack.clear();
+        stack.push((0, 0));
+        while let Some((node, from)) = stack.pop() {
+            looked += 1;
+            let mut listed = self.listed[node as usize];
+            while listed != 0 {
+                let b = listed - 1;
+                if b != except && self.sums[b as usize] <= tokens {
+                    looked += 1;
+                    let (start, end) = self.span(b);
+                    if self.entries[start..end]
+                        .iter()
+                        .all(|&(q, c)| self.probe[q as usize] >= c)
+                    {
+                        return (true, looked);
+                    }
                 }
-                compared += 1;
-                let (start, end) = self.span(b);
-                if self.entries[start..end]
-                    .iter()
-                    .all(|&(q, c)| self.probe[q as usize] >= c)
-                {
-                    return (true, compared);
+                listed = self.after[b as usize];
+            }
+            for (i, &(p, _)) in marking.iter().enumerate().skip(from as usize) {
+                if let Some(&child) = self.edges.get(&(node, p)) {
+                    stack.push((child, i as u32 + 1));
                 }
             }
         }
-        (false, compared)
+        (false, looked)
     }
 
     /// Keeps the marking in `next` as an element, computed from `parent`
@@ -302,13 +328,18 @@ impl<'a> Search<'a> {
         if index >= most {
             return Err(Reason::IndexLimit);
         }
-        let first = self.next.first().map_or(0, |&(p, _)| p as usize);
         let more = self.next.len();
+        // A node per place at most: the nodes are `u32`.
+        if self.listed.len() + more >= u32::MAX as usize {
+            return Err(Reason::IndexLimit);
+        }
         if !room(&mut self.entries, more, &mut self.charged)
             || !room(&mut self.ends, 1, &mut self.charged)
             || !room(&mut self.sums, 1, &mut self.charged)
             || !room(&mut self.parents, 1, &mut self.charged)
-            || !room(&mut self.by_first[first], 1, &mut self.charged)
+            || !room(&mut self.listed, more, &mut self.charged)
+            || !room(&mut self.after, 1, &mut self.charged)
+            || !self.room_in_edges(more)
             || !self.room_in_queue()
         {
             return Err(Reason::MemoryLimit(self.charged.account().limit()));
@@ -320,9 +351,47 @@ impl<'a> Search<'a> {
         self.parents
             .push(u64::from(parent) << 32 | u64::from(transition));
         let index = index as u32;
-        self.by_first[first].push(index);
+        let mut node = 0;
+        for &(p, _) in &self.next {
+            node = match self.edges.get(&(node, p)) {
+                Some(&child) => child,
+                None => {
+                    let child = self.listed.len() as u32;
+                    self.edges.insert((node, p), child);
+                    self.listed.push(0);
+                    child
+                }
+            };
+        }
+        self.after.push(self.listed[node as usize]);
+        self.listed[node as usize] = index + 1;
         self.queue.push(Reverse((tokens, index)));
         Ok(())
+    }
+
+    /// Makes room in the index's edges for `more`, and charges what the
+    /// table grew by (its slots and a control byte each); returns false
+    /// when the bound has no room.
+    fn room_in_edges(&mut self, more: usize) -> bool {
+        let slot = size_of::<((u32, u32), u32)>() + 1;
+        if self.edges.capacity() - self.edges.len() >= more {
+            return true;
+        }
+        let before = self.edges.capacity() * slot;
+        let wanted = self
+            .edges
+            .len()
+            .checked_add(more)
+            .map(|needed| needed.max(2 * self.edges.capacity()));
+        let fits = wanted
+            .and_then(|wanted| wanted.checked_mul(2 * slot))
+            .is_some_and(|bytes| self.charged.account().fits(bytes.saturating_sub(before)));
+        let (true, Some(wanted)) = (fits, wanted) else {
+            return false;
+        };
+        self.edges.reserve(wanted - self.edges.len());
+        self.charged.resize(before, self.edges.capacity() * slot);
+        true
     }
 
     /// Makes room in the queue for one more element, doubling it, and

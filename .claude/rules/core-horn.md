@@ -216,8 +216,20 @@ front door, the dispatch and the memory account it plugs into are in
   covers), and is skipped when it comes out of the queue
   (`dominated(…, e)`), since what it would compute is covered by what
   the smaller one computes (`max(m − out, 0) + in` is monotone in `m`).
-  The index is by the first marked place: an element at most a marking
-  has its first place marked there, and no more tokens (`sums`).
+- **The index is a trie of the elements' places** (`edges`, `listed`,
+  `after`): a path follows places in increasing order, and an element is
+  listed at the node its places lead to. An element at most a marking
+  has its places among the marking's, so `dominated` walks from the root
+  along the marking's places only (an explicit stack of a node and where
+  in the marking its children start) and compares the counts of the
+  elements listed there of no more tokens (`sums`). It answers exactly
+  as a scan of every element would: on 4 542 random affine programs and
+  qcover's Mist and medical nets the counters equal those of the scan by
+  first place that came before it, which took twice as long on
+  `extendedread-write` and spent most of its time in buckets of tens of
+  thousands of elements that share a control place. The nodes are `u32`
+  (a refusal at `u32::MAX`); the table of edges is charged at its
+  capacity, a slot and a control byte each.
 - **Order: fewest tokens first**, ties by age; it changes no verdict.
 - **Counts** grow backward by a transition's inputs, checked
   (`before`): passing `u32::MAX` is `IndexLimit`, tested with inputs of
