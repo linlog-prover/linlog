@@ -138,18 +138,18 @@ pub fn read(text: &str) -> Result<Problem, Error> {
     }
     reader.keyword("target")?;
     let mut targets = Vec::new();
-    let mut target = vec![0u32; names.len()];
+    let mut target = Vec::new();
     while !reader.at_keyword("invariants") && reader.at < reader.tokens.len() {
         let name = reader.name()?;
         let x = counter(name)?;
         reader.word(">=")?;
-        target[x] = target[x].max(reader.number()?);
+        target.push((x, reader.number()?));
         if !reader.comma_or_line() {
-            targets.push(std::mem::replace(&mut target, vec![0; names.len()]));
+            targets.push(merged(std::mem::take(&mut target)));
         }
     }
-    if target.iter().any(|&k| k > 0) {
-        targets.push(target);
+    if !target.is_empty() {
+        targets.push(merged(target));
     }
     if targets.is_empty() {
         return Err(error("no target".to_owned()));
@@ -202,12 +202,31 @@ fn error(message: String) -> Error {
     Error::Mist(message)
 }
 
+/// Counts of some counters, each a counter's index and its count, sorted
+/// by counter: a rule names a few of the tens of thousands of counters a
+/// file may declare.
+type Counts = Vec<(usize, u32)>;
+
+/// Sorts counts by counter, a counter named twice keeping its larger
+/// count, and drops zeros.
+fn merged(mut counts: Counts) -> Counts {
+    counts.sort_unstable();
+    let mut merged: Counts = Vec::with_capacity(counts.len());
+    for (x, k) in counts {
+        match merged.last_mut() {
+            Some((y, m)) if *y == x => *m = (*m).max(k),
+            _ => merged.push((x, k)),
+        }
+    }
+    merged.retain(|&(_, k)| k > 0);
+    merged
+}
+
 /// The tensor of the counters' tokens, `1` for none.
-fn tensor(names: &[&str], counts: &[u32]) -> String {
+fn tensor(names: &[&str], counts: &[(usize, u32)]) -> String {
     let factors: Vec<&str> = counts
         .iter()
-        .enumerate()
-        .flat_map(|(x, &k)| std::iter::repeat_n(names[x], k as usize))
+        .flat_map(|&(x, k)| std::iter::repeat_n(names[x], k as usize))
         .collect();
     if factors.is_empty() {
         "1".to_owned()
@@ -352,14 +371,14 @@ impl<'a> Reader<'a> {
         &mut self,
         names: &[&str],
         counter: &dyn Fn(&str) -> Result<usize, Error>,
-    ) -> Result<(Vec<u32>, Vec<u32>), Error> {
-        let mut guard = vec![0u32; names.len()];
-        let mut change = vec![None; names.len()];
+    ) -> Result<(Counts, Counts), Error> {
+        let mut guards = Vec::new();
+        let mut changes: Vec<(usize, i64)> = Vec::new();
         if !matches!(self.tokens.get(self.at), Some(Token::Word("->"))) {
             loop {
                 let x = counter(self.name()?)?;
                 self.word(">=")?;
-                guard[x] = guard[x].max(self.number()?);
+                guards.push((x, self.number()?));
                 match self.next()? {
                     Token::Word(",") => {}
                     Token::Word("->") => break,
@@ -387,24 +406,36 @@ impl<'a> Reader<'a> {
                 token => return Err(error(format!("expected `+` or `-` at {token}"))),
             };
             let k = i64::from(self.number()?);
-            if change[x].replace(sign * k).is_some() {
+            if changes.iter().any(|&(y, _)| y == x) {
                 return Err(error(format!("a rule updates `{name}` twice")));
             }
+            changes.push((x, sign * k));
             match self.next()? {
                 Token::Word(",") => {}
                 Token::Word(";") => break,
                 token => return Err(error(format!("expected `,` or `;` at {token}"))),
             }
         }
-        let mut inputs = vec![0u32; names.len()];
-        let mut outputs = vec![0u32; names.len()];
-        for x in 0..names.len() {
-            let change = change[x].unwrap_or(0);
-            let taken = i64::from(guard[x]).max(-change);
-            inputs[x] = u32::try_from(taken).expect("a guard or a decrement");
-            outputs[x] = u32::try_from(taken + change)
+        let guards = merged(guards);
+        let mut counters: Vec<usize> = guards.iter().map(|&(x, _)| x).collect();
+        counters.extend(changes.iter().map(|&(x, _)| x));
+        counters.sort_unstable();
+        counters.dedup();
+        let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
+        for x in counters {
+            let guard = guards.iter().find(|&&(y, _)| y == x).map_or(0, |&(_, k)| k);
+            let change = changes
+                .iter()
+                .find(|&&(y, _)| y == x)
+                .map_or(0, |&(_, c)| c);
+            let taken = i64::from(guard).max(-change);
+            let given = u32::try_from(taken + change)
                 .map_err(|_| error(format!("a rule gives `{}` 2³² tokens or more", names[x])))?;
+            inputs.push((x, u32::try_from(taken).expect("a guard or a decrement")));
+            outputs.push((x, given));
         }
+        inputs.retain(|&(_, k)| k > 0);
+        outputs.retain(|&(_, k)| k > 0);
         Ok((inputs, outputs))
     }
 
