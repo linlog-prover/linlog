@@ -519,6 +519,11 @@ Horn program. That default never decides less than the rarer-literal
 search alone when no limit ends it; what it costs under a time limit,
 and whether the bounds are the right ones, the second baseline says.
 
+Since steps 26 and 27 the table lives in the code, `search::DISPATCH`,
+documented on `Engine` with the measurement behind each row; the table
+above is the original design. Step 27 added the Horn engine's row:
+Horn programs with a clause under `!`, in linear mode.
+
 **D9. Outcomes are three-valued.** `Proved(proof)`, `Unprovable` (only when
 the search was exhaustive) and `Unknown` (bound or time limit hit, with the
 reason). Search takes options (copy bound, time limit, memo cap, thread
@@ -1992,3 +1997,19 @@ client follows it (step 32).
   (it answers, with a warning and a context window assumed at 200k), so
   the author updates Claude Code and restarts step 27, whose first start
   ran three minutes and committed nothing.
+- 2026-10-05: review of step 27's first session (run unattended
+  overnight; three commits signed at the review), accepted without a fix
+  to the code. The Horn engine (Petri-net reachability, the proof read
+  off the firing sequence) is the default for Horn programs with a
+  clause under `!` in linear mode: 3 026 of the library's 3 137 nets
+  decided against 1 628 by the forward focused search; the whole library
+  by default now 3 701 proved and 142 refuted (2 194 and 142 before), no
+  contradiction. Checked: the tests, clippy, both `cargo hack` runs,
+  `cargo deny`, `nix flake check`, the target set, the families, the time
+  and memory bounds, and 42 000 runs on random programs near the Horn
+  shape (no contradiction). Found: the row loses refutations of
+  unbounded nets that the focused engine makes (84 of 3 751 at 1 s,
+  intuitionistic), which the library cannot show; the second session
+  closes it (the state equation with an exactly checked Farkas
+  certificate) or the row narrows. D8 notes that the table lives in the
+  code. Next: step 27's second session.

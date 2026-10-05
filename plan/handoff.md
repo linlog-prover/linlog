@@ -147,9 +147,13 @@ decision). The next command is step 27's first session:
 claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step-27 ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
-It runs unattended (the prompt's section of that name); at its review,
-sign what it committed unsigned (`jj sign -r 'main@origin..@-'`, with
-the author present for the passphrase) before anything else.
+Its first session ran unattended overnight and was reviewed on
+2026-10-05 (three commits signed then). The next command is its second
+session, attended unless the author says otherwise:
+
+```nu
+claude --model claude-opus-5-5 --effort xhigh --name step-27b ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+```
 
 Review it before its second session (`--name step-27b`). At the review
 of the second, finish `plan/28-audit-and-refactor.md`.

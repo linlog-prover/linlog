@@ -498,6 +498,11 @@ logic over `Prop`. The escalations, each a potential goal of its own:
 - **With exponentials** a refutation is certified only where it rests
   on a bound proved sufficient for the sequent, which is the loop check
   or the bound for dyadic sequents of step 25's report.
+- **Petri-net unreachability by the state equation** (step 27's second
+  session, if it takes the review's advice): a Farkas vector that
+  certifies the state equation infeasible is a refutation certificate
+  checked by computation, given a lemma once that a Horn program's
+  proofs are firing sequences.
 
 ## MALL proof nets
 

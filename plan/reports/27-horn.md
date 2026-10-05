@@ -541,3 +541,43 @@ The unsigned commits are signed, once the passphrase is entered, by
 ```sh
 jj sign -r 'main@origin..@-'
 ```
+
+## From the review of the first session
+
+Accepted without a fix to the code; the second session gets one more
+requirement (prompt 27, "From the review of the first session").
+
+- **Signed**: the three commits made after the passphrase's cache ran out
+  were signed at the review, with the author present.
+- **Checked**: clippy, the tests (and `cargo test -p linlog`), both
+  `cargo hack` runs, `cargo deny`, `nix flake check`. The panels ran
+  Sonnet 5.5 as their third member (226 requests with its id, no
+  catalog warning).
+- **The target set again**, by the review (cores 2 and 3): every counter
+  and verdict equal to `after-horn.csv`; against `after-panels.csv` the
+  109 runs that changed engine and nothing else.
+- **The families**: no mismatch (62 proved, 38 refuted, 23 unknown, 12
+  instances on the Horn engine).
+- **The LLTP library** through the batch by default on the slowest four
+  cores: 3 701 proved and 142 refuted, against 2 194 and 142 at step
+  26's review; 1 508 decided only now, one only then (`SYJ201+1.005` in
+  `cbn`, on the two-sided engine, at the time limit); no contradiction,
+  no net refuted; 6.3 minutes where it took about 20.
+- **The bounds**: on `BART-030-unf_50_1` the time limit holds at 2.00 s;
+  on `DNAwalker_dnawalk-18_20_1` and `DatabaseWithMutex_database40UNFOLD_50_1`
+  the memory bound of 1 GiB holds (0.6 and 0.84 GB resident), and at
+  4 GiB, 2.4 GB.
+- **The refutations at the shape's edge**: 7 000 random programs near
+  the Horn shape (one to four atoms and clauses, used once and under
+  `!`, goals reached by a replayed firing sequence or random, mutations
+  with `&`, `⊕`, `!` in a body or head or goal, `1`, `!a` beside them,
+  nested `!`, clauses equal on both sides), at 1 s, by default and with
+  the focused engine forced, intuitionistic, classical and with Mix: no
+  contradiction and no error in 42 000 runs. But of the 3 751 the row
+  sends to the Horn engine, 84, 80 and 53 that the focused engine
+  refutes stay unknown, against 1 or 2 gained: nets whose markings grow
+  without end while the goal is unreachable (`!d, !((c * d * d) -o 1)
+  |- (c * c)`, where nothing makes `c`). The library cannot show it,
+  since every net there is reachable. The second session closes it, the
+  state equation with a Farkas certificate checked exactly being the
+  canonical way, or the row narrows.

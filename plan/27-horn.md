@@ -159,6 +159,32 @@ with the reason the step ends there), and the second starts from that
 report and its review. Keep the step's items as a checklist in the
 report, each with its state and its evidence.
 
+## From the review of the first session
+
+- **The row costs refutations of unbounded nets.** The library's nets
+  are all reachable, so the measurement saw only proofs. The review ran
+  7 000 small random programs near the Horn shape at 1 s, the default
+  against the focused engine forced: one to four atoms and clauses,
+  clauses used once and under `!`, goals reached by a replayed firing
+  sequence or random, with mutations at the shape's edge. There was no
+  contradiction in any mode. But of the 3 751 the row sends to the Horn
+  engine, 84 (intuitionistic), 80 (classical) and 53 (with Mix) that the
+  focused engine refutes stay unknown, against 1 or 2 gained. They are
+  nets whose markings grow without end while the goal is unreachable:
+  in `!d, !((c * d * d) -o 1) |- (c * c)` nothing makes `c`.
+- **So before this session ends the row loses none of them, or it
+  narrows (D19).** The canonical refutation beyond exhaustion is the
+  net's state equation: the target less the initial marking must be a
+  non-negative combination of the transitions' effects, the clauses
+  used once at most once each. Its infeasibility is certified by a
+  Farkas vector. Whatever proposes the vector (a linear-programming
+  solver in floating point, or exact elimination), checking it in exact
+  integer arithmetic keeps the refutation sound. It goes beside the
+  coverability work, which needs the same kind of argument in affine
+  mode, and a panel reviews it. Measure it on such programs, generated
+  by a test or a script of the session's, and on the families and the
+  library.
+
 ## Verification
 
 The checks of CLAUDE.md's table on every commit, and `nix flake check`;
