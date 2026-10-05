@@ -72,7 +72,8 @@ impl Decide for Horn {
                 (Ok(None), Vec::new(), Statistics::default()),
             ));
         }
-        let program = Program::read(task).expect("the engine admitted the goal");
+        let mut program = Program::read(task).expect("the engine admitted the goal");
+        live(&mut program);
         let affine = task.mode.affine;
         let mut equation = Equation::new(affine, account);
         let most = reach::MOST_MARKINGS;
@@ -519,7 +520,6 @@ impl Reader<'_> {
             push(Clause::Once(class as u32), &inputs, outputs);
         }
         let width = places as usize + once.len();
-        live(&mut transitions, &arcs, &parts.tokens, once.len(), places);
         let mut initial = vec![0; width];
         for p in parts.tokens {
             initial[p as usize] += 1;
@@ -547,28 +547,23 @@ impl Reader<'_> {
     }
 }
 
-/// Drops the transitions that no firing sequence from the initial
-/// marking can fire: those with an input place that no marking it passes
-/// marks. The places that can be marked are those of the initial marking
-/// (the tokens given, a place each, and the class places of the clauses
-/// used once, after the atoms' `atoms` places) and the outputs of every
-/// transition whose inputs can all be marked, by induction on the firing
-/// sequence; a transition with an input outside them is never enabled.
-fn live(
-    transitions: &mut Vec<Transition>,
-    arcs: &[(u32, u32)],
-    tokens: &[u32],
-    classes: usize,
-    atoms: u32,
-) {
-    let width = atoms as usize + classes;
-    let mut marked = vec![false; width];
-    for &p in tokens {
-        marked[p as usize] = true;
-    }
-    for class in 0..classes {
-        marked[atoms as usize + class] = true;
-    }
+/// Drops the program's transitions that no firing sequence from the
+/// initial marking can fire: those with an input place that no marking
+/// it passes marks. The places that can be marked are those the initial
+/// marking marks (the tokens given and the class places of the clauses
+/// used once) and the outputs of every transition whose inputs can all be
+/// marked, by induction on the firing sequence; a transition with an
+/// input outside them is never enabled. Only the search needs it, so the
+/// dispatch's reading of a goal does not pay for it.
+fn live(program: &mut Program) {
+    let Program {
+        transitions,
+        arcs,
+        initial,
+        ..
+    } = program;
+    let width = initial.len();
+    let mut marked: Vec<bool> = initial.iter().map(|&count| count > 0).collect();
     // The inputs each transition still waits for, and the transitions
     // waiting for each place.
     let mut waiting: Vec<u32> = Vec::with_capacity(transitions.len());
