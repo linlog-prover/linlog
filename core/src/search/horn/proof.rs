@@ -86,10 +86,13 @@ pub(super) fn build(
         return Err(Reason::IndexLimit);
     }
     // The nodes, and a pair of a body literal and its token for each, at
-    // most a node each.
+    // most a node each, which the replay writes once and orders once more;
+    // the tokens it keeps, a literal each; and the clauses fired.
+    let per_node = size_of::<Node>() + 2 * size_of::<(OccId, OccId)>() + size_of::<OccId>();
     let bytes = usize::try_from(nodes)
         .ok()
-        .and_then(|nodes| nodes.checked_mul(size_of::<Node>() + size_of::<(OccId, OccId)>()))
+        .and_then(|nodes| nodes.checked_mul(per_node))
+        .and_then(|bytes| bytes.checked_add(clauses.len() * size_of::<(OccId, bool)>()))
         .filter(|&bytes| account.fits(bytes));
     let Some(bytes) = bytes else {
         return Err(Reason::MemoryLimit(account.limit()));

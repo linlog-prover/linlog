@@ -321,6 +321,9 @@ front door, the dispatch and the memory account it plugs into are in
 - **Which token a body literal takes** comes from a forward replay of
   the firings on stacks of head-literal occurrences per place (`replay`),
   recorded in the order the backward build consumes them.
-- The proof's nodes and pairs are charged to the account while it is
-  built; `nodes > most` is `IndexLimit`. The checker at the end of
+- The proof's nodes, its pairs (written by the replay and ordered once
+  more), the tokens of the replay and the clauses fired are charged to
+  the account before it is built (the pairs' second copy, the tokens and
+  the clauses were missed until a panel found them); `nodes > most` is
+  `IndexLimit`. The checker at the end of
   `prove_goal` judges it like every engine's.
