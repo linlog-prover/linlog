@@ -149,10 +149,11 @@ claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step
 
 Its first session ran unattended overnight and was reviewed on
 2026-10-05 (three commits signed then). The next command is its second
-session, attended unless the author says otherwise:
+session, which also runs unattended (the prompt's "Both sessions run
+unattended"); at its review, sign what it committed unsigned first:
 
 ```nu
-claude --model claude-opus-5-5 --effort xhigh --name step-27b ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort xhigh --permission-mode auto --name step-27b ((open --raw plan/27-horn.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 Review it before its second session (`--name step-27b`). At the review

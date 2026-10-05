@@ -2013,3 +2013,7 @@ client follows it (step 32).
   closes it (the state equation with an exactly checked Farkas
   certificate) or the row narrows. D8 notes that the table lives in the
   code. Next: step 27's second session.
+- 2026-10-05: step 27's second session runs unattended too, by day:
+  prompt 27's section becomes "Both sessions run unattended" (the second
+  session's completion condition, the cores, `nix flake check` never
+  beside a timed run, a signing loop and marker file of its own).

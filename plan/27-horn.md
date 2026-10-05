@@ -17,45 +17,53 @@ sessions. Read before you start:
   search), `core-parallel.md`; `bench.md` and `flake.md` for the suite
   and its runs, `cli.md` for `--engine`.
 
-## The first session runs unattended
+## Both sessions run unattended
 
-The author starts the first session in the evening and leaves it:
-nobody answers until the planning session reviews it. This section is
-for that session; the second, which the author starts after the review,
-ignores it unless its own start says otherwise.
+The author starts each session and leaves it: nobody answers until the
+planning session reviews it. The first ran overnight; the second runs
+by day while the author is away (2026-10-05).
 
 - **Never ask.** No question tool, no turn that ends waiting for an
   answer. Where a choice is open, take the most idiomatic, current
   best-practice option you can recommend, and record each with the
   alternatives you set aside in the report, under "Decided unattended".
-  The default for Horn programs is decided on the measurement (D19), and
-  so is whether the step ends with this session.
+  What the measurement decides (D19), it decides: the first session the
+  default for Horn programs and whether the step ended there; the second
+  whether coverability becomes the default in affine mode, and whether
+  the Horn row keeps its scope or narrows.
 - **How a turn ends.** A message without a tool call ends your turn, and
-  then nothing runs until morning. So do not end one with a summary that
-  announces the next step, an offer to go on, a list of decisions that
-  block nothing, or because a milestone is done: put status notes in the
-  same message as the next tool call. A turn ends when this session's
-  part is done (reachability built, measured, decided, its refutations
-  through their panels, the report's first part and checklist
-  committed), or when something blocks every remaining item; then say
-  what blocks it. While a run, a workflow or a sub-agent you started is
-  still going, wait for it rather than end.
-- **The machine, tonight.** The paired measurement of the nets runs
-  detached on cores 2 to 5; builds, tests and your probes run capped on
-  cores 6 to 11 (where `conduct.md` says 4 to 9); the panels' runs and
-  their agents' programs on cores 12 to 15. What `conduct.md` says to
-  ask for first, a probe or a run the step does not name, you run
-  without asking within these cores, capped, and detached when it takes
-  more than a few minutes. Nothing outward-facing: no push, no `gh`.
+  then nothing runs until someone returns. So do not end one with a
+  summary that announces the next step, an offer to go on, a list of
+  decisions that block nothing, or because a milestone is done: put
+  status notes in the same message as the next tool call. A turn ends
+  when the session's part is done, or when something blocks every
+  remaining item; then say what blocks it. The first session's part was
+  reachability built, measured, decided and through its panels. The
+  second's is coverability, the state equation and the qcover suite
+  built, measured and decided, each change of the search through its
+  panel, the closing runs done (the target set, the families, the
+  library, the near-Horn programs of the review), and the report and
+  its checklist committed. While a run, a workflow or a sub-agent you
+  started is still going, wait for it rather than end.
+- **The machine.** The measurements run detached on cores 2 to 5;
+  builds, tests and your probes run capped on cores 6 to 11 (where
+  `conduct.md` says 4 to 9); the panels' runs and their agents'
+  programs on cores 12 to 15; cores 0 and 1 stay free. What
+  `conduct.md` says to ask for first, a probe or a run the step does not
+  name, you run without asking within these cores, capped, and detached
+  when it takes more than a few minutes. `nix flake check` builds on any
+  core, so never run it beside a timed run. Nothing outward-facing: no
+  push, no `gh`.
 - **Signing.** The author enters the passphrase just before starting
   you, and `max-cache-ttl` gives about two hours of signatures from
-  then. Start the warm loop first, before any commit:
+  then. Start the warm loop first, before any commit, under a name of
+  the session's own (`step27b` for the second, `step27` for the first):
 
   ```sh
-  systemd-run --user --unit=step27-gpg-warm /run/current-system/sw/bin/bash -c 'while echo x | gpg --batch --pinentry-mode error --local-user flgrubm@grubmueller.dev --sign -o /dev/null 2>/dev/null; do sleep 240; done; touch /tmp/linlog-step27-unsigned'
+  systemd-run --user --unit=step27b-gpg-warm /run/current-system/sw/bin/bash -c 'while echo x | gpg --batch --pinentry-mode error --local-user flgrubm@grubmueller.dev --sign -o /dev/null 2>/dev/null; do sleep 240; done; touch /tmp/linlog-step27b-unsigned'
   ```
 
-  It never opens a pinentry and leaves `/tmp/linlog-step27-unsigned`
+  It never opens a pinentry and leaves `/tmp/linlog-step27b-unsigned`
   once the cache is gone. Before every jj command that can write (a
   commit, a split, a describe, and `jj st` once files changed), check
   that the file is absent and that `gpg-connect-agent 'KEYINFO
