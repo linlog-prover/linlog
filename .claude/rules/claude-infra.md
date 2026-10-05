@@ -53,7 +53,8 @@ Current contents:
   - `rules/core-focus.md` (`search/focus/`, `search/generate.rs`): the
     focused engine, one- and two-sided, and its atom bias;
   - `rules/core-horn.md` (`search/horn/`): the Horn engine, Horn
-    programs decided as Petri nets;
+    programs decided as Petri nets, by reachability and in affine mode
+    by coverability, with the state equation beside;
   - `rules/core-nets.md` (`nets/`, `search/net.rs`): proof nets, their
     criterion and the net engine;
   - `rules/core-parallel.md` (`search/parallel.rs`,
