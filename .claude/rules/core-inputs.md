@@ -33,8 +33,14 @@ the generated families are read; the harness that runs them is
   directory). A header's status is the library's claim, not a fact: the
   statuses of translated problems are those of the intuitionistic source.
 - **`mist::read`** (feature `parse`) turns a coverability problem in
-  Mist's `.spec` format into a Horn program for affine mode, by
-  assembling text for the crate's parser: a rule `guards -> updates`
+  Mist's `.spec` format into a Horn program for affine mode, built as an
+  arena (`Sequent::from_parts`, then `optimize`, so it is sorted and
+  shared as the parser leaves a sequent; the one-sided form the parser
+  would give `rules, params, tokens |- goal`), every token of a counter
+  one shared literal: written out as text, a 6 KB file of one long name
+  and a count of 49 million asked for 49 GB before any limit (the second
+  panel's finding). A rule's guards and updates are merged as sorted
+  lists, since one rule may update tens of thousands of counters: a rule `guards -> updates`
   becomes `!(in -o out)`, `in` taking from each counter the most of its
   guard and its decrement (a decrement without a guard still needs the
   tokens: counters do not go below zero) and `out` giving that less the
@@ -49,7 +55,7 @@ the generated families are read; the harness that runs them is
   write their initial markings, an `invariants` section, which is
   skipped); rules and targets are kept sparse, since a file declares up
   to 66 950 counters and 213 625 rules; a count of `k` is `k` occurrences
-  of an atom, so the tokens are summed before the text is written and a
+  of an atom, so the tokens are summed before the arena is built and a
   problem with more than the limit is `Error::TooManyOccurrences`
   (`read_within`; `read` takes `Forest::DEFAULT_LIMIT`, the command
   `--occurrence-limit`): a 40-byte file asked for 20 million tokens,

@@ -103,6 +103,27 @@ impl Sequent {
         &self.roots
     }
 
+    /// A sequent of an arena built elsewhere in the crate: every term's
+    /// subterms come before it, every atom is named, and the roots are
+    /// terms of the arena, as a reader that builds the arena itself
+    /// makes them.
+    pub(crate) fn from_parts(terms: Vec<Term>, roots: Vec<TermId>, atoms: Vec<String>) -> Self {
+        debug_assert!(
+            Self {
+                terms: terms.clone(),
+                roots: roots.clone(),
+                atoms: atoms.clone(),
+            }
+            .verify_integrity()
+            .is_ok()
+        );
+        Self {
+            terms,
+            roots,
+            atoms,
+        }
+    }
+
     /// Returns the atom names, in the order `Atom` indexes them.
     pub fn atom_names(&self) -> &[String] {
         &self.atoms

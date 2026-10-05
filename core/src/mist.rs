@@ -35,16 +35,16 @@
 //!             target y >= 2\n";
 //! let problem = read(text)?;
 //! assert_eq!(problem.expected, Some(Safety::Unsafe));
-//! assert_eq!(problem.sequent, "!(x -o y * y), !y, x |- y * y".parse()?);
+//! assert_eq!(problem.sequent.to_string(), "⊢ ?(x ⊗ (~y ⅋ ~y)), y ⊗ y, ?~y, ~x");
 //! # Ok::<(), linlog::Error>(())
 //! ```
 //!
 //! Needs the cargo feature `parse` (on by default).
 
 use crate::occurrences::Forest;
+use crate::sequents::{Atom, Term, TermId};
 use crate::{Error, Sequent};
 use std::collections::HashMap;
-use std::fmt::Write as _;
 
 /// A problem read from a `.spec` file.
 #[derive(Clone, Debug)]
@@ -79,10 +79,12 @@ pub enum Safety {
 /// guard and its decrement, and gives back that less the decrement plus
 /// the increment.
 ///
-/// A count of `k` is `k` occurrences of the counter's atom, so a few bytes
-/// can ask for billions: a problem whose tokens pass
-/// [`Forest::DEFAULT_LIMIT`] is refused before its sequent is written, as
-/// its forest would be; [`read_within`] takes another limit.
+/// The sequent is built as an arena, every token of a counter one shared
+/// literal: a count of `k` is `k` occurrences of the counter's atom
+/// however long its name, and a few bytes can ask for billions, so a
+/// problem whose tokens pass [`Forest::DEFAULT_LIMIT`] is refused before
+/// its sequent is built, as its forest would be; [`read_within`] takes
+/// another limit.
 ///
 /// # Errors
 ///
@@ -90,8 +92,7 @@ pub enum Safety {
 /// or out of order, a counter not declared, a counter updated twice by one
 /// rule or from another counter, a count that is no number below 2³², or
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
-/// unit; [`Error::TooManyOccurrences`] for more tokens than the limit;
-/// [`Error::SequentParsing`] for a name its parser rejects.
+/// unit; [`Error::TooManyOccurrences`] for more tokens than the limit.
 pub fn read(text: &str) -> Result<Problem, Error> {
     read_within(text, Forest::DEFAULT_LIMIT)
 }
@@ -186,19 +187,19 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
             limit: most,
         });
     }
-    let mut sequent = String::new();
+    // One-sided, as the parser would read `rules, params, tokens |- goal`:
+    // a rule `!(in -o out)` is `?(in ⊗ ~out)`, a token `x` is `~x`.
+    let mut arena = Arena::new(&names);
+    let mut roots = Vec::new();
     for (inputs, outputs) in &clauses {
-        let _ = write!(
-            sequent,
-            "!({} -o {}), ",
-            tensor(&names, inputs),
-            tensor(&names, outputs)
-        );
+        let (taken, given) = (arena.tensor(inputs), arena.par_of_duals(outputs));
+        let clause = arena.push(Term::Tensor(taken, given));
+        roots.push(arena.push(Term::Quest(clause)));
     }
     let goal = if let [target] = &targets[..] {
-        tensor(&names, target)
+        arena.tensor(target)
     } else {
-        let goal = (0..)
+        let name = (0..)
             .map(|i| {
                 if i == 0 {
                     "goal".to_owned()
@@ -208,24 +209,134 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
             })
             .find(|name| !index.contains_key(name.as_str()))
             .expect("some name is fresh");
+        let goal = arena.fresh(name);
         for target in &targets {
-            let _ = write!(sequent, "!({} -o {goal}), ", tensor(&names, target));
+            let covered = arena.tensor(target);
+            let reached = arena.push(Term::DualVar(goal));
+            let clause = arena.push(Term::Tensor(covered, reached));
+            roots.push(arena.push(Term::Quest(clause)));
         }
-        goal
+        arena.push(Term::Var(goal))
     };
     for &x in &parameters {
-        let _ = write!(sequent, "!{}, ", names[x]);
+        let dual = arena.dual(x);
+        roots.push(arena.push(Term::Quest(dual)));
     }
     for (x, &k) in tokens.iter().enumerate() {
-        for _ in 0..k {
-            let _ = write!(sequent, "{}, ", names[x]);
+        if k > 0 {
+            let dual = arena.dual(x);
+            roots.extend(std::iter::repeat_n(dual, k as usize));
         }
     }
-    let sequent = format!("{} |- {goal}", sequent.trim_end_matches(", "));
-    Ok(Problem {
-        sequent: sequent.parse()?,
-        expected,
-    })
+    roots.push(goal);
+    // Sorted and shared as the parser leaves a sequent.
+    let mut sequent = Sequent::from_parts(arena.terms, roots, arena.atoms);
+    sequent
+        .optimize()
+        .expect("every term's subterms come before it");
+    Ok(Problem { sequent, expected })
+}
+
+/// The arena of a problem's sequent being built: its terms, its atoms by
+/// name, and each counter's atom and its literals once made, which every
+/// occurrence shares.
+struct Arena<'a> {
+    /// The counters' names.
+    names: &'a [&'a str],
+    /// The terms.
+    terms: Vec<Term>,
+    /// The atoms' names, in the order they were met.
+    atoms: Vec<String>,
+    /// Each counter's atom, its literal and its negation, once made.
+    made: Vec<(Option<Atom>, Option<TermId>, Option<TermId>)>,
+}
+
+impl<'a> Arena<'a> {
+    /// An empty arena over the counters.
+    fn new(names: &'a [&'a str]) -> Self {
+        Self {
+            names,
+            terms: Vec::new(),
+            atoms: Vec::new(),
+            made: vec![(None, None, None); names.len()],
+        }
+    }
+
+    /// Pushes a term and returns its id.
+    fn push(&mut self, term: Term) -> TermId {
+        self.terms.push(term);
+        TermId::new(self.terms.len() as u32 - 1)
+    }
+
+    /// A new atom of the name.
+    fn fresh(&mut self, name: String) -> Atom {
+        self.atoms.push(name);
+        Atom::new(self.atoms.len() as u32 - 1)
+    }
+
+    /// The atom of counter `x`.
+    fn atom(&mut self, x: usize) -> Atom {
+        if let Some(atom) = self.made[x].0 {
+            return atom;
+        }
+        let atom = self.fresh(self.names[x].to_owned());
+        self.made[x].0 = Some(atom);
+        atom
+    }
+
+    /// The literal of counter `x`.
+    fn var(&mut self, x: usize) -> TermId {
+        if let Some(var) = self.made[x].1 {
+            return var;
+        }
+        let atom = self.atom(x);
+        let var = self.push(Term::Var(atom));
+        self.made[x].1 = Some(var);
+        var
+    }
+
+    /// The negated literal of counter `x`.
+    fn dual(&mut self, x: usize) -> TermId {
+        if let Some(dual) = self.made[x].2 {
+            return dual;
+        }
+        let atom = self.atom(x);
+        let dual = self.push(Term::DualVar(atom));
+        self.made[x].2 = Some(dual);
+        dual
+    }
+
+    /// The tensor of the counters' tokens, grouped to the left, `1` for
+    /// none.
+    fn tensor(&mut self, counts: &[(usize, u32)]) -> TermId {
+        let mut tensor = None;
+        for &(x, k) in counts {
+            let var = self.var(x);
+            for _ in 0..k {
+                tensor = Some(match tensor {
+                    None => var,
+                    Some(left) => self.push(Term::Tensor(left, var)),
+                });
+            }
+        }
+        tensor.unwrap_or_else(|| self.push(Term::One))
+    }
+
+    /// The `⅋` of the counters' negated tokens, the negation of their
+    /// [`tensor`](Self::tensor), `⊥` for none.
+    fn par_of_duals(&mut self, counts: &[(usize, u32)]) -> TermId {
+        let mut par = None;
+        for &(x, k) in counts {
+            let dual = self.dual(x);
+            for _ in 0..k {
+                par = Some(match par {
+                    None => dual,
+                    Some(left) => self.push(Term::Par(left, dual)),
+                });
+            }
+        }
+        par.unwrap_or_else(|| self.push(Term::Bot))
+    }
 }
 
 /// The error of a text that is no `.spec` problem.
@@ -251,19 +362,6 @@ fn merged(mut counts: Counts) -> Counts {
     }
     merged.retain(|&(_, k)| k > 0);
     merged
-}
-
-/// The tensor of the counters' tokens, `1` for none.
-fn tensor(names: &[&str], counts: &[(usize, u32)]) -> String {
-    let factors: Vec<&str> = counts
-        .iter()
-        .flat_map(|&(x, k)| std::iter::repeat_n(names[x], k as usize))
-        .collect();
-    if factors.is_empty() {
-        "1".to_owned()
-    } else {
-        factors.join(" * ")
-    }
 }
 
 /// A token of a `.spec` file.
@@ -443,9 +541,6 @@ impl<'a> Reader<'a> {
                 token => return Err(error(format!("expected `+` or `-` at {token}"))),
             };
             let k = i64::from(self.number()?);
-            if changes.iter().any(|&(y, _)| y == x) {
-                return Err(error(format!("a rule updates `{name}` twice")));
-            }
             changes.push((x, sign * k));
             match self.next()? {
                 Token::Word(",") => {}
@@ -454,25 +549,48 @@ impl<'a> Reader<'a> {
             }
         }
         let guards = merged(guards);
-        let mut counters: Vec<usize> = guards.iter().map(|&(x, _)| x).collect();
-        counters.extend(changes.iter().map(|&(x, _)| x));
-        counters.sort_unstable();
-        counters.dedup();
+        changes.sort_unstable();
+        if let Some(pair) = changes.windows(2).find(|pair| pair[0].0 == pair[1].0) {
+            return Err(error(format!(
+                "a rule updates `{}` twice",
+                names[pair[0].0]
+            )));
+        }
+        // Both are sorted by counter: one merge.
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
-        for x in counters {
-            let guard = guards.iter().find(|&&(y, _)| y == x).map_or(0, |&(_, k)| k);
-            let change = changes
-                .iter()
-                .find(|&&(y, _)| y == x)
-                .map_or(0, |&(_, c)| c);
+        let (mut g, mut c) = (0, 0);
+        while g < guards.len() || c < changes.len() {
+            let x = match (guards.get(g), changes.get(c)) {
+                (Some(&(a, _)), Some(&(b, _))) => a.min(b),
+                (Some(&(a, _)), None) => a,
+                (None, Some(&(b, _))) => b,
+                (None, None) => unreachable!("the loop's condition"),
+            };
+            let guard = match guards.get(g) {
+                Some(&(y, k)) if y == x => {
+                    g += 1;
+                    k
+                }
+                _ => 0,
+            };
+            let change = match changes.get(c) {
+                Some(&(y, d)) if y == x => {
+                    c += 1;
+                    d
+                }
+                _ => 0,
+            };
             let taken = i64::from(guard).max(-change);
             let given = u32::try_from(taken + change)
                 .map_err(|_| error(format!("a rule gives `{}` 2³² tokens or more", names[x])))?;
-            inputs.push((x, u32::try_from(taken).expect("a guard or a decrement")));
-            outputs.push((x, given));
+            let taken = u32::try_from(taken).expect("a guard or a decrement");
+            if taken > 0 {
+                inputs.push((x, taken));
+            }
+            if given > 0 {
+                outputs.push((x, given));
+            }
         }
-        inputs.retain(|&(_, k)| k > 0);
-        outputs.retain(|&(_, k)| k > 0);
         Ok((inputs, outputs))
     }
 
@@ -509,7 +627,16 @@ mod tests {
                                  !(b * c -o goal), !(a * a * a -o goal), !b, a, b, b |- goal"
             .parse()
             .unwrap();
-        assert_eq!(problem.sequent, expected);
+        // The same formulas, in any order.
+        let formulas = |sequent: &Sequent| {
+            let mut formulas: Vec<String> = sequent.to_string()[4..]
+                .split(", ")
+                .map(str::to_owned)
+                .collect();
+            formulas.sort();
+            formulas
+        };
+        assert_eq!(formulas(&problem.sequent), formulas(&expected));
 
         for bad in [
             "rules init target a >= 1",
