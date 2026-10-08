@@ -213,3 +213,13 @@ whenever a crate or tool is added or adopted) and the rules above.
 Claude Code's built-in git instructions and status snapshot are off.
 When the repo changes shape, amend `.claude/` and this file in the same
 change.
+
+## Compact instructions
+
+When the context is compacted, keep the prompt file the session works
+from (`plan/NN-*.md`) and where in it the work stands, the report and
+checklist it keeps, every instruction from the author or the
+supervising session that is not yet in a file, and what was verified
+and by what (a killed or partial run is not a result). After a
+compaction, read the prompt's section for the current work and the
+checklist again before going on.

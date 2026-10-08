@@ -30,6 +30,10 @@ others, and a point two modules need lives in one file that the other
 names. Anything needed *before* a file is
 opened stays in CLAUDE.md. Block-level `<!-- -->` comments in CLAUDE.md are
 stripped before injection, so they are free notes for maintainers.
+CLAUDE.md's "Compact instructions" section is what Claude Code's
+compaction is told to keep (code.claude.com/docs/en/how-claude-code-works):
+a long session's prompt file, checklist and unrecorded instructions,
+which a summary otherwise drops.
 
 Current contents:
 - `rules/core.md` (`core/**`): the crate's layout, the rules that hold
