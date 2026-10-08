@@ -17,15 +17,15 @@ its evidence (a commit, a file, a command's result) once it is done.
 | item | state | evidence |
 |---|---|---|
 | 0.0 signing loop `step28-gpg-warm` | done | started 20:50, signatures work |
-| 0.1 register of later requirements, `plan/notes/requirements.md` | open | |
-| 0.2 behaviour lock: fixtures and test | open | |
-| 0.3 journeys under callgrind, validated against wall-clock | open | |
-| 0.3 ratchet: ceilings, flake check, lowering command | open | |
-| 0.4 mutation testing wired in (`new-tool`), scope and command committed | open | |
-| 0.4 mutation run, batches per target file | open | |
-| 0.4 fuzz targets wired in (`new-tool`), one per untrusted reader | open | |
-| 0.4 fuzz runs, each until coverage stops growing | open | |
-| 0.5 the gate, a devshell command | open | |
+| 0.1 register of later requirements, `plan/notes/requirements.md` | running | workflow `wf_a3156457-6a2` (14 extractors, merge, critic, fold-in; Sonnet 5.5 at `high`) |
+| 0.2 behaviour lock: fixtures and test | done | 908f91f7: `cli/tests/lock.rs` (73 calls), `core/tests/lock.rs` (36 JSON lines); stable over three runs |
+| 0.3 journeys under callgrind, validated against wall-clock | running | journeys and counts in 1ae95c4c; the timed validation waits for a quiet machine (after the mutation and fuzz runs) |
+| 0.3 ratchet: ceilings, flake check, lowering command | done | 1ae95c4c: 20 journeys, `bench/ceilings.csv`, `nix build .#checks.x86_64-linux.ratchet` passed |
+| 0.4 mutation testing wired in (`new-tool`), scope and command committed | done | f602c7e9: `mutants/run.sh`, `.cargo/mutants.toml`, profile `mutants` |
+| 0.4 mutation run, batches per target file | running | unit `step28-mutants` since 21:03 on cores 6–11; `check` done (33 surviving, 1 653 s) |
+| 0.4 fuzz targets wired in (`new-tool`), one per untrusted reader | done | f602c7e9: nine targets under `fuzz/`, nightly 2026-09-25 in the `fuzz` devshell |
+| 0.4 fuzz runs, each until coverage stops growing | running | unit `step28-fuzz` since 21:12 on cores 12–15; stall 900 s, cap 5 400 s |
+| 0.5 the gate, a devshell command | done | 7ebc848e: `gate`, passed in 4 min 15 s on cores 2–5 |
 | 0.6 `plan/reports/28-baselines.md` | open | |
 | 0.7 last message to `planning` | open | |
 
