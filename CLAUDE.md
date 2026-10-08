@@ -68,10 +68,10 @@ per bullet, what a later session must know and cannot see in the code.
 The dev environment is the flake's devshell (direnv, or `nix develop`): the
 toolchain `rust-toolchain.toml` names (edition 2024; rustfmt, clippy and
 rust-analyzer included), cargo-hack, cargo-deny, cargo-mutants,
-cargo-nextest, bacon and treefmt; the `fuzz` devshell has a nightly
+cargo-nextest, valgrind, bacon and treefmt; the `fuzz` devshell has a nightly
 compiler and cargo-fuzz for `fuzz/` alone. `menu`
-lists its commands: `check`, `tests`, `launch` (the CLI), `live` (bacon),
-`dev` (zellij) and `up`.
+lists its commands: `check`, `tests`, `ratchet`, `launch` (the CLI),
+`live` (bacon), `dev` (zellij) and `up`.
 
 ```sh
 cargo build
@@ -89,8 +89,9 @@ nix build .#qcover -o bench/qcover   # the qcover coverability suite's 176 .spec
 bench/targets.sh LABEL            # the focused engine's target set into bench/targets/LABEL.csv (two cores, about 20 min, detached)
 bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to 07:00 (about 11.5 h, so it may need a second night): bench/results/DAY/, bench/RESULTS.md
 
-nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), deadnix, actionlint, treefmt, claude-hooks
+nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
+ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv; ratchet --lower after a count went down
 mutants/run.sh    # mutation testing of the checker, the readers, the front door, the Horn refutations (cores 6-11, detached): mutants/baseline/
 nix develop .#fuzz -c fuzz/run.sh   # every fuzz target until its coverage stops growing (nightly, cores 12-15, detached), after fuzz/seed.sh
 nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck (a hook runs it on each file changed with Write or Edit; a file changed from the shell needs it run by hand before the commit, or the treefmt check fails)

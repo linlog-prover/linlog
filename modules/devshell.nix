@@ -21,6 +21,8 @@
           # Mutation testing (mutants/run.sh), whose tests nextest runs.
           pkgs.cargo-mutants
           pkgs.cargo-nextest
+          # Instruction counts: the ratchet's journeys and their profiles.
+          pkgs.valgrind.out
           pkgs.bacon
           pkgs.zellij
         ];
@@ -28,13 +30,18 @@
         commands = [
           {
             name = "check";
-            help = "Run every flake check: build, clippy, tests (release and debug assertions), rustdoc, cargo-deny, cargo-hack, export, rocq, bench, deadnix, actionlint, formatting, claude-hooks";
+            help = "Run every flake check: build, clippy, tests (release and debug assertions), rustdoc, cargo-deny, cargo-hack, export, rocq, bench, ratchet, deadnix, actionlint, formatting, claude-hooks";
             command = "nix flake check";
           }
           {
             name = "tests";
             help = "Run the workspace's tests (`cargo test --workspace`)";
             command = ''cargo test --workspace "$@"'';
+          }
+          {
+            name = "ratchet";
+            help = "Count the journeys' instructions under callgrind against bench/ceilings.csv (`ratchet --lower` writes the counts that went down)";
+            command = ''cargo run --release --locked --package linlog-bench -- ratchet --jobs 4 "$@"'';
           }
           {
             name = "launch";

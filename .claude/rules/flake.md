@@ -48,7 +48,10 @@ commit (2021-03-03), 442 MB, whose 176 coverability problems under
 bug tracking 41) the harness reads with `--spec`; the repository is
 Apache-2.0, the problem files state nothing of their own, so they are
 fetched, not committed (`nix build .#qcover -o bench/qcover`).
+`bench.nix` also has the `ratchet` check: `linlog-bench ratchet --check`
+under nixpkgs' valgrind (`valgrind.out`, since the package's first output
+is its manual) against `bench/ceilings.csv` (`bench.md`).
 `devshell.nix` carries cargo-mutants and cargo-nextest for
-`mutants/run.sh`; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
+`mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the
 workspace under `fuzz/` alone (`evidence.md`).

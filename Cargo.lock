@@ -523,6 +523,7 @@ dependencies = [
  "anyhow",
  "clap",
  "linlog",
+ "serde_json",
 ]
 
 [[package]]

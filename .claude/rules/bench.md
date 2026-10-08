@@ -7,8 +7,9 @@ paths:
 
 Loaded when a file under `bench/` is read. The package is `linlog-bench`,
 the binary `linlog-bench` (`doc = false`: a command, not an API). It
-depends on core with `parse` and `parallel` only, and adds no dependency
-beyond clap and anyhow, which the CLI already has.
+depends on core with `parse`, `parallel`, `serialize`, `latex`, `typst`
+and `svg` (the last four for the journeys), and on clap, anyhow and
+serde_json, which the CLI and the core's tests already have.
 
 ## Layout
 
@@ -353,6 +354,42 @@ beyond clap and anyhow, which the CLI already has.
   CPU against 197), and the 154 that kept their engine have every
   counter of their 116 decided rows equal to `after-panels`. A later
   change compares with it.
+
+## The journeys and the ratchet
+
+- **`src/journeys.rs`** holds the journeys: small runs of the hot paths
+  (searches of the target set's rows and of each engine, the five
+  readers, the checker, a derivation, the three text renderers, a batch,
+  ordinary logic end to end), each preparing its input and then doing
+  the work it measures inside `measured`, which callgrind's
+  `--toggle-collect=*journeys::measured*` counts alone. `linlog-bench
+  journeys` lists them, `journey NAME` runs one, `journey NAME --repeat
+  N` prints the measured part's wall-clock time of each run.
+- **Every journey is deterministic**: one thread, and the rarer
+  literal's search alone where the sequent has exponentials, since the
+  default bias runs two searches in turns whose waiting thread wakes on
+  a clock. A journey fails when its search stops deciding, so that a
+  count never silently measures something else. Its inputs are
+  generated or in the tree (the LLTP library stays out: it is GPL and
+  1.1 GB).
+- **`src/ratchet.rs`** counts each journey under callgrind (`valgrind`
+  on the path or `VALGRIND`) and compares it with `bench/ceilings.csv`.
+  `ratchet --check` fails above a ceiling by more than `TOLERANCE` (2 %)
+  or on a journey without one; `ratchet --lower` writes every count that
+  went down and never raises one: a raise is an edit of the file in a
+  commit that says why. `--keep DIR` keeps callgrind's files for
+  `callgrind_annotate`. The devshell's `ratchet` runs it on four
+  journeys at a time; the flake's `ratchet` check runs `--check`.
+- **The shell's build and the flake's count apart**: the same sources
+  built in the sandbox count up to 0.9 % more on `render-svg` and under
+  0.1 % elsewhere, and the environment of a run changes nothing. The
+  committed ceilings are the larger of the two builds' counts; a
+  before-and-after comparison takes both counts from one build.
+- **Counts are trusted where they track time**: the baselines report
+  (`plan/reports/28-baselines.md`) has, per journey, the counts and the
+  pinned wall-clock times of builds at several optimization levels, and
+  which journeys' times do not follow their counts (memory-bound ones,
+  `memset` counted per byte).
 
 ## Extension points
 

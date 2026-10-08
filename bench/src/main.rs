@@ -8,8 +8,13 @@
 
 /// Two sets of rows compared problem by problem.
 mod compare;
+/// Small deterministic runs of the library's hot paths, counted by the
+/// ratchet.
+mod journeys;
 /// Where problems come from: the families, LLTP files, problem files.
 mod problems;
+/// The journeys' instruction counts against their ceilings.
+mod ratchet;
 /// Running problems: the parent that spawns a child per run, and the child.
 mod run;
 /// Markdown tables from the CSV rows.
@@ -58,6 +63,42 @@ enum Command {
     /// `run` starts for every run
     #[command(hide = true)]
     One(OneArgs),
+    /// List the journeys: small deterministic runs of the library's hot
+    /// paths whose instruction counts the ratchet keeps
+    Journeys,
+    /// Run one journey: once, as callgrind counts it, or `--repeat` times
+    /// printing each measured part's wall-clock time in nanoseconds
+    Journey {
+        /// The journey
+        name: String,
+        /// Run it this many times and print the times
+        #[arg(long, value_name = "N")]
+        repeat: Option<u32>,
+    },
+    /// Count every journey's instructions under callgrind (valgrind on the
+    /// path, or VALGRIND) and compare them with the ceilings
+    Ratchet {
+        /// Fail when a count passes its ceiling by more than the tolerance,
+        /// or a journey has no ceiling
+        #[arg(long, conflicts_with = "lower")]
+        check: bool,
+        /// Write the counts that went down, and those of new journeys, as
+        /// their ceilings; a ceiling is never raised
+        #[arg(long)]
+        lower: bool,
+        /// The ceilings' file
+        #[arg(long, value_name = "FILE", default_value = ratchet::CEILINGS)]
+        ceilings: PathBuf,
+        /// Count only these journeys
+        #[arg(long, value_name = "NAME")]
+        only: Vec<String>,
+        /// Run this many journeys at a time
+        #[arg(long, value_name = "N", default_value_t = 1)]
+        jobs: usize,
+        /// Keep callgrind's files in this directory, for callgrind_annotate
+        #[arg(long, value_name = "DIR")]
+        keep: Option<PathBuf>,
+    },
 }
 
 /// The seconds a child gets to load its problem by default: several times
@@ -236,6 +277,28 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::One(args) => run::one(args),
+        Command::Journeys => {
+            for journey in journeys::JOURNEYS {
+                println!("{}: {}", journey.name, journey.summary);
+            }
+            Ok(())
+        }
+        Command::Journey { name, repeat } => journeys::run(&name, repeat),
+        Command::Ratchet {
+            check,
+            lower,
+            ceilings,
+            only,
+            jobs,
+            keep,
+        } => {
+            let action = match (check, lower) {
+                (true, _) => ratchet::Action::Check,
+                (_, true) => ratchet::Action::Lower,
+                _ => ratchet::Action::Show,
+            };
+            ratchet::ratchet(action, &ceilings, &only, jobs, keep.as_deref())
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
