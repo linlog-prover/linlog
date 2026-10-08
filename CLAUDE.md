@@ -59,6 +59,7 @@ per bullet, what a later session must know and cannot see in the code.
 | `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `flake.md` | `flake.nix`, `flake.lock`, `modules/**` | what each flake module holds and checks |
+| `evidence.md` | `mutants/**`, `fuzz/**`, `.cargo/mutants.toml` | the mutation run's scope and passes, the fuzz targets, their seeds and runs |
 | `ci.md` | `.github/**` | how the workflows are written and pinned |
 | `claude-infra.md` | `.claude/**`, `CLAUDE.md` | this Claude Code setup |
 
@@ -66,7 +67,9 @@ per bullet, what a later session must know and cannot see in the code.
 
 The dev environment is the flake's devshell (direnv, or `nix develop`): the
 toolchain `rust-toolchain.toml` names (edition 2024; rustfmt, clippy and
-rust-analyzer included), cargo-hack, cargo-deny, bacon and treefmt. `menu`
+rust-analyzer included), cargo-hack, cargo-deny, cargo-mutants,
+cargo-nextest, bacon and treefmt; the `fuzz` devshell has a nightly
+compiler and cargo-fuzz for `fuzz/` alone. `menu`
 lists its commands: `check`, `tests`, `launch` (the CLI), `live` (bacon),
 `dev` (zellij) and `up`.
 
@@ -88,6 +91,8 @@ bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to
 
 nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), deadnix, actionlint, treefmt, claude-hooks
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
+mutants/run.sh    # mutation testing of the checker, the readers, the front door, the Horn refutations (cores 6-11, detached): mutants/baseline/
+nix develop .#fuzz -c fuzz/run.sh   # every fuzz target until its coverage stops growing (nightly, cores 12-15, detached), after fuzz/seed.sh
 nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck (a hook runs it on each file changed with Write or Edit; a file changed from the shell needs it run by hand before the commit, or the treefmt check fails)
 nix build         # linlog-cli, whose binary is result/bin/linlog
 nix build .#doc   # the rustdoc site, as the Docs workflow publishes it

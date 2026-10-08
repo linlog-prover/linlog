@@ -1,6 +1,11 @@
 # cargo
 /target
 
+# The fuzz targets' builds, corpora and findings (fuzz/run.sh)
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
+
 # nix
 result*
 # The LLTP library, `nix build .#lltp -o bench/lltp`

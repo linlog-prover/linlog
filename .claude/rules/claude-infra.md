@@ -82,6 +82,9 @@ Current contents:
   flake module holds and what each check runs.
 - `rules/ci.md` (`.github/**`): what the GitHub workflows run, and how they
   are written and pinned.
+- `rules/evidence.md` (`mutants/**`, `fuzz/**`, `.cargo/mutants.toml`):
+  the mutation run's scope and two passes, the fuzz targets, their seeds
+  and how they run.
 - `agents/crate-source-explorer.md`: read-only, answers dependency-API questions
   against the Cargo.lock-pinned sources in `~/.cargo/registry`, never the web.
 - `skills/update-deps/`: the lock-file bump procedure (verify, then commit).

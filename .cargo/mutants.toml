@@ -1,0 +1,14 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# cargo-mutants, run through mutants/run.sh, which names the files and the
+# tests of each batch. nextest runs each test in a process of its own, so a
+# mutant that hangs one test is a timeout of that test, and its filtersets
+# pick the tests that exercise a file.
+test_tool = "nextest"
+# The `mutants' profile: optimized enough that the suite takes seconds,
+# with the debug assertions and overflow checks of a development build.
+profile = "mutants"
+# A floor under the timeout cargo-mutants derives from the unmutated run,
+# whose filtered tests may take under a second.
+minimum_test_timeout = 60

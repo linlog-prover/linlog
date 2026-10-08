@@ -18,6 +18,9 @@
           pkgs.stdenv.cc
           pkgs.cargo-hack
           pkgs.cargo-deny
+          # Mutation testing (mutants/run.sh), whose tests nextest runs.
+          pkgs.cargo-mutants
+          pkgs.cargo-nextest
           pkgs.bacon
           pkgs.zellij
         ];

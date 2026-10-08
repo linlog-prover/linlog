@@ -19,3 +19,11 @@ missing_docs = "warn"
 
 [workspace.lints.clippy]
 missing_docs_in_private_items = "warn"
+
+# The profile cargo-mutants builds with (.cargo/mutants.toml): the whole
+# suite in about half a minute where the dev profile takes two, and the
+# assertions and overflow checks of a development build kept.
+[profile.mutants]
+inherits = "dev"
+opt-level = 1
+debug = false

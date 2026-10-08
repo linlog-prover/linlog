@@ -1,0 +1,91 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# The fuzz targets of every reader of untrusted input, built by cargo-fuzz
+# with the nightly compiler of the `fuzz' devshell (modules/fuzz.nix);
+# fuzz/run.sh runs them. A workspace of its own, so that the main
+# workspace's stable builds never see it.
+[package]
+name = "linlog-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "EUPL-1.2"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+members = ["."]
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+linlog = { path = "../core", default-features = false, features = [
+  "interactive",
+  "parse",
+  "serialize",
+] }
+serde_json = "1.0.151"
+
+[[bin]]
+name = "sequent_text"
+path = "fuzz_targets/sequent_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ordinary_text"
+path = "fuzz_targets/ordinary_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tptp"
+path = "fuzz_targets/tptp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lltp"
+path = "fuzz_targets/lltp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "spec"
+path = "fuzz_targets/spec.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_sequent"
+path = "fuzz_targets/json_sequent.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_proof"
+path = "fuzz_targets/json_proof.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_structure"
+path = "fuzz_targets/json_structure.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_session"
+path = "fuzz_targets/json_session.rs"
+test = false
+doc = false
+bench = false
