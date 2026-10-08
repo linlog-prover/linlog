@@ -152,19 +152,9 @@ reviewed on 2026-10-05, the unsigned commits signed at each review: the
 Horn engine decides Horn programs with a clause under `!` in every mode
 (reachability, coverability, the state equation with an exactly checked
 Farkas certificate, dead transitions, a backward search), and reads the
-qcover suite (`linlog::mist`). The next command is step 28's stage 0
-(requirements, baselines and gates; the prompt's "How the step runs"
-names five stages, each reviewed before the next):
-
-```nu
-claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28-audit-and-refactor.md) + "\n" + (open --raw plan/conduct.md))
-```
-
-Each later stage is a session of its own, started with the same
-command (`--name step-28b`, `step-28c`, …) and reviewed before the
-next; the audit (stage 1) and the design (stage 2) end with decisions
-for the author, and the design's implementers run at `--effort xhigh`. At the review
-of its last check round, finish `plan/29-comparison.md`.
+qcover suite (`linlog::mist`). Step 28 runs under this session ("Step
+28: supervising" below): the author starts nothing, and this session
+starts each of its sessions, reviews it, and reports in plain words.
 
 Models and efforts were re-evaluated on 2026-10-03 and again on
 2026-10-04 ("Why these models and efforts" in `plan/README.md`, with
@@ -270,6 +260,62 @@ the earlier session did every time:
 When asked to re-evaluate models and efforts, check the model docs on the
 day (the page names are in "Why these models and efforts") and argue from
 what the steps so far showed.
+
+## Step 28: supervising
+
+The author asked on 2026-10-08 that this session run step 28: start
+each of its sessions, review each before the next, report to the author
+in short plain-language reports, and relay the author's corrections
+(prompt 28, "Unattended, supervised"; the reasons and sources in
+`plan/README.md`, "Why these models and efforts", 2026-10-08).
+
+- **Before the start**: Claude Code at 2.1.293 or later (its compaction
+  fix); this session in auto mode, since a cross-session message to or
+  from a session in another permission class waits for approval; the
+  author enters the passphrase and says go (from the evening of
+  2026-10-09; the machine is the step's from then on).
+- **Starting a session**: `plan/start-session.sh NAME MODEL EFFORT
+  plan/28-audit-and-refactor.md plan/conduct.md NOTE`, where NOTE is a
+  file of this session's, "Where you start": the stage or area, the
+  author's answers so far, what the last review asks. The order and
+  efforts: `step-28` stage 0 (`high`), `step-28b` the audit (`high`),
+  `step-28c` the design (`xhigh`), then one session per area with its
+  check rounds, `step-28d` the API, data model and wire forms, `step-28e`
+  the search, `step-28f` efficiency (all `xhigh`), `step-28g` the
+  command, harness, flake and documents (`high`), all on
+  `claude-opus-5-5`. The script runs the session in the detached zellij
+  session `linlog-NAME` (the author attaches with `zellij attach
+  linlog-NAME`) and clears the markers a child session would inherit:
+  without that it saves no transcript and cannot be messaged by name.
+  When a session is reviewed, `zellij kill-session linlog-NAME` ends it;
+  `claude --resume` still finds it.
+- **While it runs**: `SendMessage` to it with `notify_when_idle` (one
+  notice, lapsing after 12 hours: subscribe again), and a recurring
+  check every few hours (`CronCreate`, which lapses after 7 days): new
+  commits and the report's checklist, and the screen (`zellij --session
+  linlog-NAME action dump-screen --pane-id ID`, with the pane id the
+  script prints) for a permission
+  prompt it waits on. Find its process by its parent, never by `pgrep
+  -f`, which matches the asking shell. An idle session with its part
+  open gets a nudge that names the open items, twice at most; then the
+  author hears of it, with a push notification. The supervisor runs
+  nothing heavy while a session runs.
+- **Between sessions**: the review as below, on cores 2 to 15, with the
+  fixes as commits of its own; then the next session's note. The one
+  hold is after the design: a Fable 5.1 reviewer in a fresh context
+  reads the note against the register and the rubric, the author signs
+  off here (their word to this session is the consent; a relayed message
+  is not), and the stage 1 decision list is answered with it. Unsigned
+  commits are signed with `jj sign` while no session runs and the author
+  is there; push after that, not before.
+- **The reports**: after each session's review, at the hold, and when
+  something needs the author; otherwise at most one a day. Outcome
+  first, then what is needed from the author, every claim with its
+  evidence, what was skipped or is unverified; plain words, no working
+  shorthand. A push notification only when the author must act or the
+  step is done.
+- When the last area's session is reviewed, finish
+  `plan/29-comparison.md`.
 
 ## What the author has asked for, standing
 

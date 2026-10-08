@@ -46,7 +46,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 25 | Ordinary logic through its embeddings: the layer | `25-ordinary-logic.md` | Opus 5.5 | high | 21, 24 |
 | 26 | The focused engine in order, and the dispatch as a measured table (two sessions, a review between) | `26-focused-engine.md` | Opus 5.5 (Fable's allowance spent) | xhigh, a panel per change of the search | 20, 23 |
 | 27 | Horn programs: an engine, coverability, and the coverability suite from practice (two sessions) | `27-horn.md` (finished at the review of 26) | Opus 5.5 (Fable's allowance spent) | xhigh, with the panel | 24, 26 |
-| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` | Opus 5.5; Fable 5.1 for the soundness and readiness lenses, the completeness critic, a judge of the design, the reviewers of soundness and the panel's argument; the other reviewers by lens | high; xhigh for the design and the implementers; stages 0 to 4, each reviewed | 27 |
+| 28 | The audit, and the code in order for the release: the API and data model ready for quantifiers, the command, the harness, the flake and the documents (several sessions: the audit, fixes by area, check rounds) | `28-audit-and-refactor.md` | Opus 5.5; Fable 5.1 for the soundness and readiness lenses, the completeness critic, a judge of the design, the reviewers of soundness and the panel's argument; the other reviewers by lens | high; xhigh for the design and the implementers; stages 0 to 4, each area's session with its check rounds, all started and reviewed by the planning session | 27 |
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The third baseline (a night), and the first release prepared | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
@@ -277,6 +277,49 @@ takes from each:
   whole task rather than announce the next step, and keep changes to
   what the request needs.
 
+Re-evaluated for how step 28 runs on 2026-10-08, when the author asked
+to start nothing and answer nothing directly: the planning session runs
+the step and reports in plain words, and the author steers through it.
+Read that day: Anthropic's "Effective harnesses for long-running agents"
+(2025-11-26), "Effective context engineering for AI agents"
+(2025-09-29) and "Harness design for long-running apps" (2026-03-24);
+the Claude prompting best practices and the Opus 5.5 and Fable 5 guides
+(platform.claude.com); Claude Code's docs on cross-session messaging,
+compaction, permission modes, usage limits and workflows; Chroma's
+"Context Rot" (2025-07-14), Factory's evaluation of compaction
+(2025-12-16), Chen's "Governance Decay" (arXiv 2606.22528, a preprint),
+Cursor's posts on long-running agents (2026-01 and 02), and OpenAI's on
+long-horizon Codex runs (2026-02-23). What step 28 takes from them:
+
+- **A fresh context per unit of work, not one context compacted for
+  days.** The vendor guidance and the measurements agree: quality falls
+  as a context grows, compaction loses which files changed and why a
+  decision was taken, and a constraint is broken after a compaction
+  unless it survives the summary. So each stage and each area of fixes
+  stays a session of its own, and the planning session starts them one
+  after another with a note of where to start; the state lives in the
+  report's checklist, the prompt file and the jj log, and CLAUDE.md's
+  "Compact instructions" pin what a compaction must keep.
+- **A supervisor that reviews between sessions and relays.** The
+  planning session reviews each session before it starts the next, as
+  it reviewed every step (the checks it runs, its own target set,
+  probes and planted faults, not only reading, since a reviewer of the
+  same model shares its errors), and reaches a running session through
+  Claude Code's cross-session messages. A relayed message is not the
+  author's consent to an action, so the prompts carry the decisions and
+  the messages carry findings and the author's answers.
+- **Reports grounded in evidence.** Every claim of progress names its
+  commit, file or command result and says what was skipped or is
+  unverified, which Anthropic's guide reports nearly eliminated
+  fabricated status reports; the report to the author leads with the
+  outcome and what is needed from them.
+- **The usual guards of an unattended run.** A checklist and a nudge
+  that names the open items when a session stops early, at most two
+  before the author hears of it; the session waits out a usage limit on
+  its own (Claude Code 2.1.234 and later); Claude Code at 2.1.293 or
+  later, which fixed a compaction that took the last actions before it
+  for done.
+
 ### How the prompts are written
 
 Following Anthropic's prompting guidance for Fable 5.1 and Opus 5.5 (the
@@ -424,7 +467,9 @@ A step of several sessions is started again with the same command, with
 the changes its row names (step 26's and step 27's second sessions as
 their first, with `--name step-26b` and `step-27b`; step 28's stages
 as its first, with `--name step-28b` and on, its design and its fix
-sessions at `--effort xhigh`; step 22's second session at `--effort high`;
+sessions at `--effort xhigh`, all started by the planning session with
+`--permission-mode auto` and a note of where to start (prompt 28,
+"Unattended, supervised"); step 22's second session at `--effort high`;
 step 31's sessions after the checker's proof with `--model
 claude-opus-5-5 --effort high`); a session
 picks up from the step's report. The aliases `fable` and `opus` also
@@ -2099,3 +2144,19 @@ client follows it (step 32).
   wire forms only, Google's AIP-180, 126, 193, 140 and 151 are the
   audit's external standards. Rationale and sources under "Why these
   models and efforts".
+- 2026-10-08: step 28 runs unattended under the planning session, on
+  the author's word that the machine is otherwise idle from the evening
+  of 2026-10-09, that it takes as long as it needs without wasting
+  compute, and that the author starts nothing and answers through the
+  planning session's plain-language reports. Prompt 28 gains
+  "Unattended, supervised": the planning session starts each stage and
+  each area of fixes as a fresh session in a detached zellij session
+  and reviews it before the next; messages both ways; never ask, how a
+  turn ends, the state in the report's checklist; mutation testing and
+  fuzzing as the heavy runs, each mutation target against its own tests
+  and only the survivors against the whole suite, each fuzz target until
+  its coverage stops growing; the cores; a nightly compiler for the fuzz
+  targets only; signing as far as the passphrase lasts. Each area's
+  session ends with its check rounds. CLAUDE.md gains "Compact
+  instructions". Rationale and sources under "Why these models and
+  efforts", 2026-10-08.
