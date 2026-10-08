@@ -70,7 +70,7 @@ toolchain `rust-toolchain.toml` names (edition 2024; rustfmt, clippy and
 rust-analyzer included), cargo-hack, cargo-deny, cargo-mutants,
 cargo-nextest, valgrind, bacon and treefmt; the `fuzz` devshell has a nightly
 compiler and cargo-fuzz for `fuzz/` alone. `menu`
-lists its commands: `check`, `tests`, `ratchet`, `launch` (the CLI),
+lists its commands: `check`, `gate`, `tests`, `ratchet`, `launch` (the CLI),
 `live` (bacon), `dev` (zellij) and `up`.
 
 ```sh
@@ -91,6 +91,7 @@ bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to
 
 nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
+gate              # what every commit that touches code passes: clippy, the tests (the behaviour lock among them), both cargo hack runs, the ratchet (about 4 min on four cores)
 ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv; ratchet --lower after a count went down
 mutants/run.sh    # mutation testing of the checker, the readers, the front door, the Horn refutations (cores 6-11, detached): mutants/baseline/
 nix develop .#fuzz -c fuzz/run.sh   # every fuzz target until its coverage stops growing (nightly, cores 12-15, detached), after fuzz/seed.sh
@@ -103,6 +104,7 @@ Verify as much as the change needs:
 
 | the change | the proof |
 |---|---|
+| any commit that touches code | `gate` passes (capped: `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 taskset -c 2-5 nix develop -c gate`); a change of the behaviour lock's files or of a ceiling is a commit of its own that says why |
 | any `.rs` edit | `cargo clippy …` and `cargo test --workspace` |
 | touches `#[cfg(feature = …)]` or `[features]` | add `cargo hack check --each-feature -p linlog` and `cargo hack check --feature-powerset --depth 2 -p linlog` (both cover `parallel`, which is off by default: `--each-feature`'s `--all-features` run is the one that differs from the defaults) |
 | touches `bench/` or `core/src/families.rs` | add `cargo run --release -p linlog-bench -- run --all-families --timeout 5` for the verdicts (a `MISMATCH` in `summary` is a bug); timings only from `bench/baseline.sh` on an idle machine |

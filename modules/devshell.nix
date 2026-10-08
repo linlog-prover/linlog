@@ -34,6 +34,19 @@
             command = "nix flake check";
           }
           {
+            name = "gate";
+            help = "What every commit passes: clippy, the tests (the behaviour lock among them), cargo-hack's feature checks and the ratchet";
+            command = ''
+              set -eu
+              cargo clippy --workspace --all-targets --locked -- --deny warnings
+              cargo test --workspace --locked
+              cargo hack check --each-feature --locked --package linlog
+              cargo hack check --feature-powerset --depth 2 --locked --package linlog
+              cargo run --release --locked --package linlog-bench -- ratchet --check --jobs 4
+              echo "gate: passed"
+            '';
+          }
+          {
             name = "tests";
             help = "Run the workspace's tests (`cargo test --workspace`)";
             command = ''cargo test --workspace "$@"'';
