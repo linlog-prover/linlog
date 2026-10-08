@@ -24,7 +24,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 0.4 mutation testing wired in (`new-tool`), scope and command committed | done | f602c7e9: `mutants/run.sh`, `.cargo/mutants.toml`, profile `mutants` |
 | 0.4 mutation run, batches per target file | running | unit `step28-mutants` since 21:03 on cores 6–11; `check` done (33 surviving, 1 653 s) |
 | 0.4 fuzz targets wired in (`new-tool`), one per untrusted reader | done | f602c7e9: nine targets under `fuzz/`, nightly 2026-09-25 in the `fuzz` devshell |
-| 0.4 fuzz runs, each until coverage stops growing | running | unit `step28-fuzz` since 21:12 on cores 12–15; stall 900 s, cap 5 400 s |
+| 0.4 fuzz runs, each until coverage stops growing | done | ended 00:15; `target/fuzz/summary.tsv`: eight targets without a find (two at the 5 400 s cap, six stalled); `ordinary_text` 3 312 crash files, one panic: `core/src/ordinary/parse.rs:104:31` slices inside a multi-byte character (input `\|-z⊢`, "start byte index 5 is not a char boundary"), a panic on untrusted input, not fixed here, for the audit |
 | 0.5 the gate, a devshell command | done | 7ebc848e: `gate`, passed in 4 min 15 s on cores 2–5 |
 | 0.6 `plan/reports/28-baselines.md` | open | |
 | 0.7 last message to `planning` | open | |
