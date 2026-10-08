@@ -1,0 +1,34 @@
+$ linlog
+--- status 2
+--- stdout
+--- stderr
+A linear logic suite for all your needs.
+
+Usage: linlog <COMMAND>
+
+Commands:
+  prove     Decide whether a sequent is provable, and print a proof if it is
+  check     Check a proof read from JSON, as `prove --format json` writes it
+  interact  Prove a sequent step by step, reading commands from standard input
+  seq       Print a sequent, convert it to JSON, or name its fragment
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+
+Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
+  tensor  A * B, A ⊗ B        par   A | B, A par B, A ⅋ B
+  with    A & B               plus  A + B, A ⊕ B
+  linear implication  A -o B, A ⊸ B
+  negation  ~A, A^            exponentials  !A, ?A
+  units  1, bot, ⊥, top, ⊤, 0
+Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, and last -o, which
+groups to the right.
+
+With --logic the input is ordinary logic: `a, a -> b |- b`, or a formula alone.
+  and  a /\ b, a ∧ b         or   a \/ b, a ∨ b
+  implies  a -> b, a → b      iff  a <-> b, a ↔ b
+  not  ~a, ¬a                 constants  true, ⊤, false, ⊥
+Binding, tightest first: ~, /\, \/, ->, and last <->; -> and <-> group to
+the right.

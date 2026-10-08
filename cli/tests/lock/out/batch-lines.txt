@@ -1,0 +1,7 @@
+$ linlog prove --input-format lines --file many.txt
+--- status 1
+--- stdout
+tensor: provable (MLL, classical, net engine)
+with: provable (ALL, classical, additive engine)
+bad: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+--- stderr

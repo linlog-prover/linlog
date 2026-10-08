@@ -1,0 +1,8 @@
+$ linlog prove --input-format jsonl --file -
+--- stdin
+{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}
+
+--- status 0
+--- stdout
+-:1: provable (MLL, classical, net engine)
+--- stderr

@@ -226,6 +226,18 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   example adds a note on a machine of fewer than four threads, so the
   test assumes four. The crane source keeps `README.md` for it
   (`modules/workspace.nix`).
+- **The behaviour lock** (`cli/tests/lock.rs`) pins what the command
+  prints and its exit status on a fixed corpus: every command, every
+  output format (PNG and PDF by length and an FNV-1a hash), every
+  fragment and mode, ordinary logic, the problem files of
+  `cli/tests/lock/inputs` (written for it: the LLTP library is GPL and
+  stays out of the tree), the batch, `check`, a session and the errors,
+  one file per call under `cli/tests/lock/out`. A call whose output
+  carries counters names `--deterministic`; times are `…`. A change of
+  behaviour is a commit of its own that says why and reblesses with
+  `BLESS=1 cargo test -p linlog-cli --test lock`; a new command, format
+  or flag adds its calls. The crane source keeps the directory
+  (`modules/workspace.nix`).
 - **The search runs on its own thread** (`on_large_stack`) with the stack
   core's `Options::stack_size` computes for the recursion limit: twice
   the engine's measured cost per level (4 KiB unoptimized, 1 KiB

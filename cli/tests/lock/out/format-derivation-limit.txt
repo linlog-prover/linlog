@@ -1,0 +1,6 @@
+$ linlog prove --derivation-limit 100 'A * B |- B * A'
+--- status 0
+--- stdout
+provable (MLL, classical, net engine)
+--- stderr
+the derivation is not written: its 4 inferences with 45 characters of sequents are estimated at 872 B, over the limit of 100 B; --format json writes the proof itself, --derivation-limit SIZE raises the limit and --derivation-limit none lifts it

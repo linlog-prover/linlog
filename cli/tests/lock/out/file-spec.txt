@@ -1,0 +1,5 @@
+$ linlog prove --file mutex.spec
+--- status 1
+--- stdout
+unprovable (MELL, classical, horn engine): the search was exhaustive
+--- stderr

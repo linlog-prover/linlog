@@ -1,0 +1,5 @@
+$ linlog seq json 'A, A -o B |- B'
+--- status 0
+--- stdout
+{"terms":[{"D":0},{"V":0},{"D":1},{"⊗":[1,2]},{"V":1}],"ids":[0,3,4],"var_dict":["A","B"]}
+--- stderr

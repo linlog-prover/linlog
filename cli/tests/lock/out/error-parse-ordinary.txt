@@ -1,0 +1,7 @@
+$ linlog prove --logic classical 'a /\'
+--- status 2
+--- stdout
+--- stderr
+error: cannot parse the sequent
+  a /\
+      ^ unexpected end of input

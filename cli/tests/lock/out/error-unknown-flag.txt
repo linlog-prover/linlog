@@ -1,0 +1,11 @@
+$ linlog prove --frobnicate 'A |- A'
+--- status 2
+--- stdout
+--- stderr
+error: unexpected argument '--frobnicate' found
+
+  tip: a similar argument exists: '--format'
+
+Usage: linlog prove --format <FORMAT> [SEQUENT]
+
+For more information, try '--help'.

@@ -1,0 +1,11 @@
+$ linlog prove 'A & B |- A + B'
+--- status 0
+--- stdout
+provable (ALL, classical, additive engine)
+    ─────── ax
+    ⊢ ~A, A
+  ─────────── ⊕₁
+  ⊢ ~A, A ⊕ B
+──────────────── ⊕₁
+⊢ ~A ⊕ ~B, A ⊕ B
+--- stderr

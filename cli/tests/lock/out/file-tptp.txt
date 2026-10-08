@@ -1,0 +1,15 @@
+$ linlog prove --logic classical --file peirce.p
+--- status 0
+--- stdout
+valid (classical logic by the affine translation into affine MALL, focus engine)
+  ───── ax
+  p ⊢ p
+ ──────── WR
+ p ⊢ q, p
+────────── →R   ───── ax
+⊢ p → q, p      p ⊢ p
+───────────────────── →L
+   (p → q) → p ⊢ p
+ ─────────────────── →R
+ ⊢ ((p → q) → p) → p
+--- stderr

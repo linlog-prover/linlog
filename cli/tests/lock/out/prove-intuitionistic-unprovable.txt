@@ -1,0 +1,5 @@
+$ linlog prove -i 'A -o B |- B -o A'
+--- status 1
+--- stdout
+unprovable (IMLL, intuitionistic, net engine): A occurs 2 more times than ~A in the one-sided sequent, so they cannot all meet in axioms
+--- stderr

@@ -1,0 +1,5 @@
+$ linlog seq print 'A -o B, !C |- ?D & 1'
+--- status 0
+--- stdout
+⊢ A ⊗ ~B, ?~C, ?D & 1
+--- stderr

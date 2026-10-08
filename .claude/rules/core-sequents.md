@@ -6,6 +6,7 @@ paths:
   - "core/src/serialize/**"
   - "core/tests/parse.rs"
   - "core/tests/serialize.rs"
+  - "core/tests/lock.rs"
 ---
 
 # linlog core: sequents, parsing and serialization
@@ -149,7 +150,11 @@ rebuilds the forest, checks bounds and order and drops unreachable nodes;
 whether the proof is correct is `Proof::check`'s question, since the mode
 is not in the file. Both are interchange formats for the CLI and the planned
 web front end, so a tag or key change is a format break;
-`core/tests/serialize.rs` pins the exact strings. A binary format would come
+`core/tests/serialize.rs` pins the exact strings, and the behaviour lock
+`core/tests/lock.rs` pins every JSON form on a corpus (sequents, every
+verdict, refutation and reason of an outcome, proofs of every mode,
+proof structures, sessions) in `core/tests/lock/json.txt`, rewritten
+with `BLESS=1` in a commit of its own that says why. A binary format would come
 from the same proxies (postcard encodes the variants by index), in the crate
 that wants it.
 

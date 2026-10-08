@@ -1,0 +1,9 @@
+$ linlog prove --mix 'A, B |- A, B'
+--- status 0
+--- stdout
+provable (MLL, classical with Mix, net engine)
+─────── ax   ─────── ax
+⊢ ~A, A      ⊢ ~B, B
+──────────────────── mix
+   ⊢ ~A, ~B, A, B
+--- stderr

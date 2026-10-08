@@ -1,0 +1,5 @@
+$ linlog prove --tree never 'A |- A'
+--- status 0
+--- stdout
+provable (MLL, classical, net engine)
+--- stderr

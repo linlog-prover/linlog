@@ -1,0 +1,5 @@
+$ linlog prove --deterministic --format json '!A |- A * !A'
+--- status 0
+--- stdout
+{"verdict":"proved","fragment":"MELL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","statistics":{"nodes":3,"memo_hits":0,"memo_entries":2,"splits":2,"links":0,"tests":0,"copies":1},"sequent":{"terms":[{"D":0},{"?":0},{"V":0},{"!":2},{"⊗":[2,3]}],"ids":[1,4],"var_dict":["A"]},"proof":[{"ax":[5,1]},{"copy":[1,0]},{"ax":[3,1]},{"copy":[1,2]},{"!":[4,1]},{"⊗":[2,3,4]},{"?":[0,5]}]}
+--- stderr

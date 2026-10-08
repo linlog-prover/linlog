@@ -1,0 +1,5 @@
+$ linlog prove --logic intuitionistic --file peirce.p
+--- status 1
+--- stdout
+not valid (intuitionistic logic by the cbn translation into ILL, two-sided engine): the image is unprovable: the search was exhaustive
+--- stderr

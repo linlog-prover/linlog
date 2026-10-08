@@ -1,0 +1,40 @@
+$ linlog prove --net --format svg 'A * B |- B * A'
+--- status 0
+--- stdout
+<!-- provable (MLL, classical, net engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="122.752" height="87.36" viewBox="0 0 7672 5460" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
+<desc>⊢ ~A ⅋ ~B, B ⊗ A
+~A[1] — A[5]
+~B[2] — B[4]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<circle id="o0" cx="1846" cy="4370" r="380"/>
+<circle id="o3" cx="6130" cy="4370" r="380"/>
+<path d="M5942 4040L5274 3220"/>
+<path d="M6319 4040L6987 3220"/>
+<path d="M1846 4750V5120"/>
+<path d="M6130 4750V5120"/>
+</g>
+<g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
+<path d="M1613 4069L685 3220"/>
+<path d="M2079 4070L3008 3220"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l1-5" d="M685 2230A3151 1890 0 0 1 6987 2230"/>
+<path id="l2-4" d="M3008 2230A1133 679 0 0 1 5274 2230"/>
+</g>
+<g id="o1">
+<text x="300" y="3120" textLength="770" lengthAdjust="spacing">𝐴</text>
+<text x="1070" y="2720" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="o2">
+<text x="2681" y="3120" textLength="655" lengthAdjust="spacing">𝐵</text>
+<text x="3336" y="2720" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="4947" y="3120" textLength="655" lengthAdjust="spacing" id="o4">𝐵</text>
+<text x="6602" y="3120" textLength="770" lengthAdjust="spacing" id="o5">𝐴</text>
+<text x="1552" y="4645" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<text x="5863" y="4570" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+</svg>
+--- stderr

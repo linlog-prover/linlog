@@ -1,0 +1,5 @@
+$ linlog prove '|- A * ~A'
+--- status 1
+--- stdout
+unprovable (MLL, classical, net engine): the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 1 − 0 − 0 + 0 + 2 = 3, and this one has 1
+--- stderr

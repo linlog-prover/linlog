@@ -1,0 +1,13 @@
+$ linlog prove --logic intuitionistic --translation cbv '(a /\ b) -> (b /\ a)'
+--- status 0
+--- stdout
+valid (intuitionistic logic by the cbv translation into ILL, two-sided engine)
+ ───── ax   ───── ax
+ b ⊢ b      a ⊢ a
+ ──────────────── ∧R
+   a, b ⊢ b ∧ a
+   ───────────── ∧L
+   a ∧ b ⊢ b ∧ a
+─────────────────── →R
+⊢ (a ∧ b) → (b ∧ a)
+--- stderr

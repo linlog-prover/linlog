@@ -1,0 +1,9 @@
+$ linlog prove -a 'A, B |- A'
+--- status 0
+--- stdout
+provable (MLL, classical affine, focus engine)
+  ─────── ax
+  ⊢ ~A, A
+─────────── wk
+⊢ ~A, ~B, A
+--- stderr

@@ -1,0 +1,5 @@
+$ linlog prove --engine net 'A & B |- A'
+--- status 2
+--- stdout
+--- stderr
+error: proof nets exist for MLL without units only, not for ALL

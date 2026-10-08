@@ -1,0 +1,5 @@
+$ linlog prove --memory-limit 100 '!(A & B) |- !A * ?B'
+--- status 3
+--- stdout
+unknown (LL, classical, focus engine): the memory limit of 100 B was reached after … at a copy bound of 0; raise it with --memory-limit SIZE
+--- stderr

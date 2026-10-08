@@ -1,0 +1,16 @@
+$ linlog prove -i --format latex --standalone 'A, A -o B |- B'
+--- status 0
+--- stdout
+% provable (IMLL, intuitionistic, net engine)
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap\mathrm{L}$]{A, A \multimap B &\vdash B}
+\end{prooftree}
+\end{document}
+--- stderr

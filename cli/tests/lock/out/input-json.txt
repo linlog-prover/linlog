@@ -1,0 +1,10 @@
+$ linlog prove --input-format json
+--- stdin
+{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}
+
+--- status 0
+--- stdout
+provable (MLL, classical, net engine)
+─────── ax
+⊢ ~A, A
+--- stderr

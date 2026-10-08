@@ -1,0 +1,9 @@
+$ linlog prove --net 'A * B |- B * A'
+--- status 0
+--- stdout
+provable (MLL, classical, net engine)
+⊢ ~A ⅋ ~B, B ⊗ A
+~A[1] — A[5]
+~B[2] — B[4]
+proof net
+--- stderr

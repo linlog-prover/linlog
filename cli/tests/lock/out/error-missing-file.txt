@@ -1,0 +1,5 @@
+$ linlog prove --file missing.p
+--- status 2
+--- stdout
+--- stderr
+error: cannot read missing.p: No such file or directory (os error 2)

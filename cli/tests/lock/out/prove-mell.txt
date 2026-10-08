@@ -1,0 +1,15 @@
+$ linlog prove '!A |- A * !A'
+--- status 0
+--- stdout
+provable (MELL, classical, focus engine)
+              ─────── ax
+              ⊢ ~A, A
+─────── ax    ──────── ?d
+⊢ ~A, A       ⊢ ?~A, A
+──────── ?d   ───────── !
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+--- stderr

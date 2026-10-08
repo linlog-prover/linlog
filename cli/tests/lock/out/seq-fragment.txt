@@ -1,0 +1,5 @@
+$ linlog seq fragment '!A & B |- ?C'
+--- status 0
+--- stdout
+LL
+--- stderr

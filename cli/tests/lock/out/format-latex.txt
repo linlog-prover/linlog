@@ -1,0 +1,10 @@
+$ linlog prove --format latex 'A & B |- A + B'
+--- status 0
+--- stdout
+% provable (ALL, classical, additive engine)
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer1[$\oplus_1$]{\vdash A^\bot, A \oplus B}
+\infer1[$\oplus_1$]{\vdash A^\bot \oplus B^\bot, A \oplus B}
+\end{prooftree}
+--- stderr

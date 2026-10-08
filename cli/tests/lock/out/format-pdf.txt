@@ -1,0 +1,6 @@
+$ linlog prove --format pdf 'A * B |- B * A'
+--- status 0
+--- stdout
+6922 bytes, FNV-1a 245b261b7216e4de
+--- stderr
+provable (MLL, classical, net engine)

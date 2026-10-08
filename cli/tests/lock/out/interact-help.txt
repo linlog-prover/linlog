@@ -1,0 +1,25 @@
+$ linlog interact 'A |- A'
+--- stdin
+help
+
+--- status 1
+--- stdout
+goals               the open goals, with the positions of their formulas
+rules G P           the rules that act on formula P of goal G
+apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
+undo                retract the last step
+close [G]           let the search close goal G, or every open goal
+show [--FORMAT] [FILE]
+                    the derivation so far, open goals included, printed or written to FILE:
+                    as text, or --latex, --typst, --svg, --png or --pdf (these two need a
+                    FILE); with a FILE and no format, the one its extension names
+proof [--FORMAT] [FILE]
+                    check the finished proof and print it or write it to FILE: as text,
+                    or --json, --latex, --typst, --svg, --png, --pdf, or --rocq for a
+                    certificate (--png and --pdf need a FILE);
+                    with a FILE and no format, the one its extension names, else JSON
+save FILE           write the session as JSON
+load FILE           resume a session written by save
+help                this list
+quit                end the session
+--- stderr

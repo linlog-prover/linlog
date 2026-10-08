@@ -1,0 +1,22 @@
+$ linlog prove --deterministic --stats '!(A & B) |- !A * ?B'
+--- status 0
+--- stdout
+provable (LL, classical, focus engine)
+   ─────── ax           ─────── ax
+   ⊢ ~A, A              ⊢ ~B, B
+ ──────────── ⊕₁        ──────── ?d
+ ⊢ ~A ⊕ ~B, A           ⊢ ~B, ?B
+─────────────── ?d    ───────────── ⊕₂
+⊢ ?(~A ⊕ ~B), A       ⊢ ~A ⊕ ~B, ?B
+──────────────── !   ──────────────── ?d
+⊢ ?(~A ⊕ ~B), !A     ⊢ ?(~A ⊕ ~B), ?B
+───────────────────────────────────── ⊗
+  ⊢ ?(~A ⊕ ~B), ?(~A ⊕ ~B), !A ⊗ ?B
+  ───────────────────────────────── ?c
+        ⊢ ?(~A ⊕ ~B), !A ⊗ ?B
+stable sequents visited: 21 (5 from the memo)
+memo entries at most: 10
+splits examined: 5
+copy bound reached: 2
+time: …
+--- stderr

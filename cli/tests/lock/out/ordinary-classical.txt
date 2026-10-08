@@ -1,0 +1,11 @@
+$ linlog prove --logic classical 'a \/ ~a'
+--- status 0
+--- stdout
+valid (classical logic by the affine translation into affine MALL, focus engine)
+ ───── ax
+ a ⊢ a
+─────── ¬R
+⊢ a, ¬a
+──────── ∨R
+⊢ a ∨ ¬a
+--- stderr

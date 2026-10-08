@@ -1,0 +1,6 @@
+$ linlog prove --format png 'A * B |- B * A'
+--- status 0
+--- stdout
+7692 bytes, FNV-1a 73802e70196ccd3f
+--- stderr
+provable (MLL, classical, net engine)

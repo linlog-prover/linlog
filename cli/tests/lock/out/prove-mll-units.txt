@@ -1,0 +1,13 @@
+$ linlog prove '1, bot |- 1 * bot'
+--- status 0
+--- stdout
+provable (MLL with units, classical, focus engine)
+         ─── 1
+         ⊢ 1
+─── 1   ────── ⊥
+⊢ 1     ⊢ 1, ⊥
+────────────── ⊗
+  ⊢ 1, 1 ⊗ ⊥
+ ───────────── ⊥
+ ⊢ ⊥, 1, 1 ⊗ ⊥
+--- stderr

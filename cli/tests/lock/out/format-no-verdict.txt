@@ -1,0 +1,6 @@
+$ linlog prove --no-verdict 'A |- A'
+--- status 0
+--- stdout
+─────── ax
+⊢ ~A, A
+--- stderr

@@ -1,0 +1,5 @@
+$ linlog prove 'A & B |- A * B'
+--- status 1
+--- stdout
+unprovable (MALL, classical, focus engine): the search was exhaustive
+--- stderr

@@ -1,0 +1,11 @@
+$ linlog prove --logic intuitionistic --linear 'a -> a'
+--- status 0
+--- stdout
+valid (intuitionistic logic by the cbn translation into ILL, two-sided engine)
+ ───── ax
+ a ⊢ a
+ ────── !L
+ !a ⊢ a
+──────── ⊸R
+⊢ !a ⊸ a
+--- stderr

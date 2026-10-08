@@ -1,0 +1,5 @@
+$ linlog prove -i '|- ?A, !~A'
+--- status 2
+--- stdout
+--- stderr
+error: not an intuitionistic sequent: the subformula !~A is neither an intuitionistic formula nor the negation of one (⅋ only as A ⊸ B, that is ~A ⅋ B, and ? only under a negation)

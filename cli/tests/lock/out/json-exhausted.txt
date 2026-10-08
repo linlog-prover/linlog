@@ -1,0 +1,5 @@
+$ linlog prove --deterministic --format json 'A & B |- A * B'
+--- status 1
+--- stdout
+{"verdict":"unprovable","refutation":"exhausted","fragment":"MALL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","statistics":{"nodes":3,"memo_hits":0,"memo_entries":3,"splits":1,"links":0,"tests":0,"copies":0}}
+--- stderr

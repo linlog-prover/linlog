@@ -1,0 +1,13 @@
+$ linlog prove --file double.p
+--- status 0
+--- stdout
+provable (MLL, classical, net engine)
+             ─────── ax   ─────── ax
+             ⊢ ~b, b      ⊢ ~b, b
+             ──────────────────── ⊗
+               ⊢ ~b, ~b, b ⊗ b
+─────── ax     ──────────────── ⅋
+⊢ a, ~a        ⊢ ~b ⅋ ~b, b ⊗ b
+─────────────────────────────── ⊗
+  ⊢ a ⊗ (~b ⅋ ~b), ~a, b ⊗ b
+--- stderr

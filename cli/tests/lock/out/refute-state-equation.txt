@@ -1,0 +1,5 @@
+$ linlog prove '!(A -o A * A), !(B * B -o C), A, B |- C'
+--- status 1
+--- stdout
+unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each A by −2, B by 1 and C by 2, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
+--- stderr

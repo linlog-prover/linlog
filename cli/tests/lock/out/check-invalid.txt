@@ -1,0 +1,8 @@
+$ linlog check
+--- stdin
+{"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"ids":[2,5],"var_dict":["A","B"]},"proof":[{"ax":[1,4]},{"ax":[2,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}
+
+--- status 1
+--- stdout
+invalid proof of ⊢ ~A ⅋ ~B, B ⊗ A (classical): node 0 (ax on ~A, B): the literals are not an atom and its negation
+--- stderr

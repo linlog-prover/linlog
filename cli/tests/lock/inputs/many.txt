@@ -1,0 +1,4 @@
+tensor: A * B |- B * A
+# a comment
+with: A & B |- A
+bad: A |- B

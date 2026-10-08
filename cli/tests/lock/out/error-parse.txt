@@ -1,0 +1,7 @@
+$ linlog prove 'A * |- B'
+--- status 2
+--- stdout
+--- stderr
+error: cannot parse the sequent
+  A * |- B
+      ^ unexpected "|"

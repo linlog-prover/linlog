@@ -1,0 +1,15 @@
+$ linlog interact 'A |- A'
+--- stdin
+apply 9 0 ax
+rules 0 7
+frobnicate
+proof
+quit
+
+--- status 1
+--- stdout
+error: there is no open goal 9
+error: the goal has no formula 7: it has 2 formulas
+error: unknown command "frobnicate"; `help` lists them
+error: the proof is not finished: 1 goals are open
+--- stderr
