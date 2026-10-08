@@ -135,9 +135,11 @@ with this prompt, `plan/conduct.md` and a note of its own, "Where you
 start" (your stage or area, the author's answers so far, what its
 review of the last session asks of you); it reviews each session when
 it ends, reports to the author in plain words, and relays the author's
-word. From the evening of 2026-10-09 the machine does nothing else, and
-the step takes as long as its work needs; what it must not do is spend
-compute that buys no evidence.
+word. While the step runs the machine does nothing else, and it takes
+as long as its work needs; what it must not do is spend compute that
+buys no evidence. When the author needs the machine back, the
+supervisor pauses the step until the author lets it go on ("Pause and
+resume" below).
 
 - **The supervisor** is the session named `planning` on this machine.
   Its messages reach you as `<cross-session-message from="planning">`:
@@ -178,6 +180,23 @@ compute that buys no evidence.
   `planning`, with what you did about it. Keep both current as you go;
   after a compaction, read this prompt's section for your stage,
   `plan/conduct.md`, the checklist and `jj log` before anything else.
+- **Pause and resume.** A message "Pause" from the supervisor means the
+  author needs the machine: bring the work to a point it can resume
+  from within a few minutes. Start nothing new; stop your detached runs
+  (a mutation batch in flight is lost and run again, a fuzzer keeps its
+  corpus) and any workflow that is running (`TaskStop`; it resumes with
+  `resumeFromRunId`, its finished agents cached); commit what is
+  finished and leave the rest in the working copy; record in the
+  checklist what you stopped, where, and how each part resumes; answer
+  the supervisor and end your turn. While paused nothing of yours runs:
+  no unit, scope, build, agent or workflow. A message "Resume" means
+  the machine is the step's again: read the checklist's entry, start
+  the signing loop if a signature succeeds, restart what you stopped
+  where it stopped, and go on. So that a message reaches you within
+  minutes, wait on a long run with a background task or a monitor,
+  never in one blocking call of more than a few minutes; and name every
+  detached unit and scope you start `step28-…` (`systemd-run
+  --unit=step28-…`), which the supervisor stops itself if you cannot.
 - **Models.** Every agent you start gets the model and effort this
   prompt names for it. If Fable 5.1 is refused for its allowance, its
   role goes to Opus 5.5 at `xhigh`, and the report says which roles and
@@ -194,7 +213,10 @@ compute that buys no evidence.
   against the whole suite: what survives both is the list. Time a few
   mutants first and plan from that. Stage 4 runs the same set again, so
   its scope and its command are committed and its duration is in the
-  report. Give each fuzz target time until its coverage stops growing
+  report. Run the mutation testing in batches, one per target file,
+  each with its results kept, so that a stop loses at most the batch in
+  flight and a later run takes only what is left. Give each fuzz target
+  time until its coverage stops growing
   (no new edges for a while), within a cap, rather than one long time
   for all; the time each took is in the report. Start the mutation run
   as soon as its tool is wired in and its scope is set, and the fuzzers
@@ -221,8 +243,9 @@ compute that buys no evidence.
 - **The toolchain.** A fuzzer that needs a nightly compiler gets one
   from rust-overlay, pinned by date, for the fuzz targets alone;
   `rust-toolchain.toml` and the default devshell stay on stable.
-- **Signing.** The author enters the passphrase before stage 0 starts,
-  and `max-cache-ttl` gives about two hours of signatures from then;
+- **Signing.** The author enters the passphrase before stage 0 starts
+  and at each resume, and `max-cache-ttl` gives about two hours of
+  signatures from then;
   most of the step's commits go unsigned, and the supervisor signs them
   between sessions when the author is there. Start the warm loop first,
   before any commit:

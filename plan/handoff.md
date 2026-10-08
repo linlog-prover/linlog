@@ -272,8 +272,8 @@ in short plain-language reports, and relay the author's corrections
 - **Before the start**: Claude Code at 2.1.293 or later (its compaction
   fix); this session in auto mode, since a cross-session message to or
   from a session in another permission class waits for approval; the
-  author enters the passphrase and says go (from the evening of
-  2026-10-09; the machine is the step's from then on).
+  author enters the passphrase and says go; the machine is the step's
+  from then on, until the author says stop.
 - **Starting a session**: `plan/start-session.sh NAME MODEL EFFORT
   plan/28-audit-and-refactor.md plan/conduct.md NOTE`, where NOTE is a
   file of this session's, "Where you start": the stage or area, the
@@ -287,8 +287,10 @@ in short plain-language reports, and relay the author's corrections
   session `linlog-NAME` (the author attaches with `zellij attach
   linlog-NAME`) and clears the markers a child session would inherit:
   without that it saves no transcript and cannot be messaged by name.
-  When a session is reviewed, `zellij kill-session linlog-NAME` ends it;
-  `claude --resume` still finds it.
+  It prints the session's id; note it. When a session is reviewed,
+  `zellij kill-session linlog-NAME` ends it; after a reboot,
+  `plan/start-session.sh --resume ID NAME MODEL EFFORT` brings a session
+  back in a new zellij session, its context kept.
 - **While it runs**: `SendMessage` to it with `notify_when_idle` (one
   notice, lapsing after 12 hours: subscribe again), and a recurring
   check every few hours (`CronCreate`, which lapses after 7 days): new
@@ -300,6 +302,17 @@ in short plain-language reports, and relay the author's corrections
   open gets a nudge that names the open items, twice at most; then the
   author hears of it, with a push notification. The supervisor runs
   nothing heavy while a session runs.
+- **Stop and go**: the author may need the machine by day. On "stop",
+  send the running session "Pause" (prompt 28 says what it does: stops
+  its runs and workflows at a resumable point, records them in the
+  checklist, ends its turn) with `notify_when_idle`; within about
+  fifteen minutes check `systemctl --user list-units 'step28-*'` and the
+  load, stop any of its units still running yourself (by unit name), and
+  tell the author the machine is free. A stop between sessions stops
+  this session's own review runs instead, and the next session waits.
+  On "go" (after the author entered the passphrase), send "Resume", or
+  start the next session. A paused session stays open in its zellij
+  session; the cron check leaves it alone.
 - **Between sessions**: the review as below, on cores 2 to 15, with the
   fixes as commits of its own; then the next session's note. The one
   hold is after the design: a Fable 5.1 reviewer in a fresh context

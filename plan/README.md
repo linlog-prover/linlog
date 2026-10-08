@@ -2145,14 +2145,17 @@ client follows it (step 32).
   audit's external standards. Rationale and sources under "Why these
   models and efforts".
 - 2026-10-08: step 28 runs unattended under the planning session, on
-  the author's word that the machine is otherwise idle from the evening
-  of 2026-10-09, that it takes as long as it needs without wasting
-  compute, and that the author starts nothing and answers through the
-  planning session's plain-language reports. Prompt 28 gains
+  the author's word that the machine is otherwise idle while it runs,
+  that it takes as long as it needs without wasting compute, that the
+  author starts nothing and answers through the planning session's
+  plain-language reports, and that it pauses when the author needs the
+  machine by day and resumes on their word. Prompt 28 gains
   "Unattended, supervised": the planning session starts each stage and
   each area of fixes as a fresh session in a detached zellij session
   and reviews it before the next; messages both ways; never ask, how a
-  turn ends, the state in the report's checklist; mutation testing and
+  turn ends, the state in the report's checklist, pause and resume at a
+  resumable point (mutation testing in batches per file, workflows
+  resumed with their finished agents cached); mutation testing and
   fuzzing as the heavy runs, each mutation target against its own tests
   and only the survivors against the whole suite, each fuzz target until
   its coverage stops growing; the cores; a nightly compiler for the fuzz
