@@ -202,7 +202,13 @@ fn run(directory: &Path, command: &str, input: &str) -> String {
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
-    std::io::Write::write_all(&mut child.stdin.take().unwrap(), input.as_bytes()).unwrap();
+    // A command that does not read its input may exit before the write: a
+    // closed pipe is then no failure of the test.
+    if let Err(error) =
+        std::io::Write::write_all(&mut child.stdin.take().unwrap(), input.as_bytes())
+    {
+        assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe, "{error}");
+    }
     let out = child.wait_with_output().unwrap();
     String::from_utf8(out.stdout).unwrap()
 }
