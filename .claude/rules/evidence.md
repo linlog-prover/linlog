@@ -41,9 +41,15 @@ browser or a stranger's file would.
 - A mutant that panics on an overflow or a debug assertion counts as
   caught: that is the build the tests run in debug, not the release
   build, where the same mutant may wrap silently.
-- The `cli` binary's `timeout` test measures wall-clock time and once
-  failed under the load of a parallel build; a mutant it alone catches
-  may be a false catch.
+- A flaky test turns a missed mutant into a false catch, never the
+  reverse (a timeout counts as surviving). The first run found one:
+  `every_style_option` failed on a broken pipe when a call exited before
+  the test wrote its input, in about one whole-suite run in four under
+  load, and 9 of the 9 catches of the checker's whole-suite pass were
+  that alone; the CLI tests now take a closed pipe as no failure. After
+  a run, read the failing tests of every caught mutant's log
+  (`mutants.out/log/`, and `mutants.out.old/` for the first pass) and
+  rerun a batch with a catch by one test that also fails unmutated.
 
 ## Fuzzing (`fuzz/`, `modules/fuzz.nix`)
 
