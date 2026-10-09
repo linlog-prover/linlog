@@ -2186,7 +2186,9 @@ mod tests {
         );
         assert_eq!(proof.check(mode), Ok(()));
         assert!(matches!(
-            ProofStructure::from_proof(&proof, false),
+            ProofStructure::from_proof(&proof, crate::Criterion::MLL, &Limits::default(), |_| {
+                false
+            }),
             Err(Error::GoalProof)
         ));
         #[cfg(feature = "rocq")]

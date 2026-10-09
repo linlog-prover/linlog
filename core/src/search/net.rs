@@ -25,8 +25,8 @@ use super::{Answer, Cadence, Decide, Options, Reason, Statistics, Stop, Task};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::fragment::Mode;
-use crate::limits::Limits;
-use crate::nets::{ProofStructure, Scratch};
+use crate::limits::{Limits, Refusal};
+use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
 use crate::occurrences::{Forest, OccId, Sign};
 use crate::sequents::{Atom, Kind};
 
@@ -84,11 +84,12 @@ impl Decide for Nets {
                 task.forest,
                 task.mode,
                 options,
+                limits,
                 &runtime,
                 stop,
             ));
         }
-        Ok(search(task.forest, task.mode, options, stop))
+        Ok(search(task.forest, task.mode, options, limits, stop))
     }
 }
 
@@ -100,34 +101,50 @@ pub(crate) fn search(
     forest: &Forest,
     mode: Mode,
     options: &Options,
+    limits: &Limits,
     stop: &mut dyn FnMut() -> bool,
 ) -> Answer {
     if !counts_admit(forest, mode.mix) {
-        return answer(Ok(false), Statistics::default(), None);
+        return answer(Ok(false), Statistics::default(), None, limits, stop);
     }
     let mut engine = Engine::new(forest, mode, options, Stop::Closure(stop));
     let result = engine.run();
     let statistics = engine.statistics;
     let net = matches!(result, Ok(true)).then_some(engine.net);
-    answer(result, statistics, net)
+    answer(result, statistics, net, limits, stop)
 }
 
 /// The answer of a search that linked the roots (`Ok(true)`, with the net
 /// found), found that no linking is a proof net (`Ok(false)`), or stopped:
-/// the net sequentialized into the proof it is.
+/// the net sequentialized into the proof it is, within `limits` and until
+/// `stop` fires, either of which makes the answer unknown.
 fn answer(
     result: Result<bool, Reason>,
     statistics: Statistics,
     net: Option<ProofStructure>,
+    limits: &Limits,
+    stop: &mut dyn FnMut() -> bool,
 ) -> Answer {
-    let result = result.map(|linked| {
-        linked.then(|| {
-            net.as_ref()
-                .expect("a proof net was found")
-                .sequentialize()
-                .expect("a complete linking that passed the exact test is a proof net")
-        })
+    let result = result.and_then(|linked| {
+        if !linked {
+            return Ok(None);
+        }
+        let net = net.as_ref().expect("a proof net was found");
+        match net.sequentialize(limits, |_| stop()) {
+            Ok(proof) => Ok(Some(proof)),
+            Err(Error::Net(error)) => match *error {
+                NetError::Refused {
+                    refusal: Refusal::Memory { limit_bytes, .. },
+                } => Err(Reason::MemoryLimit(limit_bytes)),
+                NetError::Refused { .. } => Err(Reason::Stopped),
+                error => {
+                    panic!("a complete linking that passed the exact test is a proof net: {error}")
+                }
+            },
+            Err(error) => panic!("a proof net sequentializes: {error}"),
+        }
     });
+    let net = net.filter(|_| matches!(result, Ok(Some(_))));
     Answer {
         result,
         statistics,
@@ -228,7 +245,7 @@ struct Engine<'a> {
 impl<'a> Engine<'a> {
     /// Prepares a run on the forest, which must be one of unit-free MLL.
     fn new(forest: &Forest, mode: Mode, options: &Options, stop: Stop<'a>) -> Self {
-        let net = ProofStructure::new(forest.clone(), mode.mix)
+        let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
             .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         let remaining = atoms(forest)
@@ -292,7 +309,7 @@ impl<'a> Engine<'a> {
     fn explore(
         &mut self,
         limit: Option<usize>,
-        cubes: &mut Vec<Vec<(OccId, OccId)>>,
+        cubes: &mut Vec<Vec<(VertexId, VertexId)>>,
     ) -> Result<bool, Reason> {
         // A dead end before any link is a refutation; a complete structure
         // without a link would have no literal, which the counts exclude.
@@ -366,13 +383,13 @@ impl<'a> Engine<'a> {
 
     /// Makes the links of a cube, on an engine without links, so that
     /// `run` searches the branch below them.
-    fn seed(&mut self, links: &[(OccId, OccId)]) {
+    fn seed(&mut self, links: &[(VertexId, VertexId)]) {
         debug_assert!(
             self.net.links().is_empty(),
             "a seed goes on an empty structure"
         );
         for &(x, y) in links {
-            self.link(x, y);
+            self.link(x.occ(), y.occ());
         }
     }
 
@@ -402,14 +419,14 @@ impl<'a> Engine<'a> {
             for sign in [Sign::Atom, Sign::Dual] {
                 let partners = forest.literals(atom, !sign);
                 for &x in forest.literals(atom, sign) {
-                    if self.net.partner(x).is_some() {
+                    if self.net.mate(VertexId::of(x)).is_some() {
                         continue;
                     }
                     // Counting stops once the literal cannot beat the best.
                     let bound = best.map_or(usize::MAX, |(count, _)| count);
                     let mut count = 0;
                     for &y in partners {
-                        if self.net.partner(y).is_none() && self.admissible(x, y) {
+                        if self.net.mate(VertexId::of(y)).is_none() && self.admissible(x, y) {
                             count += 1;
                             if count >= bound {
                                 break;
@@ -440,7 +457,7 @@ impl<'a> Engine<'a> {
         let forest = self.net.forest();
         let partners = forest.literals(forest.atom(x).unwrap(), !forest.sign(x).unwrap());
         for (i, &y) in partners.iter().enumerate().skip(next as usize) {
-            if self.net.partner(y).is_none() && self.admissible(x, y) {
+            if self.net.mate(VertexId::of(y)).is_none() && self.admissible(x, y) {
                 self.stack.last_mut().unwrap().next = i as u32 + 1;
                 return Some(y);
             }
@@ -463,7 +480,7 @@ impl<'a> Engine<'a> {
         {
             return false;
         }
-        if self.net.same_component(x, y) {
+        if self.net.joined(VertexId::of(x), VertexId::of(y)) {
             return false;
         }
         self.ordered(x, y) && self.ordered(y, x)
@@ -477,15 +494,15 @@ impl<'a> Engine<'a> {
     fn ordered(&self, x: OccId, y: OccId) -> bool {
         let before = self.copy_before[x.index()];
         if before != NONE
-            && let Some(p) = self.net.partner(OccId::new(before))
-            && p > y
+            && let Some(p) = self.net.mate(VertexId::new(before))
+            && p.occ() > y
         {
             return false;
         }
         let after = self.copy_after[x.index()];
         if after != NONE
-            && let Some(q) = self.net.partner(OccId::new(after))
-            && q < y
+            && let Some(q) = self.net.mate(VertexId::new(after))
+            && q.occ() < y
         {
             return false;
         }
@@ -495,7 +512,7 @@ impl<'a> Engine<'a> {
     /// Makes a link between two unlinked dual literals and keeps the counts
     /// current.
     fn link(&mut self, x: OccId, y: OccId) {
-        self.net.link_unchecked(x, y);
+        self.net.link_unchecked(VertexId::of(x), VertexId::of(y));
         let atom = self.net.forest().atom(x).unwrap();
         self.remaining[atom.index()] -= 1;
         self.statistics.links += 1;
@@ -504,7 +521,7 @@ impl<'a> Engine<'a> {
     /// Takes back the last link and keeps the counts current.
     fn unlink(&mut self) {
         let (x, _) = self.net.unlink().expect("a link to take back");
-        let atom = self.net.forest().atom(x).unwrap();
+        let atom = self.net.forest().atom(x.occ()).unwrap();
         self.remaining[atom.index()] += 1;
     }
 }
@@ -531,8 +548,11 @@ pub(super) mod tests {
                 proof
                     .check(mode)
                     .unwrap_or_else(|e| panic!("{input:?}: the proof is wrong: {e}"));
-                assert_eq!(net.is_correct(), Ok(()), "{input:?}");
-                let again = ProofStructure::from_proof(proof, mode.mix).unwrap();
+                assert_eq!(net.is_correct(|_| false), Ok(()), "{input:?}");
+                let criterion = Criterion { mix: mode.mix };
+                let again =
+                    ProofStructure::from_proof(proof, criterion, &Limits::default(), |_| false)
+                        .unwrap();
                 assert_eq!(sorted(&again), sorted(net), "{input:?}: the proof's net");
             }
             (Verdict::Proved(_), None) | (_, Some(_)) => {
@@ -544,8 +564,8 @@ pub(super) mod tests {
     }
 
     /// The links of a structure as sorted pairs.
-    fn sorted(net: &ProofStructure) -> Vec<(OccId, OccId)> {
-        let mut links: Vec<(OccId, OccId)> = net
+    fn sorted(net: &ProofStructure) -> Vec<(VertexId, VertexId)> {
+        let mut links: Vec<(VertexId, VertexId)> = net
             .links()
             .iter()
             .map(|&(x, y)| (x.min(y), x.max(y)))
@@ -687,7 +707,8 @@ pub(super) mod tests {
         let s: Sequent = "|- a * b, ~a, ~b".parse().unwrap();
         let forest = Forest::new(&s).unwrap();
         let mut polls = 0;
-        let answer = search(&forest, Mode::CLASSICAL, &Options::default(), &mut || {
+        let (options, limits) = (Options::default(), Limits::default());
+        let answer = search(&forest, Mode::CLASSICAL, &options, &limits, &mut || {
             polls += 1;
             polls == 2
         });
@@ -851,8 +872,9 @@ pub(super) mod tests {
 pub(crate) mod parallel {
     use super::{Engine, counts_admit};
     use crate::fragment::Mode;
-    use crate::nets::ProofStructure;
-    use crate::occurrences::{Forest, OccId};
+    use crate::limits::Limits;
+    use crate::nets::{ProofStructure, VertexId};
+    use crate::occurrences::Forest;
     use crate::search::parallel::Runtime;
     use crate::search::{Answer, Options, Reason, Statistics, Stop};
     use std::sync::Mutex;
@@ -864,7 +886,7 @@ pub(crate) mod parallel {
 
     /// A cube: the first links of a branch of the search, in the order
     /// they were made.
-    type Cube = Vec<(OccId, OccId)>;
+    type Cube = Vec<(VertexId, VertexId)>;
 
     /// What the workers of a cube-and-conquer run report.
     struct Collected {
@@ -896,11 +918,12 @@ pub(crate) mod parallel {
         forest: &Forest,
         mode: Mode,
         options: &Options,
+        limits: &Limits,
         runtime: &Runtime,
         stop: &mut dyn FnMut() -> bool,
     ) -> Answer {
         if !counts_admit(forest, mode.mix) {
-            return super::answer(Ok(false), Statistics::default(), None);
+            return super::answer(Ok(false), Statistics::default(), None, limits, stop);
         }
         let threads = runtime.threads();
         let (result, statistics, net) = runtime.drive(stop, |flags| {
@@ -979,7 +1002,7 @@ pub(crate) mod parallel {
                 (None, None) => (Ok(false), collected.statistics, None),
             }
         });
-        super::answer(result, statistics, net)
+        super::answer(result, statistics, net, limits, stop)
     }
 
     /// Locks what the workers report.
@@ -1008,7 +1031,7 @@ mod parallel_tests {
         if let Verdict::Proved(proof) = &outcome.verdict {
             assert_eq!(proof.check(mode), Ok(()), "{text:?}");
             let net = outcome.net.as_ref().expect("the net found");
-            assert_eq!(net.is_correct(), Ok(()), "{text:?}");
+            assert_eq!(net.is_correct(|_| false), Ok(()), "{text:?}");
         }
         outcome.verdict
     }

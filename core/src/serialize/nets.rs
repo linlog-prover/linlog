@@ -1,14 +1,14 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::nets::ProofStructure;
-use crate::occurrences::{Forest, OccId};
+use crate::nets::{Criterion, ProofStructure, VertexId};
+use crate::occurrences::Forest;
 use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// The serialized form of a proof structure: its sequent, whether Mix is
-/// allowed, and its links as pairs of occurrence ids in the order they
-/// were made.
+/// The serialized form of a proof structure: its sequent, the criterion's
+/// fields (whether Mix is allowed), and its links as pairs of vertex ids
+/// in the order they were made.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Net {
     /// The sequent.
@@ -20,11 +20,11 @@ struct Net {
 }
 
 impl Serialize for ProofStructure {
-    /// Serializes the structure as its sequent, its Mix flag and its links.
+    /// Serializes the structure as its sequent, its criterion and its links.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         Net {
             sequent: self.sequent().clone(),
-            mix: self.mix(),
+            mix: self.criterion().mix,
             links: self
                 .links()
                 .iter()
@@ -43,11 +43,12 @@ impl<'a> Deserialize<'a> for ProofStructure {
         let net = Net::deserialize(deserializer)?;
         let forest = Forest::from_owned(net.sequent, &crate::Limits::default())
             .map_err(serde::de::Error::custom)?;
-        let links: Vec<(OccId, OccId)> = net
+        let links: Vec<(VertexId, VertexId)> = net
             .links
             .into_iter()
-            .map(|(x, y)| (OccId::new(x), OccId::new(y)))
+            .map(|(x, y)| (VertexId::new(x), VertexId::new(y)))
             .collect();
-        ProofStructure::from_links(forest, net.mix, &links).map_err(serde::de::Error::custom)
+        let criterion = Criterion { mix: net.mix };
+        ProofStructure::from_links(forest, criterion, &links).map_err(serde::de::Error::custom)
     }
 }

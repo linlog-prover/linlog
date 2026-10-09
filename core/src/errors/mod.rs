@@ -388,6 +388,7 @@ impl Error {
         "inconsistent_session",
         "invalid_proof",
         "invalid_net",
+        "no_nets",
         "step",
         "open_goals",
         "foreign_proof",

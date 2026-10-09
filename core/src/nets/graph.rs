@@ -25,7 +25,7 @@
 //! since its premise edges share a colour. Bridges come from one
 //! depth-first search per round.
 
-use super::NONE;
+use super::{NONE, VertexId};
 use crate::occurrences::{Forest, OccId, OccSet};
 use crate::sequents::Kind;
 
@@ -35,7 +35,8 @@ use crate::sequents::Kind;
 #[derive(Clone, Debug)]
 pub(super) struct Graph {
     /// Per vertex, where its slots start in `to`; one more entry holds the
-    /// total.
+    /// total. A vertex has three slots at most and a structure fewer than
+    /// `u32::MAX / 3` vertices (`super::MOST`), so the total fits.
     start: Box<[u32]>,
     /// Per slot, the other end of the edge.
     to: Box<[u32]>,
@@ -88,6 +89,11 @@ impl Scratch {
             component: vec![NONE; n].into_boxed_slice(),
             stack: Vec::with_capacity(n),
         }
+    }
+
+    /// Returns whether the scratch is sized for `graph`.
+    pub(super) fn fits(&self, graph: &Graph) -> bool {
+        self.removed.len() == graph.to.len() && self.disc.len() == graph.len()
     }
 
     /// Returns whether a vertex is deleted.
@@ -287,14 +293,25 @@ impl Graph {
     }
 
     /// Runs the deletion procedure on the vertices not yet deleted: in
-    /// rounds, deletes every deletable vertex until none is. Returns
-    /// whether every vertex went, which means the graph has no switching
-    /// cycle; otherwise the vertices left in place are those the procedure
-    /// got stuck on, and a switching cycle runs among them.
-    pub(super) fn acyclic(&self, forest: &Forest, scratch: &mut Scratch) -> bool {
+    /// rounds, deletes every deletable vertex until none is, asking `stop`
+    /// before each round (a `dyn`, asked once a round: generic, the
+    /// function would be made in its caller's codegen unit, where `search`
+    /// and `deletable`, which run per vertex, cannot be inlined into it). Returns whether every vertex went, which means
+    /// the graph has no switching cycle; otherwise the vertices left in
+    /// place are those the procedure got stuck on, and a switching cycle
+    /// runs among them. `None` when `stop` fired.
+    pub(super) fn acyclic(
+        &self,
+        forest: &Forest,
+        scratch: &mut Scratch,
+        stop: &mut dyn FnMut(u64) -> bool,
+    ) -> Option<bool> {
         let n = self.len();
         let mut remaining = n - scratch.deleted.len();
         while remaining > 0 {
+            if stop(1) {
+                return None;
+            }
             self.search(scratch, 0..n as u32);
             let before = remaining;
             for v in 0..n as u32 {
@@ -304,10 +321,10 @@ impl Graph {
                 }
             }
             if remaining == before {
-                return false;
+                return Some(false);
             }
         }
-        true
+        Some(true)
     }
 
     /// Isolates one switching cycle among the vertices [`acyclic`](Self::acyclic)
@@ -315,8 +332,14 @@ impl Graph {
     /// in order along the cycle. Every edge among those vertices is taken
     /// out in turn and kept out when a switching cycle survives without it;
     /// an edge found necessary stays necessary as edges go, so one pass
-    /// leaves exactly one cycle.
-    pub(super) fn cycle(&self, forest: &Forest, scratch: &mut Scratch) -> Vec<OccId> {
+    /// leaves exactly one cycle. `None` when `stop`, which every deletion
+    /// procedure asks, fired.
+    pub(super) fn cycle(
+        &self,
+        forest: &Forest,
+        scratch: &mut Scratch,
+        stop: &mut dyn FnMut(u64) -> bool,
+    ) -> Option<Vec<VertexId>> {
         let n = self.len();
         scratch.stuck.clone_from(&scratch.deleted);
         for v in 0..n as u32 {
@@ -334,7 +357,11 @@ impl Graph {
                 scratch.removed[s] = true;
                 scratch.removed[t] = true;
                 scratch.deleted.clone_from(&scratch.stuck);
-                if self.acyclic(forest, scratch) {
+                let Some(acyclic) = self.acyclic(forest, scratch, stop) else {
+                    scratch.removed.fill(false);
+                    return None;
+                };
+                if acyclic {
                     scratch.removed[s] = false;
                     scratch.removed[t] = false;
                 } else {
@@ -349,7 +376,7 @@ impl Graph {
         let mut cycle = Vec::new();
         let (mut previous, mut current) = (NONE, first);
         loop {
-            cycle.push(OccId::new(current));
+            cycle.push(VertexId(current));
             let next = self
                 .slots(current)
                 .map(|s| (s, self.to[s]))
@@ -367,14 +394,14 @@ impl Graph {
             (previous, current) = (current, next);
         }
         scratch.removed.fill(false);
-        cycle
+        Some(cycle)
     }
 
     /// Returns the connected components of the switching that keeps the
     /// left premise of every `⅋`, each as the vertices in it that have no
     /// parent edge there: the roots and the right premises of `⅋` nodes.
     /// Components come in the order of their smallest vertex.
-    pub(super) fn parts(&self, forest: &Forest, scratch: &mut Scratch) -> Vec<Vec<OccId>> {
+    pub(super) fn parts(&self, forest: &Forest, scratch: &mut Scratch) -> Vec<Vec<VertexId>> {
         let n = self.len();
         scratch.restore();
         for p in forest.ids().filter(|&p| forest.kind(p) == Kind::Par) {
@@ -384,7 +411,7 @@ impl Graph {
         }
         self.search(scratch, 0..n as u32);
         scratch.removed.fill(false);
-        let mut parts: Vec<(u32, Vec<OccId>)> = Vec::new();
+        let mut parts: Vec<(u32, Vec<VertexId>)> = Vec::new();
         for v in forest.ids() {
             let cut = match forest.parent(v) {
                 None => true,
@@ -395,8 +422,8 @@ impl Graph {
             }
             let label = scratch.component[v.index()];
             match parts.iter_mut().find(|(l, _)| *l == label) {
-                Some((_, part)) => part.push(v),
-                None => parts.push((label, vec![v])),
+                Some((_, part)) => part.push(VertexId::of(v)),
+                None => parts.push((label, vec![VertexId::of(v)])),
             }
         }
         parts.sort_by_key(|(label, _)| *label);
@@ -406,21 +433,21 @@ impl Graph {
 
 #[cfg(all(test, feature = "parse"))]
 mod tests {
-    use super::super::{NetError, ProofStructure};
+    use super::super::{Criterion, NetError, ProofStructure, VertexId};
     use crate::occurrences::{Forest, OccId};
     use crate::search::generate::{self, Rng, Rules};
     use crate::sequents::{Kind, Sequent};
 
-    /// Wraps a raw id.
-    const fn o(id: u32) -> OccId {
-        OccId::new(id)
+    /// Wraps a raw vertex id.
+    const fn v(id: u32) -> VertexId {
+        VertexId::new(id)
     }
 
     /// Builds the structure of `input` with the links, or panics.
     fn net(input: &str, mix: bool, links: &[(u32, u32)]) -> ProofStructure {
         let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
-        let links: Vec<(OccId, OccId)> = links.iter().map(|&(x, y)| (o(x), o(y))).collect();
-        ProofStructure::from_links(Forest::new(&s).unwrap(), mix, &links).unwrap()
+        let links: Vec<(VertexId, VertexId)> = links.iter().map(|&(x, y)| (v(x), v(y))).collect();
+        ProofStructure::from_links(Forest::new(&s).unwrap(), Criterion { mix }, &links).unwrap()
     }
 
     /// The Danos–Regnier criterion by brute force: every switching is
@@ -468,7 +495,7 @@ mod tests {
                 }
             }
             for &(x, y) in net.links() {
-                join(x, y);
+                join(x.occ(), y.occ());
             }
             acyclic &= !cyclic;
             connected &= components == 1;
@@ -478,10 +505,11 @@ mod tests {
 
     /// Checks that a reported cycle is a switching cycle: a simple cycle of
     /// the graph that uses at most one premise edge of every `⅋`.
-    fn check_cycle(net: &ProofStructure, cycle: &[OccId]) {
+    fn check_cycle(net: &ProofStructure, cycle: &[VertexId]) {
         let f = net.forest();
+        let cycle: Vec<OccId> = cycle.iter().map(|v| v.occ()).collect();
         assert!(cycle.len() >= 3, "{cycle:?}");
-        let mut sorted = cycle.to_vec();
+        let mut sorted = cycle.clone();
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), cycle.len(), "simple: {cycle:?}");
@@ -491,8 +519,9 @@ mod tests {
                 cycle[i],
                 cycle[(i + 1) % cycle.len()],
             );
-            let adjacent =
-                f.parent(b) == Some(c) || f.parent(c) == Some(b) || net.partner(b) == Some(c);
+            let adjacent = f.parent(b) == Some(c)
+                || f.parent(c) == Some(b)
+                || net.partner(VertexId::of(b)) == Some(VertexId::of(c));
             assert!(adjacent, "{b:?} and {c:?} are not adjacent in {cycle:?}");
             if f.kind(b) == Kind::Par {
                 assert!(
@@ -511,52 +540,59 @@ mod tests {
     fn classic_structures() {
         // ⊢ ~A, A ⊗ ~B, B: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B.
         assert_eq!(
-            net("A, A -o B |- B", false, &[(0, 2), (3, 4)]).is_correct(),
+            net("A, A -o B |- B", false, &[(0, 2), (3, 4)]).is_correct(|_| false),
             Ok(())
         );
         let partial = net("A, A -o B |- B", false, &[(0, 2)]);
-        assert_eq!(partial.is_correct(), Err(NetError::Unlinked(o(4))));
+        assert_eq!(
+            partial.is_correct(|_| false),
+            Err(NetError::Unlinked { vertex: v(4) })
+        );
         assert!(partial.is_acyclic(&mut partial.scratch()));
         // ⊢ A ⊗ ~A: 0 ⊗, 1 A, 2 ~A.
         let cyclic = net("|- A * ~A", true, &[(1, 2)]);
-        let Err(NetError::SwitchingCycle(cycle)) = cyclic.is_correct() else {
+        let Err(NetError::SwitchingCycle { cycle }) = cyclic.is_correct(|_| false) else {
             panic!("a link below a ⊗ is a switching cycle");
         };
         check_cycle(&cyclic, &cycle);
-        assert_eq!(cycle, [o(0), o(1), o(2)]);
+        assert_eq!(cycle, [v(0), v(1), v(2)]);
         assert!(!cyclic.is_acyclic(&mut cyclic.scratch()));
         // ⊢ A ⅋ ~A: the cycle through both premises does not count.
-        assert_eq!(net("|- A par ~A", false, &[(1, 2)]).is_correct(), Ok(()));
+        assert_eq!(
+            net("|- A par ~A", false, &[(1, 2)]).is_correct(|_| false),
+            Ok(())
+        );
         // ⊢ A ⅋ B, ~A, ~B: 0 ⅋, 1 A, 2 B, 3 ~A, 4 ~B.
         assert_eq!(
-            net("|- A par B, ~A, ~B", false, &[(1, 3), (2, 4)]).is_correct(),
-            Err(NetError::Disconnected(vec![
-                vec![o(0), o(3)],
-                vec![o(2), o(4)]
-            ]))
+            net("|- A par B, ~A, ~B", false, &[(1, 3), (2, 4)]).is_correct(|_| false),
+            Err(NetError::Disconnected {
+                parts: vec![vec![v(0), v(3)], vec![v(2), v(4)]]
+            })
         );
         assert_eq!(
-            net("|- A par B, ~A, ~B", true, &[(1, 3), (2, 4)]).is_correct(),
+            net("|- A par B, ~A, ~B", true, &[(1, 3), (2, 4)]).is_correct(|_| false),
             Ok(())
         );
         // ⊢ (A ⅋ ~A) ⅋ (B ⅋ ~B): 0 ⅋, 1 ⅋, 2 A, 3 ~A, 4 ⅋, 5 B, 6 ~B: the
         // right part hangs off a cut premise.
         assert_eq!(
-            net("|- (A par ~A) par (B par ~B)", false, &[(2, 3), (5, 6)]).is_correct(),
-            Err(NetError::Disconnected(vec![
-                vec![o(0), o(3)],
-                vec![o(4), o(6)]
-            ]))
+            net("|- (A par ~A) par (B par ~B)", false, &[(2, 3), (5, 6)]).is_correct(|_| false),
+            Err(NetError::Disconnected {
+                parts: vec![vec![v(0), v(3)], vec![v(4), v(6)]]
+            })
         );
         // ⊢ A ⊗ B, ~A ⊗ ~B: 0 ⊗, 1 A, 2 B, 3 ⊗, 4 ~A, 5 ~B: a cycle through
         // both tensors.
         let cyclic = net("|- A * B, ~A * ~B", true, &[(1, 4), (2, 5)]);
-        let Err(NetError::SwitchingCycle(cycle)) = cyclic.is_correct() else {
+        let Err(NetError::SwitchingCycle { cycle }) = cyclic.is_correct(|_| false) else {
             panic!("two tensors joined twice are a switching cycle");
         };
         check_cycle(&cyclic, &cycle);
         assert_eq!(cycle.len(), 6);
-        assert_eq!(net("|-", true, &[]).is_correct(), Err(NetError::Empty));
+        assert_eq!(
+            net("|-", true, &[]).is_correct(|_| false),
+            Err(NetError::Empty)
+        );
     }
 
     /// The criterion agrees with the brute-force enumeration of switchings
@@ -600,10 +636,10 @@ mod tests {
                 for k in (1..pairs.len()).rev() {
                     pairs.swap(k, rng.below(k + 1));
                 }
-                let mut net = ProofStructure::new(forest, mix).unwrap();
+                let mut net = ProofStructure::new(forest, Criterion { mix }).unwrap();
                 let mut scratch = net.scratch();
                 for &(x, y) in &pairs {
-                    net.link(x, y).unwrap();
+                    net.link(VertexId::of(x), VertexId::of(y)).unwrap();
                     let (acyclic, _) = enumerate(&net);
                     assert_eq!(
                         net.is_acyclic(&mut scratch),
@@ -613,7 +649,7 @@ mod tests {
                     );
                 }
                 let (acyclic, connected) = enumerate(&net);
-                let verdict = net.is_correct();
+                let verdict = net.is_correct(|_| false);
                 let expected =
                     !net.forest().is_empty() && net.is_complete() && acyclic && (mix || connected);
                 assert_eq!(
@@ -624,11 +660,11 @@ mod tests {
                 );
                 match &verdict {
                     Ok(()) => cases.0 += 1,
-                    Err(NetError::SwitchingCycle(cycle)) => {
+                    Err(NetError::SwitchingCycle { cycle }) => {
                         check_cycle(&net, cycle);
                         cases.1 += 1;
                     }
-                    Err(NetError::Disconnected(parts)) => {
+                    Err(NetError::Disconnected { parts }) => {
                         let f = net.forest();
                         let switched = f.ids().filter(|&v| f.kind(v) == Kind::Tensor).count() * 2
                             + f.ids().filter(|&v| f.kind(v) == Kind::Par).count()
@@ -636,14 +672,17 @@ mod tests {
                         assert_eq!(parts.len(), f.len() - switched, "{text:?}");
                         for &r in f.roots() {
                             assert_eq!(
-                                parts.iter().filter(|p| p.contains(&r)).count(),
+                                parts
+                                    .iter()
+                                    .filter(|p| p.contains(&VertexId::of(r)))
+                                    .count(),
                                 1,
                                 "{text:?}"
                             );
                         }
                         cases.2 += 1;
                     }
-                    Err(NetError::Unlinked(_)) => {}
+                    Err(NetError::Unlinked { .. }) => {}
                     Err(e) => panic!("{text:?}: {e}"),
                 }
             }

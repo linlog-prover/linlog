@@ -22,8 +22,8 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Derivation, Forest, GoalId, Inference, Interactive, Mode, OccId, Options, Proof,
-    ProofStructure, Step, ViewOptions,
+    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, Mode, Options, Proof,
+    ProofStructure, Step, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Reading, Rule, Sequent, Verdict, prove};
@@ -97,7 +97,7 @@ fn pin_proof(name: &str, input: &str, mode: Mode) {
     let derivation = if mode.is_intuitionistic() {
         proof.derivation_within(
             &ViewOptions::default().with_sides(Sides::Two),
-            &linlog::Limits::default(),
+            &Limits::default(),
             |_| false,
         )
     } else {
@@ -167,12 +167,9 @@ fn ordinary_derivation() {
         panic!("provable");
     };
     let linear = image
-        .linear_derivation(
-            &proof,
-            &ViewOptions::default(),
-            &linlog::Limits::default(),
-            |_| false,
-        )
+        .linear_derivation(&proof, &ViewOptions::default(), &Limits::default(), |_| {
+            false
+        })
         .unwrap();
     let derivation = image.read_back(&linear).unwrap();
     derivation.check().unwrap();
@@ -202,7 +199,7 @@ fn compact_view() {
         .with_sides(Sides::Two);
     let proof = proof("!A, !B, !C |- 1 * 1", Mode::INTUITIONISTIC);
     let derivation = proof
-        .derivation_within(&view, &linlog::Limits::default(), |_| false)
+        .derivation_within(&view, &Limits::default(), |_| false)
         .unwrap();
     assert!(derivation.inferences().iter().any(|i| i.times() == 3));
     pin("compact", &derivation);
@@ -282,7 +279,7 @@ fn every_label() {
         let derivation = if mode.is_intuitionistic() {
             proof.derivation_within(
                 &ViewOptions::default().with_sides(Sides::Two),
-                &linlog::Limits::default(),
+                &Limits::default(),
                 |_| false,
             )
         } else {
@@ -411,16 +408,21 @@ fn sequents() {
 /// whose switching cycle is highlighted, and one whose second part is.
 #[test]
 fn nets() {
-    let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
+    let net = ProofStructure::from_proof(
+        &proof("A * B |- B * A", Mode::CLASSICAL),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    );
     snapshot(
         "net.svg",
         &svg::net(&net.unwrap(), &Style::default(), None).unwrap(),
     );
 
     let forest = Forest::new(&"|- A * ~A".parse().unwrap()).unwrap();
-    let links = [(OccId::new(1), OccId::new(2))];
-    let cyclic = ProofStructure::from_links(forest, false, &links).unwrap();
-    assert!(cyclic.is_correct().is_err());
+    let links = [(VertexId::new(1), VertexId::new(2))];
+    let cyclic = ProofStructure::from_links(forest, Criterion::MLL, &links).unwrap();
+    assert!(cyclic.is_correct(|_| false).is_err());
     snapshot(
         "cycle.svg",
         &svg::net(&cyclic, &Style::default(), None).unwrap(),
@@ -429,10 +431,10 @@ fn nets() {
     // ⊢ A ⅋ B, ~A, ~B: the part of `B` and `~B` hangs off the right premise.
     let forest = Forest::new(&"|- A par B, ~A, ~B".parse().unwrap()).unwrap();
     let links = [
-        (OccId::new(1), OccId::new(3)),
-        (OccId::new(2), OccId::new(4)),
+        (VertexId::new(1), VertexId::new(3)),
+        (VertexId::new(2), VertexId::new(4)),
     ];
-    let parted = ProofStructure::from_links(forest, false, &links).unwrap();
+    let parted = ProofStructure::from_links(forest, Criterion::MLL, &links).unwrap();
     let drawing = svg::net(&parted, &Style::default(), None).unwrap();
     let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
     assert!(drawing.contains(&highlight), "{drawing}");
@@ -444,7 +446,12 @@ fn nets() {
 #[test]
 fn net_limit() {
     let style = Style::default();
-    let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
+    let net = ProofStructure::from_proof(
+        &proof("A * B |- B * A", Mode::CLASSICAL),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    );
     let net = net.unwrap();
     let drawing = svg::net(&net, &style, None).unwrap();
     let bytes = drawing.len() as u64;
@@ -552,7 +559,7 @@ fn svg_structure() {
         &two_sided
             .derivation_within(
                 &ViewOptions::default().with_sides(Sides::Two),
-                &linlog::Limits::default(),
+                &Limits::default(),
                 |_| false,
             )
             .unwrap(),
@@ -574,7 +581,12 @@ fn svg_structure() {
         [6, 2, 0]
     );
 
-    let net = ProofStructure::from_proof(&proof("A * B |- B * A", Mode::CLASSICAL), false);
+    let net = ProofStructure::from_proof(
+        &proof("A * B |- B * A", Mode::CLASSICAL),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    );
     assert_eq!(
         structure(&svg::net(&net.unwrap(), &style, None).unwrap()),
         [8, 8, 2]
@@ -599,7 +611,7 @@ fn renders() {
         &derivation
             .derivation_within(
                 &ViewOptions::default().with_sides(Sides::Two),
-                &linlog::Limits::default(),
+                &Limits::default(),
                 |_| false,
             )
             .unwrap(),

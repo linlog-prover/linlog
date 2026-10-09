@@ -3,7 +3,7 @@
 
 use super::proofs::Step;
 use crate::Error;
-use crate::nets::NetError;
+use crate::nets::{NetError, VertexId};
 use crate::occurrences::{OccId, ShapeError};
 use crate::proofs::{CheckError, Dyadic, Fault};
 use serde::ser::{Serialize, SerializeMap, Serializer};
@@ -195,23 +195,41 @@ impl Serialize for NetError {
     /// Writes the reason's `kind` and the vertices it names.
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         match self {
-            Self::NoOccurrence(o, len) => entries!(s;
-                "kind" => "no_vertex"; "vertex" => &o.get(); "vertices" => len),
-            Self::NotLiteral(o) => entries!(s; "kind" => "not_literal"; "vertex" => &o.get()),
-            Self::NotDual(x, y) => {
+            Self::NoVertex { vertex, vertices } => entries!(s;
+                "kind" => "no_vertex"; "vertex" => vertex; "vertices" => vertices),
+            Self::NotLiteral { vertex } => {
+                entries!(s; "kind" => "not_literal"; "vertex" => &vertex.get())
+            }
+            Self::NotDual { x, y } => {
                 entries!(s; "kind" => "not_dual"; "x" => &x.get(); "y" => &y.get())
             }
-            Self::LinkedTwice(o) => entries!(s; "kind" => "linked_twice"; "vertex" => &o.get()),
-            Self::Unlinked(o) => entries!(s; "kind" => "unlinked"; "vertex" => &o.get()),
-            Self::Empty => entries!(s; "kind" => "empty"),
-            Self::SwitchingCycle(cycle) => {
-                entries!(s; "kind" => "switching_cycle"; "cycle" => &ids(cycle))
+            Self::LinkedTwice { vertex } => {
+                entries!(s; "kind" => "linked_twice"; "vertex" => &vertex.get())
             }
-            Self::Disconnected(parts) => {
-                let parts: Vec<Vec<u32>> = parts.iter().map(|p| ids(p)).collect();
+            Self::Unlinked { vertex } => {
+                entries!(s; "kind" => "unlinked"; "vertex" => &vertex.get())
+            }
+            Self::Empty => entries!(s; "kind" => "empty"),
+            Self::SwitchingCycle { cycle } => {
+                entries!(s; "kind" => "switching_cycle"; "cycle" => &vertices(cycle))
+            }
+            Self::Disconnected { parts } => {
+                let parts: Vec<Vec<u32>> = parts.iter().map(|p| vertices(p)).collect();
                 entries!(s; "kind" => "disconnected"; "parts" => &parts)
+            }
+            Self::Fragment { fragment } => {
+                entries!(s; "kind" => "fragment"; "fragment" => fragment)
+            }
+            Self::Mode { mode } => entries!(s; "kind" => "mode"; "mode" => mode),
+            Self::Rule { node, rule } => {
+                entries!(s; "kind" => "rule"; "node" => &node.get(); "rule" => rule)
             }
             Self::Refused { refusal } => entries!(s; "kind" => "refused"; "refusal" => refusal),
         }
     }
+}
+
+/// The raw ids of a list of vertices.
+fn vertices(vs: &[VertexId]) -> Vec<u32> {
+    vs.iter().map(|v| v.get()).collect()
 }

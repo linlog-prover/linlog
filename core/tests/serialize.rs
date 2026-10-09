@@ -9,8 +9,8 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Forest, Fragment, GoalId, Interactive, Member, Mode, Named, Node, NodeId, OccId, Proof,
-    ProofStructure, Rule, Sequent, Step, ViewOptions,
+    Branch, Criterion, Forest, Fragment, GoalId, Interactive, Member, Mode, Named, Node, NodeId,
+    OccId, Proof, ProofStructure, Rule, Sequent, Step, VertexId, ViewOptions,
 };
 
 /// Parses `input` and serializes it as compact JSON.
@@ -332,15 +332,15 @@ fn outcome_json_format() {
 }
 
 /// A proof net serializes as its sequent, its Mix flag and its links as
-/// pairs of occurrence ids, and reads back with its links validated.
+/// pairs of vertex ids, and reads back with its links validated.
 #[test]
 fn net_json_format_and_round_trip() {
-    let o = OccId::new;
+    let v = VertexId::new;
     let s: Sequent = "A, A -o B |- B".parse().unwrap();
     let net = ProofStructure::from_links(
         Forest::new(&s).unwrap(),
-        false,
-        &[(o(0), o(2)), (o(3), o(4))],
+        Criterion::MLL,
+        &[(v(0), v(2)), (v(3), v(4))],
     )
     .unwrap();
     let json = serde_json::to_string(&net).unwrap();
@@ -352,7 +352,7 @@ fn net_json_format_and_round_trip() {
     let back: ProofStructure = serde_json::from_str(&json).unwrap();
     assert_eq!(back.links(), net.links());
     assert_eq!(back.to_string(), net.to_string());
-    assert!(!back.mix());
+    assert_eq!(back.criterion(), Criterion::MLL);
 
     // A link that is not between dual literals, or outside the forest, is
     // rejected on deserialization; a wrong net still reads.
@@ -365,7 +365,7 @@ fn net_json_format_and_round_trip() {
     }
     let json = format!(r#"{{"sequent":{sequent},"mix":true,"links":[[0,2]]}}"#);
     let partial: ProofStructure = serde_json::from_str(&json).unwrap();
-    assert!(!partial.is_complete() && partial.mix());
+    assert!(!partial.is_complete() && partial.criterion().mix);
 }
 
 /// A proof in progress serializes as its sequent, mode, inferences (the

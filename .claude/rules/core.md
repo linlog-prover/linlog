@@ -81,8 +81,10 @@ Each entry point is described in the file of its module:
   `Options::pool` names a `search::Pool` kept across searches
   (`core-search.md`, `core-focus.md`, `core-nets.md`, `core-horn.md`, with `parallel`
   `core-parallel.md`);
-- `ProofStructure`: `from_links`, `link`/`unlink`, `is_correct()`,
-  `sequentialize()`, `from_proof(&proof, mix)` (`core-nets.md`);
+- `ProofStructure` over `VertexId`s under a `Criterion`: `new`,
+  `from_links`, `link`/`unlink`, `is_correct(stop)`,
+  `sequentialize(&limits, stop)`, `from_proof(&proof, criterion,
+  &limits, stop)` (`core-nets.md`);
 - `export::latex`, `typst`, `svg`, `png`, `pdf`, `rocq`, each with one
   options value and `write(&derivation, &options, out, stop)`
   (`core-export.md`);

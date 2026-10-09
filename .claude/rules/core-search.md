@@ -255,7 +255,7 @@ the net engine's, and the others stay zero.
     a deadline builds the forest itself, as the CLI does, and calls
     `prove_goal`), a single pass over the forest, the check of the
     proof at the end of `prove_goal` and the size pass of a derivation
-    (below), `sequentialize`, and the collection of the kept arena
+    (below), and the collection of the kept arena
     when a memo is emptied (one pass over the kept nodes, milliseconds
     at a million of them). Freeing a full memo is no longer among
     them: its entries are records in chunks ("The memory bound",

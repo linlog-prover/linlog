@@ -28,80 +28,223 @@ pub use graph::Scratch;
 
 use crate::Error;
 use crate::errors::{Described, Owner, Subject};
+use crate::fragment::{Fragment, Mode};
+use crate::limits::{Limits, Phase, Progress, Refusal, Space};
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Node, Proof};
-use crate::sequents::{Kind, Sequent};
+use crate::proofs::{Node, NodeId, Proof};
+use crate::sequents::{Kind, Sequent, Term};
 use graph::Graph;
 use skeleton::Skeleton;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-/// The raw index that stands for "no occurrence".
+/// The raw index that stands for "no vertex".
 const NONE: u32 = u32::MAX;
 
-/// Why a proof structure is not a proof net, or why a list of links is not
-/// a proof structure. Occurrences print as ids; [`describe`](Self::describe)
-/// prints them as formulas.
+/// The most vertices a structure has: a vertex has up to three slots in
+/// the graph (its parent, its children or its link), whose offsets are
+/// `u32`, and the last offset is the total.
+const MOST: u64 = (u32::MAX / 3 - 1) as u64;
+
+/// The bytes a structure holds per vertex, the copy of its forest
+/// included: the forest's per-occurrence arrays (25), `partner` (4), the
+/// graph's offset (4) and up to three slots (12), the skeleton's parent
+/// and rank (5), and a link per two literals (4).
+const STRUCTURE_BYTES: u64 = 25 + 4 + 4 + 12 + 5 + 4;
+
+/// The bytes the criterion's working memory takes per vertex: a flag per
+/// slot (3), the search's four arrays (16), its bridge flags (1) and its
+/// stack (8), and the two sets of deleted vertices (1).
+const SCRATCH_BYTES: u64 = 3 + 16 + 1 + 8 + 1;
+
+/// The bytes a sequentialization holds per vertex beside its structure:
+/// the proof's copy of the forest (25), at most one node (16), the
+/// working memory of the criterion and the conclusions waiting to be
+/// proved (8).
+const SEQUENTIALIZE_BYTES: u64 = 25 + 16 + SCRATCH_BYTES + 8;
+
+/// A vertex of a proof structure: in MLL the occurrence of the same
+/// number, so vertex `i` of a structure is occurrence `i` of its forest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct VertexId(u32);
+
+impl VertexId {
+    /// Wraps a raw vertex index.
+    pub const fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    /// Returns the raw vertex index.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    /// Returns the index as a `usize`, for indexing per-vertex arrays.
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Returns the vertex of an occurrence of an MLL structure.
+    pub(crate) const fn of(o: OccId) -> Self {
+        Self(o.get())
+    }
+
+    /// Returns the occurrence of a vertex of an MLL structure.
+    pub(crate) const fn occ(self) -> OccId {
+        OccId::new(self.0)
+    }
+}
+
+/// The rules a proof structure is checked under: whether Mix is allowed,
+/// in which case a proof net need not be connected.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Criterion {
+    /// Whether the Mix rule is allowed.
+    pub mix: bool,
+}
+
+impl Criterion {
+    /// Multiplicative linear logic without Mix.
+    pub const MLL: Self = Self { mix: false };
+
+    /// Returns the criterion with Mix allowed.
+    #[must_use]
+    pub const fn with_mix(self) -> Self {
+        Self { mix: true }
+    }
+
+    /// Returns the criterion of a mode: Mix as the mode has it. Fails
+    /// with [`NetError::Mode`] in affine mode, which has no proof nets; in
+    /// intuitionistic mode the net is the one of the one-sided sequent.
+    pub fn of(mode: Mode) -> Result<Self, NetError> {
+        if mode.is_affine() {
+            return Err(NetError::Mode { mode });
+        }
+        Ok(Self {
+            mix: mode.has_mix(),
+        })
+    }
+
+    /// The mode a sequentialized proof holds in: classical, with Mix if
+    /// the criterion allows it.
+    const fn mode(self) -> Mode {
+        if self.mix {
+            Mode::CLASSICAL.with_mix()
+        } else {
+            Mode::CLASSICAL
+        }
+    }
+}
+
+/// Why a proof structure is not a proof net, why a list of links is not a
+/// proof structure, or why there is no structure. Vertices print as ids;
+/// [`describe`](Self::describe) prints them as formulas.
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NetError {
-    /// A link names an occurrence (first) outside the forest (its length
-    /// second).
-    NoOccurrence(OccId, usize),
-    /// A link names an occurrence that is not a literal.
-    NotLiteral(OccId),
+    /// A link names a vertex outside the structure.
+    NoVertex {
+        /// The vertex named.
+        vertex: u32,
+        /// How many vertices the structure has.
+        vertices: u32,
+    },
+    /// A link names a vertex that is not a literal.
+    NotLiteral {
+        /// The vertex.
+        vertex: VertexId,
+    },
     /// A link joins two literals that are not `a` and `~a` for one atom.
-    NotDual(OccId, OccId),
+    NotDual {
+        /// The first literal of the link.
+        x: VertexId,
+        /// The second literal of the link.
+        y: VertexId,
+    },
     /// A literal appears in two links.
-    LinkedTwice(OccId),
+    LinkedTwice {
+        /// The literal.
+        vertex: VertexId,
+    },
     /// A literal has no link, so the structure is incomplete.
-    Unlinked(OccId),
-    /// The structure has no occurrence at all: no rule concludes the empty
+    Unlinked {
+        /// The literal.
+        vertex: VertexId,
+    },
+    /// The structure has no vertex at all: no rule concludes the empty
     /// sequent.
     Empty,
-    /// A cycle survives some switching: the occurrences it runs through,
-    /// in order along the cycle.
-    SwitchingCycle(Vec<OccId>),
-    /// Every switching falls into several parts. The parts are those of the
-    /// switching that keeps the left premise of every `⅋`, each given by
-    /// the occurrences in it that have no parent edge there: the roots and
-    /// the right premises of `⅋` nodes.
-    Disconnected(Vec<Vec<OccId>>),
+    /// A cycle survives some switching.
+    SwitchingCycle {
+        /// The vertices the cycle runs through, in order along it.
+        cycle: Vec<VertexId>,
+    },
+    /// Every switching falls into several parts.
+    Disconnected {
+        /// The parts of the switching that keeps the left premise of
+        /// every `⅋`, each given by the vertices in it that have no parent
+        /// edge there: the roots and the right premises of `⅋` nodes.
+        parts: Vec<Vec<VertexId>>,
+    },
+    /// Proof nets exist for unit-free MLL only, and the sequent lies in a
+    /// larger fragment.
+    Fragment {
+        /// The sequent's fragment.
+        fragment: Fragment,
+    },
+    /// Proof nets exist in linear mode only, and the mode is affine.
+    Mode {
+        /// The mode asked for.
+        mode: Mode,
+    },
+    /// A node of the proof applies a rule that a proof net of unit-free
+    /// MLL has no place for.
+    Rule {
+        /// The node.
+        node: NodeId,
+        /// The rule's name, as [`Node::name`] gives it.
+        rule: &'static str,
+    },
     /// A bound or the caller's stop ended the call without a verdict on
     /// the structure.
     Refused {
         /// The bound that refused it, or the stop.
-        refusal: crate::limits::Refusal,
+        refusal: Refusal,
     },
 }
 
 impl NetError {
     /// Returns what sort of failure this is: a list of links that is no
     /// structure is malformed, a structure that is no net invalid, a
-    /// refusal no verdict.
+    /// sequent, a mode or a rule without nets unsupported, a refusal no
+    /// verdict.
     pub fn kind(&self) -> crate::ErrorKind {
         use crate::ErrorKind::*;
         match self {
-            Self::NoOccurrence(..)
-            | Self::NotLiteral(_)
-            | Self::NotDual(..)
-            | Self::LinkedTwice(_) => Malformed,
-            Self::Unlinked(_) | Self::Empty | Self::SwitchingCycle(_) | Self::Disconnected(_) => {
-                Invalid
-            }
+            Self::NoVertex { .. }
+            | Self::NotLiteral { .. }
+            | Self::NotDual { .. }
+            | Self::LinkedTwice { .. } => Malformed,
+            Self::Unlinked { .. }
+            | Self::Empty
+            | Self::SwitchingCycle { .. }
+            | Self::Disconnected { .. } => Invalid,
+            Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => Unsupported,
             Self::Refused { refusal } => crate::errors::refusal_kind(refusal),
         }
     }
 
-    /// Returns the stable code of the error: `invalid_net`, or the
-    /// refusal's.
+    /// Returns the stable code of the error: `no_nets` where no structure
+    /// exists, the refusal's, or `invalid_net`.
     pub fn code(&self) -> &'static str {
         match self {
+            Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => "no_nets",
             Self::Refused { refusal } => refusal.code(),
             _ => "invalid_net",
         }
     }
 
-    /// Returns the error for display with every occurrence as its formula
+    /// Returns the error for display with every vertex as its formula
     /// followed by its id in brackets, as in `~A[0]`, read from `owner`,
     /// the structure that failed or its forest.
     pub fn describe<'a>(&'a self, owner: &'a impl Owner) -> Described<'a> {
@@ -109,29 +252,37 @@ impl NetError {
     }
 
     /// Writes the error as [`Display`] does, with `formula[id]` in place of
-    /// every occurrence id when a forest is given.
+    /// every vertex id when a forest is given.
     pub(crate) fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
-        let occ = |o: &OccId| match forest {
-            Some(forest) => format!("{}[{}]", forest.formula(*o), o.get()),
-            None => o.get().to_string(),
+        let vertex = |v: &VertexId| match forest {
+            Some(forest) if v.index() < forest.len() => {
+                format!("{}[{}]", forest.formula(v.occ()), v.get())
+            }
+            _ => v.get().to_string(),
         };
-        let list = |os: &[OccId]| os.iter().map(occ).collect::<Vec<_>>().join(", ");
+        let list = |vs: &[VertexId]| vs.iter().map(vertex).collect::<Vec<_>>().join(", ");
         use NetError::*;
         match self {
-            // An occurrence outside the forest has no formula.
-            NoOccurrence(o, len) => write!(
+            // A vertex outside the structure has no formula.
+            NoVertex { vertex, vertices } => write!(
                 f,
-                "a link names occurrence {}, but the sequent has {}",
-                o.get(),
-                crate::errors::counted(*len, "occurrence", "occurrences")
+                "a link names vertex {vertex}, but the structure has {}",
+                crate::errors::counted(*vertices, "vertex", "vertices")
             ),
-            NotLiteral(o) => write!(f, "occurrence {} is not a literal", occ(o)),
-            NotDual(x, y) => write!(f, "the literals {} and {} are not dual", occ(x), occ(y)),
-            LinkedTwice(o) => write!(f, "literal {} is linked twice", occ(o)),
-            Unlinked(o) => write!(f, "literal {} has no axiom link", occ(o)),
+            NotLiteral { vertex: v } => write!(f, "vertex {} is not a literal", vertex(v)),
+            NotDual { x, y } => {
+                write!(
+                    f,
+                    "the literals {} and {} are not dual",
+                    vertex(x),
+                    vertex(y)
+                )
+            }
+            LinkedTwice { vertex: v } => write!(f, "literal {} is linked twice", vertex(v)),
+            Unlinked { vertex: v } => write!(f, "literal {} has no axiom link", vertex(v)),
             Empty => f.write_str("the structure is empty, and no rule concludes the empty sequent"),
-            SwitchingCycle(cycle) => write!(f, "a switching cycle runs through {}", list(cycle)),
-            Disconnected(parts) => {
+            SwitchingCycle { cycle } => write!(f, "a switching cycle runs through {}", list(cycle)),
+            Disconnected { parts } => {
                 let parts: Vec<String> = parts.iter().map(|p| format!("{{{}}}", list(p))).collect();
                 write!(
                     f,
@@ -140,13 +291,26 @@ impl NetError {
                     parts.join(" and ")
                 )
             }
+            Fragment { fragment } => write!(
+                f,
+                "proof nets exist for MLL without units only, not for {fragment}"
+            ),
+            Mode { mode } => write!(
+                f,
+                "proof nets exist in linear mode only, with or without Mix, not in {mode} mode"
+            ),
+            Rule { node, rule } => write!(
+                f,
+                "node {} applies {rule}, which a proof net of MLL without units has no place for",
+                node.get()
+            ),
             Refused { refusal } => write!(f, "{refusal}"),
         }
     }
 }
 
 impl Display for NetError {
-    /// Writes the error with occurrence ids.
+    /// Writes the error with vertex ids.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.write(f, None)
     }
@@ -154,10 +318,31 @@ impl Display for NetError {
 
 impl std::error::Error for NetError {}
 
+/// Fails with [`Refusal::Memory`] when `bytes` are more than `limits`
+/// allow.
+fn afford(bytes: u64, limits: &Limits) -> Result<(), NetError> {
+    match limits.memory_bytes {
+        Some(limit) if bytes > limit => Err(NetError::Refused {
+            refusal: Refusal::Memory {
+                phase: Phase::Net,
+                limit_bytes: limit,
+                needed_bytes: Some(bytes),
+            },
+        }),
+        _ => Ok(()),
+    }
+}
+
+/// The refusal of a call that `stop` ended.
+const STOPPED: NetError = NetError::Refused {
+    refusal: Refusal::Stopped { phase: Phase::Net },
+};
+
 /// A proof structure of unit-free MLL over the occurrence forest of its
 /// sequent: the formula trees, which the forest holds, plus axiom links
-/// between dual literal occurrences, and whether the Mix rule is allowed,
-/// which decides what [`is_correct`](Self::is_correct) requires.
+/// between dual literal vertices, and the [`Criterion`] that decides what
+/// [`is_correct`](Self::is_correct) requires. Vertex `i` is occurrence `i`
+/// of the forest ([`vertex`](Self::vertex), [`occurrence`](Self::occurrence)).
 ///
 /// Links are added with [`link`](Self::link), which refuses what is not a
 /// link, and taken back in the reverse order with [`unlink`](Self::unlink),
@@ -171,39 +356,40 @@ impl std::error::Error for NetError {}
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::{Forest, OccId, ProofStructure, Sequent};
+/// use linlog::{Criterion, Forest, ProofStructure, Sequent, VertexId};
 ///
-/// // ⊢ ~A, A ⊗ ~B, B, with the occurrences 0: ~A, 1: A ⊗ ~B, 2: A,
+/// // ⊢ ~A, A ⊗ ~B, B, with the vertices 0: ~A, 1: A ⊗ ~B, 2: A,
 /// // 3: ~B, 4: B.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
-/// let o = OccId::new;
-/// let net = ProofStructure::from_links(Forest::new(&sequent)?, false, &[(o(0), o(2)), (o(3), o(4))])?;
+/// let v = VertexId::new;
+/// let links = [(v(0), v(2)), (v(3), v(4))];
+/// let net = ProofStructure::from_links(Forest::new(&sequent)?, Criterion::MLL, &links)?;
 /// assert!(net.is_complete());
-/// assert_eq!(net.partner(o(2)), Some(o(0)));
+/// assert_eq!(net.partner(v(2)), Some(v(0)));
+/// assert_eq!(net.is_correct(|_| false), Ok(()));
 /// # Ok::<(), linlog::Error>(())
 /// ```
 ///
 /// # JSON
 ///
 /// With the feature `serialize` a structure is `{"sequent": …, "mix": …,
-/// "links": [[x, y], …]}`: its sequent in [`Sequent`]'s form, whether Mix
-/// is allowed, and its axiom links as pairs of occurrence ids in the order
-/// they were made. Reading validates the links as
-/// [`from_links`](Self::from_links) does and takes a partial or incorrect
-/// structure, since whether it is a net is
+/// "links": [[x, y], …]}`: its sequent in [`Sequent`]'s form, the
+/// criterion's fields (whether Mix is allowed), and its axiom links as
+/// pairs of vertex ids in the order they were made. Reading validates the
+/// links as [`from_links`](Self::from_links) does and takes a partial or
+/// incorrect structure, since whether it is a net is
 /// [`is_correct`](Self::is_correct)'s question.
 #[derive(Clone, Debug)]
 pub struct ProofStructure {
     /// The forest of the sequent.
     forest: Forest,
-    /// Whether the Mix rule is allowed, in which case a proof net need not
-    /// be connected.
-    mix: bool,
-    /// Per occurrence, the literal it is linked to, or `NONE`.
+    /// The rules the structure is checked under.
+    criterion: Criterion,
+    /// Per vertex, the literal it is linked to, or `NONE`.
     partner: Box<[u32]>,
     /// The links in the order they were made, each as the pair given to
     /// [`link`](Self::link).
-    links: Vec<(OccId, OccId)>,
+    links: Vec<(VertexId, VertexId)>,
     /// The coloured structure graph.
     graph: Graph,
     /// The `⅋`-free skeleton.
@@ -211,14 +397,23 @@ pub struct ProofStructure {
 }
 
 impl ProofStructure {
-    /// Returns the structure over the forest with no link yet. Fails if the
-    /// sequent lies outside unit-free MLL, where there are no proof nets.
-    pub fn new(forest: Forest, mix: bool) -> Result<Self, Error> {
+    /// Returns the structure over the forest with no link yet. Fails with
+    /// [`NetError::Fragment`] if the sequent lies outside unit-free MLL,
+    /// where there are no proof nets, and with [`Refusal::Index`] past
+    /// 1 431 655 763 vertices.
+    pub fn new(forest: Forest, criterion: Criterion) -> Result<Self, Error> {
         let fragment = forest.sequent().fragment();
         if !fragment.has_nets() {
-            return Err(Error::NetFragment { fragment });
+            return Err(NetError::Fragment { fragment }.into());
         }
         let n = forest.len();
+        if n as u64 > MOST {
+            return Err(Error::Refused(Refusal::Index {
+                what: Space::Vertex,
+                count: n as u64,
+                most: MOST,
+            }));
+        }
         let mut skeleton = Skeleton::new(n);
         for o in forest.ids() {
             if let Some(p) = forest.parent(o)
@@ -232,7 +427,7 @@ impl ProofStructure {
         Ok(Self {
             graph: Graph::new(&forest),
             forest,
-            mix,
+            criterion,
             partner: vec![NONE; n].into_boxed_slice(),
             links: Vec::with_capacity(literals / 2),
             skeleton,
@@ -241,10 +436,15 @@ impl ProofStructure {
 
     /// Returns the structure with the given links. Fails as
     /// [`new`](Self::new) does, and with the [`NetError`] of
-    /// [`link`](Self::link) if a link names an occurrence outside the
-    /// forest, does not join two dual literals or links a literal twice.
-    pub fn from_links(forest: Forest, mix: bool, links: &[(OccId, OccId)]) -> Result<Self, Error> {
-        let mut net = Self::new(forest, mix)?;
+    /// [`link`](Self::link) if a link names a vertex outside the
+    /// structure, does not join two dual literals or links a literal
+    /// twice.
+    pub fn from_links(
+        forest: Forest,
+        criterion: Criterion,
+        links: &[(VertexId, VertexId)],
+    ) -> Result<Self, Error> {
+        let mut net = Self::new(forest, criterion)?;
         for &(x, y) in links {
             net.link(x, y)?;
         }
@@ -252,57 +452,104 @@ impl ProofStructure {
     }
 
     /// Desequentializes a proof of MLL: reads the axiom links off its `Ax`
-    /// nodes and builds their structure over a copy of the proof's forest.
-    /// Every proof the checker accepts gives a proof net; two proofs that
-    /// differ only in the order of their rules give the same one. Fails as
-    /// [`from_links`](Self::from_links) does, and with the criterion's
-    /// error if the links are not a proof net, which happens only for a
-    /// proof the checker rejects or one that uses Mix when `mix` is off.
-    /// The checker is not run: the net of a term the checker would reject
-    /// can still be a proof net, and is returned as one.
-    pub fn from_proof(proof: &Proof, mix: bool) -> Result<Self, Error> {
+    /// nodes and builds their structure over a copy of the proof's
+    /// forest, within `limits.memory_bytes` (the structure and the
+    /// criterion's working memory, estimated before anything is made) and
+    /// until `stop` returns true, which is asked once per node and per
+    /// round of the criterion. Every proof the checker accepts gives a
+    /// proof net; two proofs that differ only in the order of their rules
+    /// give the same one. The checker is not run: the net of a term the
+    /// checker would reject can still be a proof net, and is returned as
+    /// one.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
+    /// [`NetError::Rule`] for a node a net has no place for (any but `ax`,
+    /// `⊗`, `⅋` and Mix); otherwise as [`from_links`](Self::from_links)
+    /// does, and with the criterion's error if the links are not a proof
+    /// net, which happens only for a proof the checker rejects or one that
+    /// uses Mix where the criterion forbids it; [`NetError::Refused`] when
+    /// the bound or the stop ended it.
+    pub fn from_proof(
+        proof: &Proof,
+        criterion: Criterion,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Self, Error> {
         if proof.goal().is_some() {
             return Err(Error::GoalProof);
         }
-        let links: Vec<(OccId, OccId)> = proof
-            .nodes()
-            .iter()
-            .filter_map(|n| match *n {
-                Node::Ax(x, y) => Some((x.occ(), y.occ())),
-                _ => None,
-            })
-            .collect();
-        let net = Self::from_links(proof.forest().clone(), mix, &links)?;
-        net.is_correct()?;
+        let forest = proof.forest();
+        afford(Self::bytes(forest), limits)?;
+        let mut links = Vec::with_capacity(forest.all_literals().len() / 2);
+        for (i, &node) in proof.nodes().iter().enumerate() {
+            let done = i as u64 + 1;
+            if stop(Progress::new(Phase::Net, 1, done)) {
+                return Err(STOPPED.into());
+            }
+            match node {
+                Node::Ax(x, y) => links.push((VertexId::of(x.occ()), VertexId::of(y.occ()))),
+                Node::Tensor(..) | Node::Par(..) | Node::Mix(..) => {}
+                Node::One(_)
+                | Node::Bot(..)
+                | Node::With(..)
+                | Node::Plus(..)
+                | Node::Top(_)
+                | Node::Bang(..)
+                | Node::Quest(..)
+                | Node::Copy(..)
+                | Node::Weaken(..) => {
+                    return Err(NetError::Rule {
+                        node: NodeId::new(i as u32),
+                        rule: node.name(),
+                    }
+                    .into());
+                }
+            }
+        }
+        let net = Self::from_links(forest.clone(), criterion, &links)?;
+        net.is_correct(stop)?;
         Ok(net)
     }
 
+    /// Returns the bytes a structure over the forest holds with the
+    /// criterion's working memory, the copy of its forest included.
+    fn bytes(forest: &Forest) -> u64 {
+        let arena = forest.sequent().terms().len() as u64 * size_of::<Term>() as u64;
+        (forest.len() as u64 * (STRUCTURE_BYTES + SCRATCH_BYTES)).saturating_add(arena)
+    }
+
     /// Fails if `x` and `y` are not two unlinked dual literals of the
-    /// forest; the ids may be any, also none of the forest's.
-    fn check_link(&self, x: OccId, y: OccId) -> Result<(), NetError> {
+    /// structure; the ids may be any, also none of the structure's.
+    fn check_link(&self, x: VertexId, y: VertexId) -> Result<(), NetError> {
         let f = &self.forest;
-        for o in [x, y] {
-            if o.index() >= f.len() {
-                return Err(NetError::NoOccurrence(o, f.len()));
+        for v in [x, y] {
+            if v.index() >= f.len() {
+                return Err(NetError::NoVertex {
+                    vertex: v.get(),
+                    vertices: f.len() as u32,
+                });
             }
-            if !f.is_literal(o) {
-                return Err(NetError::NotLiteral(o));
+            if !f.is_literal(v.occ()) {
+                return Err(NetError::NotLiteral { vertex: v });
             }
         }
         if !self.dual(x, y) {
-            return Err(NetError::NotDual(x, y));
+            return Err(NetError::NotDual { x, y });
         }
-        for o in [x, y] {
-            if self.partner(o).is_some() {
-                return Err(NetError::LinkedTwice(o));
+        for v in [x, y] {
+            if self.partner(v).is_some() {
+                return Err(NetError::LinkedTwice { vertex: v });
             }
         }
         Ok(())
     }
 
-    /// Returns whether two literal occurrences are `a` and `~a` for one atom.
-    fn dual(&self, x: OccId, y: OccId) -> bool {
+    /// Returns whether two literal vertices are `a` and `~a` for one atom.
+    fn dual(&self, x: VertexId, y: VertexId) -> bool {
         let f = &self.forest;
+        let (x, y) = (x.occ(), y.occ());
         f.atom(x) == f.atom(y) && f.sign(x) != f.sign(y)
     }
 
@@ -316,22 +563,44 @@ impl ProofStructure {
         self.forest.sequent()
     }
 
-    /// Returns whether the Mix rule is allowed.
-    pub fn mix(&self) -> bool {
-        self.mix
+    /// Returns the rules the structure is checked under.
+    pub fn criterion(&self) -> Criterion {
+        self.criterion
     }
 
-    /// Returns the literal an occurrence is linked to, or `None` for an
-    /// unlinked literal or a connective.
-    pub fn partner(&self, o: OccId) -> Option<OccId> {
-        match self.partner[o.index()] {
+    /// Returns the vertex of an occurrence of the forest, `None` for an
+    /// id outside it.
+    pub fn vertex(&self, o: OccId) -> Option<VertexId> {
+        (o.index() < self.forest.len()).then_some(VertexId::of(o))
+    }
+
+    /// Returns the occurrence a vertex stands for, `None` for a vertex
+    /// outside the structure.
+    pub fn occurrence(&self, v: VertexId) -> Option<OccId> {
+        (v.index() < self.forest.len()).then_some(v.occ())
+    }
+
+    /// Returns the literal a vertex is linked to, or `None` for an
+    /// unlinked literal, a connective or a vertex outside the structure.
+    pub fn partner(&self, v: VertexId) -> Option<VertexId> {
+        match self.partner.get(v.index()) {
+            None | Some(&NONE) => None,
+            Some(&p) => Some(VertexId(p)),
+        }
+    }
+
+    /// Returns [`partner`](Self::partner) of a vertex the caller knows to
+    /// be the structure's, as a search does of its candidates: one
+    /// comparison, which the search makes for every candidate link.
+    pub(crate) fn mate(&self, v: VertexId) -> Option<VertexId> {
+        match self.partner[v.index()] {
             NONE => None,
-            p => Some(OccId::new(p)),
+            p => Some(VertexId(p)),
         }
     }
 
     /// Returns the links in the order they were made.
-    pub fn links(&self) -> &[(OccId, OccId)] {
+    pub fn links(&self) -> &[(VertexId, VertexId)] {
         &self.links
     }
 
@@ -342,29 +611,34 @@ impl ProofStructure {
 
     /// Returns the literals without a link, grouped by atom and sign as
     /// [`Forest::all_literals`] lists them.
-    pub fn unlinked(&self) -> impl Iterator<Item = OccId> {
+    pub fn unlinked(&self) -> impl Iterator<Item = VertexId> {
         self.forest
             .all_literals()
             .iter()
-            .copied()
-            .filter(|&l| self.partner[l.index()] == NONE)
+            .filter(|&&l| self.partner[l.index()] == NONE)
+            .map(|&l| VertexId::of(l))
     }
 
-    /// Links two unlinked dual literals, in constant time. Fails, and
-    /// leaves the structure as it is, if one of the two is no occurrence of
-    /// the forest or no literal, if they are not dual, or if one has a link
-    /// already.
-    pub fn link(&mut self, x: OccId, y: OccId) -> Result<(), NetError> {
+    /// Links two unlinked dual literals, in constant time.
+    ///
+    /// # Errors
+    ///
+    /// Fails, and leaves the structure as it is, if one of the two is no
+    /// vertex of the structure ([`NetError::NoVertex`]) or no literal
+    /// ([`NetError::NotLiteral`]), if they are not dual
+    /// ([`NetError::NotDual`]), or if one has a link already
+    /// ([`NetError::LinkedTwice`]).
+    pub fn link(&mut self, x: VertexId, y: VertexId) -> Result<(), NetError> {
         self.check_link(x, y)?;
         self.link_unchecked(x, y);
         Ok(())
     }
 
     /// Links two literals that the caller knows to be unlinked dual
-    /// literals of the forest, as a search does of the candidates it
+    /// literals of the structure, as a search does of the candidates it
     /// enumerates; a debug build checks. Anything else corrupts the
     /// structure.
-    pub(crate) fn link_unchecked(&mut self, x: OccId, y: OccId) {
+    pub(crate) fn link_unchecked(&mut self, x: VertexId, y: VertexId) {
         debug_assert!(
             self.check_link(x, y).is_ok(),
             "{x:?} and {y:?} cannot be linked"
@@ -379,7 +653,7 @@ impl ProofStructure {
     /// Takes back the last link made and returns it, or `None` if there is
     /// no link. Links are undone in the reverse order of their making, as a
     /// backtracking search does.
-    pub fn unlink(&mut self) -> Option<(OccId, OccId)> {
+    pub fn unlink(&mut self) -> Option<(VertexId, VertexId)> {
         let (x, y) = self.links.pop()?;
         self.partner[x.index()] = NONE;
         self.partner[y.index()] = NONE;
@@ -388,10 +662,20 @@ impl ProofStructure {
         Some((x, y))
     }
 
-    /// Returns whether two occurrences are joined by a path that uses no
+    /// Returns whether two vertices are joined by a path that uses no
     /// premise edge of a `⅋`: `⊗` premise edges and links only. Linking two
-    /// such literals closes a cycle that every switching keeps.
-    pub fn same_component(&self, x: OccId, y: OccId) -> bool {
+    /// such literals closes a cycle that every switching keeps. A vertex
+    /// outside the structure is joined to nothing.
+    pub fn same_component(&self, x: VertexId, y: VertexId) -> bool {
+        let n = self.forest.len();
+        x.index() < n && y.index() < n && self.joined(x, y)
+    }
+
+    /// Returns [`same_component`](Self::same_component) of two vertices
+    /// the caller knows to be the structure's, as a search does of its
+    /// candidates, without comparing them with its length: the search
+    /// asks it for every candidate link.
+    pub(crate) fn joined(&self, x: VertexId, y: VertexId) -> bool {
         self.skeleton.same(x.get(), y.get())
     }
 
@@ -407,36 +691,61 @@ impl ProofStructure {
     /// cycle and goes; when none is left to delete, what remains carries a
     /// switching cycle, or nothing remains. Meaningful on a partial
     /// structure too: an unlinked literal lies on no cycle. Allocates
-    /// nothing; the scratch comes from [`scratch`](Self::scratch).
+    /// nothing with a scratch from [`scratch`](Self::scratch); a scratch
+    /// sized for another structure is replaced by one for this one.
     pub fn is_acyclic(&self, scratch: &mut Scratch) -> bool {
+        if !scratch.fits(&self.graph) {
+            *scratch = self.scratch();
+        }
         scratch.restore();
-        self.graph.acyclic(&self.forest, scratch)
+        self.graph
+            .acyclic(&self.forest, scratch, &mut |_| false)
+            .unwrap_or(false)
     }
 
     /// Decides whether the structure is a proof net, independently of any
     /// search and of the proof checker: every literal is linked, no cycle
-    /// survives any switching, and, unless Mix is allowed, every switching
-    /// is connected, which given acyclicity is the count of edges a
-    /// switching keeps being one less than the number of occurrences. The
-    /// error names an unlinked literal, a switching cycle or the parts the
-    /// structure falls into.
-    pub fn is_correct(&self) -> Result<(), NetError> {
+    /// survives any switching, and, unless the criterion allows Mix, every
+    /// switching is connected, which given acyclicity is the count of
+    /// edges a switching keeps being one less than the number of vertices.
+    /// It holds working memory linear in the structure and asks `stop`
+    /// once per round of the deletion procedure, of which a witness for a
+    /// cycle runs one per edge.
+    ///
+    /// # Errors
+    ///
+    /// [`NetError::Empty`], [`NetError::Unlinked`],
+    /// [`NetError::SwitchingCycle`] or [`NetError::Disconnected`] with a
+    /// witness; [`NetError::Refused`] when `stop` ended it.
+    pub fn is_correct(&self, mut stop: impl FnMut(Progress) -> bool) -> Result<(), NetError> {
         if self.forest.is_empty() {
             return Err(NetError::Empty);
         }
         if let Some(l) = self.unlinked().next() {
-            return Err(NetError::Unlinked(l));
+            return Err(NetError::Unlinked { vertex: l });
         }
         let mut scratch = self.scratch();
-        if !self.is_acyclic(&mut scratch) {
-            return Err(NetError::SwitchingCycle(
-                self.graph.cycle(&self.forest, &mut scratch),
-            ));
+        let mut rounds = 0;
+        let mut stop = |round: u64| {
+            rounds += round;
+            stop(Progress::new(Phase::Net, round, rounds))
+        };
+        match self.graph.acyclic(&self.forest, &mut scratch, &mut stop) {
+            None => return Err(STOPPED),
+            Some(false) => {
+                return match self.graph.cycle(&self.forest, &mut scratch, &mut stop) {
+                    Some(cycle) => Err(NetError::SwitchingCycle { cycle }),
+                    None => Err(STOPPED),
+                };
+            }
+            Some(true) => {}
         }
-        if !self.mix && self.graph.switched_edges(self.links.len()) + 1 != self.forest.len() {
-            return Err(NetError::Disconnected(
-                self.graph.parts(&self.forest, &mut scratch),
-            ));
+        if !self.criterion.mix
+            && self.graph.switched_edges(self.links.len()) + 1 != self.forest.len()
+        {
+            return Err(NetError::Disconnected {
+                parts: self.graph.parts(&self.forest, &mut scratch),
+            });
         }
         Ok(())
     }
@@ -444,24 +753,24 @@ impl ProofStructure {
 
 impl Display for ProofStructure {
     /// Writes the sequent, then one line per link as `~A[0] — A[2]`, each
-    /// literal with its occurrence id, the links ordered by their first
-    /// id, then the verdict of the criterion: `proof net`, `proof net with
+    /// literal with its vertex id, the links ordered by their first id,
+    /// then the verdict of the criterion: `proof net`, `proof net with
     /// Mix`, or `not a proof net: ` and the reason with formulas. No
     /// trailing newline.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         writeln!(f, "{}", self.sequent())?;
-        let mut links: Vec<(OccId, OccId)> = self
+        let mut links: Vec<(VertexId, VertexId)> = self
             .links
             .iter()
             .map(|&(x, y)| (x.min(y), x.max(y)))
             .collect();
         links.sort_unstable();
         for (x, y) in links {
-            let (fx, fy) = (self.forest.formula(x), self.forest.formula(y));
+            let (fx, fy) = (self.forest.formula(x.occ()), self.forest.formula(y.occ()));
             writeln!(f, "{fx}[{}] — {fy}[{}]", x.get(), y.get())?;
         }
-        match self.is_correct() {
-            Ok(()) if self.mix => f.write_str("proof net with Mix"),
+        match self.is_correct(|_| false) {
+            Ok(()) if self.criterion.mix => f.write_str("proof net with Mix"),
             Ok(()) => f.write_str("proof net"),
             Err(e) => write!(f, "not a proof net: {}", e.describe(&self.forest)),
         }
@@ -478,9 +787,19 @@ mod tests {
     #[cfg(feature = "parse")]
     use crate::proofs::NodeId;
 
-    /// Wraps a raw id.
+    /// Wraps a raw occurrence id.
     const fn o(id: u32) -> OccId {
         OccId::new(id)
+    }
+
+    /// Wraps a raw vertex id.
+    const fn v(id: u32) -> VertexId {
+        VertexId::new(id)
+    }
+
+    /// The criterion with Mix allowed or not.
+    const fn criterion(mix: bool) -> Criterion {
+        Criterion { mix }
     }
 
     /// Builds the forest of `input`, or panics with the parse error.
@@ -496,25 +815,25 @@ mod tests {
     #[test]
     fn link_and_unlink() {
         // ⊢ ~A, A ⊗ ~B, B: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B.
-        let mut net = ProofStructure::new(forest("A, A -o B |- B"), false).unwrap();
+        let mut net = ProofStructure::new(forest("A, A -o B |- B"), criterion(false)).unwrap();
         assert!(!net.is_complete());
-        assert_eq!(net.unlinked().collect::<Vec<_>>(), [o(2), o(0), o(4), o(3)]);
-        assert!(net.same_component(o(2), o(3)), "the ⊗ joins its premises");
-        assert!(!net.same_component(o(0), o(2)));
+        assert_eq!(net.unlinked().collect::<Vec<_>>(), [v(2), v(0), v(4), v(3)]);
+        assert!(net.same_component(v(2), v(3)), "the ⊗ joins its premises");
+        assert!(!net.same_component(v(0), v(2)));
 
-        net.link(o(0), o(2)).unwrap();
-        assert_eq!(net.partner(o(2)), Some(o(0)));
-        assert_eq!(net.partner(o(1)), None);
-        assert!(net.same_component(o(0), o(3)), "through the link and the ⊗");
-        net.link(o(4), o(3)).unwrap();
+        net.link(v(0), v(2)).unwrap();
+        assert_eq!(net.partner(v(2)), Some(v(0)));
+        assert_eq!(net.partner(v(1)), None);
+        assert!(net.same_component(v(0), v(3)), "through the link and the ⊗");
+        net.link(v(4), v(3)).unwrap();
         assert!(net.is_complete());
-        assert_eq!(net.links(), [(o(0), o(2)), (o(4), o(3))]);
+        assert_eq!(net.links(), [(v(0), v(2)), (v(4), v(3))]);
 
-        assert_eq!(net.unlink(), Some((o(4), o(3))));
-        assert_eq!(net.partner(o(4)), None);
-        assert!(!net.same_component(o(4), o(0)));
-        assert_eq!(net.unlink(), Some((o(0), o(2))));
-        assert!(!net.same_component(o(0), o(3)));
+        assert_eq!(net.unlink(), Some((v(4), v(3))));
+        assert_eq!(net.partner(v(4)), None);
+        assert!(!net.same_component(v(4), v(0)));
+        assert_eq!(net.unlink(), Some((v(0), v(2))));
+        assert!(!net.same_component(v(0), v(3)));
         assert_eq!(net.unlink(), None);
         assert_eq!(net.unlinked().count(), 4);
     }
@@ -554,10 +873,22 @@ mod tests {
         .unwrap();
         assert_eq!(first_tensor_first.check(mode), Ok(()));
         assert_eq!(second_tensor_first.check(mode), Ok(()));
-        let a = ProofStructure::from_proof(&first_tensor_first, false).unwrap();
-        let b = ProofStructure::from_proof(&second_tensor_first, false).unwrap();
+        let a = ProofStructure::from_proof(
+            &first_tensor_first,
+            criterion(false),
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
+        let b = ProofStructure::from_proof(
+            &second_tensor_first,
+            criterion(false),
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(links(&a), links(&b));
-        assert_eq!(links(&a), [(o(1), o(3)), (o(2), o(5)), (o(6), o(7))]);
+        assert_eq!(links(&a), [(v(1), v(3)), (v(2), v(5)), (v(6), v(7))]);
 
         // A proof with Mix desequentializes only when Mix is allowed.
         let f = forest("|- A par B, ~A, ~B");
@@ -572,12 +903,16 @@ mod tests {
             n(3),
         )
         .unwrap();
-        assert!(ProofStructure::from_proof(&with_mix, true).is_ok());
+        assert!(
+            ProofStructure::from_proof(&with_mix, criterion(true), &Limits::default(), |_| false)
+                .is_ok()
+        );
         assert!(matches!(
-            ProofStructure::from_proof(&with_mix, false),
-            Err(Error::Net(e)) if matches!(*e, NetError::Disconnected(_))
+            ProofStructure::from_proof(&with_mix, criterion(false), &Limits::default(), |_| false),
+            Err(Error::Net(e)) if matches!(*e, NetError::Disconnected { .. })
         ));
-        // Outside MLL there is no net.
+        // Outside MLL there is no net, and no node a net has no place for
+        // is passed over.
         let f = forest("|- A & A, ~A");
         let additive = Proof::new(
             f,
@@ -590,8 +925,20 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(
-            ProofStructure::from_proof(&additive, false),
-            Err(Error::NetFragment { .. })
+            ProofStructure::from_proof(&additive, criterion(false), &Limits::default(), |_| false),
+            Err(Error::Net(e)) if matches!(*e, NetError::Rule { node, rule: "&" } if node == n(2))
+        ));
+        // Affine weakening on a sequent of MLL.
+        let f = forest("|- A, ~A, B");
+        let weakened = Proof::new(
+            f,
+            vec![Ax(o(0).into(), o(1).into()), Weaken(o(2).into(), n(0))],
+            n(1),
+        )
+        .unwrap();
+        assert!(matches!(
+            ProofStructure::from_proof(&weakened, criterion(false), &Limits::default(), |_| false),
+            Err(Error::Net(e)) if matches!(*e, NetError::Rule { rule: "wk", .. })
         ));
     }
 
@@ -624,13 +971,20 @@ mod tests {
                 let outcome = prove(&s, mode, &Options::default()).unwrap();
                 let proof = outcome.verdict.proof().expect("the sequent is provable");
                 assert_eq!(proof.check(mode), Ok(()), "{text:?}");
-                let net = ProofStructure::from_proof(proof, mix)
+                let net =
+                    ProofStructure::from_proof(proof, criterion(mix), &Limits::default(), |_| {
+                        false
+                    })
                     .unwrap_or_else(|e| panic!("{text:?}: {e}"));
                 let back = net
-                    .sequentialize()
+                    .sequentialize(&Limits::default(), |_| false)
                     .unwrap_or_else(|e| panic!("{text:?}: {e}"));
                 assert_eq!(back.check(mode), Ok(()), "{text:?}");
-                let again = ProofStructure::from_proof(&back, mix).unwrap();
+                let again =
+                    ProofStructure::from_proof(&back, criterion(mix), &Limits::default(), |_| {
+                        false
+                    })
+                    .unwrap();
                 assert_eq!(links(&again), links(&net), "{text:?}");
             }
         }
@@ -643,23 +997,25 @@ mod tests {
     fn text_form() {
         let net = ProofStructure::from_links(
             forest("A, A -o B |- B"),
-            false,
-            &[(o(2), o(0)), (o(3), o(4))],
+            criterion(false),
+            &[(v(2), v(0)), (v(3), v(4))],
         )
         .unwrap();
         assert_eq!(
             net.to_string(),
             "⊢ ~A, A ⊗ ~B, B\n~A[0] — A[2]\n~B[3] — B[4]\nproof net"
         );
-        let mut net = ProofStructure::new(forest("|- A par B, ~A, ~B"), true).unwrap();
-        net.link(o(1), o(3)).unwrap();
+        let mut net = ProofStructure::new(forest("|- A par B, ~A, ~B"), criterion(true)).unwrap();
+        net.link(v(1), v(3)).unwrap();
         assert_eq!(
             net.to_string(),
             "⊢ A ⅋ B, ~A, ~B\nA[1] — ~A[3]\nnot a proof net: literal B[2] has no axiom link"
         );
-        net.link(o(2), o(4)).unwrap();
+        net.link(v(2), v(4)).unwrap();
         assert!(net.to_string().ends_with("\nproof net with Mix"));
-        let net = ProofStructure::from_links(forest("|- A * ~A"), false, &[(o(1), o(2))]).unwrap();
+        let net =
+            ProofStructure::from_links(forest("|- A * ~A"), criterion(false), &[(v(1), v(2))])
+                .unwrap();
         assert!(
             net.to_string().ends_with(
                 "not a proof net: a switching cycle runs through A ⊗ ~A[0], A[1], ~A[2]"
@@ -667,8 +1023,8 @@ mod tests {
         );
         let net = ProofStructure::from_links(
             forest("|- A par B, ~A, ~B"),
-            false,
-            &[(o(1), o(3)), (o(2), o(4))],
+            criterion(false),
+            &[(v(1), v(3)), (v(2), v(4))],
         )
         .unwrap();
         assert!(net.to_string().ends_with(
@@ -678,8 +1034,8 @@ mod tests {
     }
 
     /// The links of a structure as sorted pairs, for comparing nets.
-    fn links(net: &ProofStructure) -> Vec<(OccId, OccId)> {
-        let mut links: Vec<(OccId, OccId)> = net
+    fn links(net: &ProofStructure) -> Vec<(VertexId, VertexId)> {
+        let mut links: Vec<(VertexId, VertexId)> = net
             .links()
             .iter()
             .map(|&(x, y)| (x.min(y), x.max(y)))
@@ -696,45 +1052,132 @@ mod tests {
     fn validation() {
         // ⊢ ~A, A ⊗ ~B, B, A: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B, 5 A.
         let f = || forest("A, A -o B |- B, A");
-        let net = ProofStructure::from_links(f(), false, &[(o(0), o(5))]).unwrap();
+        let net = ProofStructure::from_links(f(), criterion(false), &[(v(0), v(5))]).unwrap();
         assert!(!net.is_complete());
         for (links, error) in [
-            (vec![(o(0), o(9))], NetError::NoOccurrence(o(9), 6)),
-            (vec![(o(1), o(0))], NetError::NotLiteral(o(1))),
-            (vec![(o(0), o(3))], NetError::NotDual(o(0), o(3))),
-            (vec![(o(5), o(2))], NetError::NotDual(o(5), o(2))),
             (
-                vec![(o(0), o(5)), (o(0), o(2))],
-                NetError::LinkedTwice(o(0)),
+                vec![(v(0), v(9))],
+                NetError::NoVertex {
+                    vertex: 9,
+                    vertices: 6,
+                },
+            ),
+            (vec![(v(1), v(0))], NetError::NotLiteral { vertex: v(1) }),
+            (vec![(v(0), v(3))], NetError::NotDual { x: v(0), y: v(3) }),
+            (vec![(v(5), v(2))], NetError::NotDual { x: v(5), y: v(2) }),
+            (
+                vec![(v(0), v(5)), (v(0), v(2))],
+                NetError::LinkedTwice { vertex: v(0) },
             ),
         ] {
-            match ProofStructure::from_links(f(), false, &links) {
+            match ProofStructure::from_links(f(), criterion(false), &links) {
                 Err(Error::Net(e)) => assert_eq!(*e, error, "{links:?}"),
                 other => panic!("{links:?}: {other:?}"),
             }
-            let mut net = ProofStructure::new(f(), false).unwrap();
+            let mut net = ProofStructure::new(f(), criterion(false)).unwrap();
             let (&(x, y), made) = links.split_last().unwrap();
             for &(x, y) in made {
                 net.link(x, y).unwrap();
             }
             assert_eq!(net.link(x, y), Err(error), "{links:?}");
             assert_eq!(net.links(), made, "{links:?}");
-            assert_eq!(net.partner(o(2)), None, "{links:?}");
+            assert_eq!(net.partner(v(2)), None, "{links:?}");
         }
-        let outside = NetError::NoOccurrence(o(u32::MAX), 6);
+        let outside = NetError::NoVertex {
+            vertex: u32::MAX,
+            vertices: 6,
+        };
         assert_eq!(
             outside.describe(net.forest()).to_string(),
-            "a link names occurrence 4294967295, but the sequent has 6 occurrences"
+            "a link names vertex 4294967295, but the structure has 6 vertices"
         );
         for input in ["|- 1", "|- A & B", "|- !A"] {
             assert!(
                 matches!(
-                    ProofStructure::new(forest(input), true),
-                    Err(Error::NetFragment { .. })
+                    ProofStructure::new(forest(input), criterion(true)),
+                    Err(Error::Net(e)) if matches!(*e, NetError::Fragment { .. })
                 ),
                 "{input}"
             );
         }
-        assert!(ProofStructure::new(forest("|-"), true).is_ok());
+        assert!(ProofStructure::new(forest("|-"), criterion(true)).is_ok());
+    }
+
+    /// An id the structure does not hold is answered, never a panic: no
+    /// partner, joined to nothing, no occurrence; and a scratch sized for
+    /// another structure is replaced, so the test answers as with its own.
+    #[cfg(feature = "parse")]
+    #[test]
+    fn foreign_ids_and_scratches() {
+        let small = ProofStructure::from_links(forest("a |- a"), criterion(false), &[(v(0), v(1))])
+            .unwrap();
+        assert_eq!(small.partner(v(99)), None);
+        assert!(!small.same_component(v(0), v(99)));
+        assert_eq!(small.occurrence(v(2)), None);
+        assert_eq!(small.vertex(o(1)), Some(v(1)));
+        // ⊢ A ⊗ ~A, B, ~B with both links has a switching cycle.
+        let cyclic = ProofStructure::from_links(
+            forest("|- A * ~A, B, ~B"),
+            criterion(true),
+            &[(v(1), v(2)), (v(3), v(4))],
+        )
+        .unwrap();
+        let mut scratch = small.scratch();
+        assert!(!cyclic.is_acyclic(&mut scratch));
+        assert!(small.is_acyclic(&mut scratch));
+    }
+
+    /// The bound and the stop refuse building a net from a proof, judging
+    /// it and sequentializing it, with no verdict.
+    #[cfg(feature = "parse")]
+    #[test]
+    fn refusals() {
+        use crate::search::{Options, prove};
+        let s: Sequent = "A * B |- B * A".parse().unwrap();
+        let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+        let proof = outcome.verdict.proof().unwrap();
+        let tiny = Limits::default().with_memory_bytes(Some(100));
+        let refused = |error: Error| match error {
+            Error::Net(e) => match *e {
+                NetError::Refused { refusal } => refusal,
+                other => panic!("{other:?}"),
+            },
+            other => panic!("{other:?}"),
+        };
+        let memory = refused(
+            ProofStructure::from_proof(proof, Criterion::MLL, &tiny, |_| false).unwrap_err(),
+        );
+        assert!(matches!(
+            memory,
+            Refusal::Memory {
+                phase: Phase::Net,
+                ..
+            }
+        ));
+        let stopped = Refusal::Stopped { phase: Phase::Net };
+        let error = ProofStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| true);
+        assert_eq!(refused(error.unwrap_err()), stopped);
+        let net = ProofStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| false)
+            .unwrap();
+        assert_eq!(
+            net.is_correct(|_| true),
+            Err(NetError::Refused {
+                refusal: stopped.clone()
+            })
+        );
+        assert_eq!(
+            refused(net.sequentialize(&Limits::default(), |_| true).unwrap_err()),
+            stopped
+        );
+        let memory = refused(net.sequentialize(&tiny, |_| false).unwrap_err());
+        assert!(matches!(
+            memory,
+            Refusal::Memory {
+                phase: Phase::Net,
+                ..
+            }
+        ));
+        let back = net.sequentialize(&Limits::default(), |_| false).unwrap();
+        assert_eq!(back.mode(), Some(Mode::CLASSICAL));
     }
 }

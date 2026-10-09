@@ -13,7 +13,8 @@
 
 use linlog::search::Engine;
 use linlog::{
-    Forest, Interactive, Mode, Named, OccId, Options, ProofStructure, Sequent, Step, ViewOptions,
+    Criterion, Forest, Interactive, Limits, Mode, Named, Options, ProofStructure, Sequent, Step,
+    VertexId, ViewOptions,
 };
 use std::fmt::Write as _;
 
@@ -70,19 +71,13 @@ fn lines() -> String {
     }
 
     let hard = sequent("!(A & B) |- !A * ?B");
-    let tiny = linlog::Limits::default().with_memory_bytes(Some(100));
+    let tiny = Limits::default().with_memory_bytes(Some(100));
     pin(
         "outcome-memory-limit",
         json(&linlog::prove_within(&hard, classical, &options, &tiny, |_| false).unwrap()),
     );
-    let stopped = linlog::prove_within(
-        &hard,
-        classical,
-        &options,
-        &linlog::Limits::default(),
-        |_| true,
-    )
-    .unwrap();
+    let stopped =
+        linlog::prove_within(&hard, classical, &options, &Limits::default(), |_| true).unwrap();
     pin("outcome-stopped", json(&stopped));
     let bounded = options.clone().with_copies(Some(0));
     pin(
@@ -115,13 +110,16 @@ fn lines() -> String {
     let swap = proved("A * B |- B * A", classical);
     pin(
         "structure-from-proof",
-        json(&ProofStructure::from_proof(&swap, false).unwrap()),
+        json(
+            &ProofStructure::from_proof(&swap, Criterion::MLL, &Limits::default(), |_| false)
+                .unwrap(),
+        ),
     );
     let modus = sequent("A, A -o B |- B");
     let partial = ProofStructure::from_links(
         Forest::new(&modus).unwrap(),
-        true,
-        &[(OccId::new(0), OccId::new(2))],
+        Criterion::MLL.with_mix(),
+        &[(VertexId::new(0), VertexId::new(2))],
     )
     .unwrap();
     pin("structure-partial", json(&partial));
@@ -136,7 +134,7 @@ fn lines() -> String {
     session.close_all(
         &options,
         &ViewOptions::default(),
-        &linlog::Limits::default(),
+        &Limits::default(),
         |_| false,
     );
     pin("session-closed", json(&session));
@@ -144,7 +142,7 @@ fn lines() -> String {
     session.close_all(
         &options,
         &ViewOptions::default(),
-        &linlog::Limits::default(),
+        &Limits::default(),
         |_| false,
     );
     pin("session-intuitionistic", json(&session));

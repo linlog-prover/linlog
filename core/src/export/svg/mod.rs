@@ -646,7 +646,7 @@ pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<St
             }));
         }
     }
-    Ok(net::draw(net, style, &net.is_correct()))
+    Ok(net::draw(net, style, &net.is_correct(|_| false)))
 }
 
 #[cfg(test)]

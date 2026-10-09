@@ -56,6 +56,11 @@ fn height(rx: i64, style: &Style) -> i64 {
     }
 }
 
+/// Returns the links of a structure as pairs of the occurrences they join.
+fn joined(net: &ProofStructure) -> impl Iterator<Item = (OccId, OccId)> {
+    net.links().iter().map(|&(x, y)| (x.occ(), y.occ()))
+}
+
 /// Returns every occurrence's component in the switching of a structure
 /// that keeps the left premise of every `⅋`, as the index of one
 /// occurrence in it.
@@ -78,7 +83,7 @@ fn components(net: &ProofStructure) -> Vec<usize> {
             .filter(move |&c| Some(c) != cut)
             .map(move |c| (o, c))
     });
-    for (a, b) in kept.chain(net.links().iter().copied()) {
+    for (a, b) in kept.chain(joined(net)) {
         let (a, b) = (find(&mut parent, a.index()), find(&mut parent, b.index()));
         parent[a] = b;
     }
@@ -228,7 +233,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         let rx = (b - a) / 2;
         (a, b, rx, height(rx, style))
     };
-    let highest = net.links().iter().map(|&l| arc(l).3).max();
+    let highest = joined(net).map(|l| arc(l).3).max();
     let baseline = margin + stroke + highest.unwrap_or(0) + HEIGHT;
     let y = |o: OccId| match forest.is_literal(o) {
         true => baseline - AXIS,
@@ -241,16 +246,16 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
     // each left premise, and the first part's, which stays unmarked.
     let (mut cycle, mut parts) = (Vec::new(), None);
     match verdict {
-        Err(NetError::SwitchingCycle(vertices)) => {
+        Err(NetError::SwitchingCycle { cycle: vertices }) => {
             let next = vertices.iter().cycle().skip(1);
             cycle = vertices
                 .iter()
                 .zip(next)
-                .map(|(&a, &b)| (a.min(b), a.max(b)))
+                .map(|(&a, &b)| (a.min(b).occ(), a.max(b).occ()))
                 .collect();
             cycle.sort_unstable();
         }
-        Err(NetError::Disconnected(tops)) => {
+        Err(NetError::Disconnected { parts: tops }) => {
             let component = components(net);
             let first = component[tops[0][0].index()];
             parts = Some((component, first));
@@ -331,7 +336,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         writeln!(out, r#"<path d="M{column} {start}V{end}"/>"#).unwrap();
     }
     let top = baseline - HEIGHT;
-    for &(p, q) in net.links() {
+    for (p, q) in joined(net) {
         let (a, b, rx, ry) = arc((p, q));
         let out = if marks(p, q) { &mut marked } else { &mut links };
         writeln!(

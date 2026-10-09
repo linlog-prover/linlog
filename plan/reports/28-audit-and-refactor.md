@@ -84,7 +84,7 @@ supervisor's go are marked "go".
 | m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | done | nyxmnuxv: `Member` (a member of a sequent of its owner, the occurrence's number while no owner keeps a table), `Node`'s operands, `Dyadic` and `Fault` as members; the engines and the forest keep `OccId` and convert where a node is built or read, once per match arm. Then: `Proof` records its `goal` (set by `prove_goal` off the roots) and the `mode` it was found in, `new_of_goal`, `with_mode`, `occurrence`, `formula`; the checker, the size pass and the view conclude at the proof's own conclusion, so a goal proof checks, and `prove_goal` checks every proof it returns; `Error::GoalProof` (kind unsupported) from `from_proof`, the Rocq writer and `linlog check`, `Error::GoalMismatch` from `close_with` (F23's other half, F89); `Node::NAMES` and `TAGS` pinned by `name_lists_follow_the_variants`; `Dyadic` non-exhaustive; tests `a_goal_proof_records_its_goal` and the mismatch in `close_with_refuses_a_foreign_proof`. The keys `goal` and `mode` go on the wire with the wire level (item s) |
 | n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | done | xnszropr: `Rule` the sixteen one-sided rules, `Named { rule, side }` the rule a derivation shows (F60), names, spellings and labels unchanged, label tables indexed by `Named::index`, test `names_round_trip` in `rule.rs`. rnnrsvnv: `Inference` non-exhaustive with accessors and a sequent of members, `Derivation::occurrence`/`formula`. mnkunorl: `ViewOptions::sides` (one, two, or `Auto`, two-sided for a proof meant for intuitionistic mode) replaces the two-sided twins of `derivation`, `derivation_within` and `derivation_size`, whose view now carries the sides; `Proof::derivation_within` is the one public door (`Derivation::new` and `two_sided` crate-private) |
 | o. `Interactive` (3.10) | done | `GoalId` apart from `InfId` (F69), `Step`/`Split`, `Applicable`/`Needs`, `apply(goal, &step)`, `split_passes(goal, &step)`, `Closed` from `close` (a refused graft keeps the goal open and the proof in the outcome), `close_all` with a result per goal (F68), `proof(limits, stop)`, `derivation()` fallible and `derivation_within`, `within`, `occurrence`/`formula`, `StepError::EmptyPremise` (F67); the command's session output unchanged (qmpstuqr). Then the reading kept in the state, O(1) (F66), and a linear read-back: two pointers for a split, a history walk that enters no later step's inferences (F21) |
-| p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | open | |
+| p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | done, the net target set waiting for a go | kwxnmzvw: `bench/net-targets.sh`, the net engine's target set (the decided rows of the second baseline's `engines` and `period-N` passes, forced onto the net engine on one thread), to run at kwxnmzvw and at the retype after the go. Then the retype: `VertexId` (vertex `i` is occurrence `i` in MLL), `Criterion` (`MLL`, `with_mix`, `of(mode)`), `NetError` with named fields and `Fragment`, `Mode`, `Rule` (kind unsupported, code `no_nets`); `new` refuses past `u32::MAX / 3 − 1` vertices (F9); `from_proof(proof, criterion, limits, stop)` matches every node (F49) within the memory bound; `is_correct(stop)`, `sequentialize(limits, stop)` (F12's net half; the proof records its mode); an id outside the structure answered, never a panic (H24), a scratch of another structure replaced (H23); the net engine sequentializes under the search's limits and stop; tests `foreign_ids_and_scratches`, `refusals` and the `wk` and `&` refusals in `desequentialize`. H24's `OccSet` half: the set is crate-private since wyuzsnql, so no public call panics |
 | q. `Refutation` and `Disproof` (3.12, lock commit (3)) | open | |
 | r. the ordinary layer (3.13) | open | |
 | s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | open | |
@@ -160,6 +160,21 @@ supervisor's go are marked "go".
 - **The harness's CSV columns keep their names** (`memory_limit`,
   `recursion_limit`): the columns are its interface (`bench.md`), and
   only the flags behind them map onto `Limits`.
+- **`NetError`'s variants are not each `#[non_exhaustive]`** (the
+  design's P3 asks for it): no other error type of the crate marks its
+  variants, and named fields already let a later step add one; the
+  enum itself is marked.
+- **`ProofStructure::occurrence` answers `Option<OccId>`** (the design
+  has `OccId`), like `vertex` and `Member::occurrence`: H24 asks that an
+  id outside the structure be answered, not panicked on or mistaken.
+- **A node `from_proof` cannot read is `NetError::Rule { node, rule }`**,
+  a variant the design's list lacks (F49 asks for one naming the
+  kind), with `Fragment` and `Mode` under the new code `no_nets`; the
+  malformed and the invalid keep `invalid_net`.
+- **`svg::net` takes no stop yet**: the drawing's stop comes with the
+  exports' one `write` (item t), and the command's own `nets_exist`
+  keeps its check of the fragment and mode until the command's area
+  (F28).
 
 ## From the supervisor
 
@@ -518,3 +533,19 @@ supervisor's go are marked "go".
   `planning` with times and cores. What was done: the gate queue
   `ksnmyzmo yzywpzko` restarted, the signing loop restarted, item k
   resumed.
+
+### Messages from `planning` (2026-10-09, evening)
+
+- The probe's findings H22 to H31 are in the register (f2b974be): H22
+  (must-fix), H23, H24, H25 and H29 are this area's; H27 the search's;
+  H26, H28, H30 and H31 the command's, fixed here only where the code
+  is rewritten anyway, said in the checklist. A witness run once is no
+  benchmark. What was done: acknowledged; H23 and H24 in item p.
+- gpg-agent's cache ended: commit unsigned with `--config
+  signing.behavior=drop`, the gate's jj calls too; the supervisor
+  re-signs from trzotrqx on after the area. What was done: from
+  trzotrqx to kwxnmzvw unsigned.
+- Signing is back from 19:49 for about two hours: test a signature
+  before each commit and fall back when it fails. `bench/net-targets.sh`
+  is a benchmark run: it goes into the go batch, at the retype and at
+  its parent. What was done: acknowledged; the batch lists both.

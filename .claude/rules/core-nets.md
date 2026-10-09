@@ -14,15 +14,47 @@ engine is read. The net engine's cubes on a pool are in
 
 `nets/mod.rs` is the proof-net model for unit-free MLL, with or without
 Mix; `ProofStructure::new` refuses any other fragment
-(`Error::NetFragment`), and there is no net for affine mode (the CLI
-refuses it before searching); in intuitionistic mode the net is the one of
-the one-sided sequent. A structure is the forest
-plus `partner` (one `u32` per occurrence, `NONE` for unlinked literals and
-connectives), the stack of links in the order they were made, the coloured
-graph (`graph.rs`) and the `⅋`-free skeleton (`skeleton.rs`); `mix` says
-whether Mix is allowed, which is the difference between the two criteria.
-What the code relies on:
+(`NetError::Fragment`) and a forest past `MOST` (`u32::MAX / 3 − 1`
+vertices: the graph's offsets are `u32` and a vertex has three slots at
+most), and there is no net for affine mode (`Criterion::of` answers
+`NetError::Mode`; the CLI refuses it before searching); in
+intuitionistic mode the net is the one of the one-sided sequent. A
+structure is the forest plus `partner` (one `u32` per vertex, `NONE` for
+unlinked literals and connectives), the stack of links in the order
+they were made, the coloured graph (`graph.rs`) and the `⅋`-free
+skeleton (`skeleton.rs`); the `Criterion` (`mix`, the one value later
+calculi extend, its fields flattened into the JSON) says whether Mix is
+allowed, which is the difference between the two criteria. What the
+code relies on:
 
+- **Vertices, not occurrences, in the public calls** (`VertexId`): in
+  MLL vertex `i` is occurrence `i`, with no table, so the engine's hot
+  path converts for free (`VertexId::of`, `occ`, crate-private);
+  `vertex(o)` and `occurrence(v)` are the public, checked forms. A
+  structure with boxes will number its own vertices. **An id the
+  structure does not hold is answered, never a panic**: `partner` is
+  `None`, `same_component` false, `occurrence` `None`, and `link`
+  refuses it (`NetError::NoVertex`); `is_acyclic` replaces a scratch
+  sized for another structure with one of its own (one comparison).
+  The probe found the panics (H23, H24).
+- **`from_proof` matches every node** (`ax` a link, `⊗`, `⅋` and Mix
+  nothing, every other rule `NetError::Rule` by its name, `wk` on an
+  MLL sequent included), so a node kind added later is a compile error
+  there; it refuses a goal proof (`Error::GoalProof`), charges its
+  estimate (`STRUCTURE_BYTES` and `SCRATCH_BYTES` per vertex, the
+  arena's terms) to `limits.memory_bytes` before it builds anything,
+  and asks the stop per node and per round of the criterion.
+- **`is_correct(stop)` takes no limits**: its memory is linear in the
+  structure (the scratch), and `stop` is asked per round of the deletion
+  procedure, which a cycle's witness runs once per edge. `sequentialize`
+  takes `&Limits` (`SEQUENTIALIZE_BYTES` per vertex) and asks the stop
+  per stage too; the proof it returns records the criterion's mode.
+  `NetError::Refused { Memory | Stopped, phase: Net }` is no verdict.
+  The codes: `invalid_net` for the malformed and the invalid, `no_nets`
+  for `Fragment`, `Mode` and `Rule` (kind unsupported), the refusal's
+  own otherwise. The net engine sequentializes the net it found under
+  the search's limits and stop: a refusal there is `Unknown`
+  (`MemoryLimit`, `Stopped`) with no net.
 - **Links are a stack.** `link(x, y)` pushes and `unlink()` pops the last
   link: the skeleton's union-find has an undo log (union by rank, no path
   compression, one entry per union, so undo is O(1) and find is
@@ -33,8 +65,8 @@ What the code relies on:
   deserialization and `from_proof` go through it. The net engine links
   through the crate-private `link_unchecked`, which only debug-asserts:
   its candidates are unlinked dual literals by construction, and its loop
-  pays for no check. A link that names no occurrence of the forest is
-  `NetError::NoOccurrence`, which `describe` prints without a formula.
+  pays for no check. A link that names no vertex of the structure is
+  `NetError::NoVertex`, which `describe` prints without a formula.
 - **The coloured graph** (`graph.rs`): vertices are the occurrences, edges
   the premise edges of every `⊗` and `⅋` plus the links, in CSR layout
   with the parent edge in a vertex's first slot, then its children, and
@@ -117,8 +149,11 @@ What the code relies on:
   the term's forest, like the term itself.
 - What the net engine keeps outside the structure: the per-atom counts,
   the copies of literal conclusions, the explicit stack, statistics, and
-  one `Scratch`. The structure offers `partner`, `unlinked`,
-  `link_unchecked`, `unlink`, `same_component` (the skeleton's rejection)
+  one `Scratch`. The structure offers `mate` and `joined` (`partner` and
+  `same_component`, the skeleton's rejection, without the check of the
+  id against the structure, since the search asks both for every
+  candidate link and its ids are the forest's by construction),
+  `unlinked`, `link_unchecked` and `unlink`
   and `is_acyclic`, and `Forest::lca` is the other O(1) rejection.
 - The text form (`Display`: the sequent, `~A[0] — A[2]` per link sorted
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
@@ -150,7 +185,7 @@ What the code relies on:
   keep the path's `⅋` premises: *some* switching, which is all the
   criterion needs; it is not kept by every switching when a `⅋` lies on
   the path, so no stronger rule follows from it), and the `⅋`-free
-  skeleton already joins them (`same_component`: a cycle with no `⅋`
+  skeleton already joins them (`joined`: a cycle with no `⅋`
   premise edge, kept by every switching). `Forest::lca` is `None` across
   roots, and the rule is only valid within one root.
 - **Symmetry breaking for equal literal conclusions only.** Conclusions

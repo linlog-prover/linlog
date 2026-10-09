@@ -7,15 +7,15 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use linlog::{Mode, ProofStructure};
+use linlog::{Limits, Mode, ProofStructure};
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(structure) = serde_json::from_slice::<ProofStructure>(data) {
-        if structure.is_correct().is_ok() {
+        if structure.is_correct(|_| false).is_ok() {
             let proof = structure
-                .sequentialize()
+                .sequentialize(&Limits::default(), |_| false)
                 .expect("a correct structure sequentializes");
-            let mode = if structure.mix() {
+            let mode = if structure.criterion().mix {
                 Mode::CLASSICAL.with_mix()
             } else {
                 Mode::CLASSICAL

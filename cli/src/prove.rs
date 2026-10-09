@@ -15,8 +15,8 @@ use linlog::ordinary::Image;
 use linlog::proofs::{Compact, Sides};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
-    CheckError, Error, Forest, Limits, Mode, Proof, ProofStructure, Reading, Refusal, Sequent,
-    Size, ViewOptions,
+    CheckError, Criterion, Error, ErrorKind, Forest, Limits, Mode, Proof, ProofStructure, Reading,
+    Refusal, Sequent, Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -960,7 +960,22 @@ pub(crate) fn net_into(
     let net = match found {
         Some(net) => net,
         None => {
-            made = ProofStructure::from_proof(proof, mode.has_mix())?;
+            let criterion = Criterion::of(mode)?;
+            match ProofStructure::from_proof(proof, criterion, &show.limits, |_| stop()) {
+                Ok(net) => made = net,
+                Err(error) if error.kind() == ErrorKind::Stopped => {
+                    return Ok(Shown::LeftOut(format!(
+                        "the proof net is not drawn: {}",
+                        why()
+                    )));
+                }
+                Err(error) if error.is_refusal() => {
+                    return Ok(Shown::LeftOut(format!(
+                        "the proof net is not made: {error}"
+                    )));
+                }
+                Err(error) => return Err(error.into()),
+            }
             &made
         }
     };
