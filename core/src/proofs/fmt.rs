@@ -63,6 +63,32 @@ impl Default for TextOptions {
     }
 }
 
+impl TextOptions {
+    /// Returns the options with another [`labels`](Self::labels).
+    #[must_use]
+    pub fn with_labels(self, labels: Labels) -> Self {
+        Self { labels, ..self }
+    }
+
+    /// Returns the options with another [`open`](Self::open).
+    #[must_use]
+    pub fn with_open(self, open: OpenGoal) -> Self {
+        Self { open, ..self }
+    }
+
+    /// Returns the options with another [`bar`](Self::bar).
+    #[must_use]
+    pub fn with_bar(self, bar: char) -> Self {
+        Self { bar, ..self }
+    }
+
+    /// Returns the options with another [`gap`](Self::gap).
+    #[must_use]
+    pub fn with_gap(self, gap: u16) -> Self {
+        Self { gap, ..self }
+    }
+}
+
 /// What the bar row of an inference holds: the bar's character, its
 /// label as text, and whether the bar is the one character of vertical
 /// dots over an open goal rather than as wide as the inference.

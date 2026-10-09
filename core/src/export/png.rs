@@ -52,6 +52,20 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// Returns the options with another [`scale`](Self::scale).
+    #[must_use]
+    pub fn with_scale(self, scale: u32) -> Self {
+        Self { scale, ..self }
+    }
+
+    /// Returns the options with another [`pixels`](Self::pixels).
+    #[must_use]
+    pub fn with_pixels(self, pixels: Option<u64>) -> Self {
+        Self { pixels, ..self }
+    }
+}
+
 /// Returns an SVG document rendered as a PNG image, its text set in
 /// `fonts` (the data of font files), within `limits.memory_bytes`.
 ///

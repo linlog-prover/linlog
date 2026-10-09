@@ -160,6 +160,161 @@ impl Default for Style {
 }
 
 impl Style {
+    /// Returns the style with another [`font`](Self::font).
+    #[must_use]
+    pub fn with_font(self, font: Font) -> Self {
+        Self { font, ..self }
+    }
+
+    /// Returns the style with another [`labels`](Self::labels).
+    #[must_use]
+    pub fn with_labels(self, labels: Labels) -> Self {
+        Self { labels, ..self }
+    }
+
+    /// Returns the style with another [`open`](Self::open).
+    #[must_use]
+    pub fn with_open(self, open: OpenGoal) -> Self {
+        Self { open, ..self }
+    }
+
+    /// Returns the style with another [`ids`](Self::ids).
+    #[must_use]
+    pub fn with_ids(self, ids: bool) -> Self {
+        Self { ids, ..self }
+    }
+
+    /// Returns the style with another [`description`](Self::description).
+    #[must_use]
+    pub fn with_description(self, description: bool) -> Self {
+        Self {
+            description,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`font_size`](Self::font_size).
+    #[must_use]
+    pub fn with_font_size(self, font_size: u32) -> Self {
+        Self { font_size, ..self }
+    }
+
+    /// Returns the style with another [`label_size`](Self::label_size).
+    #[must_use]
+    pub fn with_label_size(self, label_size: u32) -> Self {
+        Self { label_size, ..self }
+    }
+
+    /// Returns the style with another [`line_height`](Self::line_height).
+    #[must_use]
+    pub fn with_line_height(self, line_height: u32) -> Self {
+        Self {
+            line_height,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`premise_gap`](Self::premise_gap).
+    #[must_use]
+    pub fn with_premise_gap(self, premise_gap: u32) -> Self {
+        Self {
+            premise_gap,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`literal_gap`](Self::literal_gap).
+    #[must_use]
+    pub fn with_literal_gap(self, literal_gap: u32) -> Self {
+        Self {
+            literal_gap,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`label_gap`](Self::label_gap).
+    #[must_use]
+    pub fn with_label_gap(self, label_gap: u32) -> Self {
+        Self { label_gap, ..self }
+    }
+
+    /// Returns the style with another [`margin`](Self::margin).
+    #[must_use]
+    pub fn with_margin(self, margin: u32) -> Self {
+        Self { margin, ..self }
+    }
+
+    /// Returns the style with another [`stroke_width`](Self::stroke_width).
+    #[must_use]
+    pub fn with_stroke_width(self, stroke_width: u32) -> Self {
+        Self {
+            stroke_width,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`link_height`](Self::link_height).
+    #[must_use]
+    pub fn with_link_height(self, link_height: u32) -> Self {
+        Self {
+            link_height,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`link_cap`](Self::link_cap).
+    #[must_use]
+    pub fn with_link_cap(self, link_cap: Option<u32>) -> Self {
+        Self { link_cap, ..self }
+    }
+
+    /// Returns the style with another [`node_radius`](Self::node_radius).
+    #[must_use]
+    pub fn with_node_radius(self, node_radius: u32) -> Self {
+        Self {
+            node_radius,
+            ..self
+        }
+    }
+
+    /// Returns the style with another [`text`](Self::text).
+    #[must_use]
+    pub fn with_text(self, text: String) -> Self {
+        Self { text, ..self }
+    }
+
+    /// Returns the style with another [`line`](Self::line).
+    #[must_use]
+    pub fn with_line(self, line: String) -> Self {
+        Self { line, ..self }
+    }
+
+    /// Returns the style with another [`par`](Self::par).
+    #[must_use]
+    pub fn with_par(self, par: String) -> Self {
+        Self { par, ..self }
+    }
+
+    /// Returns the style with another [`link`](Self::link).
+    #[must_use]
+    pub fn with_link(self, link: String) -> Self {
+        Self { link, ..self }
+    }
+
+    /// Returns the style with another [`highlight`](Self::highlight).
+    #[must_use]
+    pub fn with_highlight(self, highlight: String) -> Self {
+        Self { highlight, ..self }
+    }
+
+    /// Returns the style with another [`background`](Self::background).
+    #[must_use]
+    pub fn with_background(self, background: Option<String>) -> Self {
+        Self { background, ..self }
+    }
+}
+
+impl Style {
     /// Returns the default style in light colours on a dark background.
     pub fn dark() -> Self {
         Self {

@@ -275,6 +275,71 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// Returns the options with another [`form`](Self::form).
+    #[must_use]
+    pub fn with_form(self, form: Form) -> Self {
+        Self { form, ..self }
+    }
+
+    /// Returns the options with another [`labels`](Self::labels).
+    #[must_use]
+    pub fn with_labels(self, labels: Labels) -> Self {
+        Self { labels, ..self }
+    }
+
+    /// Returns the options with another [`open`](Self::open).
+    #[must_use]
+    pub fn with_open(self, open: OpenGoal) -> Self {
+        Self { open, ..self }
+    }
+
+    /// Returns the options with another [`import`](Self::import).
+    #[must_use]
+    pub fn with_import(self, import: String) -> Self {
+        Self { import, ..self }
+    }
+
+    /// Returns the options with another [`page`](Self::page).
+    #[must_use]
+    pub fn with_page(self, page: String) -> Self {
+        Self { page, ..self }
+    }
+
+    /// Returns the options with another [`layout`](Self::layout).
+    #[must_use]
+    pub fn with_layout(self, layout: Layout) -> Self {
+        Self { layout, ..self }
+    }
+
+    /// Returns the options with another [`premise_gap`](Self::premise_gap).
+    #[must_use]
+    pub fn with_premise_gap(self, premise_gap: Length) -> Self {
+        Self {
+            premise_gap,
+            ..self
+        }
+    }
+
+    /// Returns the options with another [`label_gap`](Self::label_gap).
+    #[must_use]
+    pub fn with_label_gap(self, label_gap: Length) -> Self {
+        Self { label_gap, ..self }
+    }
+
+    /// Returns the options with another [`band`](Self::band).
+    #[must_use]
+    pub fn with_band(self, band: Length) -> Self {
+        Self { band, ..self }
+    }
+
+    /// Returns the options with another [`stroke`](Self::stroke).
+    #[must_use]
+    pub fn with_stroke(self, stroke: Length) -> Self {
+        Self { stroke, ..self }
+    }
+}
+
 /// Writes a label's markup in math mode: symbols as their characters,
 /// one letter as `upright(L)`, longer text as a string, subscripts after
 /// `_`, and a space before text that follows something.

@@ -82,6 +82,68 @@ pub struct Styles {
     rocq: Absent,
 }
 
+impl Styles {
+    /// Returns the styles with another [`text`](Self::text).
+    #[must_use]
+    pub fn with_text(self, text: TextOptions) -> Self {
+        Self { text, ..self }
+    }
+
+    /// Returns the styles with another [`latex`](Self::latex).
+    ///
+    /// Needs the cargo feature `latex` (on by default).
+    #[cfg(feature = "latex")]
+    #[must_use]
+    pub fn with_latex(self, latex: super::latex::Options) -> Self {
+        Self { latex, ..self }
+    }
+
+    /// Returns the styles with another [`typst`](Self::typst).
+    ///
+    /// Needs the cargo feature `typst` (on by default).
+    #[cfg(feature = "typst")]
+    #[must_use]
+    pub fn with_typst(self, typst: super::typst::Options) -> Self {
+        Self { typst, ..self }
+    }
+
+    /// Returns the styles with another [`svg`](Self::svg).
+    ///
+    /// Needs the cargo feature `svg` (on by default).
+    #[cfg(feature = "svg")]
+    #[must_use]
+    pub fn with_svg(self, svg: super::svg::Style) -> Self {
+        Self { svg, ..self }
+    }
+
+    /// Returns the styles with another [`png`](Self::png).
+    ///
+    /// Needs the cargo feature `png` (off by default).
+    #[cfg(feature = "png")]
+    #[must_use]
+    pub fn with_png(self, png: super::png::Options) -> Self {
+        Self { png, ..self }
+    }
+
+    /// Returns the styles with another [`pdf`](Self::pdf).
+    ///
+    /// Needs the cargo feature `pdf` (off by default).
+    #[cfg(feature = "pdf")]
+    #[must_use]
+    pub fn with_pdf(self, pdf: super::pdf::Options) -> Self {
+        Self { pdf, ..self }
+    }
+
+    /// Returns the styles with another [`rocq`](Self::rocq).
+    ///
+    /// Needs the cargo feature `rocq` (on by default).
+    #[cfg(feature = "rocq")]
+    #[must_use]
+    pub fn with_rocq(self, rocq: super::rocq::Options) -> Self {
+        Self { rocq, ..self }
+    }
+}
+
 /// The options of a format this build lacks: any value reads as it, and
 /// nothing is written.
 #[cfg(not(all(

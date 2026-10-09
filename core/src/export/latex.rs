@@ -251,6 +251,44 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// Returns the options with another [`form`](Self::form).
+    #[must_use]
+    pub fn with_form(self, form: Form) -> Self {
+        Self { form, ..self }
+    }
+
+    /// Returns the options with another [`labels`](Self::labels).
+    #[must_use]
+    pub fn with_labels(self, labels: Labels) -> Self {
+        Self { labels, ..self }
+    }
+
+    /// Returns the options with another [`open`](Self::open).
+    #[must_use]
+    pub fn with_open(self, open: OpenGoal) -> Self {
+        Self { open, ..self }
+    }
+
+    /// Returns the options with another [`align`](Self::align).
+    #[must_use]
+    pub fn with_align(self, align: bool) -> Self {
+        Self { align, ..self }
+    }
+
+    /// Returns the options with another [`ebproof`](Self::ebproof).
+    #[must_use]
+    pub fn with_ebproof(self, ebproof: String) -> Self {
+        Self { ebproof, ..self }
+    }
+
+    /// Returns the options with another [`preamble`](Self::preamble).
+    #[must_use]
+    pub fn with_preamble(self, preamble: Option<String>) -> Self {
+        Self { preamble, ..self }
+    }
+}
+
 /// Writes a label's markup in math mode: symbols as the connectives,
 /// text in `\mathrm`, subscripts after `_`.
 fn label(out: &mut String, markup: &str) {

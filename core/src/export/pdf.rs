@@ -76,6 +76,44 @@ impl Default for Options {
     }
 }
 
+impl Options {
+    /// Returns the options with another [`embed_text`](Self::embed_text).
+    #[must_use]
+    pub fn with_embed_text(self, embed_text: bool) -> Self {
+        Self { embed_text, ..self }
+    }
+
+    /// Returns the options with another [`compatible`](Self::compatible).
+    #[must_use]
+    pub fn with_compatible(self, compatible: bool) -> Self {
+        Self { compatible, ..self }
+    }
+
+    /// Returns the options with another [`accessible`](Self::accessible).
+    #[must_use]
+    pub fn with_accessible(self, accessible: bool) -> Self {
+        Self { accessible, ..self }
+    }
+
+    /// Returns the options with another [`title`](Self::title).
+    #[must_use]
+    pub fn with_title(self, title: Option<String>) -> Self {
+        Self { title, ..self }
+    }
+
+    /// Returns the options with another [`language`](Self::language).
+    #[must_use]
+    pub fn with_language(self, language: String) -> Self {
+        Self { language, ..self }
+    }
+
+    /// Returns the options with another [`date`](Self::date).
+    #[must_use]
+    pub fn with_date(self, date: Option<Date>) -> Self {
+        Self { date, ..self }
+    }
+}
+
 /// A moment in UTC, to the second.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

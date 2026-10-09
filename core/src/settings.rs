@@ -140,3 +140,47 @@ impl Default for Settings {
         }
     }
 }
+
+impl Settings {
+    /// Returns the settings with another [`clock`](Self::clock).
+    #[must_use]
+    pub fn with_clock(self, clock: Clock) -> Self {
+        Self { clock, ..self }
+    }
+
+    /// Returns the settings with another [`limits`](Self::limits).
+    #[must_use]
+    pub fn with_limits(self, limits: Limits) -> Self {
+        Self { limits, ..self }
+    }
+
+    /// Returns the settings with another [`search`](Self::search).
+    #[must_use]
+    pub fn with_search(self, search: Options) -> Self {
+        Self { search, ..self }
+    }
+
+    /// Returns the settings with another [`view`](Self::view).
+    #[must_use]
+    pub fn with_view(self, view: ViewOptions) -> Self {
+        Self { view, ..self }
+    }
+
+    /// Returns the settings with another [`styles`](Self::styles).
+    #[must_use]
+    pub fn with_styles(self, styles: Styles) -> Self {
+        Self { styles, ..self }
+    }
+
+    /// Returns the settings with another [`batch`](Self::batch).
+    #[must_use]
+    pub fn with_batch(self, batch: batch::Options) -> Self {
+        Self { batch, ..self }
+    }
+
+    /// Returns the settings with another [`ordinary`](Self::ordinary).
+    #[must_use]
+    pub fn with_ordinary(self, ordinary: ordinary::Options) -> Self {
+        Self { ordinary, ..self }
+    }
+}
