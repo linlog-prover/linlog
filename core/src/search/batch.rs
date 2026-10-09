@@ -20,11 +20,7 @@
 //! use linlog::search::{self, Verdict};
 //! use linlog::search::batch::{Options, Problem, prove};
 //!
-//! let problems = ["A |- A", "A |- B"].map(|text| Problem {
-//!     name: text.to_owned(),
-//!     sequent: text.parse().unwrap(),
-//!     mode: None,
-//! });
+//! let problems = ["A |- A", "A |- B"].map(|text| Problem::new(text, text.parse().unwrap(), None));
 //! let search = search::Options::default();
 //! let proved: Vec<bool> = prove(problems, &Options::default(), &search, &Limits::default())
 //!     .map(|answer| matches!(answer.outcome.unwrap().verdict, Verdict::Proved(_)))
@@ -34,6 +30,8 @@
 
 use super::{Options as Search, Outcome};
 use crate::{Error, Limits, Mode, Sequent};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// How a batch spends the machine's threads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -55,13 +53,29 @@ pub enum Cores {
 /// How a batch shares the machine among its sequents. The options of each
 /// sequent's search and the limits it runs within are given beside them;
 /// `Limits::memory_bytes` is each search's bound.
+///
+/// # JSON
+///
+/// With the feature `serialize` an object of the fields, a missing one
+/// taking its default and a misspelt one refused: `"mode"` as a mode is
+/// written, `"cores"` one of `"auto"`, `"across"` and `"within"`,
+/// `"workers"` a number, `"total_memory_bytes"` a number or `null` for no
+/// bound.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(default, deny_unknown_fields)
+)]
 pub struct Options {
     /// The mode of a problem that names none.
     pub mode: Mode,
     /// Where the threads go.
     pub cores: Cores,
-    /// The most sequents decided at once, across the sequents.
+    /// The most sequents decided at once, across the sequents: at least
+    /// one, and more than [`MAX_JOBS`](Search::MAX_JOBS) are taken as that
+    /// many.
     pub workers: usize,
     /// The most memory all the searches of the batch may hold together,
     /// or `None` for no bound but each search's.
@@ -75,6 +89,34 @@ impl Options {
     /// The default bound of the whole batch, 4 GiB: four searches at the
     /// default bound of each.
     pub const DEFAULT_TOTAL_MEMORY_BYTES: u64 = 4 << 30;
+
+    /// Returns the options with another default [`mode`](Self::mode).
+    #[must_use]
+    pub const fn with_mode(self, mode: Mode) -> Self {
+        Self { mode, ..self }
+    }
+
+    /// Returns the options with another use of the [`cores`](Self::cores).
+    #[must_use]
+    pub const fn with_cores(self, cores: Cores) -> Self {
+        Self { cores, ..self }
+    }
+
+    /// Returns the options with another number of [`workers`](Self::workers).
+    #[must_use]
+    pub const fn with_workers(self, workers: usize) -> Self {
+        Self { workers, ..self }
+    }
+
+    /// Returns the options with another bound on the whole batch's memory
+    /// ([`total_memory_bytes`](Self::total_memory_bytes)).
+    #[must_use]
+    pub const fn with_total_memory_bytes(self, total_memory_bytes: Option<u64>) -> Self {
+        Self {
+            total_memory_bytes,
+            ..self
+        }
+    }
 
     /// Returns how the batch runs, `within` its sequents or across them:
     /// across, as many workers as the batch's bound holds searches at the
@@ -95,17 +137,18 @@ impl Options {
                 limits,
             };
         }
+        let most = self.workers.clamp(1, Search::MAX_JOBS);
         let workers = match (limits.memory_bytes, total) {
             (Some(each), Some(total)) => usize::try_from(total / each.max(1)).unwrap_or(usize::MAX),
             (None, Some(total)) => {
-                limits.memory_bytes = Some(total / self.workers.max(1) as u64);
+                limits.memory_bytes = Some(total / u64::try_from(most).unwrap_or(u64::MAX));
                 usize::MAX
             }
             (_, None) => usize::MAX,
         };
         limits.memory_bytes = smaller(limits.memory_bytes, total);
         Plan {
-            workers: workers.clamp(1, self.workers.max(1)),
+            workers: workers.clamp(1, most),
             search: search.with_jobs(1),
             limits,
         }
@@ -135,6 +178,7 @@ impl Default for Options {
 }
 
 /// How a batch runs.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Plan {
     /// The sequents decided at once.
@@ -145,7 +189,20 @@ pub struct Plan {
     pub limits: Limits,
 }
 
+impl Plan {
+    /// Returns the plan of one sequent decided alone, with these options
+    /// and limits.
+    pub const fn alone(search: Search, limits: Limits) -> Self {
+        Self {
+            workers: 1,
+            search,
+            limits,
+        }
+    }
+}
+
 /// A problem of [`prove`].
+#[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct Problem {
     /// Its name, which its answer carries.
@@ -156,7 +213,20 @@ pub struct Problem {
     pub mode: Option<Mode>,
 }
 
+impl Problem {
+    /// Returns the problem `name` of deciding `sequent`, in `mode` or the
+    /// batch's.
+    pub fn new(name: impl Into<String>, sequent: Sequent, mode: Option<Mode>) -> Self {
+        Self {
+            name: name.into(),
+            sequent,
+            mode,
+        }
+    }
+}
+
 /// The answer to a problem of [`prove`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct Answer {
     /// The problem's name.
@@ -166,8 +236,9 @@ pub struct Answer {
 }
 
 /// Decides the problems, and returns their answers in order as they are
-/// decided. Each search ends by the options' bounds; a front end that
-/// needs a time limit or a stop of its own calls [`run`].
+/// decided. Each search ends by the limits or when the results are
+/// cancelled ([`Results::cancel`], or dropped); a front end that needs a
+/// time limit of its own calls [`run`].
 pub fn prove(
     problems: impl IntoIterator<Item = Problem, IntoIter: Send + 'static>,
     options: &Options,
@@ -180,11 +251,11 @@ pub fn prove(
         options,
         search,
         limits,
-        move |problem: Problem, plan: &Plan| {
+        move |problem: Problem, plan: &Plan, cancel: &Cancel| {
             let mode = problem.mode.unwrap_or(mode);
             let outcome =
                 super::prove_within(&problem.sequent, mode, &plan.search, &plan.limits, |_| {
-                    false
+                    cancel.is_cancelled()
                 });
             Answer {
                 outcome,
@@ -199,13 +270,14 @@ pub fn prove(
 /// as soon as it and those before it are done. `Cores::Auto` reads up to
 /// as many problems as there are workers before the first starts; a
 /// stream whose next problem waits on an answer wants `Across` or
-/// `Within`. A panic in `work` is resumed by the iterator.
+/// `Within`. `work` is handed the batch's [`Cancel`], which its stop asks.
+/// A panic in `work` is resumed by the iterator.
 pub fn run<P, R>(
     problems: impl IntoIterator<Item = P, IntoIter: Send + 'static>,
     options: &Options,
     search: &Search,
     limits: &Limits,
-    work: impl Fn(P, &Plan) -> R + Send + Sync + 'static,
+    work: impl Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
 ) -> Results<R>
 where
     P: Send + 'static,
@@ -223,21 +295,76 @@ where
     };
     let problems = first.into_iter().chain(problems);
     let plan = options.plan(within, search, limits);
+    let cancel = Cancel::default();
     #[cfg(feature = "parallel")]
     if plan.workers > 1 {
-        return Results(Inner::Workers(workers::Workers::start(
-            Box::new(problems),
-            plan,
-            work,
-        )));
+        return Results {
+            inner: Inner::Workers(workers::Workers::start(
+                Box::new(problems),
+                plan,
+                cancel.clone(),
+                work,
+            )),
+            cancel,
+        };
     }
-    Results(Inner::Here(Box::new(
-        problems.map(move |problem| work(problem, &plan)),
-    )))
+    let canceller = cancel.clone();
+    Results {
+        inner: Inner::Here(Box::new(
+            problems.map(move |problem| work(problem, &plan, &canceller)),
+        )),
+        cancel,
+    }
 }
 
-/// The results of a batch, in the order of its problems.
-pub struct Results<R>(Inner<R>);
+/// Asks the work of a batch to end: [`Results::cancel`] raises it, and so
+/// does dropping the results; the work's stop asks it, so a search in
+/// flight ends as `Unknown(Reason::Stopped)`.
+#[derive(Clone, Debug, Default)]
+pub struct Cancel(Arc<AtomicBool>);
+
+impl Cancel {
+    /// Returns whether the batch was cancelled.
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// Cancels the batch.
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
+
+/// The results of a batch, in the order of its problems. Dropping them
+/// cancels the work still running.
+pub struct Results<R> {
+    /// Where the work runs.
+    inner: Inner<R>,
+    /// What the work asks whether to end.
+    cancel: Cancel,
+}
+
+impl<R> Results<R> {
+    /// Cancels the work: every search in flight ends at its next poll, and
+    /// the problems not yet begun are answered as their work answers a
+    /// cancelled batch.
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    /// Returns a handle that cancels the work from elsewhere, such as a
+    /// handler of an interruption.
+    pub fn canceller(&self) -> Cancel {
+        self.cancel.clone()
+    }
+}
+
+impl<R> Drop for Results<R> {
+    /// Cancels the work still running.
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
 
 impl<R> std::fmt::Debug for Results<R> {
     /// Names the type: what it holds is the workers' state.
@@ -259,7 +386,7 @@ impl<R> Iterator for Results<R> {
     type Item = R;
 
     fn next(&mut self) -> Option<R> {
-        match &mut self.0 {
+        match &mut self.inner {
             Inner::Here(results) => results.next(),
             #[cfg(feature = "parallel")]
             Inner::Workers(workers) => workers.next(),
@@ -270,7 +397,7 @@ impl<R> Iterator for Results<R> {
 /// The workers of a batch, on threads of their own.
 #[cfg(feature = "parallel")]
 mod workers {
-    use super::Plan;
+    use super::{Cancel, Plan};
     use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
@@ -320,7 +447,8 @@ mod workers {
         pub(super) fn start<P: Send + 'static>(
             problems: Box<dyn Iterator<Item = P> + Send>,
             plan: Plan,
-            work: impl Fn(P, &Plan) -> R + Send + Sync + 'static,
+            cancel: Cancel,
+            work: impl Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
         ) -> Self {
             let shared = Arc::new(Shared {
                 queue: Mutex::new((problems, 0, false)),
@@ -333,7 +461,7 @@ mod workers {
             let threads = (0..plan.workers)
                 .map(|_| {
                     let (shared, work, sender) = (shared.clone(), work.clone(), sender.clone());
-                    let plan = plan.clone();
+                    let (plan, cancel) = (plan.clone(), cancel.clone());
                     std::thread::Builder::new()
                         .name("batch".into())
                         .stack_size(plan.limits.stack_bytes())
@@ -360,7 +488,7 @@ mod workers {
                                     queue.1 += 1;
                                     (queue.1 - 1, problem)
                                 };
-                                if sender.send((place, work(problem, &plan))).is_err() {
+                                if sender.send((place, work(problem, &plan, &cancel))).is_err() {
                                     return;
                                 }
                             }
@@ -425,7 +553,7 @@ mod workers {
 #[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::*;
-    use crate::search::{Jobs, Verdict};
+    use crate::search::{Jobs, Reason, Verdict};
 
     /// The answers come in the order of the problems, on one worker and on
     /// several, whatever order the workers finish in.
@@ -441,11 +569,7 @@ mod tests {
         for (workers, cores) in [(1, Cores::Auto), (4, Cores::Across), (4, Cores::Auto)] {
             let problems: Vec<Problem> = texts
                 .iter()
-                .map(|t| Problem {
-                    name: t.clone(),
-                    sequent: t.parse().unwrap(),
-                    mode: None,
-                })
+                .map(|t| Problem::new(t.clone(), t.parse().unwrap(), None))
                 .collect();
             let options = Options {
                 workers,
@@ -496,5 +620,42 @@ mod tests {
             (within.workers, within.limits.memory_bytes),
             (1, Some(1 << 29))
         );
+        // Without a bound the workers are what was asked, at most as many
+        // as the options take.
+        let unbounded = options.with_workers(100_000).with_total_memory_bytes(None);
+        let plan = unbounded.plan(false, &search, &Limits::UNBOUNDED);
+        assert_eq!(plan.workers, Search::MAX_JOBS);
+    }
+
+    /// Cancelled results end the searches in flight and those not begun,
+    /// on one worker and on several.
+    #[test]
+    fn cancelled_results_stop_their_searches() {
+        // 2⁴² splits that no count cuts under weakening, which no search
+        // gets through.
+        let literals: Vec<String> = (0..40).map(|i| format!("x{i}")).collect();
+        let text = format!(
+            "|- p * q, 0 * (~p par ~p), 0 * (~q par ~q), {}",
+            literals.join(", ")
+        );
+        let sequent: Sequent = text.parse().unwrap();
+        for workers in [1, 2] {
+            let problems: Vec<Problem> = (0..4)
+                .map(|i| Problem::new(i.to_string(), sequent.clone(), None))
+                .collect();
+            let options = Options::default()
+                .with_mode(Mode::CLASSICAL.with_affine())
+                .with_workers(workers)
+                .with_cores(Cores::Across);
+            let results = prove(problems, &options, &Search::default(), &Limits::default());
+            results.cancel();
+            for answer in results {
+                let verdict = answer.outcome.unwrap().verdict;
+                assert!(
+                    matches!(verdict, Verdict::Unknown(Reason::Stopped)),
+                    "{verdict:?}"
+                );
+            }
+        }
     }
 }

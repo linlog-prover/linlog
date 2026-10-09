@@ -41,6 +41,16 @@ in one call, the library's side of `linlog prove`'s batch.
   goes within when the batch is shorter; it blocks on a stream, so a
   front end maps a stream to `Within` or `Across` itself (the command
   takes `Within`).
-- `Options` has no serde yet: it holds `search::Options`, which has none;
-  `Cores` has it. When the search options get their wire form the batch's
-  derive it too, and a front end holds both as one JSON value.
+- **`Options` is plain data** (`#[non_exhaustive]`, `with_*`, serde with
+  defaults and unknown keys refused); the search's options and the
+  limits are the batch's arguments beside it, and `Settings` holds all
+  three as one JSON value. `workers` is clamped to `search::Options::
+  MAX_JOBS` where the plan reads it, as `jobs` is.
+- **`Results` cancels**: `run` hands every work call the batch's
+  `Cancel`, `Results::cancel` and `canceller` raise it, and dropping the
+  results does too; `prove`'s stop asks it, so the searches in flight
+  end as `Unknown(Reason::Stopped)` and the problems not begun are
+  answered at once (`cancelled_results_stop_their_searches`). The
+  command keeps its own interruption flag and ignores the cancel.
+  `Problem::new` and `Plan::alone` build the two non-exhaustive values
+  a caller makes.

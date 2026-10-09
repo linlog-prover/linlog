@@ -913,21 +913,21 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
         CoresArg::Within => Cores::Within,
     };
     let machine = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let options = batch::Options {
-        mode: args.mode.mode(),
-        cores,
-        workers: args
-            .batch
-            .workers
-            .unwrap_or(machine)
-            .clamp(1, Options::MAX_JOBS),
-        total_memory_bytes: match args.batch.batch_memory {
+    let options = batch::Options::default()
+        .with_mode(args.mode.mode())
+        .with_cores(cores)
+        .with_workers(
+            args.batch
+                .workers
+                .unwrap_or(machine)
+                .clamp(1, Options::MAX_JOBS),
+        )
+        .with_total_memory_bytes(match args.batch.batch_memory {
             Some(limit) => limit.0,
             None => {
                 Some(machine_memory().map_or(batch::Options::DEFAULT_TOTAL_MEMORY_BYTES, |m| m / 2))
             }
-        },
-    };
+        });
     let mut entries = Entries::new(args)?;
     if let Some(name) = &args.batch.entry_name {
         let mut entry = entries.next().ok_or_else(|| anyhow!("no sequent given"))?;
@@ -938,11 +938,7 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
             .as_deref()
             .map(mode_named)
             .transpose()?;
-        let plan = batch::Plan {
-            workers: 1,
-            search,
-            limits,
-        };
+        let plan = batch::Plan::alone(search, limits);
         return one(args, show, threads, directory, &plan, entry);
     }
     catch_interrupt();
@@ -956,9 +952,15 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
     let worker = shared.clone();
     let stack = limits.stack_bytes();
     on_large_stack(stack, move || {
-        let results = batch::run(entries, &options, &search, &limits, move |entry, plan| {
-            worker.answer(entry, plan)
-        });
+        // The command's interruption ends the searches; the batch's own
+        // cancel is never raised here.
+        let results = batch::run(
+            entries,
+            &options,
+            &search,
+            &limits,
+            move |entry, plan, _| worker.answer(entry, plan),
+        );
         let mut worst = Status::Yes;
         let mut stdout = std::io::stdout().lock();
         for done in results {

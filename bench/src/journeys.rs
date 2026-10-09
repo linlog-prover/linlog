@@ -385,17 +385,10 @@ fn batch() -> Result<()> {
         .iter()
         .map(|family| {
             let problem = family.instance(family.sizes[0], 0);
-            batch::Problem {
-                name: problem.name,
-                sequent: problem.sequent,
-                mode: Some(problem.mode),
-            }
+            batch::Problem::new(problem.name, problem.sequent, Some(problem.mode))
         })
         .collect();
-    let options = batch::Options {
-        cores: batch::Cores::Across,
-        ..batch::Options::default()
-    };
+    let options = batch::Options::default().with_cores(batch::Cores::Across);
     // The rarer literal's search alone, as `options` takes it with
     // exponentials, for every problem.
     let search = Options::default()
