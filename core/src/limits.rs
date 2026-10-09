@@ -19,7 +19,7 @@
 //! |---|---|---|
 //! | `Sequent::parse_within`, `lltp::read`, `mist::read`, `ordinary::Sequent::parse_within`, `ordinary::read_tptp`, `wire::upgrade`, `wire::Within` | `occurrences` | never: linear in the input |
 //! | `Forest::within`, `Interactive::within`, `ordinary::translate` | `occurrences` | never: linear in the bound |
-//! | `search::prove_within`, `search::prove_goal` | `memory_bytes`, `recursion_depth`, `occurrences` | at every node an engine searches, and in its long passes |
+//! | `search::prove_within`, `search::prove_goal` | `memory_bytes`, `recursion_depth`, `occurrences`; `work` for the check of the proof found | at every node an engine searches, and in its long passes |
 //! | `search::batch::run`, `search::batch::prove` | each search's limits, the batch's memory shared out | through each problem's work, and `Results::cancel` |
 //! | `Proof::check_within` | `memory_bytes`, `work` | every 4 096 nodes or 65 536 units of work |
 //! | `Proof::derivation_size`, `Proof::derivation_within`, `Interactive::derivation_within` | `derivation_bytes`, `memory_bytes` | as the check, then at every inference built |
@@ -66,8 +66,10 @@ pub struct Limits {
     pub derivation_bytes: Option<u64>,
     /// The most units of work a call may do: the proof checker counts a
     /// node or an entry of a sequent its rules handle, the ordinary
-    /// checker an inference. A search does not read it: its engines count
-    /// their own work for the stop alone.
+    /// checker an inference. A search's engines do not read it (they count
+    /// their own work for the stop alone), but the check of the proof a
+    /// search found does, and refuses with
+    /// `Error::Check(CheckError::Refused)`.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub work: Option<u64>,
     /// The deepest recursion on any one stack; every thread the library

@@ -1077,7 +1077,8 @@ pub enum Schedule {
 /// fragment and engine to use instead of the detected ones. The defaults
 /// suit a sequent of a few hundred occurrences on a thread with the usual
 /// stack; the bounds on memory, occurrences and recursion are the
-/// [`Limits`] a search is given.
+/// [`Limits`] a search is given, whose bound on work binds the check of
+/// the proof found.
 ///
 /// Every field has a builder, so that the options chain from the default.
 ///
