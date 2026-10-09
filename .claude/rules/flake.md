@@ -51,6 +51,16 @@ fetched, not committed (`nix build .#qcover -o bench/qcover`).
 `bench.nix` also has the `ratchet` check: `linlog-bench ratchet --check`
 under nixpkgs' valgrind (`valgrind.out`, since the package's first output
 is its manual) against `bench/ceilings.csv` (`bench.md`).
+`conventions.nix` holds three checks over the tracked tree but `plan/`
+and the benchmark data: `conventions` (the licence header on every
+`.rs`, `.nix`, `.toml`, `.sh`, `.py` and `.yml` file, within the first
+four lines so that a shebang may come first; no comment and no README
+line naming a step, a decision number or a file of the plan; `.claude/`
+is exempt), `typos` (configured by `typos.toml`, whose words of the
+domain are TPTP's `fof`, Rocq's `falso` and the like) and `shear`
+(cargo-shear in a crane derivation, which reads the vendored
+dependencies offline). The spec is outside the plan grep because it
+names Andreoli's rules D1 and D2.
 `devshell.nix` carries cargo-mutants and cargo-nextest for
 `mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the

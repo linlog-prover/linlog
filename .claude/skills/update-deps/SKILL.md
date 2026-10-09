@@ -60,7 +60,7 @@ cargo update
 Verify:
 
 ```sh
-nix flake check                     # build, clippy, tests (release and debug assertions), rustdoc, cargo-deny, cargo-hack, export, rocq, bench, deadnix, actionlint, formatting, claude-hooks
+nix flake check                     # build, clippy, tests (release and debug assertions), rustdoc, cargo-deny, cargo-hack, export, rocq, bench, ratchet, deadnix, actionlint, formatting, claude-hooks, conventions, typos, shear
 cargo deny check advisories         # online; the flake check cannot fetch the database
 ```
 

@@ -1,0 +1,36 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# The `typos' check (modules/conventions.nix). The plan's notes and reports,
+# and the data files, are not checked: they quote names and identifiers of
+# other projects.
+[files]
+extend-exclude = [
+  "plan/",
+  "bench/results/",
+  "bench/problems/",
+  "bench/targets/",
+  "bench/counts-against-time/",
+  "bench/defaults/",
+  "bench/reruns.txt",
+  "cli/tests/lock/",
+  "core/tests/lock/",
+  "core/tests/snapshots/",
+  "mutants/baseline/",
+  "*.csv",
+]
+
+# Words of the domain that look like misspellings.
+[default.extend-words]
+# TPTP's first-order form, `fof(name, role, formula)`.
+fof = "fof"
+# Rocq's name of the false proposition.
+falso = "falso"
+# Classical and multiplicative-additive intuitionistic linear logic.
+CLL = "CLL"
+MAILL = "MAILL"
+# FoSSaCS, a conference.
+Fo = "Fo"
+# A field named after a plural of `&`, and a hyphenated prefix.
+withs = "withs"
+mis = "mis"

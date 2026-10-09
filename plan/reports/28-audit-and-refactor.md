@@ -34,9 +34,9 @@ its evidence (a commit, a file, a command's result) once it is done.
 
 | item | state | evidence |
 |---|---|---|
-| 1.1 rubric, `plan/notes/audit-rubric.md` | open | |
-| 1.2 machine checks in `nix flake check` | open | |
-| 1.3 audit workflow, rounds and critic | open | |
+| 1.1 rubric, `plan/notes/audit-rubric.md` | done | ad4794af |
+| 1.2 machine checks in `nix flake check` | done | the commit "Check the conventions, spelling and unused dependencies, and lint with clippy's pedantic group"; gate passed, the five checks built, planted faults caught |
+| 1.3 audit workflow, rounds and critic | running | `wf_715f365e-ce0` from 03:52 (17 reviewers, merge, cross-examination, critic, up to two gap rounds); resume with `Workflow({scriptPath: "~/.claude/projects/-home-tux-Projects-own-linlog/2fda1898-7f45-4f9b-b25c-cd89c7609bb8/workflows/scripts/step28-audit-wf_715f365e-ce0.js", resumeFromRunId: "wf_715f365e-ce0"})`; its agents' programs on cores 6 to 15, target dir `target/audit` |
 | 1.4 `plan/reports/28-audit.md` | open | |
 
 ### Stage 2: the design

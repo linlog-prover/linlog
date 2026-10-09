@@ -89,7 +89,7 @@ nix build .#qcover -o bench/qcover   # the qcover coverability suite's 176 .spec
 bench/targets.sh LABEL            # the focused engine's target set into bench/targets/LABEL.csv (two cores, about 20 min, detached)
 bench/baseline.sh --arm --fresh   # the whole baseline, unattended from 20:00 to 07:00 (about 11.5 h, so it may need a second night): bench/results/DAY/, bench/RESULTS.md
 
-nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks
+nix flake check   # build, clippy, test, test-debug-assertions (the tests with debug_assert! on, which the release profile drops), doc, deny, features (cargo-hack), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks, conventions (licence headers, no comment naming the plan), typos (spelling, typos.toml), shear (no unused dependency)
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
 gate              # what every commit that touches code passes: clippy, the tests (the behaviour lock among them), both cargo hack runs, the ratchet (about 4 min on four cores)
 ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv; ratchet --lower after a count went down
@@ -199,6 +199,12 @@ even to read.** Every operation goes through `jj`, including lock updates:
   `Cargo.toml` enforce it (rustc's `missing_docs` for public items, clippy's
   `missing_docs_in_private_items` for the rest). clap shows the docs on
   `cli/`'s argument types as `--help` text.
+- The lints are the workspace's, in `Cargo.toml`: clippy's pedantic group
+  and a list picked from the nursery and restriction groups, with the
+  ones that fire today allowed under a comment that says so. A commit
+  that fixes a lint's last site turns it on in the same change; a new
+  allowance is an `#[expect(lint, reason = "…")]` at the site, never a
+  crate-wide `allow`.
 - Dependencies are welcome where they earn their place: prefer well-made
   library code over an ad-hoc implementation, and among candidates the more
   popular, better maintained and faster one. Each serves a particular reason
