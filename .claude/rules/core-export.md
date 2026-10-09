@@ -376,7 +376,11 @@ for NanoYalla. What the code relies on:
   affine `wk` and `Rule::Open` are refused before anything is written
   (`Unsupported`), since the kernel has no such rule; atom names are
   escaped to identifiers and made distinct from `RESERVED` (keywords and
-  every kernel name a script mentions), the lemma's name and each other.
+  every kernel name a script mentions), the lemma's name and each other,
+  in one pass: the first clash of an identifier gets `'`, the later ones
+  `'2`, `'3` (a counter per identifier; escaping is not injective, `ä`
+  and `_e4_` are one identifier, and a prime more per clash made 2¹⁴
+  such names take two minutes, F3).
   `Options` (D15: `form`, `lemma`, `prelude`, non-exhaustive with
   `with_*`) is the configuration; no other choice is a constant.
   `lemma` is an `Identifier`, checked for its lexical form (an ASCII

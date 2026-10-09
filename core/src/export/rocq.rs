@@ -69,7 +69,7 @@
 use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
 use crate::Error;
-use crate::hash::HashSet;
+use crate::hash::{HashMap, HashSet};
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Derivation, InfId, Rule};
 use crate::sequents::{Sequent, Term, TermId, Visit, Walk};
@@ -358,21 +358,36 @@ fn identifier(name: &str) -> String {
 
 /// Returns the identifiers of atoms with these names, in their order,
 /// each free of clashes with the keywords, the kernel, `lemma` and the
-/// others.
+/// others: the first clash of an identifier gets `'` appended, the later
+/// ones `'2`, `'3` and so on.
 pub(crate) fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::with_capacity(atoms.len());
     // The names taken so far, so that a clash costs a lookup: comparing
     // with every earlier name was quadratic in the atoms, seconds before
     // the first poll on a dictionary of a hundred thousand.
     let mut taken: HashSet<String> = HashSet::default();
+    // Per identifier, the suffixes given to its clashes so far: names
+    // that all map to one identifier (`ä` and `_e4_`) each took a prime
+    // more than the last, quadratic in their number.
+    let mut clashes: HashMap<String, u32> = HashMap::default();
     for name in atoms {
-        let mut id = identifier(name);
-        while KEYWORDS.contains(&id.as_str())
-            || KERNEL.contains(&id.as_str())
-            || id == lemma
-            || taken.contains(&id)
-        {
-            id.push('\'');
+        let base = identifier(name);
+        let free = |id: &str, taken: &HashSet<String>| {
+            !KEYWORDS.contains(&id) && !KERNEL.contains(&id) && id != lemma && !taken.contains(id)
+        };
+        let mut id = base.clone();
+        if !free(&id, &taken) {
+            let suffix = clashes.entry(base.clone()).or_insert(0);
+            loop {
+                *suffix += 1;
+                id = match *suffix {
+                    1 => format!("{base}'"),
+                    n => format!("{base}'{n}"),
+                };
+                if free(&id, &taken) {
+                    break;
+                }
+            }
         }
         taken.insert(id.clone());
         names.push(id);
@@ -794,6 +809,14 @@ mod tests {
         assert_eq!(
             identifiers(&atoms, "certificate"),
             ["tens'", "with'", "certificate'", "_3b1_", "_3b1_'", "_'"]
+        );
+        // Names that all map to one identifier take one suffix each.
+        let atoms: Vec<String> = ["ää", "ä_e4_", "_e4_ä", "_e4__e4_"]
+            .map(String::from)
+            .into();
+        assert_eq!(
+            identifiers(&atoms, "certificate"),
+            ["_e4__e4_", "_e4__e4_'", "_e4__e4_'2", "_e4__e4_'3"]
         );
     }
 }
