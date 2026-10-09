@@ -107,8 +107,19 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 - **The pass counts what it holds and refuses to pass its bound**
   (`Proof::check_within(mode, &limits, stop)` within
   `limits.memory_bytes`, `check(mode)` being that within the default,
-  1 GiB; `None` for no bound; `limits.work` bounds the nodes visited and
-  `stop` is asked every 4 096). The refusal is
+  1 GiB; `None` for no bound; `limits.work` bounds the units of work,
+  and `stop` is asked every 4 096 nodes or `POLL_WORK` (65 536) units,
+  whichever comes first). **A unit of work is a node, or an entry of a
+  premise's sequent handed to its rule** (`State::entries`, counted in
+  `Pass::premise`): a rule copies, pours or compares what it is handed,
+  so a node read by many others with a large sequent costs each of them
+  that sequent, and the memory bound does not see it when every copy is
+  consumed at once. Counted by nodes, a file of 8.6 MB (a `⊤` under
+  128 000 `⊥` steps, then 128 000 `&` nodes each reading that node) took
+  83 s between polls seconds apart, within 49 MB (H25,
+  `counts_the_work_of_shared_premises`); such a check is now stoppable
+  and bounded. It stays quadratic: the sequents are what the proof
+  means, and comparing them per `&` is the work. The refusal is
   `CheckError::Refused(Refused { node, refusal: Refusal::Memory { phase:
   Check, .. } })` at the node the pass had come to, a variant of its own
   beside every fault of a proof (`CheckError::Invalid`): **a refusal is

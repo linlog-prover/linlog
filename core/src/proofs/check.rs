@@ -298,6 +298,13 @@ impl State {
         Self::OWN + self.theta.bytes() + self.gamma.bytes()
     }
 
+    /// Returns the entries of the sequent's two tables, which a rule that
+    /// copies, pours or compares it handles: distinct occurrence ids, so
+    /// fewer than 2³³.
+    fn entries(&self) -> u64 {
+        (self.theta.len() + self.gamma.counts.len()) as u64
+    }
+
     /// Returns the sequent as ids for an error report.
     fn to_dyadic(&self) -> Dyadic {
         let mut theta: Vec<Member> = self.theta.iter().map(Member::from).collect();
@@ -551,26 +558,34 @@ enum Halt {
         /// The bound, in bytes.
         limit: u64,
     },
-    /// The pass has visited as many nodes as its bound on work allows.
+    /// The pass has done as much work as its bound allows.
     Work {
-        /// The bound, in nodes.
+        /// The bound, in units of work ([`Allowance`]).
         limit: u64,
     },
     /// The caller's stop ended the pass.
     Stopped,
 }
 
-/// How many nodes a pass visits between two polls of its stop.
+/// How many nodes a pass visits between two polls of its stop, at most.
 const POLL: usize = 4096;
 
+/// How many units of work a pass does between two polls of its stop, at
+/// most: a node with large shared premises does many.
+const POLL_WORK: u64 = 1 << 16;
+
 /// What a pass of the checker may spend, and whom it asks whether to go
-/// on: the memory bound, the most nodes it may visit, the phase a refusal
-/// names, and the caller's stop, asked every [`POLL`] nodes with the
-/// nodes visited as the work done.
+/// on: the memory bound, the most work it may do, the phase a refusal
+/// names, and the caller's stop, asked every [`POLL`] nodes or
+/// [`POLL_WORK`] units of work, whichever comes first, with the work
+/// done. A unit of work is a node, or an entry of a premise's sequent
+/// that the node's rule is handed (and copies, pours or compares): a
+/// node read by many others with a large sequent costs each of them its
+/// size, so a file of a few megabytes can ask for 10¹⁰ units.
 pub(crate) struct Allowance<'s> {
     /// The most bytes the pass may hold, or `None` for any number.
     pub(crate) memory: Option<u64>,
-    /// The most nodes the pass may visit, or `None` for any number.
+    /// The most units of work the pass may do, or `None` for any number.
     pub(crate) work: Option<u64>,
     /// What the pass is for.
     pub(crate) phase: Phase,
@@ -990,8 +1005,15 @@ struct Pass<'a, 's, O> {
     shared: Vec<OccId>,
     /// The most bytes the pass may hold, or none for any number.
     memory: Option<u64>,
-    /// The most nodes the pass may visit, or none for any number.
+    /// The most units of work the pass may do, or none for any number.
     work: Option<u64>,
+    /// The units of work done: nodes visited and the entries of the
+    /// premises handed to their rules, each premise's fewer than 2³³ and
+    /// at most two premises a node, of fewer than 2³² nodes: below 2⁶⁶,
+    /// so the count saturates.
+    done: u64,
+    /// The work done when the stop was last asked.
+    polled: u64,
     /// What the pass is for, which its progress names.
     phase: Phase,
     /// The caller's stop, asked every [`POLL`] nodes.
@@ -1044,6 +1066,8 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             stop: allowance.stop,
             held,
             passed: 0,
+            done: 0,
+            polled: 0,
         }
     }
 
@@ -1066,17 +1090,18 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
     /// than its bound.
     fn run(&mut self, end: usize) -> Result<(), (NodeId, Halt)> {
         for id in self.proof.ids().take(end) {
-            // Below 2³² nodes, so the counts are exact.
-            let done = id.index() as u64;
             if let Some(limit) = self.work
-                && done >= limit
+                && self.done >= limit
             {
                 return Err((id, Halt::Work { limit }));
             }
-            if (id.index() + 1).is_multiple_of(POLL)
-                && (self.stop)(Progress::new(self.phase, POLL as u64, done + 1))
-            {
-                return Err((id, Halt::Stopped));
+            self.done = self.done.saturating_add(1);
+            if (id.index() + 1).is_multiple_of(POLL) || self.done - self.polled >= POLL_WORK {
+                let since = self.done - self.polled;
+                self.polled = self.done;
+                if (self.stop)(Progress::new(self.phase, since, self.done)) {
+                    return Err((id, Halt::Stopped));
+                }
             }
             let mut facts = Facts::default();
             self.passed = 0;
@@ -1130,7 +1155,9 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         self.readers[p.index()] -= 1;
         let last = self.readers[p.index()] == 0;
         let kept = "a premise's sequent is kept until its last reader";
-        let bytes = self.live[p.index()].as_deref().expect(kept).bytes();
+        let state = self.live[p.index()].as_deref().expect(kept);
+        let bytes = state.bytes();
+        self.done = self.done.saturating_add(state.entries());
         // A copy takes what its original does, and is counted before it is
         // made; the original is counted already.
         if !last {
@@ -2141,6 +2168,67 @@ mod tests {
             ),
             other => panic!("{other:?}"),
         }
+    }
+
+    /// A proof of `⊢ ⊤, ⊥, …, ⊥, ⊥ & ⊥, …, ⊥ & ⊥` with `width` formulas
+    /// `⊥` and `length` of `⊥ & ⊥`: the `⊥` formulas introduced one by one
+    /// over the `⊤`, then a chain of `&` nodes each of whose right premises
+    /// is that one node, which absorbs both of its subformulas. The chain
+    /// is a proof file linear in its length whose pass handles the
+    /// node's sequent at every link.
+    fn chained(width: u32, length: u32) -> Proof {
+        use crate::sequents::{Term, TermId};
+        use Node::*;
+        let mut roots = vec![TermId::new(0)];
+        roots.extend((0..width).map(|_| TermId::new(1)));
+        roots.extend((0..length).map(|_| TermId::new(2)));
+        let sequent = Sequent {
+            terms: vec![
+                Term::Top,
+                Term::Bot,
+                Term::With(TermId::new(1), TermId::new(1)),
+            ],
+            roots,
+            atoms: vec![],
+            antecedents: None,
+        };
+        // Occurrences: 0 is ⊤, 1 to `width` the ⊥ formulas, then each
+        // `⊥ & ⊥` and its two subformulas.
+        let mut nodes = vec![Top(o(0))];
+        for i in 1..=width {
+            nodes.push(Bot(o(i), n(i - 1)));
+        }
+        let context = n(width);
+        let mut previous = context;
+        for j in 0..length {
+            nodes.push(With(o(width + 1 + 3 * j), previous, context));
+            previous = n(nodes.len() as u32 - 1);
+        }
+        Proof::new(Forest::new(&sequent).unwrap(), nodes, previous).unwrap()
+    }
+
+    /// A node that many others read costs each of them its sequent: the
+    /// pass counts that work, asks the stop by it and refuses past a bound
+    /// on it. Counted by nodes, an 8.6 MB file of this shape took 83 s,
+    /// between two polls a few seconds apart.
+    #[test]
+    fn counts_the_work_of_shared_premises() {
+        let (proof, mode) = (chained(2000, 2000), Mode::CLASSICAL);
+        let mut polls = 0;
+        let checked = proof.check_within(mode, &crate::Limits::default(), |_| {
+            polls += 1;
+            false
+        });
+        assert_eq!(checked, Ok(()));
+        // 4 001 nodes, one poll by their count; each link handles two
+        // sequents of thousands of formulas.
+        assert!(polls > 100, "{polls} polls");
+        let limits = crate::Limits::default().with_work(Some(40_010));
+        let e = proof.check_within(mode, &limits, |_| false).unwrap_err();
+        assert!(
+            matches!(&e, CheckError::Refused(r) if r.refusal == Refusal::Work { limit: 40_010 }),
+            "{e}"
+        );
     }
 
     /// A check holds no more than it is allowed: a proof file of a megabyte

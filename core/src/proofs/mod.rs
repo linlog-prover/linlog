@@ -546,8 +546,12 @@ impl Proof {
     }
 
     /// Checks the proof as [`check`](Self::check) does, holding
-    /// `limits.memory_bytes` at most, visiting `limits.work` nodes at
-    /// most, and asking `stop` every 4 096 nodes. A check that a bound or
+    /// `limits.memory_bytes` at most, doing `limits.work` units of work at
+    /// most, and asking `stop` every 4 096 nodes or 65 536 units, whichever
+    /// comes first. A unit is a node, or an entry of a premise's sequent
+    /// that its rule handles: a node that many others read, with a large
+    /// sequent, costs each of them that sequent, which a short file can
+    /// make quadratic in its length. A check that a bound or
     /// the stop ends answers [`CheckError::Refused`]: the proof is then
     /// neither valid nor invalid. What is counted is what the pass holds
     /// beyond the proof and its forest: twelve bytes for every node, and
@@ -608,8 +612,8 @@ impl Proof {
     /// Unfolds the proof as [`derivation`](Self::derivation) does, shown
     /// as `view` says, within `limits.derivation_bytes` and
     /// `limits.memory_bytes`, and until `stop` returns true, which is
-    /// asked every 4 096 nodes of the checker's passes and once per node
-    /// unfolded.
+    /// asked as [`check_within`](Self::check_within) asks it in the
+    /// checker's passes and once per node unfolded.
     ///
     /// # Errors
     ///
