@@ -7,7 +7,8 @@ marks **[28]**; what it marks **[N]** is the place step N fills, fixed
 now so that step N needs no breaking change after 0.1.0. Written by step
 28's design stage (2026-10-09) from three drafts and two independent
 judgements (`plan/notes/api-drafts/`), walked through against every
-later step (section 12) and measured by a spike (section 11). It starts
+later step (section 12), measured by a spike (section 11) and reviewed
+in a fresh context (end of section 12). It starts
 from the recommended answers to the author's open questions (C1 to C3,
 T1 to T7, HD1 to HD5 of `plan/reports/28-audit.md`), all provisional;
 section 14 says what each other answer would change, and lists the
@@ -50,7 +51,14 @@ public enum, every struct with public fields a later step extends, and
 every struct-like variant of a marked enum is `#[non_exhaustive]` (F1,
 R50); a variant of a marked enum that carries data has named fields, so a
 later step can add one (a `NetError` witness gains the box it lies in at
-33; walk-through 33). The derives a public type has are promised with it
+33; walk-through 33). Two exceptions, each for a reason: a newtype
+variant that wraps a whole `#[non_exhaustive]` error or refutation type
+of the crate, which grows inside (`Error::Check(CheckError)`,
+`Error::Parse(Box<ParseError>)`, `CheckError::Invalid(Box<Invalid>)`,
+`Fault::Shape(ShapeError)`, `Refutation::Unbalanced(Unbalanced)`); and
+an option's value written as one JSON scalar (`Jobs::Count(n)`,
+`Cadence::Every(n)`), which cannot gain a field without a new form.
+Every other positional variant becomes named at 28 (4.1 lists them). The derives a public type has are promised with it
 (`Copy`, `Eq`, `Hash` on `Limits`, `Mode`, `Statistics`, `Progress`):
 dropping one later is a break. Inside the crate a `match` over a closed enum names its variants:
 `clippy::wildcard_enum_match_arm` is denied on `search/`, `export/`,
@@ -130,7 +138,7 @@ linlog                      the re-exports of 2.2
 ├── refutation  (new)       Refutation, Unbalanced, Equation, StateEquation, Disproof
 ├── nets                    ProofStructure, VertexId (new), Criterion (new), NetError, Scratch
 ├── search                  prove, prove_within, prove_goal, engine_for, Goal, race (parallel),
-│   │                       Options, Schedule, Cadence, Engine, Bias, Outcome, Verdict,
+│   │                       Options, Jobs, Schedule, Cadence, Engine, Bias, Outcome, Verdict,
 │   │                       Reason, Statistics, Pool (parallel)
 │   └── batch               Options, Cores, Plan, Problem, Answer, Results, Cancel, prove, run, run_local
 ├── export                  Styles (from the command), Drawable (sealed);
@@ -152,7 +160,7 @@ form, the schema of record (7).
 pub use errors::{Error, ErrorKind};
 #[cfg(feature = "parse")] pub use errors::ParseError;
 pub use fragment::{Fragment, Mode};
-pub use limits::{Limits, Progress, Refusal};
+pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{Criterion, NetError, ProofStructure, VertexId};
 pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{Branch, CheckError, Derivation, InfId, Inference, Named, Node, NodeId, Proof, Rule,
@@ -214,7 +222,7 @@ have no alias (D18, no compatibility aliases before 0.1.0). All rows are
 | `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` | `Error` variants (`InvalidProof`, `Refused`, `WriteFailed`, `RenderFailed`, …) | F8, F36, S18 |
 | `Rule` (34 variants), `Rule::ALL: [Rule; 34]`, `classical()`, `intuitionistic()` | `Rule` (15 one-sided rules and `Open`), `ALL: &'static [Rule]`, `Named { rule, side }` with the two-sided names | F60, R61, D-5 |
 | `Inference`'s public fields | `#[non_exhaustive]`, private fields, accessors (`sequent() -> &[Member]`, `rule() -> Named`, …) | F1, R61, R66 |
-| `Interactive::apply(goal, position, rule, left)`, `goal(InfId) -> &[OccId]`, `rules -> Vec<Rule>`, `new(&s, mode)`, `close_all -> Result<Vec<…>>`, `inferences()` | `apply(GoalId, &Step)`, `goal(GoalId) -> &[Member]`, `rules -> Vec<Applicable>`, `within(&s, mode, &Limits)` (`new` its defaults), `close_all -> Vec<(GoalId, Result<Outcome, Error>)>`; `inferences()` removed | F22, F27, F66, F68, F69, R91 |
+| `Interactive::apply(goal, position, rule, left)`, `goal(InfId) -> &[OccId]`, `rules -> Vec<Rule>`, `new(&s, mode)`, `close_all -> Result<Vec<…>>`, `inferences()` | `apply(GoalId, &Step)`, `goal(GoalId) -> Option<&[Member]>`, `rules -> Vec<Applicable>`, `within(&s, mode, &Limits)` (`new` its defaults), `close_all -> Vec<(GoalId, Result<Outcome, Error>)>`; `inferences()` removed | F22, F27, F66, F68, F69, R91 |
 | `Interactive::close_with` grafting any proof that checks against the goal | refuses a proof of another forest, of another goal, or that the session's mode forbids | F23 |
 | `proofs::Refusal` (a step refused) | `interactive::StepError` | P5 |
 | `ProofStructure::{new(forest, mix), from_links(forest, mix, …), from_proof(&p, mix), mix(), is_correct(), sequentialize()}`, links over `OccId` | `new(forest, Criterion)`, `from_links(…, Criterion, &[(VertexId, VertexId)])`, `from_proof(&p, Criterion, &Limits, stop)`, `criterion()`, `is_correct(stop)`, `sequentialize(&Limits, stop)`; links over `VertexId` | F10, F12, F49, R79, D-6 |
@@ -243,7 +251,7 @@ have no alias (D18, no compatibility aliases before 0.1.0). All rows are
 | `ordinary::Sequent::new -> Self`, `Formulas::add` unchecked, `Translation::target() -> &str`, `Image::read_back(&Derivation)`, `ordinary::Derivation::check()` | `-> Result<Self, Error>`, checked, `-> Target`, `read_back(&Proof, &Limits, stop)`, `check(&Limits, stop)`; `+ ordinary::decide` | F12, F13, R24, R113, R249, D-12 |
 | `families::Family::instance` (panics) | `-> Result<Instance, Error>` | F6 |
 | `sequents::fmt::{Walk, Visit}` crate-private, binary `Between` | public, `Visit::Between(TermId, index)` | R245, D-10 |
-| JSON keys `ids`, `var_dict`, `proof`, `memory_limit`, `once`; the mode as an object; `"reason": {"copy_bound": 3}` | `roots`, `atoms`, `nodes`, `limit_bytes`, removed with `StateEquation`'s new payload; the mode by name; tagged reasons and refutations; the old names read when `version` is absent | T1, F26, F86 |
+| JSON keys `ids`, `var_dict`, `proof`, `memory_limit`, `once`; the mode as an object; `"reason": {"copy_bound": 3}` | `roots`, `atoms`, `nodes`, `limit_bytes`, removed with `StateEquation`'s new payload; the mode by name; tagged reasons and refutations; no reader of the old names, the fixtures regenerated (7.1, 7.5) | T1, F26, F86, D18 |
 
 ### 2.5 Open and closed types
 
@@ -260,7 +268,7 @@ fields `Progress`, `Dyadic`, `Invalid`, `Refused`, `Size`, `Step`,
 `Applicable`, `Unbalanced`, `Equation`, `StateEquation`, `ParseError`,
 `Statistics`, `Outcome`; every struct-like variant of a marked enum.
 The option-valued enums are options (D15) and open too: `Compact`,
-`Sides`, `Form` (31 reserves `Form::Check`), `Cores`, `pdf::Date`; and
+`Sides`, `Form` (31 reserves `Form::Check`), `Cores`, `Jobs`, `pdf::Date`; and
 the public types the list would otherwise miss: `svg::Font`,
 `mist::Safety`, `ordinary::{Target, Outcome}`, `rocq::Identifier`,
 `typst::Length`, `Order` (36). Closed on purpose (P3): `Term`, `Kind`,
@@ -310,8 +318,8 @@ const _: () = assert!(size_of::<Term>() == 12);
   `|- Γ`: every text sequent has a turnstile), `lltp::read` and
   `mist::read` through the parser or their own count, `ordinary::
   translate` from the ordinary sequent's sides. `None` means the sides are
-  not known: a JSON sequent of the pre-release form, `Sequent::add`, a
-  sequent built in code that names no sides. The forest and the engines
+  not known: a JSON sequent without the key, `Sequent::add`, a sequent
+  built in code that names no sides. The forest and the engines
   ignore it; the reading takes the goal from it (3.6). It is part of
   equality. A JSON sequent writes the key whenever it is `Some`, `0`
   included, so a round trip keeps the rule (both judges caught a draft
@@ -332,8 +340,14 @@ const _: () = assert!(size_of::<Term>() == 12);
   the text syntax that are no keyword (`par`, `top`, `bot`) and no word
   reserved for later steps (`forall`, `exists`), which a text reader
   would read otherwise (HD5, H19: `Error::AtomName`; walk-through 30).
-  The text syntax grows by new tokens only; the reserved words are
-  listed on `Sequent`. [36] adds an ordered parse as a sibling of
+  Every reader refuses the reserved words from 28: `parse_within` and
+  `FromStr` as identifiers, with a message that names the word as
+  reserved (`|- forall` reads as an atom today), and the JSON, LLTP and
+  `.spec` readers as atom names (`AtomName`); `∀` and `∃` are refused
+  already. So 38's binders are new tokens, never a new meaning of text
+  that reads today; no fixture and no README example has such an atom,
+  so the lock does not move. The text syntax grows by new tokens only;
+  the reserved words are listed on `Sequent`. [36] adds an ordered parse as a sibling of
   `parse_within` that takes the order, since the dual of a product
   reverses its operands there (10.8); `FromStr` stays the commutative
   reader.
@@ -402,8 +416,15 @@ three drafts followed, and both judges chose it over them. The reasons:
   for the first-order engine's candidates (a CSR over the atom table, per
   atom, built only when a symbol has an arity above 0); fragment names
   for ground first-order input stay propositional (`MLL`, which is true of
-  its logic); counts per predicate symbol for open atoms read through the
-  index. On the wire a structured atom table is a new level (7.1).
+  its logic). And **where construction stops**: an open atom can become
+  any ground atom of its symbol, so the counts, the count equation and
+  the bias count a symbol that has an open atom per symbol, over all its
+  atoms, through the index; only a symbol whose atoms are all ground
+  keeps today's count per atom (10.10 (f)). Counting `p(a)` alone in
+  `∀x.p(x) ⊢ p(a)` would refute a provable sequent as `Unbalanced`: this
+  is a guard, like the pairing sites' binder bit below, not a consequence
+  of the representation. On the wire a structured atom table is a new
+  level (7.1).
 
 What step 28 fixes for it [28] (walk-throughs 29 and 38): `Atom`'s
 documentation as above; **the atom table holds one distinct key per
@@ -426,7 +447,8 @@ refuses a loose bound variable at a root), it is set by one kind in one
 pass, and step 38's first commit tests it by forcing every engine and the
 checker on such a sequent and expecting the refusal;
 `Forest::dual_literals` asserts in debug builds that both atoms are
-closed. Ground atoms need no guard.
+closed. Ground atoms need no guard at the pairing sites; at the counts
+a symbol with an open atom is counted per symbol (above).
 
 **The literal variants come first** [28] (the spike, 11.5): `Term`'s and
 `Kind`'s literal variants are the first two, contiguous, and a variant is
@@ -565,8 +587,8 @@ impl FromStr for Mode { type Err = Error; }        // UnknownName, listing NAMES
 - **On the wire a mode is its name** (AIP-126): `"mode":
   "intuitionistic"`. An unknown word is refused naming the known ones, so
   36's `cyclic`, `lambek` and `lambek-star` need no key and cannot be
-  read as commutative (R10). The pre-release object of flags is read
-  when the document has no `version`, never written.
+  read as commutative (R10). The pre-release object of flags is not
+  read (7.1).
 
 ```rust
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -597,7 +619,7 @@ witnesses, found only this one refuses both):
 
 - **With the sides known** (`antecedents == Some(k)`): the roots after
   the first `k` are the written succedents; intuitionistic mode needs
-  exactly one, the goal (`ShapeError::Succedents(n)` otherwise, which
+  exactly one, the goal (`ShapeError::Succedents { count }` otherwise, which
   refuses H10's `|- a, top` and its mirror `|- top, a`); every
   antecedent must read as input; and an implication's antecedent is the
   factor the lowering put there (the left one, D1), so the symmetric
@@ -616,7 +638,12 @@ witnesses, found only this one refuses both):
   lock change. A JSON sequent without the key keeps today's reading.
 - Both witnesses run on the binary of 2026-10-09 (session `step-28c`):
   `prove -i '|- top, a'` and `prove -i '(A -o bot) -o bot |- A'` both
-  answer `provable`, exit 0; they are the tests of this change.
+  answer `provable`, exit 0; they are the tests of this change, and text
+  on purpose. A JSON sequent without `antecedents` and `Sequent::add`
+  keep today's reading, symmetric implication included, so H9's
+  rereading stays reachable there (`check -i` on such a file): the rule
+  takes the sides from the writer and guesses none, and a writer that
+  wants it writes the key.
 - **The rule is written down** (walk-through 31): the position grammar
   of `core-forest.md` (output: `⊗ ⊕ & ! 1 ⊤ 0`, atoms, `A ⊸ B` stored `A⊥ ⅋
   B`; input: the duals; the flip only at an implication's antecedent),
@@ -706,8 +733,10 @@ impl Proof {
   `prove_goal` off the conclusion sets `goal`; `check` checks a term
   against its own conclusion, so a goal proof is checkable and never "a
   proof of the sequent the checker rejects". `goal().is_none()` is what
-  `linlog check` and the Rocq writer require (`Error::GoalProof`
-  otherwise). The search sets `mode`; a reader takes the optional `mode`
+  `linlog check`, `from_proof` and the Rocq writer require
+  (`Error::GoalProof` otherwise, kind `unsupported`: a goal proof is no
+  wrong proof, only not one of the sequent, so `linlog check` exits 2 on
+  it, not 1, and the harness counts it as refused, never as invalid). The search sets `mode`; a reader takes the optional `mode`
   key; `check` and the exporters still take a mode explicitly.
 - **Cut formulas go through the forest** (D-2): 34 builds the forest
   with its cut pairs first, and `Proof::new` keeps its signature;
@@ -748,11 +777,11 @@ pub enum CheckError {
 #[non_exhaustive] pub struct Refused { pub node: NodeId, pub refusal: Refusal }
 #[non_exhaustive] pub struct Dyadic { pub theta: Vec<Member>, pub gamma: Vec<Member>, pub any: bool }
 #[non_exhaustive]
-pub enum Fault {   // was Problem, without Memory
-    Forbidden, Shape(ShapeError), Succedents(usize), Kind(Member), NotDual,
-    Missing { premise: usize, member: Member }, NotEmpty, Differ, NotUnderQuest(Member),
-    Surplus, Conclusion(Dyadic),
-    // [34] NotACut(Member)  [36] Order, EmptyAntecedent  [38] Instance, Eigenvariable, Witness
+pub enum Fault {   // was Problem, without Memory; data in named fields (P3)
+    Forbidden, Shape(ShapeError), Succedents { count: usize }, Kind { member: Member }, NotDual,
+    Missing { premise: usize, member: Member }, NotEmpty, Differ, NotUnderQuest { member: Member },
+    Surplus, Conclusion { derived: Dyadic },
+    // [34] NotACut { member }  [36] Order, EmptyAntecedent  [38] Instance, Eigenvariable, Witness
 }
 ```
 
@@ -835,7 +864,10 @@ impl Rule {
 /// the side of ⊢ its principal stands on (⊸L is ⊗ on the input side).
 #[non_exhaustive] pub struct Named { pub rule: Rule, pub side: Option<Side> }
 //   [36] adds the orientation of a division
-impl Named { pub const fn name(self) -> &'static str; }       // ⊸L, ⊗R, &L₁, !c, …
+impl Named {
+    pub const fn new(rule: Rule, side: Option<Side>) -> Self;  // a downstream crate's (rule, side)
+    pub const fn name(self) -> &'static str;                  // ⊸L, ⊗R, &L₁, !c, …
+}
 impl FromStr for Named {}  impl From<Rule> for Named {}
 ```
 
@@ -904,7 +936,7 @@ impl Step {
     #[must_use] pub fn left(self, positions: &[usize]) -> Self;   // ⊗, Mix, ⊸L: the context going left
     // [38] #[must_use] pub fn witness(self, w: Witness) -> Self  a term, or Witness::Open
 }
-#[non_exhaustive] pub enum Split { None, Left(Vec<usize>) /* [36] At(usize): an ordered goal's cut point */ }
+#[non_exhaustive] pub enum Split { None, Left { positions: Vec<usize> } /* [36] At { position: usize }: an ordered goal's cut point */ }
 #[non_exhaustive] pub struct Applicable { pub rule: Named, pub needs: Needs }
 #[non_exhaustive] pub enum Needs { Nothing, Split /* [38] Witness */ }
 
@@ -1201,7 +1233,7 @@ pub struct Instances {      // what members past forest.len() stand for
 ```rust
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum Error { /* 4.4; named fields only (F31) */ }
+pub enum Error { /* 4.4; named fields, or one wrapped error type (P3, F31) */ }
 impl Error {
     /// What kind of failure this is; a wrapped error answers its own.
     pub fn kind(&self) -> ErrorKind;
@@ -1245,7 +1277,13 @@ impl ErrorKind { pub const fn is_refusal(self) -> bool; /* Unsupported | Limit |
   `NetError` (a cycle's vertices), `ShapeError` (the subformula),
   `StepError` (why a step was refused), `rocq::Unsupported` (what a kernel
   lacks). Each converts into `Error` without loss, and the front page
-  names them and says so (F8). The types that held only refusals or a
+  names them and says so (F8). Their positional variants become named
+  (P3): `Fault::{Succedents { count }, Kind { member }, NotUnderQuest {
+  member }, Conclusion { derived }}` (3.8), [34] `NotACut { member }`;
+  `ShapeError::{SeveralGoals { first, second }, Formula { occurrence },
+  Succedents { count }}`; `StepError::{NoGoal { goal }, Succedents {
+  count }}`; `NotTaken::Mode { mode }` (8.6); `Split::Left { positions }`
+  (3.10), [36] `At { position }`; [38] `Witness::Term { term }`. The types that held only refusals or a
   failed writer fold into `Error`: `ViewError`, `WriteError`,
   `RenderError`, `svg::TooLarge` go.
 - `Send + Sync + 'static`, `std::error::Error` with `source()` to the
@@ -1336,7 +1374,8 @@ unknown code and falls back on `kind`.
 | — (F6, F4, F38) | `FamilySize { family, size }`, `InvalidOption { key, message }` | `family_size`, `invalid_option` | malformed |
 | `UnknownRule`; every name table outside the library | `UnknownName { what, name, known }` | `unknown_name` | malformed |
 | `InvalidProof(CheckError)`, `Unchecked(CheckError)` | `Check(CheckError)`: its kind is the inner one | `invalid_proof`, or the refusal's | invalid, limit, stopped |
-| — (F89, F23) | `GoalProof`, `ForeignProof`, `GoalMismatch` | `goal_proof`, `foreign_proof`, `goal_mismatch` | invalid |
+| — (F89) | `GoalProof` (a goal proof where the sequent's is needed: `linlog check`, `from_proof`, the Rocq writer) | `goal_proof` | unsupported |
+| — (F23) | `ForeignProof`, `GoalMismatch` | `foreign_proof`, `goal_mismatch` | invalid |
 | `InvalidNet(NetError)` | `Net(Box<NetError>)` | `invalid_net`, or the refusal's | invalid, limit, stopped |
 | `Refused(proofs::Refusal)` | `Step(StepError)` | `step` | invalid |
 | `NotIntuitionistic(ShapeError)`, `IntuitionisticMix`, `GoalOutputs`, `Succedents`, `FragmentMismatch`, `Translation` | the same, named fields | `not_intuitionistic`, `intuitionistic_mix`, `goal_outputs`, `succedents`, `fragment_mismatch`, `translation` | unsupported |
@@ -1394,8 +1433,9 @@ impl Limits {
 - **One value replaces three** (F62, F63): `search::Options::{memory_limit,
   occurrence_limit, recursion_limit}`, `ViewOptions::{limit, memory}`,
   `check_within`'s `memory`, `png`/`pdf::Options::memory`, and the three
-  copies of `DEFAULT_MEMORY_LIMIT`. `None` means no bound in every field
-  (F79); the representation's caps (`Forest::MOST`, 2³² − 1 nodes) remain
+  copies of `DEFAULT_MEMORY_LIMIT`. `None` means no bound in every
+  optional field (F79); `recursion_depth` is always a number, since every
+  thread's stack is finite and sized from it (5.4); the representation's caps (`Forest::MOST`, 2³² − 1 nodes) remain
   and answer `Refusal::Index`. Every long call takes `&Limits`; the
   command builds it once from `--memory-limit`, `--occurrence-limit`,
   `--derivation-limit`, `--work-limit` (new) and `--recursion-limit`; the
@@ -1435,7 +1475,7 @@ impl Limits {
 
 ```rust
 #[non_exhaustive]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Progress {
     pub work: u64,         // units of work since the previous poll, the unit of Limits::work
     pub done: u64,         // units since the call began; on one thread a search's ends as Statistics::work
@@ -1490,7 +1530,18 @@ search with `Unknown(Reason::Stopped)` and any other call with
   ends in a defined state, never a partial result read as whole.
 - The change of every poll site to the progress stop touches every
   engine's hot poll: it is a commit of its own, measured on the target
-  set's counters and the journeys like the spike (section 11).
+  set's counters and the journeys like the spike (section 11), and it is
+  the search area's (3.2). **Until it lands, a shim**: the library area
+  (3.1) gives every public call its `stop: impl FnMut(Progress) -> bool`,
+  and the front door hands the engines, whose polls still call a
+  `FnMut() -> bool` (`Stop::Closure`), the crate-private
+  `search::without_progress(&mut stop)`, which calls the caller's stop
+  with `Progress { phase: Phase::Search, ..Progress::default() }`: no
+  work, no bytes. The polls the library area writes itself (the checker,
+  the size pass, the views, the writers, the net calls, the set-up
+  passes) pass their progress from the first commit. The measured commit
+  removes the shim; `Statistics::work` and R243's test that the progress
+  summed on one thread equals it come after it (7.5's commit (4)).
 
 ### 5.3 Work budget and determinism
 
@@ -1532,9 +1583,12 @@ with the input, refused at the bound with the call's own refusal:
 **The race** (R85, F103, F168) lives once, in the library:
 
 ```rust
-/// One thread first; once `add_pool` says so, a pool of `threads − 1` (at
-/// least two) beside it, only for an engine that searches on a pool; the
-/// first to decide answers and stops the other; one account for both.
+/// Decides the goal on at most `threads` threads, the calling one counted.
+/// From three: one thread first and, once `add_pool` says so, a pool of
+/// `threads − 1` beside it; the first to decide answers and stops the
+/// other; one account for both. Two: a pool of two from the start. One,
+/// or an engine that searches on one thread: the calling thread alone.
+/// Below three threads `add_pool` is never asked.
 #[cfg(feature = "parallel")]
 pub fn race(goal: Goal<'_>, mode: Mode, options: &Options, limits: &Limits, threads: usize,
             add_pool: impl FnMut(Progress) -> bool, stop: impl Fn(Progress) -> bool + Sync)
@@ -1543,9 +1597,13 @@ pub fn race(goal: Goal<'_>, mode: Mode, options: &Options, limits: &Limits, thre
 
 `add_pool` is asked at the single search's polls with its progress, so
 the caller decides with its own clock (`clock.pool_after_ms`) and the
-library reads none; `threads` counts both, so `--jobs 2` runs two threads
-(F168); below three threads there is no race. The statistics add both
-searches' counters (`Statistics::add`, `copies` and `memo_entries` by the
+library reads none. `threads` counts every thread, so `--jobs 2`
+runs two, not three (F168). A race needs a pool of at least two beside
+the single search, since a pool of one is the single search again, so
+below three threads there is none: two threads search on a pool of two
+from the start, which runs the default bias's pair side by side (5.3),
+and one thread searches alone, the pair in turns. In a race the
+statistics add both searches' counters (`Statistics::add`, `copies` and `memo_entries` by the
 maximum), as the command's race does today (walk-through 29); the
 comparison compares the default column's verdicts and times, never its
 counters. The command and the
@@ -1649,6 +1707,8 @@ prints today.
 | `check` | `bool` | true | a boolean | front door | `--no-check` |
 | `pool` | `Option<Pool>` (`parallel`) | none | never on the wire | parallel engines | from `--jobs` |
 
+- `Jobs { Auto, Count(usize) }` and `Cadence { Auto, Every(u32) }` are
+  written `"auto"` or the number (P3's second exception).
 - `jobs` is on the wire in every build and ignored without `parallel`, so
   one file serves the command and the web client (R49); `pool` is the
   runtime handle beside the data (R116).
@@ -1815,21 +1875,29 @@ Stated once in the documentation of the public module `wire` (feature
   detail, any key of a written-only form); a new value of an open
   enumeration whose meaning an older reader can fall back on (a
   refutation's kind reads as `exhausted`, 3.12).
-- **Every struct of a form read back is `serde(default)`**, so a field
-  added later reads from an older file (walk-throughs 30, 37), and a
-  counter or key appended after 0.1.0 is written only when it is not its
-  default, so a value that does not use it keeps its bytes (`statistics`
-  included: walk-throughs 37, 38). No new
+- **Every key a value of a form read back may lack is
+  `serde(default)`**: the optional keys and every key added after 0.1.0,
+  so a field added later reads from an older file (walk-throughs 30, 37);
+  `Statistics` is `serde(default)` whole. The keys every level-1 value
+  has (a sequent's `terms`, `roots` and `atoms`, a proof's `sequent` and
+  `nodes`, …, each form's list in `wire`'s docs) are required, so a
+  document of another shape is refused naming the key (`Error::Json`),
+  never read as an empty value. A counter or key appended after 0.1.0 is
+  written only when it is not its default, so a value that does not use
+  it keeps its bytes (`statistics` included: walk-throughs 37, 38). No new
   meaning rides on an old tag through a new key (`impact-quantifiers.md`
   §3 item 8).
 - **Reading**: a `version` above `wire::LEVEL` is `unsupported_version`
   naming both numbers, before the other keys: the writer puts `version`
   first and the reader records it when it meets the key, so the error
   names the version even when a later key fails. A document without
-  `version` reads as level 1 and may use the pre-release names (`ids`,
-  `var_dict`, `proof`, a net's `mix` as today, a mode as an object of
-  flags): the proof files of 2026-09-30 and every form pinned today still
-  load; nothing writes those names again (R6).
+  `version` reads as level 1, in the level's names only. The pre-release
+  names (`ids`, `var_dict`, `proof`, a mode as an object of flags) are
+  not read: nothing is kept beside its successor before the release
+  (D18), and a second grammar in every reader would be fuzz surface for
+  ever. Commit (1) of 7.5 regenerates every fixture that holds them; a
+  file in them is refused naming the key it lacks (the next item); nothing
+  writes them again (R6).
 - **Unknown keys**: a *data* form (sequent, proof, disproof, structure,
   session, ordinary forms, `Reason`, `Refutation`, `Statistics`) ignores
   them, which the level rule makes safe and which lets an outcome be read
@@ -1858,7 +1926,9 @@ Stated once in the documentation of the public module `wire` (feature
 - **Text** is UTF-8; atom names are identifiers that are no keyword
   (HD5, 3.1); text positions come in bytes, UTF-16 units and line and
   column (4.3). The text syntax is a form too: it grows by new tokens
-  only, never by a new meaning of text that reads today.
+  only, never by a new meaning of text that reads today, which is why
+  every reader refuses the words reserved for later steps from 0.1.0
+  (3.1).
 
 ### 7.2 Read back or written only
 
@@ -2052,18 +2122,28 @@ against the code (`Engine::ALL`, `Mode::NAMES`, `Rule::ALL`, `Node::TAGS`,
 ### 7.5 What changes in the pinned forms
 
 `core/tests/lock/json.txt`, the command's lock and README's JSON blocks
-change in three commits of the library area, each its own change of the
-behaviour lock that says why: (1) `version`, `linlog`, T1's renames, the
-mode by name, the tagged reasons and refutations, `work` and
-`forward_copies` in the statistics; (2) the written root order and
-`antecedents` (C1, H9, H10), with the intuitionistic refusals of 3.6;
-(3) the disproof's keys in an unprovable outcome and `StateEquation`'s
-payload. `core/tests/serialize.rs` keeps what the lock cannot show (F90):
-each form read back, the pre-release fixture of each read unchanged,
-`version: 2` refused by name, an unknown key ignored by a data form and
-refused by an options form, a saturated `Size` written as `u64::MAX`, a
-shared-subterm file past `limits.occurrences` refused by every reader.
-Nothing else in this design moves a pinned form. [30] commits the
+change in four commits, each its own change of the behaviour lock that
+says why. Three are the library area's (3.1): (1) `version`, `linlog`,
+`checked`, T1's renames, the mode by name, the tagged reasons and
+refutations, and every fixture regenerated in the new names (7.1); (2)
+the written root order and `antecedents` (C1, H9, H10), with the
+intuitionistic refusals of 3.6; (3) the disproof's keys in an unprovable
+outcome and `StateEquation`'s payload. The fourth is the search area's
+(3.2), since the engines count what it adds only there: (4) `work` and
+`forward_copies` in `statistics` and the command's `--stats` lines, with
+`copies` the level of the search that decided (F144). The commits that
+count them come first and keep the counts private, each with the target
+set's counters equal: the progress stop at every poll site (5.2) counts
+`work`, F144's commit splits the forward search's level from `copies`;
+then one commit adds both fields to `Statistics` and its form. Until (4),
+the outcome's `statistics` are today's seven counters.
+`core/tests/serialize.rs` keeps what the lock cannot show (F90): each
+form read back, a file in the pre-release names refused naming the
+missing key (7.1), `version: 2` refused by name, an unknown key ignored
+by a data form and refused by an options form, a saturated `Size`
+written as `u64::MAX`, a shared-subterm file past `limits.occurrences`
+refused by every reader. Nothing else in this design moves a pinned
+form. [30] commits the
 level-1 files 0.1.0 writes as golden files every later release reads, and
 the name lists (`Node::TAGS`, `Error::CODES`, `Mode::NAMES`,
 `Rule::ALL`'s names) as append-only lists a test compares (walk-through
@@ -2093,7 +2173,8 @@ impl<'a> Goal<'a> {
 }
 
 #[non_exhaustive] pub struct Outcome { pub verdict: Verdict, pub fragment: Fragment, pub mode: Mode,
-    pub engine: Engine, pub statistics: Statistics, pub net: Option<Box<ProofStructure>> }
+    pub engine: Engine, pub statistics: Statistics, pub net: Option<Box<ProofStructure>>,
+    pub checked: bool }   // the proof passed the checker: false only with `options.check` off (7.3)
 pub enum Verdict { Proved(Box<Proof>), Unprovable(Box<Disproof>), Unknown(Reason) }   // closed (D9)
 #[non_exhaustive] pub enum Reason { Stopped, RecursionLimit { depth: u32 }, CopyBound { copies: u32 },
     MemoryLimit { limit_bytes: u64 }, WorkLimit { limit: u64 }, IndexLimit, Unchecked { limit_bytes: u64 } }
@@ -2259,15 +2340,15 @@ const DISPATCH: &[Row] = &[
 ### 8.5 `Statistics`, per engine (T5)
 
 ```rust
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize), serde(default))]   // no proxy (F88)
 pub struct Statistics {
     pub nodes: u64, pub memo_hits: u64, pub memo_entries: u64,  // u64 on 32-bit targets too (R46)
     pub splits: u64, pub links: u64, pub tests: u64,
     pub copies: u32,          // the level of the search that decided, under `copies`
-    pub forward_copies: u32,  // the forward search's level, under `Bias::Auto` (F144)
-    pub work: u64,            // the units of work; on one thread, the sum of every Progress::work
+    pub forward_copies: u32,  // the forward search's level, under `Bias::Auto` (F144); area 3.2
+    pub work: u64,            // the units of work; on one thread, the sum of every Progress::work; area 3.2
     // appended by later steps, each with its line in this table and a CSV column at the end
 }
 impl Statistics { pub fn add(&mut self, other: &Self); }   // the race and a batch merge with it
@@ -2296,7 +2377,7 @@ Error::EngineRefused { engine: Engine, because: NotTaken }
 #[non_exhaustive]
 pub enum NotTaken {
     Fragment { decides: Fragment, goal: Fragment },  // beyond its largest fragment
-    Mode(Mode),                                       // not in its modes
+    Mode { mode: Mode },                              // not in its modes
     Goal,                                             // not the roots (the net engine)
     Shape,                                            // not two additive formulas, not a Horn program
 }
@@ -2673,7 +2754,7 @@ each step (R167). The search stays cut-free. Rocq: `params.cut`, a new
   test that the premises' contexts are the two arcs, the axiom on adjacent
   literals, and in L the fourth clause R4 (`Fault::EmptyAntecedent`), the
   oracle alike (R121, R246). `Inference::sequent()` is in planar order in
-  an ordered mode (R61); `Split::At(position)` splits an ordered goal
+  an ordered mode (R61); `Split::At { position }` splits an ordered goal
   (R96); `StepError::Exchange` refuses what needs exchange; NanoYalla has
   no cyclic certificate (`rocq::Unsupported`); the exports draw planar
   arcs and no exchange (R169).
@@ -2689,6 +2770,14 @@ each step (R167). The search stays cut-free. Rocq: `params.cut`, a new
   to its occurrences (R84) is a type of its own, built by the engines that
   rename (`ClassMembers`), so the focused engine's charged memory does not
   move; one notion of class serves 35 and 37 (walk-through 37).
+- **D-7's pinned time** (G3, decision 20) is the lift's first measurement,
+  on an idle machine: the spike's generic zone with its second instance
+  (M2d and M3i, rebuilt on the lifted `search/zone/` from
+  `spike-report.md`, which names their abandoned commits) against the
+  lift, the target set's rows over a second and the search journeys
+  pinned to one core, five runs each. Within a few percent, 38 makes the
+  engine generic; past it, 38 takes D17's duplicated fast path (11.4's
+  last row).
 - `Engine::Inverse` (`"inverse"`), `parallel()` false, its fragments and
   modes in a table on the variant (R135, R147); the database and its index
   charged by capacity (R36); the loop polls at every given clause, in
@@ -2778,7 +2867,8 @@ it; each later commit of 38 makes one layer accept binders.
   and its panel's, and the propositional `Found` stays. A pool's worker
   starts from its spawner's trail; no binding reaches another
   alternative; premises sharing an unbound metavariable run in order on
-  one thread. **Generic** (the spike's answer, 11.5): the engine is
+  one thread. **Generic** (the spike's answer on counts, 11.5; pinned time
+at 37's lift, decision 20): the engine is
   generic over `Z: Zone` with the seam the spike found (a handle per dual
   list with its mark and its `Θ` flag, `dual_from` with its cursors, the
   marks' bytes charged, `fork` for a pool's worker, `root`, the forest
@@ -2795,7 +2885,7 @@ it; each later commit of 38 makes one layer accept binders.
   | forced splits (`Forced::Dual`, `Duals`, `literal_tensor`, cursors) | a choice among unifiable duals; forced only when a candidate is unique and ground |
   | interchangeable occurrences (`Classes`, canonical keys and splits) | classes of ground members only; a framed member is its own class |
   | the memo and the loop check | ground stable sequents only, keyed by instance; a `Complete` failure may be shared under a variant key later, `Proved` never |
-  | counts, the count equation, the bias | per ground atom as today, per predicate symbol for open atoms: sound, weaker; `Refutation::Unbalanced` names an atom |
+  | counts, the count equation, the bias | per atom as today for a symbol whose atoms are all ground; per symbol, over all its atoms, for a symbol with any open atom: sound, weaker. Per atom there is unsound: in `∀x.p(x) ⊢ p(a)` the open `p(#0)` becomes `p(a)`, and a count of `p(a)` alone refutes a provable sequent. The count refutation is per symbol there, or skipped; `Refutation::Unbalanced` names an atom, so a per-symbol refutation is a kind of 38's (additive, 3.12) |
   | and-parallel `&`, the cubes | only premises sharing no unbound metavariable |
   | the net engine, the additive path, the Horn engine | refuse the bit (a first-order Horn engine is another engine, step 27's report) |
 
@@ -2819,7 +2909,7 @@ it; each later commit of 38 makes one layer accept binders.
   through the frames and counts substituted characters in its size (R66);
   `Inference::datum` holds a `Binding` (the witness or the eigenvariable);
   the session holds an `Instances` table and bindings, `Step::witness`
-  takes `Witness::{Open, Term(TermBuf)}`, a flat topological term in
+  takes `Witness::{Open, Term { term: TermBuf }}`, a flat topological term in
   `fo_terms`' shape (text is the front end's, since `interactive` has no
   parser), or opens a metavariable that `close` or a later axiom binds,
   and `undo` undoes bindings (R97); the printers name bound variables from the side table,
@@ -2927,7 +3017,8 @@ measured against that base.
   branch, `search-*` for the zone.
 - **G3, time**: not gated in the spike (the machine ran other agents);
   the target set's own CPU times are recorded as indicative, with the
-  load. Step 38 gates pinned time on its own commits (10.10 (l)).
+  load. Step 37's lift runs it first for the zone (10.9, decision 20),
+  and step 38 gates pinned time on its own commits (10.10 (l)).
 
 ### 11.4 What the results decide
 
@@ -2935,7 +3026,7 @@ measured against that base.
 |---|---|
 | M1 passes | the data model of 3.2 to 3.14 stands; step 28 lands its parts (`Member`, the renames, the assertions, the docs of `Fragment` and `Atom`); the variants come at 34 and 38 |
 | M1 fails G1 or G2 | bisect its parts (variants, `Sequent` fields, `Member`, the checker's branch); the failing part is redesigned before 38 (an empty table behind one `Box` instead of several `Vec`s; binders' kinds in a side array of the forest instead of `Kind`), measured again, and recorded |
-| M2 passes | **D-7 adopted**: step 38 makes the focused engine generic over `Z: Zone`, `Ground` the propositional instance, after step 37's lift |
+| M2 passes | **D-7 adopted** on counts: step 38 makes the focused engine generic over `Z: Zone`, `Ground` the propositional instance, after step 37's lift, whose pinned-time run (G3) confirms it or sends 38 to the next row (decision 20) |
 | M2 fails | **D17's duplicated fast path**: the propositional engine stays as it is; step 38's framed engine is a sibling module that shares the zones, counts, bias, arena, scratch and classes but not the hot loop, the one exception to D7, recorded under D17's name |
 
 ### 11.5 The results
@@ -2979,9 +3070,10 @@ What it decides (11.4):
   one comparison, which a test of `Kind`'s discriminants (it is
   `repr(u8)`) pins. A size assertion cannot catch it, and the target
   set's times cannot either; the journeys did.
-- **D-7 is adopted** (M2d and M3i pass): step 38 makes the focused engine
-  generic over `Z: Zone`, `Ground` the propositional instance, after step
-  37's lift. One instance is free (M2 against M1 −0.76 %, M2d against M1d
+- **D-7 is adopted on instruction counts** (M2d and M3i pass G1 and G2),
+  provisional on pinned time (G3 at step 37's lift, decision 20): step 38
+  makes the focused engine generic over `Z: Zone`, `Ground` the
+  propositional instance, after step 37's lift. One instance is free (M2 against M1 −0.76 %, M2d against M1d
   −0.39 %); a second instance costs through the shared helpers LLVM stops
   inlining into the first (`Context::iter`, `Key::assign`,
   `OccSet::clone`, `Split::clone_from`), not through its own code, and
@@ -3013,7 +3105,9 @@ What it decides (11.4):
   the load cannot change decided it: `mix/8` under callgrind takes
   29 542 018 712 instructions in the base, 29 554 079 268 in M2d
   (+0.04 %) and 29 438 722 626 in M3i (−0.35 %), with equal counters. The
-  zone's decision rests on the counts.
+  zone's decision rests on the counts until G3 runs at step 37's lift
+  (10.9): a count does not see the instruction cache, which a second
+  monomorphised engine strains (M3's 166 KB more text, 7 %).
 
 ## 12. The walk-through
 
@@ -3045,6 +3139,20 @@ the wire level (29, 30, 32), the error family with a refusal variant in
 every type (29, 32), `Settings` and `Clock` (29, 32), the engine
 registration list and the dispatch as data (35, 37), and the first-order
 plan's split into a data-model commit and layers (38).
+
+**The fresh review** (Fable 5.1 at `high`,
+`plan/notes/api-drafts/review-fable.md`) found nothing blocking and ten
+items, each answered above: (1) the fourth lock commit, the stop's shim
+and `checked` (7.5, 5.2, 8.1, 8.5); (2) the race at two threads and
+below (5.4); (3) no reader of the pre-release names, required level-1
+keys (7.1, 2.4, 3.1, 3.5, 14.1); (4) the reserved words refused by
+every reader (3.1, 7.1); (5) the counts per symbol for a symbol with an
+open atom (3.2, 10.10 (f), decision 1); (6) D-7 provisional on pinned
+time at 37's lift (10.9, 10.10 (e), 11.3 to 11.5, decision 20); (7)
+named fields and P3's two exceptions (P3, 3.6, 3.8, 3.10, 4.1, 6.2, 8.6,
+10.8, 10.10 (i)); (8) the mismatches (2.1, 2.2, 2.4, 2.5, 3.9, 5.1, 5.2,
+8.1, 8.5); (9) `GoalProof` of kind `unsupported` (3.7, 4.4); (10) the
+tests of H9 and H10 text on purpose (3.6).
 
 ## 13. Findings and requirements answered
 
@@ -3141,7 +3249,7 @@ recommended answers.
 | C1 | the written order canonical at 28 | B (at 36): `optimize` sorts until 36, which then breaks every stored id as a level of its own; `antecedents` lands anyway (H9, H10 need it). C (mode-dependent): ruled out by 3.1, a `Sequent` would mean two things. |
 | C2 | refuters in the library, after the search, `refute_unknown` off | A (inside the Rocq exporter): no refuter kind, no `Refutation::Classical`, the classical search in `rocq`; no front end shows the assignment. B (after an Unprovable only): no `refute_unknown`. |
 | C3 | no nullary Mix | B: a `Node` variant and its tag before 31 (cheaper before 0.1.0 than at a bump), a checker arm, a Rocq constructor; `StepError::EmptyPremise` becomes closable. |
-| T1 | rename the keys with the version | keep `ids`, `var_dict`, `proof`; only `version`, the tagged reasons and the new keys change; 7.1's reading of old names goes. |
+| T1 | rename the keys with the version; no reader keeps the old names (D18, the author's standing rule) | keep `ids`, `var_dict`, `proof`; only `version`, the tagged reasons and the new keys change, and fewer fixtures change in commit (1). |
 | T2 | owned forests | `Arc<Forest>` inside `Proof`, `Disproof`, `ProofStructure`, `Interactive`: no wire change, cheaper clones in the bindings; signatures keep their shape. |
 | T3, T4, T6, T7 | as the audit recommends | nothing here (R130's no-panic rule stands either way). |
 | T5 | shared counters, documented per engine | per-engine counters: `statistics` an object per engine, the CSV columns change, a level of the outcome. |
@@ -3155,7 +3263,7 @@ recommended answers.
 
 | # | decision | set aside | why |
 |---|---|---|---|
-| 1 | **An atom is an interned atomic formula** (3.2): `Term` gains only `Forall`/`Exists` at 38, ground first-order input is propositional by construction | the research's `Term::{Pred, DualPred}(Atom, ArgsId)` with a fragment bit set by any argument (D-4, R52, R62, R16, all three drafts) | eight pairing sites correct for ground atoms by construction instead of by guard; fewer variants; ground problems decided at once (both judges chose it); measured free (the spike's M1d), where the alternative costs 6.6 % unless its literal variants come first (M1, M1b). Amends R52, R62, R16 and D-4's wording |
+| 1 | **An atom is an interned atomic formula** (3.2): `Term` gains only `Forall`/`Exists` at 38, ground first-order input is propositional by construction; where a symbol has an open atom, the pairing sites are guarded by the binder bit and the counts go per symbol (3.2, 10.10 (f)), guards and not construction | the research's `Term::{Pred, DualPred}(Atom, ArgsId)` with a fragment bit set by any argument (D-4, R52, R62, R16, all three drafts) | eight pairing sites correct for ground atoms by construction instead of by guard; fewer variants; ground problems decided at once (both judges chose it); measured free (the spike's M1d), where the alternative costs 6.6 % unless its literal variants come first (M1, M1b). Amends R52, R62, R16 and D-4's wording |
 | 2 | **The written sides decide the intuitionistic goal** (3.1, 3.6): `antecedents`, one written succedent, no symmetric reading when the sides are known | "the goal is the last root" (refuses neither H9 nor `|- top, a`); refusing every ambiguous `⊤`/`0` input | the only rule that refuses both witnesses; costs one-sided intuitionistic text with several roots, which is refused with advice |
 | 3 | **The stop is a closure over `Progress`**, every `|| false` becoming `|_| false` (5.2) | a `Stop` trait with a blanket impl for `FnMut() -> bool` and a wrapper | one form, inference works (the trait's wrapper does not infer, a judge's probe); D18 allows the break |
 | 4 | **One global wire level** (7.1) | a version per form | one number a client stores; an outcome read as a proof carries one |
@@ -3174,5 +3282,4 @@ recommended answers.
 | 17 | **The Lambek calculus's planar order is 36's panel's** (10.8): the reversing parse, or the order derived from D1's lowering through the reading | a reversing dual in every mode | D1 stands either way; no stored form changes |
 | 18 | **`Term`, `Kind`, `Node`, `Rule` stay closed** (P3), each new variant a planned 0.y bump (0.2.0 at 34, 0.3.0 at 38) | `#[non_exhaustive]` on them, which makes 34 and 38 additive for downstream crates but forces wildcard arms there that silently mishandle a cut or a binder | a downstream `match` should fail to compile when the calculus grows; inside the crate the lint keeps them exhaustive either way (walk-through 30 asked for the author's word) |
 | 19 | **Classical cyclic MLL is read with a reversing dual** by an ordered parse beside `parse_within` (3.1, 10.8) | the order derived from D1's lowering for every ordered mode | a classical cyclic sequent has no reading to derive an order from; with the order-keeping dual `|- ~(a * b), a, b` would be unprovable in cyclic mode, a wrong answer (walk-through 36) |
-
-| 20 | **The focused engine becomes generic over its zone at 38** (D-7; 10.10 (e), 11.5) | D17's duplicated fast path, a sibling module for the framed zone | measured: one instance free, a second within the gates once the shared helpers are inlined (M2d, M3i) |
+| 20 | **The focused engine becomes generic over its zone at 38** (D-7; 10.10 (e), 11.5): adopted on instruction counts, provisional on pinned time, which step 37's lift measures first (G3, on an idle machine; 10.9) | D17's duplicated fast path, a sibling module for the framed zone, which 38 takes if G3 fails | instruction counts: one instance free, a second within the gates once the shared helpers are inlined (M2d, M3i). D-7 and D17 ask for pinned time within a few percent too, and callgrind does not see the instruction cache a second monomorphised engine strains (M3 adds 166 KB, 7 % of the text); nothing public rests on it |
