@@ -4,7 +4,7 @@
 use super::proofs::Step;
 use crate::Error;
 use crate::nets::{NetError, VertexId};
-use crate::occurrences::{OccId, ShapeError};
+use crate::occurrences::ShapeError;
 use crate::proofs::{CheckError, Dyadic, Fault};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
@@ -137,11 +137,6 @@ impl Serialize for Details<'_> {
             IntuitionisticMix | NetGoal | NotHorn | WriteFailed => entries!(s),
         }
     }
-}
-
-/// Occurrence ids as numbers.
-fn ids(ids: &[OccId]) -> Vec<u32> {
-    ids.iter().map(|o| o.get()).collect()
 }
 
 impl Serialize for CheckError {

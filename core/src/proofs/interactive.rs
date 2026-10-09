@@ -442,6 +442,7 @@ impl Interactive {
     /// every closed inference's premises are what its rule on its sequent
     /// yields, and the history names distinct closed inferences whose
     /// premises were, in order, the last inferences added.
+    #[cfg(feature = "serialize")]
     pub(crate) fn from_parts(
         forest: Forest,
         mode: Mode,
@@ -558,6 +559,7 @@ impl Interactive {
     /// when its rule has one and that its premises are what the rule
     /// yields on its sequent, recovering the split of a `⊗` or Mix from
     /// the left premise.
+    #[cfg(feature = "serialize")]
     fn replay(&self, reading: Option<&Reading>, id: InfId) -> Result<(), Error> {
         let inference = &self.inferences[id.index()];
         let sequent: &[OccId] = &inference
@@ -682,6 +684,7 @@ impl Interactive {
 
     /// Returns every inference, the root first and then in the order the
     /// steps opened them; an open goal is an inference with [`Rule::Open`].
+    #[cfg(feature = "serialize")]
     pub(crate) fn inferences(&self) -> &[Inference] {
         &self.inferences
     }
@@ -715,6 +718,7 @@ impl Interactive {
     }
 
     /// Returns the goals the steps closed, in order.
+    #[cfg(feature = "serialize")]
     pub(crate) fn history(&self) -> &[InfId] {
         &self.history
     }

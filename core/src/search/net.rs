@@ -383,6 +383,7 @@ impl<'a> Engine<'a> {
 
     /// Makes the links of a cube, on an engine without links, so that
     /// `run` searches the branch below them.
+    #[cfg(feature = "parallel")]
     fn seed(&mut self, links: &[(VertexId, VertexId)]) {
         debug_assert!(
             self.net.links().is_empty(),
@@ -395,6 +396,7 @@ impl<'a> Engine<'a> {
 
     /// Takes every link back and forgets the decisions, keeping the
     /// counters, so that the engine can run another cube.
+    #[cfg(feature = "parallel")]
     fn reset(&mut self) {
         self.stack.clear();
         self.choices = 0;

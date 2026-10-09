@@ -802,7 +802,7 @@ impl Display for ProofStructure {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::*;
     #[cfg(feature = "parse")]

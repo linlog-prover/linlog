@@ -130,6 +130,7 @@ impl Context {
     }
 
     /// Returns how many copies of `o` there are.
+    #[cfg(test)]
     pub(crate) fn count(&self, o: OccId) -> u32 {
         if !self.set.contains(o) {
             return 0;
@@ -206,6 +207,7 @@ impl Context {
     }
 
     /// Returns the number of members, copies counted.
+    #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.set.words()[self.lo..self.hi]
             .iter()

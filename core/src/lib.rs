@@ -110,9 +110,6 @@
 //! `png` and `pdf` (the SVG drawings rendered). An item that needs a
 //! feature says so.
 
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 /// The error types of this crate.
 mod errors;
 pub mod export;

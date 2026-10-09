@@ -1,6 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+#[cfg(any(test, feature = "parse", feature = "serialize"))]
 use crate::Error;
 
 /// The index of a term in a sequent's arena.
@@ -264,6 +265,7 @@ impl Term {
 
     /// Checks that the term refers only to atoms below `atom_bound` and to
     /// subterms below `term_bound`.
+    #[cfg(any(test, feature = "parse", feature = "serialize"))]
     pub(crate) fn check_bounds(self, atom_bound: u32, term_bound: u32) -> Result<(), Error> {
         if let Some(a) = self.atom()
             && a.0 >= atom_bound

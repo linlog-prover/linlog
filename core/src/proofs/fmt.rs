@@ -214,19 +214,6 @@ pub(super) fn write_sequent(
     Ok(())
 }
 
-/// Returns the text of a sequent: `⊢` and its formulas, comma-separated;
-/// two-sided under a reading, the hypotheses before `⊢` and the goal after
-/// it.
-pub(crate) fn sequent_text(
-    forest: &Forest,
-    reading: Option<&Reading>,
-    sequent: &[Member],
-) -> String {
-    let mut text = String::new();
-    write_sequent(&mut text, forest, reading, sequent).unwrap();
-    text
-}
-
 /// Lays a tree out: the premises of an inference side by side,
 /// bottom-aligned and `gap` columns apart, a bar spanning their
 /// conclusions or the conclusion, whichever is wider, with the rule's

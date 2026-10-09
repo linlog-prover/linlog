@@ -117,7 +117,7 @@ impl Proof {
 
     /// Returns the size of the derivation, two-sided with `two_sided`,
     /// within the default limits: the tests' short form.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "parse"))]
     pub(crate) fn size_of(&self, two_sided: bool) -> Result<Size, CheckError> {
         let sides = if two_sided {
             super::Sides::Two

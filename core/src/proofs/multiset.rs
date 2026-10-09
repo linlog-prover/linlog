@@ -11,6 +11,7 @@ pub(crate) struct Multiset(Vec<OccId>);
 
 impl Multiset {
     /// Returns the empty multiset.
+    #[cfg(any(test, feature = "interactive"))]
     pub(crate) const fn new() -> Self {
         Self(Vec::new())
     }
@@ -25,11 +26,6 @@ impl Multiset {
     /// Returns the members in ascending order, with repeats.
     pub(crate) fn as_slice(&self) -> &[OccId] {
         &self.0
-    }
-
-    /// Returns the members as a vector in ascending order, with repeats.
-    pub(crate) fn into_vec(self) -> Vec<OccId> {
-        self.0
     }
 
     /// Returns the members, ascending with repeats, as a sequent of an
@@ -105,6 +101,7 @@ impl Multiset {
     }
 
     /// Returns the multiset union: per id, the larger count.
+    #[cfg(test)]
     pub(crate) fn union(&self, other: &Self) -> Self {
         self.merge(other, usize::max)
     }

@@ -350,6 +350,7 @@ pub(crate) fn reason(reason: Reason, options: &Options, limits: &Limits) -> Reas
 /// engine applies to every split: the interval check per atom and, in the
 /// multiplicative fragments, the count equation. A split that fails cannot
 /// close; one that passes may still fail. `fragment` is the goal's.
+#[cfg(feature = "interactive")]
 pub(crate) fn split_passes(
     forest: &Forest,
     fragment: Fragment,
@@ -536,6 +537,10 @@ enum Alternative<'m> {
     /// The free splits of a `⊗` that assign the first `fixed` members as
     /// the bits of `pattern` say, one for the left premise, from the sides
     /// and counts before any member moved.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(dead_code, reason = "only a pool hands out the splits of a tensor")
+    )]
     Splits {
         /// The `⊗` rule the sides are the premises of.
         join: Join,
@@ -679,6 +684,10 @@ struct Engine<'a> {
     runtime: Option<&'a super::parallel::Runtime>,
     /// How many choices among alternatives on this branch ran on several
     /// threads: the levels of cube-and-conquer above the current sequent.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(dead_code, reason = "only a pool runs alternatives on several threads")
+    )]
     or_depth: u32,
     /// The stable sequents of the current branch, the root end first; only
     /// the first `stack_len` are live, the rest are spare buffers.
@@ -760,6 +769,7 @@ impl<'a> Engine<'a> {
     }
 
     /// The problem this engine searches, as it was given.
+    #[cfg(feature = "parallel")]
     fn problem(&self) -> Problem<'a> {
         Problem {
             forest: self.forest,

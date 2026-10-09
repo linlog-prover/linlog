@@ -213,9 +213,13 @@ even to read.** Every operation goes through `jj`, including lock updates:
   and is scoped to it: only the crate that uses it, behind the feature that
   needs it (or in `[dev-dependencies]`), with only the crate features used.
   Never add one for its own sake.
-- `core/src/lib.rs` allows `dead_code` and `unused_variables` crate-wide:
-  some items are live under one feature only or used by tests only, and
-  a few are dead; the audit before the release sorts them out.
+- No item is dead in any feature combination: an item that only tests
+  use is `#[cfg(test)]` (`all(test, feature = "parse")` where its tests
+  parse), one that a feature's code uses is behind that feature's
+  `cfg`, and a variant or field that only some features build or read
+  takes `#[cfg_attr(not(feature = …), expect(dead_code, reason = …))]`.
+  Both `cargo hack` runs and the test builds without default features
+  stay free of warnings.
 - `scratchpad*.md` are the author's gitignored notes. `scratchpad1.md` is about
   250 KB, so don't read it in full.
 

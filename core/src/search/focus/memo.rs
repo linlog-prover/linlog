@@ -45,6 +45,7 @@ impl Key {
     }
 
     /// The key's zones.
+    #[cfg(test)]
     pub(crate) fn zones(&self) -> Zones<'_> {
         Zones {
             theta: &self.theta,
@@ -148,6 +149,7 @@ const HEADER: usize = 3;
 const CHUNK: usize = 1 << 17;
 
 /// The words of a chunk of one shard of a shared memo.
+#[cfg(feature = "parallel")]
 const SHARD_CHUNK: usize = 1 << 13;
 
 /// The memo: stable sequents mapped to what the search found out about
@@ -477,6 +479,7 @@ pub(crate) struct Shared {
 }
 
 impl Shared {
+    #[cfg(feature = "parallel")]
     /// Returns an empty shared memo holding at most `limit` entries in all.
     pub(crate) fn new(limit: usize) -> Self {
         let per_shard = limit.div_ceil(SHARDS);
@@ -554,6 +557,10 @@ pub(crate) enum Table<'a> {
     /// The engine's own memo.
     Own(Memo),
     /// The memo of a parallel search.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(dead_code, reason = "only a pool shares its memo")
+    )]
     Shared(&'a Shared),
 }
 

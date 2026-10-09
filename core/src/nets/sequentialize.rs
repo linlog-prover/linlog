@@ -251,7 +251,7 @@ impl Sequentialization<'_> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::super::{Criterion, ProofStructure, VertexId};
     use crate::fragment::Mode;

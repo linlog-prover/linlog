@@ -20,6 +20,7 @@
 
 use super::derivation::{Derivation, InfId};
 use super::{Named, Rule};
+#[cfg(any(feature = "latex", feature = "typst"))]
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -208,6 +209,7 @@ pub(crate) trait Drawn {
 
     /// Returns the label of an inference as [`markup`](Self::markup)
     /// does, followed by [`RUN`] when it stands for a run of its rule.
+    #[cfg(any(feature = "latex", feature = "typst"))]
     fn label<'l>(&self, id: InfId, labels: &'l Labels) -> Option<Cow<'l, str>> {
         let markup = Self::markup(self.rule(id), labels)?;
         Some(match self.times(id) {

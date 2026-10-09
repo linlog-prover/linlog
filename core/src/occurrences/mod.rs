@@ -338,6 +338,7 @@ impl Forest {
     }
 
     /// Returns the roots as members, in the order the sequent lists them.
+    #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
     pub(crate) fn root_members(&self) -> Vec<Member> {
         self.roots().iter().copied().map(Member::from).collect()
     }

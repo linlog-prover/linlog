@@ -144,6 +144,7 @@ impl Sequent {
     /// subterms come before it, every atom is named, the roots are terms of
     /// the arena, as a reader that builds the arena itself makes them, and
     /// `antecedents` is at most their number.
+    #[cfg(feature = "parse")]
     pub(crate) fn from_parts(
         terms: Vec<Term>,
         roots: Vec<TermId>,
@@ -215,6 +216,7 @@ impl Sequent {
     /// Checks the arena's invariants, which every public way to a
     /// sequent keeps: every term names only earlier terms and atoms of the
     /// table, every root a term, and `antecedents` at most the roots.
+    #[cfg(any(test, feature = "parse", feature = "serialize"))]
     pub(crate) fn check(&self) -> Result<(), crate::Error> {
         let num_atoms = self.atoms.len() as u32;
         let num_terms = self.terms.len() as u32;

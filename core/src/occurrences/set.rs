@@ -55,6 +55,7 @@ impl OccSet {
     }
 
     /// Returns the set over `len` occurrence ids that holds the given ones.
+    #[cfg(test)]
     pub(crate) fn of(len: usize, ids: impl IntoIterator<Item = OccId>) -> Self {
         let mut set = Self::empty(len);
         set.extend(ids);
@@ -94,6 +95,7 @@ impl OccSet {
     }
 
     /// Adds `o` if it is absent and removes it otherwise.
+    #[cfg(test)]
     pub(crate) fn toggle(&mut self, o: OccId) {
         let (w, bit) = Self::locate(o);
         self.words[w] ^= bit;
@@ -111,6 +113,7 @@ impl OccSet {
     }
 
     /// Returns whether the set has no member.
+    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)
     }
@@ -121,6 +124,7 @@ impl OccSet {
     }
 
     /// Returns the smallest member, if any.
+    #[cfg(test)]
     pub(crate) fn first(&self) -> Option<OccId> {
         self.iter().next()
     }
@@ -203,6 +207,7 @@ impl OccSet {
 
     /// Returns whether every member is a member of `other`: never, when
     /// this set has a member beyond the width of `other`.
+    #[cfg(test)]
     pub(crate) fn is_subset(&self, other: &Self) -> bool {
         let mut shared = self.words.iter().zip(&other.words);
         shared.all(|(a, b)| a & !b == 0) && self.beyond(other).iter().all(|&w| w == 0)
@@ -210,6 +215,7 @@ impl OccSet {
 
     /// Returns whether no member is a member of `other`. Members beyond the
     /// width of the narrower set are members of one set only.
+    #[cfg(test)]
     pub(crate) fn is_disjoint(&self, other: &Self) -> bool {
         self.words.iter().zip(&other.words).all(|(a, b)| a & b == 0)
     }
@@ -346,6 +352,7 @@ impl Forest {
 
     /// Returns the set of the root formulas: the sequent itself, as proof
     /// search starts on it.
+    #[cfg(all(test, feature = "parse"))]
     pub(crate) fn root_set(&self) -> OccSet {
         OccSet::of(self.len(), self.roots().iter().copied())
     }

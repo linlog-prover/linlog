@@ -213,6 +213,10 @@ pub struct Derivation<'a> {
     inferences: Vec<Inference>,
     /// Whether the root concludes a goal of a proof rather than the
     /// sequent.
+    #[cfg_attr(
+        not(feature = "rocq"),
+        expect(dead_code, reason = "only a certificate asks")
+    )]
     of_goal: bool,
 }
 
@@ -288,6 +292,7 @@ impl<'a> Derivation<'a> {
 
     /// Wraps inferences that already have the derivation's shape: premises
     /// before conclusions, the root last, two-sided under a reading.
+    #[cfg(feature = "interactive")]
     pub(crate) fn from_parts(
         forest: &'a Forest,
         reading: Option<Reading<'a>>,
@@ -304,6 +309,7 @@ impl<'a> Derivation<'a> {
 
     /// Returns whether the root concludes a goal of its proof rather than
     /// the sequent.
+    #[cfg(feature = "rocq")]
     pub(crate) const fn is_of_goal(&self) -> bool {
         self.of_goal
     }
@@ -315,6 +321,7 @@ impl<'a> Derivation<'a> {
     /// `stop` fires on the way. Fails as the checker in `mode` would on a
     /// node that misapplies its rule and on a root that does not conclude
     /// the goal.
+    #[cfg(feature = "interactive")]
     pub(crate) fn of_goal(
         proof: &'a Proof,
         goal: &[OccId],

@@ -27,7 +27,7 @@ pub mod interactive;
 /// Multisets of occurrence ids.
 mod multiset;
 /// The checker's first implementation, which the tests compare it with.
-#[cfg(test)]
+#[cfg(all(test, feature = "parse"))]
 mod oracle;
 /// The size of a derivation, without building it.
 /// The rules of the standard calculus, one-sided and named two-sided.
@@ -630,7 +630,7 @@ impl Proof {
 
     /// Returns the two-sided derivation within the default limits: the
     /// tests' short form.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "parse"))]
     pub(crate) fn two_sided(&self) -> Result<Derivation<'_>, Error> {
         let view = ViewOptions::default().with_sides(Sides::Two);
         self.derivation_within(&view, &Limits::default(), |_| false)

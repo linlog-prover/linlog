@@ -362,11 +362,6 @@ impl<'a> Flags<'a> {
         }
         false
     }
-
-    /// Whether this level's own flag is raised, whatever the ancestors'.
-    pub(crate) fn own(&self) -> bool {
-        self.flag.load(Ordering::Relaxed)
-    }
 }
 
 #[cfg(all(test, feature = "parse"))]

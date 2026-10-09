@@ -16,7 +16,7 @@ pub mod batch;
 /// The focused sequent engine.
 pub(crate) mod focus;
 /// Random provable sequents for the tests.
-#[cfg(test)]
+#[cfg(all(test, feature = "parse"))]
 pub(crate) mod generate;
 /// The Horn engine: reachability of markings.
 pub(crate) mod horn;
@@ -27,7 +27,7 @@ pub(crate) mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
 /// A reference prover for the tests: the plain unfocused calculus.
-#[cfg(test)]
+#[cfg(all(test, feature = "parse"))]
 pub(crate) mod reference;
 /// Why a sequent is unprovable, and the disproof that says so.
 mod refutation;
@@ -59,6 +59,13 @@ pub(crate) enum Stop<'a> {
     /// A condition that is told, at every poll, whether a slice of work
     /// (the last field) has passed since it was last told so: one of two
     /// searches that alternate, which gives way to the other there.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(
+            dead_code,
+            reason = "only threads alternate the two searches in slices"
+        )
+    )]
     Slice(&'a mut dyn FnMut(bool) -> bool, u64, u64),
     /// A worker's flags.
     #[cfg(feature = "parallel")]

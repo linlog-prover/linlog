@@ -126,10 +126,9 @@ impl Certificate<'_> {
         let inference = d.inference(id);
         let classical = d.logic() == Logic::Classical;
         let f = d.formulas();
-        let (side, principal) = match inference.principal {
-            Some((side, at)) => (side, Some(inference.side(side)[at])),
-            None => (Left, None),
-        };
+        let principal = inference
+            .principal
+            .map(|(side, at)| inference.side(side)[at]);
         let p = principal.unwrap_or(NodeId(0));
         let operands = f.node(p).operands();
         let (a, b) = (operands.0.unwrap_or(p), operands.1.unwrap_or(p));

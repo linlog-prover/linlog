@@ -160,6 +160,7 @@ impl Rows {
 impl Counts {
     /// Computes the rows and weights of every occurrence of a forest, and
     /// the literals that are positive under the bias given.
+    #[cfg(any(all(test, feature = "parse"), feature = "interactive"))]
     pub(crate) fn new(forest: &Forest, bias: Bias) -> Self {
         Self::new_until(forest, bias, &Account::new(None), &mut || false).expect("nothing stops it")
     }
@@ -522,6 +523,7 @@ impl Tally {
     }
 
     /// Removes a member.
+    #[cfg(all(test, feature = "parse"))]
     pub(crate) fn remove(&mut self, counts: &Counts, o: OccId) {
         self.apply(counts, o, -1);
     }
@@ -592,6 +594,7 @@ impl Tally {
     }
 
     /// Returns the number of members.
+    #[cfg(all(test, feature = "parse"))]
     pub(crate) fn len(&self) -> u32 {
         self.len
     }

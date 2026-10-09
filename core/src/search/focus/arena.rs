@@ -17,6 +17,10 @@ pub(crate) enum Kept<'a> {
     /// The engine's own arena.
     Own(Vec<Node>),
     /// The arena of a parallel search.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(dead_code, reason = "only a pool shares its kept arena")
+    )]
     Shared(&'a Mutex<Vec<Node>>),
 }
 

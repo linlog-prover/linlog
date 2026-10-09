@@ -7,10 +7,13 @@
 //! time.
 
 use crate::Error;
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 use crate::ordinary::{Formulas, NodeId, Symbols};
 use crate::proofs::InfId;
 use crate::proofs::style::Drawn;
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 use crate::sequents::{Kind, Sequent, Term, TermId, Visit, Walk};
 use std::fmt::Write;
 
@@ -18,6 +21,7 @@ use std::fmt::Write;
 /// connective, unit and of the turnstile, and how an atom's name is
 /// escaped. Binary connectives are written between spaces, `!` and `?`
 /// directly before their operand.
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 pub(crate) struct Notation {
     /// `⊗`
     pub(crate) tensor: &'static str,
@@ -55,6 +59,7 @@ pub(crate) struct Notation {
     pub(crate) ordinary: Symbols,
 }
 
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 impl Notation {
     /// Writes the formula rooted at `id` of `sequent` one-sided, in
     /// brackets if it is binary and `brackets` is set.
@@ -201,6 +206,7 @@ impl Notation {
     }
 }
 
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
 impl Notation {
     /// Writes a sequent of ordinary formulas two-sided, `left ⊢ right`
     /// in the order given, with the turnstile lined up as
@@ -249,6 +255,13 @@ pub(crate) enum Step {
     /// An inference is reached, before its premises; the root is at depth 0.
     Enter(InfId, usize),
     /// An inference is left, after its premises.
+    #[cfg_attr(
+        not(any(feature = "typst", feature = "svg")),
+        expect(
+            dead_code,
+            reason = "only the layouts of their own read the depth on the way up"
+        )
+    )]
     Exit(InfId, usize),
 }
 
