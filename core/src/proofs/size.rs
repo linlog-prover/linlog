@@ -28,6 +28,7 @@ use crate::sequents::Term;
 /// is written as `u64::MAX`, meaning more than can be counted, and then
 /// `exact` is false. In JSON (feature `serialize`) an object of its
 /// fields.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Size {

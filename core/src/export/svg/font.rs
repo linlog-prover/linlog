@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 /// The font a drawing asks for and the advances its layout gives the
 /// characters.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
@@ -53,6 +54,7 @@ impl Default for Font {
 pub const MONOSPACE: u32 = 600;
 
 /// The advance widths a layout gives characters, in thousandths of an em.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]

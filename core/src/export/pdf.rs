@@ -77,6 +77,7 @@ impl Default for Options {
 }
 
 /// A moment in UTC, to the second.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Date {

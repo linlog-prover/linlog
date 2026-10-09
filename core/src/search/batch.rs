@@ -35,6 +35,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// How a batch spends the machine's threads. In JSON (feature
 /// `serialize`) `"auto"`, `"across"` or `"within"`.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]

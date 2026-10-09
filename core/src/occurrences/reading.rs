@@ -48,6 +48,7 @@ impl std::ops::Not for Side {
 }
 
 /// Why a sequent has no intuitionistic reading.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ShapeError {
     /// No root formula can be the goal: with the sides known, the formula

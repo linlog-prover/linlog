@@ -27,6 +27,7 @@ use std::fmt::Write;
 /// How the rules of a derivation are labelled. In JSON (feature
 /// `serialize`) `"upright"`, `"subscript"`, `"off"`, or `{"table": {"⊗":
 /// "\\otimes", …}}` keyed by the rules' names.
+#[non_exhaustive]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
@@ -283,6 +284,7 @@ impl Drawn for Derivation<'_> {
 
 /// How an open goal of a proof in progress is drawn. In JSON (feature
 /// `serialize`) `"dots"`, `"bare"`, `"dashed"`, or `{"mark": "?"}`.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]

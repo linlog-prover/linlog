@@ -216,6 +216,7 @@ impl<'a> serde::Deserialize<'a> for Identifier {
 }
 
 /// Why a derivation has no certificate: it uses a rule the kernel lacks.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Error)]
 #[cfg_attr(
     feature = "serialize",

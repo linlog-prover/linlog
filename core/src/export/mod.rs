@@ -130,6 +130,7 @@ impl<'a> From<&'a crate::ordinary::Derivation> for Drawable<'a> {
 /// of its own.
 ///
 /// Needs one of the cargo features `latex`, `typst` or `rocq`.
+#[non_exhaustive]
 #[cfg(any(feature = "latex", feature = "typst", feature = "rocq"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

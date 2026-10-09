@@ -103,6 +103,7 @@ pub enum Sides {
 /// Whether a derivation draws a run of one structural rule, such as the
 /// weakenings of every unused `?` formula, as one inference labelled with
 /// a star.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]

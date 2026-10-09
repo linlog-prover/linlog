@@ -128,6 +128,7 @@ pub const PAGE: &str = "#set page(width: auto, height: auto, margin: 5pt)";
 pub const CURRYST_HEIGHT: usize = 9;
 
 /// Which code sets a Typst proof tree.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]

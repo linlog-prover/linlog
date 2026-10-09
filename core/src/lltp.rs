@@ -59,6 +59,7 @@ pub struct Problem {
 }
 
 /// The provability an LLTP header claims.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
     /// `Theorem`: the sequent is provable.

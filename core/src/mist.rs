@@ -61,6 +61,7 @@ pub struct Problem {
 }
 
 /// The result of a coverability problem.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Safety {
     /// No marking reachable from the initial one covers the target: the
