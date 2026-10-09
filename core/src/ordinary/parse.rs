@@ -236,15 +236,7 @@ impl<'a> Parser<'a> {
 
     /// Fails once the arena holds more formulas than the limit allows.
     fn within(&self, id: NodeId) -> Result<NodeId, Error> {
-        match self.limit {
-            Some(limit) if self.formulas.len() as u64 > limit => {
-                Err(Error::Refused(Refusal::Occurrences {
-                    occurrences: limit.saturating_add(1),
-                    limit,
-                }))
-            }
-            _ => Ok(id),
-        }
+        count_within(self.formulas.len(), self.limit).map(|()| id)
     }
 
     /// Returns the id of `node`, adding it to the arena within the limit.
@@ -356,7 +348,7 @@ impl Sequent {
             loop {
                 let (formula, end) = parser.formula()?;
                 if turnstile { &mut right } else { &mut left }.push(formula);
-                roots_within(left.len() + right.len(), limits.occurrences)?;
+                count_within(left.len() + right.len(), limits.occurrences)?;
                 match end {
                     End::Comma => {}
                     End::Turnstile if !turnstile => {
@@ -385,12 +377,12 @@ impl Sequent {
     }
 }
 
-/// Fails once a sequent has more formulas than `limit` allows: each is an
-/// occurrence of its image at least, however much of the arena it shares
-/// with the others.
-fn roots_within(roots: usize, limit: Option<u64>) -> Result<(), Error> {
+/// Fails once `count` formulas, of the arena or of a sequent, pass
+/// `limit`: each is an occurrence of the image at least, however much of
+/// the arena a formula of the sequent shares with the others.
+fn count_within(count: usize, limit: Option<u64>) -> Result<(), Error> {
     match limit {
-        Some(limit) if roots as u64 > limit => Err(Error::Refused(Refusal::Occurrences {
+        Some(limit) if count as u64 > limit => Err(Error::Refused(Refusal::Occurrences {
             occurrences: limit.saturating_add(1),
             limit,
         })),
@@ -438,7 +430,7 @@ pub fn read_tptp(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let mut roots = 0;
     let mut read = |formula: &str| {
         roots += 1;
-        roots_within(roots, limits.occurrences)?;
+        count_within(roots, limits.occurrences)?;
         let mut parser = Parser {
             input: formula,
             at: 0,
