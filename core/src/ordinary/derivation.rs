@@ -1148,8 +1148,12 @@ mod tests {
         // Each break with the reason its guard gives: with the guard
         // gone, another would fail it for another reason, or none would.
         type Break = (&'static str, Box<dyn Fn(&mut Derivation)>);
-        let broken: [Break; 10] = [
+        let broken: [Break; 11] = [
             ("the root does not conclude", Box::new(|d| d.right.clear())),
+            (
+                "not a sequent A ⊢ A",
+                Box::new(move |d| d.inferences[axiom].principal = Some((Side::Left, 0))),
+            ),
             (
                 "a premise does not precede",
                 Box::new(move |d| {
@@ -1213,6 +1217,50 @@ mod tests {
                 other => panic!("{why}: {other:?}"),
             }
         }
+        // A rule whose premises share the context, the second one wrong
+        // (`∧R` of LJ under cbn), a `⊥L` in minimal logic, and a `⊥R`
+        // read back from a linear `⊥`.
+        let read = |input: &str, logic, translation| {
+            let sequent: Sequent = input.parse().unwrap();
+            let image = translate(&sequent, logic, translation).unwrap();
+            let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+            let Verdict::Proved(proof) = &outcome.verdict else {
+                panic!("{input} is provable");
+            };
+            let derivation = image.read_back(proof, &unbounded, |_| false).unwrap();
+            assert_eq!(derivation.check(&unbounded, |_| false), Ok(()), "{input}");
+            derivation
+        };
+        let reason = |d: &Derivation| match d.check(&unbounded, |_| false) {
+            Err(Error::ReadBack { reason, .. }) => reason,
+            other => panic!("{other:?}"),
+        };
+        let cbn = Translation::CallByName;
+        let mut shared = read("a, b |- a /\\ b", Logic::Intuitionistic, cbn);
+        let and = shared
+            .inferences
+            .iter()
+            .position(|i| i.rule == Rule::AndRight)
+            .unwrap();
+        let first = shared.inferences[and].premises[0];
+        shared.inferences[and].premises[1] = first;
+        assert!(reason(&shared).contains("do not share or split"));
+        let mut minimal = read("a -> b, b -> c |- a -> c", Logic::Minimal, cbn);
+        let leaf = minimal
+            .inferences
+            .iter()
+            .position(|i| i.rule == Rule::Axiom)
+            .unwrap();
+        minimal.inferences[leaf].rule = Rule::FalseLeft;
+        minimal.inferences[leaf].principal = Some((Side::Left, 0));
+        assert!(reason(&minimal).contains("minimal logic has no ex falso"));
+        let falsity = read("a |- a, false", Logic::Classical, Translation::Affine);
+        assert!(
+            falsity
+                .inferences
+                .iter()
+                .any(|i| i.rule == Rule::FalseRight)
+        );
         let one = unbounded.with_work(Some(1));
         assert_eq!(
             derivation.check(&one, |_| false),

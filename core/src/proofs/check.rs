@@ -2183,6 +2183,24 @@ mod tests {
         );
     }
 
+    /// The bound is exact: the check of `⊢ 1` holds its tables and the
+    /// root's sequent, the value and a table of one member, passes at
+    /// exactly their bytes and is refused one byte below; and a zone's
+    /// bound leaves its counters room.
+    #[test]
+    fn the_bound_is_exact() {
+        let p = proof("|- 1", vec![Node::One(o(0))]);
+        let root = size_of::<State>() as u64 + 16 + table_bytes(1, size_of::<(OccId, u32)>());
+        let exact = tables(&p) + root;
+        let within = |bytes| {
+            let limits = crate::Limits::default().with_memory_bytes(Some(bytes));
+            p.check_within(Mode::CLASSICAL, &limits, |_| false)
+        };
+        assert_eq!(within(exact), Ok(()));
+        assert!(matches!(within(exact - 1), Err(CheckError::Refused(_))));
+        assert!(Bag::MOST < u32::MAX as usize);
+    }
+
     /// A check holds no more than it is allowed: a proof file of a megabyte
     /// whose pass would hold 16 384 copies of a sequent of 14 001 formulas,
     /// over two gigabytes, is refused after a few hundred of them, and the
