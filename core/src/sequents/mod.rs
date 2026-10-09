@@ -35,27 +35,34 @@ use crate::hash::HashMap;
 /// The sequent is kept one-sided in negation normal form: the formulas
 /// left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a negation
 /// is pushed to the atoms, so `A |- A` is `⊢ ~A, A`, which is what
-/// `Display` writes; [`Reading`](crate::Reading) reads an intuitionistic
-/// sequent back two-sided.
+/// `Display` writes. The formulas keep the order they were written in,
+/// and the sequent remembers how many stood left of the turnstile
+/// ([`antecedents`](Self::antecedents)), from which
+/// [`Reading`](crate::Reading) reads an intuitionistic sequent back
+/// two-sided.
 ///
 /// # JSON
 ///
 /// With the feature `serialize` a sequent is the object `{"terms": […],
-/// "ids": […], "var_dict": […]}`. `terms` is the arena: a unit is its
+/// "ids": […], "var_dict": […], "antecedents": k}`. `terms` is the arena: a unit is its
 /// symbol (`"1"`, `"⊥"`, `"⊤"`, `"0"`), any other term an object of one
 /// key, its tag, which names terms by their index in `terms`, each before
 /// it (`{"⊗": [0, 1]}`, and `⅋`, `&`, `⊕` alike; `{"!": 2}`, `{"?": 2}`),
 /// or an atom by its index in `var_dict` (`{"V": 0}` the atom, `{"D": 0}`
-/// its dual). `ids` are the root formulas. Reading checks that every term
-/// names only terms before it and takes a name the dictionary repeats as
-/// one atom. The command's `seq json` writes this form.
+/// its dual). `ids` are the root formulas, in the order written, and
+/// `antecedents` how many of them, the first, stand left of `⊢`, written
+/// whenever the sides are known, `0` included, and absent where they are
+/// not. Reading checks that every term names only terms before it and
+/// that `antecedents` is at most the number of roots, and takes a name
+/// the dictionary repeats as one atom. The command's `seq json` writes
+/// this form.
 ///
 #[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
 #[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]
 /// let sequent: linlog::Sequent = "A |- A".parse()?;
 /// assert_eq!(
 ///     serde_json::to_string(&sequent)?,
-///     r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}"#
+///     r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}"#
 /// );
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -63,11 +70,14 @@ use crate::hash::HashMap;
 pub struct Sequent {
     /// Every subformula; a term refers only to terms at lower indices.
     pub(crate) terms: Vec<Term>,
-    /// The root formulas, as arena indices, in the order the sequent lists
-    /// them.
+    /// The root formulas, as arena indices, in the order they were
+    /// written, which nothing sorts.
     pub(crate) roots: Vec<TermId>,
     /// The atom names that `Var` and `DualVar` refer to by index.
     pub(crate) atoms: Vec<String>,
+    /// How many of the roots, the first ones, were written left of `⊢`;
+    /// `None` where no sides were given. At most the number of roots.
+    pub(crate) antecedents: Option<u32>,
 }
 
 impl std::default::Default for Sequent {
@@ -84,6 +94,7 @@ impl Sequent {
             terms: vec![],
             roots: vec![],
             atoms: vec![],
+            antecedents: None,
         }
     }
 
@@ -98,30 +109,39 @@ impl Sequent {
         self.terms[id.index()]
     }
 
-    /// Returns the root formulas, in the order the sequent lists them.
+    /// Returns the root formulas, in the order they were written.
     pub fn roots(&self) -> &[TermId] {
         &self.roots
     }
 
+    /// Returns how many root formulas were written left of `⊢`: the first
+    /// ones of [`roots`](Self::roots), the rest being right of it. `None`
+    /// when the sides are not known, as for a JSON sequent without them or
+    /// the sum of two sequents; the text syntax always gives them (`Some(0)`
+    /// for `⊢ Γ`). Intuitionistic mode reads the goal from them
+    /// ([`Reading`](crate::Reading)); nothing else does.
+    pub fn antecedents(&self) -> Option<u32> {
+        self.antecedents
+    }
+
     /// A sequent of an arena built elsewhere in the crate: every term's
-    /// subterms come before it, every atom is named, and the roots are
-    /// terms of the arena, as a reader that builds the arena itself
-    /// makes them.
-    pub(crate) fn from_parts(terms: Vec<Term>, roots: Vec<TermId>, atoms: Vec<String>) -> Self {
-        debug_assert!(
-            Self {
-                terms: terms.clone(),
-                roots: roots.clone(),
-                atoms: atoms.clone(),
-            }
-            .verify_integrity()
-            .is_ok()
-        );
-        Self {
+    /// subterms come before it, every atom is named, the roots are terms of
+    /// the arena, as a reader that builds the arena itself makes them, and
+    /// `antecedents` is at most their number.
+    pub(crate) fn from_parts(
+        terms: Vec<Term>,
+        roots: Vec<TermId>,
+        atoms: Vec<String>,
+        antecedents: Option<u32>,
+    ) -> Self {
+        let sequent = Self {
             terms,
             roots,
             atoms,
-        }
+            antecedents,
+        };
+        debug_assert!(sequent.verify_integrity().is_ok());
+        sequent
     }
 
     /// Returns the atom names, in the order `Atom` indexes them.
@@ -197,24 +217,12 @@ impl Sequent {
             }
         })?;
 
-        Ok(())
-    }
-
-    /// Sorts the root indices and checks that each names a term.
-    pub(crate) fn optimize_roots(&mut self) -> Result<(), crate::Error> {
-        self.roots.sort();
-        self.roots.shrink_to_fit();
-        let Some(n) = self.roots.last() else {
-            return Ok(());
-        };
-        let num_terms = self.terms.len() as u32;
-        if n.get() >= num_terms {
-            Err(crate::Error::TermIndexOutOfBounds(
-                n.index(),
-                num_terms as usize,
-            ))
-        } else {
-            Ok(())
+        match self.antecedents {
+            Some(k) if k as usize > self.roots.len() => Err(crate::Error::Antecedents {
+                antecedents: k as usize,
+                roots: self.roots.len(),
+            }),
+            _ => Ok(()),
         }
     }
 
@@ -308,13 +316,12 @@ impl Sequent {
         Ok(())
     }
 
-    /// Merges atoms of the same name and equal terms, drops the terms no
-    /// root formula reaches and sorts the root formulas. Fails if the arena
-    /// breaks its invariants.
+    /// Merges atoms of the same name and equal terms and drops the terms no
+    /// root formula reaches; the root formulas keep the order they were
+    /// written in. Fails if the arena breaks its invariants.
     pub fn optimize(&mut self) -> Result<(), crate::Error> {
         self.optimize_atoms()?;
         self.optimize_terms()?;
-        self.optimize_roots()?;
         self.optimize_atoms()?;
         Ok(())
     }
@@ -357,7 +364,8 @@ impl Sequent {
 
     /// Consumes another sequent and appends its root formulas to this one,
     /// with the arenas concatenated; an atom of the other sequent is the
-    /// atom of the same name here, if there is one.
+    /// atom of the same name here, if there is one. The sides of the sum
+    /// are not known: [`antecedents`](Self::antecedents) is `None`.
     pub fn add(&mut self, s: Self) {
         let offset_atoms = self.atoms.len() as u32;
         let offset_terms = self.terms.len() as u32;
@@ -375,6 +383,9 @@ impl Sequent {
         );
 
         self.atoms.extend(s.atoms);
+        // The roots of the second sequent follow those of the first, so
+        // its antecedents are no longer the first roots.
+        self.antecedents = None;
         self.merge_atoms();
     }
 }
@@ -389,6 +400,7 @@ mod tests {
             terms,
             roots: roots.iter().map(|&n| TermId::new(n)).collect(),
             atoms: atoms.iter().map(|s| s.to_string()).collect(),
+            antecedents: None,
         }
     }
 

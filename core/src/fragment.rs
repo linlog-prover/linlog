@@ -416,6 +416,7 @@ mod tests {
             terms: vec![Term::One, Term::Bang(TermId::new(0)), Term::Top],
             roots: vec![TermId::new(1)],
             atoms: vec![],
+            antecedents: None,
         };
         assert_eq!(
             s.fragment(),

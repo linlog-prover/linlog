@@ -2,9 +2,9 @@
 <title>a → b, b → c ⊢ a → c</title>
 <desc>1. a ⊢ a, by ax.
 2. b ⊢ b, by ax.
-3. a, a → b ⊢ b, by →L from 1 and 2.
+3. a → b, a ⊢ b, by →L from 1 and 2.
 4. c ⊢ c, by ax.
-5. a, a → b, b → c ⊢ c, by →L from 3 and 4.
+5. a → b, b → c, a ⊢ c, by →L from 3 and 4.
 6. a → b, b → c ⊢ a → c, by →R from 5.</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M2061 5312H12399"/>
@@ -16,9 +16,9 @@
 </g>
 <text x="2061" y="6402" textLength="10338" lengthAdjust="spacing" id="i5">𝑎 → 𝑏, 𝑏 → 𝑐 ⊢ 𝑎 → 𝑐</text>
 <text x="12599" y="5512" textLength="1287" lengthAdjust="spacing" font-size="800">→R</text>
-<text x="2589" y="4902" textLength="9282" lengthAdjust="spacing" id="i4">𝑎, 𝑎 → 𝑏, 𝑏 → 𝑐 ⊢ 𝑐</text>
+<text x="2589" y="4902" textLength="9282" lengthAdjust="spacing" id="i4">𝑎 → 𝑏, 𝑏 → 𝑐, 𝑎 ⊢ 𝑐</text>
 <text x="13513" y="4012" textLength="1247" lengthAdjust="spacing" font-size="800">→L</text>
-<text x="1148" y="3402" textLength="6034" lengthAdjust="spacing" id="i2">𝑎, 𝑎 → 𝑏 ⊢ 𝑏</text>
+<text x="1148" y="3402" textLength="6034" lengthAdjust="spacing" id="i2">𝑎 → 𝑏, 𝑎 ⊢ 𝑏</text>
 <text x="8230" y="2512" textLength="1247" lengthAdjust="spacing" font-size="800">→L</text>
 <text x="300" y="1902" textLength="2582" lengthAdjust="spacing" id="i0">𝑎 ⊢ 𝑎</text>
 <text x="3082" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>

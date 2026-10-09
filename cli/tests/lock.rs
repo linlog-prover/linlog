@@ -310,7 +310,7 @@ const CASES: &[Case] = &[
             "-i",
             "--format",
             "latex",
-            "A * B -o C |- ~C -o ~(A * B)",
+            "A * B -o C |- A -o B -o C",
         ],
     ),
     call("seq-json", &["seq", "json", "A, A -o B |- B"]),

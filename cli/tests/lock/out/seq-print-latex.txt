@@ -1,5 +1,5 @@
-$ linlog seq print -i --format latex 'A * B -o C |- ~C -o ~(A * B)'
+$ linlog seq print -i --format latex 'A * B -o C |- A -o B -o C'
 --- status 0
 --- stdout
-$(A \otimes B) \multimap C \vdash (A \otimes B) \multimap C$
+$(A \otimes B) \multimap C \vdash A \multimap (B \multimap C)$
 --- stderr

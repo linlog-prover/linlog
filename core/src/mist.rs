@@ -35,7 +35,7 @@
 //!             target y >= 2\n";
 //! let problem = read(text)?;
 //! assert_eq!(problem.expected, Some(Safety::Unsafe));
-//! assert_eq!(problem.sequent.to_string(), "⊢ ?(x ⊗ (~y ⅋ ~y)), y ⊗ y, ?~y, ~x");
+//! assert_eq!(problem.sequent.to_string(), "⊢ ?(x ⊗ (~y ⅋ ~y)), ?~y, ~x, y ⊗ y");
 //! # Ok::<(), linlog::Error>(())
 //! ```
 //!
@@ -237,8 +237,11 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
         }
     }
     roots.push(goal);
-    // Sorted and shared as the parser leaves a sequent.
-    let mut sequent = Sequent::from_parts(arena.terms, roots, arena.atoms);
+    // Shared as the parser leaves a sequent; everything but the goal stands
+    // left of `⊢`, and there are fewer roots than tokens and terms, which
+    // the limit keeps below `u32::MAX`.
+    let antecedents = Some(roots.len() as u32 - 1);
+    let mut sequent = Sequent::from_parts(arena.terms, roots, arena.atoms, antecedents);
     sequent
         .optimize()
         .expect("every term's subterms come before it");

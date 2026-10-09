@@ -38,9 +38,10 @@ the generated families are read; the harness that runs them is
   statuses of translated problems are those of the intuitionistic source.
 - **`mist::read`** (feature `parse`) turns a coverability problem in
   Mist's `.spec` format into a Horn program for affine mode, built as an
-  arena (`Sequent::from_parts`, then `optimize`, so it is sorted and
-  shared as the parser leaves a sequent; the one-sided form the parser
-  would give `rules, params, tokens |- goal`), every token of a counter
+  arena (`Sequent::from_parts`, then `optimize`, so it is shared as the
+  parser leaves a sequent; the one-sided form the parser would give
+  `rules, params, tokens |- goal`, in that order, with every root but the
+  goal an antecedent), every token of a counter
   one shared literal: written out as text, a 6 KB file of one long name
   and a count of 49 million asked for 49 GB before any limit (the second
   panel's finding). A rule's guards and updates are merged as sorted

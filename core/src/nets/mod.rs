@@ -671,17 +671,17 @@ mod tests {
     #[cfg(feature = "parse")]
     #[test]
     fn validation() {
-        // ⊢ ~A, A, A ⊗ ~B, B: 0 ~A, 1 A, 2 ⊗, 3 A, 4 ~B, 5 B.
+        // ⊢ ~A, A ⊗ ~B, B, A: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B, 5 A.
         let f = || forest("A, A -o B |- B, A");
-        let net = ProofStructure::from_links(f(), false, &[(o(0), o(1))]).unwrap();
+        let net = ProofStructure::from_links(f(), false, &[(o(0), o(5))]).unwrap();
         assert!(!net.is_complete());
         for (links, error) in [
             (vec![(o(0), o(9))], NetError::NoOccurrence(o(9), 6)),
-            (vec![(o(2), o(0))], NetError::NotLiteral(o(2))),
-            (vec![(o(0), o(4))], NetError::NotDual(o(0), o(4))),
-            (vec![(o(1), o(3))], NetError::NotDual(o(1), o(3))),
+            (vec![(o(1), o(0))], NetError::NotLiteral(o(1))),
+            (vec![(o(0), o(3))], NetError::NotDual(o(0), o(3))),
+            (vec![(o(5), o(2))], NetError::NotDual(o(5), o(2))),
             (
-                vec![(o(0), o(1)), (o(0), o(3))],
+                vec![(o(0), o(5)), (o(0), o(2))],
                 NetError::LinkedTwice(o(0)),
             ),
         ] {
@@ -696,7 +696,7 @@ mod tests {
             }
             assert_eq!(net.link(x, y), Err(error), "{links:?}");
             assert_eq!(net.links(), made, "{links:?}");
-            assert_eq!(net.partner(o(3)), None, "{links:?}");
+            assert_eq!(net.partner(o(2)), None, "{links:?}");
         }
         let outside = NetError::NoOccurrence(o(u32::MAX), 6);
         assert_eq!(

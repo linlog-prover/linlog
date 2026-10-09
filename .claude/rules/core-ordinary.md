@@ -47,11 +47,11 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   order, since a negation anywhere refers to it. The derivation's arena is
   that copy, so its rules name those nodes (`↔R`'s premises, the second
   premise of LJ's `¬L`).
-- **The roots are matched by term.** The linear `Sequent` sorts its roots
-  by term id; `translate` runs `optimize_atoms` and `optimize_terms`
-  (pub(crate) for this), pairs each ordinary root with its term, sorts,
-  then `optimize_roots`. Equal terms are interchangeable (an image equal
-  as a term is equal as a tree), so any pairing among them is right.
+- **The roots are matched by position.** The linear `Sequent` keeps its
+  roots in the order `translate` writes them (the hypotheses' images,
+  then the formulas right of `⊢`), so `Image::roots[i]` is the linear
+  root `i`; `antecedents` is the number of hypotheses in ILL, whose images
+  are duals, and `0` classically, where every image stands right of `⊢`.
 - **Minimal logic**: false is the atom `FALSE` (`false`, which the ordinary
   syntax cannot name, but a TPTP problem can: then `_`s are appended until
   the name is free, and `false_is_no_atom_of_the_sequent` pins it), so no `0` exists and `⊥L` cannot arise; the checker

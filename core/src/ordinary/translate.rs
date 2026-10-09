@@ -431,18 +431,20 @@ pub fn translate(
         }
     }
 
+    // Classically every image stands right of `⊢`; in ILL the hypotheses'
+    // duals stand left of it, and there are fewer of them than nodes.
+    let antecedents = if classical {
+        0
+    } else {
+        ordinary.left.len() as u32
+    };
     let mut linear = crate::Sequent {
         terms: builder.terms,
         roots: terms,
         atoms: builder.atoms,
+        antecedents: Some(antecedents),
     };
-    linear.optimize_atoms()?;
-    linear.optimize_terms()?;
-    // The roots in the order the sequent keeps them, sorted by term.
-    let mut paired: Vec<(TermId, Root)> = linear.roots.iter().copied().zip(roots).collect();
-    paired.sort_by_key(|&(term, _)| term);
-    linear.optimize_roots()?;
-    linear.optimize_atoms()?;
+    linear.optimize()?;
     let mode = if classical {
         Mode::CLASSICAL.affine()
     } else {
@@ -455,7 +457,7 @@ pub fn translate(
         translation,
         ordinary,
         extra,
-        roots: paired.into_iter().map(|(_, root)| root).collect(),
+        roots,
     })
 }
 

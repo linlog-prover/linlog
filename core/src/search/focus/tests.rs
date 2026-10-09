@@ -741,8 +741,8 @@ fn intuitionistic() {
         ("a, top |- a", false),
         ("top, 0 |- a", true),
         ("a -o top, a |- b", false),
-        // Ambiguous roots read with the last as the goal: ⊤ ⊢ ⊤.
-        ("|- 0, top", true),
+        // `0` and `⊤` stand on the side they were written on.
+        ("0 |- top", true),
         // Promotion needs an empty linear context.
         ("!a |- !a", true),
         ("a |- !a", false),

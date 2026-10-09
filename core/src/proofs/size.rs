@@ -688,6 +688,7 @@ mod tests {
             terms,
             roots: vec![TermId::new(0), TermId::new(13)],
             atoms: vec!["a".repeat(1 << 20)],
+            antecedents: None,
         };
         let forest = Forest::new(&sequent).unwrap();
         assert_eq!(forest.len(), 1 + (1 << 13) - 1);

@@ -529,7 +529,7 @@ fn intuitionistic_mode() {
         ),
         (
             &["prove", "-i", "A |- B, C"],
-            "both B and C can only be the goal",
+            "exactly one formula right of ⊢, not 2: write the hypotheses left of ⊢",
         ),
         (
             &["prove", "-i", "--engine", "focus", "A |- A"],
@@ -581,7 +581,10 @@ fn intuitionistic_mode() {
     assert_eq!((status, out.as_str()), (0, "A, A ⊸ B ⊢ B\n"));
     let (status, _, err) = linlog(&["seq", "print", "-i", "A, B |-"], "");
     assert_eq!(status, 2);
-    assert!(err.contains("no formula can be the goal"), "{err}");
+    assert!(
+        err.contains("exactly one formula right of ⊢, not 0"),
+        "{err}"
+    );
     let (status, out, _) = linlog(&["seq", "fragment", "-i", "!A |- A & 1"], "");
     assert_eq!((status, out.as_str()), (0, "ILL\n"));
 }
@@ -856,7 +859,7 @@ fn seq_commands() {
     assert_eq!(
         json,
         "{\"terms\":[{\"D\":0},{\"V\":0},{\"D\":1},{\"⊗\":[1,2]},{\"V\":1}],\
-         \"ids\":[0,3,4],\"var_dict\":[\"A\",\"B\"]}\n"
+         \"ids\":[0,3,4],\"var_dict\":[\"A\",\"B\"],\"antecedents\":2}\n"
     );
     let printed = linlog(&["seq", "print", "--input-format", "json"], &json);
     assert_eq!(printed, (0, "⊢ ~A, A ⊗ ~B, B\n".into(), String::new()));

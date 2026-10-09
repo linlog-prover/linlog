@@ -31,7 +31,7 @@
 //!
 //! let sequent: Sequent = "a -> b, b -> c |- a -> c".parse()?;
 //! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName)?;
-//! assert_eq!(image.sequent().to_string(), "⊢ ?~a ⅋ c, ?(!a ⊗ ~b), ?(!b ⊗ ~c)");
+//! assert_eq!(image.sequent().to_string(), "⊢ ?(!a ⊗ ~b), ?(!b ⊗ ~c), ?~a ⅋ c");
 //! let outcome = prove(image.sequent(), image.mode(), &Options::default())?;
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");

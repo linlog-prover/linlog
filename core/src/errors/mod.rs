@@ -29,6 +29,15 @@ pub enum Error {
     /// (second).
     #[error("term {1} refers to term {0}, but a subterm must come before the terms that use it")]
     SubtermIndexNotDecreasing(usize, usize),
+    /// A sequent says more of its root formulas stand left of `⊢`
+    /// (`antecedents`) than it has (`roots`).
+    #[error("the sequent has {antecedents} formulas left of ⊢ but {roots} formulas in all")]
+    Antecedents {
+        /// How many root formulas the sequent says stand left of `⊢`.
+        antecedents: usize,
+        /// How many root formulas it has.
+        roots: usize,
+    },
     /// A sequent has more subformula occurrences than the limit its forest
     /// was to be built within, or than the parser reads.
     #[error(

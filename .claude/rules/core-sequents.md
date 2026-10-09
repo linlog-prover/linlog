@@ -16,13 +16,20 @@ the parser or the serialization is read.
 
 ## Sequents are arena-allocated DAGs
 
-`Sequent` (`core/src/sequents/mod.rs`) has three fields, all `pub(crate)`:
+`Sequent` (`core/src/sequents/mod.rs`) has four fields, all `pub(crate)`:
 - `terms: Vec<Term>`: every subformula. Children are referenced by arena
   index (`TermId`, a `u32` newtype), never by pointer.
 - `roots: Vec<TermId>`: the root formulas that make up the sequent, in the
-  order the sequent lists them.
+  order they were written; nothing sorts them.
 - `atoms: Vec<String>`: atom names. `Var(a)`/`DualVar(a)` index into this
   with `Atom`, a `u32` newtype.
+- `antecedents: Option<u32>`: how many of the roots, the first ones, were
+  written left of `⊢`; `None` where no sides were given (a JSON sequent
+  without the key, `add`, a test's literal). The parser sets it for every
+  text (`Some(0)` for `⊢ Γ`), `mist::read` and `ordinary::translate` from
+  their own sides; `verify_integrity` refuses one above the number of
+  roots (`Error::Antecedents`). Only the intuitionistic reading reads it
+  (`core-forest.md`); it is part of equality.
 
 **A term only references subterms with a strictly smaller index**, so the
 arena is topologically sorted: one ascending pass sees every subterm before
@@ -33,7 +40,9 @@ deserialization runs the check. Code that builds or rewrites an arena must
 preserve it.
 
 `optimize()` runs after parsing. It deduplicates atom names, hash-conses
-identical terms, drops unreachable ones and sorts `roots`. Nothing else
+identical terms and drops unreachable ones; the roots keep their written
+order, so the forest numbers the formulas as they were written and a
+root's index is its place in the text. Nothing else
 guarantees that every arena term is reachable: a deserialized sequent may
 carry junk terms, and `fragment()` and `Forest` walk from the roots for that
 reason. `Sequent::add` merges two sequents by offsetting atom and term indices.
@@ -141,7 +150,8 @@ Every operator has ASCII and Unicode spellings: `* ⊗`, `| par ⅋`, `&`,
 ## Serialization
 
 `core/src/serialize/sequents.rs` uses a private serde proxy struct
-`{terms, ids, var_dict}` with short tags (`V`, `D`, `⊗`, `⅋`, …) and `u32`
+`{terms, ids, var_dict, antecedents}` (the last written whenever the sides
+are known, `0` included, and absent otherwise) with short tags (`V`, `D`, `⊗`, `⅋`, …) and `u32`
 indices. `serialize/proofs.rs` does the same for proofs: `{"sequent": …,
 "proof": [node, …]}`, one object per node tagged `ax ⊗ ⅋ 1 ⊥ & ⊕₁ ⊕₂ ⊤ ! ?
 copy wk mix` with the occurrence ids and premise indices as an array (or

@@ -348,11 +348,11 @@ fn sequents() {
     let sequent: Sequent = "x_1 * foo, !A |- ?B & 1, B".parse().unwrap();
     assert_eq!(
         latex::sequent(&sequent, &latex::Options::default()),
-        r"$\vdash \mathit{x\_1}^\bot \parr \mathit{foo}^\bot, \wn A^\bot, B, \wn B \with \mathbf{1}$"
+        r"$\vdash \mathit{x\_1}^\bot \parr \mathit{foo}^\bot, \wn A^\bot, \wn B \with \mathbf{1}, B$"
     );
     assert_eq!(
         typst::sequent(&sequent, &typst::Options::default()),
-        r#"$⊢ italic("x_1")^⊥ ⅋ italic("foo")^⊥, class("normal", ?)A^⊥, B, class("normal", ?)B class("binary", \&) bold(1)$"#
+        r#"$⊢ italic("x_1")^⊥ ⅋ italic("foo")^⊥, class("normal", ?)A^⊥, class("normal", ?)B class("binary", \&) bold(1), B$"#
     );
 
     let sequent: Sequent = "!A, A -o (B + top) |- B & 0".parse().unwrap();

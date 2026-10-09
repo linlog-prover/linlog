@@ -6,9 +6,9 @@
 \begin{prooftree}
 \infer0[$\mathrm{ax}$]{a &\vdash a}
 \infer0[$\mathrm{ax}$]{b &\vdash b}
-\infer2[$\to\mathrm{L}$]{a, a \to b &\vdash b}
+\infer2[$\to\mathrm{L}$]{a \to b, a &\vdash b}
 \infer0[$\mathrm{ax}$]{c &\vdash c}
-\infer2[$\to\mathrm{L}$]{a, a \to b, b \to c &\vdash c}
+\infer2[$\to\mathrm{L}$]{a \to b, b \to c, a &\vdash c}
 \infer1[$\to\mathrm{R}$]{a \to b, b \to c &\vdash a \to c}
 \end{prooftree}
 \end{document}

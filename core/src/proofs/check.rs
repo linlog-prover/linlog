@@ -1887,6 +1887,7 @@ mod tests {
             terms,
             roots,
             atoms: vec![],
+            antecedents: None,
         };
         // Occurrences: 0 is 1, 1 to `width` the ⊥ formulas, then the tree
         // in preorder.
@@ -2043,11 +2044,10 @@ mod tests {
                 "A -o 0, A |- B",
                 vec![Ax(o(1), o(3)), Top(o(2)), Tensor(o(0), n(0), n(1))],
             ),
-            // ⊢ ⊤, ⊤ ⊗ ⊤ is read with the last root as the goal, 0 ⊢ ⊤ ⊗ ⊤:
-            // 0 ⊤, 1 ⊗, 2 ⊤, 3 ⊤; the hypothesis `0` is absorbed by one
-            // `⊤R`.
+            // 0 ⊢ ⊤ ⊗ ⊤: 0 ⊤, 1 ⊗, 2 ⊤, 3 ⊤; the hypothesis `0` is absorbed
+            // by one `⊤R`.
             (
-                "|- top, top * top",
+                "0 |- top * top",
                 vec![Top(o(2)), Top(o(3)), Tensor(o(1), n(0), n(1))],
             ),
             // !A, !(A ⊸ B) ⊢ !B: 0 ?, 1 ~A, 2 ?, 3 ⊗, 4 A, 5 ~B, 6 !, 7 B

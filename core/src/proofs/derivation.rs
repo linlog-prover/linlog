@@ -1922,6 +1922,7 @@ mod tests {
             terms: vec![Term::Bot, Term::Quest(TermId::new(0)), Term::One],
             roots: vec![TermId::new(1), TermId::new(2)],
             atoms: vec![],
+            antecedents: None,
         };
         let mut nodes = vec![One(o(2))];
         for _ in 0..ROUNDS {
@@ -1966,6 +1967,7 @@ mod tests {
             terms: vec![Term::One, Term::Bot, both],
             roots,
             atoms: vec![],
+            antecedents: None,
         };
         let mut nodes = vec![One(o(0))];
         for level in 0..levels {

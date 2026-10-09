@@ -56,6 +56,10 @@ struct Sequent {
     ids: Vec<u32>,
     /// The atom names.
     var_dict: Vec<String>,
+    /// How many of the root formulas, the first, stand left of `⊢`;
+    /// absent where the sides are not known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    antecedents: Option<u32>,
 }
 
 impl From<Term> for Expression {
@@ -110,6 +114,7 @@ impl From<&Seq> for Sequent {
             terms: s.terms.iter().copied().map(Expression::from).collect(),
             ids: s.roots.iter().map(|k| k.get()).collect(),
             var_dict: s.atoms.clone(),
+            antecedents: s.antecedents,
         }
     }
 }
@@ -125,6 +130,7 @@ impl TryFrom<Sequent> for Seq {
             terms: s.terms.into_iter().map(Term::from).collect(),
             roots: s.ids.into_iter().map(TermId::new).collect(),
             atoms: s.var_dict,
+            antecedents: s.antecedents,
         };
         s.verify_integrity()?;
         s.merge_atoms();

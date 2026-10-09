@@ -111,6 +111,8 @@ struct Parser<'a> {
     negated: Vec<bool>,
     /// The formulas of the sequent, in the order of the text.
     roots: Vec<TermId>,
+    /// How many formulas stand left of the turnstile, once it is passed.
+    antecedents: u32,
     /// The names of the atoms, in the order they first occur.
     atoms: Vec<String>,
     /// The atom of every name read so far.
@@ -136,6 +138,7 @@ impl<'a> Parser<'a> {
             terms: Vec::new(),
             negated: Vec::new(),
             roots: Vec::new(),
+            antecedents: 0,
             atoms: Vec::new(),
             names: HashMap::default(),
             pending: Vec::new(),
@@ -253,6 +256,8 @@ impl<'a> Parser<'a> {
     /// Passes the turnstile: what follows is the right side, of which
     /// nothing has been read.
     fn turnstile(&mut self) -> State {
+        // Every formula is a term, of which there are fewer than `u32::MAX`.
+        self.antecedents = self.roots.len() as u32;
         self.left = false;
         self.empty = true;
         State::Operand
@@ -408,6 +413,7 @@ impl<'a> Parser<'a> {
             terms: self.terms,
             roots: self.roots,
             atoms: self.atoms,
+            antecedents: Some(self.antecedents),
         };
         sequent.optimize()?;
         Ok(sequent)

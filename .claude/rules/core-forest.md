@@ -84,29 +84,33 @@ the checker, the two-sided derivation and the future essential nets read.
   ⊤`, `~a`, and `A ⊗ B⊥` for a hypothesis `A ⊸ B`. The position flips at
   the antecedent of an implication (an output `⅋` or an input `⊗`) and
   nowhere else. `Reading::implication(o)` returns (antecedent, consequent)
-  for exactly those occurrences; `formula(o)` prints an occurrence as the
+  for exactly those occurrences, the antecedent always the left factor,
+  where the lowering of `A ⊸ B` puts it; `formula(o)` prints an occurrence as the
   intuitionistic formula its position makes it (`⊥` as `1`, an input `⊤`
   as `0`, an input `⊗` as `⊸`); `Display` prints `Γ ⊢ A`.
-- **The choices, made deterministically.** A bottom-up pass computes which
-  positions each occurrence can take (`⊤` and `0` both, `Var` output
-  only, and so on); the first occurrence with neither, in descending id
-  order, is `ShapeError::Formula` (a minimal offending subformula). The
-  goal is the root that can only be output (two such roots:
-  `SeveralGoals`; none that can be output: `NoGoal`), else the *last*
-  root, by id, that can be output. Inside an implication the left factor
-  is the antecedent when that reading works and the right one otherwise,
-  so `b ⅋ ~a` reads as `a ⊸ b` too (the symmetric reading).
-- **Ambiguity is real and cannot be resolved from the arena.** Only
-  formulas built from `⊤` and `0` alone can stand on either side, and for
-  those the written succedent is lost: `Sequent::optimize` sorts the roots
-  by term and hash-conses, so a `⊤`-built succedent equal to a hypothesis
-  subterm gets an early id and another root becomes the goal (`0, ⊤ ⊢ ⊤`
-  prints as `0, 0 ⊢ 0`). A review brute-forced 607 464 such sequents and
-  found no pair of readings that differ in provability, so the verdict is
-  unaffected; only the two-sided print and derivation show the other
-  reading. Engine, checker and view all call `Reading::new` on the same
-  forest, which is what keeps them consistent; never hand one of them a
-  reading of a different forest.
+- **The reading is what was written, and guesses nothing.** A bottom-up
+  pass computes which positions each occurrence can take (`⊤` and `0`
+  both, `Var` output only, an implication only with its left factor as
+  the antecedent, and so on); the first occurrence with neither, in
+  descending id order, is `ShapeError::Formula` (a minimal offending
+  subformula), so `b ⅋ ~a` has no reading in output position. With the
+  sides known (`Sequent::antecedents`) the roots after the first
+  `antecedents` are the succedents: anything but one is
+  `ShapeError::Succedents` (whose message says to write the hypotheses
+  left of `⊢`), a succedent that cannot be output `NoGoal`, an
+  antecedent that cannot be input `Hypothesis { index }`. With the sides
+  unknown the goal is the one root that cannot be input (two:
+  `SeveralGoals`), else the one root that can be output (none: `NoGoal`;
+  two, which only `⊤`- and `0`-built formulas allow, as in `⊢ 0, ⊤`:
+  `Undetermined`, which asks for the sides). `⊢ ⊤, a` has one reading,
+  `0 ⊢ a`. The guessed goal (the last root that could be one) and the
+  symmetric implication (the right factor as the antecedent when the left
+  did not fit) answered `|- top, a` and `(A -o bot) -o bot |- A` as
+  provable (the held-back audit's H10 and H9); `the_written_sides_decide`
+  pins both refusals, with the sides and without. Engine, checker and
+  view all call `Reading::new` on the same forest, which is what keeps
+  them consistent; never hand one of them a reading of a different
+  forest.
 - **`Fragment::name_in(mode)`** is the mode-aware name (`IMLL`, `IMLL with
   units`, `IALL`, `IMALL`, `IMELL`, `ILL`; the classical `Display` is
   unchanged), and the JSON of an `Outcome` uses it; a `Fragment` reads

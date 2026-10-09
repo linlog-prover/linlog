@@ -263,6 +263,7 @@ mod tests {
             terms,
             roots,
             atoms,
+            antecedents: None,
         })
         .unwrap();
         let literal = |a, sign| forest.literals(Atom::new(a), sign)[0];

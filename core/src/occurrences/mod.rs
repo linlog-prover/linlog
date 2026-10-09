@@ -722,6 +722,7 @@ mod tests {
             ],
             roots: vec![TermId::new(1), TermId::new(0), TermId::new(1)],
             atoms: vec!["A".into()],
+            antecedents: None,
         };
         let f = Forest::new(&s).unwrap();
         check_invariants(&f);
@@ -766,6 +767,7 @@ mod tests {
             terms,
             roots: vec![TermId::new(levels)],
             atoms: vec![],
+            antecedents: None,
         }
     }
 

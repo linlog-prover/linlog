@@ -24,22 +24,25 @@ fn json(input: &str) -> String {
 #[test]
 fn json_format() {
     for (input, expected) in [
-        ("|-", r#"{"terms":[],"ids":[],"var_dict":[]}"#),
+        (
+            "|-",
+            r#"{"terms":[],"ids":[],"var_dict":[],"antecedents":0}"#,
+        ),
         (
             "A |- A",
-            r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}"#,
+            r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}"#,
         ),
         (
             "|- 0, 1, bot, top",
-            r#"{"terms":["0","1","⊥","⊤"],"ids":[0,1,2,3],"var_dict":[]}"#,
+            r#"{"terms":["0","1","⊥","⊤"],"ids":[0,1,2,3],"var_dict":[],"antecedents":0}"#,
         ),
         (
             "A * B |- A par B",
-            r#"{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":0},{"V":1},{"⅋":[3,4]}],"ids":[2,5],"var_dict":["A","B"]}"#,
+            r#"{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":0},{"V":1},{"⅋":[3,4]}],"ids":[2,5],"var_dict":["A","B"],"antecedents":1}"#,
         ),
         (
             "!(A & B) |- ?(A + B)",
-            r#"{"terms":[{"D":0},{"D":1},{"⊕":[0,1]},{"?":2},{"V":0},{"V":1},{"⊕":[4,5]},{"?":6}],"ids":[3,7],"var_dict":["A","B"]}"#,
+            r#"{"terms":[{"D":0},{"D":1},{"⊕":[0,1]},{"?":2},{"V":0},{"V":1},{"⊕":[4,5]},{"?":6}],"ids":[3,7],"var_dict":["A","B"],"antecedents":1}"#,
         ),
     ] {
         assert_eq!(json(input), expected, "{input:?}");
@@ -68,7 +71,7 @@ fn round_trip() {
 /// one with the name once, and is proved like it.
 #[test]
 fn repeated_atom_name_is_one_atom() {
-    let json = r#"{"terms":[{"D":0},{"V":1}],"ids":[0,1],"var_dict":["A","A"]}"#;
+    let json = r#"{"terms":[{"D":0},{"V":1}],"ids":[0,1],"var_dict":["A","A"],"antecedents":1}"#;
     let s: Sequent = serde_json::from_str(json).unwrap();
     assert_eq!(s, "A |- A".parse().unwrap());
     let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
@@ -85,6 +88,8 @@ fn broken_arena_is_rejected() {
         r#"{"terms":["1"],"ids":[1],"var_dict":[]}"#,
         // An atom outside the dictionary.
         r#"{"terms":[{"V":0}],"ids":[0],"var_dict":[]}"#,
+        // More formulas left of `⊢` than the sequent has.
+        r#"{"terms":["1"],"ids":[0],"var_dict":[],"antecedents":2}"#,
     ] {
         assert!(serde_json::from_str::<Sequent>(json).is_err(), "{json}");
     }

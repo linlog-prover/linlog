@@ -351,9 +351,10 @@ note: --jobs 10000 is more than the 16 threads a search uses at most on this mac
 provable (MLL, classical, net engine)
 ```
 
-`--intuitionistic` (`-i`) reads the sequent as intuitionistic linear logic:
-one formula on the right of `⊢` and pars only as implications, which the
-one-sided form keeps as `~A ⅋ B`. The verdict line names the intuitionistic
+`--intuitionistic` (`-i`) reads the sequent as intuitionistic linear logic,
+as it is written: the hypotheses left of `⊢`, exactly one formula right of
+it, and pars only as implications, which the one-sided form keeps as
+`~A ⅋ B` with the antecedent on the left. The verdict line names the intuitionistic
 fragment, and the derivation is two-sided with the rules of ILL. IMLL
 without units goes to the net engine (the classical net of the one-sided
 sequent is always an intuitionistic proof), a sequent of two additive-only
@@ -395,6 +396,8 @@ memo entries: 20
 time: 89.90µs
 $ linlog prove -i "|- A par B"
 error: not an intuitionistic sequent: the subformula A ⅋ B is neither an intuitionistic formula nor the negation of one (⅋ only as A ⊸ B, that is ~A ⅋ B, and ? only under a negation)
+$ linlog prove -i "|- ~A, B"
+error: not an intuitionistic sequent: an intuitionistic sequent has exactly one formula right of ⊢, not 2: write the hypotheses left of ⊢
 ```
 
 Classical linear logic proves more than intuitionistic linear logic once
@@ -501,7 +504,7 @@ logic flags):
 
 ```console
 $ linlog prove --format json "A |- A"
-{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0},"sequent":{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]},"proof":[{"ax":[0,1]}]}
+{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0},"sequent":{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1},"proof":[{"ax":[0,1]}]}
 $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
 ```
@@ -559,14 +562,14 @@ two-sided as intuitionistic linear logic reads it, converts it to JSON
 (which a `.json` file or `--input-format json` reads back), or names its fragment:
 
 ```console
-$ linlog seq print "A * B -o C |- ~C -o ~(A * B)"
-⊢ (A ⊗ B) ⊗ ~C, C ⅋ (~A ⅋ ~B)
-$ linlog seq print -i "A * B -o C |- ~C -o ~(A * B)"
-(A ⊗ B) ⊸ C ⊢ (A ⊗ B) ⊸ C
+$ linlog seq print "A * B -o C |- A -o B -o C"
+⊢ (A ⊗ B) ⊗ ~C, ~A ⅋ (~B ⅋ C)
+$ linlog seq print -i "A * B -o C |- A -o B -o C"
+(A ⊗ B) ⊸ C ⊢ A ⊸ (B ⊸ C)
 $ linlog seq fragment -i "A & B |- 1"
 IMALL
 $ linlog seq json "A |- A"
-{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}
+{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}
 $ linlog seq fragment "A & B |- 1"
 MALL
 ```
@@ -600,10 +603,10 @@ $ linlog prove --format typst "A & B |- A + B"
     $⊢ A^⊥ ⊕ B^⊥, A ⊕ B$,
   ),
 )
-$ linlog seq print -i --format latex "A * B -o C |- ~C -o ~(A * B)"
-$(A \otimes B) \multimap C \vdash (A \otimes B) \multimap C$
-$ linlog seq print --format typst "A * B -o C |- ~C -o ~(A * B)"
-$⊢ (A ⊗ B) ⊗ C^⊥, C ⅋ (A^⊥ ⅋ B^⊥)$
+$ linlog seq print -i --format latex "A * B -o C |- A -o B -o C"
+$(A \otimes B) \multimap C \vdash A \multimap (B \multimap C)$
+$ linlog seq print --format typst "A * B -o C |- A -o B -o C"
+$⊢ (A ⊗ B) ⊗ C^⊥, A^⊥ ⅋ (B^⊥ ⅋ C)$
 ```
 
 `--standalone` writes a document that compiles on its own instead, cropped
@@ -954,7 +957,7 @@ file's column or a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
-{"name":"pair","verdict":"proved","fragment":"IMLL","mode":{"intuitionistic":true,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"ids":[0,1,4],"var_dict":["A","B"]},"proof":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
+{"name":"pair","verdict":"proved","fragment":"IMLL","mode":{"intuitionistic":true,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"ids":[0,1,4],"var_dict":["A","B"],"antecedents":2},"proof":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
 ```
 
 By default the cores go across the sequents, one sequent per worker on
@@ -1098,8 +1101,9 @@ Built:
   MALL, MELL, LL, and their intuitionistic counterparts IMLL to ILL) and
   the modes classical, affine, intuitionistic and Mix as user choices.
 - Intuitionistic linear logic on the same one-sided representation: a
-  sequent is read two-sided by the polarization of its subformulas (one
-  goal, hypotheses, `⊸` recovered from `~A ⅋ B`), printed as `Γ ⊢ A`, and
+  sequent is read two-sided as it was written (the hypotheses left of
+  `⊢`, one goal right of it, `⊸` recovered from `~A ⅋ B`, each formula
+  checked to stand where its polarization allows), printed as `Γ ⊢ A`, and
   proved by the two-sided focused search, by the embedding of IMLL into
   MLL proof nets, by the additive fast path, or by the Horn engine.
 - Proofs as compact terms over subformula occurrences, an independent
