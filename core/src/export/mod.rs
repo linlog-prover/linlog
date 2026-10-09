@@ -380,16 +380,14 @@ impl Measure {
             // at its first `>` outside a quoted value.
             let start_tag = &rest[..tag_end(rest)];
             let empty = start_tag.ends_with("/>");
-            let text = [("<title", "</title>"), ("<desc", "</desc>")]
+            let text = ["title", "desc"]
                 .into_iter()
-                .find(|(open, _)| rest.starts_with(open) && !empty)
-                .map(|(_, end)| end);
+                .find(|name| rest[1..].starts_with(name) && !empty);
             let plain = !rest.starts_with("<!--") && text.is_none();
             let close = if rest.starts_with("<!--") {
                 rest.find("-->").map_or(rest.len(), |i| i + "-->".len())
-            } else if let Some(end) = text {
-                let after = &rest[start_tag.len()..];
-                start_tag.len() + after.find(end).map_or(after.len(), |i| i + end.len())
+            } else if let Some(name) = text {
+                start_tag.len() + through_end_tag(&rest[start_tag.len()..], name)
             } else {
                 start_tag.len()
             };
@@ -453,6 +451,24 @@ fn tag_end(text: &str) -> usize {
             (Some(open), c) if c == open => quote = None,
             _ => {}
         }
+    }
+    text.len()
+}
+
+/// Returns the length of `text` up to and with the end tag `</name>`,
+/// which may hold white space before its `>` (`</desc >` hid what followed
+/// it), or the whole text without one.
+#[cfg(any(feature = "png", feature = "pdf"))]
+fn through_end_tag(text: &str, name: &str) -> usize {
+    let open = format!("</{name}");
+    let mut from = 0;
+    while let Some(i) = text[from..].find(&open) {
+        let after = from + i + open.len();
+        let rest = text[after..].trim_start();
+        if rest.starts_with('>') {
+            return text.len() - rest.len() + 1;
+        }
+        from = after;
     }
     text.len()
 }

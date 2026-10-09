@@ -335,7 +335,8 @@ for NanoYalla. What the code relies on:
   bytes took 227 MB and 4.3 s under 64 MiB; entities expand likewise);
   `arcs` reads a `d` in either quote, and a tag ends at its first `>`
   outside a quoted value (`tag_end`: `<desc class=">"/>` hid the
-  `<use>` after it). A new element of the SVG writer
+  `<use>` after it), a `<title>` or `<desc>` at its end tag with any
+  white space before the `>` (`through_end_tag`: `</desc >` did too). A new element of the SVG writer
   joins `ELEMENTS` with its cost measured.
 - **usvg's cost of an arc is a precision fault, not its size**: it
   computes in `f32`, and an arc starting millions of units out (a net
