@@ -354,6 +354,21 @@ serde_json, which the CLI and the core's tests already have.
   CPU against 197), and the 154 that kept their engine have every
   counter of their 116 decided rows equal to `after-panels`. A later
   change compares with it.
+- **`bench/net-targets.sh LABEL`** is the net engine's set, which the
+  focused engine's nearly leaves out (it forces no engine, and the
+  dispatch sends one of its problems, `partition-table/1-1`, to the net
+  engine): the problems of the second
+  baseline's `engines` and `period-N` passes that the net engine decided
+  within their minute, under the same test periods, forced onto the net
+  engine on one thread, one stream on core 2, about five minutes, into
+  `bench/targets/net-LABEL.csv` (`net-LABEL.part.csv` while it runs,
+  ignored by jj). What compares is `verdict`, `links` and `tests` of the
+  decided rows, a function of the input on one thread; a change that
+  must not alter the net search (the retype of `ProofStructure` over
+  vertices) runs it at its parent and at itself. The Partition
+  encodings of the problem file are copied out by exact name, since
+  `--only` matches substrings and `1-1` is part of `1-1-1-1-1-7`, which
+  the net engine does not decide.
 
 ## The journeys and the ratchet
 

@@ -37,5 +37,6 @@ CLAUDE.local.md
 # The target set's progress logs and its streams' files while it runs
 /bench/targets/*.log
 /bench/targets/*.[0-9].csv
+/bench/targets/*.part.csv
 # Trial runs of the target set
 /bench/targets/scratch-*
