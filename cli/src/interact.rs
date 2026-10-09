@@ -6,15 +6,15 @@ use crate::argument_parsing::Threads;
 use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
-    Ended, Rendered, Show, Shown, alone_first, bound_renders, bytes_text, count_text, derivation,
-    describe, notice_line, on_large_stack, render, stopped, unknown,
+    Ended, Rendered, Show, Shown, alone_first, bound_renders, bytes_text, derivation, describe,
+    notice_line, on_large_stack, render, stopped, unknown,
 };
 use crate::style::Styles;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
 use linlog::export::{latex, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
-use linlog::{Error, InfId, Interactive, Reading, Refusal, Rule, Side, ViewError, ViewOptions};
+use linlog::{Error, InfId, Interactive, Reading, Refusal, Rule, Side, StepError, ViewOptions};
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::Path;
@@ -363,7 +363,11 @@ impl Session {
             notice_line(self.timeout, self.deepens),
         );
         let halt = || interrupted() || deadline.passed();
-        let goal_sequent = self.state.goal(goal).ok_or(Refusal::NoGoal(goal))?.to_vec();
+        let goal_sequent = self
+            .state
+            .goal(goal)
+            .ok_or(StepError::NoGoal { goal })?
+            .to_vec();
         let (forest, mode) = (self.state.forest(), self.state.mode());
         let parallel =
             || engine_for(forest, &goal_sequent, mode, &self.options).is_ok_and(Engine::parallel);
@@ -388,16 +392,18 @@ impl Session {
         };
         match closed {
             Ok(outcome) => Ok((outcome, ended)),
-            Err(Error::View(ViewError::TooLarge { size, limit })) => bail!(
-                "the search proved the goal, but the derivation to graft is too large: its {} \
-                 inferences with {} characters of sequents are estimated at {}, over the \
-                 limit of {}; the goal stays open (--derivation-limit raises the limit)",
-                count_text(size.inferences),
-                count_text(size.characters),
-                bytes_text(size.bytes()),
-                bytes_text(limit)
+            Err(Error::Refused(Refusal::Output {
+                estimate_bytes,
+                limit_bytes,
+                ..
+            })) => bail!(
+                "the search proved the goal, but the derivation to graft is too large: it is \
+                 estimated at {}, over the limit of {}; the goal stays open (--derivation-limit \
+                 raises the limit)",
+                bytes_text(estimate_bytes),
+                bytes_text(limit_bytes)
             ),
-            Err(Error::View(ViewError::Stopped)) => bail!(
+            Err(Error::Refused(Refusal::Stopped { .. })) => bail!(
                 "the search proved the goal, but its derivation was not grafted before the \
                  time limit or the interrupt; the goal stays open"
             ),

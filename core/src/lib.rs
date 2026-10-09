@@ -64,9 +64,16 @@
 //! # Ok::<(), linlog::Error>(())
 //! ```
 //!
-//! Errors are one type, [`Error`], whose messages say what is wrong with the
-//! input; a proof that fails the checker gives a [`CheckError`], which
-//! [`CheckError::describe`] prints with formulas.
+//! Errors are one family, [`Error`]: its [`kind`](Error::kind) says what
+//! sort of failure it is, so that a call a bound or a stop refused
+//! ([`ErrorKind::is_refusal`], with the [`Refusal`]) is never read as a
+//! fault of its input, and its [`code`](Error::code) is the stable reason
+//! a program branches on. The types a caller may match on are variants of
+//! it, converted without loss: a proof that fails the checker gives a
+//! [`CheckError`], [`Invalid`](CheckError::Invalid) or
+//! [`Refused`](CheckError::Refused), which [`CheckError::describe`] prints
+//! with formulas; a proof structure a [`NetError`]; a sequent without an
+//! intuitionistic reading a [`ShapeError`].
 //!
 //! # Syntax and JSON
 //!
@@ -105,6 +112,8 @@ pub mod families;
 pub mod fragment;
 /// The hash tables of this crate.
 mod hash;
+/// The resources a call may use, its progress, and why it was refused.
+pub mod limits;
 /// Problems of the LLTP benchmark library.
 #[cfg(feature = "parse")]
 pub mod lltp;
@@ -133,16 +142,17 @@ mod serialize;
 #[cfg(feature = "parse")]
 pub use errors::ParseError;
 
-pub use errors::Error;
+pub use errors::{Error, ErrorKind};
 pub use fragment::{Fragment, Mode};
+pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{NetError, ProofStructure};
 pub use occurrences::{Forest, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
     Branch, CheckError, DEFAULT_MEMORY_LIMIT, Derivation, InfId, Inference, Node, NodeId, Proof,
-    Rule, Size, ViewError, ViewOptions, WriteError,
+    Rule, Size, ViewOptions,
 };
 #[cfg(feature = "interactive")]
-pub use proofs::{Interactive, Refusal};
+pub use proofs::{Interactive, StepError};
 pub use search::{
     Bias, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
     prove_until,

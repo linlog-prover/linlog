@@ -136,7 +136,11 @@ impl TryFrom<Proof> for Prf {
         let nodes: Vec<Node> = p.proof.into_iter().map(Node::from).collect();
         // The root is the last node, whose index must be a node id.
         let Ok(root) = u32::try_from(nodes.len().saturating_sub(1)) else {
-            return Err(crate::Error::TooManyNodes(nodes.len()));
+            return Err(crate::Error::Refused(crate::limits::Refusal::Index {
+                what: crate::limits::Space::Node,
+                count: nodes.len() as u64,
+                most: u64::from(u32::MAX),
+            }));
         };
         Prf::new(forest, nodes, NodeId::new(root))
     }

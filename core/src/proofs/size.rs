@@ -92,7 +92,7 @@ impl Proof {
     /// Returns the size as [`derivation_size`](Self::derivation_size)
     /// does, the checker's pass holding `memory` bytes at most, or any
     /// number with `None`; a pass that would hold more ends with an error
-    /// that [`is_refusal`](CheckError::is_refusal).
+    /// that [`Refused`](CheckError::Refused).
     pub fn derivation_size_within(
         &self,
         two_sided: bool,

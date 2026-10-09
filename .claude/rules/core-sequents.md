@@ -133,7 +133,7 @@ time and memory linear in the text. What the code relies on:
   turnstile can stand), report the character after them.
   `error_positions` in `core/tests/parse.rs` pins both and the rest.
 - A text of more terms than a forest can hold (`Forest::MOST`) is
-  `Error::TooManyOccurrences`: every term of a text is an occurrence.
+  `Refusal::Occurrences`: every term of a text is an occurrence.
 - The first parser was chumsky's Pratt parser. Before it was removed
   the two were compared on 1.1 million generated inputs (token soup,
   random sequents in every spelling, and those with one character

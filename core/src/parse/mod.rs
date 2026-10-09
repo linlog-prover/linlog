@@ -156,12 +156,12 @@ impl<'a> Parser<'a> {
     /// the input there.
     fn unexpected(&self, at: usize) -> Error {
         let found = self.input[at..].chars().next();
-        Error::SequentParsing(vec![ParseError {
+        Error::from(ParseError {
             span: at..at + found.map_or(0, char::len_utf8),
             found: found.map(String::from),
             label: None,
             expected: Vec::new(),
-        }])
+        })
     }
 
     /// Appends a term to the arena and returns its index, or fails when
@@ -170,10 +170,10 @@ impl<'a> Parser<'a> {
         let index = self.terms.len() as u64;
         if index >= self.most {
             // Every term of the text is an occurrence of its own.
-            return Err(Error::TooManyOccurrences {
+            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
                 occurrences: self.most.saturating_add(1),
                 limit: self.most,
-            });
+            }));
         }
         self.terms.push(term);
         self.negated.push(false);
@@ -443,10 +443,10 @@ mod tests {
         assert_eq!(Parser::new(input, 5).sequent().unwrap().terms().len(), 5);
         assert!(matches!(
             Parser::new(input, 4).sequent(),
-            Err(Error::TooManyOccurrences {
+            Err(Error::Refused(crate::limits::Refusal::Occurrences {
                 occurrences: 5,
                 limit: 4
-            })
+            }))
         ));
     }
 }

@@ -36,9 +36,12 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// Needs the cargo feature `interactive` (on by default).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum Refusal {
+pub enum StepError {
     /// No open goal has this id.
-    NoGoal(InfId),
+    NoGoal {
+        /// The id asked for.
+        goal: InfId,
+    },
     /// The goal has no formula at the position; it has `len` formulas.
     NoFormula {
         /// The position asked for.
@@ -96,7 +99,10 @@ pub enum Refusal {
     },
     /// In intuitionistic mode, a premise would have this many formulas on
     /// the right of `⊢` instead of one.
-    Succedents(usize),
+    Succedents {
+        /// How many formulas would stand right of `⊢`.
+        count: usize,
+    },
     /// In intuitionistic mode, the formula on the right of `⊢` cannot be
     /// weakened.
     Output {
@@ -105,45 +111,45 @@ pub enum Refusal {
     },
 }
 
-impl Display for Refusal {
+impl Display for StepError {
     /// Writes the refusal as a phrase, naming rules and positions.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            Refusal::NoGoal(id) => write!(f, "there is no open goal {}", id.get()),
-            Refusal::NoFormula { position, len } => {
+            StepError::NoGoal { goal: id } => write!(f, "there is no open goal {}", id.get()),
+            StepError::NoFormula { position, len } => {
                 write!(
                     f,
                     "the goal has no formula {position}: it has {len} formulas"
                 )
             }
-            Refusal::Rule { rule, position } => {
+            StepError::Rule { rule, position } => {
                 write!(f, "the rule {rule} does not act on formula {position}")
             }
-            Refusal::Mode { rule, mode } => {
+            StepError::Mode { rule, mode } => {
                 write!(f, "the rule {rule} is not available in {mode} mode")
             }
-            Refusal::NotAlone { rule, position } => write!(
+            StepError::NotAlone { rule, position } => write!(
                 f,
                 "the rule {rule} needs formula {position} without other formulas in the goal"
             ),
-            Refusal::NoDual { position } => write!(
+            StepError::NoDual { position } => write!(
                 f,
                 "the axiom needs formula {position} together with its dual literal and nothing else"
             ),
-            Refusal::NotQuest { position } => write!(
+            StepError::NotQuest { position } => write!(
                 f,
                 "promotion needs every other formula to be a ? formula, and formula {position} is not"
             ),
-            Refusal::Split { position } => write!(
+            StepError::Split { position } => write!(
                 f,
                 "position {position} of the split is out of range, repeated, or the formula the rule acts on"
             ),
-            Refusal::NoSplit { rule } => write!(f, "the rule {rule} takes no split"),
-            Refusal::Succedents(n) => write!(
+            StepError::NoSplit { rule } => write!(f, "the rule {rule} takes no split"),
+            StepError::Succedents { count: n } => write!(
                 f,
                 "a premise would have {n} formulas on the right of ⊢ instead of one"
             ),
-            Refusal::Output { position } => write!(
+            StepError::Output { position } => write!(
                 f,
                 "formula {position} is the one on the right of ⊢ and cannot be weakened"
             ),
@@ -151,7 +157,7 @@ impl Display for Refusal {
     }
 }
 
-impl std::error::Error for Refusal {}
+impl std::error::Error for StepError {}
 
 /// A proof in progress: the forest of a sequent, the mode, the inferences
 /// made so far and the goals still open. It starts from a sequent as one
@@ -253,42 +259,45 @@ impl Interactive {
     ) -> Result<Self, Error> {
         let mut state = Self::from_forest(forest, mode)?;
         let Some(root) = inferences.first() else {
-            return Err(Error::InconsistentState("there is no inference"));
+            return Err(Error::InconsistentSession {
+                reason: "there is no inference",
+            });
         };
         if root.sequent != state.forest.roots() {
-            return Err(Error::InconsistentState(
-                "inference 0 does not conclude the sequent",
-            ));
+            return Err(Error::InconsistentSession {
+                reason: "inference 0 does not conclude the sequent",
+            });
         }
         let n = inferences.len();
         let mut parent = vec![None; n];
         for (i, inference) in inferences.iter().enumerate() {
             for &o in &inference.sequent {
                 if o.index() >= state.forest.len() {
-                    return Err(Error::OccurrenceIndexOutOfBounds(
-                        o.index(),
-                        state.forest.len(),
-                    ));
+                    return Err(Error::IndexOutOfBounds {
+                        space: crate::limits::Space::Occurrence,
+                        index: o.index(),
+                        len: state.forest.len(),
+                    });
                 }
             }
             if !inference.sequent.is_sorted() {
-                return Err(Error::InconsistentState(
-                    "a sequent is not in ascending order",
-                ));
+                return Err(Error::InconsistentSession {
+                    reason: "a sequent is not in ascending order",
+                });
             }
             for &p in &inference.premises {
                 if p.index() <= i || p.index() >= n || parent[p.index()].is_some() {
-                    return Err(Error::InconsistentState(
-                        "a premise must be a later inference and the premise of one inference only",
-                    ));
+                    return Err(Error::InconsistentSession {
+                        reason: "a premise must be a later inference and the premise of one inference only",
+                    });
                 }
                 parent[p.index()] = Some(i);
             }
         }
         if parent.iter().skip(1).any(Option::is_none) {
-            return Err(Error::InconsistentState(
-                "an inference other than the root is nobody's premise",
-            ));
+            return Err(Error::InconsistentSession {
+                reason: "an inference other than the root is nobody's premise",
+            });
         }
         state.inferences = inferences;
         let reading = state.reading();
@@ -296,9 +305,9 @@ impl Interactive {
             let inference = &state.inferences[id];
             if inference.rule == Rule::Open {
                 if inference.principal.is_some() || !inference.premises.is_empty() {
-                    return Err(Error::InconsistentState(
-                        "an open goal has no principal formula and no premise",
-                    ));
+                    return Err(Error::InconsistentSession {
+                        reason: "an open goal has no principal formula and no premise",
+                    });
                 }
                 continue;
             }
@@ -316,9 +325,9 @@ impl Interactive {
                 && state.inferences[goal.index()].rule != Rule::Open
                 && !std::mem::replace(&mut seen[goal.index()], true);
             if !closed {
-                return Err(Error::InconsistentState(
-                    "the history names an inference that is not a closed one, or names one twice",
-                ));
+                return Err(Error::InconsistentSession {
+                    reason: "the history names an inference that is not a closed one, or names one twice",
+                });
             }
             let mut added: Vec<usize> = state
                 .subtree(goal)
@@ -333,9 +342,9 @@ impl Interactive {
                 .zip(start..len)
                 .any(|(&id, expected)| id != expected)
             {
-                return Err(Error::InconsistentState(
-                    "the history does not match the order of the inferences",
-                ));
+                return Err(Error::InconsistentSession {
+                    reason: "the history does not match the order of the inferences",
+                });
             }
             len = start;
         }
@@ -354,22 +363,24 @@ impl Interactive {
         let classical = rule.classical();
         let has_principal = !matches!(classical, Rule::Ax | Rule::Mix);
         if inference.principal.is_some() != has_principal {
-            return Err(Error::InconsistentState(
-                "a rule other than the axiom and Mix names its principal formula, those two none",
-            ));
+            return Err(Error::InconsistentSession {
+                reason: "a rule other than the axiom and Mix names its principal formula, those two none",
+            });
         }
         let principal = inference.principal;
         if principal.is_some_and(|p| p >= sequent.len()) {
-            return Err(Error::InconsistentState(
-                "a principal position is out of range",
-            ));
+            return Err(Error::InconsistentSession {
+                reason: "a principal position is out of range",
+            });
         }
         // The formulas the left premise took from the context, as positions
         // in the sequent.
         let mut left = Vec::new();
         if matches!(classical, Rule::Tensor | Rule::Mix) {
             let Some(&first) = inference.premises.first() else {
-                return Err(Error::InconsistentState("a split has no premise"));
+                return Err(Error::InconsistentSession {
+                    reason: "a split has no premise",
+                });
             };
             let mut context = Multiset::of(self.inferences[first.index()].sequent.iter().copied());
             if let Some(p) = principal {
@@ -384,9 +395,9 @@ impl Interactive {
                     .iter()
                     .enumerate()
                     .position(|(i, &x)| x == o && !used[i])
-                    .ok_or(Error::InconsistentState(
-                        "a premise holds a formula its conclusion lacks",
-                    ))?;
+                    .ok_or(Error::InconsistentSession {
+                        reason: "a premise holds a formula its conclusion lacks",
+                    })?;
                 used[position] = true;
                 left.push(position);
             }
@@ -398,7 +409,9 @@ impl Interactive {
             // two literals.
             None if classical == Rule::Mix => {
                 if left.is_empty() {
-                    return Err(Error::InconsistentState("a Mix has an empty left premise"));
+                    return Err(Error::InconsistentSession {
+                        reason: "a Mix has an empty left premise",
+                    });
                 }
                 left.remove(0)
             }
@@ -413,9 +426,9 @@ impl Interactive {
         if same {
             Ok(())
         } else {
-            Err(Error::InconsistentState(
-                "an inference's premises are not what its rule yields",
-            ))
+            Err(Error::InconsistentSession {
+                reason: "an inference's premises are not what its rule yields",
+            })
         }
     }
 
@@ -483,8 +496,8 @@ impl Interactive {
     }
 
     /// Returns the sequent of an open goal, or the refusal.
-    fn open(&self, id: InfId) -> Result<&[OccId], Refusal> {
-        self.goal(id).ok_or(Refusal::NoGoal(id))
+    fn open(&self, id: InfId) -> Result<&[OccId], StepError> {
+        self.goal(id).ok_or(StepError::NoGoal { goal: id })
     }
 
     /// Returns the rules that can act on the formula at `position` of the
@@ -496,7 +509,7 @@ impl Interactive {
     /// Whether the goal's context lets a rule apply (the axiom's dual, the
     /// context of `1` and `!`, a valid split, one succedent) is what
     /// [`apply`](Self::apply) decides.
-    pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Rule>, Refusal> {
+    pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Rule>, StepError> {
         let sequent = self.open(goal)?;
         let o = formula_at(sequent, position)?;
         use Rule::*;
@@ -543,7 +556,7 @@ impl Interactive {
         position: usize,
         rule: Rule,
         left: &[usize],
-    ) -> Result<Vec<InfId>, Refusal> {
+    ) -> Result<Vec<InfId>, StepError> {
         let sequent = self.open(goal)?.to_vec();
         let reading = self.reading();
         let (rule, premises) = {
@@ -552,7 +565,7 @@ impl Interactive {
                 Some(reading) => {
                     let named = rule.classical().intuitionistic(reading.position(o));
                     if rule != rule.classical() && rule != named {
-                        return Err(Refusal::Rule { rule, position });
+                        return Err(StepError::Rule { rule, position });
                     }
                     named
                 }
@@ -597,7 +610,7 @@ impl Interactive {
         position: usize,
         rule: Rule,
         left: &[usize],
-    ) -> Result<Vec<Multiset>, Refusal> {
+    ) -> Result<Vec<Multiset>, StepError> {
         use Rule::*;
         let f = &self.forest;
         let o = formula_at(sequent, position)?;
@@ -625,17 +638,17 @@ impl Interactive {
             None => classical,
         };
         if !acts || rule != named {
-            return Err(Refusal::Rule { rule, position });
+            return Err(StepError::Rule { rule, position });
         }
         match classical {
             AffineWeakening if !self.mode.affine => {
-                return Err(Refusal::Mode {
+                return Err(StepError::Mode {
                     rule,
                     mode: self.mode,
                 });
             }
             Mix if !self.mode.mix => {
-                return Err(Refusal::Mode {
+                return Err(StepError::Mode {
                     rule,
                     mode: self.mode,
                 });
@@ -644,7 +657,7 @@ impl Interactive {
         }
         let splits = matches!(classical, Tensor | Mix);
         if !splits && !left.is_empty() {
-            return Err(Refusal::NoSplit { rule });
+            return Err(StepError::NoSplit { rule });
         }
         // The context without the formula, and the part of it going left.
         let mut rest = Multiset::of(sequent.iter().copied());
@@ -655,7 +668,7 @@ impl Interactive {
             used[position] = true;
             for &p in left {
                 if p >= sequent.len() || used[p] {
-                    return Err(Refusal::Split { position: p });
+                    return Err(StepError::Split { position: p });
                 }
                 used[p] = true;
                 going_left.insert(sequent[p]);
@@ -675,17 +688,17 @@ impl Interactive {
         let premises = match classical {
             Ax => {
                 let [x, y] = sequent else {
-                    return Err(Refusal::NotAlone { rule, position });
+                    return Err(StepError::NotAlone { rule, position });
                 };
                 let other = if position == 0 { *y } else { *x };
                 if f.atom(other) != f.atom(o) || f.sign(other) == f.sign(o) {
-                    return Err(Refusal::NoDual { position });
+                    return Err(StepError::NoDual { position });
                 }
                 vec![]
             }
             One => {
                 if sequent.len() != 1 {
-                    return Err(Refusal::NotAlone { rule, position });
+                    return Err(StepError::NotAlone { rule, position });
                 }
                 vec![]
             }
@@ -712,7 +725,7 @@ impl Interactive {
                     .enumerate()
                     .position(|(i, &x)| i != position && f.kind(x) != Kind::Quest)
                 {
-                    return Err(Refusal::NotQuest { position: p });
+                    return Err(StepError::NotQuest { position: p });
                 }
                 vec![with(&[child(Branch::Left)])]
             }
@@ -722,7 +735,7 @@ impl Interactive {
                 if let Some(reading) = reading
                     && reading.position(o) == Side::Output
                 {
-                    return Err(Refusal::Output { position });
+                    return Err(StepError::Output { position });
                 }
                 vec![with(&[])]
             }
@@ -732,7 +745,7 @@ impl Interactive {
             for premise in &premises {
                 let outputs = reading.outputs(premise.as_slice().iter().copied());
                 if outputs != 1 {
-                    return Err(Refusal::Succedents(outputs));
+                    return Err(StepError::Succedents { count: outputs });
                 }
             }
         }
@@ -749,7 +762,7 @@ impl Interactive {
         goal: InfId,
         position: usize,
         left: &[usize],
-    ) -> Result<bool, Refusal> {
+    ) -> Result<bool, StepError> {
         let sequent = self.open(goal)?;
         let o = formula_at(sequent, position)?;
         let rule = if self.forest.kind(o) == Kind::Tensor {
@@ -814,7 +827,7 @@ impl Interactive {
     ///
     /// The derivation grafted is within the bound of `view`: a goal whose
     /// proof unfolds into a larger one, or whose unfolding `stop` ends, is
-    /// [`Error::View`] and stays open, though the search proved it.
+    /// [`Error::Refused`] and stays open, though the search proved it.
     pub fn close(
         &mut self,
         goal: InfId,
@@ -954,13 +967,13 @@ impl Interactive {
     /// Translates the finished derivation into a proof term and checks it,
     /// returning the proof. Fails while goals are open
     /// ([`Error::OpenGoals`]) or if the checker rejects the term
-    /// ([`Error::InvalidProof`]), which it never does for a derivation built
+    /// ([`Error::Check`]), which it never does for a derivation built
     /// through this interface, or gives the check up for the memory it
-    /// would hold ([`Error::Unchecked`]).
+    /// would hold ([`Error::Check`] with a [`CheckError::Refused`](crate::CheckError::Refused)).
     pub fn proof(&self) -> Result<Proof, Error> {
         let open = self.goals().count();
         if open > 0 {
-            return Err(Error::OpenGoals(open));
+            return Err(Error::OpenGoals { count: open });
         }
         let mut terms = Terms {
             state: self,
@@ -979,8 +992,8 @@ impl Interactive {
 }
 
 /// Returns the formula at a position of a sequent, or the refusal.
-fn formula_at(sequent: &[OccId], position: usize) -> Result<OccId, Refusal> {
-    sequent.get(position).copied().ok_or(Refusal::NoFormula {
+fn formula_at(sequent: &[OccId], position: usize) -> Result<OccId, StepError> {
+    sequent.get(position).copied().ok_or(StepError::NoFormula {
         position,
         len: sequent.len(),
     })
@@ -1297,12 +1310,12 @@ mod tests {
         let (mut s, g) = start("|- ~a par ~b, a * b, 1, !c, ?d, top", Mode::CLASSICAL);
         let before = s.clone();
         let p = |s: &Interactive, text: &str| at(s, g, text);
-        let cases: Vec<(&str, Rule, Vec<usize>, Refusal)> = vec![
+        let cases: Vec<(&str, Rule, Vec<usize>, StepError)> = vec![
             (
                 "~a ⅋ ~b",
                 Tensor,
                 vec![],
-                Refusal::Rule {
+                StepError::Rule {
                     rule: Tensor,
                     position: p(&s, "~a ⅋ ~b"),
                 },
@@ -1311,7 +1324,7 @@ mod tests {
                 "1",
                 AffineWeakening,
                 vec![],
-                Refusal::Mode {
+                StepError::Mode {
                     rule: AffineWeakening,
                     mode: Mode::CLASSICAL,
                 },
@@ -1320,7 +1333,7 @@ mod tests {
                 "1",
                 Mix,
                 vec![],
-                Refusal::Mode {
+                StepError::Mode {
                     rule: Mix,
                     mode: Mode::CLASSICAL,
                 },
@@ -1329,20 +1342,25 @@ mod tests {
                 "1",
                 One,
                 vec![],
-                Refusal::NotAlone {
+                StepError::NotAlone {
                     rule: One,
                     position: p(&s, "1"),
                 },
             ),
-            ("!c", Promotion, vec![], Refusal::NotQuest { position: 0 }),
-            ("~a ⅋ ~b", Par, vec![1], Refusal::NoSplit { rule: Par }),
-            ("a ⊗ b", Tensor, vec![9], Refusal::Split { position: 9 }),
-            ("a ⊗ b", Tensor, vec![0, 0], Refusal::Split { position: 0 }),
+            ("!c", Promotion, vec![], StepError::NotQuest { position: 0 }),
+            ("~a ⅋ ~b", Par, vec![1], StepError::NoSplit { rule: Par }),
+            ("a ⊗ b", Tensor, vec![9], StepError::Split { position: 9 }),
+            (
+                "a ⊗ b",
+                Tensor,
+                vec![0, 0],
+                StepError::Split { position: 0 },
+            ),
             (
                 "a ⊗ b",
                 Tensor,
                 vec![p(&s, "a ⊗ b")],
-                Refusal::Split {
+                StepError::Split {
                     position: p(&s, "a ⊗ b"),
                 },
             ),
@@ -1350,7 +1368,7 @@ mod tests {
                 "1",
                 ImpLeft,
                 vec![],
-                Refusal::Rule {
+                StepError::Rule {
                     rule: ImpLeft,
                     position: p(&s, "1"),
                 },
@@ -1366,18 +1384,22 @@ mod tests {
         }
         assert_eq!(
             s.apply(g, 99, Par, &[]),
-            Err(Refusal::NoFormula {
+            Err(StepError::NoFormula {
                 position: 99,
                 len: 6
             })
         );
         assert_eq!(
             s.apply(InfId::new(7), 0, Par, &[]),
-            Err(Refusal::NoGoal(InfId::new(7)))
+            Err(StepError::NoGoal {
+                goal: InfId::new(7)
+            })
         );
         assert_eq!(
             s.rules(InfId::new(7), 0),
-            Err(Refusal::NoGoal(InfId::new(7)))
+            Err(StepError::NoGoal {
+                goal: InfId::new(7)
+            })
         );
         assert_eq!(s.inferences(), before.inferences());
         assert_eq!(s.steps(), 0);
@@ -1385,13 +1407,16 @@ mod tests {
         let (mut s, g) = start("|- a, ~a, b", Mode::CLASSICAL);
         assert_eq!(
             s.apply(g, 0, Ax, &[]),
-            Err(Refusal::NotAlone {
+            Err(StepError::NotAlone {
                 rule: Ax,
                 position: 0
             })
         );
         let (mut s, g) = start("|- a, b", Mode::CLASSICAL);
-        assert_eq!(s.apply(g, 0, Ax, &[]), Err(Refusal::NoDual { position: 0 }));
+        assert_eq!(
+            s.apply(g, 0, Ax, &[]),
+            Err(StepError::NoDual { position: 0 })
+        );
         assert_eq!(
             s.apply(g, 0, Ax, &[]).unwrap_err().to_string(),
             "the axiom needs formula 0 together with its dual literal and nothing else"
@@ -1404,19 +1429,22 @@ mod tests {
         assert_eq!(s.rules(g, imp).unwrap(), [ImpLeft]);
         assert_eq!(
             s.apply(g, imp, TensorRight, &[]),
-            Err(Refusal::Rule {
+            Err(StepError::Rule {
                 rule: TensorRight,
                 position: imp
             })
         );
         // The goal b with the antecedent a: two on the right.
         let b = at(&s, g, "b");
-        assert_eq!(s.apply(g, imp, ImpLeft, &[b]), Err(Refusal::Succedents(2)));
+        assert_eq!(
+            s.apply(g, imp, ImpLeft, &[b]),
+            Err(StepError::Succedents { count: 2 })
+        );
         let (mut s, g) = start("a, b |- a", i.affine());
         let goal = at(&s, g, "a");
         assert_eq!(
             s.apply(g, goal, AffineWeakening, &[]),
-            Err(Refusal::Output { position: goal })
+            Err(StepError::Output { position: goal })
         );
         assert!(Interactive::new(&sequent("|- a par b"), i).is_err());
         assert!(matches!(
@@ -1524,10 +1552,10 @@ mod tests {
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));
         assert_eq!(s.goals().collect::<Vec<_>>(), [l, r]);
-        assert!(matches!(s.proof(), Err(Error::OpenGoals(2))));
+        assert!(matches!(s.proof(), Err(Error::OpenGoals { count: 2 })));
         assert!(matches!(
             s.close(g, &options, &ViewOptions::default(), || false),
-            Err(Error::Refused(Refusal::NoGoal(_)))
+            Err(Error::Step(StepError::NoGoal { .. }))
         ));
 
         // Two-sided: the grafted derivation carries the two-sided names.
@@ -1577,7 +1605,7 @@ mod tests {
         };
         assert!(matches!(
             s.close_with(g, &proof, &view, || false),
-            Err(Error::InvalidProof(_))
+            Err(Error::Check(crate::proofs::CheckError::Invalid(_)))
         ));
         assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
     }
@@ -1592,7 +1620,7 @@ mod tests {
         assert!(!s.split_passes(g, t, &[]).unwrap());
         assert_eq!(
             s.split_passes(g, t, &[t]),
-            Err(Refusal::Split { position: t })
+            Err(StepError::Split { position: t })
         );
         let (s, g) = start("|- a, ~a, b, ~b", Mode::CLASSICAL.with_mix());
         assert!(s.split_passes(g, 0, &[at(&s, g, "~a")]).unwrap());

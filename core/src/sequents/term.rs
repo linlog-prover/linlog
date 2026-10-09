@@ -239,14 +239,19 @@ impl Term {
         if let Some(a) = self.atom()
             && a.0 >= atom_bound
         {
-            return Err(Error::InvalidVariableIndex(a.index(), atom_bound as usize));
+            return Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Atom,
+                index: a.index(),
+                len: atom_bound as usize,
+            });
         }
         for k in self.subterms() {
             if k.0 >= term_bound {
-                return Err(Error::SubtermIndexNotDecreasing(
-                    k.index(),
-                    term_bound as usize,
-                ));
+                return Err(Error::NotTopological {
+                    space: crate::limits::Space::Term,
+                    index: k.index(),
+                    parent: term_bound as usize,
+                });
             }
         }
         Ok(())

@@ -124,18 +124,23 @@ derivation by the same estimate; and `compact`, above. `UNBOUNDED` lifts
 bound at all). `unfold`
 is the one place derivations are made, for `Derivation::new`,
 `two_sided` and `of_goal` alike: the size first, always (a pass of the
-checker); `ViewError::TooLarge { size, limit }` past `limit`, else
-`ViewError::Memory { size: Some(size), limit }` past `memory`, else
-`ViewError::TooMany { size }` for more inferences than an `InfId` counts
+checker); `Error::Refused(Refusal::Output { estimate_bytes, limit_bytes,
+least_bytes })` past `limit` (`least_bytes` the compact view's lower
+bound, `size::Firm`, where the view may compact), else
+`Refusal::Memory { phase: View, needed_bytes: Some(estimate) }` past
+`memory`, else `Refusal::Index { what: Space::Inference }` for more
+inferences than an `InfId` counts
 (`Derivation::MOST`, which only a call with both bounds lifted can
 reach), each with nothing built; then the pass that records what the
 builder reads, then the builder, which polls the caller's `stop` once
-per node and answers `ViewError::Stopped`. A pass that the checker gives
-up for its memory is `ViewError::Memory { size: None, limit }`, never
+per node and answers `Refusal::Stopped { phase: View }`. A pass that the
+checker gives up for its memory is the checker's own
+`Error::Check(CheckError::Refused(_))`, never
 `Invalid`: `From<CheckError>` sees to it. The record's sequents count
 against its pass (`Record::held`), though each is in the derivation
 anyway, so that the pass and its record together stay within the bound.
-`ViewError` and `Problem` are `#[non_exhaustive]`. So the text tree, the four exports
+Every one of them is a refusal (`Error::is_refusal`), never a fault of
+the proof. So the text tree, the four exports
 (which take a `Derivation`), the graft of `Interactive::close` and a
 front end's check output are all under the bound by construction, and a
 new path that needs a derivation gets it from there or not at all.
@@ -143,7 +148,7 @@ new path that needs a derivation gets it from there or not at all.
 options with no stop; `…_with(&view, stop)` take both. A proof whose
 derivation is refused for its size has passed the checker (the size's
 pass is one). `Interactive::close(goal, options, view, stop)` leaves a
-goal open whose graft is refused (`Error::View`), though the search
+goal open whose graft is refused (`Error::Refused`), though the search
 proved it; what it then tells the user is the front end's to say. The
 builder needs no stack to speak of, so a front end on a small one (the
 web) builds what the bounds allow; `Size::height` is what it asks to

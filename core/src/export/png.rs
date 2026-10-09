@@ -12,7 +12,8 @@
 //!
 //! Needs the cargo feature `png` (off by default).
 
-use super::{Measure, PNG, RenderError, declared_size, parse, texts};
+use super::{Measure, PNG, declared_size, parse, texts};
+use crate::Error;
 use resvg::tiny_skia::{Pixmap, Transform};
 
 /// What a user may vary in a PNG beyond the drawing's style.
@@ -67,7 +68,7 @@ impl Default for Options {
 /// pass the bound on its pixels, the render the bound on its memory
 /// (both compared before the SVG is parsed, the pixels again after), or
 /// the text is no document the renderer reads.
-pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, RenderError> {
+pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, Error> {
     let scale = options.scale.max(1);
     let pixels_of = |(width, height): (u64, u64)| {
         let side = |n: u64| n.saturating_mul(u64::from(scale));
@@ -77,9 +78,11 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
             side(width).saturating_mul(side(height)),
         )
     };
-    let too_large = |pixels| RenderError::TooLarge {
-        pixels,
-        limit: options.pixels.unwrap_or(u64::MAX),
+    let too_large = |pixels| {
+        Error::Refused(crate::limits::Refusal::Pixels {
+            pixels,
+            limit: options.pixels.unwrap_or(u64::MAX),
+        })
     };
     let measure = Measure::of(svg);
     // Within the bounds, or why not, for an image of `pixels`.
@@ -89,7 +92,13 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
         }
         let estimate = measure.estimate(&PNG, pixels);
         match options.memory {
-            Some(limit) if estimate > limit => Err(RenderError::Memory { estimate, limit }),
+            Some(limit) if estimate > limit => {
+                Err(Error::Refused(crate::limits::Refusal::Memory {
+                    phase: crate::limits::Phase::Render,
+                    limit_bytes: limit,
+                    needed_bytes: Some(estimate),
+                }))
+            }
             _ => Ok(()),
         }
     };
@@ -113,7 +122,9 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
         &mut pixmap.as_mut(),
     );
     let (title, description) = texts(svg);
-    encode(&pixmap, scale, title, description).map_err(|e| RenderError::Failed(e.to_string()))
+    encode(&pixmap, scale, title, description).map_err(|e| Error::RenderFailed {
+        message: e.to_string(),
+    })
 }
 
 /// Returns a pixmap as PNG bytes with the image's colour space, density,

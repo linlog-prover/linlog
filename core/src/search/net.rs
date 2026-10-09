@@ -49,10 +49,12 @@ impl Decide for Nets {
     /// roots.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
         if !Fragment::MLL.contains(task.fragment) {
-            return Err(Error::NetFragment(task.fragment));
+            return Err(Error::NetFragment {
+                fragment: task.fragment,
+            });
         }
         if task.mode.affine {
-            return Err(Error::NetMode(task.mode));
+            return Err(Error::NetMode { mode: task.mode });
         }
         if !task.roots {
             return Err(Error::NetGoal);

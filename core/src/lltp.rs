@@ -80,9 +80,9 @@ pub enum Status {
 /// formula included) or a clause with another role,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture,
 /// whose meaning in linear logic no convention fixes, and
-/// [`Error::SequentParsing`] for a formula this crate's parser rejects.
+/// [`Error::Parse`] for a formula this crate's parser rejects.
 pub fn read(text: &str) -> Result<Problem, Error> {
-    let clauses = clauses(text, Error::Lltp)?;
+    let clauses = clauses(text, |message| Error::Lltp { message })?;
     let sequent = format!(
         "{} |- {}",
         clauses.hypotheses().collect::<Vec<_>>().join(", "),
@@ -281,7 +281,7 @@ mod tests {
             "fof(h, axiom, bot). fof(c, conjecture, ).",
             "fof(h, axiom, ). fof(c, conjecture, a).",
         ] {
-            assert!(matches!(read(bad), Err(Error::Lltp(_))), "{bad:?}");
+            assert!(matches!(read(bad), Err(Error::Lltp { .. })), "{bad:?}");
         }
     }
 

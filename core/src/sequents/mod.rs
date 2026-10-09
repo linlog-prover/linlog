@@ -29,7 +29,7 @@ use crate::hash::HashMap;
 /// characters of `XID_Continue`); `bot`, `top` and `par` are that constant
 /// or connective only as whole identifiers, and `par` only where a
 /// connective can stand, so that it is a variable where a formula starts.
-/// Text that is no sequent is `Error::SequentParsing`, whose
+/// Text that is no sequent is `Error::Parse`, whose
 /// `ParseError` says where.
 ///
 /// The sequent is kept one-sided in negation normal form: the formulas
@@ -210,10 +210,11 @@ impl Sequent {
         // check that all root indices are valid
         self.roots.iter().try_for_each(|n| {
             if n.get() >= num_terms {
-                Err(crate::Error::TermIndexOutOfBounds(
-                    n.index(),
-                    num_terms as usize,
-                ))
+                Err(crate::Error::IndexOutOfBounds {
+                    space: crate::limits::Space::Term,
+                    index: n.index(),
+                    len: num_terms as usize,
+                })
             } else {
                 Ok(())
             }
@@ -238,7 +239,13 @@ impl Sequent {
         for n in self.roots.iter() {
             match reachable.get_mut(n.index()) {
                 Some(r) => *r = true,
-                None => return Err(crate::Error::TermIndexOutOfBounds(n.index(), num_terms)),
+                None => {
+                    return Err(crate::Error::IndexOutOfBounds {
+                        space: crate::limits::Space::Term,
+                        index: n.index(),
+                        len: num_terms,
+                    });
+                }
             }
         }
 
@@ -250,7 +257,11 @@ impl Sequent {
             }
             for k in self.terms[n].subterms() {
                 if k.index() >= n {
-                    return Err(crate::Error::SubtermIndexNotDecreasing(k.index(), n));
+                    return Err(crate::Error::NotTopological {
+                        space: crate::limits::Space::Term,
+                        index: k.index(),
+                        parent: n,
+                    });
                 }
                 reachable[k.index()] = true;
             }
@@ -302,7 +313,11 @@ impl Sequent {
             let name: &str = self
                 .atoms
                 .get(a.index())
-                .ok_or(crate::Error::InvalidVariableIndex(a.index(), num_atoms))?;
+                .ok_or(crate::Error::IndexOutOfBounds {
+                    space: crate::limits::Space::Atom,
+                    index: a.index(),
+                    len: num_atoms,
+                })?;
             let merged = *seen.entry(name).or_insert_with(|| {
                 atoms.push(name.to_string());
                 term::Atom::new((atoms.len() - 1) as u32)

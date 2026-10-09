@@ -22,7 +22,6 @@ use super::derivation::{Derivation, InfId, Rule};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Write;
-use thiserror::Error;
 
 /// How the rules of a derivation are labelled.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -293,30 +292,6 @@ pub enum OpenGoal {
     /// Its sequent under a dashed line, where the output can draw one, and
     /// under vertical dots where it cannot.
     Dashed,
-}
-
-/// Why a derivation was not written whole: what was written before stays
-/// written.
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Error)]
-pub enum WriteError {
-    /// The caller's stop condition fired.
-    #[error("stopped")]
-    Stopped,
-    /// The writer failed.
-    #[error("the writer failed")]
-    Failed,
-    /// The output has no form for the derivation; nothing was written.
-    #[cfg(feature = "rocq")]
-    #[error(transparent)]
-    Unsupported(#[from] crate::export::rocq::Unsupported),
-}
-
-impl From<std::fmt::Error> for WriteError {
-    /// The writer failed.
-    fn from(_: std::fmt::Error) -> Self {
-        Self::Failed
-    }
 }
 
 #[cfg(test)]

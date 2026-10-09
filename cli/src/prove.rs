@@ -9,13 +9,13 @@ use crate::limit::{Deadline, Notice, detached};
 use crate::style::Styles;
 use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
-use linlog::export::{Form, RenderError, latex, pdf, png, rocq, svg, typst};
+use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
 use linlog::proofs::Compact;
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
-    Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size, ViewError,
-    ViewOptions, WriteError,
+    CheckError, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Refusal, Sequent,
+    Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -549,6 +549,25 @@ pub(crate) fn too_large(size: &Size, limit: u64) -> String {
     )
 }
 
+/// Returns the line for a derivation the view did not build: its size
+/// over a bound, from `size` where it can be had, or the error's own words.
+pub(crate) fn not_built(error: &Error, size: impl FnOnce() -> Option<Size>) -> String {
+    let own = || format!("the derivation is not written: {error}");
+    match error {
+        Error::Refused(Refusal::Output { limit_bytes, .. }) => {
+            size().map_or_else(own, |size| too_large(&size, *limit_bytes))
+        }
+        Error::Refused(Refusal::Memory { limit_bytes, .. }) => {
+            size().map_or_else(own, |size| over_memory(&size, *limit_bytes))
+        }
+        Error::Check(CheckError::Refused(refused)) => match refused.refusal {
+            Refusal::Memory { limit_bytes, .. } => proof_unread(limit_bytes),
+            _ => own(),
+        },
+        _ => own(),
+    }
+}
+
 /// Returns the line for a derivation whose proof could not be read
 /// within the memory limit.
 pub(crate) fn proof_unread(limit: u64) -> String {
@@ -609,7 +628,7 @@ pub(crate) fn derivation(
         let size = match proof.derivation_size_within(mode.intuitionistic, show.view.memory) {
             Ok(size) => size,
             // No verdict on the proof: the pass was given up.
-            Err(e) if e.is_refusal() => {
+            Err(CheckError::Refused(_)) => {
                 return Ok(Shown::LeftOut(proof_unread(show.view.memory.unwrap_or(0))));
             }
             Err(e) => return Err(invalid(e)),
@@ -634,20 +653,12 @@ pub(crate) fn derivation(
     };
     let d = match built {
         Ok(d) => d,
-        Err(ViewError::Invalid(e)) => return Err(invalid(e)),
-        Err(ViewError::TooLarge { size, limit }) => {
-            return Ok(Shown::LeftOut(too_large(&size, limit)));
+        Err(Error::Check(e @ CheckError::Invalid(_))) => return Err(invalid(e)),
+        Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
+        Err(error) => {
+            let size = || proof.derivation_size(mode.intuitionistic).ok();
+            return Ok(Shown::LeftOut(not_built(&error, size)));
         }
-        Err(ViewError::Memory {
-            size: Some(size),
-            limit,
-        }) => return Ok(Shown::LeftOut(over_memory(&size, limit))),
-        Err(ViewError::Memory { size: None, limit }) => {
-            return Ok(Shown::LeftOut(proof_unread(limit)));
-        }
-        Err(ViewError::Stopped) => return Ok(stopped()),
-        // Any other bound of the view's: the error says which.
-        Err(error) => return Ok(Shown::LeftOut(error.to_string())),
     };
     let styles = &show.styles;
     if let Some((columns, most)) = fit {
@@ -692,11 +703,11 @@ pub(crate) fn derivation(
     };
     match written {
         Ok(()) => Ok(Shown::Written),
-        Err(WriteError::Stopped) => Ok(Shown::Cut(format!(
+        Err(Error::Refused(Refusal::Stopped { .. })) => Ok(Shown::Cut(format!(
             "the derivation is cut short: {}",
             why()
         ))),
-        Err(WriteError::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
+        Err(Error::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
         // The output's own error, which finishing it reports.
         Err(_) => Ok(Shown::Written),
     }
@@ -774,7 +785,7 @@ pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
         (Error::NotIntuitionistic(e), Ok(forest)) => {
             anyhow!("not an intuitionistic sequent: {}", e.describe(&forest))
         }
-        (Error::Unchecked(_), _) => anyhow!(
+        (Error::Check(CheckError::Refused(_)), _) => anyhow!(
             "the search found a proof, but {error}; raise the limit with --memory-limit, or take \
              the proof unchecked with --no-check"
         ),
@@ -854,7 +865,11 @@ pub(crate) fn render(
     Ok(match rendered {
         None => Rendered::Stopped,
         Some(Ok(bytes)) => Rendered::Bytes(bytes),
-        Some(Err(RenderError::Memory { estimate, limit })) => Rendered::Refused(format!(
+        Some(Err(Error::Refused(Refusal::Memory {
+            needed_bytes: Some(estimate),
+            limit_bytes: limit,
+            ..
+        }))) => Rendered::Refused(format!(
             "the drawing is not rendered: the {} is estimated to take {}, over the memory limit \
              of {}; --memory-limit SIZE raises the limit, and the svg format writes the drawing \
              without rendering it",
@@ -862,7 +877,7 @@ pub(crate) fn render(
             bytes_text(estimate),
             bytes_text(limit)
         )),
-        Some(Err(RenderError::TooLarge { pixels, limit })) => Rendered::Refused(format!(
+        Some(Err(Error::Refused(Refusal::Pixels { pixels, limit }))) => Rendered::Refused(format!(
             "the drawing is not rendered: the image would have {pixels} pixels, over the limit \
              of {limit}; --style png.pixels=N raises the limit, and the svg format writes the \
              drawing without rendering it"
@@ -887,15 +902,23 @@ fn made() -> Result<pdf::Date> {
 }
 
 /// Returns the line for a proof net whose drawing is past the limit.
-fn net_too_large(net: &ProofStructure, error: svg::TooLarge) -> String {
+fn net_too_large(net: &ProofStructure, error: &Error) -> String {
+    let Error::Refused(Refusal::Output {
+        estimate_bytes,
+        limit_bytes,
+        ..
+    }) = *error
+    else {
+        return format!("the proof net is not drawn: {error}");
+    };
     format!(
         "the proof net is not drawn: its {} occurrences and {} links are estimated at {}, over \
          the limit of {}; the text format writes the net itself, --derivation-limit SIZE raises \
          the limit and --derivation-limit none lifts it",
         net.forest().len(),
         net.links().len(),
-        bytes_text(error.estimate),
-        bytes_text(error.limit)
+        bytes_text(estimate_bytes),
+        bytes_text(limit_bytes)
     )
 }
 
@@ -931,7 +954,7 @@ pub(crate) fn net_into(
     }
     let drawing = match svg::net(net, &show.styles.svg, show.view.limit) {
         Ok(drawing) => drawing,
-        Err(error) => return Ok(Shown::LeftOut(net_too_large(net, error))),
+        Err(error) => return Ok(Shown::LeftOut(net_too_large(net, &error))),
     };
     if show.format == Format::Svg {
         write!(out, "{separator}{drawing}")?;
@@ -953,7 +976,7 @@ pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
     }
     let fragment = sequent.fragment();
     if !Fragment::MLL.contains(fragment) {
-        return Err(Error::NetFragment(fragment).into());
+        return Err(Error::NetFragment { fragment }.into());
     }
     Ok(())
 }
@@ -1274,9 +1297,7 @@ fn check_into(
 ) -> Result<(bool, bool)> {
     let format = show.format;
     let result = proof.check_within(mode, show.view.memory);
-    if let Err(refusal) = &result
-        && refusal.is_refusal()
-    {
+    if let Err(refusal @ CheckError::Refused(_)) = &result {
         bail!("the proof is not checked: {refusal}; raise the limit with --memory-limit");
     }
     let report = |e: &linlog::CheckError| {

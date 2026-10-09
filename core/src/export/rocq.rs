@@ -65,8 +65,9 @@
 
 use super::Form;
 use super::notation::{Step, flush, walk};
+use crate::Error;
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Derivation, InfId, Rule, WriteError};
+use crate::proofs::{Derivation, InfId, Rule};
 use crate::sequents::{Sequent, Term, TermId, Visit, Walk};
 use std::fmt::Write;
 use thiserror::Error;
@@ -531,7 +532,7 @@ pub fn derivation(derivation: &Derivation, options: &Options) -> Result<String, 
     let mut out = String::new();
     match write(derivation, options, &mut out, || false) {
         Ok(()) => Ok(out),
-        Err(WriteError::Unsupported(unsupported)) => Err(unsupported),
+        Err(Error::Unsupported(unsupported)) => Err(unsupported),
         Err(_) => unreachable!("a string takes any text and nothing stops"),
     }
 }
@@ -544,7 +545,7 @@ pub fn write(
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     for inference in derivation.inferences() {
         if inference.times > 1 {
             return Err(Unsupported::Compact.into());
@@ -619,7 +620,7 @@ pub fn ordinary(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     crate::ordinary::rocq::write(derivation, options, out, stop)
 }
 

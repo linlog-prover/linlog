@@ -35,6 +35,7 @@
 use super::{Branch, DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
+use crate::limits::{Phase, Refusal};
 use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -440,29 +441,50 @@ fn occurrence(f: &mut impl std::fmt::Write, forest: Option<&Forest>, o: OccId) -
     }
 }
 
-/// Why a proof term is not a proof of its sequent: the node at fault, what
-/// the checker had derived for its premises, and what the rule required.
-/// Or, when [`is_refusal`](Self::is_refusal) says so, why the check was
-/// given up without a verdict on the term.
+/// Why a check of a proof ended without accepting it: the term is not a
+/// proof of its conclusion, a verdict, or the check was given up without
+/// one. A caller must never report a refusal as an invalid proof, which
+/// the two variants keep apart.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CheckError {
-    /// The node at fault; the root when the proof concludes the wrong sequent
-    /// or the sequent has no intuitionistic reading; for a refusal, the
-    /// node the check had come to.
+pub enum CheckError {
+    /// The term is not a proof of its conclusion in the mode.
+    Invalid(Box<Invalid>),
+    /// The check was given up without a verdict on the term: a bound or the
+    /// caller's stop.
+    Refused(Refused),
+}
+
+/// What makes a term no proof: the node at fault, what the checker had
+/// derived for its premises, and what the rule required.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Invalid {
+    /// The node at fault; the root when the proof concludes the wrong
+    /// sequent or the sequent has no intuitionistic reading.
     pub node: NodeId,
     /// The node's rule instance.
     pub rule: Node,
-    /// The sequents derived for the node's premises, in the node's order;
-    /// none for a refusal.
+    /// The sequents derived for the node's premises, in the node's order.
     pub premises: Vec<Dyadic>,
     /// What the rule required and did not get.
-    pub problem: Problem,
+    pub fault: Fault,
 }
 
-/// What a rule required and did not get, or why the check was given up.
+/// Where a check was given up, and why.
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Problem {
+pub struct Refused {
+    /// The node the check had come to.
+    pub node: NodeId,
+    /// The bound that refused it, or the stop.
+    pub refusal: Refusal,
+}
+
+/// What a rule required and did not get.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Fault {
     /// The mode forbids the rule: weakening of a formula that is not a `?`
     /// outside affine mode, Mix without Mix or in intuitionistic mode.
     Forbidden,
@@ -473,48 +495,102 @@ pub enum Problem {
     /// formulas on the right of `⊢` instead of one: the premise's linear
     /// zone after the rule, or the context a `⊤` would absorb, or a
     /// weakening of the goal.
-    Succedents(usize),
-    /// The occurrence is not of the kind the rule acts on.
-    Kind(OccId),
+    Succedents {
+        /// How many formulas stand right of `⊢`.
+        count: usize,
+    },
+    /// The member is not of the kind the rule acts on.
+    Kind {
+        /// The member the rule names.
+        member: OccId,
+    },
     /// The two literals of an axiom are not an atom and its negation.
     NotDual,
-    /// A premise, by its index in the node, lacks the occurrence the rule
+    /// A premise, by its index in the node, lacks the member the rule
     /// consumes from it.
     Missing {
         /// Which premise.
         premise: usize,
         /// What it lacks.
-        occurrence: OccId,
+        member: OccId,
     },
     /// The premise of a promotion has a linear zone besides the promoted
     /// subformula.
     NotEmpty,
     /// The premises of `&` do not share their linear zone.
     Differ,
-    /// A copy of an occurrence that is not the subformula of a `?`.
-    NotUnderQuest(OccId),
+    /// A copy of a member that is not the subformula of a `?`.
+    NotUnderQuest {
+        /// The member copied.
+        member: OccId,
+    },
     /// The node's linear zone holds more formulas than the rest of the
     /// proof can consume: every later rule takes two at most, and the root
-    /// concludes the sequent.
+    /// concludes the sequent. Only a term no engine builds gets here, and
+    /// over unbounded counts it would fail at the root instead.
     Surplus,
-    /// The root derives this sequent, which is not the proof's: its linear
-    /// zone differs from the sequent's formulas, or its unrestricted zone
-    /// holds a copied occurrence that no `?` rule below moved there.
-    Conclusion(Dyadic),
-    /// Not a fault of the proof: the check was given up at the node,
-    /// where the sequents it must hold at once take more than the bound it
-    /// was given. The proof is neither accepted nor rejected.
+    /// The root derives this sequent, which is not the proof's conclusion:
+    /// its linear zone differs from the conclusion's formulas, or its
+    /// unrestricted zone holds a copied member that no `?` rule below
+    /// moved there.
+    Conclusion {
+        /// What the root derives.
+        derived: Dyadic,
+    },
+}
+
+/// Why the pass stopped at a node: a fault of the proof, or its bound.
+#[derive(Debug)]
+enum Halt {
+    /// The rule required what it did not get.
+    Fault(Fault),
+    /// The sequents the pass must hold at once take more than the bound.
     Memory {
         /// The bound, in bytes.
         limit: u64,
     },
 }
 
-impl Problem {
-    /// Returns whether this is no fault of the proof but the check's own
-    /// refusal to go on, which leaves the proof without a verdict.
-    pub const fn is_refusal(&self) -> bool {
-        matches!(self, Self::Memory { .. })
+impl From<Fault> for Halt {
+    /// The fault, as what stopped the pass.
+    fn from(fault: Fault) -> Self {
+        Self::Fault(fault)
+    }
+}
+
+impl Invalid {
+    /// Returns the fault at `node`, with the premises derived for it.
+    pub(crate) fn new(node: NodeId, rule: Node, premises: Vec<Dyadic>, fault: Fault) -> Self {
+        Self {
+            node,
+            rule,
+            premises,
+            fault,
+        }
+    }
+}
+
+impl CheckError {
+    /// Returns the node at fault, or the node the check had come to when
+    /// it was refused.
+    pub fn node(&self) -> NodeId {
+        match self {
+            Self::Invalid(invalid) => invalid.node,
+            Self::Refused(refused) => refused.node,
+        }
+    }
+
+    /// Returns the fault, or `None` for a refusal.
+    pub fn fault(&self) -> Option<&Fault> {
+        match self {
+            Self::Invalid(invalid) => Some(&invalid.fault),
+            Self::Refused(_) => None,
+        }
+    }
+
+    /// Returns the error of a fault at `node`.
+    pub(crate) fn invalid(node: NodeId, rule: Node, premises: Vec<Dyadic>, fault: Fault) -> Self {
+        Self::Invalid(Box::new(Invalid::new(node, rule, premises, fault)))
     }
 }
 
@@ -528,13 +604,6 @@ impl Display for CheckError {
 }
 
 impl CheckError {
-    /// Returns whether the check was given up rather than the proof found
-    /// at fault: it would have taken more memory than its bound. A caller
-    /// must not report the proof as invalid then.
-    pub const fn is_refusal(&self) -> bool {
-        self.problem.is_refusal()
-    }
-
     /// Returns the error for display with formulas instead of occurrence
     /// ids, read from `forest`, the forest of the proof that failed; the
     /// nodes keep their ids. For instance `node 2 (⊗ on A ⊗ ~B from 0, 1)
@@ -549,6 +618,25 @@ impl CheckError {
 
     /// Writes the error as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
+    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
+        let invalid = match self {
+            Self::Invalid(invalid) => invalid,
+            Self::Refused(refused) => {
+                return write!(
+                    f,
+                    "the check was given up at node {}, without a verdict on the proof: {}",
+                    refused.node.get(),
+                    refused.refusal
+                );
+            }
+        };
+        invalid.write(f, forest, limit)
+    }
+}
+
+impl Invalid {
+    /// Writes the fault as [`CheckError`]'s `Display` does, with formulas
+    /// instead of ids when a forest is given.
     fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
         write!(f, "node {} ({}", self.node.get(), self.rule.name())?;
         for (i, o) in self.rule.occurrences().enumerate() {
@@ -572,8 +660,8 @@ impl CheckError {
             p.write(f, forest, limit)?;
         }
         f.write_str(": ")?;
-        use Problem::*;
-        match &self.problem {
+        use Fault::*;
+        match &self.fault {
             Forbidden => f.write_str("the mode forbids the rule"),
             Shape(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
@@ -582,11 +670,11 @@ impl CheckError {
                     None => write!(f, "{e}"),
                 }
             }
-            Succedents(n) => write!(
+            Succedents { count } => write!(
                 f,
-                "a sequent of the rule has {n} formulas on the right of ⊢ instead of one"
+                "a sequent of the rule has {count} formulas on the right of ⊢ instead of one"
             ),
-            Kind(o) => {
+            Kind { member: o } => {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
@@ -594,10 +682,7 @@ impl CheckError {
                 f.write_str(" is not what the rule acts on")
             }
             NotDual => f.write_str("the literals are not an atom and its negation"),
-            Missing {
-                premise,
-                occurrence: o,
-            } => {
+            Missing { premise, member: o } => {
                 write!(f, "premise {premise} lacks ")?;
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
@@ -606,7 +691,7 @@ impl CheckError {
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
-            NotUnderQuest(o) => {
+            NotUnderQuest { member: o } => {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
@@ -616,17 +701,11 @@ impl CheckError {
             Surplus => f.write_str(
                 "the linear zone holds more formulas than the rest of the proof can consume",
             ),
-            Conclusion(d) => {
+            Conclusion { derived: d } => {
                 f.write_str("the proof concludes ")?;
                 d.write(f, forest, limit)?;
                 f.write_str(", not the sequent")
             }
-            Memory { limit } => write!(
-                f,
-                "the check was given up here, without a verdict on the proof: the sequents \
-                 it holds at once take more than the memory limit of {}",
-                super::Bytes(*limit)
-            ),
         }
     }
 }
@@ -680,7 +759,7 @@ pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
 /// others read has its sequent copied for each, so a proof with shared
 /// subproofs can take its nodes times its sequents; a check that would
 /// pass the bound ends with an error that
-/// [`is_refusal`](CheckError::is_refusal), which says nothing about the
+/// [`Refused`](CheckError::Refused), which says nothing about the
 /// proof.
 ///
 /// What is counted is what the pass allocates beyond the proof and the
@@ -718,12 +797,12 @@ pub(crate) fn reading(proof: &Proof, mode: Mode) -> Result<Option<Reading<'_>>, 
     }
     match Reading::new(proof.forest()) {
         Ok(reading) => Ok(Some(reading)),
-        Err(e) => Err(CheckError {
-            node: proof.root(),
-            rule: proof.node(proof.root()),
-            premises: vec![],
-            problem: Problem::Shape(e),
-        }),
+        Err(e) => Err(CheckError::invalid(
+            proof.root(),
+            proof.node(proof.root()),
+            vec![],
+            Fault::Shape(e),
+        )),
     }
 }
 
@@ -742,25 +821,21 @@ pub(crate) fn examine<O: Observer>(
     afford(proof, observer.bytes(), memory)?;
     let mut pass = Pass::new(proof, goal.len(), mode, reading, memory, observer);
     let end = proof.nodes().len();
-    let (node, problem) = match pass.run(end) {
+    let (node, halt) = match pass.run(end) {
         Err(failure) => failure,
         Ok(()) => match pass.conclude(goal) {
             Ok(()) => return Ok(()),
-            Err(problem) => (proof.root(), problem),
+            Err(halt) => (proof.root(), halt),
         },
     };
     drop(pass);
     let rule = proof.node(node);
-    // A refusal shows no premises: deriving them again would take the
-    // memory that was refused.
-    if problem.is_refusal() {
-        return Err(CheckError {
-            node,
-            rule,
-            premises: vec![],
-            problem,
-        });
-    }
+    let fault = match halt {
+        Halt::Fault(fault) => fault,
+        // A refusal shows no premises: deriving them again would take the
+        // memory that was refused.
+        Halt::Memory { limit } => return Err(memory_refused(node, limit)),
+    };
     // The premises' sequents are gone, moved into the node that failed, so
     // the pass runs once more up to it. They are kept then, since the node
     // itself has yet to read them, and the pass does what the first did
@@ -774,11 +849,19 @@ pub(crate) fn examine<O: Observer>(
         .premises()
         .filter_map(|p| pass.live[p.index()].as_deref().map(State::to_dyadic))
         .collect();
-    Err(CheckError {
+    Err(CheckError::invalid(node, rule, premises, fault))
+}
+
+/// The refusal of a pass at `node` that would hold more than `limit`
+/// bytes.
+fn memory_refused(node: NodeId, limit: u64) -> CheckError {
+    CheckError::Refused(Refused {
         node,
-        rule,
-        premises,
-        problem,
+        refusal: Refusal::Memory {
+            phase: Phase::Check,
+            limit_bytes: limit,
+            needed_bytes: None,
+        },
     })
 }
 
@@ -795,13 +878,7 @@ fn tables(proof: &Proof) -> u64 {
 pub(crate) fn afford(proof: &Proof, observer: u64, memory: Option<u64>) -> Result<(), CheckError> {
     match memory {
         Some(limit) if tables(proof).saturating_add(observer) > limit => {
-            let first = NodeId::new(0);
-            Err(CheckError {
-                node: first,
-                rule: proof.node(first),
-                premises: vec![],
-                problem: Problem::Memory { limit },
-            })
+            Err(memory_refused(NodeId::new(0), limit))
         }
         _ => Ok(()),
     }
@@ -929,11 +1006,11 @@ impl<'a, O: Observer> Pass<'a, O> {
 
     /// Counts `bytes` more as held, or refuses them when the pass and its
     /// observer would hold more than the bound.
-    fn charge(&mut self, bytes: u64) -> Result<(), Problem> {
+    fn charge(&mut self, bytes: u64) -> Result<(), Halt> {
         self.held = self.held.saturating_add(bytes);
         match self.memory {
             Some(limit) if self.held.saturating_add(self.observer.bytes()) > limit => {
-                Err(Problem::Memory { limit })
+                Err(Halt::Memory { limit })
             }
             _ => Ok(()),
         }
@@ -944,7 +1021,7 @@ impl<'a, O: Observer> Pass<'a, O> {
     /// than the proof can conclude or breaks the one-succedent condition,
     /// with the problem; or the node at which the pass would hold more
     /// than its bound.
-    fn run(&mut self, end: usize) -> Result<(), (NodeId, Problem)> {
+    fn run(&mut self, end: usize) -> Result<(), (NodeId, Halt)> {
         for id in self.proof.ids().take(end) {
             let mut facts = Facts::default();
             self.passed = 0;
@@ -971,7 +1048,7 @@ impl<'a, O: Observer> Pass<'a, O> {
 
     /// Checks that the root derived `goal` and needs no unrestricted
     /// occurrence.
-    fn conclude(&self, goal: &[OccId]) -> Result<(), Problem> {
+    fn conclude(&self, goal: &[OccId]) -> Result<(), Halt> {
         let root = self.live[self.proof.root().index()]
             .as_deref()
             .expect("the root's sequent is kept");
@@ -984,14 +1061,16 @@ impl<'a, O: Observer> Pass<'a, O> {
         if root.theta.is_empty() && concludes {
             Ok(())
         } else {
-            Err(Problem::Conclusion(root.to_dyadic()))
+            Err(Halt::Fault(Fault::Conclusion {
+                derived: root.to_dyadic(),
+            }))
         }
     }
 
     /// What premise `p` derived: the sequent itself for its last reader, a
     /// copy for the others, unless the pass would hold more than its bound
     /// with the copy.
-    fn premise(&mut self, p: NodeId) -> Result<Box<State>, Problem> {
+    fn premise(&mut self, p: NodeId) -> Result<Box<State>, Halt> {
         // The count includes this reader, so it is one at least.
         self.readers[p.index()] -= 1;
         let last = self.readers[p.index()] == 0;
@@ -1013,11 +1092,11 @@ impl<'a, O: Observer> Pass<'a, O> {
     }
 
     /// Fails unless `o` has the kind the rule acts on.
-    fn expect(&self, o: OccId, kind: Kind) -> Result<(), Problem> {
+    fn expect(&self, o: OccId, kind: Kind) -> Result<(), Halt> {
         if self.forest.kind(o) == kind {
             Ok(())
         } else {
-            Err(Problem::Kind(o))
+            Err(Halt::Fault(Fault::Kind { member: o }))
         }
     }
 
@@ -1035,7 +1114,7 @@ impl<'a, O: Observer> Pass<'a, O> {
     /// Consumes one copy of `o` from the linear zone of `d`, the derived
     /// sequent of premise `premise`, and returns whether there was none: a
     /// `⊤` above stands in for a missing one, but never for a second goal.
-    fn take(&self, d: &mut State, o: OccId, premise: usize) -> Result<bool, Problem> {
+    fn take(&self, d: &mut State, o: OccId, premise: usize) -> Result<bool, Halt> {
         if d.gamma.remove(o) {
             // The premise's sums are exact and count `o`, which was a
             // member: nothing goes below zero.
@@ -1048,15 +1127,12 @@ impl<'a, O: Observer> Pass<'a, O> {
             return Ok(false);
         }
         if !d.any {
-            return Err(Problem::Missing {
-                premise,
-                occurrence: o,
-            });
+            return Err(Halt::Fault(Fault::Missing { premise, member: o }));
         }
         // The premise's sequent holds `o` besides its zone: one goal at
         // most.
         if self.is_output(o) && d.outputs > 0 {
-            return Err(Problem::Succedents(2));
+            return Err(Halt::Fault(Fault::Succedents { count: 2 }));
         }
         Ok(true)
     }
@@ -1076,7 +1152,7 @@ impl<'a, O: Observer> Pass<'a, O> {
     /// what keeps a zone's counters exact: a term may double a zone at
     /// every node (a Mix of a subproof with itself), which no counter of a
     /// fixed width follows for long.
-    fn within(&self, id: NodeId, d: Box<State>) -> Result<Box<State>, Problem> {
+    fn within(&self, id: NodeId, d: Box<State>) -> Result<Box<State>, Halt> {
         // A node's index is below the number of nodes.
         let later = self.proof.nodes().len() - 1 - id.index();
         let room = self
@@ -1084,16 +1160,16 @@ impl<'a, O: Observer> Pass<'a, O> {
             .saturating_add(later.saturating_mul(2))
             .min(Bag::MOST);
         if d.gamma.len > room {
-            return Err(Problem::Surplus);
+            return Err(Halt::Fault(Fault::Surplus));
         }
         Ok(d)
     }
 
     /// Checks the one-succedent condition on what a node derived: one
     /// output at most, and exactly one unless a `⊤` above supplies it.
-    fn one_succedent(&self, d: Box<State>) -> Result<Box<State>, Problem> {
+    fn one_succedent(&self, d: Box<State>) -> Result<Box<State>, Halt> {
         if self.reading.is_some() && (d.outputs > 1 || (d.outputs == 0 && !d.any)) {
-            return Err(Problem::Succedents(d.outputs));
+            return Err(Halt::Fault(Fault::Succedents { count: d.outputs }));
         }
         Ok(d)
     }
@@ -1156,7 +1232,7 @@ impl<'a, O: Observer> Pass<'a, O> {
 
     /// Applies a node's rule to what its premises derived, noting in
     /// `facts` how it applied.
-    fn rule(&mut self, node: Node, facts: &mut Facts<'_>) -> Result<Box<State>, Problem> {
+    fn rule(&mut self, node: Node, facts: &mut Facts<'_>) -> Result<Box<State>, Halt> {
         use Node::*;
         let f = self.forest;
         self.shared.clear();
@@ -1164,11 +1240,11 @@ impl<'a, O: Observer> Pass<'a, O> {
             Ax(a, b) => {
                 for o in [a, b] {
                     if !f.is_literal(o) {
-                        return Err(Problem::Kind(o));
+                        return Err(Halt::Fault(Fault::Kind { member: o }));
                     }
                 }
                 if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
-                    return Err(Problem::NotDual);
+                    return Err(Halt::Fault(Fault::NotDual));
                 }
                 Ok(self.just([a, b], false))
             }
@@ -1225,7 +1301,7 @@ impl<'a, O: Observer> Pass<'a, O> {
                         self.recount(&mut d);
                         d
                     }
-                    _ => return Err(Problem::Differ),
+                    _ => return Err(Halt::Fault(Fault::Differ)),
                 };
                 self.shared.clear();
                 self.put(&mut d, o);
@@ -1247,7 +1323,7 @@ impl<'a, O: Observer> Pass<'a, O> {
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, self.left(o), 0)?;
                 if !d.gamma.is_empty() {
-                    return Err(Problem::NotEmpty);
+                    return Err(Halt::Fault(Fault::NotEmpty));
                 }
                 // Promotion fixes the linear zone: a ⊤ above cannot absorb
                 // past it.
@@ -1268,7 +1344,7 @@ impl<'a, O: Observer> Pass<'a, O> {
             }
             Copy(a, p) => {
                 if f.parent(a).map(|q| f.kind(q)) != Some(Kind::Quest) {
-                    return Err(Problem::NotUnderQuest(a));
+                    return Err(Halt::Fault(Fault::NotUnderQuest { member: a }));
                 }
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, a, 0)?;
@@ -1283,10 +1359,10 @@ impl<'a, O: Observer> Pass<'a, O> {
                 // Weakening a `?` formula is a rule of every mode; the goal
                 // is never weakened.
                 if !self.mode.affine && f.kind(o) != Kind::Quest {
-                    return Err(Problem::Forbidden);
+                    return Err(Halt::Fault(Fault::Forbidden));
                 }
                 if self.is_output(o) {
-                    return Err(Problem::Succedents(0));
+                    return Err(Halt::Fault(Fault::Succedents { count: 0 }));
                 }
                 let mut d = self.premise(p)?;
                 self.put(&mut d, o);
@@ -1296,7 +1372,7 @@ impl<'a, O: Observer> Pass<'a, O> {
                 // Mix has no intuitionistic form: a premise would lack the
                 // goal.
                 if !self.mode.mix || self.mode.intuitionistic {
-                    return Err(Problem::Forbidden);
+                    return Err(Halt::Fault(Fault::Forbidden));
                 }
                 let (dl, dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
@@ -1651,8 +1727,8 @@ mod tests {
     /// so is a root that concludes something else.
     #[test]
     fn rejects_every_misuse() {
+        use Fault::*;
         use Node::*;
-        use Problem::*;
         let classical = Mode::CLASSICAL;
         for (input, nodes, mode, node, problem) in [
             // Axiom on two copies of one literal.
@@ -1663,7 +1739,7 @@ mod tests {
                 vec![Ax(o(0), o(3))],
                 classical,
                 0,
-                Kind(o(0)),
+                Kind { member: o(0) },
             ),
             // ⊗ with its premises swapped: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B.
             (
@@ -1673,7 +1749,7 @@ mod tests {
                 2,
                 Missing {
                     premise: 0,
-                    occurrence: o(2),
+                    member: o(2),
                 },
             ),
             // ⅋ on a ⊗ occurrence.
@@ -1682,7 +1758,7 @@ mod tests {
                 vec![Ax(o(0), o(2)), Par(o(1), n(0))],
                 classical,
                 1,
-                Kind(o(1)),
+                Kind { member: o(1) },
             ),
             // ⅋ whose premise lacks a subformula: 0 A, 1 ⅋, 2 ~A, 3 B.
             (
@@ -1692,18 +1768,24 @@ mod tests {
                 1,
                 Missing {
                     premise: 0,
-                    occurrence: o(3),
+                    member: o(3),
                 },
             ),
             // 1 on ⊥.
-            ("|- bot", vec![One(o(0))], classical, 0, Kind(o(0))),
+            (
+                "|- bot",
+                vec![One(o(0))],
+                classical,
+                0,
+                Kind { member: o(0) },
+            ),
             // ⊥ on 1.
             (
                 "|- 1, bot",
                 vec![One(o(0)), Bot(o(0), n(0))],
                 classical,
                 1,
-                Kind(o(0)),
+                Kind { member: o(0) },
             ),
             // & whose premises consume different contexts: 0 &, 1 A, 2 B,
             // 3 ~A, 4 ~B.
@@ -1721,11 +1803,13 @@ mod tests {
                 vec![Ax(o(1), o(3)), Top(o(2)), With(o(0), n(0), n(1))],
                 classical,
                 2,
-                Conclusion(Dyadic {
-                    theta: vec![],
-                    gamma: vec![o(0), o(3)],
-                    any: false,
-                }),
+                Conclusion {
+                    derived: Dyadic {
+                        theta: vec![],
+                        gamma: vec![o(0), o(3)],
+                        any: false,
+                    },
+                },
             ),
             // ⊕ on the side the premise does not prove: 0 ⊕, 1 A, 2 B, 3 ~A.
             (
@@ -1735,11 +1819,11 @@ mod tests {
                 1,
                 Missing {
                     premise: 0,
-                    occurrence: o(2),
+                    member: o(2),
                 },
             ),
             // ⊤ on 0.
-            ("|- 0", vec![Top(o(0))], classical, 0, Kind(o(0))),
+            ("|- 0", vec![Top(o(0))], classical, 0, Kind { member: o(0) }),
             // Promotion with a linear formula in the context: 0 ~A, 1 !, 2 A.
             (
                 "A |- !A",
@@ -1754,7 +1838,7 @@ mod tests {
                 vec![Ax(o(1), o(2)), Copy(o(1), n(0))],
                 classical,
                 1,
-                NotUnderQuest(o(1)),
+                NotUnderQuest { member: o(1) },
             ),
             // A copy of a formula the premise does not hold: 0 ?, 1 ~A, 2 1.
             (
@@ -1764,7 +1848,7 @@ mod tests {
                 1,
                 Missing {
                     premise: 0,
-                    occurrence: o(1),
+                    member: o(1),
                 },
             ),
             // A copy without the ? step below it: the root still needs ~A
@@ -1774,11 +1858,13 @@ mod tests {
                 vec![Ax(o(1), o(2)), Copy(o(1), n(0))],
                 classical,
                 1,
-                Conclusion(Dyadic {
-                    theta: vec![o(1)],
-                    gamma: vec![o(2)],
-                    any: false,
-                }),
+                Conclusion {
+                    derived: Dyadic {
+                        theta: vec![o(1)],
+                        gamma: vec![o(2)],
+                        any: false,
+                    },
+                },
             ),
             // ? on a ! occurrence.
             (
@@ -1786,7 +1872,7 @@ mod tests {
                 vec![Ax(o(2), o(3)), Par(o(1), n(0)), Quest(o(0), n(1))],
                 classical,
                 2,
-                Kind(o(0)),
+                Kind { member: o(0) },
             ),
             // Weakening outside affine mode.
             (
@@ -1810,11 +1896,13 @@ mod tests {
                 vec![Ax(o(0), o(1))],
                 classical,
                 0,
-                Conclusion(Dyadic {
-                    theta: vec![],
-                    gamma: vec![o(0), o(1)],
-                    any: false,
-                }),
+                Conclusion {
+                    derived: Dyadic {
+                        theta: vec![],
+                        gamma: vec![o(0), o(1)],
+                        any: false,
+                    },
+                },
             ),
             // Intuitionistic mode needs an intuitionistic sequent, whatever
             // the proof.
@@ -1830,8 +1918,8 @@ mod tests {
             let e = p.check(mode).unwrap_err();
             let message = e.to_string();
             assert_eq!(
-                (e.node, e.problem),
-                (n(node), problem),
+                (e.node(), e.fault()),
+                (n(node), Some(&problem)),
                 "{input:?}: {message}"
             );
         }
@@ -1862,8 +1950,7 @@ mod tests {
         let mode = Mode::CLASSICAL.with_mix();
         let e = p.check(mode).unwrap_err();
         // Node 8 holds 256 copies with 122 nodes to come.
-        assert_eq!((e.node, &e.problem), (n(8), &Problem::Surplus));
-        assert!(!e.is_refusal());
+        assert_eq!((e.node(), e.fault()), (n(8), Some(&Fault::Surplus)));
         assert_eq!(Err(e.clone()), oracle::check(&p, mode));
         // The pass that adds up weights for the size refuses it there too.
         assert_eq!(p.derivation_size(false), Err(e));
@@ -1963,11 +2050,14 @@ mod tests {
         // copies and as many nodes within 256 KB, and not within 64 KB.
         assert_eq!(small.check_within(mode, Some(256 << 10)), Ok(()));
         let e = small.check_within(mode, Some(64 << 10)).unwrap_err();
-        assert!(e.is_refusal(), "{e}");
+        assert!(matches!(e, CheckError::Refused(_)), "{e}");
         // The pass's own tables, twelve bytes for each of 328 nodes, are
         // refused before the first node.
         let e = small.check_within(mode, Some(3900)).unwrap_err();
-        assert!(e.is_refusal() && e.node == n(0), "{e}");
+        assert!(
+            matches!(e, CheckError::Refused(_)) && e.node() == n(0),
+            "{e}"
+        );
 
         let (width, depth) = (14_000, 14);
         let large = shared(width, depth);
@@ -1978,42 +2068,42 @@ mod tests {
         }
         let limit = 64 << 20;
         let e = large.check_within(mode, Some(limit)).unwrap_err();
-        assert!(e.is_refusal());
-        assert_eq!(e.problem, Problem::Memory { limit });
-        assert_eq!(e.premises, vec![]);
+        let CheckError::Refused(refused) = &e else {
+            panic!("{e}")
+        };
+        assert_eq!(
+            refused.refusal,
+            Refusal::Memory {
+                phase: Phase::Check,
+                limit_bytes: limit,
+                needed_bytes: None
+            }
+        );
         // A copy takes 16 384 slots of nine bytes, 144 KiB: the bound is
         // reached within 512 leaves of the tree.
-        let leaf = e.node.get() - width - 1;
+        let leaf = e.node().get() - width - 1;
         assert!((256..512).contains(&leaf), "leaf {leaf}");
         assert_eq!(
             e.to_string(),
             format!(
-                "node {} (⊥ on {} from {width}): the check was given up here, without a \
-                 verdict on the proof: the sequents it holds at once take more than the \
-                 memory limit of 64 MiB",
-                e.node.get(),
-                e.rule.principal().unwrap().get(),
+                "the check was given up at node {}, without a verdict on the proof: the check \
+                 takes more than the memory limit of {limit} bytes",
+                e.node().get(),
             )
         );
         // The size and the derivation are under the same bound, and their
         // refusal is no invalid proof either.
-        assert!(
-            large
-                .derivation_size_within(false, Some(limit))
-                .unwrap_err()
-                .is_refusal()
-        );
+        assert!(matches!(
+            large.derivation_size_within(false, Some(limit)),
+            Err(CheckError::Refused(_))
+        ));
         let view = crate::proofs::ViewOptions::UNBOUNDED.memory(Some(limit));
         let refused = large.derivation_with(&view, || false).unwrap_err();
-        assert_eq!(
+        assert!(matches!(
             refused,
-            crate::proofs::ViewError::Memory { size: None, limit }
-        );
-        assert_eq!(
-            refused.to_string(),
-            "the derivation is not built: reading the proof takes more than the memory limit \
-             of 67108864 bytes"
-        );
+            crate::Error::Check(CheckError::Refused(_))
+        ));
+        assert!(refused.is_refusal());
     }
 
     /// Intuitionistic mode accepts the classical terms of intuitionistic
@@ -2021,8 +2111,8 @@ mod tests {
     /// that keeps the goal on the antecedent's side, a weakened goal, Mix.
     #[test]
     fn intuitionistic() {
+        use Fault::*;
         use Node::*;
-        use Problem::*;
         let m = Mode::INTUITIONISTIC;
         for (input, nodes) in [
             // A, A ⊸ B ⊢ B: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B
@@ -2078,7 +2168,10 @@ mod tests {
         assert_eq!(p.check(m.affine()), Ok(()));
         // A, 0 ⊢ B: 0 ~A, 1 ⊤, 2 B
         let p = proof("A, 0 |- B", vec![Top(o(1)), Weaken(o(2), n(0))]);
-        assert_eq!(p.check(m.affine()).unwrap_err().problem, Succedents(0));
+        assert_eq!(
+            p.check(m.affine()).unwrap_err().fault(),
+            Some(&Succedents { count: 0 })
+        );
         // ((A ⊗ ⊤) & (B ⊗ ⊤)) ⊸ 0 ⊢ (A ⊸ C) ⊕ (B ⊸ C), which classical
         // linear logic proves and intuitionistic linear logic does not:
         // 0 ⊗, 1 &, 2 ⊗, 3 A, 4 ⊤, 5 ⊗, 6 B, 7 ⊤, 8 ⊤, 9 ⊕, 10 ⅋, 11 ~A,
@@ -2104,7 +2197,10 @@ mod tests {
         );
         assert_eq!(p.check(Mode::CLASSICAL), Ok(()));
         let e = p.check(m).unwrap_err();
-        assert_eq!((e.node, e.problem.clone()), (n(3), Succedents(2)));
+        assert_eq!(
+            (e.node(), e.fault()),
+            (n(3), Some(&Succedents { count: 2 }))
+        );
         assert_eq!(
             e.describe(p.forest()).to_string(),
             "node 3 (⅋ on ~A ⅋ C from 2) with premises ⊢ A ⊗ ⊤, ~A, …: \
@@ -2116,7 +2212,7 @@ mod tests {
             "A -o B, A |- B",
             vec![Ax(o(1), o(3)), Ax(o(2), o(4)), Mix(n(0), n(1))],
         );
-        assert_eq!(p.check(m.with_mix()).unwrap_err().problem, Forbidden);
+        assert_eq!(p.check(m.with_mix()).unwrap_err().fault(), Some(&Forbidden));
     }
 
     /// The error names the node, its premises and the problem.
@@ -2188,17 +2284,29 @@ mod tests {
         // The root is beyond the arena.
         assert!(matches!(
             Proof::new(f.clone(), vec![Ax(o(0), o(2))], n(1)),
-            Err(Error::NodeIndexOutOfBounds(1, 1))
+            Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Node,
+                index: 1,
+                len: 1
+            })
         ));
         // A premise does not precede its conclusion.
         assert!(matches!(
             Proof::new(f.clone(), vec![Par(o(1), n(0))], n(0)),
-            Err(Error::PremiseIndexNotDecreasing(0, 0))
+            Err(Error::NotTopological {
+                space: crate::limits::Space::Node,
+                index: 0,
+                parent: 0
+            })
         ));
         // An occurrence beyond the forest.
         assert!(matches!(
             Proof::new(f, vec![Ax(o(0), o(5))], n(0)),
-            Err(Error::OccurrenceIndexOutOfBounds(5, 5))
+            Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Occurrence,
+                index: 5,
+                len: 5
+            })
         ));
     }
 }

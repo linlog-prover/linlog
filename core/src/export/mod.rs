@@ -27,10 +27,10 @@
 //! order when the derivation has a reading.
 //! They write one inference at a time and keep their own stack, so the
 //! text grows with the derivation, not with its width, and a derivation of
-//! any height fits. Rules are labelled as [`Labels`](crate::Labels) says,
-//! an open goal is drawn as [`OpenGoal`](crate::OpenGoal) says, and an
+//! any height fits. Rules are labelled as [`Labels`](crate::proofs::Labels) says,
+//! an open goal is drawn as [`OpenGoal`](crate::proofs::OpenGoal) says, and an
 //! inference of a compact derivation that stands for a run of a
-//! structural rule ([`Compact`](crate::Compact)) has its label starred.
+//! structural rule ([`Compact`](crate::proofs::Compact)) has its label starred.
 
 #[cfg(feature = "latex")]
 pub mod latex;
@@ -71,46 +71,6 @@ pub enum Form {
     Standalone,
 }
 
-/// Why an SVG document was not rendered.
-///
-/// Needs one of the cargo features `png` or `pdf`.
-#[cfg(any(feature = "png", feature = "pdf"))]
-#[non_exhaustive]
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum RenderError {
-    /// The text is not an SVG document the renderer reads.
-    #[error("not an SVG document the renderer reads: {0}")]
-    Svg(String),
-    /// The image would have more pixels than the options allow.
-    #[error("the image would have {pixels} pixels, more than the limit of {limit}")]
-    TooLarge {
-        /// The pixels of the image.
-        pixels: u64,
-        /// The limit in force.
-        limit: u64,
-    },
-    /// The render is estimated to take more than the options' `memory`
-    /// allows (`png::Options::memory`, `pdf::Options::memory`); nothing
-    /// was parsed.
-    #[error(
-        "the render is estimated to take {estimate} bytes, more than the bound of {limit} \
-         that the options' memory sets"
-    )]
-    Memory {
-        /// The estimate, in bytes.
-        estimate: u64,
-        /// The bound in force.
-        limit: u64,
-    },
-    /// A PDF/A document needs the date it was made, and none was given.
-    #[error("a PDF/A document needs the date it was made: give pdf::Options::date")]
-    NoDate,
-    /// The renderer failed on a document it read, or the document does
-    /// not conform to the standard asked for.
-    #[error("the renderer failed: {0}")]
-    Failed(String),
-}
-
 /// Returns the title and the description an SVG document of
 /// [`svg`](crate::export::svg) carries, its accessible name and its
 /// reading, where it has them.
@@ -132,13 +92,15 @@ fn texts(svg: &str) -> (Option<String>, Option<String>) {
 /// Parses an SVG document with the fonts given and no other: what a text
 /// is set in depends on nothing but the arguments.
 #[cfg(any(feature = "png", feature = "pdf"))]
-fn parse(svg: &str, fonts: &[&[u8]]) -> Result<resvg::usvg::Tree, RenderError> {
+fn parse(svg: &str, fonts: &[&[u8]]) -> Result<resvg::usvg::Tree, crate::Error> {
     let mut options = resvg::usvg::Options::default();
     let database = options.fontdb_mut();
     for font in fonts {
         database.load_font_data(font.to_vec());
     }
-    resvg::usvg::Tree::from_str(svg, &options).map_err(|e| RenderError::Svg(e.to_string()))
+    resvg::usvg::Tree::from_str(svg, &options).map_err(|e| crate::Error::NotSvg {
+        message: e.to_string(),
+    })
 }
 
 /// What a render costs per unit of a [`Measure`], in bytes: each the

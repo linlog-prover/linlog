@@ -6,10 +6,11 @@
 //! `Display`, and the walk over a derivation that writes one inference at a
 //! time.
 
+use crate::Error;
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
+use crate::proofs::InfId;
 use crate::proofs::style::Drawn;
-use crate::proofs::{InfId, WriteError};
 use crate::sequents::{Kind, Sequent, Term, TermId, Visit, Walk};
 use std::fmt::Write;
 
@@ -279,11 +280,13 @@ pub(crate) fn flush(
     out: &mut impl Write,
     buffer: &mut String,
     stop: &mut impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     out.write_str(buffer)?;
     buffer.clear();
     if stop() {
-        Err(WriteError::Stopped)
+        Err(Error::Refused(crate::limits::Refusal::Stopped {
+            phase: crate::limits::Phase::Write,
+        }))
     } else {
         Ok(())
     }

@@ -169,11 +169,8 @@ fn error_positions() {
         ("A -", 3, None),
         ("|- é * ∀", 8, Some("∀")),
     ] {
-        let Err(Error::SequentParsing(errors)) = input.parse::<Sequent>() else {
+        let Err(Error::Parse(error)) = input.parse::<Sequent>() else {
             panic!("{input:?} is no parse error");
-        };
-        let [error] = &errors[..] else {
-            panic!("{input:?} has {} errors", errors.len());
         };
         assert_eq!(
             (error.span.start, error.found.as_deref()),

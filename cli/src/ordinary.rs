@@ -6,14 +6,12 @@
 //! linear logic, decided there, and its proof read back as LK or LJ.
 
 use crate::argument_parsing::{Format, InputFormat, LogicArgs, Tree};
-use crate::prove::{
-    Ended, Prefixed, Show, Shown, over_memory, proof_unread, render, too_large, unfit, unknown,
-};
+use crate::prove::{Ended, Prefixed, Show, Shown, not_built, render, unfit, unknown};
 use anyhow::{Result, anyhow, bail};
 use linlog::export::{latex, rocq, svg, typst};
 use linlog::ordinary::{self, Image, Logic, Translation};
 use linlog::search::{Outcome, Verdict};
-use linlog::{Proof, ViewError, WriteError};
+use linlog::{Error, Proof, Refusal};
 use std::fmt::Write;
 
 /// Returns the ordinary sequent `text` holds in `format`: text in the
@@ -85,17 +83,11 @@ pub(crate) fn derivation(
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
     let linear = match image.linear_derivation(proof, &show.view, &mut halt) {
         Ok(linear) => linear,
-        Err(ViewError::TooLarge { size, limit }) => {
-            return Ok(Shown::LeftOut(too_large(&size, limit)));
+        Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
+        Err(error) if error.is_refusal() => {
+            let size = || proof.derivation_size(image.mode().intuitionistic).ok();
+            return Ok(Shown::LeftOut(not_built(&error, size)));
         }
-        Err(ViewError::Memory {
-            size: Some(size),
-            limit,
-        }) => return Ok(Shown::LeftOut(over_memory(&size, limit))),
-        Err(ViewError::Memory { size: None, limit }) => {
-            return Ok(Shown::LeftOut(proof_unread(limit)));
-        }
-        Err(ViewError::Stopped) => return Ok(stopped()),
         Err(error) => return Err(anyhow!(error).context("the proof cannot be unfolded")),
     };
     let d = image.read_back(&linear)?;
@@ -142,11 +134,11 @@ pub(crate) fn derivation(
     };
     match written {
         Ok(()) => Ok(Shown::Written),
-        Err(WriteError::Stopped) => Ok(Shown::Cut(format!(
+        Err(Error::Refused(Refusal::Stopped { .. })) => Ok(Shown::Cut(format!(
             "the derivation is cut short: {}",
             why()
         ))),
-        Err(WriteError::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
+        Err(Error::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
         Err(_) => Ok(Shown::Written),
     }
 }

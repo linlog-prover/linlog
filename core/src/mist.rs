@@ -88,12 +88,12 @@ pub enum Safety {
 ///
 /// # Errors
 ///
-/// [`Error::Mist`] for text that is not such a problem: a section missing
+/// [`Error::Spec`] for text that is not such a problem: a section missing
 /// or out of order, a counter not declared, a counter updated twice by one
 /// rule or from another counter, a counter given twice in `init`, a count
 /// that is no number below 2³², or
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
-/// unit; [`Error::TooManyOccurrences`] for more tokens than the limit.
+/// unit; [`Refusal::Occurrences`](crate::Refusal::Occurrences) for more tokens than the limit.
 pub fn read(text: &str) -> Result<Problem, Error> {
     read_within(text, Forest::DEFAULT_LIMIT)
 }
@@ -190,10 +190,10 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
         .chain(targets.iter().map(|t| total(t)))
         .fold(0u64, u64::saturating_add);
     if tokens_written > most {
-        return Err(Error::TooManyOccurrences {
+        return Err(Error::Refused(crate::limits::Refusal::Occurrences {
             occurrences: tokens_written,
             limit: most,
-        });
+        }));
     }
     // One-sided, as the parser would read `rules, params, tokens |- goal`:
     // a rule `!(in -o out)` is `?(in ⊗ ~out)`, a token `x` is `~x`.
@@ -352,7 +352,7 @@ impl<'a> Arena<'a> {
 
 /// The error of a text that is no `.spec` problem.
 fn error(message: String) -> Error {
-    Error::Mist(message)
+    Error::Spec { message }
 }
 
 /// Counts of some counters, each a counter's index and its count, sorted
@@ -659,7 +659,7 @@ mod tests {
             "vars a rules init a = 4294967296 target a >= 1",
             "vars top rules init target top >= 1",
         ] {
-            assert!(matches!(read(bad), Err(Error::Mist(_))), "{bad:?}");
+            assert!(matches!(read(bad), Err(Error::Spec { .. })), "{bad:?}");
         }
         // Five bytes of a count ask for more tokens than the limit, which
         // is refused before any is written.
@@ -667,7 +667,7 @@ mod tests {
         assert!(read_within(big, 100_000).is_ok());
         assert!(matches!(
             read_within(big, 99_999),
-            Err(Error::TooManyOccurrences { .. })
+            Err(Error::Refused(crate::limits::Refusal::Occurrences { .. }))
         ));
     }
 }

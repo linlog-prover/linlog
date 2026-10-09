@@ -208,7 +208,10 @@ impl Runtime {
             .stack_size(stack_size)
             .thread_name(|i| format!("linlog-search-{i}"))
             .build()
-            .map_err(|e| Error::ThreadPool(threads, e.to_string()))?;
+            .map_err(|e| Error::ThreadPool {
+                threads,
+                message: e.to_string(),
+            })?;
         Ok(Self {
             pool,
             threads,

@@ -61,7 +61,7 @@ the generated families are read; the harness that runs them is
   skipped); rules and targets are kept sparse, since a file declares up
   to 66 950 counters and 213 625 rules; a count of `k` is `k` occurrences
   of an atom, so the tokens are summed before the arena is built and a
-  problem with more than the limit is `Error::TooManyOccurrences`
+  problem with more than the limit is `Refusal::Occurrences`
   (`read_within`; `read` takes `Forest::DEFAULT_LIMIT`, the command
   `--occurrence-limit`): a 40-byte file asked for 20 million tokens,
   617 MiB, before the limit counted (the panel's finding); an update from another counter, a counter updated twice,

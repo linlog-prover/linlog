@@ -24,7 +24,8 @@ for NanoYalla. What the code relies on:
   document by `Options::form`; `svg` draws `sequent`, `two_sided`,
   `derivation` and `net(&structure, &style, limit)` under a `Style` (the font
   and its advances, labels, the open goal's shape, ids per formula,
-  sizes, gaps, colours; `net` answers `svg::TooLarge` past `limit`);
+  sizes, gaps, colours; `net` answers `Refusal::Output { what: "drawing" }`
+  past `limit`);
   `rocq::derivation` writes the lemma
   `Options::lemma`, or a file that starts with `Options::prelude`, and
   refuses an open goal, Mix, affine weakening and a compact derivation
@@ -43,7 +44,8 @@ for NanoYalla. What the code relies on:
 - **One signature writes a derivation**: `latex::write`, `typst::write`,
   `svg::write`, `rocq::write` and `Derivation::write_text` take the
   derivation, the options, any `fmt::Write` and a stop closure, and
-  answer `WriteError` (`Stopped`, `Failed`, `Unsupported` for Rocq,
+  answer an `Error` (`Refusal::Stopped { phase: Write }`, `WriteFailed`,
+  `Unsupported` for Rocq,
   which refuses before it writes anything). The emitters make one
   inference in a buffer and hand it on (`notation::flush`, which asks
   the stop after each), so they hold one inference's text; the SVG tree
@@ -199,7 +201,7 @@ for NanoYalla. What the code relies on:
   built without file access), krilla's document id is a hash of the
   bytes, and **the crate reads no clock**: a PDF's date is
   `pdf::Options::date`, and without one `from_svg` answers
-  `RenderError::NoDate` (every PDF/A part requires a date; the command
+  `Error::NoDate` (every PDF/A part requires a date; the command
   takes `SOURCE_DATE_EPOCH` or the clock, `pdf::Date::from_unix`).
   Calling `load_system_fonts`, or turning those resvg features on, ends
   it. A text whose font is missing is dropped by usvg without an error,
@@ -236,7 +238,8 @@ for NanoYalla. What the code relies on:
   again after it, for a size the text did not give.
 - **A render is bounded before usvg parses anything**
   (`png::Options::memory`, `pdf::Options::memory`, default 1 GiB, the
-  crate's `DEFAULT_MEMORY_LIMIT`; `RenderError::Memory`): usvg sets
+  crate's `DEFAULT_MEMORY_LIMIT`; `Refusal::Memory { phase: Render }`,
+  and `Refusal::Pixels` past the pixel bound): usvg sets
   every glyph as a path and strokes every arc to bound it inside one
   call, so nothing can be compared or polled once it runs. The estimate
   is `Measure::of` (bytes, elements, glyphs outside `<title>`/`<desc>`,

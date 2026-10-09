@@ -25,6 +25,7 @@ use linlog::{
     Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure,
     ViewOptions,
 };
+use linlog::{Error, Refusal};
 use linlog::{Reading, Rule, Sequent, Verdict, prove};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -417,7 +418,8 @@ fn net_limit() {
     let bytes = drawing.len() as u64;
     assert!(matches!(
         svg::net(&net, &style, Some(bytes)),
-        Err(svg::TooLarge { estimate, limit }) if estimate > bytes && limit == bytes
+        Err(Error::Refused(Refusal::Output { estimate_bytes, limit_bytes, .. }))
+            if estimate_bytes > bytes && limit_bytes == bytes
     ));
     assert_eq!(svg::net(&net, &style, Some(4 * bytes)), Ok(drawing));
 }
@@ -430,7 +432,10 @@ fn svg_stops_in_its_layout() {
     let derivation = proof.derivation().unwrap();
     let mut out = String::new();
     let written = svg::write(&derivation, &Style::default(), &mut out, || true);
-    assert!(matches!(written, Err(linlog::WriteError::Stopped)));
+    assert!(matches!(
+        written,
+        Err(Error::Refused(Refusal::Stopped { .. }))
+    ));
     assert_eq!(out, "");
 }
 
@@ -539,7 +544,7 @@ fn svg_structure() {
 #[cfg(all(feature = "png", feature = "pdf"))]
 #[test]
 fn renders() {
-    use linlog::export::{RenderError, pdf, png};
+    use linlog::export::{pdf, png};
     let font =
         std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../cli/fonts/Euler-Math.otf"))
             .unwrap();
@@ -574,7 +579,7 @@ fn renders() {
     }
     assert_eq!(
         pdf::from_svg(&drawing, &[&font], &pdf::Options::default()),
-        Err(RenderError::NoDate)
+        Err(Error::NoDate)
     );
 }
 
@@ -585,7 +590,7 @@ fn renders() {
 #[cfg(all(feature = "png", feature = "pdf"))]
 #[test]
 fn render_bounds_come_first() {
-    use linlog::export::{RenderError, pdf, png};
+    use linlog::export::{pdf, png};
     let glyphs = format!("<svg><text>{}</text>", "x".repeat(1 << 16));
     let memory = Some(64 << 20);
     let png = png::Options {
@@ -594,7 +599,11 @@ fn render_bounds_come_first() {
     };
     assert!(matches!(
         png::from_svg(&glyphs, &[], &png),
-        Err(RenderError::Memory { estimate, limit: 67_108_864 }) if estimate > 1000 << 16
+        Err(Error::Refused(Refusal::Memory {
+            limit_bytes: 67_108_864,
+            needed_bytes: Some(estimate),
+            ..
+        })) if estimate > 1000 << 16
     ));
     let pdf = pdf::Options {
         memory,
@@ -603,14 +612,14 @@ fn render_bounds_come_first() {
     };
     assert!(matches!(
         pdf::from_svg(&glyphs, &[], &pdf),
-        Err(RenderError::Memory { .. })
+        Err(Error::Refused(Refusal::Memory { .. }))
     ));
     let wide = r#"<svg width="100000" height="1000.5px"><text>"#;
     assert_eq!(
         png::from_svg(wide, &[], &png::Options::default()),
-        Err(RenderError::TooLarge {
+        Err(Error::Refused(Refusal::Pixels {
             pixels: 200_000 * 2002,
             limit: png::Options::DEFAULT_PIXELS
-        })
+        }))
     );
 }

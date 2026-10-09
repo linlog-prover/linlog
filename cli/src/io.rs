@@ -72,7 +72,10 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
         InputFormat::Lltp => Ok(linlog::lltp::read(text)?.sequent),
         InputFormat::Spec => match linlog::mist::read_within(text, most) {
             Ok(problem) => Ok(problem.sequent),
-            Err(linlog::Error::TooManyOccurrences { occurrences, .. }) => bail!(
+            Err(linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
+                occurrences,
+                ..
+            })) => bail!(
                 "the problem's tokens alone are {occurrences} subformula occurrences, more than \
                  the limit of {most}; raise it with --occurrence-limit"
             ),

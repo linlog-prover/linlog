@@ -9,9 +9,10 @@
 
 use super::font::{AXIS, DEPTH, HEIGHT};
 use super::{Escaping, NOTATION, PLAIN, Run, Style, backdrop, escaped, head, label, run, text};
+use crate::Error;
 use crate::export::notation::{Step, flush, walk};
 use crate::proofs::style::{Drawn, RUN};
-use crate::proofs::{InfId, OpenGoal, WriteError, fmt};
+use crate::proofs::{InfId, OpenGoal, fmt};
 use std::fmt::Write;
 
 /// Where an inference and the subtree above it go, within the box that
@@ -42,7 +43,7 @@ pub(super) fn draw<T: Drawn>(
     style: &Style,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     let font = &style.font;
     let line_height = i64::from(style.line_height);
     let label_size = i64::from(style.label_size);
@@ -92,10 +93,12 @@ pub(super) fn draw<T: Drawn>(
     let mut sequent = String::new();
     walk(derivation, |step| {
         let Step::Exit(id, depth) = step else {
-            return Ok::<_, WriteError>(());
+            return Ok::<_, Error>(());
         };
         if stop() {
-            return Err(WriteError::Stopped);
+            return Err(Error::Refused(crate::limits::Refusal::Stopped {
+                phase: crate::limits::Phase::Write,
+            }));
         }
         let width = conclusion(&mut sequent, id).width;
         let baseline = -(depth as i64) * line_height;
@@ -166,7 +169,7 @@ pub(super) fn draw<T: Drawn>(
                 xs[p.index()] = xs[id.index()] + places[p.index()].offset;
             }
         }
-        Ok::<_, WriteError>(())
+        Ok::<_, Error>(())
     })?;
     let y = |depth: usize| margin - top - depth as i64 * line_height;
 

@@ -285,7 +285,7 @@ impl Image {
 /// [`Error::Translation`] when the translation does not decide the logic
 /// ([`Translation::decides`]), [`Error::Succedents`] for an intuitionistic
 /// or minimal sequent with more than one formula right of `⊢`, and
-/// [`Error::TooManyOccurrences`] for an image larger than an arena holds.
+/// [`Refusal::Occurrences`](crate::Refusal::Occurrences) for an image larger than an arena holds.
 pub fn translate(
     sequent: &Sequent,
     logic: Logic,
@@ -297,7 +297,9 @@ pub fn translate(
     let mut ordinary = sequent.clone();
     let classical = logic == Logic::Classical;
     if !classical && ordinary.right.len() > 1 {
-        return Err(Error::Succedents(ordinary.right.len()));
+        return Err(Error::Succedents {
+            count: ordinary.right.len(),
+        });
     }
     let extra = Extra::add(&mut ordinary.formulas)?;
     if !classical && ordinary.right.is_empty() {
@@ -483,10 +485,10 @@ impl Builder {
         }
         let most = crate::Forest::MOST;
         if self.terms.len() as u64 >= most {
-            return Err(Error::TooManyOccurrences {
+            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
                 occurrences: most.saturating_add(1),
                 limit: most,
-            });
+            }));
         }
         let id = TermId::new(self.terms.len() as u32);
         self.terms.push(term);

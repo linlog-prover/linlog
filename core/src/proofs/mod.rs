@@ -35,15 +35,13 @@ pub mod size;
 /// not written whole, which every output that draws a derivation shares.
 pub mod style;
 
-pub use check::{CheckError, Described, Dyadic, Problem};
-pub use derivation::{
-    Compact, Derivation, InfId, Inference, Rule, UnknownRule, ViewError, ViewOptions,
-};
+pub use check::{CheckError, Described, Dyadic, Fault, Invalid, Refused};
+pub use derivation::{Compact, Derivation, InfId, Inference, Rule, UnknownRule, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
-pub use interactive::{Interactive, Refusal};
+pub use interactive::{Interactive, StepError};
 pub use size::Size;
-pub use style::{Labels, OpenGoal, WriteError};
+pub use style::{Labels, OpenGoal};
 
 use crate::Error;
 use crate::fragment::Mode;
@@ -321,7 +319,11 @@ impl Proof {
     /// more nodes than a [`NodeId`] counts (2³² − 1).
     pub fn new(forest: Forest, nodes: Vec<Node>, root: NodeId) -> Result<Self, Error> {
         if root.index() >= nodes.len() {
-            return Err(Error::NodeIndexOutOfBounds(root.index(), nodes.len()));
+            return Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Node,
+                index: root.index(),
+                len: nodes.len(),
+            });
         }
         // A premise precedes its conclusion, so one pass from the root down
         // visits every reachable node after the node that reaches it. The
@@ -335,12 +337,20 @@ impl Proof {
             }
             for o in nodes[i].occurrences() {
                 if o.index() >= forest.len() {
-                    return Err(Error::OccurrenceIndexOutOfBounds(o.index(), forest.len()));
+                    return Err(Error::IndexOutOfBounds {
+                        space: crate::limits::Space::Occurrence,
+                        index: o.index(),
+                        len: forest.len(),
+                    });
                 }
             }
             for p in nodes[i].premises() {
                 if p.index() >= i {
-                    return Err(Error::PremiseIndexNotDecreasing(p.index(), i));
+                    return Err(Error::NotTopological {
+                        space: crate::limits::Space::Node,
+                        index: p.index(),
+                        parent: i,
+                    });
                 }
                 reachable[p.index()] = true;
             }
@@ -350,7 +360,11 @@ impl Proof {
         // node more.
         let reached = reachable.iter().filter(|&&r| r).count();
         if u32::try_from(reached).is_err() {
-            return Err(Error::TooManyNodes(reached));
+            return Err(Error::Refused(crate::limits::Refusal::Index {
+                what: crate::limits::Space::Node,
+                count: reached as u64,
+                most: u64::from(u32::MAX),
+            }));
         }
         let mut new_index = vec![NodeId::new(u32::MAX); root.index() + 1];
         let mut kept = Vec::with_capacity(reached);
@@ -402,17 +416,24 @@ impl Proof {
     }
 
     /// Checks that the proof proves its sequent under the rules the mode
-    /// allows, holding [`DEFAULT_MEMORY_LIMIT`] bytes at most; see
-    /// [`check::check`].
+    /// allows, holding [`DEFAULT_MEMORY_LIMIT`] bytes at most: every node
+    /// applies its rule to what its premises derive, the mode allows the
+    /// rule, and the root derives exactly the sequent's formulas with
+    /// nothing left in the unrestricted zone; in intuitionistic mode also
+    /// that the sequent has an intuitionistic reading and every sequent of
+    /// the proof one formula on the right of `⊢`. The error names the first
+    /// node that fails, in arena order, with what it needed.
     pub fn check(&self, mode: Mode) -> Result<(), CheckError> {
         check::check(self, mode)
     }
 
     /// Checks the proof as [`check`](Self::check) does, holding `memory`
     /// bytes at most, or any number with `None`. A check that would pass
-    /// the bound ends with an error that
-    /// [`is_refusal`](CheckError::is_refusal): the proof is then neither
-    /// valid nor invalid. See [`check::check_within`] for what is counted.
+    /// the bound ends with [`CheckError::Refused`]: the proof is then
+    /// neither valid nor invalid. What is counted is what the pass holds
+    /// beyond the proof and its forest: twelve bytes for every node, and
+    /// every sequent it keeps for a later node at the size of its tables
+    /// of members, a sequent that several nodes read once for each.
     pub fn check_within(&self, mode: Mode, memory: Option<u64>) -> Result<(), CheckError> {
         check::check_within(self, mode, memory)
     }
@@ -422,7 +443,7 @@ impl Proof {
     /// the derivation is larger than the default [`ViewOptions`] allow;
     /// see [`Derivation`], and [`derivation_with`](Self::derivation_with)
     /// for other options.
-    pub fn derivation(&self) -> Result<Derivation<'_>, ViewError> {
+    pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
         self.derivation_with(&ViewOptions::default(), || false)
     }
 
@@ -433,7 +454,7 @@ impl Proof {
         &self,
         view: &ViewOptions,
         stop: impl FnMut() -> bool,
-    ) -> Result<Derivation<'_>, ViewError> {
+    ) -> Result<Derivation<'_>, Error> {
         Derivation::new(self, view, stop)
     }
 
@@ -441,7 +462,7 @@ impl Proof {
     /// proof stands for, or the checker's complaint in intuitionistic
     /// mode, or that the derivation is larger than the default
     /// [`ViewOptions`] allow. See [`Derivation::two_sided`].
-    pub fn two_sided_derivation(&self) -> Result<Derivation<'_>, ViewError> {
+    pub fn two_sided_derivation(&self) -> Result<Derivation<'_>, Error> {
         self.two_sided_derivation_with(&ViewOptions::default(), || false)
     }
 
@@ -452,7 +473,7 @@ impl Proof {
         &self,
         view: &ViewOptions,
         stop: impl FnMut() -> bool,
-    ) -> Result<Derivation<'_>, ViewError> {
+    ) -> Result<Derivation<'_>, Error> {
         Derivation::two_sided(self, view, stop)
     }
 }

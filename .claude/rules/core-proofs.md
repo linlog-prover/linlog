@@ -29,7 +29,7 @@ serve intuitionistic mode. Invariants:
   verifies the bounds and the order of what the root reaches, drops the
   rest (an engine's arena holds the subproofs of failed branches) and
   renumbers; it does not check the proof. A proof has at least one node
-  and at most 2³² − 1 (`Error::TooManyNodes`; reading a proof file
+  and at most 2³² − 1 (`Refusal::Index { what: Space::Node }`; reading a proof file
   refuses the same), which is what makes the number of nodes, and the
   checker's count of a node's readers, a `u32`. A subproof two nodes share (a
   memo hit) is stored once, so the arena is a DAG and the derivation view
@@ -95,11 +95,12 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 - **The pass counts what it holds and refuses to pass its bound**
   (`Proof::check_within(mode, memory)`, `check(mode)` being that within
   `DEFAULT_MEMORY_LIMIT`, 1 GiB; `None` for no bound). The refusal is
-  `Problem::Memory { limit }` at the node the pass had come to, and
-  `CheckError::is_refusal()` tells it from every fault of a proof: **a
-  refusal is no verdict**, and a front end must never print it as
-  "invalid" (`Error` wraps it as `Unchecked`, not `InvalidProof`;
-  `ViewError` as `Memory`, not `Invalid`). What is counted
+  `CheckError::Refused(Refused { node, refusal: Refusal::Memory { phase:
+  Check, .. } })` at the node the pass had come to, a variant of its own
+  beside every fault of a proof (`CheckError::Invalid`): **a refusal is
+  no verdict**, and a front end must never print it as "invalid"; its
+  `ErrorKind` is `Limit`, its code `memory_limit`. Inside the pass a
+  fault and the bound are `Halt`, which `examine` splits. What is counted
   (`Pass::held`): twelve bytes per node for the pass's two tables and
   every state in `live` or in the hands of the current rule at
   `State::bytes`, which is the value plus its two tables; and, added at
@@ -133,7 +134,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 - **An error costs a second pass.** The states a failing node read are
   gone or changed by the time it fails, so `examine` runs the pass again
   up to that node and reports its premises' sequents from there; they
-  are kept then, since the node itself has yet to read them. `Problem`
+  are kept then, since the node itself has yet to read them. `Fault`
   is found by the first pass; the second does exactly what the first
   did up to the node, so it holds no more and cannot fail before it. A
   refusal has no second pass, which would take the memory that was
@@ -158,7 +159,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   as many readers as the proof has nodes, because every later node but
   the root must itself be somebody's premise. `Bag::counts` and
   `Bag::len` saturate, and a saturated one is over `MOST`
-  (`Problem::Surplus`). `State::outputs`, `linear` and `goal` saturate
+  (`Fault::Surplus`). `State::outputs`, `linear` and `goal` saturate
   while a rule builds a state, which only a zone over `MOST` can make
   them do, and are exact when read; every subtraction (`take`) is on a
   premise's exact sums and comes before any addition of its rule.
@@ -170,7 +171,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   a reader to pin the premises (the one `+= 1` that could have passed
   `u32::MAX`).
 - **A zone the rest of the proof cannot consume is refused where it
-  arises** (`Pass::within`, `Problem::Surplus`): a rule takes two members
+  arises** (`Pass::within`, `Fault::Surplus`): a rule takes two members
   of a premise's zone at most and passes the others on, and the root's
   zone lies within the goal, so node `i` of `n` may derive at most
   `|goal| + 2·(n − 1 − i)` members, and never more than `Bag::MOST`.
@@ -203,7 +204,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   `?` contexts, which `Θ` already covers. The derivation view instantiates
   the absorbed context top-down.
 - **Intuitionistic mode is the classical check plus the one-succedent
-  condition** against the sequent's `Reading` (`Problem::Shape` when there
+  condition** against the sequent's `Reading` (`Fault::Shape` when there
   is none). Every ILL rule is a classical node, so what is checked is only
   that every sequent of the proof has one goal: (R1) every derived `gamma`
   holds at most one occurrence in output position, and exactly one unless
@@ -211,7 +212,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   output position may be absorbed by `any` only if the premise's zone has
   no output already (else the premise's sequent would have two goals);
   (R3) `Weaken` never weakens an output; Mix is `Forbidden`. Any failure
-  is `Problem::Succedents(n)`. These are sound and complete for "some
+  is `Fault::Succedents { count }`. These are sound and complete for "some
   top-down instantiation of the absorbed contexts is an ILL derivation":
   `Ax` has one output by construction, `Bang` resets `any`, `Θ` holds only
   input occurrences (subformulas of `?`), and at a `⊗` the fixed output
@@ -224,10 +225,12 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   report); the intricate cases that review named are pinned in
   `check.rs`'s `accepts_every_rule`, so keep them when the checker changes.
 - `CheckError` reports ids, not formulas: `node`, its `rule`, the derived
-  `premises` as `Dyadic` sequents and a `Problem`. `Display` prints ids too;
+  `premises` as `Dyadic` sequents and a `Fault` (`CheckError::Invalid`'s
+  `Invalid`; a refusal has no premises). `Display` prints ids too;
   `describe(&forest)` prints the same message with formulas (nodes keep
   their ids), which is what the CLI shows. Both go through one writer
-  (`CheckError::write`), so a new `Problem` gets one arm.
+  (`Invalid::write`), so a new `Fault` gets one arm, and the test-only
+  first implementation (`oracle.rs`) reports the same faults.
 
 ## Decisions
 

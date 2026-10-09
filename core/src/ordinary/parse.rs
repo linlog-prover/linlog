@@ -102,12 +102,12 @@ impl<'a> Parser<'a> {
     /// Returns the error for the character at byte `at`.
     fn unexpected(&self, at: usize) -> Error {
         let found = self.input[at..].chars().next();
-        Error::SequentParsing(vec![ParseError {
+        Error::from(ParseError {
             span: at..at + found.map_or(0, char::len_utf8),
             found: found.map(String::from),
             label: None,
             expected: Vec::new(),
-        }])
+        })
     }
 
     /// Skips white space and returns the rest of the text.
@@ -359,10 +359,10 @@ pub struct Problem {
 /// [`Error::Tptp`] for a file that is not a sequence of such clauses,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture
 /// (TPTP asks for each to be proved, which right of `⊢` would read as
-/// their disjunction), and [`Error::SequentParsing`] for a formula that is
+/// their disjunction), and [`Error::Parse`] for a formula that is
 /// not one.
 pub fn read_tptp(text: &str) -> Result<Problem, Error> {
-    let clauses = clauses(text, Error::Tptp)?;
+    let clauses = clauses(text, |message| Error::Tptp { message })?;
     let mut formulas = Formulas::default();
     let mut read = |text: &str| {
         let mut parser = Parser {
@@ -440,7 +440,7 @@ mod tests {
         );
         assert!(matches!(
             read_tptp("fof(c, axiom, p)."),
-            Err(Error::Tptp(_))
+            Err(Error::Tptp { .. })
         ));
         assert!(read_tptp("fof(c, conjecture, p -> q).").is_err());
     }

@@ -6,7 +6,7 @@ use std::fmt;
 /// Where and why parsing failed, owned so that it outlives the input.
 ///
 /// Needs the cargo feature `parse` (on by default).
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError {
     /// The byte range of the input where parsing failed.
     pub span: std::ops::Range<usize>,
@@ -35,3 +35,5 @@ impl fmt::Display for ParseError {
         Ok(())
     }
 }
+
+impl std::error::Error for ParseError {}

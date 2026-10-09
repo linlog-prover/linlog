@@ -195,7 +195,7 @@ impl Forest {
     pub(crate) const MOST: u64 = NONE as u64 - 1;
 
     /// Builds the forest of a sequent, keeping a copy of it. Fails with
-    /// [`Error::TooManyOccurrences`] if the sequent has more subformula
+    /// [`Refusal::Occurrences`](crate::Refusal::Occurrences) if the sequent has more subformula
     /// occurrences than [`DEFAULT_LIMIT`](Self::DEFAULT_LIMIT), which
     /// needs an arena that shares subterms deeply or a very large input,
     /// before anything of that size is built.
@@ -205,7 +205,7 @@ impl Forest {
 
     /// Builds the forest of a sequent of at most `limit` subformula
     /// occurrences ([`Sequent::occurrences`] counts them), keeping a copy
-    /// of the sequent, and fails with [`Error::TooManyOccurrences`] if it
+    /// of the sequent, and fails with [`Refusal::Occurrences`](crate::Refusal::Occurrences) if it
     /// has more, before anything of that size is built. A forest indexes
     /// its occurrences with a `u32`, so no limit admits more than
     /// 2³² − 2 of them.
@@ -233,7 +233,10 @@ impl Forest {
             .fold(0u64, |sum, r| sum.saturating_add(sizes[r.index()]));
         let limit = limit.min(Self::MOST);
         if occurrences > limit {
-            return Err(Error::TooManyOccurrences { occurrences, limit });
+            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
+                occurrences,
+                limit,
+            }));
         }
         Ok(sizes)
     }
@@ -726,10 +729,10 @@ mod tests {
         assert_eq!(Forest::within(&s, 7).unwrap().len(), 7);
         assert!(matches!(
             Forest::within(&s, 6),
-            Err(Error::TooManyOccurrences {
+            Err(Error::Refused(crate::limits::Refusal::Occurrences {
                 occurrences: 7,
                 limit: 6
-            })
+            }))
         ));
 
         // No limit admits more occurrences than a `u32` numbers.
@@ -737,7 +740,7 @@ mod tests {
         assert_eq!(s.occurrences(), (1 << 41) - 1);
         assert!(matches!(
             Forest::within(&s, u64::MAX),
-            Err(Error::TooManyOccurrences { occurrences, limit })
+            Err(Error::Refused(crate::limits::Refusal::Occurrences { occurrences, limit }))
                 if occurrences == (1 << 41) - 1 && limit == (1 << 32) - 2
         ));
         assert_eq!(doubling(100).occurrences(), u64::MAX, "the count saturates");
@@ -768,7 +771,7 @@ mod tests {
         let refused = |result: Result<Forest, Error>| {
             matches!(
                 result,
-                Err(Error::TooManyOccurrences { occurrences, limit })
+                Err(Error::Refused(crate::limits::Refusal::Occurrences { occurrences, limit }))
                     if occurrences == (1 << 27) - 1 && limit == Forest::DEFAULT_LIMIT
             )
         };

@@ -69,14 +69,14 @@ supervisor's go are marked "go".
 
 | item | state | evidence |
 |---|---|---|
-| a. F23: `close_with` refuses a foreign proof, another goal, a mode that forbids it | open | |
-| b. H2, H3: several conjectures refused (TPTP, LLTP) | open | |
-| c. H4: a counter named twice in a `.spec` file's `init` refused | open | |
-| d. H7: an empty LLTP formula refused | open | |
-| e. H17: a session's history checked against the arena as each step left it | open | |
-| f. H9, H10 with C1: the written order and sides, the reading's rule (lock commit (2)); the target set after it (go) | open | |
-| g. T3: `lto = "fat"`, `codegen-units = 1`, the ceilings re-recorded (go) | open | |
-| h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | open | |
+| a. F23: `close_with` refuses a foreign proof, another goal, a mode that forbids it | done | tszyrrtw (64cec218): `Error::ForeignProof`, the graft checked in the session's mode; test `close_with_refuses_a_foreign_proof` (both witnesses, the smaller forest's panic included); gate passed. Another goal is refused by the existing check against the goal's ids; `GoalMismatch` comes with the proof's recorded goal (item m) |
+| b. H2, H3: several conjectures refused (TPTP, LLTP) | done | xwquzzos (94a10a3f), with d: `Error::SeveralConjectures { second }` in `lltp::clauses`, which both readers share; tests `refuses_several_conjectures` in `lltp.rs` and `ordinary/parse.rs` with the findings' files; gate passed |
+| c. H4: a counter named twice in a `.spec` file's `init` refused | done | lwpolxzs (51ad26ac): the finding's file in `reads_problems`' refusals; gate passed |
+| d. H7: an empty LLTP formula refused | done | xwquzzos (94a10a3f): two empty formulas in `reads_problems`' refusals |
+| e. H17: a session's history checked against the arena as each step left it | done | wptxunzx (1a2fe79e): the finding's reordered history in `interactive_json_format_and_round_trip`, which fails without the fix (run with it reverted); gate passed |
+| f. H9, H10 with C1: the written order and sides, the reading's rule (lock commit (2)); the target set after it (go) | done, the target set waiting for a go | rtlqploq: `Sequent::antecedents`, roots unsorted, the reading by the written sides and the left factor; test `the_written_sides_decide` (both witnesses as text and without sides, `⊢ ⊤, a` read as `0 ⊢ a`, `⊢ 0, ⊤` undetermined); both locks reblessed (the JSON key, the written order, `seq-print-latex`'s sequent); README; a probe read every ILTP image (274 problems, three translations, two logics) with no refusal, and the LLTP ILL files are being read with the old and the new binary |
+| g. T3: `lto = "fat"`, `codegen-units = 1`, the ceilings re-recorded (go) | waiting for the go | kept uncommitted until its ceilings can be recorded, so every gate passes. After the go: the target set on a build of C1's commit itself (a jj workspace at rtlqploq), its counters compared with `bench/targets/after-coverability.csv` (the current oracle; `after-bias.csv` no longer matches the engine, F160, F181), so the comparison is C1's whatever lands later; then the target set at the head under LTO as the new oracle |
+| h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | done | ksnmyzmo (ad8ec15d); the rest of 2.3 (`Forest::from_owned` stays public: the command builds a forest of a sequent it owns without a clone) comes with its items |
 | i. `Mode` and `Fragment` (3.5) | open | |
 | j. one error family (4) | open | |
 | k. `Limits`, `Progress` and the stop on every long call (5) | open | |
@@ -387,3 +387,17 @@ supervisor's go are marked "go".
   the author uses the machine by day. The five-hour window resets at
   16:50, the weekly one on 2026-10-16; if a limit stops the session, it
   writes where it stands into the checklist and ends its turn.
+
+### Messages from `planning` to `step-28d` (2026-10-09, afternoon)
+
+- The go for the batched runs (T3's ceilings, the target set after C1,
+  qcover, the families) waits until the author says the machine is idle;
+  meanwhile work that needs no run, T3 uncommitted, gates per commit as
+  before; C1's target-set comparison must stay attributable to C1. What
+  was done: acknowledged; the target set will run on a build of C1's
+  commit in a workspace of its own (item g).
+- A correction: C1's target set compares with
+  `bench/targets/after-coverability.csv`, not `after-bias.csv`, which no
+  longer matches the engine since the Horn engine took the programs with
+  `!` (F160, F181, area 3.4 fixes the names). What was done: recorded in
+  item g.

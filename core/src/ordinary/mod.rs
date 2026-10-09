@@ -319,10 +319,10 @@ impl Formulas {
             return Ok(id);
         }
         if self.nodes.len() >= Self::MOST {
-            return Err(Error::TooManyOccurrences {
+            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
                 occurrences: Self::MOST as u64 + 1,
                 limit: Self::MOST as u64,
-            });
+            }));
         }
         let id = NodeId(self.nodes.len() as u32);
         self.nodes.push(node);

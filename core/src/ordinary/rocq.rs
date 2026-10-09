@@ -13,10 +13,11 @@
 
 use super::derivation::Side;
 use super::{Derivation, Formulas, Logic, NodeId, Rule, Symbols};
+use crate::Error;
 use crate::export::Form;
 use crate::export::rocq::{Options, identifiers};
 use crate::hash::HashMap;
-use crate::proofs::{InfId, WriteError};
+use crate::proofs::InfId;
 use std::fmt::Write;
 
 /// The names the terms use, which an atom never gets.
@@ -350,7 +351,7 @@ pub(crate) fn write(
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     let classical = derivation.logic() == Logic::Classical;
     let formulas = derivation.formulas();
     let mut atoms = identifiers(formulas.atom_names(), &options.lemma);
@@ -448,7 +449,9 @@ pub(crate) fn write(
                 let tasks = certificate.tasks(id);
                 stack.extend(tasks.into_iter().rev());
                 if stop() {
-                    return Err(WriteError::Stopped);
+                    return Err(Error::Refused(crate::limits::Refusal::Stopped {
+                        phase: crate::limits::Phase::Write,
+                    }));
                 }
             }
             Task::Text(text) => out.write_str(&text)?,

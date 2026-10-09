@@ -42,6 +42,7 @@ const NONE: u32 = u32::MAX;
 /// Why a proof structure is not a proof net, or why a list of links is not
 /// a proof structure. Occurrences print as ids; [`describe`](Self::describe)
 /// prints them as formulas.
+#[non_exhaustive]
 #[derive(ThisError, Clone, Debug, PartialEq, Eq)]
 pub enum NetError {
     /// A link names an occurrence (first) outside the forest (its length
@@ -74,6 +75,13 @@ pub enum NetError {
     /// the right premises of `⅋` nodes.
     #[error("every switching falls into {} parts; keeping every left premise, they are {}", .0.len(), parts(.0))]
     Disconnected(Vec<Vec<OccId>>),
+    /// A bound or the caller's stop ended the call without a verdict on
+    /// the structure.
+    #[error("{refusal}")]
+    Refused {
+        /// The bound that refused it, or the stop.
+        refusal: crate::limits::Refusal,
+    },
 }
 
 /// Writes occurrence ids separated by commas.
@@ -94,6 +102,32 @@ fn parts(parts: &[Vec<OccId>]) -> String {
 }
 
 impl NetError {
+    /// Returns what sort of failure this is: a list of links that is no
+    /// structure is malformed, a structure that is no net invalid, a
+    /// refusal no verdict.
+    pub fn kind(&self) -> crate::ErrorKind {
+        use crate::ErrorKind::*;
+        match self {
+            Self::NoOccurrence(..)
+            | Self::NotLiteral(_)
+            | Self::NotDual(..)
+            | Self::LinkedTwice(_) => Malformed,
+            Self::Unlinked(_) | Self::Empty | Self::SwitchingCycle(_) | Self::Disconnected(_) => {
+                Invalid
+            }
+            Self::Refused { refusal } => crate::errors::refusal_kind(refusal),
+        }
+    }
+
+    /// Returns the stable code of the error: `invalid_net`, or the
+    /// refusal's.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Refused { refusal } => refusal.code(),
+            _ => "invalid_net",
+        }
+    }
+
     /// Returns the error as a value that prints occurrences as formulas
     /// followed by their id in brackets, as in `~A[0]`.
     pub fn describe<'a>(&'a self, forest: &'a Forest) -> Described<'a> {
@@ -125,7 +159,7 @@ impl Display for Described<'_> {
             LinkedTwice(o) => write!(f, "literal {} is linked twice", occ(o)),
             Unlinked(o) => write!(f, "literal {} has no axiom link", occ(o)),
             // An occurrence outside the forest has no formula.
-            NoOccurrence(..) | Empty => write!(f, "{}", self.error),
+            NoOccurrence(..) | Empty | Refused { .. } => write!(f, "{}", self.error),
             SwitchingCycle(cycle) => write!(f, "a switching cycle runs through {}", list(cycle)),
             Disconnected(parts) => {
                 let parts: Vec<String> = parts.iter().map(|p| format!("{{{}}}", list(p))).collect();
@@ -202,7 +236,7 @@ impl ProofStructure {
     pub fn new(forest: Forest, mix: bool) -> Result<Self, Error> {
         let fragment = forest.sequent().fragment();
         if !Fragment::MLL.contains(fragment) {
-            return Err(Error::NetFragment(fragment));
+            return Err(Error::NetFragment { fragment });
         }
         let n = forest.len();
         let mut skeleton = Skeleton::new(n);
@@ -556,7 +590,7 @@ mod tests {
         assert!(ProofStructure::from_proof(&with_mix, true).is_ok());
         assert!(matches!(
             ProofStructure::from_proof(&with_mix, false),
-            Err(Error::InvalidNet(NetError::Disconnected(_)))
+            Err(Error::Net(e)) if matches!(*e, NetError::Disconnected(_))
         ));
         // Outside MLL there is no net.
         let f = forest("|- A & A, ~A");
@@ -568,7 +602,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             ProofStructure::from_proof(&additive, false),
-            Err(Error::NetFragment(_))
+            Err(Error::NetFragment { .. })
         ));
     }
 
@@ -686,7 +720,7 @@ mod tests {
             ),
         ] {
             match ProofStructure::from_links(f(), false, &links) {
-                Err(Error::InvalidNet(e)) => assert_eq!(e, error, "{links:?}"),
+                Err(Error::Net(e)) => assert_eq!(*e, error, "{links:?}"),
                 other => panic!("{links:?}: {other:?}"),
             }
             let mut net = ProofStructure::new(f(), false).unwrap();
@@ -707,7 +741,7 @@ mod tests {
             assert!(
                 matches!(
                     ProofStructure::new(forest(input), true),
-                    Err(Error::NetFragment(_))
+                    Err(Error::NetFragment { .. })
                 ),
                 "{input}"
             );

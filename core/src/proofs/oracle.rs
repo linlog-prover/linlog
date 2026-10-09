@@ -7,7 +7,7 @@
 //! proper must accept and reject exactly what this one does, with the same
 //! error.
 
-use super::check::{CheckError, Dyadic, Problem};
+use super::check::{CheckError, Dyadic, Fault};
 use super::multiset::Multiset;
 use super::{Branch, Node, NodeId, Proof};
 #[cfg(feature = "parse")]
@@ -57,12 +57,12 @@ pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
         match Reading::new(proof.forest()) {
             Ok(reading) => Some(reading),
             Err(e) => {
-                return Err(CheckError {
-                    node: proof.root(),
-                    rule: proof.node(proof.root()),
-                    premises: vec![],
-                    problem: Problem::Shape(e),
-                });
+                return Err(CheckError::invalid(
+                    proof.root(),
+                    proof.node(proof.root()),
+                    vec![],
+                    Fault::Shape(e),
+                ));
             }
         }
     } else {
@@ -105,7 +105,11 @@ pub(crate) fn conclude(proof: &Proof, mode: Mode, derived: &[Derived]) -> Result
     if d.theta.is_empty() && concludes {
         Ok(())
     } else {
-        Err(Step::new(proof, mode, root, derived, None).fail(Problem::Conclusion(d.to_dyadic())))
+        Err(
+            Step::new(proof, mode, root, derived, None).fail(Fault::Conclusion {
+                derived: d.to_dyadic(),
+            }),
+        )
     }
 }
 
@@ -146,17 +150,13 @@ impl<'a> Step<'a> {
     }
 
     /// The error for this node.
-    fn fail(&self, problem: Problem) -> CheckError {
-        CheckError {
-            node: self.id,
-            rule: self.node,
-            premises: self
-                .node
-                .premises()
-                .map(|p| self.derived[p.index()].to_dyadic())
-                .collect(),
-            problem,
-        }
+    fn fail(&self, fault: Fault) -> CheckError {
+        let premises = self
+            .node
+            .premises()
+            .map(|p| self.derived[p.index()].to_dyadic())
+            .collect();
+        CheckError::invalid(self.id, self.node, premises, fault)
     }
 
     /// What premise `p` derived.
@@ -169,7 +169,7 @@ impl<'a> Step<'a> {
         if self.forest.kind(o) == kind {
             Ok(())
         } else {
-            Err(self.fail(Problem::Kind(o)))
+            Err(self.fail(Fault::Kind { member: o }))
         }
     }
 
@@ -181,10 +181,7 @@ impl<'a> Step<'a> {
             return Ok(());
         }
         if !d.any {
-            return Err(self.fail(Problem::Missing {
-                premise,
-                occurrence: o,
-            }));
+            return Err(self.fail(Fault::Missing { premise, member: o }));
         }
         // The premise's sequent holds `o` besides its zone: one goal at
         // most.
@@ -192,7 +189,7 @@ impl<'a> Step<'a> {
             && reading.position(o) == Side::Output
             && self.outputs(&d.gamma) > 0
         {
-            return Err(self.fail(Problem::Succedents(2)));
+            return Err(self.fail(Fault::Succedents { count: 2 }));
         }
         Ok(())
     }
@@ -212,7 +209,7 @@ impl<'a> Step<'a> {
         }
         let outputs = self.outputs(&d.gamma);
         if outputs > 1 || (outputs == 0 && !d.any) {
-            return Err(self.fail(Problem::Succedents(outputs)));
+            return Err(self.fail(Fault::Succedents { count: outputs }));
         }
         Ok(d)
     }
@@ -252,7 +249,7 @@ impl<'a> Step<'a> {
     fn derive(self, room: usize) -> Result<Derived, CheckError> {
         let d = self.rule()?;
         if d.gamma.as_slice().len() > room {
-            return Err(self.fail(Problem::Surplus));
+            return Err(self.fail(Fault::Surplus));
         }
         self.one_succedent(d)
     }
@@ -265,11 +262,11 @@ impl<'a> Step<'a> {
             Ax(a, b) => {
                 for o in [a, b] {
                     if !f.is_literal(o) {
-                        return Err(self.fail(Problem::Kind(o)));
+                        return Err(self.fail(Fault::Kind { member: o }));
                     }
                 }
                 if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
-                    return Err(self.fail(Problem::NotDual));
+                    return Err(self.fail(Fault::NotDual));
                 }
                 Ok(Derived {
                     theta: f.empty_set(),
@@ -320,7 +317,7 @@ impl<'a> Step<'a> {
                     (true, false) if dl.gamma.is_subset(&dr.gamma) => (dr.gamma, false),
                     (false, true) if dr.gamma.is_subset(&dl.gamma) => (dl.gamma, false),
                     (true, true) => (dl.gamma.union(&dr.gamma), true),
-                    _ => return Err(self.fail(Problem::Differ)),
+                    _ => return Err(self.fail(Fault::Differ)),
                 };
                 let mut gamma = gamma;
                 gamma.insert(o);
@@ -346,7 +343,7 @@ impl<'a> Step<'a> {
                 let mut d = self.premise(p);
                 self.take(&mut d, self.left(o), 0)?;
                 if !d.gamma.is_empty() {
-                    return Err(self.fail(Problem::NotEmpty));
+                    return Err(self.fail(Fault::NotEmpty));
                 }
                 // Promotion fixes the linear zone: a ⊤ above cannot absorb
                 // past it.
@@ -365,7 +362,7 @@ impl<'a> Step<'a> {
             }
             Copy(a, p) => {
                 if f.parent(a).map(|q| f.kind(q)) != Some(Kind::Quest) {
-                    return Err(self.fail(Problem::NotUnderQuest(a)));
+                    return Err(self.fail(Fault::NotUnderQuest { member: a }));
                 }
                 let mut d = self.premise(p);
                 self.take(&mut d, a, 0)?;
@@ -376,10 +373,10 @@ impl<'a> Step<'a> {
                 // Weakening a `?` formula is a rule of every mode; the goal
                 // is never weakened.
                 if !self.mode.affine && f.kind(o) != Kind::Quest {
-                    return Err(self.fail(Problem::Forbidden));
+                    return Err(self.fail(Fault::Forbidden));
                 }
                 if self.reading.is_some_and(|r| r.position(o) == Side::Output) {
-                    return Err(self.fail(Problem::Succedents(0)));
+                    return Err(self.fail(Fault::Succedents { count: 0 }));
                 }
                 let mut d = self.premise(p);
                 d.gamma.insert(o);
@@ -389,7 +386,7 @@ impl<'a> Step<'a> {
                 // Mix has no intuitionistic form: a premise would lack the
                 // goal.
                 if !self.mode.mix || self.mode.intuitionistic {
-                    return Err(self.fail(Problem::Forbidden));
+                    return Err(self.fail(Fault::Forbidden));
                 }
                 Ok(self.join(self.premise(l), self.premise(r)))
             }

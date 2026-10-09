@@ -56,10 +56,11 @@
 
 use super::Form;
 use super::notation::{Notation, Step, flush, walk};
+use crate::Error;
 use crate::occurrences::Reading;
 use crate::ordinary::{self, Symbols};
 use crate::proofs::style::{Drawn, Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
+use crate::proofs::{Derivation, Labels, OpenGoal};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -363,7 +364,7 @@ pub fn write(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree(derivation, options, out, stop)
 }
 
@@ -382,7 +383,7 @@ pub fn ordinary(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree(derivation, options, out, stop)
 }
 
@@ -392,7 +393,7 @@ fn tree<T: Drawn>(
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     let standalone = options.form == Form::Standalone;
     if standalone {
         begin(out, options, true)?;

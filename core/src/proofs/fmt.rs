@@ -10,7 +10,8 @@
 //! linear ones and those of LK and LJ.
 
 use super::derivation::{Derivation, InfId};
-use super::style::{Drawn, Labels, OpenGoal, RUN, WriteError, plain};
+use super::style::{Drawn, Labels, OpenGoal, RUN, plain};
+use crate::Error;
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -314,7 +315,7 @@ pub(crate) fn write_text<T: Drawn>(
     options: &TextOptions,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     let bars = bars::<T>(options);
     let places = layout(tree, options, &bars);
     let height = places[tree.root().index()].height;
@@ -343,7 +344,9 @@ pub(crate) fn write_text<T: Drawn>(
     let (mut row, mut column) = (0, 0);
     for piece in pieces {
         if stop() {
-            return Err(WriteError::Stopped);
+            return Err(Error::Refused(crate::limits::Refusal::Stopped {
+                phase: crate::limits::Phase::Write,
+            }));
         }
         while row < piece.row {
             out.write_char('\n')?;
@@ -379,10 +382,12 @@ pub(crate) fn write_steps<T: Drawn>(
     tree: &T,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     for i in 0..tree.len() {
         if stop() {
-            return Err(WriteError::Stopped);
+            return Err(Error::Refused(crate::limits::Refusal::Stopped {
+                phase: crate::limits::Phase::Write,
+            }));
         }
         if i > 0 {
             out.write_char('\n')?;
@@ -429,7 +434,7 @@ impl Derivation<'_> {
         options: &TextOptions,
         out: &mut impl Write,
         stop: impl FnMut() -> bool,
-    ) -> Result<(), WriteError> {
+    ) -> Result<(), Error> {
         write_text(self, options, out, stop)
     }
 
@@ -443,7 +448,7 @@ impl Derivation<'_> {
         &self,
         out: &mut impl Write,
         stop: impl FnMut() -> bool,
-    ) -> Result<(), WriteError> {
+    ) -> Result<(), Error> {
         write_steps(self, out, stop)
     }
 }

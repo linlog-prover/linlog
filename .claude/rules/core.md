@@ -62,10 +62,10 @@ Each entry point is described in the file of its module:
 - sequents: `"…".parse::<Sequent>()`, `Display`, serde, `fragment()`,
   `occurrences()`; `Fragment`, `Mode` (`core-sequents.md`);
 - `Forest::new(&sequent)` and `Forest::within(&sequent, limit)`
-  (`Error::TooManyOccurrences` past the limit), `Reading::new(&forest)`
+  (`Refusal::Occurrences` past the limit), `Reading::new(&forest)`
   or a `ShapeError` (`core-forest.md`);
 - `Proof::new(forest, nodes, root)`, `check(mode)`,
-  `check_within(mode, memory)` and `CheckError::is_refusal`
+  `check_within(mode, memory)`, and `CheckError::{Invalid, Refused}`
   (`core-proofs.md`);
 - `derivation()`, `two_sided_derivation()`, `derivation_size(two_sided)`,
   `derivation_with(&view, stop)` under `ViewOptions`, `write_text`;
@@ -107,6 +107,23 @@ left without public items, and `RUSTFLAGS="-W unreachable_pub -W
 unnameable_types" cargo check -p linlog --all-features` stays clean: a
 `pub` item is reachable from the root, and a type in a public signature
 can be named.
+
+**One error family** (`errors/mod.rs`, `limits.rs`): every public
+fallible call answers `Error` or a specific type that converts into it
+without loss (`CheckError`, `NetError`, `ShapeError`, `StepError`,
+`ParseError`, `rocq::Unsupported`). `Error::kind()` (`ErrorKind`:
+malformed, invalid, unsupported, limit, stopped, failed, defect) is one
+`match` without a wildcard, so a new variant must say what it is;
+`code()` is the stable reason a program branches on, listed in
+`Error::CODES` (a new code goes there); `setting()` names the settings
+key whose bound refused a call. Every refusal is
+`Error::Refused(limits::Refusal)`, or the refusal variant of a specific
+type (`CheckError::Refused`, `NetError::Refused`), so nothing that a
+bound or the caller's stop ended can be read as a fault. Every variant
+that carries data has named fields, but those wrapping a whole
+`#[non_exhaustive]` error type of the crate (`Check`, `Net`, `Parse`,
+`Rejected`, `NotIntuitionistic`, `Unsupported`); `size_of::<Error>()`
+stays within 64 bytes (a `const` assertion), larger payloads boxed.
 
 **Nothing recurses over a formula.** A sequent read from JSON can be nested
 as deep as it is long, and a recursion per level ends the process where

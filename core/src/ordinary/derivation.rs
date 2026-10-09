@@ -5,9 +5,7 @@ use super::translate::{Core, Image, pattern};
 use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
 use crate::occurrences::OccId;
 use crate::proofs::style::Drawn;
-use crate::proofs::{
-    Compact, InfId, Labels, Rule as Linear, TextOptions, ViewError, ViewOptions, WriteError,
-};
+use crate::proofs::{Compact, InfId, Labels, Rule as Linear, TextOptions, ViewOptions};
 use crate::{Error, Proof};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -504,7 +502,7 @@ impl Derivation {
         options: &TextOptions,
         out: &mut impl Write,
         stop: impl FnMut() -> bool,
-    ) -> Result<(), WriteError> {
+    ) -> Result<(), Error> {
         crate::proofs::fmt::write_text(self, options, out, stop)
     }
 }
@@ -639,7 +637,7 @@ impl Image {
         proof: &'p Proof,
         view: &ViewOptions,
         stop: impl FnMut() -> bool,
-    ) -> Result<crate::Derivation<'p>, ViewError> {
+    ) -> Result<crate::Derivation<'p>, Error> {
         let view = view.compact(Compact::Never);
         if self.mode.intuitionistic {
             proof.two_sided_derivation_with(&view, stop)

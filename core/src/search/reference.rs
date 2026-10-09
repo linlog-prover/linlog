@@ -740,8 +740,8 @@ mod tests {
             let outcome = match prove_until(&sequent, mode, &options, stop) {
                 Ok(outcome) => outcome,
                 Err(
-                    Error::NetFragment(_)
-                    | Error::NetMode(_)
+                    Error::NetFragment { .. }
+                    | Error::NetMode { .. }
                     | Error::EngineMode { .. }
                     | Error::NotAdditive { .. }
                     | Error::NotHorn,

@@ -37,7 +37,7 @@ use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Forest, OccId, Reading};
-use crate::proofs::{Bytes, Node, NodeId, Proof};
+use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -113,9 +113,9 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// classical mode ([`Error::EngineMode`]); the additive engine on anything
 /// but two additive-only formulas ([`Error::NotAdditive`]); and a sequent
 /// that unfolds to more subformula occurrences than
-/// [`Options::occurrence_limit`] allows ([`Error::TooManyOccurrences`]). A proof that the checker rejects is
+/// [`Options::occurrence_limit`] allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
 /// [`Error::Rejected`], and one whose check would hold more than
-/// [`Options::memory_limit`] is [`Error::Unchecked`]: every proof returned
+/// [`Options::memory_limit`] is [`Error::Check`] with a [`CheckError::Refused`]: every proof returned
 /// has passed the checker, unless [`Options::check`] says otherwise.
 ///
 /// # Examples
@@ -204,7 +204,7 @@ pub fn prove_until(
 ///
 /// # Errors
 ///
-/// Those of [`prove`], plus [`Error::OccurrenceIndexOutOfBounds`] for an
+/// Those of [`prove`], plus [`Error::IndexOutOfBounds`] for an
 /// occurrence outside the forest, [`Error::GoalOutputs`] for an
 /// intuitionistic goal without exactly one formula on the right of `⊢`,
 /// and [`Error::NetGoal`] for the net engine forced on a goal other than
@@ -277,12 +277,10 @@ pub fn prove_goal(
         if options.check {
             proof
                 .check_within(mode, options.memory_limit)
-                .map_err(|e| {
-                    if e.is_refusal() {
-                        Error::Unchecked(e)
-                    } else {
-                        Error::Rejected(Box::new(e))
-                    }
+                .map_err(|e| match e {
+                    // A check given up is no verdict on the proof.
+                    CheckError::Refused(_) => Error::Check(e),
+                    CheckError::Invalid(_) => Error::Rejected(Box::new(e)),
                 })?;
         } else {
             debug_assert_eq!(proof.check(mode), Ok(()), "the {engine} engine's proof");
@@ -326,7 +324,11 @@ pub fn engine_for(
 /// occurrences are checked.
 fn fragment_of(forest: &Forest, goal: &[OccId], options: &Options) -> Result<Fragment, Error> {
     if let Some(o) = goal.iter().find(|o| o.index() >= forest.len()) {
-        return Err(Error::OccurrenceIndexOutOfBounds(o.index(), forest.len()));
+        return Err(Error::IndexOutOfBounds {
+            space: crate::limits::Space::Occurrence,
+            index: o.index(),
+            len: forest.len(),
+        });
     }
     let detected = goal_fragment(forest, goal);
     match options.fragment {
@@ -367,7 +369,7 @@ fn prepare<'a>(
     if let Some(reading) = reading {
         let outputs = reading.outputs(goal.iter().copied());
         if outputs != 1 {
-            return Err(Error::GoalOutputs(outputs));
+            return Err(Error::GoalOutputs { count: outputs });
         }
     }
     // The roots in any order are the sequent itself, which the engines
@@ -957,7 +959,7 @@ impl Options {
 
     /// Sets the most subformula occurrences the sequent may unfold to
     /// when [`prove`] and [`prove_until`] build its forest: a sequent
-    /// beyond is refused with [`Error::TooManyOccurrences`] before
+    /// beyond is refused with [`Refusal::Occurrences`](crate::Refusal::Occurrences) before
     /// anything of that size is built. A sequent read from JSON can share
     /// subterms, so a few hundred bytes unfold to any number of
     /// occurrences; a forest takes about 25 bytes for each, and it is not
@@ -1628,7 +1630,10 @@ mod tests {
             ("|- a, ~a", net.clone().fragment(Some(Fragment::MALL))),
         ] {
             let error = prove(&sequent(input), Mode::CLASSICAL, &options).unwrap_err();
-            assert!(matches!(error, Error::NetFragment(_)), "{input:?}: {error}");
+            assert!(
+                matches!(error, Error::NetFragment { .. }),
+                "{input:?}: {error}"
+            );
         }
         assert_eq!(
             prove(&sequent("|- 1"), Mode::CLASSICAL, &net)
@@ -1728,7 +1733,7 @@ mod tests {
         }
         let net = Options::default().engine(Some(Engine::Net));
         let error = prove(&sequent("a, b |- a"), Mode::CLASSICAL.affine(), &net).unwrap_err();
-        assert!(matches!(error, Error::NetMode(_)));
+        assert!(matches!(error, Error::NetMode { .. }));
         assert_eq!(
             error.to_string(),
             "proof nets exist in classical mode only, with or without Mix, not in classical affine mode"
@@ -1904,7 +1909,14 @@ mod tests {
         assert!(matches!(error, Error::NetGoal), "{error}");
         let error = prove_goal(&forest, &o(&[9]), Mode::CLASSICAL, &options, || false).unwrap_err();
         assert!(
-            matches!(error, Error::OccurrenceIndexOutOfBounds(9, 8)),
+            matches!(
+                error,
+                Error::IndexOutOfBounds {
+                    space: crate::limits::Space::Occurrence,
+                    index: 9,
+                    len: 8
+                }
+            ),
             "{error}"
         );
 
@@ -1933,7 +1945,7 @@ mod tests {
         for (goal, outputs) in [(o(&[0]), 0), (o(&[2, 4]), 2)] {
             let error = prove_goal(&forest, &goal, i, &options, || false).unwrap_err();
             assert!(
-                matches!(error, Error::GoalOutputs(n) if n == outputs),
+                matches!(error, Error::GoalOutputs { count: n } if n == outputs),
                 "{error}"
             );
         }

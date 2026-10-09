@@ -27,7 +27,7 @@ of terms. Invariants the code relies on:
   returns `Option<OccId>`. That is why no forest has `u32::MAX` or more
   occurrences (`Forest::MOST`, crate-private, is the most).
 - **A forest is refused before it is built** when the sequent unfolds to
-  more occurrences than a limit (`Error::TooManyOccurrences { occurrences,
+  more occurrences than a limit (`Refusal::Occurrences { occurrences,
   limit }`): `Forest::new` within
   `Forest::DEFAULT_LIMIT` (50 million: the largest problem of the LLTP
   library has 27.8 million, and a forest takes about 25 bytes per

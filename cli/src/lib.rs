@@ -128,9 +128,10 @@ const CONTEXT: usize = 60;
 /// says which character of the line it is, counting from 1; for an input
 /// of several lines it says which line as well.
 pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
-    let Error::SequentParsing(errors) = &error else {
+    let Error::Parse(parsed) = &error else {
         return error.into();
     };
+    let errors = std::slice::from_ref(parsed.as_ref());
     if input.trim().is_empty() {
         return anyhow::Error::msg("the input is empty; the empty sequent is written |-");
     }

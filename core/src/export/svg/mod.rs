@@ -42,11 +42,12 @@ mod net;
 mod tree;
 
 use super::notation::Notation;
+use crate::Error;
 use crate::nets::ProofStructure;
 use crate::occurrences::Reading;
 use crate::ordinary::{self, Symbols};
 use crate::proofs::style::{Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
+use crate::proofs::{Derivation, Labels, OpenGoal};
 use crate::sequents::Sequent;
 pub use font::{Advances, Font, MONOSPACE};
 use font::{DEPTH, HEIGHT, LOWER, RAISE, SCRIPT};
@@ -581,7 +582,7 @@ pub fn write(
     style: &Style,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree::draw(derivation, style, out, stop)
 }
 
@@ -599,7 +600,7 @@ pub fn ordinary(
     style: &Style,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree::draw(derivation, style, out, stop)
 }
 
@@ -623,25 +624,19 @@ pub fn ordinary(
 /// built: the estimate counts every literal, connective, conclusion and
 /// link from the structure, at least what the drawing has, and `None`
 /// lifts the bound.
-pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<String, TooLarge> {
+pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<String, Error> {
     if let Some(limit) = limit {
         let estimate = net::estimate(net, style, limit);
         if estimate > limit {
-            return Err(TooLarge { estimate, limit });
+            return Err(Error::Refused(crate::limits::Refusal::Output {
+                what: "drawing",
+                estimate_bytes: estimate,
+                limit_bytes: limit,
+                least_bytes: None,
+            }));
         }
     }
     Ok(net::draw(net, style, &net.is_correct()))
-}
-
-/// A drawing estimated at more bytes than the limit it was given; nothing
-/// was drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("the drawing is estimated at {estimate} bytes, more than the limit of {limit}")]
-pub struct TooLarge {
-    /// The estimate, in bytes; once past the limit, some number past it.
-    pub estimate: u64,
-    /// The limit in force.
-    pub limit: u64,
 }
 
 #[cfg(test)]

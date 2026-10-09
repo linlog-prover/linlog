@@ -63,10 +63,11 @@
 
 use super::Form;
 use super::notation::{Notation, Step, flush, walk};
+use crate::Error;
 use crate::occurrences::Reading;
 use crate::ordinary::{self, Symbols};
 use crate::proofs::style::{Drawn, Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal, WriteError};
+use crate::proofs::{Derivation, Labels, OpenGoal};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -311,7 +312,7 @@ pub fn write(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree(derivation, options, out, stop)
 }
 
@@ -328,7 +329,7 @@ pub fn ordinary(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     tree(derivation, options, out, stop)
 }
 
@@ -339,7 +340,7 @@ fn tree<T: Drawn>(
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     let own = match options.layout {
         Layout::Curryst => false,
         Layout::Linlog => true,
@@ -492,7 +493,7 @@ fn laid_out<T: Drawn>(
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     if options.form == Form::Standalone {
         write!(out, "{}\n\n", options.page.trim_end())?;
     }
@@ -545,7 +546,7 @@ fn curryst<T: Drawn>(
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
-) -> Result<(), WriteError> {
+) -> Result<(), Error> {
     if options.form == Form::Standalone {
         write!(
             out,

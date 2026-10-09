@@ -15,7 +15,8 @@
 //!
 //! Needs the cargo feature `pdf` (off by default).
 
-use super::{Measure, PDF, PDF_OUTLINES, RenderError, parse, texts};
+use super::{Measure, PDF, PDF_OUTLINES, parse, texts};
+use crate::Error;
 use krilla::configure::{Accessibility, Archival, ConfigurationBuilder, PdfVersion};
 use krilla::destination::XyzDestination;
 use krilla::geom::{Point, Size};
@@ -140,8 +141,8 @@ impl Date {
 /// the render would pass the bound on its memory (compared before the SVG
 /// is parsed), the text is no document the renderer reads, or the
 /// document does not conform.
-pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, RenderError> {
-    let date = options.date.ok_or(RenderError::NoDate)?;
+pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, Error> {
+    let date = options.date.ok_or(Error::NoDate)?;
     let costs = if options.embed_text {
         PDF
     } else {
@@ -149,10 +150,14 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
     };
     let estimate = Measure::of(svg).estimate(&costs, 0);
     if let Some(limit) = options.memory.filter(|&limit| estimate > limit) {
-        return Err(RenderError::Memory { estimate, limit });
+        return Err(Error::Refused(crate::limits::Refusal::Memory {
+            phase: crate::limits::Phase::Render,
+            limit_bytes: limit,
+            needed_bytes: Some(estimate),
+        }));
     }
     let tree = parse(svg, fonts)?;
-    let failed = |what: String| RenderError::Failed(what);
+    let failed = |what: String| Error::RenderFailed { message: what };
     let size = Size::from_wh(
         tree.size().width() * POINTS_PER_PIXEL,
         tree.size().height() * POINTS_PER_PIXEL,
