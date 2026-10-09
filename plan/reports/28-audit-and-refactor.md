@@ -44,9 +44,9 @@ its evidence (a commit, a file, a command's result) once it is done.
 | item | state | evidence |
 |---|---|---|
 | 2.1 three drafts | running | session `step-28c`: three Opus 5.5 agents at `xhigh` started 06:55 (A web and wire forms, B proof term, checker and Rocq, C engines, calculi and quantifiers), brief in the session's scratchpad; C done 07:31 (98 KB), B 07:35 (93 KB), A 07:37 (97 KB) |
-| 2.2 judged and synthesised, `plan/notes/api.md` | running | two judges started 07:37 (Fable 5.1 at `high`, Opus 5.5 at `high`), independent, with two added questions (an interned-atom representation, H9/H10); Opus done 07:52 (ranks A 56, C 52, B 49; base A with grafts), Fable 08:00 (A 56, B 56, C 54, ranked B, A, C; the same synthesis); both chose C's sides rule and the interned atomic formula; drafts and judgements committed in `plan/notes/api-drafts/`; `plan/notes/api.md` synthesised 08:14 (sections 11.5 and 12 open) |
+| 2.2 judged and synthesised, `plan/notes/api.md` | done, but 11.5 and decision 1's evidence wait for the spike | two judges started 07:37 (Fable 5.1 at `high`, Opus 5.5 at `high`), independent, with two added questions (an interned-atom representation, H9/H10); Opus done 07:52 (ranks A 56, C 52, B 49; base A with grafts), Fable 08:00 (A 56, B 56, C 54, ranked B, A, C; the same synthesis); both chose C's sides rule and the interned atomic formula; drafts and judgements committed in `plan/notes/api-drafts/`; `plan/notes/api.md` synthesised 08:14 (sections 11.5 and 12 open) |
 | 2.3 walk-through per later step | done | ten Sonnet 5.5 agents at `high`, 08:16 to 08:26, one per step 29 to 38, against ab0b27e5's `plan/notes/api.md`: 2 blocking, 70 friction, 59 notes, every one answered in `api.md` section 12 (most by a change of the sections above); reports in `plan/notes/api-drafts/walk-NN.md` |
-| 2.4 quantifier spike, measured | running | jj workspace `spike` at `../linlog-spike`; base taken 06:56–07:04 (journeys: scratchpad `spike/base-journeys.txt`; target set `spike-base.csv`, counters equal to `after-coverability.csv` on all 225 decided rows); an Opus 5.5 agent at `xhigh` builds M1 (data model) and M2 (generic zone) of draft C's section 11 from 07:31 on cores 12–15 |
+| 2.4 quantifier spike, measured | paused 09:00 | jj workspace `spike` at `../linlog-spike`, commits `Spike M1`, `M2`, `M3` (first runs: M1 fails G2, `search-chain-128` +6.63 %, from the drafts' `Pred`/`DualPred` appended to `Term`; M2 free on its own; M3 +2.40 % on `qbf` from shared helpers no longer inlined), then `Spike M1d` (the design's data model: G1 exact, search journeys sum −0.94 %, worst +0.03 %), `M2d` (the zone on M1d: G1 exact, sum −1.33 %, worst +0.23 %), `M1b` (the drafts' variants first: journeys pass, worst search +0.16 %, `read-text` +2.00 %; its target set stopped at the pause); M3i (M3 with the shared helpers `#[inline]`) built, not measured. Report: scratchpad `spike/spike-report.md` (M1 to M3 only); numbers of M1d, M2d, M1b in scratchpad `spike/m1d-journeys.txt` etc. |
 | 2.5 the author's sign-off | open | |
 
 ### Stage 3 and 4: the fixes and their check rounds
@@ -204,3 +204,23 @@ its evidence (a commit, a file, a command's result) once it is done.
 - Usage: the five-hour window resets at about 06:50, the weekly one on
   2026-10-16. If a limit stops the session, it writes where it stands
   into the checklist and ends its turn.
+
+### Message from `planning` (2026-10-09, about 09:00): Pause
+
+- "Pause: the author needs the machine now." What was done: the spike's
+  agent was stopped (it had finished M1d, M2d and M1b's journeys and was
+  starting M3i), the unit `linlog-targets` (M1b's target set, in the
+  spike workspace) was stopped; no unit, scope, build or agent of this
+  session runs. The design and the walk-through are committed (5c12e0ed);
+  `plan/reports/28-design.md` is written but not committed.
+- **How each part resumes**: (1) M1b's target set: `cd ../linlog-spike`,
+  `bench/targets.sh spike-m1b` in a capped scope on cores 12 to 15 (it
+  resumes its CSV, `--append --resume`), then `cmp.py` against
+  `spike-base.csv`; (2) M3i: build, `cargo test -p linlog` and the lock,
+  the journeys and the target set as the spike's brief says, compared with
+  M2d; (3) fill `api.md` 11.5 with M1 to M3i, and decision 1's evidence;
+  (4) copy the spike's report into `plan/notes/api-drafts/`, finish
+  `plan/reports/28-design.md` (outcome, cost), commit, last message to
+  `planning`; (5) `jj workspace forget spike` and abandon the spike's
+  commits once the numbers are recorded.
+
