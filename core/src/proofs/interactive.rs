@@ -923,7 +923,7 @@ impl Interactive {
                     return Err(StepError::NotAlone { rule, position });
                 };
                 let other = if position == 0 { *y } else { *x };
-                if f.atom(other) != f.atom(o) || f.sign(other) == f.sign(o) {
+                if !f.dual_literals(o, other) {
                     return Err(StepError::NoDual { position });
                 }
                 vec![]

@@ -50,6 +50,13 @@ of terms. Invariants the code relies on:
 - Literal lists are one `Box<[OccId]>` in CSR layout, grouped by atom, then
   sign (`Atom` first), ascending ids within a group; `literals(atom, sign)`
   slices it. `all_literals()` is the whole thing.
+- **Axiom partners are one predicate**, `Forest::dual_literals(x, y)` (an
+  atom and its negation): the checker, its first implementation, the
+  interactive axiom, the additive path and `ProofStructure`'s links ask
+  it, so that atoms with arguments change one function (F58); the
+  focused engine's lists by `2 · atom + sign` and the Horn engine's sign
+  of the bodies are candidates and shapes, not this test. A new site
+  that pairs literals asks it.
 - The forest owns a clone of its `Sequent` so that `formula(o)` can print.
   Everything else per occurrence is a `Box<[u32]>` or narrower; keep it that
   way (no per-occurrence heap objects, no strings).

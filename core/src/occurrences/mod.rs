@@ -409,6 +409,13 @@ impl Forest {
         self.kind(o).sign()
     }
 
+    /// Returns whether `x` and `y` are an atom and its negation, which an
+    /// axiom pairs: the one test of axiom partners, which atoms with
+    /// arguments will make a comparison of instances.
+    pub(crate) fn dual_literals(&self, x: OccId, y: OccId) -> bool {
+        self.is_literal(x) && self.atom(x) == self.atom(y) && self.sign(x) != self.sign(y)
+    }
+
     /// Returns the first child: the only subformula of `!` and `?`, the left
     /// one of a binary connective, and `None` for a literal or a unit.
     pub fn left(&self, o: OccId) -> Option<OccId> {
@@ -454,7 +461,8 @@ impl Forest {
     }
 
     /// Returns the occurrences of one literal of an atom, `a` or `~a`, in
-    /// ascending id order.
+    /// ascending id order: the candidate partners in an axiom of a literal
+    /// of the other sign, which `dual_literals` decides.
     pub fn literals(&self, atom: Atom, sign: Sign) -> &[OccId] {
         let group = 2 * atom.index() + sign as usize;
         let (start, end) = (self.literal_start[group], self.literal_start[group + 1]);

@@ -191,7 +191,7 @@ impl Engine<'_> {
         // Two literals: an axiom if they are dual; `0` and a lone literal
         // prove nothing.
         if kx.is_literal() && ky.is_literal() {
-            let dual = f.atom(x) == f.atom(y) && f.sign(x) != f.sign(y);
+            let dual = f.dual_literals(x, y);
             return Ok(dual.then(|| self.push(Node::Ax(x.into(), y.into()))));
         }
         // `⊕` on either side: one subformula against the other formula.

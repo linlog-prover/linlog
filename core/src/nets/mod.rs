@@ -573,9 +573,7 @@ impl ProofStructure {
 
     /// Returns whether two literal vertices are `a` and `~a` for one atom.
     fn dual(&self, x: VertexId, y: VertexId) -> bool {
-        let f = &self.forest;
-        let (x, y) = (x.occ(), y.occ());
-        f.atom(x) == f.atom(y) && f.sign(x) != f.sign(y)
+        self.forest.dual_literals(x.occ(), y.occ())
     }
 
     /// Returns the forest of the sequent.

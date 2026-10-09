@@ -1330,7 +1330,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                         }));
                     }
                 }
-                if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
+                if !f.dual_literals(a, b) {
                     return Err(Halt::Fault(Fault::NotDual));
                 }
                 Ok(self.just([a, b], false))

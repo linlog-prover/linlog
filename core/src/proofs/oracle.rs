@@ -277,7 +277,7 @@ impl<'a> Step<'a> {
                         return Err(self.fail(Fault::Kind { member: o.into() }));
                     }
                 }
-                if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
+                if !f.dual_literals(a, b) {
                     return Err(self.fail(Fault::NotDual));
                 }
                 Ok(Derived {
