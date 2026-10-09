@@ -54,11 +54,43 @@ its evidence (a commit, a file, a command's result) once it is done.
 
 | area | state | evidence |
 |---|---|---|
-| 3.1 the library's API, data model and wire forms | open | |
+| 3.1 the library's API, data model and wire forms | running (session `step-28d`) | sub-items below |
 | 3.2 the search | open | |
 | 3.3 efficiency | open | |
 | 3.4 the command, the harness, the flake and the documents | open | |
 | last reader of the rustdoc front page and README | open | |
+
+#### Area 3.1, item by item (session `step-28d`)
+
+The first fixes come first (the wrong answers, then the panic), each
+with the test that would have caught it; then the design's sections in
+an order where each commit builds on the last. Runs that need the
+supervisor's go are marked "go".
+
+| item | state | evidence |
+|---|---|---|
+| a. F23: `close_with` refuses a foreign proof, another goal, a mode that forbids it | open | |
+| b. H2, H3: several conjectures refused (TPTP, LLTP) | open | |
+| c. H4: a counter named twice in a `.spec` file's `init` refused | open | |
+| d. H7: an empty LLTP formula refused | open | |
+| e. H17: a session's history checked against the arena as each step left it | open | |
+| f. H9, H10 with C1: the written order and sides, the reading's rule (lock commit (2)); the target set after it (go) | open | |
+| g. T3: `lto = "fat"`, `codegen-units = 1`, the ceilings re-recorded (go) | open | |
+| h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | open | |
+| i. `Mode` and `Fragment` (3.5) | open | |
+| j. one error family (4) | open | |
+| k. `Limits`, `Progress` and the stop on every long call (5) | open | |
+| l. the options, `Clock`, `Settings`, `Styles` (6) | open | |
+| m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | open | |
+| n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | open | |
+| o. `Interactive` (3.10) | open | |
+| p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | open | |
+| q. `Refutation` and `Disproof` (3.12, lock commit (3)) | open | |
+| r. the ordinary layer (3.13) | open | |
+| s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | open | |
+| t. the exports' one `write` (9) | open | |
+| u. the area's other findings, `lib.rs`'s allowances, the docs | open | |
+| v. check rounds (stage 4), at most three; the fresh-context reviewer | open | |
 
 ## From the supervisor
 
@@ -309,3 +341,49 @@ its evidence (a commit, a file, a command's result) once it is done.
   loads with the code it governs and CLAUDE.md's table is unchanged
   (f25e2285); the stage report's area plan has the converter and the LTO
   commit.
+
+### Where you start, `step-28d` (2026-10-09)
+
+- You are `step-28d`, the fourth session of step 28: stage 3, area 3.1
+  only, the library's API, data model and wire forms (Opus 5.5 at
+  `xhigh`). The session ends with the area's check rounds (stage 4,
+  three at most) and the fresh-context reviewer the stage names, all
+  committed, with the checklist current and the last message sent to
+  `planning`. The search, efficiency and command areas are later
+  sessions'.
+- Read the prompt's three "From the review" sections first; record this
+  note here first.
+- The design is signed off: `plan/notes/api.md` §14 records the
+  author's answers, and the `## Decisions` sections of eleven rules
+  files hold them as rules that win over older bullets. The area's plan
+  is in `plan/reports/28-design.md` (area 3.1): sections 2 to 7 and 9 of
+  the design, the lock commits (1) to (3) of §7.5, `wire::upgrade`, and
+  the T3 commit (`lto = "fat"`, `codegen-units = 1`, the ceilings
+  re-recorded).
+- The findings: `area == "library"` in
+  `plan/reports/28-audit-findings.json` (1 MB, selected with
+  `python3 -I`, never read whole): the F findings and the held-back H2
+  to H4, H6 to H10, H17 and H19. First fixes, each with the test that
+  would have caught it: the wrong answers F23, H2, H3, H4, H7, H9 and
+  H10 (H9 and H10 through the written sides, decisions 2 and 21), then
+  H17's panic.
+- More findings come as H22 and up from the supervisor's probe workflow;
+  the supervisor messages those in this area (expected: a read-back of a
+  compact derivation that fails its own checker, panics of
+  `ProofStructure` calls on foreign scratch or ids, a JSON Lines line
+  without `sequent` losing its name and mode).
+- No benchmarks until the supervisor says the machine is idle: no
+  `bench/targets.sh`, baseline, `linlog-bench run` or callgrind
+  measurement outside the gate, no timed run, no mutation or fuzz run.
+  The gate on each code commit is allowed (capped, cores 2 to 5). Runs
+  that need a go (the T3 commit's ceilings, the target set after C1's
+  commit, the check rounds' mutants and fuzzing) are asked for by
+  message, batched where the order allows.
+- The check rounds probe: a lens that judges a guard, a refusal or an
+  exit status runs a witness, and an H finding goes to the soundness
+  lens, which reruns its witness.
+- Signing works (`step28-gpg-warm`); test a signature before each
+  commit anyway. Builds on cores 2 to 5, agents' programs on 6 to 15;
+  the author uses the machine by day. The five-hour window resets at
+  16:50, the weekly one on 2026-10-16; if a limit stops the session, it
+  writes where it stands into the checklist and ends its turn.
