@@ -388,10 +388,14 @@ fn run(text: &str, size: i64, font: &Font) -> Run {
 fn lay(text: &str, size: i64, font: &Font, mut emit: impl FnMut(Piece)) -> i64 {
     // Widths in millionths of an em of `size`, which `scale` turns into
     // thousandths of an em of formula text; the product of a long line's
-    // width and a large size passes `i64`, the quotient does not.
-    let scale = |millionths: i64| {
-        let scaled = i128::from(millionths) * i128::from(size) / 1_000_000;
-        i64::try_from(scaled).unwrap_or(i64::MAX)
+    // width and a large size passes `i64`, the quotient does not, and only
+    // such a product is divided in `i128`, which is a call.
+    let scale = |millionths: i64| match millionths.checked_mul(size) {
+        Some(product) => product / 1_000_000,
+        None => {
+            let scaled = i128::from(millionths) * i128::from(size) / 1_000_000;
+            i64::try_from(scaled).unwrap_or(i64::MAX)
+        }
     };
     let (mut position, mut start, mut end) = (0, 0, 0);
     let mut current = (0, 1000);

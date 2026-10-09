@@ -241,7 +241,10 @@ for NanoYalla. What the code relies on:
   are taken in `i128`, and `decimal` writes a negative number with one
   sign. A style of huge numbers overflowed in debug and wrote
   `width="-96823495355.-824"` in release (F4). A new number of the
-  style gets its maximum in `check`.
+  style gets its maximum in `check`. `scale` multiplies in `i64` and
+  goes to `i128` only when the product passes it: the division of an
+  `i128` is a call, a sixth of the SVG journey's growth when every
+  width took it.
 - **An atom writer is a variant of `sequents::notation::Atoms`**, a
   closed set matched in one generic `write`, never a function pointer:
   through `&mut dyn Write` every character of a name was a virtual
