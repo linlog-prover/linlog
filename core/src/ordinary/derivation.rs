@@ -99,6 +99,37 @@ pub enum Rule {
     TrueRight,
 }
 
+/// The labels of every rule in the order of [`Rule::ALL`], upright and
+/// with the side and the letter of a structural rule as a subscript: the
+/// upright one is the rule's name in markup, which a test compares.
+const LABELS: [(&str, &str); Rule::ALL.len()] = [
+    ("ax", "ax"),
+    ("WL", "W_L"),
+    ("WR", "W_R"),
+    ("CL", "C_L"),
+    ("CR", "C_R"),
+    ("∧L", "∧_L"),
+    ("∧L_1", "∧_{L1}"),
+    ("∧L_2", "∧_{L2}"),
+    ("∧R", "∧_R"),
+    ("∨L", "∨_L"),
+    ("∨R", "∨_R"),
+    ("∨R_1", "∨_{R1}"),
+    ("∨R_2", "∨_{R2}"),
+    ("→L", "→_L"),
+    ("→R", "→_R"),
+    ("¬L", "¬_L"),
+    ("¬R", "¬_R"),
+    ("↔L", "↔_L"),
+    ("↔L_1", "↔_{L1}"),
+    ("↔L_2", "↔_{L2}"),
+    ("↔R", "↔_R"),
+    ("⊥L", "⊥_L"),
+    ("⊥R", "⊥_R"),
+    ("⊤L", "⊤_L"),
+    ("⊤R", "⊤_R"),
+];
+
 impl Rule {
     /// Every rule, in the order of declaration, which is the order of
     /// `rule as usize`.
@@ -169,58 +200,8 @@ impl Rule {
     /// `_1`), upright or with the side and the letter of a structural
     /// rule as a subscript.
     pub(crate) const fn markup(self, subscript: bool) -> &'static str {
-        use Rule::*;
-        match (self, subscript) {
-            (WeakenLeft, false) => "WL",
-            (WeakenLeft, true) => "W_L",
-            (WeakenRight, false) => "WR",
-            (WeakenRight, true) => "W_R",
-            (ContractLeft, false) => "CL",
-            (ContractLeft, true) => "C_L",
-            (ContractRight, false) => "CR",
-            (ContractRight, true) => "C_R",
-            (AndLeft, false) => "∧L",
-            (AndLeft, true) => "∧_L",
-            (AndLeft1, false) => "∧L_1",
-            (AndLeft1, true) => "∧_{L1}",
-            (AndLeft2, false) => "∧L_2",
-            (AndLeft2, true) => "∧_{L2}",
-            (AndRight, false) => "∧R",
-            (AndRight, true) => "∧_R",
-            (OrLeft, false) => "∨L",
-            (OrLeft, true) => "∨_L",
-            (OrRight, false) => "∨R",
-            (OrRight, true) => "∨_R",
-            (OrRight1, false) => "∨R_1",
-            (OrRight1, true) => "∨_{R1}",
-            (OrRight2, false) => "∨R_2",
-            (OrRight2, true) => "∨_{R2}",
-            (ImpliesLeft, false) => "→L",
-            (ImpliesLeft, true) => "→_L",
-            (ImpliesRight, false) => "→R",
-            (ImpliesRight, true) => "→_R",
-            (NotLeft, false) => "¬L",
-            (NotLeft, true) => "¬_L",
-            (NotRight, false) => "¬R",
-            (NotRight, true) => "¬_R",
-            (IffLeft, false) => "↔L",
-            (IffLeft, true) => "↔_L",
-            (IffLeft1, false) => "↔L_1",
-            (IffLeft1, true) => "↔_{L1}",
-            (IffLeft2, false) => "↔L_2",
-            (IffLeft2, true) => "↔_{L2}",
-            (IffRight, false) => "↔R",
-            (IffRight, true) => "↔_R",
-            (FalseLeft, false) => "⊥L",
-            (FalseLeft, true) => "⊥_L",
-            (FalseRight, false) => "⊥R",
-            (FalseRight, true) => "⊥_R",
-            (TrueLeft, false) => "⊤L",
-            (TrueLeft, true) => "⊤_L",
-            (TrueRight, false) => "⊤R",
-            (TrueRight, true) => "⊤_R",
-            (Axiom, _) => "ax",
-        }
+        let (upright, lowered) = LABELS[self as usize];
+        if subscript { lowered } else { upright }
     }
 }
 
@@ -1107,6 +1088,20 @@ mod tests {
             forged(Logic::Minimal).check(&unbounded, |_| false),
             Err(Error::ReadBack { .. })
         ));
+    }
+
+    /// Both labels of every rule read as its name in plain text, the
+    /// subscript one with its side lowered, as the linear rules' upright
+    /// ones do (`names_round_trip` in `proofs::style`), and the table is
+    /// in the order of `Rule::ALL`.
+    #[test]
+    fn labels_are_the_names() {
+        use crate::proofs::style::plain;
+        for (i, rule) in Rule::ALL.into_iter().enumerate() {
+            assert_eq!(rule as usize, i, "{rule}");
+            assert_eq!(plain(rule.markup(false)), rule.name(), "{rule}");
+            assert_eq!(plain(rule.markup(true)), rule.name(), "{rule}");
+        }
     }
 
     /// Two lists are one multiset whatever their order, short or long,

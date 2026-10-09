@@ -110,10 +110,13 @@ for NanoYalla. What the code relies on:
   depends on both. A new rule is a new entry in `Rule::ALL`, its named
   forms in `Named::ALL`, both tables, `name` and `from_str`.
   The labels of LK and LJ are `ordinary::Rule::markup(subscript)`
-  (`Upright` the upright one, `Subscript` with `subscript`, `Off` none);
-  a `Labels::Table` is keyed by the linear rules, so it leaves them
-  upright. Their order is `ordinary::Rule::ALL`, which `rule as usize`
-  indexes, so a new ordinary rule goes there too.
+  (`Upright` the upright one, `Subscript` with `subscript`, `Off` none),
+  read off one table of the two conventions (`ordinary::derivation::
+  LABELS`, in the order of `ordinary::Rule::ALL`, which `rule as usize`
+  indexes), both of which read as `Rule::name` in plain text
+  (`labels_are_the_names`, F72); a `Labels::Table` is keyed by the
+  linear rules, so it leaves them upright. A new ordinary rule is an
+  entry in `ALL`, `LABELS` and `name`.
 - **One table per target, one printer** (F82): `sequents::notation`
   (always compiled) has `Notation`, the symbol table (connectives,
   units, the dual's marks before and after a name, turnstile, the
