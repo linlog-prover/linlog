@@ -85,9 +85,11 @@ impl Certificate<'_> {
         if negation {
             out.push('(');
         }
-        formulas.write(&mut out, id, true, &ROCQ, |o, a| {
-            o.push_str(&self.atoms[a as usize])
-        });
+        formulas
+            .write(&mut out, id, true, &ROCQ, |o, a| {
+                o.write_str(&self.atoms[a as usize])
+            })
+            .unwrap();
         if negation {
             out.push(')');
         }

@@ -64,7 +64,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use super::notation::{Notation, Step, flush, walk};
+use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
 use crate::Error;
 use crate::occurrences::Reading;
@@ -72,6 +72,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
+use crate::sequents::notation::Notation;
 use std::fmt::Write;
 
 /// The version of curryst a standalone document imports, the one the
@@ -92,6 +93,7 @@ const NOTATION: Notation = Notation {
     bot: "⊥",
     top: "⊤",
     zero: "0",
+    dual_prefix: "",
     dual: "^⊥",
     turnstile: "⊢",
     align: "",
@@ -100,22 +102,21 @@ const NOTATION: Notation = Notation {
 };
 
 /// Writes an atom's name in math mode.
-fn atom(out: &mut String, name: &str) {
+fn atom(out: &mut dyn Write, name: &str) -> std::fmt::Result {
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.next())
         && c.is_alphabetic()
     {
-        out.push(c);
-        return;
+        return out.write_char(c);
     }
-    out.push_str("italic(\"");
+    out.write_str("italic(\"")?;
     for c in name.chars() {
         if c == '"' || c == '\\' {
-            out.push('\\');
+            out.write_char('\\')?;
         }
-        out.push(c);
+        out.write_char(c)?;
     }
-    out.push_str("\")");
+    out.write_str("\")")
 }
 
 /// The page setup of a standalone document by default: as large as its
@@ -383,7 +384,7 @@ pub fn sequent(
 /// Returns a sequent one-sided, `$⊢ A^⊥, A$`, in the options' form.
 fn one_sided(sequent: &Sequent, options: &Options) -> String {
     let mut out = String::from("$");
-    NOTATION.one_sided(&mut out, sequent);
+    NOTATION.one_sided(&mut out, sequent).unwrap();
     out.push('$');
     formed(out, options)
 }
@@ -393,14 +394,16 @@ fn one_sided(sequent: &Sequent, options: &Options) -> String {
 fn two_sided(reading: &Reading, options: &Options) -> String {
     let forest = reading.forest();
     let mut out = String::from("$");
-    NOTATION.sequent(
-        &mut out,
-        forest,
-        Some(reading),
-        &forest.root_members(),
-        false,
-        false,
-    );
+    NOTATION
+        .sequent(
+            &mut out,
+            forest,
+            Some(reading),
+            &forest.root_members(),
+            false,
+            false,
+        )
+        .unwrap();
     out.push('$');
     formed(out, options)
 }
@@ -753,7 +756,7 @@ mod tests {
     /// Returns an atom's name as the Typst export writes it.
     fn escaped(name: &str) -> String {
         let mut out = String::new();
-        atom(&mut out, name);
+        atom(&mut out, name).unwrap();
         out
     }
 

@@ -198,7 +198,9 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
     let (mut next, mut formula) = (margin, String::new());
     for o in forest.ids().filter(|&o| forest.is_literal(o)) {
         formula.clear();
-        NOTATION.term(&mut formula, forest.sequent(), forest.term(o), false);
+        NOTATION
+            .term(&mut formula, forest.sequent(), forest.term(o), false)
+            .unwrap();
         let label = run(&formula, 1000, &style.font);
         let atom = match forest.kind(o) {
             Kind::DualAtom => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
@@ -393,7 +395,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         out.push_str(&texts);
     };
     let mut title = String::new();
-    PLAIN.one_sided(&mut title, forest.sequent());
+    PLAIN.one_sided(&mut title, forest.sequent()).unwrap();
     let width = if literals.is_empty() {
         2 * margin
     } else {

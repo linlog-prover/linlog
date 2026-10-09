@@ -8,6 +8,9 @@
 pub mod fmt;
 /// Atom names: identifiers of the text syntax that no keyword takes.
 pub(crate) mod name;
+/// The one printer of formulas and sequents, a table of spellings per
+/// target.
+pub(crate) mod notation;
 /// The terms an arena is built from.
 pub mod term;
 

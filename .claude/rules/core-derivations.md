@@ -246,9 +246,9 @@ free functions of `fmt.rs` generic over `style::Drawn`
 (`core-export.md`), and the methods of `proofs::Derivation` and of
 `ordinary::Derivation` (`write_text`, `text_size`, `Display`) call
 them, so the two trees are one layout. A derivation of LK or LJ has no
-open goal and no run (`times` is 1), writes `Γ ⊢ Δ` with both sides in
-their stored order, and builds each sequent in a `String` before it is
-counted or written (`write_sides`), once per inference and pass.
+open goal and no run (`times` is 1), and writes `Γ ⊢ Δ` with both sides
+in their stored order through `TEXT.ordinary`, into the formatter
+itself.
 
 ## Interactive proving
 

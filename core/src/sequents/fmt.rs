@@ -1,7 +1,8 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use super::{Sequent, Term, TermId};
+use super::notation::TEXT;
+use super::{Sequent, TermId};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// A formula of a sequent, as a value that prints it in one-sided notation.
@@ -135,52 +136,12 @@ impl Sequent {
         debug_assert!(id.index() < self.terms.len());
         Formula { sequent: self, id }
     }
-
-    /// Writes the term at `id`, in brackets if it is binary and `brackets` is
-    /// set.
-    fn fmt_term(&self, id: TermId, f: &mut Formatter<'_>, brackets: bool) -> FmtResult {
-        use Term::*;
-        debug_assert!(id.index() < self.terms.len());
-        for visit in Walk::new(id, brackets, |k: TermId| self.terms[k.index()].operands()) {
-            match visit {
-                Visit::Enter(k, nested) => {
-                    let term = self.terms[k.index()];
-                    debug_assert!(term.subterms().all(|sub| sub < k));
-                    match term {
-                        Atom(a) => f.write_str(self.atom_name(a))?,
-                        DualAtom(a) => write!(f, "~{}", self.atom_name(a))?,
-                        One => f.write_str("1")?,
-                        Bot => f.write_str("⊥")?,
-                        Top => f.write_str("⊤")?,
-                        Zero => f.write_str("0")?,
-                        Tensor(..) | Par(..) | With(..) | Plus(..) if nested => f.write_str("(")?,
-                        Tensor(..) | Par(..) | With(..) | Plus(..) => {}
-                        Bang(_) => f.write_str("!")?,
-                        Quest(_) => f.write_str("?")?,
-                    }
-                }
-                Visit::Between(k) => f.write_str(match self.terms[k.index()] {
-                    Tensor(..) => " ⊗ ",
-                    Par(..) => " ⅋ ",
-                    With(..) => " & ",
-                    Atom(_) | DualAtom(_) | One | Bot | Top | Zero | Plus(..) | Bang(_)
-                    | Quest(_) => " ⊕ ",
-                })?,
-                Visit::Exit(k, nested) => {
-                    if nested && self.terms[k.index()].kind().arity() == 2 {
-                        f.write_str(")")?;
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
 }
 
 impl Display for Formula<'_> {
     /// Writes the formula with brackets around every binary subformula.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.sequent.fmt_term(self.id, f, false)
+        TEXT.term(f, self.sequent, self.id, false)
     }
 }
 
@@ -188,19 +149,6 @@ impl Display for Sequent {
     /// Writes the sequent one-sided: `⊢` followed by its formulas, separated by
     /// commas.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "⊢")?;
-
-        let mut it = self.roots.iter();
-
-        if let Some(n) = it.next() {
-            write!(f, " ")?;
-            self.fmt_term(*n, f, false)?;
-        }
-
-        for n in it {
-            write!(f, ", ")?;
-            self.fmt_term(*n, f, false)?;
-        }
-        Ok(())
+        TEXT.one_sided(f, self)
     }
 }

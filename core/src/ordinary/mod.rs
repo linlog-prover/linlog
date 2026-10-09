@@ -68,8 +68,9 @@ use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::hash::HashMap;
 use crate::limits::{Refusal, Space};
+use crate::sequents::notation::TEXT;
 use crate::sequents::{Visit, Walk};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// An ordinary propositional logic.
 #[non_exhaustive]
@@ -456,43 +457,44 @@ impl Formulas {
     /// Writes the formula at `id` with the spellings given, every binary
     /// subformula in brackets, and the whole in brackets too if it is
     /// binary and `brackets` is set.
-    pub(crate) fn write(
+    pub(crate) fn write<W: Write>(
         &self,
-        out: &mut String,
+        out: &mut W,
         id: NodeId,
         brackets: bool,
         symbols: &Symbols,
-        atom: impl Fn(&mut String, u32),
-    ) {
+        atom: impl Fn(&mut W, u32) -> FmtResult,
+    ) -> FmtResult {
         for visit in Walk::new(id, brackets, |k| self.node(k).operands()) {
             match visit {
                 Visit::Enter(k, nested) => match self.node(k) {
-                    Node::Atom(a) => atom(out, a),
-                    Node::True => out.push_str(symbols.truth),
-                    Node::False => out.push_str(symbols.falsity),
-                    Node::Not(_) => out.push_str(symbols.not),
-                    _ if nested => out.push('('),
+                    Node::Atom(a) => atom(out, a)?,
+                    Node::True => out.write_str(symbols.truth)?,
+                    Node::False => out.write_str(symbols.falsity)?,
+                    Node::Not(_) => out.write_str(symbols.not)?,
+                    _ if nested => out.write_char('(')?,
                     Node::And(..) | Node::Or(..) | Node::Implies(..) | Node::Iff(..) => {}
                 },
                 Visit::Between(k) => {
-                    out.push(' ');
-                    out.push_str(match self.node(k) {
+                    out.write_char(' ')?;
+                    out.write_str(match self.node(k) {
                         Node::And(..) => symbols.and,
                         Node::Or(..) => symbols.or,
                         Node::Implies(..) => symbols.implies,
                         Node::Atom(_) | Node::True | Node::False | Node::Not(_) | Node::Iff(..) => {
                             symbols.iff
                         }
-                    });
-                    out.push(' ');
+                    })?;
+                    out.write_char(' ')?;
                 }
                 Visit::Exit(k, nested) => {
                     if nested && self.node(k).operands().1.is_some() {
-                        out.push(')');
+                        out.write_char(')')?;
                     }
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -542,12 +544,10 @@ pub struct Formula<'a> {
 impl Display for Formula<'_> {
     /// Writes the formula: `(a ∧ b) → ¬c`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mut out = String::new();
         self.formulas
-            .write(&mut out, self.id, false, &Symbols::UNICODE, |o, a| {
-                o.push_str(self.formulas.atom_name(a))
-            });
-        f.write_str(&out)
+            .write(f, self.id, false, &Symbols::UNICODE, |o, a| {
+                o.write_str(self.formulas.atom_name(a))
+            })
     }
 }
 
@@ -625,45 +625,8 @@ impl Sequent {
 impl Display for Sequent {
     /// Writes `Γ ⊢ Δ` with the Unicode symbols.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mut out = String::new();
-        write_sides(
-            &mut out,
-            &self.formulas,
-            &self.left,
-            &self.right,
-            &Symbols::UNICODE,
-            "⊢",
-        );
-        f.write_str(&out)
-    }
-}
-
-/// Writes `left ⊢ right` with the turnstile and symbols given.
-pub(crate) fn write_sides(
-    out: &mut String,
-    formulas: &Formulas,
-    left: &[NodeId],
-    right: &[NodeId],
-    symbols: &Symbols,
-    turnstile: &str,
-) {
-    for (i, &id) in left.iter().enumerate() {
-        if i > 0 {
-            out.push_str(", ");
-        }
-        formulas.write(out, id, false, symbols, |o, a| {
-            o.push_str(formulas.atom_name(a))
-        });
-    }
-    if !left.is_empty() {
-        out.push(' ');
-    }
-    out.push_str(turnstile);
-    for (i, &id) in right.iter().enumerate() {
-        out.push_str(if i == 0 { " " } else { ", " });
-        formulas.write(out, id, false, symbols, |o, a| {
-            o.push_str(formulas.atom_name(a))
-        });
+        let sides = (&self.left[..], &self.right[..]);
+        TEXT.ordinary(f, &self.formulas, sides, false, false)
     }
 }
 

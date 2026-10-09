@@ -42,7 +42,6 @@ mod net;
 mod tree;
 
 use super::Drawable;
-use super::notation::Notation;
 use crate::Error;
 use crate::nets::ProofStructure;
 use crate::occurrences::Reading;
@@ -50,6 +49,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
+use crate::sequents::notation::Notation;
 pub use font::{Advances, Font, MONOSPACE};
 use font::{DEPTH, HEIGHT, LOWER, RAISE, SCRIPT};
 use std::fmt::Write;
@@ -286,6 +286,7 @@ const NOTATION: Notation = Notation {
     bot: "⊥",
     top: "⊤",
     zero: "0",
+    dual_prefix: "",
     dual: "\u{1}",
     turnstile: "⊢",
     align: "",
@@ -304,20 +305,21 @@ const PLAIN: Notation = Notation {
 /// Writes an atom's name with its Latin letters as mathematical italic
 /// characters. A name is an identifier, so it holds none of the control
 /// characters the layout marks its text with.
-fn italic(out: &mut String, name: &str) {
+fn italic(out: &mut dyn Write, name: &str) -> std::fmt::Result {
     for c in name.chars() {
-        out.push(match c {
+        out.write_char(match c {
             'h' => 'ℎ',
             'A'..='Z' => char::from_u32(0x1D434 + (c as u32 - 'A' as u32)).unwrap(),
             'a'..='z' => char::from_u32(0x1D44E + (c as u32 - 'a' as u32)).unwrap(),
             c => c,
-        });
+        })?;
     }
+    Ok(())
 }
 
 /// Writes an atom's name as it is.
-fn plain(out: &mut String, name: &str) {
-    out.push_str(name);
+fn plain(out: &mut dyn Write, name: &str) -> std::fmt::Result {
+    out.write_str(name)
 }
 
 /// Writes a character escaped for XML text and attribute values, and one
@@ -650,8 +652,8 @@ pub fn sequent(
 /// of text, titled with the sequent in plain text.
 fn one_sided(sequent: &Sequent, style: &Style) -> String {
     let (mut drawn, mut title) = (String::new(), String::new());
-    NOTATION.one_sided(&mut drawn, sequent);
-    PLAIN.one_sided(&mut title, sequent);
+    NOTATION.one_sided(&mut drawn, sequent).unwrap();
+    PLAIN.one_sided(&mut title, sequent).unwrap();
     line(style, &title, &drawn)
 }
 
@@ -661,22 +663,26 @@ fn one_sided(sequent: &Sequent, style: &Style) -> String {
 fn two_sided(reading: &Reading, style: &Style) -> String {
     let forest = reading.forest();
     let (mut drawn, mut title) = (String::new(), String::new());
-    NOTATION.sequent(
-        &mut drawn,
-        forest,
-        Some(reading),
-        &forest.root_members(),
-        false,
-        false,
-    );
-    PLAIN.sequent(
-        &mut title,
-        forest,
-        Some(reading),
-        &forest.root_members(),
-        false,
-        false,
-    );
+    NOTATION
+        .sequent(
+            &mut drawn,
+            forest,
+            Some(reading),
+            &forest.root_members(),
+            false,
+            false,
+        )
+        .unwrap();
+    PLAIN
+        .sequent(
+            &mut title,
+            forest,
+            Some(reading),
+            &forest.root_members(),
+            false,
+            false,
+        )
+        .unwrap();
     line(style, &title, &drawn)
 }
 
@@ -856,7 +862,7 @@ mod tests {
     #[test]
     fn names_are_italic() {
         let mut out = String::new();
-        italic(&mut out, "Ah_1α");
+        italic(&mut out, "Ah_1α").unwrap();
         assert_eq!(out, "𝐴ℎ_1α");
     }
 

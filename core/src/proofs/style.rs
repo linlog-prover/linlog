@@ -185,13 +185,13 @@ pub(crate) trait Drawn {
     fn write_sequent(&self, out: &mut impl Write, id: InfId) -> std::fmt::Result;
 
     /// Writes the sequent an inference concludes in a target's notation,
-    /// as [`Notation::sequent`](crate::export::notation::Notation::sequent)
+    /// as [`Notation::sequent`](crate::sequents::notation::Notation::sequent)
     /// does with `aligned` and `marks`.
     #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
     fn sequent(
         &self,
         out: &mut String,
-        notation: &crate::export::notation::Notation,
+        notation: &crate::sequents::notation::Notation,
         id: InfId,
         aligned: bool,
         marks: bool,
@@ -264,13 +264,15 @@ impl Drawn for Derivation<'_> {
     fn sequent(
         &self,
         out: &mut String,
-        notation: &crate::export::notation::Notation,
+        notation: &crate::sequents::notation::Notation,
         id: InfId,
         aligned: bool,
         marks: bool,
     ) {
         let sequent = &self.inference(id).sequent;
-        notation.sequent(out, self.forest(), self.reading(), sequent, aligned, marks);
+        notation
+            .sequent(out, self.forest(), self.reading(), sequent, aligned, marks)
+            .unwrap();
     }
 
     #[cfg(feature = "svg")]

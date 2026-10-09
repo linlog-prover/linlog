@@ -2,11 +2,14 @@
 // Licensed under the EUPL
 
 use super::translate::{Core, Image, pattern};
-use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
+use super::{Formulas, Logic, Node, NodeId, Translation};
 use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::occurrences::OccId;
 use crate::proofs::style::Drawn;
 use crate::proofs::{Compact, InfId, Labels, Rule as Linear, Sides, TextOptions, ViewOptions};
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
+use crate::sequents::notation::Notation;
+use crate::sequents::notation::TEXT;
 use crate::{Error, Proof};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -617,31 +620,24 @@ impl Drawn for Derivation {
 
     fn write_sequent(&self, out: &mut impl Write, id: InfId) -> FmtResult {
         let inference = self.inference(id);
-        let mut text = String::new();
         let sides = (&inference.left[..], &inference.right[..]);
-        write_sides(
-            &mut text,
-            &self.formulas,
-            sides.0,
-            sides.1,
-            &Symbols::UNICODE,
-            "⊢",
-        );
-        out.write_str(&text)
+        TEXT.ordinary(out, &self.formulas, sides, false, false)
     }
 
     #[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
     fn sequent(
         &self,
         out: &mut String,
-        notation: &crate::export::notation::Notation,
+        notation: &Notation,
         id: InfId,
         aligned: bool,
         marks: bool,
     ) {
         let inference = self.inference(id);
         let sides = (&inference.left[..], &inference.right[..]);
-        notation.ordinary(out, &self.formulas, sides, aligned, marks);
+        notation
+            .ordinary(out, &self.formulas, sides, aligned, marks)
+            .unwrap();
     }
 
     #[cfg(feature = "svg")]

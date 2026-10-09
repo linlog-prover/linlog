@@ -57,7 +57,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use super::notation::{Notation, Step, flush, walk};
+use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
 use crate::Error;
 use crate::occurrences::Reading;
@@ -65,6 +65,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
+use crate::sequents::notation::Notation;
 use std::fmt::Write;
 
 /// The LaTeX spelling of formulas and sequents.
@@ -80,6 +81,7 @@ const NOTATION: Notation = Notation {
     bot: r"\bot",
     top: r"\top",
     zero: "0",
+    dual_prefix: "",
     dual: r"^\bot",
     turnstile: r"\vdash",
     align: "&",
@@ -165,49 +167,43 @@ fn greek(c: char) -> Option<&'static str> {
 }
 
 /// Writes an atom's name in math mode.
-fn atom(out: &mut String, name: &str) {
+fn atom(out: &mut dyn Write, name: &str) -> std::fmt::Result {
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
         if c.is_ascii_alphabetic() {
-            out.push(c);
-            return;
+            return out.write_char(c);
         }
         if let Some(letter) = greek(c) {
-            out.push_str(letter);
-            return;
+            return out.write_str(letter);
         }
     }
-    out.push_str(r"\mathit{");
+    out.write_str(r"\mathit{")?;
     for c in name.chars() {
-        escape(out, c);
+        escape(out, c)?;
     }
-    out.push('}');
+    out.write_char('}')
 }
 
 /// Writes a character of text in math mode, escaped.
-fn escape(out: &mut String, c: char) {
+fn escape(out: &mut (impl Write + ?Sized), c: char) -> std::fmt::Result {
     match c {
-        '\\' => out.push_str(r"\mbox{\textbackslash}"),
+        '\\' => out.write_str(r"\mbox{\textbackslash}"),
         '{' | '}' | '$' | '#' | '%' | '&' | '_' => {
-            out.push('\\');
-            out.push(c);
+            out.write_char('\\')?;
+            out.write_char(c)
         }
-        '^' => out.push_str(r"\mbox{\textasciicircum}"),
-        '~' => out.push_str(r"\mbox{\textasciitilde}"),
-        ' ' => out.push_str(r"\ "),
+        '^' => out.write_str(r"\mbox{\textasciicircum}"),
+        '~' => out.write_str(r"\mbox{\textasciitilde}"),
+        ' ' => out.write_str(r"\ "),
         // `lltp::HYPHEN` and `lltp::DOT`, spelt out since `lltp` needs the
         // `parse` feature.
-        '‿' => out.push_str(r"{\smallsmile}"),
-        '·' => out.push_str(r"{\cdotp}"),
+        '‿' => out.write_str(r"{\smallsmile}"),
+        '·' => out.write_str(r"{\cdotp}"),
         // Braces keep a letter that follows from joining the command.
         c => match greek(c) {
-            Some(letter) if letter.starts_with('\\') => {
-                out.push('{');
-                out.push_str(letter);
-                out.push('}');
-            }
-            Some(letter) => out.push_str(letter),
-            None => out.push(c),
+            Some(letter) if letter.starts_with('\\') => write!(out, "{{{letter}}}"),
+            Some(letter) => out.write_str(letter),
+            None => out.write_char(c),
         },
     }
 }
@@ -261,7 +257,7 @@ fn label(out: &mut String, markup: &str) {
     let text = |out: &mut String, text: &str| {
         out.push_str(r"\mathrm{");
         for c in text.chars() {
-            escape(out, c);
+            escape(out, c).unwrap();
         }
         out.push('}');
     };
@@ -366,7 +362,7 @@ pub fn sequent(
 /// Returns a sequent one-sided, `$\vdash A^\bot, A$`, in the options' form.
 fn one_sided(sequent: &Sequent, options: &Options) -> String {
     let mut out = String::from("$");
-    NOTATION.one_sided(&mut out, sequent);
+    NOTATION.one_sided(&mut out, sequent).unwrap();
     out.push('$');
     formed(out, options)
 }
@@ -376,14 +372,16 @@ fn one_sided(sequent: &Sequent, options: &Options) -> String {
 fn two_sided(reading: &Reading, options: &Options) -> String {
     let forest = reading.forest();
     let mut out = String::from("$");
-    NOTATION.sequent(
-        &mut out,
-        forest,
-        Some(reading),
-        &forest.root_members(),
-        false,
-        false,
-    );
+    NOTATION
+        .sequent(
+            &mut out,
+            forest,
+            Some(reading),
+            &forest.root_members(),
+            false,
+            false,
+        )
+        .unwrap();
     out.push('$');
     formed(out, options)
 }
@@ -475,7 +473,7 @@ mod tests {
     /// Returns an atom's name as the LaTeX export writes it.
     fn escaped(name: &str) -> String {
         let mut out = String::new();
-        atom(&mut out, name);
+        atom(&mut out, name).unwrap();
         out
     }
 

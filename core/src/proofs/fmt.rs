@@ -12,7 +12,8 @@
 use super::derivation::{Derivation, InfId};
 use super::style::{Drawn, Labels, OpenGoal, RUN, plain};
 use crate::Error;
-use crate::occurrences::{Forest, Member, Reading, Side};
+use crate::occurrences::{Forest, Member, Reading};
+use crate::sequents::notation::TEXT;
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// What a user may vary in the text tree of a derivation.
@@ -184,34 +185,7 @@ pub(super) fn write_sequent(
     reading: Option<&Reading>,
     sequent: &[Member],
 ) -> FmtResult {
-    let Some(reading) = reading else {
-        out.write_char('⊢')?;
-        for (i, o) in sequent.iter().map(|m| m.occ()).enumerate() {
-            out.write_str(if i == 0 { " " } else { ", " })?;
-            write!(out, "{}", forest.formula(o))?;
-        }
-        return Ok(());
-    };
-    let (mut goal, mut first) = (None, true);
-    for o in sequent.iter().map(|m| m.occ()) {
-        if reading.position(o) == Side::Output {
-            goal = Some(o);
-            continue;
-        }
-        if !first {
-            out.write_str(", ")?;
-        }
-        first = false;
-        write!(out, "{}", reading.formula(o))?;
-    }
-    if !first {
-        out.write_char(' ')?;
-    }
-    out.write_char('⊢')?;
-    if let Some(goal) = goal {
-        write!(out, " {}", reading.formula(goal))?;
-    }
-    Ok(())
+    TEXT.sequent(out, forest, reading, sequent, false, false)
 }
 
 /// Lays a tree out: the premises of an inference side by side,

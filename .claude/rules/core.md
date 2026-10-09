@@ -31,7 +31,8 @@ it; only what holds for the whole crate goes here.
 
 ## Layout
 
-`sequents` (the arena, its terms, and the formula walk `fmt`), `parse`,
+`sequents` (the arena, its terms, the formula walk `fmt`, the one
+printer `notation` and the check of atom names `name`), `parse`,
 `serialize`, `fragment`, `errors` (the one `Error`, `describe` and the
 parse error), `limits` (`Limits`, `Progress`, `Refusal`), `settings`
 (`Clock`, `Settings`, what a front end holds),
@@ -50,8 +51,9 @@ classical and intuitionistic proof generators and the test-only
 `reference` prover), `nets` (structures and
 the criterion's front door in `mod.rs`, the graph and the Yeo test in
 `graph`, the union-find in `skeleton`, `sequentialize`), `export` (the
-shared `notation`, and `latex`, `typst`, `svg` with `font`, `tree` and
-`net`, `png`, `pdf` and `rocq` behind the features of those names),
+walk over a derivation in `notation`, and `latex`, `typst`, `svg` with
+`font`, `tree` and `net`, `png`, `pdf` and `rocq` behind the features
+of those names),
 `ordinary` (the arena and syntax in `mod.rs`, `parse` behind the
 feature of that name, `translate`, `derivation` with the read-back and
 its checker, `rocq` behind that feature), and `lltp`, `mist` and
@@ -164,10 +166,10 @@ loop over `sequents::fmt::Walk`: the stops of a formula in the order it is
 written (`Enter` a subformula, `Between` the two subformulas of a binary
 one, `Exit` a compound one), from a stack of its own whose first sixteen
 steps are inline, so that an ordinary formula costs no allocation. The
-`Display` of `Sequent` and `Formula`, `Reading`'s printing, the exports'
-`Notation::term` and `Notation::ill` and the Rocq printer are each one
-`match` over those stops, and a new printer is another: never a function
-that calls itself. `core/tests/depth.rs` runs every walk the public API
+printer of every target and of `Display` (`sequents::notation`:
+`Notation::term` and `Notation::ill`, `core-export.md`) and the Rocq
+printer are each one `match` over those stops, and a new printer is
+another: never a function that calls itself. `core/tests/depth.rs` runs every walk the public API
 offers on formulas nested 100 000 deep, on a thread with a stack of
 256 KiB.
 

@@ -19,7 +19,8 @@
 
 use super::{Forest, OccId};
 use crate::errors::{Described, Owner, Subject};
-use crate::sequents::{Kind, Visit, Walk};
+use crate::sequents::Kind;
+use crate::sequents::notation::TEXT;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -412,57 +413,13 @@ impl<'a> Reading<'a> {
             None => (self.forest.left(o), self.forest.right(o)),
         }
     }
-
-    /// Writes the formula at `o`, in brackets if it is binary and `brackets`
-    /// is set.
-    fn fmt_formula(&self, o: OccId, f: &mut Formatter<'_>, brackets: bool) -> FmtResult {
-        use Kind::*;
-        let forest = self.forest;
-        for visit in Walk::new(o, brackets, |o| self.operands(o)) {
-            match visit {
-                Visit::Enter(o, nested) => match (forest.kind(o), self.position(o)) {
-                    (Atom | DualAtom, _) => {
-                        f.write_str(forest.sequent().atom_name(forest.atom(o).unwrap()))?;
-                    }
-                    (One | Bot, _) => f.write_str("1")?,
-                    (Top, Side::Output) | (Zero, Side::Input) => f.write_str("⊤")?,
-                    (Zero, Side::Output) | (Top, Side::Input) => f.write_str("0")?,
-                    (Tensor | Par | With | Plus, _) if nested => f.write_str("(")?,
-                    (Tensor | Par | With | Plus, _) => {}
-                    (Bang | Quest, _) => f.write_str("!")?,
-                },
-                Visit::Between(o) => f.write_str(match (forest.kind(o), self.position(o)) {
-                    (Tensor, Side::Output) | (Par, Side::Input) => " ⊗ ",
-                    (Tensor, Side::Input) | (Par, Side::Output) => " ⊸ ",
-                    (With, Side::Output) | (Plus, Side::Input) => " & ",
-                    _ => " ⊕ ",
-                })?,
-                Visit::Exit(o, nested) => {
-                    if nested && forest.kind(o).arity() == 2 {
-                        f.write_str(")")?;
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
 }
 
 impl Display for Reading<'_> {
     /// Writes the sequent two-sided: the hypotheses, `⊢`, the goal, with
     /// intuitionistic formulas.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        for (i, h) in self.hypotheses().enumerate() {
-            if i > 0 {
-                f.write_str(", ")?;
-            }
-            self.fmt_formula(h, f, false)?;
-        }
-        if self.hypotheses().next().is_some() {
-            f.write_str(" ")?;
-        }
-        f.write_str("⊢ ")?;
-        self.fmt_formula(self.goal, f, false)
+        TEXT.reading(f, self)
     }
 }
 
@@ -478,7 +435,7 @@ pub struct IllFormula<'a> {
 impl Display for IllFormula<'_> {
     /// Writes the formula with brackets around every binary subformula.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.reading.fmt_formula(self.id, f, false)
+        TEXT.ill(f, self.reading, self.id, false)
     }
 }
 

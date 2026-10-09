@@ -114,17 +114,21 @@ for NanoYalla. What the code relies on:
   a `Labels::Table` is keyed by the linear rules, so it leaves them
   upright. Their order is `ordinary::Rule::ALL`, which `rule as usize`
   indexes, so a new ordinary rule goes there too.
-- **One table per target, one printer.** `notation::Notation` is the
-  symbol table (connectives, units, dual mark, turnstile, the alignment
-  mark, the atom escaper, and `ordinary`, the `ordinary::Symbols` of
-  `¬ ∧ ∨ → ↔ ⊤ ⊥`: LaTeX's `\lnot ` keeps its space, since `¬` is
-  written straight before its operand; Typst and SVG take
-  `Symbols::UNICODE`); `Notation::term` and `Notation::ill` are the
-  bracketing of `Sequent`'s and `Reading`'s `Display` over it, and must
-  stay in step with them, and `Notation::ordinary` writes a sequent of
-  LK or LJ two-sided over `Formulas::write` (the walk of the ordinary
-  `Display`), lined up at the turnstile as a two-sided linear sequent
-  is. A new target is a new table. `Notation::sequent`
+- **One table per target, one printer** (F82): `sequents::notation`
+  (always compiled) has `Notation`, the symbol table (connectives,
+  units, the dual's marks before and after a name, turnstile, the
+  alignment mark, the atom writer `fn(&mut dyn Write, &str)`, and
+  `ordinary`, the `ordinary::Symbols` of `¬ ∧ ∨ → ↔ ⊤ ⊥`: LaTeX's
+  `\lnot ` keeps its space, since `¬` is written straight before its
+  operand; Typst and SVG take `Symbols::UNICODE`), and its walks over
+  any `fmt::Write`: `term`, `ill`, `one_sided`, `sequent`, `reading` and
+  `ordinary` (a sequent of LK or LJ two-sided over `Formulas::write`,
+  lined up at the turnstile as a two-sided linear sequent is). `TEXT` is
+  the table of every `Display` (`Sequent`, `Formula`, `Reading`,
+  `IllFormula`, the ordinary sequent) and of the text tree, `~a` for a
+  negated atom, so the exports and the text cannot drift; a new
+  connective is an arm of these walks and a spelling per table. A new
+  target is a new table. `Notation::sequent`
   with `marks` puts `\u{2}`/`\u{3}` around every formula, which the SVG
   layout turns into a group per formula (`Style::ids`: `i<n>-<p>` for
   position `p` of inference `n`'s sequent, the position being the one
