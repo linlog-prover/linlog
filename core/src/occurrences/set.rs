@@ -48,14 +48,14 @@ impl Clone for OccSet {
 
 impl OccSet {
     /// Returns the empty set over `len` occurrence ids.
-    pub fn empty(len: usize) -> Self {
+    pub(crate) fn empty(len: usize) -> Self {
         Self {
             words: vec![0; len.div_ceil(64)].into_boxed_slice(),
         }
     }
 
     /// Returns the set over `len` occurrence ids that holds the given ones.
-    pub fn of(len: usize, ids: impl IntoIterator<Item = OccId>) -> Self {
+    pub(crate) fn of(len: usize, ids: impl IntoIterator<Item = OccId>) -> Self {
         let mut set = Self::empty(len);
         set.extend(ids);
         set
@@ -63,12 +63,12 @@ impl OccSet {
 
     /// Returns the number of ids the set can hold, which is its width rounded
     /// up to a multiple of 64.
-    pub fn capacity(&self) -> usize {
+    pub(crate) fn capacity(&self) -> usize {
         self.words.len() * 64
     }
 
     /// Returns the words of the bitset, lowest ids first.
-    pub fn words(&self) -> &[u64] {
+    pub(crate) fn words(&self) -> &[u64] {
         &self.words
     }
 
@@ -78,7 +78,7 @@ impl OccSet {
     }
 
     /// Adds `o` and returns whether it was absent.
-    pub fn insert(&mut self, o: OccId) -> bool {
+    pub(crate) fn insert(&mut self, o: OccId) -> bool {
         let (w, bit) = Self::locate(o);
         let absent = self.words[w] & bit == 0;
         self.words[w] |= bit;
@@ -86,7 +86,7 @@ impl OccSet {
     }
 
     /// Removes `o` and returns whether it was present.
-    pub fn remove(&mut self, o: OccId) -> bool {
+    pub(crate) fn remove(&mut self, o: OccId) -> bool {
         let (w, bit) = Self::locate(o);
         let present = self.words[w] & bit != 0;
         self.words[w] &= !bit;
@@ -94,34 +94,34 @@ impl OccSet {
     }
 
     /// Adds `o` if it is absent and removes it otherwise.
-    pub fn toggle(&mut self, o: OccId) {
+    pub(crate) fn toggle(&mut self, o: OccId) {
         let (w, bit) = Self::locate(o);
         self.words[w] ^= bit;
     }
 
     /// Returns whether `o` is a member.
-    pub fn contains(&self, o: OccId) -> bool {
+    pub(crate) fn contains(&self, o: OccId) -> bool {
         let (w, bit) = Self::locate(o);
         self.words[w] & bit != 0
     }
 
     /// Removes every member.
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.words.fill(0);
     }
 
     /// Returns whether the set has no member.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)
     }
 
     /// Returns the number of members.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.words.iter().map(|w| w.count_ones() as usize).sum()
     }
 
     /// Returns the smallest member, if any.
-    pub fn first(&self) -> Option<OccId> {
+    pub(crate) fn first(&self) -> Option<OccId> {
         self.iter().next()
     }
 
@@ -147,7 +147,7 @@ impl OccSet {
     }
 
     /// Returns the members in ascending order.
-    pub fn iter(&self) -> Iter<'_> {
+    pub(crate) fn iter(&self) -> Iter<'_> {
         Iter {
             words: &self.words,
             index: 0,
@@ -162,7 +162,7 @@ impl OccSet {
     /// If `other` is wider and has a member beyond this set's width, which
     /// this set cannot hold: dropping it would give a union that lacks a
     /// member.
-    pub fn union_with(&mut self, other: &Self) {
+    pub(crate) fn union_with(&mut self, other: &Self) {
         let beyond = other.beyond(self);
         if let Some(i) = beyond.iter().position(|&w| w != 0) {
             let member = (self.words.len() + i) * 64 + beyond[i].trailing_zeros() as usize;
@@ -176,14 +176,14 @@ impl OccSet {
 
     /// Keeps only the members `other` has too. A narrower `other` has none
     /// of the members beyond its width.
-    pub fn intersect_with(&mut self, other: &Self) {
+    pub(crate) fn intersect_with(&mut self, other: &Self) {
         self.zip_with(other, |a, b| a & b);
         let shared = self.words.len().min(other.words.len());
         self.words[shared..].fill(0);
     }
 
     /// Removes every member of `other`, whatever its width.
-    pub fn difference_with(&mut self, other: &Self) {
+    pub(crate) fn difference_with(&mut self, other: &Self) {
         self.zip_with(other, |a, b| a & !b);
     }
 
@@ -203,14 +203,14 @@ impl OccSet {
 
     /// Returns whether every member is a member of `other`: never, when
     /// this set has a member beyond the width of `other`.
-    pub fn is_subset(&self, other: &Self) -> bool {
+    pub(crate) fn is_subset(&self, other: &Self) -> bool {
         let mut shared = self.words.iter().zip(&other.words);
         shared.all(|(a, b)| a & !b == 0) && self.beyond(other).iter().all(|&w| w == 0)
     }
 
     /// Returns whether no member is a member of `other`. Members beyond the
     /// width of the narrower set are members of one set only.
-    pub fn is_disjoint(&self, other: &Self) -> bool {
+    pub(crate) fn is_disjoint(&self, other: &Self) -> bool {
         self.words.iter().zip(&other.words).all(|(a, b)| a & b == 0)
     }
 }
