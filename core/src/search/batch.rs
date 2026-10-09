@@ -231,7 +231,7 @@ impl Problem {
 
 /// The answer to a problem of [`prove`].
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Answer {
     /// The problem's name.
     pub name: String,
