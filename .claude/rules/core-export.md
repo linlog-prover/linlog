@@ -78,7 +78,7 @@ for NanoYalla. What the code relies on:
   derivation into its output as it is made (`cli/src/io.rs`, `Output`).
   A derivation of LK or LJ (`ordinary::Derivation`) goes through the same
   `write` of every target, and has `ordinary::Derivation::write_text`
-  (with `text_size` and `Display`); Rocq's `write` certifies it by the
+  (with `text_size` and `Display`) and `write_steps`; Rocq's `write` certifies it by the
   term of `ordinary/rocq.rs` (`core-ordinary.md`).
 - **Every emitter is generic over the crate-private trait
   `proofs::style::Drawn`**, implemented by `proofs::Derivation` (in

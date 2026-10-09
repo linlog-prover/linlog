@@ -553,6 +553,28 @@ impl Derivation {
             crate::limits::counting(stop, crate::limits::Phase::Write),
         )
     }
+
+    /// Writes the derivation as a numbered list of its inferences, one per
+    /// line, premises before their conclusion and the conclusion last, as
+    /// [`crate::Derivation::write_steps`] reads a linear one out: the
+    /// reading of a derivation for a screen reader. Asks `stop` before
+    /// every line.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Error::WriteFailed`] when `out` refused the text.
+    pub fn write_steps(
+        &self,
+        out: &mut impl Write,
+        stop: impl FnMut(crate::limits::Progress) -> bool,
+    ) -> Result<(), Error> {
+        crate::proofs::fmt::write_steps(
+            self,
+            out,
+            crate::limits::counting(stop, crate::limits::Phase::Write),
+        )
+    }
 }
 
 impl Display for Derivation {
@@ -1051,6 +1073,13 @@ mod tests {
         let width = tree.lines().map(|l| l.chars().count()).max();
         let size = derivation.text_size(&crate::proofs::TextOptions::default());
         assert_eq!(Some(size), width.map(|w| (w, tree.lines().count())));
+        let mut steps = String::new();
+        derivation.write_steps(&mut steps, |_| false).unwrap();
+        assert_eq!(steps.lines().count(), 6);
+        assert_eq!(
+            steps.lines().last(),
+            Some("6. a → b, b → c ⊢ a → c, by →R from 5.")
+        );
     }
 
     /// Ex falso through an empty right side, `a, ¬a ⊢` weakened to
