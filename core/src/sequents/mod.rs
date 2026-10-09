@@ -107,6 +107,10 @@ impl Sequent {
     }
 
     /// Returns the term at `id`, which must belong to this sequent.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn term(&self, id: TermId) -> Term {
         self.terms[id.index()]
     }
@@ -152,6 +156,10 @@ impl Sequent {
     }
 
     /// Returns the name of `atom`, which must belong to this sequent.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn atom_name(&self, atom: Atom) -> &str {
         &self.atoms[atom.index()]
     }

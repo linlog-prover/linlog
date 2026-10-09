@@ -340,6 +340,10 @@ impl Formulas {
     pub const MOST: usize = u32::MAX as usize;
 
     /// Returns the node with the id given, which must belong to this arena.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn node(&self, id: NodeId) -> Node {
         self.nodes[id.index()]
     }

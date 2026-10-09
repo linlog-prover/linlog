@@ -349,6 +349,10 @@ impl<'a> Derivation<'a> {
     }
 
     /// Returns the inference at `id`, which must belong to this derivation.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn inference(&self, id: InfId) -> &Inference {
         &self.inferences[id.index()]
     }

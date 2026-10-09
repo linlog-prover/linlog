@@ -507,6 +507,10 @@ impl Proof {
     }
 
     /// Returns the node at `id`, which must belong to this proof.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn node(&self, id: NodeId) -> Node {
         self.nodes[id.index()]
     }

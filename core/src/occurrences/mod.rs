@@ -177,6 +177,10 @@ impl Kind {
 /// as a formula, and every other per-occurrence datum is an array of `u32`
 /// or smaller.
 ///
+/// Every accessor that takes an [`OccId`] reads arrays per occurrence and
+/// panics for an id past the forest's end, one of another forest:
+/// [`Member::occurrence`] and [`len`](Self::len) are the checked way in.
+///
 /// # Examples
 ///
 #[cfg_attr(feature = "parse", doc = "```")]

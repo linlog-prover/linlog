@@ -127,6 +127,10 @@ impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Iterator for Walk<T, F> {
 impl Sequent {
     /// Returns the formula rooted at `id`, which must belong to this sequent,
     /// as a value that prints it.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
     pub fn formula(&self, id: TermId) -> Formula<'_> {
         debug_assert!(id.index() < self.terms.len());
         Formula { sequent: self, id }
