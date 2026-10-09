@@ -28,7 +28,7 @@ use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
 use crate::limits::Limits;
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, Member, OccId};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
 
@@ -169,10 +169,10 @@ impl Engine<'_> {
         let f = self.forest;
         let (kx, ky) = (f.kind(x), f.kind(y));
         if kx == Kind::Top {
-            return Ok(Some(self.push(Node::Top(x))));
+            return Ok(Some(self.push(Node::Top(Member::from(x)))));
         }
         if ky == Kind::Top {
-            return Ok(Some(self.push(Node::Top(y))));
+            return Ok(Some(self.push(Node::Top(Member::from(y)))));
         }
         // `&` on either side: both subformulas against the other formula.
         for (o, other, x_first) in [(x, y, true), (y, x, false)] {
@@ -186,13 +186,13 @@ impl Engine<'_> {
             let Some(right) = self.ordered(r, other, x_first)? else {
                 return Ok(None);
             };
-            return Ok(Some(self.push(Node::With(o, left, right))));
+            return Ok(Some(self.push(Node::With(Member::from(o), left, right))));
         }
         // Two literals: an axiom if they are dual; `0` and a lone literal
         // prove nothing.
         if kx.is_literal() && ky.is_literal() {
             let dual = f.atom(x) == f.atom(y) && f.sign(x) != f.sign(y);
-            return Ok(dual.then(|| self.push(Node::Ax(x, y))));
+            return Ok(dual.then(|| self.push(Node::Ax(x.into(), y.into()))));
         }
         // `⊕` on either side: one subformula against the other formula.
         for (o, other, x_first) in [(x, y, true), (y, x, false)] {
@@ -204,7 +204,7 @@ impl Engine<'_> {
                 (Branch::Right, f.right(o).unwrap()),
             ] {
                 if let Some(premise) = self.ordered(sub, other, x_first)? {
-                    return Ok(Some(self.push(Node::Plus(o, side, premise))));
+                    return Ok(Some(self.push(Node::Plus(Member::from(o), side, premise))));
                 }
             }
         }

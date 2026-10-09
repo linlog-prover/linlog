@@ -11,7 +11,7 @@ use super::scratch::Pooled;
 use super::{
     Cuts, Engine, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search, Step,
 };
-use crate::occurrences::{OccId, OccSet, Side};
+use crate::occurrences::{Member, OccId, OccSet, Side};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
@@ -99,7 +99,7 @@ impl Engine<'_> {
                     } else {
                         (node, x_node)
                     };
-                    node = self.push(Node::Tensor(f, left, right));
+                    node = self.push(Node::Tensor(Member::from(f), left, right));
                 }
                 Ok(Found::proved(node))
             }
@@ -164,14 +164,14 @@ impl Engine<'_> {
                 Forced::Dual => {
                     if let Some(dual) = self.dual_from(x, rest, cursors) {
                         rest.remove(dual);
-                        Some(self.push(Node::Ax(x, dual)))
+                        Some(self.push(Node::Ax(x.into(), dual.into())))
                     } else if let Some(d) = self.dual_in(x, |d| theta.contains(d)) {
                         if budget == 0 {
                             cuts = cuts.and(Cuts::BUDGET);
                             None
                         } else {
-                            let ax = self.push(Node::Ax(x, d));
-                            Some(self.push(Node::Copy(d, ax)))
+                            let ax = self.push(Node::Ax(x.into(), d.into()));
+                            Some(self.push(Node::Copy(Member::from(d), ax)))
                         }
                     } else {
                         None
@@ -219,12 +219,12 @@ impl Engine<'_> {
         for o in self.forest.subtree(x).rev() {
             let node = if self.forest.is_literal(o) {
                 let dual = duals.pop().expect("a dual per literal");
-                self.push(Node::Ax(o, dual))
+                self.push(Node::Ax(o.into(), dual.into()))
             } else {
                 self.statistics.splits += 1;
                 let (_, left, _) = built.pop().expect("the left subformula's proof");
                 let (_, right, _) = built.pop().expect("the right subformula's proof");
-                self.push(Node::Tensor(o, left, right))
+                self.push(Node::Tensor(Member::from(o), left, right))
             };
             built.push((o, node, true));
         }
@@ -415,7 +415,11 @@ impl Engine<'_> {
                     let l_node = self.nodes.unhold(held);
                     match r {
                         Found::Proved(r_node) => {
-                            let node = self.push(Node::Tensor(frame.opened.f, l_node, r_node));
+                            let node = self.push(Node::Tensor(
+                                Member::from(frame.opened.f),
+                                l_node,
+                                r_node,
+                            ));
                             let frame = frames.pop().expect("the frame on top");
                             self.close_frame(frame);
                             if frames.is_empty() {
@@ -702,7 +706,11 @@ impl Engine<'_> {
             self.nodes.release(mark);
             return Ok(r);
         };
-        Ok(Found::proved(self.push(Node::Tensor(f, l_node, r_node))))
+        Ok(Found::proved(self.push(Node::Tensor(
+            Member::from(f),
+            l_node,
+            r_node,
+        ))))
     }
 
     /// The Mix rule on a stable sequent no focus proves: a split into two

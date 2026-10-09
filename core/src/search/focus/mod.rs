@@ -78,7 +78,7 @@ use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task,
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
-use crate::occurrences::{Forest, OccId, OccSet, Reading};
+use crate::occurrences::{Forest, Member, OccId, OccSet, Reading};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
 
@@ -861,7 +861,7 @@ impl<'a> Engine<'a> {
                     applied.push(o);
                 }
                 Kind::Bot => applied.push(o),
-                Kind::Top => break Ok(Found::proved(self.push(Node::Top(o)))),
+                Kind::Top => break Ok(Found::proved(self.push(Node::Top(Member::from(o))))),
                 Kind::With => {
                     break self.with(grown.as_ref().unwrap_or(theta), gamma, list, o, budget);
                 }
@@ -893,9 +893,9 @@ impl<'a> Engine<'a> {
             found.map(|mut node| {
                 for &o in applied.iter().rev() {
                     node = self.push(match self.forest.kind(o) {
-                        Kind::Par => Node::Par(o, node),
-                        Kind::Quest => Node::Quest(o, node),
-                        _ => Node::Bot(o, node),
+                        Kind::Par => Node::Par(Member::from(o), node),
+                        Kind::Quest => Node::Quest(Member::from(o), node),
+                        _ => Node::Bot(Member::from(o), node),
                     });
                 }
                 node
@@ -961,7 +961,7 @@ impl<'a> Engine<'a> {
             self.nodes.release(mark);
             return right;
         };
-        Found::proved(self.push(Node::With(o, left, right)))
+        Found::proved(self.push(Node::With(Member::from(o), left, right)))
     }
 
     /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check and the
@@ -1472,10 +1472,10 @@ impl<'a> Engine<'a> {
             }
             Alternative::Copy(a) => Ok(self
                 .focus(theta, gamma, a, budget - 1)?
-                .map(|node| self.push(Node::Copy(a, node)))),
+                .map(|node| self.push(Node::Copy(Member::from(a), node)))),
             Alternative::Branch(f, side, sub) => Ok(self
                 .focus(theta, gamma, sub, budget)?
-                .map(|node| self.push(Node::Plus(f, side, node)))),
+                .map(|node| self.push(Node::Plus(Member::from(f), side, node)))),
             Alternative::Splits {
                 join,
                 members,
@@ -1611,7 +1611,7 @@ impl<'a> Engine<'a> {
             // comes after it.
             if (affine || members.len() == 2) && self.lists[dual].stamp == self.stamp {
                 let q = self.lists[dual].first;
-                let ax = self.push(Node::Ax(p, q));
+                let ax = self.push(Node::Ax(p.into(), q.into()));
                 if !affine {
                     return Ok(Found::proved(ax));
                 }
@@ -1639,8 +1639,8 @@ impl<'a> Engine<'a> {
                     cuts = Cuts::BUDGET;
                     continue;
                 }
-                let ax = self.push(Node::Ax(p, d));
-                let copy = self.push(Node::Copy(d, ax));
+                let ax = self.push(Node::Ax(p.into(), d.into()));
+                let copy = self.push(Node::Copy(Member::from(d), ax));
                 if !affine {
                     return Ok(Found::proved(copy));
                 }
@@ -1748,7 +1748,7 @@ impl<'a> Engine<'a> {
             }
             Kind::Tensor => self.split(theta, gamma, f, budget),
             Kind::One if self.leftover(gamma) => {
-                let one = self.push(Node::One(f));
+                let one = self.push(Node::One(Member::from(f)));
                 Ok(Found::proved(self.weakened(gamma, one)))
             }
             Kind::One => Ok(Found::NOTHING),
@@ -1765,7 +1765,7 @@ impl<'a> Engine<'a> {
                 self.give_context(released);
                 self.give_list(list);
                 Ok(result?.map(|node| {
-                    let bang = self.push(Node::Bang(f, node));
+                    let bang = self.push(Node::Bang(Member::from(f), node));
                     self.weakened(gamma, bang)
                 }))
             }
@@ -1814,7 +1814,7 @@ impl<'a> Engine<'a> {
             "a leaf is the goal, so only hypotheses are left over"
         );
         for o in gamma.iter() {
-            node = self.push(Node::Weaken(o, node));
+            node = self.push(Node::Weaken(Member::from(o), node));
         }
         node
     }

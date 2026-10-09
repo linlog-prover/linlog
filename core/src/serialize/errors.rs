@@ -146,7 +146,7 @@ impl Serialize for CheckError {
 impl Serialize for Dyadic {
     /// Writes the two zones as ids and whether more is allowed.
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        entries!(s; "theta" => &ids(&self.theta); "gamma" => &ids(&self.gamma); "any" => &self.any)
+        entries!(s; "theta" => &self.theta; "gamma" => &self.gamma; "any" => &self.any)
     }
 }
 

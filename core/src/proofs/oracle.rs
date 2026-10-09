@@ -13,7 +13,7 @@ use super::{Branch, Node, NodeId, Proof};
 #[cfg(feature = "parse")]
 use crate::Sequent;
 use crate::fragment::Mode;
-use crate::occurrences::{Forest, OccId, OccSet, Reading, Side};
+use crate::occurrences::{Forest, Member, OccId, OccSet, Reading, Side};
 use crate::sequents::Kind;
 
 /// What a subproof proves, as the checker derives it from the node's
@@ -39,8 +39,14 @@ impl Derived {
     /// Returns the sequent as ids for an error report.
     fn to_dyadic(&self) -> Dyadic {
         Dyadic {
-            theta: self.theta.iter().collect(),
-            gamma: self.gamma.as_slice().to_vec(),
+            theta: self.theta.iter().map(Member::from).collect(),
+            gamma: self
+                .gamma
+                .as_slice()
+                .iter()
+                .copied()
+                .map(Member::from)
+                .collect(),
             any: self.any,
         }
     }
@@ -169,7 +175,9 @@ impl<'a> Step<'a> {
         if self.forest.kind(o) == kind {
             Ok(())
         } else {
-            Err(self.fail(Fault::Kind { member: o }))
+            Err(self.fail(Fault::Kind {
+                member: Member::from(o),
+            }))
         }
     }
 
@@ -181,7 +189,10 @@ impl<'a> Step<'a> {
             return Ok(());
         }
         if !d.any {
-            return Err(self.fail(Fault::Missing { premise, member: o }));
+            return Err(self.fail(Fault::Missing {
+                premise,
+                member: Member::from(o),
+            }));
         }
         // The premise's sequent holds `o` besides its zone: one goal at
         // most.
@@ -260,9 +271,10 @@ impl<'a> Step<'a> {
         let f = self.forest;
         match self.node {
             Ax(a, b) => {
+                let (a, b) = (a.occ(), b.occ());
                 for o in [a, b] {
                     if !f.is_literal(o) {
-                        return Err(self.fail(Fault::Kind { member: o }));
+                        return Err(self.fail(Fault::Kind { member: o.into() }));
                     }
                 }
                 if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
@@ -275,20 +287,24 @@ impl<'a> Step<'a> {
                 })
             }
             One(o) => {
+                let o = o.occ();
                 self.expect(o, Kind::One)?;
                 Ok(self.just(o, false))
             }
             Top(o) => {
+                let o = o.occ();
                 self.expect(o, Kind::Top)?;
                 Ok(self.just(o, true))
             }
             Bot(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Bot)?;
                 let mut d = self.premise(p);
                 d.gamma.insert(o);
                 Ok(d)
             }
             Par(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Par)?;
                 let mut d = self.premise(p);
                 self.take(&mut d, self.left(o), 0)?;
@@ -297,6 +313,7 @@ impl<'a> Step<'a> {
                 Ok(d)
             }
             Tensor(o, l, r) => {
+                let o = o.occ();
                 self.expect(o, Kind::Tensor)?;
                 let (mut dl, mut dr) = (self.premise(l), self.premise(r));
                 self.take(&mut dl, self.left(o), 0)?;
@@ -306,6 +323,7 @@ impl<'a> Step<'a> {
                 Ok(d)
             }
             With(o, l, r) => {
+                let o = o.occ();
                 self.expect(o, Kind::With)?;
                 let (mut dl, mut dr) = (self.premise(l), self.premise(r));
                 self.take(&mut dl, self.left(o), 0)?;
@@ -328,6 +346,7 @@ impl<'a> Step<'a> {
                 })
             }
             Plus(o, side, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Plus)?;
                 let mut d = self.premise(p);
                 let chosen = match side {
@@ -339,6 +358,7 @@ impl<'a> Step<'a> {
                 Ok(d)
             }
             Bang(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Bang)?;
                 let mut d = self.premise(p);
                 self.take(&mut d, self.left(o), 0)?;
@@ -354,6 +374,7 @@ impl<'a> Step<'a> {
                 })
             }
             Quest(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Quest)?;
                 let mut d = self.premise(p);
                 d.theta.remove(self.left(o));
@@ -361,8 +382,9 @@ impl<'a> Step<'a> {
                 Ok(d)
             }
             Copy(a, p) => {
+                let a = a.occ();
                 if f.parent(a).map(|q| f.kind(q)) != Some(Kind::Quest) {
-                    return Err(self.fail(Fault::NotUnderQuest { member: a }));
+                    return Err(self.fail(Fault::NotUnderQuest { member: a.into() }));
                 }
                 let mut d = self.premise(p);
                 self.take(&mut d, a, 0)?;
@@ -370,6 +392,7 @@ impl<'a> Step<'a> {
                 Ok(d)
             }
             Weaken(o, p) => {
+                let o = o.occ();
                 // Weakening a `?` formula is a rule of every mode; the goal
                 // is never weakened.
                 if !self.mode.affine && f.kind(o) != Kind::Quest {

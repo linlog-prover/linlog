@@ -248,14 +248,14 @@ impl<'a> Arena<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::occurrences::OccId;
+    use crate::occurrences::Member;
 
     /// A released branch leaves no node, a kept one moves to the kept
     /// arena with its premises renamed, and a node kept before keeps its
     /// id.
     #[test]
     fn arena() {
-        let o = OccId::new;
+        let o = Member::new;
         let account = Account::new(None);
         let mut arena = Arena::new(Kept::Own(Vec::new()), &account);
         let ax = arena.push(Node::Ax(o(0), o(1)));
@@ -288,7 +288,7 @@ mod tests {
     /// freed is no longer charged.
     #[test]
     fn collection() {
-        let o = OccId::new;
+        let o = Member::new;
         let account = Account::new(None);
         let mut arena = Arena::new(Kept::Own(Vec::new()), &account);
         let kept = |arena: &mut Arena, node| {
@@ -330,7 +330,7 @@ mod tests {
     /// had no id for: an answer, where there was a panic.
     #[test]
     fn full_arena() {
-        let o = OccId::new;
+        let o = Member::new;
         let account = Account::new(None);
         let mut arena = Arena::new(Kept::Own(Vec::new()), &account);
         arena.most = 2;

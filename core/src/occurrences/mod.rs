@@ -36,6 +36,57 @@ impl OccId {
     }
 }
 
+/// A member of a sequent of its owner (a proof, a derivation, a session,
+/// a goal): below the forest's length the occurrence with that id, and so
+/// the same number in every owner. Every public list of a sequent's
+/// members holds members; [`Forest`] and [`Reading`] speak of occurrences.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
+pub struct Member(u32);
+
+impl Member {
+    /// Wraps a raw member index.
+    pub const fn new(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    /// Returns the raw member index.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    /// Returns the index as a `usize`.
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Returns the occurrence the member is, when it is one of the
+    /// forest's own.
+    pub fn occurrence(self, forest: &Forest) -> Option<OccId> {
+        (self.index() < forest.len()).then_some(OccId(self.0))
+    }
+
+    /// Returns the occurrence the member is, for a member of an owner
+    /// without a table of its own, which every member of a proposition is.
+    pub(crate) const fn occ(self) -> OccId {
+        OccId(self.0)
+    }
+}
+
+impl From<OccId> for Member {
+    /// The member that is the occurrence.
+    fn from(o: OccId) -> Self {
+        Self(o.0)
+    }
+}
+
+const _: () = assert!(size_of::<Member>() == 4);
+
 /// The raw index that stands for "no occurrence" in the forest's arrays.
 const NONE: u32 = u32::MAX;
 

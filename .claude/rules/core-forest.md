@@ -53,6 +53,16 @@ of terms. Invariants the code relies on:
 - The forest owns a clone of its `Sequent` so that `formula(o)` can print.
   Everything else per occurrence is a `Box<[u32]>` or narrower; keep it that
   way (no per-occurrence heap objects, no strings).
+- **`Member` names a member of a sequent of an owner** (a proof, a
+  derivation, a session, a goal): a `u32` that below the forest's length
+  is the occurrence with that id, the same number in every owner, so the
+  wire forms do not change. `Node`'s operands, `Dyadic` and `Fault` hold
+  members; `Forest`, `Reading` and the engines speak of `OccId`s and
+  convert where they build a node (`Member::from`) or read one
+  (`Member::occ`, crate-private, the identity while no owner keeps an
+  instance table; `Member::occurrence(&forest)` is the public, checked
+  form). Code that reads a node's operand converts it once per match
+  arm, never at every use.
 - `lca` is a parent walk from the first argument and is `None` across roots;
   the net search's cycle rejection is only valid within one root.
 

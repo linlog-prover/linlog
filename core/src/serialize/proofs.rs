@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, Member};
 use crate::proofs::{Branch, Node, NodeId, Proof as Prf, Rule};
 use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -71,7 +71,7 @@ impl From<Node> for Step {
     fn from(n: Node) -> Self {
         use Node::*;
         use Step as S;
-        let (o, n_) = (|o: OccId| o.get(), |p: NodeId| p.get());
+        let (o, n_) = (|o: Member| o.get(), |p: NodeId| p.get());
         match n {
             Ax(a, b) => S::Ax(o(a), o(b)),
             Tensor(x, l, r) => S::Tensor(o(x), n_(l), n_(r)),
@@ -96,7 +96,7 @@ impl From<Step> for Node {
     fn from(s: Step) -> Self {
         use Node as N;
         use Step::*;
-        let (o, n) = (OccId::new, NodeId::new);
+        let (o, n) = (Member::new, NodeId::new);
         match s {
             Ax(a, b) => N::Ax(o(a), o(b)),
             Tensor(x, l, r) => N::Tensor(o(x), n(l), n(r)),

@@ -15,7 +15,8 @@ are observers of the checker's pass, are in `core-derivations.md`.
 
 `Proof` (`proofs/mod.rs`) owns its `Forest` and an arena `Box<[Node]>` of
 rule instances; `Node` is a 16-byte `Copy` enum (a static assertion pins the
-size): the rule, the occurrence it acts on, and the premises as `NodeId`s.
+size): the rule, the member it acts on (`Member`, `core-forest.md`), and
+the premises as `NodeId`s.
 The rules are the dyadic calculus's (`⊢ Θ ; Γ`): `Quest` moves a formula
 into `Θ`, `Copy` uses a `Θ` formula without consuming it, `Bang` needs an
 empty linear zone; `Weaken` exists for affine mode and `Mix` for Mix. The

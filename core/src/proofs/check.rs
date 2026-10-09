@@ -37,7 +37,7 @@ use crate::errors::{Described, Owner, Subject};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
 use crate::limits::{Limits, Phase, Progress, Refusal};
-use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side};
+use crate::occurrences::{Forest, Member, OccId, Reading, ShapeError, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -300,11 +300,11 @@ impl State {
 
     /// Returns the sequent as ids for an error report.
     fn to_dyadic(&self) -> Dyadic {
-        let mut theta: Vec<OccId> = self.theta.iter().collect();
+        let mut theta: Vec<Member> = self.theta.iter().map(Member::from).collect();
         theta.sort_unstable();
         Dyadic {
             theta,
-            gamma: self.gamma.sorted(),
+            gamma: self.gamma.sorted().into_iter().map(Member::from).collect(),
             any: self.any,
         }
     }
@@ -350,9 +350,9 @@ impl State {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dyadic {
     /// The unrestricted zone, ascending.
-    pub theta: Vec<OccId>,
+    pub theta: Vec<Member>,
     /// The linear zone, ascending, with repeats.
-    pub gamma: Vec<OccId>,
+    pub gamma: Vec<Member>,
     /// Whether the linear zone may hold anything more.
     pub any: bool,
 }
@@ -369,7 +369,7 @@ impl Dyadic {
     /// Writes the sequent as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
     fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
-        let list = |f: &mut Formatter<'_>, ids: &[OccId]| {
+        let list = |f: &mut Formatter<'_>, ids: &[Member]| {
             let mut budget = Budget {
                 f,
                 left: limit.unwrap_or(usize::MAX),
@@ -378,7 +378,7 @@ impl Dyadic {
             for (i, &o) in ids.iter().enumerate() {
                 let written =
                     std::fmt::Write::write_str(&mut budget, if i == 0 { " " } else { ", " })
-                        .and_then(|()| occurrence(&mut budget, forest, o));
+                        .and_then(|()| occurrence(&mut budget, forest, o.occ()));
                 if written.is_err() && budget.cut {
                     return write!(budget.f, "… ({} formulas)", ids.len());
                 }
@@ -503,7 +503,7 @@ pub enum Fault {
     /// The member is not of the kind the rule acts on.
     Kind {
         /// The member the rule names.
-        member: OccId,
+        member: Member,
     },
     /// The two literals of an axiom are not an atom and its negation.
     NotDual,
@@ -513,7 +513,7 @@ pub enum Fault {
         /// Which premise.
         premise: usize,
         /// What it lacks.
-        member: OccId,
+        member: Member,
     },
     /// The premise of a promotion has a linear zone besides the promoted
     /// subformula.
@@ -523,7 +523,7 @@ pub enum Fault {
     /// A copy of a member that is not the subformula of a `?`.
     NotUnderQuest {
         /// The member copied.
-        member: OccId,
+        member: Member,
     },
     /// The node's linear zone holds more formulas than the rest of the
     /// proof can consume: every later rule takes two at most, and the root
@@ -682,14 +682,14 @@ impl Invalid {
     /// instead of ids when a forest is given.
     fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
         write!(f, "node {} ({}", self.node.get(), self.rule.name())?;
-        for (i, o) in self.rule.occurrences().enumerate() {
+        for (i, o) in self.rule.members().enumerate() {
             f.write_str(if i == 0 { " on " } else { ", " })?;
             let mut budget = Budget {
                 f,
                 left: limit.unwrap_or(usize::MAX),
                 cut: false,
             };
-            match occurrence(&mut budget, forest, o) {
+            match occurrence(&mut budget, forest, o.occ()) {
                 Err(_) if budget.cut => f.write_str("…")?,
                 written => written?,
             }
@@ -718,7 +718,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, *o)?;
+                occurrence(f, forest, (*o).occ())?;
                 f.write_str(" is not what the rule acts on")
             }
             NotDual => f.write_str("the literals are not an atom and its negation"),
@@ -727,7 +727,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, *o)
+                occurrence(f, forest, (*o).occ())
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
@@ -735,7 +735,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, *o)?;
+                occurrence(f, forest, (*o).occ())?;
                 f.write_str(" is not under a ?")
             }
             Surplus => f.write_str(
@@ -1150,7 +1150,9 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         if self.forest.kind(o) == kind {
             Ok(())
         } else {
-            Err(Halt::Fault(Fault::Kind { member: o }))
+            Err(Halt::Fault(Fault::Kind {
+                member: Member::from(o),
+            }))
         }
     }
 
@@ -1181,7 +1183,10 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             return Ok(false);
         }
         if !d.any {
-            return Err(Halt::Fault(Fault::Missing { premise, member: o }));
+            return Err(Halt::Fault(Fault::Missing {
+                premise,
+                member: Member::from(o),
+            }));
         }
         // The premise's sequent holds `o` besides its zone: one goal at
         // most.
@@ -1292,9 +1297,12 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         self.shared.clear();
         match node {
             Ax(a, b) => {
+                let (a, b) = (a.occ(), b.occ());
                 for o in [a, b] {
                     if !f.is_literal(o) {
-                        return Err(Halt::Fault(Fault::Kind { member: o }));
+                        return Err(Halt::Fault(Fault::Kind {
+                            member: Member::from(o),
+                        }));
                     }
                 }
                 if f.atom(a) != f.atom(b) || f.sign(a) == f.sign(b) {
@@ -1303,20 +1311,24 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(self.just([a, b], false))
             }
             One(o) => {
+                let o = o.occ();
                 self.expect(o, Kind::One)?;
                 Ok(self.just([o], false))
             }
             Top(o) => {
+                let o = o.occ();
                 self.expect(o, Kind::Top)?;
                 Ok(self.just([o], true))
             }
             Bot(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Bot)?;
                 let mut d = self.premise(p)?;
                 self.put(&mut d, o);
                 Ok(d)
             }
             Par(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Par)?;
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, self.left(o), 0)?;
@@ -1325,6 +1337,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Tensor(o, l, r) => {
+                let o = o.occ();
                 self.expect(o, Kind::Tensor)?;
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
@@ -1336,6 +1349,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             With(o, l, r) => {
+                let o = o.occ();
                 self.expect(o, Kind::With)?;
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
@@ -1362,6 +1376,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Plus(o, side, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Plus)?;
                 let mut d = self.premise(p)?;
                 let chosen = match side {
@@ -1373,6 +1388,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Bang(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Bang)?;
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, self.left(o), 0)?;
@@ -1386,6 +1402,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Quest(o, p) => {
+                let o = o.occ();
                 self.expect(o, Kind::Quest)?;
                 let mut d = self.premise(p)?;
                 if d.theta.remove(self.left(o)) {
@@ -1397,8 +1414,11 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Copy(a, p) => {
+                let a = a.occ();
                 if f.parent(a).map(|q| f.kind(q)) != Some(Kind::Quest) {
-                    return Err(Halt::Fault(Fault::NotUnderQuest { member: a }));
+                    return Err(Halt::Fault(Fault::NotUnderQuest {
+                        member: Member::from(a),
+                    }));
                 }
                 let mut d = self.premise(p)?;
                 facts.absent[0] = self.take(&mut d, a, 0)?;
@@ -1410,6 +1430,7 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 Ok(d)
             }
             Weaken(o, p) => {
+                let o = o.occ();
                 // Weakening a `?` formula is a rule of every mode; the goal
                 // is never weakened.
                 if !self.mode.affine && f.kind(o) != Kind::Quest {
@@ -1467,9 +1488,9 @@ mod tests {
     use crate::search::generate::Rng;
     use crate::{Error, Sequent};
 
-    /// Wraps a raw occurrence id.
-    const fn o(id: u32) -> OccId {
-        OccId::new(id)
+    /// Wraps a raw member id.
+    const fn o(id: u32) -> Member {
+        Member::new(id)
     }
 
     /// Wraps a raw node id.
@@ -1498,14 +1519,14 @@ mod tests {
         let occ = |rng: &mut Rng| o(rng.below(occurrences) as u32);
         let earlier = |rng: &mut Rng| n(rng.below(i.max(1)) as u32);
         let unary = |k: usize, o: OccId, p: NodeId| match k % 8 {
-            0 => Bot(o, p),
-            1 => Par(o, p),
-            2 => Bang(o, p),
-            3 => Quest(o, p),
-            4 => Copy(o, p),
-            5 => Weaken(o, p),
-            6 => Plus(o, Branch::Left, p),
-            _ => Plus(o, Branch::Right, p),
+            0 => Bot(Member::from(o), p),
+            1 => Par(Member::from(o), p),
+            2 => Bang(Member::from(o), p),
+            3 => Quest(Member::from(o), p),
+            4 => Copy(Member::from(o), p),
+            5 => Weaken(Member::from(o), p),
+            6 => Plus(Member::from(o), Branch::Left, p),
+            _ => Plus(Member::from(o), Branch::Right, p),
         };
         let choice = rng.below(5);
         nodes[i] = match (nodes[i], choice) {
@@ -1528,11 +1549,11 @@ mod tests {
             (Mix(l, r), 2) => With(occ(rng), l, r),
             (Mix(l, r), 3) => Mix(r, l),
             (Mix(l, _), _) => Mix(l, earlier(rng)),
-            (node, 0) => unary(rng.below(8), occ(rng), node.premises().next()?),
-            (node, 1) => unary(rng.below(8), node.occurrences().next()?, earlier(rng)),
+            (node, 0) => unary(rng.below(8), occ(rng).occ(), node.premises().next()?),
+            (node, 1) => unary(rng.below(8), (node.members().next()?).occ(), earlier(rng)),
             (node, 2) => unary(
                 rng.below(8),
-                node.occurrences().next()?,
+                (node.members().next()?).occ(),
                 node.premises().next()?,
             ),
             (node, 3) => Weaken(occ(rng), node.premises().next()?),
@@ -1965,7 +1986,7 @@ mod tests {
                 vec![Ax(o(1), o(2))],
                 Mode::INTUITIONISTIC,
                 0,
-                Shape(crate::occurrences::ShapeError::Formula(o(0))),
+                Shape(crate::occurrences::ShapeError::Formula(o(0).occ())),
             ),
         ] {
             let p = proof(input, nodes);
@@ -2079,12 +2100,12 @@ mod tests {
     fn a_member_twice_grows_no_table() {
         let mut zone = Zone::default();
         for id in 0..14 {
-            assert!(zone.insert(o(id)));
+            assert!(zone.insert(o(id).occ()));
         }
         let (bytes, room) = (zone.bytes(), zone.members.capacity());
         assert_eq!((bytes, room), (16 * 5 + 16, 14));
         for id in 0..14 {
-            assert!(!zone.insert(o(id)));
+            assert!(!zone.insert(o(id).occ()));
         }
         assert_eq!((zone.bytes(), zone.members.capacity()), (bytes, room));
     }

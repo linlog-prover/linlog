@@ -160,7 +160,7 @@ pub use errors::{Described, Error, ErrorKind, Owner};
 pub use fragment::{Fragment, Mode};
 pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{NetError, ProofStructure};
-pub use occurrences::{Forest, OccId, Reading, ShapeError, Side, Sign};
+pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
     Branch, CheckError, Derivation, InfId, Inference, Node, NodeId, Proof, Rule, Size, ViewOptions,
 };

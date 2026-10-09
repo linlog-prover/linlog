@@ -9,8 +9,8 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Forest, Fragment, InfId, Interactive, Mode, Node, NodeId, OccId, Proof, ProofStructure,
-    Rule, Sequent, ViewOptions,
+    Branch, Forest, Fragment, InfId, Interactive, Member, Mode, Node, NodeId, OccId, Proof,
+    ProofStructure, Rule, Sequent, ViewOptions,
 };
 
 /// Parses `input` and serializes it as compact JSON.
@@ -113,17 +113,21 @@ fn proof_json_format() {
         // ⊢ ~A, A ⊗ ~B, B: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B
         (
             "A, A -o B |- B",
-            vec![Ax(o(0), o(2)), Ax(o(3), o(4)), Tensor(o(1), n(0), n(1))],
+            vec![
+                Ax(o(0).into(), o(2).into()),
+                Ax(o(3).into(), o(4).into()),
+                Tensor(Member::from(o(1)), n(0), n(1)),
+            ],
             r#"[{"ax":[0,2]},{"ax":[3,4]},{"⊗":[1,0,1]}]"#,
         ),
         // ⊢ A & ⊤, ~A ⊕ ⊥: 0 &, 1 A, 2 ⊤, 3 ⊕, 4 ~A, 5 ⊥
         (
             "|- A & top, ~A + bot",
             vec![
-                Ax(o(1), o(4)),
-                Plus(o(3), Branch::Left, n(0)),
-                Top(o(2)),
-                With(o(0), n(1), n(2)),
+                Ax(o(1).into(), o(4).into()),
+                Plus(Member::from(o(3)), Branch::Left, n(0)),
+                Top(Member::from(o(2))),
+                With(Member::from(o(0)), n(1), n(2)),
             ],
             r#"[{"ax":[1,4]},{"⊕₁":[3,0]},{"⊤":2},{"&":[0,1,2]}]"#,
         ),
@@ -131,14 +135,14 @@ fn proof_json_format() {
         (
             "!A, !(A -o B) |- !B",
             vec![
-                Ax(o(1), o(4)),
-                Copy(o(1), n(0)),
-                Ax(o(5), o(7)),
-                Tensor(o(3), n(1), n(2)),
-                Copy(o(3), n(3)),
-                Bang(o(6), n(4)),
-                Quest(o(2), n(5)),
-                Quest(o(0), n(6)),
+                Ax(o(1).into(), o(4).into()),
+                Copy(Member::from(o(1)), n(0)),
+                Ax(o(5).into(), o(7).into()),
+                Tensor(Member::from(o(3)), n(1), n(2)),
+                Copy(Member::from(o(3)), n(3)),
+                Bang(Member::from(o(6)), n(4)),
+                Quest(Member::from(o(2)), n(5)),
+                Quest(Member::from(o(0)), n(6)),
             ],
             r#"[{"ax":[1,4]},{"copy":[1,0]},{"ax":[5,7]},{"⊗":[3,1,2]},{"copy":[3,3]},{"!":[6,4]},{"?":[2,5]},{"?":[0,6]}]"#,
         ),
@@ -147,12 +151,12 @@ fn proof_json_format() {
         (
             "A, B |- A, B, 1, bot",
             vec![
-                Ax(o(0), o(2)),
-                Weaken(o(1), n(0)),
-                One(o(4)),
-                Bot(o(5), n(2)),
+                Ax(o(0).into(), o(2).into()),
+                Weaken(Member::from(o(1)), n(0)),
+                One(Member::from(o(4))),
+                Bot(Member::from(o(5)), n(2)),
                 Mix(n(1), n(3)),
-                Weaken(o(3), n(4)),
+                Weaken(Member::from(o(3)), n(4)),
             ],
             r#"[{"ax":[0,2]},{"wk":[1,0]},{"1":4},{"⊥":[5,2]},{"mix":[1,3]},{"wk":[3,4]}]"#,
         ),
@@ -160,10 +164,10 @@ fn proof_json_format() {
         (
             "|- A + B, ~A par ~B",
             vec![
-                Ax(o(2), o(5)),
-                Plus(o(0), Branch::Right, n(0)),
-                Weaken(o(4), n(1)),
-                Par(o(3), n(2)),
+                Ax(o(2).into(), o(5).into()),
+                Plus(Member::from(o(0)), Branch::Right, n(0)),
+                Weaken(Member::from(o(4)), n(1)),
+                Par(Member::from(o(3)), n(2)),
             ],
             r#"[{"ax":[2,5]},{"⊕₂":[0,0]},{"wk":[4,1]},{"⅋":[3,2]}]"#,
         ),
@@ -187,15 +191,15 @@ fn proof_round_trip() {
     let p = proof(
         "!A, !(A -o B) |- !B, top",
         vec![
-            Ax(o(1), o(4)),
-            Copy(o(1), n(0)),
-            Ax(o(5), o(7)),
-            Tensor(o(3), n(1), n(2)),
-            Copy(o(3), n(3)),
-            Bang(o(6), n(4)),
-            Quest(o(2), n(5)),
-            Quest(o(0), n(6)),
-            Top(o(8)),
+            Ax(o(1).into(), o(4).into()),
+            Copy(Member::from(o(1)), n(0)),
+            Ax(o(5).into(), o(7).into()),
+            Tensor(Member::from(o(3)), n(1), n(2)),
+            Copy(Member::from(o(3)), n(3)),
+            Bang(Member::from(o(6)), n(4)),
+            Quest(Member::from(o(2)), n(5)),
+            Quest(Member::from(o(0)), n(6)),
+            Top(Member::from(o(8))),
             Mix(n(7), n(8)),
         ],
     );
@@ -542,7 +546,7 @@ fn error_json_format() {
     );
     // A proof of `⊢ a, ~a` alone, which concludes less than the sequent.
     let s: Sequent = "|- a * b, ~a, ~b".parse().unwrap();
-    let axiom = vec![Node::Ax(OccId::new(1), OccId::new(3))];
+    let axiom = vec![Node::Ax(Member::new(1), Member::new(3))];
     let proof = Proof::new(Forest::new(&s).unwrap(), axiom, NodeId::new(0)).unwrap();
     let error = linlog::Error::from(proof.check(Mode::CLASSICAL).unwrap_err());
     let json = serde_json::to_string(&error).unwrap();

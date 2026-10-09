@@ -265,7 +265,7 @@ impl ProofStructure {
             .nodes()
             .iter()
             .filter_map(|n| match *n {
-                Node::Ax(x, y) => Some((x, y)),
+                Node::Ax(x, y) => Some((x.occ(), y.occ())),
                 _ => None,
             })
             .collect();
@@ -471,6 +471,8 @@ mod tests {
     #[cfg(feature = "parse")]
     use crate::fragment::Mode;
     #[cfg(feature = "parse")]
+    use crate::occurrences::Member;
+    #[cfg(feature = "parse")]
     use crate::proofs::NodeId;
 
     /// Wraps a raw id.
@@ -526,11 +528,11 @@ mod tests {
         let first_tensor_first = Proof::new(
             f.clone(),
             vec![
-                Ax(o(1), o(3)),
-                Ax(o(2), o(5)),
-                Ax(o(6), o(7)),
-                Tensor(o(4), n(1), n(2)),
-                Tensor(o(0), n(0), n(3)),
+                Ax(o(1).into(), o(3).into()),
+                Ax(o(2).into(), o(5).into()),
+                Ax(o(6).into(), o(7).into()),
+                Tensor(Member::from(o(4)), n(1), n(2)),
+                Tensor(Member::from(o(0)), n(0), n(3)),
             ],
             n(4),
         )
@@ -538,11 +540,11 @@ mod tests {
         let second_tensor_first = Proof::new(
             f.clone(),
             vec![
-                Ax(o(1), o(3)),
-                Ax(o(2), o(5)),
-                Tensor(o(0), n(0), n(1)),
-                Ax(o(6), o(7)),
-                Tensor(o(4), n(2), n(3)),
+                Ax(o(1).into(), o(3).into()),
+                Ax(o(2).into(), o(5).into()),
+                Tensor(Member::from(o(0)), n(0), n(1)),
+                Ax(o(6).into(), o(7).into()),
+                Tensor(Member::from(o(4)), n(2), n(3)),
             ],
             n(4),
         )
@@ -559,10 +561,10 @@ mod tests {
         let with_mix = Proof::new(
             f,
             vec![
-                Ax(o(1), o(3)),
-                Ax(o(2), o(4)),
+                Ax(o(1).into(), o(3).into()),
+                Ax(o(2).into(), o(4).into()),
                 Mix(n(0), n(1)),
-                Par(o(0), n(2)),
+                Par(Member::from(o(0)), n(2)),
             ],
             n(3),
         )
@@ -576,7 +578,11 @@ mod tests {
         let f = forest("|- A & A, ~A");
         let additive = Proof::new(
             f,
-            vec![Ax(o(1), o(3)), Ax(o(2), o(3)), With(o(0), n(0), n(1))],
+            vec![
+                Ax(o(1).into(), o(3).into()),
+                Ax(o(2).into(), o(3).into()),
+                With(Member::from(o(0)), n(0), n(1)),
+            ],
             n(2),
         )
         .unwrap();

@@ -361,6 +361,7 @@ impl Observer for Measure<'_> {
             },
             Bot(_, p) | Weaken(_, p) => Self::unary(&sub, &at(p), 1, 0, 0),
             Par(o, p) => {
+                let o = o.occ();
                 let premise = at(p);
                 let absorbed = self
                     .absorbed(&premise, left(o), facts.absent[0])
@@ -368,6 +369,7 @@ impl Observer for Measure<'_> {
                 Self::unary(&sub, &premise, 1, 0, absorbed)
             }
             Plus(o, side, p) => {
+                let o = o.occ();
                 let chosen = match side {
                     Branch::Left => left(o),
                     Branch::Right => right(o),
@@ -378,7 +380,7 @@ impl Observer for Measure<'_> {
             }
             Bang(o, p) => {
                 let premise = at(p);
-                let absorbed = self.absorbed(&premise, left(o), facts.absent[0]);
+                let absorbed = self.absorbed(&premise, left(o.occ()), facts.absent[0]);
                 Self::unary(&sub, &premise, 1, 0, absorbed)
             }
             // A `?` step whose formula is used above is no inference: the
@@ -386,6 +388,7 @@ impl Observer for Measure<'_> {
             Quest(_, p) if facts.used => Sub { ..at(p) },
             Quest(_, p) => Self::unary(&sub, &at(p), 1, 0, 0),
             Copy(a, p) => {
+                let a = a.occ();
                 let premise = at(p);
                 let absorbed = self.absorbed(&premise, a, facts.absent[0]);
                 if facts.used {
@@ -417,8 +420,8 @@ impl Observer for Measure<'_> {
                     .fold(sub.weight, u64::saturating_add);
                 let absorbed = match node {
                     Tensor(o, ..) => self
-                        .absorbed(&pl, left(o), facts.absent[0])
-                        .saturating_add(self.absorbed(&pr, right(o), facts.absent[1])),
+                        .absorbed(&pl, left(o.occ()), facts.absent[0])
+                        .saturating_add(self.absorbed(&pr, right(o.occ()), facts.absent[1])),
                     _ => 0,
                 };
                 // What the rule's conclusion absorbs goes to the left
@@ -453,6 +456,7 @@ impl Observer for Measure<'_> {
                 }
             }
             With(o, l, r) => {
+                let o = o.occ();
                 let (pl, pr) = (at(l), at(r));
                 let needs = state.needs() as u64;
                 // What a premise's conclusion holds beyond what the
@@ -509,7 +513,7 @@ impl Observer for Measure<'_> {
             Bot(_, p) | Par(_, p) | Plus(_, _, p) | Bang(_, p) => firm(p).and(sub.weight),
             Weaken(_, p) | Quest(_, p) => firm(p),
             // The dereliction's sequent holds the formula twice.
-            Copy(a, p) if facts.used => firm(p).and(sub.weight.saturating_add(quest(a))),
+            Copy(a, p) if facts.used => firm(p).and(sub.weight.saturating_add(quest(a.occ()))),
             Copy(_, p) => firm(p).and(sub.weight),
             Tensor(_, l, r) | Mix(l, r) => {
                 let doubled = facts
@@ -703,7 +707,7 @@ mod tests {
     fn a_formula_too_long_to_count_is_not_counted_short() {
         use crate::proofs::{Node, NodeId, Proof};
         use crate::sequents::{Atom, Term, TermId};
-        use crate::{Forest, OccId};
+        use crate::{Forest, Member};
         // Terms: 0 is ⊤, 1 the atom, 2 + j the tree of depth j + 1.
         let mut terms = vec![Term::Top, Term::Atom(Atom::new(0))];
         for j in 0..12 {
@@ -717,7 +721,7 @@ mod tests {
         };
         let forest = Forest::new(&sequent).unwrap();
         assert_eq!(forest.len(), 1 + (1 << 13) - 1);
-        let nodes = vec![Node::Top(OccId::new(0))];
+        let nodes = vec![Node::Top(Member::new(0))];
         let proof = Proof::new(forest, nodes, NodeId::new(0)).unwrap();
         let size = proof.derivation_size(false).unwrap();
         assert_eq!((size.inferences, size.height), (1, 1));

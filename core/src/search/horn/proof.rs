@@ -12,7 +12,7 @@
 //! are weakened there.
 
 use super::{Clause, Program, head_of};
-use crate::occurrences::{Forest, OccId, Sign};
+use crate::occurrences::{Forest, Member, OccId, Sign};
 use crate::proofs::{Node, NodeId};
 use crate::search::Reason;
 use crate::search::memory::{Account, Charged};
@@ -111,7 +111,7 @@ pub(super) fn build(
     let mut root = builder.clause(program.goal, None, &mut goal, NodeId::new(0));
     debug_assert!(goal.is_empty());
     for &weakened in left.iter().chain(&unused) {
-        root = builder.push(Node::Weaken(weakened, root));
+        root = builder.push(Node::Weaken(Member::from(weakened), root));
     }
     for (i, &(clause, reusable)) in clauses.iter().enumerate().rev() {
         let head = head_of(forest, program.body, clause);
@@ -119,14 +119,14 @@ pub(super) fn build(
         root = builder.clause(clause, head, &mut fired, root);
         debug_assert!(fired.is_empty());
         if reusable {
-            root = builder.push(Node::Copy(clause, root));
+            root = builder.push(Node::Copy(Member::from(clause), root));
         }
     }
     for &marking in &program.markings {
         root = builder.head(marking, root);
     }
     for &quest in &program.quests {
-        root = builder.push(Node::Quest(quest, root));
+        root = builder.push(Node::Quest(Member::from(quest), root));
     }
     Ok((root, builder.nodes))
 }
@@ -214,8 +214,8 @@ impl Builder<'_> {
     fn head(&mut self, head: OccId, mut above: NodeId) -> NodeId {
         for x in self.forest.subtree(head).rev() {
             match self.forest.kind(x) {
-                Kind::Par => above = self.push(Node::Par(x, above)),
-                Kind::Bot => above = self.push(Node::Bot(x, above)),
+                Kind::Par => above = self.push(Node::Par(Member::from(x), above)),
+                Kind::Bot => above = self.push(Node::Bot(Member::from(x), above)),
                 _ => {}
             }
         }
@@ -243,16 +243,16 @@ impl Builder<'_> {
                     Kind::Tensor => {
                         let left = self.values.pop().expect("the left factor is proved");
                         let right = self.values.pop().expect("the right factor is proved");
-                        self.push(Node::Tensor(x, left, right))
+                        self.push(Node::Tensor(Member::from(x), left, right))
                     }
-                    Kind::One => self.push(Node::One(x)),
+                    Kind::One => self.push(Node::One(Member::from(x))),
                     _ => {
                         let ((literal, token), rest) =
                             pairs.split_first().expect("a token per body literal");
                         debug_assert_eq!(*literal, x);
                         debug_assert_eq!(forest.sign(x), Some(self.body));
                         *pairs = rest;
-                        self.push(Node::Ax(x, *token))
+                        self.push(Node::Ax(x.into(), (*token).into()))
                     }
                 },
             };

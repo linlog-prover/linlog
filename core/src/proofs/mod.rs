@@ -46,7 +46,7 @@ pub use style::{Labels, OpenGoal};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, Member};
 use crate::sequents::Sequent;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -108,38 +108,38 @@ pub enum Branch {
 pub enum Node {
     /// The axiom `⊢ Θ ; a, ~a` on two literal occurrences of one atom with
     /// opposite signs, in either order.
-    Ax(OccId, OccId),
+    Ax(Member, Member),
     /// `⊢ Θ ; Γ, Δ, A ⊗ B` from `⊢ Θ ; Γ, A` and `⊢ Θ ; Δ, B`, on the
     /// occurrence of `A ⊗ B`; the premises prove its left and right
     /// subformula, in that order.
-    Tensor(OccId, NodeId, NodeId),
+    Tensor(Member, NodeId, NodeId),
     /// `⊢ Θ ; Γ, A ⅋ B` from `⊢ Θ ; Γ, A, B`.
-    Par(OccId, NodeId),
+    Par(Member, NodeId),
     /// `⊢ Θ ; 1`.
-    One(OccId),
+    One(Member),
     /// `⊢ Θ ; Γ, ⊥` from `⊢ Θ ; Γ`.
-    Bot(OccId, NodeId),
+    Bot(Member, NodeId),
     /// `⊢ Θ ; Γ, A & B` from `⊢ Θ ; Γ, A` and `⊢ Θ ; Γ, B`, the premises in
     /// that order.
-    With(OccId, NodeId, NodeId),
+    With(Member, NodeId, NodeId),
     /// `⊢ Θ ; Γ, A ⊕ B` from `⊢ Θ ; Γ, A` or from `⊢ Θ ; Γ, B`, as the side
     /// says.
-    Plus(OccId, Branch, NodeId),
+    Plus(Member, Branch, NodeId),
     /// `⊢ Θ ; Γ, ⊤` for any `Γ`.
-    Top(OccId),
+    Top(Member),
     /// Promotion: `⊢ Θ ; !A` from `⊢ Θ ; A`, with an empty linear zone.
-    Bang(OccId, NodeId),
+    Bang(Member, NodeId),
     /// `⊢ Θ ; Γ, ?A` from `⊢ Θ, A ; Γ`: the subformula moves into the
     /// unrestricted zone.
-    Quest(OccId, NodeId),
+    Quest(Member, NodeId),
     /// A copy: `⊢ Θ, A ; Γ` from `⊢ Θ, A ; Γ, A`, on the occurrence of `A`,
     /// which stays in `Θ`. The only rule that can repeat an occurrence in a
     /// branch, which is why the linear zone is a multiset.
-    Copy(OccId, NodeId),
+    Copy(Member, NodeId),
     /// Weakening: `⊢ Θ ; Γ, A` from `⊢ Θ ; Γ`, in affine mode, or in any
     /// mode when `A` is a `?` formula (the standard `?w`; the dyadic form of
     /// it is a [`Quest`](Self::Quest) whose formula goes unused).
-    Weaken(OccId, NodeId),
+    Weaken(Member, NodeId),
     /// Mix, when the mode allows it: `⊢ Θ ; Γ, Δ` from `⊢ Θ ; Γ` and
     /// `⊢ Θ ; Δ`.
     Mix(NodeId, NodeId),
@@ -149,9 +149,9 @@ pub enum Node {
 const _: () = assert!(size_of::<Node>() == 16);
 
 impl Node {
-    /// Returns the occurrence the rule acts on: `None` for Mix, and the
-    /// first literal of an axiom.
-    pub const fn principal(self) -> Option<OccId> {
+    /// Returns the member the rule acts on: `None` for Mix, and the first
+    /// literal of an axiom.
+    pub const fn principal(self) -> Option<Member> {
         use Node::*;
         match self {
             Ax(o, _)
@@ -170,9 +170,9 @@ impl Node {
         }
     }
 
-    /// Returns the occurrences the node names: one, or two for an axiom,
-    /// or none for Mix.
-    pub fn occurrences(self) -> impl Iterator<Item = OccId> {
+    /// Returns the members the node names: one, or two for an axiom, or
+    /// none for Mix.
+    pub fn members(self) -> impl Iterator<Item = Member> {
         let second = match self {
             Node::Ax(_, b) => Some(b),
             _ => None,
@@ -226,7 +226,7 @@ impl Display for Node {
     /// premise nodes, as in `⊗ on 1 from 0, 2`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())?;
-        let mut occurrences = self.occurrences().map(|o| o.get());
+        let mut occurrences = self.members().map(Member::get);
         if let Some(o) = occurrences.next() {
             write!(f, " on {o}")?;
             for o in occurrences {
@@ -257,13 +257,13 @@ impl Display for Node {
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::{Forest, Mode, Node, NodeId, OccId, Proof, Sequent};
+/// use linlog::{Forest, Member, Mode, Node, NodeId, Proof, Sequent};
 ///
-/// // ⊢ ~A, A ⊗ ~B, B, with the occurrences 0: ~A, 1: A ⊗ ~B, 2: A,
+/// // ⊢ ~A, A ⊗ ~B, B, with the members 0: ~A, 1: A ⊗ ~B, 2: A,
 /// // 3: ~B, 4: B.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let forest = Forest::new(&sequent)?;
-/// let (o, n) = (OccId::new, NodeId::new);
+/// let (o, n) = (Member::new, NodeId::new);
 /// let nodes = vec![
 ///     Node::Ax(o(0), o(2)),
 ///     Node::Ax(o(3), o(4)),
@@ -328,7 +328,7 @@ impl Proof {
             if !reachable[i] {
                 continue;
             }
-            for o in nodes[i].occurrences() {
+            for o in nodes[i].members() {
                 if o.index() >= forest.len() {
                     return Err(Error::IndexOutOfBounds {
                         space: crate::limits::Space::Occurrence,

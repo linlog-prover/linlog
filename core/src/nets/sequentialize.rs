@@ -15,7 +15,7 @@
 
 use super::{NetError, ProofStructure, Scratch};
 use crate::fragment::Mode;
-use crate::occurrences::OccId;
+use crate::occurrences::{Member, OccId};
 use crate::proofs::{Node, NodeId, Proof};
 use crate::sequents::Kind;
 
@@ -114,12 +114,12 @@ impl Sequentialization<'_> {
                 Step::Tensor(t) => {
                     let right = self.premise();
                     let left = self.premise();
-                    self.push(Node::Tensor(t, left, right))
+                    self.push(Node::Tensor(Member::from(t), left, right))
                 }
                 Step::Pars(pars) => {
                     let mut node = self.premise();
                     for &p in pars.iter().rev() {
-                        node = self.push(Node::Par(p, node));
+                        node = self.push(Node::Par(Member::from(p), node));
                     }
                     node
                 }
@@ -181,7 +181,7 @@ impl Sequentialization<'_> {
         } else if gamma.iter().all(|&c| f.is_literal(c)) {
             debug_assert!(gamma.len() == 2 && self.net.partner(gamma[0]) == Some(gamma[1]));
             let (x, y) = (gamma[0].min(gamma[1]), gamma[0].max(gamma[1]));
-            let axiom = self.push(Node::Ax(x, y));
+            let axiom = self.push(Node::Ax(x.into(), y.into()));
             self.proved.push(axiom);
         } else {
             // The splitting ⊗ conclusion with the smallest id: one whose
@@ -218,7 +218,7 @@ impl Sequentialization<'_> {
 mod tests {
     use super::super::ProofStructure;
     use crate::fragment::Mode;
-    use crate::occurrences::{Forest, OccId};
+    use crate::occurrences::{Forest, Member, OccId};
     #[cfg(feature = "parse")]
     use crate::proofs::{Node, NodeId};
     use crate::sequents::Sequent;
@@ -294,10 +294,10 @@ mod tests {
         assert_eq!(
             proof.nodes(),
             [
-                Ax(o(1), o(4)),
-                Ax(o(2), o(5)),
-                Tensor(o(0), n(0), n(1)),
-                Par(o(3), n(2)),
+                Ax(o(1).into(), o(4).into()),
+                Ax(o(2).into(), o(5).into()),
+                Tensor(Member::from(o(0)), n(0), n(1)),
+                Par(Member::from(o(3)), n(2)),
             ]
         );
         // ⊢ A ⅋ B, ~A, ~B with Mix: 0 ⅋, 1 A, 2 B, 3 ~A, 4 ~B.
@@ -307,10 +307,10 @@ mod tests {
         assert_eq!(
             proof.nodes(),
             [
-                Ax(o(1), o(3)),
-                Ax(o(2), o(4)),
+                Ax(o(1).into(), o(3).into()),
+                Ax(o(2).into(), o(4).into()),
                 Mix(n(0), n(1)),
-                Par(o(0), n(2))
+                Par(Member::from(o(0)), n(2))
             ]
         );
         assert_eq!(proof.check(Mode::CLASSICAL.with_mix()), Ok(()));
@@ -326,12 +326,12 @@ mod tests {
         assert_eq!(
             proof.nodes(),
             [
-                Ax(o(4), o(8)),
-                Ax(o(1), o(6)),
-                Ax(o(2), o(7)),
-                Tensor(o(0), n(1), n(2)),
-                Par(o(5), n(3)),
-                Tensor(o(3), n(0), n(4)),
+                Ax(o(4).into(), o(8).into()),
+                Ax(o(1).into(), o(6).into()),
+                Ax(o(2).into(), o(7).into()),
+                Tensor(Member::from(o(0)), n(1), n(2)),
+                Par(Member::from(o(5)), n(3)),
+                Tensor(Member::from(o(3)), n(0), n(4)),
             ]
         );
         assert!(

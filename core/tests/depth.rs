@@ -8,7 +8,7 @@
 
 #![cfg(feature = "serialize")]
 
-use linlog::{Forest, Fragment, Mode, Node, NodeId, Proof, Reading, Sequent};
+use linlog::{Forest, Fragment, Member, Mode, Node, NodeId, Proof, Reading, Sequent};
 
 /// How deep the formulas are nested.
 const DEPTH: usize = 100_000;
@@ -117,7 +117,7 @@ fn walk(json: &str, fragment: Fragment) {
 
     // The `⊤` proves the sequent in one inference, which concludes all of
     // it: a derivation is what reaches the printer of the certificates.
-    let top = Node::Top(forest.roots()[0]);
+    let top = Node::Top(Member::from(forest.roots()[0]));
     let proof = Proof::new(forest.clone(), vec![top], NodeId::new(0)).unwrap();
     proof.check(Mode::CLASSICAL).unwrap();
     let derivation = proof.derivation().unwrap();

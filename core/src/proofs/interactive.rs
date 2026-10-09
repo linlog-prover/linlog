@@ -26,7 +26,7 @@ use super::{Branch, Node, NodeId, Proof};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{Forest, OccId, Reading, Side};
+use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::search::{self, Options, Outcome, Verdict, focus};
 use crate::sequents::{Kind, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -1000,7 +1000,7 @@ impl Interactive {
         let mut root = terms.term(InfId::new(0));
         for &r in self.forest.roots() {
             if self.forest.kind(r) == Kind::Quest {
-                root = terms.push(Node::Quest(r, root));
+                root = terms.push(Node::Quest(Member::from(r), root));
             }
         }
         let proof = Proof::new(self.forest.clone(), terms.nodes, root)?;
@@ -1065,7 +1065,7 @@ impl Terms<'_> {
                     let mut node = done.pop().expect("the premise's term");
                     for x in introduced.into_iter().flatten() {
                         if f.kind(x) == Kind::Quest {
-                            node = self.push(Node::Quest(x, node));
+                            node = self.push(Node::Quest(Member::from(x), node));
                         }
                     }
                     done.push(node);
@@ -1088,9 +1088,9 @@ impl Terms<'_> {
                 let introduced: [[Option<OccId>; 2]; 2] = match rule {
                     Ax | One | Top => {
                         let leaf = match rule {
-                            Ax => Node::Ax(sequent[0], sequent[1]),
-                            One => Node::One(o()),
-                            _ => Node::Top(o()),
+                            Ax => Node::Ax(sequent[0].into(), sequent[1].into()),
+                            One => Node::One(Member::from(o())),
+                            _ => Node::Top(Member::from(o())),
                         };
                         let leaf = self.push(leaf);
                         done.push(leaf);
@@ -1119,18 +1119,18 @@ impl Terms<'_> {
             }
             let mut premise = || done.pop().expect("a premise's term");
             let node = match rule {
-                Par => Node::Par(o(), premise()),
-                Bot => Node::Bot(o(), premise()),
-                PlusLeft => Node::Plus(o(), Branch::Left, premise()),
-                PlusRight => Node::Plus(o(), Branch::Right, premise()),
-                Promotion => Node::Bang(o(), premise()),
-                Dereliction => Node::Copy(a(), premise()),
-                AffineWeakening => Node::Weaken(o(), premise()),
+                Par => Node::Par(Member::from(o()), premise()),
+                Bot => Node::Bot(Member::from(o()), premise()),
+                PlusLeft => Node::Plus(Member::from(o()), Branch::Left, premise()),
+                PlusRight => Node::Plus(Member::from(o()), Branch::Right, premise()),
+                Promotion => Node::Bang(Member::from(o()), premise()),
+                Dereliction => Node::Copy(Member::from(a()), premise()),
+                AffineWeakening => Node::Weaken(Member::from(o()), premise()),
                 With | Tensor | Mix => {
                     let (r, l) = (premise(), premise());
                     match rule {
-                        With => Node::With(o(), l, r),
-                        Tensor => Node::Tensor(o(), l, r),
+                        With => Node::With(Member::from(o()), l, r),
+                        Tensor => Node::Tensor(Member::from(o()), l, r),
                         _ => Node::Mix(l, r),
                     }
                 }
@@ -1635,7 +1635,8 @@ mod tests {
         for other in ["|- A, B, C, D, top", "|- top"] {
             let forest = Forest::new(&sequent(other)).unwrap();
             let top = *forest.roots().last().unwrap();
-            let proof = Proof::new(forest, vec![Node::Top(top)], NodeId::new(0)).unwrap();
+            let proof =
+                Proof::new(forest, vec![Node::Top(Member::from(top))], NodeId::new(0)).unwrap();
             assert!(matches!(
                 s.close_with(g, &proof, &view, &crate::Limits::default(), |_| false),
                 Err(Error::ForeignProof)

@@ -1105,17 +1105,20 @@ impl<'a> Build<'a> {
         }
         match self.proof.node(id) {
             Ax(..) => self.leaf(actual, Rule::Ax, None),
-            One(o) => self.leaf(actual, Rule::One, Some(o)),
-            Top(o) => self.leaf(actual, Rule::Top, Some(o)),
+            One(o) => self.leaf(actual, Rule::One, Some(o.occ())),
+            Top(o) => self.leaf(actual, Rule::Top, Some(o.occ())),
             Bot(o, p) => {
+                let o = o.occ();
                 let up = above(&actual, &[o], &[]);
                 self.from(actual, Rule::Bot, o, p, up);
             }
             Par(o, p) => {
+                let o = o.occ();
                 let up = above(&actual, &[o], &[left(o), right(o)]);
                 self.from(actual, Rule::Par, o, p, up);
             }
             Plus(o, side, p) => {
+                let o = o.occ();
                 let (chosen, rule) = match side {
                     Branch::Left => (left(o), Rule::PlusLeft),
                     Branch::Right => (right(o), Rule::PlusRight),
@@ -1124,10 +1127,12 @@ impl<'a> Build<'a> {
                 self.from(actual, rule, o, p, up);
             }
             Bang(o, p) => {
+                let o = o.occ();
                 let up = above(&actual, &[o], &[left(o)]);
                 self.from(actual, Rule::Promotion, o, p, up);
             }
             Weaken(o, p) => {
+                let o = o.occ();
                 let rule = if f.kind(o) == Kind::Quest {
                     Rule::Weakening
                 } else {
@@ -1137,6 +1142,7 @@ impl<'a> Build<'a> {
                 self.from(actual, rule, o, p, up);
             }
             Quest(o, p) => {
+                let o = o.occ();
                 if self.record.used[id.index()] {
                     // Used above: `?A` in Γ becomes `?A` in Θ, which the
                     // standard sequent does not distinguish.
@@ -1147,6 +1153,7 @@ impl<'a> Build<'a> {
                 }
             }
             Copy(a, p) => {
+                let a = a.occ();
                 let q = self.quest(a);
                 if self.record.used[id.index()] {
                     // Used again above: derelict the copy, then contract it
@@ -1166,9 +1173,16 @@ impl<'a> Build<'a> {
                     self.from(actual, Rule::Dereliction, q, p, up);
                 }
             }
-            Tensor(o, l, r) => self.split(id, actual, Some((o, left(o), right(o))), l, r),
+            Tensor(o, l, r) => self.split(
+                id,
+                actual,
+                Some((o.occ(), left(o.occ()), right(o.occ()))),
+                l,
+                r,
+            ),
             Mix(l, r) => self.split(id, actual, None, l, r),
             With(o, l, r) => {
+                let o = o.occ();
                 let up_l = above(&actual, &[o], &[left(o)]);
                 let up_r = above(&actual, &[o], &[right(o)]);
                 self.tasks.push(Task::Infer {
@@ -1268,8 +1282,8 @@ impl<'a> Build<'a> {
     /// weakening of a `?` formula.
     fn weakened(&self, id: NodeId) -> Option<OccId> {
         match self.proof.node(id) {
-            Node::Quest(o, _) if !self.record.used[id.index()] => Some(o),
-            Node::Weaken(o, _) if self.forest().kind(o) == Kind::Quest => Some(o),
+            Node::Quest(o, _) if !self.record.used[id.index()] => Some(o.occ()),
+            Node::Weaken(o, _) if self.forest().kind(o.occ()) == Kind::Quest => Some(o.occ()),
             _ => None,
         }
     }
@@ -1336,10 +1350,11 @@ impl<'a> Build<'a> {
 mod tests {
     use super::*;
     use crate::Sequent;
+    use crate::occurrences::Member;
 
-    /// Wraps a raw occurrence id.
-    const fn o(id: u32) -> OccId {
-        OccId::new(id)
+    /// Wraps a raw member id.
+    const fn o(id: u32) -> Member {
+        Member::new(id)
     }
 
     /// Wraps a raw node id.
@@ -1996,7 +2011,7 @@ mod tests {
             .map(|id| record.standard[&n(id)].as_slice().len())
             .into();
         assert_eq!((sequents, record.standard.len()), (vec![2, 2, 2], 3));
-        assert_eq!(record.shared[&n(4)], [o(1)]);
+        assert_eq!(record.shared[&n(4)], [o(1).occ()]);
         // Three flags for each of six nodes, four lists of seven members.
         assert_eq!(record.bytes(), 6 * 3 + 4 * Record::ENTRY + 7 * 8);
     }
@@ -2021,7 +2036,7 @@ mod tests {
         let d = p.derivation().unwrap();
         let i = InfId::new;
         let inference = |sequent: &[u32], rule, principal, premises: &[InfId]| Inference {
-            sequent: sequent.iter().map(|&x| o(x)).collect(),
+            sequent: sequent.iter().map(|&x| o(x).occ()).collect(),
             rule,
             principal,
             premises: premises.to_vec(),
