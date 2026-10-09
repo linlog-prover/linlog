@@ -12,7 +12,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::Styles;
 use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
-use linlog::proofs::Compact;
+use linlog::proofs::{Compact, Sides};
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
     CheckError, Error, Forest, Limits, Mode, Proof, ProofStructure, Reading, Refusal, Sequent,
@@ -253,7 +253,7 @@ impl Show {
             net: output.net,
             file: output.output.is_some(),
             styles,
-            view: ViewOptions::default().compact(match format {
+            view: ViewOptions::default().with_compact(match format {
                 // A certificate names every formula it weakens.
                 Format::Rocq => Compact::Never,
                 _ => output.compact.into(),
@@ -635,13 +635,14 @@ pub(crate) fn derivation(
     // A tree that cannot fit is known from its size alone, before
     // anything is built; the compact one may fit where it does not.
     let fit = show.fit();
-    let mut view = show.view;
+    let sides = if mode.is_intuitionistic() {
+        Sides::Two
+    } else {
+        Sides::One
+    };
+    let mut view = show.view.with_sides(sides);
     if let Some((columns, most)) = fit {
-        let size = match proof.derivation_size_within(
-            mode.is_intuitionistic(),
-            &show.limits,
-            |_| halt(),
-        ) {
+        let size = match proof.derivation_size(&view, &show.limits, |_| halt()) {
             Ok(size) => size,
             // No verdict on the proof: the pass was given up.
             Err(CheckError::Refused(_)) => {
@@ -652,7 +653,7 @@ pub(crate) fn derivation(
             Err(e) => return Err(invalid(e)),
         };
         if (size.width > columns || size.lines() > most) && view.compact != Compact::Never {
-            view = view.compact(Compact::Always);
+            view = view.with_compact(Compact::Always);
         } else if size.width > columns || size.lines() > most {
             let width = format!("at least {}", size.width);
             return Ok(Shown::LeftOut(unfit(
@@ -664,17 +665,17 @@ pub(crate) fn derivation(
             )));
         }
     }
-    let built = if mode.is_intuitionistic() {
-        proof.two_sided_derivation_within(&view, &show.limits, |_| halt())
-    } else {
-        proof.derivation_within(&view, &show.limits, |_| halt())
-    };
+    let built = proof.derivation_within(&view, &show.limits, |_| halt());
     let d = match built {
         Ok(d) => d,
         Err(Error::Check(e @ CheckError::Invalid(_))) => return Err(invalid(e)),
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) => {
-            let size = || proof.derivation_size(mode.is_intuitionistic()).ok();
+            let size = || {
+                proof
+                    .derivation_size(&view, &Limits::default(), |_| false)
+                    .ok()
+            };
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
     };

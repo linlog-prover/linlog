@@ -69,8 +69,9 @@ Each entry point is described in the file of its module:
 - `Proof::new(forest, nodes, root)`, `check(mode)`,
   `check_within(mode, &limits, stop)`, and `CheckError::{Invalid, Refused}`
   (`core-proofs.md`);
-- `derivation()`, `two_sided_derivation()`, `derivation_size(two_sided)`,
-  `derivation_within(&view, &limits, stop)` under `ViewOptions`, `write_text`;
+- `derivation()`, `derivation_within(&view, &limits, stop)` (the view's
+  `sides`, one, two or by the proof's mode), `derivation_size(&view, …)`,
+  `write_text`;
   `Interactive` (`core-derivations.md`);
 - `prove`, `prove_within`, `prove_goal` with `Options` and `Limits`, returning an
   `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,

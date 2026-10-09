@@ -2029,7 +2029,7 @@ mod tests {
         assert_eq!((e.node(), e.fault()), (n(8), Some(&Fault::Surplus)));
         assert_eq!(Err(e.clone()), oracle::check(&p, mode));
         // The pass that adds up weights for the size refuses it there too.
-        assert_eq!(p.derivation_size(false), Err(e));
+        assert_eq!(p.size_of(false), Err(e));
     }
 
     /// A proof of `⊢ 1, ⊥, …, ⊥, T` with `width` formulas `⊥` and `T` a
@@ -2202,8 +2202,8 @@ mod tests {
         // The size and the derivation are under the same bound, and their
         // refusal is no invalid proof either.
         assert!(matches!(
-            large.derivation_size_within(
-                false,
+            large.derivation_size(
+                &crate::proofs::ViewOptions::default(),
                 &crate::Limits::default().with_memory_bytes(Some(limit)),
                 |_| false
             ),

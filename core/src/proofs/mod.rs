@@ -38,7 +38,7 @@ pub mod size;
 pub mod style;
 
 pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};
-pub use derivation::{Compact, Derivation, InfId, Inference, ViewOptions};
+pub use derivation::{Compact, Derivation, InfId, Inference, Sides, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
 pub use interactive::{GoalId, Interactive, Step, StepError};
@@ -540,7 +540,29 @@ impl Proof {
     /// calculus it stands for, within the default [`Limits`], or reports
     /// why it is not a proof or why the derivation was not built; see
     /// [`Derivation`], and [`derivation_within`](Self::derivation_within)
-    /// for other options.
+    /// for other options. A proof meant for intuitionistic mode unfolds
+    /// two-sided.
+    ///
+    /// # Examples
+    ///
+    #[cfg_attr(feature = "parse", doc = "```")]
+    #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
+    /// use linlog::{Mode, Options, Sequent, Verdict, prove};
+    ///
+    /// let sequent: Sequent = "A, A -o B |- B".parse()?;
+    /// let outcome = prove(&sequent, Mode::INTUITIONISTIC, &Options::default())?;
+    /// let Verdict::Proved(proof) = &outcome.verdict else {
+    ///     panic!("provable");
+    /// };
+    /// assert_eq!(
+    ///     proof.derivation()?.to_string(),
+    ///     "───── ax   ───── ax\n\
+    ///      A ⊢ A      B ⊢ B\n\
+    ///      ──────────────── ⊸L\n\
+    ///     \x20 A, A ⊸ B ⊢ B"
+    /// );
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
         self.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
     }
@@ -556,27 +578,19 @@ impl Proof {
         limits: &Limits,
         stop: impl FnMut(Progress) -> bool,
     ) -> Result<Derivation<'_>, Error> {
-        Derivation::new(self, view, limits, stop)
+        if view.two_sided(self) {
+            Derivation::two_sided(self, view, limits, stop)
+        } else {
+            Derivation::new(self, view, limits, stop)
+        }
     }
 
-    /// Returns the two-sided derivation of intuitionistic linear logic the
-    /// proof stands for, or the checker's complaint in intuitionistic
-    /// mode, or why the derivation was not built. See
-    /// [`Derivation::two_sided`].
-    pub fn two_sided_derivation(&self) -> Result<Derivation<'_>, Error> {
-        self.two_sided_derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
-    }
-
-    /// Unfolds the proof as
-    /// [`two_sided_derivation`](Self::two_sided_derivation) does, as
-    /// [`derivation_within`](Self::derivation_within) does.
-    pub fn two_sided_derivation_within(
-        &self,
-        view: &ViewOptions,
-        limits: &Limits,
-        stop: impl FnMut(Progress) -> bool,
-    ) -> Result<Derivation<'_>, Error> {
-        Derivation::two_sided(self, view, limits, stop)
+    /// Returns the two-sided derivation within the default limits: the
+    /// tests' short form.
+    #[cfg(test)]
+    pub(crate) fn two_sided(&self) -> Result<Derivation<'_>, Error> {
+        let view = ViewOptions::default().with_sides(Sides::Two);
+        self.derivation_within(&view, &Limits::default(), |_| false)
     }
 }
 

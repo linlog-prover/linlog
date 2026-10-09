@@ -84,7 +84,7 @@ fn the_checker_stops_and_keeps_its_bounds() {
         memory,
         Err(CheckError::Refused(r)) if matches!(r.refusal, Refusal::Memory { .. })
     ));
-    let size = proof.derivation_size_within(false, &Limits::default(), |_| true);
+    let size = proof.derivation_size(&ViewOptions::default(), &Limits::default(), |_| true);
     assert!(matches!(size, Err(CheckError::Refused(r)) if r.refusal.is_stop()));
 }
 

@@ -44,7 +44,7 @@
 //!     panic!("provable");
 //! };
 //! assert_eq!(
-//!     latex::derivation(&proof.two_sided_derivation()?, &options),
+//!     latex::derivation(&proof.derivation()?, &options),
 //!     r"\begin{prooftree}
 //! \infer0[$\mathrm{ax}$]{A &\vdash A}
 //! \infer0[$\mathrm{ax}$]{B &\vdash B}

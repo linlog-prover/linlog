@@ -48,7 +48,7 @@
 //!     panic!("provable");
 //! };
 //! assert_eq!(
-//!     typst::derivation(&proof.two_sided_derivation()?, &options),
+//!     typst::derivation(&proof.derivation()?, &options),
 //!     r#"#prooftree(
 //!   rule(
 //!     name: $⊸ upright(L)$,

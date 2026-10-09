@@ -19,7 +19,7 @@
 use linlog::export::rocq::{self, Unsupported};
 use linlog::export::svg::{self, Style};
 use linlog::export::{Form, latex, typst};
-use linlog::proofs::Compact;
+use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
     Derivation, Forest, GoalId, Inference, Interactive, Mode, OccId, Options, Proof,
@@ -95,7 +95,11 @@ fn pin_certificate(name: &str, derivation: &Derivation) {
 fn pin_proof(name: &str, input: &str, mode: Mode) {
     let proof = proof(input, mode);
     let derivation = if mode.is_intuitionistic() {
-        proof.two_sided_derivation()
+        proof.derivation_within(
+            &ViewOptions::default().with_sides(Sides::Two),
+            &linlog::Limits::default(),
+            |_| false,
+        )
     } else {
         proof.derivation()
     };
@@ -193,10 +197,12 @@ fn ordinary_derivation() {
 /// starred label in every drawn target.
 #[test]
 fn compact_view() {
-    let view = ViewOptions::default().compact(Compact::Always);
+    let view = ViewOptions::default()
+        .with_compact(Compact::Always)
+        .with_sides(Sides::Two);
     let proof = proof("!A, !B, !C |- 1 * 1", Mode::INTUITIONISTIC);
     let derivation = proof
-        .two_sided_derivation_within(&view, &linlog::Limits::default(), |_| false)
+        .derivation_within(&view, &linlog::Limits::default(), |_| false)
         .unwrap();
     assert!(derivation.inferences().iter().any(|i| i.times() == 3));
     pin("compact", &derivation);
@@ -274,7 +280,11 @@ fn every_label() {
     ] {
         let proof = proof(input, mode);
         let derivation = if mode.is_intuitionistic() {
-            proof.two_sided_derivation()
+            proof.derivation_within(
+                &ViewOptions::default().with_sides(Sides::Two),
+                &linlog::Limits::default(),
+                |_| false,
+            )
         } else {
             proof.derivation()
         };
@@ -538,7 +548,16 @@ fn structure(document: &str) -> [usize; 3] {
 fn svg_structure() {
     let style = Style::default();
     let two_sided = proof("1, A & B, B -o C |- C", Mode::INTUITIONISTIC);
-    let drawn = svg::derivation(&two_sided.two_sided_derivation().unwrap(), &style);
+    let drawn = svg::derivation(
+        &two_sided
+            .derivation_within(
+                &ViewOptions::default().with_sides(Sides::Two),
+                &linlog::Limits::default(),
+                |_| false,
+            )
+            .unwrap(),
+        &style,
+    );
     assert_eq!(structure(&drawn), [11, 5, 0]);
 
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
@@ -577,7 +596,13 @@ fn renders() {
             .unwrap();
     let derivation = proof("A, A -o B |- B", Mode::INTUITIONISTIC);
     let drawing = svg::derivation(
-        &derivation.two_sided_derivation().unwrap(),
+        &derivation
+            .derivation_within(
+                &ViewOptions::default().with_sides(Sides::Two),
+                &linlog::Limits::default(),
+                |_| false,
+            )
+            .unwrap(),
         &Style::default(),
     );
     let image = png::from_svg(&drawing, &[&font], &png::Options::default()).unwrap();

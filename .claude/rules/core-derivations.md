@@ -28,7 +28,10 @@ in ascending order with repeats, which the writers read through
 and `formula` read a member, as `Proof`'s and `Interactive`'s do.
 `ProofStructure::from_proof` reads the axiom links off the `Ax` nodes.
 
-`Derivation::two_sided` (`Proof::two_sided_derivation`) is the same tree
+`Derivation::two_sided` (crate-private, like `Derivation::new`: the
+public door is `Proof::derivation_within`, which picks one by the
+view's `sides`; `Sides::Two`, or `Sides::Auto` on a proof found in
+intuitionistic mode) is the same tree
 read two-sided: it checks the proof in intuitionistic affine mode (so
 `wk` shows where used), keeps the `Reading` (`Derivation::reading`), names
 each rule by the position of its principal formula
@@ -76,9 +79,8 @@ table of every node's sequent would be, by any factor, on a chain of `?`
 steps (which are no inferences).
 
 **The size of a derivation is computed from the term, without building
-it** (`proofs/size.rs`, `Proof::derivation_size(two_sided)`, a `Size`;
-`derivation_size_within(two_sided, &limits, stop)` for other limits on the
-pass): one pass of the checker with an observer that keeps a few numbers
+it** (`proofs/size.rs`, `Proof::derivation_size(&view, &limits, stop)`,
+a `Size` of the derivation the view's sides choose): one pass of the checker with an observer that keeps a few numbers
 per node, all saturating, since a term with shared subproofs unfolds
 exponentially. Every sum, product and difference there saturates;
 nothing is ever taken away from a count of inferences, of characters or
@@ -149,8 +151,9 @@ the proof. So the text tree, the four exports
 (which take a `Derivation`), the graft of `Interactive::close` and a
 front end's check output are all under the bound by construction, and a
 new path that needs a derivation gets it from there or not at all.
-`Proof::derivation()` and `two_sided_derivation()` are the default
-options with no stop; `…_within(&view, &limits, stop)` take all three. A proof whose
+`Proof::derivation()` is the default view (`Sides::Auto`: two-sided
+exactly for a proof whose recorded mode is intuitionistic) and the
+default options with no stop; `…_within(&view, &limits, stop)` take all three. A proof whose
 derivation is refused for its size has passed the checker (the size's
 pass is one). `Interactive::close(goal, options, view, limits, stop)` leaves a
 goal open whose graft is refused (`Error::Refused`), though the search
@@ -159,7 +162,7 @@ builder needs no stack to speak of, so a front end on a small one (the
 web) builds what the bounds allow; `Size::height` is what it asks to
 know whether a tree fits a view.
 
-**The compact view** (`ViewOptions::compact`, `Compact::Auto` by
+**The compact view** (`ViewOptions::compact`, set with `with_compact`, `Compact::Auto` by
 default, `Always`, `Never`; `Inference::times`, how many applications of
 its rule an inference stands for). What the code relies on:
 - **A run is merged where it is made**: in `Build::infer`, a structural

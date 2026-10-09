@@ -17,7 +17,7 @@
 //! then over every bound.
 
 use super::check::{self, Allowance, CheckError, Facts, Observer, State};
-use super::{Branch, Derivation, Node, NodeId, Proof};
+use super::{Branch, Derivation, Node, NodeId, Proof, ViewOptions};
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress};
 use crate::occurrences::{Forest, OccId, Reading, Side};
@@ -81,26 +81,20 @@ impl Size {
 }
 
 impl Proof {
-    /// Returns how large the derivation of the proof is, the two-sided one
-    /// with `two_sided` set, without building it, or the checker's
+    /// Returns how large the derivation of the proof that `view` shows is,
+    /// one-sided or two-sided, without building it, or the checker's
     /// complaint about the proof: the proof passes the checker once,
-    /// within the default [`Limits`], and a subproof that several nodes
-    /// share is counted at every use, as the derivation repeats it.
-    pub fn derivation_size(&self, two_sided: bool) -> Result<Size, CheckError> {
-        self.derivation_size_within(two_sided, &Limits::default(), |_| false)
-    }
-
-    /// Returns the size as [`derivation_size`](Self::derivation_size)
-    /// does, the checker's pass holding `limits.memory_bytes` at most and
-    /// asking `stop` every 4 096 nodes; a pass that would hold more, or
-    /// that `stop` ends, answers [`CheckError::Refused`].
-    pub fn derivation_size_within(
+    /// holding `limits.memory_bytes` at most and asking `stop` every 4 096
+    /// nodes (a pass that would hold more, or that `stop` ends, answers
+    /// [`CheckError::Refused`]), and a subproof that several nodes share is
+    /// counted at every use, as the derivation repeats it.
+    pub fn derivation_size(
         &self,
-        two_sided: bool,
+        view: &ViewOptions,
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Size, CheckError> {
-        let mode = if two_sided {
+        let mode = if view.two_sided(self) {
             Derivation::TWO_SIDED
         } else {
             Derivation::ONE_SIDED
@@ -108,6 +102,22 @@ impl Proof {
         let reading = check::reading(self, mode)?;
         let allowance = Allowance::new(limits, Phase::View, &mut stop);
         measure(self, &self.conclusion(), mode, reading.as_ref(), allowance)
+    }
+
+    /// Returns the size of the derivation, two-sided with `two_sided`,
+    /// within the default limits: the tests' short form.
+    #[cfg(test)]
+    pub(crate) fn size_of(&self, two_sided: bool) -> Result<Size, CheckError> {
+        let sides = if two_sided {
+            super::Sides::Two
+        } else {
+            super::Sides::One
+        };
+        self.derivation_size(
+            &ViewOptions::default().with_sides(sides),
+            &Limits::default(),
+            |_| false,
+        )
     }
 }
 
@@ -671,7 +681,7 @@ mod tests {
                 ));
             }
             for (two_sided, derivation) in views {
-                let size = proof.derivation_size(two_sided).unwrap();
+                let size = proof.size_of(two_sided).unwrap();
                 let (inferences, characters, height, widest) = counted(&derivation);
                 let conclusion = counted_root(&derivation);
                 let context = format!("{} ({mode}, two-sided: {two_sided})", proof.sequent());
@@ -717,7 +727,7 @@ mod tests {
         assert_eq!(forest.len(), 1 + (1 << 13) - 1);
         let nodes = vec![Node::Top(Member::new(0))];
         let proof = Proof::new(forest, nodes, NodeId::new(0)).unwrap();
-        let size = proof.derivation_size(false).unwrap();
+        let size = proof.size_of(false).unwrap();
         assert_eq!((size.inferences, size.height), (1, 1));
         // The conclusion alone has over 2³² characters.
         assert_eq!((size.characters, size.width), (u64::MAX, u64::MAX));

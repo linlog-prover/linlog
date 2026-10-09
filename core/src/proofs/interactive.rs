@@ -1793,7 +1793,7 @@ mod tests {
         assert_eq!(proof.check(i), Ok(()));
         assert_eq!(
             s.derivation().unwrap().to_string(),
-            proof.two_sided_derivation().unwrap().to_string()
+            proof.two_sided().unwrap().to_string()
         );
         // !L, !c and !R by their two-sided names.
         let (mut s, g) = start("!a |- !(a * a)", i);

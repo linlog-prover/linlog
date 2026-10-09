@@ -72,6 +72,25 @@ impl InfId {
 pub struct ViewOptions {
     /// Whether a run of one structural rule is drawn as one inference.
     pub compact: Compact,
+    /// Whether the derivation is one-sided or two-sided.
+    pub sides: Sides,
+}
+
+/// Whether a derivation is drawn one-sided, as classical linear logic
+/// writes it, or two-sided, as intuitionistic linear logic does.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Sides {
+    /// Two-sided exactly when the proof was found in intuitionistic mode
+    /// ([`Proof::mode`]), one-sided otherwise.
+    #[default]
+    Auto,
+    /// One-sided.
+    One,
+    /// Two-sided, under the sequent's intuitionistic reading.
+    Two,
 }
 
 /// Whether a derivation draws a run of one structural rule, such as the
@@ -92,10 +111,25 @@ pub enum Compact {
 }
 
 impl ViewOptions {
-    /// Returns the options with the compact view set.
+    /// Returns the options with another [`compact`](Self::compact).
     #[must_use]
-    pub const fn compact(self, compact: Compact) -> Self {
-        Self { compact }
+    pub const fn with_compact(self, compact: Compact) -> Self {
+        Self { compact, ..self }
+    }
+
+    /// Returns the options with another [`sides`](Self::sides).
+    #[must_use]
+    pub const fn with_sides(self, sides: Sides) -> Self {
+        Self { sides, ..self }
+    }
+
+    /// Returns whether a derivation of `proof` is two-sided.
+    pub(crate) fn two_sided(&self, proof: &Proof) -> bool {
+        match self.sides {
+            Sides::One => false,
+            Sides::Two => true,
+            Sides::Auto => proof.mode().is_some_and(Mode::is_intuitionistic),
+        }
     }
 }
 
@@ -181,7 +215,7 @@ impl<'a> Derivation<'a> {
     /// unfolding fails as [`check`](Proof::check) would if it is not. Mode
     /// is not a question here: a derivation shows every rule the proof
     /// uses.
-    pub fn new(
+    pub(crate) fn new(
         proof: &'a Proof,
         view: &ViewOptions,
         limits: &Limits,
@@ -206,28 +240,7 @@ impl<'a> Derivation<'a> {
     /// rule names, unless it is larger than `view` allows or `stop` fires
     /// on the way. The proof must pass the checker in intuitionistic mode
     /// (affine or not), and the unfolding fails as it would otherwise.
-    ///
-    /// # Examples
-    ///
-    #[cfg_attr(feature = "parse", doc = "```")]
-    #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-    /// use linlog::{Mode, Options, Sequent, Verdict, prove};
-    ///
-    /// let sequent: Sequent = "A, A -o B |- B".parse()?;
-    /// let outcome = prove(&sequent, Mode::INTUITIONISTIC, &Options::default())?;
-    /// let Verdict::Proved(proof) = &outcome.verdict else {
-    ///     panic!("provable");
-    /// };
-    /// assert_eq!(
-    ///     proof.two_sided_derivation()?.to_string(),
-    ///     "───── ax   ───── ax\n\
-    ///      A ⊢ A      B ⊢ B\n\
-    ///      ──────────────── ⊸L\n\
-    ///     \x20 A, A ⊸ B ⊢ B"
-    /// );
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    pub fn two_sided(
+    pub(crate) fn two_sided(
         proof: &'a Proof,
         view: &ViewOptions,
         limits: &Limits,
@@ -304,7 +317,7 @@ impl<'a> Derivation<'a> {
     ) -> Result<Vec<Inference>, Error> {
         let reading = check::reading(proof, mode)?;
         // A graft is read rule by rule, never drawn compact.
-        let view = view.compact(Compact::Never);
+        let view = view.with_compact(Compact::Never);
         unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)
     }
 
@@ -1341,12 +1354,7 @@ mod tests {
     #[test]
     fn two_sided() {
         use Node::*;
-        let render = |input: &str, nodes| {
-            proof(input, nodes)
-                .two_sided_derivation()
-                .unwrap()
-                .to_string()
-        };
+        let render = |input: &str, nodes| proof(input, nodes).two_sided().unwrap().to_string();
         // A, A ⊸ B ⊢ B: 0 ~A, 1 ⊗, 2 A, 3 ~B, 4 B
         assert_eq!(
             render(
@@ -1448,13 +1456,13 @@ mod tests {
         // sequent none at all.
         let p = proof("A, B |- A", vec![Ax(o(0), o(2)), Weaken(o(1), n(0))]);
         assert_eq!(
-            p.two_sided_derivation().unwrap().to_string(),
+            p.two_sided().unwrap().to_string(),
             [" ───── ax", " A ⊢ A", "──────── wk", "A, B ⊢ A"].join("\n")
         );
         let p = proof("|- A par B", vec![Ax(o(1), o(2))]);
-        assert!(p.two_sided_derivation().is_err());
+        assert!(p.two_sided().is_err());
         let p = proof("A, B |- A", vec![Ax(o(0), o(2)), Weaken(o(2), n(0))]);
-        assert!(p.two_sided_derivation().is_err());
+        assert!(p.two_sided().is_err());
     }
 
     /// A compact view draws a run of one structural rule as one starred
@@ -1468,7 +1476,7 @@ mod tests {
         let crate::Verdict::Proved(p) = outcome.verdict else {
             panic!("provable");
         };
-        let view = |compact| ViewOptions::default().compact(compact);
+        let view = |compact| ViewOptions::default().with_compact(compact);
         let limit = |bytes| crate::Limits::default().with_derivation_bytes(bytes);
         let full = p.derivation_within(&view(Compact::Never), &limit(None), |_| false);
         assert_eq!(full.unwrap().inferences().len(), 5);
@@ -1480,7 +1488,7 @@ mod tests {
             compact.to_string(),
             "        ─── 1\n        ⊢ 1\n─────────────────── ?w*\n⊢ ?a, ?b, ?c, ?d, 1"
         );
-        let bytes = p.derivation_size(false).unwrap().bytes();
+        let bytes = p.size_of(false).unwrap().bytes();
         let tight = Some(bytes - 1);
         let auto = p.derivation_within(&view(Compact::Auto), &limit(tight), |_| false);
         assert_eq!(auto.unwrap().inferences().len(), 2, "over the bound");
@@ -1570,7 +1578,7 @@ mod tests {
             };
             for &two_sided in sides {
                 let build = |compact| {
-                    let view = ViewOptions::default().compact(compact);
+                    let view = ViewOptions::default().with_compact(compact);
                     let limits = &crate::Limits::default().with_derivation_bytes(None);
                     let built = if two_sided {
                         Derivation::two_sided(&proof, &view, limits, |_| false)
@@ -1632,7 +1640,7 @@ mod tests {
             for (i, inference) in inferences.iter().enumerate().skip(1) {
                 assert_eq!(inference.premises, [InfId::new(i as u32 - 1)]);
             }
-            let size = p.derivation_size(false).unwrap();
+            let size = p.size_of(false).unwrap();
             assert_eq!(size.height, u64::from(3 * ROUNDS));
             assert_eq!(inferences[0].rule, Named::from(Rule::One));
             assert_eq!(d.inference(d.root()).rule, Named::from(Rule::Contraction));
@@ -1682,7 +1690,7 @@ mod tests {
         let never = || false;
         // 2²⁷ − 3 inferences, each with a sequent of up to 26 formulas.
         let p = tower(25);
-        let size = p.derivation_size(false).unwrap();
+        let size = p.size_of(false).unwrap();
         assert_eq!(size.inferences, (1 << 27) - 3);
         assert_eq!(size.height, 51);
         assert!(size.bytes() > Limits::DEFAULT_MEMORY_BYTES);
@@ -1724,7 +1732,7 @@ mod tests {
 
         // More than 2⁷⁰ inferences.
         let p = tower(70);
-        let size = p.derivation_size(false).unwrap();
+        let size = p.size_of(false).unwrap();
         assert_eq!((size.inferences, size.characters), (u64::MAX, u64::MAX));
         assert_eq!((size.bytes(), size.height), (u64::MAX, 141));
         let unbounded = crate::Limits::UNBOUNDED;

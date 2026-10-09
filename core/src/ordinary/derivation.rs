@@ -6,7 +6,7 @@ use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
 use crate::limits::{Limits, Progress};
 use crate::occurrences::OccId;
 use crate::proofs::style::Drawn;
-use crate::proofs::{Compact, InfId, Labels, Rule as Linear, TextOptions, ViewOptions};
+use crate::proofs::{Compact, InfId, Labels, Rule as Linear, Sides, TextOptions, ViewOptions};
 use crate::{Error, Proof};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
@@ -645,12 +645,13 @@ impl Image {
         limits: &Limits,
         stop: impl FnMut(Progress) -> bool,
     ) -> Result<crate::Derivation<'p>, Error> {
-        let view = view.compact(Compact::Never);
-        if self.mode.intuitionistic {
-            proof.two_sided_derivation_within(&view, limits, stop)
+        let sides = if self.mode.intuitionistic {
+            Sides::Two
         } else {
-            proof.derivation_within(&view, limits, stop)
-        }
+            Sides::One
+        };
+        let view = view.with_compact(Compact::Never).with_sides(sides);
+        proof.derivation_within(&view, limits, stop)
     }
 
     /// Reads a derivation of the image back as one of LK (classical

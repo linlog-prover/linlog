@@ -10,8 +10,9 @@ use crate::prove::{Ended, Prefixed, Show, Shown, not_built, render, unfit, unkno
 use anyhow::{Result, anyhow, bail};
 use linlog::export::{latex, rocq, svg, typst};
 use linlog::ordinary::{self, Image, Logic, Translation};
+use linlog::proofs::Sides;
 use linlog::search::{Outcome, Verdict};
-use linlog::{Error, Proof, Refusal};
+use linlog::{Error, Limits, Proof, Refusal, ViewOptions};
 use std::fmt::Write;
 
 /// Returns the ordinary sequent `text` holds in `format`: text in the
@@ -85,7 +86,17 @@ pub(crate) fn derivation(
         Ok(linear) => linear,
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) if error.is_refusal() => {
-            let size = || proof.derivation_size(image.mode().is_intuitionistic()).ok();
+            let sides = if image.mode().is_intuitionistic() {
+                Sides::Two
+            } else {
+                Sides::One
+            };
+            let view = ViewOptions::default().with_sides(sides);
+            let size = || {
+                proof
+                    .derivation_size(&view, &Limits::default(), |_| false)
+                    .ok()
+            };
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
         Err(error) => return Err(anyhow!(error).context("the proof cannot be unfolded")),

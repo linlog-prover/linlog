@@ -458,7 +458,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **Intuitionistic mode is a matter of presentation in the CLI**: the
   verdict line and the JSON name the fragment through
   `Fragment::name_in(mode)` (`IMLL`, `ILL`, …); `prove -i` and `check -i`
-  print the two-sided derivation (`Proof::two_sided_derivation`) and
+  print the two-sided derivation (a view with `Sides::Two`) and
   `check -i` the sequent two-sided (`sequent_text`); `seq print -i` and
   `seq fragment -i` do the same for a bare sequent. A sequent with no
   intuitionistic reading is exit 2 with core's `ShapeError` described with
