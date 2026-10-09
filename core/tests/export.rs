@@ -22,8 +22,8 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Derivation, Forest, InfId, Inference, Interactive, Mode, OccId, Options, Proof, ProofStructure,
-    ViewOptions,
+    Derivation, Forest, GoalId, Inference, Interactive, Mode, OccId, Options, Proof,
+    ProofStructure, Step, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Reading, Rule, Sequent, Verdict, prove};
@@ -133,16 +133,19 @@ fn typst_layout() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
     let goals = state
-        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .apply(
+            GoalId::new(0),
+            &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
+        )
         .unwrap();
-    state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
+    state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
     let options = typst::Options {
         layout: typst::Layout::Linlog,
         ..options
     };
     snapshot(
         "open-linlog.typ",
-        &typst::derivation(&state.derivation(), &options),
+        &typst::derivation(&state.derivation().unwrap(), &options),
     );
 }
 
@@ -206,19 +209,22 @@ fn open_goal() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
     let goals = state
-        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .apply(
+            GoalId::new(0),
+            &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
+        )
         .unwrap();
-    state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
-    pin("open", &state.derivation());
+    state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
+    pin("open", &state.derivation().unwrap());
     pin_fragments(
         "open-dashed",
-        &state.derivation(),
+        &state.derivation().unwrap(),
         Labels::Upright,
         OpenGoal::Dashed,
     );
     let options = rocq::Options::default();
     assert_eq!(
-        rocq::derivation(&state.derivation(), &options),
+        rocq::derivation(&state.derivation().unwrap(), &options),
         Err(Unsupported::Open)
     );
 }
@@ -297,13 +303,16 @@ fn ids_name_goals() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
     let goals = state
-        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .apply(
+            GoalId::new(0),
+            &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
+        )
         .unwrap();
     let style = Style {
         ids: true,
         ..Style::default()
     };
-    let drawing = svg::derivation(&state.derivation(), &style);
+    let drawing = svg::derivation(&state.derivation().unwrap(), &style);
     let ids = state.derivation_ids();
     let drawn = ids.iter().position(|&id| id == goals[1]).unwrap();
     // The open goal `B ⊢ B` has the hypothesis at position 0.
@@ -315,7 +324,7 @@ fn ids_name_goals() {
         drawing.contains(&format!(r#"<g id="i{drawn}-1">"#)),
         "{drawing}"
     );
-    state.apply(ids[drawn], 0, Rule::Ax, &[]).unwrap();
+    state.apply(ids[drawn], &Step::new(0, Rule::Ax)).unwrap();
 }
 
 /// A proof of full linear logic with a contraction is pinned as a
@@ -535,11 +544,14 @@ fn svg_structure() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
     let goals = state
-        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .apply(
+            GoalId::new(0),
+            &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
+        )
         .unwrap();
-    state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
+    state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
     assert_eq!(
-        structure(&svg::derivation(&state.derivation(), &style)),
+        structure(&svg::derivation(&state.derivation().unwrap(), &style)),
         [6, 2, 0]
     );
 

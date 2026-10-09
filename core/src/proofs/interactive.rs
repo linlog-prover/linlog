@@ -22,11 +22,12 @@
 
 use super::derivation::{Derivation, InfId, Inference, ViewOptions};
 use super::multiset::Multiset;
-use super::{Branch, Node, NodeId, Proof};
+use super::size::Size;
+use super::{Branch, CheckError, Node, NodeId, Proof};
 use super::{Named, Rule};
 use crate::Error;
 use crate::fragment::Mode;
-use crate::limits::{Limits, Progress};
+use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::search::{self, Options, Outcome, Verdict, focus};
 use crate::sequents::{Kind, Sequent};
@@ -47,7 +48,7 @@ pub enum StepError {
     /// No open goal has this id.
     NoGoal {
         /// The id asked for.
-        goal: InfId,
+        goal: GoalId,
     },
     /// The goal has no formula at the position; it has `len` formulas.
     NoFormula {
@@ -116,6 +117,9 @@ pub enum StepError {
         /// The position of the formula.
         position: usize,
     },
+    /// A Mix whose split leaves a premise without a formula: no rule
+    /// concludes the empty sequent, so nothing could close it.
+    EmptyPremise,
 }
 
 impl Display for StepError {
@@ -161,11 +165,160 @@ impl Display for StepError {
                 f,
                 "formula {position} is the one on the right of ⊢ and cannot be weakened"
             ),
+            StepError::EmptyPremise => {
+                f.write_str("the split leaves a premise without a formula, which no rule concludes")
+            }
         }
     }
 }
 
 impl std::error::Error for StepError {}
+
+/// The number of an inference of a session, in the session's own order:
+/// the root `0`, and every step's premises after it. It names the goals
+/// that [`Interactive::apply`], [`close`](Interactive::close) and
+/// [`undo`](Interactive::undo) take and return; a derivation of the
+/// session numbers its inferences otherwise ([`InfId`]), and
+/// [`Interactive::derivation_ids`] maps the one to the other.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde(transparent))]
+pub struct GoalId(u32);
+
+impl GoalId {
+    /// Wraps a raw goal number.
+    pub const fn new(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    /// Returns the raw goal number.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    /// Returns the number as a `usize`.
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Returns the inference of the session's arena the goal is.
+    const fn inf(self) -> InfId {
+        InfId::new(self.0)
+    }
+
+    /// Returns the goal an inference of the session's arena is.
+    const fn of(id: InfId) -> Self {
+        Self(id.get())
+    }
+}
+
+/// A step of a session: the rule applied to the formula at a position of
+/// a goal, and the split a `⊗` or Mix needs.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Step {
+    /// The position of the formula in the goal's sequent.
+    pub position: usize,
+    /// The rule, by its classical name or, in intuitionistic mode, by its
+    /// two-sided one.
+    pub rule: Named,
+    /// How the context is split between two premises.
+    pub split: Split,
+}
+
+impl Step {
+    /// Returns the step of `rule` on the formula at `position`, without a
+    /// split.
+    pub fn new(position: usize, rule: impl Into<Named>) -> Self {
+        Self {
+            position,
+            rule: rule.into(),
+            split: Split::None,
+        }
+    }
+
+    /// Returns the step with the formulas at `positions` sent to the left
+    /// premise of a `⊗` or Mix, the rest to the right; for Mix the formula
+    /// the step names goes left too.
+    #[must_use]
+    pub fn left(self, positions: &[usize]) -> Self {
+        Self {
+            split: Split::Left {
+                positions: positions.to_vec(),
+            },
+            ..self
+        }
+    }
+
+    /// Returns the positions going left, empty without a split.
+    fn left_positions(&self) -> &[usize] {
+        match &self.split {
+            Split::None => &[],
+            Split::Left { positions } => positions,
+        }
+    }
+}
+
+/// How a step splits its goal's context between two premises.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Split {
+    /// No split: the rule has one premise or none.
+    #[default]
+    None,
+    /// The formulas at these positions go to the left premise, the rest to
+    /// the right.
+    Left {
+        /// The positions in the goal's sequent.
+        positions: Vec<usize>,
+    },
+}
+
+/// A rule that can act on a formula of a goal, and what a step of it needs
+/// beyond the formula's position.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Applicable {
+    /// The rule, named as the session records it.
+    pub rule: Named,
+    /// What the step needs.
+    pub needs: Needs,
+}
+
+/// What [`Interactive::close`] did: the search's outcome, and whether the
+/// derivation of the proof it found, if any, was grafted onto the goal.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct Closed {
+    /// The search's outcome; a proof in it is the proof of the goal
+    /// alone, kept for export when its graft was refused.
+    pub outcome: Outcome,
+    /// `Ok` when the proof was grafted or there was none to graft; the
+    /// refusal of the graft, by its size or the stop, otherwise, the goal
+    /// then still open.
+    pub grafted: Result<(), Refusal>,
+}
+
+/// What a step of a rule needs beyond the formula's position.
+///
+/// Needs the cargo feature `interactive` (on by default).
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Needs {
+    /// Nothing.
+    Nothing,
+    /// A split of the context between the two premises: `⊗` and Mix.
+    Split,
+}
 
 /// A proof in progress: the forest of a sequent, the mode, the inferences
 /// made so far and the goals still open. It starts from a sequent as one
@@ -178,19 +331,21 @@ impl std::error::Error for StepError {}
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::{Interactive, Mode, Named, Rule, Sequent};
+/// use linlog::proofs::interactive::Needs;
+/// use linlog::{Interactive, Limits, Mode, Named, Rule, Sequent, Step};
 ///
 /// // ⊢ ~A, A ⊗ ~B, B: the goal's formulas are 0: ~A, 1: A ⊗ ~B, 2: B.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let mut state = Interactive::new(&sequent, Mode::CLASSICAL)?;
 /// let root = state.goals().next().unwrap();
-/// assert_eq!(state.rules(root, 1)?, vec![Named::from(Rule::Tensor)]);
+/// let rules = state.rules(root, 1)?;
+/// assert_eq!((rules[0].rule, rules[0].needs), (Named::from(Rule::Tensor), Needs::Split));
 /// // ⊗ on formula 1, with formula 0 going to the left premise.
-/// let goals = state.apply(root, 1, Rule::Tensor, &[0])?;
+/// let goals = state.apply(root, &Step::new(1, Rule::Tensor).left(&[0]))?;
 /// assert_eq!(goals.len(), 2);
-/// state.apply(goals[0], 0, Rule::Ax, &[])?;
-/// state.apply(goals[1], 0, Rule::Ax, &[])?;
-/// let proof = state.proof()?;
+/// state.apply(goals[0], &Step::new(0, Rule::Ax))?;
+/// state.apply(goals[1], &Step::new(0, Rule::Ax))?;
+/// let proof = state.proof(&Limits::default(), |_| false)?;
 /// assert_eq!(proof.nodes().len(), 3);
 /// # Ok::<(), linlog::Error>(())
 /// ```
@@ -226,7 +381,14 @@ impl Interactive {
     /// the one open goal. Fails in intuitionistic mode for a sequent with no
     /// intuitionistic reading or with Mix.
     pub fn new(sequent: &Sequent, mode: Mode) -> Result<Self, Error> {
-        let forest = Forest::new(sequent)?;
+        Self::within(sequent, mode, &Limits::default())
+    }
+
+    /// Starts a proof as [`new`](Self::new) does, of a sequent that
+    /// unfolds to at most `limits.occurrences` occurrences
+    /// ([`Refusal::Occurrences`] otherwise).
+    pub fn within(sequent: &Sequent, mode: Mode, limits: &Limits) -> Result<Self, Error> {
+        let forest = Forest::within(sequent, limits)?;
         Self::from_forest(forest, mode)
     }
 
@@ -494,21 +656,21 @@ impl Interactive {
 
     /// Returns every inference, the root first and then in the order the
     /// steps opened them; an open goal is an inference with [`Rule::Open`].
-    pub fn inferences(&self) -> &[Inference] {
+    pub(crate) fn inferences(&self) -> &[Inference] {
         &self.inferences
     }
 
     /// Returns the open goals, in the order they were opened.
-    pub fn goals(&self) -> impl Iterator<Item = InfId> + '_ {
+    pub fn goals(&self) -> impl Iterator<Item = GoalId> + '_ {
         self.inferences
             .iter()
             .enumerate()
             .filter(|(_, inference)| inference.rule.rule == Rule::Open)
-            .map(|(i, _)| InfId::new(i as u32))
+            .map(|(i, _)| GoalId(i as u32))
     }
 
     /// Returns the sequent of an open goal, or `None` if the id is not one.
-    pub fn goal(&self, id: InfId) -> Option<&[Member]> {
+    pub fn goal(&self, id: GoalId) -> Option<&[Member]> {
         self.inferences
             .get(id.index())
             .filter(|inference| inference.rule.rule == Rule::Open)
@@ -532,7 +694,7 @@ impl Interactive {
     }
 
     /// Returns the sequent of an open goal, or the refusal.
-    fn open(&self, id: InfId) -> Result<Vec<OccId>, StepError> {
+    fn open(&self, id: GoalId) -> Result<Vec<OccId>, StepError> {
         let goal = self.goal(id).ok_or(StepError::NoGoal { goal: id })?;
         Ok(goal.iter().map(|m| m.occ()).collect())
     }
@@ -546,7 +708,7 @@ impl Interactive {
     /// Whether the goal's context lets a rule apply (the axiom's dual, the
     /// context of `1` and `!`, a valid split, one succedent) is what
     /// [`apply`](Self::apply) decides.
-    pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Named>, StepError> {
+    pub fn rules(&self, goal: GoalId, position: usize) -> Result<Vec<Applicable>, StepError> {
         let sequent = self.open(goal)?;
         let o = formula_at(&sequent, position)?;
         use Rule::*;
@@ -572,27 +734,24 @@ impl Interactive {
         let side = self.reading().map(|reading| reading.position(o));
         Ok(rules
             .into_iter()
-            .map(|rule| Named::new(rule, side))
+            .map(|rule| Applicable {
+                rule: Named::new(rule, side),
+                needs: match rule {
+                    Tensor | Mix => Needs::Split,
+                    _ => Needs::Nothing,
+                },
+            })
             .collect())
     }
 
-    /// Applies a rule to the formula at `position` of the open goal and
-    /// returns the goals it opens, in the rule's order of premises; a
-    /// closed leaf opens none. `left` is the split a `⊗` or Mix needs: the
-    /// positions of the other formulas that go to the left premise (the
-    /// rest go right; for Mix the formula at `position` goes left too), and
-    /// must be empty for every other rule. In intuitionistic mode the rule
-    /// may be given by its classical or its two-sided name and is recorded
-    /// by the latter. Fails with what the rule needed, and changes nothing
-    /// then.
-    pub fn apply(
-        &mut self,
-        goal: InfId,
-        position: usize,
-        rule: impl Into<Named>,
-        left: &[usize],
-    ) -> Result<Vec<InfId>, StepError> {
-        let rule = rule.into();
+    /// Applies a step to the open goal and returns the goals it opens, in
+    /// the rule's order of premises; a closed leaf opens none. The split
+    /// is what a `⊗` or Mix needs ([`Step::left`]), and no other rule takes
+    /// one. In intuitionistic mode the rule may be given by its classical
+    /// or its two-sided name and is recorded by the latter. Fails with what
+    /// the rule needed, and changes nothing then.
+    pub fn apply(&mut self, goal: GoalId, step: &Step) -> Result<Vec<GoalId>, StepError> {
+        let (position, rule, left) = (step.position, step.rule, step.left_positions());
         let sequent = self.open(goal)?;
         let reading = self.reading();
         let (rule, premises) = {
@@ -630,8 +789,8 @@ impl Interactive {
         inference.rule = rule;
         inference.principal = principal;
         inference.premises = ids.clone();
-        self.history.push(goal);
-        Ok(ids)
+        self.history.push(goal.inf());
+        Ok(ids.into_iter().map(GoalId::of).collect())
     }
 
     /// Computes the premises of a rule on a sequent, in the rule's order, or
@@ -743,6 +902,10 @@ impl Interactive {
             }
             Mix => {
                 let right = rest.difference(&going_left);
+                // No rule concludes the empty sequent.
+                if right.is_empty() {
+                    return Err(StepError::EmptyPremise);
+                }
                 going_left.insert(o);
                 vec![going_left, right]
             }
@@ -784,17 +947,13 @@ impl Interactive {
         Ok(premises)
     }
 
-    /// Returns whether a split of the open goal for a `⊗` at `position`
-    /// (or a Mix, when the formula there is not a `⊗`) passes the count
+    /// Returns whether the split of a step of `⊗` (or a Mix, when the
+    /// formula at the step's position is not a `⊗`) passes the count
     /// prunes of the focused engine, a cheap test that says "this split
     /// cannot close" before a client tries it; a split that passes may
-    /// still fail. `left` is as for [`apply`](Self::apply).
-    pub fn split_passes(
-        &self,
-        goal: InfId,
-        position: usize,
-        left: &[usize],
-    ) -> Result<bool, StepError> {
+    /// still fail. The step's rule is not read.
+    pub fn split_passes(&self, goal: GoalId, step: &Step) -> Result<bool, StepError> {
+        let (position, left) = (step.position, step.left_positions());
         let sequent = self.open(goal)?;
         let o = formula_at(&sequent, position)?;
         let rule = if self.forest.kind(o) == Kind::Tensor {
@@ -821,7 +980,7 @@ impl Interactive {
     /// Retracts the last step, a rule applied or a goal closed by the
     /// search, and returns the goal it reopened, or `None` when no step is
     /// left.
-    pub fn undo(&mut self) -> Option<InfId> {
+    pub fn undo(&mut self) -> Option<GoalId> {
         let goal = self.history.pop()?;
         // The step's inferences are the suffix of the arena.
         let first = self.subtree(goal).into_iter().min();
@@ -832,7 +991,7 @@ impl Interactive {
         inference.rule = Rule::Open.into();
         inference.principal = None;
         inference.premises.clear();
-        Some(goal)
+        Some(GoalId::of(goal))
     }
 
     /// Returns the inferences above `id`, excluding it, in no particular
@@ -856,16 +1015,17 @@ impl Interactive {
     ///
     /// The search runs within `limits`, and the derivation grafted is
     /// within them too: a goal whose proof unfolds into a larger one, or
-    /// whose unfolding `stop` ends, is [`Error::Refused`] and stays open,
-    /// though the search proved it.
+    /// whose unfolding `stop` ends, stays open, and [`Closed::grafted`]
+    /// says why; its proof stays in the outcome. A proved goal is never
+    /// lost.
     pub fn close(
         &mut self,
-        goal: InfId,
+        goal: GoalId,
         options: &Options,
         view: &ViewOptions,
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
-    ) -> Result<Outcome, Error> {
+    ) -> Result<Closed, Error> {
         let sequent = self.open(goal)?;
         let outcome = search::prove_goal(
             &self.forest,
@@ -875,10 +1035,16 @@ impl Interactive {
             limits,
             &mut stop,
         )?;
+        let mut grafted = Ok(());
         if let Verdict::Proved(proof) = &outcome.verdict {
-            self.close_with(goal, proof, view, limits, stop)?;
+            grafted = match self.close_with(goal, proof, view, limits, stop) {
+                Ok(()) => Ok(()),
+                Err(Error::Refused(refusal)) => Err(refusal),
+                Err(Error::Check(CheckError::Refused(refused))) => Err(refused.refusal),
+                Err(error) => return Err(error),
+            };
         }
-        Ok(outcome)
+        Ok(Closed { outcome, grafted })
     }
 
     /// Closes an open goal with a proof of it that a search found, as
@@ -893,7 +1059,7 @@ impl Interactive {
     /// [`prove_goal`]: crate::search::prove_goal
     pub fn close_with(
         &mut self,
-        goal: InfId,
+        goal: GoalId,
         proof: &Proof,
         view: &ViewOptions,
         limits: &Limits,
@@ -911,28 +1077,27 @@ impl Interactive {
             return Err(Error::GoalMismatch);
         }
         let found = Derivation::of_goal(proof, &sequent, self.mode, view, limits, &mut stop)?;
-        self.graft(goal, found);
-        self.history.push(goal);
+        self.graft(goal.inf(), found);
+        self.history.push(goal.inf());
         Ok(())
     }
 
     /// Runs the search on every open goal in turn, as [`close`](Self::close)
-    /// does, and returns each goal with its outcome; a goal the search does
-    /// not prove stays open, and the run goes on with the next.
+    /// does, and returns each goal with what closing it did; a goal the
+    /// search does not prove, or whose closing fails, stays open, and the
+    /// run goes on with the next. The limits bound each goal's search.
     pub fn close_all(
         &mut self,
         options: &Options,
         view: &ViewOptions,
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
-    ) -> Result<Vec<(InfId, Outcome)>, Error> {
-        let goals: Vec<InfId> = self.goals().collect();
-        let mut outcomes = Vec::with_capacity(goals.len());
-        for goal in goals {
-            let outcome = self.close(goal, options, view, limits, &mut stop)?;
-            outcomes.push((goal, outcome));
-        }
-        Ok(outcomes)
+    ) -> Vec<(GoalId, Result<Closed, Error>)> {
+        let goals: Vec<GoalId> = self.goals().collect();
+        goals
+            .into_iter()
+            .map(|goal| (goal, self.close(goal, options, view, limits, &mut stop)))
+            .collect()
     }
 
     /// Replaces the open goal by the root of a derivation given premises
@@ -962,8 +1127,45 @@ impl Interactive {
     /// [`Rule::Open`], two-sided in intuitionistic mode; its inferences are
     /// renumbered premises before conclusions, so its ids are not this
     /// state's: [`derivation_ids`](Self::derivation_ids) maps them.
-    pub fn derivation(&self) -> Derivation<'_> {
-        let order = self.derivation_ids();
+    pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
+        self.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
+    }
+
+    /// Returns the derivation so far as [`derivation`](Self::derivation)
+    /// does, refused past `limits.derivation_bytes` by its estimate, as a
+    /// proof's derivation is, and until `stop` fires. Its inferences are
+    /// the state's own, never compacted, whatever `view` says.
+    pub fn derivation_within(
+        &self,
+        view: &ViewOptions,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Derivation<'_>, Error> {
+        let _ = view;
+        // What the derivation holds, by the size estimate's measure: its
+        // inferences and the characters of their sequents.
+        let weights = super::size::weights(&self.forest);
+        let estimate = self.inferences.iter().fold(0u64, |sum, inference| {
+            let characters = inference.sequent.iter().fold(0u64, |sum, m| {
+                sum.saturating_add(u64::from(weights[m.index()]))
+            });
+            sum.saturating_add(Size::BYTES_PER_INFERENCE)
+                .saturating_add(characters.saturating_mul(Size::BYTES_PER_CHARACTER))
+        });
+        if let Some(limit) = limits.derivation_bytes
+            && estimate > limit
+        {
+            return Err(Error::Refused(Refusal::Output {
+                what: "derivation",
+                estimate_bytes: estimate,
+                limit_bytes: limit,
+                least_bytes: None,
+            }));
+        }
+        if stop(Progress::new(Phase::View, 0, 0)) {
+            return Err(Error::Refused(Refusal::Stopped { phase: Phase::View }));
+        }
+        let order = self.postorder();
         let mut new_id = vec![InfId::new(u32::MAX); self.inferences.len()];
         for (i, id) in order.iter().enumerate() {
             new_id[id.index()] = InfId::new(i as u32);
@@ -985,14 +1187,24 @@ impl Interactive {
                 }
             })
             .collect();
-        Derivation::from_parts(&self.forest, self.reading(), inferences)
+        Ok(Derivation::from_parts(
+            &self.forest,
+            self.reading(),
+            inferences,
+        ))
     }
 
     /// Returns, for every inference of [`derivation`](Self::derivation) by
     /// its id, the id of the same inference in this state: what turns the
     /// inference `n` of a drawing (the SVG's `i<n>`) into the goal that
     /// [`apply`](Self::apply) and [`close`](Self::close) take.
-    pub fn derivation_ids(&self) -> Vec<InfId> {
+    pub fn derivation_ids(&self) -> Vec<GoalId> {
+        self.postorder().into_iter().map(GoalId::of).collect()
+    }
+
+    /// Returns the arena's inferences in postorder, premises before
+    /// conclusions, the order of [`derivation`](Self::derivation).
+    fn postorder(&self) -> Vec<InfId> {
         let mut order = Vec::with_capacity(self.inferences.len());
         // Postorder without recursion: a frame is an inference and whether
         // its premises were visited.
@@ -1013,9 +1225,14 @@ impl Interactive {
     /// returning the proof. Fails while goals are open
     /// ([`Error::OpenGoals`]) or if the checker rejects the term
     /// ([`Error::Check`]), which it never does for a derivation built
-    /// through this interface, or gives the check up for the memory it
-    /// would hold ([`Error::Check`] with a [`CheckError::Refused`](crate::CheckError::Refused)).
-    pub fn proof(&self) -> Result<Proof, Error> {
+    /// through this interface, or gives the check up within `limits` or
+    /// when `stop` fires ([`Error::Check`] with a
+    /// [`CheckError::Refused`](crate::CheckError::Refused)).
+    pub fn proof(
+        &self,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Proof, Error> {
         let open = self.goals().count();
         if open > 0 {
             return Err(Error::OpenGoals { count: open });
@@ -1030,8 +1247,8 @@ impl Interactive {
                 root = terms.push(Node::Quest(Member::from(r), root));
             }
         }
-        let proof = Proof::new(self.forest.clone(), terms.nodes, root)?;
-        proof.check(self.mode)?;
+        let proof = Proof::new(self.forest.clone(), terms.nodes, root)?.with_mode(self.mode);
+        proof.check_within(self.mode, limits, stop)?;
         Ok(proof)
     }
 }
@@ -1179,13 +1396,18 @@ mod tests {
         input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"))
     }
 
+    /// Returns the rules of applicable steps.
+    fn names(rules: Vec<Applicable>) -> Vec<Named> {
+        rules.into_iter().map(|a| a.rule).collect()
+    }
+
     /// Returns the rule a client names `name`.
     fn named(name: &str) -> Named {
         name.parse().unwrap()
     }
 
     /// Starts a proof of `input` in `mode` and returns it with its goal.
-    fn start(input: &str, mode: Mode) -> (Interactive, InfId) {
+    fn start(input: &str, mode: Mode) -> (Interactive, GoalId) {
         let state = Interactive::new(&sequent(input), mode).unwrap();
         let goal = state.goals().next().unwrap();
         (state, goal)
@@ -1203,11 +1425,20 @@ mod tests {
             .spawn(move || {
                 let (mut state, mut goal) = start(&text, Mode::CLASSICAL);
                 for _ in 0..DEPTH {
-                    goal = state.apply(goal, 0, Rule::Par, &[]).unwrap()[0];
-                    goal = state.apply(goal, 0, Rule::Bot, &[]).unwrap()[0];
+                    goal = state.apply(goal, &Step::new(0, Rule::Par)).unwrap()[0];
+                    goal = state.apply(goal, &Step::new(0, Rule::Bot)).unwrap()[0];
                 }
-                assert!(state.apply(goal, 0, Rule::One, &[]).unwrap().is_empty());
-                state.proof().unwrap().nodes().len()
+                assert!(
+                    state
+                        .apply(goal, &Step::new(0, Rule::One))
+                        .unwrap()
+                        .is_empty()
+                );
+                state
+                    .proof(&Limits::default(), |_| false)
+                    .unwrap()
+                    .nodes()
+                    .len()
             })
             .unwrap()
             .join()
@@ -1217,7 +1448,7 @@ mod tests {
 
     /// Returns the position in the goal of the first formula printed as
     /// `text`.
-    fn at(state: &Interactive, goal: InfId, text: &str) -> usize {
+    fn at(state: &Interactive, goal: GoalId, text: &str) -> usize {
         let sequent = state.goal(goal).unwrap();
         sequent
             .iter()
@@ -1229,15 +1460,15 @@ mod tests {
     /// goals opened.
     fn step(
         state: &mut Interactive,
-        goal: InfId,
+        goal: GoalId,
         text: &str,
         rule: Rule,
         left: &[&str],
-    ) -> Vec<InfId> {
+    ) -> Vec<GoalId> {
         let position = at(state, goal, text);
         let left: Vec<usize> = left.iter().map(|t| at(state, goal, t)).collect();
         state
-            .apply(goal, position, rule, &left)
+            .apply(goal, &Step::new(position, rule).left(&left))
             .unwrap_or_else(|e| panic!("{rule} on {text}: {e}"))
     }
 
@@ -1257,13 +1488,13 @@ mod tests {
         };
         assert_eq!(s.goals().collect::<Vec<_>>(), [l, r]);
         step(&mut s, l, "a", Ax, &[]);
-        assert_eq!(s.rules(r, 0).unwrap(), [Named::from(Ax)]);
+        assert_eq!(names(s.rules(r, 0).unwrap()), [Named::from(Ax)]);
         step(&mut s, r, "b", Ax, &[]);
         assert!(s.is_complete());
-        let proof = s.proof().unwrap();
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
         assert_eq!(proof.nodes().len(), 4);
         assert_eq!(
-            s.derivation().to_string(),
+            s.derivation().unwrap().to_string(),
             proof.derivation().unwrap().to_string()
         );
         // ⊥ and 1.
@@ -1272,7 +1503,7 @@ mod tests {
             panic!()
         };
         step(&mut s, g, "1", One, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         // &, ⊕₁, ⊕₂ and ⊤.
         let (mut s, g) = start("|- a & b, ~a + ~b", classical);
         let [l, r] = step(&mut s, g, "a & b", With, &[])[..] else {
@@ -1286,11 +1517,11 @@ mod tests {
             panic!()
         };
         step(&mut s, r, "~b", Ax, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         let (mut s, g) = start("|- top, 0", classical);
-        assert_eq!(s.rules(g, at(&s, g, "0")).unwrap(), []);
+        assert_eq!(names(s.rules(g, at(&s, g, "0")).unwrap()), []);
         step(&mut s, g, "⊤", Top, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         // ?c, ?d, ! and ?w.
         let (mut s, g) = start("!a |- a * a", classical);
         let [g] = step(&mut s, g, "?~a", Contraction, &[])[..] else {
@@ -1305,7 +1536,7 @@ mod tests {
             };
             step(&mut s, g, "~a", Ax, &[]);
         }
-        let proof = s.proof().unwrap();
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
         assert_eq!(
             proof.derivation().unwrap().to_string(),
             "─────── ax    ─────── ax\n\
@@ -1325,33 +1556,36 @@ mod tests {
             panic!()
         };
         step(&mut s, g, "~a", Ax, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         let (mut s, g) = start("|- ?a, 1", classical);
         let [g] = step(&mut s, g, "?a", Weakening, &[])[..] else {
             panic!()
         };
         step(&mut s, g, "1", One, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         // wk in affine mode, and Mix.
         let (mut s, g) = start("a, b |- a", classical.with_affine());
         assert_eq!(
-            s.rules(g, at(&s, g, "~b")).unwrap(),
+            names(s.rules(g, at(&s, g, "~b")).unwrap()),
             [Named::from(Ax), Named::from(AffineWeakening)]
         );
         let [g] = step(&mut s, g, "~b", AffineWeakening, &[])[..] else {
             panic!()
         };
         step(&mut s, g, "~a", Ax, &[]);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
         let (mut s, g) = start("|- a, ~a, b, ~b", classical.with_mix());
-        assert_eq!(s.rules(g, 0).unwrap(), [Named::from(Ax), Named::from(Mix)]);
+        assert_eq!(
+            names(s.rules(g, 0).unwrap()),
+            [Named::from(Ax), Named::from(Mix)]
+        );
         let [l, r] = step(&mut s, g, "a", Mix, &["~a"])[..] else {
             panic!()
         };
         step(&mut s, l, "a", Ax, &[]);
         step(&mut s, r, "b", Ax, &[]);
         assert_eq!(s.steps(), 3);
-        s.proof().unwrap();
+        s.proof(&Limits::default(), |_| false).unwrap();
     }
 
     /// A rule that does not apply is refused with what it needed, and the
@@ -1446,28 +1680,28 @@ mod tests {
         for (text, rule, left, refusal) in cases {
             let position = p(&s, text);
             assert_eq!(
-                s.apply(g, position, rule, &left),
+                s.apply(g, &Step::new(position, rule).left(&left)),
                 Err(refusal),
                 "{rule} on {text}"
             );
         }
         assert_eq!(
-            s.apply(g, 99, Par, &[]),
+            s.apply(g, &Step::new(99, Par)),
             Err(StepError::NoFormula {
                 position: 99,
                 len: 6
             })
         );
         assert_eq!(
-            s.apply(InfId::new(7), 0, Par, &[]),
+            s.apply(GoalId::new(7), &Step::new(0, Par)),
             Err(StepError::NoGoal {
-                goal: InfId::new(7)
+                goal: GoalId::new(7)
             })
         );
         assert_eq!(
-            s.rules(InfId::new(7), 0),
+            s.rules(GoalId::new(7), 0),
             Err(StepError::NoGoal {
-                goal: InfId::new(7)
+                goal: GoalId::new(7)
             })
         );
         assert_eq!(s.inferences(), before.inferences());
@@ -1475,7 +1709,7 @@ mod tests {
         // The axiom needs the dual and nothing else.
         let (mut s, g) = start("|- a, ~a, b", Mode::CLASSICAL);
         assert_eq!(
-            s.apply(g, 0, Ax, &[]),
+            s.apply(g, &Step::new(0, Ax)),
             Err(StepError::NotAlone {
                 rule: Named::from(Ax),
                 position: 0
@@ -1483,11 +1717,11 @@ mod tests {
         );
         let (mut s, g) = start("|- a, b", Mode::CLASSICAL);
         assert_eq!(
-            s.apply(g, 0, Ax, &[]),
+            s.apply(g, &Step::new(0, Ax)),
             Err(StepError::NoDual { position: 0 })
         );
         assert_eq!(
-            s.apply(g, 0, Ax, &[]).unwrap_err().to_string(),
+            s.apply(g, &Step::new(0, Ax)).unwrap_err().to_string(),
             "the axiom needs formula 0 together with its dual literal and nothing else"
         );
         // Intuitionistic mode: one goal per premise, the goal never weakened,
@@ -1495,9 +1729,9 @@ mod tests {
         let i = Mode::INTUITIONISTIC;
         let (mut s, g) = start("a, a -o b |- b", i);
         let imp = at(&s, g, "a ⊗ ~b");
-        assert_eq!(s.rules(g, imp).unwrap(), [named("⊸L")]);
+        assert_eq!(names(s.rules(g, imp).unwrap()), [named("⊸L")]);
         assert_eq!(
-            s.apply(g, imp, named("⊗R"), &[]),
+            s.apply(g, &Step::new(imp, named("⊗R"))),
             Err(StepError::Rule {
                 rule: named("⊗R"),
                 position: imp
@@ -1506,13 +1740,13 @@ mod tests {
         // The goal b with the antecedent a: two on the right.
         let b = at(&s, g, "b");
         assert_eq!(
-            s.apply(g, imp, named("⊸L"), &[b]),
+            s.apply(g, &Step::new(imp, named("⊸L")).left(&[b])),
             Err(StepError::Succedents { count: 2 })
         );
         let (mut s, g) = start("a, b |- a", i.with_affine());
         let goal = at(&s, g, "a");
         assert_eq!(
-            s.apply(g, goal, AffineWeakening, &[]),
+            s.apply(g, &Step::new(goal, AffineWeakening)),
             Err(StepError::Output { position: goal })
         );
         assert!(Interactive::new(&sequent("|- a par b"), i).is_err());
@@ -1531,49 +1765,64 @@ mod tests {
         let (mut s, g) = start("a, a -o b |- b", i);
         let imp = at(&s, g, "a ⊗ ~b");
         let a = at(&s, g, "~a");
-        let [l, r] = s.apply(g, imp, Tensor, &[a]).unwrap()[..] else {
+        let [l, r] = s.apply(g, &Step::new(imp, Tensor).left(&[a])).unwrap()[..] else {
             panic!()
         };
         assert_eq!(s.inferences()[g.index()].rule, named("⊸L"));
         assert_eq!(
-            s.derivation().to_string(),
+            s.derivation().unwrap().to_string(),
             "a ⊢ a   b ⊢ b\n\
              ───────────── ⊸L\n\
              a, a ⊸ b ⊢ b"
         );
-        s.apply(l, 0, Ax, &[]).unwrap();
-        s.apply(r, 0, Ax, &[]).unwrap();
-        let proof = s.proof().unwrap();
+        s.apply(l, &Step::new(0, Ax)).unwrap();
+        s.apply(r, &Step::new(0, Ax)).unwrap();
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
         assert_eq!(proof.check(i), Ok(()));
         assert_eq!(
-            s.derivation().to_string(),
+            s.derivation().unwrap().to_string(),
             proof.two_sided_derivation().unwrap().to_string()
         );
         // !L, !c and !R by their two-sided names.
         let (mut s, g) = start("!a |- !(a * a)", i);
-        let [g] = s.apply(g, at(&s, g, "!(a ⊗ a)"), named("!R"), &[]).unwrap()[..] else {
+        let [g] = s
+            .apply(g, &Step::new(at(&s, g, "!(a ⊗ a)"), named("!R")))
+            .unwrap()[..]
+        else {
             panic!()
         };
-        let [g] = s.apply(g, at(&s, g, "?~a"), named("!c"), &[]).unwrap()[..] else {
+        let [g] = s
+            .apply(g, &Step::new(at(&s, g, "?~a"), named("!c")))
+            .unwrap()[..]
+        else {
             panic!()
         };
         assert_eq!(
-            s.rules(g, at(&s, g, "?~a")).unwrap(),
+            names(s.rules(g, at(&s, g, "?~a")).unwrap()),
             [named("!L"), named("!c"), named("!w")]
         );
         let [l, r] = s
-            .apply(g, at(&s, g, "a ⊗ a"), named("⊗R"), &[at(&s, g, "?~a")])
+            .apply(
+                g,
+                &Step::new(at(&s, g, "a ⊗ a"), named("⊗R")).left(&[at(&s, g, "?~a")]),
+            )
             .unwrap()[..]
         else {
             panic!()
         };
         for g in [l, r] {
-            let [g] = s.apply(g, at(&s, g, "?~a"), named("!L"), &[]).unwrap()[..] else {
+            let [g] = s
+                .apply(g, &Step::new(at(&s, g, "?~a"), named("!L")))
+                .unwrap()[..]
+            else {
                 panic!()
             };
-            s.apply(g, 0, Ax, &[]).unwrap();
+            s.apply(g, &Step::new(0, Ax)).unwrap();
         }
-        assert_eq!(s.proof().unwrap().check(i), Ok(()));
+        assert_eq!(
+            s.proof(&Limits::default(), |_| false).unwrap().check(i),
+            Ok(())
+        );
     }
 
     /// The search closes one goal or every goal, grafting its derivation,
@@ -1584,41 +1833,8 @@ mod tests {
         let options = Options::default();
         let (mut s, g) = start("|- (a & b) * c, ~a + ~b, ~c", Mode::CLASSICAL);
         let t = at(&s, g, "(a & b) ⊗ c");
-        let [l, r] = s.apply(g, t, Tensor, &[at(&s, g, "~a ⊕ ~b")]).unwrap()[..] else {
-            panic!()
-        };
-        let outcome = s
-            .close(
-                l,
-                &options,
-                &ViewOptions::default(),
-                &crate::Limits::default(),
-                |_| false,
-            )
-            .unwrap();
-        assert!(matches!(outcome.verdict, Verdict::Proved(_)));
-        assert_eq!(outcome.engine, crate::search::Engine::Additive);
-        assert_eq!(s.goals().collect::<Vec<_>>(), [r]);
-        assert_eq!(s.steps(), 2);
-        let outcomes = s
-            .close_all(
-                &options,
-                &ViewOptions::default(),
-                &crate::Limits::default(),
-                |_| false,
-            )
-            .unwrap();
-        assert_eq!(outcomes.len(), 1);
-        assert_eq!(outcomes[0].0, r);
-        assert!(s.is_complete());
-        let proof = s.proof().unwrap();
-        assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
-        assert!(s.derivation().to_string().contains("⊕₂"));
-
-        // An unprovable goal stays open, a stopped search too.
-        let (mut s, g) = start("|- a * b, ~a, ~b", Mode::CLASSICAL);
         let [l, r] = s
-            .apply(g, at(&s, g, "a ⊗ b"), Tensor, &[at(&s, g, "~b")])
+            .apply(g, &Step::new(t, Tensor).left(&[at(&s, g, "~a ⊕ ~b")]))
             .unwrap()[..]
         else {
             panic!()
@@ -1631,7 +1847,46 @@ mod tests {
                 &crate::Limits::default(),
                 |_| false,
             )
-            .unwrap();
+            .unwrap()
+            .outcome;
+        assert!(matches!(outcome.verdict, Verdict::Proved(_)));
+        assert_eq!(outcome.engine, crate::search::Engine::Additive);
+        assert_eq!(s.goals().collect::<Vec<_>>(), [r]);
+        assert_eq!(s.steps(), 2);
+        let outcomes = s.close_all(
+            &options,
+            &ViewOptions::default(),
+            &crate::Limits::default(),
+            |_| false,
+        );
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].0, r);
+        assert!(s.is_complete());
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
+        assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
+        assert!(s.derivation().unwrap().to_string().contains("⊕₂"));
+
+        // An unprovable goal stays open, a stopped search too.
+        let (mut s, g) = start("|- a * b, ~a, ~b", Mode::CLASSICAL);
+        let [l, r] = s
+            .apply(
+                g,
+                &Step::new(at(&s, g, "a ⊗ b"), Tensor).left(&[at(&s, g, "~b")]),
+            )
+            .unwrap()[..]
+        else {
+            panic!()
+        };
+        let outcome = s
+            .close(
+                l,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
+            .unwrap()
+            .outcome;
         assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
         let outcome = s
             .close(
@@ -1641,10 +1896,14 @@ mod tests {
                 &crate::Limits::default(),
                 |_| true,
             )
-            .unwrap();
+            .unwrap()
+            .outcome;
         assert!(matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));
         assert_eq!(s.goals().collect::<Vec<_>>(), [l, r]);
-        assert!(matches!(s.proof(), Err(Error::OpenGoals { count: 2 })));
+        assert!(matches!(
+            s.proof(&Limits::default(), |_| false),
+            Err(Error::OpenGoals { count: 2 })
+        ));
         assert!(matches!(
             s.close(
                 g,
@@ -1658,7 +1917,10 @@ mod tests {
 
         // Two-sided: the grafted derivation carries the two-sided names.
         let (mut s, g) = start("a & b, !(a -o c) |- c", Mode::INTUITIONISTIC);
-        let [g] = s.apply(g, at(&s, g, "~a ⊕ ~b"), named("&L₁"), &[]).unwrap()[..] else {
+        let [g] = s
+            .apply(g, &Step::new(at(&s, g, "~a ⊕ ~b"), named("&L₁")))
+            .unwrap()[..]
+        else {
             panic!()
         };
         let outcome = s
@@ -1669,10 +1931,16 @@ mod tests {
                 &crate::Limits::default(),
                 |_| false,
             )
-            .unwrap();
+            .unwrap()
+            .outcome;
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
-        assert!(s.derivation().to_string().contains("!L"));
-        assert_eq!(s.proof().unwrap().check(Mode::INTUITIONISTIC), Ok(()));
+        assert!(s.derivation().unwrap().to_string().contains("!L"));
+        assert_eq!(
+            s.proof(&Limits::default(), |_| false)
+                .unwrap()
+                .check(Mode::INTUITIONISTIC),
+            Ok(())
+        );
     }
 
     /// A goal is closed only by a proof over the session's sequent that
@@ -1723,7 +1991,7 @@ mod tests {
         };
         let tensor = at(&s, g, "A ⊗ B");
         let premises = s
-            .apply(g, tensor, Rule::Tensor, &[at(&s, g, "~A")])
+            .apply(g, &Step::new(tensor, Rule::Tensor).left(&[at(&s, g, "~A")]))
             .unwrap();
         assert!(matches!(
             s.close_with(premises[0], &whole, &view, &Limits::default(), |_| false),
@@ -1736,16 +2004,31 @@ mod tests {
     fn split_helper() {
         let (s, g) = start("|- a * b, ~a, ~b", Mode::CLASSICAL);
         let t = at(&s, g, "a ⊗ b");
-        assert!(s.split_passes(g, t, &[at(&s, g, "~a")]).unwrap());
-        assert!(!s.split_passes(g, t, &[at(&s, g, "~b")]).unwrap());
-        assert!(!s.split_passes(g, t, &[]).unwrap());
+        assert!(
+            s.split_passes(g, &Step::new(t, Rule::Tensor).left(&[at(&s, g, "~a")]))
+                .unwrap()
+        );
+        assert!(
+            !s.split_passes(g, &Step::new(t, Rule::Tensor).left(&[at(&s, g, "~b")]))
+                .unwrap()
+        );
+        assert!(
+            !s.split_passes(g, &Step::new(t, Rule::Tensor).left(&[]))
+                .unwrap()
+        );
         assert_eq!(
-            s.split_passes(g, t, &[t]),
+            s.split_passes(g, &Step::new(t, Rule::Tensor).left(&[t])),
             Err(StepError::Split { position: t })
         );
         let (s, g) = start("|- a, ~a, b, ~b", Mode::CLASSICAL.with_mix());
-        assert!(s.split_passes(g, 0, &[at(&s, g, "~a")]).unwrap());
-        assert!(!s.split_passes(g, 0, &[at(&s, g, "b")]).unwrap());
+        assert!(
+            s.split_passes(g, &Step::new(0, Rule::Tensor).left(&[at(&s, g, "~a")]))
+                .unwrap()
+        );
+        assert!(
+            !s.split_passes(g, &Step::new(0, Rule::Tensor).left(&[at(&s, g, "b")]))
+                .unwrap()
+        );
     }
 
     /// Undo retracts a rule application and a grafted search alike,
@@ -1756,12 +2039,15 @@ mod tests {
         let (mut s, g) = start("|- ~a par ~b, a * b", Mode::CLASSICAL);
         assert_eq!(s.undo(), None);
         let start_state = s.clone();
-        let [g1] = s.apply(g, at(&s, g, "~a ⅋ ~b"), Par, &[]).unwrap()[..] else {
+        let [g1] = s.apply(g, &Step::new(at(&s, g, "~a ⅋ ~b"), Par)).unwrap()[..] else {
             panic!()
         };
         let after_par = s.clone();
         let [l, _] = s
-            .apply(g1, at(&s, g1, "a ⊗ b"), Tensor, &[at(&s, g1, "~a")])
+            .apply(
+                g1,
+                &Step::new(at(&s, g1, "a ⊗ b"), Tensor).left(&[at(&s, g1, "~a")]),
+            )
             .unwrap()[..]
         else {
             panic!()
@@ -1789,7 +2075,8 @@ mod tests {
                 &crate::Limits::default(),
                 |_| false,
             )
-            .unwrap();
+            .unwrap()
+            .outcome;
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
         assert!(s.is_complete());
         assert_eq!(s.undo(), Some(g));
@@ -1802,20 +2089,23 @@ mod tests {
     fn open_goals_render() {
         use Rule::*;
         let (mut s, g) = start("|- ~a par ~b, a * b", Mode::CLASSICAL);
-        let [g] = s.apply(g, at(&s, g, "~a ⅋ ~b"), Par, &[]).unwrap()[..] else {
+        let [g] = s.apply(g, &Step::new(at(&s, g, "~a ⅋ ~b"), Par)).unwrap()[..] else {
             panic!()
         };
-        s.apply(g, at(&s, g, "a ⊗ b"), Tensor, &[at(&s, g, "~a")])
-            .unwrap();
+        s.apply(
+            g,
+            &Step::new(at(&s, g, "a ⊗ b"), Tensor).left(&[at(&s, g, "~a")]),
+        )
+        .unwrap();
         assert_eq!(
-            s.derivation().to_string(),
+            s.derivation().unwrap().to_string(),
             "⊢ ~a, a   ⊢ ~b, b\n\
              ───────────────── ⊗\n\
             \x20⊢ ~a, ~b, a ⊗ b\n\
             \x20──────────────── ⅋\n\
             \x20⊢ ~a ⅋ ~b, a ⊗ b"
         );
-        let d = s.derivation();
+        let d = s.derivation().unwrap();
         assert_eq!(d.inference(d.root()).rule, Named::from(Par));
         assert_eq!(d.inference(InfId::new(0)).rule, Named::from(Open));
     }
@@ -1839,13 +2129,23 @@ mod tests {
             panic!()
         };
         assert_eq!(s.goal(l), s.goal(r));
-        s.close_all(
+        // A Mix of the goal's one formula: the right premise would be
+        // empty, which nothing closes.
+        assert_eq!(s.goal(l).map(<[Member]>::len), Some(1));
+        assert_eq!(s.apply(l, &Step::new(0, Mix)), Err(StepError::EmptyPremise));
+        // Each goal gets its own result.
+        let closed = s.close_all(
             &Options::default(),
             &ViewOptions::default(),
             &crate::Limits::default(),
             |_| false,
-        )
-        .unwrap();
+        );
+        assert_eq!(closed.iter().map(|(g, _)| *g).collect::<Vec<_>>(), [l, r]);
+        assert!(
+            closed
+                .iter()
+                .all(|(_, c)| c.as_ref().is_ok_and(|c| c.grafted.is_ok()))
+        );
         assert!(s.is_complete());
     }
 }

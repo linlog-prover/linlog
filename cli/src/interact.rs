@@ -14,9 +14,10 @@ use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
 use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
+use linlog::proofs::interactive::Needs;
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{
-    Error, InfId, Interactive, Limits, Named, Reading, Refusal, Rule, Side, StepError, ViewOptions,
+    Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, StepError, ViewOptions,
 };
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
@@ -145,11 +146,13 @@ impl Session {
                 writeln!(stdout, "{text}")?;
             }
         }
-        Ok(if self.state.is_complete() && self.state.proof().is_ok() {
-            Status::Yes
-        } else {
-            Status::No
-        })
+        Ok(
+            if self.state.is_complete() && self.state.proof(&self.limits, |_| false).is_ok() {
+                Status::Yes
+            } else {
+                Status::No
+            },
+        )
     }
 
     /// Runs one command and returns what to print.
@@ -165,12 +168,12 @@ impl Session {
                 })
                 .collect()
         };
-        let goal = |i: usize| -> Result<InfId> {
+        let goal = |i: usize| -> Result<GoalId> {
             let word = rest.get(i).context("which goal? see `goals`")?;
             let id: u32 = word
                 .parse()
                 .with_context(|| format!("{word:?} is not a goal"))?;
-            Ok(InfId::new(id))
+            Ok(GoalId::new(id))
         };
         let position = |i: usize| -> Result<usize> {
             let word = rest.get(i).context("which formula? see `goals`")?;
@@ -188,9 +191,9 @@ impl Session {
                 } else {
                     rules
                         .iter()
-                        .map(|r| match r.rule {
-                            Rule::Tensor | Rule::Mix => format!("{r} (with a split)"),
-                            _ => r.to_string(),
+                        .map(|r| match r.needs {
+                            Needs::Split => format!("{} (with a split)", r.rule),
+                            _ => r.rule.to_string(),
                         })
                         .collect::<Vec<_>>()
                         .join("  ")
@@ -200,7 +203,8 @@ impl Session {
                 let (goal, position) = (goal(0)?, position(1)?);
                 let word = rest.get(2).context("which rule? see `rules`")?;
                 let rule: Named = word.parse()?;
-                let opened = self.state.apply(goal, position, rule, &positions(3)?)?;
+                let step = Step::new(position, rule).left(&positions(3)?);
+                let opened = self.state.apply(goal, &step)?;
                 self.opened(&opened)
             }
             "undo" => match self.state.undo() {
@@ -236,7 +240,9 @@ impl Session {
                     (None, Some(path)) => Format::of_path(Path::new(path)).unwrap_or(Format::Text),
                     (None, None) => Format::Text,
                 };
-                let derivation = self.state.derivation();
+                let derivation = self
+                    .state
+                    .derivation_within(&self.view, &self.limits, |_| false)?;
                 let styles = &self.styles;
                 let text = match format {
                     Format::Text => {
@@ -299,7 +305,7 @@ impl Session {
                 if format.is_binary() && path.is_none() {
                     bail!("a {} needs a FILE to be written to", format.title());
                 }
-                let proof = self.state.proof()?;
+                let proof = self.state.proof(&self.limits, |_| false)?;
                 let mode = self.state.mode();
                 let mut text = String::new();
                 if path.is_none() {
@@ -357,7 +363,7 @@ impl Session {
     /// Runs the search on a goal, on one thread first as `prove` does,
     /// stopped by the time limit or Ctrl-C, and returns its outcome with
     /// how it ended.
-    fn close(&mut self, goal: InfId) -> Result<(Outcome, Ended)> {
+    fn close(&mut self, goal: GoalId) -> Result<(Outcome, Ended)> {
         clear_interrupt();
         let start = Instant::now();
         let deadline = Deadline::start(self.timeout, start)?;
@@ -421,7 +427,7 @@ impl Session {
 
     /// Lists the open goals, or says that none is.
     fn goals(&self) -> String {
-        let goals: Vec<InfId> = self.state.goals().collect();
+        let goals: Vec<GoalId> = self.state.goals().collect();
         if goals.is_empty() {
             return "no goal is open: `proof` checks the proof".to_owned();
         }
@@ -433,7 +439,7 @@ impl Session {
     }
 
     /// Lists goals just opened, or says that the step closed its goal.
-    fn opened(&self, goals: &[InfId]) -> String {
+    fn opened(&self, goals: &[GoalId]) -> String {
         if goals.is_empty() {
             return if self.state.is_complete() {
                 "closed; no goal is open: `proof` checks the proof".to_owned()
@@ -450,7 +456,7 @@ impl Session {
 
     /// Returns `goal G: ` and the goal's sequent with the position of every
     /// formula, two-sided in intuitionistic mode.
-    fn goal_line(&self, goal: InfId) -> String {
+    fn goal_line(&self, goal: GoalId) -> String {
         let sequent: Vec<_> = (self.state.goal(goal).unwrap_or(&[]).iter())
             .map(|&m| self.state.occurrence(m))
             .collect();

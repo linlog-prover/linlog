@@ -165,7 +165,7 @@ fn a_search_and_a_session_stop() {
         |_| true,
     );
     assert!(matches!(
-        outcome.unwrap().verdict,
+        outcome.unwrap().outcome.verdict,
         Verdict::Unknown(Reason::Stopped)
     ));
     assert!(session.goals().eq([goal]));

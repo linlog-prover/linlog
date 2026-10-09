@@ -166,7 +166,7 @@ pub use proofs::{
     ViewOptions,
 };
 #[cfg(feature = "interactive")]
-pub use proofs::{Interactive, StepError};
+pub use proofs::{GoalId, Interactive, Step, StepError};
 pub use search::{
     Bias, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
     prove_within,

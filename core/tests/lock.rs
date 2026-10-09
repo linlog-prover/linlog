@@ -13,7 +13,7 @@
 
 use linlog::search::Engine;
 use linlog::{
-    Forest, Interactive, Mode, Named, OccId, Options, ProofStructure, Sequent, ViewOptions,
+    Forest, Interactive, Mode, Named, OccId, Options, ProofStructure, Sequent, Step, ViewOptions,
 };
 use std::fmt::Write as _;
 
@@ -130,27 +130,23 @@ fn lines() -> String {
     pin("session-open", json(&session));
     let root = session.goals().next().unwrap();
     session
-        .apply(root, 0, "par".parse::<Named>().unwrap(), &[])
+        .apply(root, &Step::new(0, "par".parse::<Named>().unwrap()))
         .unwrap();
     pin("session-step", json(&session));
-    session
-        .close_all(
-            &options,
-            &ViewOptions::default(),
-            &linlog::Limits::default(),
-            |_| false,
-        )
-        .unwrap();
+    session.close_all(
+        &options,
+        &ViewOptions::default(),
+        &linlog::Limits::default(),
+        |_| false,
+    );
     pin("session-closed", json(&session));
     let mut session = Interactive::new(&sequent("A, A -o B |- B"), intuitionistic).unwrap();
-    session
-        .close_all(
-            &options,
-            &ViewOptions::default(),
-            &linlog::Limits::default(),
-            |_| false,
-        )
-        .unwrap();
+    session.close_all(
+        &options,
+        &ViewOptions::default(),
+        &linlog::Limits::default(),
+        |_| false,
+    );
     pin("session-intuitionistic", json(&session));
 
     out

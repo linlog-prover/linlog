@@ -250,15 +250,26 @@ counted or written (`write_sides`), once per inference and pass.
 `proofs/interactive.rs` (feature `interactive`) is the state a client
 holds for step-by-step proving: the forest, the mode, the inferences of a
 derivation of the standard calculus with open goals as leaves, and the
-steps taken. It reuses `Inference` and `Rule` and shares no second
-representation with anything. Its API: `new(&sequent, mode)`, `goals()`
-and `goal(id)`, `rules(goal, position)` (or a `Refusal` that says why no
-rule applies), `apply(goal, position, rule, left)`, `undo()`,
-`close(goal, options, view, limits, stop)` (the search, then the graft),
-`close_with(goal, &proof, view, limits, stop)` (the graft of a proof the caller's
-own search found, as the command's race does) and `close_all`,
-`derivation()` with open goals as `Rule::Open` leaves and
-`derivation_ids()` (a drawn inference's id in the state), and `proof()`. What the code relies on:
+steps taken. It reuses `Inference` (its arena private, numbered by
+`InfId` inside) and shares no second representation with anything. Its
+API names goals by `GoalId`, the session's own numbering, apart from a
+derivation's `InfId`: `new(&sequent, mode)` and `within(&sequent, mode,
+&limits)`, `goals()` and `goal(id)` (members), `rules(goal, position)`
+(each an `Applicable`: the `Named` rule and what a step of it `Needs`,
+nothing or a split; or a `StepError`), `apply(goal, &step)` with a `Step`
+(position, rule, `Split`), `split_passes(goal, &step)`, `undo()`,
+`close(goal, options, view, limits, stop)` (the search, then the graft,
+returning `Closed`: the outcome and whether the graft was refused, the
+goal then still open and the proof kept), `close_with(goal, &proof, view,
+limits, stop)` (the graft of a proof the caller's own search found, as
+the command's race does), `close_all` (a result per goal, F68),
+`derivation()` and `derivation_within(view, limits, stop)` (refused past
+`limits.derivation_bytes` by the size estimate's measure) with open
+goals as `Rule::Open` leaves, `derivation_ids()` (a drawn inference's
+goal in the state), `occurrence(m)` and `formula(m)`, and `proof(limits,
+stop)`. A Mix that leaves its right premise empty is
+`StepError::EmptyPremise`: nothing concludes the empty sequent. What the
+code relies on:
 
 - **The arena is top-down.** Inference 0 concludes the sequent; a step
   closes one open goal in place (its rule, principal and premises are

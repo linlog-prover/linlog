@@ -9,8 +9,8 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Forest, Fragment, InfId, Interactive, Member, Mode, Named, Node, NodeId, OccId, Proof,
-    ProofStructure, Rule, Sequent, ViewOptions,
+    Branch, Forest, Fragment, GoalId, Interactive, Member, Mode, Named, Node, NodeId, OccId, Proof,
+    ProofStructure, Rule, Sequent, Step, ViewOptions,
 };
 
 /// Parses `input` and serializes it as compact JSON.
@@ -376,11 +376,14 @@ fn net_json_format_and_round_trip() {
 fn interactive_json_format_and_round_trip() {
     let s: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&s, Mode::INTUITIONISTIC).unwrap();
-    let root = InfId::new(0);
+    let root = GoalId::new(0);
     let goals = state
-        .apply(root, 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .apply(
+            root,
+            &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
+        )
         .unwrap();
-    state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
+    state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
     let json = serde_json::to_string(&state).unwrap();
     let sequent = serde_json::to_string(&s).unwrap();
     assert_eq!(
@@ -390,11 +393,11 @@ fn interactive_json_format_and_round_trip() {
         )
     );
     let back: Interactive = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.inferences(), state.inferences());
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
     assert_eq!(back.goals().collect::<Vec<_>>(), vec![goals[1]]);
     assert_eq!(
-        back.derivation().to_string(),
-        state.derivation().to_string()
+        back.derivation().unwrap().to_string(),
+        state.derivation().unwrap().to_string()
     );
     let mut back = back;
     assert_eq!(back.undo(), Some(goals[0]));
@@ -460,7 +463,7 @@ fn interactive_json_format_and_round_trip() {
     let s: Sequent = "|- ~a par ~b, a * b, c, ~c, ?d".parse().unwrap();
     let mut state = Interactive::new(&s, mix).unwrap();
     // The position of the formula printed as `text` in an open goal.
-    let at = |state: &Interactive, goal: InfId, text: &str| {
+    let at = |state: &Interactive, goal: GoalId, text: &str| {
         state
             .goal(goal)
             .unwrap()
@@ -469,21 +472,22 @@ fn interactive_json_format_and_round_trip() {
             .unwrap()
     };
     let g = state
-        .apply(root, at(&state, root, "?d"), Rule::Weakening, &[])
+        .apply(root, &Step::new(at(&state, root, "?d"), Rule::Weakening))
         .unwrap()[0];
     let g = state
-        .apply(g, at(&state, g, "~a ⅋ ~b"), Rule::Par, &[])
+        .apply(g, &Step::new(at(&state, g, "~a ⅋ ~b"), Rule::Par))
         .unwrap()[0];
     let goals = state
-        .apply(g, at(&state, g, "c"), Rule::Mix, &[at(&state, g, "~c")])
+        .apply(
+            g,
+            &Step::new(at(&state, g, "c"), Rule::Mix).left(&[at(&state, g, "~c")]),
+        )
         .unwrap();
     let g = goals[1];
     let goals = state
         .apply(
             g,
-            at(&state, g, "a ⊗ b"),
-            Rule::Tensor,
-            &[at(&state, g, "~a")],
+            &Step::new(at(&state, g, "a ⊗ b"), Rule::Tensor).left(&[at(&state, g, "~a")]),
         )
         .unwrap();
     state
@@ -497,29 +501,32 @@ fn interactive_json_format_and_round_trip() {
         .unwrap();
     let json = serde_json::to_string(&state).unwrap();
     let mut back: Interactive = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.inferences(), state.inferences());
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
     assert_eq!(back.steps(), 5);
-    let closed = back
-        .close_all(
-            &Options::default(),
-            &ViewOptions::default(),
-            &linlog::Limits::default(),
-            |_| false,
-        )
-        .unwrap();
+    let closed = back.close_all(
+        &Options::default(),
+        &ViewOptions::default(),
+        &linlog::Limits::default(),
+        |_| false,
+    );
     assert_eq!(closed.len(), 2);
-    assert_eq!(back.proof().unwrap().check(mix), Ok(()));
+    assert_eq!(
+        back.proof(&linlog::Limits::default(), |_| false)
+            .unwrap()
+            .check(mix),
+        Ok(())
+    );
     while back.undo().is_some() {}
     assert_eq!(back.goals().collect::<Vec<_>>(), vec![root]);
     let s: Sequent = "|- ?(a par ~a)".parse().unwrap();
     let mut state = Interactive::new(&s, mix).unwrap();
-    let g = state.apply(root, 0, Rule::Contraction, &[]).unwrap()[0];
-    let g = state.apply(g, 0, Rule::Dereliction, &[]).unwrap()[0];
-    let g = state.apply(g, 0, Rule::Dereliction, &[]).unwrap()[0];
-    state.apply(g, 1, Rule::Mix, &[]).unwrap();
+    let g = state.apply(root, &Step::new(0, Rule::Contraction)).unwrap()[0];
+    let g = state.apply(g, &Step::new(0, Rule::Dereliction)).unwrap()[0];
+    let g = state.apply(g, &Step::new(0, Rule::Dereliction)).unwrap()[0];
+    state.apply(g, &Step::new(1, Rule::Mix)).unwrap();
     let json = serde_json::to_string(&state).unwrap();
     let back: Interactive = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.inferences(), state.inferences());
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
 }
 
 /// An error is written as a client reads it: the code it branches on, the

@@ -41,7 +41,7 @@ pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};
 pub use derivation::{Compact, Derivation, InfId, Inference, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
-pub use interactive::{Interactive, StepError};
+pub use interactive::{GoalId, Interactive, Step, StepError};
 pub use rule::{Named, Rule};
 pub use size::Size;
 pub use style::{Labels, OpenGoal};
