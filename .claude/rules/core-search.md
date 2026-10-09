@@ -398,3 +398,31 @@ allows: never a proof against a refutation, either way.
   is not maintained; a step that changes the search writes or asks for
   its own, so that the panel's independence does not rest on this one
   file.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **`Verdict::Unprovable` carries a `Disproof`**: the sequent, the goal,
+  the mode and the refutation. `Verdict` is closed, and a refutation's
+  checker and certificate need its sequent and mode.
+- **Refuters run after the search, never during it**: after an
+  `Unprovable` that has no certificate, and after an `Unknown` only with
+  `refute_unknown`, which is off by default. A refuter never changes a
+  verdict the search gave, so every baseline keeps its verdicts.
+- **`search::Options::default()` keeps the copy bound of 3, and
+  `Settings::default()` is the command's behaviour** (no copy bound, a
+  clock). A library call without a stop must end; a front end with a
+  clock deepens.
+- **Dispatch thresholds are not options**: a row's threshold is a
+  private constant beside its measurement, and `engine` is the knob. A
+  front end must not move a row the library's measurement placed.
+- **`Statistics` keeps its shared counters**, each documented per
+  engine: an engine adds a field only where none fits, and never gives a
+  counter it fills a new meaning. Every baseline and the CSV columns read
+  them by name.
+- **An outcome names the crate's version, not its options**: the front
+  end records the settings it ran under, once.

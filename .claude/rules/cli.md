@@ -499,3 +499,16 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - Stay out of `core`'s way: no clap types or exit statuses in `core`, and
   the CLI never re-implements what `core` computes (fragment names, the
   mode's words, the JSON form).
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **`load` in a session refuses a file whose sequent or mode differs**
+  from the session's, as `--state` refuses a file beside a sequent.
+- **The command's behaviour is `Settings::default()`**, and every flag
+  sets one of its keys. A mode flag that contradicts a `.spec` file is
+  refused (`core-inputs.md`).

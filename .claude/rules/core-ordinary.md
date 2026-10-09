@@ -102,3 +102,13 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   variable and `Atom` gains terms; the pattern table gets their rows
   (Girard: `∀` as `∀`, `∃` as `∃!`), and the read-back's tags carry no
   more than the node.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **A TPTP file with several conjectures is refused**, naming the
+  second, as the LLTP reader refuses one (`core-inputs.md`).

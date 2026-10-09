@@ -111,3 +111,23 @@ the checker, the two-sided derivation and the future essential nets read.
   units`, `IALL`, `IMALL`, `IMELL`, `ILL`; the classical `Display` is
   unchanged), and the JSON of an `Outcome` uses it; a `Fragment` reads
   back from either spelling.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **With the sides known, the reading is what was written**: the roots
+  after the first `antecedents` are the succedents, of which
+  intuitionistic mode takes exactly one; every antecedent reads as input;
+  an implication's antecedent is its left factor, where the lowering of
+  `A ⊸ B` puts it. The guessed goal and the symmetric reading answered
+  `|- top, a` and `(A -o bot) -o bot |- A` as provable.
+- **With the sides unknown, the reading answers only where it is the one
+  reading**: the goal is the one root that can be it, and an
+  implication's antecedent is the left factor. Where two roots can each
+  be the goal, it refuses (`ShapeError::Undetermined`) and asks for the
+  sides. A guess there kept the same wrong answers reachable through JSON
+  and the library.

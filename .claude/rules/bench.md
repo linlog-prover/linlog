@@ -569,3 +569,16 @@ $V/callgrind_annotate OUT | head -40   # by function; "Collected" in the log is 
 - **Fifty times slower** than the run itself: a row of 0.1 s takes five
   seconds. The rows step 26 counted, and its before and after, are in
   its report.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **The release profile has `lto = "fat"` and `codegen-units = 1`**, so
+  every instruction count and every time is measured under it. A change
+  of the profile moves every count: it re-records the ratchet's ceilings
+  in a commit of its own that says why. The renderers gain much from it,
+  and the gate's release build takes longer.

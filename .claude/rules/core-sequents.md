@@ -194,3 +194,56 @@ false, "links": [[0, 2], [3, 4]]}`, the links as occurrence id pairs in
 the order they were made; reading validates the links as `from_links`
 does and accepts a partial or incorrect structure, since whether it is a
 net is `is_correct`'s question.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **The written order is canonical**: `optimize` merges and drops but
+  never sorts the roots; the parser, the JSON, `add`, `Display` and
+  `Forest::roots()` keep them as given, and `Eq` and `Hash` are
+  structural. A `Sequent` then means one thing in every mode, and the
+  ordered calculi need the order.
+- **The written sides are kept**: every reader sets `antecedents`
+  (`Some(0)` for `|- Γ`), and the JSON writes it whenever it is `Some`,
+  `0` included; `None` only where no sides were given. The intuitionistic
+  reading takes the goal from it (`core-forest.md`).
+- **An atom is an interned atomic formula**: the atom table holds one
+  distinct key per atom, and `atom_name` is that key. `Term` and `Kind`
+  gain only `Forall` and `Exists`, and their literal variants stay the
+  first two, contiguous, with every new variant after the compound ones.
+  Ground first-order atoms are then propositional by construction, and
+  `Term::atom()` and `Kind::is_literal` stay one comparison on the
+  focused engine's hot path (literal variants appended after `Quest`
+  cost its journeys 6.6 %).
+- **Atom names are identifiers of the text syntax**: normalized to NFC
+  on every path, never a keyword (`par`, `top`, `bot`) or a reserved word
+  (`forall`, `exists`). Every reader refuses them: `AtomName`, or a parse
+  error that names the word as reserved. The text syntax grows by new
+  tokens only, never by a new meaning of text that reads today.
+- **One global wire level**: every top-level document starts with
+  `"version"`, the lowest level whose reader understands it, and a reader
+  refuses a higher one by name. `wire::upgrade` is the one place that
+  knows older released levels: every reader goes through it, and each
+  level that changes a form adds one step to it; at level 1 it is the
+  identity. A client stores one number, a reader keeps one grammar, and a
+  stored file outlives the release that wrote it.
+- **No reader of the pre-release names** (`ids`, `var_dict`, `proof`, a
+  mode as an object of flags). Nothing is kept beside its successor
+  before the release, and a second grammar would be fuzz surface for
+  ever. The keys that every level-1 value has are required, so an old
+  file is refused naming the key it lacks.
+- **A mode on the wire is its name**: an unknown word is refused naming
+  the known ones, so a new mode cannot be read as a commutative one.
+- **Numbers on the wire**: a written-only count that saturates is
+  `u64::MAX` and means "at least"; every integer read back is below 2⁵³,
+  and a larger bound is written `null`. JavaScript reads `u64::MAX` as
+  2⁶⁴, which no exact count takes.
+- **Ordered modes**: classical cyclic MLL is read by an ordered parse
+  beside `parse_within` whose dual reverses products, and `FromStr` stays
+  the commutative reader; the Lambek calculus's planar order is decided
+  with the ordered calculi. Without the reversing dual, `|- ~(a * b), a,
+  b` would be unprovable in cyclic mode.

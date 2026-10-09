@@ -127,3 +127,45 @@ offers on formulas nested 100 000 deep, on a thread with a stack of
 Doc examples that parse are fenced with `cfg_attr(feature = "parse", doc =
 "```")` and an `ignore` fence otherwise, so `cargo test --no-default-features`
 passes; copy that pattern for a new example.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **`Term`, `Kind`, `Node` and `Rule` stay exhaustive**; every other
+  public enum, every options value and every struct with public fields
+  that a later step extends is `#[non_exhaustive]`. A data-carrying
+  variant of a marked enum has named fields, unless it wraps a whole
+  `#[non_exhaustive]` error or refutation type or is an option's value
+  written as one JSON scalar. A new variant of the four is a planned 0.y
+  bump, so a downstream `match` fails to compile when the calculus grows
+  instead of falling into a wildcard arm; named fields let a later step
+  add one.
+- **One error family**: every public fallible call returns `Error` or a
+  specific type that converts into it without loss. `ErrorKind` has seven
+  kinds: malformed, invalid, unsupported, limit, stopped, failed and
+  defect. Every specific type that can be refused carries the refusal as
+  a variant of its own. Only `invalid` says a claim is wrong, so a
+  refusal never reads as a fault, and the harness and the exit statuses
+  tell the kinds apart.
+- **Every long call takes `&Limits` and `stop: impl FnMut(Progress) ->
+  bool`**, with no `Stop` trait; a closure that ignores the progress is
+  `|_| false`. One rule serves every long call, and a front end without
+  a clock reads its deadline from the work done; a trait's wrapper for
+  progress closures does not infer.
+- **Owned values, borrowed views**: `Sequent`, `Forest`, `Proof`,
+  `Disproof`, `ProofStructure` and `Interactive` own their data;
+  `Derivation`, `Reading` and `Goal` borrow; no `Arc` in a public type.
+  An owned value is serialized and sent to a worker without lifetimes in
+  the bindings, and no journey shows the clone.
+- **An item without a caller waits for one** (the checked builder,
+  `Limits::BROWSER`, `Settings::browser()`): it is additive later, and
+  the first release promises no unmeasured numbers.
+- **Lints**: clippy's `unwrap_used`, `expect_used` and `panic` stay off,
+  since the code trusts its own invariants and the fuzzers decide whether
+  input panics. `pedantic` is cleared in the area each site falls in,
+  each lint turned on in the commit that fixes its last site; a cast
+  goes through `try_from` or an `#[expect]` that gives the reason.

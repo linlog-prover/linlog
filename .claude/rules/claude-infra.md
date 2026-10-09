@@ -35,6 +35,10 @@ compaction is told to keep (code.claude.com/docs/en/how-claude-code-works):
 a long session's prompt file, checklist and unrecorded instructions,
 which a summary otherwise drops.
 
+Eleven rules files end in `## Decisions`: the author's answers for the
+release (`plan/notes/api.md` §14) that the code under their paths
+follows, which later reviews judge against.
+
 Current contents:
 - `rules/core.md` (`core/**`): the crate's layout, the rules that hold
   for the whole crate (nothing recurses over a formula, the doc examples'
@@ -182,3 +186,15 @@ fragment, a change of toolchain or VCS, a workflow that starts repeating),
 amend `.claude/` and CLAUDE.md in the same change. Stale guidance reads exactly
 like current guidance. `/doctor prompt-audit` checks these files for
 contradictions and dead references.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **A rules file holds the invariants and the reasons a session needs**;
+  measurement narrative and history go to the step reports. Every rules
+  file loads on every read under its paths, so its length is paid on
+  each.

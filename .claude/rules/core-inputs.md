@@ -81,3 +81,17 @@ the generated families are read; the harness that runs them is
   S`; a clause is the `⊕` of `(tx ⊗ ⊤)`/`(fx ⊗ ⊤)`, and the matrix their
   `&`. `mix` wraps each tensor pair in `⊕ 0` because in MLL the count
   equation refutes the bare pairs at once.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **A file with several conjectures is refused**, naming the second (the
+  LLTP reader, as `ordinary::read_tptp`). No file of the libraries has
+  several, and conjoining them would carry TPTP's meaning into linear
+  logic by a guess.
+- **A `.spec` file is affine, from the file**: its question is
+  coverability, and a mode flag that contradicts it is refused.

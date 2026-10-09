@@ -228,3 +228,24 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   `describe(&forest)` prints the same message with formulas (nodes keep
   their ids), which is what the CLI shows. Both go through one writer
   (`CheckError::write`), so a new `Problem` gets one arm.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **A proof records its conclusion and its claimed mode** (`goal`,
+  `mode`), and the checker checks a term against its own conclusion. A
+  goal proof is then never taken for a proof of the sequent. `linlog
+  check`, `from_proof` and the Rocq writer require a proof of the sequent
+  (`GoalProof`, kind unsupported, otherwise).
+- **`Rule` is a one-sided rule, and `Named` adds the side of `⊢`**: a
+  two-sided rule name is a `(rule, side)` pair, not a variant. Consumers
+  lose their unreachable arms, and a new connective adds one rule, not
+  three.
+- **No nullary Mix**: the calculus, the checker and the Rocq library stay
+  as they are, and a net places weakening and `⊥` by a jump chosen from
+  the term. A rule the Rocq library freezes is cheaper to add later as a
+  node than to carry now.

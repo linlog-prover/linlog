@@ -920,3 +920,17 @@ relies on:
   and reports the most derelictions on one branch of the proof it read
   the sequent off, which bounds the copies the engine needs; a new rule
   set extends it rather than writing new positives by hand.
+
+## Decisions
+
+The author's answers for the release (`plan/notes/api.md` §14), which
+the fixes implement and later rounds judge against. Where a bullet above
+still describes code that a decision changes, the decision holds, and
+the commit that lands it rewrites that bullet.
+
+- **The focused engine becomes generic over `Z: Zone`** once first-order
+  search needs a second zone, with `Ground` the propositional instance,
+  rather than a second copy of the hot loop. This rests on instruction
+  counts; pinned time on an idle machine at the lift of the shared types
+  confirms it, or a duplicated fast path is kept instead. Callgrind does
+  not see the instruction cache that a second instance strains.
