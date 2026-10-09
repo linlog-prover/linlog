@@ -239,6 +239,13 @@ where
 /// The results of a batch, in the order of its problems.
 pub struct Results<R>(Inner<R>);
 
+impl<R> std::fmt::Debug for Results<R> {
+    /// Names the type: what it holds is the workers' state.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Results").finish_non_exhaustive()
+    }
+}
+
 /// Where a batch runs.
 enum Inner<R> {
     /// On the caller's thread, one problem per result asked for.

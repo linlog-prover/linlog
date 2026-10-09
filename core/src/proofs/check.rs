@@ -33,6 +33,7 @@
 //! one-sided sequent, so nothing else is intuitionistic about a proof.
 
 use super::{Branch, Node, NodeId, Proof};
+use crate::errors::{Described, Owner, Subject};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
 use crate::limits::{Limits, Phase, Progress, Refusal};
@@ -646,20 +647,21 @@ impl Display for CheckError {
 
 impl CheckError {
     /// Returns the error for display with formulas instead of occurrence
-    /// ids, read from `forest`, the forest of the proof that failed; the
+    /// ids, read from `owner`, the proof that failed or its forest; the
     /// nodes keep their ids. For instance `node 2 (⊗ on A ⊗ ~B from 0, 1)
     /// with premises ⊢ ~A, ~B and ⊢ ~B, B: premise 0 lacks A`.
-    pub fn describe<'a>(&'a self, forest: &'a Forest) -> Described<'a> {
-        Described {
-            error: self,
-            forest,
-            limit: None,
-        }
+    pub fn describe<'a>(&'a self, owner: &'a impl Owner) -> Described<'a> {
+        Described::new(Subject::Check(self), owner)
     }
 
     /// Writes the error as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
+    pub(crate) fn write(
+        &self,
+        f: &mut Formatter<'_>,
+        forest: Option<&Forest>,
+        limit: Limit,
+    ) -> FmtResult {
         let invalid = match self {
             Self::Invalid(invalid) => invalid,
             Self::Refused(refused) => {
@@ -706,10 +708,7 @@ impl Invalid {
             Forbidden => f.write_str("the mode forbids the rule"),
             Shape(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
-                match forest {
-                    Some(forest) => write!(f, "{}", e.describe(forest)),
-                    None => write!(f, "{e}"),
-                }
+                e.write(f, forest)
             }
             Succedents { count } => write!(
                 f,
@@ -748,34 +747,6 @@ impl Invalid {
                 f.write_str(", not the sequent")
             }
         }
-    }
-}
-
-/// A [`CheckError`] displayed with formulas, as [`CheckError::describe`]
-/// returns it.
-pub struct Described<'a> {
-    /// The error.
-    error: &'a CheckError,
-    /// The forest of the proof that failed.
-    forest: &'a Forest,
-    /// The most characters of a formula or a list of formulas.
-    limit: Limit,
-}
-
-impl Described<'_> {
-    /// Returns the report with every formula and every list of formulas
-    /// cut after `limit` characters, `…` and the number of formulas of a
-    /// list after it, or whole with `None`: a zone may hold a formula per
-    /// node of the proof.
-    pub fn abbreviated(self, limit: Option<usize>) -> Self {
-        Self { limit, ..self }
-    }
-}
-
-impl Display for Described<'_> {
-    /// Writes the error with formulas instead of occurrence ids.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.error.write(f, Some(self.forest), self.limit)
     }
 }
 

@@ -35,7 +35,7 @@ pub mod size;
 /// not written whole, which every output that draws a derivation shares.
 pub mod style;
 
-pub use check::{CheckError, Described, Dyadic, Fault, Invalid, Refused};
+pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};
 pub use derivation::{Compact, Derivation, InfId, Inference, Rule, UnknownRule, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]

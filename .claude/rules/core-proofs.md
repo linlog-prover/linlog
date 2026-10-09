@@ -229,9 +229,11 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 - `CheckError` reports ids, not formulas: `node`, its `rule`, the derived
   `premises` as `Dyadic` sequents and a `Fault` (`CheckError::Invalid`'s
   `Invalid`; a refusal has no premises). `Display` prints ids too;
-  `describe(&forest)` prints the same message with formulas (nodes keep
-  their ids), which is what the CLI shows. Both go through one writer
-  (`Invalid::write`), so a new `Fault` gets one arm, and the test-only
+  `describe(&owner)` (the proof or its forest) prints the same message
+  with formulas (nodes keep their ids) as the crate's one `Described`,
+  which is what the CLI shows. Both go through one writer
+  (`Invalid::write`), so a new `Fault` gets one arm (and one in its
+  written form, `serialize/errors.rs`), and the test-only
   first implementation (`oracle.rs`) reports the same faults.
 
 ## Decisions

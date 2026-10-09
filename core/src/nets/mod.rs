@@ -27,13 +27,13 @@ mod skeleton;
 pub use graph::Scratch;
 
 use crate::Error;
+use crate::errors::{Described, Owner, Subject};
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Node, Proof};
 use crate::sequents::{Kind, Sequent};
 use graph::Graph;
 use skeleton::Skeleton;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use thiserror::Error as ThisError;
 
 /// The raw index that stands for "no occurrence".
 const NONE: u32 = u32::MAX;
@@ -42,62 +42,36 @@ const NONE: u32 = u32::MAX;
 /// a proof structure. Occurrences print as ids; [`describe`](Self::describe)
 /// prints them as formulas.
 #[non_exhaustive]
-#[derive(ThisError, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NetError {
     /// A link names an occurrence (first) outside the forest (its length
     /// second).
-    #[error("a link names occurrence {}, but the sequent has {} occurrences", .0.get(), .1)]
     NoOccurrence(OccId, usize),
     /// A link names an occurrence that is not a literal.
-    #[error("occurrence {} is not a literal", .0.get())]
     NotLiteral(OccId),
     /// A link joins two literals that are not `a` and `~a` for one atom.
-    #[error("the literals {} and {} are not dual", .0.get(), .1.get())]
     NotDual(OccId, OccId),
     /// A literal appears in two links.
-    #[error("literal {} is linked twice", .0.get())]
     LinkedTwice(OccId),
     /// A literal has no link, so the structure is incomplete.
-    #[error("literal {} has no axiom link", .0.get())]
     Unlinked(OccId),
     /// The structure has no occurrence at all: no rule concludes the empty
     /// sequent.
-    #[error("the structure is empty, and no rule concludes the empty sequent")]
     Empty,
     /// A cycle survives some switching: the occurrences it runs through,
     /// in order along the cycle.
-    #[error("a switching cycle runs through {}", ids(.0))]
     SwitchingCycle(Vec<OccId>),
     /// Every switching falls into several parts. The parts are those of the
     /// switching that keeps the left premise of every `⅋`, each given by
     /// the occurrences in it that have no parent edge there: the roots and
     /// the right premises of `⅋` nodes.
-    #[error("every switching falls into {} parts; keeping every left premise, they are {}", .0.len(), parts(.0))]
     Disconnected(Vec<Vec<OccId>>),
     /// A bound or the caller's stop ended the call without a verdict on
     /// the structure.
-    #[error("{refusal}")]
     Refused {
         /// The bound that refused it, or the stop.
         refusal: crate::limits::Refusal,
     },
-}
-
-/// Writes occurrence ids separated by commas.
-fn ids(ids: &[OccId]) -> String {
-    ids.iter()
-        .map(|o| o.get().to_string())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// Writes lists of occurrence ids as `{0, 1} and {2}`.
-fn parts(parts: &[Vec<OccId>]) -> String {
-    parts
-        .iter()
-        .map(|p| format!("{{{}}}", ids(p)))
-        .collect::<Vec<_>>()
-        .join(" and ")
 }
 
 impl NetError {
@@ -127,38 +101,34 @@ impl NetError {
         }
     }
 
-    /// Returns the error as a value that prints occurrences as formulas
-    /// followed by their id in brackets, as in `~A[0]`.
-    pub fn describe<'a>(&'a self, forest: &'a Forest) -> Described<'a> {
-        Described {
-            error: self,
-            forest,
-        }
+    /// Returns the error for display with every occurrence as its formula
+    /// followed by its id in brackets, as in `~A[0]`, read from `owner`,
+    /// the structure that failed or its forest.
+    pub fn describe<'a>(&'a self, owner: &'a impl Owner) -> Described<'a> {
+        Described::new(Subject::Net(self), owner)
     }
-}
 
-/// A [`NetError`] printed with the formulas of its occurrences.
-#[derive(Clone, Copy, Debug)]
-pub struct Described<'a> {
-    /// The error.
-    error: &'a NetError,
-    /// The forest of the structure that failed.
-    forest: &'a Forest,
-}
-
-impl Display for Described<'_> {
-    /// Writes the error with `formula[id]` in place of every occurrence id.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let occ = |o: &OccId| format!("{}[{}]", self.forest.formula(*o), o.get());
+    /// Writes the error as [`Display`] does, with `formula[id]` in place of
+    /// every occurrence id when a forest is given.
+    pub(crate) fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
+        let occ = |o: &OccId| match forest {
+            Some(forest) => format!("{}[{}]", forest.formula(*o), o.get()),
+            None => o.get().to_string(),
+        };
         let list = |os: &[OccId]| os.iter().map(occ).collect::<Vec<_>>().join(", ");
         use NetError::*;
-        match self.error {
+        match self {
+            // An occurrence outside the forest has no formula.
+            NoOccurrence(o, len) => write!(
+                f,
+                "a link names occurrence {}, but the sequent has {len} occurrences",
+                o.get()
+            ),
             NotLiteral(o) => write!(f, "occurrence {} is not a literal", occ(o)),
             NotDual(x, y) => write!(f, "the literals {} and {} are not dual", occ(x), occ(y)),
             LinkedTwice(o) => write!(f, "literal {} is linked twice", occ(o)),
             Unlinked(o) => write!(f, "literal {} has no axiom link", occ(o)),
-            // An occurrence outside the forest has no formula.
-            NoOccurrence(..) | Empty | Refused { .. } => write!(f, "{}", self.error),
+            Empty => f.write_str("the structure is empty, and no rule concludes the empty sequent"),
             SwitchingCycle(cycle) => write!(f, "a switching cycle runs through {}", list(cycle)),
             Disconnected(parts) => {
                 let parts: Vec<String> = parts.iter().map(|p| format!("{{{}}}", list(p))).collect();
@@ -169,9 +139,19 @@ impl Display for Described<'_> {
                     parts.join(" and ")
                 )
             }
+            Refused { refusal } => write!(f, "{refusal}"),
         }
     }
 }
+
+impl Display for NetError {
+    /// Writes the error with occurrence ids.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.write(f, None)
+    }
+}
+
+impl std::error::Error for NetError {}
 
 /// A proof structure of unit-free MLL over the occurrence forest of its
 /// sequent: the formula trees, which the forest holds, plus axiom links

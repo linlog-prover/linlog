@@ -72,9 +72,11 @@
 //! a program branches on. The types a caller may match on are variants of
 //! it, converted without loss: a proof that fails the checker gives a
 //! [`CheckError`], [`Invalid`](CheckError::Invalid) or
-//! [`Refused`](CheckError::Refused), which [`CheckError::describe`] prints
-//! with formulas; a proof structure a [`NetError`]; a sequent without an
-//! intuitionistic reading a [`ShapeError`].
+//! [`Refused`](CheckError::Refused); a proof structure a [`NetError`]; a
+//! sequent without an intuitionistic reading a [`ShapeError`]; a text that
+//! is no sequent a `ParseError`. Their messages name occurrences by id,
+//! and `describe` on any of them, given the forest or the value the ids
+//! belong to (an [`Owner`]), prints them as formulas ([`Described`]).
 //!
 //! # Syntax and JSON
 //!
@@ -143,7 +145,7 @@ mod serialize;
 #[cfg(feature = "parse")]
 pub use errors::ParseError;
 
-pub use errors::{Error, ErrorKind};
+pub use errors::{Described, Error, ErrorKind, Owner};
 pub use fragment::{Fragment, Mode};
 pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{NetError, ProofStructure};

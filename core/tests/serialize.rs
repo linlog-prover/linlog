@@ -515,3 +515,50 @@ fn interactive_json_format_and_round_trip() {
     let back: Interactive = serde_json::from_str(&json).unwrap();
     assert_eq!(back.inferences(), state.inferences());
 }
+
+/// An error is written as a client reads it: the code it branches on, the
+/// kind it shows, the message, the setting of a bound that refused the
+/// call, and the variant's fields; described, the message has formulas.
+#[test]
+fn error_json_format() {
+    let limits = linlog::Limits::default().with_occurrences(Some(2));
+    let error = Sequent::parse_within("|- a * b", &limits).unwrap_err();
+    assert_eq!(
+        serde_json::to_string(&error).unwrap(),
+        format!(
+            "{{\"code\":\"too_many_occurrences\",\"kind\":\"limit\",\"message\":\"{error}\",\
+             \"setting\":\"limits.occurrences\",\
+             \"details\":{{\"kind\":\"occurrences\",\"occurrences\":3,\"limit\":2}}}}"
+        )
+    );
+    let error = "|- a *".parse::<Sequent>().unwrap_err();
+    assert_eq!(
+        serde_json::to_string(&error).unwrap(),
+        format!(
+            "{{\"code\":\"parse\",\"kind\":\"malformed\",\"message\":\"{error}\",\
+             \"details\":{{\"span\":{{\"start\":6,\"end\":6}},\"span_utf16\":{{\"start\":6,\"end\":6}},\
+             \"line\":1,\"column\":7,\"found\":null,\"expected\":[\"a formula\"]}}}}"
+        )
+    );
+    // A proof of `⊢ a, ~a` alone, which concludes less than the sequent.
+    let s: Sequent = "|- a * b, ~a, ~b".parse().unwrap();
+    let axiom = vec![Node::Ax(OccId::new(1), OccId::new(3))];
+    let proof = Proof::new(Forest::new(&s).unwrap(), axiom, NodeId::new(0)).unwrap();
+    let error = linlog::Error::from(proof.check(Mode::CLASSICAL).unwrap_err());
+    let json = serde_json::to_string(&error).unwrap();
+    assert!(
+        json.starts_with(
+            "{\"code\":\"invalid_proof\",\"kind\":\"invalid\",\"message\":\"invalid proof: node 0"
+        ),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"details\":{\"node\":0,\"rule\":{\"ax\":[1,3]}"),
+        "{json}"
+    );
+    let described = serde_json::to_string(&error.describe(&proof)).unwrap();
+    assert!(
+        described.contains("\"message\":\"invalid proof: node 0 (ax on a, ~a)"),
+        "{described}"
+    );
+}

@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// format, so renaming one breaks it.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename = "N")]
-enum Step {
+pub(super) enum Step {
     /// The axiom on two literals.
     #[serde(rename = "ax")]
     Ax(u32, u32),

@@ -107,6 +107,11 @@ impl Default for Options {
 
 /// Why a derivation has no certificate: it uses a rule the kernel lacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Error)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize),
+    serde(rename_all = "snake_case")
+)]
 pub enum Unsupported {
     /// The derivation has an open goal: it is a proof in progress.
     #[error("the proof is not finished: an open goal has no certificate")]

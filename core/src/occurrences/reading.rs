@@ -18,6 +18,7 @@
 //! output-shaped root, the goal, and every other root input-shaped.
 
 use super::{Forest, OccId};
+use crate::errors::{Described, Owner, Subject};
 use crate::sequents::{Kind, Visit, Walk};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -89,17 +90,14 @@ impl Display for ShapeError {
 
 impl ShapeError {
     /// Returns the error for display with formulas instead of occurrence
-    /// ids, read from `forest`, the forest the reading was attempted on.
-    pub fn describe<'a>(&'a self, forest: &'a Forest) -> DescribedShape<'a> {
-        DescribedShape {
-            error: self,
-            forest,
-        }
+    /// ids, read from `owner`, the forest the reading was attempted on.
+    pub fn describe<'a>(&'a self, owner: &'a impl Owner) -> Described<'a> {
+        Described::new(Subject::Shape(self), owner)
     }
 
     /// Writes the reason as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
+    pub(crate) fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
         let occurrence = |f: &mut Formatter<'_>, o: OccId| match forest {
             Some(forest) => write!(f, "{}", forest.formula(o)),
             None => write!(f, "{}", o.get()),
@@ -168,22 +166,6 @@ impl ShapeError {
 }
 
 impl std::error::Error for ShapeError {}
-
-/// A [`ShapeError`] displayed with formulas, as [`ShapeError::describe`]
-/// returns it.
-pub struct DescribedShape<'a> {
-    /// The error.
-    error: &'a ShapeError,
-    /// The forest the reading was attempted on.
-    forest: &'a Forest,
-}
-
-impl Display for DescribedShape<'_> {
-    /// Writes the reason with formulas instead of occurrence ids.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.error.write(f, Some(self.forest))
-    }
-}
 
 /// An occurrence's possible positions, as two bits.
 const IN: u8 = 1;

@@ -227,6 +227,17 @@ pub struct Output {
     binary: bool,
 }
 
+impl std::fmt::Debug for Output {
+    /// Says where the output goes and how it stands; the stream is opaque.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Output")
+            .field("rename", &self.rename)
+            .field("error", &self.error)
+            .field("binary", &self.binary)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Output {
     /// Opens the output: the file at `path`, or standard output for
     /// `None`; a binary one ends without a newline.

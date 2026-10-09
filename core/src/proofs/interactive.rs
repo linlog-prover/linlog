@@ -36,6 +36,11 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 ///
 /// Needs the cargo feature `interactive` (on by default).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize),
+    serde(tag = "kind", rename_all = "snake_case")
+)]
 #[non_exhaustive]
 pub enum StepError {
     /// No open goal has this id.

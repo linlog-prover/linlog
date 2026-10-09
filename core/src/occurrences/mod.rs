@@ -6,7 +6,7 @@ pub mod reading;
 /// Bitsets over occurrence ids.
 pub(crate) mod set;
 
-pub use reading::{DescribedShape, IllFormula, Reading, ShapeError, Side};
+pub use reading::{IllFormula, Reading, ShapeError, Side};
 pub(crate) use set::OccSet;
 
 use crate::Error;

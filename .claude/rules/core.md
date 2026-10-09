@@ -123,7 +123,30 @@ bound or the caller's stop ended can be read as a fault. Every variant
 that carries data has named fields, but those wrapping a whole
 `#[non_exhaustive]` error type of the crate (`Check`, `Net`, `Parse`,
 `Rejected`, `NotIntuitionistic`, `Unsupported`); `size_of::<Error>()`
-stays within 64 bytes (a `const` assertion), larger payloads boxed.
+stays within 64 bytes (a `const` assertion), larger payloads boxed, and
+`Error` is `Send + Sync + 'static` (another).
+
+- **One `describe`** (`errors/describe.rs`): `describe(&owner)` on
+  `Error`, `CheckError`, `NetError` and `ShapeError` returns the one
+  `Described`, which prints the message with formulas for ids, read
+  from an `Owner` (a `Forest`, `Proof`, `Derivation`, `ProofStructure`
+  or `Interactive`), with `abbreviated(limit)`. Each type writes itself
+  once, `write(f, Option<&Forest>, …)`, which its `Display` calls with
+  `None`, so the two cannot drift; `Error::write` adds the prefix of a
+  wrapping variant, the same words its `#[error]` has. `Owner` is not
+  sealed: a sealed supertrait is unnameable, which the crate's lint
+  check forbids, so a later method gets a default body.
+- **No `source()`**: a wrapping variant's message holds the inner
+  error's, and the command and the harness print errors with anyhow's
+  `{:#}`, which would print a source a second time.
+- **The written form** (`serialize/errors.rs`, written only):
+  `{"code", "kind", "message", "setting" (only where a bound refused),
+  "details"}`, `details` the variant's named fields or the wrapped
+  type's own form (`ParseError` derived; `CheckError` with the rule in
+  the proof's node form; `Fault`, `ShapeError` and `NetError` each with
+  a `kind`; `StepError` and `Refusal` tagged `kind`); a `Described`
+  writes the same with the message in formulas. A new variant adds its
+  arm to `Details`, which has no wildcard.
 
 **Nothing recurses over a formula.** A sequent read from JSON can be nested
 as deep as it is long, and a recursion per level ends the process where

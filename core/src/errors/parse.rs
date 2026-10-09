@@ -11,6 +11,7 @@ use std::ops::Range;
 /// Needs the cargo feature `parse` (on by default).
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct ParseError {
     /// The byte range of the input where parsing failed: the character
     /// found there, or the empty range at the end of the input.

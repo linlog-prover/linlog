@@ -1,6 +1,10 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+/// The written form of errors.
+mod errors;
+
+pub(crate) use errors::envelope;
 /// Serde support for `Interactive`: the sequent, the mode, the inferences
 /// and the steps.
 #[cfg(feature = "interactive")]

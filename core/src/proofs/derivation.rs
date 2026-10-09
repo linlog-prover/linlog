@@ -36,6 +36,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// The index of an inference in a derivation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde(transparent))]
 pub struct InfId(u32);
 
 impl InfId {

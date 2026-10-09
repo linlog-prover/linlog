@@ -1,10 +1,14 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+/// Errors printed with formulas for their occurrence ids.
+mod describe;
 /// The error type for text that is not a sequent.
 #[cfg(feature = "parse")]
 mod parse;
 
+pub(crate) use describe::Subject;
+pub use describe::{Described, Owner};
 #[cfg(feature = "parse")]
 pub use parse::ParseError;
 
@@ -23,6 +27,22 @@ use thiserror::Error;
 /// ([`CheckError`], [`NetError`], [`ShapeError`], the session's
 /// `StepError`, the parser's `ParseError`, Rocq's `Unsupported`) are
 /// variants of it, converted without loss.
+///
+/// # JSON
+///
+/// With the feature `serialize` an error is written (never read) as
+/// `{"code": …, "kind": …, "message": …, "setting": …, "details": …}`:
+/// `code` is one of [`CODES`](Self::CODES), stable from the first release,
+/// which a client branches on, accepting a code it does not know by its
+/// `kind`; `kind` is the [`ErrorKind`] in snake case; `message` the
+/// English text, with formulas when written through
+/// [`describe`](Self::describe); `setting`, present only where a bound
+/// refused the call, the settings key that lifts it
+/// ([`setting`](Self::setting)); and `details` the variant's fields, or
+/// the wrapped error's (a `ParseError` its span in bytes and in UTF-16
+/// code units, its line and character and what was expected; a
+/// [`CheckError`] the node, its rule as a proof writes it, the fault and
+/// the premises' sequents; a [`Refusal`] its `kind` and fields).
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
 pub enum Error {
@@ -270,10 +290,7 @@ pub enum Error {
     NoDate,
     /// The checker rejected the proof a search found: a defect of the
     /// engine that found it, and no verdict on the sequent.
-    #[error(
-        "the proof the search found does not pass the checker, which is a defect of the engine \
-         and no verdict on the sequent: {0}"
-    )]
+    #[error("{}{}", describe::REJECTED, .0)]
     Rejected(Box<CheckError>),
     /// A derivation read back from a linear proof is not one of LK or LJ,
     /// for the reason given: a defect of this crate.
@@ -565,7 +582,7 @@ fn not_topological(space: Space, index: usize, parent: usize) -> String {
 /// refusal is its own.
 fn check_message(error: &CheckError) -> String {
     match error {
-        CheckError::Invalid(_) => format!("invalid proof: {error}"),
+        CheckError::Invalid(_) => format!("{INVALID_PROOF}{error}"),
         CheckError::Refused(_) => error.to_string(),
     }
 }
@@ -606,5 +623,15 @@ impl From<ParseError> for Error {
     }
 }
 
+/// What [`Error::Check`] says before the checker's fault.
+const INVALID_PROOF: &str = "invalid proof: ";
+
 /// Errors stay small enough to pass by value in a `Result`.
 const _: () = assert!(size_of::<Error>() <= 64);
+
+/// Errors cross threads and outlive the call that made them.
+const _: fn() = || {
+    /// Compiles only for a type that is `Send`, `Sync` and `'static`.
+    const fn shared<T: Send + Sync + 'static>() {}
+    shared::<Error>();
+};

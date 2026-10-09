@@ -26,9 +26,9 @@ unused_import_braces = "warn"
 unused_macro_rules = "warn"
 unit_bindings = "warn"
 rust_2018_idioms = { level = "warn", priority = -1 }
+missing_debug_implementations = "warn"
 # Fire today: each goes to "warn" once its sites are fixed.
 elided_lifetimes_in_paths = "allow"
-missing_debug_implementations = "allow"
 single_use_lifetimes = "allow"
 unused_qualifications = "allow"
 

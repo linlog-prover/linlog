@@ -799,9 +799,7 @@ pub(crate) fn note(format: Format, text: &str) -> String {
 /// occurrence ids.
 pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
     match (&error, Forest::within(sequent, &Limits::UNBOUNDED)) {
-        (Error::NotIntuitionistic(e), Ok(forest)) => {
-            anyhow!("not an intuitionistic sequent: {}", e.describe(&forest))
-        }
+        (Error::NotIntuitionistic(_), Ok(forest)) => anyhow!("{}", error.describe(&forest)),
         (Error::Check(CheckError::Refused(_)), _) => anyhow!(
             "the search found a proof, but {error}; raise the limit with --memory-limit, or take \
              the proof unchecked with --no-check"

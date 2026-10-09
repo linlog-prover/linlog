@@ -78,7 +78,7 @@ supervisor's go are marked "go".
 | g. T3: `lto = "fat"`, `codegen-units = 1`, the ceilings re-recorded (go) | waiting for the go | kept uncommitted until its ceilings can be recorded, so every gate passes. After the go: the target set on a build of C1's commit itself (a jj workspace at rtlqploq), its counters compared with `bench/targets/after-coverability.csv` (the current oracle; `after-bias.csv` no longer matches the engine, F160, F181), so the comparison is C1's whatever lands later; then the target set at the head under LTO as the new oracle |
 | h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | done, gate interrupted by the pause | ksnmyzmo; the rest of 2.3 (`Forest::from_owned` stays public: the command builds a forest of a sequent it owns without a clone) comes with its items |
 | i. `Mode` and `Fragment` (3.5) | done | `Mode` with `pub(crate)` fields, getters, `with_affine`/`with_mix`, `NAMES`, `name`, `FromStr` and `check`, the one table of words the command's batch and the harness now read (`affine-mix`; the batch wrote `affine` for it and lost the Mix); `Error::UnknownName`; `Fragment::ADDITIVE` (named `ALL`), `NAMED`, `NAMES`, `FromStr` with or without the `I`, `has_nets` (`ProofStructure`, the command); the dispatch destructures the mode (F140); test `names_read_back`; the command's pinned batch message lists the six words. The mode's wire form by name is lock commit (1), item s |
-| j. one error family (4) | first commit done, gate interrupted by the pause | yzywpzko: `Error` non-exhaustive with named fields, `ErrorKind`, `code()`, `CODES`, `setting()`; `limits` module (`Limits`, `Progress`, `Phase`, `Refusal`, `Space`); `CheckError::{Invalid, Refused}` with `Fault`; `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` folded; `StepError`; `Error::Parse`. Open: `describe` unified, the wire form of errors, `ParseError`'s positions (F29, F34, R129) |
+| j. one error family (4) | done but the two lock commits (F29's expected words in the command's parse error, F33's counts) | yzywpzko: `Error` non-exhaustive with named fields, `ErrorKind`, `code()`, `CODES`, `setting()`; `limits` module (`Limits`, `Progress`, `Phase`, `Refusal`, `Space`); `CheckError::{Invalid, Refused}` with `Fault`; `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` folded; `StepError`; `Error::Parse`. ukxwvpnq: `ParseError` made in one place with `span_utf16`, `line`, `column` and `expected` (R129, F34, the library half of F29), test `error_places_and_expectations`; the ordinary parser's panic on a second `⊢` (a slice inside the character, found while there) fixed with its case in `reads_the_syntax`. Then: one `Described` and `Owner` for `Error`, `CheckError`, `NetError` and `ShapeError` (F48), `NetError` written once, `Debug` on `Results` and the command's `Output` with the lint on (F50), the written form of every error (4.3) with test `error_json_format`, `Send + Sync + 'static` asserted; `OccSet`'s methods narrowed (wyuzsnql), which the unreachable-pub check reported |
 | k. `Limits`, `Progress` and the stop on every long call (5) | first commit done, gate passed | the bounds out of `search::Options` and `ViewOptions` into `Limits` (`Forest::within`, `Sequent::parse_within`, `lltp::read`, `mist::read`, `check_within` with `work` and a stop every 4 096 nodes, `derivation_size_within`, `derivation_within`, `prove_within`, `prove_goal`, `Interactive::close*`, `batch::{prove, run}` with a `Plan` of limits, `linear_derivation`), every writer's stop a progress stop, the engines behind the shim `without_progress` until area 3.2's measured commit; the command and the harness map their flags onto it with their output unchanged (both locks and README pass unreblessed); test `core/tests/limits.rs`. Moved on: `race` with `Clock` (item l), `Within` (item s), the sequent writers' estimate (F5) and `png`/`pdf` memory (item t), the net calls (item p), the ordinary layer (item r), `Limits::work` in the engines and `Reason::WorkLimit` (area 3.2, with the polls) |
 | l. the options, `Clock`, `Settings`, `Styles` (6) | open | |
 | m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | open | |
@@ -128,6 +128,24 @@ supervisor's go are marked "go".
 - **`search::race` comes with `Clock` (item l)**: its `add_pool` reads
   the clock's `pool_after_ms`, and the command and the harness move to
   it in one change.
+- **One `Described` holds an enum of the four error types**, not a
+  generic `Described<'a, E>`: a generic one needs a public trait bound,
+  and a crate-private one is a private bound in a public impl, which the
+  lints refuse; the enum keeps the trait out of the API.
+- **`Owner` is not sealed** (the design says sealed): a sealed
+  supertrait is an unnameable public type, which the crate's
+  `unnameable_types` check forbids; a method added later gets a default
+  body, so implementing it outside the crate breaks nothing.
+- **Errors give no `source()`** (the design asks for it): every wrapping
+  variant's message already holds the inner error's, and the command
+  and the harness print errors with anyhow's `{:#}`, which appends each
+  source; a `source()` would print the inner message twice in the
+  pinned output, and dropping it from the message would empty the
+  `message` of the written form. API guideline C-GOOD-ERR allows either.
+- **An error from `prove_within` carries no formula text**: the design
+  would have `ShapeError` carry the subformula's text, since the caller
+  holds no forest; the forest is a function of the sequent, so the
+  caller rebuilds it (`Forest::new`) and describes, as the command does.
 - **The harness's CSV columns keep their names** (`memory_limit`,
   `recursion_limit`): the columns are its interface (`bench.md`), and
   only the flags behind them map onto `Limits`.
