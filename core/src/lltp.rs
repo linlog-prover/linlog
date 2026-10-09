@@ -356,10 +356,11 @@ fn glued(chars: &[char], at: usize) -> String {
     )
 }
 
-/// Returns the start of `text`, for an error message.
+/// Returns the start of `text`'s first line, for an error message.
 fn excerpt(text: &str) -> &str {
-    let end = text.char_indices().nth(24).map_or(text.len(), |(i, _)| i);
-    &text[..end]
+    let line = text.lines().next().unwrap_or_default();
+    let end = line.char_indices().nth(24).map_or(line.len(), |(i, _)| i);
+    &line[..end]
 }
 
 #[cfg(test)]
@@ -408,6 +409,35 @@ mod tests {
         for text in ["fof(c, conjecture, a-o b).", "fof(c, conjecture, a -ob)."] {
             let problem = read(text, &Limits::default()).unwrap();
             assert_eq!(problem.sequent, "|- a -o b".parse().unwrap(), "{text}");
+        }
+        // A hyphen or a dot between name characters is part of the name,
+        // a `-o` after a name's last character the connective.
+        for (formula, sequent) in [
+            ("p.q", "|- p·q"),
+            ("a-b-o c", "|- a‿b -o c"),
+            ("(a)-o(b)", "|- a -o b"),
+            ("a-1 * b.c.d", "|- a‿1 * b·c·d"),
+        ] {
+            let text = format!("fof(c, conjecture, {formula}).");
+            let problem = read(&text, &Limits::default()).unwrap();
+            assert_eq!(problem.sequent, sequent.parse().unwrap(), "{formula}");
+        }
+        // The messages say what is wrong, and where.
+        for (text, message) in [
+            ("fof(a, axiom, a).", "no conjecture"),
+            (
+                "cnf(c, conjecture, a).",
+                "expected `fof(` at `cnf(c, conjecture, a).`",
+            ),
+            (
+                "fof(c, lemma, a).",
+                "clause `c` has the role `lemma`, not axiom, hypothesis or conjecture",
+            ),
+        ] {
+            match read(text, &Limits::default()) {
+                Err(Error::Lltp { message: m }) => assert_eq!(m, message, "{text}"),
+                other => panic!("{text}: {other:?}"),
+            }
         }
     }
 

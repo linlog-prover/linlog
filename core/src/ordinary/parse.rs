@@ -478,6 +478,18 @@ mod tests {
             place("fof(a, axiom, p).\nfof(b, axiom, p & ).\nfof(c, conjecture, p)."),
             (2, 19, Some(")".to_owned()))
         );
+        // TPTP's constants are `$true` and `$false`; a plain `true` would
+        // name an atom that this syntax reads as the constant, and is
+        // refused. The messages say what is wrong.
+        for (text, message) in [
+            (
+                "fof(c, conjecture, true | p).",
+                "the atom name \"true\" is a keyword of the syntax",
+            ),
+            ("fof(c, axiom, p).", "not a TPTP problem: no conjecture"),
+        ] {
+            assert_eq!(read_tptp(text).unwrap_err().to_string(), message, "{text}");
+        }
     }
 
     /// A second conjecture is refused by name: right of `⊢` the two would

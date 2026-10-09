@@ -674,6 +674,43 @@ mod tests {
                 "{bad:?}"
             );
         }
+        // The expected result is the first line's; two guards on a counter
+        // are the larger, and a guard of zero asks for no token.
+        for (header, expected) in [
+            ("# expected result: safe", Some(Safety::Safe)),
+            ("#expected result: unsafe", Some(Safety::Unsafe)),
+            ("# expected result: maybe", None),
+        ] {
+            let text = format!("{header}\nvars a rules init a = 1 target a >= 1");
+            let problem = read(&text, &Limits::default()).unwrap();
+            assert_eq!(problem.expected, expected, "{header}");
+        }
+        let text = "vars a b rules a >= 1, a >= 3, b >= 0 -> b' = b + 1; init a = 3 target b >= 1";
+        let problem = read(text, &Limits::default()).unwrap();
+        let expected: Sequent = "!(a * a * a -o a * a * a * b), a, a, a |- b"
+            .parse()
+            .unwrap();
+        assert_eq!(formulas(&problem.sequent), formulas(&expected));
+        // The messages say what is wrong.
+        for (text, message) in [
+            (
+                "vars a rules a >= 1 -> a' - a + 1; init a = 1 target a >= 1",
+                "expected `=` at `-`",
+            ),
+            (
+                "vars 1x rules init target a >= 1",
+                "expected a name at `1x`",
+            ),
+            (
+                "vars a b rules a >= 1 -> a' = b + 1; init target a >= 1",
+                "`a'` is updated from another counter",
+            ),
+        ] {
+            match read(text, &Limits::default()) {
+                Err(Error::Spec { message: m }) => assert_eq!(m, message, "{text}"),
+                other => panic!("{text}: {other:?}"),
+            }
+        }
         // Five bytes of a count ask for more tokens than the limit, which
         // is refused before any is written.
         let big = "vars a rules init a = 99999 target a >= 1";
