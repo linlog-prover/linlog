@@ -43,7 +43,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 
 | item | state | evidence |
 |---|---|---|
-| 2.1 three drafts | open | |
+| 2.1 three drafts | running | session `step-28c`: three Opus 5.5 agents at `xhigh` started 07:05 (A web and wire forms, B proof term, checker and Rocq, C engines, calculi and quantifiers), brief in the session's scratchpad |
 | 2.2 judged and synthesised, `plan/notes/api.md` | open | |
 | 2.3 walk-through per later step | open | |
 | 2.4 quantifier spike, measured | open | |
@@ -171,3 +171,36 @@ its evidence (a commit, a file, a command's result) once it is done.
   throughout (no pinentry), so the session's commits are unsigned. Two
   confirmed wrong answers (F165, F23) were sent to `planning` at 06:05,
   as the prompt asks for a soundness fault.
+
+### Where you start, `step-28c` (2026-10-09)
+
+- You are `step-28c`, the third session of step 28: stage 2 only, the
+  design (Opus 5.5 at `xhigh`; the drafts, judges, walk-through and
+  spike with the models the stage names). The session ends when
+  `plan/notes/api.md` is written, judged, synthesised, walked through
+  and its spike measured, with the decisions it needs from the author at
+  its end, committed, the checklist current and the last message sent
+  to `planning`. The supervisor then has the design reviewed and puts
+  it to the author for the sign-off; the fixes are later sessions'.
+- Read "From the review of stage 0" and "From the review of stage 1" in
+  the prompt first, then `plan/reports/28-audit.md` (its decision list,
+  "For the design and the fix sessions" and "From the review"). Record
+  this note here first.
+- The author's answers so far: none. The design starts on the
+  recommended answers to C1 to C3, T1 to T7 and HD1 to HD5, all
+  provisional; where an answer would change the design, it says how.
+- The findings the design must answer are those of the audit report's
+  "For the design and the fix sessions", plus H9 and H10 with C1 and
+  H18 with the bounds. The findings file (about 1 MB) is searched by
+  `fid` with a script, never read whole.
+- Signing: the passphrase's cache has lapsed and the author is away;
+  test a signature before each commit and commit with
+  `--config signing.behavior=drop` while it fails.
+- The machine is the step's; another project of the author's runs
+  browser tests now and then. The spike's measurement counts
+  instructions (callgrind and the target set's counters); note the load
+  if anything is timed. Builds on cores 2 to 5, agents' programs on 6
+  to 15.
+- Usage: the five-hour window resets at about 06:50, the weekly one on
+  2026-10-16. If a limit stops the session, it writes where it stands
+  into the checklist and ends its turn.
