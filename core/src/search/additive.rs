@@ -28,7 +28,7 @@ use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Node, NodeId, Side};
+use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
 
 /// The additive fast path as the front door calls it.
@@ -197,8 +197,8 @@ impl Engine<'_> {
                 continue;
             }
             for (side, sub) in [
-                (Side::Left, f.left(o).unwrap()),
-                (Side::Right, f.right(o).unwrap()),
+                (Branch::Left, f.left(o).unwrap()),
+                (Branch::Right, f.right(o).unwrap()),
             ] {
                 if let Some(premise) = self.ordered(sub, other, x_first)? {
                     return Ok(Some(self.push(Node::Plus(o, side, premise))));

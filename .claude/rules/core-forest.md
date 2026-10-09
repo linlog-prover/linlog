@@ -28,7 +28,7 @@ of terms. Invariants the code relies on:
   occurrences (`Forest::MOST`, crate-private, is the most).
 - **A forest is refused before it is built** when the sequent unfolds to
   more occurrences than a limit (`Error::TooManyOccurrences { occurrences,
-  limit }`): `Forest::new` and `TryFrom<Sequent>` within
+  limit }`): `Forest::new` within
   `Forest::DEFAULT_LIMIT` (50 million: the largest problem of the LLTP
   library has 27.8 million, and a forest takes about 25 bytes per
   occurrence), `Forest::within(&sequent, limit)` within another, which
@@ -47,7 +47,7 @@ of terms. Invariants the code relies on:
   `core-focus.md`), and `Kind::polarity` is the fixed polarity of a
   connective only. A literal's polarity is never read off the forest.
 - Literal lists are one `Box<[OccId]>` in CSR layout, grouped by atom, then
-  sign (`Var` first), ascending ids within a group; `literals(atom, sign)`
+  sign (`Atom` first), ascending ids within a group; `literals(atom, sign)`
   slices it. `all_literals()` is the whole thing.
 - The forest owns a clone of its `Sequent` so that `formula(o)` can print.
   Everything else per occurrence is a `Box<[u32]>` or narrower; keep it that
@@ -55,7 +55,8 @@ of terms. Invariants the code relies on:
 - `lca` is a parent walk from the first argument and is `None` across roots;
   the net search's cycle rejection is only valid within one root.
 
-`OccSet` (`occurrences/set.rs`) is `Box<[u64]>` with the forest's width fixed
+`OccSet` (`occurrences/set.rs`, crate-private with `Forest::empty_set` and
+`root_set`: no public call takes a set) is `Box<[u64]>` with the forest's width fixed
 at creation (`Forest::empty_set`, `root_set`, `OccSet::empty(len)`). Its
 binary operations are defined on sets of different widths, in every build,
 as on the sets of ids they are: the words a narrower set lacks count as
@@ -73,7 +74,7 @@ runs, no OS randomness, works on wasm).
 
 `occurrences/reading.rs` reads a one-sided sequent as a two-sided
 intuitionistic one: `Reading::new(&forest)` gives every occurrence a
-`Position`, `Input` (a hypothesis, or the antecedent of a goal) or
+`Side`, `Input` (a hypothesis, or the antecedent of a goal) or
 `Output` (the goal, or the antecedent of a hypothesis), and names the
 `goal` root, or fails with a `ShapeError` (`describe(&forest)` for
 formulas). This is Lamarche's polarization, and what the two-sided engine,
@@ -90,7 +91,7 @@ the checker, the two-sided derivation and the future essential nets read.
   as `0`, an input `⊗` as `⊸`); `Display` prints `Γ ⊢ A`.
 - **The reading is what was written, and guesses nothing.** A bottom-up
   pass computes which positions each occurrence can take (`⊤` and `0`
-  both, `Var` output only, an implication only with its left factor as
+  both, an atom output only, an implication only with its left factor as
   the antecedent, and so on); the first occurrence with neither, in
   descending id order, is `ShapeError::Formula` (a minimal offending
   subformula), so `b ⅋ ~a` has no reading in output position. With the

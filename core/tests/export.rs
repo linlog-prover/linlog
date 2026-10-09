@@ -19,11 +19,13 @@
 use linlog::export::rocq::{self, Unsupported};
 use linlog::export::svg::{self, Style};
 use linlog::export::{Form, latex, typst};
+use linlog::proofs::Compact;
+use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Compact, Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure,
+    Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure,
     ViewOptions,
 };
-use linlog::{Labels, OpenGoal, Reading, Rule, Sequent, Verdict, prove};
+use linlog::{Reading, Rule, Sequent, Verdict, prove};
 use std::collections::BTreeSet;
 use std::path::Path;
 

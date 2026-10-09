@@ -946,7 +946,7 @@ mod tests {
             \x20    a → b, b → c ⊢ a → c"
         );
         let width = tree.lines().map(|l| l.chars().count()).max();
-        let size = derivation.text_size(&crate::TextOptions::default());
+        let size = derivation.text_size(&crate::proofs::TextOptions::default());
         assert_eq!(Some(size), width.map(|w| (w, tree.lines().count())));
     }
 

@@ -78,7 +78,7 @@ use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task,
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
-use crate::proofs::{Node, NodeId, Side};
+use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
 
 /// The stack depth that stands for "no pruned sequent depends on an
@@ -343,7 +343,7 @@ pub(crate) fn split_passes(
     let counts = Counts::new(forest, Bias::Auto);
     let rules = Rules::new(fragment, mode, &counts);
     let mut split = counts.split();
-    for (members, side) in [(left, Side::Left), (right, Side::Right)] {
+    for (members, side) in [(left, Branch::Left), (right, Branch::Right)] {
         for &m in members {
             split.place(&counts, m, side);
         }
@@ -515,7 +515,7 @@ enum Alternative<'m> {
     /// A copy of a member of `Θ` in focus, at one unit less of the budget.
     Copy(OccId),
     /// A side of a `⊕` in focus, with the subformula on that side.
-    Side(OccId, Side, OccId),
+    Branch(OccId, Branch, OccId),
     /// The free splits of a `⊗` that assign the first `fixed` members as
     /// the bits of `pattern` say, one for the left premise, from the sides
     /// and counts before any member moved.
@@ -1305,7 +1305,7 @@ impl<'a> Engine<'a> {
                 Kind::Zero => zero = true,
                 Kind::Tensor | Kind::Plus => candidates.push(o),
                 Kind::One | Kind::Bang if members.len() == 1 || affine => candidates.push(o),
-                Kind::One | Kind::Bang | Kind::Var | Kind::DualVar => {}
+                Kind::One | Kind::Bang | Kind::Atom | Kind::DualAtom => {}
                 kind => unreachable!("{kind:?} in a stable sequent"),
             }
         }
@@ -1456,7 +1456,7 @@ impl<'a> Engine<'a> {
             Alternative::Copy(a) => Ok(self
                 .focus(theta, gamma, a, budget - 1)?
                 .map(|node| self.push(Node::Copy(a, node)))),
-            Alternative::Side(f, side, sub) => Ok(self
+            Alternative::Branch(f, side, sub) => Ok(self
                 .focus(theta, gamma, sub, budget)?
                 .map(|node| self.push(Node::Plus(f, side, node)))),
             Alternative::Splits {
@@ -1475,9 +1475,9 @@ impl<'a> Engine<'a> {
                     if pattern >> i & 1 == 1 {
                         right.remove(m);
                         left.insert(m);
-                        counts.assign(self.counts, m, Side::Left);
+                        counts.assign(self.counts, m, Branch::Left);
                     } else {
-                        counts.assign(self.counts, m, Side::Right);
+                        counts.assign(self.counts, m, Branch::Right);
                     }
                 }
                 let result = self.search_splits(
@@ -1724,8 +1724,8 @@ impl<'a> Engine<'a> {
         match self.forest.kind(f) {
             Kind::Plus => {
                 let sides = [
-                    Alternative::Side(f, Side::Left, self.forest.left(f).unwrap()),
-                    Alternative::Side(f, Side::Right, self.forest.right(f).unwrap()),
+                    Alternative::Branch(f, Branch::Left, self.forest.left(f).unwrap()),
+                    Alternative::Branch(f, Branch::Right, self.forest.right(f).unwrap()),
                 ];
                 self.choose(theta, gamma, sides.into_iter(), budget)
             }
@@ -1753,7 +1753,7 @@ impl<'a> Engine<'a> {
                 }))
             }
             Kind::Zero => Ok(Found::NOTHING),
-            Kind::Var | Kind::DualVar if self.counts.positive(self.forest, f) => {
+            Kind::Atom | Kind::DualAtom if self.counts.positive(self.forest, f) => {
                 // The initial rules: the context is the dual literal, or
                 // nothing and the dual lies in `Θ`.
                 let mut members = self.take_list();

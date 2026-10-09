@@ -2,8 +2,9 @@
 // Licensed under the EUPL
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use linlog::proofs::Compact;
 use linlog::search::{Engine, Options};
-use linlog::{Bias, Compact, Forest, Fragment, Mode, ViewOptions};
+use linlog::{Bias, Forest, Fragment, Mode, ViewOptions};
 use std::path::PathBuf;
 use std::time::Duration;
 

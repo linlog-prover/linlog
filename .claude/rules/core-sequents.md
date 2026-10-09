@@ -21,13 +21,13 @@ the parser or the serialization is read.
   index (`TermId`, a `u32` newtype), never by pointer.
 - `roots: Vec<TermId>`: the root formulas that make up the sequent, in the
   order they were written; nothing sorts them.
-- `atoms: Vec<String>`: atom names. `Var(a)`/`DualVar(a)` index into this
+- `atoms: Vec<String>`: atom names. `Atom(a)`/`DualAtom(a)` index into this
   with `Atom`, a `u32` newtype.
 - `antecedents: Option<u32>`: how many of the roots, the first ones, were
   written left of `⊢`; `None` where no sides were given (a JSON sequent
   without the key, `add`, a test's literal). The parser sets it for every
   text (`Some(0)` for `⊢ Γ`), `mist::read` and `ordinary::translate` from
-  their own sides; `verify_integrity` refuses one above the number of
+  their own sides; `check` refuses one above the number of
   roots (`Error::Antecedents`). Only the intuitionistic reading reads it
   (`core-forest.md`); it is part of equality.
 
@@ -35,7 +35,7 @@ the parser or the serialization is read.
 arena is topologically sorted: one ascending pass sees every subterm before
 its parents, one descending pass sees every parent before its subterms
 (`fragment()` and the forest's size computation rely on the latter).
-`verify_integrity()` checks it, `Formula` printing debug-asserts it, and
+`check()` (crate-private) checks it, `Formula` printing debug-asserts it, and
 deserialization runs the check. Code that builds or rewrites an arena must
 preserve it.
 
@@ -62,7 +62,7 @@ names before its `optimize` already.
 
 The public surface is read-only accessors (`terms`, `term`, `roots`,
 `atom_names`, `atom_name`, `atom`, `formula`, and `occurrences`, the size
-of the unfolding) plus `optimize`, `add` and `verify_integrity`;
+of the unfolding) plus `optimize` and `add`;
 construction goes through the parser or serde. Tests inside the crate
 build arenas as struct literals.
 
@@ -70,7 +70,7 @@ build arenas as struct literals.
 
 When parsing, terms on the left of `⊢` get negative polarity. Negation is
 pushed down to atoms with `Term::dual()`, so there is no general negation
-node, only `DualVar`. `A ⊸ B` becomes `A^⊥ ⅋ B`. Printing therefore gives
+node, only `DualAtom`. `A ⊸ B` becomes `A^⊥ ⅋ B`. Printing therefore gives
 `A |- A` as `⊢ ~A, A`. Intuitionistic sequents use the same model (plan
 decision D1): an ILL sequent is a one-sided sequent of a particular shape,
 read back by `Reading` (below); there is no second data model.

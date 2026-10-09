@@ -588,9 +588,9 @@ mod tests {
                 let mut pairs = Vec::new();
                 for a in 0..s.atom_names().len() {
                     let atom = crate::sequents::Atom::new(a as u32);
-                    let vars = forest.literals(atom, crate::occurrences::Sign::Var);
+                    let vars = forest.literals(atom, crate::occurrences::Sign::Atom);
                     let mut duals = forest
-                        .literals(atom, crate::occurrences::Sign::DualVar)
+                        .literals(atom, crate::occurrences::Sign::Dual)
                         .to_vec();
                     for k in (1..duals.len()).rev() {
                         duals.swap(k, rng.below(k + 1));

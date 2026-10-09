@@ -156,7 +156,7 @@ fn counts_admit(forest: &Forest, mix: bool) -> bool {
         return false;
     }
     atoms(forest)
-        .all(|a| forest.literals(a, Sign::Var).len() == forest.literals(a, Sign::DualVar).len())
+        .all(|a| forest.literals(a, Sign::Atom).len() == forest.literals(a, Sign::Dual).len())
 }
 
 /// Returns every atom of the forest's sequent.
@@ -228,14 +228,14 @@ impl<'a> Engine<'a> {
             .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         let remaining = atoms(forest)
-            .map(|a| forest.literals(a, Sign::Var).len() as u32)
+            .map(|a| forest.literals(a, Sign::Atom).len() as u32)
             .collect();
         // Equal literal conclusions, chained in id order.
         let n = forest.len();
         let mut copy_before = vec![NONE; n];
         let mut copy_after = vec![NONE; n];
         for a in atoms(forest) {
-            for sign in [Sign::Var, Sign::DualVar] {
+            for sign in [Sign::Atom, Sign::Dual] {
                 let mut previous = NONE;
                 for &l in forest.literals(a, sign) {
                     if forest.parent(l).is_some() {
@@ -395,7 +395,7 @@ impl<'a> Engine<'a> {
                 continue;
             }
             let atom = Atom::new(a as u32);
-            for sign in [Sign::Var, Sign::DualVar] {
+            for sign in [Sign::Atom, Sign::Dual] {
                 let partners = forest.literals(atom, !sign);
                 for &x in forest.literals(atom, sign) {
                     if self.net.partner(x).is_some() {

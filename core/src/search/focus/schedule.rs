@@ -227,7 +227,7 @@ pub(crate) fn plan(
 /// nothing else, which is what makes a bound of its own affordable.
 pub(super) fn chains(forest: &Forest, goal: &[OccId]) -> bool {
     use crate::occurrences::Sign;
-    [Sign::Var, Sign::DualVar].into_iter().any(|body| {
+    [Sign::Atom, Sign::Dual].into_iter().any(|body| {
         // A tree of one connective and its unit over literals of one sign.
         let tree = |o: OccId, connective: Kind, unit: Kind, sign: Sign| {
             forest.subtree(o).all(|x| {

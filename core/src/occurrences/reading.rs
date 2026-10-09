@@ -26,21 +26,21 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// input; the goal, or a subformula that behaves like it, is output.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Position {
+pub enum Side {
     /// A hypothesis, or the antecedent of a formula in output position.
     Input,
     /// The goal, or the antecedent of a formula in input position.
     Output,
 }
 
-impl std::ops::Not for Position {
+impl std::ops::Not for Side {
     type Output = Self;
 
     /// The other position.
     fn not(self) -> Self {
         match self {
-            Position::Input => Position::Output,
-            Position::Output => Position::Input,
+            Side::Input => Side::Output,
+            Side::Output => Side::Input,
         }
     }
 }
@@ -217,7 +217,7 @@ const OUT: u8 = 2;
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::{Forest, Position, Reading, Sequent};
+/// use linlog::{Forest, Side, Reading, Sequent};
 ///
 /// // ⊢ ~A, A ⊗ ~B, B
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
@@ -226,8 +226,8 @@ const OUT: u8 = 2;
 /// assert_eq!(reading.to_string(), "A, A ⊸ B ⊢ B");
 /// assert_eq!(reading.goal(), forest.roots()[2]);
 /// let hypothesis = forest.roots()[1];
-/// assert_eq!(reading.position(hypothesis), Position::Input);
-/// assert_eq!(reading.position(forest.left(hypothesis).unwrap()), Position::Output);
+/// assert_eq!(reading.position(hypothesis), Side::Input);
+/// assert_eq!(reading.position(forest.left(hypothesis).unwrap()), Side::Output);
 /// assert_eq!(reading.formula(hypothesis).to_string(), "A ⊸ B");
 ///
 /// let classical: Sequent = "|- A par B".parse()?;
@@ -239,7 +239,7 @@ pub struct Reading<'a> {
     /// The forest read.
     forest: &'a Forest,
     /// Per occurrence, its position.
-    position: Box<[Position]>,
+    position: Box<[Side]>,
     /// The goal.
     goal: OccId,
 }
@@ -259,8 +259,8 @@ impl<'a> Reading<'a> {
             let (l_in, l_out, r_in, r_out) = (l & IN != 0, l & OUT != 0, r & IN != 0, r & OUT != 0);
             let both = |i: bool, u: bool| (u8::from(i) * IN) | (u8::from(u) * OUT);
             can[o.index()] = match forest.kind(o) {
-                Var | One | Bang => both(false, l_out || forest.kind(o) != Bang),
-                DualVar | Bot | Quest => both(l_in || forest.kind(o) != Quest, false),
+                Atom | One | Bang => both(false, l_out || forest.kind(o) != Bang),
+                DualAtom | Bot | Quest => both(l_in || forest.kind(o) != Quest, false),
                 Top | Zero => IN | OUT,
                 With | Plus => both(l_in && r_in, l_out && r_out),
                 // In input position `A ⊗ B⊥` is `A ⊸ B`, in output position
@@ -311,8 +311,8 @@ impl<'a> Reading<'a> {
         };
 
         // The positions, parents before children.
-        let mut position = vec![Position::Input; forest.len()].into_boxed_slice();
-        position[goal.index()] = Position::Output;
+        let mut position = vec![Side::Input; forest.len()].into_boxed_slice();
+        position[goal.index()] = Side::Output;
         for o in forest.ids() {
             let p = position[o.index()];
             let Some((l, r)) = forest.left(o).zip(forest.right(o)) else {
@@ -324,7 +324,7 @@ impl<'a> Reading<'a> {
             // An implication's antecedent, its left factor, flips.
             let implication = matches!(
                 (forest.kind(o), p),
-                (Tensor, Position::Input) | (Par, Position::Output)
+                (Tensor, Side::Input) | (Par, Side::Output)
             );
             position[l.index()] = if implication { !p } else { p };
             position[r.index()] = p;
@@ -342,7 +342,7 @@ impl<'a> Reading<'a> {
     }
 
     /// Returns the position of an occurrence.
-    pub fn position(&self, o: OccId) -> Position {
+    pub fn position(&self, o: OccId) -> Side {
         self.position[o.index()]
     }
 
@@ -366,7 +366,7 @@ impl<'a> Reading<'a> {
     /// is the left factor. `None` for any other occurrence.
     pub fn implication(&self, o: OccId) -> Option<(OccId, OccId)> {
         match (self.forest.kind(o), self.position(o)) {
-            (Kind::Par, Position::Output) | (Kind::Tensor, Position::Input) => {
+            (Kind::Par, Side::Output) | (Kind::Tensor, Side::Input) => {
                 Some((self.forest.left(o)?, self.forest.right(o)?))
             }
             _ => None,
@@ -377,7 +377,7 @@ impl<'a> Reading<'a> {
     /// intuitionistic sequent has exactly one.
     pub fn outputs(&self, ids: impl IntoIterator<Item = OccId>) -> usize {
         ids.into_iter()
-            .filter(|&o| self.position(o) == Position::Output)
+            .filter(|&o| self.position(o) == Side::Output)
             .count()
     }
 
@@ -409,20 +409,20 @@ impl<'a> Reading<'a> {
         for visit in Walk::new(o, brackets, |o| self.operands(o)) {
             match visit {
                 Visit::Enter(o, nested) => match (forest.kind(o), self.position(o)) {
-                    (Var | DualVar, _) => {
+                    (Atom | DualAtom, _) => {
                         f.write_str(forest.sequent().atom_name(forest.atom(o).unwrap()))?;
                     }
                     (One | Bot, _) => f.write_str("1")?,
-                    (Top, Position::Output) | (Zero, Position::Input) => f.write_str("⊤")?,
-                    (Zero, Position::Output) | (Top, Position::Input) => f.write_str("0")?,
+                    (Top, Side::Output) | (Zero, Side::Input) => f.write_str("⊤")?,
+                    (Zero, Side::Output) | (Top, Side::Input) => f.write_str("0")?,
                     (Tensor | Par | With | Plus, _) if nested => f.write_str("(")?,
                     (Tensor | Par | With | Plus, _) => {}
                     (Bang | Quest, _) => f.write_str("!")?,
                 },
                 Visit::Between(o) => f.write_str(match (forest.kind(o), self.position(o)) {
-                    (Tensor, Position::Output) | (Par, Position::Input) => " ⊗ ",
-                    (Tensor, Position::Input) | (Par, Position::Output) => " ⊸ ",
-                    (With, Position::Output) | (Plus, Position::Input) => " & ",
+                    (Tensor, Side::Output) | (Par, Side::Input) => " ⊗ ",
+                    (Tensor, Side::Input) | (Par, Side::Output) => " ⊸ ",
+                    (With, Side::Output) | (Plus, Side::Input) => " & ",
                     _ => " ⊕ ",
                 })?,
                 Visit::Exit(o, nested) => {
@@ -630,8 +630,8 @@ mod tests {
         let o = OccId::new;
         assert_eq!(r.goal(), o(5));
         assert_eq!(r.hypotheses().collect::<Vec<_>>(), [o(0)]);
-        let positions: Vec<Position> = forest.ids().map(|i| r.position(i)).collect();
-        use Position::*;
+        let positions: Vec<Side> = forest.ids().map(|i| r.position(i)).collect();
+        use Side::*;
         assert_eq!(positions, [Input, Output, Input, Output, Input, Output]);
         assert_eq!(r.implication(o(0)), Some((o(1), o(2))));
         assert_eq!(r.implication(o(2)), Some((o(3), o(4))));

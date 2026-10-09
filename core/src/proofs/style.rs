@@ -272,7 +272,7 @@ impl Drawn for Derivation<'_> {
         let sequent = &self.inference(id).sequent;
         let mut positions: Vec<usize> = (0..sequent.len()).collect();
         if let Some(reading) = self.reading() {
-            positions.sort_by_key(|&p| reading.position(sequent[p]) == crate::Position::Output);
+            positions.sort_by_key(|&p| reading.position(sequent[p]) == crate::Side::Output);
         }
         positions
     }

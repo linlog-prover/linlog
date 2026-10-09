@@ -135,11 +135,11 @@ pub use errors::ParseError;
 
 pub use errors::Error;
 pub use fragment::{Fragment, Mode};
-pub use nets::{NetError, ProofStructure, Scratch};
-pub use occurrences::{Forest, OccId, OccSet, Polarity, Position, Reading, ShapeError, Sign};
+pub use nets::{NetError, ProofStructure};
+pub use occurrences::{Forest, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
-    CheckError, Compact, DEFAULT_MEMORY_LIMIT, Derivation, InfId, Inference, Labels, Node, NodeId,
-    OpenGoal, Proof, Rule, Side, Size, TextOptions, ViewError, ViewOptions, WriteError,
+    Branch, CheckError, DEFAULT_MEMORY_LIMIT, Derivation, InfId, Inference, Node, NodeId, Proof,
+    Rule, Size, ViewError, ViewOptions, WriteError,
 };
 #[cfg(feature = "interactive")]
 pub use proofs::{Interactive, Refusal};

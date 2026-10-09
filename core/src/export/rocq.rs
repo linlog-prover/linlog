@@ -259,12 +259,12 @@ fn term(out: &mut String, sequent: &Sequent, names: &[String], id: TermId, argum
         match visit {
             Visit::Enter(k, argument) => {
                 let t = sequent.term(k);
-                if argument && !matches!(t, Var(_) | One | Bot | Top | Zero) {
+                if argument && !matches!(t, Atom(_) | One | Bot | Top | Zero) {
                     out.push('(');
                 }
                 match t {
-                    Var(a) => out.push_str(&names[a.index()]),
-                    DualVar(a) => {
+                    Atom(a) => out.push_str(&names[a.index()]),
+                    DualAtom(a) => {
                         out.push_str("dual ");
                         out.push_str(&names[a.index()]);
                         if argument {

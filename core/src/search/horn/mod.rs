@@ -26,7 +26,7 @@ use super::memory::Account;
 use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
-use crate::occurrences::{Forest, OccId, Position, Sign};
+use crate::occurrences::{Forest, OccId, Side, Sign};
 use crate::sequents::Kind;
 use equation::Equation;
 
@@ -281,7 +281,7 @@ impl Program {
     /// right of `⊢` and everything else on the left, as the proof built
     /// for a firing sequence does.
     fn read(task: &Task<'_>) -> Option<Self> {
-        [Sign::Var, Sign::DualVar]
+        [Sign::Atom, Sign::Dual]
             .into_iter()
             .find_map(|body| Self::read_with(task, body))
     }
@@ -338,12 +338,7 @@ impl Program {
                         (x <= h && h.index() < x.index() + forest.size(x) as usize)
                             || (h <= x && x.index() < h.index() + forest.size(h) as usize)
                     });
-                    reading.position(x)
-                        == if left {
-                            Position::Input
-                        } else {
-                            Position::Output
-                        }
+                    reading.position(x) == if left { Side::Input } else { Side::Output }
                 })
             })
         {

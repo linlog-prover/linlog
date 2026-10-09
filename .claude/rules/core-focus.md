@@ -49,7 +49,7 @@ relies on:
   heads `~d` of a clause `(… ⊗ ~d) ⊕ (… ⊗ ~d)` count as one); a `⊗`
   with a positive literal factor has its split forced. On a tie, and
   whenever the sequent has a `!` or `?`, the old rule: the literal with
-  fewer occurrences is positive, a tie makes `Var` positive, so an atom
+  fewer occurrences is positive, a tie makes `Atom` positive, so an atom
   with one sign only has all its literals negative. The engine takes
   the old rule in affine mode as well (`schedule::plan`): nothing forces a
   split there, so the factors have nothing to say, and a review measured
@@ -64,10 +64,10 @@ relies on:
   default runs a search under each ("The default bias with exponentials
   is two searches", below). `Options::bias` names the rules:
   `Bias::Rarer` and `Bias::Factors` for any sequent. Rules tried on the
-  exponential-free targets and not taken: `Var` always (as good on the
+  exponential-free targets and not taken: `Atom` always (as good on the
   families written two-sided, where it is forward chaining, but it
   depends on how the atoms happen to be written and loses the gains on
-  Partition and the wide sequents), `DualVar` always (30 to 300 times
+  Partition and the wide sequents), `DualAtom` always (30 to 300 times
   more stable sequents on the Horn families), the factor count without
   the ½ (the heads of the 3-Partition clauses outvote the goal: 317 138
   stable sequents against 923 at bins of four). Measured, old rule and

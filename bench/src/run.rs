@@ -827,9 +827,9 @@ fn multiplicity(forest: &Forest) -> usize {
         .map(|a| {
             let atom = Atom::new(a);
             forest
-                .literals(atom, Sign::Var)
+                .literals(atom, Sign::Atom)
                 .len()
-                .max(forest.literals(atom, Sign::DualVar).len())
+                .max(forest.literals(atom, Sign::Dual).len())
         })
         .max()
         .unwrap_or(0)

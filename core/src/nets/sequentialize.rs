@@ -249,7 +249,7 @@ mod tests {
         // Terms 2i and 2i + 1 are the two literals of atom i.
         let mut terms: Vec<Term> = (0..PAIRS)
             .map(Atom::new)
-            .flat_map(|a| [Term::Var(a), Term::DualVar(a)])
+            .flat_map(|a| [Term::Atom(a), Term::DualAtom(a)])
             .collect();
         let mut chain = TermId::new(2 * (PAIRS - 1));
         for a in (0..PAIRS - 1).rev() {
@@ -268,7 +268,7 @@ mod tests {
         .unwrap();
         let literal = |a, sign| forest.literals(Atom::new(a), sign)[0];
         let links: Vec<(OccId, OccId)> = (0..PAIRS)
-            .map(|a| (literal(a, Sign::Var), literal(a, Sign::DualVar)))
+            .map(|a| (literal(a, Sign::Atom), literal(a, Sign::Dual)))
             .collect();
         let net = ProofStructure::from_links(forest, false, &links).unwrap();
         let thread = std::thread::Builder::new().stack_size(128 * 1024);

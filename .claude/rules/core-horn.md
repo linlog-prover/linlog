@@ -92,7 +92,7 @@ front door, the dispatch and the memory account it plugs into are in
   limit" instead of "unprovable".
 - **Intuitionistic mode** additionally requires the reading to put
   exactly the outputs above on the right of `⊢` (`Program::read` checks
-  every occurrence's `Position`): the proof built has one output on
+  every occurrence's `Side`): the proof built has one output on
   every sequent, so the one-succedent check accepts it only if the
   reading agrees. A goal whose reading differs is no program for the
   engine, never a wrong proof.

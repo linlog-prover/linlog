@@ -95,7 +95,7 @@ pub(crate) struct Provable {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Tree {
     /// An atom.
-    Var(u8),
+    Atom(u8),
     /// A negated atom.
     Dual(u8),
     /// `1`
@@ -127,7 +127,7 @@ impl Tree {
     fn literals(&mut self) -> Vec<&mut u8> {
         use Tree::*;
         match self {
-            Var(a) | Dual(a) => vec![a],
+            Atom(a) | Dual(a) => vec![a],
             One | Bot | Top | Zero => vec![],
             Tensor(l, r) | Par(l, r) | With(l, r) | Plus(l, r) | Lolli(l, r) => {
                 let mut all = l.literals();
@@ -156,7 +156,7 @@ impl Display for Tree {
         let binary =
             |f: &mut Formatter<'_>, l: &Tree, op: &str, r: &Tree| write!(f, "({l} {op} {r})");
         match self {
-            Var(a) => write!(f, "{}", (b'a' + a) as char),
+            Atom(a) => write!(f, "{}", (b'a' + a) as char),
             Dual(a) => write!(f, "~{}", (b'a' + a) as char),
             One => f.write_str("1"),
             Bot => f.write_str("bot"),
@@ -431,7 +431,7 @@ impl IllGenerator<'_> {
         match choices[self.rng.below(choices.len())] {
             b'a' => {
                 let a = self.rng.below(self.atoms as usize) as u8;
-                (vec![Tree::Var(a)], Tree::Var(a), 0)
+                (vec![Tree::Atom(a)], Tree::Atom(a), 0)
             }
             b'1' => (vec![], Tree::One, 0),
             b'T' => (junk_context(self), Tree::Top, 0),
@@ -492,7 +492,7 @@ impl IllGenerator<'_> {
         }
         let boxed = |t: Tree| Box::new(t);
         match choices[self.rng.below(choices.len())] {
-            b'v' => Tree::Var(self.rng.below(self.atoms as usize) as u8),
+            b'v' => Tree::Atom(self.rng.below(self.atoms as usize) as u8),
             b'1' => Tree::One,
             b'T' => Tree::Top,
             b'0' => Tree::Zero,
@@ -701,7 +701,7 @@ impl Generator<'_> {
             return vec![Tree::One];
         }
         let a = self.rng.below(self.atoms as usize) as u8;
-        vec![Tree::Var(a), Tree::Dual(a)]
+        vec![Tree::Atom(a), Tree::Dual(a)]
     }
 
     /// A formula that every context proving `a` proves as well, for the
@@ -765,7 +765,7 @@ impl Generator<'_> {
         let a = self.rng.below(self.atoms as usize) as u8;
         let sub = |this: &mut Self| Box::new(this.junk(size - 1));
         match choices[self.rng.below(choices.len())] {
-            b'v' => Tree::Var(a),
+            b'v' => Tree::Atom(a),
             b'd' => Tree::Dual(a),
             b'1' => Tree::One,
             b'b' => Tree::Bot,
@@ -792,7 +792,7 @@ pub(crate) fn balanced(rng: &mut Rng, atoms: u8, pairs: usize, mix: bool) -> Vec
     let mut formulas: Vec<Tree> = Vec::with_capacity(2 * pairs);
     for _ in 0..pairs {
         let a = rng.below(atoms as usize) as u8;
-        formulas.push(Tree::Var(a));
+        formulas.push(Tree::Atom(a));
         formulas.push(Tree::Dual(a));
     }
     let tensors = if mix { rng.below(pairs) } else { pairs - 1 };

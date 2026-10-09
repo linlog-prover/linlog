@@ -635,8 +635,8 @@ fn few_equal_literals(forest: &Forest) -> bool {
     let atoms = forest.sequent().atom_names().len() as u32;
     (0..atoms).all(|a| {
         let atom = Atom::new(a);
-        forest.literals(atom, Sign::Var).len() <= NET_MULTIPLICITY
-            && forest.literals(atom, Sign::DualVar).len() <= NET_MULTIPLICITY
+        forest.literals(atom, Sign::Atom).len() <= NET_MULTIPLICITY
+            && forest.literals(atom, Sign::Dual).len() <= NET_MULTIPLICITY
     })
 }
 
@@ -816,7 +816,7 @@ pub enum Bias {
     /// backward search and 1.6 times the forward one where each decides).
     #[default]
     Auto,
-    /// The literal with fewer occurrences in the sequent is positive, `Var`
+    /// The literal with fewer occurrences in the sequent is positive, `Atom`
     /// when both have the same number. With Horn-like hypotheses this
     /// mostly chains backward from the goal, which keeps the copies per
     /// branch low.

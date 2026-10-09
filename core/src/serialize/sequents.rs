@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::sequents::{Atom, Sequent as Seq, Term, TermId};
+use crate::sequents::{Sequent as Seq, Term, TermId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The serialized form of an arena term. Its tags are part of the interchange
@@ -11,10 +11,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 enum Expression {
     /// A variable, by dictionary index.
     #[serde(rename = "V")]
-    Var(u32),
+    Atom(u32),
     /// A negated variable, by dictionary index.
     #[serde(rename = "D")]
-    DualVar(u32),
+    DualAtom(u32),
     /// `1`
     #[serde(rename = "1")]
     One,
@@ -68,8 +68,8 @@ impl From<Term> for Expression {
         use Expression as E;
         use Term::*;
         match e {
-            Var(a) => E::Var(a.get()),
-            DualVar(a) => E::DualVar(a.get()),
+            Atom(a) => E::Atom(a.get()),
+            DualAtom(a) => E::DualAtom(a.get()),
             One => E::One,
             Bot => E::Bot,
             Top => E::Top,
@@ -91,8 +91,8 @@ impl From<Expression> for Term {
         use Term as E;
         let t = TermId::new;
         match e {
-            Var(a) => E::Var(Atom::new(a)),
-            DualVar(a) => E::DualVar(Atom::new(a)),
+            Atom(a) => E::Atom(crate::sequents::Atom::new(a)),
+            DualAtom(a) => E::DualAtom(crate::sequents::Atom::new(a)),
             One => E::One,
             Bot => E::Bot,
             Top => E::Top,
@@ -132,7 +132,7 @@ impl TryFrom<Sequent> for Seq {
             atoms: s.var_dict,
             antecedents: s.antecedents,
         };
-        s.verify_integrity()?;
+        s.check()?;
         s.merge_atoms();
         Ok(s)
     }

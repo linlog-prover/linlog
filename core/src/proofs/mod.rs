@@ -101,7 +101,7 @@ impl NodeId {
 /// Which subformula of a binary connective a rule picks.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Side {
+pub enum Branch {
     /// The left subformula.
     Left,
     /// The right subformula.
@@ -133,7 +133,7 @@ pub enum Node {
     With(OccId, NodeId, NodeId),
     /// `⊢ Θ ; Γ, A ⊕ B` from `⊢ Θ ; Γ, A` or from `⊢ Θ ; Γ, B`, as the side
     /// says.
-    Plus(OccId, Side, NodeId),
+    Plus(OccId, Branch, NodeId),
     /// `⊢ Θ ; Γ, ⊤` for any `Γ`.
     Top(OccId),
     /// Promotion: `⊢ Θ ; !A` from `⊢ Θ ; A`, with an empty linear zone.
@@ -218,8 +218,8 @@ impl Node {
             One(_) => "1",
             Bot(..) => "⊥",
             With(..) => "&",
-            Plus(_, Side::Left, _) => "⊕₁",
-            Plus(_, Side::Right, _) => "⊕₂",
+            Plus(_, Branch::Left, _) => "⊕₁",
+            Plus(_, Branch::Right, _) => "⊕₂",
             Top(_) => "⊤",
             Bang(..) => "!",
             Quest(..) => "?",

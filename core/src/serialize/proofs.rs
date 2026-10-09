@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 use crate::occurrences::{Forest, OccId};
-use crate::proofs::{Node, NodeId, Proof as Prf, Rule, Side};
+use crate::proofs::{Branch, Node, NodeId, Proof as Prf, Rule};
 use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -79,8 +79,8 @@ impl From<Node> for Step {
             One(x) => S::One(o(x)),
             Bot(x, p) => S::Bot(o(x), n_(p)),
             With(x, l, r) => S::With(o(x), n_(l), n_(r)),
-            Plus(x, Side::Left, p) => S::PlusLeft(o(x), n_(p)),
-            Plus(x, Side::Right, p) => S::PlusRight(o(x), n_(p)),
+            Plus(x, Branch::Left, p) => S::PlusLeft(o(x), n_(p)),
+            Plus(x, Branch::Right, p) => S::PlusRight(o(x), n_(p)),
             Top(x) => S::Top(o(x)),
             Bang(x, p) => S::Bang(o(x), n_(p)),
             Quest(x, p) => S::Quest(o(x), n_(p)),
@@ -104,8 +104,8 @@ impl From<Step> for Node {
             One(x) => N::One(o(x)),
             Bot(x, p) => N::Bot(o(x), n(p)),
             With(x, l, r) => N::With(o(x), n(l), n(r)),
-            PlusLeft(x, p) => N::Plus(o(x), Side::Left, n(p)),
-            PlusRight(x, p) => N::Plus(o(x), Side::Right, n(p)),
+            PlusLeft(x, p) => N::Plus(o(x), Branch::Left, n(p)),
+            PlusRight(x, p) => N::Plus(o(x), Branch::Right, n(p)),
             Top(x) => N::Top(o(x)),
             Bang(x, p) => N::Bang(o(x), n(p)),
             Quest(x, p) => N::Quest(o(x), n(p)),
@@ -132,7 +132,7 @@ impl TryFrom<Proof> for Prf {
     /// Rebuilds the forest of the sequent and the proof over it, failing if
     /// a node refers outside the forest or the arena, or the arena is empty.
     fn try_from(p: Proof) -> Result<Prf, Self::Error> {
-        let forest = Forest::try_from(p.sequent)?;
+        let forest = Forest::from_owned(p.sequent, Forest::DEFAULT_LIMIT)?;
         let nodes: Vec<Node> = p.proof.into_iter().map(Node::from).collect();
         // The root is the last node, whose index must be a node id.
         let Ok(root) = u32::try_from(nodes.len().saturating_sub(1)) else {

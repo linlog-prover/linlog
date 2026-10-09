@@ -55,7 +55,7 @@ pub(crate) enum Answer {
 pub(crate) const VISITS: usize = 1_000_000;
 
 /// Decides the one-sided classical sequent of `formulas` (atoms
-/// `Tree::Var`, their negations `Tree::Dual`, no `Tree::Lolli`) under the
+/// `Tree::Atom`, their negations `Tree::Dual`, no `Tree::Lolli`) under the
 /// mode (its `affine` and `mix`), with at most `copies` contractions per
 /// branch.
 pub(crate) fn classical(formulas: &[Tree], mode: Mode, copies: u32) -> Answer {
@@ -101,7 +101,7 @@ pub(crate) fn sequent(sequent: &Sequent, mode: Mode, copies: u32) -> Answer {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum F {
     /// An atom.
-    Var(u32),
+    Atom(u32),
     /// A negated atom.
     Dual(u32),
     /// `1`
@@ -250,7 +250,7 @@ impl Prover {
     /// The index of a generator's tree.
     fn tree(&mut self, t: &Tree) -> u32 {
         let f = match t {
-            Tree::Var(a) => F::Var(u32::from(*a)),
+            Tree::Atom(a) => F::Atom(u32::from(*a)),
             Tree::Dual(a) => F::Dual(u32::from(*a)),
             Tree::One => F::One,
             Tree::Bot => F::Bot,
@@ -273,8 +273,8 @@ impl Prover {
             return i;
         }
         let f = match sequent.term(id) {
-            Term::Var(a) => F::Var(a.index() as u32),
-            Term::DualVar(a) => F::Dual(a.index() as u32),
+            Term::Atom(a) => F::Atom(a.index() as u32),
+            Term::DualAtom(a) => F::Dual(a.index() as u32),
             Term::One => F::One,
             Term::Bot => F::Bot,
             Term::Top => F::Top,
@@ -343,7 +343,7 @@ impl Prover {
                 return Found::Proved;
             }
             let found = match self.formulas[f as usize] {
-                F::Var(a) => {
+                F::Atom(a) => {
                     let dual = self.index.get(&F::Dual(a)).copied();
                     if rest.len() == 1 && Some(rest[0]) == dual {
                         return Found::Proved;
@@ -464,7 +464,7 @@ impl Prover {
         };
         // The identity on an atom, and the right rules.
         let found = match self.formulas[goal as usize] {
-            F::Var(_) => {
+            F::Atom(_) => {
                 if hypotheses == [goal] {
                     return Found::Proved;
                 }
@@ -520,7 +520,7 @@ impl Prover {
                 return Found::Proved;
             }
             let found = match self.formulas[h as usize] {
-                F::Var(_) | F::Top => continue,
+                F::Atom(_) | F::Top => continue,
                 F::Zero => return Found::Proved,
                 F::One => self.two_sided(&rest, goal, budget),
                 F::Tensor(a, b) => self.two_sided(&with(&rest, &[a, b]), goal, budget),
@@ -855,12 +855,12 @@ mod tests {
     /// nothing, and without one it refutes as well.
     #[test]
     fn engines_agree_on_horn_programs() {
-        use Tree::{Bang, Bot, Dual, Lolli, One, Par, Quest, Tensor, Var};
+        use Tree::{Atom, Bang, Bot, Dual, Lolli, One, Par, Quest, Tensor};
         let b = Box::new;
         /// A tensor of atoms, `1` for none, or a `⅋` of their negations,
         /// `⊥` for none.
         fn join(atoms: &[u8], negated: bool) -> Tree {
-            let atom = |&a: &u8| if negated { Dual(a) } else { Var(a) };
+            let atom = |&a: &u8| if negated { Dual(a) } else { Atom(a) };
             let unit = if negated { Bot } else { One };
             atoms
                 .iter()
@@ -905,7 +905,7 @@ mod tests {
             }
             let mut marking = atoms(&mut rng, 3);
             for &a in &marking {
-                hypotheses.push(Var(a));
+                hypotheses.push(Atom(a));
                 formulas.push(Dual(a));
             }
             let goal = if walk {
@@ -973,9 +973,9 @@ mod tests {
     /// budgets below are where a fault of its bound shows. Each as text
     /// for the parser and as trees for the reference, with its copies.
     fn contractions() -> (Vec<OneSided>, Vec<TwoSided>) {
-        use Tree::{Bang, Dual, Lolli, Quest, Tensor, Var};
+        use Tree::{Atom, Bang, Dual, Lolli, Quest, Tensor};
         let b = Box::new;
-        let (a, c) = (|| Var(0), || Var(1));
+        let (a, c) = (|| Atom(0), || Atom(1));
         let classical = vec![
             (vec![Quest(b(Dual(0))), Tensor(b(a()), b(a()))], 2),
             (
@@ -1093,7 +1093,7 @@ mod tests {
             4 if rng.one_in(3) => Tree::Top,
             4 if rng.one_in(2) => Tree::Zero,
             5 if negated => Tree::Dual(rng.below(3) as u8),
-            _ => Tree::Var(rng.below(3) as u8),
+            _ => Tree::Atom(rng.below(3) as u8),
         }
     }
 

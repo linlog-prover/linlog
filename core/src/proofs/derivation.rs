@@ -25,10 +25,10 @@
 use super::check::{self, CheckError, Facts, Observer, State};
 use super::multiset::Multiset;
 use super::size::{self, Size};
-use super::{DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof, Side};
+use super::{Branch, DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof};
 use crate::fragment::Mode;
 use crate::hash::HashMap;
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -250,9 +250,9 @@ impl Rule {
     /// formula in `position`: `⊗` on a hypothesis is `⊸L`, on the goal
     /// `⊗R`, and so on. The axiom, Mix and affine weakening keep their
     /// names.
-    pub const fn intuitionistic(self, position: Position) -> Self {
-        use Position::{Input, Output};
+    pub const fn intuitionistic(self, position: Side) -> Self {
         use Rule::*;
+        use Side::{Input, Output};
         match (self, position) {
             (Tensor, Input) => ImpLeft,
             (Tensor, Output) => TensorRight,
@@ -1223,8 +1223,8 @@ impl<'a> Build<'a> {
             }
             Plus(o, side, p) => {
                 let (chosen, rule) = match side {
-                    Side::Left => (left(o), Rule::PlusLeft),
-                    Side::Right => (right(o), Rule::PlusRight),
+                    Branch::Left => (left(o), Rule::PlusLeft),
+                    Branch::Right => (right(o), Rule::PlusRight),
                 };
                 let up = above(&actual, &[o], &[chosen]);
                 self.from(actual, rule, o, p, up);
@@ -1316,7 +1316,7 @@ impl<'a> Build<'a> {
             // premise that has none, the hypotheses to the left one.
             let left_has_goal = reading.outputs(up_l.as_slice().iter().copied()) > 0;
             for &o in extra.as_slice() {
-                if reading.position(o) == Position::Output && left_has_goal {
+                if reading.position(o) == Side::Output && left_has_goal {
                     up_r.insert(o);
                 } else {
                     up_l.insert(o);
@@ -1508,9 +1508,9 @@ mod tests {
                 "|- A & B, ~A + ~B",
                 vec![
                     Ax(o(1), o(4)),
-                    Plus(o(3), Side::Left, n(0)),
+                    Plus(o(3), Branch::Left, n(0)),
                     Ax(o(2), o(5)),
-                    Plus(o(3), Side::Right, n(2)),
+                    Plus(o(3), Branch::Right, n(2)),
                     With(o(0), n(1), n(3)),
                 ]
             ),
@@ -1697,10 +1697,10 @@ mod tests {
                 "A & B |- (A + 1) & B",
                 vec![
                     Ax(o(1), o(5)),
-                    Plus(o(4), Side::Left, n(0)),
-                    Plus(o(0), Side::Left, n(1)),
+                    Plus(o(4), Branch::Left, n(0)),
+                    Plus(o(0), Branch::Left, n(1)),
                     Ax(o(2), o(7)),
-                    Plus(o(0), Side::Right, n(3)),
+                    Plus(o(0), Branch::Right, n(3)),
                     With(o(3), n(2), n(4)),
                 ]
             ),

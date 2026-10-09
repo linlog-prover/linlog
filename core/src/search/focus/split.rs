@@ -11,8 +11,8 @@ use super::scratch::Pooled;
 use super::{
     Cuts, Engine, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search, Step,
 };
-use crate::occurrences::{OccId, OccSet, Position};
-use crate::proofs::{Node, NodeId, Side};
+use crate::occurrences::{OccId, OccSet, Side};
+use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
 
@@ -55,7 +55,7 @@ impl Engine<'_> {
             Kind::Zero => Some(Forced::Nothing),
             _ if self.rules.affine => None,
             Kind::One | Kind::Bang => Some(Forced::Empty),
-            Kind::Var | Kind::DualVar if self.counts.positive(self.forest, factor) => {
+            Kind::Atom | Kind::DualAtom if self.counts.positive(self.forest, factor) => {
                 Some(Forced::Dual)
             }
             Kind::Tensor if self.counts.literal_tensor(factor) => Some(Forced::Duals),
@@ -315,8 +315,8 @@ impl Engine<'_> {
         let mut left = self.take_context();
         let mut right = self.take_context_from(gamma);
         let mut split = self.take_split();
-        split.place(self.counts, a, Side::Left);
-        split.place(self.counts, b, Side::Right);
+        split.place(self.counts, a, Branch::Left);
+        split.place(self.counts, b, Branch::Right);
         let mut placed = self.take_list();
         placed.extend([a, b]);
         // Two-sided, on a hypothesis `A ⊸ B`: the goal stays with `B`, so it
@@ -325,16 +325,16 @@ impl Engine<'_> {
             && let Some((_, consequent)) = reading.implication(f)
             && let Some(at) = members
                 .iter()
-                .position(|&m| reading.position(m) == Position::Output)
+                .position(|&m| reading.position(m) == Side::Output)
         {
             let goal = members.remove(at);
             placed.push(goal);
             if consequent == a {
                 right.remove(goal);
                 left.insert(goal);
-                split.place(self.counts, goal, Side::Left);
+                split.place(self.counts, goal, Branch::Left);
             } else {
-                split.place(self.counts, goal, Side::Right);
+                split.place(self.counts, goal, Branch::Right);
             }
         }
         self.open(&mut members, &mut split, &placed);
@@ -566,9 +566,9 @@ impl Engine<'_> {
         let mut trail = self.take_trail();
         trail.extend((0..len).map(|i| {
             if i < start && prefix >> i & 1 == 1 {
-                Side::Left
+                Branch::Left
             } else {
-                Side::Right
+                Branch::Right
             }
         }));
         Walk {
@@ -615,14 +615,14 @@ impl Engine<'_> {
                         // On the left at once when the member before it is
                         // interchangeable and went left: the lowest ids do.
                         let side = if next > 0
-                            && trail[next - 1] == Side::Left
+                            && trail[next - 1] == Branch::Left
                             && self.classes.same(members[next - 1], m)
                         {
                             right.remove(m);
                             left.insert(m);
-                            Side::Left
+                            Branch::Left
                         } else {
-                            Side::Right
+                            Branch::Right
                         };
                         split.assign(self.counts, m, side);
                         trail[next] = side;
@@ -641,15 +641,15 @@ impl Engine<'_> {
                 }
                 next -= 1;
                 let m = members[next];
-                if trail[next] == Side::Right {
-                    split.flip(self.counts, m, Side::Left);
+                if trail[next] == Branch::Right {
+                    split.flip(self.counts, m, Branch::Left);
                     right.remove(m);
                     left.insert(m);
-                    trail[next] = Side::Left;
+                    trail[next] = Branch::Left;
                     next += 1;
                     continue 'search;
                 }
-                split.unassign(self.counts, m, Side::Left);
+                split.unassign(self.counts, m, Branch::Left);
                 left.remove(m);
                 right.insert(m);
             }
@@ -737,7 +737,7 @@ impl Engine<'_> {
         let mut right = self.take_context_from(gamma);
         right.remove(members[0]);
         let mut split = self.take_split();
-        split.place(self.counts, members[0], Side::Left);
+        split.place(self.counts, members[0], Branch::Left);
         let mut rest = self.take_list();
         rest.extend_from_slice(&members[1..]);
         self.open(&mut rest, &mut split, &members[..1]);
@@ -883,7 +883,7 @@ pub(super) struct Opened {
 /// a split it has given.
 pub(super) struct Walk {
     /// Per member, its side, as far as it is assigned.
-    trail: Pooled<Side>,
+    trail: Pooled<Branch>,
     /// The members before it are assigned.
     next: usize,
     /// The first member the search assigns.

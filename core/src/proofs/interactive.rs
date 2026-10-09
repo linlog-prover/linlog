@@ -22,10 +22,10 @@
 
 use super::derivation::{Derivation, InfId, Inference, Rule, ViewOptions};
 use super::multiset::Multiset;
-use super::{Node, NodeId, Proof, Side};
+use super::{Branch, Node, NodeId, Proof};
 use crate::Error;
 use crate::fragment::Mode;
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::search::{self, Options, Outcome, Verdict, focus};
 use crate::sequents::{Kind, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -501,7 +501,7 @@ impl Interactive {
         let o = formula_at(sequent, position)?;
         use Rule::*;
         let mut rules = match self.forest.kind(o) {
-            Kind::Var | Kind::DualVar => vec![Ax],
+            Kind::Atom | Kind::DualAtom => vec![Ax],
             Kind::Tensor => vec![Tensor],
             Kind::Par => vec![Par],
             Kind::One => vec![One],
@@ -661,9 +661,9 @@ impl Interactive {
                 going_left.insert(sequent[p]);
             }
         }
-        let child = |side: Side| match side {
-            Side::Left => f.left(o).unwrap(),
-            Side::Right => f.right(o).unwrap(),
+        let child = |side: Branch| match side {
+            Branch::Left => f.left(o).unwrap(),
+            Branch::Right => f.right(o).unwrap(),
         };
         let with = |added: &[OccId]| {
             let mut premise = rest.clone();
@@ -692,8 +692,8 @@ impl Interactive {
             Top => vec![],
             Tensor => {
                 let mut right = rest.difference(&going_left);
-                going_left.insert(child(Side::Left));
-                right.insert(child(Side::Right));
+                going_left.insert(child(Branch::Left));
+                right.insert(child(Branch::Right));
                 vec![going_left, right]
             }
             Mix => {
@@ -701,11 +701,11 @@ impl Interactive {
                 going_left.insert(o);
                 vec![going_left, right]
             }
-            Par => vec![with(&[child(Side::Left), child(Side::Right)])],
+            Par => vec![with(&[child(Branch::Left), child(Branch::Right)])],
             Bot => vec![with(&[])],
-            With => vec![with(&[child(Side::Left)]), with(&[child(Side::Right)])],
-            PlusLeft => vec![with(&[child(Side::Left)])],
-            PlusRight => vec![with(&[child(Side::Right)])],
+            With => vec![with(&[child(Branch::Left)]), with(&[child(Branch::Right)])],
+            PlusLeft => vec![with(&[child(Branch::Left)])],
+            PlusRight => vec![with(&[child(Branch::Right)])],
             Promotion => {
                 if let Some(p) = sequent
                     .iter()
@@ -714,13 +714,13 @@ impl Interactive {
                 {
                     return Err(Refusal::NotQuest { position: p });
                 }
-                vec![with(&[child(Side::Left)])]
+                vec![with(&[child(Branch::Left)])]
             }
-            Dereliction => vec![with(&[child(Side::Left)])],
+            Dereliction => vec![with(&[child(Branch::Left)])],
             Contraction => vec![with(&[o, o])],
             Weakening | AffineWeakening => {
                 if let Some(reading) = reading
-                    && reading.position(o) == Position::Output
+                    && reading.position(o) == Side::Output
                 {
                     return Err(Refusal::Output { position });
                 }
@@ -1090,8 +1090,8 @@ impl Terms<'_> {
             let node = match rule {
                 Par => Node::Par(o(), premise()),
                 Bot => Node::Bot(o(), premise()),
-                PlusLeft => Node::Plus(o(), Side::Left, premise()),
-                PlusRight => Node::Plus(o(), Side::Right, premise()),
+                PlusLeft => Node::Plus(o(), Branch::Left, premise()),
+                PlusRight => Node::Plus(o(), Branch::Right, premise()),
                 Promotion => Node::Bang(o(), premise()),
                 Dereliction => Node::Copy(a(), premise()),
                 AffineWeakening => Node::Weaken(o(), premise()),

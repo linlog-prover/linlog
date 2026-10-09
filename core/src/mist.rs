@@ -220,11 +220,11 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
         let goal = arena.fresh(name);
         for target in &targets {
             let covered = arena.tensor(target);
-            let reached = arena.push(Term::DualVar(goal));
+            let reached = arena.push(Term::DualAtom(goal));
             let clause = arena.push(Term::Tensor(covered, reached));
             roots.push(arena.push(Term::Quest(clause)));
         }
-        arena.push(Term::Var(goal))
+        arena.push(Term::Atom(goal))
     };
     for &x in &parameters {
         let dual = arena.dual(x);
@@ -301,7 +301,7 @@ impl<'a> Arena<'a> {
             return var;
         }
         let atom = self.atom(x);
-        let var = self.push(Term::Var(atom));
+        let var = self.push(Term::Atom(atom));
         self.made[x].1 = Some(var);
         var
     }
@@ -312,7 +312,7 @@ impl<'a> Arena<'a> {
             return dual;
         }
         let atom = self.atom(x);
-        let dual = self.push(Term::DualVar(atom));
+        let dual = self.push(Term::DualAtom(atom));
         self.made[x].2 = Some(dual);
         dual
     }

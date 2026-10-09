@@ -6,7 +6,7 @@
 //! `Display`, and the walk over a derivation that writes one inference at a
 //! time.
 
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
 use crate::proofs::style::Drawn;
 use crate::proofs::{InfId, WriteError};
@@ -62,8 +62,8 @@ impl Notation {
         for visit in Walk::new(id, brackets, |k| sequent.term(k).operands()) {
             match visit {
                 Visit::Enter(k, nested) => match sequent.term(k) {
-                    Var(a) => (self.atom)(out, sequent.atom_name(a)),
-                    DualVar(a) => {
+                    Atom(a) => (self.atom)(out, sequent.atom_name(a)),
+                    DualAtom(a) => {
                         (self.atom)(out, sequent.atom_name(a));
                         out.push_str(self.dual);
                     }
@@ -104,12 +104,12 @@ impl Notation {
         for visit in Walk::new(o, brackets, |o| reading.operands(o)) {
             match visit {
                 Visit::Enter(o, nested) => match (forest.kind(o), reading.position(o)) {
-                    (Var | DualVar, _) => {
+                    (Atom | DualAtom, _) => {
                         (self.atom)(out, forest.sequent().atom_name(forest.atom(o).unwrap()));
                     }
                     (One | Bot, _) => out.push_str(self.one),
-                    (Top, Position::Output) | (Zero, Position::Input) => out.push_str(self.top),
-                    (Zero, Position::Output) | (Top, Position::Input) => out.push_str(self.zero),
+                    (Top, Side::Output) | (Zero, Side::Input) => out.push_str(self.top),
+                    (Zero, Side::Output) | (Top, Side::Input) => out.push_str(self.zero),
                     (Tensor | Par | With | Plus, _) if nested => out.push('('),
                     (Tensor | Par | With | Plus, _) => {}
                     (Bang | Quest, _) => out.push_str(self.bang),
@@ -117,9 +117,9 @@ impl Notation {
                 Visit::Between(o) => {
                     out.push(' ');
                     out.push_str(match (forest.kind(o), reading.position(o)) {
-                        (Tensor, Position::Output) | (Par, Position::Input) => self.tensor,
-                        (Tensor, Position::Input) | (Par, Position::Output) => self.lollipop,
-                        (With, Position::Output) | (Plus, Position::Input) => self.with,
+                        (Tensor, Side::Output) | (Par, Side::Input) => self.tensor,
+                        (Tensor, Side::Input) | (Par, Side::Output) => self.lollipop,
+                        (With, Side::Output) | (Plus, Side::Input) => self.with,
                         _ => self.plus,
                     });
                     out.push(' ');
@@ -171,7 +171,7 @@ impl Notation {
         let mut goal = None;
         let mut hypotheses = 0;
         for &o in sequent {
-            if reading.position(o) == Position::Output {
+            if reading.position(o) == Side::Output {
                 goal = Some(o);
                 continue;
             }

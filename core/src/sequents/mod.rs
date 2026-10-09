@@ -73,7 +73,7 @@ pub struct Sequent {
     /// The root formulas, as arena indices, in the order they were
     /// written, which nothing sorts.
     pub(crate) roots: Vec<TermId>,
-    /// The atom names that `Var` and `DualVar` refer to by index.
+    /// The atom names that `Atom` and `DualAtom` refer to by index.
     pub(crate) atoms: Vec<String>,
     /// How many of the roots, the first ones, were written left of `⊢`;
     /// `None` where no sides were given. At most the number of roots.
@@ -140,7 +140,7 @@ impl Sequent {
             atoms,
             antecedents,
         };
-        debug_assert!(sequent.verify_integrity().is_ok());
+        debug_assert!(sequent.check().is_ok());
         sequent
     }
 
@@ -192,8 +192,10 @@ impl Sequent {
             .fold(0u64, |sum, r| sum.saturating_add(sizes[r.index()]))
     }
 
-    /// Check whether the internal data structure is correct
-    pub fn verify_integrity(&self) -> Result<(), crate::Error> {
+    /// Checks the arena's invariants, which every public way to a
+    /// sequent keeps: every term names only earlier terms and atoms of the
+    /// table, every root a term, and `antecedents` at most the roots.
+    pub(crate) fn check(&self) -> Result<(), crate::Error> {
         let num_atoms = self.atoms.len() as u32;
         let num_terms = self.terms.len() as u32;
 
@@ -291,10 +293,10 @@ impl Sequent {
         let num_atoms = self.atoms.len();
         let mut atoms = Vec::<String>::with_capacity(num_atoms);
         let mut seen =
-            HashMap::<&str, Atom>::with_capacity_and_hasher(num_atoms, Default::default());
+            HashMap::<&str, term::Atom>::with_capacity_and_hasher(num_atoms, Default::default());
 
         for e in self.terms.iter_mut() {
-            let (Var(a) | DualVar(a)) = *e else {
+            let (Atom(a) | DualAtom(a)) = *e else {
                 continue;
             };
             let name: &str = self
@@ -303,11 +305,11 @@ impl Sequent {
                 .ok_or(crate::Error::InvalidVariableIndex(a.index(), num_atoms))?;
             let merged = *seen.entry(name).or_insert_with(|| {
                 atoms.push(name.to_string());
-                Atom::new((atoms.len() - 1) as u32)
+                term::Atom::new((atoms.len() - 1) as u32)
             });
             *e = match *e {
-                Var(_) => Var(merged),
-                _ => DualVar(merged),
+                Atom(_) => Atom(merged),
+                _ => DualAtom(merged),
             };
         }
         drop(seen);
@@ -332,11 +334,13 @@ impl Sequent {
     /// table.
     pub(crate) fn merge_atoms(&mut self) {
         use Term::*;
-        let mut seen =
-            HashMap::<&str, Atom>::with_capacity_and_hasher(self.atoms.len(), Default::default());
+        let mut seen = HashMap::<&str, term::Atom>::with_capacity_and_hasher(
+            self.atoms.len(),
+            Default::default(),
+        );
         let mut merged = Vec::with_capacity(self.atoms.len());
         for name in &self.atoms {
-            let fresh = Atom::new(seen.len() as u32);
+            let fresh = term::Atom::new(seen.len() as u32);
             merged.push(*seen.entry(name).or_insert(fresh));
         }
         let distinct = seen.len();
@@ -346,8 +350,8 @@ impl Sequent {
         }
         for e in &mut self.terms {
             *e = match *e {
-                Var(a) => Var(merged[a.index()]),
-                DualVar(a) => DualVar(merged[a.index()]),
+                Atom(a) => Atom(merged[a.index()]),
+                DualAtom(a) => DualAtom(merged[a.index()]),
                 other => other,
             };
         }
@@ -404,14 +408,14 @@ mod tests {
         }
     }
 
-    /// Shorthand for `Term::Var`.
+    /// Shorthand for `Term::Atom`.
     pub(crate) const fn var(a: u32) -> Term {
-        Term::Var(Atom::new(a))
+        Term::Atom(Atom::new(a))
     }
 
-    /// Shorthand for `Term::DualVar`.
+    /// Shorthand for `Term::DualAtom`.
     pub(crate) const fn dual_var(a: u32) -> Term {
-        Term::DualVar(Atom::new(a))
+        Term::DualAtom(Atom::new(a))
     }
 
     /// Shorthand for `Term::Tensor`.
@@ -479,7 +483,7 @@ mod tests {
         use Term::*;
         let s = raw(vec![One, bang(2), Bot], &[1], &[]);
         assert_eq!(
-            s.verify_integrity().unwrap_err().to_string(),
+            s.check().unwrap_err().to_string(),
             "term 1 refers to term 2, but a subterm must come before the terms that use it"
         );
         assert!(s.clone().optimize().is_err());

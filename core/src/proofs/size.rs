@@ -17,9 +17,9 @@
 //! then over every bound.
 
 use super::check::{self, CheckError, Facts, Observer, State};
-use super::{Derivation, Node, NodeId, Proof, Side};
+use super::{Branch, Derivation, Node, NodeId, Proof};
 use crate::fragment::Mode;
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Term;
 
 /// How large the derivation of a proof is, as
@@ -204,8 +204,8 @@ pub(crate) fn weights(forest: &Forest) -> Vec<u32> {
     for term in sequent.terms() {
         use Term::*;
         let (width, binary) = match *term {
-            Var(a) => (names[a.index()], false),
-            DualVar(a) => (names[a.index()].saturating_add(1), false),
+            Atom(a) => (names[a.index()], false),
+            DualAtom(a) => (names[a.index()].saturating_add(1), false),
             One | Bot | Top | Zero => (1, false),
             Tensor(k, l) | Par(k, l) | With(k, l) | Plus(k, l) => (
                 inner[k.index()]
@@ -247,7 +247,7 @@ impl Measure<'_> {
     /// reaches otherwise.
     fn reach(&self, sub: &Sub, o: OccId) -> u64 {
         match self.reading {
-            Some(reading) if reading.position(o) == Position::Output => sub.reached_goal,
+            Some(reading) if reading.position(o) == Side::Output => sub.reached_goal,
             _ => sub.reached,
         }
     }
@@ -360,8 +360,8 @@ impl Observer for Measure<'_> {
             }
             Plus(o, side, p) => {
                 let chosen = match side {
-                    Side::Left => left(o),
-                    Side::Right => right(o),
+                    Branch::Left => left(o),
+                    Branch::Right => right(o),
                 };
                 let premise = at(p);
                 let absorbed = self.absorbed(&premise, chosen, facts.absent[0]);
@@ -451,7 +451,7 @@ impl Observer for Measure<'_> {
                 // premise's subformula in place of the `&`.
                 let output = self
                     .reading
-                    .is_some_and(|reading| reading.position(o) == Position::Output);
+                    .is_some_and(|reading| reading.position(o) == Side::Output);
                 let beyond = |premise: &Sub, child: OccId| {
                     let (whole, part) = (self.characters(o), self.characters(child));
                     let all = (sub.weight.saturating_add(part))
@@ -554,7 +554,7 @@ pub(crate) fn measured(
     // absorbs. A goal is a list of any length, so its sums saturate.
     let characters = |output: bool| {
         goal.iter()
-            .filter(|&&o| !output || reading.is_some_and(|r| r.position(o) == Position::Output))
+            .filter(|&&o| !output || reading.is_some_and(|r| r.position(o) == Side::Output))
             .fold(0u64, |sum, &o| sum.saturating_add(measure.characters(o)))
     };
     let (all, goal) = (characters(false), characters(true));
@@ -680,7 +680,7 @@ mod tests {
         use crate::sequents::{Atom, Term, TermId};
         use crate::{Forest, OccId};
         // Terms: 0 is ⊤, 1 the atom, 2 + j the tree of depth j + 1.
-        let mut terms = vec![Term::Top, Term::Var(Atom::new(0))];
+        let mut terms = vec![Term::Top, Term::Atom(Atom::new(0))];
         for j in 0..12 {
             terms.push(Term::With(TermId::new(1 + j), TermId::new(1 + j)));
         }

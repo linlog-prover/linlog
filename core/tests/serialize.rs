@@ -9,8 +9,8 @@
 
 use linlog::search::{Engine, Options, prove, prove_until};
 use linlog::{
-    Forest, Fragment, InfId, Interactive, Mode, Node, NodeId, OccId, Proof, ProofStructure, Rule,
-    Sequent, Side, ViewOptions,
+    Branch, Forest, Fragment, InfId, Interactive, Mode, Node, NodeId, OccId, Proof, ProofStructure,
+    Rule, Sequent, ViewOptions,
 };
 
 /// Parses `input` and serializes it as compact JSON.
@@ -121,7 +121,7 @@ fn proof_json_format() {
             "|- A & top, ~A + bot",
             vec![
                 Ax(o(1), o(4)),
-                Plus(o(3), Side::Left, n(0)),
+                Plus(o(3), Branch::Left, n(0)),
                 Top(o(2)),
                 With(o(0), n(1), n(2)),
             ],
@@ -161,7 +161,7 @@ fn proof_json_format() {
             "|- A + B, ~A par ~B",
             vec![
                 Ax(o(2), o(5)),
-                Plus(o(0), Side::Right, n(0)),
+                Plus(o(0), Branch::Right, n(0)),
                 Weaken(o(4), n(1)),
                 Par(o(3), n(2)),
             ],

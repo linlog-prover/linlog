@@ -4,10 +4,10 @@
 /// The intuitionistic reading of a sequent.
 pub mod reading;
 /// Bitsets over occurrence ids.
-pub mod set;
+pub(crate) mod set;
 
-pub use reading::{DescribedShape, IllFormula, Position, Reading, ShapeError};
-pub use set::OccSet;
+pub use reading::{DescribedShape, IllFormula, Reading, ShapeError, Side};
+pub(crate) use set::OccSet;
 
 use crate::Error;
 use crate::sequents::{Atom, Formula, Kind, Sequent, TermId};
@@ -43,10 +43,10 @@ const NONE: u32 = u32::MAX;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Sign {
-    /// The atom `a`, a `Var` term.
-    Var,
-    /// The negation `~a`, a `DualVar` term.
-    DualVar,
+    /// The atom `a`, an `Atom` term.
+    Atom,
+    /// The negation `~a`, a `DualAtom` term.
+    Dual,
 }
 
 impl Not for Sign {
@@ -55,8 +55,8 @@ impl Not for Sign {
     /// The other literal of the same atom.
     fn not(self) -> Self {
         match self {
-            Sign::Var => Sign::DualVar,
-            Sign::DualVar => Sign::Var,
+            Sign::Atom => Sign::Dual,
+            Sign::Dual => Sign::Atom,
         }
     }
 }
@@ -91,8 +91,8 @@ impl Kind {
     /// Returns the sign of a literal kind, or `None` for a connective.
     pub const fn sign(self) -> Option<Sign> {
         match self {
-            Kind::Var => Some(Sign::Var),
-            Kind::DualVar => Some(Sign::DualVar),
+            Kind::Atom => Some(Sign::Atom),
+            Kind::DualAtom => Some(Sign::Dual),
             _ => None,
         }
     }
@@ -102,7 +102,7 @@ impl Kind {
     pub const fn polarity(self) -> Option<Polarity> {
         use Kind::*;
         match self {
-            Var | DualVar => None,
+            Atom | DualAtom => None,
             Tensor | One | Plus | Zero | Bang => Some(Polarity::Positive),
             Par | Bot | With | Top | Quest => Some(Polarity::Negative),
         }
@@ -147,8 +147,8 @@ impl Kind {
 ///
 /// // Every literal of an atom, by sign, in id order.
 /// let a = sequent.atom("A").unwrap();
-/// assert_eq!(forest.literals(a, Sign::Var), [left]);
-/// assert_eq!(forest.literals(a, Sign::DualVar), [forest.roots()[0]]);
+/// assert_eq!(forest.literals(a, Sign::Atom), [left]);
+/// assert_eq!(forest.literals(a, Sign::Dual), [forest.roots()[0]]);
 /// # Ok::<(), linlog::Error>(())
 /// ```
 #[derive(Clone, Debug)]
@@ -170,11 +170,11 @@ pub struct Forest {
     size: Box<[u32]>,
     /// Per occurrence, the number of ancestors it has.
     depth: Box<[u32]>,
-    /// Every literal occurrence, grouped by atom, then by sign (`Var` first),
+    /// Every literal occurrence, grouped by atom, then by sign (`Atom` first),
     /// in ascending id order within a group.
     literals: Box<[OccId]>,
-    /// Where each group of `literals` starts: group `2a` holds the `Var`
-    /// literals of atom `a`, group `2a + 1` its `DualVar` literals, and the
+    /// Where each group of `literals` starts: group `2a` holds the `Atom`
+    /// literals of atom `a`, group `2a + 1` its `DualAtom` literals, and the
     /// last entry is the total.
     literal_start: Box<[u32]>,
 }
@@ -384,18 +384,6 @@ impl Forest {
     }
 }
 
-impl TryFrom<Sequent> for Forest {
-    type Error = Error;
-
-    /// Builds the forest of a sequent, taking ownership of it. Fails as
-    /// [`Forest::new`] does if the sequent has more subformula occurrences
-    /// than [`Forest::DEFAULT_LIMIT`].
-    fn try_from(sequent: Sequent) -> Result<Self, Error> {
-        let sizes = Self::measure(&sequent, Self::DEFAULT_LIMIT)?;
-        Ok(Self::build(sequent, &sizes))
-    }
-}
-
 impl Forest {
     /// Builds the forest of a sequent from the number of occurrences below
     /// each of its arena terms, itself included, which add up to no more
@@ -569,7 +557,7 @@ mod tests {
         let mut all: Vec<OccId> = Vec::new();
         for a in 0..f.sequent().atom_names().len() {
             let atom = Atom::new(a as u32);
-            for sign in [Sign::Var, Sign::DualVar] {
+            for sign in [Sign::Atom, Sign::Dual] {
                 let list = f.literals(atom, sign);
                 assert!(list.windows(2).all(|w| w[0] < w[1]), "sorted");
                 for &l in list {
@@ -608,7 +596,7 @@ mod tests {
         assert_eq!(f.roots(), [o(0), o(1), o(4)]);
         let kinds: Vec<Kind> = f.ids().map(|x| f.kind(x)).collect();
         use Kind::*;
-        assert_eq!(kinds, [DualVar, Tensor, Var, DualVar, Var]);
+        assert_eq!(kinds, [DualAtom, Tensor, Atom, DualAtom, Atom]);
         assert_eq!(f.formula(o(1)).to_string(), "A ⊗ ~B");
         assert_eq!(f.left(o(1)), Some(o(2)));
         assert_eq!(f.right(o(1)), Some(o(3)));
@@ -671,12 +659,12 @@ mod tests {
             s.atom("B").unwrap(),
             s.atom("C").unwrap(),
         );
-        assert_eq!(f.literals(a, Sign::Var), [o(2)]);
-        assert_eq!(f.literals(a, Sign::DualVar), [o(0), o(1)]);
-        assert_eq!(f.literals(b, Sign::Var), [o(3)]);
-        assert_eq!(f.literals(b, Sign::DualVar), []);
-        assert_eq!(f.literals(c, Sign::Var), [o(6), o(9)]);
-        assert_eq!(f.literals(c, Sign::DualVar), [o(5), o(8)]);
+        assert_eq!(f.literals(a, Sign::Atom), [o(2)]);
+        assert_eq!(f.literals(a, Sign::Dual), [o(0), o(1)]);
+        assert_eq!(f.literals(b, Sign::Atom), [o(3)]);
+        assert_eq!(f.literals(b, Sign::Dual), []);
+        assert_eq!(f.literals(c, Sign::Atom), [o(6), o(9)]);
+        assert_eq!(f.literals(c, Sign::Dual), [o(5), o(8)]);
     }
 
     /// Connectives have their fixed polarities.
@@ -714,10 +702,10 @@ mod tests {
     /// arena is refused rather than mis-numbered.
     #[test]
     fn sharing() {
-        // Var(0) shared by two roots and inside a tensor of itself.
+        // Atom(0) shared by two roots and inside a tensor of itself.
         let s = Sequent {
             terms: vec![
-                Term::Var(Atom::new(0)),
+                Term::Atom(Atom::new(0)),
                 Term::Tensor(TermId::new(0), TermId::new(0)),
             ],
             roots: vec![TermId::new(1), TermId::new(0), TermId::new(1)],
@@ -729,7 +717,7 @@ mod tests {
         assert_eq!(f.len(), 7);
         assert_eq!(f.roots(), [o(0), o(3), o(4)]);
         assert_eq!(
-            f.literals(Atom::new(0), Sign::Var),
+            f.literals(Atom::new(0), Sign::Atom),
             [o(1), o(2), o(3), o(5), o(6)]
         );
 
@@ -786,7 +774,7 @@ mod tests {
         };
         let start = std::time::Instant::now();
         assert!(refused(Forest::new(&s)));
-        assert!(refused(Forest::try_from(s)));
+        assert!(refused(Forest::from_owned(s, Forest::DEFAULT_LIMIT)));
         assert!(start.elapsed() < std::time::Duration::from_secs(1));
     }
 }

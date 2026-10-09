@@ -22,7 +22,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign};
 /// Equality, order and hash are of the words, so two sets of different
 /// widths are different values even with the same members.
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct OccSet {
+pub(crate) struct OccSet {
     /// Bit `i` of word `i / 64` is set when occurrence `i` is a member.
     words: Box<[u64]>,
 }
@@ -304,7 +304,7 @@ impl Sub for &OccSet {
 
 /// The members of an [`OccSet`] in ascending order.
 #[derive(Clone, Debug)]
-pub struct Iter<'a> {
+pub(crate) struct Iter<'a> {
     /// The words still to visit, from `index` on.
     words: &'a [u64],
     /// The word `current` was taken from.
@@ -340,13 +340,13 @@ impl ExactSizeIterator for Iter<'_> {}
 
 impl Forest {
     /// Returns the empty set over this forest's occurrences.
-    pub fn empty_set(&self) -> OccSet {
+    pub(crate) fn empty_set(&self) -> OccSet {
         OccSet::empty(self.len())
     }
 
     /// Returns the set of the root formulas: the sequent itself, as proof
     /// search starts on it.
-    pub fn root_set(&self) -> OccSet {
+    pub(crate) fn root_set(&self) -> OccSet {
         OccSet::of(self.len(), self.roots().iter().copied())
     }
 }

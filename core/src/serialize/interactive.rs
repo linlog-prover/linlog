@@ -70,7 +70,7 @@ impl TryFrom<Interactive> for State {
     /// inferences fit together and that every closed one is what its rule
     /// yields.
     fn try_from(proxy: Interactive) -> Result<State, Self::Error> {
-        let forest = Forest::try_from(proxy.sequent)?;
+        let forest = Forest::from_owned(proxy.sequent, Forest::DEFAULT_LIMIT)?;
         let inferences = proxy
             .inferences
             .into_iter()

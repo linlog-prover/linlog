@@ -51,9 +51,9 @@ impl Atom {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Term {
     /// An atom `a`.
-    Var(Atom),
+    Atom(Atom),
     /// The negation `~a` of an atom.
-    DualVar(Atom),
+    DualAtom(Atom),
     /// `1`, the unit of `⊗`.
     One,
     /// `⊥`, the unit of `⅋`.
@@ -81,9 +81,9 @@ pub enum Term {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
     /// An atom `a`.
-    Var,
+    Atom,
     /// The negation `~a` of an atom.
-    DualVar,
+    DualAtom,
     /// `1`
     One,
     /// `⊥`
@@ -107,12 +107,12 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// Returns the kind of the dual term: `⊗` for `⅋`, `Var` for `DualVar`, …
+    /// Returns the kind of the dual term: `⊗` for `⅋`, `Atom` for `DualAtom`, …
     pub const fn dual(self) -> Self {
         use Kind::*;
         match self {
-            Var => DualVar,
-            DualVar => Var,
+            Atom => DualAtom,
+            DualAtom => Atom,
             One => Bot,
             Bot => One,
             Top => Zero,
@@ -130,7 +130,7 @@ impl Kind {
     pub const fn arity(self) -> u8 {
         use Kind::*;
         match self {
-            Var | DualVar | One | Bot | Top | Zero => 0,
+            Atom | DualAtom | One | Bot | Top | Zero => 0,
             Bang | Quest => 1,
             Tensor | Par | With | Plus => 2,
         }
@@ -138,7 +138,7 @@ impl Kind {
 
     /// Returns whether this is a literal, `a` or `~a`.
     pub const fn is_literal(self) -> bool {
-        matches!(self, Kind::Var | Kind::DualVar)
+        matches!(self, Kind::Atom | Kind::DualAtom)
     }
 }
 
@@ -147,8 +147,8 @@ impl Term {
     pub const fn kind(self) -> Kind {
         use Term::*;
         match self {
-            Var(_) => Kind::Var,
-            DualVar(_) => Kind::DualVar,
+            Atom(_) => Kind::Atom,
+            DualAtom(_) => Kind::DualAtom,
             One => Kind::One,
             Bot => Kind::Bot,
             Top => Kind::Top,
@@ -165,7 +165,7 @@ impl Term {
     /// Returns the atom of a literal, or `None` for any other term.
     pub const fn atom(self) -> Option<Atom> {
         match self {
-            Term::Var(a) | Term::DualVar(a) => Some(a),
+            Term::Atom(a) | Term::DualAtom(a) => Some(a),
             _ => None,
         }
     }
@@ -176,8 +176,8 @@ impl Term {
     pub const fn dual(self) -> Self {
         use Term::*;
         match self {
-            Var(a) => DualVar(a),
-            DualVar(a) => Var(a),
+            Atom(a) => DualAtom(a),
+            DualAtom(a) => Atom(a),
             One => Bot,
             Bot => One,
             Top => Zero,
@@ -204,7 +204,7 @@ impl Term {
         match self {
             Tensor(k, l) | Par(k, l) | With(k, l) | Plus(k, l) => (Some(k), Some(l)),
             Bang(k) | Quest(k) => (Some(k), None),
-            Var(_) | DualVar(_) | One | Bot | Top | Zero => (None, None),
+            Atom(_) | DualAtom(_) | One | Bot | Top | Zero => (None, None),
         }
     }
 
@@ -227,8 +227,8 @@ impl Term {
     pub(crate) fn offset(self, atoms: u32, terms: u32) -> Self {
         use Term::*;
         match self {
-            Var(a) => Var(Atom(a.0 + atoms)),
-            DualVar(a) => DualVar(Atom(a.0 + atoms)),
+            Atom(a) => Atom(self::Atom(a.0 + atoms)),
+            DualAtom(a) => DualAtom(self::Atom(a.0 + atoms)),
             other => other.map_subterms(|k| TermId(k.0 + terms)),
         }
     }

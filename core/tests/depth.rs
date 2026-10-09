@@ -62,7 +62,6 @@ fn tower() -> String {
 /// which lies in `fragment` and whose last formula is the goal.
 fn walk(json: &str, fragment: Fragment) {
     let sequent: Sequent = serde_json::from_str(json).unwrap();
-    sequent.verify_integrity().unwrap();
     assert_eq!(serde_json::to_string(&sequent).unwrap(), json);
     assert_eq!(sequent.fragment(), fragment);
     let mut optimized = sequent.clone();

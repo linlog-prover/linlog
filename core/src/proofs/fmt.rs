@@ -11,7 +11,7 @@
 
 use super::derivation::{Derivation, InfId};
 use super::style::{Drawn, Labels, OpenGoal, RUN, WriteError, plain};
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// What a user may vary in the text tree of a derivation.
@@ -183,7 +183,7 @@ pub(super) fn write_sequent(
     };
     let (mut goal, mut first) = (None, true);
     for &o in sequent {
-        if reading.position(o) == Position::Output {
+        if reading.position(o) == Side::Output {
             goal = Some(o);
             continue;
         }

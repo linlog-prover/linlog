@@ -11,10 +11,11 @@ use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::{Form, RenderError, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
+use linlog::proofs::Compact;
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
-    Compact, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size,
-    ViewError, ViewOptions, WriteError,
+    Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Sequent, Size, ViewError,
+    ViewOptions, WriteError,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};

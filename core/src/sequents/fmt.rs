@@ -143,8 +143,8 @@ impl Sequent {
                     let term = self.terms[k.index()];
                     debug_assert!(term.subterms().all(|sub| sub < k));
                     match term {
-                        Var(a) => f.write_str(self.atom_name(a))?,
-                        DualVar(a) => write!(f, "~{}", self.atom_name(a))?,
+                        Atom(a) => f.write_str(self.atom_name(a))?,
+                        DualAtom(a) => write!(f, "~{}", self.atom_name(a))?,
                         One => f.write_str("1")?,
                         Bot => f.write_str("⊥")?,
                         Top => f.write_str("⊤")?,

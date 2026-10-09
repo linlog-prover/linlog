@@ -10,7 +10,7 @@ use super::context::Context;
 use super::counts::{Split, Tally};
 use super::split::{Cursors, Frame};
 use crate::occurrences::{OccId, OccSet};
-use crate::proofs::{NodeId, Side};
+use crate::proofs::{Branch, NodeId};
 use crate::search::memory::{Charged, bytes_of};
 
 impl Engine<'_> {
@@ -121,14 +121,14 @@ impl Engine<'_> {
     }
 
     /// Takes an empty trail from the pool.
-    pub(super) fn take_trail(&mut self) -> Pooled<Side> {
+    pub(super) fn take_trail(&mut self) -> Pooled<Branch> {
         let mut trail = self.pools.trails.pop().unwrap_or_default();
         trail.clear();
         trail
     }
 
     /// Returns a trail to the pool.
-    pub(super) fn give_trail(&mut self, mut trail: Pooled<Side>) {
+    pub(super) fn give_trail(&mut self, mut trail: Pooled<Branch>) {
         trail.settle(&mut self.scratch);
         self.pools.trails.push(trail);
     }
@@ -196,7 +196,7 @@ pub(super) struct Pools {
     #[allow(clippy::vec_box)]
     splits: Vec<Box<Split>>,
     /// Spare trails of split searches.
-    trails: Vec<Pooled<Side>>,
+    trails: Vec<Pooled<Branch>>,
     /// Spare lists of the links of a chain of forced splits.
     links: Vec<Pooled<(OccId, NodeId, bool)>>,
     /// Spare cursors of a chain of forced splits.

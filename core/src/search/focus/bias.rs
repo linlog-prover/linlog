@@ -50,14 +50,14 @@ pub(super) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
         .map(|a| {
             let atom = Atom::new(a as u32);
             let (vars, duals) = (
-                forest.literals(atom, Sign::Var).len(),
-                forest.literals(atom, Sign::DualVar).len(),
+                forest.literals(atom, Sign::Atom).len(),
+                forest.literals(atom, Sign::Dual).len(),
             );
             match factors[2 * a].cmp(&factors[2 * a + 1]) {
-                Ordering::Greater => Sign::Var,
-                Ordering::Less => Sign::DualVar,
-                Ordering::Equal if duals < vars => Sign::DualVar,
-                Ordering::Equal => Sign::Var,
+                Ordering::Greater => Sign::Atom,
+                Ordering::Less => Sign::Dual,
+                Ordering::Equal if duals < vars => Sign::Dual,
+                Ordering::Equal => Sign::Atom,
             }
         })
         .collect()
@@ -81,16 +81,16 @@ mod tests {
         let input = "A, A |- A, B, C -o C, C -o C";
         assert_eq!(
             sign(input, "A", Bias::Auto),
-            Sign::Var,
+            Sign::Atom,
             "one A against two ~A"
         );
         assert_eq!(
             sign(input, "B", Bias::Auto),
-            Sign::DualVar,
+            Sign::Dual,
             "no ~B at all, so ~B is the rarer one"
         );
-        assert_eq!(sign(input, "C", Bias::Auto), Sign::Var, "two of each");
-        assert_eq!(sign("|- A, A, ~A", "A", Bias::Auto), Sign::DualVar);
+        assert_eq!(sign(input, "C", Bias::Auto), Sign::Atom, "two of each");
+        assert_eq!(sign("|- A, A, ~A", "A", Bias::Auto), Sign::Dual);
     }
 
     /// The literal that is more often a factor of a `⊗` is positive, an
@@ -100,16 +100,16 @@ mod tests {
     fn tensor_factors() {
         // `A` is a factor once and `~A` never, though `A` is not the rarer.
         let horn = "|- ~A, A * ~B, A * ~B, B";
-        assert_eq!(sign(horn, "A", Bias::Auto), Sign::Var);
-        assert_eq!(sign(horn, "B", Bias::Auto), Sign::DualVar);
+        assert_eq!(sign(horn, "A", Bias::Auto), Sign::Atom);
+        assert_eq!(sign(horn, "B", Bias::Auto), Sign::Dual);
         // `~D` is a factor under each side of a choice, `D` once outside
         // one: a tie, which the rarer literal wins.
         let choice = "|- (A * ~D) + (B * ~D), D * C, ~A, ~B, ~C";
-        assert_eq!(sign(choice, "D", Bias::Auto), Sign::Var);
+        assert_eq!(sign(choice, "D", Bias::Auto), Sign::Atom);
         let exponential = "|- ?~A, A * ~B, A * ~B, B";
-        assert_eq!(sign(exponential, "A", Bias::Auto), Sign::DualVar);
+        assert_eq!(sign(exponential, "A", Bias::Auto), Sign::Dual);
         // The rules by name, whatever the sequent.
-        assert_eq!(sign(exponential, "A", Bias::Factors), Sign::Var);
-        assert_eq!(sign(horn, "A", Bias::Rarer), Sign::DualVar);
+        assert_eq!(sign(exponential, "A", Bias::Factors), Sign::Atom);
+        assert_eq!(sign(horn, "A", Bias::Rarer), Sign::Dual);
     }
 }

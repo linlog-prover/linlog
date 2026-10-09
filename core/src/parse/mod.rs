@@ -309,7 +309,7 @@ impl<'a> Parser<'a> {
             _ if starts_identifier(c) => match self.identifier(start) {
                 "bot" => Term::Bot,
                 "top" => Term::Top,
-                name => Term::Var(self.atom(name)),
+                name => Term::Atom(self.atom(name)),
             },
             _ => return Err(self.unexpected(start)),
         };

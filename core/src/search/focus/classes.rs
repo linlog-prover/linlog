@@ -9,7 +9,7 @@
 //! member is replaced by another occurrence of the same formula in the
 //! same position, and the search need only try one of each kind.
 
-use crate::occurrences::{Forest, OccId, Position, Reading};
+use crate::occurrences::{Forest, OccId, Reading, Side};
 
 /// The class of every occurrence of a forest: the occurrences of the same
 /// term, and under an intuitionistic reading in the same position, are
@@ -36,7 +36,7 @@ impl Classes {
         let class: Box<[OccId]> = forest
             .ids()
             .map(|o| {
-                let output = reading.is_some_and(|r| r.position(o) == Position::Output);
+                let output = reading.is_some_and(|r| r.position(o) == Side::Output);
                 let slot = &mut first[forest.term(o).index()][usize::from(output)];
                 if *slot == NONE {
                     *slot = o.get();
@@ -89,7 +89,7 @@ mod tests {
             let roots = forest.roots().iter().copied();
             roots.filter(|&r| forest.kind(r) == kind).collect()
         };
-        let (tops, literals) = (roots(Kind::Top), roots(Kind::DualVar));
+        let (tops, literals) = (roots(Kind::Top), roots(Kind::DualAtom));
         assert_eq!((tops.len(), literals.len()), (2, 2));
         let classes = Classes::new(&forest, None);
         assert!(classes.same(tops[0], tops[1]));

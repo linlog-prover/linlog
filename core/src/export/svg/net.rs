@@ -196,7 +196,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         NOTATION.term(&mut formula, forest.sequent(), forest.term(o), false);
         let label = run(&formula, 1000, &style.font);
         let atom = match forest.kind(o) {
-            Kind::DualVar => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
+            Kind::DualAtom => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
             _ => label.width,
         };
         x[o.index()] = next + atom / 2;

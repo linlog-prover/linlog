@@ -32,10 +32,10 @@
 //! a goal at all. Every intuitionistic rule is a classical rule on the
 //! one-sided sequent, so nothing else is intuitionistic about a proof.
 
-use super::{DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof, Side};
+use super::{Branch, DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
-use crate::occurrences::{Forest, OccId, Position, Reading, ShapeError};
+use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -671,7 +671,7 @@ impl std::error::Error for CheckError {}
 /// The memory taken is that of the sequents some later node still reads,
 /// which for a proof without shared subproofs is proportional to the
 /// proof, and within [`DEFAULT_MEMORY_LIMIT`]: see [`check_within`].
-pub fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
+pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
     check_within(proof, mode, Some(DEFAULT_MEMORY_LIMIT))
 }
 
@@ -693,7 +693,11 @@ pub fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
 /// an error's report, each within a small multiple of the largest
 /// sequent counted, and the intuitionistic reading, which is a few bytes
 /// for every occurrence of the forest.
-pub fn check_within(proof: &Proof, mode: Mode, memory: Option<u64>) -> Result<(), CheckError> {
+pub(crate) fn check_within(
+    proof: &Proof,
+    mode: Mode,
+    memory: Option<u64>,
+) -> Result<(), CheckError> {
     let reading = reading(proof, mode)?;
     examine(
         proof,
@@ -1005,8 +1009,7 @@ impl<'a, O: Observer> Pass<'a, O> {
 
     /// Whether `o` is in output position, under a reading.
     fn is_output(&self, o: OccId) -> bool {
-        self.reading
-            .is_some_and(|r| r.position(o) == Position::Output)
+        self.reading.is_some_and(|r| r.position(o) == Side::Output)
     }
 
     /// Fails unless `o` has the kind the rule acts on.
@@ -1232,8 +1235,8 @@ impl<'a, O: Observer> Pass<'a, O> {
                 self.expect(o, Kind::Plus)?;
                 let mut d = self.premise(p)?;
                 let chosen = match side {
-                    Side::Left => self.left(o),
-                    Side::Right => self.right(o),
+                    Branch::Left => self.left(o),
+                    Branch::Right => self.right(o),
                 };
                 facts.absent[0] = self.take(&mut d, chosen, 0)?;
                 self.put(&mut d, o);
@@ -1371,8 +1374,8 @@ mod tests {
             3 => Quest(o, p),
             4 => Copy(o, p),
             5 => Weaken(o, p),
-            6 => Plus(o, Side::Left, p),
-            _ => Plus(o, Side::Right, p),
+            6 => Plus(o, Branch::Left, p),
+            _ => Plus(o, Branch::Right, p),
         };
         let choice = rng.below(5);
         nodes[i] = match (nodes[i], choice) {
@@ -1493,9 +1496,9 @@ mod tests {
                 "|- A & B, ~A + ~B",
                 vec![
                     Ax(o(1), o(4)),
-                    Plus(o(3), Side::Left, n(0)),
+                    Plus(o(3), Branch::Left, n(0)),
                     Ax(o(2), o(5)),
-                    Plus(o(3), Side::Right, n(2)),
+                    Plus(o(3), Branch::Right, n(2)),
                     With(o(0), n(1), n(3)),
                 ],
                 classical,
@@ -1727,7 +1730,7 @@ mod tests {
             // ⊕ on the side the premise does not prove: 0 ⊕, 1 A, 2 B, 3 ~A.
             (
                 "|- A + B, ~A",
-                vec![Ax(o(1), o(3)), Plus(o(0), Side::Right, n(0))],
+                vec![Ax(o(1), o(3)), Plus(o(0), Branch::Right, n(0))],
                 classical,
                 1,
                 Missing {
@@ -2032,9 +2035,9 @@ mod tests {
                 "A & B |- A & B",
                 vec![
                     Ax(o(1), o(4)),
-                    Plus(o(0), Side::Left, n(0)),
+                    Plus(o(0), Branch::Left, n(0)),
                     Ax(o(2), o(5)),
-                    Plus(o(0), Side::Right, n(2)),
+                    Plus(o(0), Branch::Right, n(2)),
                     With(o(3), n(1), n(3)),
                 ],
             ),
@@ -2088,12 +2091,12 @@ mod tests {
                 Top(o(4)),
                 Tensor(o(2), n(0), n(1)),
                 Par(o(10), n(2)),
-                Plus(o(9), Side::Left, n(3)),
+                Plus(o(9), Branch::Left, n(3)),
                 Ax(o(6), o(14)),
                 Top(o(7)),
                 Tensor(o(5), n(5), n(6)),
                 Par(o(13), n(7)),
-                Plus(o(9), Side::Right, n(8)),
+                Plus(o(9), Branch::Right, n(8)),
                 With(o(1), n(4), n(9)),
                 Top(o(8)),
                 Tensor(o(0), n(10), n(11)),

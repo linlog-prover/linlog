@@ -363,8 +363,8 @@ pub fn translate(
                     };
                     let atom = builder.atom(name);
                     let (var, dual) = (
-                        builder.add(Term::Var(atom))?,
-                        builder.add(Term::DualVar(atom))?,
+                        builder.add(Term::Atom(atom))?,
+                        builder.add(Term::DualAtom(atom))?,
                     );
                     // The classical translation reads an atom left of `⊢`
                     // as its negation.

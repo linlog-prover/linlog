@@ -163,7 +163,7 @@ impl Kind {
     pub const fn fragment(self) -> Fragment {
         use Kind::*;
         match self {
-            Var | DualVar => Fragment::EMPTY,
+            Atom | DualAtom => Fragment::EMPTY,
             Tensor | Par => Fragment::MULTIPLICATIVES,
             One | Bot => Fragment::MULTIPLICATIVE_UNITS,
             With | Plus => Fragment::ADDITIVES,
@@ -359,8 +359,8 @@ mod tests {
         use Fragment as F;
         use Kind::*;
         for (kind, fragment) in [
-            (Var, F::EMPTY),
-            (DualVar, F::EMPTY),
+            (Atom, F::EMPTY),
+            (DualAtom, F::EMPTY),
             (Tensor, F::MULTIPLICATIVES),
             (Par, F::MULTIPLICATIVES),
             (One, F::MULTIPLICATIVE_UNITS),

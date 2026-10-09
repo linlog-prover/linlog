@@ -14,7 +14,7 @@ use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
 use linlog::export::{latex, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
-use linlog::{Error, InfId, Interactive, Position, Reading, Refusal, Rule, ViewError, ViewOptions};
+use linlog::{Error, InfId, Interactive, Reading, Refusal, Rule, Side, ViewError, ViewOptions};
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::Path;
@@ -451,7 +451,7 @@ impl Session {
                 .is_none_or(|r: &Reading| r.position(o) == side)
         };
         for (i, &o) in sequent.iter().enumerate() {
-            if side(o, Position::Input) && reading.is_some() {
+            if side(o, Side::Input) && reading.is_some() {
                 let _ = write!(
                     line,
                     "{}{i}: {}",
@@ -463,7 +463,7 @@ impl Session {
         line.push_str(" ⊢");
         let mut first = true;
         for (i, &o) in sequent.iter().enumerate() {
-            if reading.is_none() || side(o, Position::Output) {
+            if reading.is_none() || side(o, Side::Output) {
                 let _ = write!(
                     line,
                     "{}{i}: {}",

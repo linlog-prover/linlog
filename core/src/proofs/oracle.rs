@@ -9,11 +9,11 @@
 
 use super::check::{CheckError, Dyadic, Problem};
 use super::multiset::Multiset;
-use super::{Node, NodeId, Proof, Side};
+use super::{Branch, Node, NodeId, Proof};
 #[cfg(feature = "parse")]
 use crate::Sequent;
 use crate::fragment::Mode;
-use crate::occurrences::{Forest, OccId, OccSet, Position, Reading};
+use crate::occurrences::{Forest, OccId, OccSet, Reading, Side};
 use crate::sequents::Kind;
 
 /// What a subproof proves, as the checker derives it from the node's
@@ -189,7 +189,7 @@ impl<'a> Step<'a> {
         // The premise's sequent holds `o` besides its zone: one goal at
         // most.
         if let Some(reading) = self.reading
-            && reading.position(o) == Position::Output
+            && reading.position(o) == Side::Output
             && self.outputs(&d.gamma) > 0
         {
             return Err(self.fail(Problem::Succedents(2)));
@@ -334,8 +334,8 @@ impl<'a> Step<'a> {
                 self.expect(o, Kind::Plus)?;
                 let mut d = self.premise(p);
                 let chosen = match side {
-                    Side::Left => self.left(o),
-                    Side::Right => self.right(o),
+                    Branch::Left => self.left(o),
+                    Branch::Right => self.right(o),
                 };
                 self.take(&mut d, chosen, 0)?;
                 d.gamma.insert(o);
@@ -378,10 +378,7 @@ impl<'a> Step<'a> {
                 if !self.mode.affine && f.kind(o) != Kind::Quest {
                     return Err(self.fail(Problem::Forbidden));
                 }
-                if self
-                    .reading
-                    .is_some_and(|r| r.position(o) == Position::Output)
-                {
+                if self.reading.is_some_and(|r| r.position(o) == Side::Output) {
                     return Err(self.fail(Problem::Succedents(0)));
                 }
                 let mut d = self.premise(p);

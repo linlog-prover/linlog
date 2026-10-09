@@ -8,9 +8,9 @@
 use crate::argument_parsing::StyleArgs;
 use crate::io;
 use anyhow::{Context, Result, bail};
-use linlog::TextOptions;
 use linlog::export::svg::Style;
 use linlog::export::{Form, latex, pdf, png, rocq, typst};
+use linlog::proofs::TextOptions;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

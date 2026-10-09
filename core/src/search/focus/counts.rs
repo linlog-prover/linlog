@@ -7,7 +7,7 @@
 //! provable sequent, computed once per forest and summed per sequent.
 
 use crate::occurrences::{Forest, OccId, Sign};
-use crate::proofs::Side;
+use crate::proofs::Branch;
 use crate::search::Bias;
 use crate::search::memory::{Account, bytes_of};
 use crate::search::{Reason, set_up_stopped};
@@ -276,12 +276,12 @@ impl Counts {
             let kind = forest.kind(o);
             let mut steps = 1;
             let (absorb, w) = match kind {
-                Var | DualVar => {
-                    let sign = if kind == Var { 1 } else { -1 };
+                Atom | DualAtom => {
+                    let sign = if kind == Atom { 1 } else { -1 };
                     let atom = forest.atom(o).unwrap();
                     if !exponential[atom.index()] {
                         rows.push(Entry {
-                            atom: Atom::new(rank[atom.index()]),
+                            atom: crate::sequents::Atom::new(rank[atom.index()]),
                             lo: sign,
                             hi: sign,
                         });
@@ -686,7 +686,7 @@ impl Split {
     /// either, in one pass over its row: `side` gains it `settled` times
     /// (1, 0 or −1) and the open members gain it `opened` times, and the
     /// sides' counts of excluded atoms are brought up to date.
-    fn shift(&mut self, counts: &Counts, o: OccId, side: Side, settled: i32, opened: i32) {
+    fn shift(&mut self, counts: &Counts, o: OccId, side: Branch, settled: i32, opened: i32) {
         let side = side as usize;
         for e in counts.row(o) {
             let a = e.atom.index();
@@ -715,7 +715,7 @@ impl Split {
 
     /// Adds a member to a side for good: a subformula of the `⊗`, or a
     /// member the search does not move.
-    pub(crate) fn place(&mut self, counts: &Counts, o: OccId, side: Side) {
+    pub(crate) fn place(&mut self, counts: &Counts, o: OccId, side: Branch) {
         self.touched
             .extend(counts.row(o).map(|e| e.atom.index() as u32));
         self.shift(counts, o, side, 1, 0);
@@ -725,18 +725,18 @@ impl Split {
     pub(crate) fn open(&mut self, counts: &Counts, o: OccId) {
         self.touched
             .extend(counts.row(o).map(|e| e.atom.index() as u32));
-        self.shift(counts, o, Side::Left, 0, 1);
+        self.shift(counts, o, Branch::Left, 0, 1);
     }
 
     /// Assigns an open member to a side.
-    pub(crate) fn assign(&mut self, counts: &Counts, o: OccId, side: Side) {
+    pub(crate) fn assign(&mut self, counts: &Counts, o: OccId, side: Branch) {
         if !self.inert {
             self.shift(counts, o, side, 1, -1);
         }
     }
 
     /// Moves an assigned member from the other side to this one.
-    pub(crate) fn flip(&mut self, counts: &Counts, o: OccId, side: Side) {
+    pub(crate) fn flip(&mut self, counts: &Counts, o: OccId, side: Branch) {
         if self.inert {
             return;
         }
@@ -766,7 +766,7 @@ impl Split {
     }
 
     /// Takes an assigned member back from its side: it is open again.
-    pub(crate) fn unassign(&mut self, counts: &Counts, o: OccId, side: Side) {
+    pub(crate) fn unassign(&mut self, counts: &Counts, o: OccId, side: Branch) {
         if !self.inert {
             self.shift(counts, o, side, -1, 1);
         }
