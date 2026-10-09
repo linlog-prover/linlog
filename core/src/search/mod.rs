@@ -425,7 +425,7 @@ fn prepare<'a>(
     }
     // The roots in any order are the sequent itself, which the engines
     // are handed in the forest's order.
-    let roots = is_roots(forest, goal);
+    let roots = forest.is_roots(goal);
     let task = Task {
         forest,
         goal: if roots { forest.roots() } else { goal },
@@ -437,22 +437,6 @@ fn prepare<'a>(
     let engine = options.engine.unwrap_or_else(|| dispatch(&task));
     engine.implementation().admits(&task)?;
     Ok((task, engine))
-}
-
-/// Whether a goal is the forest's roots, in any order.
-fn is_roots(forest: &Forest, goal: &[OccId]) -> bool {
-    let roots = forest.roots();
-    if goal.len() != roots.len() {
-        return false;
-    }
-    if goal == roots {
-        return true;
-    }
-    let mut sorted = goal.to_vec();
-    sorted.sort_unstable();
-    let mut roots = roots.to_vec();
-    roots.sort_unstable();
-    sorted == roots
 }
 
 /// A goal as the engines are handed it: the occurrences of the forest it

@@ -21,7 +21,8 @@ own: `core-focus.md`, `core-nets.md` (the net engine) and
 Error>`, and `prove_goal(&forest, goal, mode, &options, &limits, stop)`
 decides any multiset of occurrences of a forest, given in any order,
 `prove_within` being that on
-the roots (the roots in any order are the roots, `is_roots`, and the
+the roots (the roots in any order are the roots, `Forest::is_roots`,
+which `Proof::new_of_goal` asks too, and the
 engines get them in the forest's order, so the net engine takes them and
 the proof is checked): the goal's own fragment (`goal_fragment`, over the subtrees)
 picks the prunes and the engine, the net engine only for the roots

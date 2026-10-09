@@ -1083,8 +1083,15 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
     }
 
     /// Checks that the root derived `goal` and needs no unrestricted
-    /// occurrence.
+    /// occurrence, and under a reading that the goal is an intuitionistic
+    /// sequent: one output, as every sequent of the derivation has.
     fn conclude(&self, goal: &[OccId]) -> Result<(), Halt> {
+        if let Some(reading) = self.reading {
+            let count = reading.outputs(goal.iter().copied());
+            if count != 1 {
+                return Err(Halt::Fault(Fault::Succedents { count }));
+            }
+        }
         let root = self.live[self.proof.root().index()]
             .as_deref()
             .expect("the root's sequent is kept");

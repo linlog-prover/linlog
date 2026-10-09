@@ -348,6 +348,22 @@ impl Forest {
         &self.roots
     }
 
+    /// Returns whether `goal` is the roots, in any order: the sequent
+    /// itself.
+    pub(crate) fn is_roots(&self, goal: &[OccId]) -> bool {
+        if goal.len() != self.roots.len() {
+            return false;
+        }
+        if *goal == *self.roots {
+            return true;
+        }
+        let mut sorted = goal.to_vec();
+        sorted.sort_unstable();
+        let mut roots = self.roots.to_vec();
+        roots.sort_unstable();
+        sorted == roots
+    }
+
     /// Returns the arena term of an occurrence.
     pub fn term(&self, o: OccId) -> TermId {
         self.term[o.index()]

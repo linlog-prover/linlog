@@ -410,8 +410,9 @@ impl Proof {
 
     /// Builds a proof of `goal`, members of the forest that stand for the
     /// sequent of those subformulas, as [`new`](Self::new) builds a proof
-    /// of the sequent; its root concludes the goal. Fails as `new` does,
-    /// or for a member outside the forest.
+    /// of the sequent; its root concludes the goal. The roots in any order
+    /// are the sequent itself, and the proof records no goal then. Fails as
+    /// `new` does, or for a member outside the forest.
     ///
     /// # Errors
     ///
@@ -430,8 +431,12 @@ impl Proof {
                 len: forest.len(),
             });
         }
+        // The roots in any order are the sequent itself, as `prove_goal`
+        // takes them.
+        let occurrences: Vec<OccId> = goal.iter().map(|m| m.occ()).collect();
+        let roots = forest.is_roots(&occurrences);
         let mut proof = Self::new(forest, nodes, root)?;
-        proof.goal = Some(goal.into());
+        proof.goal = (!roots).then(|| goal.into());
         Ok(proof)
     }
 
@@ -688,5 +693,29 @@ mod tests {
         let mut tags: Vec<&str> = nodes.iter().map(|node| node.name()).collect();
         tags.insert(7, Node::Plus(m, Branch::Right, n).name());
         assert_eq!(tags, Node::TAGS);
+    }
+
+    /// A goal is a sequent of the mode it is checked in: under the reading
+    /// one output, as every sequent of its derivation has; and the roots
+    /// in another order are the sequent itself.
+    #[cfg(feature = "parse")]
+    #[test]
+    fn a_goal_is_a_sequent_of_its_mode() {
+        // `0 ⊢ a`: the input `0`, one-sided `⊤`, is occurrence 0.
+        let sequent: Sequent = "0 |- a".parse().unwrap();
+        let top = Member::new(0);
+        let forest = Forest::new(&sequent).unwrap();
+        let proof = Proof::new_of_goal(forest, &[top], vec![Node::Top(top)], NodeId::new(0));
+        let proof = proof.unwrap();
+        assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
+        let Err(CheckError::Invalid(invalid)) = proof.check(Mode::INTUITIONISTIC) else {
+            panic!("a goal without an output is no intuitionistic sequent");
+        };
+        assert_eq!(invalid.fault, Fault::Succedents { count: 0 });
+        let sequent: Sequent = "A |- A".parse().unwrap();
+        let (a, b) = (Member::new(0), Member::new(1));
+        let forest = Forest::new(&sequent).unwrap();
+        let swapped = Proof::new_of_goal(forest, &[b, a], vec![Node::Ax(a, b)], NodeId::new(0));
+        assert_eq!(swapped.unwrap().goal(), None);
     }
 }
