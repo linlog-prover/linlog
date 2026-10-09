@@ -74,12 +74,12 @@ supervisor's go are marked "go".
 | c. H4: a counter named twice in a `.spec` file's `init` refused | done | lwpolxzs (51ad26ac): the finding's file in `reads_problems`' refusals; gate passed |
 | d. H7: an empty LLTP formula refused | done | xwquzzos (94a10a3f): two empty formulas in `reads_problems`' refusals |
 | e. H17: a session's history checked against the arena as each step left it | done | wptxunzx (1a2fe79e): the finding's reordered history in `interactive_json_format_and_round_trip`, which fails without the fix (run with it reverted); gate passed |
-| f. H9, H10 with C1: the written order and sides, the reading's rule (lock commit (2)); the target set after it (go) | done, the target set waiting for a go | rtlqploq: `Sequent::antecedents`, roots unsorted, the reading by the written sides and the left factor; test `the_written_sides_decide` (both witnesses as text and without sides, `⊢ ⊤, a` read as `0 ⊢ a`, `⊢ 0, ⊤` undetermined); both locks reblessed (the JSON key, the written order, `seq-print-latex`'s sequent); README; a probe read every ILTP image (274 problems, three translations, two logics) with no refusal, and the LLTP ILL files are being read with the old and the new binary |
+| f. H9, H10 with C1: the written order and sides, the reading's rule (lock commit (2)); the target set after it (go) | done, the target set waiting for a go | rtlqploq (gate passed, after omsrptkl, a commit of its own before it, raised the two check journeys' ceilings by 3.9 % and 3.8 %: their proofs are found on the reordered sequents); the probe of the LLTP ILL files ended: 4 268 read by both binaries, 226 refused by both for size only (200 000 occurrences), none changed; `Sequent::antecedents`, roots unsorted, the reading by the written sides and the left factor; test `the_written_sides_decide` (both witnesses as text and without sides, `⊢ ⊤, a` read as `0 ⊢ a`, `⊢ 0, ⊤` undetermined); both locks reblessed (the JSON key, the written order, `seq-print-latex`'s sequent); README; a probe read every ILTP image (274 problems, three translations, two logics) with no refusal, and the LLTP ILL files are being read with the old and the new binary |
 | g. T3: `lto = "fat"`, `codegen-units = 1`, the ceilings re-recorded (go) | waiting for the go | kept uncommitted until its ceilings can be recorded, so every gate passes. After the go: the target set on a build of C1's commit itself (a jj workspace at rtlqploq), its counters compared with `bench/targets/after-coverability.csv` (the current oracle; `after-bias.csv` no longer matches the engine, F160, F181), so the comparison is C1's whatever lands later; then the target set at the head under LTO as the new oracle |
-| h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | done | ksnmyzmo (ad8ec15d); the rest of 2.3 (`Forest::from_owned` stays public: the command builds a forest of a sequent it owns without a clone) comes with its items |
+| h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | done, gate interrupted by the pause | ksnmyzmo; the rest of 2.3 (`Forest::from_owned` stays public: the command builds a forest of a sequent it owns without a clone) comes with its items |
 | i. `Mode` and `Fragment` (3.5) | open | |
-| j. one error family (4) | open | |
-| k. `Limits`, `Progress` and the stop on every long call (5) | open | |
+| j. one error family (4) | first commit done, gate interrupted by the pause | yzywpzko: `Error` non-exhaustive with named fields, `ErrorKind`, `code()`, `CODES`, `setting()`; `limits` module (`Limits`, `Progress`, `Phase`, `Refusal`, `Space`); `CheckError::{Invalid, Refused}` with `Fault`; `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` folded; `StepError`; `Error::Parse`. Open: `describe` unified, the wire form of errors, `ParseError`'s positions (F29, F34, R129) |
+| k. `Limits`, `Progress` and the stop on every long call (5) | in progress, uncommitted (paused) | see the pause entry below |
 | l. the options, `Clock`, `Settings`, `Styles` (6) | open | |
 | m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | open | |
 | n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | open | |
@@ -401,3 +401,39 @@ supervisor's go are marked "go".
   longer matches the engine since the Horn engine took the programs with
   `!` (F160, F181, area 3.4 fixes the names). What was done: recorded in
   item g.
+
+### Message from `planning` (2026-10-09, evening): Pause
+
+- "Pause: the author needs the machine now." What was done: the gate
+  unit `step28-gate` was stopped while it ran the queue `rtlqploq
+  ksnmyzmo yzywpzko` (rtlqploq passed; ksnmyzmo was in its feature
+  checks, yzywpzko not begun); no unit, scope, build, probe or agent of
+  this session runs (`step28-gpg-warm` is the supervisor's and runs on).
+- **Where it stands**: committed and unsigned-or-signed as they came:
+  tszyrrtw (F23), xwquzzos (H2, H3, H7), lwpolxzs (H4), wptxunzx (H17),
+  omsrptkl (the two check ceilings), rtlqploq (C1, H9, H10), ksnmyzmo
+  (renames), yzywpzko (the error family). In the working copy above
+  them, uncommitted: item k half done. Done there: `Forest::{new,
+  within, from_owned}` take `&Limits` (`Forest::DEFAULT_LIMIT` gone),
+  `Sequent::parse_within`, `mist::read(text, &Limits)` (no
+  `read_within`), the checker's pass with an `Allowance` (memory, work,
+  phase, the progress stop every 4 096 nodes; `Halt::{Work, Stopped}`),
+  `Proof::check_within(mode, &Limits, stop)`,
+  `derivation_size_within(two_sided, &Limits, stop)`, `ViewOptions` with
+  `compact` alone and `derivation_within` / `two_sided_derivation_within
+  (&view, &Limits, stop)`, `proofs::DEFAULT_MEMORY_LIMIT` removed,
+  `search::Options` without its three bounds, `prove_within` and
+  `prove_goal(…, &Limits, stop: FnMut(Progress))` with the shim
+  `search::without_progress`, `Decide::decide` taking `limits`. Not
+  done: the engines' `decide` implementations and the functions that
+  read the bounds (focus `search_goal`, `Problem::new`, `reason`,
+  `schedule::alternate`'s stack, focus `parallel::search_goal`'s stack,
+  the additive path's recursion, the net engine's stack), `lltp::read`,
+  the exports' and `write_text`'s stops, `Interactive`'s `close*`, the
+  ordinary layer's `linear_derivation`, the png/pdf memory default, the
+  command, the harness, the fuzz targets, the tests, the rules files.
+  The crate does not build in this state.
+- **How it resumes**: `jj workspace update-stale` in `../linlog-gate`
+  and the gate queue `ksnmyzmo yzywpzko` again (scratchpad `gate.sh`);
+  then finish item k from the list above, compiling with the capped
+  `cap.sh`, and commit it with its own gate.
