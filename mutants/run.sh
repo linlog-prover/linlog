@@ -7,17 +7,21 @@
 # refutations and the ordinary layer's checker. A mutant that no test
 # notices is a behaviour no test pins.
 #
-#   mutants/run.sh            # every batch not done yet, detached
-#   mutants/run.sh check mist # only these batches
+#   mutants/run.sh                     # every batch not done yet, detached
+#   mutants/run.sh check mist          # only these batches
+#   mutants/run.sh --label round-1     # a later run, beside the baseline
+#   mutants/run.sh --compare round-1   # its survivors against the baseline
 #
 # Each batch is one group of files, tested in two passes: first against
 # the tests that exercise it (a nextest filterset), then the mutants that
 # survive that once more against the whole workspace suite (cargo-mutants'
 # --iterate skips what the first pass caught). What survives both is the
-# batch's list, copied to mutants/baseline/BATCH.txt, which a later run
-# compares with. A batch whose list exists is done and skipped, so a run
-# that was stopped loses at most the batch in flight; cargo-mutants'
-# output stays under target/mutants/BATCH/.
+# batch's list, copied to mutants/LABEL/BATCH.txt (LABEL `baseline' by
+# default), which a later run under another label compares with. A batch
+# whose list exists is done and skipped, so a run that was stopped loses
+# at most the batch in flight; cargo-mutants' output stays under
+# target/mutation/LABEL/BATCH/ (target/mutants/ is where the cargo
+# profile of that name builds).
 #
 # It runs as the user unit `step28-mutants' on cores 6 to 11, three
 # mutants at a time, with 24 GiB and no swap for all of it:
@@ -45,6 +49,17 @@ batches=(
   "horn-reach|core/src/search/horn/reach.rs|test(/^(search::(horn|reference)|mist)::/)"
 )
 
+if [ "${1:-}" = --compare ]; then
+  label=${2:?usage: mutants/run.sh --compare LABEL}
+  for list in mutants/"$label"/*.txt; do
+    name=$(basename "$list" .txt)
+    before=mutants/baseline/$name.txt
+    echo "$name: $(wc -l <"$before") surviving before, $(wc -l <"$list") now"
+    comm -13 "$before" "$list" | sed 's/^/  new: /'
+  done
+  exit
+fi
+
 if [ "${1:-}" != --inside ]; then
   systemctl --user reset-failed step28-mutants.service 2>/dev/null || true
   systemd-run --user --unit=step28-mutants --same-dir --collect \
@@ -54,21 +69,26 @@ if [ "${1:-}" != --inside ]; then
   exit
 fi
 shift
+label=baseline
+if [ "${1:-}" = --label ]; then
+  label=${2:?--label needs a name}
+  shift 2
+fi
 
 wanted=("$@")
-mkdir -p mutants/baseline target/mutants
+mkdir -p "mutants/$label" "target/mutation/$label"
 for batch in "${batches[@]}"; do
   IFS='|' read -r name files filter <<<"$batch"
   if [ ${#wanted[@]} -gt 0 ] && [[ " ${wanted[*]} " != *" $name "* ]]; then
     continue
   fi
-  list=mutants/baseline/$name.txt
+  list=mutants/$label/$name.txt
   if [ -e "$list" ]; then
     echo "$name: done, $(wc -l <"$list") surviving"
     continue
   fi
   args=(--package linlog --test-workspace true --no-shuffle --colors never
-    --jobs "$jobs" --jobserver-tasks 6 --output "target/mutants/$name")
+    --jobs "$jobs" --jobserver-tasks 6 --output "target/mutation/$label/$name")
   for f in $files; do args+=(--file "$f"); done
   start=$SECONDS
   # cargo-mutants exits 2 when a mutant survives, 3 on a timeout: both
@@ -79,7 +99,7 @@ for batch in "${batches[@]}"; do
   echo "$name: the survivors against the whole suite"
   NEXTEST_TEST_THREADS=2 taskset -c "$cores" \
     cargo mutants "${args[@]}" --iterate || [ $? -le 3 ]
-  out=target/mutants/$name/mutants.out
+  out=target/mutation/$label/$name/mutants.out
   cat "$out/missed.txt" "$out/timeout.txt" 2>/dev/null | sort >"$list.tmp"
   mv "$list.tmp" "$list"
   echo "$name: $(wc -l <"$list") surviving, $((SECONDS - start)) s"

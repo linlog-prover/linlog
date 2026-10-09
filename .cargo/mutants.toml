@@ -12,3 +12,5 @@ profile = "mutants"
 # A floor under the timeout cargo-mutants derives from the unmutated run,
 # whose filtered tests may take under a second.
 minimum_test_timeout = 60
+# A mutant of a test's own helper says nothing of the code under test.
+exclude_re = ["in tests::"]
