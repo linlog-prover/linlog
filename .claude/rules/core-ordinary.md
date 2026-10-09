@@ -30,7 +30,10 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   `export::rocq::ordinary`.
 - **Every entry keeps to the occurrence bound**: `Sequent::parse_within`
   and `read_tptp` refuse at the first formula of the arena past
-  `limits.occurrences` (`FromStr` within the defaults), and `translate`
+  `limits.occurrences`, and at the formula of the sequent past it,
+  since the arena interns a repeated formula and each repeat is an
+  occurrence of the image all the same (`FromStr` within the
+  defaults), and `translate`
   refuses an image that unfolds past it, before a forest is laid out
   (`names_read_back_and_bounds_hold`). The command passes
   `Limits::UNBOUNDED` and keeps its own `--occurrence-limit` check of

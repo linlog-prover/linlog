@@ -323,9 +323,10 @@ impl std::str::FromStr for Sequent {
 
 impl Sequent {
     /// Parses a sequent of ordinary logic, or one formula to prove, in the
-    /// syntax [`Sequent`] documents, refusing it at the first formula past
-    /// `limits.occurrences` (each is an occurrence of its image at least),
-    /// before anything of that size is built.
+    /// syntax [`Sequent`] documents, refusing it as soon as its distinct
+    /// subformulas or its formulas pass `limits.occurrences` (each is an
+    /// occurrence of its image at least), before anything of that size is
+    /// built.
     ///
     /// Needs the cargo feature `parse` (on by default).
     ///
@@ -355,6 +356,7 @@ impl Sequent {
             loop {
                 let (formula, end) = parser.formula()?;
                 if turnstile { &mut right } else { &mut left }.push(formula);
+                roots_within(left.len() + right.len(), limits.occurrences)?;
                 match end {
                     End::Comma => {}
                     End::Turnstile if !turnstile => {
@@ -380,6 +382,19 @@ impl Sequent {
             std::mem::swap(&mut left, &mut right);
         }
         Sequent::new(formulas, left, right)
+    }
+}
+
+/// Fails once a sequent has more formulas than `limit` allows: each is an
+/// occurrence of its image at least, however much of the arena it shares
+/// with the others.
+fn roots_within(roots: usize, limit: Option<u64>) -> Result<(), Error> {
+    match limit {
+        Some(limit) if roots as u64 > limit => Err(Error::Refused(Refusal::Occurrences {
+            occurrences: limit.saturating_add(1),
+            limit,
+        })),
+        _ => Ok(()),
     }
 }
 
@@ -420,7 +435,10 @@ pub struct Problem {
 pub fn read_tptp(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let clauses = clauses(text, |message| Error::Tptp { message })?;
     let mut formulas = Formulas::default();
+    let mut roots = 0;
     let mut read = |formula: &str| {
+        roots += 1;
+        roots_within(roots, limits.occurrences)?;
         let mut parser = Parser {
             input: formula,
             at: 0,

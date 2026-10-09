@@ -738,6 +738,16 @@ mod tests {
         let tptp = "fof(c, conjecture, (a & b) => c).";
         assert!(read_tptp(tptp, &bound(5)).is_ok());
         assert!(refused(read_tptp(tptp, &bound(4)).map(|_| ())));
+        // One atom repeated: one formula of the arena, but each repeat is
+        // an occurrence of the image.
+        let repeated = ["a"; 6].join(", ");
+        assert!(Sequent::parse_within(&repeated, &bound(6)).is_ok());
+        assert!(refused(
+            Sequent::parse_within(&repeated, &bound(5)).map(|_| ())
+        ));
+        let hypotheses = "fof(h, axiom, a).\n".repeat(5) + "fof(c, conjecture, a).";
+        assert!(read_tptp(&hypotheses, &bound(6)).is_ok());
+        assert!(refused(read_tptp(&hypotheses, &bound(5)).map(|_| ())));
         let sequent: Sequent = "a /\\ b -> c".parse().unwrap();
         let image = translate(
             &sequent,
