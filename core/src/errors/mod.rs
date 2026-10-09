@@ -907,10 +907,6 @@ mod tests {
                 node: NodeId::new(0),
                 refusal: refusals[0].clone(),
             })),
-            Error::Net(Box::new(NetError::Empty)),
-            Error::Net(Box::new(NetError::Fragment {
-                fragment: Fragment::LL,
-            })),
             Error::GoalProof,
             Error::NotIntuitionistic(ShapeError::NoGoal),
             Error::IntuitionisticMix,
@@ -951,6 +947,41 @@ mod tests {
                 reason: message(),
             },
         ];
+        let vertex = crate::nets::VertexId::new(0);
+        let nets = [
+            NetError::NoVertex {
+                vertex: 1,
+                vertices: 1,
+            },
+            NetError::NotLiteral { vertex },
+            NetError::NotDual {
+                x: vertex,
+                y: vertex,
+            },
+            NetError::LinkedTwice { vertex },
+            NetError::Unlinked { vertex },
+            NetError::Empty,
+            NetError::SwitchingCycle {
+                cycle: vec![vertex],
+            },
+            NetError::Disconnected {
+                parts: vec![vec![vertex]],
+            },
+            NetError::Fragment {
+                fragment: Fragment::LL,
+            },
+            NetError::Mode {
+                mode: Mode::CLASSICAL.with_affine(),
+            },
+            NetError::Rule {
+                node: NodeId::new(0),
+                rule: "wk",
+            },
+            NetError::Refused {
+                refusal: refusals[1].clone(),
+            },
+        ];
+        samples.extend(nets.into_iter().map(|error| Error::Net(Box::new(error))));
         samples.extend(refusals.into_iter().map(Error::Refused));
         #[cfg(feature = "parse")]
         samples.extend([
@@ -993,10 +1024,26 @@ mod tests {
         samples
     }
 
-    /// Names every variant without a wildcard, so that a variant added
-    /// later fails to compile here until it has a sample above.
+    /// Names every variant without a wildcard, and those of the wrapped
+    /// refusals and net errors, so that a variant added later fails to
+    /// compile here, next to the samples where it needs one.
     fn variant(error: &Error) {
         match error {
+            Error::Net(net) => match net.as_ref() {
+                NetError::Refused { refusal } => refused(refusal),
+                NetError::NoVertex { .. }
+                | NetError::NotLiteral { .. }
+                | NetError::NotDual { .. }
+                | NetError::LinkedTwice { .. }
+                | NetError::Unlinked { .. }
+                | NetError::Empty
+                | NetError::SwitchingCycle { .. }
+                | NetError::Disconnected { .. }
+                | NetError::Fragment { .. }
+                | NetError::Mode { .. }
+                | NetError::Rule { .. } => {}
+            },
+            Error::Refused(refusal) => refused(refusal),
             #[cfg(feature = "parse")]
             Error::Parse(_)
             | Error::Lltp { .. }
@@ -1027,7 +1074,6 @@ mod tests {
             | Error::Antecedents { .. }
             | Error::AtomName { .. }
             | Error::Check(_)
-            | Error::Net(_)
             | Error::GoalProof
             | Error::NotIntuitionistic(_)
             | Error::IntuitionisticMix
@@ -1042,10 +1088,23 @@ mod tests {
             | Error::EngineMode { .. }
             | Error::NotAdditive { .. }
             | Error::NotHorn
-            | Error::Refused(_)
             | Error::WriteFailed
             | Error::Rejected(_)
             | Error::ReadBack { .. } => {}
+        }
+    }
+
+    /// Names every refusal without a wildcard, as [`variant`] names the
+    /// errors.
+    fn refused(refusal: &Refusal) {
+        match refusal {
+            Refusal::Stopped { .. }
+            | Refusal::Memory { .. }
+            | Refusal::Occurrences { .. }
+            | Refusal::Output { .. }
+            | Refusal::Work { .. }
+            | Refusal::Pixels { .. }
+            | Refusal::Index { .. } => {}
         }
     }
 
