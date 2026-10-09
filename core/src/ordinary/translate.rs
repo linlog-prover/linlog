@@ -170,7 +170,13 @@ pub(super) fn pattern(
                 ),
             }
         }
-        _ if minimal_false => make(0, Atom, None, None),
+        // Minimal logic's false is an atom, with an atom's `!`s.
+        _ if minimal_false => make(
+            u8::from(translation == Translation::CallByValue),
+            Atom,
+            None,
+            None,
+        ),
         Translation::CallByName => match node {
             Node::Atom(_) => make(0, Atom, None, None),
             Node::True => make(0, Unit(Term::Top), None, None),

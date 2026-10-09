@@ -841,6 +841,9 @@ mod tests {
             ("a |- b", false, false, false),
             ("a \\/ b |- a /\\ b", false, false, false),
             ("~~(a \\/ ~a)", true, true, true),
+            // Minimal logic's false is an atom, copied like any other.
+            ("false |- ~true", true, true, true),
+            ("q |- r -> ((false \\/ q) -> r)", true, true, true),
         ];
         for (text, classical, intuitionistic, minimal) in cases {
             assert_eq!(

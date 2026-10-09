@@ -77,7 +77,11 @@ translating into linear logic, and the linear proof read back as LK or LJ.
 - **Minimal logic**: false is the atom `FALSE` (`false`, which no
   ordinary atom can be named: `Formulas::atom` refuses the keywords of
   both syntaxes, so a TPTP problem naming `false` is `Error::AtomName`,
-  `false_is_no_atom_of_the_sequent`), so no `0` exists and `⊥L` cannot arise; the checker
+  `false_is_no_atom_of_the_sequent`), translated as any atom is, its
+  `!` under cbv included (without it a hypothesis `false` was linear,
+  and `false |- ~true` was refuted under cbv alone; the fresh-context
+  review's differential against G4ip with `⊥` an atom found it), so no
+  `0` exists and `⊥L` cannot arise; the checker
   refuses `⊥L` in minimal logic anyway. An intuitionistic or minimal
   sequent with nothing right of `⊢` is decided as `Γ ⊢ ⊥`, and `Image::ordinary`
   is that sequent; more than one formula right is `Error::Succedents`.
