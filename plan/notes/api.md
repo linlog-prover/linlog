@@ -428,6 +428,13 @@ checker on such a sequent and expecting the refusal;
 `Forest::dual_literals` asserts in debug builds that both atoms are
 closed. Ground atoms need no guard.
 
+**The literal variants come first** [28] (the spike, 11.5): `Term`'s and
+`Kind`'s literal variants are the first two, contiguous, and a variant is
+added after the compound ones, never between, so `Kind::is_literal` and
+`Term::atom()` stay one comparison on the focused engine's hot path; a
+test of `Kind`'s `repr(u8)` discriminants pins it. Appending `Pred` and
+`DualPred` after `Quest` cost the focused engine's journeys 6.6 %.
+
 ### 3.3 `Forest`: its contract [28]
 
 The forest is the numbering everything else names; its doc states three
@@ -2771,7 +2778,13 @@ it; each later commit of 38 makes one layer accept binders.
   and its panel's, and the propositional `Found` stays. A pool's worker
   starts from its spawner's trail; no binding reaches another
   alternative; premises sharing an unbound metavariable run in order on
-  one thread. Generic or duplicated: the spike's answer (section 11).
+  one thread. **Generic** (the spike's answer, 11.5): the engine is
+  generic over `Z: Zone` with the seam the spike found (a handle per dual
+  list with its mark and its `Θ` flag, `dual_from` with its cursors, the
+  marks' bytes charged, `fork` for a pool's worker, `root`, the forest
+  passed per call), the memo and the loop check keyed by the ground part
+  behind `Zone::memoizes`, and `#[inline]` on the hot helpers both
+  instances share.
 - **(f) The prunes that assume ground atoms**, each given a first-order
   form or switched off for a goal with the bit, the propositional path
   unchanged (R107):
@@ -2890,8 +2903,14 @@ measured against that base.
   seam, the trail's `mark`/`undo` called at 10.10 (e)'s places), `Ground`
   the only instance the front door calls, its methods `#[inline]`
   forwards to today's code.
-- **M3, a second instance in the binary** (Q2's second half): optional,
-  run only if M1 and M2 pass and its time is worth it.
+- **M3, a second instance in the binary** (Q2's second half): a stub of
+  real code (`Framed`: members through an instance table, duals matched
+  by predicate and argument list, no unification, a memo for ground
+  members only), reached from the dispatch only for the quantifier bit,
+  with a unit test proving two ground first-order sequents through it.
+- After the first results, **M1d**, **M2d**, **M1b** and **M3i** (11.5):
+  the design's own data model, the zone on it, the drafts' variants
+  reordered, and the second instance with its shared helpers inlined.
 
 ### 11.3 The gates
 
@@ -2921,7 +2940,80 @@ measured against that base.
 
 ### 11.5 The results
 
-(Filled in from the spike's report: `plan/notes/api-drafts/spike-report.md`.)
+Run on 2026-10-09 (the spike's agent from 07:31; M1d, M2d, M1b and M3i
+after a pause, M3i's counts and both last target sets by the session
+from 10:35). The full report, with every journey and the disassembly
+behind the first finding, is `plan/notes/api-drafts/spike-report.md`;
+the numbers below are instruction counts under callgrind against the
+base, each journey of the ratchet's twenty, and the target set's five
+counters on its 225 decided rows.
+
+| milestone | what it is | G1 | worst search journey | search journeys' sum | worst other journey | G2 |
+|---|---|---|---|--:|---|---|
+| M1 | the drafts' data model: `Term::{Pred, DualPred, Forall, Exists}` appended | exact | `search-chain-128` +6.63 % | +2.32 % | `read-text` +1.87 % | fails |
+| M1b | M1 with the four literal variants first | exact | `search-partition-no-5` +0.16 % | −0.75 % | `read-text` +2.00 % | passes, `read-text` at the limit |
+| **M1d** | **this design's data model**: `Term` gains only `Forall`, `Exists` (3.2); `Member`, the empty tables, the bit, the `Node` variants, the checker's branch as in M1 | exact | `batch-families` +0.03 % | −0.94 % | `read-tptp` +1.45 % | **passes** |
+| M2 | the focused engine generic over `Z: Zone` on M1 | exact | `search-chain-128` +4.86 % (M1's part) | +1.54 % | `read-text` +2.23 % | fails through M1; its own delta −0.76 % |
+| **M2d** | the same on M1d | exact | `search-partition-no-5` +0.23 % | −1.33 % | `read-tptp` +1.61 % | **passes** |
+| M3 | a second, first-order instance (`Framed`) in the binary, on M2 | exact | `search-chain-128` +4.68 % | +1.96 % | `read-text` +1.89 % | fails; its own delta `search-qbf-20-2` +2.40 % |
+| **M3i** | M3 on M2d, the shared hot helpers `#[inline]` | exact (223 rows decided in both) | `search-qbf-20-2` +0.94 % | −0.53 % | `read-tptp` +1.54 % | **passes**; against M2d alone up to +2.19 % on three journeys |
+
+What it decides (11.4):
+
+- **The data model of 3.2 to 3.14 stands** (M1d passes): `Member` as
+  every operand, the empty first-order tables, the quantifier bit and the
+  checker's branch per proof cost nothing measurable (the checker's
+  journeys −0.24 %), and the two binder variants appended to `Term` cost
+  nothing.
+- **Decision 1 has a measured cost on its alternative.** The drafts'
+  `Pred` and `DualPred` appended after `Quest` cost 6.6 % on the focused
+  engine's journeys: `Term::atom()` then matches the tags {0, 1, 12, 13},
+  which turns the forest's literal test from one comparison into a bit
+  test with branches, and the engine calls it per literal in its hot loops
+  (`meets`, `mark_literals`, `initial`, the counts). The same variants
+  placed first (M1b) cost nothing, so the alternative is viable with that
+  order; the interned atom (M1d) needs no such care.
+- **A rule the spike adds to 3.2** [28]: the literal variants of `Term`
+  and `Kind` are the first, contiguous, and a variant is added after the
+  compound ones, never between; `Kind::is_literal` and `Term::atom()` stay
+  one comparison, which a test of `Kind`'s discriminants (it is
+  `repr(u8)`) pins. A size assertion cannot catch it, and the target
+  set's times cannot either; the journeys did.
+- **D-7 is adopted** (M2d and M3i pass): step 38 makes the focused engine
+  generic over `Z: Zone`, `Ground` the propositional instance, after step
+  37's lift. One instance is free (M2 against M1 −0.76 %, M2d against M1d
+  −0.39 %); a second instance costs through the shared helpers LLVM stops
+  inlining into the first (`Context::iter`, `Key::assign`,
+  `OccSet::clone`, `Split::clone_from`), not through its own code, and
+  `#[inline]` on those helpers brings it within the gates (M3i).
+  Against M2d alone the second instance still costs up to 2.2 % on three
+  journeys (`qbf`, `wide`, `additive`), within the gates only because
+  M1d's and M2d's layouts gained as much; step 38 measures its own
+  commits against the gates (10.10 (l)), and its first remedy past them
+  is the inlining of whatever helper its symbol diff shows outlined, then
+  a `Framed` that shares none of them.
+- **The zone's seam is wider than drafted** (M2), which 10.10 (e) takes:
+  a handle per dual list (its mark and its "looked up in `Θ`" flag),
+  `dual_from` with its cursors, the marks' bytes charged by the engine,
+  `fork` for a pool's worker, `root`, and the forest passed per call (the
+  trait has no lifetime, since a pool's workers outlive no spawner's
+  borrow). **The memo and the loop check stay ground**: they key the
+  ground part of a zone behind `Zone::memoizes`, so there is no `Key<Z>`.
+- `admits`' scan for binders runs only when the bit is set, and the
+  checker's refusal of a first-order forest lands with the first
+  first-order search, as a refusal.
+- **Code size**, reported, not gated: the release binary's text 2 338 670
+  bytes in the base, 2 360 222 with M1, 2 361 022 with M2, 2 505 006 with
+  M3 (of which 140 398 bytes name `Framed`).
+- **Time**, indicative only (G3 not run; the machine ran other work): the
+  target set's three rows over a second took 90.47 s of CPU in the base
+  and between 90.45 s and 92.93 s in M1 to M2d and M1b (load 0.3 to 2.0);
+  M3i's took 108.67 s, every `mix` row 12 to 21 % slower alike, with the
+  load at 24.7 from another workflow's builds on the shared cores. A count
+  the load cannot change decided it: `mix/8` under callgrind takes
+  29 542 018 712 instructions in the base, 29 554 079 268 in M2d
+  (+0.04 %) and 29 438 722 626 in M3i (−0.35 %), with equal counters. The
+  zone's decision rests on the counts.
 
 ## 12. The walk-through
 
@@ -3063,7 +3155,7 @@ recommended answers.
 
 | # | decision | set aside | why |
 |---|---|---|---|
-| 1 | **An atom is an interned atomic formula** (3.2): `Term` gains only `Forall`/`Exists` at 38, ground first-order input is propositional by construction | the research's `Term::{Pred, DualPred}(Atom, ArgsId)` with a fragment bit set by any argument (D-4, R52, R62, R16, all three drafts) | eight pairing sites correct by construction instead of by guard; fewer variants; ground problems decided at once (both judges chose it). Amends R52, R62, R16 and D-4's wording |
+| 1 | **An atom is an interned atomic formula** (3.2): `Term` gains only `Forall`/`Exists` at 38, ground first-order input is propositional by construction | the research's `Term::{Pred, DualPred}(Atom, ArgsId)` with a fragment bit set by any argument (D-4, R52, R62, R16, all three drafts) | eight pairing sites correct for ground atoms by construction instead of by guard; fewer variants; ground problems decided at once (both judges chose it); measured free (the spike's M1d), where the alternative costs 6.6 % unless its literal variants come first (M1, M1b). Amends R52, R62, R16 and D-4's wording |
 | 2 | **The written sides decide the intuitionistic goal** (3.1, 3.6): `antecedents`, one written succedent, no symmetric reading when the sides are known | "the goal is the last root" (refuses neither H9 nor `|- top, a`); refusing every ambiguous `⊤`/`0` input | the only rule that refuses both witnesses; costs one-sided intuitionistic text with several roots, which is refused with advice |
 | 3 | **The stop is a closure over `Progress`**, every `|| false` becoming `|_| false` (5.2) | a `Stop` trait with a blanket impl for `FnMut() -> bool` and a wrapper | one form, inference works (the trait's wrapper does not infer, a judge's probe); D18 allows the break |
 | 4 | **One global wire level** (7.1) | a version per form | one number a client stores; an outcome read as a proof carries one |
@@ -3083,4 +3175,4 @@ recommended answers.
 | 18 | **`Term`, `Kind`, `Node`, `Rule` stay closed** (P3), each new variant a planned 0.y bump (0.2.0 at 34, 0.3.0 at 38) | `#[non_exhaustive]` on them, which makes 34 and 38 additive for downstream crates but forces wildcard arms there that silently mishandle a cut or a binder | a downstream `match` should fail to compile when the calculus grows; inside the crate the lint keeps them exhaustive either way (walk-through 30 asked for the author's word) |
 | 19 | **Classical cyclic MLL is read with a reversing dual** by an ordered parse beside `parse_within` (3.1, 10.8) | the order derived from D1's lowering for every ordered mode | a classical cyclic sequent has no reading to derive an order from; with the order-keeping dual `|- ~(a * b), a, b` would be unprovable in cyclic mode, a wrong answer (walk-through 36) |
 
-Section 11.5 adds the zone's decision from the spike.
+| 20 | **The focused engine becomes generic over its zone at 38** (D-7; 10.10 (e), 11.5) | D17's duplicated fast path, a sibling module for the framed zone | measured: one instance free, a second within the gates once the shared helpers are inlined (M2d, M3i) |
