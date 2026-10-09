@@ -176,11 +176,12 @@ its rule an inference stands for). What the code relies on:
   conclusions, root last" holds. The principal is the lowest
   application's. The weakenings above a `&` premise and the contractions
   below a `⊗` become one inference without a sequent per step
-  (`Multiset::sum`, `difference`), and a chain of `?` steps that weaken
-  (through the `?` steps whose formula is used above, which are no
-  inference) is walked in one go (`weaken_run`): a sequent per node of a
-  chain of 65 000 `?` steps over a sequent of 65 000 formulas is 17 GB
-  of copying.
+  (`Multiset::sum`, `difference`), and a chain of weakenings of one
+  named rule, `?w` or `wk` (through the `?` steps whose formula is used
+  above, which are no inference), is walked in one go (`weaken_run`): a
+  sequent per node of a chain of 65 000 `?` steps over a sequent of
+  65 000 formulas is 17 GB of copying, and a chain of 40 000 `wk` took
+  3 GB (F20, `a_chain_of_weakenings_is_one_step`).
 - **`Auto` compacts only where the whole derivation is over a bound, and
   only under a bound in bytes.** The size pass also returns what a
   compact view holds at least (`size::Firm`: the inferences that are no

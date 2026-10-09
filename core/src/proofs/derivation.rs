@@ -892,9 +892,9 @@ impl<'a> Build<'a> {
             up
         };
         if self.compact.is_some()
-            && let Some(o) = self.weakened(id)
+            && let Some((o, rule)) = self.weakened(id)
         {
-            return self.weaken_run(id, o, actual);
+            return self.weaken_run(id, o, rule, actual);
         }
         match self.proof.node(id) {
             Ax(..) => self.leaf(actual, Rule::Ax, None),
@@ -1070,35 +1070,39 @@ impl<'a> Build<'a> {
         self.tasks.push(Task::Unfold(l, up_l));
     }
 
-    /// Returns the `?` formula the node at `id` weakens, if it is a
-    /// weakening: a `?` step whose formula is not used above, or a
-    /// weakening of a `?` formula.
-    fn weakened(&self, id: NodeId) -> Option<OccId> {
+    /// Returns the formula the node at `id` weakens and the rule, if it is
+    /// a weakening: a `?` step whose formula is not used above or a
+    /// weakening of a `?` formula (`?w`), or an affine weakening (`wk`).
+    fn weakened(&self, id: NodeId) -> Option<(OccId, Rule)> {
         match self.proof.node(id) {
-            Node::Quest(o, _) if !self.record.used[id.index()] => Some(o.occ()),
-            Node::Weaken(o, _) if self.forest().kind(o.occ()) == Kind::Quest => Some(o.occ()),
+            Node::Quest(o, _) if !self.record.used[id.index()] => Some((o.occ(), Rule::Weakening)),
+            Node::Weaken(o, _) if self.forest().kind(o.occ()) == Kind::Quest => {
+                Some((o.occ(), Rule::Weakening))
+            }
+            Node::Weaken(o, _) => Some((o.occ(), Rule::AffineWeakening)),
             _ => None,
         }
     }
 
     /// Plans, in a compact view, the run of weakenings that starts at the
-    /// node at `id`, which weakens `o`, under the conclusion `actual`: one
-    /// inference for every weakening of the same rule down the chain of
-    /// nodes, through the `?` steps whose formula is used above, which
-    /// are no inference, without a sequent per step.
-    fn weaken_run(&mut self, id: NodeId, o: OccId, actual: Multiset) {
-        let rule = |o: OccId| match self.reading {
-            Some(reading) => Rule::Weakening.on(reading.position(o)),
-            None => Rule::Weakening.into(),
+    /// node at `id`, which weakens `o` by `rule`, under the conclusion
+    /// `actual`: one inference for every weakening of the same named rule
+    /// down the chain of nodes, through the `?` steps whose formula is
+    /// used above, which are no inference, without a sequent per step (a
+    /// chain of `wk` took a sequent per node, quadratic in the chain).
+    fn weaken_run(&mut self, id: NodeId, o: OccId, rule: Rule, actual: Multiset) {
+        let named = |o: OccId, rule: Rule| match (rule, self.reading) {
+            (Rule::Weakening, Some(reading)) => Rule::Weakening.on(reading.position(o)),
+            (rule, _) => rule.into(),
         };
-        let first = rule(o);
+        let first = named(o, rule);
         let mut removed = vec![o];
         let mut next = self.proof.node(id).premises().next().unwrap();
         loop {
             match self.proof.node(next) {
                 Node::Quest(_, p) if self.record.used[next.index()] => next = p,
                 _ => match self.weakened(next) {
-                    Some(o) if rule(o) == first => {
+                    Some((o, rule)) if named(o, rule) == first => {
                         removed.push(o);
                         next = self.proof.node(next).premises().next().unwrap();
                     }
@@ -1109,7 +1113,7 @@ impl<'a> Build<'a> {
         let up = actual.difference(&Multiset::of(removed.iter().copied()));
         self.tasks.push(Task::Infer {
             sequent: actual,
-            rule: Rule::Weakening,
+            rule,
             principal: Some(o),
             premises: 1,
             // Distinct nodes, fewer than 2³².
@@ -1669,6 +1673,38 @@ mod tests {
             assert!(runs.contains(&rule), "no run of {rule}");
         }
         assert!(exact > 0, "no sample without a structural rule");
+    }
+
+    /// A chain of affine weakenings is one run of a compact view, planned
+    /// in one step: the builder asks its stop once per step, so a chain
+    /// walked node by node, with a sequent per node, asked it per node.
+    #[test]
+    fn a_chain_of_weakenings_is_one_step() {
+        use Node::*;
+        const LENGTH: u32 = 1_000;
+        let literals: Vec<String> = (0..LENGTH).map(|i| format!("b{i}")).collect();
+        let sequent: Sequent = format!("|- a, ~a, {}", literals.join(", "))
+            .parse()
+            .unwrap();
+        let mut nodes = vec![Ax(o(0), o(1))];
+        for i in 0..LENGTH {
+            nodes.push(Weaken(o(2 + i), n(i)));
+        }
+        let proof = Proof::new(crate::Forest::new(&sequent).unwrap(), nodes, n(LENGTH)).unwrap();
+        let view = ViewOptions::default().with_compact(Compact::Always);
+        let mut polls = 0;
+        let compact = Derivation::new(&proof, &view, &crate::Limits::default(), |p| {
+            polls += u64::from(p.phase == Phase::View);
+            false
+        })
+        .unwrap();
+        let run = compact.inference(compact.root());
+        assert_eq!(
+            (run.rule, run.times),
+            (Named::from(Rule::AffineWeakening), LENGTH)
+        );
+        // The checker's passes ask it too, by their work: some fifteen.
+        assert!(polls < 100, "{polls} polls");
     }
 
     /// A derivation of any height is built on a small stack: 120 000
