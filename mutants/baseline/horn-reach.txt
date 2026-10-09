@@ -1,0 +1,52 @@
+core/src/search/horn/reach.rs:104:58: replace || with && in both
+core/src/search/horn/reach.rs:124:43: replace / with * in both
+core/src/search/horn/reach.rs:124:43: replace / with % in both
+core/src/search/horn/reach.rs:283:12: delete ! in Search<'a>::give_back
+core/src/search/horn/reach.rs:283:24: replace || with && in Search<'a>::give_back
+core/src/search/horn/reach.rs:283:27: delete ! in Search<'a>::give_back
+core/src/search/horn/reach.rs:283:9: replace Search<'a>::give_back -> bool with false
+core/src/search/horn/reach.rs:283:9: replace Search<'a>::give_back -> bool with true
+core/src/search/horn/reach.rs:339:12: delete ! in Search<'a>::advance
+core/src/search/horn/reach.rs:344:25: replace < with <= in Search<'a>::advance
+core/src/search/horn/reach.rs:35:59: replace - with /
+core/src/search/horn/reach.rs:35:59: replace - with +
+core/src/search/horn/reach.rs:373:51: replace > with < in Search<'a>::take
+core/src/search/horn/reach.rs:373:51: replace > with == in Search<'a>::take
+core/src/search/horn/reach.rs:373:51: replace > with >= in Search<'a>::take
+core/src/search/horn/reach.rs:378:48: replace match guard release() with false in Search<'a>::take
+core/src/search/horn/reach.rs:378:48: replace match guard release() with true in Search<'a>::take
+core/src/search/horn/reach.rs:382:48: replace match guard release() with false in Search<'a>::take
+core/src/search/horn/reach.rs:382:48: replace match guard release() with true in Search<'a>::take
+core/src/search/horn/reach.rs:448:43: replace << with >> in Search<'a>::expand
+core/src/search/horn/reach.rs:448:49: replace | with ^ in Search<'a>::expand
+core/src/search/horn/reach.rs:452:47: replace * with + in Search<'a>::expand
+core/src/search/horn/reach.rs:452:47: replace * with / in Search<'a>::expand
+core/src/search/horn/reach.rs:453:37: replace - with + in Search<'a>::expand
+core/src/search/horn/reach.rs:453:59: replace < with <= in Search<'a>::expand
+core/src/search/horn/reach.rs:453:59: replace < with == in Search<'a>::expand
+core/src/search/horn/reach.rs:453:59: replace < with > in Search<'a>::expand
+core/src/search/horn/reach.rs:500:48: replace < with <= in Search<'a>::successor
+core/src/search/horn/reach.rs:550:9: replace Search<'a>::hash -> u64 with 0
+core/src/search/horn/reach.rs:550:9: replace Search<'a>::hash -> u64 with 1
+core/src/search/horn/reach.rs:564:39: replace && with || in Search<'a>::find
+core/src/search/horn/reach.rs:567:26: replace + with * in Search<'a>::find
+core/src/search/horn/reach.rs:567:31: replace & with ^ in Search<'a>::find
+core/src/search/horn/reach.rs:579:30: replace / with * in Search<'a>::keep
+core/src/search/horn/reach.rs:580:13: replace || with && in Search<'a>::keep
+core/src/search/horn/reach.rs:581:13: replace || with && in Search<'a>::keep
+core/src/search/horn/reach.rs:582:13: replace || with && in Search<'a>::keep
+core/src/search/horn/reach.rs:583:13: replace || with && in Search<'a>::keep
+core/src/search/horn/reach.rs:593:43: replace | with ^ in Search<'a>::keep
+core/src/search/horn/reach.rs:603:32: replace != with == in Search<'a>::place
+core/src/search/horn/reach.rs:604:26: replace + with * in Search<'a>::place
+core/src/search/horn/reach.rs:604:31: replace & with ^ in Search<'a>::place
+core/src/search/horn/reach.rs:664:47: replace match guard a < b with true in moved
+core/src/search/horn/reach.rs:664:49: replace < with <= in moved
+core/src/search/horn/reach.rs:691:32: replace | with & in put
+core/src/search/horn/reach.rs:707:15: replace += with *= in get
+core/src/search/horn/reach.rs:714:26: replace - with + in room
+core/src/search/horn/reach.rs:714:5: replace room -> bool with true
+core/src/search/horn/reach.rs:731:35: replace - with + in room
+core/src/search/horn/reach.rs:78:32: replace + with - in search
+core/src/search/horn/reach.rs:79:37: replace + with - in search
+core/src/search/horn/reach.rs:80:36: replace + with - in search

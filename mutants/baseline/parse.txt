@@ -1,0 +1,5 @@
+core/src/parse/mod.rs:294:20: replace match guard self.empty && self.left with true in Parser<'a>::operand
+core/src/parse/mod.rs:294:31: replace && with || in Parser<'a>::operand
+core/src/parse/mod.rs:357:20: replace match guard self.left && outermost with true in Parser<'a>::operator
+core/src/parse/mod.rs:357:30: replace && with || in Parser<'a>::operator
+core/src/parse/mod.rs:365:20: replace match guard !outermost with true in Parser<'a>::operator

@@ -1,0 +1,13 @@
+core/src/lltp.rs:161:41: replace - with + in clauses
+core/src/lltp.rs:161:46: replace && with || in clauses
+core/src/lltp.rs:161:56: replace + with - in clauses
+core/src/lltp.rs:163:30: replace && with || in clauses
+core/src/lltp.rs:163:43: replace + with - in clauses
+core/src/lltp.rs:163:43: replace + with * in clauses
+core/src/lltp.rs:163:48: replace == with != in clauses
+core/src/lltp.rs:163:55: replace && with || in clauses
+core/src/lltp.rs:163:58: delete ! in clauses
+core/src/lltp.rs:163:66: replace + with - in clauses
+core/src/lltp.rs:163:66: replace + with * in clauses
+core/src/lltp.rs:238:5: replace excerpt -> &str with ""
+core/src/lltp.rs:238:5: replace excerpt -> &str with "xyzzy"

@@ -1,0 +1,5 @@
+core/src/ordinary/parse.rs:124:21: replace += with -= in Parser<'a>::eat
+core/src/ordinary/parse.rs:145:20: replace == with != in Parser<'a>::identifier
+core/src/ordinary/parse.rs:248:29: replace match guard native with true in Parser<'a>::constant_or_atom
+core/src/ordinary/parse.rs:320:78: replace - with + in <impl std::str::FromStr for Sequent>::from_str
+core/src/ordinary/parse.rs:320:78: replace - with / in <impl std::str::FromStr for Sequent>::from_str

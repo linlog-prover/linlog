@@ -1,0 +1,15 @@
+core/src/search/horn/mod.rs:171:9: replace Program::caps -> Vec<u32> with vec![]
+core/src/search/horn/mod.rs:171:9: replace Program::caps -> Vec<u32> with vec![0]
+core/src/search/horn/mod.rs:171:9: replace Program::caps -> Vec<u32> with vec![1]
+core/src/search/horn/mod.rs:178:51: replace < with <= in Program::caps
+core/src/search/horn/mod.rs:178:51: replace < with == in Program::caps
+core/src/search/horn/mod.rs:178:51: replace < with > in Program::caps
+core/src/search/horn/mod.rs:179:57: replace == with != in Program::caps
+core/src/search/horn/mod.rs:180:22: replace > with < in Program::caps
+core/src/search/horn/mod.rs:180:22: replace > with == in Program::caps
+core/src/search/horn/mod.rs:180:22: replace > with >= in Program::caps
+core/src/search/horn/mod.rs:208:53: replace != with == in Program::refutation
+core/src/search/horn/mod.rs:339:53: replace < with <= in Program::read_with
+core/src/search/horn/mod.rs:339:65: replace + with * in Program::read_with
+core/src/search/horn/mod.rs:499:34: replace && with || in Reader<'_>::program
+core/src/search/horn/mod.rs:613:13: delete match arm Kind::One in head_of

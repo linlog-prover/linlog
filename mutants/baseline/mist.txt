@@ -1,0 +1,24 @@
+core/src/mist.rs:110:13: delete match arm "safe" in read_within
+core/src/mist.rs:111:13: delete match arm "unsafe" in read_within
+core/src/mist.rs:181:53: replace + with * in read_within
+core/src/mist.rs:210:26: delete ! in read_within
+core/src/mist.rs:226:14: replace > with >= in read_within
+core/src/mist.rs:359:29: replace match guard *y == x with false in merged
+core/src/mist.rs:363:31: replace > with >= in merged
+core/src/mist.rs:379:9: replace <impl std::fmt::Display for Token<'_>>::fmt -> std::fmt::Result with Ok(Default::default())
+core/src/mist.rs:398:20: replace += with *= in tokens
+core/src/mist.rs:430:21: replace += with *= in Reader<'a>::skip_lines
+core/src/mist.rs:455:31: replace match guard w == word with true in Reader<'a>::word
+core/src/mist.rs:469:31: replace match guard w.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') with true in Reader<'a>::name
+core/src/mist.rs:469:84: replace == with != in Reader<'a>::name
+core/src/mist.rs:491:16: replace += with *= in Reader<'a>::comma_or_line
+core/src/mist.rs:498:13: delete match arm Some(Token::Word(_)) in Reader<'a>::comma_or_line
+core/src/mist.rs:528:25: replace += with -= in Reader<'a>::rule
+core/src/mist.rs:528:25: replace += with *= in Reader<'a>::rule
+core/src/mist.rs:544:35: replace * with / in Reader<'a>::rule
+core/src/mist.rs:562:17: replace < with > in Reader<'a>::rule
+core/src/mist.rs:570:34: replace match guard y == x with false in Reader<'a>::rule
+core/src/mist.rs:570:36: replace == with != in Reader<'a>::rule
+core/src/mist.rs:577:34: replace match guard y == x with false in Reader<'a>::rule
+core/src/mist.rs:577:36: replace == with != in Reader<'a>::rule
+core/src/mist.rs:590:22: replace > with >= in Reader<'a>::rule
