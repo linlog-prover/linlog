@@ -31,7 +31,8 @@ judgements, the walk-through's reports and the spike's report are in
   plain data with `Settings` and `Clock`; one global wire level, the
   lowest a reader needs; the engine interface and the dispatch as data
   as step 26 shaped them; the focused engine generic over its zone at
-  step 38 (D-7).
+  step 38 (D-7, adopted on instruction counts, provisional on a
+  pinned-time run at step 37's lift).
 - **The walk-through** found 2 blocking items, 70 friction items and 59
   notes across the ten later steps; every one is answered in api.md
   section 12, most by a change of the design (the two blocking ones:
@@ -41,12 +42,20 @@ judgements, the walk-through's reports and the spike's report are in
 - **The spike** (api.md 11.5) measured the drafts' data model as costing
   6.6 % on the focused engine's search journeys (two `Term` variants
   appended among the literals turn the hot literal test into a bit test),
-  this design's data model (M1d) as free (G1 exact on 225 decided rows,
-  search journeys −0.94 % in sum, worst +0.03 %), the generic zone with
-  one instance as free (M2d) and with a second, first-order instance as
-  within the gates once the shared helpers are inlined (M3i: worst search
-  journey +0.94 %, sum −0.53 %; `mix/8` under callgrind −0.35 %). A rule
-  follows for step 28: `Term`'s and `Kind`'s literal variants stay first.
+  this design's data model (M1d) as free in instructions (G1 exact on 225
+  decided rows, search journeys −0.94 % in sum, worst +0.03 %), the
+  generic zone with one instance as free in instructions (M2d) and with a
+  second, first-order instance as within the gates once the shared
+  helpers are inlined (M3i: worst search journey +0.94 %, sum −0.53 %;
+  `mix/8` under callgrind −0.35 %). D-7 rests on these counts; pinned
+  time (G3), which sees the instruction cache a second instance strains,
+  runs first at step 37's lift on an idle machine (api.md decision 20).
+  A rule follows for step 28: `Term`'s and `Kind`'s literal variants
+  stay first.
+- **The fresh review** (the supervisor's, Fable 5.1 at `high`,
+  `plan/notes/api-drafts/review-fable.md`, 6c6a72d0) found nothing
+  blocking and ten items; all ten are answered in api.md (1085288f),
+  listed at the end of its section 12.
 - **For the author**: api.md section 14, the open questions (C1 to C3,
   T1 to T7, HD1 to HD5) on their provisional answers with what each other
   answer changes, and twenty decisions this design adds; those that
@@ -59,8 +68,8 @@ judgements, the walk-through's reports and the spike's report are in
 
 | area | from api.md |
 |---|---|
-| 3.1 the library's API, data model and wire forms | sections 2 to 7 and 9 (the renames, `Member`, `Mode`, the written order and sides, `Proof { goal, mode }`, `Disproof`, the checker's `CheckError`, `Rule`/`Named`, `Interactive`'s signatures, `ProofStructure`'s `VertexId` and `Criterion`, the errors, `Limits` and the stop at every long call outside the search, the options and `Settings`, the wire level and the three lock commits of 7.5, the exports' one `write`), the net-engine counter list before the retype (3.11), the literal-variant rule (3.2) |
-| 3.2 the search | section 8 (the front door's stages, `Goal`, `Engine::{ALL, name, counters}`, `NotTaken`, `Statistics`), 5.2 to 5.4 (the progress stop at every poll site in a measured commit of its own, `Schedule`, `search::race` with one account, H18's per-thread depth, fallible reservation), `NET_MULTIPLICITY` private |
+| 3.1 the library's API, data model and wire forms | sections 2 to 7 and 9 (the renames, `Member`, `Mode`, the written order and sides, `Proof { goal, mode }`, `Disproof`, the checker's `CheckError`, `Rule`/`Named`, `Interactive`'s signatures, `ProofStructure`'s `VertexId` and `Criterion`, the errors, `Limits` and the progress stop on every long call (the search's polls through 5.2's shim until area 3.2), named fields with P3's two exceptions, the reserved words refused by every reader (3.1), the options and `Settings`, the wire level and lock commits (1) to (3) of 7.5 with the fixtures regenerated in the new names, the exports' one `write`), the net-engine counter list before the retype (3.11), the literal-variant rule (3.2) |
+| 3.2 the search | section 8 (the front door's stages, `Goal`, `Engine::{ALL, name, counters}`, `NotTaken`, `Statistics`), 5.2 to 5.4 (the progress stop at every poll site in a measured commit of its own, which removes the shim, then R243's sum test; `Schedule`; `search::race` with one account and its rule at two threads and below; H18's per-thread depth; fallible reservation), lock commit (4) of 7.5 (`work` and `forward_copies` in `statistics`, after the commits that count them), `NET_MULTIPLICITY` private |
 | 3.3 efficiency | nothing beyond the gates; the spike's measurements are its starting evidence |
 | 3.4 the command, the harness, the flake and the documents | 6.6 (flags onto `Settings`' keys, `--settings`, `--work-limit`, `--schedule`, `--test-period`), the exit statuses by kind (4.1), the harness's one table of mode words and `Engine::counters()`, README's changed examples (the intuitionistic refusals of 3.6, the JSON forms of 7.5) |
 
@@ -120,6 +129,31 @@ judgements, the walk-through's reports and the spike's report are in
 - **The drafts and the judgements are committed** under
   `plan/notes/api-drafts/` (the spelling check skips `plan/`), so the
   supervisor's review can check the synthesis against them.
+- **The review's open choices** (its items 2, 8 and 9, api.md 5.4, 4.4
+  and the mismatches): `--jobs 2` searches on a pool of two from the
+  start, one thread alone, a race only from three threads (set aside: one
+  thread alone at two, which leaves a thread the caller gave idle).
+  `Error::GoalProof` has kind `unsupported`, so `linlog check` exits 2 on
+  a goal proof and the harness counts it as refused (set aside: `linlog
+  check` accepting a goal proof, which needs a verdict line saying what
+  was proved). Each mismatch is settled toward the more specific text:
+  `Interactive::goal` returns an `Option`, `Statistics` and `Progress`
+  derive `Hash` as P3 promised, `Phase` is re-exported at the root, `Jobs`
+  is listed and open, `Named::new` builds a `(rule, side)` downstream,
+  `recursion_depth` is the one bound that is always a number, and
+  `Outcome` gains the `checked` field its form already showed.
+- **The fourth lock commit is named, not avoided** (review item 1):
+  `work` and `forward_copies` are counted by the search area, which runs
+  after the library area, so the outcome gains them in the search area's
+  own lock change, and the library area ships the public stop with a
+  shim (api.md 7.5, 5.2). Set aside: commit (1) pinning zeros that the
+  search area then changes.
+- **P3's exceptions** (review item 7): a newtype variant wrapping a whole
+  `#[non_exhaustive]` error or refutation type, and an option's value
+  written as one JSON scalar; every other positional variant is named.
+- **Not decided here** (review item 3): no reader keeps the pre-release
+  names, by the author's standing rule of no aliases before the release,
+  as the supervisor said; T1's row in api.md 14.1 says so.
 
 ## Deviations
 
@@ -145,8 +179,12 @@ judgements, the walk-through's reports and the spike's report are in
   says of the rest.
 - The planar order derived from D1's lowering (10.8, the Lambek
   calculus) is a lemma nobody tested; step 36's panel decides.
-- The synthesis was reviewed by no fresh context in this stage: the
-  supervisor has it reviewed before the author's sign-off.
+- The synthesis was reviewed in a fresh context by the supervisor's
+  reviewer after the stage, and its ten items are answered; no second
+  review read the answers.
+- Pinned time: D-7 rests on instruction counts, which do not see the
+  instruction cache a second monomorphised engine strains (M3 adds
+  166 KB, 7 % of the text); G3 runs at step 37's lift (api.md 10.9).
 
 ## What the stage cost
 

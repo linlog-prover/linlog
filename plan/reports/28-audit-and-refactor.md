@@ -47,7 +47,8 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 2.2 judged and synthesised, `plan/notes/api.md` | done | two judges started 07:37 (Fable 5.1 at `high`, Opus 5.5 at `high`), independent, with two added questions (an interned-atom representation, H9/H10); Opus done 07:52 (ranks A 56, C 52, B 49; base A with grafts), Fable 08:00 (A 56, B 56, C 54, ranked B, A, C; the same synthesis); both chose C's sides rule and the interned atomic formula; drafts and judgements committed in `plan/notes/api-drafts/`; `plan/notes/api.md` synthesised 08:14 (sections 11.5 and 12 open) |
 | 2.3 walk-through per later step | done | ten Sonnet 5.5 agents at `high`, 08:16 to 08:26, one per step 29 to 38, against ab0b27e5's `plan/notes/api.md`: 2 blocking, 70 friction, 59 notes, every one answered in `api.md` section 12 (most by a change of the sections above); reports in `plan/notes/api-drafts/walk-NN.md` |
 | 2.4 quantifier spike, measured | done | M1 to M3 by the agent, M1d, M2d, M1b by it after the go, M3i finished by the session after the pause (10:20 to 10:55, the supervisor's go for each run): the design's data model (M1d) and the generic zone with one and two instances (M2d, M3i) pass the gates, the drafts' appended `Pred`/`DualPred` cost 6.6 %; `plan/notes/api.md` 11.5, `plan/notes/api-drafts/spike-report.md`; the workspace forgotten and removed |
-| 2.5 the author's sign-off | open | the supervisor has the design reviewed and puts api.md section 14 to the author |
+| 2.4a the fresh review answered | done | the supervisor's review (Fable 5.1 at `high`, `plan/notes/api-drafts/review-fable.md`, 6c6a72d0): nothing blocking, ten items; all ten answered in `plan/notes/api.md` (1085288f, listed at the end of its section 12) and in `plan/reports/28-design.md` |
+| 2.5 the author's sign-off | open | the supervisor puts api.md section 14 to the author |
 
 ### Stage 3 and 4: the fixes and their check rounds
 
@@ -236,3 +237,26 @@ its evidence (a commit, a file, a command's result) once it is done.
 - What was done: recorded; M3i built and tested, then the measurement
   runs asked for (below).
 
+### Message from `planning` (2026-10-09, about 14:00): amend the design
+
+- "A fresh-context review by Fable 5.1 at high found nothing blocking,
+  but ten items. It is committed as
+  plan/notes/api-drafts/review-fable.md (6c6a72d0); read it whole. Fix
+  them in api.md, then the report and checklist, as commits of their
+  own, testing a signature before each": items 1, 2 and 7 before the
+  sign-off (the fourth lock change ordered or named, the stop's shim
+  named, `checked` added; the race at `--jobs 2` and below; the
+  exception to P3's named fields stated and the rest converted); items
+  3, 4 and 5 as well (no reading of version-less documents in the
+  pre-release names, "the author's standing rule is no aliases before
+  the release, so this is not a decision for the author", commit (1)
+  regenerating the fixtures; the text parser refusing `forall` and
+  `exists` from step 28; the prune row of 10.10 (f) and the open-atom
+  count in decision 1's costs); item 6 (decision 20 adopted on counts,
+  provisional on a pinned-time run at step 37's lift, in 14.2 and the
+  stage report); items 8 and 9 (the mismatches fixed, `GoalProof`'s kind
+  settled, both in "Decided unattended"); item 10 (the H9 and H10 tests
+  text-only on purpose). "No measurement is needed. End as before, with
+  your last message to planning listing what changed, by item."
+- What was done: all ten answered in `plan/notes/api.md` (1085288f), the
+  stage report and this checklist amended; nothing was run.
