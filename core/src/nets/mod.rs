@@ -51,21 +51,26 @@ const MOST: u64 = (u32::MAX / 3 - 1) as u64;
 
 /// Checks that proof structures exist for a sequent of `fragment` in
 /// `mode`: unit-free MLL, in a linear mode, with or without Mix. A front
-/// end asks it before it offers a net; the net engine's search answers the
-/// same.
+/// end asks it before it offers a net, and gets the refusal
+/// [`ProofStructure::new`] and [`Criterion::of`] give; the net engine
+/// answers the same as its own refusal.
 ///
 /// # Errors
 ///
-/// [`Error::NetFragment`] for a larger fragment and [`Error::NetMode`] in
+/// [`NetError::Fragment`] for a larger fragment and [`NetError::Mode`] in
 /// affine mode.
-pub fn exist(fragment: Fragment, mode: Mode) -> Result<(), Error> {
-    if !fragment.has_nets() {
-        return Err(Error::NetFragment { fragment });
+pub fn exist(fragment: Fragment, mode: Mode) -> Result<(), NetError> {
+    has_nets(fragment)?;
+    Criterion::of(mode).map(|_| ())
+}
+
+/// Fails unless proof structures exist for a sequent of `fragment`.
+fn has_nets(fragment: Fragment) -> Result<(), NetError> {
+    if fragment.has_nets() {
+        Ok(())
+    } else {
+        Err(NetError::Fragment { fragment })
     }
-    if mode.is_affine() {
-        return Err(Error::NetMode { mode });
-    }
-    Ok(())
 }
 
 /// The bytes a structure holds per vertex, the copy of its forest
@@ -475,10 +480,7 @@ impl ProofStructure {
     /// [`NetError::Fragment`] for a sequent outside unit-free MLL, and
     /// [`Refusal::Index`] for a forest past the vertices a structure holds.
     pub fn new(forest: Forest, criterion: Criterion) -> Result<Self, Error> {
-        let fragment = forest.sequent().fragment();
-        if !fragment.has_nets() {
-            return Err(NetError::Fragment { fragment }.into());
-        }
+        has_nets(forest.sequent().fragment())?;
         let n = forest.len();
         if n as u64 > MOST {
             return Err(Error::Refused(Refusal::Index {
@@ -1201,6 +1203,23 @@ mod tests {
         let mut scratch = small.scratch();
         assert!(!cyclic.is_acyclic(&mut scratch));
         assert!(small.is_acyclic(&mut scratch));
+    }
+
+    /// `exist` refuses as the constructors do, with their variant and
+    /// code, where the net engine answers its own refusal.
+    #[test]
+    fn exist_refuses_as_the_constructors() {
+        let alls = forest("|- a & b, ~a");
+        let fragment = alls.sequent().fragment();
+        let refused = exist(fragment, Mode::CLASSICAL).unwrap_err();
+        let built = ProofStructure::new(alls, Criterion::MLL).unwrap_err();
+        assert_eq!(Error::Net(Box::new(refused)), built);
+        assert_eq!(built.code(), "no_nets");
+        let affine = Mode::CLASSICAL.with_affine();
+        assert_eq!(
+            exist(Fragment::MLL, affine),
+            Criterion::of(affine).map(|_| ())
+        );
     }
 
     /// The bound and the stop refuse building a net from a proof, judging

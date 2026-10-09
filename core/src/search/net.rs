@@ -40,7 +40,11 @@ impl Decide for Nets {
     /// other than the roots: a structure's conclusions are the forest's
     /// roots.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        crate::nets::exist(task.fragment, task.mode)?;
+        crate::nets::exist(task.fragment, task.mode).map_err(|error| match error {
+            NetError::Fragment { fragment } => Error::NetFragment { fragment },
+            NetError::Mode { mode } => Error::NetMode { mode },
+            other => other.into(),
+        })?;
         if !task.roots {
             return Err(Error::NetGoal);
         }
