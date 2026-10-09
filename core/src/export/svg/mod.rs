@@ -57,6 +57,9 @@ use std::fmt::Write;
 /// The sizes, distances and colours of a drawing. Lengths are in
 /// thousandths of an em of formula text, whose size in pixels is
 /// [`font_size`](Self::font_size); colours are CSS colours.
+/// Made from its `default()` with the fields set that differ, since a
+/// later field breaks no caller that way.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]

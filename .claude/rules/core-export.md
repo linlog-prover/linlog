@@ -52,7 +52,11 @@ for NanoYalla. What the code relies on:
   and serde behind `serialize` (`serde(default, deny_unknown_fields)`,
   so a JSON with some fields is the defaults with those changed and a
   misspelt field is an error): `TextOptions` (`proofs/fmt.rs`),
-  `latex::Options`, `typst::Options`, `svg::Style`, `rocq::Options`; the
+  `latex::Options`, `typst::Options`, `svg::Style`, `png::Options`,
+  `pdf::Options`, `rocq::Options`, each `#[non_exhaustive]` with public
+  fields, so a caller outside the crate makes one from `default()` and
+  sets the fields that differ (a struct literal is refused, and a later
+  field breaks nobody); `rocq::Options` has builders besides. The
   `Form` is a field of the three that have one. Presets are named
   values (`Style::dark()`, `Style::monospace()`, `Font::monospace()`).
   The defaults reproduce the output the snapshots pin, so a new field's

@@ -17,6 +17,9 @@ use crate::Error;
 use resvg::tiny_skia::{Pixmap, Transform};
 
 /// What a user may vary in a PNG beyond the drawing's style.
+/// Made from its `default()` with the fields set that differ, since a
+/// later field breaks no caller that way.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]

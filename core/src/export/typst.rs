@@ -217,6 +217,9 @@ impl<'a> serde::Deserialize<'a> for Length {
 }
 
 /// What a user may vary in the Typst output.
+/// Made from its `default()` with the fields set that differ, since a
+/// later field breaks no caller that way.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]

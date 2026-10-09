@@ -48,18 +48,14 @@ fn snapshot(name: &str, actual: &str) {
 /// Pins a derivation in every target as the snapshots `name.tex`,
 /// `name.typ` and `name.svg`.
 fn pin(name: &str, derivation: &Derivation) {
-    let latex = latex::Options {
-        form: Form::Standalone,
-        ..latex::Options::default()
-    };
+    let mut latex = latex::Options::default();
+    latex.form = Form::Standalone;
     snapshot(
         &format!("{name}.tex"),
         &written(|out| latex::write(derivation, &latex, out, |_| false)),
     );
-    let typst = typst::Options {
-        form: Form::Standalone,
-        ..typst::Options::default()
-    };
+    let mut typst = typst::Options::default();
+    typst.form = Form::Standalone;
     snapshot(
         &format!("{name}.typ"),
         &written(|out| typst::write(derivation, &typst, out, |_| false)),
@@ -154,10 +150,8 @@ fn typst_layout() {
     let input = format!("|- {bots}, 1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * (1 * 1)))))))))");
     let high = proof(&input, Mode::CLASSICAL);
     let high = high.derivation().unwrap();
-    let options = typst::Options {
-        form: Form::Standalone,
-        ..typst::Options::default()
-    };
+    let mut options = typst::Options::default();
+    options.form = Form::Standalone;
     let text = written(|out| typst::write(&high, &options, out, |_| false));
     assert!(text.contains("#context"), "past curryst's height");
     snapshot("high.typ", &text);
@@ -170,10 +164,7 @@ fn typst_layout() {
         )
         .unwrap();
     state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
-    let options = typst::Options {
-        layout: typst::Layout::Linlog,
-        ..options
-    };
+    options.layout = typst::Layout::Linlog;
     snapshot(
         "open-linlog.typ",
         &written(|out| typst::write(&state.derivation().unwrap(), &options, out, |_| false)),
@@ -198,16 +189,12 @@ fn ordinary_derivation() {
         .unwrap();
     derivation.check(&Limits::default(), |_| false).unwrap();
     let (mut tex, mut typ, mut drawing) = (String::new(), String::new(), String::new());
-    let latex = latex::Options {
-        form: Form::Standalone,
-        ..latex::Options::default()
-    };
+    let mut latex = latex::Options::default();
+    latex.form = Form::Standalone;
     latex::write(&derivation, &latex, &mut tex, |_| false).unwrap();
     snapshot("ordinary.tex", &tex);
-    let typst = typst::Options {
-        form: Form::Standalone,
-        ..typst::Options::default()
-    };
+    let mut typst = typst::Options::default();
+    typst.form = Form::Standalone;
     typst::write(&derivation, &typst, &mut typ, |_| false).unwrap();
     snapshot("ordinary.typ", &typ);
     svg::write(&derivation, &Style::default(), &mut drawing, |_| false).unwrap();
@@ -300,20 +287,16 @@ fn open_goal() {
 /// `name.frag.typ`, under the labels and the open goal given: the
 /// `export` check compiles them inside a document of its own.
 fn pin_fragments(name: &str, derivation: &Derivation, labels: Labels, open: OpenGoal) {
-    let latex = latex::Options {
-        labels: labels.clone(),
-        open: open.clone(),
-        ..latex::Options::default()
-    };
+    let mut latex = latex::Options::default();
+    latex.labels = labels.clone();
+    latex.open = open.clone();
     snapshot(
         &format!("{name}.frag.tex"),
         &written(|out| latex::write(derivation, &latex, out, |_| false)),
     );
-    let typst = typst::Options {
-        labels,
-        open,
-        ..typst::Options::default()
-    };
+    let mut typst = typst::Options::default();
+    typst.labels = labels;
+    typst.open = open;
     snapshot(
         &format!("{name}.frag.typ"),
         &written(|out| typst::write(derivation, &typst, out, |_| false)),
@@ -379,10 +362,8 @@ fn ids_name_goals() {
             &Step::new(1, "⊸L".parse::<Named>().unwrap()).left(&[0]),
         )
         .unwrap();
-    let style = Style {
-        ids: true,
-        ..Style::default()
-    };
+    let mut style = Style::default();
+    style.ids = true;
     let drawing = written(|out| svg::write(&state.derivation().unwrap(), &style, out, |_| false));
     let ids = state.derivation_ids();
     let drawn = ids.iter().position(|&id| id == goals[1]).unwrap();
@@ -448,10 +429,8 @@ fn certificates() {
 #[test]
 fn sequents() {
     let sequent: Sequent = "α, Γ -o P‿a·b |- P‿a·b * Γα".parse().unwrap();
-    let options = latex::Options {
-        form: Form::Standalone,
-        ..latex::Options::default()
-    };
+    let mut options = latex::Options::default();
+    options.form = Form::Standalone;
     let (classical, unbounded) = (Mode::CLASSICAL, Limits::default());
     let latex = |sequent, options| latex::sequent(sequent, classical, options, &unbounded).unwrap();
     snapshot("names.tex", &latex(&sequent, &options));
@@ -743,12 +722,10 @@ fn renders() {
         (true, false, "%PDF-1.7"),
         (false, true, "%PDF-1.7"),
     ] {
-        let options = pdf::Options {
-            compatible,
-            accessible,
-            date,
-            ..pdf::Options::default()
-        };
+        let mut options = pdf::Options::default();
+        options.compatible = compatible;
+        options.accessible = accessible;
+        options.date = date;
         let document = pdf::from_svg(&drawing, &[&font], &options, &Limits::default()).unwrap();
         assert!(
             document.starts_with(version.as_bytes()),
@@ -787,10 +764,8 @@ fn render_bounds_come_first() {
             ..
         })) if estimate > 1000 << 16
     ));
-    let pdf = pdf::Options {
-        date: Some(pdf::Date::from_unix(0)),
-        ..pdf::Options::default()
-    };
+    let mut pdf = pdf::Options::default();
+    pdf.date = Some(pdf::Date::from_unix(0));
     assert!(matches!(
         pdf::from_svg(&glyphs, &[], &pdf, &limits),
         Err(Error::Refused(Refusal::Memory { .. }))
