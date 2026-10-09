@@ -77,12 +77,19 @@ fn lines() -> String {
     }
 
     let hard = sequent("!(A & B) |- !A * ?B");
-    let tiny = options.clone().memory_limit(Some(100));
+    let tiny = linlog::Limits::default().with_memory_bytes(Some(100));
     pin(
         "outcome-memory-limit",
-        json(&linlog::prove(&hard, classical, &tiny).unwrap()),
+        json(&linlog::prove_within(&hard, classical, &options, &tiny, |_| false).unwrap()),
     );
-    let stopped = linlog::prove_until(&hard, classical, &options, || true).unwrap();
+    let stopped = linlog::prove_within(
+        &hard,
+        classical,
+        &options,
+        &linlog::Limits::default(),
+        |_| true,
+    )
+    .unwrap();
     pin("outcome-stopped", json(&stopped));
     let bounded = options.clone().copies(Some(0));
     pin(
@@ -132,12 +139,22 @@ fn lines() -> String {
     session.apply(root, 0, "par".parse().unwrap(), &[]).unwrap();
     pin("session-step", json(&session));
     session
-        .close_all(&options, &ViewOptions::default(), || false)
+        .close_all(
+            &options,
+            &ViewOptions::default(),
+            &linlog::Limits::default(),
+            |_| false,
+        )
         .unwrap();
     pin("session-closed", json(&session));
     let mut session = Interactive::new(&sequent("A, A -o B |- B"), intuitionistic).unwrap();
     session
-        .close_all(&options, &ViewOptions::default(), || false)
+        .close_all(
+            &options,
+            &ViewOptions::default(),
+            &linlog::Limits::default(),
+            |_| false,
+        )
         .unwrap();
     pin("session-intuitionistic", json(&session));
 

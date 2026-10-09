@@ -132,7 +132,7 @@ impl TryFrom<Proof> for Prf {
     /// Rebuilds the forest of the sequent and the proof over it, failing if
     /// a node refers outside the forest or the arena, or the arena is empty.
     fn try_from(p: Proof) -> Result<Prf, Self::Error> {
-        let forest = Forest::from_owned(p.sequent, Forest::DEFAULT_LIMIT)?;
+        let forest = Forest::from_owned(p.sequent, &crate::Limits::default())?;
         let nodes: Vec<Node> = p.proof.into_iter().map(Node::from).collect();
         // The root is the last node, whose index must be a node id.
         let Ok(root) = u32::try_from(nodes.len().saturating_sub(1)) else {

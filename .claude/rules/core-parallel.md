@@ -22,7 +22,7 @@ has no or-choices worth sharing out). What the code relies on:
 
 - **One pool per search, no global.** `Runtime::new(jobs, stack_size)`
   builds a rayon pool of `jobs` threads with stacks of
-  `Options::stack_size()` (the engine recurses on the worker's stack as
+  `Limits::stack_bytes()` (the engine recurses on the worker's stack as
   it does on the caller's), which the search drops with the outcome, or
   gives back to the caller's `Pool` (below); the two places that take
   one are the net engine's in `prove_goal` and the focused engine's in
@@ -154,7 +154,7 @@ has no or-choices worth sharing out). What the code relies on:
   the stack: a pool thread that waits at a scope runs stolen tasks on
   its own stack, so its frames are the scope's (a choice near the root,
   a few dozen levels) plus the stolen task's, and nested waits compound;
-  the 2× margin of `Options::stack_size` and its 8 MiB floor cover this
+  the 2× margin of `Limits::stack_bytes` and its 8 MiB floor cover this
   at the default limit, and a raised limit is where an overflow would
   first show.
 - **Each rule is written once; the merge of cuts is the scheduler's.**

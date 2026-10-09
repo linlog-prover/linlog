@@ -301,7 +301,7 @@ pub fn two_sided(reading: &Reading, options: &Options) -> String {
 /// preorder, one line each, then the code that sets them.
 pub fn derivation(derivation: &Derivation, options: &Options) -> String {
     let mut out = String::new();
-    write(derivation, options, &mut out, || false).expect("a string takes any text");
+    write(derivation, options, &mut out, |_| false).expect("a string takes any text");
     out
 }
 
@@ -311,9 +311,14 @@ pub fn write(
     derivation: &Derivation,
     options: &Options,
     out: &mut impl Write,
-    stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree(derivation, options, out, stop)
+    tree(
+        derivation,
+        options,
+        out,
+        crate::limits::counting(stop, crate::limits::Phase::Write),
+    )
 }
 
 /// Writes a derivation of LK or LJ as a proof tree into `out`, two-sided,
@@ -328,9 +333,14 @@ pub fn ordinary(
     derivation: &ordinary::Derivation,
     options: &Options,
     out: &mut impl Write,
-    stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree(derivation, options, out, stop)
+    tree(
+        derivation,
+        options,
+        out,
+        crate::limits::counting(stop, crate::limits::Phase::Write),
+    )
 }
 
 /// Writes any derivation as [`write()`] does, in the layout the options

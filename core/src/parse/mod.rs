@@ -18,6 +18,7 @@
 use crate::Error;
 use crate::errors::ParseError;
 use crate::hash::HashMap;
+use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
 use crate::sequents::{Atom, Sequent, Term, TermId};
 
@@ -122,14 +123,18 @@ struct Parser<'a> {
     pending: Vec<Pending>,
     /// How many parentheses are open.
     open: usize,
-    /// The most terms the arena may hold.
+    /// The most terms the arena may hold: the bound, and never more than
+    /// a forest indexes.
     most: u64,
+    /// The bound on occurrences the caller set, if any.
+    limit: Option<u64>,
 }
 
 impl<'a> Parser<'a> {
     /// Returns a parser at the start of `input`, for a sequent of at most
-    /// `most` terms.
-    fn new(input: &'a str, most: u64) -> Self {
+    /// `limit` terms and as many as a forest indexes.
+    fn new(input: &'a str, limit: Option<u64>) -> Self {
+        let most = limit.unwrap_or(Forest::MOST).min(Forest::MOST);
         Self {
             input,
             at: 0,
@@ -144,6 +149,7 @@ impl<'a> Parser<'a> {
             pending: Vec::new(),
             open: 0,
             most,
+            limit,
         }
     }
 
@@ -169,10 +175,18 @@ impl<'a> Parser<'a> {
     fn push(&mut self, term: Term) -> Result<TermId, Error> {
         let index = self.terms.len() as u64;
         if index >= self.most {
-            // Every term of the text is an occurrence of its own.
-            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
-                occurrences: self.most.saturating_add(1),
-                limit: self.most,
+            // Every term of the text is an occurrence of its own, so the
+            // text is refused at the first term past the bound.
+            return Err(Error::Refused(match self.limit {
+                Some(limit) if limit < Forest::MOST => Refusal::Occurrences {
+                    occurrences: limit.saturating_add(1),
+                    limit,
+                },
+                _ => Refusal::Index {
+                    what: Space::Occurrence,
+                    count: Forest::MOST.saturating_add(1),
+                    most: Forest::MOST,
+                },
             }));
         }
         self.terms.push(term);
@@ -420,14 +434,31 @@ impl<'a> Parser<'a> {
     }
 }
 
+impl Sequent {
+    /// Parses a two-sided sequent such as `A, B |- A * B` into a one-sided
+    /// one, optimized, refusing it at the first term past
+    /// `limits.occurrences`, before anything of that size is built. The
+    /// nesting of its formulas may be of any depth.
+    ///
+    /// Needs the cargo feature `parse` (on by default).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Parse`] for text that is no sequent, [`Refusal::Occurrences`]
+    /// past the bound, and [`Refusal::Index`] for more terms than a forest
+    /// indexes, whatever the bound.
+    pub fn parse_within(text: &str, limits: &Limits) -> Result<Self, Error> {
+        Parser::new(text, limits.occurrences).sequent()
+    }
+}
+
 impl std::str::FromStr for Sequent {
     type Err = Error;
 
-    /// Parses a two-sided sequent such as `A, B |- A * B` into a one-sided
-    /// one, optimized. The nesting of its formulas may be of any depth; a
-    /// sequent of more subformulas than a forest can index is refused.
+    /// Parses a sequent as [`Sequent::parse_within`] does, within the
+    /// default [`Limits`].
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Parser::new(s, Forest::MOST).sequent()
+        Self::parse_within(s, &Limits::default())
     }
 }
 
@@ -440,10 +471,13 @@ mod tests {
     #[test]
     fn refuses_more_terms_than_the_arena_holds() {
         let input = "A |- !A * B";
-        assert_eq!(Parser::new(input, 5).sequent().unwrap().terms().len(), 5);
+        assert_eq!(
+            Parser::new(input, Some(5)).sequent().unwrap().terms().len(),
+            5
+        );
         assert!(matches!(
-            Parser::new(input, 4).sequent(),
-            Err(Error::Refused(crate::limits::Refusal::Occurrences {
+            Parser::new(input, Some(4)).sequent(),
+            Err(Error::Refused(Refusal::Occurrences {
                 occurrences: 5,
                 limit: 4
             }))

@@ -13,6 +13,7 @@ use super::counts::Counts;
 use super::memo::{Memo, Table};
 use super::{Engine, Problem, Search, reason};
 use crate::fragment::{Fragment, Mode};
+use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::Node;
 use crate::search::Bias;
@@ -39,6 +40,7 @@ pub(super) fn turns(
     reading: Option<&Reading>,
     classes: &Classes,
     options: &Options,
+    limits: &Limits,
     searches: [(Rule, &Counts, &Account); 2],
     stop: &mut dyn FnMut() -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
@@ -65,6 +67,7 @@ pub(super) fn turns(
                 reading,
                 (counts, classes),
                 options,
+                limits,
                 // A turn's memo and arena go when it ends.
                 &account.fork(),
                 stop,
@@ -80,7 +83,11 @@ pub(super) fn turns(
             }
         }
         if let [Some(_), Some(backward)] = ended {
-            return (Err(reason(backward, options)), Vec::new(), statistics);
+            return (
+                Err(reason(backward, options, limits)),
+                Vec::new(),
+                statistics,
+            );
         }
         turn = turn.saturating_mul(TURN_GROWTH);
     }
@@ -129,6 +136,7 @@ impl Rule {
         reading: Option<&'a Reading<'a>>,
         (counts, classes): (&'a Counts, &'a Classes),
         options: &Options,
+        limits: &Limits,
         account: &'a Account,
         stop: Stop<'a>,
     ) -> (Search, Vec<Node>, Statistics, bool) {
@@ -139,6 +147,7 @@ impl Rule {
             fragment,
             mode,
             options,
+            limits,
             self.copies,
             account,
         );
@@ -460,6 +469,7 @@ pub(super) fn alternate(
     reading: Option<&Reading>,
     classes: &Classes,
     options: &Options,
+    limits: &Limits,
     [
         (first, first_counts, first_account),
         (second, second_counts, second_account),
@@ -471,7 +481,7 @@ pub(super) fn alternate(
         let baton = &baton;
         let thread = std::thread::Builder::new()
             .name("linlog-search".to_owned())
-            .stack_size(options.stack_size())
+            .stack_size(limits.stack_bytes())
             .spawn_scoped(scope, move || {
                 let _ended = Ended(baton, 1);
                 if baton.wait(1) {
@@ -490,6 +500,7 @@ pub(super) fn alternate(
                     reading,
                     (second_counts, classes),
                     options,
+                    limits,
                     second_account,
                     Stop::Slice(&mut give_way, slice, slice),
                 );
@@ -511,6 +522,7 @@ pub(super) fn alternate(
                 reading,
                 (first_counts, classes),
                 options,
+                limits,
                 first_account,
                 Stop::Slice(&mut give_way, SLICE, SLICE),
             );
@@ -536,7 +548,7 @@ pub(super) fn alternate(
             .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
         Some((forward, backward))
     })?;
-    Some(merged(forward, backward, options))
+    Some(merged(forward, backward, options, limits))
 }
 
 #[cfg(feature = "parallel")]
@@ -548,6 +560,7 @@ pub(super) fn merged(
     first: (Search, Vec<Node>, Statistics),
     second: (Search, Vec<Node>, Statistics),
     options: &Options,
+    limits: &Limits,
 ) -> (Search, Vec<Node>, Statistics) {
     let mut statistics = first.2;
     statistics.add(&second.2);
@@ -561,7 +574,7 @@ pub(super) fn merged(
         (Ok(root), _) => (Ok(root), first.1),
         (_, Ok(root)) => (Ok(root), second.1),
         (Err(Reason::Stopped), _) | (_, Err(Reason::Stopped)) => (Err(Reason::Stopped), Vec::new()),
-        (Err(_), Err(reason)) => (Err(super::reason(reason, options)), Vec::new()),
+        (Err(_), Err(reason)) => (Err(super::reason(reason, options, limits)), Vec::new()),
     };
     (result, nodes, statistics)
 }

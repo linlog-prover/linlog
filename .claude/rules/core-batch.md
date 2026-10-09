@@ -24,8 +24,8 @@ in one call, the library's side of `linlog prove`'s batch.
   10 ms, not a hang.
 - **Threads only behind `parallel`** (the crate's rule): without the
   feature, or with one worker, the batch runs lazily on the caller's
-  thread, one problem per `next`; the workers' stacks are the search
-  options' `stack_size`. A worker's panic is resumed by the iterator once
+  thread, one problem per `next`; the workers' stacks are the plan's
+  `Limits::stack_bytes`. A worker's panic is resumed by the iterator once
   the others ended.
 - **How the memory is shared** (`Options::plan`): across the sequents,
   each search keeps the bound of the search options (so a batch's

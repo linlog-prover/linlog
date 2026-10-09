@@ -27,7 +27,7 @@
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::ordinary::{Logic, Sequent, Translation, translate};
-//! use linlog::{Options, Verdict, ViewOptions, prove};
+//! use linlog::{Limits, Options, Verdict, ViewOptions, prove};
 //!
 //! let sequent: Sequent = "a -> b, b -> c |- a -> c".parse()?;
 //! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName)?;
@@ -36,7 +36,7 @@
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
-//! let linear = image.linear_derivation(proof, &ViewOptions::default(), || false)?;
+//! let linear = image.linear_derivation(proof, &ViewOptions::default(), &Limits::default(), |_| false)?;
 //! let derivation = image.read_back(&linear)?;
 //! derivation.check()?;
 //! assert_eq!(derivation.inference(derivation.root()).rule.name(), "→R");
@@ -570,7 +570,12 @@ mod tests {
         match &outcome.verdict {
             Verdict::Proved(proof) => {
                 let linear = image
-                    .linear_derivation(proof, &crate::ViewOptions::default(), || false)
+                    .linear_derivation(
+                        proof,
+                        &crate::ViewOptions::default(),
+                        &crate::Limits::default(),
+                        |_| false,
+                    )
                     .unwrap();
                 let derivation = image.read_back(&linear).unwrap();
                 derivation

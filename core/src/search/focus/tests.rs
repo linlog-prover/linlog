@@ -7,6 +7,7 @@ use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
 use crate::search::{Verdict, prove_goal};
+use crate::{Limits, Progress};
 
 /// Runs the focused engine on the roots of the forest in the fragment
 /// and the mode given, two-sided in intuitionistic mode (the reading is
@@ -21,6 +22,27 @@ fn search(
     options: &Options,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Verdict, Statistics) {
+    search_within(
+        forest,
+        fragment,
+        mode,
+        reading,
+        options,
+        &Limits::default(),
+        stop,
+    )
+}
+
+/// Runs the engine as [`search`] does, within `limits`.
+fn search_within(
+    forest: &Forest,
+    fragment: Fragment,
+    mode: Mode,
+    reading: Option<&Reading>,
+    options: &Options,
+    limits: &Limits,
+    stop: &mut dyn FnMut() -> bool,
+) -> (Verdict, Statistics) {
     assert_eq!(reading.is_some(), mode.intuitionistic);
     let engine = if mode.intuitionistic {
         crate::search::Engine::TwoSided
@@ -32,25 +54,43 @@ fn search(
         .engine(Some(engine))
         .fragment(Some(fragment))
         .check(false);
-    let outcome = prove_goal(forest, forest.roots(), mode, &options, stop)
-        .unwrap_or_else(|e| panic!("{}: {e}", forest.sequent()));
+    let outcome = prove_goal(
+        forest,
+        forest.roots(),
+        mode,
+        &options,
+        limits,
+        |_: Progress| stop(),
+    )
+    .unwrap_or_else(|e| panic!("{}: {e}", forest.sequent()));
     (outcome.verdict, outcome.statistics)
 }
 
 /// Runs the engine on `input` under `mode` with `options`, checks the
 /// proof if there is one, and returns the verdict and the statistics.
 fn run(input: &str, mode: Mode, options: &Options) -> (Verdict, Statistics) {
+    run_within(input, mode, options, &Limits::default())
+}
+
+/// Runs the engine as [`run`] does, within `limits`.
+fn run_within(
+    input: &str,
+    mode: Mode,
+    options: &Options,
+    limits: &Limits,
+) -> (Verdict, Statistics) {
     let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
     let forest = Forest::new(&s).unwrap();
     let reading = mode.intuitionistic.then(|| {
         Reading::new(&forest).unwrap_or_else(|e| panic!("{input:?}: {}", e.describe(&forest)))
     });
-    let (verdict, statistics) = search(
+    let (verdict, statistics) = search_within(
         &forest,
         s.fragment(),
         mode,
         reading.as_ref(),
         options,
+        limits,
         &mut || false,
     );
     if let Verdict::Proved(proof) = &verdict {
@@ -226,17 +266,10 @@ fn limits() {
     );
     assert!(matches!(verdict, Verdict::Unknown(Reason::Stopped)));
 
-    let (verdict, _) = run(
-        input,
-        Mode::CLASSICAL,
-        &Options::default().recursion_limit(2),
-    );
+    let depth = |depth| Limits::default().with_recursion_depth(depth);
+    let (verdict, _) = run_within(input, Mode::CLASSICAL, &Options::default(), &depth(2));
     assert!(matches!(verdict, Verdict::Unknown(Reason::RecursionLimit)));
-    let (verdict, _) = run(
-        input,
-        Mode::CLASSICAL,
-        &Options::default().recursion_limit(8),
-    );
+    let (verdict, _) = run_within(input, Mode::CLASSICAL, &Options::default(), &depth(8));
     assert!(verdict.proof().is_some());
 
     // A `?` costs no level of recursion: three thousand of them stay
@@ -263,7 +296,7 @@ fn limits() {
         vec!["~a, ~b"; 2500].join(", ")
     );
     let proved = std::thread::Builder::new()
-        .stack_size(Options::default().stack_size())
+        .stack_size(Limits::default().stack_bytes())
         .spawn(move || {
             [literals, pairs].iter().all(|chain| {
                 let (verdict, _) = run(chain, Mode::CLASSICAL, &Options::default());
@@ -413,6 +446,7 @@ fn default_bias_takes_turns() {
             None,
             &classes,
             &options,
+            &Limits::default(),
             [
                 (first, &counts[0], &account),
                 (second, &counts[1], &account),
@@ -455,11 +489,8 @@ fn memory_bound() {
     let text = sequent.to_string();
     let options = Options::default().copies(Some(copies)).bias(Bias::Rarer);
     let bounded = |bytes| {
-        run(
-            &text,
-            Mode::CLASSICAL,
-            &options.clone().memory_limit(Some(bytes)),
-        )
+        let limits = Limits::default().with_memory_bytes(Some(bytes));
+        run_within(&text, Mode::CLASSICAL, &options, &limits)
     };
     let (verdict, whole) = run(&text, Mode::CLASSICAL, &options);
     assert!(verdict.proof().is_some());
@@ -669,7 +700,7 @@ fn stops_inside_a_forced_chain() {
     ];
     for input in chains {
         let (verdict, statistics) = std::thread::Builder::new()
-            .stack_size(Options::default().stack_size())
+            .stack_size(Limits::default().stack_bytes())
             .spawn(move || {
                 let s: Sequent = input.parse().unwrap();
                 let forest = Forest::new(&s).unwrap();
@@ -1429,7 +1460,11 @@ fn the_horn_test_reads_the_goal() {
     }
     assert!(schedule::chains(&forest, &goal));
     for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
-        let outcome = prove_goal(&forest, &goal, mode, &Options::default(), || false).unwrap();
+        let limits = Limits::default();
+        let outcome = prove_goal(&forest, &goal, mode, &Options::default(), &limits, |_| {
+            false
+        })
+        .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
     }
 }
@@ -1460,10 +1495,11 @@ fn unprovable_parts_cost_no_partitions() {
 #[test]
 fn a_chain_of_free_splits_costs_one_level() {
     let sequent = crate::families::wide(300, 1);
-    let options = Options::default()
-        .engine(Some(crate::search::Engine::Focus))
-        .recursion_limit(100);
-    let outcome = crate::search::prove(&sequent, Mode::CLASSICAL, &options).unwrap();
+    let options = Options::default().engine(Some(crate::search::Engine::Focus));
+    let limits = Limits::default().with_recursion_depth(100);
+    let outcome =
+        crate::search::prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false)
+            .unwrap();
     let Verdict::Proved(proof) = outcome.verdict else {
         panic!("{:?}", outcome.verdict);
     };
@@ -1481,11 +1517,14 @@ fn the_parts_of_a_mix_decide_only_as_facts() {
     let mode = Mode::CLASSICAL.with_mix();
     let (verdict, _) = run("|- a, !?(s par a)", mode, &Options::default());
     assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
-    let options = Options::default()
-        .copies(Some(1))
-        .recursion_limit(9)
-        .memo_limit(0);
-    let (verdict, _) = run("|- ~b, ~c, b, (bot + ~b), ?(c * b)", mode, &options);
+    let options = Options::default().copies(Some(1)).memo_limit(0);
+    let limits = Limits::default().with_recursion_depth(9);
+    let (verdict, _) = run_within(
+        "|- ~b, ~c, b, (bot + ~b), ?(c * b)",
+        mode,
+        &options,
+        &limits,
+    );
     assert!(verdict.proof().is_some(), "{verdict:?}");
 }
 

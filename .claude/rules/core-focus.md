@@ -274,7 +274,7 @@ relies on:
     next turn where turns restart it. The price is memory: two memos of
     at most `Options::memo_limit` entries each where the searches run
     at once, and for the same reason each search has half of
-    `Options::memory_limit` (`Account::share`): one search's memory
+    `Limits::memory_bytes` (`Account::share`): one search's memory
     must not decide what the other may keep. So under a memory bound
     the contract reads "wherever `Bias::Rarer` does under the same
     options with half the memory".
@@ -365,7 +365,7 @@ relies on:
   - **On one core with threads** (`focus::schedule::alternate`, feature
     `parallel`, whatever `Options::jobs` says below two): the forward
     search runs on the calling thread and the backward one on a scoped
-    thread of `Options::stack_size()`, and a `Baton` lets one of them
+    thread of `Limits::stack_bytes()`, and a `Baton` lets one of them
     run at a time: a search gives way after a slice of work
     (`Stop::Slice`, `SLICE`; the backward search gets `BACKWARD_SHARE`
     = 2 slices' worth) and waits for its turn. Nothing is restarted and
@@ -785,7 +785,7 @@ relies on:
   which no count cuts under `⊕ 0`, and those splits are now the `3ⁿ`
   (34.6 million at 8 against 51.7 million before).
 - **Recursion.** `prove`, `focus` and `asynchronous` count one level each;
-  `Options::recursion_limit` stops the search with
+  `Limits::recursion_depth` stops the search with
   `Reason::RecursionLimit`. Two chains cost no level per link, since the
   LLTP Petri nets have them by the thousand: the `?` rules of an
   asynchronous phase are applied in `decompose`'s loop on a growing copy
@@ -840,11 +840,11 @@ relies on:
   recurses), and `PER_LEVEL` allows twice that (12 KiB, 2.25 KiB).
   Before: 3.6 KiB in debug builds, 0.9 KiB in
   release, with the split's counts boxed in their pool (1.5 KiB with
-  them in the frame, which overflowed the stack `Options::stack_size`
+  them in the frame, which overflowed the stack `Limits::stack_bytes`
   gives at a raised limit; it now allows twice the measured). So the
   default of 2048 fits an 8 MiB main-thread stack in a release build;
   in a debug build such a recursion to the limit takes 11 MiB, which
-  the threads `stack_size` sizes have and a debug caller's main thread
+  the threads `stack_bytes` sizes have and a debug caller's main thread
   does not (it was already 9.8 MiB before the inlining); the limit
   stays, since of
   the 24 sampled problems that ended at the limit only two (ILLTP-SYJ

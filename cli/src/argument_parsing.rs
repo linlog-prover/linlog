@@ -4,7 +4,7 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::proofs::Compact;
 use linlog::search::{Engine, Options};
-use linlog::{Bias, Forest, Fragment, Mode, ViewOptions};
+use linlog::{Bias, Fragment, Limits, Mode};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -173,13 +173,13 @@ pub struct ProveArgs {
     /// renderer fills in it, and left out above the limit (the default
     /// is a few seconds of rendering); `--style png.memory=BYTES` or
     /// `pdf.memory` sets that bound alone.
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
+    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
     pub memory_limit: Limit,
     /// The deepest nesting of rules on one branch before the search gives up
     ///
     /// Raise it for sequents with thousands of connectives; the search runs on
     /// a thread whose stack grows with the limit.
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_RECURSION_LIMIT)]
+    #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
     pub recursion_limit: u32,
     /// How many threads the search may use
     ///
@@ -355,11 +355,11 @@ pub struct InteractArgs {
     pub memo_limit: usize,
     /// The most memory a `close` may hold, and a png or pdf render of
     /// `show` or `proof`; see `prove --memory-limit`
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
+    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
     pub memory_limit: Limit,
     /// The deepest nesting of rules on one branch before a `close` gives
     /// up; see `prove --recursion-limit`
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_RECURSION_LIMIT)]
+    #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
     pub recursion_limit: u32,
     /// How many threads a `close` may use; see `prove --jobs`
     #[arg(short, long, value_name = "N")]
@@ -459,7 +459,7 @@ pub struct CheckArgs {
     /// the command ends with an error. A derivation estimated above it
     /// is left out, as past `--derivation-limit`, and so is a png or pdf
     /// render; see `prove --memory-limit`.
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
+    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
     pub memory_limit: Limit,
     /// The proof file, or standard input when absent or `-`
     #[arg(value_name = "PROOF")]
@@ -511,7 +511,7 @@ pub enum SeqCommand {
         /// The most memory a png or pdf render may take, by its estimate:
         /// a number of bytes with a unit such as 512MiB or 4GiB, or `none`
         /// for no limit; see `prove --memory-limit`
-        #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Options::DEFAULT_MEMORY_LIMIT)))]
+        #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
         memory_limit: Limit,
     },
     /// Print a sequent as JSON, the form `--input-format json` reads
@@ -639,7 +639,7 @@ pub struct Most(pub Option<u64>);
 impl Default for Most {
     /// The library's default.
     fn default() -> Self {
-        Self(Some(Forest::DEFAULT_LIMIT))
+        Self(Some(Limits::DEFAULT_OCCURRENCES))
     }
 }
 
@@ -749,6 +749,29 @@ pub struct ModeArgs {
     /// Allow the Mix rule, which proves ⊢ Γ, Δ from ⊢ Γ and ⊢ Δ
     #[arg(long)]
     pub mix: bool,
+}
+
+impl ProveArgs {
+    /// Returns the limits the flags set: the memory, the occurrences, the
+    /// derivation's size and the recursion.
+    pub fn limits(&self) -> Limits {
+        Limits::default()
+            .with_memory_bytes(self.memory_limit.0)
+            .with_occurrences(self.input.occurrence_limit.0)
+            .with_derivation_bytes(self.output.derivation_limit.0)
+            .with_recursion_depth(self.recursion_limit)
+    }
+}
+
+impl InteractArgs {
+    /// Returns the limits the flags set, as `prove`'s do.
+    pub fn limits(&self) -> Limits {
+        Limits::default()
+            .with_memory_bytes(self.memory_limit.0)
+            .with_occurrences(self.input.occurrence_limit.0)
+            .with_derivation_bytes(self.derivation_limit.0)
+            .with_recursion_depth(self.recursion_limit)
+    }
 }
 
 impl ModeArgs {
@@ -929,7 +952,7 @@ pub struct Limit(pub Option<u64>);
 impl Default for Limit {
     /// The library's default.
     fn default() -> Self {
-        Self(Some(ViewOptions::DEFAULT_LIMIT))
+        Self(Some(Limits::DEFAULT_DERIVATION_BYTES))
     }
 }
 
@@ -946,13 +969,6 @@ impl std::fmt::Display for Limit {
                 write!(f, "{value}{}", UNITS[unit])
             }
         }
-    }
-}
-
-impl From<Limit> for ViewOptions {
-    /// Returns the options of a derivation built within the limit.
-    fn from(limit: Limit) -> Self {
-        Self::default().limit(limit.0)
     }
 }
 

@@ -8,13 +8,16 @@
 //! the sequential engines, or within one sequent at a time
 //! ([`Cores`](crate::search::batch::Cores)); the memory bound of each search and the batch's own
 //! bound decide how many workers run at once ([`Options::plan`](crate::search::batch::Options::plan)).
+//! The options of every sequent's search and the [`Limits`] each runs
+//! within are the batch's arguments beside its own options.
 //! Without the `parallel` feature a batch runs on the caller's thread.
 //!
 //! # Examples
 //!
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
-//! use linlog::search::Verdict;
+//! use linlog::Limits;
+//! use linlog::search::{self, Verdict};
 //! use linlog::search::batch::{Options, Problem, prove};
 //!
 //! let problems = ["A |- A", "A |- B"].map(|text| Problem {
@@ -22,14 +25,15 @@
 //!     sequent: text.parse().unwrap(),
 //!     mode: None,
 //! });
-//! let proved: Vec<bool> = prove(problems, &Options::default())
+//! let search = search::Options::default();
+//! let proved: Vec<bool> = prove(problems, &Options::default(), &search, &Limits::default())
 //!     .map(|answer| matches!(answer.outcome.unwrap().verdict, Verdict::Proved(_)))
 //!     .collect();
 //! assert_eq!(proved, [true, false]);
 //! ```
 
 use super::{Options as Search, Outcome};
-use crate::{Error, Mode, Sequent};
+use crate::{Error, Limits, Mode, Sequent};
 
 /// How a batch spends the machine's threads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -48,13 +52,11 @@ pub enum Cores {
     Within,
 }
 
-/// The options of a batch: those of every sequent's search, and how the
-/// batch shares the machine among the sequents.
+/// How a batch shares the machine among its sequents. The options of each
+/// sequent's search and the limits it runs within are given beside them;
+/// `Limits::memory_bytes` is each search's bound.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
-    /// The options of each sequent's search; its memory limit is each
-    /// search's bound.
-    pub search: Search,
     /// The mode of a problem that names none.
     pub mode: Mode,
     /// Where the threads go.
@@ -63,7 +65,7 @@ pub struct Options {
     pub workers: usize,
     /// The most memory all the searches of the batch may hold together,
     /// or `None` for no bound but each search's.
-    pub memory_limit: Option<u64>,
+    pub total_memory_bytes: Option<u64>,
 }
 
 impl Options {
@@ -72,7 +74,7 @@ impl Options {
     pub const DEFAULT_WORKERS: usize = 1;
     /// The default bound of the whole batch, 4 GiB: four searches at the
     /// default bound of each.
-    pub const DEFAULT_MEMORY_LIMIT: u64 = 4 << 30;
+    pub const DEFAULT_TOTAL_MEMORY_BYTES: u64 = 4 << 30;
 
     /// Returns how the batch runs, `within` its sequents or across them:
     /// across, as many workers as the batch's bound holds searches at the
@@ -80,26 +82,32 @@ impl Options {
     /// on one thread; within, one worker whose search may be two at once
     /// (a front end may race one thread against a pool of the others), so
     /// each holds at most half the batch's bound.
-    pub fn plan(&self, within: bool) -> Plan {
-        let mut search = self.search.clone();
-        let total = self.memory_limit;
+    pub fn plan(&self, within: bool, search: &Search, limits: &Limits) -> Plan {
+        let search = search.clone();
+        let mut limits = *limits;
+        let total = self.total_memory_bytes;
         if within {
             let share = total.map(|t| if search.jobs > 1 { t / 2 } else { t });
-            search.memory_limit = smaller(search.memory_limit, share);
-            return Plan { workers: 1, search };
+            limits.memory_bytes = smaller(limits.memory_bytes, share);
+            return Plan {
+                workers: 1,
+                search,
+                limits,
+            };
         }
-        let workers = match (search.memory_limit, total) {
+        let workers = match (limits.memory_bytes, total) {
             (Some(each), Some(total)) => usize::try_from(total / each.max(1)).unwrap_or(usize::MAX),
             (None, Some(total)) => {
-                search.memory_limit = Some(total / self.workers.max(1) as u64);
+                limits.memory_bytes = Some(total / self.workers.max(1) as u64);
                 usize::MAX
             }
             (_, None) => usize::MAX,
         };
-        search.memory_limit = smaller(search.memory_limit, total);
+        limits.memory_bytes = smaller(limits.memory_bytes, total);
         Plan {
             workers: workers.clamp(1, self.workers.max(1)),
             search: search.jobs(1),
+            limits,
         }
     }
 }
@@ -114,16 +122,14 @@ fn smaller(a: Option<u64>, b: Option<u64>) -> Option<u64> {
 }
 
 impl Default for Options {
-    /// The search's defaults, the classical mode,
-    /// [`DEFAULT_WORKERS`](Self::DEFAULT_WORKERS) and
-    /// [`DEFAULT_MEMORY_LIMIT`](Self::DEFAULT_MEMORY_LIMIT).
+    /// The classical mode, [`DEFAULT_WORKERS`](Self::DEFAULT_WORKERS) and
+    /// [`DEFAULT_TOTAL_MEMORY_BYTES`](Self::DEFAULT_TOTAL_MEMORY_BYTES).
     fn default() -> Self {
         Self {
-            search: Search::default(),
             mode: Mode::CLASSICAL,
             cores: Cores::Auto,
             workers: Self::DEFAULT_WORKERS,
-            memory_limit: Some(Self::DEFAULT_MEMORY_LIMIT),
+            total_memory_bytes: Some(Self::DEFAULT_TOTAL_MEMORY_BYTES),
         }
     }
 }
@@ -135,6 +141,8 @@ pub struct Plan {
     pub workers: usize,
     /// The options of each sequent's search.
     pub search: Search,
+    /// The limits each search runs within.
+    pub limits: Limits,
 }
 
 /// A problem of [`prove`].
@@ -163,12 +171,27 @@ pub struct Answer {
 pub fn prove(
     problems: impl IntoIterator<Item = Problem, IntoIter: Send + 'static>,
     options: &Options,
+    search: &Search,
+    limits: &Limits,
 ) -> Results<Answer> {
     let mode = options.mode;
-    run(problems, options, move |problem: Problem, search| Answer {
-        outcome: super::prove(&problem.sequent, problem.mode.unwrap_or(mode), search),
-        name: problem.name,
-    })
+    run(
+        problems,
+        options,
+        search,
+        limits,
+        move |problem: Problem, plan: &Plan| {
+            let mode = problem.mode.unwrap_or(mode);
+            let outcome =
+                super::prove_within(&problem.sequent, mode, &plan.search, &plan.limits, |_| {
+                    false
+                });
+            Answer {
+                outcome,
+                name: problem.name,
+            }
+        },
+    )
 }
 
 /// Applies `work` to every problem with the options of its search, as the
@@ -180,7 +203,9 @@ pub fn prove(
 pub fn run<P, R>(
     problems: impl IntoIterator<Item = P, IntoIter: Send + 'static>,
     options: &Options,
-    work: impl Fn(P, &Search) -> R + Send + Sync + 'static,
+    search: &Search,
+    limits: &Limits,
+    work: impl Fn(P, &Plan) -> R + Send + Sync + 'static,
 ) -> Results<R>
 where
     P: Send + 'static,
@@ -197,7 +222,7 @@ where
         }
     };
     let problems = first.into_iter().chain(problems);
-    let plan = options.plan(within);
+    let plan = options.plan(within, search, limits);
     #[cfg(feature = "parallel")]
     if plan.workers > 1 {
         return Results(Inner::Workers(workers::Workers::start(
@@ -206,9 +231,8 @@ where
             work,
         )));
     }
-    let search = plan.search;
     Results(Inner::Here(Box::new(
-        problems.map(move |problem| work(problem, &search)),
+        problems.map(move |problem| work(problem, &plan)),
     )))
 }
 
@@ -239,7 +263,7 @@ impl<R> Iterator for Results<R> {
 /// The workers of a batch, on threads of their own.
 #[cfg(feature = "parallel")]
 mod workers {
-    use super::{Plan, Search};
+    use super::Plan;
     use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
@@ -289,7 +313,7 @@ mod workers {
         pub(super) fn start<P: Send + 'static>(
             problems: Box<dyn Iterator<Item = P> + Send>,
             plan: Plan,
-            work: impl Fn(P, &Search) -> R + Send + Sync + 'static,
+            work: impl Fn(P, &Plan) -> R + Send + Sync + 'static,
         ) -> Self {
             let shared = Arc::new(Shared {
                 queue: Mutex::new((problems, 0, false)),
@@ -302,10 +326,10 @@ mod workers {
             let threads = (0..plan.workers)
                 .map(|_| {
                     let (shared, work, sender) = (shared.clone(), work.clone(), sender.clone());
-                    let search = plan.search.clone();
+                    let plan = plan.clone();
                     std::thread::Builder::new()
                         .name("batch".into())
-                        .stack_size(search.stack_size())
+                        .stack_size(plan.limits.stack_bytes())
                         .spawn(move || {
                             loop {
                                 let (place, problem) = {
@@ -329,7 +353,7 @@ mod workers {
                                     queue.1 += 1;
                                     (queue.1 - 1, problem)
                                 };
-                                if sender.send((place, work(problem, &search))).is_err() {
+                                if sender.send((place, work(problem, &plan))).is_err() {
                                     return;
                                 }
                             }
@@ -421,12 +445,14 @@ mod tests {
                 cores,
                 ..Options::default()
             };
-            let answers: Vec<(String, bool)> = prove(problems, &options)
-                .map(|a| {
-                    let proved = matches!(a.outcome.unwrap().verdict, Verdict::Proved(_));
-                    (a.name, proved)
-                })
-                .collect();
+            let search = Search::default();
+            let answers: Vec<(String, bool)> =
+                prove(problems, &options, &search, &Limits::default())
+                    .map(|a| {
+                        let proved = matches!(a.outcome.unwrap().verdict, Verdict::Proved(_));
+                        (a.name, proved)
+                    })
+                    .collect();
             let expected: Vec<(String, bool)> = texts
                 .iter()
                 .enumerate()
@@ -442,24 +468,25 @@ mod tests {
     #[test]
     fn the_batch_bound_shares_out_the_memory() {
         let options = Options {
-            search: Search::default().memory_limit(Some(1 << 30)).jobs(4),
             workers: 16,
-            memory_limit: Some(5 << 30),
+            total_memory_bytes: Some(5 << 30),
             ..Options::default()
         };
-        let across = options.plan(false);
+        let search = Search::default().jobs(4);
+        let limits = Limits::default().with_memory_bytes(Some(1 << 30));
+        let across = options.plan(false, &search, &limits);
         assert_eq!(
-            (across.workers, across.search.memory_limit),
+            (across.workers, across.limits.memory_bytes),
             (5, Some(1 << 30))
         );
         assert_eq!(across.search.jobs, 1);
         let within = Options {
-            memory_limit: Some(1 << 30),
+            total_memory_bytes: Some(1 << 30),
             ..options.clone()
         }
-        .plan(true);
+        .plan(true, &search, &limits);
         assert_eq!(
-            (within.workers, within.search.memory_limit),
+            (within.workers, within.limits.memory_bytes),
             (1, Some(1 << 29))
         );
     }

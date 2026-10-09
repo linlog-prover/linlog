@@ -10,6 +10,7 @@ pub use reading::{DescribedShape, IllFormula, Reading, ShapeError, Side};
 pub(crate) use set::OccSet;
 
 use crate::Error;
+use crate::limits::{Limits, Refusal, Space};
 use crate::sequents::{Atom, Formula, Kind, Sequent, TermId};
 use std::ops::Not;
 
@@ -180,62 +181,69 @@ pub struct Forest {
 }
 
 impl Forest {
-    /// The most occurrences a sequent may have for [`new`](Self::new) to
-    /// build its forest. A forest takes about 25 bytes per occurrence, and
-    /// an arena that shares its subterms unfolds to exponentially more
-    /// occurrences than it has terms, so a sequent of a few hundred bytes
-    /// can ask for gigabytes. The default is well above the largest
-    /// problem of the library this crate measures itself on, which has
-    /// under 28 million occurrences; [`within`](Self::within) takes
-    /// another limit.
-    pub const DEFAULT_LIMIT: u64 = 50_000_000;
-
     /// The most occurrences a forest can hold: the ids are `u32`, and the
     /// last one stands for "no occurrence".
     pub(crate) const MOST: u64 = NONE as u64 - 1;
 
-    /// Builds the forest of a sequent, keeping a copy of it. Fails with
-    /// [`Refusal::Occurrences`](crate::Refusal::Occurrences) if the sequent has more subformula
-    /// occurrences than [`DEFAULT_LIMIT`](Self::DEFAULT_LIMIT), which
-    /// needs an arena that shares subterms deeply or a very large input,
-    /// before anything of that size is built.
+    /// Builds the forest of a sequent within the default
+    /// [`Limits::occurrences`], keeping a copy of the sequent. A forest
+    /// takes about 25 bytes per occurrence, and an arena that shares its
+    /// subterms unfolds to exponentially more occurrences than it has
+    /// terms, so a sequent of a few hundred bytes can ask for gigabytes;
+    /// the bound refuses it before anything of that size is built.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Occurrences`] past the bound, and [`Refusal::Index`] for
+    /// more occurrences than a forest indexes (2³² − 2), whatever the
+    /// bound.
     pub fn new(sequent: &Sequent) -> Result<Self, Error> {
-        Self::within(sequent, Self::DEFAULT_LIMIT)
+        Self::within(sequent, &Limits::default())
     }
 
-    /// Builds the forest of a sequent of at most `limit` subformula
-    /// occurrences ([`Sequent::occurrences`] counts them), keeping a copy
-    /// of the sequent, and fails with [`Refusal::Occurrences`](crate::Refusal::Occurrences) if it
-    /// has more, before anything of that size is built. A forest indexes
-    /// its occurrences with a `u32`, so no limit admits more than
-    /// 2³² − 2 of them.
-    pub fn within(sequent: &Sequent, limit: u64) -> Result<Self, Error> {
-        let sizes = Self::measure(sequent, limit)?;
+    /// Builds the forest of a sequent of at most `limits.occurrences`
+    /// subformula occurrences ([`Sequent::occurrences`] counts them),
+    /// keeping a copy of the sequent, as [`new`](Self::new) does.
+    ///
+    /// # Errors
+    ///
+    /// As [`new`](Self::new)'s, under `limits`.
+    pub fn within(sequent: &Sequent, limits: &Limits) -> Result<Self, Error> {
+        let sizes = Self::measure(sequent, limits)?;
         Ok(Self::build(sequent.clone(), &sizes))
     }
 
     /// Builds the forest of a sequent as [`within`](Self::within) does,
     /// taking the sequent instead of copying it: of a sequent of millions
     /// of terms the copy is memory worth saving.
-    pub fn from_owned(sequent: Sequent, limit: u64) -> Result<Self, Error> {
-        let sizes = Self::measure(&sequent, limit)?;
+    ///
+    /// # Errors
+    ///
+    /// As [`within`](Self::within)'s.
+    pub fn from_owned(sequent: Sequent, limits: &Limits) -> Result<Self, Error> {
+        let sizes = Self::measure(&sequent, limits)?;
         Ok(Self::build(sequent, &sizes))
     }
 
     /// Returns the number of occurrences below every arena term of a
-    /// sequent, itself included, if the sequent has at most `limit`
-    /// occurrences and no more than a forest can hold.
-    fn measure(sequent: &Sequent, limit: u64) -> Result<Vec<u64>, Error> {
+    /// sequent, itself included, if the sequent has no more occurrences
+    /// than the limits and a forest allow.
+    fn measure(sequent: &Sequent, limits: &Limits) -> Result<Vec<u64>, Error> {
         let sizes = sequent.sizes();
         let occurrences = sequent
             .roots()
             .iter()
             .fold(0u64, |sum, r| sum.saturating_add(sizes[r.index()]));
-        let limit = limit.min(Self::MOST);
-        if occurrences > limit {
-            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
-                occurrences,
-                limit,
+        if let Some(limit) = limits.occurrences
+            && occurrences > limit
+        {
+            return Err(Error::Refused(Refusal::Occurrences { occurrences, limit }));
+        }
+        if occurrences > Self::MOST {
+            return Err(Error::Refused(Refusal::Index {
+                what: Space::Occurrence,
+                count: occurrences,
+                most: Self::MOST,
             }));
         }
         Ok(sizes)
@@ -726,10 +734,11 @@ mod tests {
 
         // A limit admits a sequent of exactly that many occurrences.
         assert_eq!(s.occurrences(), 7);
-        assert_eq!(Forest::within(&s, 7).unwrap().len(), 7);
+        let limit = |n| Limits::default().with_occurrences(n);
+        assert_eq!(Forest::within(&s, &limit(Some(7))).unwrap().len(), 7);
         assert!(matches!(
-            Forest::within(&s, 6),
-            Err(Error::Refused(crate::limits::Refusal::Occurrences {
+            Forest::within(&s, &limit(Some(6))),
+            Err(Error::Refused(Refusal::Occurrences {
                 occurrences: 7,
                 limit: 6
             }))
@@ -739,9 +748,9 @@ mod tests {
         let s = doubling(40);
         assert_eq!(s.occurrences(), (1 << 41) - 1);
         assert!(matches!(
-            Forest::within(&s, u64::MAX),
-            Err(Error::Refused(crate::limits::Refusal::Occurrences { occurrences, limit }))
-                if occurrences == (1 << 41) - 1 && limit == (1 << 32) - 2
+            Forest::within(&s, &limit(None)),
+            Err(Error::Refused(Refusal::Index { what: Space::Occurrence, count, most }))
+                if count == (1 << 41) - 1 && most == (1 << 32) - 2
         ));
         assert_eq!(doubling(100).occurrences(), u64::MAX, "the count saturates");
     }
@@ -772,12 +781,12 @@ mod tests {
             matches!(
                 result,
                 Err(Error::Refused(crate::limits::Refusal::Occurrences { occurrences, limit }))
-                    if occurrences == (1 << 27) - 1 && limit == Forest::DEFAULT_LIMIT
+                    if occurrences == (1 << 27) - 1 && limit == Limits::DEFAULT_OCCURRENCES
             )
         };
         let start = std::time::Instant::now();
         assert!(refused(Forest::new(&s)));
-        assert!(refused(Forest::from_owned(s, Forest::DEFAULT_LIMIT)));
+        assert!(refused(Forest::from_owned(s, &Limits::default())));
         assert!(start.elapsed() < std::time::Duration::from_secs(1));
     }
 }

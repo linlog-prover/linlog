@@ -29,9 +29,10 @@ of terms. Invariants the code relies on:
 - **A forest is refused before it is built** when the sequent unfolds to
   more occurrences than a limit (`Refusal::Occurrences { occurrences,
   limit }`): `Forest::new` within
-  `Forest::DEFAULT_LIMIT` (50 million: the largest problem of the LLTP
+  `Limits::DEFAULT_OCCURRENCES` (50 million: the largest problem of the LLTP
   library has 27.8 million, and a forest takes about 25 bytes per
-  occurrence), `Forest::within(&sequent, limit)` within another, which
+  occurrence), `Forest::within(&sequent, &limits)` within
+  `limits.occurrences`, which
   `Forest::MOST` caps. `Sequent::occurrences()` is the count: one pass
   over the arena (`Sequent::sizes`, the occurrences below every term),
   saturating, since an arena that shares its subterms unfolds

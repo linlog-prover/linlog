@@ -61,16 +61,16 @@ public types, so users write `linlog::Sequent`, `linlog::Proof`,
 Each entry point is described in the file of its module:
 - sequents: `"…".parse::<Sequent>()`, `Display`, serde, `fragment()`,
   `occurrences()`; `Fragment`, `Mode` (`core-sequents.md`);
-- `Forest::new(&sequent)` and `Forest::within(&sequent, limit)`
+- `Forest::new(&sequent)` and `Forest::within(&sequent, &limits)`
   (`Refusal::Occurrences` past the limit), `Reading::new(&forest)`
   or a `ShapeError` (`core-forest.md`);
 - `Proof::new(forest, nodes, root)`, `check(mode)`,
-  `check_within(mode, memory)`, and `CheckError::{Invalid, Refused}`
+  `check_within(mode, &limits, stop)`, and `CheckError::{Invalid, Refused}`
   (`core-proofs.md`);
 - `derivation()`, `two_sided_derivation()`, `derivation_size(two_sided)`,
-  `derivation_with(&view, stop)` under `ViewOptions`, `write_text`;
+  `derivation_within(&view, &limits, stop)` under `ViewOptions`, `write_text`;
   `Interactive` (`core-derivations.md`);
-- `prove`, `prove_until`, `prove_goal` with `Options`, returning an
+- `prove`, `prove_within`, `prove_goal` with `Options` and `Limits`, returning an
   `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,
   `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
   an `Engine`, whose variants describe the engines of the crate-private

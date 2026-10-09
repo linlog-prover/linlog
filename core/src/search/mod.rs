@@ -35,6 +35,7 @@ pub use parallel::Pool;
 
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
+use crate::limits::{Limits, Phase, Progress};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
@@ -100,7 +101,7 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// Decides a sequent under a mode with the engine its fragment calls for,
 /// and returns the outcome: the verdict with a proof if there is one, the
 /// fragment detected, the engine used and the statistics of the run. The
-/// search runs to completion; [`prove_until`] takes a stop condition.
+/// search runs to completion; [`prove_within`] takes a stop condition.
 ///
 /// # Errors
 ///
@@ -113,9 +114,9 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// classical mode ([`Error::EngineMode`]); the additive engine on anything
 /// but two additive-only formulas ([`Error::NotAdditive`]); and a sequent
 /// that unfolds to more subformula occurrences than
-/// [`Options::occurrence_limit`] allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
+/// `limits.occurrences` allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
 /// [`Error::Rejected`], and one whose check would hold more than
-/// [`Options::memory_limit`] is [`Error::Check`] with a [`CheckError::Refused`]: every proof returned
+/// `limits.memory_bytes` is [`Error::Check`] with a [`CheckError::Refused`]: every proof returned
 /// has passed the checker, unless [`Options::check`] says otherwise.
 ///
 /// # Examples
@@ -149,52 +150,70 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// # Ok::<(), linlog::Error>(())
 /// ```
 pub fn prove(sequent: &Sequent, mode: Mode, options: &Options) -> Result<Outcome, Error> {
-    prove_until(sequent, mode, options, || false)
+    prove_within(sequent, mode, options, &Limits::default(), |_| false)
 }
 
-/// Decides a sequent as [`prove`] does, polling `stop` and giving up with
+/// Decides a sequent as [`prove`] does, within `limits` (its forest within
+/// `limits.occurrences`, the search's structures and the check of its
+/// proof within `limits.memory_bytes`, its recursion within
+/// `limits.recursion_depth`), polling `stop` and giving up with
 /// [`Reason::Stopped`] once it returns true. The condition is the
 /// caller's: a deadline on a clock the caller has, a flag an interrupt
-/// handler sets. This crate has no clock of its own. The engines poll at
+/// handler sets; this crate has no clock of its own. The engines poll at
 /// every stable sequent or literal chosen and inside every loop that can
 /// run long between two of them, and on a forest of tens of thousands of
-/// occurrences also between the passes that set the search up; what is
-/// not polled is the building of the forest before the search, the check
-/// of the proof after it, and single passes over the forest, each linear
-/// in it. A condition that is cheap to ask is asked often enough: one
-/// that reads a clock only every so many polls is late by that many
-/// polls, and on a large sequent a poll can be many milliseconds from the
-/// last.
+/// occurrences also between the passes that set the search up; the check
+/// of a proof found polls every 4 096 nodes. What is not polled is the
+/// building of the forest before the search and single passes over the
+/// forest, each linear in it. A condition that is cheap to ask is asked
+/// often enough: one that reads a clock only every so many polls is late
+/// by that many polls, and on a large sequent a poll can be many
+/// milliseconds from the last.
+///
+/// # Errors
+///
+/// Those of [`prove`], under `limits`.
 ///
 /// # Examples
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::search::{Options, Reason, Verdict, prove_until};
-/// use linlog::{Mode, Sequent};
+/// use linlog::search::{Options, Reason, Verdict, prove_within};
+/// use linlog::{Limits, Mode, Sequent};
 /// use std::time::{Duration, Instant};
 ///
 /// let sequent: Sequent = "|- (a & b) + (a & c), ~a par (~b & ~c)".parse()?;
 /// let deadline = Instant::now() + Duration::from_secs(10);
-/// let outcome = prove_until(&sequent, Mode::CLASSICAL, &Options::default(), || {
+/// let limits = Limits::default();
+/// let outcome = prove_within(&sequent, Mode::CLASSICAL, &Options::default(), &limits, |_| {
 ///     Instant::now() >= deadline
 /// })?;
 /// assert!(!matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));
 /// # Ok::<(), linlog::Error>(())
 /// ```
-pub fn prove_until(
+pub fn prove_within(
     sequent: &Sequent,
     mode: Mode,
     options: &Options,
-    stop: impl FnMut() -> bool,
+    limits: &Limits,
+    stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
-    let forest = Forest::within(sequent, options.occurrence_limit)?;
-    prove_goal(&forest, forest.roots(), mode, options, stop)
+    let forest = Forest::within(sequent, limits)?;
+    prove_goal(&forest, forest.roots(), mode, options, limits, stop)
+}
+
+/// Asks the caller's stop as the engines poll it: in the search's phase,
+/// with no work counted yet.
+pub(crate) fn without_progress(
+    stop: &mut impl FnMut(Progress) -> bool,
+) -> impl FnMut() -> bool + '_ {
+    move || stop(Progress::new(Phase::Search, 0, 0))
 }
 
 /// Decides a goal: a multiset of occurrences of a forest, given in any
-/// order, which stands for the sequent of those subformulas. The roots are
-/// the sequent itself, and [`prove_until`] is this function on them; any
+/// order, which stands for the sequent of those subformulas, within
+/// `limits` and until `stop` fires, as [`prove_within`] does. The roots are
+/// the sequent itself, and [`prove_within`] is this function on them; any
 /// other goal is what an interactive proof leaves open, and the engine that
 /// decides it is the one its own fragment calls for, except that the net
 /// engine works on the roots only. The proof of a goal other than the
@@ -215,14 +234,15 @@ pub fn prove_until(
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
 /// use linlog::search::{Options, Verdict, prove_goal};
-/// use linlog::{Forest, Mode, OccId, Sequent};
+/// use linlog::{Forest, Limits, Mode, OccId, Sequent};
 ///
 /// // ⊢ ~A, A ⊗ ~B, B, with the occurrences 0: ~A, 1: A ⊗ ~B, 2: A,
 /// // 3: ~B, 4: B. The goal ⊢ ~A, A is the left premise of the ⊗.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let forest = Forest::new(&sequent)?;
 /// let goal = [OccId::new(0), OccId::new(2)];
-/// let outcome = prove_goal(&forest, &goal, Mode::CLASSICAL, &Options::default(), || false)?;
+/// let limits = Limits::default();
+/// let outcome = prove_goal(&forest, &goal, Mode::CLASSICAL, &Options::default(), &limits, |_| false)?;
 /// assert!(matches!(outcome.verdict, Verdict::Proved(_)));
 /// # Ok::<(), linlog::Error>(())
 /// ```
@@ -231,16 +251,20 @@ pub fn prove_goal(
     goal: &[OccId],
     mode: Mode,
     options: &Options,
-    mut stop: impl FnMut() -> bool,
+    limits: &Limits,
+    mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
     let fragment = fragment_of(forest, goal, options)?;
     let reading = read(forest, mode)?;
     let (task, engine) = prepare(forest, goal, mode, fragment, options, reading.as_ref())?;
     let roots = task.roots;
     let implementation = engine.implementation();
+    // The engines poll a condition without progress, which asks the
+    // caller's with the search's phase.
+    let mut polled = without_progress(&mut stop);
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
-    if set_up_stopped(forest, &mut stop) {
+    if set_up_stopped(forest, &mut polled) {
         return Ok(Outcome {
             verdict: Verdict::Unknown(Reason::Stopped),
             fragment,
@@ -251,10 +275,10 @@ pub fn prove_goal(
         });
     }
     // What the search allocates is counted against the bound.
-    let account = memory::Account::new(options.memory_limit);
+    let account = memory::Account::new(limits.memory_bytes);
     #[cfg(feature = "parallel")]
     let options = &options.clone().jobs(parallel::threads(options.jobs));
-    let answer = implementation.decide(&task, options, &account, &mut stop)?;
+    let answer = implementation.decide(&task, options, limits, &account, &mut polled)?;
     // The one place an engine's answer becomes a verdict. A refutation
     // says what the counts of the goal rule out, under the same limits as
     // the search.
@@ -263,12 +287,13 @@ pub fn prove_goal(
         Ok(None) => Verdict::Unprovable(match answer.refutation {
             Some(refutation) => refutation,
             None => {
-                let account = memory::Account::new(options.memory_limit);
-                focus::refutation(forest, task.goal, fragment, mode, &account, &mut stop)
+                let account = memory::Account::new(limits.memory_bytes);
+                focus::refutation(forest, task.goal, fragment, mode, &account, &mut polled)
             }
         }),
         Err(reason) => Verdict::Unknown(reason),
     };
+    drop(polled);
     // No engine is trusted with its own proof: the checker has the last
     // word on every proof of the sequent, in every build.
     if let Verdict::Proved(proof) = &verdict
@@ -276,7 +301,7 @@ pub fn prove_goal(
     {
         if options.check {
             proof
-                .check_within(mode, options.memory_limit)
+                .check_within(mode, limits, &mut stop)
                 .map_err(|e| match e {
                     // A check given up is no verdict on the proof.
                     CheckError::Refused(_) => Error::Check(e),
@@ -481,6 +506,7 @@ pub(crate) trait Decide {
         &self,
         task: &Task<'_>,
         options: &Options,
+        limits: &Limits,
         account: &memory::Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error>;
@@ -692,7 +718,7 @@ pub enum Engine {
     /// engine keeps no memo and no recursion, so the copy bounds, the
     /// bias, the memo limit and the recursion limit have nothing to bound
     /// here, and its structure and scratch, linear in the forest, are not
-    /// counted under [`Options::memory_limit`].
+    /// counted under [`Limits::memory_bytes`](crate::Limits::memory_bytes).
     Net,
     /// The focused sequent engine two-sided: intuitionistic mode. It is
     /// the search of `Focus` on the one-sided sequent, which keeps one goal
@@ -703,9 +729,9 @@ pub enum Engine {
     /// The fast path for a sequent of two additive-only formulas, in every
     /// mode: a recursion on pairs of subformula occurrences, one below each
     /// root, memoized on the pair, in time proportional to the product of
-    /// the two formulas' sizes. It reads [`Options::memo_limit`],
-    /// [`Options::recursion_limit`], [`Options::memory_limit`] and
-    /// [`Options::check`], and runs on the calling thread whatever
+    /// the two formulas' sizes. It reads [`Options::memo_limit`] and
+    /// [`Options::check`], and the limits' recursion depth and memory
+    /// bound, and runs on the calling thread whatever
     /// [`Options::jobs`] says; two additive formulas have no copies and no
     /// atoms to bias.
     Additive,
@@ -734,7 +760,7 @@ pub enum Engine {
     /// is `Unprovable` with that [`Refutation::StateEquation`], however
     /// many markings the net has. A net whose markings grow without end
     /// and whose equation has a solution is searched until the stop or
-    /// [`Options::memory_limit`], which counts the markings kept and the
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes), which counts the markings kept and the
     /// simplex's basis. Two more refutations reach such nets: a clause
     /// with an atom that no reachable marking holds never fires and is
     /// left out, and once the search has done some work, the same search
@@ -750,7 +776,7 @@ pub enum Engine {
     /// equation runs beside it as in linear mode. Classical or
     /// intuitionistic, with or without Mix (which no proof of such a goal
     /// can use). It reads
-    /// [`Options::memory_limit`] and [`Options::check`], runs on the
+    /// [`Options::check`] and the limits' memory bound, runs on the
     /// calling thread whatever [`Options::jobs`] says, and needs no copy
     /// bound, memo limit or recursion limit: it keeps every marking once
     /// and recurses nowhere.
@@ -846,15 +872,12 @@ pub enum Bias {
 ///
 /// let options = Options::default()
 ///     .memo_limit(1 << 16)
-///     .recursion_limit(10_000)
 ///     .fragment(Some(Fragment::MALL));
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
     /// The most stable sequents the memo holds at once.
     memo_limit: usize,
-    /// The deepest nesting of engine calls before the search gives up.
-    recursion_limit: u32,
     /// The engine to use, or `None` for the one the fragment calls for.
     engine: Option<Engine>,
     /// The fragment to search in, or `None` for the detected one.
@@ -877,10 +900,6 @@ pub struct Options {
     /// Whether a proof of the sequent passes the checker before it is
     /// returned.
     check: bool,
-    /// The most bytes the search may hold at once, or `None` for no bound.
-    memory_limit: Option<u64>,
-    /// The most subformula occurrences a sequent may unfold to.
-    occurrence_limit: u64,
     /// The thread pools a parallel search borrows, or `None` for pools
     /// of its own.
     #[cfg(feature = "parallel")]
@@ -889,22 +908,17 @@ pub struct Options {
 
 impl Default for Options {
     /// A memo of at most [`DEFAULT_MEMO_LIMIT`](Self::DEFAULT_MEMO_LIMIT)
-    /// stable sequents, a recursion limit of
-    /// [`DEFAULT_RECURSION_LIMIT`](Self::DEFAULT_RECURSION_LIMIT), the
-    /// engine and fragment chosen by detection, the net engine's exact test
-    /// at its default cadence, a copy bound of
+    /// stable sequents, the engine and fragment chosen by detection, the
+    /// net engine's exact test at its default cadence, a copy bound of
     /// [`DEFAULT_COPIES`](Self::DEFAULT_COPIES), one of
     /// [`DEFAULT_FORWARD_COPIES`](Self::DEFAULT_FORWARD_COPIES) for the
-    /// forward search of the default bias, one thread, every proof
-    /// checked ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)), a memory
-    /// bound of [`DEFAULT_MEMORY_LIMIT`](Self::DEFAULT_MEMORY_LIMIT), and
-    /// a sequent of at most
-    /// [`DEFAULT_OCCURRENCE_LIMIT`](Self::DEFAULT_OCCURRENCE_LIMIT)
-    /// occurrences.
+    /// forward search of the default bias, one thread, and every proof
+    /// checked ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)). The bounds on
+    /// memory, occurrences and recursion are the [`Limits`] a search is
+    /// given.
     fn default() -> Self {
         Self {
             memo_limit: Self::DEFAULT_MEMO_LIMIT,
-            recursion_limit: Self::DEFAULT_RECURSION_LIMIT,
             engine: None,
             fragment: None,
             test_period: None,
@@ -913,8 +927,6 @@ impl Default for Options {
             bias: Bias::Auto,
             forward_copies: Self::DEFAULT_FORWARD_COPIES,
             check: Self::DEFAULT_CHECK,
-            memory_limit: Some(Self::DEFAULT_MEMORY_LIMIT),
-            occurrence_limit: Self::DEFAULT_OCCURRENCE_LIMIT,
             #[cfg(feature = "parallel")]
             pool: None,
         }
@@ -924,10 +936,6 @@ impl Default for Options {
 impl Options {
     /// The memo limit of the default options: 2²⁰ stable sequents.
     pub const DEFAULT_MEMO_LIMIT: usize = 1 << 20;
-
-    /// The recursion limit of the default options, which fits the 8 MiB
-    /// stack of a main thread.
-    pub const DEFAULT_RECURSION_LIMIT: u32 = 2048;
 
     /// The copy bound of the default options: three copies per branch, the
     /// bound llprover searches with by default. The default options keep a
@@ -948,52 +956,6 @@ impl Options {
     /// do. The check is one pass over the proof, in memory proportional to
     /// it.
     pub const DEFAULT_CHECK: bool = true;
-
-    /// The memory bound of the default options, in bytes: one gibibyte,
-    /// which a laptop and a browser tab both have to spare.
-    pub const DEFAULT_MEMORY_LIMIT: u64 = crate::proofs::DEFAULT_MEMORY_LIMIT;
-
-    /// The most subformula occurrences of a sequent under the default
-    /// options: [`Forest::DEFAULT_LIMIT`].
-    pub const DEFAULT_OCCURRENCE_LIMIT: u64 = Forest::DEFAULT_LIMIT;
-
-    /// Sets the most subformula occurrences the sequent may unfold to
-    /// when [`prove`] and [`prove_until`] build its forest: a sequent
-    /// beyond is refused with [`Refusal::Occurrences`](crate::Refusal::Occurrences) before
-    /// anything of that size is built. A sequent read from JSON can share
-    /// subterms, so a few hundred bytes unfold to any number of
-    /// occurrences; a forest takes about 25 bytes for each, and it is not
-    /// counted under [`memory_limit`](Self::memory_limit), since
-    /// [`prove_goal`] is handed it. No limit lets through more than a
-    /// forest indexes, somewhat under 2³².
-    pub fn occurrence_limit(self, limit: u64) -> Self {
-        Self {
-            occurrence_limit: limit,
-            ..self
-        }
-    }
-
-    /// Sets the most bytes the search may hold at once, or `None` for no
-    /// bound. Counted are the structures that grow with the search: the
-    /// memo of the focused engine and of the additive path, the proof
-    /// arena, the buffers every level of recursion takes, and the count
-    /// invariants set up before the search; not the forest, which is the
-    /// caller's, nor the proof returned. A memo that no longer fits is
-    /// emptied first, as it is when it reaches
-    /// [`memo_limit`](Self::memo_limit), and the proofs only it referred
-    /// to are given back; the search gives up with
-    /// [`Reason::MemoryLimit`] when what is left still passes the bound,
-    /// or leaves the memo no room at all. The two searches that
-    /// [`Bias::Auto`] runs on a sequent with exponentials have half the
-    /// bound each. The check of a proof found is under the same bound. The
-    /// net engine's structure and scratch, linear in the forest, are not
-    /// counted.
-    pub fn memory_limit(self, limit: Option<u64>) -> Self {
-        Self {
-            memory_limit: limit,
-            ..self
-        }
-    }
 
     /// Sets whether a proof of the sequent passes the checker
     /// ([`Proof::check`], which shares no code with the engines) before
@@ -1051,26 +1013,14 @@ impl Options {
     /// is full it is emptied, which costs time but not correctness. Zero
     /// switches the memo off. The two searches that [`Bias::Auto`] runs
     /// on a sequent with exponentials hold a memo of this size each. This
-    /// is the finer knob beside [`memory_limit`](Self::memory_limit),
-    /// which bounds the memo in bytes: a table that fits the processor's
+    /// is the finer knob beside the memory bound
+    /// ([`Limits::memory_bytes`](crate::Limits::memory_bytes)), which
+    /// bounds the memo in bytes: a table that fits the processor's
     /// cache can be faster than one that fits the memory. The focused
     /// engine and the additive path read it; the net engine keeps no memo.
     pub fn memo_limit(self, limit: usize) -> Self {
         Self {
             memo_limit: limit,
-            ..self
-        }
-    }
-
-    /// Sets the deepest nesting of engine calls (one per rule applied along
-    /// a branch, three per occurrence at most) before the search gives up
-    /// with [`Reason::RecursionLimit`]. The engine recurses on the calling
-    /// thread's stack, so a caller that raises the limit runs the search on
-    /// a thread with a stack to match. The focused engine and the additive
-    /// path read it; the net engine keeps stacks of its own.
-    pub fn recursion_limit(self, limit: u32) -> Self {
-        Self {
-            recursion_limit: limit,
             ..self
         }
     }
@@ -1167,25 +1117,6 @@ impl Options {
     /// Returns how many threads the search may use.
     pub fn job_count(&self) -> usize {
         self.jobs
-    }
-
-    /// Returns the stack, in bytes, a thread needs to run the search at
-    /// the recursion limit: the most one level of recursion was measured
-    /// to take, doubled for the derivation built from the proof, and at
-    /// least a main thread's 8 MiB. The parallel search sizes its workers
-    /// by it; a caller that runs the sequential search on a thread of its
-    /// own sizes that thread by it.
-    pub fn stack_size(&self) -> usize {
-        /// The stack one level of recursion may take: twice the most the
-        /// search was measured to take, on a chain of tensors whose splits
-        /// are searched and recursed into (5.6 KiB unoptimized, 1.1 KiB
-        /// optimized).
-        const PER_LEVEL: usize = if cfg!(debug_assertions) { 12288 } else { 2304 };
-        /// A main thread's stack.
-        const MIN: usize = 8 << 20;
-        (self.recursion_limit as usize)
-            .saturating_mul(PER_LEVEL)
-            .max(MIN)
     }
 }
 
@@ -1419,13 +1350,14 @@ impl Display for Refutation {
 pub enum Reason {
     /// The caller's stop condition fired: a time limit or an interruption.
     Stopped,
-    /// The nesting of engine calls reached [`Options::recursion_limit`].
+    /// The nesting of engine calls reached
+    /// [`Limits::recursion_depth`](crate::Limits::recursion_depth).
     RecursionLimit,
     /// Every level up to the bound [`Options::copies`] set, which is this
     /// value, hit its bound on some branch, so a proof with more copies of
     /// a `?` formula per branch may exist.
     CopyBound(u32),
-    /// The search held [`Options::memory_limit`] bytes, which is this
+    /// The search held [`Limits::memory_bytes`](crate::Limits::memory_bytes) bytes, which is this
     /// value, with its memo already emptied, or had no room left for a
     /// memo at all.
     MemoryLimit(u64),
@@ -1596,11 +1528,22 @@ mod tests {
         goal.reverse();
         assert_ne!(goal, forest.roots());
         let classical = Mode::CLASSICAL;
-        let outcome = prove_goal(&forest, &goal, classical, &Options::default(), || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &goal,
+            classical,
+            &Options::default(),
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(outcome.engine, Engine::Net);
         assert!(outcome.verdict.proof().is_some());
         let net = Options::default().engine(Some(Engine::Net));
-        let outcome = prove_goal(&forest, &goal, classical, &net, || false).unwrap();
+        let outcome = prove_goal(&forest, &goal, classical, &net, &Limits::default(), |_| {
+            false
+        })
+        .unwrap();
         assert!(outcome.verdict.proof().is_some());
     }
 
@@ -1884,7 +1827,15 @@ mod tests {
         let forest = Forest::new(&s).unwrap();
         let options = Options::default();
         let goal = o(&[0, 3]);
-        let outcome = prove_goal(&forest, &goal, Mode::CLASSICAL, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &goal,
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(outcome.engine, Engine::Focus);
         assert_eq!(outcome.fragment, Fragment::EMPTY);
         let proof = outcome.verdict.proof().unwrap();
@@ -1892,12 +1843,26 @@ mod tests {
             proof.check(Mode::CLASSICAL).is_err(),
             "a goal proof is not a proof of the roots"
         );
-        let outcome =
-            prove_goal(&forest, &o(&[0, 2, 7]), Mode::CLASSICAL, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &o(&[0, 2, 7]),
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert!(outcome.verdict.proof().is_some());
         assert_eq!(outcome.fragment, Fragment::MLL);
-        let outcome =
-            prove_goal(&forest, &o(&[4, 5]), Mode::CLASSICAL, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &o(&[4, 5]),
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert!(
             matches!(outcome.verdict, Verdict::Unprovable(_)),
             "{:?}",
@@ -1905,9 +1870,25 @@ mod tests {
         );
         assert_eq!(outcome.fragment, Fragment::EXPONENTIALS);
         let net = Options::default().engine(Some(Engine::Net));
-        let error = prove_goal(&forest, &goal, Mode::CLASSICAL, &net, || false).unwrap_err();
+        let error = prove_goal(
+            &forest,
+            &goal,
+            Mode::CLASSICAL,
+            &net,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap_err();
         assert!(matches!(error, Error::NetGoal), "{error}");
-        let error = prove_goal(&forest, &o(&[9]), Mode::CLASSICAL, &options, || false).unwrap_err();
+        let error = prove_goal(
+            &forest,
+            &o(&[9]),
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap_err();
         assert!(
             matches!(
                 error,
@@ -1924,12 +1905,26 @@ mod tests {
         // 6: b: the additive path on the pair below the ⅋.
         let s = sequent("|- (~a & ~b) par (a & b)");
         let forest = Forest::new(&s).unwrap();
-        let outcome =
-            prove_goal(&forest, &o(&[1, 4]), Mode::CLASSICAL, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &o(&[1, 4]),
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(outcome.engine, Engine::Additive);
         assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
-        let outcome =
-            prove_goal(&forest, &o(&[5, 2]), Mode::CLASSICAL, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &o(&[5, 2]),
+            Mode::CLASSICAL,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(outcome.engine, Engine::Focus);
         assert!(outcome.verdict.proof().is_some());
 
@@ -1939,11 +1934,20 @@ mod tests {
         let s = sequent("a, a -o b |- b");
         let forest = Forest::new(&s).unwrap();
         let i = Mode::INTUITIONISTIC;
-        let outcome = prove_goal(&forest, &o(&[0, 2]), i, &options, || false).unwrap();
+        let outcome = prove_goal(
+            &forest,
+            &o(&[0, 2]),
+            i,
+            &options,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(outcome.engine, Engine::TwoSided);
         assert!(outcome.verdict.proof().is_some());
         for (goal, outputs) in [(o(&[0]), 0), (o(&[2, 4]), 2)] {
-            let error = prove_goal(&forest, &goal, i, &options, || false).unwrap_err();
+            let error =
+                prove_goal(&forest, &goal, i, &options, &Limits::default(), |_| false).unwrap_err();
             assert!(
                 matches!(error, Error::GoalOutputs { count: n } if n == outputs),
                 "{error}"
@@ -1964,11 +1968,12 @@ mod tests {
     /// The stop condition ends the search with `Unknown`.
     #[test]
     fn stop() {
-        let outcome = prove_until(
+        let outcome = prove_within(
             &sequent("|- a * b, ~a, ~b"),
             Mode::CLASSICAL,
             &Options::default(),
-            || true,
+            &Limits::default(),
+            |_| true,
         )
         .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));

@@ -25,6 +25,7 @@ use super::{Answer, Decide, Options, Reason, Statistics, Stop, Task};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::fragment::Mode;
+use crate::limits::Limits;
 use crate::nets::{ProofStructure, Scratch};
 use crate::occurrences::{Forest, OccId, Sign};
 use crate::sequents::{Atom, Kind};
@@ -68,6 +69,7 @@ impl Decide for Nets {
         &self,
         task: &Task<'_>,
         options: &Options,
+        limits: &Limits,
         _account: &Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {
@@ -76,7 +78,7 @@ impl Decide for Nets {
             let runtime = super::parallel::Lent::take(
                 options.pool.as_ref(),
                 options.job_count(),
-                options.stack_size(),
+                limits.stack_bytes(),
             )?;
             return Ok(parallel::search(
                 task.forest,
@@ -992,7 +994,7 @@ pub(crate) mod parallel {
 mod parallel_tests {
     use super::tests::sample;
     use crate::fragment::Mode;
-    use crate::search::{Engine, Options, Reason, Verdict, prove, prove_until};
+    use crate::search::{Engine, Options, Reason, Verdict, prove, prove_within};
     use crate::sequents::Sequent;
 
     /// The verdict of the net engine on `jobs` threads, the proof and the
@@ -1053,7 +1055,14 @@ mod parallel_tests {
     fn stops() {
         let sequent = crate::families::partition(&[1, 2, 5]);
         let options = Options::default().engine(Some(Engine::Net)).jobs(2);
-        let outcome = prove_until(&sequent, Mode::CLASSICAL, &options, || true).unwrap();
+        let outcome = prove_within(
+            &sequent,
+            Mode::CLASSICAL,
+            &options,
+            &crate::Limits::default(),
+            |_| true,
+        )
+        .unwrap();
         assert!(
             matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)),
             "{:?}",

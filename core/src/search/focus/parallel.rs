@@ -32,6 +32,7 @@ use super::split::Join;
 use super::{Alternative, Cuts, Engine, Found, Problem, Search, Step};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
+use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
@@ -67,6 +68,7 @@ pub(crate) fn search_goal(
     mode: Mode,
     reading: Option<&Reading>,
     options: &Options,
+    limits: &Limits,
     account: &Account,
     stop: &mut dyn FnMut() -> bool,
 ) -> Result<(Search, Vec<Node>, Statistics), Error> {
@@ -77,7 +79,7 @@ pub(crate) fn search_goal(
     if set_up_stopped(forest, stop) {
         return stopped();
     }
-    let stack = options.stack_size();
+    let stack = limits.stack_bytes();
     let (first, second) = super::plan(forest, goal, fragment, mode, options);
     if set_up_stopped(forest, stop) {
         return stopped();
@@ -85,14 +87,15 @@ pub(crate) fn search_goal(
     let search = |rule: Rule, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
         account.charge(classes.bytes());
         rule.search_on(
-            forest, goal, fragment, mode, reading, &classes, options, account, runtime, flags,
+            forest, goal, fragment, mode, reading, &classes, options, limits, account, runtime,
+            flags,
         )
     };
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.jobs, stack)?;
         let (result, nodes, statistics) =
             runtime.drive(stop, |flags| search(first, &runtime, account, flags));
-        let result = result.map_err(|r| super::reason(r, options));
+        let result = result.map_err(|r| super::reason(r, options, limits));
         return Ok((result, nodes, statistics));
     };
     // Two pools, so that no thread of one search is ever busy with a task
@@ -113,7 +116,7 @@ pub(crate) fn search_goal(
         ),
         |(result, _, _)| result.is_ok(),
     );
-    Ok(merged(forward, backward, options))
+    Ok(merged(forward, backward, options, limits))
 }
 
 impl Rule {
@@ -131,6 +134,7 @@ impl Rule {
         reading: Option<&Reading>,
         classes: &Classes,
         options: &Options,
+        limits: &Limits,
         account: &Account,
         runtime: &Runtime,
         flags: Flags<'_>,
@@ -150,6 +154,7 @@ impl Rule {
                 fragment,
                 mode,
                 options,
+                limits,
                 self.copies,
                 account,
             );
@@ -533,7 +538,7 @@ impl<'a> Engine<'a> {
 mod tests {
     use crate::fragment::Mode;
     use crate::search::generate::{self, IllRules, Rng, Rules};
-    use crate::search::{Engine, Options, Reason, Verdict, prove, prove_until};
+    use crate::search::{Engine, Options, Reason, Verdict, prove, prove_within};
     use crate::sequents::Sequent;
 
     /// The verdict of `input` under `mode` with `options` as a three-way
@@ -640,10 +645,16 @@ mod tests {
         let sequent = crate::families::mix(11);
         let options = Options::default().jobs(4);
         let mut polls = 0;
-        let outcome = prove_until(&sequent, Mode::CLASSICAL.with_mix(), &options, || {
-            polls += 1;
-            polls > 20
-        })
+        let outcome = prove_within(
+            &sequent,
+            Mode::CLASSICAL.with_mix(),
+            &options,
+            &crate::Limits::default(),
+            |_| {
+                polls += 1;
+                polls > 20
+            },
+        )
         .unwrap();
         assert!(
             matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)),
@@ -659,10 +670,16 @@ mod tests {
         );
         let sequent: Sequent = input.parse().unwrap();
         let mut polls = 0;
-        let outcome = prove_until(&sequent, Mode::CLASSICAL.affine(), &options, || {
-            polls += 1;
-            polls > 20
-        })
+        let outcome = prove_within(
+            &sequent,
+            Mode::CLASSICAL.affine(),
+            &options,
+            &crate::Limits::default(),
+            |_| {
+                polls += 1;
+                polls > 20
+            },
+        )
         .unwrap();
         assert!(
             matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)),
@@ -687,8 +704,10 @@ mod tests {
             .parse()
             .unwrap();
         for jobs in [1, 2, 4] {
-            let options = Options::default().recursion_limit(24).jobs(jobs);
-            let outcome = prove(&sequent, Mode::CLASSICAL.with_mix(), &options).unwrap();
+            let options = Options::default().jobs(jobs);
+            let limits = crate::Limits::default().with_recursion_depth(24);
+            let mode = Mode::CLASSICAL.with_mix();
+            let outcome = prove_within(&sequent, mode, &options, &limits, |_| false).unwrap();
             assert!(
                 matches!(outcome.verdict, Verdict::Unprovable(_)),
                 "{:?} on {jobs} threads",
@@ -708,8 +727,10 @@ mod tests {
         let withs = vec!["bot & bot"; 16].join(", ");
         let sequent: Sequent = format!("|- {withs}, {chain}").parse().unwrap();
         for jobs in [2, 4] {
-            let options = Options::default().recursion_limit(36).jobs(jobs);
-            let outcome = prove(&sequent, Mode::CLASSICAL, &options).unwrap();
+            let options = Options::default().jobs(jobs);
+            let limits = crate::Limits::default().with_recursion_depth(36);
+            let outcome =
+                prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false).unwrap();
             assert!(
                 matches!(outcome.verdict, Verdict::Unknown(Reason::RecursionLimit)),
                 "{:?} on {jobs} threads",

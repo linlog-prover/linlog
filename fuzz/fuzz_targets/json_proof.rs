@@ -7,7 +7,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use linlog::{Mode, Proof};
+use linlog::{Limits, Mode, Proof};
 
 fuzz_target!(|data: &[u8]| {
     let Some((&bits, json)) = data.split_first() else {
@@ -19,6 +19,7 @@ fuzz_target!(|data: &[u8]| {
         mix: bits & 4 != 0,
     };
     if let Ok(proof) = serde_json::from_slice::<Proof>(json) {
-        let _ = proof.check_within(mode, Some(1 << 26));
+        let limits = Limits::default().with_memory_bytes(Some(1 << 26));
+        let _ = proof.check_within(mode, &limits, |_| false);
     }
 });

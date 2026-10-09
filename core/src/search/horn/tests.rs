@@ -249,7 +249,10 @@ fn refuses_at_its_limits() {
         "!(a -o a * a * a), !(a * a -o b), !(d -o d * d), !(d * d -o d), a, d |- b * d"
             .parse()
             .unwrap();
-    let outcome = prove(&sequent, Mode::CLASSICAL, &horn().memory_limit(Some(4096))).unwrap();
+    let limits = crate::Limits::default().with_memory_bytes(Some(4096));
+    let outcome =
+        crate::search::prove_within(&sequent, Mode::CLASSICAL, &horn(), &limits, |_| false)
+            .unwrap();
     assert!(
         matches!(outcome.verdict, Verdict::Unknown(Reason::MemoryLimit(4096))),
         "{:?}",

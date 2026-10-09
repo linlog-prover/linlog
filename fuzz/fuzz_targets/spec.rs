@@ -8,5 +8,6 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|text: &str| {
-    let _ = linlog::mist::read_within(text, 1 << 20);
+    let limits = linlog::Limits::default().with_occurrences(Some(1 << 20));
+    let _ = linlog::mist::read(text, &limits);
 });

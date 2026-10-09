@@ -666,7 +666,7 @@ mod tests {
     use crate::families::FAMILIES;
     use crate::search::Bias;
     use crate::search::generate::{self, IllRules, Rng, Rules};
-    use crate::search::{Engine, Options, Verdict, prove_until};
+    use crate::search::{Engine, Options, Verdict, prove_within};
 
     /// The configurations of the engines that the reference judges: the
     /// dispatch, each engine forced, and the focused engines under each
@@ -733,11 +733,12 @@ mod tests {
                 None | Some(Engine::Horn) => polls,
                 Some(_) => u64::MAX,
             };
-            let stop = || {
+            let stop = |_| {
                 left = left.saturating_sub(1);
                 left == 0
             };
-            let outcome = match prove_until(&sequent, mode, &options, stop) {
+            let limits = crate::Limits::default();
+            let outcome = match prove_within(&sequent, mode, &options, &limits, stop) {
                 Ok(outcome) => outcome,
                 Err(
                     Error::NetFragment { .. }

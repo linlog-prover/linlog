@@ -433,9 +433,14 @@ impl Derivation<'_> {
         &self,
         options: &TextOptions,
         out: &mut impl Write,
-        stop: impl FnMut() -> bool,
+        stop: impl FnMut(crate::limits::Progress) -> bool,
     ) -> Result<(), Error> {
-        write_text(self, options, out, stop)
+        write_text(
+            self,
+            options,
+            out,
+            crate::limits::counting(stop, crate::limits::Phase::Write),
+        )
     }
 
     /// Writes the derivation as a numbered list of its inferences, one per
@@ -447,9 +452,13 @@ impl Derivation<'_> {
     pub fn write_steps(
         &self,
         out: &mut impl Write,
-        stop: impl FnMut() -> bool,
+        stop: impl FnMut(crate::limits::Progress) -> bool,
     ) -> Result<(), Error> {
-        write_steps(self, out, stop)
+        write_steps(
+            self,
+            out,
+            crate::limits::counting(stop, crate::limits::Phase::Write),
+        )
     }
 }
 
@@ -457,7 +466,7 @@ impl Display for Derivation<'_> {
     /// Draws the derivation as a tree of sequents under the default
     /// [`TextOptions`], one line per row, without a trailing newline.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write_text(&TextOptions::default(), f, || false)
+        self.write_text(&TextOptions::default(), f, |_| false)
             .map_err(|_| std::fmt::Error)
     }
 }

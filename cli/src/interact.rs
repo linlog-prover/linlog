@@ -14,7 +14,9 @@ use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
 use linlog::export::{latex, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
-use linlog::{Error, InfId, Interactive, Reading, Refusal, Rule, Side, StepError, ViewOptions};
+use linlog::{
+    Error, InfId, Interactive, Limits, Reading, Refusal, Rule, Side, StepError, ViewOptions,
+};
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::Path;
@@ -59,25 +61,22 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     };
     let options = Options::default()
         .memo_limit(args.memo_limit)
-        .recursion_limit(args.recursion_limit)
         .copies(args.copies.0)
         .bias(args.bias.into())
-        .forward_copies(args.forward_copies)
-        .memory_limit(args.memory_limit.0);
+        .forward_copies(args.forward_copies);
+    let limits = args.limits();
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
     let options = options.jobs(threads.jobs);
     catch_interrupt();
-    let stack_size = options.stack_size();
+    let stack_size = limits.stack_bytes();
     let mut styles = Styles::read(&args.style, None, false)?;
     bound_renders(&mut styles, args.memory_limit.0);
     let mut session = Session {
         styles,
         state,
         options,
-        view: ViewOptions {
-            memory: args.memory_limit.0,
-            ..args.derivation_limit.into()
-        },
+        view: ViewOptions::default(),
+        limits,
         timeout: args.timeout.0,
         threads,
         deepens: args.copies.0.is_none(),
@@ -102,8 +101,10 @@ struct Session {
     state: Interactive,
     /// The search settings of `close`.
     options: Options,
-    /// The bound on the derivation `close` grafts.
+    /// How the derivation `close` grafts is shown.
     view: ViewOptions,
+    /// The bounds of a `close`'s search and of the derivation it grafts.
+    limits: Limits,
     /// How long a `close` may take.
     timeout: Option<Duration>,
     /// The threads of a `close`, and how long one searches alone.
@@ -239,7 +240,7 @@ impl Session {
                 let text = match format {
                     Format::Text => {
                         let mut text = String::new();
-                        derivation.write_text(&styles.text, &mut text, || false)?;
+                        derivation.write_text(&styles.text, &mut text, |_| false)?;
                         text
                     }
                     Format::Latex => latex::derivation(&derivation, &styles.latex),
@@ -307,7 +308,8 @@ impl Session {
                     let separator = if text.is_empty() { "" } else { "\n" };
                     text = format!("{text}{separator}{}", serde_json::to_string(&proof)?);
                 } else {
-                    let mut show = Show::session(format, self.view, self.styles.clone());
+                    let mut show =
+                        Show::session(format, self.view, self.limits, self.styles.clone());
                     show.verdict = path.is_none();
                     // A Ctrl-C of an earlier `close` must not stop it.
                     clear_interrupt();
@@ -371,16 +373,19 @@ impl Session {
         let (forest, mode) = (self.state.forest(), self.state.mode());
         let parallel =
             || engine_for(forest, &goal_sequent, mode, &self.options).is_ok_and(Engine::parallel);
+        let limits = &self.limits;
         let searched = alone_first(
             &self.options,
+            limits.stack_bytes(),
             self.threads,
             &halt,
             parallel,
-            |options, halt| prove_goal(forest, &goal_sequent, mode, options, halt),
+            |options, halt| prove_goal(forest, &goal_sequent, mode, options, limits, |_| halt()),
         );
         let closed = searched.and_then(|outcome| {
             if let Verdict::Proved(proof) = &outcome.verdict {
-                self.state.close_with(goal, proof, &self.view, halt)?;
+                self.state
+                    .close_with(goal, proof, &self.view, &self.limits, |_| halt())?;
             }
             Ok(outcome)
         });

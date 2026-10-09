@@ -27,6 +27,7 @@ use super::{Answer, Decide, Options, Reason, Statistics, Task};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
+use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
@@ -52,10 +53,11 @@ impl Decide for Additive {
         &self,
         task: &Task<'_>,
         options: &Options,
+        limits: &Limits,
         account: &Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {
-        let found = search_goal(task.forest, task.goal, options, account, stop);
+        let found = search_goal(task.forest, task.goal, options, limits, account, stop);
         Ok(Answer::of_arena(task.forest, found))
     }
 }
@@ -72,6 +74,7 @@ pub(crate) fn search_goal(
     forest: &Forest,
     goal: &[OccId],
     options: &Options,
+    limits: &Limits,
     account: &Account,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
@@ -86,14 +89,14 @@ pub(crate) fn search_goal(
         nodes: Vec::new(),
         statistics: Statistics::default(),
         depth: 0,
-        recursion_limit: options.recursion_limit,
+        recursion_limit: limits.recursion_depth,
         account,
         charged: 0,
         stop,
     };
     let result = engine
         .pair(*x, *y)
-        .map_err(|r| super::focus::reason(r, options));
+        .map_err(|r| super::focus::reason(r, options, limits));
     let statistics = Statistics {
         memo_entries: engine.memo_peak,
         ..engine.statistics

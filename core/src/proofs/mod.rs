@@ -45,6 +45,7 @@ pub use style::{Labels, OpenGoal};
 
 use crate::Error;
 use crate::fragment::Mode;
+use crate::limits::{Limits, Progress};
 use crate::occurrences::{Forest, OccId};
 use crate::sequents::Sequent;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -66,14 +67,6 @@ impl std::fmt::Display for Bytes {
         }
     }
 }
-
-/// The default bound, in bytes, of what a check or a search may hold at
-/// once: 1 GiB. A proof with shared subproofs can take its checker far
-/// more than the proof's own size, and a search its memo and its arena; a
-/// call that would pass the bound ends with an error that names it
-/// instead. [`Proof::check_within`] and
-/// [`ViewOptions::memory`](ViewOptions) take another bound, or none.
-pub const DEFAULT_MEMORY_LIMIT: u64 = 1 << 30;
 
 /// The index of a node in a proof's arena.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -416,7 +409,7 @@ impl Proof {
     }
 
     /// Checks that the proof proves its sequent under the rules the mode
-    /// allows, holding [`DEFAULT_MEMORY_LIMIT`] bytes at most: every node
+    /// allows, within the default [`Limits`]: every node
     /// applies its rule to what its premises derive, the mode allows the
     /// rule, and the root derives exactly the sequent's formulas with
     /// nothing left in the unrestricted zone; in intuitionistic mode also
@@ -427,54 +420,64 @@ impl Proof {
         check::check(self, mode)
     }
 
-    /// Checks the proof as [`check`](Self::check) does, holding `memory`
-    /// bytes at most, or any number with `None`. A check that would pass
-    /// the bound ends with [`CheckError::Refused`]: the proof is then
+    /// Checks the proof as [`check`](Self::check) does, holding
+    /// `limits.memory_bytes` at most, visiting `limits.work` nodes at
+    /// most, and asking `stop` every 4 096 nodes. A check that a bound or
+    /// the stop ends answers [`CheckError::Refused`]: the proof is then
     /// neither valid nor invalid. What is counted is what the pass holds
     /// beyond the proof and its forest: twelve bytes for every node, and
     /// every sequent it keeps for a later node at the size of its tables
     /// of members, a sequent that several nodes read once for each.
-    pub fn check_within(&self, mode: Mode, memory: Option<u64>) -> Result<(), CheckError> {
-        check::check_within(self, mode, memory)
+    pub fn check_within(
+        &self,
+        mode: Mode,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<(), CheckError> {
+        check::check_within(self, mode, limits, &mut stop)
     }
 
     /// Unfolds the proof into the derivation of the standard sequent
-    /// calculus it stands for, or reports why it is not a proof, or that
-    /// the derivation is larger than the default [`ViewOptions`] allow;
-    /// see [`Derivation`], and [`derivation_with`](Self::derivation_with)
+    /// calculus it stands for, within the default [`Limits`], or reports
+    /// why it is not a proof or why the derivation was not built; see
+    /// [`Derivation`], and [`derivation_within`](Self::derivation_within)
     /// for other options.
     pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
-        self.derivation_with(&ViewOptions::default(), || false)
+        self.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
     }
 
-    /// Unfolds the proof as [`derivation`](Self::derivation) does, within
-    /// the bound of `view` and until `stop` returns true, which is asked
-    /// once per inference.
-    pub fn derivation_with(
+    /// Unfolds the proof as [`derivation`](Self::derivation) does, shown
+    /// as `view` says, within `limits.derivation_bytes` and
+    /// `limits.memory_bytes`, and until `stop` returns true, which is
+    /// asked every 4 096 nodes of the checker's passes and once per node
+    /// unfolded.
+    pub fn derivation_within(
         &self,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
     ) -> Result<Derivation<'_>, Error> {
-        Derivation::new(self, view, stop)
+        Derivation::new(self, view, limits, stop)
     }
 
     /// Returns the two-sided derivation of intuitionistic linear logic the
     /// proof stands for, or the checker's complaint in intuitionistic
-    /// mode, or that the derivation is larger than the default
-    /// [`ViewOptions`] allow. See [`Derivation::two_sided`].
+    /// mode, or why the derivation was not built. See
+    /// [`Derivation::two_sided`].
     pub fn two_sided_derivation(&self) -> Result<Derivation<'_>, Error> {
-        self.two_sided_derivation_with(&ViewOptions::default(), || false)
+        self.two_sided_derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
     }
 
     /// Unfolds the proof as
-    /// [`two_sided_derivation`](Self::two_sided_derivation) does, within
-    /// the bound of `view` and until `stop` returns true.
-    pub fn two_sided_derivation_with(
+    /// [`two_sided_derivation`](Self::two_sided_derivation) does, as
+    /// [`derivation_within`](Self::derivation_within) does.
+    pub fn two_sided_derivation_within(
         &self,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
     ) -> Result<Derivation<'_>, Error> {
-        Derivation::two_sided(self, view, stop)
+        Derivation::two_sided(self, view, limits, stop)
     }
 }
 

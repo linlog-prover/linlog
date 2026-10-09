@@ -530,7 +530,7 @@ impl Script<'_> {
 /// NanoYalla, in the options' form, or why it has no certificate.
 pub fn derivation(derivation: &Derivation, options: &Options) -> Result<String, Unsupported> {
     let mut out = String::new();
-    match write(derivation, options, &mut out, || false) {
+    match write(derivation, options, &mut out, |_| false) {
         Ok(()) => Ok(out),
         Err(Error::Unsupported(unsupported)) => Err(unsupported),
         Err(_) => unreachable!("a string takes any text and nothing stops"),
@@ -544,8 +544,9 @@ pub fn write(
     derivation: &Derivation,
     options: &Options,
     out: &mut impl Write,
-    mut stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
+    let mut stop = crate::limits::counting(stop, crate::limits::Phase::Write);
     for inference in derivation.inferences() {
         if inference.times > 1 {
             return Err(Unsupported::Compact.into());
@@ -619,9 +620,14 @@ pub fn ordinary(
     derivation: &crate::ordinary::Derivation,
     options: &Options,
     out: &mut impl Write,
-    stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    crate::ordinary::rocq::write(derivation, options, out, stop)
+    crate::ordinary::rocq::write(
+        derivation,
+        options,
+        out,
+        crate::limits::counting(stop, crate::limits::Phase::Write),
+    )
 }
 
 #[cfg(test)]

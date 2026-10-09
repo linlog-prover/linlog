@@ -239,9 +239,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   or flag adds its calls. The crane source keeps the directory
   (`modules/workspace.nix`).
 - **The search runs on its own thread** (`on_large_stack`) with the stack
-  core's `Options::stack_size` computes for the recursion limit: twice
-  the engine's measured cost per level (4 KiB unoptimized, 1 KiB
-  optimized), at least 8 MiB, because the derivation builder and its
+  core's `Limits::stack_bytes` computes for the recursion depth: twice
+  the engine's measured cost per level (12 KiB unoptimized, 2.25 KiB
+  optimized, with the margin), at least 8 MiB, because the derivation builder and its
   renderer, which also recurse to the proof's height, run on the same
   thread. A 1000-level `⊗` chain renders on it without overflow in a
   debug build. The parallel search sizes its pool's threads by the same
@@ -267,7 +267,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   goes to standard error and standard output stays empty), exit status
   3. Without a limit the load runs on the main thread as before. The
   search is `prove_goal` on that forest's roots, which is what
-  `prove_until` does after building the forest itself. A session's
+  `prove_within` does after building the forest itself. A session's
   sequent is read outside any limit: its `--timeout` is a `close`'s.
   The CLI knows why the search stopped (`Stop`), so the verdict line
   says "the time limit of 10s was reached" or "interrupted" instead of
@@ -330,7 +330,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `cli/tests/cli.rs`, which writes every time after "after " as `…`.
   An "unprovable" prints the library's `Refutation`.
 - **Every proof reported has passed the checker**: the library checks it
-  before `prove_until` returns (`Options::check`), so `--quiet` and
+  before `prove_goal` returns (`Options::check`), so `--quiet` and
   `--format json` are checked like the drawn formats; `--no-check`
   switches it off. A proof the checker rejects is `Error::Rejected`, exit
   status 2: a defect to report, not a verdict.
@@ -344,8 +344,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   name and renamed when whole, and an output dropped unfinished (an
   error) drops its buffer, so that a refused certificate leaves standard
   output empty. `--derivation-limit`
-  (`Limit`, default the library's `ViewOptions::DEFAULT_LIMIT`, `none`
-  lifts it) is `ViewOptions::limit`, on `prove`, `check` and `interact`.
+  (`Limit`, default the library's `Limits::DEFAULT_DERIVATION_BYTES`, `none`
+  lifts it) is `Limits::derivation_bytes`, on `prove`, `check` and `interact`.
   A derivation past it is not built: the verdict line stands, the exit
   status is the verdict's, and one line says how large the derivation is
   and names `--format json` and the flag (`too_large`). That line follows
@@ -404,8 +404,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Described::abbreviated`. `--no-verdict` leaves the verdict line out.
 - **The two limits on size** are the library's, with its defaults.
   `--memory-limit SIZE|none` (`Limit`, default
-  `Options::DEFAULT_MEMORY_LIMIT`; on `prove` and `interact`) is
-  `Options::memory_limit`: a search that passes it answers `unknown …
+  `Limits::DEFAULT_MEMORY_BYTES`; on `prove` and `interact`) is
+  `Limits::memory_bytes`: a search that passes it answers `unknown …
   the memory limit of 1 GiB was reached; raise it with --memory-limit`,
   exit status 3. It is also the bound of a PNG or PDF render
   (`bound_renders`, through `Show::within` and in `interact` and `seq
@@ -419,7 +419,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   exit 2. `--derivation-limit` is also the bound of a net's drawing
   (`svg::net`'s `limit`; `net_too_large`'s line names the flag).
   `--occurrence-limit N|none` (`Most`, default
-  `Forest::DEFAULT_LIMIT`) is on `SequentInput`, so on every command
+  `Limits::DEFAULT_OCCURRENCES`) is on `SequentInput`, so on every command
   that reads a sequent: `SequentInput::sequent` compares
   `Sequent::occurrences()` with it and refuses with exit status 2
   before anything unfolds, prints or lays out the sequent (a JSON

@@ -14,8 +14,8 @@ use linlog::ordinary::Image;
 use linlog::proofs::Compact;
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
-    CheckError, Error, Forest, Fragment, Mode, Proof, ProofStructure, Reading, Refusal, Sequent,
-    Size, ViewOptions,
+    CheckError, Error, Forest, Fragment, Limits, Mode, Proof, ProofStructure, Reading, Refusal,
+    Sequent, Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -24,7 +24,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Runs `f` on a thread with a stack of `size` bytes, as
-/// [`Options::stack_size`] sizes it for the recursion limit, and returns
+/// [`Limits::stack_bytes`] sizes it for the recursion depth, and returns
 /// its result.
 pub(crate) fn on_large_stack<T: Send>(size: usize, f: impl FnOnce() -> T + Send) -> Result<T> {
     thread::scope(|scope| {
@@ -60,6 +60,7 @@ pub(crate) fn on_large_stack<T: Send>(size: usize, f: impl FnOnce() -> T + Send)
 /// itself. The outcome of two searches has the counters of both.
 pub(crate) fn alone_first<E: Send>(
     options: &Options,
+    stack: usize,
     threads: Threads,
     halt: &(dyn Fn() -> bool + Sync),
     parallel: impl FnOnce() -> bool,
@@ -78,7 +79,7 @@ pub(crate) fn alone_first<E: Send>(
         let (search, decided, is_decided) = (&search, &decided, &is_decided);
         let single = thread::Builder::new()
             .name("search alone".into())
-            .stack_size(options.stack_size())
+            .stack_size(stack)
             .spawn_scoped(scope, move || {
                 let outcome = search(&options.clone().jobs(1), &mut || {
                     halt() || decided.load(Ordering::Relaxed)
@@ -180,8 +181,10 @@ pub(crate) struct Show {
     file: bool,
     /// The options of every format.
     pub(crate) styles: Styles,
-    /// The bound on what is built.
+    /// How a derivation is shown.
     pub(crate) view: ViewOptions,
+    /// The bounds on what is built and on the memory it takes.
+    pub(crate) limits: Limits,
     /// When the derivation is written.
     pub(crate) tree: Tree,
     /// The columns and rows of the terminal the output goes to, if it goes
@@ -249,11 +252,12 @@ impl Show {
             net: output.net,
             file: output.output.is_some(),
             styles,
-            view: ViewOptions::from(output.derivation_limit).compact(match format {
+            view: ViewOptions::default().compact(match format {
                 // A certificate names every formula it weakens.
                 Format::Rocq => Compact::Never,
                 _ => output.compact.into(),
             }),
+            limits: Limits::default().with_derivation_bytes(output.derivation_limit.0),
             tree: output.tree,
             terminal,
             screens: output.screens.0.map(u64::from),
@@ -265,20 +269,27 @@ impl Show {
     /// The same, with every derivation and the check behind it, and every
     /// render, within `memory` bytes.
     pub(crate) fn within(mut self, memory: Option<u64>) -> Self {
-        self.view.memory = memory;
+        self.limits.memory_bytes = memory;
         bound_renders(&mut self.styles, memory);
         self
     }
 
-    /// A derivation of any size within `view` in `format`, wherever it
-    /// goes, under `styles`: what a session writes when asked for a proof.
-    pub(crate) fn session(format: Format, view: ViewOptions, styles: Styles) -> Self {
+    /// A derivation of any size within `limits`, shown as `view` says, in
+    /// `format`, wherever it goes, under `styles`: what a session writes
+    /// when asked for a proof.
+    pub(crate) fn session(
+        format: Format,
+        view: ViewOptions,
+        limits: Limits,
+        styles: Styles,
+    ) -> Self {
         Self {
             format,
             net: false,
             file: false,
             styles,
             view,
+            limits,
             tree: Tree::Always,
             terminal: None,
             screens: None,
@@ -625,11 +636,14 @@ pub(crate) fn derivation(
     let fit = show.fit();
     let mut view = show.view;
     if let Some((columns, most)) = fit {
-        let size = match proof.derivation_size_within(mode.intuitionistic, show.view.memory) {
+        let size = match proof.derivation_size_within(mode.intuitionistic, &show.limits, |_| halt())
+        {
             Ok(size) => size,
             // No verdict on the proof: the pass was given up.
             Err(CheckError::Refused(_)) => {
-                return Ok(Shown::LeftOut(proof_unread(show.view.memory.unwrap_or(0))));
+                return Ok(Shown::LeftOut(proof_unread(
+                    show.limits.memory_bytes.unwrap_or(0),
+                )));
             }
             Err(e) => return Err(invalid(e)),
         };
@@ -647,9 +661,9 @@ pub(crate) fn derivation(
         }
     }
     let built = if mode.intuitionistic {
-        proof.two_sided_derivation_with(&view, &mut halt)
+        proof.two_sided_derivation_within(&view, &show.limits, |_| halt())
     } else {
-        proof.derivation_with(&view, &mut halt)
+        proof.derivation_within(&view, &show.limits, |_| halt())
     };
     let d = match built {
         Ok(d) => d,
@@ -677,7 +691,7 @@ pub(crate) fn derivation(
     }
     if show.format.is_binary() {
         let mut drawing = String::new();
-        if svg::write(&d, &styles.svg, &mut drawing, &mut halt).is_err() {
+        if svg::write(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
             return Ok(stopped());
         }
         drop(d);
@@ -693,12 +707,12 @@ pub(crate) fn derivation(
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
-        Format::Latex => latex::write(&d, &styles.latex, &mut out, &mut halt),
-        Format::Typst => typst::write(&d, &styles.typst, &mut out, &mut halt),
-        Format::Svg => svg::write(&d, &styles.svg, &mut out, &mut halt),
-        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, &mut halt),
+        Format::Latex => latex::write(&d, &styles.latex, &mut out, |_| halt()),
+        Format::Typst => typst::write(&d, &styles.typst, &mut out, |_| halt()),
+        Format::Svg => svg::write(&d, &styles.svg, &mut out, |_| halt()),
+        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, |_| halt()),
         Format::Text | Format::Json | Format::Png | Format::Pdf => {
-            d.write_text(&styles.text, &mut out, &mut halt)
+            d.write_text(&styles.text, &mut out, |_| halt())
         }
     };
     match written {
@@ -739,7 +753,7 @@ pub fn sequent_in(
         });
     }
     // The sequent was admitted when it was read.
-    let forest = Forest::within(sequent, u64::MAX)?;
+    let forest = Forest::within(sequent, &Limits::UNBOUNDED)?;
     let reading = Reading::new(&forest)
         .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
     Ok(match format {
@@ -781,7 +795,7 @@ pub(crate) fn note(format: Format, text: &str) -> String {
 /// Returns a search error with formulas where the library's message has
 /// occurrence ids.
 pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
-    match (&error, Forest::within(sequent, u64::MAX)) {
+    match (&error, Forest::within(sequent, &Limits::UNBOUNDED)) {
         (Error::NotIntuitionistic(e), Ok(forest)) => {
             anyhow!("not an intuitionistic sequent: {}", e.describe(&forest))
         }
@@ -952,7 +966,7 @@ pub(crate) fn net_into(
         write!(out, "{separator}{net}")?;
         return Ok(Shown::Written);
     }
-    let drawing = match svg::net(net, &show.styles.svg, show.view.limit) {
+    let drawing = match svg::net(net, &show.styles.svg, show.limits.derivation_bytes) {
         Ok(drawing) => drawing,
         Err(error) => return Ok(Shown::LeftOut(net_too_large(net, &error))),
     };
@@ -1029,15 +1043,13 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     }
     let options = Options::default()
         .memo_limit(args.memo_limit)
-        .recursion_limit(args.recursion_limit)
         .engine(args.engine.into())
         .fragment(args.fragment.map(Into::into))
         .copies(args.copies.0)
         .bias(args.bias.into())
         .forward_copies(args.forward_copies)
-        .check(!args.no_check)
-        .memory_limit(args.memory_limit.0)
-        .occurrence_limit(args.input.most());
+        .check(!args.no_check);
+    let limits = args.limits();
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
     let options = options.jobs(threads.jobs);
     let deepens = args.copies.0.is_none() && sequent.fragment().has_exponentials();
@@ -1046,16 +1058,21 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     catch_interrupt();
 
-    let status = on_large_stack(options.stack_size(), || {
+    let status = on_large_stack(limits.stack_bytes(), || {
         let start = Instant::now();
         let notice = Notice::start(NOTICE_AFTER, notice_line(deadline.limit(), deepens));
         // Both conditions are flags, so every poll asks both.
         let halt = || interrupted() || deadline.passed();
         let parallel =
             || engine_for(&forest, forest.roots(), mode, &options).is_ok_and(Engine::parallel);
-        let outcome = alone_first(&options, threads, &halt, parallel, |options, halt| {
-            prove_goal(&forest, forest.roots(), mode, options, halt)
-        })
+        let outcome = alone_first(
+            &options,
+            limits.stack_bytes(),
+            threads,
+            &halt,
+            parallel,
+            |options, halt| prove_goal(&forest, forest.roots(), mode, options, &limits, |_| halt()),
+        )
         .map_err(|e| describe(e, sequent))?;
         let stop = stopped(&deadline);
         drop(notice);
@@ -1274,7 +1291,7 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     let path = args.output.output.clone();
     exit_on_interrupt();
-    let valid = on_large_stack(Options::default().stack_size(), move || {
+    let valid = on_large_stack(Limits::default().stack_bytes(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let (valid, keep) = check_into(&proof, mode, &show, quiet, &mut out)?;
         if keep {
@@ -1296,7 +1313,7 @@ fn check_into(
     out: &mut io::Output,
 ) -> Result<(bool, bool)> {
     let format = show.format;
-    let result = proof.check_within(mode, show.view.memory);
+    let result = proof.check_within(mode, &show.limits, |_| false);
     if let Err(refusal @ CheckError::Refused(_)) = &result {
         bail!("the proof is not checked: {refusal}; raise the limit with --memory-limit");
     }

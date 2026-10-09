@@ -15,7 +15,7 @@ use linlog::export::{latex, svg, typst};
 use linlog::ordinary::{self, Logic, Translation};
 use linlog::proofs::TextOptions;
 use linlog::search::{Bias, batch};
-use linlog::{Mode, Options, Proof, Sequent, Verdict, ViewOptions};
+use linlog::{Limits, Mode, Options, Proof, Sequent, Verdict, ViewOptions};
 use std::fmt::Write as _;
 use std::hint::black_box;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -277,7 +277,7 @@ fn read_lltp() -> Result<()> {
         text,
         "fof(start, axiom, p0).\nfof(goal, conjecture, p{LINES})."
     )?;
-    measured(|| linlog::lltp::read(&text))?;
+    measured(|| linlog::lltp::read(&text, &Limits::default()))?;
     Ok(())
 }
 
@@ -319,14 +319,14 @@ fn spec() -> Result<String> {
 /// Reads a coverability problem.
 fn read_spec() -> Result<()> {
     let text = spec()?;
-    measured(|| linlog::mist::read(&text))?;
+    measured(|| linlog::mist::read(&text, &Limits::default()))?;
     Ok(())
 }
 
 /// Decides a coverability problem as the harness does, intuitionistic
 /// affine.
 fn search_spec() -> Result<()> {
-    let problem = linlog::mist::read(&spec()?)?;
+    let problem = linlog::mist::read(&spec()?, &Limits::default())?;
     let mode = Mode {
         intuitionistic: true,
         affine: true,
@@ -348,9 +348,10 @@ fn check(family: &str, size: u32, index: u32) -> Result<()> {
 fn derivation() -> Result<()> {
     let proof = proof("chain", 64, 0)?;
     measured(|| -> Result<usize> {
-        let derivation = proof.derivation_with(&ViewOptions::default(), || false)?;
+        let derivation =
+            proof.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)?;
         let mut text = String::new();
-        derivation.write_text(&TextOptions::default(), &mut text, || false)?;
+        derivation.write_text(&TextOptions::default(), &mut text, |_| false)?;
         Ok(text.len())
     })?;
     Ok(())
@@ -393,13 +394,14 @@ fn batch() -> Result<()> {
         })
         .collect();
     let options = batch::Options {
-        // The rarer literal's search alone, as `options` takes it with
-        // exponentials, for every problem.
-        search: Options::default().jobs(1).bias(Bias::Rarer).check(false),
         cores: batch::Cores::Across,
         ..batch::Options::default()
     };
-    let decided = measured(|| batch::prove(problems, &options).count());
+    // The rarer literal's search alone, as `options` takes it with
+    // exponentials, for every problem.
+    let search = Options::default().jobs(1).bias(Bias::Rarer).check(false);
+    let decided =
+        measured(|| batch::prove(problems, &options, &search, &Limits::default()).count());
     black_box(decided);
     Ok(())
 }
@@ -434,7 +436,10 @@ fn ordinary() -> Result<()> {
         let Verdict::Proved(proof) = outcome.verdict else {
             bail!("the pigeonhole formula is valid: {:?}", outcome.verdict);
         };
-        let linear = image.linear_derivation(&proof, &ViewOptions::default(), || false)?;
+        let linear =
+            image.linear_derivation(&proof, &ViewOptions::default(), &Limits::default(), |_| {
+                false
+            })?;
         image.read_back(&linear)?.check()?;
         Ok(())
     })

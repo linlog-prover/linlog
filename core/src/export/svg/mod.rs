@@ -570,7 +570,7 @@ pub fn two_sided(reading: &Reading, style: &Style) -> String {
 /// drawing it again after every step of an interactive proof stays cheap.
 pub fn derivation(derivation: &Derivation, style: &Style) -> String {
     let mut out = String::new();
-    write(derivation, style, &mut out, || false).expect("a string takes any text");
+    write(derivation, style, &mut out, |_| false).expect("a string takes any text");
     out
 }
 
@@ -581,9 +581,14 @@ pub fn write(
     derivation: &Derivation,
     style: &Style,
     out: &mut impl Write,
-    stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree::draw(derivation, style, out, stop)
+    tree::draw(
+        derivation,
+        style,
+        out,
+        crate::limits::counting(stop, crate::limits::Phase::Write),
+    )
 }
 
 /// Writes a derivation of LK or LJ into `out` as [`write()`] draws a
@@ -599,9 +604,14 @@ pub fn ordinary(
     derivation: &ordinary::Derivation,
     style: &Style,
     out: &mut impl Write,
-    stop: impl FnMut() -> bool,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree::draw(derivation, style, out, stop)
+    tree::draw(
+        derivation,
+        style,
+        out,
+        crate::limits::counting(stop, crate::limits::Phase::Write),
+    )
 }
 
 /// Returns a proof structure, a proof net or not, complete or not, as an
@@ -620,7 +630,7 @@ pub fn ordinary(
 /// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
 ///
 /// A drawing estimated at more than `limit` bytes is not drawn, as a
-/// derivation past [`ViewOptions::limit`](crate::ViewOptions) is not
+/// derivation past [`Limits::derivation_bytes`](crate::Limits::derivation_bytes) is not
 /// built: the estimate counts every literal, connective, conclusion and
 /// link from the structure, at least what the drawing has, and `None`
 /// lifts the bound.

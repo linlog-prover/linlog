@@ -451,7 +451,7 @@ impl Shared {
 
     /// Decides an entry, writes its derivation if one is asked for, and
     /// returns what is written for it.
-    fn answer(&self, entry: Entry, search: &Options) -> Done {
+    fn answer(&self, entry: Entry, plan: &batch::Plan) -> Done {
         let name = entry.name.clone();
         let failed = |e: anyhow::Error| Done {
             text: self.line(&name, "error", &format!("{e:#}")),
@@ -473,11 +473,12 @@ impl Shared {
         if self.args.batch.isolate {
             return self.isolated(entry).unwrap_or_else(failed);
         }
-        self.decide(entry, search).unwrap_or_else(failed)
+        self.decide(entry, plan).unwrap_or_else(failed)
     }
 
     /// Decides an entry in this process.
-    fn decide(&self, entry: Entry, search: &Options) -> Result<Done> {
+    fn decide(&self, entry: Entry, plan: &batch::Plan) -> Result<Done> {
+        let (search, limits) = (&plan.search, &plan.limits);
         let args = &self.args;
         let deadline = Deadline::start(args.timeout.0, Instant::now())?;
         let most = args.input.most();
@@ -497,7 +498,10 @@ impl Shared {
             } else {
                 (sequent_in(&text, format, most)?, None)
             };
-            Ok((Forest::from_owned(admit(sequent, most)?, most)?, image))
+            Ok((
+                Forest::from_owned(admit(sequent, most)?, &io::bound(most))?,
+                image,
+            ))
         })?;
         let Some(forest) = loaded else {
             let limit = deadline.limit().expect("only a limit passes");
@@ -523,11 +527,19 @@ impl Shared {
         let outcome = if search.job_count() > 1 {
             let parallel =
                 || engine_for(&forest, forest.roots(), mode, search).is_ok_and(Engine::parallel);
-            alone_first(search, self.threads, &halt, parallel, |options, halt| {
-                prove_goal(&forest, forest.roots(), mode, options, halt)
-            })
+            let stack = limits.stack_bytes();
+            alone_first(
+                search,
+                stack,
+                self.threads,
+                &halt,
+                parallel,
+                |options, halt| {
+                    prove_goal(&forest, forest.roots(), mode, options, limits, |_| halt())
+                },
+            )
         } else {
-            prove_goal(&forest, forest.roots(), mode, search, halt)
+            prove_goal(&forest, forest.roots(), mode, search, limits, |_| halt())
         }
         .map_err(|e| describe(e, sequent))?;
         let elapsed = start.elapsed();
@@ -902,17 +914,15 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
     let search = Options::default()
         .memo_limit(args.memo_limit)
-        .recursion_limit(args.recursion_limit)
         .engine(args.engine.into())
         .fragment(args.fragment.map(Into::into))
         .copies(args.copies.0)
         .bias(args.bias.into())
         .forward_copies(args.forward_copies)
         .check(!args.no_check)
-        .memory_limit(args.memory_limit.0)
-        .occurrence_limit(args.input.most())
         .jobs(threads.jobs)
         .pool(Some(Pool::new()));
+    let limits = args.limits();
     let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
     let cores = match args.batch.cores {
         // A program that writes a question and waits for its answer
@@ -924,7 +934,6 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
     };
     let machine = std::thread::available_parallelism().map_or(1, |n| n.get());
     let options = batch::Options {
-        search,
         mode: args.mode.mode(),
         cores,
         workers: args
@@ -932,9 +941,11 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
             .workers
             .unwrap_or(machine)
             .clamp(1, Options::MAX_JOBS),
-        memory_limit: match args.batch.batch_memory {
+        total_memory_bytes: match args.batch.batch_memory {
             Some(limit) => limit.0,
-            None => Some(machine_memory().map_or(batch::Options::DEFAULT_MEMORY_LIMIT, |m| m / 2)),
+            None => {
+                Some(machine_memory().map_or(batch::Options::DEFAULT_TOTAL_MEMORY_BYTES, |m| m / 2))
+            }
         },
     };
     let mut entries = Entries::new(args)?;
@@ -947,7 +958,12 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
             .as_deref()
             .map(mode_named)
             .transpose()?;
-        return one(args, show, threads, directory, &options, entry);
+        let plan = batch::Plan {
+            workers: 1,
+            search,
+            limits,
+        };
+        return one(args, show, threads, directory, &plan, entry);
     }
     catch_interrupt();
     let shared = Arc::new(Shared {
@@ -958,10 +974,10 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
         directory,
     });
     let worker = shared.clone();
-    let stack = options.search.stack_size();
+    let stack = limits.stack_bytes();
     on_large_stack(stack, move || {
-        let results = batch::run(entries, &options, move |entry, search| {
-            worker.answer(entry, search)
+        let results = batch::run(entries, &options, &search, &limits, move |entry, plan| {
+            worker.answer(entry, plan)
         });
         let mut worst = Status::Yes;
         let mut stdout = std::io::stdout().lock();
@@ -982,10 +998,9 @@ fn one(
     show: Show,
     threads: Threads,
     directory: Option<PathBuf>,
-    options: &batch::Options,
+    plan: &batch::Plan,
     entry: Entry,
 ) -> Result<Status> {
-    let search = options.search.clone();
     let shared = Shared {
         args: Arc::new(args.clone()),
         show,
@@ -993,7 +1008,7 @@ fn one(
         threads,
         directory,
     };
-    let done = on_large_stack(search.stack_size(), || shared.answer(entry, &search))?;
+    let done = on_large_stack(plan.limits.stack_bytes(), || shared.answer(entry, plan))?;
     println!("{}", done.text);
     Ok(done.status)
 }

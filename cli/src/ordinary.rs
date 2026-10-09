@@ -81,7 +81,7 @@ pub(crate) fn derivation(
         return Ok(Shown::Nothing);
     }
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
-    let linear = match image.linear_derivation(proof, &show.view, &mut halt) {
+    let linear = match image.linear_derivation(proof, &show.view, &show.limits, |_| halt()) {
         Ok(linear) => linear,
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) if error.is_refusal() => {
@@ -110,7 +110,7 @@ pub(crate) fn derivation(
     }
     if show.format.is_binary() {
         let mut drawing = String::new();
-        if svg::ordinary(&d, &styles.svg, &mut drawing, &mut halt).is_err() {
+        if svg::ordinary(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
             return Ok(stopped());
         }
         drop(d);
@@ -124,12 +124,12 @@ pub(crate) fn derivation(
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
-        Format::Latex => latex::ordinary(&d, &styles.latex, &mut out, &mut halt),
-        Format::Typst => typst::ordinary(&d, &styles.typst, &mut out, &mut halt),
-        Format::Svg => svg::ordinary(&d, &styles.svg, &mut out, &mut halt),
-        Format::Rocq => rocq::ordinary(&d, &styles.rocq, &mut out, &mut halt),
+        Format::Latex => latex::ordinary(&d, &styles.latex, &mut out, |_| halt()),
+        Format::Typst => typst::ordinary(&d, &styles.typst, &mut out, |_| halt()),
+        Format::Svg => svg::ordinary(&d, &styles.svg, &mut out, |_| halt()),
+        Format::Rocq => rocq::ordinary(&d, &styles.rocq, &mut out, |_| halt()),
         Format::Text | Format::Json | Format::Png | Format::Pdf => {
-            d.write_text(&styles.text, &mut out, &mut halt)
+            d.write_text(&styles.text, &mut out, |_| halt())
         }
     };
     match written {

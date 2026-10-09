@@ -32,10 +32,10 @@
 //! a goal at all. Every intuitionistic rule is a classical rule on the
 //! one-sided sequent, so nothing else is intuitionistic about a proof.
 
-use super::{Branch, DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof};
+use super::{Branch, Node, NodeId, Proof};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
-use crate::limits::{Phase, Refusal};
+use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -549,6 +549,47 @@ enum Halt {
         /// The bound, in bytes.
         limit: u64,
     },
+    /// The pass has visited as many nodes as its bound on work allows.
+    Work {
+        /// The bound, in nodes.
+        limit: u64,
+    },
+    /// The caller's stop ended the pass.
+    Stopped,
+}
+
+/// How many nodes a pass visits between two polls of its stop.
+const POLL: usize = 4096;
+
+/// What a pass of the checker may spend, and whom it asks whether to go
+/// on: the memory bound, the most nodes it may visit, the phase a refusal
+/// names, and the caller's stop, asked every [`POLL`] nodes with the
+/// nodes visited as the work done.
+pub(crate) struct Allowance<'s> {
+    /// The most bytes the pass may hold, or `None` for any number.
+    pub(crate) memory: Option<u64>,
+    /// The most nodes the pass may visit, or `None` for any number.
+    pub(crate) work: Option<u64>,
+    /// What the pass is for.
+    pub(crate) phase: Phase,
+    /// The caller's stop.
+    pub(crate) stop: &'s mut dyn FnMut(Progress) -> bool,
+}
+
+impl<'s> Allowance<'s> {
+    /// Returns what `limits` allow a pass for `phase` that asks `stop`.
+    pub(crate) fn new(
+        limits: &Limits,
+        phase: Phase,
+        stop: &'s mut dyn FnMut(Progress) -> bool,
+    ) -> Self {
+        Self {
+            memory: limits.memory_bytes,
+            work: limits.work,
+            phase,
+            stop,
+        }
+    }
 }
 
 impl From<Fault> for Halt {
@@ -749,9 +790,9 @@ impl std::error::Error for CheckError {}
 ///
 /// The memory taken is that of the sequents some later node still reads,
 /// which for a proof without shared subproofs is proportional to the
-/// proof, and within [`DEFAULT_MEMORY_LIMIT`]: see [`check_within`].
+/// proof, and within [`Limits::DEFAULT_MEMORY_BYTES`]: see [`check_within`].
 pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
-    check_within(proof, mode, Some(DEFAULT_MEMORY_LIMIT))
+    check_within(proof, mode, &Limits::default(), &mut |_| false)
 }
 
 /// Checks that a proof proves its sequent as [`check`] does, holding
@@ -775,7 +816,8 @@ pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
 pub(crate) fn check_within(
     proof: &Proof,
     mode: Mode,
-    memory: Option<u64>,
+    limits: &Limits,
+    stop: &mut dyn FnMut(Progress) -> bool,
 ) -> Result<(), CheckError> {
     let reading = reading(proof, mode)?;
     examine(
@@ -783,7 +825,7 @@ pub(crate) fn check_within(
         proof.forest().roots(),
         mode,
         reading.as_ref(),
-        memory,
+        Allowance::new(limits, Phase::Check, stop),
         &mut (),
     )
 }
@@ -815,11 +857,12 @@ pub(crate) fn examine<O: Observer>(
     goal: &[OccId],
     mode: Mode,
     reading: Option<&Reading>,
-    memory: Option<u64>,
+    allowance: Allowance<'_>,
     observer: &mut O,
 ) -> Result<(), CheckError> {
-    afford(proof, observer.bytes(), memory)?;
-    let mut pass = Pass::new(proof, goal.len(), mode, reading, memory, observer);
+    let (memory, phase) = (allowance.memory, allowance.phase);
+    afford(proof, observer.bytes(), memory, phase)?;
+    let mut pass = Pass::new(proof, goal.len(), mode, reading, allowance, observer);
     let end = proof.nodes().len();
     let (node, halt) = match pass.run(end) {
         Err(failure) => failure,
@@ -834,7 +877,9 @@ pub(crate) fn examine<O: Observer>(
         Halt::Fault(fault) => fault,
         // A refusal shows no premises: deriving them again would take the
         // memory that was refused.
-        Halt::Memory { limit } => return Err(memory_refused(node, limit)),
+        Halt::Memory { limit } => return Err(memory_refused(node, limit, phase)),
+        Halt::Work { limit } => return Err(refused(node, Refusal::Work { limit })),
+        Halt::Stopped => return Err(refused(node, Refusal::Stopped { phase })),
     };
     // The premises' sequents are gone, moved into the node that failed, so
     // the pass runs once more up to it. They are kept then, since the node
@@ -842,7 +887,14 @@ pub(crate) fn examine<O: Observer>(
     // up to there, with nothing of an observer's to count: it holds no
     // more, and cannot fail.
     let mut nobody = ();
-    let mut pass = Pass::new(proof, goal.len(), mode, reading, memory, &mut nobody);
+    let mut never = |_| false;
+    let again = Allowance {
+        memory,
+        work: None,
+        phase,
+        stop: &mut never,
+    };
+    let mut pass = Pass::new(proof, goal.len(), mode, reading, again, &mut nobody);
     let again = pass.run(node.index());
     debug_assert!(again.is_ok());
     let premises = rule
@@ -854,15 +906,20 @@ pub(crate) fn examine<O: Observer>(
 
 /// The refusal of a pass at `node` that would hold more than `limit`
 /// bytes.
-fn memory_refused(node: NodeId, limit: u64) -> CheckError {
-    CheckError::Refused(Refused {
+fn memory_refused(node: NodeId, limit: u64, phase: Phase) -> CheckError {
+    refused(
         node,
-        refusal: Refusal::Memory {
-            phase: Phase::Check,
+        Refusal::Memory {
+            phase,
             limit_bytes: limit,
             needed_bytes: None,
         },
-    })
+    )
+}
+
+/// The refusal of a pass at `node`.
+fn refused(node: NodeId, refusal: Refusal) -> CheckError {
+    CheckError::Refused(Refused { node, refusal })
 }
 
 /// Returns the bytes of the two tables a pass over `proof` keeps: a count
@@ -875,10 +932,15 @@ fn tables(proof: &Proof) -> u64 {
 /// Refuses a pass over `proof` that may hold `memory` bytes when its own
 /// tables and the `observer` bytes of its observer's are more than that
 /// already. An observer asks before it allocates its own.
-pub(crate) fn afford(proof: &Proof, observer: u64, memory: Option<u64>) -> Result<(), CheckError> {
+pub(crate) fn afford(
+    proof: &Proof,
+    observer: u64,
+    memory: Option<u64>,
+    phase: Phase,
+) -> Result<(), CheckError> {
     match memory {
         Some(limit) if tables(proof).saturating_add(observer) > limit => {
-            Err(memory_refused(NodeId::new(0), limit))
+            Err(memory_refused(NodeId::new(0), limit, phase))
         }
         _ => Ok(()),
     }
@@ -930,7 +992,7 @@ pub(crate) struct Facts<'a> {
 }
 
 /// The pass over a proof's nodes.
-struct Pass<'a, O> {
+struct Pass<'a, 's, O> {
     /// The proof.
     proof: &'a Proof,
     /// Its forest.
@@ -956,6 +1018,12 @@ struct Pass<'a, O> {
     shared: Vec<OccId>,
     /// The most bytes the pass may hold, or none for any number.
     memory: Option<u64>,
+    /// The most nodes the pass may visit, or none for any number.
+    work: Option<u64>,
+    /// What the pass is for, which its progress names.
+    phase: Phase,
+    /// The caller's stop, asked every [`POLL`] nodes.
+    stop: &'s mut dyn FnMut(Progress) -> bool,
     /// The bytes the pass holds itself: its two tables, and every sequent
     /// in `live` or in the hands of the current rule, each as
     /// [`State::bytes`] counts it. Every part is allocated, and counted
@@ -968,7 +1036,7 @@ struct Pass<'a, O> {
     passed: u64,
 }
 
-impl<'a, O: Observer> Pass<'a, O> {
+impl<'a, 's, O: Observer> Pass<'a, 's, O> {
     /// The pass before its first node, which [`afford`] has allowed its
     /// tables.
     fn new(
@@ -976,7 +1044,7 @@ impl<'a, O: Observer> Pass<'a, O> {
         goal: usize,
         mode: Mode,
         reading: Option<&'a Reading<'a>>,
-        memory: Option<u64>,
+        allowance: Allowance<'s>,
         observer: &'a mut O,
     ) -> Self {
         let mut readers = vec![0; proof.nodes().len()];
@@ -998,7 +1066,10 @@ impl<'a, O: Observer> Pass<'a, O> {
             live,
             observer,
             shared: Vec::new(),
-            memory,
+            memory: allowance.memory,
+            work: allowance.work,
+            phase: allowance.phase,
+            stop: allowance.stop,
             held,
             passed: 0,
         }
@@ -1023,6 +1094,18 @@ impl<'a, O: Observer> Pass<'a, O> {
     /// than its bound.
     fn run(&mut self, end: usize) -> Result<(), (NodeId, Halt)> {
         for id in self.proof.ids().take(end) {
+            // Below 2³² nodes, so the counts are exact.
+            let done = id.index() as u64;
+            if let Some(limit) = self.work
+                && done >= limit
+            {
+                return Err((id, Halt::Work { limit }));
+            }
+            if (id.index() + 1).is_multiple_of(POLL)
+                && (self.stop)(Progress::new(self.phase, POLL as u64, done + 1))
+            {
+                return Err((id, Halt::Stopped));
+            }
             let mut facts = Facts::default();
             self.passed = 0;
             let state = self
@@ -2044,16 +2127,42 @@ mod tests {
     fn holds_no_more_than_its_bound() {
         let mode = Mode::CLASSICAL;
         let small = shared(200, 6);
-        assert_eq!(small.check_within(mode, None), Ok(()));
+        assert_eq!(
+            small.check_within(
+                mode,
+                &crate::Limits::default().with_memory_bytes(None),
+                |_| false
+            ),
+            Ok(())
+        );
         assert_eq!(small.check(mode), oracle::check(&small, mode));
         // 201 formulas take 256 slots of nine bytes: under 3 KB a copy, 64
         // copies and as many nodes within 256 KB, and not within 64 KB.
-        assert_eq!(small.check_within(mode, Some(256 << 10)), Ok(()));
-        let e = small.check_within(mode, Some(64 << 10)).unwrap_err();
+        assert_eq!(
+            small.check_within(
+                mode,
+                &crate::Limits::default().with_memory_bytes(Some(256 << 10)),
+                |_| false
+            ),
+            Ok(())
+        );
+        let e = small
+            .check_within(
+                mode,
+                &crate::Limits::default().with_memory_bytes(Some(64 << 10)),
+                |_| false,
+            )
+            .unwrap_err();
         assert!(matches!(e, CheckError::Refused(_)), "{e}");
         // The pass's own tables, twelve bytes for each of 328 nodes, are
         // refused before the first node.
-        let e = small.check_within(mode, Some(3900)).unwrap_err();
+        let e = small
+            .check_within(
+                mode,
+                &crate::Limits::default().with_memory_bytes(Some(3900)),
+                |_| false,
+            )
+            .unwrap_err();
         assert!(
             matches!(e, CheckError::Refused(_)) && e.node() == n(0),
             "{e}"
@@ -2067,7 +2176,13 @@ mod tests {
             assert!((900_000..1_200_000).contains(&file), "{file} bytes");
         }
         let limit = 64 << 20;
-        let e = large.check_within(mode, Some(limit)).unwrap_err();
+        let e = large
+            .check_within(
+                mode,
+                &crate::Limits::default().with_memory_bytes(Some(limit)),
+                |_| false,
+            )
+            .unwrap_err();
         let CheckError::Refused(refused) = &e else {
             panic!("{e}")
         };
@@ -2094,11 +2209,18 @@ mod tests {
         // The size and the derivation are under the same bound, and their
         // refusal is no invalid proof either.
         assert!(matches!(
-            large.derivation_size_within(false, Some(limit)),
+            large.derivation_size_within(
+                false,
+                &crate::Limits::default().with_memory_bytes(Some(limit)),
+                |_| false
+            ),
             Err(CheckError::Refused(_))
         ));
-        let view = crate::proofs::ViewOptions::UNBOUNDED.memory(Some(limit));
-        let refused = large.derivation_with(&view, || false).unwrap_err();
+        let view = crate::proofs::ViewOptions::default();
+        let limits = crate::Limits::UNBOUNDED.with_memory_bytes(Some(limit));
+        let refused = large
+            .derivation_within(&view, &limits, |_| false)
+            .unwrap_err();
         assert!(matches!(
             refused,
             crate::Error::Check(CheckError::Refused(_))

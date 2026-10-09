@@ -3,6 +3,7 @@
 
 use super::translate::{Core, Image, pattern};
 use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
+use crate::limits::{Limits, Progress};
 use crate::occurrences::OccId;
 use crate::proofs::style::Drawn;
 use crate::proofs::{Compact, InfId, Labels, Rule as Linear, TextOptions, ViewOptions};
@@ -501,9 +502,14 @@ impl Derivation {
         &self,
         options: &TextOptions,
         out: &mut impl Write,
-        stop: impl FnMut() -> bool,
+        stop: impl FnMut(crate::limits::Progress) -> bool,
     ) -> Result<(), Error> {
-        crate::proofs::fmt::write_text(self, options, out, stop)
+        crate::proofs::fmt::write_text(
+            self,
+            options,
+            out,
+            crate::limits::counting(stop, crate::limits::Phase::Write),
+        )
     }
 }
 
@@ -511,7 +517,7 @@ impl Display for Derivation {
     /// Draws the derivation as a tree of sequents under the default
     /// [`TextOptions`], one line per row, without a trailing newline.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write_text(&TextOptions::default(), f, || false)
+        self.write_text(&TextOptions::default(), f, |_| false)
             .map_err(|_| std::fmt::Error)
     }
 }
@@ -627,22 +633,23 @@ impl Image {
     /// Unfolds a proof of the image into the derivation the read-back
     /// reads: two-sided for an image in ILL, one-sided otherwise, never
     /// compact; `view` bounds it and `stop` ends it as for
-    /// [`Proof::derivation_with`].
+    /// [`Proof::derivation_within`].
     ///
     /// # Errors
     ///
-    /// As [`Proof::derivation_with`].
+    /// As [`Proof::derivation_within`].
     pub fn linear_derivation<'p>(
         &self,
         proof: &'p Proof,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
     ) -> Result<crate::Derivation<'p>, Error> {
         let view = view.compact(Compact::Never);
         if self.mode.intuitionistic {
-            proof.two_sided_derivation_with(&view, stop)
+            proof.two_sided_derivation_within(&view, limits, stop)
         } else {
-            proof.derivation_with(&view, stop)
+            proof.derivation_within(&view, limits, stop)
         }
     }
 
@@ -928,7 +935,12 @@ mod tests {
             panic!("provable");
         };
         let linear = image
-            .linear_derivation(proof, &ViewOptions::default(), || false)
+            .linear_derivation(
+                proof,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         let derivation = image.read_back(&linear).unwrap();
         let tree = derivation.to_string();

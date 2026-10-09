@@ -79,7 +79,7 @@ supervisor's go are marked "go".
 | h. the renames (`Atom`, `Branch`, `Side`, …) and what becomes private (2.3, 2.4) | done, gate interrupted by the pause | ksnmyzmo; the rest of 2.3 (`Forest::from_owned` stays public: the command builds a forest of a sequent it owns without a clone) comes with its items |
 | i. `Mode` and `Fragment` (3.5) | open | |
 | j. one error family (4) | first commit done, gate interrupted by the pause | yzywpzko: `Error` non-exhaustive with named fields, `ErrorKind`, `code()`, `CODES`, `setting()`; `limits` module (`Limits`, `Progress`, `Phase`, `Refusal`, `Space`); `CheckError::{Invalid, Refused}` with `Fault`; `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` folded; `StepError`; `Error::Parse`. Open: `describe` unified, the wire form of errors, `ParseError`'s positions (F29, F34, R129) |
-| k. `Limits`, `Progress` and the stop on every long call (5) | in progress, uncommitted (paused) | see the pause entry below |
+| k. `Limits`, `Progress` and the stop on every long call (5) | first commit done | the bounds out of `search::Options` and `ViewOptions` into `Limits` (`Forest::within`, `Sequent::parse_within`, `lltp::read`, `mist::read`, `check_within` with `work` and a stop every 4 096 nodes, `derivation_size_within`, `derivation_within`, `prove_within`, `prove_goal`, `Interactive::close*`, `batch::{prove, run}` with a `Plan` of limits, `linear_derivation`), every writer's stop a progress stop, the engines behind the shim `without_progress` until area 3.2's measured commit; the command and the harness map their flags onto it with their output unchanged (both locks and README pass unreblessed); test `core/tests/limits.rs`. Moved on: `race` with `Clock` (item l), `Within` (item s), the sequent writers' estimate (F5) and `png`/`pdf` memory (item t), the net calls (item p), the ordinary layer (item r), `Limits::work` in the engines and `Reason::WorkLimit` (area 3.2, with the polls) |
 | l. the options, `Clock`, `Settings`, `Styles` (6) | open | |
 | m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | open | |
 | n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | open | |
@@ -91,6 +91,46 @@ supervisor's go are marked "go".
 | t. the exports' one `write` (9) | open | |
 | u. the area's other findings, `lib.rs`'s allowances, the docs | open | |
 | v. check rounds (stage 4), at most three; the fresh-context reviewer | open | |
+
+#### Area 3.1: decided unattended
+
+- **`Forest::from_owned` stays public** (2.3 would have made it
+  private): the command builds the forest of a sequent it owns, and the
+  alternative, `Forest::within(&sequent)`, clones a sequent of up to
+  fifty million occurrences.
+- **The derivation's refusal carries bytes, not a `Size`**
+  (`Refusal::Output { estimate_bytes, limit_bytes, least_bytes }`): the
+  command's line about a derivation too large to build names its
+  inferences and characters, so it asks `derivation_size` for them;
+  set aside: a `Size` in the refusal, which would put a view's type into
+  the one refusal every call shares.
+- **The command reads a sequent's text without a bound and then admits
+  it** (`io::admit`, `--occurrence-limit`), as before: reading within the
+  bound (F16) changes which message a too-large input gets, which is the
+  command's area (3.4) and would rebless the lock here.
+- **A check refused for its memory is `Error::Check(CheckError::Refused)`**
+  (`Error::Unchecked` is gone): one variant per specific error type;
+  F139's change of the verdict a search answers then is the search's
+  (area 3.2).
+- **The forced-engine refusals keep their variants** (`NetFragment`,
+  `NetMode`, `NetGoal`, `EngineMode`, `NotAdditive`, `NotHorn`), kind
+  `unsupported`, until area 3.2 folds them into one `EngineRefused`
+  with the engine's `NotTaken` reason; their codes are already final.
+- **`Limits::work` binds the checker's pass alone so far**, and
+  `Reason::WorkLimit` does not exist yet: a search counts its work at
+  the polls that area 3.2 moves to the progress stop in one measured
+  commit, and the shim hands the engines no work until then.
+- **`Limits::stack_bytes` keeps the 8 MiB floor** that the design says
+  the derivation's builder needed: the pool's workers run stolen tasks
+  on top of their own frames and the command's search thread runs the
+  writers too, so the floor stays until area 3.2 counts the depth per
+  worker; it costs address space only.
+- **`search::race` comes with `Clock` (item l)**: its `add_pool` reads
+  the clock's `pool_after_ms`, and the command and the harness move to
+  it in one change.
+- **The harness's CSV columns keep their names** (`memory_limit`,
+  `recursion_limit`): the columns are its interface (`bench.md`), and
+  only the flags behind them map onto `Limits`.
 
 ## From the supervisor
 

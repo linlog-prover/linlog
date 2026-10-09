@@ -401,7 +401,7 @@ impl<'a> Step<'a> {
 #[cfg(feature = "parse")]
 pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
     use crate::search::generate::{self, IllRules, Rng, Rules};
-    use crate::search::{Options, Verdict, prove_until};
+    use crate::search::{Options, Verdict, prove_within};
     let classical = Mode::CLASSICAL;
     let mut cases: Vec<(String, Mode, Options)> = vec![];
     for (k, rules) in Rules::ALL.into_iter().enumerate() {
@@ -435,7 +435,7 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
     for (text, mode, options) in cases {
         let sequent: Sequent = text.parse().unwrap();
         let mut polls = 0;
-        let outcome = prove_until(&sequent, mode, &options, || {
+        let outcome = prove_within(&sequent, mode, &options, &crate::Limits::default(), |_| {
             polls += 1;
             polls > 20_000
         });
@@ -450,10 +450,16 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             None => Options::default(),
         };
         let mut polls = 0;
-        let outcome = prove_until(&instance.sequent, instance.mode, &options, || {
-            polls += 1;
-            polls > 20_000
-        });
+        let outcome = prove_within(
+            &instance.sequent,
+            instance.mode,
+            &options,
+            &crate::Limits::default(),
+            |_| {
+                polls += 1;
+                polls > 20_000
+            },
+        );
         if let Ok(Verdict::Proved(proof)) = outcome.map(|o| o.verdict) {
             proofs.push((*proof, instance.mode));
         }

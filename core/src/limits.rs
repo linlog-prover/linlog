@@ -437,8 +437,15 @@ impl Display for Refusal {
     }
 }
 
-/// Calls `stop` with the progress of a call in `phase` that is not
-/// counted in work, as the polls do whose work is not counted yet.
-pub(crate) fn poll(stop: &mut impl FnMut(Progress) -> bool, phase: Phase) -> bool {
-    stop(Progress::new(phase, 0, 0))
+/// Turns a progress stop into the plain condition a loop asks once per
+/// unit of work in `phase`, telling the stop each unit and the units done.
+pub(crate) fn counting(
+    mut stop: impl FnMut(Progress) -> bool,
+    phase: Phase,
+) -> impl FnMut() -> bool {
+    let mut done = 0u64;
+    move || {
+        done = done.saturating_add(1);
+        stop(Progress::new(phase, 1, done))
+    }
 }

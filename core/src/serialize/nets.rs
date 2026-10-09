@@ -41,7 +41,7 @@ impl<'a> Deserialize<'a> for ProofStructure {
     /// it is a proof net is for [`ProofStructure::is_correct`].
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
         let net = Net::deserialize(deserializer)?;
-        let forest = Forest::from_owned(net.sequent, Forest::DEFAULT_LIMIT)
+        let forest = Forest::from_owned(net.sequent, &crate::Limits::default())
             .map_err(serde::de::Error::custom)?;
         let links: Vec<(OccId, OccId)> = net
             .links

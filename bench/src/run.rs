@@ -15,8 +15,8 @@ use crate::problems::{self, Reference, mode_name};
 use crate::{OneArgs, RunArgs};
 use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
-use linlog::search::{Engine, Options, Reason, Verdict, prove_until};
-use linlog::{Atom, Bias, Error, Forest, Mode, Sign};
+use linlog::search::{Engine, Options, Reason, Verdict, prove_within};
+use linlog::{Atom, Bias, Error, Forest, Limits, Mode, Sign};
 use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
@@ -100,7 +100,7 @@ impl BiasChoice {
 /// the library's default.
 fn memory_limit(asked: Option<u64>) -> Option<u64> {
     match asked {
-        None => Some(Options::DEFAULT_MEMORY_LIMIT),
+        None => Some(Limits::DEFAULT_MEMORY_BYTES),
         Some(0) => None,
         bound => bound,
     }
@@ -544,7 +544,7 @@ fn clean(text: &str) -> String {
 /// stack large enough for the search at its recursion limit and for the
 /// parser on a huge input.
 pub fn one(args: OneArgs) -> Result<()> {
-    let stack = Options::default().stack_size().max(1 << 30);
+    let stack = Limits::default().stack_bytes().max(1 << 30);
     let line = thread::Builder::new()
         .stack_size(stack)
         .spawn(move || tail(&args))?
@@ -577,7 +577,7 @@ fn tail(args: &OneArgs) -> String {
     let bound = Bound(copies).to_string();
     let recursion = args
         .recursion_limit
-        .unwrap_or(Options::DEFAULT_RECURSION_LIMIT);
+        .unwrap_or(Limits::DEFAULT_RECURSION_DEPTH);
     // A known verdict holds in the problem's own mode only: classical
     // linear logic proves more than intuitionistic, affine more than linear.
     let expected = match problem.expected.filter(|_| mode == problem.mode) {
@@ -595,11 +595,12 @@ fn tail(args: &OneArgs) -> String {
         .copies(copies)
         .bias(args.bias.bias())
         .forward_copies(forward_copies(args.forward_copies))
-        .memory_limit(memory_limit(args.memory_limit))
         .test_period(args.test_period)
-        .recursion_limit(recursion)
         // The check is the child's own, outside the time measured.
         .check(false);
+    let limits = Limits::default()
+        .with_memory_bytes(memory_limit(args.memory_limit))
+        .with_recursion_depth(recursion);
     say(LOADED);
 
     // The limit is a flag that a thread of its own raises, so that a poll
@@ -617,7 +618,7 @@ fn tail(args: &OneArgs) -> String {
             expired.store(true, Ordering::Relaxed);
         });
     }
-    let outcome = alone_first(&problem.sequent, mode, &options, args, &expired);
+    let outcome = alone_first(&problem.sequent, mode, &options, &limits, args, &expired);
     let time = start.elapsed().as_secs_f64() * 1000.0;
     // The time the search took on the CPUs, and the time its thread was
     // ready but waited for one: a run another process slowed down has the
@@ -708,7 +709,7 @@ fn tail(args: &OneArgs) -> String {
     // The verdict is out before the check, which a proof can outgrow.
     say(&tail("", ""));
     let start = Instant::now();
-    let checked = match proof.check_within(mode, memory_limit(args.memory_limit)) {
+    let checked = match proof.check_within(mode, &limits, |_| false) {
         Ok(()) => "ok".to_owned(),
         // Given up within the run's memory bound: no verdict on the proof.
         Err(linlog::CheckError::Refused(_)) => "unchecked: memory limit".to_owned(),
@@ -729,12 +730,13 @@ fn alone_first(
     sequent: &linlog::Sequent,
     mode: linlog::Mode,
     options: &Options,
+    limits: &Limits,
     args: &OneArgs,
     expired: &AtomicBool,
 ) -> Result<linlog::search::Outcome, Error> {
     let stop = || expired.load(Ordering::Relaxed);
     let Some(alone) = args.pool_after.filter(|_| args.jobs > 1) else {
-        return prove_until(sequent, mode, options, stop);
+        return prove_within(sequent, mode, options, limits, |_| stop());
     };
     // A pool of one thread would be the single thread's search again.
     let pool = args.jobs.saturating_sub(1).max(2);
@@ -745,9 +747,10 @@ fn alone_first(
         let (done, finished) = mpsc::channel::<()>();
         let (decided, is_decided, halt) = (&decided, &is_decided, &halt);
         let single = thread::Builder::new()
-            .stack_size(options.stack_size())
+            .stack_size(limits.stack_bytes())
             .spawn_scoped(scope, move || {
-                let outcome = prove_until(sequent, mode, &options.clone().jobs(1), halt);
+                let outcome =
+                    prove_within(sequent, mode, &options.clone().jobs(1), limits, |_| halt());
                 if is_decided(&outcome) {
                     decided.store(true, Ordering::Relaxed);
                 }
@@ -767,7 +770,9 @@ fn alone_first(
         {
             return join(single);
         }
-        let pooled = prove_until(sequent, mode, &options.clone().jobs(pool), halt);
+        let pooled = prove_within(sequent, mode, &options.clone().jobs(pool), limits, |_| {
+            halt()
+        });
         if is_decided(&pooled) {
             decided.store(true, Ordering::Relaxed);
         }

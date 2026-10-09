@@ -16,13 +16,14 @@
 //! # Examples
 //!
 //! ```
+//! use linlog::Limits;
 //! use linlog::lltp::{Status, read};
 //!
 //! let text = "% Status (intuit.) : Theorem\n\
 //!             fof(ax1, axiom, !(a -o b)).\n\
 //!             fof(ax2, axiom, a).\n\
 //!             fof(con, conjecture, b * 1).\n";
-//! let problem = read(text)?;
+//! let problem = read(text, &Limits::default())?;
 //! assert_eq!(problem.status, Some(Status::Theorem));
 //! assert_eq!(problem.sequent, "!(a -o b), a |- b * 1".parse()?);
 //! # Ok::<(), linlog::Error>(())
@@ -30,6 +31,7 @@
 //!
 //! Needs the cargo feature `parse` (on by default).
 
+use crate::Limits;
 use crate::{Error, Sequent};
 
 /// What stands for a `-` inside an atom name, as the library's Petri nets
@@ -80,15 +82,16 @@ pub enum Status {
 /// formula included) or a clause with another role,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture,
 /// whose meaning in linear logic no convention fixes, and
-/// [`Error::Parse`] for a formula this crate's parser rejects.
-pub fn read(text: &str) -> Result<Problem, Error> {
+/// [`Error::Parse`] for a formula this crate's parser rejects, and the
+/// parser's refusal of a sequent past `limits.occurrences`.
+pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let clauses = clauses(text, |message| Error::Lltp { message })?;
-    let sequent = format!(
+    let text = format!(
         "{} |- {}",
         clauses.hypotheses().collect::<Vec<_>>().join(", "),
         clauses.conjecture()
-    )
-    .parse()?;
+    );
+    let sequent = Sequent::parse_within(&text, limits)?;
     Ok(Problem {
         sequent,
         status: clauses.status,
@@ -264,7 +267,7 @@ mod tests {
                     fof(ax1, axiom, !( (P-a_1) -o\n  (Q.b * Q.b) ) ).   % a transition\n\
                     fof(h, hypothesis, bot | top^).\n\
                     fof(con, conjecture, (Q.b * Q.b) + 0 & 1).\n";
-        let problem = read(text).unwrap();
+        let problem = read(text, &Limits::default()).unwrap();
         assert_eq!(problem.status, Some(Status::NonTheorem));
         let expected: Sequent = "!(P‿a_1 -o Q·b * Q·b), bot | top^ |- (Q·b * Q·b) + 0 & 1"
             .parse()
@@ -281,7 +284,10 @@ mod tests {
             "fof(h, axiom, bot). fof(c, conjecture, ).",
             "fof(h, axiom, ). fof(c, conjecture, a).",
         ] {
-            assert!(matches!(read(bad), Err(Error::Lltp { .. })), "{bad:?}");
+            assert!(
+                matches!(read(bad, &Limits::default()), Err(Error::Lltp { .. })),
+                "{bad:?}"
+            );
         }
     }
 
@@ -292,7 +298,7 @@ mod tests {
     fn refuses_several_conjectures() {
         let text = "fof(c1, conjecture, a). fof(c2, conjecture, a^).";
         assert!(matches!(
-            read(text),
+            read(text, &Limits::default()),
             Err(Error::SeveralConjectures { second }) if second == "c2"
         ));
     }

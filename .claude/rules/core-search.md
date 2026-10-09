@@ -16,9 +16,10 @@ own: `core-focus.md`, `core-nets.md` (the net engine) and
 ## Proof search: the front door
 
 `search/mod.rs` is what a front end calls: `prove(&sequent, mode,
-&options)` and `prove_until(…, stop)` return `Result<Outcome, Error>`, and
-`prove_goal(&forest, goal, mode, &options, stop)` decides any multiset of
-occurrences of a forest, given in any order, `prove_until` being that on
+&options)` and `prove_within(…, &limits, stop)` return `Result<Outcome,
+Error>`, and `prove_goal(&forest, goal, mode, &options, &limits, stop)`
+decides any multiset of occurrences of a forest, given in any order,
+`prove_within` being that on
 the roots (the roots in any order are the roots, `is_roots`, and the
 engines get them in the forest's order, so the net engine takes them and
 the proof is checked): the goal's own fragment (`goal_fragment`, over the subtrees)
@@ -45,18 +46,24 @@ deepening level that never hit the copy bound, `Unknown(Reason)`, with
 `Reason::CopyBound` when every level up to a bound hit it), the `Fragment` searched in,
 the `Mode`, the `Engine` that ran, the `Statistics`, and `net`, the
 `ProofStructure` the net engine found (`None` from the focused engine).
-`Options` has private fields and setters (`memo_limit`, `recursion_limit`,
+`Options` has private fields and setters (`memo_limit`,
 `engine`, `fragment`, `test_period`, `copies`, `jobs`,
-`bias`, `forward_copies`, `check`, `memory_limit`, `occurrence_limit`,
+`bias`, `forward_copies`, `check`,
 and with `parallel` `pool`, the `search::Pool` of `core-parallel.md`),
-the constants `DEFAULT_MEMO_LIMIT`, `DEFAULT_RECURSION_LIMIT`,
+the constants `DEFAULT_MEMO_LIMIT`,
 `DEFAULT_COPIES` (the library's default bound; `copies` takes an
-`Option`, `None` for none), `DEFAULT_FORWARD_COPIES`, `DEFAULT_MEMORY_LIMIT` (one
-gibibyte) and `DEFAULT_OCCURRENCE_LIMIT` (`Forest::DEFAULT_LIMIT`),
-which the CLI shows as its defaults, `MAX_JOBS` (256: `jobs` takes more
-as that many, and zero as one), and `stack_size()`,
-the stack a thread needs at the recursion limit, which sizes the CLI's
-search thread and the parallel pool's workers alike;
+`Option`, `None` for none), `DEFAULT_FORWARD_COPIES`,
+which the CLI shows as its defaults, and `MAX_JOBS` (256: `jobs` takes more
+as that many, and zero as one). **The bounds are not options**: they
+are `crate::Limits` (`limits.rs`, `memory_bytes`, `occurrences`,
+`recursion_depth`, `derivation_bytes`, `work`), the argument every long
+call takes beside its stop (`FnMut(Progress) -> bool`), whose defaults
+the CLI shows as its own; `Limits::stack_bytes()` is the stack a thread
+needs at the recursion depth, which sizes the CLI's search thread, the
+parallel pool's workers, the default bias's second search and a batch's
+workers alike. The engines still take a stop of no arguments:
+`without_progress` wraps the caller's, which is asked with the search's
+phase and no work counted;
 `Reason`, `Statistics`, `Engine` and `Outcome` are `#[non_exhaustive]` so
 later steps add variants and fields without a breaking change.
 `Statistics` has one set of counters for both engines: `nodes` is stable
@@ -195,7 +202,7 @@ the net engine's, and the others stay zero.
   which switches off the prunes that only hold in the smaller one and
   picks the engine (`--fragment mall` on an MLL input runs `focus`).
 - The crate has no clock (D11): a time limit is a closure the caller gives
-  `prove_until`, and it answers `Unknown (Reason::Stopped)`. **Where it
+  `prove_within`, and it answers `Unknown (Reason::Stopped)`. **Where it
   is polled**, which is every place a search can spend time without
   reaching another of them:
   - *The focused engine*: once per stable sequent (`prove_stable`); once
@@ -258,13 +265,13 @@ the net engine's, and the others stay zero.
   `lib.rs` show the common path (parse, fragment, prove, derivation, JSON)
   as a doc test; keep it the shortest correct program when the API moves.
   The focused engine recurses on the caller's stack, bounded by
-  `Options::recursion_limit`; a caller that raises the limit runs the
-  search on a thread with a larger stack (`Options::stack_size`). The net
+  `Limits::recursion_depth`; a caller that raises it runs the
+  search on a thread with a larger stack (`Limits::stack_bytes`). The net
   engine and its sequentialization keep stacks of their own.
 
 ## The memory bound
 
-`Options::memory_limit` (`DEFAULT_MEMORY_LIMIT`, one gibibyte; `None`
+`Limits::memory_bytes` (`DEFAULT_MEMORY_BYTES`, one gibibyte; `None`
 lifts it) bounds what a search holds, and `search/memory.rs` is how:
 an `Account` (the bound and an atomic count of bytes) that everything
 which grows charges where it allocates, by the capacity allocated and
@@ -277,7 +284,7 @@ not by what is in use. `prove_goal` makes one per search.
   had grown to when last given back), the `Counts` (rows and
   per-occurrence arrays) and the `Classes` of the set-up, and the
   additive path's memo and arena. **What does not**: the forest and the
-  sequent (the caller's; `Options::occurrence_limit` bounds them,
+  sequent (the caller's; `Limits::occurrences` bounds them,
   below), the proof returned, a `Tally`'s and a `Split`'s `touched`
   lists (bounded by the rows of a sequent's members), a context's
   extra list, the table a collection uses while it runs (four bytes a
@@ -309,8 +316,8 @@ not by what is in use. `prove_goal` makes one per search.
   the arena at 2³¹ nodes, the counts' rows at 2³² entries, a forest of
   2³¹ occurrences or more for the counts (their balances are `i32`
   sums over a subtree), the additive path's arena at 2³² nodes.
-- **`Options::occurrence_limit`** (`Forest::DEFAULT_LIMIT`, fifty
-  million) is the bound on the input: `prove` and `prove_until` build
+- **`Limits::occurrences`** (`DEFAULT_OCCURRENCES`, fifty
+  million) is the bound on the input: `prove` and `prove_within` build
   their forest with `Forest::within`, the command checks
   `Sequent::occurrences()` when it reads a sequent, before any command
   unfolds or prints it. `Forest::new`, and with it `Interactive::new`

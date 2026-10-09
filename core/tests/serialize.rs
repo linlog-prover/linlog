@@ -7,7 +7,7 @@
 
 #![cfg(all(feature = "parse", feature = "serialize"))]
 
-use linlog::search::{Engine, Options, prove, prove_until};
+use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
     Branch, Forest, Fragment, InfId, Interactive, Mode, Node, NodeId, OccId, Proof, ProofStructure,
     Rule, Sequent, ViewOptions,
@@ -301,8 +301,14 @@ fn outcome_json_format() {
         serde_json::to_string(&outcome).unwrap(),
         r#"{"verdict":"unprovable","refutation":{"equation":{"formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
     );
-    let outcome =
-        prove_until(&s, Mode::CLASSICAL.with_mix(), &Options::default(), || true).unwrap();
+    let outcome = prove_within(
+        &s,
+        Mode::CLASSICAL.with_mix(),
+        &Options::default(),
+        &linlog::Limits::default(),
+        |_| true,
+    )
+    .unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
         r#"{"verdict":"unknown","reason":"stopped","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":true},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
@@ -479,7 +485,8 @@ fn interactive_json_format_and_round_trip() {
             goals[0],
             &Options::default(),
             &ViewOptions::default(),
-            || false,
+            &linlog::Limits::default(),
+            |_| false,
         )
         .unwrap();
     let json = serde_json::to_string(&state).unwrap();
@@ -487,7 +494,12 @@ fn interactive_json_format_and_round_trip() {
     assert_eq!(back.inferences(), state.inferences());
     assert_eq!(back.steps(), 5);
     let closed = back
-        .close_all(&Options::default(), &ViewOptions::default(), || false)
+        .close_all(
+            &Options::default(),
+            &ViewOptions::default(),
+            &linlog::Limits::default(),
+            |_| false,
+        )
         .unwrap();
     assert_eq!(closed.len(), 2);
     assert_eq!(back.proof().unwrap().check(mix), Ok(()));

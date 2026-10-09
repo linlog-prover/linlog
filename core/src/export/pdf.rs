@@ -69,8 +69,8 @@ pub struct Options {
 
 impl Options {
     /// The default bound on what a render takes, 1 GiB, the crate's
-    /// [`DEFAULT_MEMORY_LIMIT`](crate::DEFAULT_MEMORY_LIMIT).
-    pub const DEFAULT_MEMORY: u64 = crate::DEFAULT_MEMORY_LIMIT;
+    /// [`Limits::DEFAULT_MEMORY_BYTES`](crate::Limits::DEFAULT_MEMORY_BYTES).
+    pub const DEFAULT_MEMORY: u64 = crate::Limits::DEFAULT_MEMORY_BYTES;
 }
 
 impl Default for Options {

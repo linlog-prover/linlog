@@ -26,6 +26,7 @@
 //! # Examples
 //!
 //! ```
+//! use linlog::Limits;
 //! use linlog::mist::{Safety, read};
 //!
 //! let text = "#expected result: unsafe\n\
@@ -33,7 +34,7 @@
 //!             rules x >= 1 -> x' = x - 1, y' = y + 2;\n\
 //!             init x = 1, y >= 0\n\
 //!             target y >= 2\n";
-//! let problem = read(text)?;
+//! let problem = read(text, &Limits::default())?;
 //! assert_eq!(problem.expected, Some(Safety::Unsafe));
 //! assert_eq!(problem.sequent.to_string(), "⊢ ?(x ⊗ (~y ⅋ ~y)), ?~y, ~x, y ⊗ y");
 //! # Ok::<(), linlog::Error>(())
@@ -41,6 +42,7 @@
 //!
 //! Needs the cargo feature `parse` (on by default).
 
+use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
 use crate::sequents::{Atom, Term, TermId};
 use crate::{Error, Sequent};
@@ -82,9 +84,8 @@ pub enum Safety {
 /// The sequent is built as an arena, every token of a counter one shared
 /// literal: a count of `k` is `k` occurrences of the counter's atom
 /// however long its name, and a few bytes can ask for billions, so a
-/// problem whose tokens pass [`Forest::DEFAULT_LIMIT`] is refused before
-/// its sequent is built, as its forest would be; [`read_within`] takes
-/// another limit.
+/// problem whose tokens pass `limits.occurrences` is refused before its
+/// sequent is built, as its forest would be.
 ///
 /// # Errors
 ///
@@ -93,18 +94,9 @@ pub enum Safety {
 /// rule or from another counter, a counter given twice in `init`, a count
 /// that is no number below 2³², or
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
-/// unit; [`Refusal::Occurrences`](crate::Refusal::Occurrences) for more tokens than the limit.
-pub fn read(text: &str) -> Result<Problem, Error> {
-    read_within(text, Forest::DEFAULT_LIMIT)
-}
-
-/// [`read`] with the most tokens, and so occurrences, the sequent may
-/// have given.
-///
-/// # Errors
-///
-/// Those of [`read`].
-pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
+/// unit; [`Refusal::Occurrences`] for more
+/// tokens than the bound.
+pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let expected = text.lines().next().and_then(|line| {
         let line = line.trim().strip_prefix('#')?.trim();
         match line.strip_prefix("expected result:")?.trim() {
@@ -189,10 +181,19 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
         .chain(clauses.iter().map(|(i, o)| total(i) + total(o)))
         .chain(targets.iter().map(|t| total(t)))
         .fold(0u64, u64::saturating_add);
-    if tokens_written > most {
-        return Err(Error::Refused(crate::limits::Refusal::Occurrences {
+    if let Some(limit) = limits.occurrences
+        && tokens_written > limit
+    {
+        return Err(Error::Refused(Refusal::Occurrences {
             occurrences: tokens_written,
-            limit: most,
+            limit,
+        }));
+    }
+    if tokens_written > Forest::MOST {
+        return Err(Error::Refused(Refusal::Index {
+            what: Space::Occurrence,
+            count: tokens_written,
+            most: Forest::MOST,
         }));
     }
     // One-sided, as the parser would read `rules, params, tokens |- goal`:
@@ -632,7 +633,7 @@ mod tests {
                     init\n  a = 1\n  , b >= 2\n\
                     target\n  c >= 1,\n  b >= 1\n  a >= 3\n\
                     invariants\n  a = 1, b = 1\n";
-        let problem = read(text).unwrap();
+        let problem = read(text, &Limits::default()).unwrap();
         assert_eq!(problem.expected, None);
         let expected: Sequent = "!(a * a -o a * b), !(b * c -o b), !(1 -o a), \
                                  !(b * c -o goal), !(a * a * a -o goal), !b, a, b, b |- goal"
@@ -659,15 +660,19 @@ mod tests {
             "vars a rules init a = 4294967296 target a >= 1",
             "vars top rules init target top >= 1",
         ] {
-            assert!(matches!(read(bad), Err(Error::Spec { .. })), "{bad:?}");
+            assert!(
+                matches!(read(bad, &Limits::default()), Err(Error::Spec { .. })),
+                "{bad:?}"
+            );
         }
         // Five bytes of a count ask for more tokens than the limit, which
         // is refused before any is written.
         let big = "vars a rules init a = 99999 target a >= 1";
-        assert!(read_within(big, 100_000).is_ok());
+        let limits = |n| Limits::default().with_occurrences(Some(n));
+        assert!(super::read(big, &limits(100_000)).is_ok());
         assert!(matches!(
-            read_within(big, 99_999),
-            Err(Error::Refused(crate::limits::Refusal::Occurrences { .. }))
+            super::read(big, &limits(99_999)),
+            Err(Error::Refused(Refusal::Occurrences { .. }))
         ));
     }
 }

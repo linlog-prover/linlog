@@ -158,7 +158,12 @@ fn ordinary_derivation() {
         panic!("provable");
     };
     let linear = image
-        .linear_derivation(&proof, &ViewOptions::default(), || false)
+        .linear_derivation(
+            &proof,
+            &ViewOptions::default(),
+            &linlog::Limits::default(),
+            |_| false,
+        )
         .unwrap();
     let derivation = image.read_back(&linear).unwrap();
     derivation.check().unwrap();
@@ -167,15 +172,15 @@ fn ordinary_derivation() {
         form: Form::Standalone,
         ..latex::Options::default()
     };
-    latex::ordinary(&derivation, &latex, &mut tex, || false).unwrap();
+    latex::ordinary(&derivation, &latex, &mut tex, |_| false).unwrap();
     snapshot("ordinary.tex", &tex);
     let typst = typst::Options {
         form: Form::Standalone,
         ..typst::Options::default()
     };
-    typst::ordinary(&derivation, &typst, &mut typ, || false).unwrap();
+    typst::ordinary(&derivation, &typst, &mut typ, |_| false).unwrap();
     snapshot("ordinary.typ", &typ);
-    svg::ordinary(&derivation, &Style::default(), &mut drawing, || false).unwrap();
+    svg::ordinary(&derivation, &Style::default(), &mut drawing, |_| false).unwrap();
     snapshot("ordinary.svg", &drawing);
 }
 
@@ -185,7 +190,9 @@ fn ordinary_derivation() {
 fn compact_view() {
     let view = ViewOptions::default().compact(Compact::Always);
     let proof = proof("!A, !B, !C |- 1 * 1", Mode::INTUITIONISTIC);
-    let derivation = proof.two_sided_derivation_with(&view, || false).unwrap();
+    let derivation = proof
+        .two_sided_derivation_within(&view, &linlog::Limits::default(), |_| false)
+        .unwrap();
     assert!(derivation.inferences().iter().any(|i| i.times == 3));
     pin("compact", &derivation);
 }
@@ -431,7 +438,7 @@ fn svg_stops_in_its_layout() {
     let proof = proof("A * B |- B * A", Mode::CLASSICAL);
     let derivation = proof.derivation().unwrap();
     let mut out = String::new();
-    let written = svg::write(&derivation, &Style::default(), &mut out, || true);
+    let written = svg::write(&derivation, &Style::default(), &mut out, |_| true);
     assert!(matches!(
         written,
         Err(Error::Refused(Refusal::Stopped { .. }))

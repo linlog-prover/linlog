@@ -238,7 +238,7 @@ for NanoYalla. What the code relies on:
   again after it, for a size the text did not give.
 - **A render is bounded before usvg parses anything**
   (`png::Options::memory`, `pdf::Options::memory`, default 1 GiB, the
-  crate's `DEFAULT_MEMORY_LIMIT`; `Refusal::Memory { phase: Render }`,
+  crate's `Limits::DEFAULT_MEMORY_BYTES`; `Refusal::Memory { phase: Render }`,
   and `Refusal::Pixels` past the pixel bound): usvg sets
   every glyph as a path and strokes every arc to bound it inside one
   call, so nothing can be compared or polled once it runs. The estimate

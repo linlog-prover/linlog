@@ -77,6 +77,7 @@ use super::memory::{Account, Charged};
 use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task, set_up_stopped};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
+use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::sequents::Kind;
@@ -151,6 +152,7 @@ impl Decide for Focused {
         &self,
         task: &Task<'_>,
         options: &Options,
+        limits: &Limits,
         account: &Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {
@@ -165,12 +167,12 @@ impl Decide for Focused {
         #[cfg(feature = "parallel")]
         if options.job_count() > 1 {
             let found = parallel::search_goal(
-                forest, goal, fragment, mode, reading, options, account, stop,
+                forest, goal, fragment, mode, reading, options, limits, account, stop,
             )?;
             return Ok(Answer::of_arena(forest, found));
         }
         let found = search_goal(
-            forest, goal, fragment, mode, reading, options, account, stop,
+            forest, goal, fragment, mode, reading, options, limits, account, stop,
         );
         Ok(Answer::of_arena(forest, found))
     }
@@ -193,11 +195,18 @@ pub(crate) fn search_goal(
     mode: Mode,
     reading: Option<&Reading>,
     options: &Options,
+    limits: &Limits,
     account: &Account,
     stop: &mut dyn FnMut() -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
     // On a large forest every pass of the set-up is followed by a poll.
-    let gave_up = |r| (Err(reason(r, options)), Vec::new(), Statistics::default());
+    let gave_up = |r| {
+        (
+            Err(reason(r, options, limits)),
+            Vec::new(),
+            Statistics::default(),
+        )
+    };
     let classes = Classes::new(forest, reading);
     if set_up_stopped(forest, stop) {
         return gave_up(Reason::Stopped);
@@ -220,10 +229,15 @@ pub(crate) fn search_goal(
             reading,
             (&counts, &classes),
             options,
+            limits,
             account,
             Stop::Closure(stop),
         );
-        return (result.map_err(|r| reason(r, options)), nodes, statistics);
+        return (
+            result.map_err(|r| reason(r, options, limits)),
+            nodes,
+            statistics,
+        );
     };
     // Each search is charged what it reads, the classes included.
     let accounts = [account.share(2), account.share(2)];
@@ -247,12 +261,12 @@ pub(crate) fn search_goal(
     // turns from their start.
     #[cfg(feature = "parallel")]
     if let Some(result) = schedule::alternate(
-        forest, goal, fragment, mode, reading, &classes, options, searches, stop,
+        forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
     ) {
         return result;
     }
     turns(
-        forest, goal, fragment, mode, reading, &classes, options, searches, stop,
+        forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
     )
 }
 
@@ -319,11 +333,11 @@ pub(crate) fn refutation(
 /// The reason a search of the options gives up with, given the reason one
 /// of its searches did: a copy bound is [`Options::copies`], the bound
 /// every search ran within at the least, and a memory limit is
-/// [`Options::memory_limit`], of which a search may have had a part.
-pub(crate) fn reason(reason: Reason, options: &Options) -> Reason {
+/// [`Limits::memory_bytes`], of which a search may have had a part.
+pub(crate) fn reason(reason: Reason, options: &Options, limits: &Limits) -> Reason {
     match reason {
         Reason::CopyBound(_) => Reason::CopyBound(options.copy_bound()),
-        Reason::MemoryLimit(bytes) => Reason::MemoryLimit(options.memory_limit.unwrap_or(bytes)),
+        Reason::MemoryLimit(bytes) => Reason::MemoryLimit(limits.memory_bytes.unwrap_or(bytes)),
         reason => reason,
     }
 }
@@ -573,6 +587,7 @@ impl<'a> Problem<'a> {
         fragment: Fragment,
         mode: Mode,
         options: &Options,
+        limits: &Limits,
         copies: u32,
         account: &'a Account,
     ) -> Self {
@@ -584,7 +599,7 @@ impl<'a> Problem<'a> {
             rules: Rules::new(fragment, mode, counts),
             account,
             memoizes: options.memo_limit != 0,
-            recursion_limit: options.recursion_limit,
+            recursion_limit: limits.recursion_depth,
             copies,
         }
     }

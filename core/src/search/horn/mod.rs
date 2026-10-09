@@ -26,6 +26,7 @@ use super::memory::Account;
 use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
+use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Side, Sign};
 use crate::sequents::Kind;
 use equation::Equation;
@@ -50,6 +51,7 @@ impl Decide for Horn {
         &self,
         task: &Task<'_>,
         _options: &Options,
+        _limits: &Limits,
         account: &Account,
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {

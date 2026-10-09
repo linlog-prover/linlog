@@ -44,21 +44,22 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A [`Mode`] is three named flags, [`Options`] a builder with defaults, and
-//! [`prove_until`] takes a stop condition for a time limit or an
+//! A [`Mode`] is the rules a logic allows, [`Options`] the knobs of a
+//! search with their defaults, [`Limits`] the resources a call may use,
+//! and [`prove_within`] takes a stop condition for a time limit or an
 //! interruption, since this crate has no clock:
 //!
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
-//! use linlog::{Fragment, Mode, Options, Verdict, prove_until};
+//! use linlog::{Fragment, Limits, Mode, Options, Verdict, prove_within};
+//! use std::time::{Duration, Instant};
 //!
-//! let mode = Mode { intuitionistic: false, affine: false, mix: true };
+//! let mode = Mode::CLASSICAL.with_mix();
 //! let options = Options::default().fragment(Some(Fragment::MALL));
-//! let mut budget = 1000;
-//! let outcome = prove_until(&"|- A par B, ~A, ~B".parse()?, mode, &options, || {
-//!     budget -= 1;
-//!     budget == 0
-//! })?;
+//! let limits = Limits::default().with_memory_bytes(Some(64 << 20));
+//! let deadline = Instant::now() + Duration::from_secs(10);
+//! let sequent = "|- A par B, ~A, ~B".parse()?;
+//! let outcome = prove_within(&sequent, mode, &options, &limits, |_| Instant::now() > deadline)?;
 //! assert!(matches!(outcome.verdict, Verdict::Proved(_)));
 //! assert_eq!(outcome.fragment, Fragment::MALL);
 //! # Ok::<(), linlog::Error>(())
@@ -148,13 +149,12 @@ pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{NetError, ProofStructure};
 pub use occurrences::{Forest, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
-    Branch, CheckError, DEFAULT_MEMORY_LIMIT, Derivation, InfId, Inference, Node, NodeId, Proof,
-    Rule, Size, ViewOptions,
+    Branch, CheckError, Derivation, InfId, Inference, Node, NodeId, Proof, Rule, Size, ViewOptions,
 };
 #[cfg(feature = "interactive")]
 pub use proofs::{Interactive, StepError};
 pub use search::{
     Bias, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
-    prove_until,
+    prove_within,
 };
 pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};

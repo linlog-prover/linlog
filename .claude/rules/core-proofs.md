@@ -93,8 +93,10 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   of them: a change to a rule is made in both, or the test says where
   they part.
 - **The pass counts what it holds and refuses to pass its bound**
-  (`Proof::check_within(mode, memory)`, `check(mode)` being that within
-  `DEFAULT_MEMORY_LIMIT`, 1 GiB; `None` for no bound). The refusal is
+  (`Proof::check_within(mode, &limits, stop)` within
+  `limits.memory_bytes`, `check(mode)` being that within the default,
+  1 GiB; `None` for no bound; `limits.work` bounds the nodes visited and
+  `stop` is asked every 4 096). The refusal is
   `CheckError::Refused(Refused { node, refusal: Refusal::Memory { phase:
   Check, .. } })` at the node the pass had come to, a variant of its own
   beside every fault of a proof (`CheckError::Invalid`): **a refusal is

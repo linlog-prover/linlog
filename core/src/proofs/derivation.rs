@@ -22,14 +22,14 @@
 //! `⅋` on one, `!L` for a dereliction, and so on), and what a `⊤` absorbs
 //! is distributed so that each premise keeps exactly one goal.
 
-use super::check::{self, Facts, Observer, State};
+use super::check::{self, Allowance, Facts, Observer, State};
 use super::multiset::Multiset;
 use super::size::{self, Size};
-use super::{Branch, DEFAULT_MEMORY_LIMIT, Node, NodeId, Proof};
+use super::{Branch, Node, NodeId, Proof};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::hash::HashMap;
-use crate::limits::{Phase, Refusal, Space};
+use crate::limits::{Limits, Phase, Progress, Refusal, Space};
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Kind;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -350,26 +350,20 @@ impl std::str::FromStr for Rule {
 }
 
 /// How a derivation is shown: the one value that every path which builds
-/// a derivation takes, whatever it then draws or writes. It holds the
-/// bounds that keep a call from building what the machine cannot hold.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// a derivation takes, whatever it then draws or writes. The bounds that
+/// keep a call from building what the machine cannot hold are the
+/// [`Limits`] beside it: `derivation_bytes`, the most bytes a derivation
+/// may be estimated to take ([`Size::bytes`]) and still be built (a proof
+/// stores a shared subproof once and its derivation repeats it, and every
+/// inference carries its whole sequent, so a derivation can be larger than
+/// its proof by any factor), and `memory_bytes`, the most the making of
+/// one may hold at once, every pass of the checker on the way and the
+/// derivation itself by the same estimate.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serialize", serde(default))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
 pub struct ViewOptions {
-    /// The most bytes a derivation may be estimated to take
-    /// ([`Size::bytes`]) and still be built, or `None` for no bound. A
-    /// proof stores a shared subproof once and its derivation repeats it,
-    /// and every inference carries its whole sequent, so a derivation can
-    /// be larger than its proof by any factor.
-    pub limit: Option<u64>,
-    /// The most bytes the making of a derivation may hold at once, or
-    /// `None` for no bound: every pass of the checker over the proof on
-    /// the way ([`Proof::check_within`]), and the derivation itself by
-    /// the same estimate as `limit`. So a derivation is refused past this
-    /// bound even with no `limit`. The two differ in what they are for:
-    /// `limit` is what a reader or a typesetter still takes, this is
-    /// what the machine has.
-    pub memory: Option<u64>,
     /// Whether a run of one structural rule is drawn as one inference.
     pub compact: Compact,
 }
@@ -392,47 +386,10 @@ pub enum Compact {
 }
 
 impl ViewOptions {
-    /// The size bound of the default options, 64 MiB: about what an
-    /// editor still opens and a typesetter still takes.
-    pub const DEFAULT_LIMIT: u64 = 64 << 20;
-
-    /// The options that build a derivation of any size the memory bound
-    /// allows: no `limit`, and the default `memory`
-    /// ([`DEFAULT_MEMORY_LIMIT`]). For no bound at all, lift that one too
-    /// with [`memory`](Self::memory()).
-    pub const UNBOUNDED: Self = Self {
-        limit: None,
-        memory: Some(DEFAULT_MEMORY_LIMIT),
-        compact: Compact::Auto,
-    };
-
-    /// Returns the options with the size bound set, or lifted with `None`.
-    pub const fn limit(self, limit: Option<u64>) -> Self {
-        Self { limit, ..self }
-    }
-
-    /// Returns the options with the memory bound set, or lifted with
-    /// `None`.
-    pub const fn memory(self, memory: Option<u64>) -> Self {
-        Self { memory, ..self }
-    }
-
     /// Returns the options with the compact view set.
+    #[must_use]
     pub const fn compact(self, compact: Compact) -> Self {
-        Self { compact, ..self }
-    }
-}
-
-impl Default for ViewOptions {
-    /// A size bound of [`DEFAULT_LIMIT`](Self::DEFAULT_LIMIT), a memory
-    /// bound of [`DEFAULT_MEMORY_LIMIT`], and the compact view where the
-    /// derivation would otherwise pass one of them.
-    fn default() -> Self {
-        Self {
-            limit: Some(Self::DEFAULT_LIMIT),
-            memory: Some(DEFAULT_MEMORY_LIMIT),
-            compact: Compact::Auto,
-        }
+        Self { compact }
     }
 }
 
@@ -484,9 +441,10 @@ impl<'a> Derivation<'a> {
     pub fn new(
         proof: &'a Proof,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
     ) -> Result<Self, Error> {
-        Self::build(proof, Self::ONE_SIDED, None, view, stop)
+        Self::build(proof, Self::ONE_SIDED, None, view, limits, stop)
     }
 
     /// The most inferences a derivation holds: as many as an [`InfId`]
@@ -529,10 +487,11 @@ impl<'a> Derivation<'a> {
     pub fn two_sided(
         proof: &'a Proof,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
     ) -> Result<Self, Error> {
         let reading = check::reading(proof, Self::TWO_SIDED)?;
-        Self::build(proof, Self::TWO_SIDED, reading, view, stop)
+        Self::build(proof, Self::TWO_SIDED, reading, view, limits, stop)
     }
 
     /// Checks the proof in `mode` and unfolds it, two-sided when a reading
@@ -542,10 +501,19 @@ impl<'a> Derivation<'a> {
         mode: Mode,
         reading: Option<Reading<'a>>,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Self, Error> {
         let roots = proof.forest().roots();
-        let inferences = unfold(proof, roots, mode, reading.as_ref(), view, stop)?;
+        let inferences = unfold(
+            proof,
+            roots,
+            mode,
+            reading.as_ref(),
+            view,
+            limits,
+            &mut stop,
+        )?;
         Ok(Self {
             forest: proof.forest(),
             reading,
@@ -580,12 +548,13 @@ impl<'a> Derivation<'a> {
         goal: &[OccId],
         mode: Mode,
         view: &ViewOptions,
-        stop: impl FnMut() -> bool,
+        limits: &Limits,
+        stop: &mut dyn FnMut(Progress) -> bool,
     ) -> Result<Vec<Inference>, Error> {
         let reading = check::reading(proof, mode)?;
         // A graft is read rule by rule, never drawn compact.
         let view = view.compact(Compact::Never);
-        unfold(proof, goal, mode, reading.as_ref(), &view, stop)
+        unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)
     }
 
     /// Returns the forest the sequents' occurrences index.
@@ -632,12 +601,14 @@ fn unfold(
     mode: Mode,
     reading: Option<&Reading>,
     view: &ViewOptions,
-    mut stop: impl FnMut() -> bool,
+    limits: &Limits,
+    stop: &mut dyn FnMut(Progress) -> bool,
 ) -> Result<Vec<Inference>, Error> {
-    let (size, firm) = size::measured(proof, goal, mode, reading, view.memory)?;
+    let allowance = Allowance::new(limits, Phase::View, stop);
+    let (size, firm) = size::measured(proof, goal, mode, reading, allowance)?;
     // A view that may compact says what a compact one takes at least.
     let least_bytes = (view.compact != Compact::Never).then_some(firm.bytes);
-    let over = if let Some(limit) = view.limit
+    let over = if let Some(limit) = limits.derivation_bytes
         && size.bytes() > limit
     {
         Some(Refusal::Output {
@@ -646,7 +617,7 @@ fn unfold(
             limit_bytes: limit,
             least_bytes,
         })
-    } else if let Some(limit) = view.memory
+    } else if let Some(limit) = limits.memory_bytes
         && size.bytes() > limit
     {
         Some(Refusal::Memory {
@@ -667,7 +638,10 @@ fn unfold(
             error: Error::Refused(too_many(&size)),
         }),
         (compact, Some(error)) => {
-            let most = [view.limit, view.memory].into_iter().flatten().min();
+            let most = [limits.derivation_bytes, limits.memory_bytes]
+                .into_iter()
+                .flatten()
+                .min();
             // What a compact view cannot do without is known before it is
             // built. Without a bound in bytes it is tried only when asked
             // for, since nothing would then end the attempt but the count
@@ -682,7 +656,8 @@ fn unfold(
         }
     };
     let mut record = Record::new(proof);
-    check::examine(proof, goal, mode, reading, view.memory, &mut record)?;
+    let allowance = Allowance::new(limits, Phase::View, stop);
+    check::examine(proof, goal, mode, reading, allowance, &mut record)?;
     let mut build = Build {
         proof,
         record: &record,
@@ -695,7 +670,7 @@ fn unfold(
         },
         tasks: Vec::new(),
         done: Vec::new(),
-        stop: &mut stop,
+        stop,
         compact: compact.map(|budget| Held {
             weights: size::weights(proof.forest()),
             bytes: 0,
@@ -903,7 +878,7 @@ struct Build<'a> {
     /// inference below them, the latest last.
     done: Vec<InfId>,
     /// The caller's stop condition, polled once per node.
-    stop: &'a mut dyn FnMut() -> bool,
+    stop: &'a mut dyn FnMut(Progress) -> bool,
     /// What a compact view holds and may hold, or `None` for a derivation
     /// that shows every rule.
     compact: Option<Held>,
@@ -953,7 +928,9 @@ impl<'a> Build<'a> {
             }
             match task {
                 Task::Unfold(id, actual) => {
-                    if (self.stop)() {
+                    // A node unfolds into an inference or a few.
+                    let done = self.inferences.len() as u64;
+                    if (self.stop)(Progress::new(Phase::View, 1, done)) {
                         return Err(Error::Refused(Refusal::Stopped { phase: Phase::View }));
                     }
                     self.unfold(id, actual);
@@ -1714,10 +1691,11 @@ mod tests {
         let crate::Verdict::Proved(p) = outcome.verdict else {
             panic!("provable");
         };
-        let view = |compact, limit| ViewOptions::default().compact(compact).limit(limit);
-        let full = p.derivation_with(&view(Compact::Never, None), || false);
+        let view = |compact| ViewOptions::default().compact(compact);
+        let limit = |bytes| crate::Limits::default().with_derivation_bytes(bytes);
+        let full = p.derivation_within(&view(Compact::Never), &limit(None), |_| false);
         assert_eq!(full.unwrap().inferences().len(), 5);
-        let compact = p.derivation_with(&view(Compact::Always, None), || false);
+        let compact = p.derivation_within(&view(Compact::Always), &limit(None), |_| false);
         let compact = compact.unwrap();
         assert_eq!(compact.inferences().len(), 2);
         assert_eq!(compact.inference(compact.root()).times, 4);
@@ -1727,11 +1705,11 @@ mod tests {
         );
         let bytes = p.derivation_size(false).unwrap().bytes();
         let tight = Some(bytes - 1);
-        let auto = p.derivation_with(&view(Compact::Auto, tight), || false);
+        let auto = p.derivation_within(&view(Compact::Auto), &limit(tight), |_| false);
         assert_eq!(auto.unwrap().inferences().len(), 2, "over the bound");
-        let auto = p.derivation_with(&view(Compact::Auto, Some(bytes)), || false);
+        let auto = p.derivation_within(&view(Compact::Auto), &limit(Some(bytes)), |_| false);
         assert_eq!(auto.unwrap().inferences().len(), 5, "within the bound");
-        let never = p.derivation_with(&view(Compact::Never, tight), || false);
+        let never = p.derivation_within(&view(Compact::Never), &limit(tight), |_| false);
         assert!(matches!(
             never,
             Err(Error::Refused(Refusal::Output {
@@ -1739,7 +1717,7 @@ mod tests {
                 ..
             }))
         ));
-        let none = p.derivation_with(&view(Compact::Auto, Some(10)), || false);
+        let none = p.derivation_within(&view(Compact::Auto), &limit(Some(10)), |_| false);
         // The compact view was considered, and its least size says so.
         assert!(
             matches!(
@@ -1815,11 +1793,12 @@ mod tests {
             };
             for &two_sided in sides {
                 let build = |compact| {
-                    let view = ViewOptions::UNBOUNDED.compact(compact);
+                    let view = ViewOptions::default().compact(compact);
+                    let limits = &crate::Limits::default().with_derivation_bytes(None);
                     let built = if two_sided {
-                        Derivation::two_sided(&proof, &view, || false)
+                        Derivation::two_sided(&proof, &view, limits, |_| false)
                     } else {
-                        Derivation::new(&proof, &view, || false)
+                        Derivation::new(&proof, &view, limits, |_| false)
                     };
                     built.unwrap()
                 };
@@ -1925,8 +1904,8 @@ mod tests {
         let size = p.derivation_size(false).unwrap();
         assert_eq!(size.inferences, (1 << 27) - 3);
         assert_eq!(size.height, 51);
-        assert!(size.bytes() > DEFAULT_MEMORY_LIMIT);
-        let limit = ViewOptions::DEFAULT_LIMIT;
+        assert!(size.bytes() > Limits::DEFAULT_MEMORY_BYTES);
+        let limit = crate::Limits::DEFAULT_DERIVATION_BYTES;
         let too_large = p.derivation().unwrap_err();
         let Error::Refused(Refusal::Output {
             estimate_bytes,
@@ -1939,30 +1918,38 @@ mod tests {
         assert_eq!((estimate_bytes, limit_bytes), (size.bytes(), limit));
         assert_eq!(too_large.setting(), Some("limits.derivation_bytes"));
         let memory = p
-            .derivation_with(&ViewOptions::UNBOUNDED, never)
+            .derivation_within(
+                &ViewOptions::default(),
+                &crate::Limits::default().with_derivation_bytes(None),
+                |_| never(),
+            )
             .unwrap_err();
         assert_eq!(
             memory,
             Error::Refused(Refusal::Memory {
                 phase: Phase::View,
-                limit_bytes: DEFAULT_MEMORY_LIMIT,
+                limit_bytes: Limits::DEFAULT_MEMORY_BYTES,
                 needed_bytes: Some(size.bytes())
             })
         );
-        // Options read without a memory bound have the default one.
+        // Options read without a field have its default, and a field
+        // they do not have is refused.
         #[cfg(feature = "serialize")]
-        assert_eq!(
-            serde_json::from_str::<ViewOptions>(r#"{"limit":null}"#).unwrap(),
-            ViewOptions::UNBOUNDED
-        );
+        {
+            let view = serde_json::from_str::<ViewOptions>(r#"{}"#).unwrap();
+            assert_eq!(view, ViewOptions::default());
+            assert!(serde_json::from_str::<ViewOptions>(r#"{"limit":null}"#).is_err());
+        }
 
         // More than 2⁷⁰ inferences.
         let p = tower(70);
         let size = p.derivation_size(false).unwrap();
         assert_eq!((size.inferences, size.characters), (u64::MAX, u64::MAX));
         assert_eq!((size.bytes(), size.height), (u64::MAX, 141));
-        let unbounded = ViewOptions::UNBOUNDED.memory(None);
-        let too_many = p.derivation_with(&unbounded, never).unwrap_err();
+        let unbounded = crate::Limits::UNBOUNDED;
+        let too_many = p
+            .derivation_within(&ViewOptions::default(), &unbounded, |_| never())
+            .unwrap_err();
         assert_eq!(
             too_many,
             Error::Refused(Refusal::Index {
@@ -1992,7 +1979,17 @@ mod tests {
         );
         let mut record = Record::new(&p);
         let roots = p.forest().roots();
-        check::examine(&p, roots, Derivation::ONE_SIDED, None, None, &mut record).unwrap();
+        let mut never = |_| false;
+        let allowance = check::Allowance::new(&crate::Limits::UNBOUNDED, Phase::View, &mut never);
+        check::examine(
+            &p,
+            roots,
+            Derivation::ONE_SIDED,
+            None,
+            allowance,
+            &mut record,
+        )
+        .unwrap();
         // ⊢ ?~A, A twice and ⊢ ?~A, A ⊗ A, and the one shared ~A.
         let sequents: Vec<usize> = [1, 3, 4]
             .map(|id| record.standard[&n(id)].as_slice().len())

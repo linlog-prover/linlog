@@ -117,9 +117,7 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
         let memory = row.get("memory_limit");
         if memory == "0" {
             label.push_str(" memory none");
-        } else if !memory.is_empty()
-            && memory != linlog::search::Options::DEFAULT_MEMORY_LIMIT.to_string()
-        {
+        } else if !memory.is_empty() && memory != linlog::Limits::DEFAULT_MEMORY_BYTES.to_string() {
             label.push_str(&format!(" memory {memory}"));
         }
         // A file from before the column ran every pool from its start.

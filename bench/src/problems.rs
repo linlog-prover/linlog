@@ -18,7 +18,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use linlog::families::{FAMILIES, find};
 use linlog::lltp::{self, Status};
 use linlog::mist::{self, Safety};
-use linlog::{Mode, Sequent};
+use linlog::{Limits, Mode, Sequent};
 use std::path::{Path, PathBuf};
 
 /// A problem as the parent names it.
@@ -257,7 +257,7 @@ pub fn load(id: &str) -> Result<Problem> {
         }
         "lltp" => {
             let text = std::fs::read_to_string(rest).with_context(|| format!("reading {rest}"))?;
-            let problem = lltp::read(&text)?;
+            let problem = lltp::read(&text, &Limits::default())?;
             Ok(Problem {
                 sequent: problem.sequent,
                 mode: lltp_mode(Path::new(rest)),
@@ -267,7 +267,7 @@ pub fn load(id: &str) -> Result<Problem> {
         }
         "spec" => {
             let text = std::fs::read_to_string(rest).with_context(|| format!("reading {rest}"))?;
-            let problem = mist::read(&text)?;
+            let problem = mist::read(&text, &Limits::default())?;
             Ok(Problem {
                 sequent: problem.sequent,
                 mode: Mode::INTUITIONISTIC.affine(),

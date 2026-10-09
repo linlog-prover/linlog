@@ -25,6 +25,7 @@ use super::multiset::Multiset;
 use super::{Branch, Node, NodeId, Proof};
 use crate::Error;
 use crate::fragment::Mode;
+use crate::limits::{Limits, Progress};
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::search::{self, Options, Outcome, Verdict, focus};
 use crate::sequents::{Kind, Sequent};
@@ -825,20 +826,29 @@ impl Interactive {
     /// [`undo`](Self::undo) retracts whole; otherwise nothing changes. The
     /// outcome's proof, if any, is the proof of the goal alone.
     ///
-    /// The derivation grafted is within the bound of `view`: a goal whose
-    /// proof unfolds into a larger one, or whose unfolding `stop` ends, is
-    /// [`Error::Refused`] and stays open, though the search proved it.
+    /// The search runs within `limits`, and the derivation grafted is
+    /// within them too: a goal whose proof unfolds into a larger one, or
+    /// whose unfolding `stop` ends, is [`Error::Refused`] and stays open,
+    /// though the search proved it.
     pub fn close(
         &mut self,
         goal: InfId,
         options: &Options,
         view: &ViewOptions,
-        mut stop: impl FnMut() -> bool,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Outcome, Error> {
         let sequent = self.open(goal)?.to_vec();
-        let outcome = search::prove_goal(&self.forest, &sequent, self.mode, options, &mut stop)?;
+        let outcome = search::prove_goal(
+            &self.forest,
+            &sequent,
+            self.mode,
+            options,
+            limits,
+            &mut stop,
+        )?;
         if let Verdict::Proved(proof) = &outcome.verdict {
-            self.close_with(goal, proof, view, stop)?;
+            self.close_with(goal, proof, view, limits, stop)?;
         }
         Ok(outcome)
     }
@@ -848,8 +858,8 @@ impl Interactive {
     /// session's sequent ([`Error::ForeignProof`] otherwise), its root must
     /// conclude the goal, as the proof of [`prove_goal`] on the goal's
     /// occurrences ([`goal`](Self::goal)) does, and it must pass the
-    /// checker in the session's mode; its derivation is grafted within the
-    /// bound of `view` as one step. A caller that runs the search itself,
+    /// checker in the session's mode; its derivation is grafted within
+    /// `limits` as one step. A caller that runs the search itself,
     /// several of them side by side for one, closes the goal with this.
     ///
     /// [`prove_goal`]: crate::search::prove_goal
@@ -858,7 +868,8 @@ impl Interactive {
         goal: InfId,
         proof: &Proof,
         view: &ViewOptions,
-        mut stop: impl FnMut() -> bool,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<(), Error> {
         let sequent = self.open(goal)?.to_vec();
         // The goal's ids name occurrences of the session's forest, which
@@ -866,7 +877,7 @@ impl Interactive {
         if proof.sequent() != self.sequent() {
             return Err(Error::ForeignProof);
         }
-        let found = Derivation::of_goal(proof, &sequent, self.mode, view, &mut stop)?;
+        let found = Derivation::of_goal(proof, &sequent, self.mode, view, limits, &mut stop)?;
         self.graft(goal, found);
         self.history.push(goal);
         Ok(())
@@ -879,12 +890,13 @@ impl Interactive {
         &mut self,
         options: &Options,
         view: &ViewOptions,
-        mut stop: impl FnMut() -> bool,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Vec<(InfId, Outcome)>, Error> {
         let goals: Vec<InfId> = self.goals().collect();
         let mut outcomes = Vec::with_capacity(goals.len());
         for goal in goals {
-            let outcome = self.close(goal, options, view, &mut stop)?;
+            let outcome = self.close(goal, options, view, limits, &mut stop)?;
             outcomes.push((goal, outcome));
         }
         Ok(outcomes)
@@ -1519,14 +1531,25 @@ mod tests {
             panic!()
         };
         let outcome = s
-            .close(l, &options, &ViewOptions::default(), || false)
+            .close(
+                l,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
         assert_eq!(outcome.engine, crate::search::Engine::Additive);
         assert_eq!(s.goals().collect::<Vec<_>>(), [r]);
         assert_eq!(s.steps(), 2);
         let outcomes = s
-            .close_all(&options, &ViewOptions::default(), || false)
+            .close_all(
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         assert_eq!(outcomes.len(), 1);
         assert_eq!(outcomes[0].0, r);
@@ -1544,17 +1567,35 @@ mod tests {
             panic!()
         };
         let outcome = s
-            .close(l, &options, &ViewOptions::default(), || false)
+            .close(
+                l,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
         let outcome = s
-            .close(r, &options, &ViewOptions::default(), || true)
+            .close(
+                r,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| true,
+            )
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));
         assert_eq!(s.goals().collect::<Vec<_>>(), [l, r]);
         assert!(matches!(s.proof(), Err(Error::OpenGoals { count: 2 })));
         assert!(matches!(
-            s.close(g, &options, &ViewOptions::default(), || false),
+            s.close(
+                g,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false
+            ),
             Err(Error::Step(StepError::NoGoal { .. }))
         ));
 
@@ -1564,7 +1605,13 @@ mod tests {
             panic!()
         };
         let outcome = s
-            .close(g, &options, &ViewOptions::default(), || false)
+            .close(
+                g,
+                &options,
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
         assert!(s.derivation().to_string().contains("!L"));
@@ -1584,7 +1631,7 @@ mod tests {
             let top = *forest.roots().last().unwrap();
             let proof = Proof::new(forest, vec![Node::Top(top)], NodeId::new(0)).unwrap();
             assert!(matches!(
-                s.close_with(g, &proof, &view, || false),
+                s.close_with(g, &proof, &view, &crate::Limits::default(), |_| false),
                 Err(Error::ForeignProof)
             ));
         }
@@ -1597,14 +1644,15 @@ mod tests {
             &goal,
             Mode::CLASSICAL.affine(),
             &Options::default(),
-            || false,
+            &Limits::default(),
+            |_| false,
         )
         .unwrap();
         let Verdict::Proved(proof) = affine.verdict else {
             panic!("{:?}", affine.verdict)
         };
         assert!(matches!(
-            s.close_with(g, &proof, &view, || false),
+            s.close_with(g, &proof, &view, &crate::Limits::default(), |_| false),
             Err(Error::Check(crate::proofs::CheckError::Invalid(_)))
         ));
         assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
@@ -1645,8 +1693,14 @@ mod tests {
         else {
             panic!()
         };
-        s.close(l, &Options::default(), &ViewOptions::default(), || false)
-            .unwrap();
+        s.close(
+            l,
+            &Options::default(),
+            &ViewOptions::default(),
+            &crate::Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert_eq!(s.undo(), Some(l));
         assert_eq!(s.goals().count(), 2);
         assert_eq!(s.undo(), Some(g1));
@@ -1655,7 +1709,13 @@ mod tests {
         assert_eq!(s.inferences(), start_state.inferences());
         assert_eq!(s.undo(), None);
         let outcome = s
-            .close(g, &Options::default(), &ViewOptions::default(), || false)
+            .close(
+                g,
+                &Options::default(),
+                &ViewOptions::default(),
+                &crate::Limits::default(),
+                |_| false,
+            )
             .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
         assert!(s.is_complete());
@@ -1706,8 +1766,13 @@ mod tests {
             panic!()
         };
         assert_eq!(s.goal(l), s.goal(r));
-        s.close_all(&Options::default(), &ViewOptions::default(), || false)
-            .unwrap();
+        s.close_all(
+            &Options::default(),
+            &ViewOptions::default(),
+            &crate::Limits::default(),
+            |_| false,
+        )
+        .unwrap();
         assert!(s.is_complete());
     }
 }

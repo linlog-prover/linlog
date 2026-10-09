@@ -7,5 +7,5 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|text: &str| {
-    let _ = linlog::lltp::read(text);
+    let _ = linlog::lltp::read(text, &linlog::Limits::default());
 });

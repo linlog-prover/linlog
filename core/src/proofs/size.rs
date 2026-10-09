@@ -16,9 +16,10 @@
 //! saturated count shows in the size returned, whose estimate in bytes is
 //! then over every bound.
 
-use super::check::{self, CheckError, Facts, Observer, State};
+use super::check::{self, Allowance, CheckError, Facts, Observer, State};
 use super::{Branch, Derivation, Node, NodeId, Proof};
 use crate::fragment::Mode;
+use crate::limits::{Limits, Phase, Progress};
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Term;
 
@@ -63,7 +64,8 @@ impl Size {
     /// [`BYTES_PER_CHARACTER`](Self::BYTES_PER_CHARACTER) for each
     /// character of a sequent and
     /// [`BYTES_PER_INFERENCE`](Self::BYTES_PER_INFERENCE) for each
-    /// inference. It is what [`ViewOptions::limit`](super::ViewOptions)
+    /// inference. It is what
+    /// [`Limits::derivation_bytes`](crate::Limits::derivation_bytes)
     /// bounds.
     pub fn bytes(&self) -> u64 {
         self.characters
@@ -82,21 +84,21 @@ impl Proof {
     /// Returns how large the derivation of the proof is, the two-sided one
     /// with `two_sided` set, without building it, or the checker's
     /// complaint about the proof: the proof passes the checker once,
-    /// within [`DEFAULT_MEMORY_LIMIT`](super::DEFAULT_MEMORY_LIMIT), and a
-    /// subproof that several nodes share is counted at every use, as the
-    /// derivation repeats it.
+    /// within the default [`Limits`], and a subproof that several nodes
+    /// share is counted at every use, as the derivation repeats it.
     pub fn derivation_size(&self, two_sided: bool) -> Result<Size, CheckError> {
-        self.derivation_size_within(two_sided, Some(super::DEFAULT_MEMORY_LIMIT))
+        self.derivation_size_within(two_sided, &Limits::default(), |_| false)
     }
 
     /// Returns the size as [`derivation_size`](Self::derivation_size)
-    /// does, the checker's pass holding `memory` bytes at most, or any
-    /// number with `None`; a pass that would hold more ends with an error
-    /// that [`Refused`](CheckError::Refused).
+    /// does, the checker's pass holding `limits.memory_bytes` at most and
+    /// asking `stop` every 4 096 nodes; a pass that would hold more, or
+    /// that `stop` ends, answers [`CheckError::Refused`].
     pub fn derivation_size_within(
         &self,
         two_sided: bool,
-        memory: Option<u64>,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Size, CheckError> {
         let mode = if two_sided {
             Derivation::TWO_SIDED
@@ -104,7 +106,14 @@ impl Proof {
             Derivation::ONE_SIDED
         };
         let reading = check::reading(self, mode)?;
-        measure(self, self.forest().roots(), mode, reading.as_ref(), memory)
+        let allowance = Allowance::new(limits, Phase::View, &mut stop);
+        measure(
+            self,
+            self.forest().roots(),
+            mode,
+            reading.as_ref(),
+            allowance,
+        )
     }
 }
 
@@ -518,16 +527,15 @@ impl Observer for Measure<'_> {
 
 /// Returns the size of the derivation that a proof concluding `goal`
 /// unfolds into, two-sided under a reading, or the checker's complaint
-/// about the proof in `mode`, or its refusal to hold more than `memory`
-/// bytes.
+/// about the proof in `mode`, or its refusal by the `allowance`.
 pub(crate) fn measure(
     proof: &Proof,
     goal: &[OccId],
     mode: Mode,
     reading: Option<&Reading>,
-    memory: Option<u64>,
+    allowance: Allowance<'_>,
 ) -> Result<Size, CheckError> {
-    measured(proof, goal, mode, reading, memory).map(|(size, _)| size)
+    measured(proof, goal, mode, reading, allowance).map(|(size, _)| size)
 }
 
 /// Returns the size as [`measure`] does, and what a compact view of the
@@ -537,10 +545,15 @@ pub(crate) fn measured(
     goal: &[OccId],
     mode: Mode,
     reading: Option<&Reading>,
-    memory: Option<u64>,
+    allowance: Allowance<'_>,
 ) -> Result<(Size, Firm), CheckError> {
     // Before the tables are made: they are several times the proof.
-    check::afford(proof, Measure::tables(proof), memory)?;
+    check::afford(
+        proof,
+        Measure::tables(proof),
+        allowance.memory,
+        allowance.phase,
+    )?;
     let mut measure = Measure {
         proof,
         reading,
@@ -548,7 +561,7 @@ pub(crate) fn measured(
         subs: vec![Sub::default(); proof.nodes().len()],
         exact: true,
     };
-    check::examine(proof, goal, mode, reading, memory, &mut measure)?;
+    check::examine(proof, goal, mode, reading, allowance, &mut measure)?;
     let root = measure.subs[proof.root().index()];
     // What the conclusion holds beyond what the root derives, a `⊤`
     // absorbs. A goal is a list of any length, so its sums saturate.
@@ -639,12 +652,24 @@ mod tests {
         for (proof, mode) in proofs {
             let mut views = vec![(
                 false,
-                Derivation::new(&proof, &ViewOptions::UNBOUNDED, never).unwrap(),
+                Derivation::new(
+                    &proof,
+                    &ViewOptions::default(),
+                    &crate::Limits::default().with_derivation_bytes(None),
+                    |_| never(),
+                )
+                .unwrap(),
             )];
             if mode.intuitionistic {
                 views.push((
                     true,
-                    Derivation::two_sided(&proof, &ViewOptions::UNBOUNDED, never).unwrap(),
+                    Derivation::two_sided(
+                        &proof,
+                        &ViewOptions::default(),
+                        &crate::Limits::default().with_derivation_bytes(None),
+                        |_| never(),
+                    )
+                    .unwrap(),
                 ));
             }
             for (two_sided, derivation) in views {

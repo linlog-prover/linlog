@@ -31,7 +31,7 @@ serde_json, which the CLI and the core's tests already have.
 - `src/run.rs`: the parent (`run`) and the child (`one`). One child
   process per run: the child loads the problem, builds the forest (for
   `occurrences` and `multiplicity`), prints the line `loaded`, times
-  `prove_until` alone with a deadline in its stop closure (a flag that a
+  `prove_within` alone with a deadline in its stop closure (a flag that a
   thread of its own raises at the limit, as the CLI's is: a clock read
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
@@ -107,7 +107,7 @@ serde_json, which the CLI and the core's tests already have.
   child died in the check; `check_ms` is the wall-clock time of the check
   alone.
 - **`time_ms` is wall-clock time of the search alone** (`Instant` around
-  `prove_until`): forest construction and pool start-up included, parsing,
+  `prove_within`): forest construction and pool start-up included, parsing,
   the proof check and process start excluded; the time limit is
   wall-clock too. `cpu_ms` is the process's CPU time over the same span
   (`/proc/self/stat`, all threads, in 10 ms ticks), and `wait_ms` the

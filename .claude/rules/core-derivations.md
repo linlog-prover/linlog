@@ -71,7 +71,7 @@ steps (which are no inferences).
 
 **The size of a derivation is computed from the term, without building
 it** (`proofs/size.rs`, `Proof::derivation_size(two_sided)`, a `Size`;
-`derivation_size_within(two_sided, memory)` for another bound on the
+`derivation_size_within(two_sided, &limits, stop)` for other limits on the
 pass): one pass of the checker with an observer that keeps a few numbers
 per node, all saturating, since a term with shared subproofs unfolds
 exponentially. Every sum, product and difference there saturates;
@@ -114,21 +114,20 @@ order of magnitude for every format but the SVG's memory.
 
 **Nothing builds a derivation it was not allowed to** (`ViewOptions`,
 the one options value of every path that builds one, plain data with
-serde, a field absent from the JSON taking its default: `limit`, the
-most bytes of `Size::bytes()` a derivation may be estimated at,
-`DEFAULT_LIMIT` 64 MiB, `None` for no bound; and `memory`, the most
-bytes the making of one may hold, `DEFAULT_MEMORY_LIMIT`, `None` for no
-bound, which bounds every pass of the checker on the way and the
-derivation by the same estimate; and `compact`, above. `UNBOUNDED` lifts
-`limit` and keeps the default `memory`; `UNBOUNDED.memory(None)` is no
-bound at all). `unfold`
+serde, a field absent from the JSON taking its default: `compact`,
+above; and the `Limits` beside it: `derivation_bytes`, the most bytes
+of `Size::bytes()` a derivation may be estimated at,
+`DEFAULT_DERIVATION_BYTES` 64 MiB, `None` for no bound; and
+`memory_bytes`, the most bytes the making of one may hold, `None` for
+no bound, which bounds every pass of the checker on the way and the
+derivation by the same estimate). `unfold`
 is the one place derivations are made, for `Derivation::new`,
 `two_sided` and `of_goal` alike: the size first, always (a pass of the
 checker); `Error::Refused(Refusal::Output { estimate_bytes, limit_bytes,
-least_bytes })` past `limit` (`least_bytes` the compact view's lower
+least_bytes })` past `derivation_bytes` (`least_bytes` the compact view's lower
 bound, `size::Firm`, where the view may compact), else
 `Refusal::Memory { phase: View, needed_bytes: Some(estimate) }` past
-`memory`, else `Refusal::Index { what: Space::Inference }` for more
+`memory_bytes`, else `Refusal::Index { what: Space::Inference }` for more
 inferences than an `InfId` counts
 (`Derivation::MOST`, which only a call with both bounds lifted can
 reach), each with nothing built; then the pass that records what the
@@ -145,9 +144,9 @@ the proof. So the text tree, the four exports
 front end's check output are all under the bound by construction, and a
 new path that needs a derivation gets it from there or not at all.
 `Proof::derivation()` and `two_sided_derivation()` are the default
-options with no stop; `…_with(&view, stop)` take both. A proof whose
+options with no stop; `…_within(&view, &limits, stop)` take all three. A proof whose
 derivation is refused for its size has passed the checker (the size's
-pass is one). `Interactive::close(goal, options, view, stop)` leaves a
+pass is one). `Interactive::close(goal, options, view, limits, stop)` leaves a
 goal open whose graft is refused (`Error::Refused`), though the search
 proved it; what it then tells the user is the front end's to say. The
 builder needs no stack to speak of, so a front end on a small one (the
@@ -242,8 +241,8 @@ steps taken. It reuses `Inference` and `Rule` and shares no second
 representation with anything. Its API: `new(&sequent, mode)`, `goals()`
 and `goal(id)`, `rules(goal, position)` (or a `Refusal` that says why no
 rule applies), `apply(goal, position, rule, left)`, `undo()`,
-`close(goal, options, view, stop)` (the search, then the graft),
-`close_with(goal, &proof, view, stop)` (the graft of a proof the caller's
+`close(goal, options, view, limits, stop)` (the search, then the graft),
+`close_with(goal, &proof, view, limits, stop)` (the graft of a proof the caller's
 own search found, as the command's race does) and `close_all`,
 `derivation()` with open goals as `Rule::Open` leaves and
 `derivation_ids()` (a drawn inference's id in the state), and `proof()`. What the code relies on:

@@ -4,7 +4,7 @@
 use crate::argument_parsing::{InputFormat, LogicArgs, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
-use linlog::{Forest, Sequent};
+use linlog::{Forest, Limits, Sequent};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
@@ -66,11 +66,14 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 /// problem or a `.spec` problem, whose counts are refused before they are
 /// written out when their tokens pass `most`.
 pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
+    // The text is read whole and the bound applied by `admit`, which says
+    // how many occurrences the sequent has.
+    let unbounded = Limits::default().with_occurrences(None);
     match format {
         InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
         // The library's error says that the text is no LLTP problem.
-        InputFormat::Lltp => Ok(linlog::lltp::read(text)?.sequent),
-        InputFormat::Spec => match linlog::mist::read_within(text, most) {
+        InputFormat::Lltp => Ok(linlog::lltp::read(text, &unbounded)?.sequent),
+        InputFormat::Spec => match linlog::mist::read(text, &bound(most)) {
             Ok(problem) => Ok(problem.sequent),
             Err(linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
                 occurrences,
@@ -81,8 +84,13 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
             ),
             Err(e) => Err(e.into()),
         },
-        _ => text.parse().map_err(|e| crate::parse_error(text, e)),
+        _ => Sequent::parse_within(text, &unbounded).map_err(|e| crate::parse_error(text, e)),
     }
+}
+
+/// Returns the default limits with `most` occurrences at most.
+pub(crate) fn bound(most: u64) -> Limits {
+    Limits::default().with_occurrences(Some(most))
 }
 
 /// Refuses a sequent that unfolds to more than `most` occurrences, before
@@ -147,7 +155,7 @@ impl SequentInput {
         let (text, format) = self.text(true)?;
         let image = crate::ordinary::image(logic, &crate::ordinary::sequent_in(&text, format)?)?;
         let sequent = admit(image.sequent().clone(), self.most())?;
-        Ok((Forest::from_owned(sequent, self.most())?, image))
+        Ok((Forest::from_owned(sequent, &bound(self.most()))?, image))
     }
 
     /// Returns the most occurrences the sequent may have.
@@ -158,7 +166,7 @@ impl SequentInput {
     /// Reads the sequent and lays it out as a forest, within the limit on
     /// its occurrences.
     pub fn forest(&self) -> Result<Forest> {
-        Ok(Forest::from_owned(self.sequent()?, self.most())?)
+        Ok(Forest::from_owned(self.sequent()?, &bound(self.most()))?)
     }
 }
 
