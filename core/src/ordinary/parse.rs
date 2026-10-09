@@ -364,12 +364,12 @@ impl Sequent {
                         }
                     }
                     End::Turnstile => {
-                        // The turnstile's last character: `⊢` is three bytes.
-                        let last = parser.input[..parser.at]
-                            .char_indices()
-                            .next_back()
-                            .map_or(0, |(at, _)| at);
-                        return Err(parser.unexpected(last, &["a connective", "`,`", "the end"]));
+                        // The second turnstile, `|-` or `⊢`, as one token.
+                        let read = &parser.input[..parser.at];
+                        let start = read.len() - if read.ends_with("|-") { 2 } else { "⊢".len() };
+                        let span = start..parser.at;
+                        let expected = &["a connective", "`,`", "the end"];
+                        return Err(ParseError::spanning(parser.input, span, expected).into());
                     }
                     End::Stop => break,
                 }
@@ -494,6 +494,17 @@ mod tests {
             "",
         ] {
             assert!(bad.parse::<Sequent>().is_err(), "{bad:?}");
+        }
+        // A second turnstile is one token, found where it starts.
+        for (bad, column, found) in [("a |- b |- c", 8, "|-"), ("a ⊢ b ⊢ c", 7, "⊢")] {
+            let Err(Error::Parse(e)) = bad.parse::<Sequent>() else {
+                panic!("{bad:?}");
+            };
+            assert_eq!(
+                (e.column, e.found.as_deref()),
+                (column, Some(found)),
+                "{bad:?}"
+            );
         }
     }
 
