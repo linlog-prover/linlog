@@ -31,11 +31,12 @@
 //! use linlog::{Limits, Options};
 //!
 //! let sequent: Sequent = "a -> b, b -> c |- a -> c".parse()?;
-//! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName)?;
+//! let limits = Limits::default();
+//! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName, &limits)?;
 //! assert_eq!(image.sequent().to_string(), "⊢ ?(!a ⊗ ~b), ?(!b ⊗ ~c), ?~a ⅋ c");
 //! let options = ordinary::Options::default().with_logic(Logic::Intuitionistic);
 //! let outcome =
-//!     ordinary::decide(&sequent, &options, &Options::default(), &Limits::default(), |_| false)?;
+//!     ordinary::decide(&sequent, &options, &Options::default(), &limits, |_| false)?;
 //! let Verdict::Valid(derivation) = &outcome.verdict else {
 //!     panic!("valid");
 //! };
@@ -89,6 +90,13 @@ pub enum Logic {
 }
 
 impl Logic {
+    /// Every logic, in the order of [`NAMES`](Self::NAMES).
+    pub const ALL: [Self; 3] = [Self::Classical, Self::Intuitionistic, Self::Minimal];
+
+    /// The logics' names, which [`name`](Self::name) writes and `FromStr`
+    /// reads.
+    pub const NAMES: &'static [&'static str] = &["classical", "intuitionistic", "minimal"];
+
     /// Returns the logic's name in lower case.
     pub const fn name(self) -> &'static str {
         match self {
@@ -112,6 +120,23 @@ impl Display for Logic {
     /// Writes the logic's [`name`](Self::name).
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
+    }
+}
+
+impl std::str::FromStr for Logic {
+    type Err = Error;
+
+    /// Reads a logic's [`name`](Self::name), one of
+    /// [`NAMES`](Self::NAMES).
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Self::ALL
+            .into_iter()
+            .find(|logic| logic.name() == name)
+            .ok_or_else(|| Error::UnknownName {
+                what: "logic",
+                name: name.into(),
+                known: Self::NAMES,
+            })
     }
 }
 
@@ -146,7 +171,7 @@ pub enum Translation {
 }
 
 impl Translation {
-    /// Every translation.
+    /// Every translation, in the order of [`NAMES`](Self::NAMES).
     pub const ALL: [Self; 4] = [
         Self::Affine,
         Self::CallByName,
@@ -158,6 +183,10 @@ impl Translation {
     /// default, chosen by a run of the ILTP library's propositional
     /// problems.
     pub const DEFAULT_INTUITIONISTIC: Self = Self::CallByName;
+
+    /// The translations' names, which [`name`](Self::name) writes and
+    /// `FromStr` reads.
+    pub const NAMES: &'static [&'static str] = &["affine", "cbn", "cbv", "01"];
 
     /// Returns the translation's short name: `affine`, `cbn`, `cbv` or
     /// `01`, as the command and the JSON spell it.
@@ -236,6 +265,23 @@ impl Display for Translation {
     /// Writes the translation's [`name`](Self::name).
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
+    }
+}
+
+impl std::str::FromStr for Translation {
+    type Err = Error;
+
+    /// Reads a translation's [`name`](Self::name), one of
+    /// [`NAMES`](Self::NAMES).
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Self::ALL
+            .into_iter()
+            .find(|translation| translation.name() == name)
+            .ok_or_else(|| Error::UnknownName {
+                what: "translation",
+                name: name.into(),
+                known: Self::NAMES,
+            })
     }
 }
 
@@ -640,7 +686,7 @@ mod tests {
     /// back checked.
     fn decide(text: &str, logic: Logic, translation: Translation) -> Option<bool> {
         let sequent: Sequent = text.parse().unwrap();
-        let image = translate(&sequent, logic, translation).unwrap();
+        let image = translate(&sequent, logic, translation, &crate::Limits::default()).unwrap();
         let search = Search::default().with_copies(Some(8));
         let outcome = prove(image.sequent(), image.mode(), &search).unwrap();
         match &outcome.verdict {
@@ -655,6 +701,50 @@ mod tests {
             Verdict::Unprovable(_) => Some(false),
             Verdict::Unknown(_) => None,
         }
+    }
+
+    /// Every logic and translation reads back from its name, an unknown
+    /// name is refused naming the known ones, and the readers and the
+    /// translation keep to the occurrence bound.
+    #[test]
+    fn names_read_back_and_bounds_hold() {
+        for logic in Logic::ALL {
+            assert_eq!(logic.name().parse::<Logic>().unwrap(), logic);
+        }
+        for translation in Translation::ALL {
+            assert_eq!(
+                translation.name().parse::<Translation>().unwrap(),
+                translation
+            );
+        }
+        assert!(matches!(
+            "cbz".parse::<Translation>(),
+            Err(Error::UnknownName { known, .. }) if known == Translation::NAMES
+        ));
+        let bound = |n| crate::Limits::default().with_occurrences(Some(n));
+        let refused = |result: Result<(), Error>| {
+            matches!(result, Err(Error::Refused(Refusal::Occurrences { .. })))
+        };
+        // Five formulas: a, b, c, a ∧ b and the implication.
+        assert!(Sequent::parse_within("a /\\ b -> c", &bound(5)).is_ok());
+        assert!(refused(
+            Sequent::parse_within("a /\\ b -> c", &bound(4)).map(|_| ())
+        ));
+        let tptp = "fof(c, conjecture, (a & b) => c).";
+        assert!(read_tptp(tptp, &bound(5)).is_ok());
+        assert!(refused(read_tptp(tptp, &bound(4)).map(|_| ())));
+        let sequent: Sequent = "a /\\ b -> c".parse().unwrap();
+        let image = translate(
+            &sequent,
+            Logic::Classical,
+            Translation::Affine,
+            &bound(1_000),
+        )
+        .unwrap();
+        let size = image.sequent().occurrences();
+        let classical = |n| translate(&sequent, Logic::Classical, Translation::Affine, &bound(n));
+        assert!(classical(size).is_ok());
+        assert!(refused(classical(size - 1).map(|_| ())));
     }
 
     /// A name is one atom however its accents are encoded, and a keyword
@@ -695,7 +785,10 @@ mod tests {
     /// of.
     #[test]
     fn false_is_no_atom_of_the_sequent() {
-        let read = read_tptp("fof(a, axiom, p). fof(b, axiom, ~p). fof(c, conjecture, false).");
+        let read = read_tptp(
+            "fof(a, axiom, p). fof(b, axiom, ~p). fof(c, conjecture, false).",
+            &crate::Limits::default(),
+        );
         assert!(matches!(read, Err(Error::AtomName { name }) if name == FALSE));
     }
 

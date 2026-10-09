@@ -290,7 +290,9 @@ impl Image {
 /// [`Error::Translation`] when the translation does not decide the logic
 /// ([`Translation::decides`]), [`Error::Succedents`] for an intuitionistic
 /// or minimal sequent with more than one formula right of `⊢`, and
-/// [`Refusal::Occurrences`](crate::Refusal::Occurrences) for an image larger than an arena holds.
+/// [`Refusal::Occurrences`](crate::Refusal::Occurrences) for an image that
+/// unfolds to more occurrences than `limits.occurrences` or than an arena
+/// holds, before a forest of it is laid out.
 #[expect(
     clippy::missing_panics_doc,
     reason = "the expects state facts of the pattern table the translation builds from"
@@ -299,6 +301,7 @@ pub fn translate(
     sequent: &Sequent,
     logic: Logic,
     translation: Translation,
+    limits: &crate::Limits,
 ) -> Result<Image, Error> {
     if !translation.decides(logic) {
         return Err(Error::Translation { translation, logic });
@@ -466,6 +469,15 @@ pub fn translate(
     } else {
         Mode::INTUITIONISTIC
     };
+    let occurrences = linear.occurrences();
+    if let Some(limit) = limits.occurrences
+        && occurrences > limit
+    {
+        return Err(Error::Refused(crate::Refusal::Occurrences {
+            occurrences,
+            limit,
+        }));
+    }
     Ok(Image {
         sequent: linear,
         mode,

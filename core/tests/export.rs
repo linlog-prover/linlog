@@ -178,8 +178,13 @@ fn typst_layout() {
 fn ordinary_derivation() {
     use linlog::ordinary::{self, Logic, Translation};
     let sequent: ordinary::Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
-    let image =
-        ordinary::translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+    let image = ordinary::translate(
+        &sequent,
+        Logic::Intuitionistic,
+        Translation::CallByName,
+        &Limits::default(),
+    )
+    .unwrap();
     let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
     let Verdict::Proved(proof) = outcome.verdict else {
         panic!("provable");

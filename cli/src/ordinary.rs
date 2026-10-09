@@ -26,7 +26,7 @@ use std::fmt::Write;
 pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> {
     match format {
         // The library's error says that the text is no TPTP problem.
-        InputFormat::Tptp => Ok(ordinary::read_tptp(text)?.sequent),
+        InputFormat::Tptp => Ok(ordinary::read_tptp(text, &Limits::UNBOUNDED)?.sequent),
         InputFormat::Text | InputFormat::Auto | InputFormat::Lines => {
             text.parse().map_err(|e| crate::parse_error(text, e))
         }
@@ -52,7 +52,12 @@ pub fn image(args: &LogicArgs, sequent: &ordinary::Sequent) -> Result<Image> {
     let translation = args
         .translation
         .map_or(Translation::default_for(logic), Into::into);
-    Ok(ordinary::translate(sequent, logic, translation)?)
+    Ok(ordinary::translate(
+        sequent,
+        logic,
+        translation,
+        &Limits::UNBOUNDED,
+    )?)
 }
 
 /// Returns the first line of the text output for an ordinary sequent:

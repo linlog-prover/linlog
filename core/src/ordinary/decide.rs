@@ -81,7 +81,7 @@ pub fn decide(
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
     let (logic, translation) = (options.logic, options.translation());
-    let image = translate(sequent, logic, translation)?;
+    let image = translate(sequent, logic, translation, limits)?;
     let linear = search::prove_within(image.sequent(), image.mode(), search, limits, &mut stop)?;
     let verdict = match &linear.verdict {
         search::Verdict::Proved(proof) => {

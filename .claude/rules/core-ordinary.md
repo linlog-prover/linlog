@@ -28,6 +28,14 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   `NotValid`, `Unknown`, and the linear outcome); `rocq.rs` (behind
   `rocq`): the certificate over `Prop`, public as
   `export::rocq::ordinary`.
+- **Every entry keeps to the occurrence bound**: `Sequent::parse_within`
+  and `read_tptp` refuse at the first formula of the arena past
+  `limits.occurrences` (`FromStr` within the defaults), and `translate`
+  refuses an image that unfolds past it, before a forest is laid out
+  (`names_read_back_and_bounds_hold`). The command passes
+  `Limits::UNBOUNDED` and keeps its own `--occurrence-limit` check of
+  the image until its area maps the flag onto them. `Logic` and
+  `Translation` have `ALL`, `NAMES` and `FromStr` (`Error::UnknownName`).
 - **The arena refuses what is not its own**: `Formulas::add` refuses an
   operand that is no node of the arena (an id of another one) and an
   atom outside its names, and `Sequent::new` an id outside its arena

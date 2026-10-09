@@ -9,6 +9,7 @@
 use super::{Formulas, Node, NodeId, Sequent};
 use crate::Error;
 use crate::errors::ParseError;
+use crate::limits::{Limits, Refusal};
 use crate::lltp::{Status, clauses};
 
 /// A binary connective as it is written.
@@ -86,6 +87,9 @@ struct Parser<'a> {
     pending: Vec<Pending>,
     /// How many parentheses are open.
     open: usize,
+    /// The most formulas the arena may hold, the caller's bound on
+    /// occurrences: every formula of the arena is one at least.
+    limit: Option<u64>,
 }
 
 /// What a formula's list ended with.
@@ -230,26 +234,48 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Fails once the arena holds more formulas than the limit allows.
+    fn within(&self, id: NodeId) -> Result<NodeId, Error> {
+        match self.limit {
+            Some(limit) if self.formulas.len() as u64 > limit => {
+                Err(Error::Refused(Refusal::Occurrences {
+                    occurrences: limit.saturating_add(1),
+                    limit,
+                }))
+            }
+            _ => Ok(id),
+        }
+    }
+
+    /// Returns the id of `node`, adding it to the arena within the limit.
+    fn add(&mut self, node: Node) -> Result<NodeId, Error> {
+        let id = self.formulas.add(node)?;
+        self.within(id)
+    }
+
     /// Reads a constant or an atom.
     fn constant_or_atom(&mut self) -> Result<NodeId, Error> {
         let at = self.at;
         let native = self.dialect == Dialect::Native;
         if native && self.eat("⊤") {
-            return self.formulas.add(Node::True);
+            return self.add(Node::True);
         }
         if native && self.eat("⊥") {
-            return self.formulas.add(Node::False);
+            return self.add(Node::False);
         }
         if !native && self.eat("$true") {
-            return self.formulas.add(Node::True);
+            return self.add(Node::True);
         }
         if !native && self.eat("$false") {
-            return self.formulas.add(Node::False);
+            return self.add(Node::False);
         }
         match self.identifier() {
-            Some("true") if native => self.formulas.add(Node::True),
-            Some("false") if native => self.formulas.add(Node::False),
-            Some(name) => self.formulas.atom(name),
+            Some("true") if native => self.add(Node::True),
+            Some("false") if native => self.add(Node::False),
+            Some(name) => {
+                let id = self.formulas.atom(name)?;
+                self.within(id)
+            }
             None => Err(self.unexpected(at, &["a formula"])),
         }
     }
@@ -266,21 +292,20 @@ impl<'a> Parser<'a> {
                     if next.is_some_and(|next| !binary.takes_before(next)) {
                         break;
                     }
-                    let f = &mut *self.formulas;
                     match binary {
                         Binary::Iff => Node::Iff(left, operand),
-                        Binary::Xor => Node::Not(f.add(Node::Iff(left, operand))?),
+                        Binary::Xor => Node::Not(self.add(Node::Iff(left, operand))?),
                         Binary::Implies => Node::Implies(left, operand),
                         Binary::Reverse => Node::Implies(operand, left),
                         Binary::Or => Node::Or(left, operand),
-                        Binary::Nor => Node::Not(f.add(Node::Or(left, operand))?),
+                        Binary::Nor => Node::Not(self.add(Node::Or(left, operand))?),
                         Binary::And => Node::And(left, operand),
-                        Binary::Nand => Node::Not(f.add(Node::And(left, operand))?),
+                        Binary::Nand => Node::Not(self.add(Node::And(left, operand))?),
                     }
                 }
             };
             self.pending.pop();
-            operand = self.formulas.add(node)?;
+            operand = self.add(node)?;
         }
         Ok(operand)
     }
@@ -290,8 +315,26 @@ impl std::str::FromStr for Sequent {
     type Err = Error;
 
     /// Parses a sequent of ordinary logic, or one formula to prove, in
-    /// the syntax [`Sequent`] documents.
+    /// the syntax [`Sequent`] documents, within the default limits.
     fn from_str(s: &str) -> Result<Self, Error> {
+        Self::parse_within(s, &Limits::default())
+    }
+}
+
+impl Sequent {
+    /// Parses a sequent of ordinary logic, or one formula to prove, in the
+    /// syntax [`Sequent`] documents, refusing it at the first formula past
+    /// `limits.occurrences` (each is an occurrence of its image at least),
+    /// before anything of that size is built.
+    ///
+    /// Needs the cargo feature `parse` (on by default).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Parse`] for text that is no sequent, [`Error::AtomName`]
+    /// for an atom named by a keyword, and [`Refusal::Occurrences`] past
+    /// the bound.
+    pub fn parse_within(s: &str, limits: &Limits) -> Result<Self, Error> {
         let mut formulas = Formulas::default();
         let mut parser = Parser {
             input: s,
@@ -300,6 +343,7 @@ impl std::str::FromStr for Sequent {
             formulas: &mut formulas,
             pending: Vec::new(),
             open: 0,
+            limit: limits.occurrences,
         };
         let (mut left, mut right) = (Vec::new(), Vec::new());
         let mut turnstile = false;
@@ -361,6 +405,9 @@ pub struct Problem {
 /// this matters, and reads `~` as tight as here). The file's statuses are
 /// read as [`lltp::read`](crate::lltp::read) reads them.
 ///
+/// Every formula is read within `limits.occurrences`, as
+/// [`Sequent::parse_within`] reads them.
+///
 /// Needs the cargo feature `parse` (on by default).
 ///
 /// # Errors
@@ -368,9 +415,9 @@ pub struct Problem {
 /// [`Error::Tptp`] for a file that is not a sequence of such clauses,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture
 /// (TPTP asks for each to be proved, which right of `⊢` would read as
-/// their disjunction), and [`Error::Parse`] for a formula that is
-/// not one.
-pub fn read_tptp(text: &str) -> Result<Problem, Error> {
+/// their disjunction), [`Error::Parse`] for a formula that is not one,
+/// and [`Refusal::Occurrences`] past the bound.
+pub fn read_tptp(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let clauses = clauses(text, |message| Error::Tptp { message })?;
     let mut formulas = Formulas::default();
     let mut read = |formula: &str| {
@@ -381,6 +428,7 @@ pub fn read_tptp(text: &str) -> Result<Problem, Error> {
             formulas: &mut formulas,
             pending: Vec::new(),
             open: 0,
+            limit: limits.occurrences,
         };
         // A parse error's place in the file, which the formula is a part of.
         let (start, len) = (
@@ -457,20 +505,20 @@ mod tests {
                     fof(a, axiom, ~ p => (q <= r)).\n\
                     fof(b, hypothesis, (p <~> q) & (p ~| $true) & (q ~& $false)).\n\
                     fof(c, conjecture, ~ ~ p <=> p).\n";
-        let problem = read_tptp(text).unwrap();
+        let problem = read_tptp(text, &Limits::default()).unwrap();
         assert_eq!(problem.status, Some(Status::NonTheorem));
         assert_eq!(
             problem.sequent.to_string(),
             "¬p → (r → q), (¬(p ↔ q) ∧ ¬(p ∨ ⊤)) ∧ ¬(q ∧ ⊥) ⊢ ¬¬p ↔ p"
         );
         assert!(matches!(
-            read_tptp("fof(c, axiom, p)."),
+            read_tptp("fof(c, axiom, p).", &Limits::default()),
             Err(Error::Tptp { .. })
         ));
-        assert!(read_tptp("fof(c, conjecture, p -> q).").is_err());
+        assert!(read_tptp("fof(c, conjecture, p -> q).", &Limits::default()).is_err());
         // A formula that does not parse is placed in the file, here on its
         // second line where the clause closes too early.
-        let place = |text: &str| match read_tptp(text) {
+        let place = |text: &str| match read_tptp(text, &Limits::default()) {
             Err(Error::Parse(e)) => (e.line, e.column, e.found.clone()),
             other => panic!("{other:?}"),
         };
@@ -488,7 +536,11 @@ mod tests {
             ),
             ("fof(c, axiom, p).", "not a TPTP problem: no conjecture"),
         ] {
-            assert_eq!(read_tptp(text).unwrap_err().to_string(), message, "{text}");
+            assert_eq!(
+                read_tptp(text, &Limits::default()).unwrap_err().to_string(),
+                message,
+                "{text}"
+            );
         }
     }
 
@@ -498,7 +550,7 @@ mod tests {
     fn refuses_several_conjectures() {
         let text = "fof(a, axiom, p). fof(c1, conjecture, p). fof(c2, conjecture, q).";
         assert!(matches!(
-            read_tptp(text),
+            read_tptp(text, &Limits::default()),
             Err(Error::SeveralConjectures { second }) if second == "c2"
         ));
     }

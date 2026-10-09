@@ -291,7 +291,7 @@ fn read_tptp() -> Result<()> {
         writeln!(text, "fof(a{i}, axiom, (p{i} => (p{} & ~ ~ q{i}))).", i + 1)?;
     }
     writeln!(text, "fof(c, conjecture, (p0 => p{LINES})).")?;
-    measured(|| ordinary::read_tptp(&text))?;
+    measured(|| ordinary::read_tptp(&text, &Limits::default()))?;
     Ok(())
 }
 
@@ -441,7 +441,12 @@ fn ordinary() -> Result<()> {
     text.push_str(&clashes.join(" \\/ "));
     let sequent: ordinary::Sequent = text.parse()?;
     // The search's options as for the image, which `decide` makes again.
-    let image = ordinary::translate(&sequent, Logic::Classical, Translation::Affine)?;
+    let image = ordinary::translate(
+        &sequent,
+        Logic::Classical,
+        Translation::Affine,
+        &Limits::default(),
+    )?;
     let search = options(image.sequent(), None);
     let logic = ordinary::Options::default()
         .with_logic(Logic::Classical)

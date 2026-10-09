@@ -95,7 +95,8 @@ Each entry point is described in the file of its module:
   value (`core-batch.md`);
 - `lltp::read`, `mist::read` and `families` (`core-inputs.md`);
 - `ordinary`: `"…".parse::<ordinary::Sequent>()`, `read_tptp`,
-  `translate(&sequent, logic, translation)` to an `Image`,
+  `Sequent::parse_within(text, &limits)`, `read_tptp(text, &limits)`,
+  `translate(&sequent, logic, translation, &limits)` to an `Image`,
   `Image::read_back(&proof, &limits, stop)` to a `Derivation` of LK or
   LJ, `Derivation::check(&limits, stop)`, `ordinary::decide` all of it
   in one call, `export::rocq::ordinary` (`core-ordinary.md`).

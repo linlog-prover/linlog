@@ -1019,7 +1019,13 @@ mod tests {
     #[test]
     fn text_tree() {
         let sequent: Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
-        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let image = translate(
+            &sequent,
+            Logic::Intuitionistic,
+            Translation::CallByName,
+            &crate::Limits::default(),
+        )
+        .unwrap();
         let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
         let Verdict::Proved(proof) = &outcome.verdict else {
             panic!("provable");
@@ -1113,7 +1119,13 @@ mod tests {
     #[test]
     fn a_goal_proof_reads_back_as_nothing() {
         let sequent: Sequent = "a, b |- a".parse().unwrap();
-        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let image = translate(
+            &sequent,
+            Logic::Intuitionistic,
+            Translation::CallByName,
+            &crate::Limits::default(),
+        )
+        .unwrap();
         let forest = crate::Forest::new(image.sequent()).unwrap();
         let roots = forest.roots();
         let goal = [roots[0], roots[2]];
@@ -1162,7 +1174,13 @@ mod tests {
     #[test]
     fn the_checker_refuses_each_break() {
         let sequent: Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
-        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let image = translate(
+            &sequent,
+            Logic::Intuitionistic,
+            Translation::CallByName,
+            &crate::Limits::default(),
+        )
+        .unwrap();
         let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
         let Verdict::Proved(proof) = &outcome.verdict else {
             panic!("provable");
@@ -1255,7 +1273,7 @@ mod tests {
         // read back from a linear `⊥`.
         let read = |input: &str, logic, translation| {
             let sequent: Sequent = input.parse().unwrap();
-            let image = translate(&sequent, logic, translation).unwrap();
+            let image = translate(&sequent, logic, translation, &crate::Limits::default()).unwrap();
             let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
             let Verdict::Proved(proof) = &outcome.verdict else {
                 panic!("{input} is provable");

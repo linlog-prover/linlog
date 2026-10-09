@@ -183,7 +183,7 @@ fn ordinary(text: &str, unicode: &str) {
             Translation::Affine => Logic::Classical,
             _ => Logic::Intuitionistic,
         };
-        let image = translate(&sequent, logic, translation).unwrap();
+        let image = translate(&sequent, logic, translation, &linlog::Limits::default()).unwrap();
         assert!(image.sequent().to_string().starts_with('⊢'));
     }
 }
