@@ -191,9 +191,11 @@ impl Serialize for ShapeError {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::NoGoal => entries!(s; "kind" => "no_goal"),
-            Self::SeveralGoals(first, second) => entries!(s;
+            Self::SeveralGoals { first, second } => entries!(s;
                 "kind" => "several_goals"; "first" => &first.get(); "second" => &second.get()),
-            Self::Formula(o) => entries!(s; "kind" => "formula"; "occurrence" => &o.get()),
+            Self::Formula { occurrence } => {
+                entries!(s; "kind" => "formula"; "occurrence" => &occurrence.get())
+            }
             Self::Succedents { count } => entries!(s; "kind" => "succedents"; "count" => count),
             Self::Hypothesis { index } => entries!(s; "kind" => "hypothesis"; "index" => index),
             Self::Undetermined { first, second } => entries!(s;

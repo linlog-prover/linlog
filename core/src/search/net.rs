@@ -23,7 +23,6 @@
 use super::memory::Account;
 use super::{Answer, Cadence, Decide, Options, Reason, Statistics, Stop, Task};
 use crate::Error;
-use crate::fragment::Fragment;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Refusal};
 use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
@@ -41,14 +40,7 @@ impl Decide for Nets {
     /// other than the roots: a structure's conclusions are the forest's
     /// roots.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if !Fragment::MLL.contains(task.fragment) {
-            return Err(Error::NetFragment {
-                fragment: task.fragment,
-            });
-        }
-        if task.mode.affine {
-            return Err(Error::NetMode { mode: task.mode });
-        }
+        crate::nets::exist(task.fragment, task.mode)?;
         if !task.roots {
             return Err(Error::NetGoal);
         }

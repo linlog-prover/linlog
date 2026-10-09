@@ -45,7 +45,6 @@ impl Side {
 /// an empty right side would be read as `⊥` by one rule and as anything
 /// by another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[non_exhaustive]
 pub enum Rule {
     /// `ax`: `A ⊢ A`.
     Axiom,

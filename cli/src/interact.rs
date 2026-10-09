@@ -17,7 +17,7 @@ use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{
-    Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, StepError, ViewOptions,
+    Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, ViewOptions,
 };
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
@@ -391,8 +391,7 @@ impl Session {
         let halt = || interrupted() || deadline.passed();
         let goal_sequent = self
             .state
-            .goal(goal)
-            .ok_or(StepError::NoGoal { goal })?
+            .goal(goal)?
             .iter()
             .map(|&m| self.state.occurrence(m))
             .collect::<Vec<_>>();

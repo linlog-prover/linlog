@@ -902,11 +902,13 @@ pub(crate) fn render(
             bytes_text(estimate),
             bytes_text(limit)
         )),
-        Some(Err(Error::Refused(Refusal::Pixels { pixels, limit }))) => Rendered::Refused(format!(
-            "the drawing is not rendered: the image would have {pixels} pixels, over the limit \
+        Some(Err(Error::Refused(Refusal::Pixels { pixels, limit, .. }))) => {
+            Rendered::Refused(format!(
+                "the drawing is not rendered: the image would have {pixels} pixels, over the limit \
              of {limit}; --style png.pixels=N raises the limit, and the svg format writes the \
              drawing without rendering it"
-        )),
+            ))
+        }
         Some(Err(error)) => return Err(error.into()),
     })
 }
@@ -1022,11 +1024,7 @@ pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
     if mode.is_affine() {
         bail!("proof nets exist in linear mode only, with or without --mix, not in {mode} mode");
     }
-    let fragment = sequent.fragment();
-    if !fragment.has_nets() {
-        return Err(Error::NetFragment { fragment }.into());
-    }
-    Ok(())
+    Ok(linlog::nets::exist(sequent.fragment(), mode)?)
 }
 
 /// What `prove` answers when the time limit passed before the sequent was

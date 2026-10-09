@@ -48,6 +48,25 @@ const NONE: u32 = u32::MAX;
 /// `u32`, and the last offset is the total.
 const MOST: u64 = (u32::MAX / 3 - 1) as u64;
 
+/// Checks that proof structures exist for a sequent of `fragment` in
+/// `mode`: unit-free MLL, in a linear mode, with or without Mix. A front
+/// end asks it before it offers a net; the net engine's search answers the
+/// same.
+///
+/// # Errors
+///
+/// [`Error::NetFragment`] for a larger fragment and [`Error::NetMode`] in
+/// affine mode.
+pub fn exist(fragment: Fragment, mode: Mode) -> Result<(), Error> {
+    if !fragment.has_nets() {
+        return Err(Error::NetFragment { fragment });
+    }
+    if mode.is_affine() {
+        return Err(Error::NetMode { mode });
+    }
+    Ok(())
+}
+
 /// The bytes a structure holds per vertex, the copy of its forest
 /// included: the forest's per-occurrence arrays (25), `partner` (4), the
 /// graph's offset (4) and up to three slots (12), the skeleton's parent
@@ -150,6 +169,7 @@ impl Criterion {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NetError {
     /// A link names a vertex outside the structure.
+    #[non_exhaustive]
     NoVertex {
         /// The vertex named.
         vertex: u32,
@@ -157,11 +177,13 @@ pub enum NetError {
         vertices: u32,
     },
     /// A link names a vertex that is not a literal.
+    #[non_exhaustive]
     NotLiteral {
         /// The vertex.
         vertex: VertexId,
     },
     /// A link joins two literals that are not `a` and `~a` for one atom.
+    #[non_exhaustive]
     NotDual {
         /// The first literal of the link.
         x: VertexId,
@@ -169,11 +191,13 @@ pub enum NetError {
         y: VertexId,
     },
     /// A literal appears in two links.
+    #[non_exhaustive]
     LinkedTwice {
         /// The literal.
         vertex: VertexId,
     },
     /// A literal has no link, so the structure is incomplete.
+    #[non_exhaustive]
     Unlinked {
         /// The literal.
         vertex: VertexId,
@@ -182,11 +206,13 @@ pub enum NetError {
     /// sequent.
     Empty,
     /// A cycle survives some switching.
+    #[non_exhaustive]
     SwitchingCycle {
         /// The vertices the cycle runs through, in order along it.
         cycle: Vec<VertexId>,
     },
     /// Every switching falls into several parts.
+    #[non_exhaustive]
     Disconnected {
         /// The parts of the switching that keeps the left premise of
         /// every `⅋`, each given by the vertices in it that have no parent
@@ -195,17 +221,20 @@ pub enum NetError {
     },
     /// Proof nets exist for unit-free MLL only, and the sequent lies in a
     /// larger fragment.
+    #[non_exhaustive]
     Fragment {
         /// The sequent's fragment.
         fragment: Fragment,
     },
     /// Proof nets exist in linear mode only, and the mode is affine.
+    #[non_exhaustive]
     Mode {
         /// The mode asked for.
         mode: Mode,
     },
     /// A node of the proof applies a rule that a proof net of unit-free
     /// MLL has no place for.
+    #[non_exhaustive]
     Rule {
         /// The node.
         node: NodeId,
@@ -214,6 +243,7 @@ pub enum NetError {
     },
     /// A bound or the caller's stop ended the call without a verdict on
     /// the structure.
+    #[non_exhaustive]
     Refused {
         /// The bound that refused it, or the stop.
         refusal: Refusal,

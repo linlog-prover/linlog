@@ -100,7 +100,7 @@ fn atom_names_are_variables_of_the_text() {
             &linlog::Limits::default(),
         );
         assert!(
-            matches!(&read, Err(linlog::Error::AtomName { name: n }) if n == name),
+            matches!(&read, Err(linlog::Error::AtomName { name: n, .. }) if n == name),
             "{name:?}: {read:?}"
         );
     }
@@ -747,18 +747,19 @@ fn wire_levels() {
     };
     let newer = sequent.replacen(r#""version":1"#, r#""version":2"#, 1);
     let error = read(&newer, &Limits::default()).unwrap_err();
-    assert_eq!(
+    assert!(matches!(
         error,
         Error::Version {
             form: "sequent",
             found: 2,
-            supported: wire::LEVEL
+            supported: wire::LEVEL,
+            ..
         }
-    );
+    ));
     assert_eq!(error.code(), "unsupported_version");
     let old = r#"{"terms":[{"V":0}],"ids":[0],"var_dict":["A"]}"#;
     match read(old, &Limits::default()) {
-        Err(Error::Json { form, message }) => {
+        Err(Error::Json { form, message, .. }) => {
             assert_eq!(form, "sequent");
             assert!(message.contains("missing field `roots`"), "{message}");
         }

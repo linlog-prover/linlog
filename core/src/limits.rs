@@ -307,11 +307,13 @@ impl Space {
 )]
 pub enum Refusal {
     /// The caller's stop ended the call.
+    #[non_exhaustive]
     Stopped {
         /// What the call was doing.
         phase: Phase,
     },
     /// The call would have held more memory than its bound.
+    #[non_exhaustive]
     Memory {
         /// What the call was doing.
         phase: Phase,
@@ -323,6 +325,7 @@ pub enum Refusal {
     },
     /// A sequent unfolds to more occurrences than the bound: the count, or
     /// a number of them at which the count stopped.
+    #[non_exhaustive]
     Occurrences {
         /// How many occurrences, or a number past the bound.
         occurrences: u64,
@@ -330,6 +333,7 @@ pub enum Refusal {
         limit: u64,
     },
     /// An output is estimated past its bound; nothing was made.
+    #[non_exhaustive]
     Output {
         /// What was to be made: a derivation, a drawing.
         what: &'static str,
@@ -342,11 +346,13 @@ pub enum Refusal {
         least_bytes: Option<u64>,
     },
     /// A search did the most work its bound allows.
+    #[non_exhaustive]
     Work {
         /// The bound, [`Limits::work`].
         limit: u64,
     },
     /// An image would have more pixels than its options allow.
+    #[non_exhaustive]
     Pixels {
         /// The image's pixels.
         pixels: u64,
@@ -355,6 +361,7 @@ pub enum Refusal {
     },
     /// A count passes what a representation's indices can name, whatever
     /// a bound says.
+    #[non_exhaustive]
     Index {
         /// What is counted.
         what: Space,
@@ -474,6 +481,8 @@ impl Display for Refusal {
         }
     }
 }
+
+impl std::error::Error for Refusal {}
 
 /// Turns a progress stop into the plain condition a loop asks once per
 /// unit of work in `phase`, telling the stop each unit and the units done.

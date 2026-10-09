@@ -160,10 +160,14 @@ supervisor's go are marked "go".
 - **The harness's CSV columns keep their names** (`memory_limit`,
   `recursion_limit`): the columns are its interface (`bench.md`), and
   only the flags behind them map onto `Limits`.
-- **`NetError`'s variants are not each `#[non_exhaustive]`** (the
-  design's P3 asks for it): no other error type of the crate marks its
-  variants, and named fields already let a later step add one; the
-  enum itself is marked.
+- **Every struct-like variant of a marked enum is `#[non_exhaustive]`**
+  (P3; the first round of the area's check found that named fields alone
+  do not let a field be added, since a pattern naming every field
+  breaks): `Error`, `Refusal`, `Fault`, `StepError`, `ShapeError` (whose
+  two positional variants got named fields), `NetError`, `Split`,
+  `Advances`. The command built two library errors itself; it now asks
+  the library (`nets::exist`, `Interactive::goal` answering
+  `StepError::NoGoal`).
 - **`ProofStructure::occurrence` answers `Option<OccId>`** (the design
   has `OccId`), like `vertex` and `Member::occurrence`: H24 asks that an
   id outside the structure be answered, not panicked on or mistaken.

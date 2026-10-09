@@ -771,13 +771,14 @@ fn render_bounds_come_first() {
         Err(Error::Refused(Refusal::Memory { .. }))
     ));
     let wide = r#"<svg width="100000" height="1000.5px"><text>"#;
-    assert_eq!(
+    assert!(matches!(
         png::from_svg(wide, &[], &png::Options::default(), &Limits::default()),
         Err(Error::Refused(Refusal::Pixels {
-            pixels: 200_000 * 2002,
-            limit: png::Options::DEFAULT_PIXELS
+            pixels: 400_400_000,
+            limit: png::Options::DEFAULT_PIXELS,
+            ..
         }))
-    );
+    ));
     // What no drawing of linlog has is refused before the estimate, which
     // could not see its cost: six levels of seven `<use>` over a `<rect>`
     // took 227 MB under a bound of 64 MiB.

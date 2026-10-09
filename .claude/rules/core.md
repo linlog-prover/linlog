@@ -193,15 +193,23 @@ the fixes implement and later rounds judge against. Where a bullet above
 still describes code that a decision changes, the decision holds, and
 the commit that lands it rewrites that bullet.
 
-- **`Term`, `Kind`, `Node` and `Rule` stay exhaustive**; every other
-  public enum, every options value and every struct with public fields
-  that a later step extends is `#[non_exhaustive]`. A data-carrying
-  variant of a marked enum has named fields, unless it wraps a whole
-  `#[non_exhaustive]` error or refutation type or is an option's value
-  written as one JSON scalar. A new variant of the four is a planned 0.y
-  bump, so a downstream `match` fails to compile when the calculus grows
-  instead of falling into a wildcard arm; named fields let a later step
-  add one.
+- **The calculus's enums stay exhaustive** (`Term`, `Kind`, `Node`,
+  `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side` and
+  `ordinary::{Node, Rule, Side}`); every other public enum, every
+  options value and every struct with public fields that a later step
+  extends is `#[non_exhaustive]`, and so is every struct-like variant of
+  a marked enum (`Error`, `Refusal`, `Fault`, `StepError`, `ShapeError`,
+  `NetError`, `Split`, `Advances`): only the mark makes a downstream
+  pattern write `..` and refuses its struct expression, so that a later
+  step adds a field without a break (named fields alone do not: a
+  pattern that names every field stops compiling). A data-carrying
+  variant has named fields, unless it wraps a whole `#[non_exhaustive]`
+  error or refutation type or is an option's value written as one JSON
+  scalar. A new variant of a closed enum is a planned 0.y bump, so a
+  downstream `match` fails to compile when the calculus grows instead of
+  falling into a wildcard arm. A front end therefore never builds an
+  error of the library: it asks the call that does (`nets::exist`,
+  `Interactive::goal`).
 - **One error family**: every public fallible call returns `Error` or a
   specific type that converts into it without loss. `ErrorKind` has seven
   kinds: malformed, invalid, unsupported, limit, stopped, failed and

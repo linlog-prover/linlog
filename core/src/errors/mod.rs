@@ -47,36 +47,50 @@ use thiserror::Error;
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// The input is not a sequent: where and why.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error("cannot parse the sequent: {0}")]
     Parse(Box<ParseError>),
     /// The input is not an LLTP problem, for the reason given.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error("not an LLTP problem: {message}")]
+    #[non_exhaustive]
     Lltp {
         /// What is wrong with it.
         message: String,
     },
     /// The input is not a coverability problem in Mist's `.spec` format,
     /// for the reason given.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error("not a .spec problem: {message}")]
+    #[non_exhaustive]
     Spec {
         /// What is wrong with it.
         message: String,
     },
     /// The input is not a TPTP problem of propositional logic, for the
     /// reason given.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error("not a TPTP problem: {message}")]
+    #[non_exhaustive]
     Tptp {
         /// What is wrong with it.
         message: String,
     },
     /// An LLTP or TPTP file has more than one conjecture (the name of the
     /// second given), which this crate does not read as one sequent.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error("the file has a second conjecture, `{second}`, and is read with one only")]
+    #[non_exhaustive]
     SeveralConjectures {
         /// The name of the second clause with the role `conjecture`.
         second: String,
@@ -84,6 +98,7 @@ pub enum Error {
     /// A name that names none of the values of its kind, such as a mode
     /// or a fragment read from text.
     #[error("unknown {what} `{name}`: {}", or_list(.known))]
+    #[non_exhaustive]
     UnknownName {
         /// What the name was to name: `mode`, `fragment`.
         what: &'static str,
@@ -93,11 +108,14 @@ pub enum Error {
         known: &'static [&'static str],
     },
     /// A generated family has no instance of the size asked for.
+    ///
+    /// Needs the cargo feature `parse`.
     #[cfg(feature = "parse")]
     #[error(
         "the family {family} has no instance of size {size}: its sizes are {}at least {least}",
         if *.powers_of_two { "the powers of two " } else { "" }
     )]
+    #[non_exhaustive]
     FamilySize {
         /// The family's name.
         family: &'static str,
@@ -111,6 +129,7 @@ pub enum Error {
     /// An option's value is not one the output can take: a Rocq lemma
     /// that is no identifier.
     #[error("{key}: {message}")]
+    #[non_exhaustive]
     InvalidOption {
         /// The option, as the settings name it: `rocq.lemma`.
         key: &'static str,
@@ -120,6 +139,7 @@ pub enum Error {
     /// A document is not of the form it was read as: not JSON, a key
     /// missing or of another type.
     #[error("not a {form} of linlog's wire form: {message}")]
+    #[non_exhaustive]
     Json {
         /// The form read: `sequent`, `proof`, …
         form: &'static str,
@@ -128,6 +148,7 @@ pub enum Error {
     },
     /// A document is of a wire level above the one this build reads.
     #[error("the {form} is of wire level {found}, and this build reads levels up to {supported}")]
+    #[non_exhaustive]
     Version {
         /// The form read.
         form: &'static str,
@@ -139,6 +160,7 @@ pub enum Error {
     /// An index of a value read names nothing: it is not below the length
     /// of its space.
     #[error("{}", out_of_bounds(*.space, *.index, *.len))]
+    #[non_exhaustive]
     IndexOutOfBounds {
         /// What the index names.
         space: Space,
@@ -150,6 +172,7 @@ pub enum Error {
     /// A term or a proof node names a part that does not come before it,
     /// where every part must precede what uses it.
     #[error("{}", not_topological(*.space, *.index, *.parent))]
+    #[non_exhaustive]
     NotTopological {
         /// What the indices name.
         space: Space,
@@ -165,6 +188,7 @@ pub enum Error {
         counted(*.antecedents, "formula", "formulas"),
         counted(*.roots, "formula", "formulas")
     )]
+    #[non_exhaustive]
     Antecedents {
         /// How many root formulas the sequent says stand left of `⊢`.
         antecedents: usize,
@@ -176,14 +200,18 @@ pub enum Error {
     /// reserved for a later version of it, so that the sequent written as
     /// text would not read back as itself.
     #[error("the atom name {name:?} {}", crate::sequents::name::fault(name))]
+    #[non_exhaustive]
     AtomName {
         /// The name.
         name: String,
     },
     /// The parts of an interactive proof read back do not fit together, as
     /// the reason says.
+    ///
+    /// Needs the cargo feature `interactive`.
     #[cfg(feature = "interactive")]
     #[error("not a proof in progress: {reason}")]
+    #[non_exhaustive]
     InconsistentSession {
         /// What does not fit.
         reason: &'static str,
@@ -196,16 +224,21 @@ pub enum Error {
     #[error("not a proof net: {0}")]
     Net(Box<NetError>),
     /// A step of an interactive proof does not apply as asked.
+    ///
+    /// Needs the cargo feature `interactive`.
     #[cfg(feature = "interactive")]
     #[error(transparent)]
     Step(#[from] crate::proofs::StepError),
     /// An interactive proof still has this many open goals, so there is no
     /// proof term to make of it yet.
+    ///
+    /// Needs the cargo feature `interactive`.
     #[cfg(feature = "interactive")]
     #[error(
         "the proof is not finished: {}",
         if *.count == 1 { "1 goal is open".to_owned() } else { format!("{} goals are open", .count) }
     )]
+    #[non_exhaustive]
     OpenGoals {
         /// How many goals are open.
         count: usize,
@@ -213,10 +246,14 @@ pub enum Error {
     /// A proof given to an interactive proof to close a goal is over
     /// another sequent than the session's, whose goals name occurrences of
     /// the session's own.
+    ///
+    /// Needs the cargo feature `interactive`.
     #[cfg(feature = "interactive")]
     #[error("the proof is over another sequent than the session's")]
     ForeignProof,
     /// A proof given to close a goal of a session concludes another goal.
+    ///
+    /// Needs the cargo feature `interactive`.
     #[cfg(feature = "interactive")]
     #[error("the proof concludes another goal than the one it is to close")]
     GoalMismatch,
@@ -237,6 +274,7 @@ pub enum Error {
     /// An intuitionistic goal has this many formulas on the right of `⊢`,
     /// where a sequent of intuitionistic linear logic has exactly one.
     #[error("an intuitionistic goal has {count} formulas on the right of ⊢ instead of one")]
+    #[non_exhaustive]
     GoalOutputs {
         /// How many formulas stand right of `⊢`.
         count: usize,
@@ -244,6 +282,7 @@ pub enum Error {
     /// An intuitionistic or minimal sequent has more than one formula
     /// right of `⊢`.
     #[error("an intuitionistic sequent has at most one formula right of ⊢, not {count}")]
+    #[non_exhaustive]
     Succedents {
         /// How many formulas stand right of `⊢`.
         count: usize,
@@ -251,6 +290,7 @@ pub enum Error {
     /// The sequent uses connectives outside the fragment the search options
     /// assert.
     #[error("the sequent lies in {detected}, outside the asserted fragment {asserted}")]
+    #[non_exhaustive]
     FragmentMismatch {
         /// The fragment the options assert.
         asserted: Fragment,
@@ -260,6 +300,7 @@ pub enum Error {
     /// The translation does not decide the logic: the affine one decides
     /// classical logic, the others intuitionistic and minimal logic.
     #[error("the {translation} translation does not decide {logic} logic")]
+    #[non_exhaustive]
     Translation {
         /// The translation.
         translation: crate::ordinary::Translation,
@@ -268,6 +309,7 @@ pub enum Error {
     },
     /// No engine handles the fragment in the mode yet.
     #[error("no engine for {fragment} in {mode} mode yet")]
+    #[non_exhaustive]
     NoEngine {
         /// The fragment the search was asked for.
         fragment: Fragment,
@@ -277,12 +319,14 @@ pub enum Error {
     /// Proof nets exist for unit-free MLL only, and the sequent lies in a
     /// larger fragment.
     #[error("proof nets exist for MLL without units only, not for {fragment}")]
+    #[non_exhaustive]
     NetFragment {
         /// The sequent's fragment.
         fragment: Fragment,
     },
     /// Proof nets exist in linear mode only, and the mode is affine.
     #[error("proof nets exist in linear mode only, with or without Mix, not in {mode} mode")]
+    #[non_exhaustive]
     NetMode {
         /// The mode asked for.
         mode: Mode,
@@ -295,6 +339,7 @@ pub enum Error {
     /// two-sided engine is for intuitionistic mode, the focus engine for
     /// classical mode.
     #[error("the {engine} engine does not search in {mode} mode")]
+    #[non_exhaustive]
     EngineMode {
         /// The engine the options force.
         engine: Engine,
@@ -306,6 +351,7 @@ pub enum Error {
     #[error(
         "the additive engine decides a sequent of two additive-only formulas, not {roots} formulas of {fragment}"
     )]
+    #[non_exhaustive]
     NotAdditive {
         /// The fragment the sequent was searched in.
         fragment: Fragment,
@@ -319,6 +365,8 @@ pub enum Error {
     )]
     NotHorn,
     /// The output has no form for the derivation; nothing was written.
+    ///
+    /// Needs the cargo feature `rocq`.
     #[cfg(feature = "rocq")]
     #[error(transparent)]
     Unsupported(#[from] crate::export::rocq::Unsupported),
@@ -327,8 +375,11 @@ pub enum Error {
     #[error("{0}")]
     Refused(Refusal),
     /// The threads of a parallel search could not be started.
+    ///
+    /// Needs the cargo feature `parallel`.
     #[cfg(feature = "parallel")]
     #[error("cannot start {threads} search threads: {message}")]
+    #[non_exhaustive]
     ThreadPool {
         /// How many threads were asked for.
         threads: usize,
@@ -339,21 +390,29 @@ pub enum Error {
     #[error("the writer failed")]
     WriteFailed,
     /// The text given to a renderer is not an SVG document it reads.
+    ///
+    /// Needs one of the cargo features `png` or `pdf`.
     #[cfg(any(feature = "png", feature = "pdf"))]
     #[error("not an SVG document the renderer reads: {message}")]
+    #[non_exhaustive]
     NotSvg {
         /// What the reader of SVG said.
         message: String,
     },
     /// The renderer failed on a document it read, or the document does
     /// not conform to the standard asked for.
+    ///
+    /// Needs one of the cargo features `png` or `pdf`.
     #[cfg(any(feature = "png", feature = "pdf"))]
     #[error("the renderer failed: {message}")]
+    #[non_exhaustive]
     RenderFailed {
         /// What the renderer said.
         message: String,
     },
     /// A PDF/A document needs the date it was made, and none was given.
+    ///
+    /// Needs the cargo feature `pdf`.
     #[cfg(feature = "pdf")]
     #[error("a PDF/A document needs the date it was made: give pdf::Options::date")]
     NoDate,
@@ -364,6 +423,7 @@ pub enum Error {
     /// A derivation read back from a linear proof is not one of LK or LJ,
     /// for the reason given: a defect of this crate.
     #[error("the proof read back is not a derivation of {calculus}: {reason}")]
+    #[non_exhaustive]
     ReadBack {
         /// LK or LJ.
         calculus: &'static str,
@@ -715,6 +775,13 @@ impl From<NetError> for Error {
     /// Wraps the structure's error.
     fn from(error: NetError) -> Self {
         Self::Net(Box::new(error))
+    }
+}
+
+impl From<ShapeError> for Error {
+    /// Wraps why the sequent has no intuitionistic reading.
+    fn from(error: ShapeError) -> Self {
+        Self::NotIntuitionistic(error)
     }
 }
 

@@ -504,11 +504,13 @@ pub enum Fault {
     /// formulas on the right of `⊢` instead of one: the premise's linear
     /// zone after the rule, or the context a `⊤` would absorb, or a
     /// weakening of the goal.
+    #[non_exhaustive]
     Succedents {
         /// How many formulas stand right of `⊢`.
         count: usize,
     },
     /// The member is not of the kind the rule acts on.
+    #[non_exhaustive]
     Kind {
         /// The member the rule names.
         member: Member,
@@ -517,6 +519,7 @@ pub enum Fault {
     NotDual,
     /// A premise, by its index in the node, lacks the member the rule
     /// consumes from it.
+    #[non_exhaustive]
     Missing {
         /// Which premise.
         premise: usize,
@@ -529,6 +532,7 @@ pub enum Fault {
     /// The premises of `&` do not share their linear zone.
     Differ,
     /// A copy of a member that is not the subformula of a `?`.
+    #[non_exhaustive]
     NotUnderQuest {
         /// The member copied.
         member: Member,
@@ -542,6 +546,7 @@ pub enum Fault {
     /// its linear zone differs from the conclusion's formulas, or its
     /// unrestricted zone holds a copied member that no `?` rule below
     /// moved there.
+    #[non_exhaustive]
     Conclusion {
         /// What the root derives.
         derived: Dyadic,
@@ -2009,7 +2014,9 @@ mod tests {
                 vec![Ax(o(1), o(2))],
                 Mode::INTUITIONISTIC,
                 0,
-                Shape(crate::occurrences::ShapeError::Formula(o(0).occ())),
+                Shape(crate::occurrences::ShapeError::Formula {
+                    occurrence: o(0).occ(),
+                }),
             ),
         ] {
             let p = proof(input, nodes);

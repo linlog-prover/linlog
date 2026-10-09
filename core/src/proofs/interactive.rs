@@ -46,11 +46,13 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 #[non_exhaustive]
 pub enum StepError {
     /// No open goal has this id.
+    #[non_exhaustive]
     NoGoal {
         /// The id asked for.
         goal: GoalId,
     },
     /// The goal has no formula at the position; it has `len` formulas.
+    #[non_exhaustive]
     NoFormula {
         /// The position asked for.
         position: usize,
@@ -60,6 +62,7 @@ pub enum StepError {
     /// The rule does not act on the formula at the position: its connective
     /// is another, or in intuitionistic mode the rule is for the other
     /// side of `⊢`.
+    #[non_exhaustive]
     Rule {
         /// The rule asked for.
         rule: Named,
@@ -68,6 +71,7 @@ pub enum StepError {
     },
     /// The rule is not available in the mode: weakening of a formula that
     /// is not a `?` formula needs affine mode, Mix needs Mix.
+    #[non_exhaustive]
     Mode {
         /// The rule asked for.
         rule: Named,
@@ -76,6 +80,7 @@ pub enum StepError {
     },
     /// The rule needs the formula alone in the goal (`1`), or alone with its
     /// dual (`ax`); in affine mode the other formulas can be weakened first.
+    #[non_exhaustive]
     NotAlone {
         /// The rule asked for.
         rule: Named,
@@ -84,35 +89,41 @@ pub enum StepError {
     },
     /// The axiom needs the goal to be the literal and its dual, and the
     /// other formula is not the dual.
+    #[non_exhaustive]
     NoDual {
         /// The position of the literal.
         position: usize,
     },
     /// Promotion needs every other formula to be a `?` formula, and the one
     /// at the position is not.
+    #[non_exhaustive]
     NotQuest {
         /// The position of the offending formula.
         position: usize,
     },
     /// A position of the split is out of range, repeated, or the formula the
     /// rule acts on.
+    #[non_exhaustive]
     Split {
         /// The offending position.
         position: usize,
     },
     /// A split was given to a rule that takes none.
+    #[non_exhaustive]
     NoSplit {
         /// The rule asked for.
         rule: Named,
     },
     /// In intuitionistic mode, a premise would have this many formulas on
     /// the right of `⊢` instead of one.
+    #[non_exhaustive]
     Succedents {
         /// How many formulas would stand right of `⊢`.
         count: usize,
     },
     /// In intuitionistic mode, the formula on the right of `⊢` cannot be
     /// weakened.
+    #[non_exhaustive]
     Output {
         /// The position of the formula.
         position: usize,
@@ -273,6 +284,7 @@ pub enum Split {
     None,
     /// The formulas at these positions go to the left premise, the rest to
     /// the right.
+    #[non_exhaustive]
     Left {
         /// The positions in the goal's sequent.
         positions: Vec<usize>,
@@ -297,7 +309,7 @@ pub struct Applicable {
 ///
 /// Needs the cargo feature `interactive` (on by default).
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Closed {
     /// The search's outcome; a proof in it is the proof of the goal
     /// alone, kept for export when its graft was refused.
@@ -698,12 +710,17 @@ impl Interactive {
             .map(|(i, _)| GoalId(i as u32))
     }
 
-    /// Returns the sequent of an open goal, or `None` if the id is not one.
-    pub fn goal(&self, id: GoalId) -> Option<&[Member]> {
+    /// Returns the sequent of an open goal.
+    ///
+    /// # Errors
+    ///
+    /// [`StepError::NoGoal`] if the id is no open goal.
+    pub fn goal(&self, id: GoalId) -> Result<&[Member], StepError> {
         self.inferences
             .get(id.index())
             .filter(|inference| inference.rule.rule == Rule::Open)
             .map(|inference| inference.sequent.as_slice())
+            .ok_or(StepError::NoGoal { goal: id })
     }
 
     /// Returns whether no goal is open.
@@ -725,7 +742,7 @@ impl Interactive {
 
     /// Returns the sequent of an open goal, or the refusal.
     fn open(&self, id: GoalId) -> Result<Vec<OccId>, StepError> {
-        let goal = self.goal(id).ok_or(StepError::NoGoal { goal: id })?;
+        let goal = self.goal(id)?;
         Ok(goal.iter().map(|m| m.occ()).collect())
     }
 
@@ -2207,7 +2224,7 @@ mod tests {
         assert_eq!(s.goal(l), s.goal(r));
         // A Mix of the goal's one formula: the right premise would be
         // empty, which nothing closes.
-        assert_eq!(s.goal(l).map(<[Member]>::len), Some(1));
+        assert_eq!(s.goal(l).map(<[Member]>::len), Ok(1));
         assert_eq!(s.apply(l, &Step::new(0, Mix)), Err(StepError::EmptyPremise));
         // Each goal gets its own result.
         let closed = s.close_all(

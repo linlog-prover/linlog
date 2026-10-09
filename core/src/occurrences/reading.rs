@@ -57,17 +57,29 @@ pub enum ShapeError {
     /// the sequent is empty.
     NoGoal,
     /// Two root formulas can only be goals (the sides not known).
-    SeveralGoals(OccId, OccId),
+    #[non_exhaustive]
+    SeveralGoals {
+        /// The first.
+        first: OccId,
+        /// The second.
+        second: OccId,
+    },
     /// A subformula is neither an intuitionistic formula nor the negation of
     /// one, in any position.
-    Formula(OccId),
+    #[non_exhaustive]
+    Formula {
+        /// The subformula.
+        occurrence: OccId,
+    },
     /// The sequent has another number of formulas right of `⊢` than one.
+    #[non_exhaustive]
     Succedents {
         /// How many formulas stand right of `⊢`.
         count: usize,
     },
     /// A formula written left of `⊢` (the first is 0) cannot be a
     /// hypothesis.
+    #[non_exhaustive]
     Hypothesis {
         /// Its index among the formulas left of `⊢`.
         index: usize,
@@ -75,6 +87,7 @@ pub enum ShapeError {
     /// Two root formulas can each be the goal, every other root reading as
     /// a hypothesis either way, and the sequent does not say which was
     /// written right of `⊢`.
+    #[non_exhaustive]
     Undetermined {
         /// The first root that can be the goal.
         first: OccId,
@@ -137,7 +150,7 @@ impl ShapeError {
                     " can be the goal, and the sequent does not say which stands right of ⊢: give its sides",
                 )
             }
-            ShapeError::SeveralGoals(a, b) => {
+            ShapeError::SeveralGoals { first: a, second: b } => {
                 f.write_str(if forest.is_some() {
                     "both "
                 } else {
@@ -148,7 +161,7 @@ impl ShapeError {
                 occurrence(f, *b)?;
                 f.write_str(" can only be the goal, but an intuitionistic sequent has one")
             }
-            ShapeError::Formula(o) => {
+            ShapeError::Formula { occurrence: o } => {
                 f.write_str(if forest.is_some() {
                     "the subformula "
                 } else {
@@ -264,7 +277,7 @@ impl<'a> Reading<'a> {
                 Par => both(l_in && r_in, l_in && r_out),
             };
             if can[o.index()] == 0 {
-                return Err(ShapeError::Formula(o));
+                return Err(ShapeError::Formula { occurrence: o });
             }
         }
 
@@ -288,7 +301,12 @@ impl<'a> Reading<'a> {
                 // root that can be output, every other one being input.
                 let mut only_goals = roots.iter().copied().filter(|&o| can[o.index()] == OUT);
                 match (only_goals.next(), only_goals.next()) {
-                    (Some(a), Some(b)) => return Err(ShapeError::SeveralGoals(a, b)),
+                    (Some(a), Some(b)) => {
+                        return Err(ShapeError::SeveralGoals {
+                            first: a,
+                            second: b,
+                        });
+                    }
                     (Some(goal), None) => goal,
                     (None, _) => {
                         let mut goals =
@@ -590,7 +608,7 @@ mod tests {
         let forest = Forest::new(&s).unwrap();
         assert!(matches!(
             Reading::new(&forest),
-            Err(ShapeError::SeveralGoals(a, b)) if a == OccId::new(0) && b == OccId::new(5)
+            Err(ShapeError::SeveralGoals { first: a, second: b }) if a == OccId::new(0) && b == OccId::new(5)
         ));
         // ⊢ A ⊗ (B ⊗ ~C), D: hypothesis A ⊸ (B ⊸ C): 0 ⊗, 1 A, 2 ⊗, 3 B, 4 ~C, 5 D
         let s: Sequent = "A -o (B -o C) |- D".parse().unwrap();

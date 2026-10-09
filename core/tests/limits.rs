@@ -70,12 +70,12 @@ fn the_checker_stops_and_keeps_its_bounds() {
     let stopped = proof.check_within(mode, &Limits::default(), |_| true);
     assert!(matches!(
         stopped,
-        Err(CheckError::Refused(r)) if r.refusal == Refusal::Stopped { phase: Phase::Check }
+        Err(CheckError::Refused(r)) if matches!(r.refusal, Refusal::Stopped { phase: Phase::Check, .. })
     ));
     let work = proof.check_within(mode, &Limits::default().with_work(Some(10)), |_| false);
     assert!(matches!(
         work,
-        Err(CheckError::Refused(r)) if r.refusal == Refusal::Work { limit: 10 }
+        Err(CheckError::Refused(r)) if matches!(r.refusal, Refusal::Work { limit: 10, .. })
     ));
     let memory = proof.check_within(mode, &Limits::default().with_memory_bytes(Some(0)), |_| {
         false
@@ -104,7 +104,8 @@ fn a_derivation_and_its_writers_stop() {
         matches!(
             result,
             Err(Error::Refused(Refusal::Stopped {
-                phase: Phase::Write
+                phase: Phase::Write,
+                ..
             }))
         )
     };

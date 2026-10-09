@@ -65,6 +65,7 @@ pub enum Advances {
     /// One advance for every character.
     Fixed(u32),
     /// A table of the user's, and the advance of a character outside it.
+    #[non_exhaustive]
     Table {
         /// The advance of each character.
         table: BTreeMap<char, u32>,
