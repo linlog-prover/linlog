@@ -374,11 +374,21 @@ struct Run {
 }
 
 /// Lays out a line the notation or a rule's label wrote, at `size`
-/// thousandths of an em in the font: [`RAISED_BOT`] becomes a
-/// superscript `⊥`, what stands between the [`SUBSCRIPT`] marks a
-/// subscript, and what stands between the [`FORMULA`] marks pieces of
-/// that formula. Spaces separate pieces rather than start or end one.
+/// thousandths of an em in the font, as [`lay`] does, and returns its
+/// pieces with its width.
 fn run(text: &str, size: i64, font: &Font) -> Run {
+    let mut pieces = Vec::new();
+    let width = lay(text, size, font, |piece| pieces.push(piece));
+    Run { pieces, width }
+}
+
+/// Lays out a line the notation or a rule's label wrote, at `size`
+/// thousandths of an em in the font, hands `emit` its pieces from left to
+/// right and returns its width: [`RAISED_BOT`] becomes a superscript `⊥`,
+/// what stands between the [`SUBSCRIPT`] marks a subscript, and what
+/// stands between the [`FORMULA`] marks pieces of that formula. Spaces
+/// separate pieces rather than start or end one.
+fn lay(text: &str, size: i64, font: &Font, mut emit: impl FnMut(Piece)) -> i64 {
     // Widths in millionths of an em of `size`, which `scale` turns into
     // thousandths of an em of formula text; the product of a long line's
     // width and a large size passes `i64`, the quotient does not.
@@ -386,28 +396,26 @@ fn run(text: &str, size: i64, font: &Font) -> Run {
         let scaled = i128::from(millionths) * i128::from(size) / 1_000_000;
         i64::try_from(scaled).unwrap_or(i64::MAX)
     };
-    let mut pieces: Vec<Piece> = Vec::new();
     let (mut position, mut start, mut end) = (0, 0, 0);
     let mut current = (0, 1000);
     let (mut lowered, mut formula, mut formulas) = (false, None, 0);
     let mut piece = String::new();
-    let close =
-        |pieces: &mut Vec<Piece>, piece: &mut String, shape: (i64, i64), formula, start, end| {
-            piece.truncate(piece.trim_end_matches(' ').len());
-            if !piece.is_empty() {
-                pieces.push(Piece {
-                    text: std::mem::take(piece),
-                    offset: scale(start),
-                    raise: shape.0,
-                    size: (shape.1 != 1000).then_some(size * shape.1 / 1000),
-                    width: scale(end) - scale(start),
-                    formula,
-                });
-            }
-        };
+    let mut close = |piece: &mut String, shape: (i64, i64), formula, start, end| {
+        piece.truncate(piece.trim_end_matches(' ').len());
+        if !piece.is_empty() {
+            emit(Piece {
+                text: std::mem::take(piece),
+                offset: scale(start),
+                raise: shape.0,
+                size: (shape.1 != 1000).then_some(size * shape.1 / 1000),
+                width: scale(end) - scale(start),
+                formula,
+            });
+        }
+    };
     for c in text.chars() {
         if c == FORMULA.0 || c == FORMULA.1 {
-            close(&mut pieces, &mut piece, current, formula, start, end);
+            close(&mut piece, current, formula, start, end);
             formula = (c == FORMULA.0).then_some(formulas);
             formulas += usize::from(c == FORMULA.0);
             continue;
@@ -422,7 +430,7 @@ fn run(text: &str, size: i64, font: &Font) -> Run {
             c => (c, (0, 1000)),
         };
         if shape != current {
-            close(&mut pieces, &mut piece, current, formula, start, end);
+            close(&mut piece, current, formula, start, end);
             current = shape;
         }
         let advance = i64::from(font.advances.advance(c)) * shape.1;
@@ -440,11 +448,8 @@ fn run(text: &str, size: i64, font: &Font) -> Run {
         end = position;
         escape(&mut piece, c);
     }
-    close(&mut pieces, &mut piece, current, formula, start, end);
-    Run {
-        pieces,
-        width: scale(position),
-    }
+    close(&mut piece, current, formula, start, end);
+    scale(position)
 }
 
 /// Writes a line of text with its left end at `x` and its baseline at
@@ -478,21 +483,7 @@ fn text(
             }
             open = piece.formula;
         }
-        write!(
-            out,
-            r#"<text x="{}" y="{}" textLength="{}" lengthAdjust="spacing""#,
-            x + piece.offset,
-            y - piece.raise,
-            piece.width
-        )
-        .unwrap();
-        if let Some(size) = piece.size {
-            write!(out, r#" font-size="{size}""#).unwrap();
-        }
-        if !group {
-            out.push_str(attributes);
-        }
-        writeln!(out, ">{}</text>", piece.text).unwrap();
+        write_piece(out, x, y, piece, if group { "" } else { attributes });
     }
     if open.is_some() {
         out.push_str("</g>\n");
@@ -500,6 +491,24 @@ fn text(
     if group {
         out.push_str("</g>\n");
     }
+}
+
+/// Writes a piece of a line whose left end is at `x` and whose baseline
+/// is at `y` as a `<text>` with `attributes` in its start tag.
+fn write_piece(out: &mut String, x: i64, y: i64, piece: &Piece, attributes: &str) {
+    write!(
+        out,
+        r#"<text x="{}" y="{}" textLength="{}" lengthAdjust="spacing""#,
+        x + piece.offset,
+        y - piece.raise,
+        piece.width
+    )
+    .unwrap();
+    if let Some(size) = piece.size {
+        write!(out, r#" font-size="{size}""#).unwrap();
+    }
+    out.push_str(attributes);
+    writeln!(out, ">{}</text>", piece.text).unwrap();
 }
 
 /// Returns thousandths as a decimal number, without trailing zeros.
@@ -555,14 +564,15 @@ fn backdrop(out: &mut impl Write, style: &Style, size: (i64, i64)) -> std::fmt::
 }
 
 /// Returns an SVG document of `width` by `height` thousandths of an em
-/// with the given title, description and body, in the style's font and
-/// colours.
+/// with the given title and description, in the style's font and
+/// colours, whose body `body` writes into it: no body is held apart and
+/// copied.
 fn document(
     style: &Style,
     title: &str,
     description: Option<&str>,
     size: (i64, i64),
-    body: &str,
+    body: impl FnOnce(&mut String),
 ) -> String {
     let mut out = String::new();
     head(&mut out, style, title, size).unwrap();
@@ -570,25 +580,35 @@ fn document(
         writeln!(out, "<desc>{}</desc>", escaped(description)).unwrap();
     }
     backdrop(&mut out, style, size).unwrap();
-    out.push_str(body);
+    body(&mut out);
     out.push_str("</svg>");
     out
 }
 
 /// Returns a document that shows one line of text, the notation's `content`,
 /// titled `title`.
+///
+/// The line is laid out twice, for its width, which the head needs, and
+/// to write its pieces into the document one by one, so that no list of
+/// them is held: a line of millions of occurrences takes the document
+/// and its text, as [`text`] would write it.
 fn line(style: &Style, title: &str, content: &str) -> String {
-    let run = run(content, 1000, &style.font);
     let margin = i64::from(style.margin);
-    let mut body = String::new();
-    text(&mut body, margin, margin + HEIGHT, &run, "", None);
-    document(
-        style,
-        title,
-        None,
-        (run.width + 2 * margin, HEIGHT + DEPTH + 2 * margin),
-        &body,
-    )
+    let mut pieces = 0usize;
+    let width = lay(content, 1000, &style.font, |_| pieces += 1);
+    let size = (width + 2 * margin, HEIGHT + DEPTH + 2 * margin);
+    document(style, title, None, size, |out| {
+        let group = pieces > 1;
+        if group {
+            out.push_str("<g>\n");
+        }
+        lay(content, 1000, &style.font, |piece| {
+            write_piece(out, margin, margin + HEIGHT, &piece, "");
+        });
+        if group {
+            out.push_str("</g>\n");
+        }
+    })
 }
 
 /// The bytes a sequent's text is estimated at per occurrence, besides

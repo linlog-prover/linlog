@@ -217,6 +217,13 @@ for NanoYalla. What the code relies on:
   `hmtx` (`ttx -t cmap -t hmtx` of `cli/fonts/Euler-Math.otf`, which
   also gives `⊗` 668 as the table has it); a character added to a printer
   gets its advance the same way, or takes the fallback of 650.
+- **No drawing is held twice** (F5): `document` takes a closure that
+  writes the body into the document itself; the sequent's line is laid
+  out twice by `lay` (its width for the head, then each piece written as
+  it comes, `write_piece`), so no list of pieces is held; the net's
+  groups are written from their five strings into the document. A
+  sequent of 2.1 million occurrences peaked at 650 MB for 205 MB
+  written, when the pieces, a body and the document's copy were held.
 - **A style's numbers have maxima** (`Style::check`, which `svg::write`,
   `sequent` and `net` call before anything is drawn, `InvalidOption`
   naming the key): lengths `MOST_LENGTH` (a thousand ems), `label_size`

@@ -368,19 +368,30 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         .unwrap();
     }
 
-    let group = |colour: &str, extra: &str, content: &str| {
-        format!(
-            "<g fill=\"none\" stroke=\"{}\" stroke-width=\"{stroke}\"{extra}>\n{content}</g>\n",
+    let group = |out: &mut String, colour: &str, extra: &str, content: &str| {
+        writeln!(
+            out,
+            "<g fill=\"none\" stroke=\"{}\" stroke-width=\"{stroke}\"{extra}>",
             escaped(colour)
         )
+        .unwrap();
+        out.push_str(content);
+        out.push_str("</g>\n");
     };
-    let mut body = group(&style.line, "", &lines);
-    body += &group(&style.par, &format!(r#" stroke-dasharray="{dash}""#), &pars);
-    body += &group(&style.link, "", &links);
-    if !marked.is_empty() {
-        body += &group(&style.highlight, "", &marked);
-    }
-    body += &texts;
+    let body = |out: &mut String| {
+        group(out, &style.line, "", &lines);
+        group(
+            out,
+            &style.par,
+            &format!(r#" stroke-dasharray="{dash}""#),
+            &pars,
+        );
+        group(out, &style.link, "", &links);
+        if !marked.is_empty() {
+            group(out, &style.highlight, "", &marked);
+        }
+        out.push_str(&texts);
+    };
     let mut title = String::new();
     PLAIN.one_sided(&mut title, forest.sequent());
     let width = if literals.is_empty() {
@@ -394,7 +405,7 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         &title,
         description.as_deref(),
         (width, end + stroke + margin),
-        &body,
+        body,
     )
 }
 
