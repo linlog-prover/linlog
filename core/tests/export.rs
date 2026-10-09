@@ -792,6 +792,9 @@ fn render_bounds_come_first() {
         r#"<svg><g><image width="9" height="9"/></g></svg>"#,
         r#"<svg><path xlink:href="x" d="M0 0"/></svg>"#,
         r#"<!DOCTYPE svg [<!ENTITY a "aa">]><svg><text>&a;</text></svg>"#,
+        // An empty `<title/>` hid what followed it from the measure.
+        r#"<svg><title/><use href="x"/></svg>"#,
+        r#"<svg><desc/><image width="9" height="9"/></svg>"#,
     ] {
         assert!(
             matches!(

@@ -349,11 +349,15 @@ impl Measure {
             measure.glyphs = measure.glyphs.saturating_add(count(&rest[..start]));
             rest = &rest[start..];
             // What the markup ends with, and the end of it.
+            // A `<title>` or `<desc>` reaches to its end tag, unless its
+            // start tag closes it (`<title/>`): its text is no glyph.
+            let start_tag = &rest[..rest.find('>').map_or(rest.len(), |i| i + 1)];
+            let empty = start_tag.ends_with("/>");
             let end = if rest.starts_with("<!--") {
                 "-->"
-            } else if rest.starts_with("<title") {
+            } else if rest.starts_with("<title") && !empty {
                 "</title>"
-            } else if rest.starts_with("<desc") {
+            } else if rest.starts_with("<desc") && !empty {
                 "</desc>"
             } else {
                 ">"
