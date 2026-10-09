@@ -620,7 +620,8 @@ impl Display for Formula<'_> {
 /// that a linear connective is never taken for an ordinary one.
 ///
 /// `Display` writes the Unicode symbols with every nested binary formula
-/// in brackets, which this syntax reads back.
+/// in brackets, which this syntax reads back; that text is the sequent's
+/// form between programs, since it has no JSON form yet.
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]

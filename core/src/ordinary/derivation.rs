@@ -270,6 +270,9 @@ impl Inference {
 /// A derivation of LK or LJ (see [`Rule`]), read back from a linear proof
 /// of an image by [`Image::read_back`]: premises precede their conclusion,
 /// the root is the last inference.
+///
+/// A derivation has no JSON form yet: the linear proof's form and the
+/// translation that made the image make it again.
 #[derive(Clone, Debug)]
 pub struct Derivation {
     /// The logic.

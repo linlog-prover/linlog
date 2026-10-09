@@ -203,6 +203,9 @@ impl Inference {
 /// precede their conclusion and the root is the last inference.
 ///
 /// [`Display`](std::fmt::Display) draws the tree, see [`Proof`] for an example.
+///
+/// A derivation has no JSON form of its own: the proof's form and the
+/// [`ViewOptions`] it was made with make it again.
 #[derive(Clone, Debug)]
 pub struct Derivation<'a> {
     /// The forest the sequents' occurrences index.
