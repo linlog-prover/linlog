@@ -12,6 +12,7 @@
 //! that a bound or the stop ends answers with a [`Refusal`], which is
 //! never a verdict on its input.
 
+use crate::errors::counted;
 use std::fmt::{self, Display, Formatter};
 
 #[cfg(feature = "serialize")]
@@ -259,6 +260,19 @@ pub enum Space {
 }
 
 impl Space {
+    /// Returns the noun that names one member of the space.
+    pub(crate) const fn singular(self) -> &'static str {
+        match self {
+            Self::Atom => "atom",
+            Self::Term => "term",
+            Self::Node => "node",
+            Self::Occurrence => "occurrence",
+            Self::Member => "member",
+            Self::Vertex => "vertex",
+            Self::Inference => "inference",
+        }
+    }
+
     /// Returns the plural noun that counts members of the space.
     pub const fn plural(self) -> &'static str {
         match self {
@@ -388,8 +402,10 @@ impl Display for Refusal {
                 needed_bytes: Some(needed),
             } => write!(
                 f,
-                "the {} would take {needed} bytes, more than the memory limit of {limit_bytes} bytes",
-                phase.name()
+                "the {} would take {}, more than the memory limit of {}",
+                phase.name(),
+                counted(*needed, "byte", "bytes"),
+                counted(*limit_bytes, "byte", "bytes")
             ),
             Self::Memory {
                 phase,
@@ -397,13 +413,18 @@ impl Display for Refusal {
                 needed_bytes: None,
             } => write!(
                 f,
-                "the {} takes more than the memory limit of {limit_bytes} bytes",
-                phase.name()
+                "the {} takes more than the memory limit of {}",
+                phase.name(),
+                counted(*limit_bytes, "byte", "bytes")
             ),
             Self::Occurrences { occurrences, limit } => write!(
                 f,
-                "the sequent unfolds to at least {occurrences} subformula occurrences, more \
-                 than the limit of {limit}"
+                "the sequent unfolds to at least {}, more than the limit of {limit}",
+                counted(
+                    *occurrences,
+                    "subformula occurrence",
+                    "subformula occurrences"
+                )
             ),
             Self::Output {
                 what,
@@ -413,20 +434,29 @@ impl Display for Refusal {
             } => {
                 write!(
                     f,
-                    "the {what} is estimated at {estimate_bytes} bytes, more than the limit of \
-                     {limit_bytes}"
+                    "the {what} is estimated at {}, more than the limit of {limit_bytes}",
+                    counted(*estimate_bytes, "byte", "bytes")
                 )?;
                 match least_bytes {
-                    Some(least) => write!(f, ", and a compact one at {least} bytes at least"),
+                    Some(least) => write!(
+                        f,
+                        ", and a compact one at {} at least",
+                        counted(*least, "byte", "bytes")
+                    ),
                     None => Ok(()),
                 }
             }
             Self::Work { limit } => {
-                write!(f, "the search did the most work allowed, {limit} units")
+                write!(
+                    f,
+                    "the search did the most work allowed, {}",
+                    counted(*limit, "unit", "units")
+                )
             }
             Self::Pixels { pixels, limit } => write!(
                 f,
-                "the image would have {pixels} pixels, more than the limit of {limit}"
+                "the image would have {}, more than the limit of {limit}",
+                counted(*pixels, "pixel", "pixels")
             ),
             Self::Index { what, count, most } => write!(
                 f,

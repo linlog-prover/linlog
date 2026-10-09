@@ -121,8 +121,9 @@ impl NetError {
             // An occurrence outside the forest has no formula.
             NoOccurrence(o, len) => write!(
                 f,
-                "a link names occurrence {}, but the sequent has {len} occurrences",
-                o.get()
+                "a link names occurrence {}, but the sequent has {}",
+                o.get(),
+                crate::errors::counted(*len, "occurrence", "occurrences")
             ),
             NotLiteral(o) => write!(f, "occurrence {} is not a literal", occ(o)),
             NotDual(x, y) => write!(f, "the literals {} and {} are not dual", occ(x), occ(y)),

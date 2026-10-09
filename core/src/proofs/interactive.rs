@@ -125,7 +125,8 @@ impl Display for StepError {
             StepError::NoFormula { position, len } => {
                 write!(
                     f,
-                    "the goal has no formula {position}: it has {len} formulas"
+                    "the goal has no formula {position}: it has {}",
+                    crate::errors::counted(*len, "formula", "formulas")
                 )
             }
             StepError::Rule { rule, position } => {

@@ -116,7 +116,11 @@ pub enum Error {
     },
     /// A sequent says more of its root formulas stand left of `⊢`
     /// (`antecedents`) than it has (`roots`).
-    #[error("the sequent has {antecedents} formulas left of ⊢ but {roots} formulas in all")]
+    #[error(
+        "the sequent has {} left of ⊢ but {} in all",
+        counted(*.antecedents, "formula", "formulas"),
+        counted(*.roots, "formula", "formulas")
+    )]
     Antecedents {
         /// How many root formulas the sequent says stand left of `⊢`.
         antecedents: usize,
@@ -145,7 +149,10 @@ pub enum Error {
     /// An interactive proof still has this many open goals, so there is no
     /// proof term to make of it yet.
     #[cfg(feature = "interactive")]
-    #[error("the proof is not finished: {count} goals are open")]
+    #[error(
+        "the proof is not finished: {}",
+        if *.count == 1 { "1 goal is open".to_owned() } else { format!("{} goals are open", .count) }
+    )]
     OpenGoals {
         /// How many goals are open.
         count: usize,
@@ -551,17 +558,41 @@ fn or_list(names: &[&str]) -> String {
 /// The message of an index that names nothing.
 fn out_of_bounds(space: Space, index: usize, len: usize) -> String {
     match space {
-        Space::Atom => format!("a term refers to atom {index}, but the atom list has {len} names"),
-        Space::Term => format!("a root formula is term {index}, but the arena has {len} terms"),
-        Space::Node => format!("a proof refers to node {index}, but it has {len} nodes"),
+        Space::Atom => format!(
+            "a term refers to atom {index}, but the atom list has {}",
+            counted(len, "name", "names")
+        ),
+        Space::Term => format!(
+            "a root formula is term {index}, but the arena has {}",
+            counted(len, "term", "terms")
+        ),
+        Space::Node => format!(
+            "a proof refers to node {index}, but it has {}",
+            counted(len, "node", "nodes")
+        ),
         Space::Occurrence => format!(
-            "a proof node refers to occurrence {index}, but the sequent has {len} occurrences"
+            "a proof node refers to occurrence {index}, but the sequent has {}",
+            counted(len, "occurrence", "occurrences")
         ),
         _ => format!(
-            "an index names {index}, but there are {len} {}",
-            space.plural()
+            "an index names {index}, but there {} {}",
+            if len == 1 { "is" } else { "are" },
+            counted(len, space.singular(), space.plural())
         ),
     }
+}
+
+/// Writes a count with the noun that agrees with it: `1 goal`, `2 goals`.
+pub(crate) fn counted<N>(count: N, one: &str, many: &str) -> String
+where
+    N: Copy + std::fmt::Display + TryInto<u64>,
+{
+    let noun = if count.try_into().ok() == Some(1) {
+        one
+    } else {
+        many
+    };
+    format!("{count} {noun}")
 }
 
 /// The message of a part that names a part after it.
