@@ -4,6 +4,7 @@ paths:
   - "core/src/search/memory.rs"
   - "core/src/search/additive.rs"
   - "core/src/search/reference.rs"
+  - "core/src/search/refutation.rs"
 ---
 
 # linlog core: proof search, its front door, its memory bound, the additive path and the reference prover
@@ -41,7 +42,11 @@ goal other than the roots records the goal (`Proof::goal`, set by
 found in (`Proof::mode`, a claim); the check is against the proof's own
 `conclusion()`, and only `Interactive` consumes goal proofs, by grafting
 their derivation. Where
-`Outcome` carries the `Verdict` (`Proved(Box<Proof>)`, `Unprovable(Refutation)`
+`Outcome` carries the `Verdict` (`Proved(Box<Proof>)`, `Unprovable(Box<Disproof>)`,
+the refutation with the sequent, the goal off the roots and the mode it
+means something in (`search/refutation.rs`: `Refutation` with the
+structs `Unbalanced`, `Equation`, `StateEquation`; its `Display` writes
+atoms as `#0`, the disproof's by name, which the command prints)
 only after an exhaustive search, which with exponentials means a
 deepening level that never hit the copy bound, `Unknown(Reason)`, with
 `Reason::CopyBound` when every level up to a bound hit it), the `Fragment` searched in,
@@ -89,8 +94,9 @@ the net engine's, and the others stay zero.
 
 - **An engine's own refutation** goes in `Answer::refutation`, which
   `prove_goal` takes as it is: the Horn engine's
-  `Refutation::StateEquation` (weights for the atoms that an exact check
-  confirmed, `core-horn.md`), the one refutation not computed from the
+  `Refutation::StateEquation` (weights for every place that an exact
+  check confirmed, and the clauses that can never fire, `core-horn.md`),
+  the one refutation not computed from the
   counts. Every other `Unprovable` gets the counts' below.
 - **A refutation says what the counts rule out** (`Refutation`,
   `focus::refutation`, called by `prove_goal` on every `Unprovable` of

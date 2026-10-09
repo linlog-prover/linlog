@@ -74,7 +74,10 @@ use self::scratch::{Pooled, Pools};
 use self::split::Join;
 use super::Bias;
 use super::memory::{Account, Charged};
-use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Stop, Task, set_up_stopped};
+use super::{
+    Answer, Decide, Equation, Options, Reason, Refutation, Statistics, Stop, Task, Unbalanced,
+    set_up_stopped,
+};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
@@ -300,12 +303,7 @@ pub(crate) fn refutation(
     if rules.intervals
         && let Some((atom, least, most)) = tally.unbalanced(&counts)
     {
-        return Refutation::Unbalanced {
-            atom,
-            name: forest.sequent().atom_names()[atom.index()].clone(),
-            least,
-            most,
-        };
+        return Refutation::Unbalanced(Unbalanced { atom, least, most });
     }
     if rules.equation && !tally.equation(rules.mix) {
         let (mut tensors, mut pars, mut ones, mut bottoms) = (0, 0, 0, 0);
@@ -320,14 +318,17 @@ pub(crate) fn refutation(
                 }
             }
         }
-        return Refutation::Equation {
+        // Each count is below 2³², so the sum is exact.
+        let needed = tensors as i64 - pars as i64 - ones as i64 + bottoms as i64 + 2;
+        return Refutation::Equation(Equation {
             formulas: goal.len() as u64,
+            needed,
             tensors,
             pars,
             ones,
             bottoms,
             mix: rules.mix,
-        };
+        });
     }
     Refutation::Exhausted
 }

@@ -55,9 +55,9 @@ Current contents:
     `fmt.rs`, `multiset.rs`, `interactive.rs`): the derivation view, its
     size and bounds, the compact view, the text tree, interactive proving;
   - `rules/core-search.md` (`search/mod.rs`, `memory.rs`, `additive.rs`,
-    `reference.rs`): the search's front door, the engine interface, where
-    every engine polls, the memory bound, the additive path, the reference
-    prover;
+    `reference.rs`, `refutation.rs`): the search's front door, the engine
+    interface, where every engine polls, the memory bound, the additive
+    path, the reference prover, refutations and disproofs;
   - `rules/core-focus.md` (`search/focus/`, `search/generate.rs`): the
     focused engine, one- and two-sided, and its atom bias;
   - `rules/core-horn.md` (`search/horn/`): the Horn engine, Horn

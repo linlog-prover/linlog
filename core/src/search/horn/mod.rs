@@ -23,12 +23,12 @@ mod reach;
 mod tests;
 
 use super::memory::Account;
-use super::{Answer, Decide, Options, Reason, Refutation, Statistics, Task};
+use super::{Answer, Decide, Options, Reason, Refutation, StateEquation, Statistics, Task};
 use crate::Error;
 use crate::hash::HashMap;
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Side, Sign};
-use crate::sequents::Kind;
+use crate::sequents::{Atom, Kind};
 use equation::Equation;
 
 /// The engine, as [`Engine::Horn`] names it.
@@ -115,7 +115,7 @@ impl Decide for Horn {
         let mut answer = Answer::of_arena(task.forest, (result, nodes, statistics));
         answer.refutation = equation
             .certificate()
-            .map(|weights| program.refutation(task.forest, weights));
+            .map(|weights| program.refutation(weights));
         Ok(answer)
     }
 }
@@ -163,6 +163,8 @@ impl Program {
             markings: Vec::new(),
             goal: self.goal,
             once: Vec::new(),
+            alike: Vec::new(),
+            dropped: Vec::new(),
         }
     }
 
@@ -190,25 +192,37 @@ impl Program {
     }
 
     /// The refutation that weights for the places, a place and its weight
-    /// each, give: the atoms' weights by name, and whether a class of
-    /// clauses used once weighs something.
-    fn refutation(&self, forest: &Forest, weights: &[(u32, i64)]) -> Refutation {
+    /// each, give: every place's weight that is not zero, an atom's for
+    /// the atom and a class's for each clause of the class, whose ticket
+    /// the place counts, and the clauses that can never fire.
+    fn refutation(&self, weights: &[(u32, i64)]) -> Refutation {
         let mut weight = vec![0; self.places];
         for &(p, w) in weights {
             weight[p as usize] = w;
         }
-        let names = forest.sequent().atom_names();
-        let atoms = self.places - self.once.len();
-        Refutation::StateEquation {
-            weights: self
-                .place_of
-                .iter()
-                .enumerate()
-                .filter(|&(_, &p)| p != u32::MAX && weight[p as usize] != 0)
-                .map(|(a, &p)| (names[a].clone(), weight[p as usize]))
-                .collect(),
-            once: weight[atoms..].iter().any(|&w| w != 0),
-        }
+        let tickets = &weight[self.places - self.once.len()..];
+        let atoms = self
+            .place_of
+            .iter()
+            .enumerate()
+            .filter(|&(_, &p)| p != u32::MAX && weight[p as usize] != 0)
+            .map(|(a, &p)| (Atom::new(a as u32), weight[p as usize]))
+            .collect();
+        let mut clauses: Vec<(OccId, i64)> = self
+            .once
+            .iter()
+            .zip(tickets)
+            .filter(|&(_, &w)| w != 0)
+            .flat_map(|(class, &w)| class.iter().map(move |&clause| (clause, w)))
+            .collect();
+        clauses.sort_unstable();
+        let mut dropped = self.dropped.clone();
+        dropped.sort_unstable();
+        Refutation::StateEquation(StateEquation {
+            atoms,
+            clauses,
+            dropped,
+        })
     }
 }
 
@@ -269,6 +283,12 @@ pub(super) struct Program {
     goal: OccId,
     /// The occurrences of each class of clauses used once.
     once: Vec<Vec<OccId>>,
+    /// Per transition under `?`, the other clauses under `?` with its
+    /// arcs; emptied once the dead transitions are dropped.
+    alike: Vec<Vec<OccId>>,
+    /// The clauses whose transitions can never fire, which [`live`]
+    /// dropped.
+    dropped: Vec<OccId>,
 }
 
 impl Program {
@@ -491,11 +511,19 @@ impl Reader<'_> {
                 end: at(&arcs),
             });
         };
+        let mut alike: Vec<Vec<OccId>> = Vec::new();
         for (clause, inputs, outputs) in parts.reusable {
             let (inputs, outputs) = (weights(inputs), weights(outputs));
-            if inputs != outputs && !seen.contains_key(&(inputs.clone(), outputs.clone())) {
-                push(Clause::Reusable(clause), &inputs, &outputs);
-                seen.insert((inputs, outputs), 0);
+            if inputs == outputs {
+                continue;
+            }
+            match seen.get(&(inputs.clone(), outputs.clone())) {
+                Some(&t) => alike[t as usize].push(clause),
+                None => {
+                    push(Clause::Reusable(clause), &inputs, &outputs);
+                    seen.insert((inputs, outputs), alike.len() as u32);
+                    alike.push(Vec::new());
+                }
             }
         }
         seen.clear();
@@ -540,6 +568,8 @@ impl Reader<'_> {
             markings,
             goal,
             once,
+            alike,
+            dropped: Vec::new(),
         }
     }
 }
@@ -550,13 +580,18 @@ impl Reader<'_> {
 /// marking marks (the tokens given and the class places of the clauses
 /// used once) and the outputs of every transition whose inputs can all be
 /// marked, by induction on the firing sequence; a transition with an
-/// input outside them is never enabled. Only the search needs it, so the
-/// dispatch's reading of a goal does not pay for it.
+/// input outside them is never enabled. Their clauses go to
+/// [`Program::dropped`], with those under `?` that share their arcs.
+/// Only the search needs it, so the dispatch's reading of a goal does not
+/// pay for it.
 fn live(program: &mut Program) {
     let Program {
         transitions,
         arcs,
         initial,
+        once,
+        alike,
+        dropped,
         ..
     } = program;
     let width = initial.len();
@@ -593,6 +628,19 @@ fn live(program: &mut Program) {
             }
         }
     }
+    for (t, transition) in transitions.iter().enumerate() {
+        if enabled[t] {
+            continue;
+        }
+        match transition.clause {
+            Clause::Reusable(clause) => {
+                dropped.push(clause);
+                dropped.extend_from_slice(&alike[t]);
+            }
+            Clause::Once(class) => dropped.extend_from_slice(&once[class as usize]),
+        }
+    }
+    *alike = Vec::new();
     let mut t = 0;
     transitions.retain(|_| {
         t += 1;

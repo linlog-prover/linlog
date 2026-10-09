@@ -19,7 +19,7 @@ it; only what holds for the whole crate goes here.
 | `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading |
 | `core-proofs.md` | `proofs/mod.rs`, `check.rs`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
 | `core-derivations.md` | `proofs/derivation.rs`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive.rs` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
-| `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs`, `reference.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path, the test-only reference prover |
+| `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path, the test-only reference prover |
 | `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: the atom bias, dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
 | `core-horn.md` | `search/horn/` | the Horn engine: the shape it reads as a Petri net and why its refutations are sound in every mode, places, classes and dead transitions, the sparse markings, the frontier and the backward search beside it, coverability in affine mode and its trie, the state equation and its exact check, sharing memory and time, its limits, the proof read off a firing sequence |
 | `core-nets.md` | `nets/`, `search/net.rs` | proof structures, the correctness criterion, sequentialization, the net engine |
@@ -74,7 +74,7 @@ Each entry point is described in the file of its module:
   `write_text`;
   `Interactive` (`core-derivations.md`);
 - `prove`, `prove_within`, `prove_goal` with `Options` and `Limits`, returning an
-  `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Refutation`,
+  `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Disproof`,
   `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
   an `Engine`, whose variants describe the engines of the crate-private
   `search::focus`, `search::net`, `search::additive` and `search::horn`,

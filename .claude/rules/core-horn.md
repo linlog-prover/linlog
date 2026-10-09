@@ -306,7 +306,14 @@ front door, the dispatch and the memory account it plugs into are in
   than 2³² terms: no sum reaches 2¹²⁷), over every transition of the
   `Program`, including the ones the tableau left out. Only a vector it
   accepts becomes `Refutation::StateEquation`; nothing else of the
-  module bears on soundness.
+  module bears on soundness. The certificate is every place's weight
+  that is not zero (an atom's; a class's ticket as each clause of the
+  class, whose ticket the class place counts) and the clauses that
+  `live` dropped (`Program::dropped`, a dead transition's clause with
+  every clause under `?` that shares its arcs, `Program::alike`), so a
+  checker that shares no code with the engine can recompute the
+  closure, confirm the dropped clauses dead, and test `y·C ≤ 0` on the
+  others and `y·(M − M₀) > 0`.
 - **Who proposes the weights.** The first phase of a revised simplex
   (`Tableau`): a row per place that a transition changes or the target
   names, signed so the right-hand side is not negative; a column per

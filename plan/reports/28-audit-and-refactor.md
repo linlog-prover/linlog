@@ -85,7 +85,7 @@ supervisor's go are marked "go".
 | n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | done | xnszropr: `Rule` the sixteen one-sided rules, `Named { rule, side }` the rule a derivation shows (F60), names, spellings and labels unchanged, label tables indexed by `Named::index`, test `names_round_trip` in `rule.rs`. rnnrsvnv: `Inference` non-exhaustive with accessors and a sequent of members, `Derivation::occurrence`/`formula`. mnkunorl: `ViewOptions::sides` (one, two, or `Auto`, two-sided for a proof meant for intuitionistic mode) replaces the two-sided twins of `derivation`, `derivation_within` and `derivation_size`, whose view now carries the sides; `Proof::derivation_within` is the one public door (`Derivation::new` and `two_sided` crate-private) |
 | o. `Interactive` (3.10) | done | `GoalId` apart from `InfId` (F69), `Step`/`Split`, `Applicable`/`Needs`, `apply(goal, &step)`, `split_passes(goal, &step)`, `Closed` from `close` (a refused graft keeps the goal open and the proof in the outcome), `close_all` with a result per goal (F68), `proof(limits, stop)`, `derivation()` fallible and `derivation_within`, `within`, `occurrence`/`formula`, `StepError::EmptyPremise` (F67); the command's session output unchanged (qmpstuqr). Then the reading kept in the state, O(1) (F66), and a linear read-back: two pointers for a split, a history walk that enters no later step's inferences (F21) |
 | p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | done, the net target set waiting for a go | kwxnmzvw: `bench/net-targets.sh`, the net engine's target set (the decided rows of the second baseline's `engines` and `period-N` passes, forced onto the net engine on one thread), to run at kwxnmzvw and at the retype after the go. Then the retype: `VertexId` (vertex `i` is occurrence `i` in MLL), `Criterion` (`MLL`, `with_mix`, `of(mode)`), `NetError` with named fields and `Fragment`, `Mode`, `Rule` (kind unsupported, code `no_nets`); `new` refuses past `u32::MAX / 3 − 1` vertices (F9); `from_proof(proof, criterion, limits, stop)` matches every node (F49) within the memory bound; `is_correct(stop)`, `sequentialize(limits, stop)` (F12's net half; the proof records its mode); an id outside the structure answered, never a panic (H24), a scratch of another structure replaced (H23); the net engine sequentializes under the search's limits and stop; tests `foreign_ids_and_scratches`, `refusals` and the `wk` and `&` refusals in `desequentialize`. H24's `OccSet` half: the set is crate-private since wyuzsnql, so no public call panics |
-| q. `Refutation` and `Disproof` (3.12, lock commit (3)) | open | |
+| q. `Refutation` and `Disproof` (3.12, lock commit (3)) | done | `search/refutation.rs`: `Refutation` over the structs `Unbalanced` (the atom, no name: F80), `Equation` (with `needed`) and `StateEquation` (every place's weight: the atoms', the clauses used once by occurrence, and the clauses `live` dropped, a dead transition's with every clause under `?` sharing its arcs: R70, `once` gone); `Disproof` (sequent, goal off the roots, mode, refutation) in `Verdict::Unprovable(Box<Disproof>)`, built in `prove_goal`; `Display` of a refutation writes atoms as `#0`, the disproof's by name, which the command prints (its text lines unchanged). Lock commit (3): the unprovable outcome writes the disproof's `sequent` (and `goal`), the unbalanced atom by index, the state equation's new payload; both locks reblessed (four JSON outputs of the command, four core lines). Tests `refutations` (the disproof's sequent, mode and both displays) and `the_certificate_names_its_clauses` |
 | r. the ordinary layer (3.13) | open | |
 | s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | open | |
 | t. the exports' one `write` (9) | open | |
@@ -175,6 +175,18 @@ supervisor's go are marked "go".
   exports' one `write` (item t), and the command's own `nets_exist`
   keeps its check of the fragment and mode until the command's area
   (F28).
+- **`Equation::needed` is an `i64`** (the design has `u64`): the count
+  equation asks `#⊗ − #⅋ − #1 + #⊥ + 2` formulas, below zero where the
+  `⅋` and the `1` outnumber the rest, as the message already writes it.
+- **`Verdict::Unprovable` boxes its `Disproof`**, as `Proved` boxes its
+  proof: a disproof holds a sequent and a refutation, and the verdict
+  stays a pointer wide.
+- **A `Disproof` is written, not yet read**: its reader comes with the
+  refutation's checker (step 31), the one caller; an item without a
+  caller waits for one.
+- **A refutation's own `Display` writes atoms by number** (`#0`), as
+  the errors' `Display` writes ids, and the disproof's writes names, as
+  `describe` does: the refutation no longer carries a name.
 
 ## From the supervisor
 

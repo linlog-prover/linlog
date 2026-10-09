@@ -13,7 +13,7 @@ use crate::fragment::Mode;
 use crate::occurrences::Forest;
 use crate::search::memory::Account;
 use crate::search::{Engine, Options, Reason, Refutation, Task, Verdict, prove};
-use crate::sequents::Sequent;
+use crate::sequents::{Atom, Sequent};
 
 /// The options that force the engine.
 fn horn() -> Options {
@@ -90,7 +90,9 @@ fn verdict(text: &str, mode: Mode) -> &'static str {
     let sequent: Sequent = text.parse().unwrap();
     match prove(&sequent, mode, &horn()).unwrap().verdict {
         Verdict::Proved(_) => "proved",
-        Verdict::Unprovable(Refutation::StateEquation { .. }) => "state equation",
+        Verdict::Unprovable(d) if matches!(d.refutation(), Refutation::StateEquation(_)) => {
+            "state equation"
+        }
         Verdict::Unprovable(_) => "unprovable",
         Verdict::Unknown(reason) => panic!("{text} in {mode} mode: {reason}"),
     }
@@ -152,6 +154,38 @@ fn decides_unbounded_nets() {
             assert_eq!(found, affine, "{text} in {mode} mode");
         }
     }
+}
+
+/// A refutation by the state equation names every place's weight, the
+/// tickets of clauses used once by clause, and the clauses that can never
+/// fire, which the inequalities leave out.
+#[test]
+fn the_certificate_names_its_clauses() {
+    let certificate = |text: &str| {
+        let sequent: Sequent = text.parse().unwrap();
+        let outcome = prove(&sequent, Mode::CLASSICAL, &horn()).unwrap();
+        let Verdict::Unprovable(disproof) = outcome.verdict else {
+            panic!("{text}: {:?}", outcome.verdict);
+        };
+        let Refutation::StateEquation(certificate) = disproof.refutation().clone() else {
+            panic!("{text}: {disproof}");
+        };
+        (Forest::new(&sequent).unwrap(), certificate)
+    };
+    // The atoms `a`, `c`, `b`; the clause that needs a `c` is under the
+    // second `!`.
+    let (forest, dead) = certificate("!(a -o a * a), !(a * c -o b * c), a |- b");
+    let needs_c = forest.children(forest.roots()[1]).next().unwrap();
+    assert_eq!(dead.atoms, [(Atom::new(0), -1), (Atom::new(2), 1)]);
+    assert_eq!((dead.clauses, dead.dropped), (vec![], vec![needs_c]));
+    // One clause used once makes one `b`, and the goal asks two: its ticket
+    // weighs as a `b` does.
+    let (forest, once) = certificate("!(a -o a * a), !(b -o b), (a * a -o b), a |- b * b");
+    assert_eq!(once.atoms, [(Atom::new(1), 1)]);
+    assert_eq!(
+        (once.clauses, once.dropped),
+        (vec![(forest.roots()[2], 1)], vec![])
+    );
 }
 
 /// The check of the weights is exact: weights whose products wrap in 64

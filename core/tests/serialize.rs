@@ -301,9 +301,12 @@ fn outcome_json_format() {
 
     let s: Sequent = "|- A par B, ~A, ~B".parse().unwrap();
     let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+    let sequent = serde_json::to_string(&s).unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
-        r#"{"verdict":"unprovable","refutation":{"equation":{"formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
+        format!(
+            r#"{{"verdict":"unprovable","refutation":{{"equation":{{"formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}}}},"fragment":"MLL","mode":{{"intuitionistic":false,"affine":false,"mix":false}},"engine":"net","statistics":{{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}},"sequent":{sequent}}}"#
+        )
     );
     let outcome = prove_within(
         &s,

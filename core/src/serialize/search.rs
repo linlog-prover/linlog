@@ -3,9 +3,12 @@
 
 use super::proofs::Proof;
 use crate::fragment::{Fragment, Mode};
+use crate::occurrences::Member;
 use crate::search::{
-    Bias, Cadence, Engine, Jobs, Outcome as Out, Reason, Refutation, Statistics, Verdict,
+    Bias, Cadence, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation, StateEquation,
+    Statistics, Unbalanced, Verdict,
 };
+use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Fragment {
@@ -80,17 +83,17 @@ impl From<Reason> for Why {
     }
 }
 
-/// The serialized form of a refutation: a tag, with the counts that rule
-/// a proof out.
+/// The serialized form of a refutation: a tag, with the counts or the
+/// weights that rule a proof out.
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
-enum WhyNot<'a> {
+enum WhyNot {
     /// The search was exhaustive.
     Exhausted,
     /// An atom's literals cannot pair up.
     Unbalanced {
-        /// The atom's name.
-        atom: &'a str,
+        /// The atom's index into the sequent's atoms.
+        atom: u32,
         /// The least excess of positive over negative literals.
         least: i32,
         /// The greatest.
@@ -101,7 +104,7 @@ enum WhyNot<'a> {
         /// The formulas.
         formulas: u64,
         /// The formulas the equation asks for.
-        needed: i128,
+        needed: i64,
         /// The `⊗`.
         tensors: u64,
         /// The `⅋`.
@@ -115,62 +118,66 @@ enum WhyNot<'a> {
     },
     /// The state equation of the Petri net has no solution.
     StateEquation {
-        /// The atoms that weigh something, each with its weight.
-        weights: Vec<Weight<'a>>,
-        /// Whether some clause used once weighs something too.
-        once: bool,
+        /// The atoms that weigh something, by index, with their weights.
+        atoms: Vec<(u32, i64)>,
+        /// The clauses used once that weigh something, by occurrence, with
+        /// their weights.
+        clauses: Vec<(u32, i64)>,
+        /// The clauses that can never fire, by occurrence.
+        dropped: Vec<u32>,
     },
 }
 
-/// An atom's weight in a refutation by the state equation.
-#[derive(Serialize)]
-struct Weight<'a> {
-    /// The atom's name.
-    atom: &'a str,
-    /// Its weight.
-    weight: i64,
-}
-
-impl<'a> From<&'a Refutation> for WhyNot<'a> {
+impl From<&Refutation> for WhyNot {
     /// Converts a refutation into its serialized form.
-    fn from(r: &'a Refutation) -> Self {
+    fn from(r: &Refutation) -> Self {
         match r {
-            Refutation::Unbalanced {
-                name, least, most, ..
-            } => WhyNot::Unbalanced {
-                atom: name,
-                least: *least,
-                most: *most,
+            &Refutation::Unbalanced(Unbalanced { atom, least, most }) => WhyNot::Unbalanced {
+                atom: atom.get(),
+                least,
+                most,
             },
-            &Refutation::Equation {
+            &Refutation::Equation(Equation {
                 formulas,
+                needed,
                 tensors,
                 pars,
                 ones,
                 bottoms,
                 mix,
-            } => WhyNot::Equation {
+            }) => WhyNot::Equation {
                 formulas,
-                needed: r.needed().unwrap_or_default(),
+                needed,
                 tensors,
                 pars,
                 ones,
                 bottoms,
                 mix,
             },
-            Refutation::StateEquation { weights, once } => WhyNot::StateEquation {
-                weights: weights
-                    .iter()
-                    .map(|(atom, weight)| Weight {
-                        atom,
-                        weight: *weight,
-                    })
-                    .collect(),
-                once: *once,
+            Refutation::StateEquation(StateEquation {
+                atoms,
+                clauses,
+                dropped,
+            }) => WhyNot::StateEquation {
+                atoms: atoms.iter().map(|&(a, w)| (a.get(), w)).collect(),
+                clauses: clauses.iter().map(|&(o, w)| (o.get(), w)).collect(),
+                dropped: dropped.iter().map(|o| o.get()).collect(),
             },
             _ => WhyNot::Exhausted,
         }
     }
+}
+
+/// The keys an unprovable outcome adds for its disproof beside its
+/// `mode` and `refutation`: the sequent, and the goal when it is not the
+/// roots.
+#[derive(Serialize)]
+struct DisproofKeys<'a> {
+    /// The sequent.
+    sequent: &'a Sequent,
+    /// The goal refuted, absent for the roots.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    goal: Option<&'a [Member]>,
 }
 
 /// The serialized form of the statistics: its counters by name.
@@ -206,7 +213,7 @@ struct Outcome<'a> {
     reason: Option<Why>,
     /// Why the sequent is unprovable.
     #[serde(skip_serializing_if = "Option::is_none")]
-    refutation: Option<WhyNot<'a>>,
+    refutation: Option<WhyNot>,
     /// The fragment searched in, by its name in the mode.
     fragment: &'static str,
     /// The mode searched in.
@@ -219,16 +226,26 @@ struct Outcome<'a> {
     /// The proof, for `proved`.
     #[serde(flatten)]
     proof: Option<Proof>,
+    /// What the disproof adds, for `unprovable`.
+    #[serde(flatten)]
+    disproof: Option<DisproofKeys<'a>>,
 }
 
 impl Serialize for Out {
     /// Serializes the outcome as its verdict, the fragment, mode and engine
     /// of the search, the statistics, and the proof if there is one.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let (verdict, reason, refutation, proof) = match &self.verdict {
-            Verdict::Proved(p) => ("proved", None, None, Some(Proof::from(&**p))),
-            Verdict::Unprovable(r) => ("unprovable", None, Some(WhyNot::from(r)), None),
-            Verdict::Unknown(r) => ("unknown", Some(Why::from(*r)), None, None),
+        let (verdict, reason, refutation, proof, disproof) = match &self.verdict {
+            Verdict::Proved(p) => ("proved", None, None, Some(Proof::from(&**p)), None),
+            Verdict::Unprovable(d) => {
+                let keys = DisproofKeys {
+                    sequent: d.sequent(),
+                    goal: d.goal(),
+                };
+                let why = WhyNot::from(d.refutation());
+                ("unprovable", None, Some(why), None, Some(keys))
+            }
+            Verdict::Unknown(r) => ("unknown", Some(Why::from(*r)), None, None, None),
         };
         Outcome {
             verdict,
@@ -239,6 +256,7 @@ impl Serialize for Out {
             engine: self.engine,
             statistics: self.statistics,
             proof,
+            disproof,
         }
         .serialize(serializer)
     }

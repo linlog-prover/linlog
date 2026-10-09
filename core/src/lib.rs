@@ -168,8 +168,8 @@ pub use proofs::{
 #[cfg(feature = "interactive")]
 pub use proofs::{GoalId, Interactive, Step, StepError};
 pub use search::{
-    Bias, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove, prove_goal,
-    prove_within,
+    Bias, Disproof, Engine, Options, Outcome, Reason, Refutation, Statistics, Verdict, prove,
+    prove_goal, prove_within,
 };
 pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};
 pub use settings::{Clock, Settings};

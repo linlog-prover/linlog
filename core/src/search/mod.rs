@@ -29,15 +29,18 @@ mod parallel;
 /// A reference prover for the tests: the plain unfocused calculus.
 #[cfg(test)]
 pub(crate) mod reference;
+/// Why a sequent is unprovable, and the disproof that says so.
+mod refutation;
 
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;
+pub use refutation::{Disproof, Equation, Refutation, StateEquation, Unbalanced};
 
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Phase, Progress};
 use crate::nets::ProofStructure;
-use crate::occurrences::{Forest, OccId, Reading};
+use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -292,13 +295,21 @@ pub fn prove_goal(
         // A proof records what it concludes and the mode it was found in.
         Ok(Some(proof)) if roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
         Ok(Some(proof)) => Verdict::Proved(Box::new(proof.concluding(goal).with_mode(mode))),
-        Ok(None) => Verdict::Unprovable(match answer.refutation {
-            Some(refutation) => refutation,
-            None => {
-                let account = memory::Account::new(limits.memory_bytes);
-                focus::refutation(forest, task.goal, fragment, mode, &account, &mut polled)
-            }
-        }),
+        Ok(None) => {
+            let refutation = match answer.refutation {
+                Some(refutation) => refutation,
+                None => {
+                    let account = memory::Account::new(limits.memory_bytes);
+                    focus::refutation(forest, task.goal, fragment, mode, &account, &mut polled)
+                }
+            };
+            let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
+            Verdict::Unprovable(Box::new(if roots {
+                disproof
+            } else {
+                disproof.of_goal(goal.iter().map(|&o| Member::from(o)).collect())
+            }))
+        }
         Err(reason) => Verdict::Unknown(reason),
     };
     drop(polled);
@@ -1330,12 +1341,14 @@ impl Options {
 ///
 /// With the feature `serialize` an outcome is written, never read, as one
 /// object: `verdict` (`"proved"`, `"unprovable"` or `"unknown"`), with
-/// `refutation` for an unprovable sequent and `reason` for an unknown one
-/// (a tag such as `"stopped"`, or `{"copy_bound": 3}`), `fragment` (its
-/// name in the mode, as [`Fragment::name_in`] gives it), `mode`
-/// (`{"intuitionistic": …, "affine": …, "mix": …}`), `engine`,
-/// `statistics`, and for a proved sequent the proof's own keys `sequent`
-/// and `proof`, so that the outcome reads back as a [`Proof`]. The
+/// `refutation` for an unprovable sequent (in the form [`Refutation`]
+/// gives) and `reason` for an unknown one (a tag such as `"stopped"`, or
+/// `{"copy_bound": 3}`), `fragment` (its name in the mode, as
+/// [`Fragment::name_in`] gives it), `mode` (`{"intuitionistic": …,
+/// "affine": …, "mix": …}`), `engine`, `statistics`, for a proved
+/// sequent the proof's own keys `sequent` and `proof`, so that the
+/// outcome reads back as a [`Proof`], and for an unprovable one the
+/// [`Disproof`]'s `sequent` and, for a goal off the roots, `goal`. The
 /// command's `prove --format json` writes it.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -1364,8 +1377,8 @@ pub enum Verdict {
     /// carries its forest.
     Proved(Box<Proof>),
     /// The sequent is not provable: the search was exhaustive, and here is
-    /// what can be said of why.
-    Unprovable(Refutation),
+    /// what can be said of why, boxed as a proof is.
+    Unprovable(Box<Disproof>),
     /// The search stopped before it could decide, for the reason given.
     Unknown(Reason),
 }
@@ -1376,174 +1389,6 @@ impl Verdict {
         match self {
             Verdict::Proved(proof) => Some(proof),
             _ => None,
-        }
-    }
-}
-
-/// Why a sequent is unprovable. Most refutations rest on the search that
-/// was exhaustive; where the literals or the connectives of the sequent
-/// alone rule out a proof, the refutation says which, as the focused
-/// engine checks them on every sequent it searches; and the Horn engine
-/// may refute a Horn program by its state equation, whatever its search
-/// found. In JSON (feature `serialize`) the outcome's `refutation` is
-/// `"exhausted"`, `{"unbalanced": {"atom", "least", "most"}}`,
-/// `{"equation": {"formulas", "needed", "tensors", "pars", "ones",
-/// "bottoms", "mix"}}` or `{"state_equation": {"weights": [{"atom",
-/// "weight"}, …], "once"}}`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Refutation {
-    /// Every way to prove the sequent was tried and failed.
-    Exhausted,
-    /// The literals of an atom cannot all meet their duals in axioms:
-    /// whichever additive alternatives a proof takes, the positive literal
-    /// occurs between `least` and `most` times more than the negative one
-    /// (fewer, where these are negative), and never as often.
-    Unbalanced {
-        /// The atom.
-        atom: Atom,
-        /// Its name.
-        name: String,
-        /// The least excess of positive over negative literals.
-        least: i32,
-        /// The greatest excess.
-        most: i32,
-    },
-    /// The count equation of the multiplicatives fails: a provable
-    /// sequent of MLL with units has exactly
-    /// `tensors − pars − ones + bottoms + 2` formulas, and at least that
-    /// many with Mix, counted on the one-sided sequent.
-    Equation {
-        /// The formulas of the sequent.
-        formulas: u64,
-        /// Its `⊗`.
-        tensors: u64,
-        /// Its `⅋`.
-        pars: u64,
-        /// Its `1`.
-        ones: u64,
-        /// Its `⊥`.
-        bottoms: u64,
-        /// Whether Mix was allowed.
-        mix: bool,
-    },
-    /// The goal is a Horn program, a Petri net, whose state equation has
-    /// no solution: weighting the tokens of each atom as given, and each
-    /// clause used once that is not yet used by a weight of its own, no
-    /// clause that can fire raises the weighted count, while the goal's
-    /// tokens ask it raised. A clause with an atom that no marking reached
-    /// from the start holds can never fire, and is left out. So no sequence of firings yields them, as Farkas' lemma
-    /// says of the equation `goal = start + Σ firings × effect`, and in
-    /// affine mode, where the weights are not negative, none yields more
-    /// than them either.
-    StateEquation {
-        /// The atoms whose tokens weigh something, in the order of the
-        /// sequent's atoms, by name, with their weights.
-        weights: Vec<(String, i64)>,
-        /// Whether some clause used once weighs something too.
-        once: bool,
-    },
-}
-
-impl Refutation {
-    /// Returns how many formulas the count equation asks for, for
-    /// [`Refutation::Equation`].
-    pub fn needed(&self) -> Option<i128> {
-        match *self {
-            Refutation::Equation {
-                tensors,
-                pars,
-                ones,
-                bottoms,
-                ..
-            } => Some(
-                i128::from(tensors) - i128::from(pars) - i128::from(ones) + i128::from(bottoms) + 2,
-            ),
-            _ => None,
-        }
-    }
-}
-
-impl Display for Refutation {
-    /// Writes the refutation as a phrase, such as `the search was
-    /// exhaustive`.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Refutation::Exhausted => f.write_str("the search was exhaustive"),
-            Refutation::Unbalanced {
-                name, least, most, ..
-            } => {
-                let (more, fewer) = if *least > 0 {
-                    (name.clone(), format!("~{name}"))
-                } else {
-                    (format!("~{name}"), name.clone())
-                };
-                let (a, b) = (least.unsigned_abs(), most.unsigned_abs());
-                let (a, b) = (a.min(b), a.max(b));
-                let excess = if a == b {
-                    format!("{a}")
-                } else {
-                    format!("{a} to {b}")
-                };
-                write!(
-                    f,
-                    "{more} occurs {excess} more {} than {fewer} in the one-sided sequent{}, so \
-                     they cannot all meet in axioms",
-                    if a == 1 && b == 1 { "time" } else { "times" },
-                    if a == b {
-                        ""
-                    } else {
-                        ", whichever additive alternatives a proof takes"
-                    }
-                )
-            }
-            Refutation::Equation {
-                formulas,
-                tensors,
-                pars,
-                ones,
-                bottoms,
-                mix,
-            } => {
-                // A count below zero with the minus sign of the expression.
-                let needed = self.needed().unwrap_or_default();
-                let needed = if needed < 0 {
-                    format!("−{}", needed.unsigned_abs())
-                } else {
-                    needed.to_string()
-                };
-                write!(
-                    f,
-                    "the count equation fails: a provable one-sided sequent of MLL has {}#⊗ − \
-                     #⅋ − #1 + #⊥ + 2 formulas, here {tensors} − {pars} − {ones} + {bottoms} + 2 = \
-                     {needed}, and this one has {formulas}",
-                    if *mix { "at least " } else { "exactly " },
-                )
-            }
-            Refutation::StateEquation { weights, once } => {
-                f.write_str(
-                    "the state equation of the Petri net has no solution, so no firing of its \
-                     clauses yields the goal's atoms: weighting",
-                )?;
-                for (i, (name, weight)) in weights.iter().enumerate() {
-                    let sign = if *weight < 0 { "−" } else { "" };
-                    let between = match i {
-                        0 => " each",
-                        _ if i + 1 == weights.len() && !once => " and",
-                        _ => ",",
-                    };
-                    write!(f, "{between} {name} by {sign}{}", weight.unsigned_abs())?;
-                }
-                if *once {
-                    let between = if weights.is_empty() { "" } else { " and" };
-                    f.write_str(between)?;
-                    f.write_str(" the clauses used once by weights of their own")?;
-                }
-                f.write_str(
-                    ", no clause that can fire raises the weighted count of the atoms, and the goal \
-                     asks it raised",
-                )
-            }
         }
     }
 }
@@ -1682,32 +1527,48 @@ mod tests {
     fn refutations() {
         let refuted = |input: &str, mode: Mode| {
             let outcome = prove(&sequent(input), mode, &Options::default()).unwrap();
-            let Verdict::Unprovable(refutation) = outcome.verdict else {
+            let Verdict::Unprovable(disproof) = outcome.verdict else {
                 panic!("{input:?}: {:?}", outcome.verdict);
             };
-            refutation
+            assert_eq!(
+                (disproof.sequent(), disproof.mode()),
+                (&sequent(input), mode)
+            );
+            *disproof
         };
-        let unbalanced = |name: &str, least, most| Refutation::Unbalanced {
-            atom: Atom::new(0),
-            name: name.to_owned(),
-            least,
-            most,
+        let unbalanced = |least, most| {
+            Refutation::Unbalanced(Unbalanced {
+                atom: Atom::new(0),
+                least,
+                most,
+            })
         };
         let classical = Mode::CLASSICAL;
-        assert_eq!(refuted("|- a, a", classical), unbalanced("a", 2, 2));
         assert_eq!(
-            refuted("a |- b", Mode::INTUITIONISTIC),
-            unbalanced("a", -1, -1)
+            refuted("|- a, a", classical).refutation(),
+            &unbalanced(2, 2)
+        );
+        assert_eq!(
+            refuted("a |- b", Mode::INTUITIONISTIC).refutation(),
+            &unbalanced(-1, -1)
         );
         let hull = refuted("|- (a * a) + (a * a * a), ~a", classical);
-        assert_eq!(hull, unbalanced("a", 1, 2));
+        assert_eq!(hull.refutation(), &unbalanced(1, 2));
         assert_eq!(
             hull.to_string(),
             "a occurs 1 to 2 more times than ~a in the one-sided sequent, whichever additive \
              alternatives a proof takes, so they cannot all meet in axioms"
         );
+        assert!(
+            hull.refutation()
+                .to_string()
+                .starts_with("#0 occurs 1 to 2 more times than ~#0")
+        );
         let equation = refuted("|- a par b, ~a, ~b", classical);
-        assert_eq!(equation.needed(), Some(1));
+        assert!(matches!(
+            equation.refutation(),
+            Refutation::Equation(Equation { needed: 1, .. })
+        ));
         assert_eq!(
             equation.to_string(),
             "the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − \
@@ -1715,8 +1576,8 @@ mod tests {
         );
         for input in ["|- a par ~a, b * ~b", "|- a & b, ~a"] {
             assert_eq!(
-                refuted(input, classical),
-                Refutation::Exhausted,
+                refuted(input, classical).refutation(),
+                &Refutation::Exhausted,
                 "{input:?}"
             );
         }

@@ -201,7 +201,13 @@ same test file:
   `fragment`, `mode`, `engine`, `statistics`,
   and for `proved` the proof's own `sequent` and `proof` keys, flattened, so
   that the whole outcome deserializes as a `Proof` (serde ignores the other
-  keys) and `linlog check` reads the output of `linlog prove --format json`.
+  keys) and `linlog check` reads the output of `linlog prove --format json`;
+  for `unprovable` the `Disproof`'s keys beside `mode`: `refutation`
+  (`"exhausted"`, `{"unbalanced": {"atom", "least", "most"}}` with the
+  atom's index, `{"equation": {…}}`, `{"state_equation": {"atoms":
+  [[atom, weight]], "clauses": [[occurrence, weight]], "dropped":
+  [occurrence]}}`), `sequent` after `statistics`, and `goal` for a goal
+  off the roots (written only until a refutation's checker reads it).
   A new `Reason` variant or `Statistics` field needs its line in the proxy;
   `Outcome::net` is not serialized (the proof's keys are, and the net is
   `from_proof` of them).

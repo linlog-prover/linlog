@@ -328,7 +328,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   fragment has exponentials, the engine is `focus` or `two-sided`), and
   the flag to try. The tests compare such lines through `timeless` in
   `cli/tests/cli.rs`, which writes every time after "after " as `…`.
-  An "unprovable" prints the library's `Refutation`.
+  An "unprovable" prints the library's `Disproof` (the refutation with
+  atoms by name).
 - **Every proof reported has passed the checker**: the library checks it
   before `prove_goal` returns (`Options::check`), so `--quiet` and
   `--format json` are checked like the drawn formats; `--no-check`
@@ -494,7 +495,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   generic phrase into advice (`RecursionLimit`, `CopyBound` and
   `MemoryLimit` name the flag to raise); the default arm prints
   `Reason`'s `Display` with the time, as for `IndexLimit`, which no flag
-  raises. A new `Refutation` needs nothing here: its `Display` is the
+  raises. A new `Refutation` needs nothing here: its disproof's `Display` is the
   line.
 - Stay out of `core`'s way: no clap types or exit statuses in `core`, and
   the CLI never re-implements what `core` computes (fragment names, the
