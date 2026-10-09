@@ -12,8 +12,13 @@ use linlog::{Mode, ProofStructure};
 fuzz_target!(|data: &[u8]| {
     if let Ok(structure) = serde_json::from_slice::<ProofStructure>(data) {
         if structure.is_correct().is_ok() {
-            let proof = structure.sequentialize().expect("a correct structure sequentializes");
-            let mode = Mode { mix: structure.mix(), ..Mode::CLASSICAL };
+            let proof = structure
+                .sequentialize()
+                .expect("a correct structure sequentializes");
+            let mode = Mode {
+                mix: structure.mix(),
+                ..Mode::CLASSICAL
+            };
             proof.check(mode).expect("its proof checks");
         }
     }
