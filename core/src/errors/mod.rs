@@ -57,6 +57,14 @@ pub enum Error {
     #[cfg(feature = "parse")]
     #[error("not a .spec problem: {0}")]
     Mist(String),
+    /// An LLTP or TPTP file has more than one conjecture (the name of the
+    /// second given), which this crate does not read as one sequent.
+    #[cfg(feature = "parse")]
+    #[error("the file has a second conjecture, `{second}`, and is read with one only")]
+    SeveralConjectures {
+        /// The name of the second clause with the role `conjecture`.
+        second: String,
+    },
     /// The input is not a TPTP problem of propositional logic, for the
     /// reason given.
     #[cfg(feature = "parse")]

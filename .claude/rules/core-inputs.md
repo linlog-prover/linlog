@@ -14,7 +14,7 @@ the generated families are read; the harness that runs them is
 ## Benchmark inputs: LLTP, `.spec` and the families
 
 - **`lltp::read`** (feature `parse`) turns an LLTP file into `axioms ⊢
-  conjectures` by assembling text for the crate's own parser: the
+  conjecture` by assembling text for the crate's own parser: the
   library's connectives and precedences (`*` over `|` over `&` over `+`
   over `-o`, prefix `!`/`?`, postfix `^`) are this crate's, checked on
   every mixed-operator formula of the library. Lines from `%` on are
@@ -23,8 +23,12 @@ the generated families are read; the harness that runs them is
   or `Status (linear)` comment's, else the first plain one's, because the
   translated ILLTP problems carry the classical source's `Status` first
   (39 files, the excluded middle among them, would read as theorems);
-  roles other than `axiom`, `hypothesis` and `conjecture`, and an
-  annotation after the formula, are refused. A `-` between two name
+  roles other than `axiom`, `hypothesis` and `conjecture`, an
+  annotation after the formula, an empty formula (it read as an empty
+  succedent and was decided) and a second conjecture
+  (`Error::SeveralConjectures`, naming it; joined right of `⊢` the two
+  read as their par) are refused, in `lltp::clauses`, which
+  `ordinary::read_tptp` shares. A `-` between two name
   characters is part of the name unless it starts `-o` and becomes
   `lltp::HYPHEN` (`‿`), a `.` there becomes `lltp::DOT` (`·`), since the
   Petri nets name places `P-start_1_1` and `merge.s00001061.input` and

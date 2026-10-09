@@ -66,8 +66,8 @@ pub enum Status {
 }
 
 /// Reads an LLTP problem. Every `fof` clause with the role `axiom` or
-/// `hypothesis` is a hypothesis and every one with the role `conjecture`
-/// a formula on the right of `⊢`; lines from `%` on are comments. The
+/// `hypothesis` is a hypothesis and the one with the role `conjecture`
+/// the formula on the right of `⊢`; lines from `%` on are comments. The
 /// status is the first `Status (intuit.)` or `Status (linear)` comment's,
 /// else the first plain `Status` comment's: the library's translations of
 /// intuitionistic problems keep the classical source's status first. A
@@ -76,15 +76,17 @@ pub enum Status {
 /// # Errors
 ///
 /// [`Error::Lltp`] for text that is not a sequence of `fof(name, role,
-/// formula).` clauses (an annotation after the formula included) or a
-/// clause with another role, and
+/// formula).` clauses (an annotation after the formula or an empty
+/// formula included) or a clause with another role,
+/// [`Error::SeveralConjectures`] for a file with more than one conjecture,
+/// whose meaning in linear logic no convention fixes, and
 /// [`Error::SequentParsing`] for a formula this crate's parser rejects.
 pub fn read(text: &str) -> Result<Problem, Error> {
     let clauses = clauses(text, Error::Lltp)?;
     let sequent = format!(
         "{} |- {}",
         clauses.hypotheses().collect::<Vec<_>>().join(", "),
-        clauses.conjectures().collect::<Vec<_>>().join(", ")
+        clauses.conjecture()
     )
     .parse()?;
     Ok(Problem {
@@ -101,8 +103,8 @@ pub(crate) struct Clauses {
     code: String,
     /// The formulas of the clauses with the role `axiom` or `hypothesis`.
     hypotheses: Vec<std::ops::Range<usize>>,
-    /// The formulas of the clauses with the role `conjecture`.
-    conjectures: Vec<std::ops::Range<usize>>,
+    /// The formula of the one clause with the role `conjecture`.
+    conjecture: std::ops::Range<usize>,
     /// The provability the header claims.
     pub(crate) status: Option<Status>,
 }
@@ -113,15 +115,15 @@ impl Clauses {
         self.hypotheses.iter().map(|r| &self.code[r.clone()])
     }
 
-    /// Returns the conjectures' formulas, in the order of the file.
-    pub(crate) fn conjectures(&self) -> impl Iterator<Item = &str> {
-        self.conjectures.iter().map(|r| &self.code[r.clone()])
+    /// Returns the conjecture's formula.
+    pub(crate) fn conjecture(&self) -> &str {
+        &self.code[self.conjecture.clone()]
     }
 }
 
 /// Splits a file of `fof(name, role, formula).` clauses as [`read`]
-/// describes, with every error of the file's form made by `error`. The
-/// conjectures are not empty.
+/// describes, with every error of the file's form made by `error`: every
+/// formula is not empty, and there is exactly one conjecture.
 pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses, Error> {
     // The status of a line for the logic of the problem, and of a plain one.
     let (mut status, mut plain) = (None, None);
@@ -169,7 +171,7 @@ pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses,
     }
 
     let mut hypotheses = Vec::new();
-    let mut conjectures = Vec::new();
+    let mut conjecture = None;
     let mut rest = code.trim_start();
     while !rest.is_empty() {
         let body = rest
@@ -205,11 +207,19 @@ pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses,
         }
         let end = end.0;
         let formula = body[..end].trim();
+        if formula.is_empty() {
+            return Err(error(format!("clause `{name}` has an empty formula")));
+        }
         let start = formula.as_ptr() as usize - code.as_ptr() as usize;
         let range = start..start + formula.len();
         match role.trim() {
             "axiom" | "hypothesis" => hypotheses.push(range),
-            "conjecture" => conjectures.push(range),
+            "conjecture" if conjecture.is_some() => {
+                return Err(Error::SeveralConjectures {
+                    second: name.to_owned(),
+                });
+            }
+            "conjecture" => conjecture = Some(range),
             other => {
                 return Err(error(format!(
                     "clause `{name}` has the role `{other}`, not axiom, hypothesis or conjecture"
@@ -222,13 +232,13 @@ pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses,
             .ok_or_else(|| error(format!("clause `{name}` does not end with `).`")))?
             .trim_start();
     }
-    if conjectures.is_empty() {
+    let Some(conjecture) = conjecture else {
         return Err(error("no conjecture".to_owned()));
-    }
+    };
     Ok(Clauses {
         code,
         hypotheses,
-        conjectures,
+        conjecture,
         status: status.or(plain),
     })
 }
@@ -268,8 +278,22 @@ mod tests {
             "fof(c, definition, a).",
             "fof(c, conjecture, a, unknown).",
             "cnf(c, conjecture, a).",
+            "fof(h, axiom, bot). fof(c, conjecture, ).",
+            "fof(h, axiom, ). fof(c, conjecture, a).",
         ] {
             assert!(matches!(read(bad), Err(Error::Lltp(_))), "{bad:?}");
         }
+    }
+
+    /// A second conjecture is refused by name: joined right of `⊢`, the
+    /// two would be read as their par, and `⊢ a, ~a` is provable where
+    /// neither `⊢ a` nor `⊢ ~a` is.
+    #[test]
+    fn refuses_several_conjectures() {
+        let text = "fof(c1, conjecture, a). fof(c2, conjecture, a^).";
+        assert!(matches!(
+            read(text),
+            Err(Error::SeveralConjectures { second }) if second == "c2"
+        ));
     }
 }

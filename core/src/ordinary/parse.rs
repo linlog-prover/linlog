@@ -345,8 +345,8 @@ pub struct Problem {
 
 /// Reads a problem of propositional logic in TPTP's `fof` syntax, as the
 /// ILTP library writes them: every clause with the role `axiom` or
-/// `hypothesis` is a hypothesis, every `conjecture` a formula right of
-/// `⊢`. A formula is built with `~`, `&`, `|`, `=>`, `<=`, `<=>`, `<~>`,
+/// `hypothesis` is a hypothesis, the one `conjecture` the formula right
+/// of `⊢`. A formula is built with `~`, `&`, `|`, `=>`, `<=`, `<=>`, `<~>`,
 /// `~|`, `~&`, `$true` and `$false`, which bind in that order from `~`,
 /// the tightest, to the equivalences (TPTP asks for parentheses where
 /// this matters, and reads `~` as tight as here). The file's statuses are
@@ -356,8 +356,11 @@ pub struct Problem {
 ///
 /// # Errors
 ///
-/// [`Error::Tptp`] for a file that is not a sequence of such clauses, and
-/// [`Error::SequentParsing`] for a formula that is not one.
+/// [`Error::Tptp`] for a file that is not a sequence of such clauses,
+/// [`Error::SeveralConjectures`] for a file with more than one conjecture
+/// (TPTP asks for each to be proved, which right of `⊢` would read as
+/// their disjunction), and [`Error::SequentParsing`] for a formula that is
+/// not one.
 pub fn read_tptp(text: &str) -> Result<Problem, Error> {
     let clauses = clauses(text, Error::Tptp)?;
     let mut formulas = Formulas::default();
@@ -376,10 +379,7 @@ pub fn read_tptp(text: &str) -> Result<Problem, Error> {
         .hypotheses()
         .map(&mut read)
         .collect::<Result<_, _>>()?;
-    let right = clauses
-        .conjectures()
-        .map(&mut read)
-        .collect::<Result<_, _>>()?;
+    let right = vec![read(clauses.conjecture())?];
     Ok(Problem {
         sequent: Sequent::new(formulas, left, right),
         status: clauses.status,
@@ -443,5 +443,16 @@ mod tests {
             Err(Error::Tptp(_))
         ));
         assert!(read_tptp("fof(c, conjecture, p -> q).").is_err());
+    }
+
+    /// A second conjecture is refused by name: right of `⊢` the two would
+    /// be their disjunction, and `p ⊢ p, q` is valid where `p ⊢ q` is not.
+    #[test]
+    fn refuses_several_conjectures() {
+        let text = "fof(a, axiom, p). fof(c1, conjecture, p). fof(c2, conjecture, q).";
+        assert!(matches!(
+            read_tptp(text),
+            Err(Error::SeveralConjectures { second }) if second == "c2"
+        ));
     }
 }
