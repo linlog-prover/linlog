@@ -29,7 +29,10 @@ the generated families are read; the harness that runs them is
   (`Error::SeveralConjectures`, naming it; joined right of `⊢` the two
   read as their par) are refused, in `lltp::clauses`, which
   `ordinary::read_tptp` shares. A `-` between two name
-  characters is part of the name unless it starts `-o` and becomes
+  characters is part of the name unless it starts `-o` (and `-o` between
+  two name characters, `a-ob`, is refused: a name to the library's
+  convention and `a ⊸ b` to this crate's, H6; no file of the LLTP or
+  ILTP libraries has one) and becomes
   `lltp::HYPHEN` (`‿`), a `.` there becomes `lltp::DOT` (`·`), since the
   Petri nets name places `P-start_1_1` and `merge.s00001061.input` and
   this crate's identifiers hold neither. The mode

@@ -73,13 +73,16 @@ pub enum Status {
 /// status is the first `Status (intuit.)` or `Status (linear)` comment's,
 /// else the first plain `Status` comment's: the library's translations of
 /// intuitionistic problems keep the classical source's status first. A
-/// `-` inside an atom name becomes [`HYPHEN`], a `.` [`DOT`].
+/// `-` inside an atom name becomes [`HYPHEN`], a `.` [`DOT`], unless the
+/// `-` starts `-o` with a space or the end of the name after it: `a-o b`
+/// is `a ⊸ b`, and `a-ob`, which is both, is refused.
 ///
 /// # Errors
 ///
 /// [`Error::Lltp`] for text that is not a sequence of `fof(name, role,
 /// formula).` clauses (an annotation after the formula or an empty
-/// formula included) or a clause with another role,
+/// formula included), a clause with another role or `-o` between two
+/// characters of a name,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture,
 /// whose meaning in linear logic no convention fixes, and
 /// [`Error::Parse`] for a formula this crate's parser rejects, and the
@@ -162,10 +165,16 @@ pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses,
                     .is_some_and(|&c| c.is_ascii_alphanumeric() || c == '_')
             };
             // A `-` or `.` between two characters of a name belongs to the
-            // name, unless the `-` starts the operator `-o`.
+            // name, unless the `-` starts the operator `-o`; between two
+            // names `-o` is both, and refused.
             let inner = i > 0 && name(i - 1) && name(i + 1);
             code.push(match c {
-                '-' if inner && !(chars[i + 1] == 'o' && !name(i + 2)) => HYPHEN,
+                '-' if inner && !(chars[i + 1] == 'o' && !name(i + 2)) => {
+                    if chars[i + 1] == 'o' {
+                        return Err(error(glued(&chars, i)));
+                    }
+                    HYPHEN
+                }
                 '.' if inner => DOT,
                 c => c,
             });
@@ -246,6 +255,27 @@ pub(crate) fn clauses(text: &str, error: fn(String) -> Error) -> Result<Clauses,
     })
 }
 
+/// Returns the message for `-o` at `at` of a line's `chars` between two
+/// characters of a name, which reads both as one name and as the
+/// connective between two.
+#[cold]
+fn glued(chars: &[char], at: usize) -> String {
+    let name = |c: &char| c.is_ascii_alphanumeric() || *c == '_';
+    let start = chars[..at]
+        .iter()
+        .rposition(|c| !name(c))
+        .map_or(0, |n| n + 1);
+    let end = chars[at + 2..]
+        .iter()
+        .position(|c| !name(c))
+        .map_or(chars.len(), |n| at + 2 + n);
+    let word: String = chars[start..end].iter().collect();
+    format!(
+        "`{word}` reads as one name and as two joined by `-o`: write a space before `-o` for \
+         the connective"
+    )
+}
+
 /// Returns the start of `text`, for an error message.
 fn excerpt(text: &str) -> &str {
     let end = text.char_indices().nth(24).map_or(text.len(), |(i, _)| i);
@@ -288,6 +318,16 @@ mod tests {
                 matches!(read(bad, &Limits::default()), Err(Error::Lltp { .. })),
                 "{bad:?}"
             );
+        }
+        // `a-ob` is a name of the library's kind and `a -o b` in this
+        // crate's syntax; `a-o b` and `a -ob` are the connective.
+        assert!(matches!(
+            read("fof(c, conjecture, x * a-ob).", &Limits::default()),
+            Err(Error::Lltp { message }) if message.starts_with("`a-ob` reads as one name")
+        ));
+        for text in ["fof(c, conjecture, a-o b).", "fof(c, conjecture, a -ob)."] {
+            let problem = read(text, &Limits::default()).unwrap();
+            assert_eq!(problem.sequent, "|- a -o b".parse().unwrap(), "{text}");
         }
     }
 
