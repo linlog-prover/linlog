@@ -2184,8 +2184,11 @@ mod tests {
         });
         assert_eq!(checked, Ok(()));
         // 4 001 nodes, one poll by their count; each link handles two
-        // sequents of thousands of formulas.
-        assert!(polls > 100, "{polls} polls");
+        // sequents of thousands of formulas: 176 polls, one per 65 536
+        // units, not one per node.
+        assert!((100..300).contains(&polls), "{polls} polls");
+        let enough = crate::Limits::default().with_work(Some(1 << 40));
+        assert_eq!(proof.check_within(mode, &enough, |_| false), Ok(()));
         let limits = crate::Limits::default().with_work(Some(40_010));
         let e = proof.check_within(mode, &limits, |_| false).unwrap_err();
         assert!(
