@@ -2163,3 +2163,19 @@ client follows it (step 32).
   session ends with its check rounds. CLAUDE.md gains "Compact
   instructions". Rationale and sources under "Why these models and
   efforts", 2026-10-08.
+- 2026-10-09: review of step 28's stage 0 (one session, Opus 5.5 at
+  high, unattended under the planning session from 20:51 to 03:40,
+  pausing at the usage limit from 23:16 to 01:51): a register of 254
+  later requirements (with 30 issues of the supervisor's review folded
+  in, three conflicts for the author), a behaviour lock of 73 command
+  calls and 32 JSON forms, 20 journeys counted under callgrind and
+  ratcheted, mutation testing (1 826 mutants, 321 survive, among them
+  the ordinary layer's checker replaced by Ok(())), nine fuzz targets
+  (one panic, the ordinary parser on `|-z⊢`), and the gate. The review
+  reran the checks, reproduced the panic and renamed the scripts' units.
+  The same night the supervisor's workflows wrote research notes for the
+  design (`plan/notes/research/`: the later steps, specifications and
+  test sets for first-order logic and exponential nets, impact maps,
+  design constraints, practice, usability, scope) and ran an independent
+  soundness audit, held back until the audit's review. Next: stage 1,
+  the audit.

@@ -585,3 +585,28 @@ What this supports:
 - **Unsigned commits**: from 7c438f1b on (signing failed after 22:50),
   for the supervisor to sign.
 
+
+## From the review (2026-10-09)
+
+Read in full: this report, the checklist, the commit list (19 commits,
+all by the author's identity, from 7c438f1b on unsigned) and the shape
+of every changed file; the ratchet's comparison (`bench/src/ratchet.rs`)
+and its flake check; the scripts of the mutation and fuzz runs. Run
+again: clippy, the workspace tests with both locks, the core tests, both
+cargo-hack runs and cargo-deny on 71cc1b40, and `nix flake check`.
+Reproduced by hand: the ordinary parser's panic on `|-z⊢` (exit 101,
+where an error with status 2 is owed). No new file lacks its licence
+header, and no comment names the plan.
+
+- **Accepted**: the register with the second review folded in, the two
+  locks, the journeys and the ratchet, the mutation and fuzz baselines,
+  the gate. The report says what each rests on and what is provisional.
+- **Fixed in the review**: the scripts named their systemd units after
+  the step (`step28-mutants`, `step28-fuzz`); a committed name names no
+  step, so they are `linlog-mutants` and `linlog-fuzz`.
+- **For later stages** (prompt 28, "From the review of stage 0"): the
+  research notes the supervisor's workflows wrote the same night, now in
+  `plan/notes/research/`; the timed validation repeated by the
+  efficiency area on a quiet machine; how to wait on a run; the
+  register's conflicts to the author with the audit's decision list.
+- **Open**: the `ratchet` check's first run in CI, at the next push.

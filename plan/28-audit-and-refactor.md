@@ -196,7 +196,9 @@ resume" below).
   minutes, wait on a long run with a background task or a monitor,
   never in one blocking call of more than a few minutes; and name every
   detached unit and scope you start `step28-…` (`systemd-run
-  --unit=step28-…`), which the supervisor stops itself if you cannot.
+  --unit=step28-…`; the committed scripts name theirs `linlog-…`, as
+  `mutants/run.sh` and `fuzz/run.sh` do), which the supervisor stops
+  itself if you cannot.
 - **Models.** Every agent you start gets the model and effort this
   prompt names for it. If Fable 5.1 is refused for its allowance, its
   role goes to Opus 5.5 at `xhigh`, and the report says which roles and
@@ -266,6 +268,49 @@ resume" below).
   loop if it is not running. If a command hangs on signing all the same,
   run `/home/tux/.claude/hooks/unwedge-gpg-lock.sh` and repeat it with
   that option.
+
+## From the review of stage 0 (2026-10-09)
+
+- **Research notes for the audit and the design**, written by the
+  supervisor's workflows the night of stage 0 and committed with the
+  step, in `plan/notes/research/`: `README.md` (what several later
+  steps need of the library), a note per later step (29 to 38) and one on
+  certified refutations; the specifications `fo-linear.md`,
+  `fo-embeddings.md` and `mell-nets-spec.md`; test sets `corpus-*.md`,
+  whose answers a second model checked blind; maps of what quantifiers,
+  boxes and first-order ordinary logic would change, `impact-*.md`;
+  `design-constraints.md`, what the API design must decide now, ranked;
+  `practice.md`, problems from practice; `usability-baseline.md` and
+  `usability/`, four kinds of users trying linlog from its documentation,
+  their frictions ranked; and `scope-extensions.md`, 73 extensions
+  judged, with what the API should leave room for. The readiness and API
+  lenses read `README.md`, `design-constraints.md` and the impact maps;
+  the docs lens reads the usability baseline; the design's drafts read
+  all of them, its walk-through checks that the design can represent
+  every item of the test sets, and the last reader of stage 4 compares
+  with the usability baseline. They are evidence to check, not findings
+  to copy.
+- **Stage 0's findings for the audit** are in
+  `plan/reports/28-baselines.md` ("For the audit and the sessions after
+  it"), first the ordinary layer's checker, which no test shows a wrong
+  derivation, and the ordinary parser's panic on `|-z⊢`.
+- **The register's conflicts C1 to C3** go to the author with the
+  audit's decision list.
+- **The timed validation** of counts against time is provisional: the
+  efficiency area repeats it (`bench/counts-against-time.py`) before its
+  first measurement, on a machine the supervisor has found quiet.
+- **Waiting on a run**: Claude Code blocks a foreground `sleep`, and a
+  turn that ends to wait leaves nothing running (stage 0 ended one so).
+  Wait with a background task whose command is a loop until the unit
+  ends (`until ! systemctl --user is-active --quiet UNIT; do sleep 30;
+  done`, run in the background), which notifies you when it returns, or
+  with a monitor you re-arm.
+- **The scripts' units** are `linlog-mutants` and `linlog-fuzz`: a
+  committed name names no step (renamed in the review).
+- **Held back**: the supervisor ran an independent soundness audit of its
+  own before this one, to measure what the audit finds; it compares the
+  two after the audit, and its findings then go to the fixes. It is no
+  input to the audit.
 
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 

@@ -306,7 +306,7 @@ in short plain-language reports, and relay the author's corrections
   send the running session "Pause" (prompt 28 says what it does: stops
   its runs and workflows at a resumable point, records them in the
   checklist, ends its turn) with `notify_when_idle`; within about
-  fifteen minutes check `systemctl --user list-units 'step28-*'` and the
+  fifteen minutes check `systemctl --user list-units 'step28-*' 'linlog-*'` and the
   load, stop any of its units still running yourself (by unit name), and
   tell the author the machine is free. A stop between sessions stops
   this session's own review runs instead, and the next session waits.
