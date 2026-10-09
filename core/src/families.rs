@@ -285,7 +285,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "!(p0 ⊸ p1 & p2), …, !(p(k−1) ⊸ pk & p(k+1)), p0 ⊢ p(k+1) (MELL, ILL-shaped), provable within k + 2 copies; the size is k",
         sizes: &[16, 64, 128, 256],
         instances: 1,
-        least: 0,
+        // `p0 ⊢ p1` at size 0 is unprovable, against the claim.
+        least: 1,
         powers_of_two: false,
         generate: |k, _| {
             let clauses: Vec<String> = (0..k)
@@ -686,6 +687,18 @@ mod tests {
                 }),
                 "{name}"
             );
+        }
+        // Every family answers every size from 0 up past its least with an
+        // instance or this refusal, never a panic: a wrong `least` was one.
+        for family in FAMILIES {
+            for size in 0..=family.least + 2 {
+                let instance = family.instance(size, 0);
+                assert!(
+                    matches!(instance, Ok(_) | Err(Error::FamilySize { .. })),
+                    "{} {size}",
+                    family.name
+                );
+            }
         }
     }
 }
