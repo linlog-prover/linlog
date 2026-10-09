@@ -17,18 +17,18 @@ its evidence (a commit, a file, a command's result) once it is done.
 | item | state | evidence |
 |---|---|---|
 | 0.0 signing loop `step28-gpg-warm` | done | started 20:50, signatures work |
-| 0.1 register of later requirements, `plan/notes/requirements.md` | running | workflow `wf_a3156457-6a2` (14 extractors, merge, critic, fold-in; Sonnet 5.5 at `high`) |
-| 0.2 behaviour lock: fixtures and test | done | 908f91f7: `cli/tests/lock.rs` (73 calls), `core/tests/lock.rs` (36 JSON lines); stable over three runs |
-| 0.3 journeys under callgrind, validated against wall-clock | running | journeys and counts in 1ae95c4c; the timed validation waits for a quiet machine (after the mutation and fuzz runs) |
+| 0.1 register of later requirements, `plan/notes/requirements.md` | done | 5bf43829 (242 entries), the supervisor's review folded in by adbf12b6 (254 entries, conflicts C1 to C3) |
+| 0.2 behaviour lock: fixtures and test | done | 908f91f7: `cli/tests/lock.rs` (73 calls), `core/tests/lock.rs` (32 JSON lines); stable over three runs |
+| 0.3 journeys under callgrind, validated against wall-clock | done, provisional | 73789993: `bench/counts-against-time.py`, run 03:04–03:37 on core 2; a large drop in count is a drop in time on 20 of 20 journeys, a few percent on 16 of 20; other cores loaded by another project's tests, to repeat in a quiet window |
 | 0.3 ratchet: ceilings, flake check, lowering command | done | 1ae95c4c: 20 journeys, `bench/ceilings.csv`, `nix build .#checks.x86_64-linux.ratchet` passed |
 | 0.4 mutation testing wired in (`new-tool`), scope and command committed | done | f602c7e9: `mutants/run.sh`, `.cargo/mutants.toml`, profile `mutants` |
-| 0.4 mutation run, batches per target file | running | unit `step28-mutants` since 21:03 on cores 6–11; `check` done (33 surviving, 1 653 s) |
+| 0.4 mutation run, batches per target file | done | 21:03–02:10, 5.1 h; `check`, `parse`, `lltp` rerun 02:11–02:56 on the fixed tests; 1 826 mutants, 321 surviving (2b332aa1, `mutants/baseline/`); labelled script 9bf4181e |
 | 0.4 fuzz targets wired in (`new-tool`), one per untrusted reader | done | f602c7e9: nine targets under `fuzz/`, nightly 2026-09-25 in the `fuzz` devshell |
 | 0.4 fuzz runs, each until coverage stops growing | done | ended 00:15; `target/fuzz/summary.tsv`: eight targets without a find (two at the 5 400 s cap, six stalled); `ordinary_text` 3 312 crash files, one panic: `core/src/ordinary/parse.rs:104:31` slices inside a multi-byte character (input `\|-z⊢`, "start byte index 5 is not a char boundary"), a panic on untrusted input, not fixed here, for the audit |
 | 0.5 the gate, a devshell command | done | 7ebc848e: `gate`, passed in 4 min 15 s on cores 2–5 |
-| 0.6 `plan/reports/28-baselines.md` | open | |
-| 0.7 last message to `planning` | open | |
-| 0.8 the supervisor's 30 register issues | paused | workflow `wf_6d613a43-832` stopped at 23:16 when the usage limit was reached (six Sonnet verifiers, one Opus writer, none finished); resume with `Workflow({scriptPath: ".../step28-register-review-wf_6d613a43-832.js", resumeFromRunId: "wf_6d613a43-832"})` |
+| 0.6 `plan/reports/28-baselines.md` | done | this commit |
+| 0.7 last message to `planning` | done | sent with this commit's id |
+| 0.8 the supervisor's 30 register issues | done (adbf12b6); was paused | workflow `wf_6d613a43-832` stopped at 23:16 when the usage limit was reached (six Sonnet verifiers, one Opus writer, none finished); resume with `Workflow({scriptPath: ".../step28-register-review-wf_6d613a43-832.js", resumeFromRunId: "wf_6d613a43-832"})` |
 
 ### Stage 1: the audit (session `step-28b`)
 
@@ -112,7 +112,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 - What was done: see "The supervisor's review of the register" in
   `plan/reports/28-baselines.md`.
 
-### Where stage 0 stands at the usage limit (2026-10-08 23:16)
+### Where stage 0 stood at the usage limit (2026-10-08 23:16; every item below was done by 03:45 on 2026-10-09)
 
 - Committed: the register (5bf43829), the tools (f602c7e9), the
   behaviour lock (908f91f7), the journeys and ratchet (1ae95c4c), the
@@ -130,4 +130,14 @@ its evidence (a commit, a file, a command's result) once it is done.
   `validate.py`, frozen builds in `bin/`; the opt1, opt2 and opt3 counts
   are in `counts-opt*.txt`); the register review (0.8); `nix flake
   check`; the rest of `plan/reports/28-baselines.md`; the last message.
+
+### Message from `planning` (2026-10-09, about 01:52)
+
+- The usage limit reset at 01:50: go on with stage 0 (resume the
+  register review, then the checklist's open items in order); commit
+  unsigned while signing fails. A read-only workflow of the supervisor's
+  runs beside, on no cores of this session's.
+- What was done: resumed at 01:51.
+- `nix flake check` passed at 2b332aa1 (03:00, `--keep-going`, exit 0)
+  after a first run failed on a fuzz target's formatting (8f26bd36).
 
