@@ -713,6 +713,8 @@ mod tests {
     /// translation keep to the occurrence bound.
     #[test]
     fn names_read_back_and_bounds_hold() {
+        assert_eq!(Logic::ALL.map(Logic::name), Logic::NAMES);
+        assert_eq!(Translation::ALL.map(Translation::name), Translation::NAMES);
         for logic in Logic::ALL {
             assert_eq!(logic.name().parse::<Logic>().unwrap(), logic);
         }

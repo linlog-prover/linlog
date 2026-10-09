@@ -843,13 +843,7 @@ impl Display for Engine {
     /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive` or
     /// `horn`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Engine::Focus => f.write_str("focus"),
-            Engine::Net => f.write_str("net"),
-            Engine::TwoSided => f.write_str("two-sided"),
-            Engine::Additive => f.write_str("additive"),
-            Engine::Horn => f.write_str("horn"),
-        }
+        f.write_str(self.name())
     }
 }
 
@@ -895,9 +889,30 @@ pub enum Bias {
 }
 
 impl Engine {
-    /// The engines' names, as [`Display`] writes them and [`FromStr`]
-    /// reads them.
+    /// Every engine, in the order of [`NAMES`](Self::NAMES).
+    pub const ALL: [Self; 5] = [
+        Self::Focus,
+        Self::Net,
+        Self::TwoSided,
+        Self::Additive,
+        Self::Horn,
+    ];
+
+    /// The engines' names, as [`name`](Self::name) writes them and
+    /// [`FromStr`] reads them.
     pub const NAMES: &'static [&'static str] = &["focus", "net", "two-sided", "additive", "horn"];
+
+    /// Returns the engine's name: `focus`, `net`, `two-sided`, `additive`
+    /// or `horn`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Focus => "focus",
+            Self::Net => "net",
+            Self::TwoSided => "two-sided",
+            Self::Additive => "additive",
+            Self::Horn => "horn",
+        }
+    }
 }
 
 impl FromStr for Engine {
@@ -905,37 +920,39 @@ impl FromStr for Engine {
 
     /// Reads an engine's name, one of [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
-        Ok(match name {
-            "focus" => Self::Focus,
-            "net" => Self::Net,
-            "two-sided" => Self::TwoSided,
-            "additive" => Self::Additive,
-            "horn" => Self::Horn,
-            _ => {
-                return Err(Error::UnknownName {
-                    what: "engine",
-                    name: name.into(),
-                    known: Self::NAMES,
-                });
-            }
-        })
+        Self::ALL
+            .into_iter()
+            .find(|engine| engine.name() == name)
+            .ok_or_else(|| Error::UnknownName {
+                what: "engine",
+                name: name.into(),
+                known: Self::NAMES,
+            })
     }
 }
 
 impl Bias {
-    /// The rules' names, as [`Display`] writes them and [`FromStr`] reads
-    /// them.
-    pub const NAMES: &'static [&'static str] = &["auto", "rarer", "factors"];
-}
+    /// Every rule, in the order of [`NAMES`](Self::NAMES).
+    pub const ALL: [Self; 3] = [Self::Auto, Self::Rarer, Self::Factors];
 
-impl Display for Bias {
-    /// Writes the rule's name: `auto`, `rarer` or `factors`.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(match self {
+    /// The rules' names, as [`name`](Self::name) writes them and
+    /// [`FromStr`] reads them.
+    pub const NAMES: &'static [&'static str] = &["auto", "rarer", "factors"];
+
+    /// Returns the rule's name: `auto`, `rarer` or `factors`.
+    pub const fn name(self) -> &'static str {
+        match self {
             Self::Auto => "auto",
             Self::Rarer => "rarer",
             Self::Factors => "factors",
-        })
+        }
+    }
+}
+
+impl Display for Bias {
+    /// Writes the rule's [`name`](Self::name).
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.name())
     }
 }
 
@@ -944,18 +961,14 @@ impl FromStr for Bias {
 
     /// Reads a rule's name, one of [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
-        Ok(match name {
-            "auto" => Self::Auto,
-            "rarer" => Self::Rarer,
-            "factors" => Self::Factors,
-            _ => {
-                return Err(Error::UnknownName {
-                    what: "bias",
-                    name: name.into(),
-                    known: Self::NAMES,
-                });
-            }
-        })
+        Self::ALL
+            .into_iter()
+            .find(|bias| bias.name() == name)
+            .ok_or_else(|| Error::UnknownName {
+                what: "bias",
+                name: name.into(),
+                known: Self::NAMES,
+            })
     }
 }
 
@@ -1525,6 +1538,20 @@ mod tests {
     /// Parses `input`.
     fn sequent(input: &str) -> Sequent {
         input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"))
+    }
+
+    /// The listed names are the names written, in order, and each reads
+    /// back as its value.
+    #[test]
+    fn names_are_listed() {
+        assert_eq!(Engine::ALL.map(Engine::name), Engine::NAMES);
+        assert_eq!(Bias::ALL.map(Bias::name), Bias::NAMES);
+        for engine in Engine::ALL {
+            assert_eq!(engine.to_string().parse::<Engine>().unwrap(), engine);
+        }
+        for bias in Bias::ALL {
+            assert_eq!(bias.to_string().parse::<Bias>().unwrap(), bias);
+        }
     }
 
     /// Unit-free MLL reaches the net engine unless a literal occurs more
