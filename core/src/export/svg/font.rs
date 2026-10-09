@@ -40,6 +40,18 @@ impl Font {
             advances: Advances::Fixed(MONOSPACE),
         }
     }
+
+    /// Returns the font with another [`family`](Self::family).
+    #[must_use]
+    pub fn with_family(self, family: String) -> Self {
+        Self { family, ..self }
+    }
+
+    /// Returns the font with another [`advances`](Self::advances).
+    #[must_use]
+    pub fn with_advances(self, advances: Advances) -> Self {
+        Self { advances, ..self }
+    }
 }
 
 impl Default for Font {
@@ -75,6 +87,12 @@ pub enum Advances {
 }
 
 impl Advances {
+    /// Returns the advances of a table of the caller's: each character's
+    /// in `table`, and `fallback` for a character outside it.
+    pub fn table(table: BTreeMap<char, u32>, fallback: u32) -> Self {
+        Self::Table { table, fallback }
+    }
+
     /// Returns the advance of a character, in thousandths of an em.
     pub fn advance(&self, c: char) -> u32 {
         match self {

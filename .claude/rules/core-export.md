@@ -57,8 +57,10 @@ for NanoYalla. What the code relies on:
   fields, so a caller outside the crate makes one from `default()` and
   sets the fields that differ (a struct literal is refused, and a later
   field breaks nobody), in a binding or through a `#[must_use]`
-  `with_*` per field, which every one of them, `export::Styles` and
-  `Settings` have (a new field gets its builder). The
+  `with_*` per field, which every one of them, `export::Styles`,
+  `Settings` and `svg::Font` have (a new field gets its builder; a
+  non-exhaustive variant with fields gets a constructor, as
+  `Advances::table`). The
   `Form` is a field of the three that have one. Presets are named
   values (`Style::dark()`, `Style::monospace()`, `Font::monospace()`).
   The defaults reproduce the output the snapshots pin, so a new field's

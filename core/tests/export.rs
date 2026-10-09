@@ -384,6 +384,24 @@ fn ids_name_goals() {
     state.apply(ids[drawn], &Step::new(0, Rule::Ax)).unwrap();
 }
 
+/// A font of the caller's sets a drawing's widths: a table whose every
+/// character is twice as wide as the monospace font's widens the drawing.
+#[test]
+fn a_font_of_the_callers_sets_the_widths() {
+    use linlog::export::svg::{Advances, Font, MONOSPACE};
+    let proof = proof("A * B |- B * A", Mode::CLASSICAL);
+    let derivation = proof.derivation().unwrap();
+    let width = |font: Font| {
+        let style = Style::default().with_font(font);
+        let drawing = written(|out| svg::write(&derivation, &style, out, |_| false));
+        let view = drawing.split(r#"viewBox="0 0 "#).nth(1).unwrap();
+        view.split(' ').next().unwrap().parse::<u64>().unwrap()
+    };
+    let doubled = Advances::table(std::collections::BTreeMap::new(), 2 * MONOSPACE);
+    let wide = width(Font::monospace().with_advances(doubled));
+    assert!(wide > width(Font::monospace()));
+}
+
 /// A proof of full linear logic with a contraction is pinned as a
 /// certificate; the lemma's name and the prelude are options; a proof
 /// with Mix or with the weakening of affine mode has no certificate.
