@@ -26,8 +26,14 @@ in one call, the library's side of `linlog prove`'s batch.
   feature, or with one worker, the batch runs lazily on the caller's
   thread, one problem per `next`; the workers' stacks are the plan's
   `Limits::stack_bytes`. A worker's panic is resumed by the iterator once
-  the others ended.
-- **How the memory is shared** (`Options::plan`): across the sequents,
+  the others ended. **A worker that cannot start is no panic**
+  (`Workers::start`): the batch runs on the workers that started, and
+  when none did it gives the problems and the work back to `run`, which
+  runs them on the caller's thread; a `recursion_depth` read from a
+  settings file can ask for terabytes of stack
+  (`workers_that_cannot_start_leave_the_batch_here`).
+- **How the memory is shared** (`Options::plan`, crate-private: `run`
+  resolves `Cores::Auto` before it plans): across the sequents,
   each search keeps the bound of the search options (so a batch's
   verdicts are those of single calls with the same bound) and as many
   workers run as the batch's bound holds such searches, at least one,
@@ -37,8 +43,9 @@ in one call, the library's side of `linlog prove`'s batch.
   search's bound does not count (the forest, the derivation's own bound,
   a render's bound, thread stacks): a worker can hold the forest of its
   sequent beside its search.
-- `Cores::Auto` reads ahead as many problems as there are workers and
-  goes within when the batch is shorter; it blocks on a stream, so a
+- `Cores::Auto` reads ahead as many problems as there are workers
+  (clamped to `MAX_JOBS`, as the plan clamps them) and goes within when
+  the batch is shorter; it blocks on a stream, so a
   front end maps a stream to `Within` or `Across` itself (the command
   takes `Within`).
 - **`Options` is plain data** (`#[non_exhaustive]`, `with_*`, serde with

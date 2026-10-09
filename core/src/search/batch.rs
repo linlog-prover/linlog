@@ -7,7 +7,8 @@
 //! machine's threads go across the sequents, one sequent per worker on
 //! the sequential engines, or within one sequent at a time
 //! ([`Cores`](crate::search::batch::Cores)); the memory bound of each search and the batch's own
-//! bound decide how many workers run at once ([`Options::plan`](crate::search::batch::Options::plan)).
+//! bound decide how many workers run at once (the [`Plan`](crate::search::batch::Plan) each work
+//! call is handed).
 //! The options of every sequent's search and the [`Limits`] each runs
 //! within are the batch's arguments beside its own options.
 //! Without the `parallel` feature a batch runs on the caller's thread.
@@ -127,7 +128,7 @@ impl Options {
     /// on one thread; within, one worker whose search may be two at once
     /// (a front end may race one thread against a pool of the others), so
     /// each holds at most half the batch's bound.
-    pub fn plan(&self, within: bool, search: &Search, limits: &Limits) -> Plan {
+    pub(crate) fn plan(&self, within: bool, search: &Search, limits: &Limits) -> Plan {
         let search = search.clone();
         let mut limits = *limits;
         let total = self.total_memory_bytes;
@@ -274,7 +275,9 @@ pub fn prove(
 /// as many problems as there are workers before the first starts; a
 /// stream whose next problem waits on an answer wants `Across` or
 /// `Within`. `work` is handed the batch's [`Cancel`], which its stop asks.
-/// A panic in `work` is resumed by the iterator.
+/// A panic in `work` is resumed by the iterator. Workers that cannot
+/// start (the stack the limits ask for is not to be had) leave the batch
+/// to those that did, or to the caller's thread.
 pub fn run<P, R>(
     problems: impl IntoIterator<Item = P, IntoIter: Send + 'static>,
     options: &Options,
@@ -292,25 +295,28 @@ where
         Cores::Across => false,
         Cores::Within => true,
         Cores::Auto => {
-            first.extend(problems.by_ref().take(options.workers.max(1)));
-            first.len() < options.workers.max(1)
+            let workers = options.workers.clamp(1, Search::MAX_JOBS);
+            first.extend(problems.by_ref().take(workers));
+            first.len() < workers
         }
     };
-    let problems = first.into_iter().chain(problems);
+    let problems: Box<dyn Iterator<Item = P> + Send> = Box::new(first.into_iter().chain(problems));
     let plan = options.plan(within, search, limits);
     let cancel = Cancel::default();
     #[cfg(feature = "parallel")]
-    if plan.workers > 1 {
-        return Results {
-            inner: Inner::Workers(workers::Workers::start(
-                Box::new(problems),
-                plan,
-                cancel.clone(),
-                work,
-            )),
-            cancel,
-        };
-    }
+    let (problems, work) = if plan.workers > 1 {
+        match workers::Workers::start(problems, plan.clone(), cancel.clone(), work) {
+            Ok(workers) => {
+                return Results {
+                    inner: Inner::Workers(workers),
+                    cancel,
+                };
+            }
+            Err(unstarted) => unstarted,
+        }
+    } else {
+        (problems, work)
+    };
     let canceller = cancel.clone();
     Results {
         inner: Inner::Here(Box::new(
@@ -446,13 +452,18 @@ mod workers {
     }
 
     impl<R: Send + 'static> Workers<R> {
-        /// Starts the workers the plan names on the problems.
-        pub(super) fn start<P: Send + 'static>(
+        /// Starts the workers the plan names on the problems, as many as
+        /// can start, or gives the problems and the work back when none
+        /// can.
+        pub(super) fn start<P: Send + 'static, W>(
             problems: Box<dyn Iterator<Item = P> + Send>,
             plan: Plan,
             cancel: Cancel,
-            work: impl Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
-        ) -> Self {
+            work: W,
+        ) -> Result<Self, (Box<dyn Iterator<Item = P> + Send>, W)>
+        where
+            W: Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
+        {
             let shared = Arc::new(Shared {
                 queue: Mutex::new((problems, 0, false)),
                 given: AtomicUsize::new(0),
@@ -461,46 +472,58 @@ mod workers {
             let work = Arc::new(work);
             let (sender, done) = channel();
             let ahead = AHEAD * plan.workers;
-            let threads = (0..plan.workers)
-                .map(|_| {
-                    let (shared, work, sender) = (shared.clone(), work.clone(), sender.clone());
-                    let (plan, cancel) = (plan.clone(), cancel.clone());
-                    std::thread::Builder::new()
-                        .name("batch".into())
-                        .stack_size(plan.limits.stack_bytes())
-                        .spawn(move || {
-                            loop {
-                                let (place, problem) = {
-                                    let mut queue = shared.queue.lock().expect("no panic holds it");
-                                    while !queue.2
-                                        && queue.1 >= shared.given.load(Ordering::Acquire) + ahead
-                                    {
-                                        queue = shared
-                                            .turn
-                                            .wait_timeout(queue, WAIT)
-                                            .expect("no panic holds it")
-                                            .0;
-                                    }
-                                    if queue.2 {
-                                        return;
-                                    }
-                                    let Some(problem) = queue.0.next() else {
-                                        queue.2 = true;
-                                        return;
-                                    };
-                                    queue.1 += 1;
-                                    (queue.1 - 1, problem)
-                                };
-                                if sender.send((place, work(problem, &plan, &cancel))).is_err() {
+            let mut threads = Vec::with_capacity(plan.workers);
+            for _ in 0..plan.workers {
+                let (shared, work, sender) = (shared.clone(), work.clone(), sender.clone());
+                let (plan, cancel) = (plan.clone(), cancel.clone());
+                let started = std::thread::Builder::new()
+                    .name("batch".into())
+                    .stack_size(plan.limits.stack_bytes())
+                    .spawn(move || {
+                        loop {
+                            let (place, problem) = {
+                                let mut queue = shared.queue.lock().expect("no panic holds it");
+                                while !queue.2
+                                    && queue.1 >= shared.given.load(Ordering::Acquire) + ahead
+                                {
+                                    queue = shared
+                                        .turn
+                                        .wait_timeout(queue, WAIT)
+                                        .expect("no panic holds it")
+                                        .0;
+                                }
+                                if queue.2 {
                                     return;
                                 }
+                                let Some(problem) = queue.0.next() else {
+                                    queue.2 = true;
+                                    return;
+                                };
+                                queue.1 += 1;
+                                (queue.1 - 1, problem)
+                            };
+                            if sender.send((place, work(problem, &plan, &cancel))).is_err() {
+                                return;
                             }
-                        })
-                        .expect("a batch's worker starts")
-                })
-                .collect();
+                        }
+                    });
+                match started {
+                    Ok(thread) => threads.push(thread),
+                    Err(_) => break,
+                }
+            }
+            if threads.is_empty() {
+                // Nothing else holds the queue or the work now.
+                let queue = Arc::try_unwrap(shared).ok().map(|s| s.queue);
+                let work = Arc::try_unwrap(work).ok();
+                if let (Some(queue), Some(work)) = (queue, work) {
+                    let (problems, ..) = queue.into_inner().unwrap_or_else(|e| e.into_inner());
+                    return Err((problems, work));
+                }
+                unreachable!("no worker started, so none holds the queue or the work");
+            }
             let (raise, end) = (shared.clone(), shared);
-            Self {
+            Ok(Self {
                 done,
                 held: BTreeMap::new(),
                 next: 0,
@@ -514,7 +537,7 @@ mod workers {
                     }
                 }),
                 threads,
-            }
+            })
         }
     }
 
@@ -660,5 +683,33 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Workers whose stack cannot be had leave the batch to the caller's
+    /// thread: a recursion limit read from a file asks for terabytes of
+    /// stack, which panicked a batch of two workers.
+    #[test]
+    fn workers_that_cannot_start_leave_the_batch_here() {
+        let sequent: Sequent = "|- a, ~a".parse().unwrap();
+        let problems: Vec<Problem> = (0..3)
+            .map(|i| Problem::new(i.to_string(), sequent.clone(), None))
+            .collect();
+        let options = Options::default().with_workers(2).with_cores(Cores::Across);
+        let limits = Limits::default().with_recursion_depth(u32::MAX);
+        for answer in prove(problems, &options, &Search::default(), &limits) {
+            let verdict = answer.outcome.unwrap().verdict;
+            assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
+        }
+        // Reading ahead takes no more problems than workers can run.
+        let options = Options::default()
+            .with_workers(usize::MAX)
+            .with_cores(Cores::Auto);
+        let endless =
+            std::iter::repeat_with(move || Problem::new("p".to_owned(), sequent.clone(), None));
+        let first = prove(endless, &options, &Search::default(), &Limits::default()).next();
+        assert!(matches!(
+            first.unwrap().outcome.unwrap().verdict,
+            Verdict::Proved(_)
+        ));
     }
 }
