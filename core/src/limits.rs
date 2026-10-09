@@ -192,8 +192,8 @@ pub struct Progress {
     pub done: u64,
     /// The bytes the call holds by its own count now: the proof checker's
     /// pass and what derives from it fill it in, the net calls their
-    /// estimate; a search, which counts its memory too, leaves it zero
-    /// for now.
+    /// estimate (the criterion alone its working memory); a search, which
+    /// counts its memory too, leaves it zero for now.
     pub held_bytes: u64,
     /// What the call is doing.
     pub phase: Phase,

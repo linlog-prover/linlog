@@ -813,10 +813,14 @@ impl ProofStructure {
             return Err(NetError::Unlinked { vertex: l });
         }
         let mut scratch = self.scratch();
+        let held_bytes = self.forest.len() as u64 * SCRATCH_BYTES;
         let mut rounds = 0;
         let mut stop = |round: u64| {
             rounds += round;
-            stop(Progress::new(Phase::Net, round, rounds))
+            stop(Progress {
+                held_bytes,
+                ..Progress::new(Phase::Net, round, rounds)
+            })
         };
         match self.graph.acyclic(&self.forest, &mut scratch, &mut stop) {
             None => return Err(STOPPED),
@@ -1272,8 +1276,16 @@ mod tests {
             false
         })
         .unwrap();
-        // Each poll says what the call holds by its estimate.
+        // Each poll says what the call holds by its estimate, the
+        // criterion's alone its working memory.
         assert!(!held.is_empty() && held.iter().all(|&bytes| bytes > 0));
+        let mut scratch = Vec::new();
+        net.is_correct(|p| {
+            scratch.push(p.held_bytes);
+            false
+        })
+        .unwrap();
+        assert!(!scratch.is_empty() && scratch.iter().all(|&bytes| bytes > 0));
         assert_eq!(
             net.is_correct(|_| true),
             Err(NetError::Refused {
