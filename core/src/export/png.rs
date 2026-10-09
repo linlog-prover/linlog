@@ -68,7 +68,10 @@ impl Default for Options {
 /// [`Options::pixels`] and [`Refusal::Memory`](crate::Refusal::Memory)
 /// past the memory bound (both compared before the SVG is parsed, the
 /// pixels again after), and [`Error::NotSvg`] for a text that is no
-/// document the renderer reads.
+/// document the renderer reads or that has what no drawing of
+/// [`svg`](super::svg) has (an element but `svg`, `title`, `desc`, `g`,
+/// `text`, `path`, `rect` and `circle`, a reference, a document type),
+/// whose cost the estimate could not see.
 pub fn from_svg(
     svg: &str,
     fonts: &[&[u8]],
@@ -90,7 +93,7 @@ pub fn from_svg(
             limit: options.pixels.unwrap_or(u64::MAX),
         })
     };
-    let measure = Measure::of(svg);
+    let measure = Measure::of(svg)?;
     // Within the bounds, or why not, for an image of `pixels`.
     let check = |pixels: u64| {
         if options.pixels.is_some_and(|limit| pixels > limit) {

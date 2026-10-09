@@ -778,4 +778,28 @@ fn render_bounds_come_first() {
             limit: png::Options::DEFAULT_PIXELS
         }))
     );
+    // What no drawing of linlog has is refused before the estimate, which
+    // could not see its cost: six levels of seven `<use>` over a `<rect>`
+    // took 227 MB under a bound of 64 MiB.
+    for svg in [
+        r##"<svg xmlns="http://www.w3.org/2000/svg"><rect id="r" width="9" height="9"/><use href="#r"/></svg>"##,
+        r#"<svg><g><image width="9" height="9"/></g></svg>"#,
+        r#"<svg><path xlink:href="x" d="M0 0"/></svg>"#,
+        r#"<!DOCTYPE svg [<!ENTITY a "aa">]><svg><text>&a;</text></svg>"#,
+    ] {
+        assert!(
+            matches!(
+                png::from_svg(svg, &[], &png::Options::default(), &limits),
+                Err(Error::NotSvg { .. })
+            ),
+            "{svg}"
+        );
+        assert!(
+            matches!(
+                pdf::from_svg(svg, &[], &pdf, &limits),
+                Err(Error::NotSvg { .. })
+            ),
+            "{svg}"
+        );
+    }
 }

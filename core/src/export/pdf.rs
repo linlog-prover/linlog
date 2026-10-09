@@ -138,8 +138,10 @@ impl Date {
 /// [`Error::NoDate`] without [`Options::date`],
 /// [`Refusal::Memory`](crate::Refusal::Memory) past the memory bound
 /// (compared before the SVG is parsed), [`Error::NotSvg`] for a text that
-/// is no document the renderer reads, and [`Error::RenderFailed`] for a
-/// document that does not conform.
+/// is no document the renderer reads or that has what no drawing of
+/// [`svg`](super::svg) has (as [`png::from_svg`](super::png::from_svg)
+/// says), and [`Error::RenderFailed`] for a document that does not
+/// conform.
 pub fn from_svg(
     svg: &str,
     fonts: &[&[u8]],
@@ -152,7 +154,7 @@ pub fn from_svg(
     } else {
         PDF_OUTLINES
     };
-    let estimate = Measure::of(svg).estimate(&costs, 0);
+    let estimate = Measure::of(svg)?.estimate(&costs, 0);
     if let Some(limit) = limits.memory_bytes.filter(|&limit| estimate > limit) {
         return Err(Error::Refused(crate::limits::Refusal::Memory {
             phase: crate::limits::Phase::Render,

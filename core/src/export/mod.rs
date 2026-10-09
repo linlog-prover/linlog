@@ -293,6 +293,15 @@ fn arc_micros(start: f64, radius: f64) -> u64 {
         .min(ARC_MOST)
 }
 
+/// The elements a drawing of [`svg`] has, the only ones a render reads:
+/// the measure counts what they cost, and an element that refers to
+/// another (`<use>`) or brings a cost of its own (a filter, a pattern, an
+/// image) would make a short text cost what the measure cannot see.
+#[cfg(any(feature = "png", feature = "pdf"))]
+const ELEMENTS: [&str; 8] = [
+    "svg", "title", "desc", "g", "text", "path", "rect", "circle",
+];
+
 /// What a drawing holds that decides what a render takes, read off its
 /// SVG text without parsing it: usvg sets every glyph as a path and
 /// strokes every arc to bound it before anything can be compared with a
@@ -316,7 +325,20 @@ struct Measure {
 impl Measure {
     /// Returns the measure of an SVG document. Every count saturates, so
     /// that no text, however large, makes the estimate small.
-    fn of(svg: &str) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// [`Error::NotSvg`] for a document with an element a drawing of
+    /// [`svg`] does not have ([`ELEMENTS`]), a reference (`href`) or a
+    /// document type, whose cost the measure cannot see: six levels of
+    /// `<use>` in 1 287 bytes took 227 MB and 4.3 s under a bound of
+    /// 64 MiB.
+    fn of(svg: &str) -> Result<Self, crate::Error> {
+        let refused = |what: String| {
+            Err(crate::Error::NotSvg {
+                message: format!("{what}, which no drawing of linlog has"),
+            })
+        };
         let count = |text: &str| text.chars().filter(|c| !c.is_whitespace()).count() as u64;
         let mut measure = Self {
             bytes: svg.len() as u64,
@@ -338,7 +360,20 @@ impl Measure {
             };
             let close = rest.find(end).map_or(rest.len(), |i| i + end.len());
             let tag = &rest[..close];
+            if tag.starts_with("<!") && !tag.starts_with("<!--") {
+                return refused("a document type".to_owned());
+            }
             if tag.as_bytes().get(1).is_some_and(u8::is_ascii_alphabetic) {
+                let name = tag[1..]
+                    .split(|c: char| c.is_whitespace() || c == '>' || c == '/')
+                    .next()
+                    .unwrap_or_default();
+                if !ELEMENTS.contains(&name) {
+                    return refused(format!("the element <{name}>"));
+                }
+                if end == ">" && tag.contains("href") {
+                    return refused("a reference".to_owned());
+                }
                 measure.elements = measure.elements.saturating_add(1);
                 if end == ">" {
                     measure.arcs = measure.arcs.saturating_add(arcs(tag));
@@ -347,7 +382,7 @@ impl Measure {
             rest = &rest[close..];
         }
         measure.glyphs = measure.glyphs.saturating_add(count(rest));
-        measure
+        Ok(measure)
     }
 
     /// Returns the bytes a render of the drawing is estimated to take at
@@ -378,11 +413,14 @@ impl Measure {
 /// read, is taken at [`ARC_MOST`].
 #[cfg(any(feature = "png", feature = "pdf"))]
 fn arcs(tag: &str) -> u64 {
-    let Some(start) = tag.find(" d=\"").map(|i| i + 4) else {
+    let Some((start, quote)) = [" d=\"", " d='"]
+        .into_iter()
+        .find_map(|key| tag.find(key).map(|i| (i + key.len(), &key[3..])))
+    else {
         return 0;
     };
     let data = &tag[start..];
-    let data = &data[..data.find('"').unwrap_or(data.len())];
+    let data = &data[..data.find(quote).unwrap_or(data.len())];
     let mut point = Some((0.0f64, 0.0f64));
     let mut micros = 0u64;
     let mut rest = data;

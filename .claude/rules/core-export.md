@@ -300,6 +300,14 @@ for NanoYalla. What the code relies on:
   comments on `Costs` and `arc_micros` say what was measured; a new
   renderer version or an output with other elements is measured again
   the same way (peak RSS with `/usr/bin/time -v`, one core, capped).
+  **Only what the drawings have is rendered**: `Measure::of` refuses
+  (`Error::NotSvg`) an element outside `ELEMENTS` (`svg`, `title`,
+  `desc`, `g`, `text`, `path`, `rect`, `circle`), any `href` and a
+  document type, since `from_svg` takes any text and the estimate
+  knows the cost of those alone (F37: six levels of `<use>` in 1 287
+  bytes took 227 MB and 4.3 s under 64 MiB; entities expand likewise);
+  `arcs` reads a `d` in either quote. A new element of the SVG writer
+  joins `ELEMENTS` with its cost measured.
 - **usvg's cost of an arc is a precision fault, not its size**: it
   computes in `f32`, and an arc starting millions of units out (a net
   wider than a few thousand literals) is stroked in many pieces, up to
