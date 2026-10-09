@@ -59,6 +59,43 @@ pub mod typst;
 
 pub use styles::Styles;
 
+/// Returns the forest of a sequent to print two-sided in `mode`, built
+/// within the limits, or `None` to print it one-sided, after refusing a
+/// text estimated past `limits.derivation_bytes` (`Refusal::Output`) at
+/// `per_occurrence` bytes per occurrence and the longest atom name each,
+/// before anything is laid out.
+#[cfg(any(feature = "latex", feature = "typst", feature = "svg"))]
+pub(crate) fn printed(
+    sequent: &crate::Sequent,
+    mode: crate::Mode,
+    per_occurrence: u64,
+    limits: &crate::Limits,
+) -> Result<Option<crate::Forest>, crate::Error> {
+    let name = sequent
+        .atom_names()
+        .iter()
+        .map(String::len)
+        .max()
+        .unwrap_or(0);
+    let estimate = sequent
+        .occurrences()
+        .saturating_mul(per_occurrence.saturating_add(name as u64));
+    if let Some(limit) = limits.derivation_bytes
+        && estimate > limit
+    {
+        return Err(crate::Error::Refused(crate::limits::Refusal::Output {
+            what: "sequent",
+            estimate_bytes: estimate,
+            limit_bytes: limit,
+            least_bytes: None,
+        }));
+    }
+    if !mode.is_intuitionistic() {
+        return Ok(None);
+    }
+    crate::Forest::within(sequent, limits).map(Some)
+}
+
 /// What the targets write: a derivation of linear logic, one- or
 /// two-sided, or a derivation of LK or LJ read back from a proof of an
 /// ordinary sequent's image. Each target's `write` takes either, as

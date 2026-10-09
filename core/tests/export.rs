@@ -26,7 +26,7 @@ use linlog::{
     ProofStructure, Step, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
-use linlog::{Named, Reading, Rule, Sequent, Verdict, prove};
+use linlog::{Named, Rule, Sequent, Verdict, prove};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -414,33 +414,50 @@ fn sequents() {
         form: Form::Standalone,
         ..latex::Options::default()
     };
-    snapshot("names.tex", &latex::sequent(&sequent, &options));
+    let (classical, unbounded) = (Mode::CLASSICAL, Limits::default());
+    let latex = |sequent, options| latex::sequent(sequent, classical, options, &unbounded).unwrap();
+    snapshot("names.tex", &latex(&sequent, &options));
 
     let sequent: Sequent = "x_1 * foo, !A |- ?B & 1, B".parse().unwrap();
     assert_eq!(
-        latex::sequent(&sequent, &latex::Options::default()),
+        latex(&sequent, &latex::Options::default()),
         r"$\vdash \mathit{x\_1}^\bot \parr \mathit{foo}^\bot, \wn A^\bot, \wn B \with \mathbf{1}, B$"
     );
     assert_eq!(
-        typst::sequent(&sequent, &typst::Options::default()),
+        typst::sequent(&sequent, classical, &typst::Options::default(), &unbounded).unwrap(),
         r#"$⊢ italic("x_1")^⊥ ⅋ italic("foo")^⊥, class("normal", ?)A^⊥, class("normal", ?)B class("binary", \&) bold(1), B$"#
     );
 
     let sequent: Sequent = "!A, A -o (B + top) |- B & 0".parse().unwrap();
-    let forest = Forest::new(&sequent).unwrap();
-    let reading = Reading::new(&forest).unwrap();
+    let i = Mode::INTUITIONISTIC;
     assert_eq!(
-        latex::two_sided(&reading, &latex::Options::default()),
+        latex::sequent(&sequent, i, &latex::Options::default(), &unbounded).unwrap(),
         r"$\oc A, A \multimap (B \oplus \top) \vdash B \with 0$"
     );
     assert_eq!(
-        typst::two_sided(&reading, &typst::Options::default()),
+        typst::sequent(&sequent, i, &typst::Options::default(), &unbounded).unwrap(),
         r#"$!A, A ⊸ (B ⊕ ⊤) ⊢ B class("binary", \&) 0$"#
     );
     assert!(
-        svg::two_sided(&reading, &Style::default())
+        svg::sequent(&sequent, i, &Style::default(), &unbounded)
+            .unwrap()
             .contains("<title>!A, A ⊸ (B ⊕ ⊤) ⊢ B &amp; 0</title>")
     );
+    // A sequent's text past the bound is refused before it is laid out,
+    // and one without an intuitionistic reading in intuitionistic mode.
+    let tight = Limits::default().with_derivation_bytes(Some(100));
+    assert!(matches!(
+        svg::sequent(&sequent, classical, &Style::default(), &tight),
+        Err(linlog::Error::Refused(linlog::Refusal::Output {
+            what: "sequent",
+            ..
+        }))
+    ));
+    let classical_only: Sequent = "|- a, b".parse().unwrap();
+    assert!(matches!(
+        latex::sequent(&classical_only, i, &latex::Options::default(), &unbounded),
+        Err(linlog::Error::NotIntuitionistic(_))
+    ));
 }
 
 /// Proof nets are pinned as SVG: a net whose links cross, a structure
@@ -641,7 +658,8 @@ fn svg_structure() {
     );
 
     let sequent: Sequent = "x_1 * foo |- A".parse().unwrap();
-    assert_eq!(structure(&svg::sequent(&sequent, &style)), [5, 0, 0]);
+    let drawn = svg::sequent(&sequent, Mode::CLASSICAL, &style, &Limits::default()).unwrap();
+    assert_eq!(structure(&drawn), [5, 0, 0]);
 }
 
 /// PNG and PDF render a drawing with the font given: the PNG carries the

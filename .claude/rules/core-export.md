@@ -19,8 +19,15 @@ amssymb symbols) and Typst (curryst trees), draws them and proof
 structures as SVG documents, and writes derivations as Rocq proof scripts
 for NanoYalla. What the code relies on:
 - **The entry points**: `latex`, `typst` and `svg` write
-  `sequent(&sequent, &options)` and `two_sided(&reading, &options)`, and
-  each target's one `write(&derivation, &options, out, stop)` takes
+  `sequent(&sequent, mode, &options, &limits)`, one-sided or in
+  intuitionistic mode two-sided by its reading (`Error::NotIntuitionistic`
+  without one), refused past `limits.derivation_bytes` before anything is
+  laid out (`export::printed`: `PER_OCCURRENCE` bytes, 32 for LaTeX and
+  Typst and 128 for SVG, plus the longest atom name, per occurrence;
+  `Refusal::Output { what: "sequent" }`), since a JSON sequent of a few
+  hundred bytes can unfold to millions of occurrences and SVG took 310
+  bytes each (F5); and each target's one `write(&derivation, &options,
+  out, stop)` takes
   anything `export::Drawable` (an enum: a linear derivation, finished or
   with open goals, or one of LK or LJ, by `From`), as a fragment or a
   standalone document by `Options::form`; `svg` draws under a `Style` (the font

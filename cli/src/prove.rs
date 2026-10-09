@@ -747,26 +747,23 @@ pub fn sequent_in(
     format: SequentFormat,
     styles: &Styles,
 ) -> Result<String> {
-    if !mode.is_intuitionistic() {
-        return Ok(match format {
-            SequentFormat::Text => sequent.to_string(),
-            SequentFormat::Latex => latex::sequent(sequent, &styles.latex),
-            SequentFormat::Typst => typst::sequent(sequent, &styles.typst),
-            SequentFormat::Svg | SequentFormat::Png | SequentFormat::Pdf => {
-                svg::sequent(sequent, &styles.svg)
-            }
-        });
-    }
-    // The sequent was admitted when it was read.
-    let forest = Forest::within(sequent, &Limits::UNBOUNDED)?;
-    let reading = Reading::new(&forest)
-        .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
+    // The sequent was admitted when it was read; the reading's error is
+    // described with formulas before the library prints it.
+    let limits = Limits::UNBOUNDED;
+    let text = if mode.is_intuitionistic() {
+        let forest = Forest::within(sequent, &limits)?;
+        let reading = Reading::new(&forest)
+            .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
+        reading.to_string()
+    } else {
+        sequent.to_string()
+    };
     Ok(match format {
-        SequentFormat::Text => reading.to_string(),
-        SequentFormat::Latex => latex::two_sided(&reading, &styles.latex),
-        SequentFormat::Typst => typst::two_sided(&reading, &styles.typst),
+        SequentFormat::Text => text,
+        SequentFormat::Latex => latex::sequent(sequent, mode, &styles.latex, &limits)?,
+        SequentFormat::Typst => typst::sequent(sequent, mode, &styles.typst, &limits)?,
         SequentFormat::Svg | SequentFormat::Png | SequentFormat::Pdf => {
-            svg::two_sided(&reading, &styles.svg)
+            svg::sequent(sequent, mode, &styles.svg, &limits)?
         }
     })
 }

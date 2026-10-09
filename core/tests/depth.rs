@@ -99,20 +99,41 @@ fn walk(json: &str, fragment: Fragment) {
     #[cfg(feature = "latex")]
     {
         use linlog::export::latex;
-        assert!(latex::sequent(&sequent, &latex::Options::default()).len() > DEPTH);
-        assert!(latex::two_sided(&reading, &latex::Options::default()).len() > DEPTH);
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let printed = latex::sequent(
+                &sequent,
+                mode,
+                &latex::Options::default(),
+                &linlog::Limits::default(),
+            );
+            assert!(printed.unwrap().len() > DEPTH);
+        }
     }
     #[cfg(feature = "typst")]
     {
         use linlog::export::typst;
-        assert!(typst::sequent(&sequent, &typst::Options::default()).len() > DEPTH);
-        assert!(typst::two_sided(&reading, &typst::Options::default()).len() > DEPTH);
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let printed = typst::sequent(
+                &sequent,
+                mode,
+                &typst::Options::default(),
+                &linlog::Limits::default(),
+            );
+            assert!(printed.unwrap().len() > DEPTH);
+        }
     }
     #[cfg(feature = "svg")]
     {
         use linlog::export::svg::{self, Style};
-        assert!(svg::sequent(&sequent, &Style::default()).len() > DEPTH);
-        assert!(svg::two_sided(&reading, &Style::default()).len() > DEPTH);
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let printed = svg::sequent(
+                &sequent,
+                mode,
+                &Style::default(),
+                &linlog::Limits::default(),
+            );
+            assert!(printed.unwrap().len() > DEPTH);
+        }
     }
 
     // The `⊤` proves the sequent in one inference, which concludes all of

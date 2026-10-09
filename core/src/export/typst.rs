@@ -37,11 +37,12 @@
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::typst;
-//! use linlog::{Mode, Options, Sequent, Verdict, prove};
+//! use linlog::{Limits, Mode, Options, Sequent, Verdict, prove};
 //!
 //! let sequent: Sequent = "A, A -o B |- B".parse()?;
 //! let options = typst::Options::default();
-//! assert_eq!(typst::sequent(&sequent, &options), "$⊢ A^⊥, A ⊗ B^⊥, B$");
+//! let printed = typst::sequent(&sequent, Mode::CLASSICAL, &options, &Limits::default())?;
+//! assert_eq!(printed, "$⊢ A^⊥, A ⊗ B^⊥, B$");
 //!
 //! let outcome = prove(&sequent, Mode::INTUITIONISTIC, &Options::default())?;
 //! let Verdict::Proved(proof) = &outcome.verdict else {
@@ -270,8 +271,41 @@ fn formed(math: String, options: &Options) -> String {
     }
 }
 
+/// The bytes a sequent's text is estimated at per occurrence, besides
+/// its longest atom name: at least what any connective, its brackets and
+/// its separator take.
+const PER_OCCURRENCE: u64 = 32;
+
+/// Returns a sequent in the options' form: one-sided, or in
+/// intuitionistic mode two-sided by its reading.
+///
+/// # Errors
+///
+/// [`Refusal::Output`](crate::Refusal::Output) for a sequent whose text is
+/// estimated past `limits.derivation_bytes` (`32` bytes an occurrence
+/// and its longest atom name), before anything is laid out;
+/// [`Error::NotIntuitionistic`] in intuitionistic mode for one without an
+/// intuitionistic reading, and the refusal of
+/// [`Forest::within`](crate::Forest::within).
+pub fn sequent(
+    sequent: &Sequent,
+    mode: crate::Mode,
+    options: &Options,
+    limits: &crate::Limits,
+) -> Result<String, Error> {
+    Ok(
+        match super::printed(sequent, mode, PER_OCCURRENCE, limits)? {
+            None => one_sided(sequent, options),
+            Some(forest) => {
+                let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
+                two_sided(&reading, options)
+            }
+        },
+    )
+}
+
 /// Returns a sequent one-sided, `$⊢ A^⊥, A$`, in the options' form.
-pub fn sequent(sequent: &Sequent, options: &Options) -> String {
+fn one_sided(sequent: &Sequent, options: &Options) -> String {
     let mut out = String::from("$");
     NOTATION.one_sided(&mut out, sequent);
     out.push('$');
@@ -280,7 +314,7 @@ pub fn sequent(sequent: &Sequent, options: &Options) -> String {
 
 /// Returns the sequent of an intuitionistic reading two-sided,
 /// `$A, A ⊸ B ⊢ B$`, in the options' form.
-pub fn two_sided(reading: &Reading, options: &Options) -> String {
+fn two_sided(reading: &Reading, options: &Options) -> String {
     let forest = reading.forest();
     let mut out = String::from("$");
     NOTATION.sequent(

@@ -24,11 +24,11 @@
 //! Needs the cargo feature `svg` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
-//! use linlog::Sequent;
 //! use linlog::export::svg::{self, Style};
+//! use linlog::{Limits, Mode, Sequent};
 //!
 //! let sequent: Sequent = "A |- A".parse()?;
-//! let svg = svg::sequent(&sequent, &Style::default());
+//! let svg = svg::sequent(&sequent, Mode::CLASSICAL, &Style::default(), &Limits::default())?;
 //! assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""));
 //! assert!(svg.contains("<title>⊢ A⊥, A</title>"));
 //! # Ok::<(), linlog::Error>(())
@@ -522,9 +522,42 @@ fn line(style: &Style, title: &str, content: &str) -> String {
     )
 }
 
+/// The bytes a sequent's text is estimated at per occurrence, besides
+/// its longest atom name: at least what any connective, its brackets and
+/// its separator take.
+const PER_OCCURRENCE: u64 = 128;
+
+/// Returns a sequent in the options' form: one-sided, or in
+/// intuitionistic mode two-sided by its reading.
+///
+/// # Errors
+///
+/// [`Refusal::Output`](crate::Refusal::Output) for a sequent whose text is
+/// estimated past `limits.derivation_bytes` (`128` bytes an occurrence
+/// and its longest atom name), before anything is laid out;
+/// [`Error::NotIntuitionistic`] in intuitionistic mode for one without an
+/// intuitionistic reading, and the refusal of
+/// [`Forest::within`](crate::Forest::within).
+pub fn sequent(
+    sequent: &Sequent,
+    mode: crate::Mode,
+    style: &Style,
+    limits: &crate::Limits,
+) -> Result<String, Error> {
+    Ok(
+        match super::printed(sequent, mode, PER_OCCURRENCE, limits)? {
+            None => one_sided(sequent, style),
+            Some(forest) => {
+                let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
+                two_sided(&reading, style)
+            }
+        },
+    )
+}
+
 /// Returns a sequent one-sided, `⊢ A⊥, A`, as an SVG document of one line
 /// of text, titled with the sequent in plain text.
-pub fn sequent(sequent: &Sequent, style: &Style) -> String {
+fn one_sided(sequent: &Sequent, style: &Style) -> String {
     let (mut drawn, mut title) = (String::new(), String::new());
     NOTATION.one_sided(&mut drawn, sequent);
     PLAIN.one_sided(&mut title, sequent);
@@ -534,7 +567,7 @@ pub fn sequent(sequent: &Sequent, style: &Style) -> String {
 /// Returns the sequent of an intuitionistic reading two-sided,
 /// `A, A ⊸ B ⊢ B`, as an SVG document of one line of text, titled with
 /// the sequent in plain text.
-pub fn two_sided(reading: &Reading, style: &Style) -> String {
+fn two_sided(reading: &Reading, style: &Style) -> String {
     let forest = reading.forest();
     let (mut drawn, mut title) = (String::new(), String::new());
     NOTATION.sequent(
