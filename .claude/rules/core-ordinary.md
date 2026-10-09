@@ -71,7 +71,9 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   sequent with nothing right of `⊢` is decided as `Γ ⊢ ⊥`, and `Image::ordinary`
   is that sequent; more than one formula right is `Error::Succedents`.
 - **The read-back takes the proof, not a derivation** (`read_back(&proof,
-  &limits, stop)`): it unfolds the proof itself, never compact, within
+  &limits, stop)`), and a proof of the roots only (a goal proof is
+  `Error::GoalProof`, as for `from_proof` and the Rocq writer): it
+  unfolds the proof itself, never compact, within
   the limits, so a compact derivation (a run of weakenings as one
   starred inference, which the probe found read as one `WL` that fails
   the checker, H22) cannot reach it; it and the checker ask the stop

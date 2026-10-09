@@ -712,9 +712,11 @@ impl Image {
     ///
     /// # Errors
     ///
-    /// As [`Proof::derivation_within`] for the unfolding;
-    /// [`Error::ReadBack`] for a proof that is not of this image, or a
-    /// rule with no reading; [`Refusal::Stopped`] when `stop` fired.
+    /// [`Error::GoalProof`] for a proof of a goal other than the image's
+    /// roots, whose read-back would conclude another sequent; as
+    /// [`Proof::derivation_within`] for the unfolding; [`Error::ReadBack`]
+    /// for a proof that is not of this image, or a rule with no reading;
+    /// [`Refusal::Stopped`] when `stop` fired.
     #[expect(
         clippy::missing_panics_doc,
         reason = "the expects state that the forest's preorder tags a parent before its children, which the walk establishes"
@@ -725,6 +727,9 @@ impl Image {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Derivation, Error> {
+        if proof.goal().is_some() {
+            return Err(Error::GoalProof);
+        }
         let linear = &self.linear_derivation(proof, limits, &mut stop)?;
         let calculus = self.logic.calculus();
         let fail = |reason: String| Error::ReadBack { calculus, reason };
@@ -1101,6 +1106,34 @@ mod tests {
             assert_eq!(plain(rule.markup(false)), rule.name(), "{rule}");
             assert_eq!(plain(rule.markup(true)), rule.name(), "{rule}");
         }
+    }
+
+    /// A proof of a goal off the image's roots is refused before it is
+    /// read back: its derivation would conclude another sequent.
+    #[test]
+    fn a_goal_proof_reads_back_as_nothing() {
+        let sequent: Sequent = "a, b |- a".parse().unwrap();
+        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let forest = crate::Forest::new(image.sequent()).unwrap();
+        let roots = forest.roots();
+        let goal = [roots[0], roots[2]];
+        let limits = crate::Limits::default();
+        let outcome = crate::search::prove_goal(
+            &forest,
+            &goal,
+            image.mode(),
+            &Options::default(),
+            &limits,
+            |_| false,
+        )
+        .unwrap();
+        let Verdict::Proved(proof) = &outcome.verdict else {
+            panic!("a ⊢ a is provable");
+        };
+        assert_eq!(
+            image.read_back(proof, &limits, |_| false).unwrap_err(),
+            Error::GoalProof
+        );
     }
 
     /// Two lists are one multiset whatever their order, short or long,
