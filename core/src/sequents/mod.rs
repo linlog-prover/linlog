@@ -42,7 +42,7 @@ use crate::hash::HashMap;
 /// only, never by a new meaning of text that reads today. Text that is no
 /// sequent is `Error::Parse`, whose `ParseError` says where. Every atom
 /// name of a sequent, however it was read, is such a variable, so that
-/// the sequent written as text reads back as itself.
+/// the formulas written as text read back as themselves.
 ///
 /// The sequent is kept one-sided in negation normal form: the formulas
 /// left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a negation
@@ -51,7 +51,9 @@ use crate::hash::HashMap;
 /// and the sequent remembers how many stood left of the turnstile
 /// ([`antecedents`](Self::antecedents)), from which
 /// [`Reading`](crate::Reading) reads an intuitionistic sequent back
-/// two-sided.
+/// two-sided. `Display`'s one-sided text leaves the sides out, so it
+/// reads back as `⊢ Γ`; the text of the reading, which writes them, and
+/// the JSON keep them.
 ///
 /// # JSON
 ///
