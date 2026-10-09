@@ -159,7 +159,7 @@ impl From<&Refutation> for WhyNot {
                 clauses: clauses.iter().map(|&(o, w)| (o.get(), w)).collect(),
                 dropped: dropped.iter().map(|o| o.get()).collect(),
             },
-            _ => WhyNot::Exhausted,
+            Refutation::Exhausted => WhyNot::Exhausted,
         }
     }
 }
@@ -174,26 +174,6 @@ struct DisproofKeys<'a> {
     /// The goal refuted, absent for the roots.
     #[serde(skip_serializing_if = "Option::is_none")]
     goal: Option<&'a [Member]>,
-}
-
-/// The serialized form of the statistics: its counters by name.
-#[derive(Serialize)]
-#[serde(remote = "Statistics")]
-struct StatisticsDef {
-    /// Stable sequents visited.
-    nodes: u64,
-    /// Visits answered from the memo.
-    memo_hits: u64,
-    /// The peak size of the memo.
-    memo_entries: usize,
-    /// Context splits examined.
-    splits: u64,
-    /// Axiom links the net engine tried.
-    links: u64,
-    /// Exact acyclicity tests the net engine ran.
-    tests: u64,
-    /// The largest copy bound the deepening reached.
-    copies: u32,
 }
 
 /// The serialized form of an outcome: the verdict as a word, the reason for
@@ -224,7 +204,6 @@ struct Outcome<'a> {
     /// The engine that ran.
     engine: Engine,
     /// What the search cost.
-    #[serde(with = "StatisticsDef")]
     statistics: Statistics,
     /// The proof, for `proved`.
     #[serde(flatten)]

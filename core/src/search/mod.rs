@@ -1468,7 +1468,12 @@ impl Display for Reason {
 /// and splits; the net engine counts literals chosen, links and exact
 /// tests; the additive path counts pairs of subformulas; the Horn engine
 /// counts markings in the first three; the other counters stay zero.
+///
+/// In JSON (feature `serialize`) an object of the counters by name, read
+/// back with a missing one as zero.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 #[non_exhaustive]
 pub struct Statistics {
     /// The nodes of the search: the stable sequents the focused engine

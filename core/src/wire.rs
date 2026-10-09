@@ -127,7 +127,9 @@ impl<'de, T: Readable> DeserializeSeed<'de> for Within<'_, T> {
 /// Reads a document of any released level up to [`LEVEL`] and returns it
 /// as a value of this release, an older level through each level's step
 /// in turn (at level 1 there is none), every sequent within
-/// `limits.occurrences`.
+/// `limits.occurrences`. It reads one value and leaves the deserializer
+/// there: a caller whose input is that one document ends the
+/// deserializer (`end()` in serde_json), which refuses what follows it.
 ///
 /// # Errors
 ///
@@ -145,6 +147,7 @@ impl<'de, T: Readable> DeserializeSeed<'de> for Within<'_, T> {
 /// let json = r#"{"version": 1, "terms": [{"V": 0}], "roots": [0], "atoms": ["A"]}"#;
 /// let mut document = serde_json::Deserializer::from_str(json);
 /// let sequent: Sequent = wire::upgrade(&mut document, &Limits::default())?;
+/// document.end().expect("one document and nothing after it");
 /// assert_eq!(sequent.to_string(), "⊢ A");
 ///
 /// let newer = r#"{"version": 9, "terms": []}"#;

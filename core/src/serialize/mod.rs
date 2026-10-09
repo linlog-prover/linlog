@@ -1,6 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+// A variant a later step adds must get its form, not fall into another's.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 /// The written form of errors.
 mod errors;
 
