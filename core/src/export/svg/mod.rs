@@ -642,13 +642,23 @@ pub fn write<'a>(
 /// it. Literals and connectives are the
 /// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
 ///
-/// A drawing estimated at more than `limit` bytes is not drawn, as a
-/// derivation past [`Limits::derivation_bytes`](crate::Limits::derivation_bytes) is not
-/// built: the estimate counts every literal, connective, conclusion and
-/// link from the structure, at least what the drawing has, and `None`
-/// lifts the bound.
-pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<String, Error> {
-    if let Some(limit) = limit {
+/// A drawing estimated past `limits.derivation_bytes` is not drawn, as a
+/// derivation past it is not built: the estimate counts every literal,
+/// connective, conclusion and link from the structure, at least what the
+/// drawing has. The criterion that decides the highlights asks `stop` as
+/// [`ProofStructure::is_correct`] does.
+///
+/// # Errors
+///
+/// [`Refusal::Output`](crate::Refusal::Output) past the bound, before
+/// anything is drawn, and the criterion's refusal when `stop` fired.
+pub fn net(
+    net: &ProofStructure,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
+    if let Some(limit) = limits.derivation_bytes {
         let estimate = net::estimate(net, style, limit);
         if estimate > limit {
             return Err(Error::Refused(crate::limits::Refusal::Output {
@@ -659,7 +669,11 @@ pub fn net(net: &ProofStructure, style: &Style, limit: Option<u64>) -> Result<St
             }));
         }
     }
-    Ok(net::draw(net, style, &net.is_correct(|_| false)))
+    let verdict = net.is_correct(stop);
+    if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
+        return Err(refused.into());
+    }
+    Ok(net::draw(net, style, &verdict))
 }
 
 #[cfg(test)]

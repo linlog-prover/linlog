@@ -129,11 +129,19 @@ pub(crate) fn derivation(
         drop(d);
         let halt = std::cell::RefCell::new(halt);
         let stop = || (0..crate::prove::STEPS_PER_CLOCK).any(|_| (halt.borrow_mut())());
-        return Ok(match render(drawing, show.format, styles, &stop)? {
-            crate::prove::Rendered::Bytes(bytes) => Shown::Rendered(bytes),
-            crate::prove::Rendered::Refused(line) => Shown::LeftOut(line),
-            crate::prove::Rendered::Stopped => stopped(),
-        });
+        return Ok(
+            match render(
+                drawing,
+                show.format,
+                styles,
+                show.limits.memory_bytes,
+                &stop,
+            )? {
+                crate::prove::Rendered::Bytes(bytes) => Shown::Rendered(bytes),
+                crate::prove::Rendered::Refused(line) => Shown::LeftOut(line),
+                crate::prove::Rendered::Stopped => stopped(),
+            },
+        );
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {

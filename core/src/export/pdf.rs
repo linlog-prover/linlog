@@ -56,27 +56,11 @@ pub struct Options {
     /// The date the document was made, which every PDF/A part requires;
     /// the crate reads no clock, so the caller gives it.
     pub date: Option<Date>,
-    /// The most bytes the render may take, by an estimate made before the
-    /// SVG is parsed, or `None` for no bound. The estimate counts the
-    /// glyphs of the drawing (some 1 300 bytes each embedded as text,
-    /// 2 000 as outlines), its elements and the arcs usvg strokes to bound
-    /// them; what takes time rather than memory is counted as the memory
-    /// the renderer fills in that time, so that the bound keeps a render
-    /// short as well: the default is about 8 s of rendering on a slow core
-    /// at most.
-    pub memory: Option<u64>,
-}
-
-impl Options {
-    /// The default bound on what a render takes, 1 GiB, the crate's
-    /// [`Limits::DEFAULT_MEMORY_BYTES`](crate::Limits::DEFAULT_MEMORY_BYTES).
-    pub const DEFAULT_MEMORY: u64 = crate::Limits::DEFAULT_MEMORY_BYTES;
 }
 
 impl Default for Options {
     /// Returns PDF/A-4 with text embedded as text, the drawing's title,
-    /// English, no date, which a caller must still give, and
-    /// [`DEFAULT_MEMORY`](Self::DEFAULT_MEMORY).
+    /// English and no date, which a caller must still give.
     fn default() -> Self {
         Self {
             embed_text: true,
@@ -85,7 +69,6 @@ impl Default for Options {
             title: None,
             language: "en".to_owned(),
             date: None,
-            memory: Some(Self::DEFAULT_MEMORY),
         }
     }
 }
@@ -137,11 +120,28 @@ impl Date {
 }
 
 /// Returns an SVG document as a PDF document of one page, its text set in
-/// `fonts` (the data of font files), or why it is not: no date is given,
-/// the render would pass the bound on its memory (compared before the SVG
-/// is parsed), the text is no document the renderer reads, or the
-/// document does not conform.
-pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, Error> {
+/// `fonts` (the data of font files), within `limits.memory_bytes`.
+///
+/// The memory is an estimate made before the SVG is parsed: it counts the
+/// glyphs of the drawing (some 1 300 bytes each embedded as text, 2 000 as
+/// outlines), its elements and the arcs usvg strokes to bound them; what
+/// takes time rather than memory is counted as the memory the renderer
+/// fills in that time, so that the bound keeps a render short as well: the
+/// default is about 8 s of rendering on a slow core at most.
+///
+/// # Errors
+///
+/// [`Error::NoDate`] without [`Options::date`],
+/// [`Refusal::Memory`](crate::Refusal::Memory) past the memory bound
+/// (compared before the SVG is parsed), [`Error::NotSvg`] for a text that
+/// is no document the renderer reads, and [`Error::RenderFailed`] for a
+/// document that does not conform.
+pub fn from_svg(
+    svg: &str,
+    fonts: &[&[u8]],
+    options: &Options,
+    limits: &crate::Limits,
+) -> Result<Vec<u8>, Error> {
     let date = options.date.ok_or(Error::NoDate)?;
     let costs = if options.embed_text {
         PDF
@@ -149,7 +149,7 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
         PDF_OUTLINES
     };
     let estimate = Measure::of(svg).estimate(&costs, 0);
-    if let Some(limit) = options.memory.filter(|&limit| estimate > limit) {
+    if let Some(limit) = limits.memory_bytes.filter(|&limit| estimate > limit) {
         return Err(Error::Refused(crate::limits::Refusal::Memory {
             phase: crate::limits::Phase::Render,
             limit_bytes: limit,

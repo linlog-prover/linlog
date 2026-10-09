@@ -262,8 +262,7 @@ fn run(cli: &Cli) -> Result<Status> {
                         SequentFormat::Png => ("png", Some(Format::Png)),
                         SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
                     };
-                    let mut styles = style::read(style, Some(key), *standalone)?;
-                    prove::bound_renders(&mut styles, memory_limit.0);
+                    let styles = style::read(style, Some(key), *standalone)?;
                     let text = prove::sequent_in(&sequent, mode, *format, &styles)?;
                     match binary {
                         None => io::write(output.as_deref(), &text)?,
@@ -275,11 +274,13 @@ fn run(cli: &Cli) -> Result<Status> {
                             }
                             // The sequent is all the output: a render the
                             // bound refuses is an error.
-                            let bytes = match prove::render(text, format, &styles, &|| false)? {
-                                prove::Rendered::Bytes(bytes) => bytes,
-                                prove::Rendered::Refused(line) => bail!("{line}"),
-                                prove::Rendered::Stopped => unreachable!("nothing stops it"),
-                            };
+                            let memory = memory_limit.0;
+                            let bytes =
+                                match prove::render(text, format, &styles, memory, &|| false)? {
+                                    prove::Rendered::Bytes(bytes) => bytes,
+                                    prove::Rendered::Refused(line) => bail!("{line}"),
+                                    prove::Rendered::Stopped => unreachable!("nothing stops it"),
+                                };
                             let mut out = io::Output::open(output.as_deref(), true)?;
                             out.stream().write_all(&bytes)?;
                             out.finish()?;

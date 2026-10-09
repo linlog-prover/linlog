@@ -6,8 +6,8 @@ use crate::argument_parsing::Threads;
 use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
-    Ended, Rendered, Show, Shown, alone_first, bound_renders, bytes_text, derivation, describe,
-    notice_line, on_large_stack, render, stopped, unknown,
+    Ended, Rendered, Show, Shown, alone_first, bytes_text, derivation, describe, notice_line,
+    on_large_stack, render, stopped, unknown,
 };
 use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
@@ -71,8 +71,7 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     let options = options.with_jobs(threads.jobs);
     catch_interrupt();
     let stack_size = limits.stack_bytes();
-    let mut styles = style::read(&args.style, None, false)?;
-    bound_renders(&mut styles, args.memory_limit.0);
+    let styles = style::read(&args.style, None, false)?;
     let mut session = Session {
         styles,
         state,
@@ -277,7 +276,8 @@ impl Session {
                     (Some(path), true) => {
                         // A Ctrl-C of an earlier `close` must not stop it.
                         clear_interrupt();
-                        match render(text, format, styles, &interrupted)? {
+                        match render(text, format, styles, self.limits.memory_bytes, &interrupted)?
+                        {
                             Rendered::Bytes(bytes) => {
                                 let mut out = io::Output::open(Some(Path::new(path)), true)?;
                                 out.stream().write_all(&bytes)?;

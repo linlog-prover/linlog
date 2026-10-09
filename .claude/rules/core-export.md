@@ -32,8 +32,9 @@ for NanoYalla. What the code relies on:
   with open goals, or one of LK or LJ, by `From`), as a fragment or a
   standalone document by `Options::form`; `svg` draws under a `Style` (the font
   and its advances, labels, the open goal's shape, ids per formula,
-  sizes, gaps, colours) and also `net(&structure, &style, limit)`
-  (`Refusal::Output { what: "drawing" }` past `limit`);
+  sizes, gaps, colours) and also `net(&structure, &style, &limits,
+  stop)` (`Refusal::Output { what: "drawing" }` past
+  `limits.derivation_bytes`, the stop asked as the criterion asks it);
   `rocq::write` writes the lemma `Options::lemma`, or a file that starts
   with `Options::prelude`, for a linear derivation NanoYalla's script,
   refusing an open goal, Mix, affine weakening and a compact derivation
@@ -255,8 +256,9 @@ for NanoYalla. What the code relies on:
   (`declared_size`, plain or `px` numbers, rounded up as usvg does) and
   again after it, for a size the text did not give.
 - **A render is bounded before usvg parses anything**
-  (`png::Options::memory`, `pdf::Options::memory`, default 1 GiB, the
-  crate's `Limits::DEFAULT_MEMORY_BYTES`; `Refusal::Memory { phase: Render }`,
+  (`from_svg(svg, fonts, &options, &limits)` within `limits.memory_bytes`,
+  default 1 GiB, one bound under one name, F63; `Refusal::Memory { phase:
+  Render }`,
   and `Refusal::Pixels` past the pixel bound): usvg sets
   every glyph as a path and strokes every arc to bound it inside one
   call, so nothing can be compared or polled once it runs. The estimate

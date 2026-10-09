@@ -108,6 +108,16 @@ fn pin_proof(name: &str, input: &str, mode: Mode) {
     pin_certificate(name, &derivation);
 }
 
+/// The default limits but no bound on a drawing's size.
+fn unbounded() -> Limits {
+    Limits::default().with_derivation_bytes(None)
+}
+
+/// The default limits with a drawing's size bounded by `bytes`.
+fn bounded(bytes: u64) -> Limits {
+    Limits::default().with_derivation_bytes(Some(bytes))
+}
+
 /// What a target's `write` makes of a derivation, as a string.
 fn written(write: impl FnOnce(&mut String) -> Result<(), linlog::Error>) -> String {
     let mut out = String::new();
@@ -472,7 +482,7 @@ fn nets() {
     );
     snapshot(
         "net.svg",
-        &svg::net(&net.unwrap(), &Style::default(), None).unwrap(),
+        &svg::net(&net.unwrap(), &Style::default(), &unbounded(), |_| false).unwrap(),
     );
 
     let forest = Forest::new(&"|- A * ~A".parse().unwrap()).unwrap();
@@ -481,7 +491,7 @@ fn nets() {
     assert!(cyclic.is_correct(|_| false).is_err());
     snapshot(
         "cycle.svg",
-        &svg::net(&cyclic, &Style::default(), None).unwrap(),
+        &svg::net(&cyclic, &Style::default(), &unbounded(), |_| false).unwrap(),
     );
 
     // ⊢ A ⅋ B, ~A, ~B: the part of `B` and `~B` hangs off the right premise.
@@ -491,7 +501,7 @@ fn nets() {
         (VertexId::new(2), VertexId::new(4)),
     ];
     let parted = ProofStructure::from_links(forest, Criterion::MLL, &links).unwrap();
-    let drawing = svg::net(&parted, &Style::default(), None).unwrap();
+    let drawing = svg::net(&parted, &Style::default(), &unbounded(), |_| false).unwrap();
     let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
     assert!(drawing.contains(&highlight), "{drawing}");
     snapshot("disconnected.svg", &drawing);
@@ -509,14 +519,17 @@ fn net_limit() {
         |_| false,
     );
     let net = net.unwrap();
-    let drawing = svg::net(&net, &style, None).unwrap();
+    let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
     let bytes = drawing.len() as u64;
     assert!(matches!(
-        svg::net(&net, &style, Some(bytes)),
+        svg::net(&net, &style, &bounded(bytes), |_| false),
         Err(Error::Refused(Refusal::Output { estimate_bytes, limit_bytes, .. }))
             if estimate_bytes > bytes && limit_bytes == bytes
     ));
-    assert_eq!(svg::net(&net, &style, Some(4 * bytes)), Ok(drawing));
+    assert_eq!(
+        svg::net(&net, &style, &bounded(4 * bytes), |_| false),
+        Ok(drawing)
+    );
 }
 
 /// The SVG layout asks its stop condition in its first pass over the
@@ -653,7 +666,7 @@ fn svg_structure() {
         |_| false,
     );
     assert_eq!(
-        structure(&svg::net(&net.unwrap(), &style, None).unwrap()),
+        structure(&svg::net(&net.unwrap(), &style, &unbounded(), |_| false).unwrap()),
         [8, 8, 2]
     );
 
@@ -687,7 +700,13 @@ fn renders() {
             |_| false,
         )
     });
-    let image = png::from_svg(&drawing, &[&font], &png::Options::default()).unwrap();
+    let image = png::from_svg(
+        &drawing,
+        &[&font],
+        &png::Options::default(),
+        &Limits::default(),
+    )
+    .unwrap();
     assert!(image.starts_with(b"\x89PNG"));
     assert!(image.windows(5).any(|w| w == b"Title"));
     let date = Some(pdf::Date::from_unix(1_791_158_399));
@@ -702,7 +721,7 @@ fn renders() {
             date,
             ..pdf::Options::default()
         };
-        let document = pdf::from_svg(&drawing, &[&font], &options).unwrap();
+        let document = pdf::from_svg(&drawing, &[&font], &options, &Limits::default()).unwrap();
         assert!(
             document.starts_with(version.as_bytes()),
             "{compatible} {accessible}"
@@ -712,7 +731,12 @@ fn renders() {
         assert_eq!(tagged, accessible);
     }
     assert_eq!(
-        pdf::from_svg(&drawing, &[&font], &pdf::Options::default()),
+        pdf::from_svg(
+            &drawing,
+            &[&font],
+            &pdf::Options::default(),
+            &Limits::default()
+        ),
         Err(Error::NoDate)
     );
 }
@@ -726,13 +750,9 @@ fn renders() {
 fn render_bounds_come_first() {
     use linlog::export::{pdf, png};
     let glyphs = format!("<svg><text>{}</text>", "x".repeat(1 << 16));
-    let memory = Some(64 << 20);
-    let png = png::Options {
-        memory,
-        ..png::Options::default()
-    };
+    let limits = Limits::default().with_memory_bytes(Some(64 << 20));
     assert!(matches!(
-        png::from_svg(&glyphs, &[], &png),
+        png::from_svg(&glyphs, &[], &png::Options::default(), &limits),
         Err(Error::Refused(Refusal::Memory {
             limit_bytes: 67_108_864,
             needed_bytes: Some(estimate),
@@ -740,17 +760,16 @@ fn render_bounds_come_first() {
         })) if estimate > 1000 << 16
     ));
     let pdf = pdf::Options {
-        memory,
         date: Some(pdf::Date::from_unix(0)),
         ..pdf::Options::default()
     };
     assert!(matches!(
-        pdf::from_svg(&glyphs, &[], &pdf),
+        pdf::from_svg(&glyphs, &[], &pdf, &limits),
         Err(Error::Refused(Refusal::Memory { .. }))
     ));
     let wide = r#"<svg width="100000" height="1000.5px"><text>"#;
     assert_eq!(
-        png::from_svg(wide, &[], &png::Options::default()),
+        png::from_svg(wide, &[], &png::Options::default(), &Limits::default()),
         Err(Error::Refused(Refusal::Pixels {
             pixels: 200_000 * 2002,
             limit: png::Options::DEFAULT_PIXELS

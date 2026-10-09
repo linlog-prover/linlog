@@ -271,7 +271,6 @@ impl Show {
     /// render, within `memory` bytes.
     pub(crate) fn within(mut self, memory: Option<u64>) -> Self {
         self.limits.memory_bytes = memory;
-        bound_renders(&mut self.styles, memory);
         self
     }
 
@@ -704,11 +703,19 @@ pub(crate) fn derivation(
         // and the render's wait asks every few milliseconds.
         let halt = std::cell::RefCell::new(halt);
         let stop = || (0..STEPS_PER_CLOCK).any(|_| (halt.borrow_mut())());
-        return Ok(match render(drawing, show.format, styles, &stop)? {
-            Rendered::Bytes(bytes) => Shown::Rendered(bytes),
-            Rendered::Refused(line) => Shown::LeftOut(line),
-            Rendered::Stopped => stopped(),
-        });
+        return Ok(
+            match render(
+                drawing,
+                show.format,
+                styles,
+                show.limits.memory_bytes,
+                &stop,
+            )? {
+                Rendered::Bytes(bytes) => Shown::Rendered(bytes),
+                Rendered::Refused(line) => Shown::LeftOut(line),
+                Rendered::Stopped => stopped(),
+            },
+        );
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
@@ -822,18 +829,6 @@ pub(crate) enum Rendered {
     Stopped,
 }
 
-/// Sets the bound on what a PNG or PDF render takes to `memory`, the
-/// command's `--memory-limit`, where the styles leave it at the library's
-/// default.
-pub(crate) fn bound_renders(styles: &mut Styles, memory: Option<u64>) {
-    if styles.png.memory == Some(png::Options::DEFAULT_MEMORY) {
-        styles.png.memory = memory;
-    }
-    if styles.pdf.memory == Some(pdf::Options::DEFAULT_MEMORY) {
-        styles.pdf.memory = memory;
-    }
-}
-
 /// Renders an SVG document in a binary format, PNG or PDF, with the Euler
 /// Math font and whatever font the style names that the renderer knows
 /// of, on a thread of its own while `stop` is asked every few
@@ -841,19 +836,22 @@ pub(crate) fn bound_renders(styles: &mut Styles, memory: Option<u64>) {
 /// bytes, the line of a bound that refused the drawing before it was
 /// parsed, or that `stop` fired; the thread of a stopped render is left
 /// to finish, within the memory bound that its estimate kept, and what
-/// it makes is dropped.
+/// it makes is dropped. `memory` is the render's bound, the command's
+/// `--memory-limit`.
 pub(crate) fn render(
     svg: String,
     format: Format,
     styles: &Styles,
+    memory: Option<u64>,
     stop: &dyn Fn() -> bool,
 ) -> Result<Rendered> {
+    let limits = Limits::default().with_memory_bytes(memory);
     let rendered = match format {
         Format::Png => {
             let options = styles.png.clone();
             detached(
                 "render",
-                move || png::from_svg(&svg, &[FONT], &options),
+                move || png::from_svg(&svg, &[FONT], &options, &limits),
                 stop,
             )?
         }
@@ -871,7 +869,7 @@ pub(crate) fn render(
             }
             detached(
                 "render",
-                move || pdf::from_svg(&svg, &[FONT], &options),
+                move || pdf::from_svg(&svg, &[FONT], &options, &limits),
                 stop,
             )?
         }
@@ -981,7 +979,7 @@ pub(crate) fn net_into(
         write!(out, "{separator}{net}")?;
         return Ok(Shown::Written);
     }
-    let drawing = match svg::net(net, &show.styles.svg, show.limits.derivation_bytes) {
+    let drawing = match svg::net(net, &show.styles.svg, &show.limits, |_| stop()) {
         Ok(drawing) => drawing,
         Err(error) => return Ok(Shown::LeftOut(net_too_large(net, &error))),
     };
@@ -989,11 +987,19 @@ pub(crate) fn net_into(
         write!(out, "{separator}{drawing}")?;
         return Ok(Shown::Written);
     }
-    Ok(match render(drawing, show.format, &show.styles, stop)? {
-        Rendered::Bytes(bytes) => Shown::Rendered(bytes),
-        Rendered::Refused(line) => Shown::LeftOut(line),
-        Rendered::Stopped => Shown::LeftOut(format!("the proof net is not drawn: {}", why())),
-    })
+    Ok(
+        match render(
+            drawing,
+            show.format,
+            &show.styles,
+            show.limits.memory_bytes,
+            stop,
+        )? {
+            Rendered::Bytes(bytes) => Shown::Rendered(bytes),
+            Rendered::Refused(line) => Shown::LeftOut(line),
+            Rendered::Stopped => Shown::LeftOut(format!("the proof net is not drawn: {}", why())),
+        },
+    )
 }
 
 /// Fails unless proof nets exist for the sequent in the mode: unit-free

@@ -28,15 +28,6 @@ pub struct Options {
     /// encoded. The bound is compared before the SVG is parsed, with the
     /// size its root declares, and again after.
     pub pixels: Option<u64>,
-    /// The most bytes the render may take, by an estimate made before the
-    /// SVG is parsed, or `None` for no bound. The estimate counts the
-    /// glyphs of the drawing (usvg sets each as a path, some 1 000 bytes),
-    /// its elements, the arcs usvg strokes to bound them and the pixels
-    /// of the image; what takes time rather than memory is counted as the
-    /// memory the renderer fills in that time, so that the bound keeps a
-    /// render short as well: the default is about 8 s of rendering on a
-    /// slow core at most.
-    pub memory: Option<u64>,
 }
 
 impl Options {
@@ -45,30 +36,42 @@ impl Options {
     /// The default bound on the pixels, 64 million: about 512 MiB while
     /// drawn.
     pub const DEFAULT_PIXELS: u64 = 1 << 26;
-    /// The default bound on what a render takes, 1 GiB, the crate's
-    /// [`Limits::DEFAULT_MEMORY_BYTES`](crate::Limits::DEFAULT_MEMORY_BYTES).
-    pub const DEFAULT_MEMORY: u64 = crate::Limits::DEFAULT_MEMORY_BYTES;
 }
 
 impl Default for Options {
-    /// Returns [`DEFAULT_SCALE`](Self::DEFAULT_SCALE),
-    /// [`DEFAULT_PIXELS`](Self::DEFAULT_PIXELS) and
-    /// [`DEFAULT_MEMORY`](Self::DEFAULT_MEMORY).
+    /// Returns [`DEFAULT_SCALE`](Self::DEFAULT_SCALE) and
+    /// [`DEFAULT_PIXELS`](Self::DEFAULT_PIXELS).
     fn default() -> Self {
         Self {
             scale: Self::DEFAULT_SCALE,
             pixels: Some(Self::DEFAULT_PIXELS),
-            memory: Some(Self::DEFAULT_MEMORY),
         }
     }
 }
 
 /// Returns an SVG document rendered as a PNG image, its text set in
-/// `fonts` (the data of font files), or why it is not: the image would
-/// pass the bound on its pixels, the render the bound on its memory
-/// (both compared before the SVG is parsed, the pixels again after), or
-/// the text is no document the renderer reads.
-pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>, Error> {
+/// `fonts` (the data of font files), within `limits.memory_bytes`.
+///
+/// The memory is an estimate made before the SVG is parsed: it counts the
+/// glyphs of the drawing (usvg sets each as a path, some 1 000 bytes),
+/// its elements, the arcs usvg strokes to bound them and the pixels of
+/// the image; what takes time rather than memory is counted as the memory
+/// the renderer fills in that time, so that the bound keeps a render short
+/// as well: the default is about 8 s of rendering on a slow core at most.
+///
+/// # Errors
+///
+/// [`Refusal::Pixels`](crate::Refusal::Pixels) past
+/// [`Options::pixels`] and [`Refusal::Memory`](crate::Refusal::Memory)
+/// past the memory bound (both compared before the SVG is parsed, the
+/// pixels again after), and [`Error::NotSvg`] for a text that is no
+/// document the renderer reads.
+pub fn from_svg(
+    svg: &str,
+    fonts: &[&[u8]],
+    options: &Options,
+    limits: &crate::Limits,
+) -> Result<Vec<u8>, Error> {
     let scale = options.scale.max(1);
     let pixels_of = |(width, height): (u64, u64)| {
         let side = |n: u64| n.saturating_mul(u64::from(scale));
@@ -91,7 +94,7 @@ pub fn from_svg(svg: &str, fonts: &[&[u8]], options: &Options) -> Result<Vec<u8>
             return Err(too_large(pixels));
         }
         let estimate = measure.estimate(&PNG, pixels);
-        match options.memory {
+        match limits.memory_bytes {
             Some(limit) if estimate > limit => {
                 Err(Error::Refused(crate::limits::Refusal::Memory {
                     phase: crate::limits::Phase::Render,

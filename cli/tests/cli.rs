@@ -301,7 +301,7 @@ fn derivation_limit_and_tree_switch() {
 fn bounded_drawings() {
     let file = scratch("bounded.pdf");
     let path = file.to_str().unwrap();
-    let args = ["prove", "-o", path, "--style", "pdf.memory=1000", "A |- A"];
+    let args = ["prove", "-o", path, "--memory-limit", "1000", "A |- A"];
     let (status, out, err) = linlog(&args, "");
     assert_eq!((status, out.as_str()), (0, ""));
     assert!(

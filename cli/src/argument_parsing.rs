@@ -171,8 +171,7 @@ pub struct ProveArgs {
     /// search at once, each within the limit. A png or pdf render is
     /// estimated before it starts, its time counted as the memory the
     /// renderer fills in it, and left out above the limit (the default
-    /// is a few seconds of rendering); `--style png.memory=BYTES` or
-    /// `pdf.memory` sets that bound alone.
+    /// is a few seconds of rendering).
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
     pub memory_limit: Limit,
     /// The deepest nesting of rules on one branch before the search gives up

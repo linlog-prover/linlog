@@ -409,17 +409,16 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Limits::DEFAULT_MEMORY_BYTES`; on `prove` and `interact`) is
   `Limits::memory_bytes`: a search that passes it answers `unknown …
   the memory limit of 1 GiB was reached; raise it with --memory-limit`,
-  exit status 3. It is also the bound of a PNG or PDF render
-  (`bound_renders`, through `Show::within` and in `interact` and `seq
-  print`, which has the flag for that alone): it replaces
-  `png.memory`/`pdf.memory` where the styles leave them at the library's
-  default, so `--style pdf.memory=BYTES` (or `null`) still sets that
-  bound alone. A render the bound or the pixel bound refuses is a
+  exit status 3. It is also the bound of a PNG or PDF render (`render`'s
+  `memory`, from `Show::limits`, the session's limits and `seq print`,
+  which has the flag for that alone): the library's renders take their
+  bound from `Limits`, and the style has no key of its own for it. A
+  render the bound or the pixel bound refuses is a
   left-out line (`Shown::LeftOut`, as past `--derivation-limit`, naming
   `--memory-limit` or `--style png.pixels`), in a session the command's
   output; in `seq print`, whose drawing is all its output, an error,
   exit 2. `--derivation-limit` is also the bound of a net's drawing
-  (`svg::net`'s `limit`; `net_too_large`'s line names the flag).
+  (`svg::net`'s limits; `net_too_large`'s line names the flag).
   `--occurrence-limit N|none` (`Most`, default
   `Limits::DEFAULT_OCCURRENCES`) is on `SequentInput`, so on every command
   that reads a sequent: `SequentInput::sequent` compares
