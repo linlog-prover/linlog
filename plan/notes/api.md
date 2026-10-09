@@ -8,11 +8,11 @@ now so that step N needs no breaking change after 0.1.0. Written by step
 28's design stage (2026-10-09) from three drafts and two independent
 judgements (`plan/notes/api-drafts/`), walked through against every
 later step (section 12), measured by a spike (section 11) and reviewed
-in a fresh context (end of section 12). It starts
-from the recommended answers to the author's open questions (C1 to C3,
-T1 to T7, HD1 to HD5 of `plan/reports/28-audit.md`), all provisional;
-section 14 says what each other answer would change, and lists the
-decisions this design adds.
+in a fresh context (end of section 12). The author answered the open
+questions (C1 to C3, T1 to T7, HD1 to HD5 of `plan/reports/28-audit.md`)
+and every decision this design adds on 2026-10-09 (section 14): the
+recommended answers, with a converter beside the one wire level
+(decision 4) and link-time optimisation now (T3).
 
 Words: a *form* is a JSON shape the library writes or reads; a *front
 end* is a caller with a clock and a user (the command, `linlog-web`, the
@@ -123,7 +123,7 @@ is measured (section 11).
 linlog                      the re-exports of 2.2
 ├── limits      (new)       Limits, Progress, Phase, Refusal
 ├── settings    (new)       Settings, Clock
-├── wire        (new, serialize) Within, LEVEL: the forms' schema
+├── wire        (new, serialize) Within, upgrade, LEVEL: the forms' schema
 ├── sequents                Sequent, Term, TermId, Kind, Atom, Formula
 │   └── fmt                 Walk, Visit (public, R245)
 ├── fragment                Fragment, Mode
@@ -151,8 +151,8 @@ linlog                      the re-exports of 2.2
 
 `errors` stays private and its types are re-exported; `serialize` stays
 private, and `wire` (feature `serialize`) is its public face: the
-bounded reader `Within` (5.5), `LEVEL`, and the documentation of every
-form, the schema of record (7).
+bounded reader `Within` (5.5), the converter `upgrade` (7.1), `LEVEL`,
+and the documentation of every form, the schema of record (7).
 
 ### 2.2 What `lib.rs` re-exports [28]
 
@@ -204,7 +204,7 @@ have no alias (D18, no compatibility aliases before 0.1.0). All rows are
 |---|---|---|
 | `proofs::Side` (the `⊕` rule's choice), `occurrences::Position` (input or output) | `Branch`, `Side` (the side of `⊢`): `Named.side` and the wire's `side` hold a `Side`, `Step.position` an index (walk-through 32) | D18 |
 | `Term::{Var, DualVar}`, `Kind::{Var, DualVar}`, `Sign::{Var, DualVar}` | `Term::{Atom, DualAtom}`, `Kind::{Atom, DualAtom}`, `Sign::{Atom, Dual}`, discriminants kept (literal groups are `2·atom + sign`); the JSON tags `V`, `D` stay | F25, R251 |
-| `Atom` "a propositional variable" | `Atom` an atomic formula, nullary until step 38 (3.2) | D-4, provisional (14) |
+| `Atom` "a propositional variable" | `Atom` an atomic formula, nullary until step 38 (3.2) | D-4, decision 1 (14) |
 | `Sequent::optimize` sorting the roots, fallible | written order kept (C1); infallible on a sequent that passed `check` | F24, C1 |
 | — | `Sequent::antecedents() -> Option<u32>`, the roots written left of `⊢` | H9, H10, R54, R74 |
 | `Sequent::verify_integrity` | crate-private `Sequent::check` | F51, F83 |
@@ -381,7 +381,8 @@ pub enum Kind { Atom, DualAtom, One, Bot, Top, Zero, Tensor, Par, With, Plus, Ba
 const _: () = assert!(size_of::<Kind>() == 1);
 ```
 
-**The decision** (provisional, for the author: section 14, decision 1).
+**The decision** (section 14, decision 1, answered by the author on
+2026-10-09).
 An `Atom` is an *interned atomic formula*: a predicate symbol applied to
 argument terms, hash-consed in the sequent's atom table, nullary for
 every propositional atom. `Term` keeps `Atom`/`DualAtom` as its only
@@ -1911,6 +1912,31 @@ Stated once in the documentation of the public module `wire` (feature
   ever. Commit (1) of 7.5 regenerates every fixture that holds them; a
   file in them is refused naming the key it lacks (the next item); nothing
   writes them again (R6).
+- **Older levels are converted** [28] (decision 4, the author's):
+  `wire::upgrade` is the one place that knows the forms of released
+  levels. It reads a document of any level from 1 to `wire::LEVEL` and
+  returns the value of the current release, which the writer then writes
+  in the current form (at the lowest level that holds it, P8). A level
+  that changes a form (a key renamed or retyped, a construct represented
+  anew) adds one step from its predecessor; a document that no step can
+  carry is `unsupported_version` saying why. Every reader goes through
+  it, `Within` and the plain `Deserialize` included, so a reader keeps
+  one grammar, the current one. The steps are typed and format-agnostic
+  like `Within`: a level that changes a form keeps the previous level's
+  private proxy for it and a conversion from it, so the library needs no
+  JSON value type. At level 1 it is the identity, built in commit (1) of
+  7.5 or the library area's other wire-form commits, with one test (7.5).
+  It converts between released levels only, never from the pre-release
+  names (the previous item), so it is no alias (D18). The command reads
+  every form through it; a command that rewrites a stored file comes with
+  the first level above 1, when there is something to convert.
+
+  ```rust
+  /// Reads a document of any released level and returns it as a value of
+  /// the current release: an older level through each level's step in turn.
+  pub fn upgrade<'de, T: sealed::Readable, D: Deserializer<'de>>(document: D, limits: &Limits)
+      -> Result<T, Error>;
+  ```
 - **Unknown keys**: a *data* form (sequent, proof, disproof, structure,
   session, ordinary forms, `Reason`, `Refutation`, `Statistics`) ignores
   them, which the level rule makes safe and which lets an outcome be read
@@ -2153,7 +2179,10 @@ the outcome's `statistics` are today's seven counters.
 `core/tests/serialize.rs` keeps what the lock cannot show (F90): each
 form read back, a file in the pre-release names refused naming the
 missing key (7.1), `version: 2` refused by name, an unknown key ignored
-by a data form and refused by an options form, a saturated `Size`
+by a data form and refused by an options form, `wire::upgrade` the
+identity at level 1 (each form's level-1 document read through it equals
+the same read through `Within` and writes back byte for byte), a
+saturated `Size`
 written as `u64::MAX`, a shared-subterm file past `limits.occurrences`
 refused by every reader. Nothing else in this design moves a pinned
 form. [30] commits the
@@ -3252,21 +3281,26 @@ R109 10.10, 8.2 · R110, R111 8.3, 10.9 · R112 8.2 · R113 3.13 · R114
 · R150 6.3 · R151 5.3 · R152 to R171, R242 9, 10 · R183 6.6 · R190 7.3.
 What section 12's walk-through found missing is answered there.
 
-## 14. Decisions for the author
+## 14. Decisions, answered by the author
 
-All provisional until the author answers; the design starts on the
-recommended answers.
+Answered by the author on 2026-10-09, each by the author's own choice:
+the recommended answer to every question and decision below, except
+decision 4, taken with a converter added, and T3, changed to link-time
+optimisation now. Each row keeps what the other answer would have
+changed. The answers are rules under `.claude/rules/`, which the fixes
+implement and later rounds judge against.
 
-### 14.1 The open questions, and what another answer changes here
+### 14.1 The open questions, and what another answer would have changed
 
-| # | provisional answer | what the other answer changes |
+| # | answered by the author, 2026-10-09 | what the other answer would have changed |
 |---|---|---|
 | C1 | the written order canonical at 28 | B (at 36): `optimize` sorts until 36, which then breaks every stored id as a level of its own; `antecedents` lands anyway (H9, H10 need it). C (mode-dependent): ruled out by 3.1, a `Sequent` would mean two things. |
 | C2 | refuters in the library, after the search, `refute_unknown` off | A (inside the Rocq exporter): no refuter kind, no `Refutation::Classical`, the classical search in `rocq`; no front end shows the assignment. B (after an Unprovable only): no `refute_unknown`. |
 | C3 | no nullary Mix | B: a `Node` variant and its tag before 31 (cheaper before 0.1.0 than at a bump), a checker arm, a Rocq constructor; `StepError::EmptyPremise` becomes closable. |
 | T1 | rename the keys with the version; no reader keeps the old names (D18, the author's standing rule) | keep `ids`, `var_dict`, `proof`; only `version`, the tagged reasons and the new keys change, and fewer fixtures change in commit (1). |
 | T2 | owned forests | `Arc<Forest>` inside `Proof`, `Disproof`, `ProofStructure`, `Interactive`: no wire change, cheaper clones in the bindings; signatures keep their shape. |
-| T3, T4, T6, T7 | as the audit recommends | nothing here (R130's no-panic rule stands either way). |
+| T3 | **link-time optimisation now**, not after a measurement (the author's change of the recommendation): `lto = "fat"` and `codegen-units = 1` in `[profile.release]`, a commit of its own early in area 3.1 that re-records the ratchet's ceilings, saying why (the profile moves every count), and notes the gate's longer release build. The spike's counts (11.5) were taken without it, so the gates of 37 and 38 measure under it | the efficiency area measures it on the journeys and pinned time and adopts it only if the gain holds |
+| T4, T6, T7 | as the audit recommends | nothing here (R130's no-panic rule stands either way). |
 | T5 | shared counters, documented per engine | per-engine counters: `statistics` an object per engine, the CSV columns change, a level of the outcome. |
 | HD1 | refuse several conjectures | conjoin them; no `SeveralConjectures`. |
 | HD2 | a `.spec` file is affine | refuse it without `--affine`: an error of kind `unsupported`. |
@@ -3276,12 +3310,12 @@ recommended answers.
 
 ### 14.2 The decisions this design adds
 
-| # | decision | set aside | why |
+| # | decision, answered by the author, 2026-10-09 | set aside | why |
 |---|---|---|---|
 | 1 | **An atom is an interned atomic formula** (3.2): `Term` gains only `Forall`/`Exists` at 38, ground first-order input is propositional by construction; where a symbol has an open atom, the pairing sites are guarded by the binder bit and the counts go per symbol (3.2, 10.10 (f)), guards and not construction | the research's `Term::{Pred, DualPred}(Atom, ArgsId)` with a fragment bit set by any argument (D-4, R52, R62, R16, all three drafts) | eight pairing sites correct for ground atoms by construction instead of by guard; fewer variants; ground problems decided at once (both judges chose it); measured free (the spike's M1d), where the alternative costs 6.6 % unless its literal variants come first (M1, M1b). Amends R52, R62, R16 and D-4's wording |
 | 2 | **The written sides decide the intuitionistic goal** (3.1, 3.6): `antecedents`, one written succedent, no symmetric reading when the sides are known | "the goal is the last root" (refuses neither H9 nor `|- top, a`); refusing every ambiguous `⊤`/`0` input | the only rule that refuses both witnesses; costs one-sided intuitionistic text with several roots, which is refused with advice |
-| 3 | **The stop is a closure over `Progress`**, every `|| false` becoming `|_| false` (5.2) | a `Stop` trait with a blanket impl for `FnMut() -> bool` and a wrapper | one form, inference works (the trait's wrapper does not infer, a judge's probe); D18 allows the break |
-| 4 | **One global wire level** (7.1) | a version per form | one number a client stores; an outcome read as a proof carries one |
+| 3 | **The stop is a closure over `Progress`**, every `|| false` becoming `|_| false` (5.2); the author wants a progress value for front ends and left its form to this recommendation | a `Stop` trait with a blanket impl for `FnMut() -> bool` and a wrapper | one form, inference works (the trait's wrapper does not infer, a judge's probe); D18 allows the break |
+| 4 | **One global wire level** (7.1), **and a converter** (the author's addition): from the first version bump on, linlog converts a document of an older released level to the current one where it can, through one entry, `wire::upgrade`, the identity at level 1, each later level adding its step | a version per form; no converter, an older document read only as it was written | one number a client stores; an outcome read as a proof carries one; a stored file outlives the release that wrote it |
 | 5 | **A mode on the wire is its name** (3.5) | the object of flags with keys added at 36 | 36's modes need no key and cannot be misread as commutative (R10) |
 | 6 | **The refuter kind arrives at 31** with its first new member (8.7) | the kind from 28 with the counts as its first member (draft C) | C2's text; no second member before 31 |
 | 7 | **`Verdict::Unprovable(Box<Disproof>)`** (3.12) | `Unprovable(Refutation)`, callers building a disproof | `Verdict` is closed: now or a bump; 31's checker and certificate need the sequent and mode with the refutation; one arena clone per unprovable outcome |
