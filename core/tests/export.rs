@@ -813,6 +813,8 @@ fn render_bounds_come_first() {
         // An empty `<title/>` hid what followed it from the measure.
         r#"<svg><title/><use href="x"/></svg>"#,
         r#"<svg><desc/><image width="9" height="9"/></svg>"#,
+        // A `>` in a quoted value ended the tag early.
+        r#"<svg><desc class=">"/><use href="x"/><desc></desc></svg>"#,
     ] {
         assert!(
             matches!(

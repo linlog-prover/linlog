@@ -374,21 +374,25 @@ impl Measure {
         while let Some(start) = rest.find('<') {
             measure.glyphs = measure.glyphs.saturating_add(count(&rest[..start]));
             rest = &rest[start..];
-            // What the markup ends with, and the end of it.
-            // A `<title>` or `<desc>` reaches to its end tag, unless its
-            // start tag closes it (`<title/>`): its text is no glyph.
-            let start_tag = &rest[..rest.find('>').map_or(rest.len(), |i| i + 1)];
+            // Where the markup ends: a comment at `-->`, a `<title>` or
+            // `<desc>` at its end tag unless its start tag closes it
+            // (`<title/>`), since its text is no glyph, and any other tag
+            // at its first `>` outside a quoted value.
+            let start_tag = &rest[..tag_end(rest)];
             let empty = start_tag.ends_with("/>");
-            let end = if rest.starts_with("<!--") {
-                "-->"
-            } else if rest.starts_with("<title") && !empty {
-                "</title>"
-            } else if rest.starts_with("<desc") && !empty {
-                "</desc>"
+            let text = [("<title", "</title>"), ("<desc", "</desc>")]
+                .into_iter()
+                .find(|(open, _)| rest.starts_with(open) && !empty)
+                .map(|(_, end)| end);
+            let plain = !rest.starts_with("<!--") && text.is_none();
+            let close = if rest.starts_with("<!--") {
+                rest.find("-->").map_or(rest.len(), |i| i + "-->".len())
+            } else if let Some(end) = text {
+                let after = &rest[start_tag.len()..];
+                start_tag.len() + after.find(end).map_or(after.len(), |i| i + end.len())
             } else {
-                ">"
+                start_tag.len()
             };
-            let close = rest.find(end).map_or(rest.len(), |i| i + end.len());
             let tag = &rest[..close];
             if tag.starts_with("<!") && !tag.starts_with("<!--") {
                 return refused("a document type".to_owned());
@@ -401,11 +405,11 @@ impl Measure {
                 if !ELEMENTS.contains(&name) {
                     return refused(format!("the element <{name}>"));
                 }
-                if end == ">" && tag.contains("href") {
+                if plain && tag.contains("href") {
                     return refused("a reference".to_owned());
                 }
                 measure.elements = measure.elements.saturating_add(1);
-                if end == ">" {
+                if plain {
                     measure.arcs = measure.arcs.saturating_add(arcs(tag));
                 }
             }
@@ -434,6 +438,23 @@ impl Measure {
             sum.saturating_add(n.saturating_mul(cost))
         })
     }
+}
+
+/// Returns the length of the markup that starts `text`, up to and with its
+/// first `>` outside a quoted attribute value: a `>` inside one ended the
+/// tag early, and a `<desc class=">"/>` then hid what followed it.
+#[cfg(any(feature = "png", feature = "pdf"))]
+fn tag_end(text: &str) -> usize {
+    let mut quote = None;
+    for (i, c) in text.char_indices() {
+        match (quote, c) {
+            (None, '>') => return i + 1,
+            (None, '"' | '\'') => quote = Some(c),
+            (Some(open), c) if c == open => quote = None,
+            _ => {}
+        }
+    }
+    text.len()
 }
 
 /// Returns the microseconds stroking the arcs of a start tag's path data
