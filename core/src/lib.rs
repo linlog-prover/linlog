@@ -115,36 +115,26 @@
 
 /// The error types of this crate.
 mod errors;
-/// Export of sequents and derivations to LaTeX, Typst and SVG, and of
-/// proof nets to SVG.
 pub mod export;
-/// Problem families with known verdicts, for benchmarks and tests.
 #[cfg(feature = "parse")]
 pub mod families;
 /// Fragments of linear logic, modes of proof search, and fragment detection.
 pub mod fragment;
 /// The hash tables of this crate.
 mod hash;
-/// The resources a call may use, its progress, and why it was refused.
 pub mod limits;
-/// Problems of the LLTP benchmark library.
 #[cfg(feature = "parse")]
 pub mod lltp;
-/// Coverability problems in the `.spec` format of the Mist tool.
 #[cfg(feature = "parse")]
 pub mod mist;
-/// Proof nets.
 pub mod nets;
 /// The occurrence forest of a sequent and sets over it.
 pub mod occurrences;
-/// Ordinary propositional logic through its embeddings into linear logic.
 pub mod ordinary;
 /// Parsing sequents from text.
 #[cfg(feature = "parse")]
 mod parse;
-/// Proof terms, the checker and derivations.
 pub mod proofs;
-/// Proof search.
 pub mod search;
 /// Sequents and the terms they are built from.
 pub mod sequents;

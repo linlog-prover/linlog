@@ -6,7 +6,7 @@
 //! describes (proof-net search for unit-free MLL, the focused sequent
 //! engine for everything else, one-sided in classical mode and two-sided
 //! in intuitionistic mode, and the additive fast path for two
-//! additive-only formulas), and the [`batch`](crate::search::batch) of
+//! additive-only formulas), and the [`batch`] of
 //! many sequents.
 
 /// The additive fast path.

@@ -4,9 +4,12 @@
 //! The hash tables of this crate. Their keys are small and many (terms while
 //! hash-consing, occurrence sets in the memo tables of proof search), so they
 //! use foldhash, which hashes a few words in a few cycles, instead of the
-//! standard library's SipHash. The seed is fixed: nothing here faces
-//! untrusted input, and a run that hashes the same way every time is
-//! reproducible, on wasm as well, where foldhash has no clock to seed from.
+//! standard library's SipHash. The seed is fixed, so that a run hashes the
+//! same way every time and is reproducible, on wasm as well, where
+//! foldhash has no clock to seed from. Some keys come from a user's input
+//! (the members of a proof file the checker reads, a sequent's terms): a
+//! file crafted to make them collide costs time, which the caller's stop
+//! and bounds end, and never a wrong answer.
 
 /// The hasher every table in this crate uses.
 pub(crate) type BuildHasher = foldhash::fast::FixedState;

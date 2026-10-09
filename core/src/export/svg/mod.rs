@@ -18,10 +18,10 @@
 //! ([`Style::font_size`] pixels), so the text is selectable and the
 //! drawing scales without loss.
 //!
+//! Needs the cargo feature `svg` (on by default).
+//!
 //! # Examples
 //!
-//!
-//! Needs the cargo feature `svg` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::svg::{self, Style};
@@ -72,7 +72,7 @@ pub struct Style {
     pub ids: bool,
     /// Whether a drawing of a derivation or a net carries a `<desc>` that
     /// reads it in order, which a screen reader reads out: the numbered
-    /// inferences of [`Derivation::write_steps`], or the net's links as
+    /// inferences of the derivation, or the net's links as
     /// its text form gives them.
     pub description: bool,
     /// The size of formula text in pixels, which scales the whole drawing.

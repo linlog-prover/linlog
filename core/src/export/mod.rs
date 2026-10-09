@@ -2,25 +2,25 @@
 // Licensed under the EUPL
 
 //! Export of sequents and derivations: to LaTeX with the `ebproof` package
-//! ([`latex`](crate::export::latex), feature `latex`), to Typst with the
+//! ([`latex`], feature `latex`), to Typst with the
 //! `curryst` package or a layout of linlog's own
-//! ([`typst`](crate::export::typst), feature `typst`),
-//! to SVG, with proof nets ([`svg`](crate::export::svg), feature `svg`),
+//! ([`typst`], feature `typst`),
+//! to SVG, with proof nets ([`svg`], feature `svg`),
 //! and to Rocq as proof scripts for the NanoYalla kernel
-//! ([`rocq`](crate::export::rocq), feature `rocq`).
+//! ([`rocq`], feature `rocq`).
 //! Every function is a pure function of its input and of one options
 //! value per target, which holds everything a user may vary and has serde
 //! behind `serialize`; the output is deterministic. Anything
-//! [`Drawable`](crate::export::Drawable), a derivation of linear logic or
+//! [`Drawable`], a derivation of linear logic or
 //! one of LK or LJ, is written into any [`std::fmt::Write`] (a `String`
 //! among them) with a stop condition asked between two inferences, by one
 //! `write` per target of the same signature as the text tree's
 //! ([`Derivation::write_text`](crate::Derivation::write_text)). LaTeX,
 //! Typst and Rocq come as a fragment to paste or as a standalone document
-//! ([`Form`](crate::export::Form)), and SVG is always a whole document.
-//! PNG ([`png`](crate::export::png), feature `png`) and PDF
-//! ([`pdf`](crate::export::pdf), feature `pdf`) render an SVG document of
-//! [`svg`](crate::export::svg) with the fonts the caller gives. [`Styles`](crate::export::Styles)
+//! ([`Form`]), and SVG is always a whole document.
+//! PNG ([`png`], feature `png`) and PDF
+//! ([`pdf`], feature `pdf`) render an SVG document of
+//! [`svg`] with the fonts the caller gives. [`Styles`]
 //! holds the options of every format in one value.
 //!
 //! All targets write formulas with the bracketing of `Display` (every

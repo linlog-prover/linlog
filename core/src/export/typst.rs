@@ -30,10 +30,10 @@
 //! Typst would read a longer name as a variable of its own. Typst is
 //! Unicode throughout, so names beyond ASCII need nothing else.
 //!
+//! Needs the cargo feature `typst` (on by default).
+//!
 //! # Examples
 //!
-//!
-//! Needs the cargo feature `typst` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::typst;

@@ -26,10 +26,10 @@
 //! is written as it is and needs a Unicode engine such as LuaLaTeX with
 //! `unicode-math`, or a declaration of the character for pdfLaTeX.
 //!
+//! Needs the cargo feature `latex` (on by default).
+//!
 //! # Examples
 //!
-//!
-//! Needs the cargo feature `latex` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::latex;

@@ -3,16 +3,16 @@
 
 //! Ordinary propositional logic, classical, intuitionistic and minimal,
 //! decided through its embeddings into linear logic: a sequent of
-//! ordinary formulas ([`Sequent`](crate::ordinary::Sequent)), its image
-//! under a named [`Translation`](crate::ordinary::Translation)
-//! ([`translate`](crate::ordinary::translate), an
-//! [`Image`](crate::ordinary::Image) holding a linear
+//! ordinary formulas ([`Sequent`]), its image
+//! under a named [`Translation`]
+//! ([`translate`], an
+//! [`Image`] holding a linear
 //! [`Sequent`](crate::Sequent) and the mode to prove it in), and the
 //! linear proof read back as a derivation of LK or LJ
-//! ([`Image::read_back`](crate::ordinary::Image::read_back), a
-//! [`Derivation`](crate::ordinary::Derivation) that
-//! [`Derivation::check`](crate::ordinary::Derivation::check) checks by the
-//! rules of the logic); [`decide`](crate::ordinary::decide) does all of it
+//! ([`Image::read_back`], a
+//! [`Derivation`] that
+//! [`Derivation::check`] checks by the
+//! rules of the logic); [`decide`] does all of it
 //! in one call.
 //!
 //! Classical logic goes into affine MALL without exponentials: the
@@ -370,7 +370,7 @@ impl Formulas {
     ///
     /// [`Error::IndexOutOfBounds`] for a subformula that is no node of
     /// this arena (an id of another one) or an atom that is not one of its
-    /// names, and [`Refusal::Index`](crate::Refusal::Index) when the arena
+    /// names, and [`Refusal::Index`] when the arena
     /// is full.
     pub fn add(&mut self, node: Node) -> Result<NodeId, Error> {
         if let Some(&id) = self.ids.get(&node) {
@@ -419,7 +419,7 @@ impl Formulas {
     ///
     /// # Errors
     ///
-    /// [`Refusal::Index`](crate::Refusal::Index) when the arena is full.
+    /// [`Refusal::Index`] when the arena is full.
     pub fn atom(&mut self, name: &str) -> Result<NodeId, Error> {
         let index = match self.names.get(name) {
             Some(&index) => index,
