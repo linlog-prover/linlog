@@ -18,6 +18,7 @@
 //! output-shaped root, the goal, and every other root input-shaped.
 
 use super::{Forest, OccId};
+use crate::errors::describe::{Limit, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::sequents::Kind;
 use crate::sequents::notation::TEXT;
@@ -100,7 +101,7 @@ impl Display for ShapeError {
     /// Writes the reason with occurrence ids, such as `subformula 3 has no
     /// intuitionistic reading`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write(f, None)
+        self.write(f, None, None)
     }
 }
 
@@ -113,11 +114,13 @@ impl ShapeError {
 
     /// Writes the reason as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    pub(crate) fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
-        let occurrence = |f: &mut Formatter<'_>, o: OccId| match forest {
-            Some(forest) => write!(f, "{}", forest.formula(o)),
-            None => write!(f, "{}", o.get()),
-        };
+    pub(crate) fn write(
+        &self,
+        f: &mut Formatter<'_>,
+        forest: Option<&Forest>,
+        limit: Limit,
+    ) -> FmtResult {
+        let occurrence = |f: &mut Formatter<'_>, o: OccId| cut(f, forest, o, limit);
         match self {
             ShapeError::NoGoal => f.write_str(
                 "no formula can be the goal: an intuitionistic sequent has exactly one formula on the right of ⊢",

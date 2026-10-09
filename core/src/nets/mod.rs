@@ -30,6 +30,7 @@ mod skeleton;
 pub use graph::Scratch;
 
 use crate::Error;
+use crate::errors::describe::{Budget, Limit, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
@@ -38,7 +39,7 @@ use crate::proofs::{Node, NodeId, Proof};
 use crate::sequents::{Kind, Sequent, Term};
 use graph::Graph;
 use skeleton::Skeleton;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// The raw index that stands for "no vertex".
 const NONE: u32 = u32::MAX;
@@ -297,14 +298,36 @@ impl NetError {
 
     /// Writes the error as [`Display`] does, with `formula[id]` in place of
     /// every vertex id when a forest is given.
-    pub(crate) fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>) -> FmtResult {
+    pub(crate) fn write(
+        &self,
+        f: &mut Formatter<'_>,
+        forest: Option<&Forest>,
+        limit: Limit,
+    ) -> FmtResult {
+        // Each formula, and each list of them, cut after `limit` characters.
         let vertex = |v: &VertexId| match forest {
             Some(forest) if v.index() < forest.len() => {
-                format!("{}[{}]", forest.formula(v.occ()), v.get())
+                let mut formula = String::new();
+                cut(&mut formula, Some(forest), v.occ(), limit).unwrap();
+                format!("{formula}[{}]", v.get())
             }
             _ => v.get().to_string(),
         };
-        let list = |vs: &[VertexId]| vs.iter().map(vertex).collect::<Vec<_>>().join(", ");
+        let list = |vs: &[VertexId]| {
+            let mut text = String::new();
+            let mut budget = Budget::new(&mut text, limit);
+            let cut_short = vs.iter().enumerate().any(|(i, v)| {
+                let separator = if i == 0 { "" } else { ", " };
+                budget
+                    .write_str(separator)
+                    .and_then(|()| budget.write_str(&vertex(v)))
+                    .is_err()
+            });
+            if cut_short {
+                write!(text, "… ({} vertices)", vs.len()).unwrap();
+            }
+            text
+        };
         use NetError::*;
         match self {
             // A vertex outside the structure has no formula.
@@ -356,7 +379,7 @@ impl NetError {
 impl Display for NetError {
     /// Writes the error with vertex ids.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write(f, None)
+        self.write(f, None, None)
     }
 }
 

@@ -33,6 +33,7 @@
 //! one-sided sequent, so nothing else is intuitionistic about a proof.
 
 use super::{Branch, Node, NodeId, Proof};
+use crate::errors::describe::{Budget, Limit, cut, occurrence};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::Mode;
 use crate::hash::{HashMap, HashSet};
@@ -378,11 +379,7 @@ impl Dyadic {
     /// when a forest is given.
     fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
         let list = |f: &mut Formatter<'_>, ids: &[Member]| {
-            let mut budget = Budget {
-                f,
-                left: limit.unwrap_or(usize::MAX),
-                cut: false,
-            };
+            let mut budget = Budget::new(f, limit);
             for (i, &o) in ids.iter().enumerate() {
                 let written =
                     std::fmt::Write::write_str(&mut budget, if i == 0 { " " } else { ", " })
@@ -408,45 +405,6 @@ impl Dyadic {
             })?;
         }
         Ok(())
-    }
-}
-
-/// The most characters a list of formulas of an error report takes, or
-/// `None` for no bound.
-type Limit = Option<usize>;
-
-/// A writer that passes on at most `left` characters and then fails,
-/// setting `cut`, so that a formula list of an error report stops where
-/// its bound is reached.
-struct Budget<'a, 'b> {
-    /// Where the text goes.
-    f: &'a mut Formatter<'b>,
-    /// The characters it still passes on.
-    left: usize,
-    /// Whether text was held back.
-    cut: bool,
-}
-
-impl std::fmt::Write for Budget<'_, '_> {
-    fn write_str(&mut self, s: &str) -> FmtResult {
-        let n = s.chars().count();
-        if n <= self.left {
-            self.left -= n;
-            return self.f.write_str(s);
-        }
-        let head: String = s.chars().take(self.left).collect();
-        self.f.write_str(&head)?;
-        (self.left, self.cut) = (0, true);
-        Err(std::fmt::Error)
-    }
-}
-
-/// Writes an occurrence as its formula when a forest is given, else as
-/// its id.
-fn occurrence(f: &mut impl std::fmt::Write, forest: Option<&Forest>, o: OccId) -> FmtResult {
-    match forest {
-        Some(forest) => write!(f, "{}", forest.formula(o)),
-        None => write!(f, "{}", o.get()),
     }
 }
 
@@ -705,15 +663,7 @@ impl Invalid {
         write!(f, "node {} ({}", self.node.get(), self.rule.name())?;
         for (i, o) in self.rule.members().enumerate() {
             f.write_str(if i == 0 { " on " } else { ", " })?;
-            let mut budget = Budget {
-                f,
-                left: limit.unwrap_or(usize::MAX),
-                cut: false,
-            };
-            match occurrence(&mut budget, forest, o.occ()) {
-                Err(_) if budget.cut => f.write_str("…")?,
-                written => written?,
-            }
+            cut(f, forest, o.occ(), limit)?;
         }
         for (i, p) in self.rule.premises().enumerate() {
             write!(f, "{}{}", if i == 0 { " from " } else { ", " }, p.get())?;
@@ -729,7 +679,7 @@ impl Invalid {
             Forbidden => f.write_str("the mode forbids the rule"),
             Shape(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
-                e.write(f, forest)
+                e.write(f, forest, limit)
             }
             Succedents { count } => write!(
                 f,
@@ -739,7 +689,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, (*o).occ())?;
+                cut(f, forest, (*o).occ(), limit)?;
                 f.write_str(" is not what the rule acts on")
             }
             NotDual => f.write_str("the literals are not an atom and its negation"),
@@ -748,7 +698,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, (*o).occ())
+                cut(f, forest, (*o).occ(), limit)
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
@@ -756,7 +706,7 @@ impl Invalid {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                occurrence(f, forest, (*o).occ())?;
+                cut(f, forest, (*o).occ(), limit)?;
                 f.write_str(" is not under a ?")
             }
             Surplus => f.write_str(
@@ -2483,6 +2433,24 @@ mod tests {
                 .to_string(),
             "node 2 (⊗ on A ⊗… from 1, 0) with premises ⊢ ~B… (2 formulas) and ⊢ ~A… \
              (2 formulas): premise 0 lacks A"
+        );
+        // The fault's formula is cut too: an axiom on a formula a proof
+        // file can make as long as it likes.
+        let p = proof("|- a * (b * c), ~a", vec![Ax(o(0), o(5))]);
+        let report = |limit| {
+            p.check(Mode::CLASSICAL)
+                .unwrap_err()
+                .describe(p.forest())
+                .abbreviated(limit)
+                .to_string()
+        };
+        assert_eq!(
+            report(Some(3)),
+            "node 0 (ax on a ⊗…, ~a): a ⊗… is not what the rule acts on"
+        );
+        assert_eq!(
+            report(None),
+            "node 0 (ax on a ⊗ (b ⊗ c), ~a): a ⊗ (b ⊗ c) is not what the rule acts on"
         );
         // ⊢ ?~A, A with the ? step missing: a dyadic sequent with Θ.
         let p = proof("!A |- A", vec![Ax(o(1), o(2)), Copy(o(1), n(0))]);

@@ -139,7 +139,11 @@ stays within 64 bytes (a `const` assertion), larger payloads boxed, and
   `Error`, `CheckError`, `NetError` and `ShapeError` returns the one
   `Described`, which prints the message with formulas for ids, read
   from an `Owner` (a `Forest`, `Proof`, `Derivation`, `ProofStructure`
-  or `Interactive`), with `abbreviated(limit)`. Each type writes itself
+  or `Interactive`), with `abbreviated(limit)`, which every writer
+  honours for every formula and every list it writes (`errors::describe::
+  {Budget, cut}`: a fault's member, a net's vertices, a shape's
+  occurrences; a fault's formula left whole printed 134 MB from a proof
+  file of 594 bytes). Each type writes itself
   once, `write(f, Option<&Forest>, …)`, which its `Display` calls with
   `None`, so the two cannot drift; `Error::write` adds the prefix of a
   wrapping variant, the same words its `#[error]` has. `Owner` is not

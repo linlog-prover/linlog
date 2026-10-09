@@ -3,9 +3,79 @@
 
 use super::{Error, INVALID_PROOF};
 use crate::nets::{NetError, ProofStructure};
+use crate::occurrences::OccId;
 use crate::occurrences::{Forest, ShapeError};
 use crate::proofs::{CheckError, Derivation, Proof};
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Display, Formatter, Write};
+
+/// The most characters a formula or a list of formulas of an error report
+/// takes, or `None` for no bound.
+pub(crate) type Limit = Option<usize>;
+
+/// A writer that passes on at most `left` characters and then fails,
+/// setting `cut`, so that a formula or a list of formulas of an error
+/// report stops where its bound is reached.
+pub(crate) struct Budget<'a, W: Write + ?Sized> {
+    /// Where the text goes.
+    pub(crate) f: &'a mut W,
+    /// The characters it still passes on.
+    pub(crate) left: usize,
+    /// Whether text was held back.
+    pub(crate) cut: bool,
+}
+
+impl<'a, W: Write + ?Sized> Budget<'a, W> {
+    /// Returns a writer into `f` that passes on `limit` characters.
+    pub(crate) fn new(f: &'a mut W, limit: Limit) -> Self {
+        Self {
+            f,
+            left: limit.unwrap_or(usize::MAX),
+            cut: false,
+        }
+    }
+}
+
+impl<W: Write + ?Sized> Write for Budget<'_, W> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let n = s.chars().count();
+        if n <= self.left {
+            self.left -= n;
+            return self.f.write_str(s);
+        }
+        let head: String = s.chars().take(self.left).collect();
+        self.f.write_str(&head)?;
+        (self.left, self.cut) = (0, true);
+        Err(fmt::Error)
+    }
+}
+
+/// Writes an occurrence as its formula when a forest is given, else as
+/// its id.
+pub(crate) fn occurrence(
+    f: &mut (impl Write + ?Sized),
+    forest: Option<&Forest>,
+    o: OccId,
+) -> fmt::Result {
+    match forest {
+        Some(forest) => write!(f, "{}", forest.formula(o)),
+        None => write!(f, "{}", o.get()),
+    }
+}
+
+/// Writes an occurrence as [`occurrence`] does, cut after `limit`
+/// characters with `…` after it.
+pub(crate) fn cut(
+    f: &mut (impl Write + ?Sized),
+    forest: Option<&Forest>,
+    o: OccId,
+    limit: Limit,
+) -> fmt::Result {
+    let mut budget = Budget::new(f, limit);
+    match occurrence(&mut budget, forest, o) {
+        Err(_) if budget.cut => budget.f.write_char('…'),
+        written => written,
+    }
+}
 
 /// What owns the occurrences an error names, whose formulas [`Described`]
 /// prints: a forest, or a value built on one.
@@ -104,8 +174,8 @@ impl Display for Described<'_> {
         match self.error {
             Subject::Error(e) => e.write(f, forest, self.limit),
             Subject::Check(e) => e.write(f, forest, self.limit),
-            Subject::Net(e) => e.write(f, forest),
-            Subject::Shape(e) => e.write(f, forest),
+            Subject::Net(e) => e.write(f, forest, self.limit),
+            Subject::Shape(e) => e.write(f, forest, self.limit),
         }
     }
 }
@@ -168,11 +238,11 @@ impl Error {
             }
             Self::Net(e) => {
                 f.write_str("not a proof net: ")?;
-                e.write(f, forest)
+                e.write(f, forest, limit)
             }
             Self::NotIntuitionistic(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
-                e.write(f, forest)
+                e.write(f, forest, limit)
             }
             _ => Display::fmt(self, f),
         }

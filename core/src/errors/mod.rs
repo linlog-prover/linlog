@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 /// Errors printed with formulas for their occurrence ids.
-mod describe;
+pub(crate) mod describe;
 /// The error type for text that is not a sequent.
 #[cfg(feature = "parse")]
 mod parse;
