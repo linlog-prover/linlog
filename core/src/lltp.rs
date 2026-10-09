@@ -32,6 +32,7 @@
 //! Needs the cargo feature `parse` (on by default).
 
 use crate::Limits;
+use crate::errors::ParseError;
 use crate::{Error, Sequent};
 
 /// What stands for a `-` inside an atom name, as the library's Petri nets
@@ -86,16 +87,45 @@ pub enum Status {
 /// characters of a name,
 /// [`Error::SeveralConjectures`] for a file with more than one conjecture,
 /// whose meaning in linear logic no convention fixes, and
-/// [`Error::Parse`] for a formula this crate's parser rejects, and the
-/// parser's refusal of a sequent past `limits.occurrences`.
+/// [`Error::Parse`] for a formula this crate's parser rejects, its place
+/// that in the file, and the parser's refusal of a sequent past
+/// `limits.occurrences`.
 pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let clauses = clauses(text, |message| Error::Lltp { message })?;
-    let text = format!(
-        "{} |- {}",
-        clauses.hypotheses().collect::<Vec<_>>().join(", "),
-        clauses.conjecture()
-    );
-    let sequent = Sequent::parse_within(&text, limits)?;
+    // The sequent as text, and where each formula of the file starts in it.
+    let mut sequent = String::new();
+    let mut pieces = Vec::new();
+    let ranges = clauses.hypotheses.iter().chain([&clauses.conjecture]);
+    for (i, range) in ranges.enumerate() {
+        sequent.push_str(match i {
+            0 => "",
+            _ if i == clauses.hypotheses.len() => " |- ",
+            _ => ", ",
+        });
+        pieces.push((sequent.len(), range.clone()));
+        sequent.push_str(&clauses.code[range.clone()]);
+    }
+    if clauses.hypotheses.is_empty() {
+        sequent.insert_str(0, "|- ");
+        pieces[0].0 += 3;
+    }
+    let sequent = Sequent::parse_within(&sequent, limits).map_err(|error| match error {
+        Error::Parse(error) => {
+            // The formula a byte of the sequent belongs to, and where in
+            // the file's text: past a formula's end is that end.
+            let at = |byte: usize| {
+                let (start, range) = pieces
+                    .iter()
+                    .rev()
+                    .find(|(start, _)| *start <= byte)
+                    .unwrap_or(&pieces[0]);
+                let offset = byte.saturating_sub(*start);
+                (range.start + offset.min(range.len()), offset >= range.len())
+            };
+            Error::Parse(Box::new(clauses.located(text, &error, at)))
+        }
+        other => other,
+    })?;
     Ok(Problem {
         sequent,
         status: clauses.status,
@@ -122,9 +152,58 @@ impl Clauses {
         self.hypotheses.iter().map(|r| &self.code[r.clone()])
     }
 
+    /// Returns the text of the clauses: the file's without comments,
+    /// with the names made readable.
+    pub(crate) fn code(&self) -> &str {
+        &self.code
+    }
+
     /// Returns the conjecture's formula.
     pub(crate) fn conjecture(&self) -> &str {
         &self.code[self.conjecture.clone()]
+    }
+
+    /// Returns the byte of `file`, the text these clauses were read from,
+    /// where byte `at` of their text stands. The text keeps the file's
+    /// lines and puts one character for each, up to a comment, so the
+    /// line and the character in it are the file's.
+    fn in_file(&self, file: &str, at: usize) -> usize {
+        let before = &self.code[..at];
+        let line = before.matches('\n').count();
+        let column = before[before.rfind('\n').map_or(0, |n| n + 1)..]
+            .chars()
+            .count();
+        let start: usize = file.split_inclusive('\n').take(line).map(str::len).sum();
+        let rest = &file[start..];
+        start
+            + rest
+                .char_indices()
+                .nth(column)
+                .map_or(rest.len(), |(i, _)| i)
+    }
+
+    /// Returns a parse error of the clauses' formulas with its place in
+    /// `file`, the text they were read from, `at` mapping a byte of the
+    /// parsed text to a byte of theirs and whether it lies at a formula's
+    /// end or past it: such an error is at the next character of the file
+    /// that is no white space, where the formula should have gone on.
+    pub(crate) fn located(
+        &self,
+        file: &str,
+        error: &ParseError,
+        at: impl Fn(usize) -> (usize, bool),
+    ) -> ParseError {
+        let (byte, ended) = at(error.span.start);
+        let mut start = self.in_file(file, byte);
+        if ended {
+            let rest = &file[start..];
+            start += rest.len() - rest.trim_start().len();
+        }
+        if error.reserved {
+            let end = self.in_file(file, at(error.span.end).0);
+            return ParseError::reserved(file, start..end.max(start), error.expected);
+        }
+        ParseError::new(file, start, error.expected)
     }
 }
 
@@ -330,6 +409,27 @@ mod tests {
             let problem = read(text, &Limits::default()).unwrap();
             assert_eq!(problem.sequent, "|- a -o b".parse().unwrap(), "{text}");
         }
+    }
+
+    /// A formula that does not parse is reported at its place in the
+    /// file, not in the sequent assembled from the clauses: a formula cut
+    /// short where its clause closes, and a reserved word in a name's
+    /// place after a comment and a name with a hyphen.
+    #[test]
+    fn parse_errors_are_placed_in_the_file() {
+        let place = |text: &str| match read(text, &Limits::default()) {
+            Err(Error::Parse(e)) => (e.line, e.column, e.found.clone(), e.reserved),
+            other => panic!("{other:?}"),
+        };
+        let text = "fof(a1, axiom, a).\nfof(a2, axiom, b * ).\nfof(c, conjecture, a).";
+        assert_eq!(place(text), (2, 20, Some(")".to_owned()), false));
+        let text =
+            "% a comment\nfof(a1, axiom, P-a % and one more\n * forall).\nfof(c, conjecture, a).";
+        assert_eq!(place(text), (3, 4, Some("forall".to_owned()), true));
+        assert_eq!(
+            place("fof(c, conjecture, a * )."),
+            (1, 24, Some(")".to_owned()), false)
+        );
     }
 
     /// A second conjecture is refused by name: joined right of `⊢`, the

@@ -373,16 +373,31 @@ pub struct Problem {
 pub fn read_tptp(text: &str) -> Result<Problem, Error> {
     let clauses = clauses(text, |message| Error::Tptp { message })?;
     let mut formulas = Formulas::default();
-    let mut read = |text: &str| {
+    let mut read = |formula: &str| {
         let mut parser = Parser {
-            input: text,
+            input: formula,
             at: 0,
             dialect: Dialect::Tptp,
             formulas: &mut formulas,
             pending: Vec::new(),
             open: 0,
         };
-        parser.formula().map(|(formula, _)| formula)
+        // A parse error's place in the file, which the formula is a part of.
+        let (start, len) = (
+            formula.as_ptr() as usize - clauses.code().as_ptr() as usize,
+            formula.len(),
+        );
+        parser
+            .formula()
+            .map(|(formula, _)| formula)
+            .map_err(|error| {
+                if let Error::Parse(error) = error {
+                    let at = |at: usize| (start + at.min(len), at >= len);
+                    Error::Parse(Box::new(clauses.located(text, &error, at)))
+                } else {
+                    error
+                }
+            })
     };
     let left = clauses
         .hypotheses()
@@ -453,6 +468,16 @@ mod tests {
             Err(Error::Tptp { .. })
         ));
         assert!(read_tptp("fof(c, conjecture, p -> q).").is_err());
+        // A formula that does not parse is placed in the file, here on its
+        // second line where the clause closes too early.
+        let place = |text: &str| match read_tptp(text) {
+            Err(Error::Parse(e)) => (e.line, e.column, e.found.clone()),
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(
+            place("fof(a, axiom, p).\nfof(b, axiom, p & ).\nfof(c, conjecture, p)."),
+            (2, 19, Some(")".to_owned()))
+        );
     }
 
     /// A second conjecture is refused by name: right of `⊢` the two would
