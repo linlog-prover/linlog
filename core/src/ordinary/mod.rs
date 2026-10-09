@@ -423,14 +423,21 @@ impl Formulas {
     }
 
     /// Returns the atom called `name`, adding it unless the arena has it.
+    /// The name is an identifier of the text syntax and none of its
+    /// keywords, so that the formula written as text reads back as itself:
+    /// neither `true` nor `false`, nor a keyword of the linear syntax, since
+    /// the atom keeps its name in the translations.
     ///
     /// # Errors
     ///
-    /// [`Refusal::Index`] when the arena is full.
+    /// [`Error::AtomName`] for a name that is no identifier, a keyword or a
+    /// word reserved for a later version of the syntax (`forall`,
+    /// `exists`), and [`Refusal::Index`] when the arena is full.
     pub fn atom(&mut self, name: &str) -> Result<NodeId, Error> {
         let index = match self.names.get(name) {
             Some(&index) => index,
             None => {
+                crate::sequents::name::check_ordinary(name)?;
                 let index = self.atoms.len() as u32;
                 self.atoms.push(name.to_owned());
                 self.names.insert(name.to_owned(), index);
@@ -703,24 +710,13 @@ mod tests {
         assert!(Sequent::new(formulas, vec![], vec![x]).is_ok());
     }
 
-    /// In minimal logic false is an atom of its own, also beside an atom
-    /// that a TPTP problem names `false`.
+    /// A TPTP problem cannot name an atom `false`, which the ordinary
+    /// syntax reads as the constant and minimal logic's false is the atom
+    /// of.
     #[test]
     fn false_is_no_atom_of_the_sequent() {
-        let problem =
-            read_tptp("fof(a, axiom, p). fof(b, axiom, ~p). fof(c, conjecture, false).").unwrap();
-        for translation in [
-            Translation::CallByName,
-            Translation::CallByValue,
-            Translation::ZeroOne,
-        ] {
-            let image = translate(&problem.sequent, Logic::Minimal, translation).unwrap();
-            let outcome = prove(image.sequent(), image.mode(), &Search::default()).unwrap();
-            assert!(
-                !matches!(outcome.verdict, Verdict::Proved(_)),
-                "{translation}"
-            );
-        }
+        let read = read_tptp("fof(a, axiom, p). fof(b, axiom, ~p). fof(c, conjecture, false).");
+        assert!(matches!(read, Err(Error::AtomName { name }) if name == FALSE));
     }
 
     /// Every translation decides the sequents of its logic as the logic

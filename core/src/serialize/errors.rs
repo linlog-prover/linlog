@@ -92,6 +92,7 @@ impl Serialize for Details<'_> {
             Antecedents { antecedents, roots } => {
                 entries!(s; "antecedents" => antecedents; "roots" => roots)
             }
+            AtomName { name } => entries!(s; "name" => name),
             #[cfg(feature = "interactive")]
             InconsistentSession { reason } => entries!(s; "reason" => reason),
             Check(e) => e.serialize(s),

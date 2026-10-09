@@ -6,6 +6,8 @@
 
 /// Printing sequents and formulas in one-sided notation.
 pub mod fmt;
+/// Atom names: identifiers of the text syntax that no keyword takes.
+pub(crate) mod name;
 /// The terms an arena is built from.
 pub mod term;
 
@@ -29,11 +31,14 @@ use crate::hash::HashMap;
 /// postfix `^`, over the constants `0`, `1`, `bot`/`⊥` and `top`/`⊤`,
 /// variables and parentheses. A variable is a Unicode identifier (it
 /// starts with `_` or a character of `XID_Start` and goes on with
-/// characters of `XID_Continue`); `bot`, `top` and `par` are that constant
-/// or connective only as whole identifiers, and `par` only where a
-/// connective can stand, so that it is a variable where a formula starts.
-/// Text that is no sequent is `Error::Parse`, whose
-/// `ParseError` says where.
+/// characters of `XID_Continue`) other than the keywords `bot`, `top` and
+/// `par`, which are that constant or connective only as whole
+/// identifiers, and the words `forall` and `exists`, which are reserved
+/// for the quantifiers of a later version: the syntax grows by new tokens
+/// only, never by a new meaning of text that reads today. Text that is no
+/// sequent is `Error::Parse`, whose `ParseError` says where. Every atom
+/// name of a sequent, however it was read, is such a variable, so that
+/// the sequent written as text reads back as itself.
 ///
 /// The sequent is kept one-sided in negation normal form: the formulas
 /// left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a negation
@@ -57,10 +62,11 @@ use crate::hash::HashMap;
 /// root formulas, in the order written, and `antecedents` how many of
 /// them, the first, stand left of `⊢`, written whenever the sides are
 /// known, `0` included, and absent where they are not. Reading checks
-/// that every term names only terms before it and that `antecedents` is
-/// at most the number of roots, takes a name the table repeats as one
-/// atom, and counts the occurrences against the limits before anything
-/// unfolds. The command's `seq json` writes this form.
+/// that every term names only terms before it, that `antecedents` is at
+/// most the number of roots and that every atom name is a variable of the
+/// text syntax (`Error::AtomName` otherwise), takes a name the table
+/// repeats as one atom, and counts the occurrences against the limits
+/// before anything unfolds. The command's `seq json` writes this form.
 ///
 #[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
 #[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]

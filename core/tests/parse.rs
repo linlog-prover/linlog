@@ -175,6 +175,9 @@ fn error_positions() {
         ("A ⊢ B ⊢ C", 8, Some("⊢")),
         ("(A ⊢ A)", 3, Some("⊢")),
         ("|- A)", 4, Some(")")),
+        // A keyword where a formula starts is the whole word.
+        ("|- par par par", 3, Some("par")),
+        ("|- A * forall", 7, Some("forall")),
     ] {
         let Err(Error::Parse(error)) = input.parse::<Sequent>() else {
             panic!("{input:?} is no parse error");
@@ -208,6 +211,17 @@ fn error_places_and_expectations() {
     assert_eq!(
         (e.found, e.expected),
         (None, &["a connective", "`,`", "`|-`"][..])
+    );
+    // A word reserved for the quantifiers names no atom.
+    let e = error("exists |- é");
+    assert_eq!(
+        (&e.span, &e.span_utf16, e.reserved),
+        (&(0..6), &(0..6), true)
+    );
+    assert_eq!(
+        e.to_string(),
+        "\"exists\", a word reserved for a later version of the syntax, at line 1, character \
+         1, expected a formula or `|-`"
     );
 }
 

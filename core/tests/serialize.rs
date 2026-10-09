@@ -85,6 +85,27 @@ fn repeated_atom_name_is_one_atom() {
     assert!(matches!(outcome.verdict, linlog::Verdict::Proved(_)));
 }
 
+/// An atom's name is a variable of the text syntax, so that the sequent
+/// written as text reads back as itself: an atom named `top` printed as
+/// the unit, and `a b` as no sequent.
+#[test]
+fn atom_names_are_variables_of_the_text() {
+    for name in ["top", "par", "forall", "a b", "", "1", "a\u{7}"] {
+        let json = format!(
+            r#"{{"version":1,"terms":[{{"V":0}}],"roots":[0],"atoms":[{}]}}"#,
+            serde_json::to_string(name).unwrap()
+        );
+        let read = linlog::wire::upgrade::<Sequent, _>(
+            &mut serde_json::Deserializer::from_str(&json),
+            &linlog::Limits::default(),
+        );
+        assert!(
+            matches!(&read, Err(linlog::Error::AtomName { name: n }) if n == name),
+            "{name:?}: {read:?}"
+        );
+    }
+}
+
 /// JSON whose arena breaks an invariant is rejected on deserialization.
 #[test]
 fn broken_arena_is_rejected() {

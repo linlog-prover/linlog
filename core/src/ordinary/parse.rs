@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
     fn identifier(&mut self) -> Option<&'a str> {
         let rest = self.rest();
         let first = rest.chars().next()?;
-        if !(first == '_' || unicode_ident::is_xid_start(first)) {
+        if !crate::sequents::name::starts_identifier(first) {
             return None;
         }
         let end = rest

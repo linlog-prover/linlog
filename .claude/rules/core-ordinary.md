@@ -63,9 +63,10 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   then the formulas right of `⊢`), so `Image::roots[i]` is the linear
   root `i`; `antecedents` is the number of hypotheses in ILL, whose images
   are duals, and `0` classically, where every image stands right of `⊢`.
-- **Minimal logic**: false is the atom `FALSE` (`false`, which the ordinary
-  syntax cannot name, but a TPTP problem can: then `_`s are appended until
-  the name is free, and `false_is_no_atom_of_the_sequent` pins it), so no `0` exists and `⊥L` cannot arise; the checker
+- **Minimal logic**: false is the atom `FALSE` (`false`, which no
+  ordinary atom can be named: `Formulas::atom` refuses the keywords of
+  both syntaxes, so a TPTP problem naming `false` is `Error::AtomName`,
+  `false_is_no_atom_of_the_sequent`), so no `0` exists and `⊥L` cannot arise; the checker
   refuses `⊥L` in minimal logic anyway. An intuitionistic or minimal
   sequent with nothing right of `⊢` is decided as `Γ ⊢ ⊥`, and `Image::ordinary`
   is that sequent; more than one formula right is `Error::Succedents`.

@@ -53,9 +53,8 @@ pub(super) struct Pattern {
 }
 
 /// The name of the atom false is translated as in minimal logic, which no
-/// atom of this crate's syntax can have, `false` being the constant there;
-/// a TPTP problem can name an atom `false`, and then the atom of false
-/// has as many `_` appended as make it a name of its own.
+/// atom of an ordinary sequent can have, `false` being a keyword of its
+/// syntax.
 pub const FALSE: &str = "false";
 
 /// The classical translation's function for a formula right of `⊢`.
@@ -321,13 +320,6 @@ pub fn translate(
         Translation::CallByName | Translation::CallByValue => 1,
     };
 
-    // False's atom in minimal logic, which no atom of the sequent may be
-    // (a TPTP problem can name an atom `false`).
-    let mut falsity = FALSE.to_owned();
-    while formulas.atom_names().contains(&falsity) {
-        falsity.push('_');
-    }
-
     // Every node's image under every function, right of `⊢` and dual,
     // in index order, so that the operands' images are there: an
     // implication of an equivalence is made before the equivalence's
@@ -377,7 +369,7 @@ pub fn translate(
                         | Node::And(..)
                         | Node::Or(..)
                         | Node::Implies(..)
-                        | Node::Iff(..) => &falsity,
+                        | Node::Iff(..) => FALSE,
                     };
                     let atom = builder.atom(name);
                     let (var, dual) = (

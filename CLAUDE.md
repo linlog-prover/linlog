@@ -22,8 +22,8 @@ goal: the data structures are compact and cache-friendly.
 
 Workspace crates:
 - `core/` is package **`linlog`**: all logic. It has seven optional
-  default features, `parse` (the text parser, with unicode-ident for the
-  identifiers, and the LLTP reader and the generated families),
+  default features, `parse` (the text parser, the LLTP reader and the
+  generated families),
   `serialize` (serde), `interactive` (step-by-step proving), and
   `latex`, `typst`, `svg` and `rocq` (the exports), and three off by
   default, `parallel` (rayon: the search on a thread pool, off for

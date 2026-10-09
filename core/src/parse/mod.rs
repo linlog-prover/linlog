@@ -20,6 +20,7 @@ use crate::errors::ParseError;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
+use crate::sequents::name::{RESERVED, starts_identifier};
 use crate::sequents::{Atom, Sequent, Term, TermId};
 
 /// A binary connective as it is written.
@@ -84,11 +85,6 @@ enum State {
     Operator(TermId),
     /// Nothing: the sequent is complete.
     End,
-}
-
-/// Returns whether an identifier may start with `c`.
-fn starts_identifier(c: char) -> bool {
-    c == '_' || unicode_ident::is_xid_start(c)
 }
 
 /// A sequent in the reading: the text and the place in it, the arena so
@@ -340,6 +336,15 @@ impl<'a> Parser<'a> {
             _ if starts_identifier(c) => match self.identifier(start) {
                 "bot" => Term::Bot,
                 "top" => Term::Top,
+                // The connective, where only a formula can stand.
+                "par" => {
+                    let error = ParseError::spanning(self.input, start..self.at, self.operands());
+                    return Err(error.into());
+                }
+                word if RESERVED.contains(&word) => {
+                    let error = ParseError::reserved(self.input, start..self.at, self.operands());
+                    return Err(error.into());
+                }
                 name => Term::Atom(self.atom(name)),
             },
             _ => return Err(self.unexpected(start, self.operands())),

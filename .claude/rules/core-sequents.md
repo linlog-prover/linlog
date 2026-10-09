@@ -132,13 +132,28 @@ time and memory linear in the text. What the code relies on:
   first, dualises a flagged term (`Term::dual`) and passes the flag to
   its subterms. Before `optimize` every term has one parent, which is
   what makes the flag well defined.
-- **Tokens depend on the state**: `par` is the connective only where a
-  connective can stand and a variable where a formula starts (`|- par par
-  par` is `par ⅋ par`); `bot` and `top` are constants only as whole
-  identifiers; `|-` is the turnstile only on the left side outside every
+- **Tokens depend on the state**: `par` is the connective where a
+  connective can stand and an error where a formula starts (`|- par par
+  par` is refused at the first); `bot` and `top` are constants only as
+  whole identifiers; `forall` and `exists` are refused where a formula
+  starts as reserved (`ParseError::reserved`, the word's span, `reserved`
+  set); `|-` is the turnstile only on the left side outside every
   parenthesis, and anywhere else a `|` before a `-` that starts no
   formula. An identifier starts with `_` or `XID_Start` and goes on with
-  `XID_Continue` (the `unicode-ident` crate's tables).
+  `XID_Continue` (the `unicode-ident` crate's tables, a dependency of
+  every build: names enter through JSON and `ordinary::Formulas::atom`
+  as well).
+- **One check of an atom name** (`sequents/name.rs`, `name::check`):
+  an identifier that is no keyword (`par`, `top`, `bot`) and no reserved
+  word (`forall`, `exists`), else `Error::AtomName` (code `atom_name`,
+  malformed); `check_ordinary` refuses `true` and `false` besides, since
+  an ordinary atom keeps its name in the linear image, which may hold
+  minimal logic's atom `false`. The JSON sequent reader and `mist::read`
+  call `check`, `ordinary::Formulas::atom` (so the ordinary text and
+  TPTP readers) `check_ordinary`; the linear text parser and with it
+  `lltp::read` refuse the same words as parse errors. A new reader of
+  names calls it too, so that every sequent written as text reads back
+  as itself (H19: a JSON atom named `top` printed as the unit).
 - **An error is one `ParseError`**: the byte span of the first character
   that cannot go on a sequent, and that character, or the end of the
   input; the same place in UTF-16 code units (what an editor in

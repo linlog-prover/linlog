@@ -92,10 +92,10 @@ pub enum Safety {
 /// [`Error::Spec`] for text that is not such a problem: a section missing
 /// or out of order, a counter not declared, a counter updated twice by one
 /// rule or from another counter, a counter given twice in `init`, a count
-/// that is no number below 2³², or
-/// a counter named `top` or `bot`, which this crate's syntax reads as a
-/// unit; [`Refusal::Occurrences`] for more
-/// tokens than the bound.
+/// that is no number below 2³²; [`Error::AtomName`] for a counter named
+/// by a keyword of the text syntax (`top` and `bot` are its units) or a
+/// word reserved for a later version of it; [`Refusal::Occurrences`] for
+/// more tokens than the bound.
 #[expect(
     clippy::missing_panics_doc,
     reason = "the expects state facts of the problem the reader has checked"
@@ -115,11 +115,7 @@ pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let mut names = Vec::new();
     while !reader.at_keyword("rules") {
         let name = reader.name()?;
-        if name == "top" || name == "bot" {
-            return Err(error(format!(
-                "a counter named `{name}`, which this crate's syntax reads as a unit"
-            )));
-        }
+        crate::sequents::name::check(name)?;
         names.push(name);
     }
     let index: HashMap<&str, usize> = names.iter().enumerate().map(|(i, &n)| (n, i)).collect();
@@ -662,10 +658,18 @@ mod tests {
             "vars a rules a >= 1 -> a' = a + 1, a' = a - 1; init target a >= 1",
             "vars a b rules a >= 4 -> a' = a - 4, b' = b + 1; init a >= 1, a = 3 target b >= 1",
             "vars a rules init a = 4294967296 target a >= 1",
-            "vars top rules init target top >= 1",
         ] {
             assert!(
                 matches!(read(bad, &Limits::default()), Err(Error::Spec { .. })),
+                "{bad:?}"
+            );
+        }
+        for bad in [
+            "vars top rules init target top >= 1",
+            "vars forall rules init target forall >= 1",
+        ] {
+            assert!(
+                matches!(read(bad, &Limits::default()), Err(Error::AtomName { .. })),
                 "{bad:?}"
             );
         }

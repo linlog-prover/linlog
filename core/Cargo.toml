@@ -19,13 +19,13 @@ resvg = { version = "0.47", default-features = false, features = [
 ], optional = true }
 serde = { version = "1.0.228", features = ["derive"], optional = true }
 thiserror = "2.0.17"
-unicode-ident = { version = "1.0.26", optional = true }
+unicode-ident = "1.0.26"
 
 [features]
 default = ["interactive", "latex", "parse", "rocq", "serialize", "svg", "typst"]
 interactive = []
 latex = []
-parse = ["dep:unicode-ident"]
+parse = []
 rocq = []
 serialize = ["dep:serde"]
 svg = []

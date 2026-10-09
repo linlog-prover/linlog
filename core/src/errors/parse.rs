@@ -27,25 +27,56 @@ pub struct ParseError {
     pub found: Option<String>,
     /// What could have stood there, in words.
     pub expected: &'static [&'static str],
+    /// Whether what was found is a word reserved for a later version of
+    /// the syntax (`forall`, `exists`), which names no atom.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(skip_serializing_if = "std::ops::Not::not")
+    )]
+    pub reserved: bool,
 }
 
 impl ParseError {
     /// Returns the error for the character of `input` at byte `at`, or for
     /// the end of the input there.
     pub(crate) fn new(input: &str, at: usize, expected: &'static [&'static str]) -> Self {
-        let found = input[at..].chars().next();
-        let end = at + found.map_or(0, char::len_utf8);
-        let before = &input[..at];
+        let end = at + input[at..].chars().next().map_or(0, char::len_utf8);
+        Self::spanning(input, at..end, expected)
+    }
+
+    /// Returns the error for the reserved word of `input` that spans
+    /// `span`, where `expected` could have stood.
+    pub(crate) fn reserved(
+        input: &str,
+        span: Range<usize>,
+        expected: &'static [&'static str],
+    ) -> Self {
+        Self {
+            reserved: true,
+            ..Self::spanning(input, span, expected)
+        }
+    }
+
+    /// Returns the error for the text of `input` that spans `span`, the
+    /// empty span at the end of the input for its end.
+    pub(crate) fn spanning(
+        input: &str,
+        span: Range<usize>,
+        expected: &'static [&'static str],
+    ) -> Self {
+        let before = &input[..span.start];
+        let found = &input[span.clone()];
         let start_of_line = before.rfind('\n').map_or(0, |n| n + 1);
         let utf16 = |text: &str| text.chars().map(char::len_utf16).sum::<usize>();
         let start_utf16 = utf16(before);
         Self {
-            span: at..end,
-            span_utf16: start_utf16..start_utf16 + found.map_or(0, char::len_utf16),
+            span_utf16: start_utf16..start_utf16 + utf16(found),
             line: before.matches('\n').count() + 1,
             column: before[start_of_line..].chars().count() + 1,
-            found: found.map(String::from),
+            found: (!found.is_empty()).then(|| found.to_owned()),
+            span,
             expected,
+            reserved: false,
         }
     }
 }
@@ -56,6 +87,12 @@ impl fmt::Display for ParseError {
     /// a formula`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.found {
+            Some(word) if self.reserved => {
+                write!(
+                    f,
+                    "{word:?}, a word reserved for a later version of the syntax,"
+                )?;
+            }
             Some(token) => write!(f, "unexpected {token:?}")?,
             None => f.write_str("unexpected end of input")?,
         }

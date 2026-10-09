@@ -171,6 +171,15 @@ pub enum Error {
         /// How many root formulas it has.
         roots: usize,
     },
+    /// An atom name read from a file or given to a constructor is no
+    /// identifier of the text syntax, or is one of its keywords or a word
+    /// reserved for a later version of it, so that the sequent written as
+    /// text would not read back as itself.
+    #[error("the atom name {name:?} {}", crate::sequents::name::fault(name))]
+    AtomName {
+        /// The name.
+        name: String,
+    },
     /// The parts of an interactive proof read back do not fit together, as
     /// the reason says.
     #[cfg(feature = "interactive")]
@@ -433,6 +442,7 @@ impl Error {
         "index_out_of_bounds",
         "not_topological",
         "antecedents",
+        "atom_name",
         "inconsistent_session",
         "invalid_proof",
         "invalid_net",
@@ -484,7 +494,8 @@ impl Error {
             Self::Version { .. } => Unsupported,
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
-            | Self::Antecedents { .. } => Malformed,
+            | Self::Antecedents { .. }
+            | Self::AtomName { .. } => Malformed,
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => Malformed,
             Self::Check(CheckError::Invalid(_)) => Invalid,
@@ -547,6 +558,7 @@ impl Error {
             Self::IndexOutOfBounds { .. } => "index_out_of_bounds",
             Self::NotTopological { .. } => "not_topological",
             Self::Antecedents { .. } => "antecedents",
+            Self::AtomName { .. } => "atom_name",
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => "inconsistent_session",
             Self::Check(CheckError::Invalid(_)) => "invalid_proof",
