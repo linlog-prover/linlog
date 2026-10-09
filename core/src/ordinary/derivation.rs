@@ -1344,6 +1344,55 @@ mod tests {
                 .iter()
                 .any(|i| i.rule == Rule::FalseRight)
         );
+        // A split (LJ's →L) whose conclusion holds a hypothesis neither
+        // premise has, the right sides agreeing.
+        let mut split = derivation.clone();
+        let extra = split.inferences[axiom].left[0];
+        split.inferences[left].left.push(extra);
+        let at_split = format!("inference {left} (→L): the premises do not share or split");
+        assert!(reason(&split).starts_with(&at_split), "{}", reason(&split));
+        // A contraction whose premise holds its formula not at all, or
+        // once (through a weakening), on either side: `a, b ⊢ a` and
+        // `a ⊢ a, b` from `a ⊢ a`.
+        let base = read("a -> b, a |- b", Logic::Classical, Translation::Affine);
+        let atom = |i| base.formulas.ids[&Node::Atom(i)];
+        let (a, b) = (atom(0), atom(1));
+        let sides = [
+            (Rule::ContractLeft, Rule::WeakenLeft, Side::Left),
+            (Rule::ContractRight, Rule::WeakenRight, Side::Right),
+        ];
+        for (contract, weaken, side) in sides {
+            let with_b = match side {
+                Side::Left => (vec![a, b], vec![a]),
+                Side::Right => (vec![a], vec![a, b]),
+            };
+            let make = |rule, premises: Vec<InfId>| Inference {
+                left: with_b.0.clone(),
+                right: with_b.1.clone(),
+                rule,
+                principal: Some((side, 1)),
+                premises,
+            };
+            let axiom = Inference {
+                left: vec![a],
+                right: vec![a],
+                rule: Rule::Axiom,
+                principal: None,
+                premises: Vec::new(),
+            };
+            let once = make(weaken, vec![InfId::new(0)]);
+            for inferences in [
+                vec![axiom.clone(), make(contract, vec![InfId::new(0)])],
+                vec![axiom, once, make(contract, vec![InfId::new(1)])],
+            ] {
+                let mut contracted = base.clone();
+                let root = inferences.len() - 1;
+                contracted.inferences = inferences;
+                (contracted.left, contracted.right) = with_b.clone();
+                let expected = format!("inference {root} ({contract}): the premise is not what");
+                assert!(reason(&contracted).starts_with(&expected), "{contract}");
+            }
+        }
         let one = unbounded.with_work(Some(1));
         assert_eq!(
             derivation.check(&one, |_| false),
