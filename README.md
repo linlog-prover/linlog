@@ -891,14 +891,14 @@ modus ponens: provable (MLL, classical, net engine)
 sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
 broken: error: cannot parse the sequent
    A |- (
-         ^ unexpected end of input
+         ^ unexpected end of input, expected a formula
 $ linlog prove --input-format lines --file sequents.txt --format svg --output drawings
 identity: provable (MLL, classical, net engine)
 modus ponens: provable (MLL, classical, net engine)
 sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
 broken: error: cannot parse the sequent
    A |- (
-         ^ unexpected end of input
+         ^ unexpected end of input, expected a formula
 ```
 
 The exit status is the worst verdict: an error (2) before unknown (3)

@@ -68,7 +68,7 @@ fn parse_errors() {
     };
     assert_eq!(
         error(&["seq", "fragment", "|- A * )"], ""),
-        "error: cannot parse the sequent\n  |- A * )\n         ^ unexpected \")\"\n"
+        "error: cannot parse the sequent\n  |- A * )\n         ^ unexpected \")\", expected a formula\n"
     );
 
     // The 70 001st character of one line, after 17 499 characters of
@@ -80,7 +80,7 @@ fn parse_errors() {
         error(&["seq", "fragment"], &input),
         format!(
             "error: cannot parse the sequent\n  …{}${} ⊗ …\n  {}^ unexpected \"$\" at \
-             character 70001\n",
+             character 70001, expected a connective, `,` or the end\n",
             " ⊗ a".repeat(15),
             " ⊗ a".repeat(14),
             " ".repeat(61)
@@ -90,7 +90,7 @@ fn parse_errors() {
     assert_eq!(
         error(&["seq", "fragment"], "A,\n  B * |- C\n"),
         "error: cannot parse the sequent\n    B * |- C\n        ^ unexpected \"|\" at line 2, \
-         character 7\n"
+         character 7, expected a formula\n"
     );
 }
 

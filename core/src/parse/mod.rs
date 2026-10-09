@@ -168,7 +168,7 @@ impl<'a> Parser<'a> {
     /// too.
     const fn operands(&self) -> &'static [&'static str] {
         if self.empty && self.left {
-            &["a formula", "|-"]
+            &["a formula", "`|-`"]
         } else {
             &["a formula"]
         }
@@ -179,11 +179,11 @@ impl<'a> Parser<'a> {
     /// the turnstile on the left side or the end on the right side.
     const fn operators(&self) -> &'static [&'static str] {
         if self.open > 0 {
-            &["a connective", ")"]
+            &["a connective", "`)`"]
         } else if self.left {
-            &["a connective", ",", "|-"]
+            &["a connective", "`,`", "`|-`"]
         } else {
-            &["a connective", ",", "the end"]
+            &["a connective", "`,`", "the end"]
         }
     }
 
@@ -332,7 +332,7 @@ impl<'a> Parser<'a> {
                 // Only `|-` can start a sequent with `|`, so what is wrong
                 // is the character after it.
                 if self.peek() != Some('-') {
-                    return Err(self.unexpected(self.at, &["the - of |-"]));
+                    return Err(self.unexpected(self.at, &["the `-` of `|-`"]));
                 }
                 self.at += 1;
                 return Ok(self.turnstile());
@@ -377,7 +377,7 @@ impl<'a> Parser<'a> {
                 // Only `-o` starts with `-`, so what is wrong is the
                 // character after it.
                 if self.peek() != Some('o') {
-                    return Err(self.unexpected(self.at, &["the o of -o"]));
+                    return Err(self.unexpected(self.at, &["the `o` of `-o`"]));
                 }
                 self.at += 1;
                 Binary::Lollipop

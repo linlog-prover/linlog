@@ -217,11 +217,11 @@ impl<'a> Parser<'a> {
                 };
                 let Some(end) = end else {
                     let expected: &[&str] = if self.open > 0 {
-                        &["a connective", ")"]
+                        &["a connective", "`)`"]
                     } else if self.dialect == Dialect::Tptp {
                         &["a connective", "the end"]
                     } else {
-                        &["a connective", ",", "|-", "the end"]
+                        &["a connective", "`,`", "`|-`", "the end"]
                     };
                     return Err(self.unexpected(self.at.max(at), expected));
                 };
@@ -325,7 +325,7 @@ impl std::str::FromStr for Sequent {
                             .char_indices()
                             .next_back()
                             .map_or(0, |(at, _)| at);
-                        return Err(parser.unexpected(last, &["a connective", ",", "the end"]));
+                        return Err(parser.unexpected(last, &["a connective", "`,`", "the end"]));
                     }
                     End::Stop => break,
                 }

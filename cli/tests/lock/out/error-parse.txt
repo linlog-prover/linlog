@@ -4,4 +4,4 @@ $ linlog prove 'A * |- B'
 --- stderr
 error: cannot parse the sequent
   A * |- B
-      ^ unexpected "|"
+      ^ unexpected "|", expected a formula

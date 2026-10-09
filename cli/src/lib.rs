@@ -126,7 +126,8 @@ const CONTEXT: usize = 60;
 /// caret under the character there. Of a long line only the part around
 /// the place is shown, with `…` where it is cut, and the message then
 /// says which character of the line it is, counting from 1; for an input
-/// of several lines it says which line as well.
+/// of several lines it says which line as well. It ends with what could
+/// have stood there, as the parser says.
 pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
     let Error::Parse(parsed) = &error else {
         return error.into();
@@ -196,6 +197,13 @@ pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
             write!(message, " at line {number}, character {character}").unwrap();
         } else if from > 0 {
             write!(message, " at character {character}").unwrap();
+        }
+        if let Some((last, rest)) = e.expected.split_last() {
+            message.push_str(", expected ");
+            if !rest.is_empty() {
+                write!(message, "{} or ", rest.join(", ")).unwrap();
+            }
+            message.push_str(last);
         }
     }
     anyhow::Error::msg(message)

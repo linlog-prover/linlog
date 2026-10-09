@@ -4,4 +4,4 @@ $ linlog prove --logic classical 'a /\'
 --- stderr
 error: cannot parse the sequent
   a /\
-      ^ unexpected end of input
+      ^ unexpected end of input, expected a formula

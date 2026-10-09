@@ -200,7 +200,7 @@ fn error_places_and_expectations() {
     let e = error("A * B");
     assert_eq!(
         (e.found, e.expected),
-        (None, &["a connective", ",", "|-"][..])
+        (None, &["a connective", "`,`", "`|-`"][..])
     );
 }
 
