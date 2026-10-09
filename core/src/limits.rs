@@ -11,6 +11,27 @@
 //! often as the work done ([`Progress::work`]) says it should. A call
 //! that a bound or the stop ends answers with a [`Refusal`], which is
 //! never a verdict on its input.
+//!
+//! The long calls, the fields of [`Limits`] that bind each, and how often
+//! each asks its stop:
+//!
+//! | call | bound by | asks the stop |
+//! |---|---|---|
+//! | `Sequent::parse_within`, `lltp::read`, `mist::read`, `ordinary::Sequent::parse_within`, `ordinary::read_tptp`, `wire::upgrade`, `wire::Within` | `occurrences` | never: linear in the input |
+//! | `Forest::within`, `Interactive::within`, `ordinary::translate` | `occurrences` | never: linear in the bound |
+//! | `search::prove_within`, `search::prove_goal` | `memory_bytes`, `recursion_depth`, `occurrences` | at every node an engine searches, and in its long passes |
+//! | `search::batch::run`, `search::batch::prove` | each search's limits, the batch's memory shared out | through each problem's work, and `Results::cancel` |
+//! | `Proof::check_within` | `memory_bytes`, `work` | every 4 096 nodes or 65 536 units of work |
+//! | `Proof::derivation_size`, `Proof::derivation_within`, `Interactive::derivation_within` | `derivation_bytes`, `memory_bytes` | as the check, then at every inference built |
+//! | `Interactive::close`, `close_with`, `close_all`, `proof` | the search's and the derivation's | as the search and the derivation |
+//! | `ProofStructure::is_correct` | none: its memory is linear in the structure | at every round of the criterion |
+//! | `ProofStructure::from_proof`, `ProofStructure::sequentialize` | `memory_bytes` | at every node, at every stage |
+//! | `ordinary::Image::read_back`, `ordinary::Derivation::check` | `derivation_bytes`, `memory_bytes`; `work` inferences checked | at every inference |
+//! | `ordinary::decide` | all of the above it runs | as each step |
+//! | `export::{latex, typst, svg, rocq}::write`, `Derivation::write_text`, `write_steps` | the derivation's, when it was made | at every inference written |
+//! | `export::{latex, typst, svg}::sequent` | `derivation_bytes`, by an estimate before anything is laid out | never: linear in the estimate |
+//! | `export::svg::net` | `derivation_bytes` | as the criterion |
+//! | `export::{png, pdf}::from_svg` | `memory_bytes`, the pixel bound of the options | never: refused before the render starts |
 
 use crate::errors::counted;
 use std::fmt::{self, Display, Formatter};

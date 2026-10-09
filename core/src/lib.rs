@@ -45,9 +45,10 @@
 //! ```
 //!
 //! A [`Mode`] is the rules a logic allows, [`Options`] the knobs of a
-//! search with their defaults, [`Limits`] the resources a call may use,
-//! and [`prove_within`] takes a stop condition for a time limit or an
-//! interruption, since this crate has no clock:
+//! search with their defaults, [`Limits`] the resources a call may use
+//! (the [`limits`] module lists every long call with its bounds and how
+//! often it asks its stop), and [`prove_within`] takes a stop condition
+//! for a time limit or an interruption, since this crate has no clock:
 //!
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
