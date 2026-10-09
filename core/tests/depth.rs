@@ -65,7 +65,7 @@ fn walk(json: &str, fragment: Fragment) {
     assert_eq!(serde_json::to_string(&sequent).unwrap(), json);
     assert_eq!(sequent.fragment(), fragment);
     let mut optimized = sequent.clone();
-    optimized.optimize().unwrap();
+    optimized.optimize();
     assert_eq!(optimized.terms().len(), sequent.terms().len());
 
     // One-sided: the sequent is its formulas.

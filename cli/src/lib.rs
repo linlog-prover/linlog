@@ -295,7 +295,7 @@ fn run(cli: &Cli) -> Result<Status> {
                 } => {
                     let mut sequent = input.sequent()?;
                     if *optimize {
-                        sequent.optimize()?;
+                        sequent.optimize();
                     }
                     io::write(output.as_deref(), &serde_json::to_string(&sequent)?)?;
                 }

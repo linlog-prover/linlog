@@ -244,9 +244,7 @@ pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     // the limit keeps below `u32::MAX`.
     let antecedents = Some(roots.len() as u32 - 1);
     let mut sequent = Sequent::from_parts(arena.terms, roots, arena.atoms, antecedents);
-    sequent
-        .optimize()
-        .expect("every term's subterms come before it");
+    sequent.optimize();
     Ok(Problem { sequent, expected })
 }
 

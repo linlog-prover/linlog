@@ -463,7 +463,7 @@ pub fn translate(
         atoms: builder.atoms,
         antecedents: Some(antecedents),
     };
-    linear.optimize()?;
+    linear.optimize();
     let mode = if classical {
         Mode::CLASSICAL.with_affine()
     } else {

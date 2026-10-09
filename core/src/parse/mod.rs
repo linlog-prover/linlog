@@ -461,7 +461,7 @@ impl<'a> Parser<'a> {
             atoms: self.atoms,
             antecedents: Some(self.antecedents),
         };
-        sequent.optimize()?;
+        sequent.optimize();
         Ok(sequent)
     }
 }

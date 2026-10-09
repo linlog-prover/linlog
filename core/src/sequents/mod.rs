@@ -255,23 +255,13 @@ impl Sequent {
     }
 
     /// Drops the terms no root formula reaches and merges equal terms, keeping
-    /// the arena topologically sorted. Fails if an index breaks that order or
-    /// points outside the arena.
-    pub(crate) fn optimize_terms(&mut self) -> Result<(), crate::Error> {
+    /// the arena topologically sorted, which it must be.
+    fn optimize_terms(&mut self) {
         let num_terms = self.terms.len();
 
         let mut reachable = vec![false; num_terms];
-        for n in self.roots.iter() {
-            match reachable.get_mut(n.index()) {
-                Some(r) => *r = true,
-                None => {
-                    return Err(crate::Error::IndexOutOfBounds {
-                        space: crate::limits::Space::Term,
-                        index: n.index(),
-                        len: num_terms,
-                    });
-                }
-            }
+        for n in &self.roots {
+            reachable[n.index()] = true;
         }
 
         // A subterm precedes its parent, so one pass from the top marks every
@@ -281,13 +271,7 @@ impl Sequent {
                 continue;
             }
             for k in self.terms[n].subterms() {
-                if k.index() >= n {
-                    return Err(crate::Error::NotTopological {
-                        space: crate::limits::Space::Term,
-                        index: k.index(),
-                        parent: n,
-                    });
-                }
+                debug_assert!(k.index() < n, "a subterm precedes its parent");
                 reachable[k.index()] = true;
             }
         }
@@ -319,12 +303,11 @@ impl Sequent {
             .iter()
             .map(|k| new_index[k.index()].unwrap())
             .collect();
-
-        Ok(())
     }
 
-    /// Merges atoms of the same name, numbered in order of first occurrence.
-    pub(crate) fn optimize_atoms(&mut self) -> Result<(), crate::Error> {
+    /// Merges atoms of the same name, numbered in order of first
+    /// occurrence; every literal must name an atom of the table.
+    fn optimize_atoms(&mut self) {
         use Term::*;
         let num_atoms = self.atoms.len();
         let mut atoms = Vec::<String>::with_capacity(num_atoms);
@@ -335,14 +318,7 @@ impl Sequent {
             let (Atom(a) | DualAtom(a)) = *e else {
                 continue;
             };
-            let name: &str = self
-                .atoms
-                .get(a.index())
-                .ok_or(crate::Error::IndexOutOfBounds {
-                    space: crate::limits::Space::Atom,
-                    index: a.index(),
-                    len: num_atoms,
-                })?;
+            let name: &str = &self.atoms[a.index()];
             let merged = *seen.entry(name).or_insert_with(|| {
                 atoms.push(name.to_string());
                 term::Atom::new((atoms.len() - 1) as u32)
@@ -356,23 +332,16 @@ impl Sequent {
         drop(seen);
         atoms.shrink_to_fit();
         self.atoms = atoms;
-        Ok(())
     }
 
     /// Merges atoms of the same name and equal terms and drops the terms no
     /// root formula reaches; the root formulas keep the order they were
-    /// written in. Fails if the arena breaks its invariants.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::IndexOutOfBounds`](crate::Error::IndexOutOfBounds) or
-    /// [`Error::NotTopological`](crate::Error::NotTopological) for an arena
-    /// that breaks its invariants.
-    pub fn optimize(&mut self) -> Result<(), crate::Error> {
-        self.optimize_atoms()?;
-        self.optimize_terms()?;
-        self.optimize_atoms()?;
-        Ok(())
+    /// written in. Every sequent a caller can hold keeps the arena's
+    /// invariants, which this relies on.
+    pub fn optimize(&mut self) {
+        self.optimize_atoms();
+        self.optimize_terms();
+        self.optimize_atoms();
     }
 
     /// Gives atoms of the same name one index, the first's, and drops the
@@ -503,7 +472,7 @@ mod tests {
     #[test]
     fn optimize_empty() {
         let mut s = Sequent::new();
-        s.optimize().unwrap();
+        s.optimize();
         assert!(s.terms.is_empty() && s.roots.is_empty() && s.atoms.is_empty());
     }
 
@@ -516,7 +485,7 @@ mod tests {
             &[0, 1, 2],
             &["A", "A", "B"],
         );
-        s.optimize().unwrap();
+        s.optimize();
         assert_eq!(s.atoms, ["A", "B"]);
         assert_eq!(s.terms, [var(0), dual_var(0), var(1)]);
     }
@@ -527,7 +496,7 @@ mod tests {
     fn optimize_redirects_duplicates() {
         use Term::*;
         let mut s = raw(vec![Zero, One, Top, Top, tensor(1, 3)], &[2, 4], &[]);
-        s.optimize().unwrap();
+        s.optimize();
         assert_eq!(s.terms, [One, Top, tensor(0, 1)]);
         assert_eq!(s.roots, [TermId::new(1), TermId::new(2)]);
     }
@@ -542,7 +511,6 @@ mod tests {
             s.check().unwrap_err().to_string(),
             "term 1 refers to term 2, but a subterm must come before the terms that use it"
         );
-        assert!(s.clone().optimize().is_err());
     }
 
     /// Equal terms merge at every depth, not only equal leaves.
@@ -562,7 +530,7 @@ mod tests {
             &[3, 7],
             &["A", "B"],
         );
-        s.optimize().unwrap();
+        s.optimize();
         assert_eq!(s.terms, [var(0), var(1), tensor(0, 1), bang(2)]);
         assert_eq!(s.roots, [TermId::new(3), TermId::new(3)]);
     }
