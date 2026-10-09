@@ -43,8 +43,10 @@ pub struct Limits {
     /// may be estimated at; past it nothing is made.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub derivation_bytes: Option<u64>,
-    /// The most units of work a search may do (each engine says what its
-    /// unit is).
+    /// The most units of work a call may do: the proof checker counts a
+    /// node or an entry of a sequent its rules handle, the ordinary
+    /// checker an inference. A search does not read it: its engines count
+    /// their own work for the stop alone.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub work: Option<u64>,
     /// The deepest recursion on any one stack; every thread the library
@@ -167,12 +169,14 @@ pub struct Progress {
     pub work: u64,
     /// The units of work done since the call began.
     pub done: u64,
-    /// The bytes the call's account holds now.
+    /// The bytes the call holds by its own count now: the proof checker's
+    /// pass and what derives from it fill it in, and a search, which
+    /// counts its memory too, leaves it zero for now.
     pub held_bytes: u64,
     /// What the call is doing.
     pub phase: Phase,
-    /// The item of a call that runs several: a goal of a session's
-    /// `close_all`, a problem of a batch.
+    /// The item of a call that runs several, by its place: a goal of a
+    /// session's `close_all`, zero for every other call.
     pub item: u32,
 }
 
@@ -345,7 +349,7 @@ pub enum Refusal {
         /// was tried: a compact derivation's lower bound.
         least_bytes: Option<u64>,
     },
-    /// A search did the most work its bound allows.
+    /// A call did the most work its bound allows.
     #[non_exhaustive]
     Work {
         /// The bound, [`Limits::work`].
@@ -464,7 +468,7 @@ impl Display for Refusal {
             Self::Work { limit } => {
                 write!(
                     f,
-                    "the search did the most work allowed, {}",
+                    "the call did the most work allowed, {}",
                     counted(*limit, "unit", "units")
                 )
             }

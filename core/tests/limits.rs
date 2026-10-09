@@ -67,6 +67,15 @@ fn the_checker_stops_and_keeps_its_bounds() {
     // Past the 4 096 nodes between two polls of the stop.
     let proof = proof(1500);
     let mode = Mode::CLASSICAL;
+    // The pass tells its stop what it holds by its count.
+    let mut held = 0;
+    proof
+        .check_within(mode, &Limits::default(), |p| {
+            held = held.max(p.held_bytes);
+            false
+        })
+        .unwrap();
+    assert!(held > 0);
     let stopped = proof.check_within(mode, &Limits::default(), |_| true);
     assert!(matches!(
         stopped,

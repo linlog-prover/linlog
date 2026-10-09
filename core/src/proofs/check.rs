@@ -1051,7 +1051,11 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
             if (id.index() + 1).is_multiple_of(POLL) || self.done - self.polled >= POLL_WORK {
                 let since = self.done - self.polled;
                 self.polled = self.done;
-                if (self.stop)(Progress::new(self.phase, since, self.done)) {
+                let progress = Progress {
+                    held_bytes: self.held,
+                    ..Progress::new(self.phase, since, self.done)
+                };
+                if (self.stop)(progress) {
                     return Err((id, Halt::Stopped));
                 }
             }

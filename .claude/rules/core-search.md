@@ -257,11 +257,10 @@ the net engine's, and the others stay zero.
     a pass takes under a millisecond there, and a condition that counts
     its polls (a test, a front end that counts work) sees the engine's
     own and no others.
-  - *Not polled*: `Forest::new` (0.43 s on that problem; a caller with
-    a deadline builds the forest itself, as the CLI does, and calls
-    `prove_goal`), a single pass over the forest, the check of the
-    proof at the end of `prove_goal` and the size pass of a derivation
-    (below), and the collection of the kept arena
+  - *Not polled*: `Forest::new` and `Forest::within` (0.43 s on that
+    problem; a caller with a deadline builds the forest itself, as the
+    CLI does, and calls `prove_goal`), a single linear pass over the
+    forest, and the collection of the kept arena
     when a memo is emptied (one pass over the kept nodes, milliseconds
     at a million of them). Freeing a full memo is no longer among
     them: its entries are records in chunks ("The memory bound",
@@ -271,13 +270,15 @@ the net engine's, and the others stay zero.
     stop was late by and a fifth of the time of a memo-bound search;
     now a stop on `qbf/40#1` with its memo full comes 14 to 21 ms
     after the limit on the machine's three kinds of core.
-  - *The check and the size pass are not polled because they are
-    short*: on the largest proof the engines find in the LLTP library
-    (`SYJ202+1.005` in its cbv translation, 566 490 inferences) the
-    check takes 22 ms and `Proof::derivation_size`, the same pass with
-    an observer, 39 ms; on the largest Petri nets proved 3 to 6 ms and
-    5 to 8 ms. Poll them when a proof a hundred times that size is in
-    reach.
+  - *The check at the end of `prove_goal` and the size pass of a
+    derivation take the caller's stop* (`check_within`, every 4 096
+    nodes or 65 536 units of its work, `core-proofs.md`), though they
+    are short on the engines' proofs: on the largest the engines find in
+    the LLTP library (`SYJ202+1.005` in its cbv translation, 566 490
+    inferences) the check takes 22 ms and `Proof::derivation_size`, the
+    same pass with an observer, 39 ms; on the largest Petri nets proved
+    3 to 6 ms and 5 to 8 ms. A proof file, read from anywhere, can make
+    a check quadratic, which is what the polls by work are for.
   A condition must be cheap, because it is asked at every poll, and it
   must not ration its own work by counting polls: polls come millions
   of times a second on a small problem and 30 ms apart on a forest of
@@ -342,11 +343,13 @@ not by what is in use. `prove_goal` makes one per search.
   million) is the bound on the input: `prove` and `prove_within` build
   their forest with `Forest::within`, the command checks
   `Sequent::occurrences()` when it reads a sequent, before any command
-  unfolds or prints it. `Forest::new`, and with it `Interactive::new`
-  and every deserializer (a proof file, a session's state, a net), has
-  the default and no way to pass another, since `Deserialize` takes no
-  options: a proof file whose sequent has more occurrences is refused
-  whatever a flag says.
+  unfolds or prints it. `Forest::new`, `Interactive::new` and a plain
+  `Deserialize` (a proof file, a session's state, a net) have the
+  default; `Forest::within`, `Interactive::within` and the wire's
+  readers (`wire::upgrade`, `wire::Within`) take the caller's limits.
+  The command still reads proof files and sessions with plain serde,
+  under the default whatever a flag says, until its area moves it to
+  `upgrade`.
 - **On a pool** the workers share the account, each engine's own
   buffers are released when it goes (`Charged`), and the shared arena
   only grows. A pool therefore reaches the bound sooner than one

@@ -1172,7 +1172,13 @@ impl Interactive {
         let goals: Vec<GoalId> = self.goals().collect();
         goals
             .into_iter()
-            .map(|goal| (goal, self.close(goal, options, view, limits, &mut stop)))
+            .enumerate()
+            .map(|(i, goal)| {
+                // Each goal's polls name it by its place among the goals.
+                let item = u32::try_from(i).unwrap_or(u32::MAX);
+                let stop = |progress: Progress| stop(Progress { item, ..progress });
+                (goal, self.close(goal, options, view, limits, stop))
+            })
             .collect()
     }
 
