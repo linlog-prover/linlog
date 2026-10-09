@@ -287,16 +287,7 @@ fn path_of(bytes: Vec<u8>) -> PathBuf {
 
 /// Reads a mode's name as problem files and records write it.
 fn mode_named(name: &str) -> Result<Mode> {
-    Ok(match name {
-        "classical" => Mode::CLASSICAL,
-        "mix" => Mode::CLASSICAL.with_mix(),
-        "affine" => Mode::CLASSICAL.affine(),
-        "intuitionistic" => Mode::INTUITIONISTIC,
-        "intuitionistic-affine" => Mode::INTUITIONISTIC.affine(),
-        _ => bail!(
-            "unknown mode `{name}`: classical, mix, affine, intuitionistic or intuitionistic-affine"
-        ),
-    })
+    Ok(name.parse()?)
 }
 
 /// Returns the entry a line holds, or `None` for a blank line or a
@@ -683,7 +674,7 @@ impl Shared {
             .arg("--entry-name")
             .arg(&entry.name);
         if let Some(mode) = entry.mode {
-            command.arg("--entry-mode").arg(mode_name(mode));
+            command.arg("--entry-mode").arg(mode.name());
         }
         let mut stdin = None;
         match entry.source {
@@ -791,17 +782,6 @@ fn killed_by(status: &std::process::ExitStatus) -> String {
         }
     }
     String::new()
-}
-
-/// Names a mode as `--entry-mode` reads it.
-fn mode_name(mode: Mode) -> &'static str {
-    match (mode.intuitionistic, mode.affine, mode.mix) {
-        (true, true, _) => "intuitionistic-affine",
-        (true, false, _) => "intuitionistic",
-        (false, true, _) => "affine",
-        (false, false, true) => "mix",
-        (false, false, false) => "classical",
-    }
 }
 
 /// Names a format as `--input-format` reads it.

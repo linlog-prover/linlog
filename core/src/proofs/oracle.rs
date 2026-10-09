@@ -417,7 +417,7 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             let options = Options::default().copies(Some(provable.copies));
             let text = generate::sequent(&provable.formulas);
             cases.push((text.clone(), mode, options.clone()));
-            cases.push((text, mode.affine(), options));
+            cases.push((text, mode.with_affine(), options));
         }
     }
     for (k, rules) in IllRules::ALL.into_iter().enumerate() {
@@ -428,7 +428,7 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             let options = Options::default().copies(Some(ill.copies));
             let text = generate::two_sided(&ill.hypotheses, &ill.goal);
             cases.push((text.clone(), Mode::INTUITIONISTIC, options.clone()));
-            cases.push((text, Mode::INTUITIONISTIC.affine(), options));
+            cases.push((text, Mode::INTUITIONISTIC.with_affine(), options));
         }
     }
     let mut proofs: Vec<(Proof, Mode)> = vec![];

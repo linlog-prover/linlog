@@ -141,7 +141,10 @@ fn decides_unbounded_nets() {
         }
         // Which of the backward search and the equation refutes first is a
         // matter of their shares of the work.
-        for mode in [Mode::CLASSICAL.affine(), Mode::INTUITIONISTIC.affine()] {
+        for mode in [
+            Mode::CLASSICAL.with_affine(),
+            Mode::INTUITIONISTIC.with_affine(),
+        ] {
             let found = match verdict(text, mode) {
                 "state equation" => "unprovable",
                 found => found,

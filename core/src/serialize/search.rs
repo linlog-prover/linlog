@@ -6,16 +6,6 @@ use crate::fragment::{Fragment, Mode};
 use crate::search::{Engine, Outcome as Out, Reason, Refutation, Statistics, Verdict};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// The fragments a name can stand for, in the order of their names.
-const NAMED: [Fragment; 6] = [
-    Fragment::MLL,
-    Fragment::MLL_WITH_UNITS,
-    Fragment::ALL,
-    Fragment::MALL,
-    Fragment::MELL,
-    Fragment::LL,
-];
-
 impl Serialize for Fragment {
     /// Serializes the fragment as its name, such as `"MALL"`.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -28,17 +18,7 @@ impl<'a> Deserialize<'a> for Fragment {
     /// which contains every fragment of that name.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
         let name = String::deserialize(deserializer)?;
-        // The intuitionistic names put an `I` in front: `ILL`, `IMLL`, …
-        let classical = name.strip_prefix('I').unwrap_or(&name);
-        NAMED
-            .into_iter()
-            .find(|f| f.name() == classical)
-            .ok_or_else(|| {
-                serde::de::Error::custom(format!(
-                    "unknown fragment {name:?}, expected one of {}",
-                    NAMED.map(|f| format!("{:?}", f.name())).join(", ")
-                ))
-            })
+        name.parse().map_err(serde::de::Error::custom)
     }
 }
 

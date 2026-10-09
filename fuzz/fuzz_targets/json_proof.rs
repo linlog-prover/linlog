@@ -13,11 +13,17 @@ fuzz_target!(|data: &[u8]| {
     let Some((&bits, json)) = data.split_first() else {
         return;
     };
-    let mode = Mode {
-        intuitionistic: bits & 1 != 0,
-        affine: bits & 2 != 0,
-        mix: bits & 4 != 0,
+    let mut mode = if bits & 1 != 0 {
+        Mode::INTUITIONISTIC
+    } else {
+        Mode::CLASSICAL
     };
+    if bits & 2 != 0 {
+        mode = mode.with_affine();
+    }
+    if bits & 4 != 0 {
+        mode = mode.with_mix();
+    }
     if let Ok(proof) = serde_json::from_slice::<Proof>(json) {
         let limits = Limits::default().with_memory_bytes(Some(1 << 26));
         let _ = proof.check_within(mode, &limits, |_| false);

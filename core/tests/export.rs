@@ -94,7 +94,7 @@ fn pin_certificate(name: &str, derivation: &Derivation) {
 /// intuitionistic mode, and its certificate.
 fn pin_proof(name: &str, input: &str, mode: Mode) {
     let proof = proof(input, mode);
-    let derivation = if mode.intuitionistic {
+    let derivation = if mode.is_intuitionistic() {
         proof.two_sided_derivation()
     } else {
         proof.derivation()
@@ -259,11 +259,11 @@ fn every_label() {
     for (name, input, mode) in [
         ("labels", classical, Mode::CLASSICAL),
         ("mix", "A, B |- A, B", Mode::CLASSICAL.with_mix()),
-        ("affine", "A, B |- A", Mode::CLASSICAL.affine()),
+        ("affine", "A, B |- A", Mode::CLASSICAL.with_affine()),
         ("labels_ill", intuitionistic, Mode::INTUITIONISTIC),
     ] {
         let proof = proof(input, mode);
-        let derivation = if mode.intuitionistic {
+        let derivation = if mode.is_intuitionistic() {
             proof.two_sided_derivation()
         } else {
             proof.derivation()
@@ -336,7 +336,7 @@ fn certificates() {
         rocq::derivation(&mix.derivation().unwrap(), &options),
         Err(Unsupported::Mix)
     );
-    let affine = proof("A, B |- A", Mode::CLASSICAL.affine());
+    let affine = proof("A, B |- A", Mode::CLASSICAL.with_affine());
     assert_eq!(
         rocq::derivation(&affine.derivation().unwrap(), &options),
         Err(Unsupported::AffineWeakening)

@@ -104,7 +104,9 @@ pub fn lltp(paths: &[PathBuf]) -> Result<Vec<Reference>> {
 /// for intuitionistic affine mode: the question whether a marking that
 /// covers the target is reachable.
 pub fn specs(paths: &[PathBuf]) -> Result<Vec<Reference>> {
-    listed(paths, "spec", "spec", |_| Mode::INTUITIONISTIC.affine())
+    listed(paths, "spec", "spec", |_| {
+        Mode::INTUITIONISTIC.with_affine()
+    })
 }
 
 /// Lists the files of a source under the paths, in path order: each path
@@ -213,27 +215,12 @@ fn fields(line: &str) -> Option<[&str; 5]> {
 
 /// Reads a mode's name as problem files and the CSV write it.
 fn parse_mode(name: &str) -> Result<Mode> {
-    Ok(match name {
-        "classical" => Mode::CLASSICAL,
-        "mix" => Mode::CLASSICAL.with_mix(),
-        "affine" => Mode::CLASSICAL.affine(),
-        "intuitionistic" => Mode::INTUITIONISTIC,
-        "intuitionistic-affine" => Mode::INTUITIONISTIC.affine(),
-        _ => bail!("unknown mode `{name}`"),
-    })
+    Ok(name.parse()?)
 }
 
-/// Names a mode as problem files and the CSV write it; Mix and affine
-/// together are `mix-affine`.
+/// Names a mode as problem files and the CSV write it.
 pub fn mode_name(mode: Mode) -> &'static str {
-    match (mode.intuitionistic, mode.affine, mode.mix) {
-        (false, false, false) => "classical",
-        (false, false, true) => "mix",
-        (false, true, false) => "affine",
-        (false, true, true) => "mix-affine",
-        (true, false, _) => "intuitionistic",
-        (true, true, _) => "intuitionistic-affine",
-    }
+    mode.name()
 }
 
 /// Loads the problem a [`Reference::id`] names.
@@ -270,7 +257,7 @@ pub fn load(id: &str) -> Result<Problem> {
             let problem = mist::read(&text, &Limits::default())?;
             Ok(Problem {
                 sequent: problem.sequent,
-                mode: Mode::INTUITIONISTIC.affine(),
+                mode: Mode::INTUITIONISTIC.with_affine(),
                 expected: problem.expected.map(|s| s == Safety::Unsafe),
                 copies: None,
             })

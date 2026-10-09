@@ -85,7 +85,7 @@ pub(crate) fn derivation(
         Ok(linear) => linear,
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) if error.is_refusal() => {
-            let size = || proof.derivation_size(image.mode().intuitionistic).ok();
+            let size = || proof.derivation_size(image.mode().is_intuitionistic()).ok();
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
         Err(error) => return Err(anyhow!(error).context("the proof cannot be unfolded")),

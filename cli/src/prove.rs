@@ -14,8 +14,8 @@ use linlog::ordinary::Image;
 use linlog::proofs::Compact;
 use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
-    CheckError, Error, Forest, Fragment, Limits, Mode, Proof, ProofStructure, Reading, Refusal,
-    Sequent, Size, ViewOptions,
+    CheckError, Error, Forest, Limits, Mode, Proof, ProofStructure, Reading, Refusal, Sequent,
+    Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -636,8 +636,11 @@ pub(crate) fn derivation(
     let fit = show.fit();
     let mut view = show.view;
     if let Some((columns, most)) = fit {
-        let size = match proof.derivation_size_within(mode.intuitionistic, &show.limits, |_| halt())
-        {
+        let size = match proof.derivation_size_within(
+            mode.is_intuitionistic(),
+            &show.limits,
+            |_| halt(),
+        ) {
             Ok(size) => size,
             // No verdict on the proof: the pass was given up.
             Err(CheckError::Refused(_)) => {
@@ -660,7 +663,7 @@ pub(crate) fn derivation(
             )));
         }
     }
-    let built = if mode.intuitionistic {
+    let built = if mode.is_intuitionistic() {
         proof.two_sided_derivation_within(&view, &show.limits, |_| halt())
     } else {
         proof.derivation_within(&view, &show.limits, |_| halt())
@@ -670,7 +673,7 @@ pub(crate) fn derivation(
         Err(Error::Check(e @ CheckError::Invalid(_))) => return Err(invalid(e)),
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) => {
-            let size = || proof.derivation_size(mode.intuitionistic).ok();
+            let size = || proof.derivation_size(mode.is_intuitionistic()).ok();
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
     };
@@ -742,7 +745,7 @@ pub fn sequent_in(
     format: SequentFormat,
     styles: &Styles,
 ) -> Result<String> {
-    if !mode.intuitionistic {
+    if !mode.is_intuitionistic() {
         return Ok(match format {
             SequentFormat::Text => sequent.to_string(),
             SequentFormat::Latex => latex::sequent(sequent, &styles.latex),
@@ -957,7 +960,7 @@ pub(crate) fn net_into(
     let net = match found {
         Some(net) => net,
         None => {
-            made = ProofStructure::from_proof(proof, mode.mix)?;
+            made = ProofStructure::from_proof(proof, mode.has_mix())?;
             &made
         }
     };
@@ -985,11 +988,11 @@ pub(crate) fn net_into(
 /// MLL, linear, with or without Mix, classical or intuitionistic (where
 /// the net is the one of the one-sided sequent).
 pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
-    if mode.affine {
+    if mode.is_affine() {
         bail!("proof nets exist in linear mode only, with or without --mix, not in {mode} mode");
     }
     let fragment = sequent.fragment();
-    if !Fragment::MLL.contains(fragment) {
+    if !fragment.has_nets() {
         return Err(Error::NetFragment { fragment }.into());
     }
     Ok(())
@@ -1244,7 +1247,7 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
         ),
         // Backward, the markings are the least from which the goal can be
         // covered.
-        Engine::Horn if outcome.mode.affine => format!(
+        Engine::Horn if outcome.mode.is_affine() => format!(
             "markings computed backward: {} ({} of them covered already)\n\
              markings kept: {}\n\
              time: {elapsed:.2?}",
@@ -1336,7 +1339,7 @@ fn check_into(
     let formulas = proof.sequent().roots().len();
     let sequent = match Forest::new(proof.sequent())
         .ok()
-        .filter(|_| mode.intuitionistic)
+        .filter(|_| mode.is_intuitionistic())
         .and_then(|forest| {
             Reading::new(&forest)
                 .ok()

@@ -83,12 +83,26 @@ read back by `Reading` (below); there is no second data model.
   because a literal's polarity is the per-atom bias (below).
 - There are no fragment-typed sequents. `Fragment` (`fragment.rs`) is a value:
   five connective-class flags, the usual fragments as constants
-  (`MLL`, `MLL_WITH_UNITS`, `ALL`, `MALL`, `MELL`, `LL`; `ALL` is
-  additive-only, `LL` is everything), `contains` as the subset order, and
-  `Display` naming the smallest named fragment containing the value. The
-  empty fragment (atoms only) prints as `MLL`. `Sequent::fragment()` is the
-  detection. `Mode` (same file) is what the user asks beyond the sequent:
-  intuitionistic, affine, Mix; three bools with builder methods.
+  (`MLL`, `MLL_WITH_UNITS`, `ADDITIVE`, `MALL`, `MELL`, `LL`; `ADDITIVE`
+  is additive-only and named `ALL`, `LL` is every propositional
+  connective), `contains` as the subset order, and `Display` naming the
+  smallest named fragment containing the value. The empty fragment (atoms
+  only) prints as `MLL`. `NAMED` and `NAMES` are the named fragments and
+  their names, which `FromStr` reads with or without the intuitionistic
+  `I`; `has_nets` is the one test of where proof structures exist, which
+  `ProofStructure` and the command ask (an engine's `admits` keeps its
+  own largest fragment). `Sequent::fragment()` is the detection. `Mode`
+  (same file) is what the user asks beyond the sequent: intuitionistic,
+  affine, Mix, as `pub(crate)` fields behind getters (`is_intuitionistic`,
+  `is_affine`, `has_mix`) and builders (`with_affine`, `with_mix`) on
+  `CLASSICAL` and `INTUITIONISTIC`, so that a field added later breaks no
+  caller; `check` refuses intuitionistic with Mix. `Mode::NAMES` is the
+  one table of its words (`classical`, `affine`, `mix`, `affine-mix`,
+  `intuitionistic`, `intuitionistic-affine`), which `name` writes and
+  `FromStr` reads (`Error::UnknownName` lists them); the command's batch
+  and the harness use it. `Display` is the prose the command prints.
+  The dispatch's `Modes::take` destructures the whole mode, so a new
+  field is a compile error there.
 
 ## Parsing
 

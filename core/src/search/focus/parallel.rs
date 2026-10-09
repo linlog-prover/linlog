@@ -631,7 +631,7 @@ mod tests {
                 for text in &texts {
                     let options = Options::default().copies(Some(copies));
                     agree(text, Mode::INTUITIONISTIC, &options);
-                    agree(text, Mode::INTUITIONISTIC.affine(), &options);
+                    agree(text, Mode::INTUITIONISTIC.with_affine(), &options);
                 }
             }
         }
@@ -672,7 +672,7 @@ mod tests {
         let mut polls = 0;
         let outcome = prove_within(
             &sequent,
-            Mode::CLASSICAL.affine(),
+            Mode::CLASSICAL.with_affine(),
             &options,
             &crate::Limits::default(),
             |_| {

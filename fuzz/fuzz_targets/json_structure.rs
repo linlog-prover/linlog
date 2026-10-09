@@ -15,9 +15,10 @@ fuzz_target!(|data: &[u8]| {
             let proof = structure
                 .sequentialize()
                 .expect("a correct structure sequentializes");
-            let mode = Mode {
-                mix: structure.mix(),
-                ..Mode::CLASSICAL
+            let mode = if structure.mix() {
+                Mode::CLASSICAL.with_mix()
+            } else {
+                Mode::CLASSICAL
             };
             proof.check(mode).expect("its proof checks");
         }

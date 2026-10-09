@@ -30,18 +30,9 @@ fn lines() -> String {
     let mut out = String::new();
     let mut pin = |name: &str, json: String| writeln!(out, "{name}: {json}").unwrap();
     let classical = Mode::CLASSICAL;
-    let intuitionistic = Mode {
-        intuitionistic: true,
-        ..Mode::CLASSICAL
-    };
-    let affine = Mode {
-        affine: true,
-        ..Mode::CLASSICAL
-    };
-    let mix = Mode {
-        mix: true,
-        ..Mode::CLASSICAL
-    };
+    let intuitionistic = Mode::INTUITIONISTIC;
+    let affine = Mode::CLASSICAL.with_affine();
+    let mix = Mode::CLASSICAL.with_mix();
     let options = Options::default();
 
     for (name, text) in [

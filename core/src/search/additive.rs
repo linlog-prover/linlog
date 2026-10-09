@@ -38,7 +38,7 @@ pub(crate) struct Additive;
 impl Decide for Additive {
     /// Refuses anything but two formulas of the additive fragment.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if Fragment::ALL.contains(task.fragment) && task.goal.len() == 2 {
+        if Fragment::ADDITIVE.contains(task.fragment) && task.goal.len() == 2 {
             return Ok(());
         }
         Err(Error::NotAdditive {
@@ -349,7 +349,7 @@ mod tests {
         ] {
             for mode in [
                 Mode::CLASSICAL,
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
                 Mode::CLASSICAL.with_mix(),
             ] {
                 assert_eq!(

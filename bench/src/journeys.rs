@@ -204,10 +204,13 @@ fn search_family(family: &str, size: u32, index: u32) -> Result<()> {
 /// Decides an instance of a family in intuitionistic mode.
 fn search_intuitionistic(family: &str, size: u32) -> Result<()> {
     let problem = instance(family, size, 0)?;
-    let mode = Mode {
-        intuitionistic: true,
-        ..problem.mode
-    };
+    let mut mode = Mode::INTUITIONISTIC;
+    if problem.mode.is_affine() {
+        mode = mode.with_affine();
+    }
+    if problem.mode.has_mix() {
+        mode = mode.with_mix();
+    }
     let options = options(&problem.sequent, problem.copies);
     let outcome = measured(|| linlog::prove(&problem.sequent, mode, &options))?;
     decided(&outcome.verdict, problem.provable)
@@ -327,11 +330,7 @@ fn read_spec() -> Result<()> {
 /// affine.
 fn search_spec() -> Result<()> {
     let problem = linlog::mist::read(&spec()?, &Limits::default())?;
-    let mode = Mode {
-        intuitionistic: true,
-        affine: true,
-        ..Mode::CLASSICAL
-    };
+    let mode = Mode::INTUITIONISTIC.with_affine();
     let options = options(&problem.sequent, None);
     let outcome = measured(|| linlog::prove(&problem.sequent, mode, &options))?;
     decided(&outcome.verdict, true)

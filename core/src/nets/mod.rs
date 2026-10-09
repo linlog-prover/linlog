@@ -27,7 +27,6 @@ mod skeleton;
 pub use graph::Scratch;
 
 use crate::Error;
-use crate::fragment::Fragment;
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Node, Proof};
 use crate::sequents::{Kind, Sequent};
@@ -235,7 +234,7 @@ impl ProofStructure {
     /// sequent lies outside unit-free MLL, where there are no proof nets.
     pub fn new(forest: Forest, mix: bool) -> Result<Self, Error> {
         let fragment = forest.sequent().fragment();
-        if !Fragment::MLL.contains(fragment) {
+        if !fragment.has_nets() {
             return Err(Error::NetFragment { fragment });
         }
         let n = forest.len();

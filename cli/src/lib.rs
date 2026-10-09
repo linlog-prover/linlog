@@ -201,6 +201,15 @@ pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
     anyhow::Error::msg(message)
 }
 
+/// Returns the mode of `seq`'s `--intuitionistic` flag.
+const fn mode_of(intuitionistic: bool) -> Mode {
+    if intuitionistic {
+        Mode::INTUITIONISTIC
+    } else {
+        Mode::CLASSICAL
+    }
+}
+
 /// Runs the command the arguments name.
 fn run(cli: &Cli) -> Result<Status> {
     match &cli.command {
@@ -231,13 +240,7 @@ fn run(cli: &Cli) -> Result<Status> {
                             let mode = image.mode();
                             (image.sequent().clone(), mode)
                         }
-                        None => (
-                            input.sequent()?,
-                            Mode {
-                                intuitionistic: *intuitionistic,
-                                ..Mode::CLASSICAL
-                            },
-                        ),
+                        None => (input.sequent()?, mode_of(*intuitionistic)),
                     };
                     prove::form(
                         *standalone,
@@ -290,10 +293,7 @@ fn run(cli: &Cli) -> Result<Status> {
                     input,
                     intuitionistic,
                 } => {
-                    let mode = Mode {
-                        intuitionistic: *intuitionistic,
-                        ..Mode::CLASSICAL
-                    };
+                    let mode = mode_of(*intuitionistic);
                     io::write(None, input.sequent()?.fragment().name_in(mode))?;
                 }
             }

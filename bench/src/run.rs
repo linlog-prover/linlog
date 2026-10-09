@@ -61,15 +61,18 @@ impl ModeChoice {
     fn apply(self, given: Mode) -> Mode {
         match self {
             Self::Given => given,
-            Self::Classical => Mode {
-                intuitionistic: false,
-                ..given
-            },
-            Self::Intuitionistic => Mode {
-                intuitionistic: true,
-                mix: false,
-                ..given
-            },
+            Self::Classical => {
+                let mut mode = Mode::CLASSICAL;
+                if given.is_affine() {
+                    mode = mode.with_affine();
+                }
+                if given.has_mix() {
+                    mode = mode.with_mix();
+                }
+                mode
+            }
+            Self::Intuitionistic if given.is_affine() => Mode::INTUITIONISTIC.with_affine(),
+            Self::Intuitionistic => Mode::INTUITIONISTIC,
         }
     }
 }

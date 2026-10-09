@@ -61,6 +61,17 @@ pub enum Error {
         /// The name of the second clause with the role `conjecture`.
         second: String,
     },
+    /// A name that names none of the values of its kind, such as a mode
+    /// or a fragment read from text.
+    #[error("unknown {what} `{name}`: {}", or_list(.known))]
+    UnknownName {
+        /// What the name was to name: `mode`, `fragment`.
+        what: &'static str,
+        /// The name read.
+        name: Box<str>,
+        /// Every name of that kind.
+        known: &'static [&'static str],
+    },
     /// An index of a value read names nothing: it is not below the length
     /// of its space.
     #[error("{}", out_of_bounds(*.space, *.index, *.len))]
@@ -337,6 +348,7 @@ impl Error {
         "spec",
         "tptp",
         "several_conjectures",
+        "unknown_name",
         "index_out_of_bounds",
         "not_topological",
         "antecedents",
@@ -382,6 +394,7 @@ impl Error {
             | Self::Spec { .. }
             | Self::Tptp { .. }
             | Self::SeveralConjectures { .. } => Malformed,
+            Self::UnknownName { .. } => Malformed,
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
             | Self::Antecedents { .. } => Malformed,
@@ -435,6 +448,7 @@ impl Error {
             Self::Tptp { .. } => "tptp",
             #[cfg(feature = "parse")]
             Self::SeveralConjectures { .. } => "several_conjectures",
+            Self::UnknownName { .. } => "unknown_name",
             Self::IndexOutOfBounds { .. } => "index_out_of_bounds",
             Self::NotTopological { .. } => "not_topological",
             Self::Antecedents { .. } => "antecedents",
@@ -505,6 +519,15 @@ pub(crate) const fn refusal_kind(refusal: &Refusal) -> ErrorKind {
     match refusal {
         Refusal::Stopped { .. } => ErrorKind::Stopped,
         _ => ErrorKind::Limit,
+    }
+}
+
+/// Lists names as prose: `a, b or c`.
+fn or_list(names: &[&str]) -> String {
+    match names.split_last() {
+        None => String::new(),
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
     }
 }
 

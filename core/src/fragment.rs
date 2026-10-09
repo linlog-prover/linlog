@@ -1,15 +1,17 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use crate::Error;
 use crate::sequents::{Kind, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::ops::{BitAnd, BitOr, BitOrAssign};
+use std::str::FromStr;
 
-/// The connective classes a sequent uses, which name the fragment of linear
-/// logic it lives in. Fragments form a lattice under [`union`](Self::union)
-/// and [`contains`](Self::contains); the named constants are the usual
-/// fragments, and [`Sequent::fragment`] computes the smallest one a sequent
-/// fits.
+/// The connective classes a sequent uses, which name the fragment of
+/// propositional linear logic it lives in. Fragments form a lattice under
+/// [`union`](Self::union) and [`contains`](Self::contains); the named
+/// constants are the usual fragments, and [`Sequent::fragment`] computes
+/// the smallest one a sequent fits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Fragment(u8);
 
@@ -31,15 +33,32 @@ impl Fragment {
     pub const MLL: Self = Self::MULTIPLICATIVES;
     /// Multiplicative linear logic with units: `⊗ ⅋ 1 ⊥`.
     pub const MLL_WITH_UNITS: Self = Self::MLL.union(Self::MULTIPLICATIVE_UNITS);
-    /// Additive linear logic: `& ⊕ ⊤ 0`, and nothing multiplicative. Not to
-    /// be confused with [`LL`](Self::LL), which has every connective.
-    pub const ALL: Self = Self::ADDITIVES.union(Self::ADDITIVE_UNITS);
+    /// Additive linear logic, named `ALL`: `& ⊕ ⊤ 0`, and nothing
+    /// multiplicative. Not to be confused with [`LL`](Self::LL), which has
+    /// every connective.
+    pub const ADDITIVE: Self = Self::ADDITIVES.union(Self::ADDITIVE_UNITS);
     /// Multiplicative-additive linear logic: `⊗ ⅋ 1 ⊥ & ⊕ ⊤ 0`.
-    pub const MALL: Self = Self::MLL_WITH_UNITS.union(Self::ALL);
+    pub const MALL: Self = Self::MLL_WITH_UNITS.union(Self::ADDITIVE);
     /// Multiplicative-exponential linear logic: `⊗ ⅋ 1 ⊥ ! ?`.
     pub const MELL: Self = Self::MLL_WITH_UNITS.union(Self::EXPONENTIALS);
-    /// Full linear logic: every connective.
+    /// Full propositional linear logic: every propositional connective.
     pub const LL: Self = Self::MALL.union(Self::EXPONENTIALS);
+
+    /// The named fragments, in the order of [`NAMES`](Self::NAMES): each is
+    /// the largest fragment of its name.
+    pub const NAMED: [Self; 6] = [
+        Self::MLL,
+        Self::MLL_WITH_UNITS,
+        Self::ADDITIVE,
+        Self::MALL,
+        Self::MELL,
+        Self::LL,
+    ];
+
+    /// The names of the [`NAMED`](Self::NAMED) fragments, as
+    /// [`name`](Self::name) writes them and [`FromStr`] reads them.
+    pub const NAMES: &'static [&'static str] =
+        &["MLL", "MLL with units", "ALL", "MALL", "MELL", "LL"];
 
     /// Returns the fragment with the connective classes of both.
     pub const fn union(self, other: Self) -> Self {
@@ -88,6 +107,12 @@ impl Fragment {
         self.contains(Self::EXPONENTIALS)
     }
 
+    /// Returns whether a sequent of this fragment has proof structures:
+    /// whether it is unit-free MLL.
+    pub const fn has_nets(self) -> bool {
+        Self::MLL.contains(self)
+    }
+
     /// Returns the usual name of the smallest named fragment that contains
     /// this one: `MLL`, `MLL with units`, `ALL`, `MALL`, `MELL` or `LL`. The
     /// empty fragment is named `MLL`, and units only count for the name of a
@@ -109,7 +134,7 @@ impl Fragment {
     /// [`name`](Self::name), or in intuitionistic mode the intuitionistic
     /// one, `IMLL`, `IMLL with units`, `IALL`, `IMALL`, `IMELL` or `ILL`.
     pub const fn name_in(self, mode: Mode) -> &'static str {
-        if !mode.intuitionistic {
+        if !mode.is_intuitionistic() {
             return self.name();
         }
         let additive = self.has_additives() || self.has_additive_units();
@@ -122,6 +147,25 @@ impl Fragment {
             (false, false, _) if self.has_multiplicative_units() => "IMLL with units",
             (false, false, _) => "IMLL",
         }
+    }
+}
+
+impl FromStr for Fragment {
+    type Err = Error;
+
+    /// Reads a fragment's name, classical or with the intuitionistic `I`
+    /// before it (`MALL`, `IMALL`), as the largest fragment of that name.
+    fn from_str(name: &str) -> Result<Self, Error> {
+        let classical = name.strip_prefix('I').unwrap_or(name);
+        Self::NAMES
+            .iter()
+            .position(|n| *n == classical)
+            .map(|i| Self::NAMED[i])
+            .ok_or_else(|| Error::UnknownName {
+                what: "fragment",
+                name: name.into(),
+                known: Self::NAMES,
+            })
     }
 }
 
@@ -216,16 +260,20 @@ impl Sequent {
 }
 
 /// What the user asks of proof search beyond the sequent: the calculus and
-/// the structural rules in force.
+/// the structural rules in force. Built from [`CLASSICAL`](Self::CLASSICAL)
+/// or [`INTUITIONISTIC`](Self::INTUITIONISTIC) with the builders, or read
+/// from its [`name`](Self::name); [`check`](Self::check) refuses a
+/// combination no calculus has.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Mode {
     /// Intuitionistic linear logic, with one formula on the right, instead of
     /// classical one-sided sequents.
-    pub intuitionistic: bool,
+    pub(crate) intuitionistic: bool,
     /// Affine logic: weakening is allowed, so a formula may go unused.
-    pub affine: bool,
+    pub(crate) affine: bool,
     /// The Mix rule is allowed: `⊢ Γ` and `⊢ Δ` give `⊢ Γ, Δ`.
-    pub mix: bool,
+    pub(crate) mix: bool,
 }
 
 impl Mode {
@@ -243,8 +291,36 @@ impl Mode {
         mix: false,
     };
 
+    /// The names of the modes a calculus has, as [`name`](Self::name)
+    /// writes them and [`FromStr`] reads them.
+    pub const NAMES: &'static [&'static str] = &[
+        "classical",
+        "affine",
+        "mix",
+        "affine-mix",
+        "intuitionistic",
+        "intuitionistic-affine",
+    ];
+
+    /// Returns whether sequents are intuitionistic, with one formula on
+    /// the right, rather than classical and one-sided.
+    pub const fn is_intuitionistic(self) -> bool {
+        self.intuitionistic
+    }
+
+    /// Returns whether weakening is allowed.
+    pub const fn is_affine(self) -> bool {
+        self.affine
+    }
+
+    /// Returns whether the Mix rule is allowed.
+    pub const fn has_mix(self) -> bool {
+        self.mix
+    }
+
     /// Returns the mode with weakening allowed.
-    pub const fn affine(self) -> Self {
+    #[must_use]
+    pub const fn with_affine(self) -> Self {
         Self {
             affine: true,
             ..self
@@ -252,8 +328,68 @@ impl Mode {
     }
 
     /// Returns the mode with the Mix rule allowed.
+    #[must_use]
     pub const fn with_mix(self) -> Self {
         Self { mix: true, ..self }
+    }
+
+    /// Returns the mode's name: one of [`NAMES`](Self::NAMES), or
+    /// `intuitionistic-mix` and `intuitionistic-affine-mix` for the modes
+    /// [`check`](Self::check) refuses.
+    pub const fn name(self) -> &'static str {
+        let Self {
+            intuitionistic,
+            affine,
+            mix,
+        } = self;
+        match (intuitionistic, affine, mix) {
+            (false, false, false) => "classical",
+            (false, true, false) => "affine",
+            (false, false, true) => "mix",
+            (false, true, true) => "affine-mix",
+            (true, false, false) => "intuitionistic",
+            (true, true, false) => "intuitionistic-affine",
+            (true, false, true) => "intuitionistic-mix",
+            (true, true, true) => "intuitionistic-affine-mix",
+        }
+    }
+
+    /// Refuses a combination no calculus has: intuitionistic with Mix.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IntuitionisticMix`] for an intuitionistic mode with Mix.
+    pub const fn check(self) -> Result<(), Error> {
+        if self.intuitionistic && self.mix {
+            Err(Error::IntuitionisticMix)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl FromStr for Mode {
+    type Err = Error;
+
+    /// Reads a mode's [`name`](Self::name), one of
+    /// [`NAMES`](Self::NAMES).
+    fn from_str(name: &str) -> Result<Self, Error> {
+        let mode = match name {
+            "classical" => Self::CLASSICAL,
+            "affine" => Self::CLASSICAL.with_affine(),
+            "mix" => Self::CLASSICAL.with_mix(),
+            "affine-mix" => Self::CLASSICAL.with_affine().with_mix(),
+            "intuitionistic" => Self::INTUITIONISTIC,
+            "intuitionistic-affine" => Self::INTUITIONISTIC.with_affine(),
+            _ => {
+                return Err(Error::UnknownName {
+                    what: "mode",
+                    name: name.into(),
+                    known: Self::NAMES,
+                });
+            }
+        };
+        Ok(mode)
     }
 }
 
@@ -286,17 +422,17 @@ mod tests {
         use Fragment as F;
         assert!(F::MLL_WITH_UNITS.contains(F::MLL));
         assert!(F::MALL.contains(F::MLL_WITH_UNITS));
-        assert!(F::MALL.contains(F::ALL));
+        assert!(F::MALL.contains(F::ADDITIVE));
         assert!(F::MELL.contains(F::MLL_WITH_UNITS));
         assert!(F::LL.contains(F::MALL));
         assert!(F::LL.contains(F::MELL));
         assert!(!F::MALL.contains(F::MELL));
-        assert!(!F::MELL.contains(F::ALL));
+        assert!(!F::MELL.contains(F::ADDITIVE));
         assert!(!F::MLL.contains(F::MULTIPLICATIVE_UNITS));
         assert!(F::EMPTY.is_empty());
         assert!(!F::MLL.is_empty());
         assert_eq!(F::MALL & F::MELL, F::MLL_WITH_UNITS);
-        assert_eq!(F::ALL | F::EXPONENTIALS | F::MLL_WITH_UNITS, F::LL);
+        assert_eq!(F::ADDITIVE | F::EXPONENTIALS | F::MLL_WITH_UNITS, F::LL);
     }
 
     /// Every combination of connective classes gets the name of the smallest
@@ -311,7 +447,7 @@ mod tests {
             (F::MLL_WITH_UNITS, "MLL with units"),
             (F::ADDITIVES, "ALL"),
             (F::ADDITIVE_UNITS, "ALL"),
-            (F::ALL, "ALL"),
+            (F::ADDITIVE, "ALL"),
             (F::MLL | F::ADDITIVES, "MALL"),
             (F::MULTIPLICATIVE_UNITS | F::ADDITIVE_UNITS, "MALL"),
             (F::MALL, "MALL"),
@@ -334,14 +470,14 @@ mod tests {
             (F::EMPTY, "IMLL"),
             (F::MLL, "IMLL"),
             (F::MLL_WITH_UNITS, "IMLL with units"),
-            (F::ALL, "IALL"),
+            (F::ADDITIVE, "IALL"),
             (F::MALL, "IMALL"),
             (F::MELL, "IMELL"),
             (F::LL, "ILL"),
         ] {
             assert_eq!(fragment.name_in(Mode::INTUITIONISTIC), name, "{fragment:?}");
             assert_eq!(
-                fragment.name_in(Mode::INTUITIONISTIC.affine()),
+                fragment.name_in(Mode::INTUITIONISTIC.with_affine()),
                 name,
                 "{fragment:?}"
             );
@@ -351,6 +487,40 @@ mod tests {
                 "{fragment:?}"
             );
         }
+    }
+
+    /// Every mode a calculus has, and every named fragment, reads back
+    /// from its name; an unknown name is refused naming the known ones.
+    #[test]
+    fn names_read_back() {
+        let modes = [
+            Mode::CLASSICAL,
+            Mode::CLASSICAL.with_affine(),
+            Mode::CLASSICAL.with_mix(),
+            Mode::CLASSICAL.with_affine().with_mix(),
+            Mode::INTUITIONISTIC,
+            Mode::INTUITIONISTIC.with_affine(),
+        ];
+        assert_eq!(modes.map(Mode::name), Mode::NAMES);
+        for mode in modes {
+            assert_eq!(mode.name().parse::<Mode>().unwrap(), mode);
+            assert!(mode.check().is_ok(), "{mode}");
+        }
+        assert!(Mode::INTUITIONISTIC.with_mix().check().is_err());
+        assert!(matches!(
+            "lambek".parse::<Mode>(),
+            Err(Error::UnknownName {
+                what: "mode",
+                known: Mode::NAMES,
+                ..
+            })
+        ));
+        for (fragment, name) in Fragment::NAMED.into_iter().zip(Fragment::NAMES) {
+            assert_eq!(fragment.name(), *name);
+            assert_eq!(name.parse::<Fragment>().unwrap(), fragment);
+            assert_eq!(format!("I{name}").parse::<Fragment>().unwrap(), fragment);
+        }
+        assert!("MLLL".parse::<Fragment>().is_err());
     }
 
     /// Each kind belongs to the connective class of its symbol.
@@ -394,7 +564,7 @@ mod tests {
             ("A & B |- A", F::ADDITIVES),
             ("|- top", F::ADDITIVE_UNITS),
             ("0 |- A", F::ADDITIVE_UNITS),
-            ("A & B |- A + 0", F::ALL),
+            ("A & B |- A + 0", F::ADDITIVE),
             ("A & B |- A * B", F::MLL | F::ADDITIVES),
             ("A * B, C par D |- A & B, C + D, 0, top, 1, bot", F::MALL),
             ("!A |- A", F::EXPONENTIALS),
@@ -430,11 +600,11 @@ mod tests {
         assert_eq!(Mode::default(), Mode::CLASSICAL);
         assert_eq!(Mode::CLASSICAL.to_string(), "classical");
         assert_eq!(
-            Mode::INTUITIONISTIC.affine().to_string(),
+            Mode::INTUITIONISTIC.with_affine().to_string(),
             "intuitionistic affine"
         );
         assert_eq!(
-            Mode::CLASSICAL.affine().with_mix().to_string(),
+            Mode::CLASSICAL.with_affine().with_mix().to_string(),
             "classical affine with Mix"
         );
         assert_eq!(

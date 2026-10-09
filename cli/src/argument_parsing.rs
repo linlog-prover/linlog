@@ -777,11 +777,18 @@ impl InteractArgs {
 impl ModeArgs {
     /// Returns the mode the flags ask for.
     pub fn mode(&self) -> Mode {
-        Mode {
-            intuitionistic: self.intuitionistic,
-            affine: self.affine,
-            mix: self.mix,
+        let mut mode = if self.intuitionistic {
+            Mode::INTUITIONISTIC
+        } else {
+            Mode::CLASSICAL
+        };
+        if self.affine {
+            mode = mode.with_affine();
         }
+        if self.mix {
+            mode = mode.with_mix();
+        }
+        mode
     }
 }
 
@@ -1166,7 +1173,7 @@ impl From<FragmentArg> for Fragment {
         match f {
             FragmentArg::Mll => Fragment::MLL,
             FragmentArg::MllUnits => Fragment::MLL_WITH_UNITS,
-            FragmentArg::All => Fragment::ALL,
+            FragmentArg::All => Fragment::ADDITIVE,
             FragmentArg::Mall => Fragment::MALL,
             FragmentArg::Mell => Fragment::MELL,
             FragmentArg::Ll => Fragment::LL,

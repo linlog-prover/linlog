@@ -528,7 +528,7 @@ fn dispatch(task: &Task<'_>) -> Engine {
 /// two rows take every goal, each in its own modes.
 const DISPATCH: [Row; 5] = [
     Row {
-        fragment: Fragment::ALL,
+        fragment: Fragment::ADDITIVE,
         modes: Modes::Any,
         feature: Feature::TwoFormulas,
         engine: Engine::Additive,
@@ -596,11 +596,20 @@ enum Modes {
 impl Modes {
     /// Whether a mode is one of these.
     fn take(self, mode: Mode) -> bool {
+        #[expect(
+            clippy::unneeded_field_pattern,
+            reason = "every field named, so that a new one must be placed here"
+        )]
+        let Mode {
+            intuitionistic,
+            affine,
+            mix: _,
+        } = mode;
         match self {
             Modes::Any => true,
-            Modes::Linear => !mode.affine,
-            Modes::Classical => !mode.intuitionistic,
-            Modes::Intuitionistic => mode.intuitionistic,
+            Modes::Linear => !affine,
+            Modes::Classical => !intuitionistic,
+            Modes::Intuitionistic => intuitionistic,
         }
     }
 }
@@ -1628,7 +1637,7 @@ mod tests {
         for (input, mode, fragment, engine) in [
             (
                 "a, b |- a",
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
                 Fragment::EMPTY,
                 Engine::Focus,
             ),
@@ -1658,13 +1667,13 @@ mod tests {
             ),
             (
                 "!a, b |- a",
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
                 Fragment::EXPONENTIALS,
                 Engine::Horn,
             ),
             (
                 "!a, b |- a & a",
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
                 Fragment::ADDITIVES | Fragment::EXPONENTIALS,
                 Engine::Focus,
             ),
@@ -1675,7 +1684,7 @@ mod tests {
             assert!(outcome.verdict.proof().is_some(), "{input:?}");
         }
         let net = Options::default().engine(Some(Engine::Net));
-        let error = prove(&sequent("a, b |- a"), Mode::CLASSICAL.affine(), &net).unwrap_err();
+        let error = prove(&sequent("a, b |- a"), Mode::CLASSICAL.with_affine(), &net).unwrap_err();
         assert!(matches!(error, Error::NetMode { .. }));
         assert_eq!(
             error.to_string(),
@@ -1696,7 +1705,7 @@ mod tests {
             ("a * a * a |- a * a * a", Fragment::MLL, Engine::TwoSided),
             ("1 |- 1", Fragment::MULTIPLICATIVE_UNITS, Engine::TwoSided),
             ("a & b |- a", Fragment::ADDITIVES, Engine::Additive),
-            ("a & b, 0 |- a", Fragment::ALL, Engine::TwoSided),
+            ("a & b, 0 |- a", Fragment::ADDITIVE, Engine::TwoSided),
             (
                 "!a |- a * a",
                 Fragment::MLL | Fragment::EXPONENTIALS,
@@ -1713,7 +1722,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("{input:?}"));
             assert_eq!(proof.check(i), Ok(()), "{input:?}");
         }
-        let outcome = prove(&sequent("a, b |- a"), i.affine(), &Options::default()).unwrap();
+        let outcome = prove(&sequent("a, b |- a"), i.with_affine(), &Options::default()).unwrap();
         assert_eq!(outcome.engine, Engine::TwoSided);
         assert!(outcome.verdict.proof().is_some());
 

@@ -666,7 +666,7 @@ fn stops_inside_a_split_search() {
     let (verdict, statistics) = search(
         &forest,
         s.fragment(),
-        Mode::CLASSICAL.affine(),
+        Mode::CLASSICAL.with_affine(),
         None,
         &Options::default(),
         &mut || {
@@ -808,7 +808,7 @@ fn intuitionistic() {
         ("a & b |- a", true),
         ("!(a -o a * a), a |- a * a * a", true),
     ] {
-        assert_eq!(provable(input, i.affine()), expected, "{input:?}");
+        assert_eq!(provable(input, i.with_affine()), expected, "{input:?}");
     }
 }
 
@@ -911,7 +911,7 @@ fn full_ll() {
 /// fragment, and decides what linear mode cannot.
 #[test]
 fn affine() {
-    let affine = Mode::CLASSICAL.affine();
+    let affine = Mode::CLASSICAL.with_affine();
     for (input, linear, weakened) in [
         ("a |- 1", false, true),
         ("a, b |- a", false, true),
@@ -1103,7 +1103,7 @@ fn exponential_derivations() {
         .join("\n")
     );
     assert_eq!(
-        render("A, B |- A", Mode::CLASSICAL.affine()),
+        render("A, B |- A", Mode::CLASSICAL.with_affine()),
         ["  ─────── ax", "  ⊢ ~A, A", "─────────── wk", "⊢ ~A, ~B, A",].join("\n")
     );
 }
@@ -1158,12 +1158,12 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
                  says {verdict:?}"
             );
             // A linear proof is an affine proof.
-            let (affine, _) = run(&text, mode.affine(), &options);
+            let (affine, _) = run(&text, mode.with_affine(), &options);
             assert!(
                 affine.proof().is_some(),
                 "{text:?} is provable in {} mode within {copies} copies, but the engine \
                  says {affine:?}",
-                mode.affine()
+                mode.with_affine()
             );
             sequents += 1;
             most_nodes = most_nodes.max(statistics.nodes);
@@ -1236,7 +1236,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
                 "{text:?} is provable in ILL within {copies} copies, but the engine says \
                  {verdict:?}"
             );
-            let (affine, _) = run(&text, i.affine(), &options);
+            let (affine, _) = run(&text, i.with_affine(), &options);
             assert!(affine.proof().is_some(), "{text:?} affine: {affine:?}");
             sequents += 1;
             // The classical engine on the same one-sided sequent.
@@ -1397,7 +1397,7 @@ fn horn_programs() {
     assert!(matches!(
         run(
             &horn(&clauses, &marking, &[goal, "a"]),
-            m.affine(),
+            m.with_affine(),
             &Options::default()
         )
         .0,
@@ -1409,7 +1409,7 @@ fn horn_programs() {
         run(&horn(&clauses, &five, &[goal]), m, &Options::default()).0,
         Verdict::Unprovable(_)
     ));
-    assert!(provable(&horn(&clauses, &five, &[goal]), m.affine()));
+    assert!(provable(&horn(&clauses, &five, &[goal]), m.with_affine()));
 }
 
 /// A 3-Partition instance with a solution is proved: the first bin
@@ -1546,8 +1546,8 @@ fn affine_mode_leaves_mix_out() {
             &mut || false,
         )
     };
-    let (with, with_statistics) = decide(Mode::CLASSICAL.affine().with_mix());
-    let (without, without_statistics) = decide(Mode::CLASSICAL.affine());
+    let (with, with_statistics) = decide(Mode::CLASSICAL.with_affine().with_mix());
+    let (without, without_statistics) = decide(Mode::CLASSICAL.with_affine());
     assert!(matches!(with, Verdict::Unprovable(_)), "{with:?}");
     assert!(matches!(without, Verdict::Unprovable(_)), "{without:?}");
     assert_eq!(with_statistics, without_statistics);

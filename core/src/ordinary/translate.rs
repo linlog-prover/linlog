@@ -448,7 +448,7 @@ pub fn translate(
     };
     linear.optimize()?;
     let mode = if classical {
-        Mode::CLASSICAL.affine()
+        Mode::CLASSICAL.with_affine()
     } else {
         Mode::INTUITIONISTIC
     };

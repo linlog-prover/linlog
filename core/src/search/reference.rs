@@ -831,7 +831,7 @@ mod tests {
                             Mode::CLASSICAL
                         };
                         if affine {
-                            mode = mode.affine();
+                            mode = mode.with_affine();
                         }
                         let reference = classical(formulas, mode, copies);
                         judge(&text, mode, copies, reference, &mut tally);
@@ -940,7 +940,7 @@ mod tests {
             // whose markings grow without end until it is stopped.
             let polls = 5_000;
             let text = generate::two_sided(&hypotheses, &goal);
-            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.affine()] {
+            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
                 let reference = intuitionistic(&hypotheses, &goal, mode, copies);
                 judge_within(&text, mode, copies, reference, &mut tally, polls);
             }
@@ -948,7 +948,7 @@ mod tests {
             for mode in [
                 Mode::CLASSICAL,
                 Mode::CLASSICAL.with_mix(),
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
             ] {
                 let reference = classical(&formulas, mode, copies);
                 judge_within(&text, mode, copies, reference, &mut tally, polls);
@@ -1019,7 +1019,7 @@ mod tests {
             let text = generate::sequent(formulas);
             for mode in [
                 Mode::CLASSICAL,
-                Mode::CLASSICAL.affine(),
+                Mode::CLASSICAL.with_affine(),
                 Mode::CLASSICAL.with_mix(),
             ] {
                 let reference = classical(formulas, mode, *copies);
@@ -1029,7 +1029,7 @@ mod tests {
         }
         for (hypotheses, goal, copies) in &intuitionistic_cases {
             let text = generate::two_sided(hypotheses, goal);
-            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.affine()] {
+            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
                 let reference = intuitionistic(hypotheses, goal, mode, *copies);
                 assert_eq!(reference, Answer::Proved, "{text:?} in {mode} mode");
                 judge(&text, mode, *copies, reference, &mut tally);
@@ -1057,7 +1057,7 @@ mod tests {
                 }
                 for hypotheses in &cases {
                     let text = generate::two_sided(hypotheses, &goal);
-                    for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.affine()] {
+                    for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
                         let reference = intuitionistic(hypotheses, &goal, mode, copies);
                         judge(&text, mode, copies, reference, &mut tally);
                     }
@@ -1112,7 +1112,7 @@ mod tests {
             judge(&text, Mode::CLASSICAL, 0, reference, &mut tally);
             let (a, b) = (additive(&mut rng, 3, false), additive(&mut rng, 3, false));
             let text = generate::two_sided(std::slice::from_ref(&a), &b);
-            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.affine()] {
+            for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
                 let reference = intuitionistic(std::slice::from_ref(&a), &b, mode, 0);
                 judge(&text, mode, 0, reference, &mut tally);
             }

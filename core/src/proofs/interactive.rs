@@ -1296,7 +1296,7 @@ mod tests {
         step(&mut s, g, "1", One, &[]);
         s.proof().unwrap();
         // wk in affine mode, and Mix.
-        let (mut s, g) = start("a, b |- a", classical.affine());
+        let (mut s, g) = start("a, b |- a", classical.with_affine());
         assert_eq!(s.rules(g, at(&s, g, "~b")).unwrap(), [Ax, AffineWeakening]);
         let [g] = step(&mut s, g, "~b", AffineWeakening, &[])[..] else {
             panic!()
@@ -1452,7 +1452,7 @@ mod tests {
             s.apply(g, imp, ImpLeft, &[b]),
             Err(StepError::Succedents { count: 2 })
         );
-        let (mut s, g) = start("a, b |- a", i.affine());
+        let (mut s, g) = start("a, b |- a", i.with_affine());
         let goal = at(&s, g, "a");
         assert_eq!(
             s.apply(g, goal, AffineWeakening, &[]),
@@ -1642,7 +1642,7 @@ mod tests {
         let affine = search::prove_goal(
             s.forest(),
             &goal,
-            Mode::CLASSICAL.affine(),
+            Mode::CLASSICAL.with_affine(),
             &Options::default(),
             &Limits::default(),
             |_| false,

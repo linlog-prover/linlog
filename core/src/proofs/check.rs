@@ -1587,9 +1587,9 @@ mod tests {
 
         let modes = [
             classical,
-            classical.affine().with_mix(),
+            classical.with_affine().with_mix(),
             Mode::INTUITIONISTIC,
-            Mode::INTUITIONISTIC.affine(),
+            Mode::INTUITIONISTIC.with_affine(),
         ];
         let mut rng = Rng::new(7);
         let (mut mutants, mut rejected) = (0, 0);
@@ -1608,7 +1608,7 @@ mod tests {
                     continue;
                 };
                 mutants += 1;
-                for mode in [*mode, classical.affine().with_mix()] {
+                for mode in [*mode, classical.with_affine().with_mix()] {
                     let result = check(&mutant, mode);
                     rejected += u32::from(result.is_err());
                     assert_eq!(
@@ -1727,7 +1727,7 @@ mod tests {
             (
                 "A, B |- A",
                 vec![Ax(o(0), o(2)), Weaken(o(1), n(0))],
-                classical.affine(),
+                classical.with_affine(),
             ),
             // ⊢ 1, ?A: weakening of a ? formula needs no affine mode.
             ("|- 1, ?A", vec![One(o(0)), Weaken(o(1), n(0))], classical),
@@ -2287,11 +2287,11 @@ mod tests {
         // A, B ⊢ A in affine mode: weakening the hypothesis is fine, the
         // goal never.
         let p = proof("A, B |- A", vec![Ax(o(0), o(2)), Weaken(o(1), n(0))]);
-        assert_eq!(p.check(m.affine()), Ok(()));
+        assert_eq!(p.check(m.with_affine()), Ok(()));
         // A, 0 ⊢ B: 0 ~A, 1 ⊤, 2 B
         let p = proof("A, 0 |- B", vec![Top(o(1)), Weaken(o(2), n(0))]);
         assert_eq!(
-            p.check(m.affine()).unwrap_err().fault(),
+            p.check(m.with_affine()).unwrap_err().fault(),
             Some(&Succedents { count: 0 })
         );
         // ((A ⊗ ⊤) & (B ⊗ ⊤)) ⊸ 0 ⊢ (A ⊸ C) ⊕ (B ⊸ C), which classical

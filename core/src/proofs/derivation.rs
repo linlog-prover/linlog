@@ -452,11 +452,11 @@ impl<'a> Derivation<'a> {
     pub const MOST: u64 = u32::MAX as u64;
 
     /// The rules of a one-sided derivation: every rule a proof can use.
-    pub(crate) const ONE_SIDED: Mode = Mode::CLASSICAL.affine().with_mix();
+    pub(crate) const ONE_SIDED: Mode = Mode::CLASSICAL.with_affine().with_mix();
 
     /// The rules of a two-sided derivation, weakening among them so that
     /// it shows where used.
-    pub(crate) const TWO_SIDED: Mode = Mode::INTUITIONISTIC.affine();
+    pub(crate) const TWO_SIDED: Mode = Mode::INTUITIONISTIC.with_affine();
 
     /// Unfolds a proof into the two-sided derivation of intuitionistic
     /// linear logic, `Γ ⊢ A` at every inference with the intuitionistic

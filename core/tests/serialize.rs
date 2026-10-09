@@ -261,7 +261,7 @@ fn fragment_and_mode_json_format() {
         assert_eq!(back, fragment);
     }
 
-    let mode = Mode::CLASSICAL.affine();
+    let mode = Mode::CLASSICAL.with_affine();
     let json = r#"{"intuitionistic":false,"affine":true,"mix":false}"#;
     assert_eq!(serde_json::to_string(&mode).unwrap(), json);
     assert_eq!(serde_json::from_str::<Mode>(json).unwrap(), mode);
