@@ -82,12 +82,12 @@ fn lines() -> String {
     )
     .unwrap();
     pin("outcome-stopped", json(&stopped));
-    let bounded = options.clone().copies(Some(0));
+    let bounded = options.clone().with_copies(Some(0));
     pin(
         "outcome-copy-bound",
         json(&linlog::prove(&hard, classical, &bounded).unwrap()),
     );
-    let forced = options.clone().engine(Some(Engine::Focus));
+    let forced = options.clone().with_engine(Some(Engine::Focus));
     pin(
         "outcome-forced-engine",
         json(&linlog::prove(&sequent("A * B |- B * A"), classical, &forced).unwrap()),

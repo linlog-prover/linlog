@@ -84,7 +84,7 @@ pub(crate) fn search_goal(
     let mut engine = Engine {
         forest,
         memo: HashMap::default(),
-        memo_limit: options.memo_limit,
+        memo_limit: options.memo_entries(),
         memo_peak: 0,
         nodes: Vec::new(),
         statistics: Statistics::default(),
@@ -279,7 +279,7 @@ mod tests {
     /// if there is one, and returns whether it is provable.
     fn decide(input: &str, mode: Mode, engine: Which) -> bool {
         let s = sequent(input);
-        let outcome = prove(&s, mode, &Options::default().engine(Some(engine)))
+        let outcome = prove(&s, mode, &Options::default().with_engine(Some(engine)))
             .unwrap_or_else(|e| panic!("{input:?} by {engine}: {e}"));
         assert_eq!(outcome.engine, engine);
         match outcome.verdict {
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn capped_memo() {
         let instance = crate::families::find("additive").unwrap().instance(8, 0);
-        let options = Options::default().memo_limit(64);
+        let options = Options::default().with_memo_limit(64);
         let outcome = prove(&instance.sequent, instance.mode, &options).unwrap();
         assert_eq!(outcome.engine, Which::Additive);
         assert_eq!(outcome.statistics.memo_entries, 64);

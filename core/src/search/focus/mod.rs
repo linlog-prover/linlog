@@ -165,7 +165,7 @@ impl Decide for Focused {
             ..
         } = *task;
         #[cfg(feature = "parallel")]
-        if options.job_count() > 1 {
+        if options.threads() > 1 {
             let found = parallel::search_goal(
                 forest, goal, fragment, mode, reading, options, limits, account, stop,
             )?;
@@ -257,12 +257,14 @@ pub(crate) fn search_goal(
         (second, &second_counts, &accounts[1]),
     ];
     // With threads the two searches alternate in slices and none starts
-    // again; without them, or when a thread cannot start, they take
-    // turns from their start.
+    // again; without them, when a thread cannot start, or where the
+    // options ask for it, they take turns from their start.
     #[cfg(feature = "parallel")]
-    if let Some(result) = schedule::alternate(
-        forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
-    ) {
+    if options.schedule == super::Schedule::Auto
+        && let Some(result) = schedule::alternate(
+            forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
+        )
+    {
         return result;
     }
     turns(

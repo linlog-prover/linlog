@@ -569,7 +569,7 @@ mod tests {
             for index in 0..family.instances {
                 let instance = family.instance(family.sizes[0], index);
                 let options = Options::default()
-                    .copies(Some(instance.copies.unwrap_or(Options::DEFAULT_COPIES)));
+                    .with_copies(Some(instance.copies.unwrap_or(Options::DEFAULT_COPIES)));
                 let outcome = prove(&instance.sequent, instance.mode, &options).unwrap();
                 match &outcome.verdict {
                     Verdict::Proved(proof) => {

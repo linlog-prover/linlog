@@ -55,7 +55,7 @@
 //! use std::time::{Duration, Instant};
 //!
 //! let mode = Mode::CLASSICAL.with_mix();
-//! let options = Options::default().fragment(Some(Fragment::MALL));
+//! let options = Options::default().with_fragment(Some(Fragment::MALL));
 //! let limits = Limits::default().with_memory_bytes(Some(64 << 20));
 //! let deadline = Instant::now() + Duration::from_secs(10);
 //! let sequent = "|- A par B, ~A, ~B".parse()?;

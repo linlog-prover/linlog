@@ -60,13 +60,13 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
         }
     };
     let options = Options::default()
-        .memo_limit(args.memo_limit)
-        .copies(args.copies.0)
-        .bias(args.bias.into())
-        .forward_copies(args.forward_copies);
+        .with_memo_limit(args.memo_limit)
+        .with_copies(args.copies.0)
+        .with_bias(args.bias.into())
+        .with_forward_copies(args.forward_copies);
     let limits = args.limits();
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
-    let options = options.jobs(threads.jobs);
+    let options = options.with_jobs(threads.jobs);
     catch_interrupt();
     let stack_size = limits.stack_bytes();
     let mut styles = Styles::read(&args.style, None, false)?;

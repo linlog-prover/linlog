@@ -3,7 +3,9 @@
 
 use super::proofs::Proof;
 use crate::fragment::{Fragment, Mode};
-use crate::search::{Engine, Outcome as Out, Reason, Refutation, Statistics, Verdict};
+use crate::search::{
+    Bias, Cadence, Engine, Jobs, Outcome as Out, Reason, Refutation, Statistics, Verdict,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Fragment {
@@ -246,5 +248,94 @@ impl Serialize for Engine {
     /// Serializes the engine as its name, such as `"focus"`.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_str(self)
+    }
+}
+
+impl<'a> Deserialize<'a> for Engine {
+    /// Deserializes an engine from its name.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for Bias {
+    /// Serializes the rule as its name, such as `"rarer"`.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'a> Deserialize<'a> for Bias {
+    /// Deserializes a rule from its name.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+/// A value written `"auto"` or as a number.
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum AutoOrNumber {
+    /// A number.
+    Number(u64),
+    /// A word, of which `"auto"` is the one read.
+    Word(String),
+}
+
+impl AutoOrNumber {
+    /// Returns the number, or `None` for `"auto"`, or the error for any
+    /// other word.
+    fn number<E: serde::de::Error>(self) -> Result<Option<u64>, E> {
+        match self {
+            Self::Number(n) => Ok(Some(n)),
+            Self::Word(word) if word == "auto" => Ok(None),
+            Self::Word(word) => Err(E::custom(format!(
+                "expected a number or \"auto\", found {word:?}"
+            ))),
+        }
+    }
+}
+
+impl Serialize for Jobs {
+    /// Serializes the threads as `"auto"` or their number.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Auto => serializer.serialize_str("auto"),
+            Self::Count(n) => serializer.serialize_u64(u64::try_from(*n).unwrap_or(u64::MAX)),
+        }
+    }
+}
+
+impl<'a> Deserialize<'a> for Jobs {
+    /// Deserializes the threads from `"auto"` or a number.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(match AutoOrNumber::deserialize(deserializer)?.number()? {
+            None => Self::Auto,
+            Some(n) => Self::Count(usize::try_from(n).unwrap_or(usize::MAX)),
+        })
+    }
+}
+
+impl Serialize for Cadence {
+    /// Serializes the cadence as `"auto"` or the number of links.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Auto => serializer.serialize_str("auto"),
+            Self::Every(n) => serializer.serialize_u32(*n),
+        }
+    }
+}
+
+impl<'a> Deserialize<'a> for Cadence {
+    /// Deserializes the cadence from `"auto"` or a number of links.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(match AutoOrNumber::deserialize(deserializer)?.number()? {
+            None => Self::Auto,
+            Some(n) => Self::Every(u32::try_from(n).map_err(serde::de::Error::custom)?),
+        })
     }
 }

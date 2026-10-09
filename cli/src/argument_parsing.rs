@@ -156,7 +156,7 @@ pub struct ProveArgs {
     /// correctness. Zero switches the memo off. `--memory-limit` bounds
     /// the memo in bytes; this is the finer knob beside it.
     #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
-    pub memo_limit: usize,
+    pub memo_limit: u32,
     /// The most memory the search may hold: a number of bytes with a unit
     /// such as 512MiB or 4GiB, or `none` for no limit
     ///
@@ -352,7 +352,7 @@ pub struct InteractArgs {
     /// The most decided sequents a `close` remembers at once; see
     /// `prove --memo-limit`
     #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
-    pub memo_limit: usize,
+    pub memo_limit: u32,
     /// The most memory a `close` may hold, and a png or pdf render of
     /// `show` or `proof`; see `prove --memory-limit`
     #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]

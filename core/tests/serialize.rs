@@ -285,7 +285,7 @@ fn outcome_json_format() {
     );
     let proof: Proof = serde_json::from_str(&json).unwrap();
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
-    let focus = Options::default().engine(Some(Engine::Focus));
+    let focus = Options::default().with_engine(Some(Engine::Focus));
     let json = serde_json::to_string(&prove(&s, Mode::CLASSICAL, &focus).unwrap()).unwrap();
     let head = r#"{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","#;
     assert_eq!(
@@ -317,9 +317,9 @@ fn outcome_json_format() {
     // engine has none and proves the sequent.
     let s: Sequent = "!A |- A".parse().unwrap();
     let options = Options::default()
-        .engine(Some(Engine::Focus))
-        .copies(Some(0))
-        .forward_copies(0);
+        .with_engine(Some(Engine::Focus))
+        .with_copies(Some(0))
+        .with_forward_copies(0);
     let outcome = prove(&s, Mode::CLASSICAL, &options).unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
@@ -560,5 +560,48 @@ fn error_json_format() {
     assert!(
         described.contains("\"message\":\"invalid proof: node 0 (ax on a, ~a)"),
         "{described}"
+    );
+}
+
+/// The search options are an object of their fields: a missing key is
+/// the default, a misspelt one refused, a choice left to the library
+/// `"auto"`, and no bound `null`.
+#[test]
+fn options_json_format() {
+    use linlog::search::{Bias, Cadence, Jobs, Schedule};
+    let defaults = serde_json::to_string(&Options::default()).unwrap();
+    assert_eq!(
+        defaults,
+        "{\"engine\":\"auto\",\"fragment\":\"auto\",\"bias\":\"auto\",\"copies\":3,\
+         \"forward_copies\":30,\"memo_limit\":1048576,\"test_period\":\"auto\",\"jobs\":1,\
+         \"schedule\":\"auto\",\"check\":true}"
+    );
+    let read: Options = serde_json::from_str("{}").unwrap();
+    assert_eq!(read, Options::default());
+    let read: Options = serde_json::from_str(
+        "{\"engine\":\"two-sided\",\"fragment\":\"IMLL\",\"bias\":\"factors\",\"copies\":null,\
+         \"test_period\":7,\"jobs\":\"auto\",\"schedule\":\"turns\"}",
+    )
+    .unwrap();
+    assert_eq!(
+        read,
+        Options::default()
+            .with_engine(Some(Engine::TwoSided))
+            .with_fragment(Some(Fragment::MLL))
+            .with_bias(Bias::Factors)
+            .with_copies(None)
+            .with_test_period(Cadence::Every(7))
+            .with_jobs(Jobs::Auto)
+            .with_schedule(Schedule::Turns)
+    );
+    let error = serde_json::from_str::<Options>("{\"copy\":3}").unwrap_err();
+    assert!(
+        error.to_string().contains("unknown field `copy`"),
+        "{error}"
+    );
+    let error = serde_json::from_str::<Options>("{\"engine\":\"fast\"}").unwrap_err();
+    assert!(
+        error.to_string().contains("unknown engine `fast`"),
+        "{error}"
     );
 }

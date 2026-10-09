@@ -181,10 +181,10 @@ fn options(sequent: &Sequent, copies: Option<u32>) -> Options {
         Bias::Auto
     };
     Options::default()
-        .jobs(1)
-        .bias(bias)
-        .copies(Some(copies.unwrap_or(Options::DEFAULT_COPIES)))
-        .check(false)
+        .with_jobs(1)
+        .with_bias(bias)
+        .with_copies(Some(copies.unwrap_or(Options::DEFAULT_COPIES)))
+        .with_check(false)
 }
 
 /// An instance of a family.
@@ -398,7 +398,10 @@ fn batch() -> Result<()> {
     };
     // The rarer literal's search alone, as `options` takes it with
     // exponentials, for every problem.
-    let search = Options::default().jobs(1).bias(Bias::Rarer).check(false);
+    let search = Options::default()
+        .with_jobs(1)
+        .with_bias(Bias::Rarer)
+        .with_check(false);
     let decided =
         measured(|| batch::prove(problems, &options, &search, &Limits::default()).count());
     black_box(decided);

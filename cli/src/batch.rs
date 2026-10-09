@@ -515,7 +515,7 @@ impl Shared {
         }
         let start = Instant::now();
         let halt = || interrupted() || deadline.passed() || self.batch.passed();
-        let outcome = if search.job_count() > 1 {
+        let outcome = if search.jobs.count() > 1 {
             let parallel =
                 || engine_for(&forest, forest.roots(), mode, search).is_ok_and(Engine::parallel);
             let stack = limits.stack_bytes();
@@ -893,15 +893,15 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
     let show = Show::new(&args.output)?.within(args.memory_limit.0);
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
     let search = Options::default()
-        .memo_limit(args.memo_limit)
-        .engine(args.engine.into())
-        .fragment(args.fragment.map(Into::into))
-        .copies(args.copies.0)
-        .bias(args.bias.into())
-        .forward_copies(args.forward_copies)
-        .check(!args.no_check)
-        .jobs(threads.jobs)
-        .pool(Some(Pool::new()));
+        .with_memo_limit(args.memo_limit)
+        .with_engine(args.engine.into())
+        .with_fragment(args.fragment.map(Into::into))
+        .with_copies(args.copies.0)
+        .with_bias(args.bias.into())
+        .with_forward_copies(args.forward_copies)
+        .with_check(!args.no_check)
+        .with_jobs(threads.jobs)
+        .with_pool(Some(Pool::new()));
     let limits = args.limits();
     let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
     let cores = match args.batch.cores {

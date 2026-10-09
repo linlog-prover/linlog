@@ -382,8 +382,8 @@ mod tests {
     #[test]
     fn searches_share_a_kept_runtime() {
         let pool = Pool::new();
-        let alone = Options::default().jobs(2);
-        let pooled = alone.clone().pool(Some(pool.clone()));
+        let alone = Options::default().with_jobs(2);
+        let pooled = alone.clone().with_pool(Some(pool.clone()));
         // A machine of one processor runs every search sequentially.
         let built = usize::from(threads(2) > 1);
         let cases = [

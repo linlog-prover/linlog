@@ -30,7 +30,7 @@ has no or-choices worth sharing out). What the code relies on:
   of the default bias with exponentials and splits `jobs` between them;
   `Error::ThreadPool` when the threads cannot start. **A search starts
   no more threads than the machine runs at once**: `prove_goal` takes
-  `Options::jobs` through `parallel::threads`, the smaller of it and
+  `Options::threads()` through `parallel::threads`, the smaller of it and
   `std::thread::available_parallelism()` (which on Linux follows the
   process's CPU set and quota; where the platform does not tell, the
   options' own bound `MAX_JOBS` is all there is), and one thread left
@@ -42,7 +42,7 @@ has no or-choices worth sharing out). What the code relies on:
   is.
 - **A `Pool` keeps runtimes across searches and changes no search.**
   `search::Pool` (public, cloneable, an `Arc` of the idle runtimes;
-  `Options::pool(Some(pool))`) is the caller's, never global. Every
+  `Options::with_pool(Some(pool))`) is the caller's, never global. Every
   runtime a search takes goes through `Lent::take(options.pool, threads,
   stack)`: an idle runtime of exactly `threads` workers (the engines
   read `Runtime::threads` for the cube count and the split tasks, so a

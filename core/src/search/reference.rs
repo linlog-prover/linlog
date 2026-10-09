@@ -673,22 +673,28 @@ mod tests {
     /// bias; with the feature `parallel` also the dispatch on two
     /// threads. An engine that refuses a sequent is skipped on it.
     fn configurations(copies: u32) -> Vec<(String, Options)> {
-        let base = Options::default().copies(Some(copies));
+        let base = Options::default().with_copies(Some(copies));
         let mut all = vec![("dispatch".to_owned(), base.clone())];
         for engine in [Engine::Net, Engine::Additive] {
-            all.push((format!("{engine}"), base.clone().engine(Some(engine))));
+            all.push((format!("{engine}"), base.clone().with_engine(Some(engine))));
         }
-        all.push(("horn".to_owned(), base.clone().engine(Some(Engine::Horn))));
+        all.push((
+            "horn".to_owned(),
+            base.clone().with_engine(Some(Engine::Horn)),
+        ));
         for engine in [Engine::Focus, Engine::TwoSided] {
             for bias in [Bias::Auto, Bias::Rarer, Bias::Factors] {
                 all.push((
                     format!("{engine} {bias:?}"),
-                    base.clone().engine(Some(engine)).bias(bias),
+                    base.clone().with_engine(Some(engine)).with_bias(bias),
                 ));
             }
         }
         #[cfg(feature = "parallel")]
-        all.push(("dispatch on two threads".to_owned(), base.clone().jobs(2)));
+        all.push((
+            "dispatch on two threads".to_owned(),
+            base.clone().with_jobs(2),
+        ));
         all
     }
 

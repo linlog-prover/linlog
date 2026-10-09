@@ -81,7 +81,7 @@ pub(crate) fn alone_first<E: Send>(
             .name("search alone".into())
             .stack_size(stack)
             .spawn_scoped(scope, move || {
-                let outcome = search(&options.clone().jobs(1), &mut || {
+                let outcome = search(&options.clone().with_jobs(1), &mut || {
                     halt() || decided.load(Ordering::Relaxed)
                 });
                 if is_decided(&outcome) {
@@ -92,7 +92,7 @@ pub(crate) fn alone_first<E: Send>(
             });
         // Without a second thread the search runs on this one alone.
         let Ok(single) = single else {
-            return search(&options.clone().jobs(1), &mut || halt());
+            return search(&options.clone().with_jobs(1), &mut || halt());
         };
         let join = |single: thread::ScopedJoinHandle<'_, Result<Outcome, E>>| {
             single
@@ -102,7 +102,7 @@ pub(crate) fn alone_first<E: Send>(
         if finished.recv_timeout(alone).is_ok() || halt() || !parallel() {
             return join(single);
         }
-        let pooled = search(&options.clone().jobs(pool), &mut || {
+        let pooled = search(&options.clone().with_jobs(pool), &mut || {
             halt() || decided.load(Ordering::Relaxed)
         });
         if is_decided(&pooled) {
@@ -1043,16 +1043,16 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         nets_exist(sequent, mode)?;
     }
     let options = Options::default()
-        .memo_limit(args.memo_limit)
-        .engine(args.engine.into())
-        .fragment(args.fragment.map(Into::into))
-        .copies(args.copies.0)
-        .bias(args.bias.into())
-        .forward_copies(args.forward_copies)
-        .check(!args.no_check);
+        .with_memo_limit(args.memo_limit)
+        .with_engine(args.engine.into())
+        .with_fragment(args.fragment.map(Into::into))
+        .with_copies(args.copies.0)
+        .with_bias(args.bias.into())
+        .with_forward_copies(args.forward_copies)
+        .with_check(!args.no_check);
     let limits = args.limits();
     let threads = threads(args.jobs, args.pool_after, args.deterministic);
-    let options = options.jobs(threads.jobs);
+    let options = options.with_jobs(threads.jobs);
     let deepens = args.copies.0.is_none() && sequent.fragment().has_exponentials();
     let format = args.output.format();
     let quiet = args.output.quiet;

@@ -41,6 +41,8 @@ use crate::occurrences::{Forest, OccId, Reading};
 use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::num::NonZeroUsize;
+use std::str::FromStr;
 
 /// An engine's stop condition: the caller's closure in a sequential
 /// search, the chain of stop flags of a worker in a parallel one.
@@ -277,7 +279,9 @@ pub fn prove_goal(
     // What the search allocates is counted against the bound.
     let account = memory::Account::new(limits.memory_bytes);
     #[cfg(feature = "parallel")]
-    let options = &options.clone().jobs(parallel::threads(options.jobs));
+    let options = &options
+        .clone()
+        .with_jobs(parallel::threads(options.threads()));
     let answer = implementation.decide(&task, options, limits, &account, &mut polled)?;
     // The one place an engine's answer becomes a verdict. A refutation
     // says what the counts of the goal rule out, under the same limits as
@@ -868,10 +872,176 @@ pub enum Bias {
     Factors,
 }
 
+impl Engine {
+    /// The engines' names, as [`Display`] writes them and [`FromStr`]
+    /// reads them.
+    pub const NAMES: &'static [&'static str] = &["focus", "net", "two-sided", "additive", "horn"];
+}
+
+impl FromStr for Engine {
+    type Err = Error;
+
+    /// Reads an engine's name, one of [`NAMES`](Self::NAMES).
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Ok(match name {
+            "focus" => Self::Focus,
+            "net" => Self::Net,
+            "two-sided" => Self::TwoSided,
+            "additive" => Self::Additive,
+            "horn" => Self::Horn,
+            _ => {
+                return Err(Error::UnknownName {
+                    what: "engine",
+                    name: name.into(),
+                    known: Self::NAMES,
+                });
+            }
+        })
+    }
+}
+
+impl Bias {
+    /// The rules' names, as [`Display`] writes them and [`FromStr`] reads
+    /// them.
+    pub const NAMES: &'static [&'static str] = &["auto", "rarer", "factors"];
+}
+
+impl Display for Bias {
+    /// Writes the rule's name: `auto`, `rarer` or `factors`.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(match self {
+            Self::Auto => "auto",
+            Self::Rarer => "rarer",
+            Self::Factors => "factors",
+        })
+    }
+}
+
+impl FromStr for Bias {
+    type Err = Error;
+
+    /// Reads a rule's name, one of [`NAMES`](Self::NAMES).
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Ok(match name {
+            "auto" => Self::Auto,
+            "rarer" => Self::Rarer,
+            "factors" => Self::Factors,
+            _ => {
+                return Err(Error::UnknownName {
+                    what: "bias",
+                    name: name.into(),
+                    known: Self::NAMES,
+                });
+            }
+        })
+    }
+}
+
+/// How many threads a search may use: written `"auto"` or the number.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Jobs {
+    /// Every thread the machine runs at once, as the platform tells, or one
+    /// where it does not; a front end resolves it once to the count it
+    /// shows.
+    Auto,
+    /// This many. One runs the sequential engines, whose proof is a
+    /// function of the input; zero counts as one, and more than
+    /// [`Options::MAX_JOBS`] as that many.
+    Count(usize),
+}
+
+impl Default for Jobs {
+    /// One thread.
+    fn default() -> Self {
+        Self::Count(1)
+    }
+}
+
+impl From<usize> for Jobs {
+    /// That many threads.
+    fn from(count: usize) -> Self {
+        Self::Count(count)
+    }
+}
+
+impl Jobs {
+    /// Returns the number of threads: the count asked for, or the
+    /// machine's for [`Auto`](Self::Auto), at least one and at most
+    /// [`Options::MAX_JOBS`].
+    pub fn count(self) -> usize {
+        let count = match self {
+            Self::Auto => std::thread::available_parallelism().map_or(1, NonZeroUsize::get),
+            Self::Count(count) => count,
+        };
+        count.clamp(1, Options::MAX_JOBS)
+    }
+}
+
+/// How often the net engine runs its exact test: written `"auto"` or the
+/// number of links between two tests.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Cadence {
+    /// After every link on a structure of at most 200 occurrences, every
+    /// fourth link on a larger one.
+    #[default]
+    Auto,
+    /// After this many links; zero counts as one.
+    Every(u32),
+}
+
+impl From<u32> for Cadence {
+    /// Every so many links.
+    fn from(links: u32) -> Self {
+        Self::Every(links)
+    }
+}
+
+impl From<Option<u32>> for Cadence {
+    /// Every so many links, or the default for `None`.
+    fn from(links: Option<u32>) -> Self {
+        links.map_or(Self::Auto, Self::Every)
+    }
+}
+
+/// How the two searches of the default bias share one thread: written
+/// `"auto"` or `"turns"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "snake_case")
+)]
+pub enum Schedule {
+    /// In slices on two threads, where the feature `parallel` starts a
+    /// second one, and in turns otherwise.
+    #[default]
+    Auto,
+    /// In turns on the calling thread, each turn from the search's start:
+    /// the same polls and the same answer on every build, the web's
+    /// included.
+    Turns,
+}
+
 /// The knobs of a search: how much to remember, how deep to go, and which
 /// fragment and engine to use instead of the detected ones. The defaults
 /// suit a sequent of a few hundred occurrences on a thread with the usual
-/// stack.
+/// stack; the bounds on memory, occurrences, recursion and work are the
+/// [`Limits`] a search is given.
+///
+/// Every field has a builder, so that the options chain from the default.
+///
+/// # JSON
+///
+/// With the feature `serialize` the options are an object of the fields
+/// below, a missing one taking its default and a misspelt one refused:
+/// `"engine"` and `"fragment"` a name or `"auto"`, `"bias"` and
+/// `"schedule"` a name, `"copies"` a number or `null` for no bound,
+/// `"forward_copies"` and `"memo_limit"` numbers, `"test_period"` and
+/// `"jobs"` a number or `"auto"`, `"check"` a boolean. The pool is never
+/// written.
 ///
 /// # Examples
 ///
@@ -880,61 +1050,140 @@ pub enum Bias {
 /// use linlog::search::Options;
 ///
 /// let options = Options::default()
-///     .memo_limit(1 << 16)
-///     .fragment(Some(Fragment::MALL));
+///     .with_memo_limit(1 << 16)
+///     .with_fragment(Some(Fragment::MALL));
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(default, deny_unknown_fields)
+)]
 pub struct Options {
-    /// The most stable sequents the memo holds at once.
-    memo_limit: usize,
-    /// The engine to use, or `None` for the one the fragment calls for.
-    engine: Option<Engine>,
-    /// The fragment to search in, or `None` for the detected one.
-    fragment: Option<Fragment>,
-    /// How many links the net engine makes between two exact acyclicity
-    /// tests, or `None` for the default that depends on the size of the
-    /// structure.
-    test_period: Option<u32>,
-    /// The most copies of `?` formulas one branch may take, or `None` for
-    /// a search that deepens until it decides or is stopped.
-    copies: Option<u32>,
-    /// How many threads the search may use; one runs the sequential
-    /// engines.
-    jobs: usize,
-    /// How the focused engine picks each atom's positive literal.
-    bias: Bias,
+    /// The engine to use, or `None` for the one the detected fragment and
+    /// the mode call for.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::auto"))]
+    pub engine: Option<Engine>,
+    /// The fragment to search in, or `None` for the detected one. A
+    /// sequent outside it is refused; a fragment larger than the detected
+    /// one switches off the prunes that only hold in the smaller one.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::auto"))]
+    pub fragment: Option<Fragment>,
+    /// How the focused engine picks the positive literal of every atom.
+    /// No choice changes what is provable. [`Bias::Rarer`] mostly chains
+    /// backward from the goal and [`Bias::Factors`] forward from the
+    /// hypotheses; on a sequent with exponentials whose hypotheses are
+    /// Horn clauses, a Petri net for one, the forward search often decides
+    /// in milliseconds what the backward one does not decide at all, but
+    /// its proofs take one copy per step on a single branch. The default,
+    /// [`Bias::Auto`], is `Factors` without exponentials and `Rarer` under
+    /// weakening; on a sequent with exponentials in linear mode it runs
+    /// both searches, the backward one within [`copies`](Self::copies) and
+    /// the forward one within [`forward_copies`](Self::forward_copies),
+    /// and answers with the first that decides. Either of the two named
+    /// explicitly is that search alone, within `copies`. Only the focused
+    /// engine reads it.
+    pub bias: Bias,
+    /// The most copies of `?` formulas one branch of a proof may take, or
+    /// `None` for no bound. The search deepens the bound from zero, one
+    /// level after another; a sequent that has no proof within the bound
+    /// is [`Reason::CopyBound`], unless some level finished without ever
+    /// reaching its bound, which makes the sequent [`Verdict::Unprovable`].
+    /// Without a bound the search goes on to the next level until it
+    /// decides, its stop condition fires or a limit binds, and
+    /// [`Statistics::copies`] says how far it got: the choice of a caller
+    /// with a time limit, as the command is, since no bound is too small
+    /// for some provable sequent and full linear logic is undecidable.
+    /// Without exponentials the bound has no effect. A proof found at some
+    /// level may reuse a memoized subproof found with more copies left, so
+    /// the bound limits the search, not the proof returned. Only the
+    /// focused engine reads it: the goals of the others have no
+    /// exponentials.
+    pub copies: Option<u32>,
     /// The most copies of `?` formulas one branch may take in the forward
-    /// search of the default bias.
-    forward_copies: u32,
-    /// Whether a proof of the sequent passes the checker before it is
-    /// returned.
-    check: bool,
-    /// The thread pools a parallel search borrows, or `None` for pools
-    /// of its own.
+    /// search that [`Bias::Auto`] runs beside the backward one on a Horn
+    /// program: clauses `!(a ⊗ b ⊸ c ⊗ d)` (or one used once), a marking
+    /// and a goal of atoms, as a Petri net is. A forward chain takes a
+    /// copy per step, all on one branch, so it wants a larger bound than
+    /// [`copies`](Self::copies), which this is when it is the larger of
+    /// the two; the forward search never runs within less than `copies`.
+    /// On any other goal, under another bias, under Mix, under weakening
+    /// and without a copy bound it has no effect: unbounded, the forward
+    /// search deepens as far as its share of the work takes it. Only the
+    /// focused engine reads it.
+    pub forward_copies: u32,
+    /// The most stable sequents the memo holds at once; when the memo is
+    /// full it is emptied, which costs time but not correctness. Zero
+    /// switches the memo off. The two searches that [`Bias::Auto`] runs on
+    /// a sequent with exponentials hold a memo of this size each. This is
+    /// the finer knob beside the memory bound
+    /// ([`Limits::memory_bytes`](crate::Limits::memory_bytes)), which
+    /// bounds the memo in bytes: a table that fits the processor's cache
+    /// can be faster than one that fits the memory. The focused engine and
+    /// the additive path read it; the net engine keeps no memo.
+    pub memo_limit: u32,
+    /// How often the net engine runs its exact acyclicity test: the test
+    /// also runs on every complete linking, so the cadence trades time per
+    /// link against how long a doomed branch is followed. Only the net
+    /// engine reads it.
+    pub test_period: Cadence,
+    /// How many threads the search may use. One, the default, runs the
+    /// sequential engines, whose proof is a function of the input. More
+    /// than one, with the `parallel` feature, runs the focused engine and
+    /// the net engine on that many threads of a pool of their own, which
+    /// may find a different proof but never contradict the sequential
+    /// verdict: one of the two may decide where the other stops at the
+    /// copy bound or the recursion limit, and which one depends on how the
+    /// threads interleave; without the feature, or for the additive path
+    /// and the Horn engine, the search stays sequential. A search starts no
+    /// more threads than the machine runs at once
+    /// ([`std::thread::available_parallelism`], where the platform tells):
+    /// threads beyond that only take turns on the same processors.
+    pub jobs: Jobs,
+    /// How the two searches of the default bias share one thread.
+    pub schedule: Schedule,
+    /// Whether a proof of the sequent passes the checker
+    /// ([`Proof::check`], which shares no code with the engines) before
+    /// the search returns it; one that does not is [`Error::Rejected`],
+    /// never a verdict. Without the check the proof is the engine's word,
+    /// which a caller that checks it itself, or times the search alone,
+    /// may prefer. The proof of a goal other than the roots is not checked
+    /// here in either case: what grafts it does.
+    pub check: bool,
+    /// The thread pools a parallel search borrows instead of starting
+    /// threads of its own, or `None`, the default, for a pool built for
+    /// the search and dropped with it. A pool changes nothing a search
+    /// does or finds, only that its threads are started once for many
+    /// searches. Options are equal only if they name clones of the same
+    /// pool or both name none. Never written.
+    ///
+    /// Needs the cargo feature `parallel` (off by default).
     #[cfg(feature = "parallel")]
-    pool: Option<Pool>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    pub pool: Option<Pool>,
 }
 
 impl Default for Options {
-    /// A memo of at most [`DEFAULT_MEMO_LIMIT`](Self::DEFAULT_MEMO_LIMIT)
-    /// stable sequents, the engine and fragment chosen by detection, the
-    /// net engine's exact test at its default cadence, a copy bound of
-    /// [`DEFAULT_COPIES`](Self::DEFAULT_COPIES), one of
+    /// The engine and fragment chosen by detection, the default bias, a
+    /// copy bound of [`DEFAULT_COPIES`](Self::DEFAULT_COPIES), one of
     /// [`DEFAULT_FORWARD_COPIES`](Self::DEFAULT_FORWARD_COPIES) for the
-    /// forward search of the default bias, one thread, and every proof
-    /// checked ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)). The bounds on
-    /// memory, occurrences and recursion are the [`Limits`] a search is
-    /// given.
+    /// forward search of the default bias, a memo of at most
+    /// [`DEFAULT_MEMO_LIMIT`](Self::DEFAULT_MEMO_LIMIT) stable sequents,
+    /// the net engine's exact test at its default cadence, one thread, the
+    /// default schedule, and every proof checked
+    /// ([`DEFAULT_CHECK`](Self::DEFAULT_CHECK)).
     fn default() -> Self {
         Self {
-            memo_limit: Self::DEFAULT_MEMO_LIMIT,
             engine: None,
             fragment: None,
-            test_period: None,
-            copies: Some(Self::DEFAULT_COPIES),
-            jobs: 1,
             bias: Bias::Auto,
+            copies: Some(Self::DEFAULT_COPIES),
             forward_copies: Self::DEFAULT_FORWARD_COPIES,
+            memo_limit: Self::DEFAULT_MEMO_LIMIT,
+            test_period: Cadence::Auto,
+            jobs: Jobs::Count(1),
+            schedule: Schedule::Auto,
             check: Self::DEFAULT_CHECK,
             #[cfg(feature = "parallel")]
             pool: None,
@@ -944,7 +1193,7 @@ impl Default for Options {
 
 impl Options {
     /// The memo limit of the default options: 2²⁰ stable sequents.
-    pub const DEFAULT_MEMO_LIMIT: usize = 1 << 20;
+    pub const DEFAULT_MEMO_LIMIT: u32 = 1 << 20;
 
     /// The copy bound of the default options: three copies per branch, the
     /// bound llprover searches with by default. The default options keep a
@@ -966,34 +1215,93 @@ impl Options {
     /// it.
     pub const DEFAULT_CHECK: bool = true;
 
-    /// Sets whether a proof of the sequent passes the checker
-    /// ([`Proof::check`], which shares no code with the engines) before
-    /// the search returns it; one that does not is
-    /// [`Error::Rejected`], never a verdict. Without the check the proof
-    /// is the engine's word, which a caller that checks it itself, or
-    /// times the search alone, may prefer. The proof of a goal other than
-    /// the roots is not checked here in either case: what grafts it does.
-    pub fn check(self, check: bool) -> Self {
+    /// The most threads the options name: more are taken as this many.
+    /// A pool beyond it has found no use, and a count without a bound
+    /// starts whatever it is given (ten thousand threads on `A ⊢ A` cost
+    /// three minutes of processor time).
+    pub const MAX_JOBS: usize = 256;
+
+    /// Returns the options with another [`engine`](Self::engine).
+    #[must_use]
+    pub fn with_engine(self, engine: Option<Engine>) -> Self {
+        Self { engine, ..self }
+    }
+
+    /// Returns the options with another [`fragment`](Self::fragment).
+    #[must_use]
+    pub fn with_fragment(self, fragment: Option<Fragment>) -> Self {
+        Self { fragment, ..self }
+    }
+
+    /// Returns the options with another [`bias`](Self::bias).
+    #[must_use]
+    pub fn with_bias(self, bias: Bias) -> Self {
+        Self { bias, ..self }
+    }
+
+    /// Returns the options with another copy bound
+    /// ([`copies`](Self::copies)).
+    #[must_use]
+    pub fn with_copies(self, copies: Option<u32>) -> Self {
+        Self { copies, ..self }
+    }
+
+    /// Returns the options with another copy bound for the forward search
+    /// ([`forward_copies`](Self::forward_copies)).
+    #[must_use]
+    pub fn with_forward_copies(self, forward_copies: u32) -> Self {
+        Self {
+            forward_copies,
+            ..self
+        }
+    }
+
+    /// Returns the options with another [`memo_limit`](Self::memo_limit).
+    #[must_use]
+    pub fn with_memo_limit(self, memo_limit: u32) -> Self {
+        Self { memo_limit, ..self }
+    }
+
+    /// Returns the options with another cadence of the net engine's test
+    /// ([`test_period`](Self::test_period)).
+    #[must_use]
+    pub fn with_test_period(self, test_period: impl Into<Cadence>) -> Self {
+        Self {
+            test_period: test_period.into(),
+            ..self
+        }
+    }
+
+    /// Returns the options with another number of threads
+    /// ([`jobs`](Self::jobs)).
+    #[must_use]
+    pub fn with_jobs(self, jobs: impl Into<Jobs>) -> Self {
+        Self {
+            jobs: jobs.into(),
+            ..self
+        }
+    }
+
+    /// Returns the options with another [`schedule`](Self::schedule).
+    #[must_use]
+    pub fn with_schedule(self, schedule: Schedule) -> Self {
+        Self { schedule, ..self }
+    }
+
+    /// Returns the options with or without the [`check`](Self::check) of
+    /// a proof.
+    #[must_use]
+    pub fn with_check(self, check: bool) -> Self {
         Self { check, ..self }
     }
 
-    /// Sets the most copies of `?` formulas one branch of a proof may take,
-    /// or `None` for no bound. The search deepens the bound from zero, one
-    /// level after another; a sequent that has no proof within the bound
-    /// is [`Reason::CopyBound`], unless some level finished without ever
-    /// reaching its bound, which makes the sequent [`Verdict::Unprovable`].
-    /// Without a bound the search goes on to the next level until it
-    /// decides, its stop condition fires or a limit binds, and
-    /// [`Statistics::copies`] says how far it got: the choice of a caller
-    /// with a time limit, as the command is, since no bound is too small
-    /// for some provable sequent and full linear logic is undecidable.
-    /// Without exponentials the bound has no effect. A proof found at some
-    /// level may reuse a memoized subproof found with more copies left, so
-    /// the bound limits the search, not the proof returned. Only the
-    /// focused engine reads it: the goals of the others have no
-    /// exponentials.
-    pub fn copies(self, copies: Option<u32>) -> Self {
-        Self { copies, ..self }
+    /// Returns the options with another [`pool`](Self::pool).
+    ///
+    /// Needs the cargo feature `parallel` (off by default).
+    #[cfg(feature = "parallel")]
+    #[must_use]
+    pub fn with_pool(self, pool: Option<Pool>) -> Self {
+        Self { pool, ..self }
     }
 
     /// Returns the copy bound as the engines count it: no bound is the
@@ -1004,128 +1312,14 @@ impl Options {
         self.copies.unwrap_or(u32::MAX)
     }
 
-    /// Sets the engine to use, or `None` for the one the detected fragment
-    /// and the mode call for.
-    pub fn engine(self, engine: Option<Engine>) -> Self {
-        Self { engine, ..self }
+    /// Returns the threads the search may use: [`Jobs::count`].
+    pub(crate) fn threads(&self) -> usize {
+        self.jobs.count()
     }
 
-    /// Sets the fragment to search in, or `None` for the detected one. A
-    /// sequent outside the fragment set here is refused; a fragment larger
-    /// than the detected one switches off the prunes that only hold in the
-    /// smaller one.
-    pub fn fragment(self, fragment: Option<Fragment>) -> Self {
-        Self { fragment, ..self }
-    }
-
-    /// Sets the most stable sequents the memo holds at once; when the memo
-    /// is full it is emptied, which costs time but not correctness. Zero
-    /// switches the memo off. The two searches that [`Bias::Auto`] runs
-    /// on a sequent with exponentials hold a memo of this size each. This
-    /// is the finer knob beside the memory bound
-    /// ([`Limits::memory_bytes`](crate::Limits::memory_bytes)), which
-    /// bounds the memo in bytes: a table that fits the processor's
-    /// cache can be faster than one that fits the memory. The focused
-    /// engine and the additive path read it; the net engine keeps no memo.
-    pub fn memo_limit(self, limit: usize) -> Self {
-        Self {
-            memo_limit: limit,
-            ..self
-        }
-    }
-
-    /// Sets how many links the net engine makes between two exact
-    /// acyclicity tests, or `None` for the default: every link on a
-    /// structure of at most 200 occurrences, every fourth link on a larger
-    /// one. The test also runs on every complete linking, so the period
-    /// trades time per link against how long a doomed branch is followed.
-    /// Zero counts as one. Only the net engine reads it.
-    pub fn test_period(self, period: Option<u32>) -> Self {
-        Self {
-            test_period: period,
-            ..self
-        }
-    }
-
-    /// The most threads the options name: more are taken as this many.
-    /// A pool beyond it has found no use, and a count without a bound
-    /// starts whatever it is given (ten thousand threads on `A ⊢ A` cost
-    /// three minutes of processor time).
-    pub const MAX_JOBS: usize = 256;
-
-    /// Sets how many threads the search may use. One, the default, runs
-    /// the sequential engines, whose proof is a function of the input.
-    /// More than one, with the `parallel` feature, runs the focused engine
-    /// and the net engine on that many threads of a pool of their own,
-    /// which may find a different proof but never contradict the
-    /// sequential verdict: one of the two may decide where the other
-    /// stops at the copy bound or the recursion limit, and which one
-    /// depends on how the threads interleave;
-    /// without the feature, or for the additive path, the search stays
-    /// sequential. Zero counts as one, and more than
-    /// [`MAX_JOBS`](Self::MAX_JOBS) as that many. A search starts no more
-    /// threads than the machine runs at once
-    /// ([`std::thread::available_parallelism`], where the platform tells):
-    /// threads beyond that only take turns on the same processors.
-    pub fn jobs(self, jobs: usize) -> Self {
-        Self {
-            jobs: jobs.clamp(1, Self::MAX_JOBS),
-            ..self
-        }
-    }
-
-    /// Sets the thread pools a parallel search borrows instead of
-    /// starting threads of its own, or `None`, the default, for a pool
-    /// built for the search and dropped with it. A pool changes nothing
-    /// a search does or finds, only that its threads are started once for
-    /// many searches. Options are equal only if they name clones of the
-    /// same pool or both name none.
-    ///
-    /// Needs the cargo feature `parallel` (off by default).
-    #[cfg(feature = "parallel")]
-    pub fn pool(self, pool: Option<Pool>) -> Self {
-        Self { pool, ..self }
-    }
-
-    /// Sets how the focused engine picks the positive literal of every
-    /// atom. No choice changes what is provable. [`Bias::Rarer`] mostly
-    /// chains backward from the goal and [`Bias::Factors`] forward from
-    /// the hypotheses; on a sequent with exponentials whose hypotheses are
-    /// Horn clauses, a Petri net for one, the forward search often decides
-    /// in milliseconds what the backward one does not decide at all, but
-    /// its proofs take one copy per step on a single branch. The default,
-    /// [`Bias::Auto`], is `Factors` without exponentials and `Rarer` under
-    /// weakening; on a sequent with exponentials in linear mode it runs
-    /// both searches, the backward one within [`copies`](Self::copies) and
-    /// the forward one within [`forward_copies`](Self::forward_copies),
-    /// and answers with the first that decides. Either of the two named
-    /// explicitly is that search alone, within `copies`. Only the focused
-    /// engine reads it.
-    pub fn bias(self, bias: Bias) -> Self {
-        Self { bias, ..self }
-    }
-
-    /// Sets the most copies of `?` formulas one branch may take in the
-    /// forward search that [`Bias::Auto`] runs beside the backward one on
-    /// a Horn program: clauses `!(a ⊗ b ⊸ c ⊗ d)` (or one used once), a
-    /// marking and a goal of atoms, as a Petri net is. A forward chain takes a copy per
-    /// step, all on one branch, so it wants a larger bound than
-    /// [`copies`](Self::copies), which this is when it is the larger of
-    /// the two; the forward search never runs within less than `copies`.
-    /// On any other goal, under another bias, under Mix, under
-    /// weakening and without a copy bound it has no effect: unbounded, the
-    /// forward search deepens as far as its share of the work takes it.
-    /// Only the focused engine reads it.
-    pub fn forward_copies(self, copies: u32) -> Self {
-        Self {
-            forward_copies: copies,
-            ..self
-        }
-    }
-
-    /// Returns how many threads the search may use.
-    pub fn job_count(&self) -> usize {
-        self.jobs
+    /// Returns the most stable sequents a memo holds.
+    pub(crate) fn memo_entries(&self) -> usize {
+        usize::try_from(self.memo_limit).unwrap_or(usize::MAX)
     }
 }
 
@@ -1548,7 +1742,7 @@ mod tests {
         .unwrap();
         assert_eq!(outcome.engine, Engine::Net);
         assert!(outcome.verdict.proof().is_some());
-        let net = Options::default().engine(Some(Engine::Net));
+        let net = Options::default().with_engine(Some(Engine::Net));
         let outcome = prove_goal(&forest, &goal, classical, &net, &Limits::default(), |_| {
             false
         })
@@ -1562,12 +1756,12 @@ mod tests {
     #[test]
     fn engine_override() {
         let s = sequent("|- a * b, ~a par ~b");
-        let focus = Options::default().engine(Some(Engine::Focus));
+        let focus = Options::default().with_engine(Some(Engine::Focus));
         let outcome = prove(&s, Mode::CLASSICAL, &focus).unwrap();
         assert_eq!(outcome.engine, Engine::Focus);
         assert!(outcome.verdict.proof().is_some());
         assert!(outcome.net.is_none());
-        let net = Options::default().engine(Some(Engine::Net));
+        let net = Options::default().with_engine(Some(Engine::Net));
         let outcome = prove(
             &sequent("|- a, ~a, b, ~b"),
             Mode::CLASSICAL.with_mix(),
@@ -1579,7 +1773,7 @@ mod tests {
         for (input, options) in [
             ("|- 1", net.clone()),
             ("|- a & b, ~a", net.clone()),
-            ("|- a, ~a", net.clone().fragment(Some(Fragment::MALL))),
+            ("|- a, ~a", net.clone().with_fragment(Some(Fragment::MALL))),
         ] {
             let error = prove(&sequent(input), Mode::CLASSICAL, &options).unwrap_err();
             assert!(
@@ -1603,7 +1797,7 @@ mod tests {
         let outcome = prove(
             &s,
             Mode::CLASSICAL,
-            &Options::default().fragment(Some(Fragment::MALL)),
+            &Options::default().with_fragment(Some(Fragment::MALL)),
         )
         .unwrap();
         assert_eq!(outcome.fragment, Fragment::MALL);
@@ -1612,7 +1806,7 @@ mod tests {
         let error = prove(
             &sequent("|- a & b, ~a"),
             Mode::CLASSICAL,
-            &Options::default().fragment(Some(Fragment::MLL)),
+            &Options::default().with_fragment(Some(Fragment::MLL)),
         )
         .unwrap_err();
         assert!(matches!(
@@ -1683,7 +1877,7 @@ mod tests {
             assert_eq!(outcome.fragment, fragment, "{input:?}");
             assert!(outcome.verdict.proof().is_some(), "{input:?}");
         }
-        let net = Options::default().engine(Some(Engine::Net));
+        let net = Options::default().with_engine(Some(Engine::Net));
         let error = prove(&sequent("a, b |- a"), Mode::CLASSICAL.with_affine(), &net).unwrap_err();
         assert!(matches!(error, Error::NetMode { .. }));
         assert_eq!(
@@ -1738,19 +1932,19 @@ mod tests {
             error.to_string(),
             "Mix has no intuitionistic form: a premise of a Mix would have no goal"
         );
-        let focus = Options::default().engine(Some(Engine::Focus));
+        let focus = Options::default().with_engine(Some(Engine::Focus));
         let error = prove(&sequent("a |- a"), i, &focus).unwrap_err();
         assert_eq!(
             error.to_string(),
             "the focus engine does not search in intuitionistic mode"
         );
-        let two_sided = Options::default().engine(Some(Engine::TwoSided));
+        let two_sided = Options::default().with_engine(Some(Engine::TwoSided));
         let error = prove(&sequent("a |- a"), Mode::CLASSICAL, &two_sided).unwrap_err();
         assert!(matches!(error, Error::EngineMode { .. }));
         let outcome = prove(&sequent("a, a -o b |- b"), i, &two_sided).unwrap();
         assert_eq!(outcome.engine, Engine::TwoSided);
         assert!(outcome.verdict.proof().is_some());
-        let additive = Options::default().engine(Some(Engine::Additive));
+        let additive = Options::default().with_engine(Some(Engine::Additive));
         let error = prove(&sequent("a & b, c |- a"), i, &additive).unwrap_err();
         assert!(matches!(error, Error::NotAdditive { .. }));
         assert_eq!(
@@ -1798,7 +1992,7 @@ mod tests {
                     // off them.
                     continue;
                 }
-                let two_sided = Options::default().engine(Some(Engine::TwoSided));
+                let two_sided = Options::default().with_engine(Some(Engine::TwoSided));
                 let by_two_sided = prove(&s, i, &two_sided).unwrap();
                 assert_eq!(by_two_sided.engine, Engine::TwoSided);
                 let verdict = |outcome: Outcome| match outcome.verdict {
@@ -1878,7 +2072,7 @@ mod tests {
             outcome.verdict
         );
         assert_eq!(outcome.fragment, Fragment::EXPONENTIALS);
-        let net = Options::default().engine(Some(Engine::Net));
+        let net = Options::default().with_engine(Some(Engine::Net));
         let error = prove_goal(
             &forest,
             &goal,
@@ -1968,10 +2162,10 @@ mod tests {
     /// [`Options::MAX_JOBS`], whatever is asked for.
     #[test]
     fn jobs_are_bounded() {
-        let most = Options::default().jobs(Options::MAX_JOBS);
-        assert_eq!(Options::default().jobs(usize::MAX), most);
-        assert_eq!(Options::default().jobs(0), Options::default().jobs(1));
-        assert_ne!(Options::default().jobs(2), Options::default());
+        assert_eq!(Jobs::Count(usize::MAX).count(), Options::MAX_JOBS);
+        assert_eq!(Jobs::Count(0).count(), 1);
+        assert!((1..=Options::MAX_JOBS).contains(&Jobs::Auto.count()));
+        assert_eq!(Options::default().with_jobs(2).threads(), 2);
     }
 
     /// The stop condition ends the search with `Unknown`.

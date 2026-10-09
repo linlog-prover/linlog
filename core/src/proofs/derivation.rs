@@ -1778,7 +1778,7 @@ mod tests {
             // The focused engines, whose proof copies both `?` formulas on
             // both premises; the dispatch's Horn engine copies each where
             // it fires.
-            let options = crate::Options::default().engine(Some(engine));
+            let options = crate::Options::default().with_engine(Some(engine));
             let outcome = crate::prove(&sequent, mode, &options).unwrap();
             let crate::Verdict::Proved(proof) = outcome.verdict else {
                 panic!("provable");

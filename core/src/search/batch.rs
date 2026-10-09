@@ -87,7 +87,7 @@ impl Options {
         let mut limits = *limits;
         let total = self.total_memory_bytes;
         if within {
-            let share = total.map(|t| if search.jobs > 1 { t / 2 } else { t });
+            let share = total.map(|t| if search.threads() > 1 { t / 2 } else { t });
             limits.memory_bytes = smaller(limits.memory_bytes, share);
             return Plan {
                 workers: 1,
@@ -106,7 +106,7 @@ impl Options {
         limits.memory_bytes = smaller(limits.memory_bytes, total);
         Plan {
             workers: workers.clamp(1, self.workers.max(1)),
-            search: search.jobs(1),
+            search: search.with_jobs(1),
             limits,
         }
     }
@@ -425,7 +425,7 @@ mod workers {
 #[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::*;
-    use crate::search::Verdict;
+    use crate::search::{Jobs, Verdict};
 
     /// The answers come in the order of the problems, on one worker and on
     /// several, whatever order the workers finish in.
@@ -479,14 +479,14 @@ mod tests {
             total_memory_bytes: Some(5 << 30),
             ..Options::default()
         };
-        let search = Search::default().jobs(4);
+        let search = Search::default().with_jobs(4);
         let limits = Limits::default().with_memory_bytes(Some(1 << 30));
         let across = options.plan(false, &search, &limits);
         assert_eq!(
             (across.workers, across.limits.memory_bytes),
             (5, Some(1 << 30))
         );
-        assert_eq!(across.search.jobs, 1);
+        assert_eq!(across.search.jobs, Jobs::Count(1));
         let within = Options {
             total_memory_bytes: Some(1 << 30),
             ..options.clone()

@@ -593,14 +593,14 @@ fn tail(args: &OneArgs) -> String {
         Err(_) => (0, 0),
     };
     let options = Options::default()
-        .engine(args.engine.engine())
-        .jobs(args.jobs)
-        .copies(copies)
-        .bias(args.bias.bias())
-        .forward_copies(forward_copies(args.forward_copies))
-        .test_period(args.test_period)
+        .with_engine(args.engine.engine())
+        .with_jobs(args.jobs)
+        .with_copies(copies)
+        .with_bias(args.bias.bias())
+        .with_forward_copies(forward_copies(args.forward_copies))
+        .with_test_period(args.test_period)
         // The check is the child's own, outside the time measured.
-        .check(false);
+        .with_check(false);
     let limits = Limits::default()
         .with_memory_bytes(memory_limit(args.memory_limit))
         .with_recursion_depth(recursion);
@@ -753,7 +753,9 @@ fn alone_first(
             .stack_size(limits.stack_bytes())
             .spawn_scoped(scope, move || {
                 let outcome =
-                    prove_within(sequent, mode, &options.clone().jobs(1), limits, |_| halt());
+                    prove_within(sequent, mode, &options.clone().with_jobs(1), limits, |_| {
+                        halt()
+                    });
                 if is_decided(&outcome) {
                     decided.store(true, Ordering::Relaxed);
                 }
@@ -773,9 +775,13 @@ fn alone_first(
         {
             return join(single);
         }
-        let pooled = prove_within(sequent, mode, &options.clone().jobs(pool), limits, |_| {
-            halt()
-        });
+        let pooled = prove_within(
+            sequent,
+            mode,
+            &options.clone().with_jobs(pool),
+            limits,
+            |_| halt(),
+        );
         if is_decided(&pooled) {
             decided.store(true, Ordering::Relaxed);
         }

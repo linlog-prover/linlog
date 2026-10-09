@@ -92,7 +92,7 @@ pub(crate) fn search_goal(
         )
     };
     let Some(second) = second else {
-        let runtime = Lent::take(options.pool.as_ref(), options.jobs, stack)?;
+        let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
         let (result, nodes, statistics) =
             runtime.drive(stop, |flags| search(first, &runtime, account, flags));
         let result = result.map_err(|r| super::reason(r, options, limits));
@@ -100,10 +100,10 @@ pub(crate) fn search_goal(
     };
     // Two pools, so that no thread of one search is ever busy with a task
     // of the other when its own search has decided.
-    let threads = options.jobs / 2;
+    let threads = options.threads() / 2;
     let runtimes = (
         Lent::take(options.pool.as_ref(), threads, stack)?,
-        Lent::take(options.pool.as_ref(), options.jobs - threads, stack)?,
+        Lent::take(options.pool.as_ref(), options.threads() - threads, stack)?,
     );
     // Each search has half the memory, as each has its own memo.
     let accounts = (account.share(2), account.share(2));
@@ -144,7 +144,7 @@ impl Rule {
             Ok(counts) => counts,
             Err(reason) => return (Err(reason), Vec::new(), Statistics::default()),
         };
-        let memo = Shared::new(options.memo_limit);
+        let memo = Shared::new(options.memo_entries());
         let arena = Mutex::new(Vec::new());
         let (result, statistics) = {
             let problem = Problem::new(
@@ -566,7 +566,7 @@ mod tests {
     fn agree(text: &str, mode: Mode, options: &Options) {
         let sequential = decided(text, mode, options);
         for jobs in [2, 4] {
-            let options = options.clone().jobs(jobs);
+            let options = options.clone().with_jobs(jobs);
             let parallel = decided(text, mode, &options);
             assert!(
                 sequential.is_none() || parallel.is_none() || sequential == parallel,
@@ -603,7 +603,9 @@ mod tests {
                 ];
                 for text in texts.iter().filter(|t| !t.is_empty()) {
                     for engine in [None, Some(Engine::Focus)] {
-                        let options = Options::default().copies(Some(copies)).engine(engine);
+                        let options = Options::default()
+                            .with_copies(Some(copies))
+                            .with_engine(engine);
                         agree(text, mode, &options);
                     }
                 }
@@ -629,7 +631,7 @@ mod tests {
                     texts.push(generate::two_sided(&hypotheses, &goal));
                 }
                 for text in &texts {
-                    let options = Options::default().copies(Some(copies));
+                    let options = Options::default().with_copies(Some(copies));
                     agree(text, Mode::INTUITIONISTIC, &options);
                     agree(text, Mode::INTUITIONISTIC.with_affine(), &options);
                 }
@@ -643,7 +645,7 @@ mod tests {
     #[test]
     fn stops() {
         let sequent = crate::families::mix(11);
-        let options = Options::default().jobs(4);
+        let options = Options::default().with_jobs(4);
         let mut polls = 0;
         let outcome = prove_within(
             &sequent,
@@ -704,7 +706,7 @@ mod tests {
             .parse()
             .unwrap();
         for jobs in [1, 2, 4] {
-            let options = Options::default().jobs(jobs);
+            let options = Options::default().with_jobs(jobs);
             let limits = crate::Limits::default().with_recursion_depth(24);
             let mode = Mode::CLASSICAL.with_mix();
             let outcome = prove_within(&sequent, mode, &options, &limits, |_| false).unwrap();
@@ -727,7 +729,7 @@ mod tests {
         let withs = vec!["bot & bot"; 16].join(", ");
         let sequent: Sequent = format!("|- {withs}, {chain}").parse().unwrap();
         for jobs in [2, 4] {
-            let options = Options::default().jobs(jobs);
+            let options = Options::default().with_jobs(jobs);
             let limits = crate::Limits::default().with_recursion_depth(36);
             let outcome =
                 prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false).unwrap();
@@ -752,7 +754,7 @@ mod tests {
         let roots: Vec<String> = (0..40).map(|i| format!("a{i} & b{i}")).collect();
         let sequent: Sequent = format!("|- {}", roots.join(", ")).parse().unwrap();
         for jobs in [2, 4] {
-            let options = Options::default().jobs(jobs);
+            let options = Options::default().with_jobs(jobs);
             let outcome = prove(&sequent, Mode::CLASSICAL, &options).unwrap();
             assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
             assert!(

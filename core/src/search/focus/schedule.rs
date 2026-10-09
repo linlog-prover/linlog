@@ -154,7 +154,7 @@ impl Rule {
         let mut engine = Engine::new(
             problem,
             stop,
-            Table::Own(Memo::new(options.memo_limit)),
+            Table::Own(Memo::new(options.memo_entries())),
             Arena::new(Kept::Own(Vec::new()), account),
         );
         let result = engine

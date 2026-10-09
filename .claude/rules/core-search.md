@@ -46,15 +46,30 @@ deepening level that never hit the copy bound, `Unknown(Reason)`, with
 `Reason::CopyBound` when every level up to a bound hit it), the `Fragment` searched in,
 the `Mode`, the `Engine` that ran, the `Statistics`, and `net`, the
 `ProofStructure` the net engine found (`None` from the focused engine).
-`Options` has private fields and setters (`memo_limit`,
-`engine`, `fragment`, `test_period`, `copies`, `jobs`,
-`bias`, `forward_copies`, `check`,
-and with `parallel` `pool`, the `search::Pool` of `core-parallel.md`),
-the constants `DEFAULT_MEMO_LIMIT`,
-`DEFAULT_COPIES` (the library's default bound; `copies` takes an
-`Option`, `None` for none), `DEFAULT_FORWARD_COPIES`,
-which the CLI shows as its defaults, and `MAX_JOBS` (256: `jobs` takes more
-as that many, and zero as one). **The bounds are not options**: they
+`Options` (`#[non_exhaustive]`) has public fields, each documented
+with what reads it, and a `#[must_use]` `with_*` builder per field
+(`engine`, `fragment`, `bias`, `copies`, `forward_copies`, `memo_limit`
+a `u32`, `test_period` a `Cadence` (`Auto` or `Every(n)`), `jobs` a
+`Jobs` (`Auto` or `Count(n)`, `From<usize>`), `schedule`, `check`, and
+with `parallel` `pool`, the `search::Pool` of `core-parallel.md`), the
+constants `DEFAULT_MEMO_LIMIT`, `DEFAULT_COPIES` (the library's default
+bound; `copies` takes an `Option`, `None` for none),
+`DEFAULT_FORWARD_COPIES`, which the CLI shows as its defaults, and
+`MAX_JOBS` (256). **A clamp applies where a value is read**:
+`Jobs::count` takes `Auto` as the machine's threads
+(`available_parallelism`, one where the platform does not tell) and any
+count to `1..=MAX_JOBS`; the engines read `Options::threads()` and
+`memo_entries()`, never the fields' raw values. `Schedule::Turns` makes
+the default bias's pair take turns on the calling thread even with
+`parallel` (`schedule::turns`; `Auto` alternates in slices where a
+thread starts), so its polls and answer are the same on every build;
+`default_bias_takes_turns` pins that the front door's turns are the
+function's. **The JSON form** (`serialize/search.rs`, `serialize::auto`):
+`serde(default, deny_unknown_fields)`, `engine` and `fragment` a name or
+`"auto"`, `bias` and `schedule` a name, `copies` a number or `null`,
+`test_period` and `jobs` a number or `"auto"`, the pool never written;
+`options_json_format` pins it. `Engine::NAMES`, `Bias::NAMES` and their
+`FromStr` are the words. **The bounds are not options**: they
 are `crate::Limits` (`limits.rs`, `memory_bytes`, `occurrences`,
 `recursion_depth`, `derivation_bytes`, `work`), the argument every long
 call takes beside its stop (`FnMut(Progress) -> bool`), whose defaults

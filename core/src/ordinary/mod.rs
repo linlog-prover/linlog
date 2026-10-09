@@ -565,7 +565,7 @@ mod tests {
     fn decide(text: &str, logic: Logic, translation: Translation) -> Option<bool> {
         let sequent: Sequent = text.parse().unwrap();
         let image = translate(&sequent, logic, translation).unwrap();
-        let search = Search::default().copies(Some(8));
+        let search = Search::default().with_copies(Some(8));
         let outcome = prove(image.sequent(), image.mode(), &search).unwrap();
         match &outcome.verdict {
             Verdict::Proved(proof) => {

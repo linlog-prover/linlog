@@ -21,7 +21,7 @@
 //! linking. The net is sequentialized into the proof term returned.
 
 use super::memory::Account;
-use super::{Answer, Decide, Options, Reason, Statistics, Stop, Task};
+use super::{Answer, Cadence, Decide, Options, Reason, Statistics, Stop, Task};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::fragment::Mode;
@@ -74,10 +74,10 @@ impl Decide for Nets {
         stop: &mut dyn FnMut() -> bool,
     ) -> Result<Answer, Error> {
         #[cfg(feature = "parallel")]
-        if options.job_count() > 1 {
+        if options.threads() > 1 {
             let runtime = super::parallel::Lent::take(
                 options.pool.as_ref(),
-                options.job_count(),
+                options.threads(),
                 limits.stack_bytes(),
             )?;
             return Ok(parallel::search(
@@ -254,9 +254,9 @@ impl<'a> Engine<'a> {
             }
         }
         let period = match options.test_period {
-            Some(period) => period.max(1),
-            None if n <= SMALL => 1,
-            None => PERIOD,
+            Cadence::Every(period) => period.max(1),
+            Cadence::Auto if n <= SMALL => 1,
+            Cadence::Auto => PERIOD,
         };
         Self {
             scratch,
@@ -522,7 +522,7 @@ pub(super) mod tests {
     /// and returns the verdict and the statistics.
     fn run(input: &str, mode: Mode, options: &Options) -> (Verdict, Statistics) {
         let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
-        let options = options.clone().engine(Some(Engine::Net));
+        let options = options.clone().with_engine(Some(Engine::Net));
         let outcome = prove(&s, mode, &options).unwrap_or_else(|e| panic!("{input:?}: {e}"));
         let (verdict, statistics, net) = (outcome.verdict, outcome.statistics, outcome.net);
         match (&verdict, &net) {
@@ -636,7 +636,7 @@ pub(super) mod tests {
         let (verdict, statistics) = run(
             &input,
             Mode::CLASSICAL,
-            &Options::default().test_period(Some(7)),
+            &Options::default().with_test_period(Some(7)),
         );
         assert!(verdict.proof().is_some());
         assert_eq!(statistics.links, k as u64);
@@ -668,7 +668,7 @@ pub(super) mod tests {
         // in order, not in all 24 orders.
         let input = "|- a, a, a, a, ((~a * ~a) * (~a * ~a)) * (b * c), \
                      (~b par d) * (~c par f), ~d * ~f";
-        let postponed = Options::default().test_period(Some(100));
+        let postponed = Options::default().with_test_period(Some(100));
         let (verdict, statistics) = run(input, Mode::CLASSICAL, &postponed);
         assert!(matches!(verdict, Verdict::Unprovable(_)));
         assert_eq!(statistics.tests, 1);
@@ -699,7 +699,7 @@ pub(super) mod tests {
 
     /// Decides `input` with the focused engine.
     fn focus_verdict(s: &Sequent, mode: Mode) -> bool {
-        let options = Options::default().engine(Some(Engine::Focus));
+        let options = Options::default().with_engine(Some(Engine::Focus));
         match prove(s, mode, &options).unwrap().verdict {
             Verdict::Proved(proof) => {
                 assert_eq!(proof.check(mode), Ok(()));
@@ -759,7 +759,7 @@ pub(super) mod tests {
         sample: &[(String, Mode)],
         period: Option<u32>,
     ) -> (usize, usize, Duration, Duration) {
-        let options = Options::default().test_period(period);
+        let options = Options::default().with_test_period(period);
         let (mut provable, mut net_time, mut focus_time) = (0, Duration::ZERO, Duration::ZERO);
         for (text, mode) in sample {
             let s: Sequent = text.parse().unwrap();
@@ -1001,7 +1001,9 @@ mod parallel_tests {
     /// net checked.
     fn verdict(text: &str, mode: Mode, jobs: usize) -> Verdict {
         let sequent: Sequent = text.parse().unwrap();
-        let options = Options::default().engine(Some(Engine::Net)).jobs(jobs);
+        let options = Options::default()
+            .with_engine(Some(Engine::Net))
+            .with_jobs(jobs);
         let outcome = prove(&sequent, mode, &options).unwrap();
         if let Verdict::Proved(proof) = &outcome.verdict {
             assert_eq!(proof.check(mode), Ok(()), "{text:?}");
@@ -1039,10 +1041,10 @@ mod parallel_tests {
     #[test]
     fn forced_links_are_made_once() {
         let sequent = crate::families::wide(64, 1);
-        let options = Options::default().engine(Some(Engine::Net));
+        let options = Options::default().with_engine(Some(Engine::Net));
         let sequential = prove(&sequent, Mode::CLASSICAL, &options).unwrap();
         assert!(matches!(sequential.verdict, Verdict::Proved(_)));
-        let parallel = prove(&sequent, Mode::CLASSICAL, &options.jobs(2)).unwrap();
+        let parallel = prove(&sequent, Mode::CLASSICAL, &options.with_jobs(2)).unwrap();
         assert!(matches!(parallel.verdict, Verdict::Proved(_)));
         assert_eq!(parallel.statistics, sequential.statistics);
     }
@@ -1054,7 +1056,9 @@ mod parallel_tests {
     #[test]
     fn stops() {
         let sequent = crate::families::partition(&[1, 2, 5]);
-        let options = Options::default().engine(Some(Engine::Net)).jobs(2);
+        let options = Options::default()
+            .with_engine(Some(Engine::Net))
+            .with_jobs(2);
         let outcome = prove_within(
             &sequent,
             Mode::CLASSICAL,

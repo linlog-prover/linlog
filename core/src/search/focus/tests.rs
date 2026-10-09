@@ -6,7 +6,7 @@
 use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
-use crate::search::{Verdict, prove_goal};
+use crate::search::{Schedule, Verdict, prove_goal};
 use crate::{Limits, Progress};
 
 /// Runs the focused engine on the roots of the forest in the fragment
@@ -51,9 +51,9 @@ fn search_within(
     };
     let options = options
         .clone()
-        .engine(Some(engine))
-        .fragment(Some(fragment))
-        .check(false);
+        .with_engine(Some(engine))
+        .with_fragment(Some(fragment))
+        .with_check(false);
     let outcome = prove_goal(
         forest,
         forest.roots(),
@@ -223,7 +223,11 @@ fn memo_and_statistics() {
     // takes a few stable sequents; the memo answers it the second time.
     let input = "|- ~a + ~b, ~a + ~b, a * b, (x par ~x) * (y * ~y)";
     let with_memo = run(input, Mode::CLASSICAL, &Options::default());
-    let without = run(input, Mode::CLASSICAL, &Options::default().memo_limit(0));
+    let without = run(
+        input,
+        Mode::CLASSICAL,
+        &Options::default().with_memo_limit(0),
+    );
     assert!(matches!(with_memo.0, Verdict::Unprovable(_)));
     assert!(matches!(without.0, Verdict::Unprovable(_)));
     assert!(with_memo.1.memo_hits >= 1);
@@ -356,19 +360,21 @@ fn bias_option() {
             &mut || false,
         )
     };
-    let backward = Options::default().bias(Bias::Rarer).copies(Some(copies));
+    let backward = Options::default()
+        .with_bias(Bias::Rarer)
+        .with_copies(Some(copies));
     let (verdict, slow) = run(&backward);
     assert!(verdict.proof().is_some());
-    let forward = backward.clone().bias(Bias::Factors);
+    let forward = backward.clone().with_bias(Bias::Factors);
     let (verdict, _) = run(&forward);
     assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(_))));
-    let (verdict, fast) = run(&forward.copies(Some(7)));
+    let (verdict, fast) = run(&forward.with_copies(Some(7)));
     let proof = verdict.proof().expect("seven steps on one branch");
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
     assert!(fast.nodes * 10 < slow.nodes, "{fast:?} against {slow:?}");
     // The default runs both: the clauses are Horn, so the forward
     // search has its own bound and its proof comes first, at its cost.
-    let (verdict, default) = run(&Options::default().copies(Some(copies)));
+    let (verdict, default) = run(&Options::default().with_copies(Some(copies)));
     assert_eq!(verdict.proof().unwrap().check(Mode::CLASSICAL), Ok(()));
     assert_eq!(default, fast);
 }
@@ -384,11 +390,11 @@ fn an_unbounded_search_deepens() {
         let mode = Mode::CLASSICAL;
         search(&forest, fragment, mode, None, options, &mut || false)
     };
-    let forward = Options::default().bias(Bias::Factors);
-    let (verdict, statistics) = run(&forward.clone().copies(Some(3)));
+    let forward = Options::default().with_bias(Bias::Factors);
+    let (verdict, statistics) = run(&forward.clone().with_copies(Some(3)));
     assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(3))));
     assert_eq!(statistics.copies, 3);
-    let (verdict, statistics) = run(&forward.copies(None));
+    let (verdict, statistics) = run(&forward.with_copies(None));
     assert!(verdict.proof().is_some(), "seven steps on one branch");
     assert_eq!(statistics.copies, 7);
 }
@@ -420,13 +426,16 @@ fn default_bias_takes_turns() {
     let clauses: Vec<(&str, &str)> = clauses.iter().map(|(b, h)| (&**b, &**h)).collect();
     let text = horn(&clauses, &marking, &[goal]);
     let m = Mode::CLASSICAL;
-    let options = Options::default().forward_copies(4);
-    let (verdict, backward) = run(&text, m, &options.clone().bias(Bias::Rarer));
+    let options = Options::default().with_forward_copies(4);
+    let (verdict, backward) = run(&text, m, &options.clone().with_bias(Bias::Rarer));
     assert!(verdict.proof().is_some());
     let (verdict, forward) = run(
         &text,
         m,
-        &options.clone().bias(Bias::Factors).copies(Some(4)),
+        &options
+            .clone()
+            .with_bias(Bias::Factors)
+            .with_copies(Some(4)),
     );
     assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(4))));
 
@@ -476,6 +485,9 @@ fn default_bias_takes_turns() {
         assert_eq!(slices.nodes, forward.nodes + backward.nodes);
         assert_eq!(slices.splits, forward.splits + backward.splits);
         assert_eq!(run(&text, m, &options).1, slices);
+        // Asked for, the turns run on a build with threads too.
+        let turns = options.clone().with_schedule(Schedule::Turns);
+        assert_eq!(run(&text, m, &turns).1, both);
     }
 }
 
@@ -487,7 +499,9 @@ fn default_bias_takes_turns() {
 fn memory_bound() {
     let (sequent, copies) = crate::families::counter(8, false);
     let text = sequent.to_string();
-    let options = Options::default().copies(Some(copies)).bias(Bias::Rarer);
+    let options = Options::default()
+        .with_copies(Some(copies))
+        .with_bias(Bias::Rarer);
     let bounded = |bytes| {
         let limits = Limits::default().with_memory_bytes(Some(bytes));
         run_within(&text, Mode::CLASSICAL, &options, &limits)
@@ -546,10 +560,10 @@ fn proofs_survive_collections() {
     };
     let mut check = |text: &str, mode: Mode, options: &Options| {
         for bias in [Bias::Rarer, Bias::Factors] {
-            let options = options.clone().bias(bias);
+            let options = options.clone().with_bias(bias);
             let whole = within(text, mode, &options);
             for limit in [1, 2, 5] {
-                let small = within(text, mode, &options.clone().memo_limit(limit));
+                let small = within(text, mode, &options.clone().with_memo_limit(limit));
                 assert!(
                     small.is_none() || whole.is_none() || small == whole,
                     "{text:?} in {mode} mode: {small:?} with a memo of {limit}, {whole:?}"
@@ -565,7 +579,7 @@ fn proofs_survive_collections() {
                 mut formulas,
                 copies,
             } = generate::provable(&mut rng, rules, 3, 8);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             check(&generate::sequent(&formulas), mode_for(rules), &options);
             if generate::mutate(&mut rng, &mut formulas, 3) {
                 check(&generate::sequent(&formulas), mode_for(rules), &options);
@@ -580,7 +594,7 @@ fn proofs_survive_collections() {
                 goal,
                 copies,
             } = generate::ill(&mut rng, rules, 3, 8);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             let text = generate::two_sided(&hypotheses, &goal);
             check(&text, Mode::INTUITIONISTIC, &options);
         }
@@ -598,7 +612,7 @@ fn default_bias_decides_what_either_rule_does() {
     let mut check = |text: &str, mode: Mode, options: &Options| {
         let both = decided(text, mode, options);
         for bias in [Bias::Rarer, Bias::Factors] {
-            let one = decided(text, mode, &options.clone().bias(bias));
+            let one = decided(text, mode, &options.clone().with_bias(bias));
             assert!(
                 one.is_none() || one == both,
                 "{text:?} in {mode} mode: {one:?} under {bias:?}, {both:?} by default"
@@ -616,14 +630,18 @@ fn default_bias_decides_what_either_rule_does() {
                 mut formulas,
                 copies,
             } = generate::provable(&mut rng, rules, 3, 8);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             check(&generate::sequent(&formulas), mode_for(rules), &options);
             if generate::mutate(&mut rng, &mut formulas, 3) {
                 let text = generate::sequent(&formulas);
                 check(&text, mode_for(rules), &Options::default());
                 // Without the memo a refutation under Mix takes seconds.
                 if !rules.mix {
-                    check(&text, mode_for(rules), &Options::default().memo_limit(0));
+                    check(
+                        &text,
+                        mode_for(rules),
+                        &Options::default().with_memo_limit(0),
+                    );
                 }
             }
         }
@@ -636,7 +654,7 @@ fn default_bias_decides_what_either_rule_does() {
                 goal,
                 copies,
             } = generate::ill(&mut rng, rules, 3, 8);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             let text = generate::two_sided(&hypotheses, &goal);
             check(&text, Mode::INTUITIONISTIC, &options);
             hypotheses.push(goal);
@@ -970,7 +988,11 @@ fn affine() {
 #[test]
 fn copy_bound() {
     let m = Mode::CLASSICAL;
-    let with = |copies| Options::default().bias(Bias::Rarer).copies(Some(copies));
+    let with = |copies| {
+        Options::default()
+            .with_bias(Bias::Rarer)
+            .with_copies(Some(copies))
+    };
     // ⊢ ?~a, a needs one copy: bound 0 is hit, bound 1 proves.
     assert!(matches!(
         run("!a |- a", m, &with(0)).0,
@@ -1039,9 +1061,9 @@ fn memo_across_levels() {
         "!(a & b) |- !a * !b",
     ] {
         for copies in [1, 3] {
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             let (with, stats) = run(input, Mode::CLASSICAL, &options);
-            let (without, _) = run(input, Mode::CLASSICAL, &options.clone().memo_limit(0));
+            let (without, _) = run(input, Mode::CLASSICAL, &options.clone().with_memo_limit(0));
             assert_eq!(
                 std::mem::discriminant(&with),
                 std::mem::discriminant(&without),
@@ -1150,7 +1172,7 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
                 copies,
             } = generate::provable(&mut rng, rules, 3, budget);
             let text = generate::sequent(&formulas);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             let (verdict, statistics) = run(&text, mode, &options);
             assert!(
                 verdict.proof().is_some(),
@@ -1170,7 +1192,7 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
             if generate::mutate(&mut rng, &mut formulas, 3) {
                 let text = generate::sequent(&formulas);
                 let with_memo = decided(&text, mode, &Options::default());
-                let without = decided(&text, mode, &Options::default().memo_limit(0));
+                let without = decided(&text, mode, &Options::default().with_memo_limit(0));
                 // The memo never contradicts the memo-free search; it
                 // may decide where the other is undecided within the
                 // bound and the other way round, since an entry cut by
@@ -1229,7 +1251,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
                 copies,
             } = generate::ill(&mut rng, rules, 3, budget);
             let text = generate::two_sided(&hypotheses, &goal);
-            let options = Options::default().copies(Some(copies));
+            let options = Options::default().with_copies(Some(copies));
             let (verdict, _) = run(&text, i, &options);
             assert!(
                 verdict.proof().is_some(),
@@ -1342,7 +1364,7 @@ fn horn_programs() {
     let chain: Vec<(&str, &str)> = chain.iter().map(|(b, h)| (&**b, &**h)).collect();
     let text = horn(&chain, &["x0"], &["x6"]);
     assert!(
-        run(&text, m, &Options::default().copies(Some(6)))
+        run(&text, m, &Options::default().with_copies(Some(6)))
             .0
             .proof()
             .is_some()
@@ -1351,12 +1373,17 @@ fn horn_programs() {
     // forward search has a bound of its own on Horn clauses.
     for bias in [Bias::Rarer, Bias::Factors] {
         assert!(matches!(
-            run(&text, m, &Options::default().bias(bias).copies(Some(5))).0,
+            run(
+                &text,
+                m,
+                &Options::default().with_bias(bias).with_copies(Some(5))
+            )
+            .0,
             Verdict::Unknown(Reason::CopyBound(5))
         ));
     }
     assert!(
-        run(&text, m, &Options::default().copies(Some(5)))
+        run(&text, m, &Options::default().with_copies(Some(5)))
             .0
             .proof()
             .is_some()
@@ -1365,7 +1392,9 @@ fn horn_programs() {
         run(
             &text,
             m,
-            &Options::default().copies(Some(5)).forward_copies(0)
+            &Options::default()
+                .with_copies(Some(5))
+                .with_forward_copies(0)
         )
         .0,
         Verdict::Unknown(Reason::CopyBound(5))
@@ -1380,7 +1409,7 @@ fn horn_programs() {
         run(
             &horn(&clauses, &marking, &[goal, "a"]),
             m,
-            &Options::default().bias(Bias::Rarer)
+            &Options::default().with_bias(Bias::Rarer)
         )
         .0,
         Verdict::Unknown(Reason::CopyBound(3))
@@ -1437,7 +1466,7 @@ fn the_horn_test_reads_the_goal() {
     assert_eq!(program.len(), 3);
     assert!(!schedule::chains(&forest, roots));
     assert!(schedule::chains(&forest, &program));
-    let options = Options::default().forward_copies(30);
+    let options = Options::default().with_forward_copies(30);
     let forward = |goal: &[OccId]| {
         plan(&forest, goal, sequent.fragment(), Mode::CLASSICAL, &options)
             .0
@@ -1495,7 +1524,7 @@ fn unprovable_parts_cost_no_partitions() {
 #[test]
 fn a_chain_of_free_splits_costs_one_level() {
     let sequent = crate::families::wide(300, 1);
-    let options = Options::default().engine(Some(crate::search::Engine::Focus));
+    let options = Options::default().with_engine(Some(crate::search::Engine::Focus));
     let limits = Limits::default().with_recursion_depth(100);
     let outcome =
         crate::search::prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false)
@@ -1517,7 +1546,7 @@ fn the_parts_of_a_mix_decide_only_as_facts() {
     let mode = Mode::CLASSICAL.with_mix();
     let (verdict, _) = run("|- a, !?(s par a)", mode, &Options::default());
     assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
-    let options = Options::default().copies(Some(1)).memo_limit(0);
+    let options = Options::default().with_copies(Some(1)).with_memo_limit(0);
     let limits = Limits::default().with_recursion_depth(9);
     let (verdict, _) = run_within(
         "|- ~b, ~c, b, (bot + ~b), ?(c * b)",

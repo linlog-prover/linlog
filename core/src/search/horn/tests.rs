@@ -17,7 +17,7 @@ use crate::sequents::Sequent;
 
 /// The options that force the engine.
 fn horn() -> Options {
-    Options::default().engine(Some(Engine::Horn))
+    Options::default().with_engine(Some(Engine::Horn))
 }
 
 /// The program of a sequent read in classical mode.
