@@ -32,7 +32,9 @@ it; only what holds for the whole crate goes here.
 ## Layout
 
 `sequents` (the arena, its terms, and the formula walk `fmt`), `parse`,
-`serialize`, `fragment`, `errors` (the one `Error` and the parse error),
+`serialize`, `fragment`, `errors` (the one `Error`, `describe` and the
+parse error), `limits` (`Limits`, `Progress`, `Refusal`), `settings`
+(`Clock`, `Settings`, what a front end holds),
 `occurrences` (forest, sets, and the intuitionistic `reading`), `proofs`
 (terms in `mod.rs`, `check`, the checker's first implementation `oracle`
 for tests only, `derivation`, `size`, the text tree `fmt`, the rule

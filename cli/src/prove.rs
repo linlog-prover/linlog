@@ -6,9 +6,10 @@ use crate::argument_parsing::{
 };
 use crate::io;
 use crate::limit::{Deadline, Notice, detached};
-use crate::style::Styles;
+use crate::style;
 use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
+use linlog::export::Styles;
 use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
 use linlog::proofs::Compact;
@@ -237,7 +238,7 @@ impl Show {
             output.standalone,
             matches!(format, Format::Latex | Format::Typst | Format::Rocq),
         )?;
-        let styles = Styles::read(&output.style, style_key(format), output.standalone)?;
+        let styles = style::read(&output.style, style_key(format), output.standalone)?;
         // The size of the terminal that standard output is, and of no
         // other stream's.
         let terminal = match (&output.output, stdout.is_terminal()) {

@@ -31,6 +31,11 @@ for NanoYalla. What the code relies on:
   refuses an open goal, Mix, affine weakening and a compact derivation
   with `Unsupported`; `png::from_svg` and `pdf::from_svg` render a
   drawing.
+- **`export::Styles` holds every format's options in one value** (the
+  command's `--style` keys and `Settings::styles` address it): a field per
+  format, and for a format the build lacks a private `Absent` that reads
+  any value and writes nothing, so one settings file reads on every
+  build and a misspelt format is still refused.
 - **A new export option is a field, never a constant.** Every output
   has one plain-data options value with `Default`, `Clone`, `PartialEq`
   and serde behind `serialize` (`serde(default, deny_unknown_fields)`,

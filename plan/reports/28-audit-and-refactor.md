@@ -80,7 +80,7 @@ supervisor's go are marked "go".
 | i. `Mode` and `Fragment` (3.5) | done | `Mode` with `pub(crate)` fields, getters, `with_affine`/`with_mix`, `NAMES`, `name`, `FromStr` and `check`, the one table of words the command's batch and the harness now read (`affine-mix`; the batch wrote `affine` for it and lost the Mix); `Error::UnknownName`; `Fragment::ADDITIVE` (named `ALL`), `NAMED`, `NAMES`, `FromStr` with or without the `I`, `has_nets` (`ProofStructure`, the command); the dispatch destructures the mode (F140); test `names_read_back`; the command's pinned batch message lists the six words. The mode's wire form by name is lock commit (1), item s |
 | j. one error family (4) | done | yzywpzko: `Error` non-exhaustive with named fields, `ErrorKind`, `code()`, `CODES`, `setting()`; `limits` module (`Limits`, `Progress`, `Phase`, `Refusal`, `Space`); `CheckError::{Invalid, Refused}` with `Fault`; `ViewError`, `WriteError`, `RenderError`, `svg::TooLarge` folded; `StepError`; `Error::Parse`. ukxwvpnq: `ParseError` made in one place with `span_utf16`, `line`, `column` and `expected` (R129, F34, the library half of F29), test `error_places_and_expectations`; the ordinary parser's panic on a second `⊢` (a slice inside the character, found while there) fixed with its case in `reads_the_syntax`. Then: one `Described` and `Owner` for `Error`, `CheckError`, `NetError` and `ShapeError` (F48), `NetError` written once, `Debug` on `Results` and the command's `Output` with the lint on (F50), the written form of every error (4.3) with test `error_json_format`, `Send + Sync + 'static` asserted; `OccSet`'s methods narrowed (wyuzsnql), which the unreachable-pub check reported. Two lock commits: nkwtoxsu (F29: the command's parse error ends with what was expected; the lock's two parse errors, README's broken entry), and the counts agreeing with their nouns (F33: `1 goal is open`, the only pinned line that moved; the index, refusal and session messages likewise) |
 | k. `Limits`, `Progress` and the stop on every long call (5) | first commit done, gate passed | the bounds out of `search::Options` and `ViewOptions` into `Limits` (`Forest::within`, `Sequent::parse_within`, `lltp::read`, `mist::read`, `check_within` with `work` and a stop every 4 096 nodes, `derivation_size_within`, `derivation_within`, `prove_within`, `prove_goal`, `Interactive::close*`, `batch::{prove, run}` with a `Plan` of limits, `linear_derivation`), every writer's stop a progress stop, the engines behind the shim `without_progress` until area 3.2's measured commit; the command and the harness map their flags onto it with their output unchanged (both locks and README pass unreblessed); test `core/tests/limits.rs`. Moved on: `race` with `Clock` (item l), `Within` (item s), the sequent writers' estimate (F5) and `png`/`pdf` memory (item t), the net calls (item p), the ordinary layer (item r), `Limits::work` in the engines and `Reason::WorkLimit` (area 3.2, with the polls) |
-| l. the options, `Clock`, `Settings`, `Styles` (6) | open | |
+| l. the options, `Clock`, `Settings`, `Styles` (6) | done | tuooxrol: `search::Options` with public fields under `#[non_exhaustive]`, a `with_*` per field, serde (defaults, unknown keys refused, `"auto"`), `Jobs` and `Cadence` clamped where read, `Schedule::Turns` (F61, F64, F78, F79); tests `options_json_format` and the turns in `default_bias_takes_turns`. Then: `batch::Options` with builders and serde, its workers clamped to `MAX_JOBS` (F73), `Cancel` on `Results`, raised by `cancel`, `canceller` and a drop (F74), test `cancelled_results_stop_their_searches`; `Clock` and `Settings` (`Settings::default()` the command's behaviour), `export::Styles` from the command with a placeholder for a format the build lacks, test `settings_json_format`; the front page says why the command's verdicts differ from the default options' (F42). Moved on: `search::race` (F103, F104, filed under the search) and its callers to area 3.2, the command's `--settings FILE` (R183) to area 3.4, `run_local` to its caller (the web client) |
 | m. `Member`, `Proof { goal, mode }`, `CheckError` (3.4, 3.7, 3.8) | open | |
 | n. `Rule` and `Named`, `Derivation`, `Inference`, `ViewOptions` (3.9) | open | |
 | o. `Interactive` (3.10) | open | |
@@ -146,6 +146,17 @@ supervisor's go are marked "go".
   would have `ShapeError` carry the subformula's text, since the caller
   holds no forest; the forest is a function of the sequent, so the
   caller rebuilds it (`Forest::new`) and describes, as the command does.
+- **`memo_limit` is a `u32`**, as the design's table has it, so that a
+  settings file reads alike on a 32-bit build; the command's
+  `--memo-limit` now refuses a value past four billion, which no search
+  could fill.
+- **`batch::run_local` waits for its caller**, the web client, which
+  needs a batch without `Send`; nothing in the tree would call it, and an
+  item without a caller waits for one.
+- **`Settings` is the library's value now, and the command adopts it in
+  area 3.4** (`--settings FILE`, every flag the spelling of a key); here
+  the command's timings come from `Clock`'s constants and its styles
+  are the library's `Styles`.
 - **The harness's CSV columns keep their names** (`memory_limit`,
   `recursion_limit`): the columns are its interface (`bench.md`), and
   only the flags behind them map onto `Limits`.

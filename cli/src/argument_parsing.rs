@@ -4,7 +4,7 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::proofs::Compact;
 use linlog::search::{Engine, Options};
-use linlog::{Bias, Fragment, Limits, Mode};
+use linlog::{Bias, Clock, Fragment, Limits, Mode};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -387,13 +387,13 @@ pub struct InteractArgs {
 /// a copy bound of 3 leaves undecided and a larger bound decides, nine in
 /// ten are decided within a second or two, while the many that nothing
 /// decides each wait the whole limit.
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2);
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(Clock::DEFAULT_TIME_LIMIT_MS);
 
 /// How long one thread searches before the others join it, when
 /// `--jobs` is not given: a small sequent is decided in microseconds, and
 /// a pool costs milliseconds to start and makes the proof depend on the
 /// threads' timing.
-pub const DEFAULT_POOL_AFTER: Duration = Duration::from_millis(100);
+pub const DEFAULT_POOL_AFTER: Duration = Duration::from_millis(Clock::DEFAULT_POOL_AFTER_MS);
 
 /// The threads a search gets, and how long one thread searches before
 /// they join it.

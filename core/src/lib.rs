@@ -65,6 +65,16 @@
 //! # Ok::<(), linlog::Error>(())
 //! ```
 //!
+//! **The command's verdicts differ from `Options::default()`'s on purpose.**
+//! A library call without a stop must end, so the default options bound
+//! the copies of a `?` formula per branch at three; the `linlog` command
+//! has a clock, so it deepens without a bound until its time limit of two
+//! seconds, and after a tenth of a second it adds a pool of every other
+//! thread beside the first. [`Settings::default()`](Settings) is that
+//! behaviour as data: to decide what the command decides, search with its
+//! `search` options (no copy bound) and stop at its `clock`'s time limit,
+//! on one thread for the command's `--deterministic` answer.
+//!
 //! Errors are one family, [`Error`]: its [`kind`](Error::kind) says what
 //! sort of failure it is, so that a call a bound or a stop refused
 //! ([`ErrorKind::is_refusal`], with the [`Refusal`]) is never read as a
@@ -141,6 +151,7 @@ pub mod sequents;
 /// Serde support for sequents and proofs.
 #[cfg(feature = "serialize")]
 mod serialize;
+pub mod settings;
 
 #[cfg(feature = "parse")]
 pub use errors::ParseError;
@@ -160,3 +171,4 @@ pub use search::{
     prove_within,
 };
 pub use sequents::{Atom, Formula, Kind, Sequent, Term, TermId};
+pub use settings::{Clock, Settings};

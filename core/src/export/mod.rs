@@ -19,7 +19,8 @@
 //! ([`Form`](crate::export::Form)), and SVG is always a whole document.
 //! PNG ([`png`](crate::export::png), feature `png`) and PDF
 //! ([`pdf`](crate::export::pdf), feature `pdf`) render an SVG document of
-//! [`svg`](crate::export::svg) with the fonts the caller gives.
+//! [`svg`](crate::export::svg) with the fonts the caller gives. [`Styles`](crate::export::Styles)
+//! holds the options of every format in one value.
 //!
 //! All targets write formulas with the bracketing of `Display` (every
 //! binary subformula of a formula in brackets) and derivations as
@@ -48,10 +49,14 @@ pub mod pdf;
 pub mod png;
 #[cfg(feature = "rocq")]
 pub mod rocq;
+/// The options of every format in one value.
+mod styles;
 #[cfg(feature = "svg")]
 pub mod svg;
 #[cfg(feature = "typst")]
 pub mod typst;
+
+pub use styles::Styles;
 
 /// Whether an export is a fragment to paste into a document or a document
 /// of its own.

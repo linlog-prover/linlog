@@ -605,3 +605,31 @@ fn options_json_format() {
         "{error}"
     );
 }
+
+/// The settings a front end holds read back from their JSON, every value
+/// at its default where a key is missing; a format this build lacks is
+/// read and dropped, and an unknown one refused.
+#[cfg(feature = "latex")]
+#[test]
+fn settings_json_format() {
+    use linlog::Settings;
+    let defaults = Settings::default();
+    let json = serde_json::to_string(&defaults).unwrap();
+    assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), defaults);
+    assert_eq!(serde_json::from_str::<Settings>("{}").unwrap(), defaults);
+    let read: Settings = serde_json::from_str(
+        "{\"clock\":{\"time_limit_ms\":null},\"limits\":{\"memory_bytes\":1024},\
+         \"search\":{\"copies\":5},\"styles\":{\"latex\":{\"form\":\"standalone\"}}}",
+    )
+    .unwrap();
+    assert_eq!(read.clock.time_limit_ms, None);
+    assert_eq!(read.clock.pool_after_ms, defaults.clock.pool_after_ms);
+    assert_eq!(read.limits.memory_bytes, Some(1024));
+    assert_eq!(read.search.copies, Some(5));
+    assert_eq!(read.styles.latex.form, linlog::export::Form::Standalone);
+    let error = serde_json::from_str::<Settings>("{\"styles\":{\"html\":{}}}").unwrap_err();
+    assert!(
+        error.to_string().contains("unknown field `html`"),
+        "{error}"
+    );
+}

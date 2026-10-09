@@ -90,8 +90,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   and the whole loop runs inside `on_large_stack` so that `close` and the
   derivation drawing have the stack `prove` has. `goal_line` prints a goal
   with the position of every formula, two-sided under the reading.
-- `style.rs`: `Styles`, the options value of every format (the
-  library's `TextOptions`, `latex::Options`, `typst::Options`,
+- `style.rs`: `read`, which makes the library's `export::Styles`, the
+  options value of every format (`TextOptions`, `latex::Options`, `typst::Options`,
   `svg::Style`, `png::Options`, `pdf::Options`, `rocq::Options`) under a
   key per format, read from `--style-file` and changed by `--style
   KEY=VALUE` (a key is dotted; a format's name is a prefix only before a

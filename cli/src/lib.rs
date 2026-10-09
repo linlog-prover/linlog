@@ -262,7 +262,7 @@ fn run(cli: &Cli) -> Result<Status> {
                         SequentFormat::Png => ("png", Some(Format::Png)),
                         SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
                     };
-                    let mut styles = style::Styles::read(style, Some(key), *standalone)?;
+                    let mut styles = style::read(style, Some(key), *standalone)?;
                     prove::bound_renders(&mut styles, memory_limit.0);
                     let text = prove::sequent_in(&sequent, mode, *format, &styles)?;
                     match binary {

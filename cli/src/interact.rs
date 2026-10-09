@@ -9,9 +9,10 @@ use crate::prove::{
     Ended, Rendered, Show, Shown, alone_first, bound_renders, bytes_text, derivation, describe,
     notice_line, on_large_stack, render, stopped, unknown,
 };
-use crate::style::Styles;
+use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
+use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{
@@ -69,7 +70,7 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     let options = options.with_jobs(threads.jobs);
     catch_interrupt();
     let stack_size = limits.stack_bytes();
-    let mut styles = Styles::read(&args.style, None, false)?;
+    let mut styles = style::read(&args.style, None, false)?;
     bound_renders(&mut styles, args.memory_limit.0);
     let mut session = Session {
         styles,
