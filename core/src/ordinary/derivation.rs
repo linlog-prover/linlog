@@ -651,8 +651,23 @@ impl Drawn for Derivation {
     }
 }
 
-/// Returns whether two lists are the same multiset.
+/// Returns whether two lists are the same multiset: at once where their
+/// lengths differ or they are equal as they stand, by counting where they
+/// are short, and by sorting copies only where they are long, so that the
+/// checker's question of every inference costs no allocation.
 fn same(a: &[NodeId], b: &[NodeId]) -> bool {
+    /// The longest lists compared by counting, a square of comparisons.
+    const SHORT: usize = 16;
+    if a.len() != b.len() {
+        return false;
+    }
+    if a == b {
+        return true;
+    }
+    if a.len() <= SHORT {
+        let count = |list: &[NodeId], x: NodeId| list.iter().filter(|&&y| y == x).count();
+        return a.iter().all(|&x| count(a, x) == count(b, x));
+    }
     let (mut a, mut b) = (a.to_vec(), b.to_vec());
     a.sort_unstable();
     b.sort_unstable();
@@ -957,7 +972,14 @@ fn push(
     rule: Rule,
     premises: Vec<InfId>,
 ) -> InfId {
-    let (mut left, mut right) = (Vec::new(), Vec::new());
+    let lefts = members
+        .iter()
+        .filter(|&&(_, side)| side == Side::Left)
+        .count();
+    let (mut left, mut right) = (
+        Vec::with_capacity(lefts),
+        Vec::with_capacity(members.len() - lefts),
+    );
     let mut principal = None;
     for (i, &(node, side)) in members.iter().enumerate() {
         let list = if side == Side::Left {
@@ -1089,6 +1111,26 @@ mod tests {
             forged(Logic::Minimal).check(&unbounded, |_| false),
             Err(Error::ReadBack { .. })
         ));
+    }
+
+    /// Two lists are one multiset whatever their order, short or long,
+    /// and two with a member counted differently are not.
+    #[test]
+    fn same_compares_multisets() {
+        let ids = |list: &[u32]| list.iter().map(|&i| NodeId(i)).collect::<Vec<_>>();
+        let long: Vec<u32> = (0..40).map(|i| i % 7).collect();
+        let reversed: Vec<u32> = long.iter().rev().copied().collect();
+        let mut other = long.clone();
+        other[0] = 6;
+        for (a, b, equal) in [
+            (&[1, 2, 2][..], &[2, 1, 2][..], true),
+            (&[1, 2, 2], &[1, 1, 2], false),
+            (&[1, 2], &[1, 2, 2], false),
+            (&long, &reversed, true),
+            (&long, &other, false),
+        ] {
+            assert_eq!(same(&ids(a), &ids(b)), equal, "{a:?} {b:?}");
+        }
     }
 
     /// Every guard of the checker refuses what it guards against: a
