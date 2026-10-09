@@ -427,6 +427,15 @@ fn interactive_json_format_and_round_trip() {
             "{why}"
         );
     }
+    // A history entry inside a later step's subtree did not exist when
+    // that step was taken; `undo` would index past the arena.
+    let closed = ok
+        .replace(r#"{"sequent":[0,2]}"#, r#"{"sequent":[0,2],"rule":"ax"}"#)
+        .replace(r#"{"sequent":[3,4]}"#, r#"{"sequent":[3,4],"rule":"ax"}"#);
+    let finished = closed.replace(r#""history":[0]"#, r#""history":[0,1,2]"#);
+    assert!(serde_json::from_str::<Interactive>(&finished).is_ok());
+    let reordered = closed.replace(r#""history":[0]"#, r#""history":[1,0]"#);
+    assert!(serde_json::from_str::<Interactive>(&reordered).is_err());
 
     // States with a chain of steps on one branch, a Mix, a search graft
     // and a repeated formula read back with their history.

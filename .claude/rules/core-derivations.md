@@ -314,8 +314,11 @@ own search found, as the command's race does) and `close_all`,
   from the left premise less the subformula, and of a Mix from the left
   premise alone, whose first formula stands for the position; then
   `expand`'s premises must equal the recorded ones) and checks the history
-  from the last step back: its entries are distinct closed inferences, and
-  the inferences a step added, which are those of its subtree that exist
+  from the last step back: its entries are distinct closed inferences
+  below the arena's length as the step left it (an entry inside a later
+  step's subtree passed the suffix test vacuously, and `undo` then indexed
+  past the arena), and the inferences a step added, which are those of
+  its subtree that exist
   at that point (the later ones belong to later steps), are the suffix of
   the arena then. So a loaded state is as trustworthy as one built through
   the API; the checker at the end is the final word anyway. A history that

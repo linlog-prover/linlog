@@ -310,7 +310,9 @@ impl Interactive {
         let mut len = n;
         let mut seen = vec![false; n];
         for &goal in history.iter().rev() {
-            let closed = goal.index() < n
+            // Below `len`, the arena as this step left it: an entry inside
+            // a later step's subtree would make `undo` index past it.
+            let closed = goal.index() < len
                 && state.inferences[goal.index()].rule != Rule::Open
                 && !std::mem::replace(&mut seen[goal.index()], true);
             if !closed {
