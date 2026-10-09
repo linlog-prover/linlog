@@ -87,9 +87,9 @@ supervisor's go are marked "go".
 | p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | done, the net target set waiting for a go | kwxnmzvw: `bench/net-targets.sh`, the net engine's target set (the decided rows of the second baseline's `engines` and `period-N` passes, forced onto the net engine on one thread), to run at kwxnmzvw and at the retype after the go. Then the retype: `VertexId` (vertex `i` is occurrence `i` in MLL), `Criterion` (`MLL`, `with_mix`, `of(mode)`), `NetError` with named fields and `Fragment`, `Mode`, `Rule` (kind unsupported, code `no_nets`); `new` refuses past `u32::MAX / 3 − 1` vertices (F9); `from_proof(proof, criterion, limits, stop)` matches every node (F49) within the memory bound; `is_correct(stop)`, `sequentialize(limits, stop)` (F12's net half; the proof records its mode); an id outside the structure answered, never a panic (H24), a scratch of another structure replaced (H23); the net engine sequentializes under the search's limits and stop; tests `foreign_ids_and_scratches`, `refusals` and the `wk` and `&` refusals in `desequentialize`. H24's `OccSet` half: the set is crate-private since wyuzsnql, so no public call panics |
 | q. `Refutation` and `Disproof` (3.12, lock commit (3)) | done | `search/refutation.rs`: `Refutation` over the structs `Unbalanced` (the atom, no name: F80), `Equation` (with `needed`) and `StateEquation` (every place's weight: the atoms', the clauses used once by occurrence, and the clauses `live` dropped, a dead transition's with every clause under `?` sharing its arcs: R70, `once` gone); `Disproof` (sequent, goal off the roots, mode, refutation) in `Verdict::Unprovable(Box<Disproof>)`, built in `prove_goal`; `Display` of a refutation writes atoms as `#0`, the disproof's by name, which the command prints (its text lines unchanged). Lock commit (3): the unprovable outcome writes the disproof's `sequent` (and `goal`), the unbalanced atom by index, the state equation's new payload; both locks reblessed (four JSON outputs of the command, four core lines). Tests `refutations` (the disproof's sequent, mode and both displays) and `the_certificate_names_its_clauses` |
 | r. the ordinary layer (3.13) | done | `Image::read_back(&proof, &limits, stop)` unfolds the proof itself, never compact, so a compact derivation cannot reach it (H22; `linear_derivation` crate-private), and asks the stop per inference; `Derivation::check(&limits, stop)` likewise, within `limits.work` inferences (F12's ordinary half); `Formulas::add` and `Sequent::new` refuse foreign ids (F13, `Space::Formula`); `Translation::target() -> Target` with the `Display` the command prints; `Logic`, `Translation`, `Options` (builders), `Rule` and `Inference` (private fields, accessors) non-exhaustive; `ordinary::decide` with `Outcome` and `Verdict` (R113), which the ordinary journey now calls; a certificate without atoms or hypotheses binds nothing (H29), compiled by the flake's `rocq` check too. Tests `the_checker_refuses_each_break` (one break per guard, each asserting its guard's reason: F11), `foreign_ids_are_refused`, `ordinary_certificate_without_binders`. F15 (the ordinary certificate's import as `prelude`) goes with the export options, item t; F52 (the read-back's allocations) with item u |
-| s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | done | `wire` (public, `serialize`): `LEVEL` 1, `Readable` (sequent, proof, structure, session), `Within` and `upgrade` (the identity at level 1), `Error::Json` and `Error::Version` (`unsupported_version`, named before the other keys); every top-level document starts with `version`, nested values without; `roots`, `atoms`, `nodes` for `ids`, `var_dict`, `proof`, which are no longer read (D18); the mode by name; the proof's `mode` and `goal` keys (F89's wire half); the outcome's `version`, `linlog` and `checked`, its reasons and refutations tagged by `kind` with named fields; every reader counts against `limits.occurrences` (F27's library half); bounds past 2⁵³ written `null` and refused on reading; the batch record's level and name first. Lock commit (1): both locks reblessed (13 command outputs, the core lines), README's four JSON examples, every fixture in the old names regenerated (the tests' inline documents, the LLTP header report's nine proofs, each read back by `linlog check -i`); the command's lock and README's test read the crate's version as `…`. Test `wire_levels` (7.5's list) |
+| s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | done | `wire` (public, `serialize`): `LEVEL` 1, `Readable` (sequent, proof, structure, session), `Within` and `upgrade` (the identity at level 1), `Error::Json` and `Error::Version` (`unsupported_version`, named before the other keys); every top-level document starts with `version`, nested values without; `roots`, `atoms`, `nodes` for `ids`, `var_dict`, `proof`, which are no longer read (D18); the mode by name; the proof's `mode` and `goal` keys (F89's wire half); the outcome's `version`, `linlog` and `checked`, its reasons and refutations tagged by `kind` with named fields; every reader counts against `limits.occurrences` (F27's library half); bounds past 2⁵³ written `null` and refused on reading; the batch record's level and name first. Lock commit (1): both locks reblessed (13 command outputs, the core lines), README's four JSON examples, every fixture in the old names regenerated (the tests' inline documents, the LLTP header report's nine proofs, each read back by `linlog check -i`); the command's lock and README's test read the crate's version as `…`. Test `wire_levels` (7.5's list). Ceilings raised in commits of their own placed before what needs them: suorpuok (read-json to 12 945 304: every JSON reader counts the occurrences, F27) and roxtvnkn (read-tptp to 31 574 017 at pkkmlunw, whose reader is unchanged: the codegen units' layout) |
 | t. the exports' one `write` (9) | done | knkmnqxz: `export::Drawable` (the linear derivation or one of LK or LJ, by `From`) and one `write` per target, LaTeX, Typst, SVG and Rocq; the `derivation(…) -> String` twins and the `ordinary` functions are gone (F36), a `String` being an `fmt::Write`; every snapshot unchanged. Then `sequent(&sequent, mode, &options, &limits)` in LaTeX, Typst and SVG, two-sided by mode and refused past `limits.derivation_bytes` before it is laid out (F5's bound; the streaming SVG line it also asks for, and F82's one printer, are item u's). Then `svg::net(&net, &style, &limits, stop)`; `png`/`pdf::from_svg(…, &limits)` within `limits.memory_bytes`, their `memory` option gone (F63; the command passes `--memory-limit`, and `--style png.memory` is no key now). Then Rocq's `Options` non-exhaustive with builders, `lemma: Identifier` (lexical form and Rocq's keywords, `Error::InvalidOption`, F38's Rocq half) and `prelude: Option` (`None` each certificate's own: NanoYalla's import, the excluded middle's for a classical certificate over `Prop`, nothing for LJ; F15), every snapshot unchanged; tests in `certificates` and `ordinary_certificate_without_binders`. To item u: F4 (the SVG lengths' bounds) and F38's Typst lengths |
-| u. the area's other findings, `lib.rs`'s allowances, the docs | open | |
+| u. the area's other findings, `lib.rs`'s allowances, the docs | done but F59, gates of the last commits running | rxyloqup: `Error::FamilySize` before a generator runs (F6). qruwnxlr: nets exist in linear mode only, said where asked. slmkyspp: Rocq names checked by a set, a spec's names hashed with the crate's hasher, a term's size pinned. nunzkxvw, yunpwlkw, rxluqnuk, lpmqyqro: every module page's first sentence and links, `must_use` on every changed copy, `# Errors` and `# Panics` on every public call (the lints `missing_errors_doc`, `missing_panics_doc`, `return_self_not_must_use` on). kzxonryx: `wildcard_enum_match_arm` denied in `sequents`, `occurrences`, `nets`, `export`, `ordinary` (F85). nxuroptl: tests of the checker's refusal before it judges (F17), the parser's guards (F54), the abbreviated report (F55), a saturated size not exact (F70), the options' JSON on their types (F18, F61). uqsrzlvo: atom names are identifiers that no keyword (`par`, `top`, `bot`, ordinary `true`, `false`) or reserved word (`forall`, `exists`) takes, `Error::AtomName` on JSON, `.spec` and ordinary atoms, a parse error naming a reserved word in the text (H19, HD5, §3.1). tomxvyyy: LLTP's `a-ob` refused (H6; no file of LLTP or ILTP has one). mqxyvmkm: `unicode-normalization`, every name read in NFC (H8, HD3). ormrprlp: `Style::check` with stated maxima and the layout's products in `i128` (F4), `typst::Length` (F38's Typst half), `escape` the one door into XML (F39). lstpykon, lszkzunv: the seven options values and the open types of §2.5 `#[non_exhaustive]`. nmvmpoqk: `lib.rs`'s `dead_code`/`unused_variables` gone, test-only and feature-only items behind their `cfg`, every feature combination and the test builds without default features free of warnings (F43). qvrkvzqt: the checker's work counts the entries its rules handle, its stop polled by them (H25's library half). xooqntxz: `Firm` pinned against every compact view (F71), the size's goal sum and recount pinned by samples that kill their mutants, the goal flag that no reading sets false removed (F57). ltxrqrpn: LLTP and TPTP parse errors placed in the file (F45). qlmtwmpu: a render refuses what no drawing has (F37). mnqzltkk: `Cadence::AUTO_SMALL`, `AUTO_PERIOD` (F81's library half). rqxzxxtm: `Forest::dual_literals` (F58). wlywsswv: the readers' rare paths and messages (F46). nxrzvvsn: the ordinary read-back compares without allocating (F52). psrqvmlm: a sequent's and a net's drawing written into the document once (F5). qrwnnuoy: one `Notation` for every target and `Display` (F82). rqsynupm: the ordinary labels one table, tested against the names (F72). Not done: F59 (below). Gates: rxyloqup to kzxonryx and nxuroptl passed; the later ones wait on the ratchet (below) |
 | v. check rounds (stage 4), at most three; the fresh-context reviewer | open | |
 
 #### Area 3.1: decided unattended
@@ -213,6 +213,56 @@ supervisor's go are marked "go".
   new level, so they come at level 1 whenever they come.
 - **`recursion_limit` carries no `depth`**: `Reason::RecursionLimit` has
   none to write; the search area may add it with its reasons (F144).
+- **A keyword names no atom in the text either**: `|- par` is refused
+  where it read as the atom `par`, since the decision lists `par` among
+  the keywords; a JSON, `.spec` or ordinary name is `AtomName`, a text
+  one a parse error (a reserved word's with `reserved` set and the
+  word's span), and the LLTP reader, which assembles text, answers the
+  parse error with its place in the file.
+- **Ordinary names refuse `true` and `false` as well**, the ordinary
+  syntax's constants, and the linear keywords, since an atom keeps its
+  name in the image; a linear name may be `false`, minimal logic's
+  atom. The `_` appended to that atom's name is gone with the case.
+- **`unicode-ident` and `unicode-normalization` are dependencies of
+  every build**, not of `parse` (the design's place): names enter through
+  JSON and `ordinary::Formulas::atom` in builds without it.
+- **`typst::Length` is refused under the key `typst`**: a length does not
+  know its field, and the message names the value.
+- **The SVG maxima are checked by every drawing, not by serde**: a front
+  end makes a `Style` in code as well; `Style::check` is public for one
+  that checks early.
+- **The checker's unit of work is a node or an entry it handles** (H25):
+  `limits.work` for a check now counts more than nodes, and the stop is
+  asked every 65 536 units as well as every 4 096 nodes. A check stays
+  quadratic on such a proof (comparing the sequents is the work); the
+  command's `check`, which has no time limit, is area 3.4's.
+- **F65 is the library's already**: `Refusal::Output::least_bytes`
+  carries the compact view's lower bound and its `Display` says it; the
+  command's `too_large` line prints the whole size (3.4), and the view's
+  `Refusal::Memory` has none to carry.
+- **F81's library half only**: `Cadence::AUTO_SMALL` and `AUTO_PERIOD`
+  are public; `--test-period` is the command's (3.4), and
+  `NET_MULTIPLICITY` stays private by the decision that dispatch
+  thresholds are not options.
+- **F37 refuses foreign SVG** (`Error::NotSvg`) rather than taking a
+  drawing type: the renders' callers hold text, and the estimate knows
+  the cost of the drawings' elements alone.
+- **F72 keeps `name` a `match`**: a `const fn` cannot read it off the
+  markup, and the test compares both labels with it, for both calculi.
+- **F59 is not done**: pure moves of `derivation.rs`, `check.rs` and
+  `interactive.rs` make every diff of the area unreadable to the review
+  and the check rounds still to come; the seams are the finding's, and
+  the moves go first in a later area with no review pending (planning to
+  place).
+- **The test oracles need `parse`** (`oracle`, `generate`, `reference`,
+  the nets' tests: `cfg(all(test, feature = "parse"))`), so the test
+  build without default features has no dead helpers.
+- **Two ceilings of the area come from the codegen units**: between
+  commits that leave a journey's code alone its count moved by up to
+  ±8 % (read-spec −7.8 %, read-text −5.5 % then +2.5 %), as at
+  pkkmlunw; the raise below takes the counts the gates measured, and
+  T3's link-time optimisation, which takes the layout out, re-records
+  every ceiling after the go.
 
 ## From the supervisor
 
