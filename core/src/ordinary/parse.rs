@@ -99,15 +99,10 @@ enum End {
 }
 
 impl<'a> Parser<'a> {
-    /// Returns the error for the character at byte `at`.
-    fn unexpected(&self, at: usize) -> Error {
-        let found = self.input[at..].chars().next();
-        Error::from(ParseError {
-            span: at..at + found.map_or(0, char::len_utf8),
-            found: found.map(String::from),
-            label: None,
-            expected: Vec::new(),
-        })
+    /// Returns the error for the character at byte `at`, where `expected`
+    /// could have stood.
+    fn unexpected(&self, at: usize, expected: &'static [&'static str]) -> Error {
+        Error::from(ParseError::new(self.input, at, expected))
     }
 
     /// Skips white space and returns the rest of the text.
@@ -221,7 +216,14 @@ impl<'a> Parser<'a> {
                     None
                 };
                 let Some(end) = end else {
-                    return Err(self.unexpected(self.at.max(at)));
+                    let expected: &[&str] = if self.open > 0 {
+                        &["a connective", ")"]
+                    } else if self.dialect == Dialect::Tptp {
+                        &["a connective", "the end"]
+                    } else {
+                        &["a connective", ",", "|-", "the end"]
+                    };
+                    return Err(self.unexpected(self.at.max(at), expected));
                 };
                 return Ok((self.reduce(operand, None)?, end));
             }
@@ -248,7 +250,7 @@ impl<'a> Parser<'a> {
             Some("true") if native => self.formulas.add(Node::True),
             Some("false") if native => self.formulas.add(Node::False),
             Some(name) => self.formulas.atom(name),
-            None => Err(self.unexpected(at)),
+            None => Err(self.unexpected(at, &["a formula"])),
         }
     }
 
@@ -317,7 +319,14 @@ impl std::str::FromStr for Sequent {
                             break;
                         }
                     }
-                    End::Turnstile => return Err(parser.unexpected(parser.at - 1)),
+                    End::Turnstile => {
+                        // The turnstile's last character: `⊢` is three bytes.
+                        let last = parser.input[..parser.at]
+                            .char_indices()
+                            .next_back()
+                            .map_or(0, |(at, _)| at);
+                        return Err(parser.unexpected(last, &["a connective", ",", "the end"]));
+                    }
                     End::Stop => break,
                 }
             }
@@ -415,6 +424,7 @@ mod tests {
             "a | b",
             "a -o b",
             "a |- b |- c",
+            "a ⊢ b ⊢ c",
             "(a",
             "a)",
             "a b",

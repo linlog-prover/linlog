@@ -180,6 +180,30 @@ fn error_positions() {
     }
 }
 
+/// An error gives its place as a line and a character, and in UTF-16
+/// code units, and says what could have stood there: a sequent without a
+/// turnstile ends where `|-` was due.
+#[test]
+fn error_places_and_expectations() {
+    let error = |input: &str| match input.parse::<Sequent>() {
+        Err(Error::Parse(error)) => *error,
+        other => panic!("{input:?}: {other:?}"),
+    };
+    let e = error("|- é,\n 𝔸 * ∀");
+    assert_eq!((e.span.clone(), e.span_utf16.clone()), (15..18, 12..13));
+    assert_eq!((e.line, e.column), (2, 6));
+    assert_eq!(e.expected, ["a formula"]);
+    assert_eq!(
+        e.to_string(),
+        "unexpected \"∀\" at line 2, character 6, expected a formula"
+    );
+    let e = error("A * B");
+    assert_eq!(
+        (e.found, e.expected),
+        (None, &["a connective", ",", "|-"][..])
+    );
+}
+
 /// Neither the nesting of a formula nor the length of a chain costs any
 /// stack: formulas 100 000 deep parse on a thread with a small one, to a
 /// sequent of as many subformula occurrences as the text has.

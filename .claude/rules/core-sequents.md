@@ -141,7 +141,12 @@ time and memory linear in the text. What the code relies on:
   `XID_Continue` (the `unicode-ident` crate's tables).
 - **An error is one `ParseError`**: the byte span of the first character
   that cannot go on a sequent, and that character, or the end of the
-  input. Two tokens of two characters make the exceptions the first
+  input; the same place in UTF-16 code units (what an editor in
+  JavaScript indexes) and as a line and a character, both counted from
+  1, computed once in `ParseError::new`, which both parsers call; and
+  `expected`, what could have stood there in words (`a formula`, `a
+  connective`, `,`, `|-`, `)`, `the end`), which the parser's state
+  decides (`operands`, `operators`). Two tokens of two characters make the exceptions the first
   parser made: a `-` that no `o` follows where a connective can stand,
   and a `|` that no `-` follows at the very start (where only the
   turnstile can stand), report the character after them.

@@ -159,15 +159,32 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the error for the character at byte `at`, or for the end of
-    /// the input there.
-    fn unexpected(&self, at: usize) -> Error {
-        let found = self.input[at..].chars().next();
-        Error::from(ParseError {
-            span: at..at + found.map_or(0, char::len_utf8),
-            found: found.map(String::from),
-            label: None,
-            expected: Vec::new(),
-        })
+    /// the input there, where `expected` could have stood.
+    fn unexpected(&self, at: usize, expected: &'static [&'static str]) -> Error {
+        Error::from(ParseError::new(self.input, at, expected))
+    }
+
+    /// What can start a formula here: on an empty left side the turnstile
+    /// too.
+    const fn operands(&self) -> &'static [&'static str] {
+        if self.empty && self.left {
+            &["a formula", "|-"]
+        } else {
+            &["a formula"]
+        }
+    }
+
+    /// What can follow an operand here: a connective, and inside a
+    /// parenthesis its closing one, outside every parenthesis a comma and
+    /// the turnstile on the left side or the end on the right side.
+    const fn operators(&self) -> &'static [&'static str] {
+        if self.open > 0 {
+            &["a connective", ")"]
+        } else if self.left {
+            &["a connective", ",", "|-"]
+        } else {
+            &["a connective", ",", "the end"]
+        }
     }
 
     /// Appends a term to the arena and returns its index, or fails when
@@ -294,7 +311,7 @@ impl<'a> Parser<'a> {
             return if self.empty && !self.left {
                 Ok(State::End)
             } else {
-                Err(self.unexpected(start))
+                Err(self.unexpected(start, self.operands()))
             };
         };
         self.at += c.len_utf8();
@@ -315,7 +332,7 @@ impl<'a> Parser<'a> {
                 // Only `|-` can start a sequent with `|`, so what is wrong
                 // is the character after it.
                 if self.peek() != Some('-') {
-                    return Err(self.unexpected(self.at));
+                    return Err(self.unexpected(self.at, &["the - of |-"]));
                 }
                 self.at += 1;
                 return Ok(self.turnstile());
@@ -325,7 +342,7 @@ impl<'a> Parser<'a> {
                 "top" => Term::Top,
                 name => Term::Atom(self.atom(name)),
             },
-            _ => return Err(self.unexpected(start)),
+            _ => return Err(self.unexpected(start, self.operands())),
         };
         self.empty = false;
         Ok(State::Operator(self.push(term)?))
@@ -340,7 +357,7 @@ impl<'a> Parser<'a> {
         let outermost = self.open == 0;
         let Some(c) = self.peek() else {
             if self.left || !outermost {
-                return Err(self.unexpected(start));
+                return Err(self.unexpected(start, self.operators()));
             }
             self.root(operand)?;
             return Ok(State::End);
@@ -360,7 +377,7 @@ impl<'a> Parser<'a> {
                 // Only `-o` starts with `-`, so what is wrong is the
                 // character after it.
                 if self.peek() != Some('o') {
-                    return Err(self.unexpected(self.at));
+                    return Err(self.unexpected(self.at, &["the o of -o"]));
                 }
                 self.at += 1;
                 Binary::Lollipop
@@ -389,7 +406,7 @@ impl<'a> Parser<'a> {
                 return Ok(State::Operator(inner));
             }
             _ if starts_identifier(c) && self.identifier(start) == "par" => Binary::Par,
-            _ => return Err(self.unexpected(start)),
+            _ => return Err(self.unexpected(start, self.operators())),
         };
         let left = self.reduce(operand, Some(connective))?;
         self.pending.push(Pending::Binary(connective, left));
