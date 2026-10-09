@@ -92,6 +92,25 @@ pub enum Error {
         /// Every name of that kind.
         known: &'static [&'static str],
     },
+    /// A document is not of the form it was read as: not JSON, a key
+    /// missing or of another type.
+    #[error("not a {form} of linlog's wire form: {message}")]
+    Json {
+        /// The form read: `sequent`, `proof`, …
+        form: &'static str,
+        /// What was wrong, as the reader says it.
+        message: String,
+    },
+    /// A document is of a wire level above the one this build reads.
+    #[error("the {form} is of wire level {found}, and this build reads levels up to {supported}")]
+    Version {
+        /// The form read.
+        form: &'static str,
+        /// The document's `version`.
+        found: u64,
+        /// The highest level this build reads, [`wire::LEVEL`](crate::wire::LEVEL).
+        supported: u32,
+    },
     /// An index of a value read names nothing: it is not below the length
     /// of its space.
     #[error("{}", out_of_bounds(*.space, *.index, *.len))]
@@ -382,6 +401,8 @@ impl Error {
         "tptp",
         "several_conjectures",
         "unknown_name",
+        "json",
+        "unsupported_version",
         "index_out_of_bounds",
         "not_topological",
         "antecedents",
@@ -430,7 +451,8 @@ impl Error {
             | Self::Spec { .. }
             | Self::Tptp { .. }
             | Self::SeveralConjectures { .. } => Malformed,
-            Self::UnknownName { .. } => Malformed,
+            Self::UnknownName { .. } | Self::Json { .. } => Malformed,
+            Self::Version { .. } => Unsupported,
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
             | Self::Antecedents { .. } => Malformed,
@@ -488,6 +510,8 @@ impl Error {
             #[cfg(feature = "parse")]
             Self::SeveralConjectures { .. } => "several_conjectures",
             Self::UnknownName { .. } => "unknown_name",
+            Self::Json { .. } => "json",
+            Self::Version { .. } => "unsupported_version",
             Self::IndexOutOfBounds { .. } => "index_out_of_bounds",
             Self::NotTopological { .. } => "not_topological",
             Self::Antecedents { .. } => "antecedents",

@@ -352,8 +352,10 @@ pub enum Needs {
 ///
 /// # JSON
 ///
-/// With the feature `serialize` a session is `{"sequent": …, "mode": …,
-/// "inferences": […], "history": […]}`: the inferences in the state's own
+/// With the feature `serialize` a session is `{"version": 1, "sequent":
+/// …, "mode": "intuitionistic", "inferences": […], "history": […]}`
+/// ([`wire`](crate::wire)), the mode by its name: the inferences in the
+/// state's own
 /// order, the conclusion first, each `{"sequent": [ids], "rule": name,
 /// "principal": position, "premises": [indices]}` with the rule's
 /// [`name`](Rule::name), an open goal as its sequent alone; and the

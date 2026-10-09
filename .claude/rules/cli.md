@@ -176,8 +176,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Deadline::within`, the same `Options`, `alone_first` within the cores
   and the sequential engines across them, as `--deterministic` does),
   and its line is `NAME: ` and `verdict_line`, or a JSON Lines record
-  whose first key is the name and the rest `Outcome`'s JSON (`seconds`
-  with `--stats`). Its exit status is the worst (`Status::worse`: error,
+  whose first keys are the wire level and the name and the rest
+  `Outcome`'s JSON (`seconds` with `--stats`; `record_json`, which drops
+  the outcome's own `version`). Its exit status is the worst (`Status::worse`: error,
   unknown, unprovable, proved); `Status::Error` is an entry's error,
   printed as its line, never an `error:` of the command. A drawn format
   needs `--output DIR`; a file per proved sequent is
@@ -424,7 +425,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   that reads a sequent: `SequentInput::sequent` compares
   `Sequent::occurrences()` with it and refuses with exit status 2
   before anything unfolds, prints or lays out the sequent (a JSON
-  sequent of 427 bytes can stand for 67 million occurrences);
+  sequent of 438 bytes can stand for 67 million occurrences);
   `SequentInput::forest` then builds the forest within the same limit,
   and `sequent_in` and `describe`, which see a sequent that was
   admitted, build theirs without one. A session's state and a proof

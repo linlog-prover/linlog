@@ -1,6 +1,6 @@
 $ linlog prove --input-format json
 --- stdin
-{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}
+{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"]}
 
 --- status 0
 --- stdout

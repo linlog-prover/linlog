@@ -87,7 +87,7 @@ supervisor's go are marked "go".
 | p. `ProofStructure`, `VertexId`, `Criterion`, `NetError` (3.11) | done, the net target set waiting for a go | kwxnmzvw: `bench/net-targets.sh`, the net engine's target set (the decided rows of the second baseline's `engines` and `period-N` passes, forced onto the net engine on one thread), to run at kwxnmzvw and at the retype after the go. Then the retype: `VertexId` (vertex `i` is occurrence `i` in MLL), `Criterion` (`MLL`, `with_mix`, `of(mode)`), `NetError` with named fields and `Fragment`, `Mode`, `Rule` (kind unsupported, code `no_nets`); `new` refuses past `u32::MAX / 3 − 1` vertices (F9); `from_proof(proof, criterion, limits, stop)` matches every node (F49) within the memory bound; `is_correct(stop)`, `sequentialize(limits, stop)` (F12's net half; the proof records its mode); an id outside the structure answered, never a panic (H24), a scratch of another structure replaced (H23); the net engine sequentializes under the search's limits and stop; tests `foreign_ids_and_scratches`, `refusals` and the `wk` and `&` refusals in `desequentialize`. H24's `OccSet` half: the set is crate-private since wyuzsnql, so no public call panics |
 | q. `Refutation` and `Disproof` (3.12, lock commit (3)) | done | `search/refutation.rs`: `Refutation` over the structs `Unbalanced` (the atom, no name: F80), `Equation` (with `needed`) and `StateEquation` (every place's weight: the atoms', the clauses used once by occurrence, and the clauses `live` dropped, a dead transition's with every clause under `?` sharing its arcs: R70, `once` gone); `Disproof` (sequent, goal off the roots, mode, refutation) in `Verdict::Unprovable(Box<Disproof>)`, built in `prove_goal`; `Display` of a refutation writes atoms as `#0`, the disproof's by name, which the command prints (its text lines unchanged). Lock commit (3): the unprovable outcome writes the disproof's `sequent` (and `goal`), the unbalanced atom by index, the state equation's new payload; both locks reblessed (four JSON outputs of the command, four core lines). Tests `refutations` (the disproof's sequent, mode and both displays) and `the_certificate_names_its_clauses` |
 | r. the ordinary layer (3.13) | done | `Image::read_back(&proof, &limits, stop)` unfolds the proof itself, never compact, so a compact derivation cannot reach it (H22; `linear_derivation` crate-private), and asks the stop per inference; `Derivation::check(&limits, stop)` likewise, within `limits.work` inferences (F12's ordinary half); `Formulas::add` and `Sequent::new` refuse foreign ids (F13, `Space::Formula`); `Translation::target() -> Target` with the `Display` the command prints; `Logic`, `Translation`, `Options` (builders), `Rule` and `Inference` (private fields, accessors) non-exhaustive; `ordinary::decide` with `Outcome` and `Verdict` (R113), which the ordinary journey now calls; a certificate without atoms or hypotheses binds nothing (H29), compiled by the flake's `rocq` check too. Tests `the_checker_refuses_each_break` (one break per guard, each asserting its guard's reason: F11), `foreign_ids_are_refused`, `ordinary_certificate_without_binders`. F15 (the ordinary certificate's import as `prelude`) goes with the export options, item t; F52 (the read-back's allocations) with item u |
-| s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | open | |
+| s. the wire level, `wire::{Within, upgrade, LEVEL}` (7, lock commit (1)) | done | `wire` (public, `serialize`): `LEVEL` 1, `Readable` (sequent, proof, structure, session), `Within` and `upgrade` (the identity at level 1), `Error::Json` and `Error::Version` (`unsupported_version`, named before the other keys); every top-level document starts with `version`, nested values without; `roots`, `atoms`, `nodes` for `ids`, `var_dict`, `proof`, which are no longer read (D18); the mode by name; the proof's `mode` and `goal` keys (F89's wire half); the outcome's `version`, `linlog` and `checked`, its reasons and refutations tagged by `kind` with named fields; every reader counts against `limits.occurrences` (F27's library half); bounds past 2⁵³ written `null` and refused on reading; the batch record's level and name first. Lock commit (1): both locks reblessed (13 command outputs, the core lines), README's four JSON examples, every fixture in the old names regenerated (the tests' inline documents, the LLTP header report's nine proofs, each read back by `linlog check -i`); the command's lock and README's test read the crate's version as `…`. Test `wire_levels` (7.5's list) |
 | t. the exports' one `write` (9) | open | |
 | u. the area's other findings, `lib.rs`'s allowances, the docs | open | |
 | v. check rounds (stage 4), at most three; the fresh-context reviewer | open | |
@@ -195,6 +195,24 @@ supervisor's go are marked "go".
 - **The ordinary checker's bound is `limits.work`** (inferences
   checked), as the linear checker's is its nodes: the pass holds one
   inference's copies at a time, so a memory bound would bound nothing.
+- **`wire::Readable` is a public, unsealed trait** (the design's
+  `sealed::Readable`): a sealed one is unnameable, which the crate's lint
+  check forbids, as for `Owner`; an outside implementation only reads its
+  own type through the same calls.
+- **`upgrade` learns the library's own error through a thread-local**: a
+  deserializer's error is text, so `wire::fail` keeps the refusal, the
+  index error or the version that ended a read beside it, and `upgrade`
+  answers that instead of `Error::Json`. No JSON value type is needed,
+  so the readers stay format-agnostic.
+- **The command keeps its readers of proof files and sessions** (plain
+  serde within the default limits) until its area adopts `upgrade` with
+  `--occurrence-limit` (3.4, F27's command half); its JSON sequent goes
+  through `Within` without a bound and `admit` after, as its text does.
+- **The ordinary forms and the linear derivation's written form** (7.3,
+  F53, R4) wait for their first caller, the web client: a new form is no
+  new level, so they come at level 1 whenever they come.
+- **`recursion_limit` carries no `depth`**: `Reason::RecursionLimit` has
+  none to write; the search area may add it with its reasons (F144).
 
 ## From the supervisor
 

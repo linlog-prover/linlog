@@ -152,6 +152,8 @@ pub mod sequents;
 #[cfg(feature = "serialize")]
 mod serialize;
 pub mod settings;
+#[cfg(feature = "serialize")]
+pub mod wire;
 
 #[cfg(feature = "parse")]
 pub use errors::ParseError;

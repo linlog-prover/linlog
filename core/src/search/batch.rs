@@ -57,8 +57,8 @@ pub enum Cores {
 /// # JSON
 ///
 /// With the feature `serialize` an object of the fields, a missing one
-/// taking its default and a misspelt one refused: `"mode"` as a mode is
-/// written, `"cores"` one of `"auto"`, `"across"` and `"within"`,
+/// taking its default and a misspelt one refused: `"mode"` a mode's name
+/// (`"classical"`), `"cores"` one of `"auto"`, `"across"` and `"within"`,
 /// `"workers"` a number, `"total_memory_bytes"` a number or `null` for no
 /// bound.
 #[non_exhaustive]
@@ -79,6 +79,7 @@ pub struct Options {
     pub workers: usize,
     /// The most memory all the searches of the batch may hold together,
     /// or `None` for no bound but each search's.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub total_memory_bytes: Option<u64>,
 }
 

@@ -1,5 +1,5 @@
 $ linlog prove --deterministic --format json '|- A * ~A'
 --- status 1
 --- stdout
-{"verdict":"unprovable","refutation":{"equation":{"formulas":1,"needed":3,"tensors":1,"pars":0,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⊗":[0,1]}],"ids":[2],"var_dict":["A"],"antecedents":0}}
+{"version":1,"linlog":"…","verdict":"unprovable","refutation":{"kind":"equation","formulas":1,"needed":3,"tensors":1,"pars":0,"ones":0,"bottoms":0,"mix":false},"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⊗":[0,1]}],"roots":[2],"atoms":["A"],"antecedents":0}}
 --- stderr

@@ -20,11 +20,13 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// number (`#0`), the disproof's by name.
 ///
 /// In JSON (feature `serialize`) an unprovable outcome's `refutation` is
-/// `"exhausted"`, `{"unbalanced": {"atom", "least", "most"}}` (the atom
-/// by its index into the sequent beside it), `{"equation": {"formulas",
-/// "needed", "tensors", "pars", "ones", "bottoms", "mix"}}` or
-/// `{"state_equation": {"atoms": [[atom, weight], …], "clauses":
-/// [[occurrence, weight], …], "dropped": [occurrence, …]}}`.
+/// tagged by `kind`: `{"kind": "exhausted"}`, `{"kind": "unbalanced",
+/// "atom", "least", "most"}` (the atom by its index into the sequent
+/// beside it), `{"kind": "equation", "formulas", "needed", "tensors",
+/// "pars", "ones", "bottoms", "mix"}` or `{"kind": "state_equation",
+/// "atoms": [[atom, weight], …], "clauses": [[occurrence, weight], …],
+/// "dropped": [occurrence, …]}`. A reader that meets a kind it does not
+/// know reads it as `exhausted`: no certificate it can check.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refutation {

@@ -1,5 +1,5 @@
 $ linlog prove --deterministic -i --format json 'A, A -o B |- B'
 --- status 0
 --- stdout
-{"verdict":"proved","fragment":"IMLL","mode":{"intuitionistic":true,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"V":0},{"D":1},{"⊗":[1,2]},{"V":1}],"ids":[0,3,4],"var_dict":["A","B"],"antecedents":2},"proof":[{"ax":[0,2]},{"ax":[3,4]},{"⊗":[1,0,1]}]}
+{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"V":0},{"D":1},{"⊗":[1,2]},{"V":1}],"roots":[0,3,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[0,2]},{"ax":[3,4]},{"⊗":[1,0,1]}]}
 --- stderr

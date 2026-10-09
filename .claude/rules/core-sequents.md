@@ -168,16 +168,37 @@ Every operator has ASCII and Unicode spellings: `* ⊗`, `| par ⅋`, `&`,
 
 ## Serialization
 
+**The wire level** (`core/src/wire.rs`, public, behind `serialize`):
+every top-level document starts with `"version": 1` (`wire::LEVEL`),
+nested values carry none; a reader refuses a higher one by name
+(`Error::Version`, code `unsupported_version`) through `wire::version`,
+the `deserialize_with` of every proxy's `version` key, and reads a
+document without one as level 1. Every reader goes through
+`wire::Readable::read(deserializer, &limits)`: `wire::upgrade` (the one
+reader, answering an `Error`), `wire::Within` (the same as a serde seed)
+and each plain `Deserialize` (within the default `Limits`); at level 1
+`upgrade` is the identity, and a level that changes a form adds one step
+there. A deserializer's error carries text only, so `wire::fail` keeps
+the library's own error (a refusal, an index out of bounds, the version)
+in a thread-local that `upgrade` answers instead of `Error::Json`.
+`wire_levels` in `core/tests/serialize.rs` pins all of it. The names
+from before the release (`ids`, `var_dict`, `proof`, a mode as an object
+of flags) are not read: a file in them is refused naming the key it
+lacks.
+
 `core/src/serialize/sequents.rs` uses a private serde proxy struct
-`{terms, ids, var_dict, antecedents}` (the last written whenever the sides
-are known, `0` included, and absent otherwise) with short tags (`V`, `D`, `⊗`, `⅋`, …) and `u32`
-indices. `serialize/proofs.rs` does the same for proofs: `{"sequent": …,
-"proof": [node, …]}`, one object per node tagged `ax ⊗ ⅋ 1 ⊥ & ⊕₁ ⊕₂ ⊤ ! ?
-copy wk mix` with the occurrence ids and premise indices as an array (or
-one integer), premises before conclusions and the root last. Deserialization
-rebuilds the forest, checks bounds and order and drops unreachable nodes;
-whether the proof is correct is `Proof::check`'s question, since the mode
-is not in the file. Both are interchange formats for the CLI and the planned
+`{version, terms, roots, atoms, antecedents}` (`antecedents` written
+whenever the sides are known, `0` included, and absent otherwise) with
+short tags (`V`, `D`, `⊗`, `⅋`, …) and `u32` indices; `Sequent::from`
+is the nested form, without `version`, which every other proxy holds.
+`serialize/proofs.rs` does the same for proofs: `{"version": 1,
+"sequent": …, "nodes": [node, …], "mode": …, "goal": […]}` (the last
+two where the proof records them), one object per node tagged `ax ⊗ ⅋ 1
+⊥ & ⊕₁ ⊕₂ ⊤ ! ? copy wk mix` with the occurrence ids and premise
+indices as an array (or one integer), premises before conclusions and the
+root last. Deserialization rebuilds the forest within the limits, checks
+bounds and order and drops unreachable nodes; whether the proof is
+correct is `Proof::check`'s question, in the mode the caller names. Both are interchange formats for the CLI and the planned
 web front end, so a tag or key change is a format break;
 `core/tests/serialize.rs` pins the exact strings, and the behaviour lock
 `core/tests/lock.rs` pins every JSON form on a corpus (sequents, every
@@ -194,27 +215,32 @@ same test file:
   contains every fragment of that name: the trip is lossy towards larger,
   which as an assertion only switches off prunes, never refuses a sequent
   it came from.
-- `Mode` is `{"intuitionistic": …, "affine": …, "mix": …}`.
-- `Outcome` serializes only (it is output): `verdict` (`proved`,
-  `unprovable`, `unknown`), `reason` for `unknown` (a snake_case tag,
-  `{"copy_bound": n}`, `{"memory_limit": bytes}`, `"index_limit"`),
-  `fragment`, `mode`, `engine`, `statistics`,
-  and for `proved` the proof's own `sequent` and `proof` keys, flattened, so
-  that the whole outcome deserializes as a `Proof` (serde ignores the other
-  keys) and `linlog check` reads the output of `linlog prove --format json`;
-  for `unprovable` the `Disproof`'s keys beside `mode`: `refutation`
-  (`"exhausted"`, `{"unbalanced": {"atom", "least", "most"}}` with the
-  atom's index, `{"equation": {…}}`, `{"state_equation": {"atoms":
-  [[atom, weight]], "clauses": [[occurrence, weight]], "dropped":
-  [occurrence]}}`), `sequent` after `statistics`, and `goal` for a goal
-  off the roots (written only until a refutation's checker reads it).
+- `Mode` is its name (`Mode::NAMES`: `"classical"`, `"affine-mix"`,
+  …), an unknown one refused naming the known ones.
+- `Outcome` serializes only (it is output): `version`, `linlog` (the
+  crate's version; the command's lock and README's test read it as `…`),
+  `verdict` (`proved`, `unprovable`, `unknown`), `checked` for `proved`
+  (`Outcome::checked`), `reason` for `unknown` (tagged by `kind`:
+  `stopped`, `recursion_limit`, `copy_bound {copies}`, `memory_limit
+  {limit_bytes}`, `index_limit`), `fragment`, `mode`, `engine`,
+  `statistics`, and for `proved` the proof's own `sequent`, `nodes` and
+  `goal` keys (`Proof::keys`, no `version` and no `mode` of their own:
+  the outcome's are the proof's), flattened, so that the whole outcome
+  reads as a `Proof` (a data form ignores the other keys) and `linlog
+  check` reads the output of `linlog prove --format json`; for
+  `unprovable` the `Disproof`'s keys beside `mode`: `refutation` (tagged
+  by `kind`: `exhausted`, `unbalanced {atom, least, most}` with the
+  atom's index, `equation {…}`, `state_equation {atoms: [[atom,
+  weight]], clauses: [[occurrence, weight]], dropped: [occurrence]}`),
+  `sequent` after `statistics`, and `goal` for a goal off the roots
+  (written only until a refutation's checker reads it).
   A new `Reason` variant or `Statistics` field needs its line in the proxy;
   `Outcome::net` is not serialized (the proof's keys are, and the net is
   `from_proof` of them).
 - `Forest` has no serde; it is rebuilt from the sequent.
 
-`serialize/interactive.rs` writes an `Interactive` as `{"sequent": …,
-"mode": …, "inferences": [{"sequent": [0, 1, 4], "rule": "⊸L",
+`serialize/interactive.rs` writes an `Interactive` as `{"version": 1,
+"sequent": …, "mode": "intuitionistic", "inferences": [{"sequent": [0, 1, 4], "rule": "⊸L",
 "principal": 1, "premises": [1, 2]}, {"sequent": [3, 4]}, …], "history":
 [0]}`: the inferences in the state's own top-down order, an open goal as
 its sequent alone (`rule`, `principal` and `premises` absent), rule names
@@ -224,8 +250,9 @@ closed. Reading it back goes through `Interactive::from_parts`, which
 replays every closed inference. It is the form a web client holds between
 requests, so it is pinned in `core/tests/serialize.rs`.
 
-`serialize/nets.rs` writes a `ProofStructure` as `{"sequent": …, "mix":
-false, "links": [[0, 2], [3, 4]]}`, the links as occurrence id pairs in
+`serialize/nets.rs` writes a `ProofStructure` as `{"version": 1,
+"sequent": …, "mix": false, "links": [[0, 2], [3, 4]]}` (the criterion's
+fields flattened), the links as vertex id pairs in
 the order they were made; reading validates the links as `from_links`
 does and accepts a partial or incorrect structure, since whether it is a
 net is `is_correct`'s question.

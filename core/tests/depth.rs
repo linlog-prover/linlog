@@ -22,7 +22,7 @@ const STACK: usize = 256 * 1024;
 fn json(terms: &[String], roots: &[usize]) -> String {
     let roots: Vec<String> = roots.iter().map(usize::to_string).collect();
     format!(
-        r#"{{"terms":["⊤",{{"D":0}},{{"V":0}},{}],"ids":[0,{}],"var_dict":["a"]}}"#,
+        r#"{{"version":1,"terms":["⊤",{{"D":0}},{{"V":0}},{}],"roots":[0,{}],"atoms":["a"]}}"#,
         terms.join(","),
         roots.join(",")
     )

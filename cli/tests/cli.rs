@@ -147,7 +147,7 @@ fn timeout() {
 /// A search that holds more than `--memory-limit` allows answers
 /// "unknown" with the limit and the flag, exit status 3, and a sequent
 /// that unfolds beyond `--occurrence-limit` is an error before it is
-/// unfolded: 25 doublings of one atom are 427 bytes of JSON and 67 million
+/// unfolded: 25 doublings of one atom are some 430 bytes of JSON and 67 million
 /// occurrences.
 #[test]
 fn limits_on_memory_and_occurrences() {
@@ -178,7 +178,7 @@ fn limits_on_memory_and_occurrences() {
 
     let doublings: Vec<String> = (0..25).map(|i| format!(r#"{{"⊗":[{i},{i}]}}"#)).collect();
     let shared = format!(
-        r#"{{"terms":[{{"V":0}},{}],"ids":[25],"var_dict":["A"]}}"#,
+        r#"{{"terms":[{{"V":0}},{}],"roots":[25],"atoms":["A"]}}"#,
         doublings.join(",")
     );
     for command in [
@@ -552,7 +552,7 @@ fn intuitionistic_mode() {
     let (status, json, _) = linlog(&["prove", "-i", "--format", "json", "A & B |- B"], "");
     assert_eq!(status, 0);
     assert!(
-        json.starts_with(r#"{"verdict":"proved","fragment":"IALL","#),
+        json.contains(r#""verdict":"proved","checked":true,"fragment":"IALL","#),
         "{json}"
     );
     let (status, out, _) = linlog(&["check", "-i"], &json);
@@ -677,7 +677,7 @@ fn check_reads_what_prove_writes() {
         "",
     );
     assert_eq!(status, 0);
-    assert!(json.starts_with(r#"{"verdict":"proved","fragment":"MLL","#));
+    assert!(json.contains(r#""verdict":"proved","checked":true,"fragment":"MLL","#));
 
     let (status, out, _) = linlog(&["check", "--mix", "-q"], &json);
     assert_eq!(
@@ -858,8 +858,8 @@ fn seq_commands() {
     assert_eq!(status, 0);
     assert_eq!(
         json,
-        "{\"terms\":[{\"D\":0},{\"V\":0},{\"D\":1},{\"⊗\":[1,2]},{\"V\":1}],\
-         \"ids\":[0,3,4],\"var_dict\":[\"A\",\"B\"],\"antecedents\":2}\n"
+        "{\"version\":1,\"terms\":[{\"D\":0},{\"V\":0},{\"D\":1},{\"⊗\":[1,2]},{\"V\":1}],\
+         \"roots\":[0,3,4],\"atoms\":[\"A\",\"B\"],\"antecedents\":2}\n"
     );
     let printed = linlog(&["seq", "print", "--input-format", "json"], &json);
     assert_eq!(printed, (0, "⊢ ~A, A ⊗ ~B, B\n".into(), String::new()));

@@ -4,7 +4,9 @@
 use crate::argument_parsing::{InputFormat, LogicArgs, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
+use linlog::wire::Within;
 use linlog::{Forest, Limits, Sequent};
+use serde::de::DeserializeSeed;
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
@@ -70,7 +72,13 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
     // how many occurrences the sequent has.
     let unbounded = Limits::default().with_occurrences(None);
     match format {
-        InputFormat::Json => serde_json::from_str(text).context("not a sequent in JSON"),
+        InputFormat::Json => {
+            let mut document = serde_json::Deserializer::from_str(text);
+            let sequent = Within::<Sequent>::new(&unbounded)
+                .deserialize(&mut document)
+                .and_then(|sequent| document.end().map(|()| sequent));
+            sequent.context("not a sequent in JSON")
+        }
         // The library's error says that the text is no LLTP problem.
         InputFormat::Lltp => Ok(linlog::lltp::read(text, &unbounded)?.sequent),
         InputFormat::Spec => match linlog::mist::read(text, &bound(most)) {

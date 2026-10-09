@@ -37,6 +37,38 @@ pub(crate) mod auto {
         name.parse().map(Some).map_err(serde::de::Error::custom)
     }
 }
+/// Serde for an optional bound, read back exactly by JavaScript: a bound
+/// past 2⁵³ is written `null`, no bound, which it is in effect, and read
+/// as an error that says `null` lifts it.
+pub(crate) mod exact {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    /// The largest integer JavaScript reads exactly.
+    const MOST: u64 = 1 << 53;
+
+    /// Writes the bound, or `null` for none or one past 2⁵³.
+    pub(crate) fn serialize<S: Serializer>(
+        value: &Option<u64>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match *value {
+            Some(bound) if bound <= MOST => serializer.serialize_u64(bound),
+            _ => serializer.serialize_none(),
+        }
+    }
+
+    /// Reads a bound up to 2⁵³, or `null` for none.
+    pub(crate) fn deserialize<'a, D: Deserializer<'a>>(
+        deserializer: D,
+    ) -> Result<Option<u64>, D::Error> {
+        match Option::<u64>::deserialize(deserializer)? {
+            Some(bound) if bound > MOST => Err(serde::de::Error::custom(format!(
+                "the bound {bound} is past 2^53, which JavaScript cannot read exactly; null lifts it"
+            ))),
+            bound => Ok(bound),
+        }
+    }
+}
 /// Serde support for `Interactive`: the sequent, the mode, the inferences
 /// and the steps.
 #[cfg(feature = "interactive")]

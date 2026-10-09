@@ -27,11 +27,14 @@ use crate::{Limits, ViewOptions, ordinary};
 )]
 pub struct Clock {
     /// How long a search may run, or a call that holds one.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub time_limit_ms: Option<u64>,
     /// How long a race searches on one thread before a pool of the other
     /// threads searches beside it; `None` for no pool.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub pool_after_ms: Option<u64>,
     /// How long a whole batch may run.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub batch_time_limit_ms: Option<u64>,
 }
 

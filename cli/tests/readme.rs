@@ -144,7 +144,8 @@ fn blocks(text: &str) -> Vec<Block> {
 }
 
 /// Returns the text with every time a search took, a number with its unit
-/// after "after " or "time: ", as `…`.
+/// after "after " or "time: ", and the crate's version an outcome names,
+/// as `…`.
 fn timeless(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -165,6 +166,22 @@ fn timeless(text: &str) -> String {
             out.push('…');
             rest = &rest[unit..];
         }
+    }
+    out.push_str(rest);
+    unversioned(&out)
+}
+
+/// Returns the text with the crate's version that an outcome names, in
+/// `"linlog":"0.1.0"`, as `…`: a release moves it.
+fn unversioned(text: &str) -> String {
+    const KEY: &str = "\"linlog\":\"";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(KEY) {
+        let (head, tail) = rest.split_at(at + KEY.len());
+        out.push_str(head);
+        out.push('…');
+        rest = &tail[tail.find('"').unwrap_or(tail.len())..];
     }
     out.push_str(rest);
     out
@@ -244,16 +261,16 @@ fn walk(directory: &Path, files: &mut Vec<PathBuf>) {
 }
 
 /// Writes the files the examples read and the README does not show how
-/// to make into the directory: `shared.json`, a sequent of 427 bytes that
+/// to make into the directory: `shared.json`, a sequent of 438 bytes that
 /// doubles one atom 25 times.
 fn fixtures(directory: &Path) {
     let mut terms = vec![r#"{"V":0}"#.to_owned()];
     terms.extend((0..25).map(|below| format!(r#"{{"⊗":[{below},{below}]}}"#)));
     let shared = format!(
-        r#"{{"terms":[{}],"ids":[25],"var_dict":["A"]}}"#,
+        r#"{{"version":1,"terms":[{}],"roots":[25],"atoms":["A"]}}"#,
         terms.join(",")
     );
-    assert_eq!(shared.len(), 427);
+    assert_eq!(shared.len(), 438);
     std::fs::write(directory.join("shared.json"), shared).unwrap();
 }
 

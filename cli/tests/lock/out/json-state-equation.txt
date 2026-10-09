@@ -1,5 +1,5 @@
 $ linlog prove --deterministic --format json '!(A -o A * A), !(B * B -o C), A, B |- C'
 --- status 1
 --- stdout
-{"verdict":"unprovable","refutation":{"state_equation":{"atoms":[[0,-2],[1,1],[2,2]],"clauses":[],"dropped":[]}},"fragment":"MELL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"horn","statistics":{"nodes":6,"memo_hits":0,"memo_entries":6,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⅋":[1,1]},{"⊗":[0,2]},{"?":3},{"V":1},{"⊗":[5,5]},{"D":2},{"⊗":[6,7]},{"?":8},{"D":1},{"V":2}],"ids":[4,9,1,10,11],"var_dict":["A","B","C"],"antecedents":4}}
+{"version":1,"linlog":"…","verdict":"unprovable","refutation":{"kind":"state_equation","atoms":[[0,-2],[1,1],[2,2]],"clauses":[],"dropped":[]},"fragment":"MELL","mode":"classical","engine":"horn","statistics":{"nodes":6,"memo_hits":0,"memo_entries":6,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⅋":[1,1]},{"⊗":[0,2]},{"?":3},{"V":1},{"⊗":[5,5]},{"D":2},{"⊗":[6,7]},{"?":8},{"D":1},{"V":2}],"roots":[4,9,1,10,11],"atoms":["A","B","C"],"antecedents":4}}
 --- stderr

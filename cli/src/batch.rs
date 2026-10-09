@@ -410,14 +410,20 @@ fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
     file.into()
 }
 
-/// Returns the JSON of a record: the entry's name, then the fields of
-/// `body`, a JSON object.
+/// Returns the JSON of a record: the wire level, the entry's name, then
+/// the fields of `body`, a JSON object, but its own `version`.
 fn record_json(name: &str, body: &str) -> String {
     let name = serde_json::to_string(name).expect("a string is JSON");
-    match body.strip_prefix('{') {
-        Some("}") => format!("{{\"name\":{name}}}"),
-        Some(rest) => format!("{{\"name\":{name},{rest}"),
-        None => unreachable!("the body is an object"),
+    let head = format!("{{\"version\":{},\"name\":{name}", linlog::wire::LEVEL);
+    let rest = body.strip_prefix('{').expect("the body is an object");
+    let rest = match rest.strip_prefix("\"version\":") {
+        Some(versioned) => versioned.trim_start_matches(|c: char| c.is_ascii_digit()),
+        None => rest,
+    };
+    match rest.strip_prefix(',') {
+        Some(fields) => format!("{head},{fields}"),
+        None if rest == "}" => format!("{head}}}"),
+        None => format!("{head},{rest}"),
     }
 }
 

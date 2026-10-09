@@ -43,26 +43,28 @@ use crate::hash::HashMap;
 ///
 /// # JSON
 ///
-/// With the feature `serialize` a sequent is the object `{"terms": […],
-/// "ids": […], "var_dict": […], "antecedents": k}`. `terms` is the arena: a unit is its
-/// symbol (`"1"`, `"⊥"`, `"⊤"`, `"0"`), any other term an object of one
-/// key, its tag, which names terms by their index in `terms`, each before
-/// it (`{"⊗": [0, 1]}`, and `⅋`, `&`, `⊕` alike; `{"!": 2}`, `{"?": 2}`),
-/// or an atom by its index in `var_dict` (`{"V": 0}` the atom, `{"D": 0}`
-/// its dual). `ids` are the root formulas, in the order written, and
-/// `antecedents` how many of them, the first, stand left of `⊢`, written
-/// whenever the sides are known, `0` included, and absent where they are
-/// not. Reading checks that every term names only terms before it and
-/// that `antecedents` is at most the number of roots, and takes a name
-/// the dictionary repeats as one atom. The command's `seq json` writes
-/// this form.
+/// With the feature `serialize` a sequent is the object `{"version": 1,
+/// "terms": […], "roots": […], "atoms": […], "antecedents": k}`, the
+/// `version` only at the top of a document ([`wire`](crate::wire)).
+/// `terms` is the arena: a unit is its symbol (`"1"`, `"⊥"`, `"⊤"`,
+/// `"0"`), any other term an object of one key, its tag, which names terms
+/// by their index in `terms`, each before it (`{"⊗": [0, 1]}`, and `⅋`,
+/// `&`, `⊕` alike; `{"!": 2}`, `{"?": 2}`), or an atom by its index in
+/// `atoms` (`{"V": 0}` the atom, `{"D": 0}` its dual). `roots` are the
+/// root formulas, in the order written, and `antecedents` how many of
+/// them, the first, stand left of `⊢`, written whenever the sides are
+/// known, `0` included, and absent where they are not. Reading checks
+/// that every term names only terms before it and that `antecedents` is
+/// at most the number of roots, takes a name the table repeats as one
+/// atom, and counts the occurrences against the limits before anything
+/// unfolds. The command's `seq json` writes this form.
 ///
 #[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
 #[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]
 /// let sequent: linlog::Sequent = "A |- A".parse()?;
 /// assert_eq!(
 ///     serde_json::to_string(&sequent)?,
-///     r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}"#
+///     r#"{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1}"#
 /// );
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```

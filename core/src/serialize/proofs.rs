@@ -1,9 +1,12 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use super::sequents::Sequent;
+use crate::fragment::Mode;
+use crate::limits::Limits;
 use crate::occurrences::{Forest, Member};
 use crate::proofs::{Branch, Named, Node, NodeId, Proof as Prf};
-use crate::sequents::Sequent;
+use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The serialized form of a proof node: the rule's tag with its occurrence
@@ -56,14 +59,28 @@ pub(super) enum Step {
     Mix(u32, u32),
 }
 
-/// The serialized form of a proof: its sequent and its nodes, premises
-/// before conclusions, the root last.
+/// The serialized form of a proof: its level at the top of a document,
+/// its sequent and its nodes, premises before conclusions, the root last,
+/// the mode it is meant for and the goal it concludes, where recorded.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct Proof {
+    /// The wire level, written only at the top of a document.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "wire::version"
+    )]
+    version: Option<u32>,
     /// The sequent proved.
     sequent: Sequent,
     /// The nodes.
-    proof: Vec<Step>,
+    nodes: Vec<Step>,
+    /// The mode the proof is meant for, where recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mode: Option<Mode>,
+    /// The goal the root concludes, absent for the sequent's roots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    goal: Option<Vec<u32>>,
 }
 
 impl From<Node> for Step {
@@ -116,24 +133,34 @@ impl From<Step> for Node {
     }
 }
 
-impl From<&Prf> for Proof {
-    /// Converts a proof into its serialized form.
-    fn from(p: &Prf) -> Proof {
+impl Proof {
+    /// The proof's keys as an outcome holds them, the outcome's `version`
+    /// and `mode` its own: the sequent, the nodes and the goal.
+    pub(super) fn keys(p: &Prf) -> Proof {
         Proof {
-            sequent: p.sequent().clone(),
-            proof: p.nodes().iter().copied().map(Step::from).collect(),
+            version: None,
+            sequent: Sequent::from(p.sequent()),
+            nodes: p.nodes().iter().copied().map(Step::from).collect(),
+            mode: None,
+            goal: p.goal().map(|goal| goal.iter().map(|m| m.get()).collect()),
         }
     }
-}
 
-impl TryFrom<Proof> for Prf {
-    type Error = crate::Error;
+    /// The proof as a document: its level, its keys and its mode.
+    fn document(p: &Prf) -> Proof {
+        Proof {
+            version: wire::level(),
+            mode: p.mode(),
+            ..Proof::keys(p)
+        }
+    }
 
-    /// Rebuilds the forest of the sequent and the proof over it, failing if
-    /// a node refers outside the forest or the arena, or the arena is empty.
-    fn try_from(p: Proof) -> Result<Prf, Self::Error> {
-        let forest = Forest::from_owned(p.sequent, &crate::Limits::default())?;
-        let nodes: Vec<Node> = p.proof.into_iter().map(Node::from).collect();
+    /// Rebuilds the proof the form holds, its forest within `limits`; the
+    /// bounds and the order of its nodes are checked, not the proof.
+    fn within(self, limits: &Limits) -> Result<Prf, crate::Error> {
+        let sequent = crate::Sequent::try_from(self.sequent)?;
+        let forest = Forest::from_owned(sequent, limits)?;
+        let nodes: Vec<Node> = self.nodes.into_iter().map(Node::from).collect();
         // The root is the last node, whose index must be a node id.
         let Ok(root) = u32::try_from(nodes.len().saturating_sub(1)) else {
             return Err(crate::Error::Refused(crate::limits::Refusal::Index {
@@ -142,24 +169,45 @@ impl TryFrom<Proof> for Prf {
                 most: u64::from(u32::MAX),
             }));
         };
-        Prf::new(forest, nodes, NodeId::new(root))
+        let root = NodeId::new(root);
+        let proof = match self.goal {
+            None => Prf::new(forest, nodes, root)?,
+            Some(goal) => {
+                let goal: Vec<Member> = goal.into_iter().map(Member::new).collect();
+                Prf::new_of_goal(forest, &goal, nodes, root)?
+            }
+        };
+        Ok(match self.mode {
+            Some(mode) => proof.with_mode(mode),
+            None => proof,
+        })
     }
 }
 
 impl serde::Serialize for Prf {
-    /// Serializes the proof as its sequent and its nodes.
+    /// Serializes the proof as a document.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        Proof::from(self).serialize(serializer)
+        Proof::document(self).serialize(serializer)
     }
 }
 
 impl<'a> serde::Deserialize<'a> for Prf {
-    /// Deserializes a proof and checks that its nodes stay within the
-    /// sequent's forest and refer only to earlier nodes; whether it proves
-    /// the sequent is for [`Prf::check`].
+    /// Deserializes a proof within the default limits, as
+    /// [`wire::upgrade`] does.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
-        let proxy = Proof::deserialize(deserializer)?;
-        Prf::try_from(proxy).map_err(serde::de::Error::custom)
+        Self::read(deserializer, &Limits::default())
+    }
+}
+
+impl Readable for Prf {
+    const FORM: &'static str = "proof";
+
+    /// Reads a proof: rebuilds its forest within the limits and checks the
+    /// bounds and the order of its nodes, not the proof.
+    fn read<'de, D: Deserializer<'de>>(deserializer: D, limits: &Limits) -> Result<Self, D::Error> {
+        Proof::deserialize(deserializer)?
+            .within(limits)
+            .map_err(wire::fail)
     }
 }
 

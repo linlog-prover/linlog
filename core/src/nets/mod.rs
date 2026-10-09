@@ -372,8 +372,9 @@ const STOPPED: NetError = NetError::Refused {
 ///
 /// # JSON
 ///
-/// With the feature `serialize` a structure is `{"sequent": …, "mix": …,
-/// "links": [[x, y], …]}`: its sequent in [`Sequent`]'s form, the
+/// With the feature `serialize` a structure is `{"version": 1, "sequent":
+/// …, "mix": …, "links": [[x, y], …]}` ([`wire`](crate::wire)): its
+/// sequent in [`Sequent`]'s form, the
 /// criterion's fields (whether Mix is allowed), and its axiom links as
 /// pairs of vertex ids in the order they were made. Reading validates the
 /// links as [`from_links`](Self::from_links) does and takes a partial or

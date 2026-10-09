@@ -476,7 +476,7 @@ time and never an answer; when that is not enough, the verdict is
 $ linlog prove --memory-limit 100 "|- (a & b) + (a & c), ~a par (~b & ~c)"
 unknown (MALL, classical, focus engine): the memory limit of 100 B was reached after 32.28µs; raise it with --memory-limit SIZE
 $ linlog prove --memory-limit 100 --format json "|- (a & b) + (a & c), ~a par (~b & ~c)"
-{"verdict":"unknown","reason":{"memory_limit":100},"fragment":"MALL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}
+{"version":1,"linlog":"…","verdict":"unknown","reason":{"kind":"memory_limit","limit_bytes":100},"fragment":"MALL","mode":"classical","engine":"focus","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}
 ```
 
 The bound counts what grows with the search (what it remembers, the
@@ -484,7 +484,7 @@ proofs it keeps, what each level of its recursion takes), not the sequent
 itself. That has a limit of its own, `--occurrence-limit` (fifty million
 subformula occurrences by default, or `none`), on every command that
 reads a sequent: a sequent in JSON can share subformulas, so a file of
-427 bytes that doubles one atom 25 times stands for 67 million
+438 bytes that doubles one atom 25 times stands for 67 million
 occurrences, and is refused before anything unfolds it:
 
 ```console
@@ -504,7 +504,7 @@ logic flags):
 
 ```console
 $ linlog prove --format json "A |- A"
-{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0},"sequent":{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1},"proof":[{"ax":[0,1]}]}
+{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
 $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
 ```
@@ -569,7 +569,7 @@ $ linlog seq print -i "A * B -o C |- A -o B -o C"
 $ linlog seq fragment -i "A & B |- 1"
 IMALL
 $ linlog seq json "A |- A"
-{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}
+{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1}
 $ linlog seq fragment "A & B |- 1"
 MALL
 ```
@@ -951,13 +951,13 @@ the input format's extension (`.p` and `.json` by default); paths are
 taken literally, relative to the current directory. On standard input
 the batch is a stream: each line is answered as soon as it is decided,
 so a program can ask, wait for the answer and ask again. With `--format
-json` every answer is a JSON Lines record, the name first and then what
-`--format json` writes for one sequent; the mode is the flags', a problem
+json` every answer is a JSON Lines record, the wire level and the name
+first and then what `--format json` writes for one sequent; the mode is the flags', a problem
 file's column or a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
-{"name":"pair","verdict":"proved","fragment":"IMLL","mode":{"intuitionistic":true,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"ids":[0,1,4],"var_dict":["A","B"],"antecedents":2},"proof":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
+{"version":1,"name":"pair","linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"roots":[0,1,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
 ```
 
 By default the cores go across the sequents, one sequent per worker on

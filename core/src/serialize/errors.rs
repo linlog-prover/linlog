@@ -66,6 +66,12 @@ impl Serialize for Details<'_> {
             UnknownName { what, name, known } => {
                 entries!(s; "what" => what; "name" => name; "known" => known)
             }
+            Json { form, message } => entries!(s; "form" => form; "message" => message),
+            Version {
+                form,
+                found,
+                supported,
+            } => entries!(s; "form" => form; "found" => found; "supported" => supported),
             IndexOutOfBounds { space, index, len } => {
                 entries!(s; "space" => space; "index" => index; "len" => len)
             }

@@ -19,6 +19,13 @@ fn json(input: &str) -> String {
     serde_json::to_string(&s).unwrap()
 }
 
+/// A sequent's JSON as another form nests it: without `version`.
+fn nested(s: &Sequent) -> String {
+    serde_json::to_string(s)
+        .unwrap()
+        .replacen(r#""version":1,"#, "", 1)
+}
+
 /// The arena, the root indices and the atom names appear under their fixed
 /// keys, with the short tags of the terms.
 #[test]
@@ -26,23 +33,23 @@ fn json_format() {
     for (input, expected) in [
         (
             "|-",
-            r#"{"terms":[],"ids":[],"var_dict":[],"antecedents":0}"#,
+            r#"{"version":1,"terms":[],"roots":[],"atoms":[],"antecedents":0}"#,
         ),
         (
             "A |- A",
-            r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"],"antecedents":1}"#,
+            r#"{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1}"#,
         ),
         (
             "|- 0, 1, bot, top",
-            r#"{"terms":["0","1","⊥","⊤"],"ids":[0,1,2,3],"var_dict":[],"antecedents":0}"#,
+            r#"{"version":1,"terms":["0","1","⊥","⊤"],"roots":[0,1,2,3],"atoms":[],"antecedents":0}"#,
         ),
         (
             "A * B |- A par B",
-            r#"{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":0},{"V":1},{"⅋":[3,4]}],"ids":[2,5],"var_dict":["A","B"],"antecedents":1}"#,
+            r#"{"version":1,"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":0},{"V":1},{"⅋":[3,4]}],"roots":[2,5],"atoms":["A","B"],"antecedents":1}"#,
         ),
         (
             "!(A & B) |- ?(A + B)",
-            r#"{"terms":[{"D":0},{"D":1},{"⊕":[0,1]},{"?":2},{"V":0},{"V":1},{"⊕":[4,5]},{"?":6}],"ids":[3,7],"var_dict":["A","B"],"antecedents":1}"#,
+            r#"{"version":1,"terms":[{"D":0},{"D":1},{"⊕":[0,1]},{"?":2},{"V":0},{"V":1},{"⊕":[4,5]},{"?":6}],"roots":[3,7],"atoms":["A","B"],"antecedents":1}"#,
         ),
     ] {
         assert_eq!(json(input), expected, "{input:?}");
@@ -71,7 +78,7 @@ fn round_trip() {
 /// one with the name once, and is proved like it.
 #[test]
 fn repeated_atom_name_is_one_atom() {
-    let json = r#"{"terms":[{"D":0},{"V":1}],"ids":[0,1],"var_dict":["A","A"],"antecedents":1}"#;
+    let json = r#"{"version":1,"terms":[{"D":0},{"V":1}],"roots":[0,1],"atoms":["A","A"],"antecedents":1}"#;
     let s: Sequent = serde_json::from_str(json).unwrap();
     assert_eq!(s, "A |- A".parse().unwrap());
     let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
@@ -83,13 +90,13 @@ fn repeated_atom_name_is_one_atom() {
 fn broken_arena_is_rejected() {
     for json in [
         // A subterm index that does not precede its parent.
-        r#"{"terms":[{"⊗":[1,0]},"1"],"ids":[0],"var_dict":[]}"#,
+        r#"{"version":1,"terms":[{"⊗":[1,0]},"1"],"roots":[0],"atoms":[]}"#,
         // A root outside the arena.
-        r#"{"terms":["1"],"ids":[1],"var_dict":[]}"#,
+        r#"{"version":1,"terms":["1"],"roots":[1],"atoms":[]}"#,
         // An atom outside the dictionary.
-        r#"{"terms":[{"V":0}],"ids":[0],"var_dict":[]}"#,
+        r#"{"version":1,"terms":[{"V":0}],"roots":[0],"atoms":[]}"#,
         // More formulas left of `⊢` than the sequent has.
-        r#"{"terms":["1"],"ids":[0],"var_dict":[],"antecedents":2}"#,
+        r#"{"version":1,"terms":["1"],"roots":[0],"atoms":[],"antecedents":2}"#,
     ] {
         assert!(serde_json::from_str::<Sequent>(json).is_err(), "{json}");
     }
@@ -173,10 +180,10 @@ fn proof_json_format() {
         ),
     ] {
         let p = proof(input, nodes);
-        let sequent = serde_json::to_string(p.sequent()).unwrap();
+        let sequent = nested(p.sequent());
         assert_eq!(
             serde_json::to_string(&p).unwrap(),
-            format!(r#"{{"sequent":{sequent},"proof":{expected}}}"#),
+            format!(r#"{{"version":1,"sequent":{sequent},"nodes":{expected}}}"#),
             "{input:?}"
         );
     }
@@ -218,7 +225,7 @@ fn proof_round_trip() {
 /// left to the checker.
 #[test]
 fn broken_proof_is_rejected() {
-    let sequent = r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}"#;
+    let sequent = r#"{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"]}"#;
     for proof in [
         // No node at all.
         r#"[]"#,
@@ -231,11 +238,11 @@ fn broken_proof_is_rejected() {
         // An unknown rule.
         r#"[{"cut":[0,1]}]"#,
     ] {
-        let json = format!(r#"{{"sequent":{sequent},"proof":{proof}}}"#);
+        let json = format!(r#"{{"sequent":{sequent},"nodes":{proof}}}"#);
         assert!(serde_json::from_str::<Proof>(&json).is_err(), "{json}");
     }
     // A wrong proof deserializes and fails the checker.
-    let json = format!(r#"{{"sequent":{sequent},"proof":[{{"ax":[0,0]}}]}}"#);
+    let json = format!(r#"{{"sequent":{sequent},"nodes":[{{"ax":[0,0]}}]}}"#);
     let p: Proof = serde_json::from_str(&json).unwrap();
     assert!(p.check(Mode::CLASSICAL).is_err());
 }
@@ -266,7 +273,7 @@ fn fragment_and_mode_json_format() {
     }
 
     let mode = Mode::CLASSICAL.with_affine();
-    let json = r#"{"intuitionistic":false,"affine":true,"mix":false}"#;
+    let json = r#""affine""#;
     assert_eq!(serde_json::to_string(&mode).unwrap(), json);
     assert_eq!(serde_json::from_str::<Mode>(json).unwrap(), mode);
 }
@@ -279,33 +286,33 @@ fn outcome_json_format() {
     let s: Sequent = "A, A -o B |- B".parse().unwrap();
     let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
     let json = serde_json::to_string(&outcome).unwrap();
-    let sequent = serde_json::to_string(&s).unwrap();
-    let head = r#"{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","#;
+    let sequent = nested(&s);
+    let head = r#"{"version":1,"linlog":"0.1.0","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","#;
     assert_eq!(
         json,
         format!(
-            r#"{head}"statistics":{{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0}},"sequent":{sequent},"proof":[{{"ax":[0,2]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
+            r#"{head}"statistics":{{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0}},"sequent":{sequent},"nodes":[{{"ax":[0,2]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
         )
     );
     let proof: Proof = serde_json::from_str(&json).unwrap();
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
     let focus = Options::default().with_engine(Some(Engine::Focus));
     let json = serde_json::to_string(&prove(&s, Mode::CLASSICAL, &focus).unwrap()).unwrap();
-    let head = r#"{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","#;
+    let head = r#"{"version":1,"linlog":"0.1.0","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"focus","#;
     assert_eq!(
         json,
         format!(
-            r#"{head}"statistics":{{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":1,"links":0,"tests":0,"copies":0}},"sequent":{sequent},"proof":[{{"ax":[2,0]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
+            r#"{head}"statistics":{{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":1,"links":0,"tests":0,"copies":0}},"sequent":{sequent},"nodes":[{{"ax":[2,0]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
         )
     );
 
     let s: Sequent = "|- A par B, ~A, ~B".parse().unwrap();
     let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
-    let sequent = serde_json::to_string(&s).unwrap();
+    let sequent = nested(&s);
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
         format!(
-            r#"{{"verdict":"unprovable","refutation":{{"equation":{{"formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}}}},"fragment":"MLL","mode":{{"intuitionistic":false,"affine":false,"mix":false}},"engine":"net","statistics":{{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}},"sequent":{sequent}}}"#
+            r#"{{"version":1,"linlog":"0.1.0","verdict":"unprovable","refutation":{{"kind":"equation","formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":"classical","engine":"net","statistics":{{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}},"sequent":{sequent}}}"#
         )
     );
     let outcome = prove_within(
@@ -318,7 +325,7 @@ fn outcome_json_format() {
     .unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
-        r#"{"verdict":"unknown","reason":"stopped","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":true},"engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
+        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"stopped"},"fragment":"MLL","mode":"mix","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
     );
     // The focused engine, whose copy bound this is; the dispatch's Horn
     // engine has none and proves the sequent.
@@ -330,7 +337,7 @@ fn outcome_json_format() {
     let outcome = prove(&s, Mode::CLASSICAL, &options).unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
-        r#"{"verdict":"unknown","reason":{"copy_bound":0},"fragment":"MELL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0}}"#
+        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"copy_bound","copies":0},"fragment":"MELL","mode":"classical","engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0}}"#
     );
 }
 
@@ -347,10 +354,10 @@ fn net_json_format_and_round_trip() {
     )
     .unwrap();
     let json = serde_json::to_string(&net).unwrap();
-    let sequent = serde_json::to_string(&s).unwrap();
+    let sequent = nested(&s);
     assert_eq!(
         json,
-        format!(r#"{{"sequent":{sequent},"mix":false,"links":[[0,2],[3,4]]}}"#)
+        format!(r#"{{"version":1,"sequent":{sequent},"mix":false,"links":[[0,2],[3,4]]}}"#)
     );
     let back: ProofStructure = serde_json::from_str(&json).unwrap();
     assert_eq!(back.links(), net.links());
@@ -388,11 +395,11 @@ fn interactive_json_format_and_round_trip() {
         .unwrap();
     state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
     let json = serde_json::to_string(&state).unwrap();
-    let sequent = serde_json::to_string(&s).unwrap();
+    let sequent = nested(&s);
     assert_eq!(
         json,
         format!(
-            r#"{{"sequent":{sequent},"mode":{{"intuitionistic":true,"affine":false,"mix":false}},"inferences":[{{"sequent":[0,1,4],"rule":"⊸L","principal":1,"premises":[1,2]}},{{"sequent":[0,2],"rule":"ax"}},{{"sequent":[3,4]}}],"history":[0,1]}}"#
+            r#"{{"version":1,"sequent":{sequent},"mode":"intuitionistic","inferences":[{{"sequent":[0,1,4],"rule":"⊸L","principal":1,"premises":[1,2]}},{{"sequent":[0,2],"rule":"ax"}},{{"sequent":[3,4]}}],"history":[0,1]}}"#
         )
     );
     let back: Interactive = serde_json::from_str(&json).unwrap();
@@ -412,7 +419,7 @@ fn interactive_json_format_and_round_trip() {
     // history naming an open goal, and an occurrence outside the forest are
     // rejected.
     let ok = format!(
-        r#"{{"sequent":{sequent},"mode":{{"intuitionistic":true,"affine":false,"mix":false}},"inferences":[{{"sequent":[0,1,4],"rule":"-oL","principal":1,"premises":[1,2]}},{{"sequent":[0,2]}},{{"sequent":[3,4]}}],"history":[0]}}"#
+        r#"{{"version":1,"sequent":{sequent},"mode":"intuitionistic","inferences":[{{"sequent":[0,1,4],"rule":"-oL","principal":1,"premises":[1,2]}},{{"sequent":[0,2]}},{{"sequent":[3,4]}}],"history":[0]}}"#
     );
     assert!(serde_json::from_str::<Interactive>(&ok).is_ok());
     for (broken, why) in [
@@ -648,4 +655,110 @@ fn settings_json_format() {
         error.to_string().contains("unknown field `html`"),
         "{error}"
     );
+}
+
+/// Reads a document through `wire::upgrade`, through `Within` and through
+/// plain serde, asserts that the three write back alike, and returns what
+/// they write.
+fn read_alike<T>(json: &str) -> String
+where
+    T: linlog::wire::Readable + serde::Serialize + serde::de::DeserializeOwned,
+{
+    use linlog::wire::{self, Within};
+    use serde::de::DeserializeSeed;
+    let limits = linlog::Limits::default();
+    let document = || serde_json::Deserializer::from_str(json);
+    let upgraded: T = wire::upgrade(&mut document(), &limits).unwrap();
+    let within: T = Within::<T>::new(&limits)
+        .deserialize(&mut document())
+        .unwrap();
+    let plain: T = serde_json::from_str(json).unwrap();
+    let written = serde_json::to_string(&upgraded).unwrap();
+    assert_eq!(serde_json::to_string(&within).unwrap(), written);
+    assert_eq!(serde_json::to_string(&plain).unwrap(), written);
+    written
+}
+
+/// The wire level: at level 1 `wire::upgrade` is the identity, each
+/// form's document reading back as through `Within` and plain serde and
+/// writing back byte for byte; a level above this build's is refused
+/// naming it; the names from before the release are refused naming the
+/// key they lack; a data form ignores a key it does not know and an
+/// options form refuses it; a bound is exact in JavaScript or none; and
+/// every reader counts a sequent against the occurrence bound.
+#[test]
+fn wire_levels() {
+    use linlog::limits::Refusal;
+    use linlog::{Error, Limits, wire};
+    let s: Sequent = "A, A -o B |- B".parse().unwrap();
+    let sequent = serde_json::to_string(&s).unwrap();
+    let outcome = prove(&s, Mode::INTUITIONISTIC, &Options::default()).unwrap();
+    let proof = serde_json::to_string(outcome.verdict.proof().unwrap()).unwrap();
+    let v = VertexId::new;
+    let net = ProofStructure::from_links(
+        Forest::new(&s).unwrap(),
+        Criterion::MLL,
+        &[(v(0), v(2)), (v(3), v(4))],
+    )
+    .unwrap();
+    let net = serde_json::to_string(&net).unwrap();
+    let session = Interactive::new(&s, Mode::INTUITIONISTIC).unwrap();
+    let session = serde_json::to_string(&session).unwrap();
+    assert_eq!(read_alike::<Sequent>(&sequent), sequent);
+    assert_eq!(read_alike::<Proof>(&proof), proof);
+    assert_eq!(read_alike::<ProofStructure>(&net), net);
+    assert_eq!(read_alike::<Interactive>(&session), session);
+    assert!(proof.contains(r#""mode":"intuitionistic""#), "{proof}");
+
+    let read = |json: &str, limits: &Limits| {
+        wire::upgrade::<Sequent, _>(&mut serde_json::Deserializer::from_str(json), limits)
+    };
+    let newer = sequent.replacen(r#""version":1"#, r#""version":2"#, 1);
+    let error = read(&newer, &Limits::default()).unwrap_err();
+    assert_eq!(
+        error,
+        Error::Version {
+            form: "sequent",
+            found: 2,
+            supported: wire::LEVEL
+        }
+    );
+    assert_eq!(error.code(), "unsupported_version");
+    let old = r#"{"terms":[{"V":0}],"ids":[0],"var_dict":["A"]}"#;
+    match read(old, &Limits::default()) {
+        Err(Error::Json { form, message }) => {
+            assert_eq!(form, "sequent");
+            assert!(message.contains("missing field `roots`"), "{message}");
+        }
+        other => panic!("{other:?}"),
+    }
+    let unknown = sequent.replacen('{', r#"{"later":true,"#, 1);
+    assert_eq!(read(&unknown, &Limits::default()).unwrap(), s);
+    assert!(serde_json::from_str::<Options>(r#"{"later":true}"#).is_err());
+    // A bound JavaScript cannot read exactly is written as none, and read
+    // as an error.
+    let past = Limits::default().with_memory_bytes(Some(1 << 60));
+    let written = serde_json::to_string(&past).unwrap();
+    assert!(written.contains(r#""memory_bytes":null"#), "{written}");
+    let error = serde_json::from_str::<Limits>(r#"{"memory_bytes":9007199254740993}"#);
+    assert!(error.unwrap_err().to_string().contains("null lifts it"));
+
+    let tiny = Limits::default().with_occurrences(Some(3));
+    let refused = |result: Result<(), Error>| {
+        matches!(
+            result,
+            Err(Error::Refused(Refusal::Occurrences { limit: 3, .. }))
+        )
+    };
+    let document = serde_json::Deserializer::from_str;
+    assert!(refused(read(&sequent, &tiny).map(drop)));
+    assert!(refused(
+        wire::upgrade::<Proof, _>(&mut document(&proof), &tiny).map(drop)
+    ));
+    assert!(refused(
+        wire::upgrade::<ProofStructure, _>(&mut document(&net), &tiny).map(drop)
+    ));
+    assert!(refused(
+        wire::upgrade::<Interactive, _>(&mut document(&session), &tiny).map(drop)
+    ));
 }

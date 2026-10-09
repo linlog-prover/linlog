@@ -1,7 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use crate::limits::{Limits, Refusal};
 use crate::sequents::{Sequent as Seq, Term, TermId};
+use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The serialized form of an arena term. Its tags are part of the interchange
@@ -47,15 +49,23 @@ enum Expression {
     Quest(u32),
 }
 
-/// The serialized form of a sequent.
+/// The serialized form of a sequent: with `version` at the top of a
+/// document, without it nested in another form.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Sequent {
+pub(super) struct Sequent {
+    /// The wire level, written only at the top of a document.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "wire::version"
+    )]
+    version: Option<u32>,
     /// The arena.
     terms: Vec<Expression>,
     /// The root formulas, as arena indices.
-    ids: Vec<u32>,
+    roots: Vec<u32>,
     /// The atom names.
-    var_dict: Vec<String>,
+    atoms: Vec<String>,
     /// How many of the root formulas, the first, stand left of `⊢`;
     /// absent where the sides are not known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -108,13 +118,32 @@ impl From<Expression> for Term {
 }
 
 impl From<&Seq> for Sequent {
-    /// Converts a sequent into its serialized form.
+    /// Converts a sequent into its serialized form nested in another.
     fn from(s: &Seq) -> Sequent {
         Sequent {
+            version: None,
             terms: s.terms.iter().copied().map(Expression::from).collect(),
-            ids: s.roots.iter().map(|k| k.get()).collect(),
-            var_dict: s.atoms.clone(),
+            roots: s.roots.iter().map(|k| k.get()).collect(),
+            atoms: s.atoms.clone(),
             antecedents: s.antecedents,
+        }
+    }
+}
+
+impl Sequent {
+    /// Returns the sequent the form holds, checked, within
+    /// `limits.occurrences`.
+    pub(super) fn within(self, limits: &Limits) -> Result<Seq, crate::Error> {
+        let sequent = Seq::try_from(self)?;
+        let occurrences = sequent.occurrences();
+        match limits.occurrences {
+            Some(limit) if occurrences > limit => {
+                Err(crate::Error::Refused(Refusal::Occurrences {
+                    occurrences,
+                    limit,
+                }))
+            }
+            _ => Ok(sequent),
         }
     }
 }
@@ -128,8 +157,8 @@ impl TryFrom<Sequent> for Seq {
     fn try_from(s: Sequent) -> Result<Seq, Self::Error> {
         let mut s = Seq {
             terms: s.terms.into_iter().map(Term::from).collect(),
-            roots: s.ids.into_iter().map(TermId::new).collect(),
-            atoms: s.var_dict,
+            roots: s.roots.into_iter().map(TermId::new).collect(),
+            atoms: s.atoms,
             antecedents: s.antecedents,
         };
         s.check()?;
@@ -139,16 +168,30 @@ impl TryFrom<Sequent> for Seq {
 }
 
 impl serde::Serialize for Seq {
-    /// Serializes the sequent as its arena, root term indices and atom names.
+    /// Serializes the sequent as a document: its level, arena, root term
+    /// indices and atom names.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        Sequent::from(self).serialize(serializer)
+        let mut proxy = Sequent::from(self);
+        proxy.version = wire::level();
+        proxy.serialize(serializer)
     }
 }
 
 impl<'a> serde::Deserialize<'a> for Seq {
-    /// Deserializes a sequent and checks that its arena keeps the invariants.
+    /// Deserializes a sequent within the default limits, as
+    /// [`wire::upgrade`] does.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::read(deserializer, &Limits::default())
+    }
+}
+
+impl Readable for Seq {
+    const FORM: &'static str = "sequent";
+
+    /// Reads a sequent and checks that its arena keeps the invariants and
+    /// that it unfolds to no more occurrences than the limits allow.
+    fn read<'de, D: Deserializer<'de>>(deserializer: D, limits: &Limits) -> Result<Self, D::Error> {
         let proxy = Sequent::deserialize(deserializer)?;
-        Seq::try_from(proxy).map_err(serde::de::Error::custom)
+        proxy.within(limits).map_err(wire::fail)
     }
 }

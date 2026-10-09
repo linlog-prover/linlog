@@ -1,5 +1,5 @@
 $ linlog prove --deterministic --logic classical --format json '~~a -> a'
 --- status 0
 --- stdout
-{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":true,"mix":false},"engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⅋":[1,0]}],"ids":[2],"var_dict":["a"],"antecedents":0},"proof":[{"ax":[1,2]},{"⅋":[0,0]}]}
+{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"affine","engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0},"sequent":{"terms":[{"V":0},{"D":0},{"⅋":[1,0]}],"roots":[2],"atoms":["a"],"antecedents":0},"nodes":[{"ax":[1,2]},{"⅋":[0,0]}]}
 --- stderr

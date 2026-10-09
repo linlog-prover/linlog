@@ -46,10 +46,10 @@ const fn piped(name: &'static str, args: &'static [&'static str], stdin: &'stati
 }
 
 /// A proof of `A * B |- B * A`, as `prove --format json` writes it.
-const PROOF: &str = r#"{"verdict":"proved","fragment":"MLL","mode":{"intuitionistic":false,"affine":false,"mix":false},"engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"ids":[2,5],"var_dict":["A","B"]},"proof":[{"ax":[2,4]},{"ax":[1,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}"#;
+const PROOF: &str = r#"{"version":1,"linlog":"0.1.0","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"roots":[2,5],"atoms":["A","B"]},"nodes":[{"ax":[2,4]},{"ax":[1,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}"#;
 
 /// The same proof with its axioms crossed: no proof of the sequent.
-const WRONG_PROOF: &str = r#"{"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"ids":[2,5],"var_dict":["A","B"]},"proof":[{"ax":[1,4]},{"ax":[2,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}"#;
+const WRONG_PROOF: &str = r#"{"version":1,"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"roots":[2,5],"atoms":["A","B"]},"nodes":[{"ax":[1,4]},{"ax":[2,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}"#;
 
 /// Every call the lock pins.
 const CASES: &[Case] = &[
@@ -272,7 +272,7 @@ const CASES: &[Case] = &[
     piped(
         "input-json",
         &["prove", "--input-format", "json"],
-        r#"{"terms":[{"D":0},{"V":0}],"ids":[0,1],"var_dict":["A"]}"#,
+        r#"{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"]}"#,
     ),
     // The batch.
     call(
@@ -282,7 +282,7 @@ const CASES: &[Case] = &[
     piped(
         "batch-jsonl",
         &["prove", "--input-format", "jsonl", "--file", "-"],
-        "{\"terms\":[{\"D\":0},{\"V\":0}],\"ids\":[0,1],\"var_dict\":[\"A\"]}\n",
+        "{\"version\":1,\"terms\":[{\"D\":0},{\"V\":0}],\"roots\":[0,1],\"atoms\":[\"A\"]}\n",
     ),
     // check.
     piped("check-valid", &["check"], PROOF),
@@ -392,7 +392,8 @@ fn run(case: &Case, inputs: &Path) -> String {
 }
 
 /// Returns the text with every time that follows "after " or "time: " as
-/// `…`: how long a search took is the machine's.
+/// `…`: how long a search took is the machine's; and the crate's version
+/// an outcome names as `…`.
 fn timeless(text: &str) -> String {
     let mut out = String::new();
     let mut rest = text;
@@ -412,6 +413,22 @@ fn timeless(text: &str) -> String {
         } else {
             rest = tail;
         }
+    }
+    out.push_str(rest);
+    unversioned(&out)
+}
+
+/// Returns the text with the crate's version that an outcome names, in
+/// `"linlog":"0.1.0"`, as `…`: a release moves it.
+fn unversioned(text: &str) -> String {
+    const KEY: &str = "\"linlog\":\"";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(KEY) {
+        let (head, tail) = rest.split_at(at + KEY.len());
+        out.push_str(head);
+        out.push('…');
+        rest = &tail[tail.find('"').unwrap_or(tail.len())..];
     }
     out.push_str(rest);
     out

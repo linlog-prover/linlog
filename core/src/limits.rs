@@ -33,15 +33,19 @@ pub struct Limits {
     /// render's estimate. The sequent, its forest (bounded by
     /// [`occurrences`](Self::occurrences)), the proof returned, the
     /// threads' stacks and the allocator's own overhead are not counted.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub memory_bytes: Option<u64>,
     /// The most subformula occurrences a sequent may unfold to, on every
     /// reader and wherever a forest is built.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub occurrences: Option<u64>,
     /// The most bytes a derivation, or the drawing of a net or a sequent,
     /// may be estimated at; past it nothing is made.
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub derivation_bytes: Option<u64>,
     /// The most units of work a search may do (each engine says what its
     /// unit is).
+    #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub work: Option<u64>,
     /// The deepest recursion on any one stack; every thread the library
     /// starts is sized for it ([`stack_bytes`](Self::stack_bytes)).

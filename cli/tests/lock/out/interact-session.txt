@@ -30,5 +30,5 @@ no goal is open: `proof` checks the proof
   ──────────────── ⅋
   ⊢ ~A ⅋ ~B, B ⊗ A
 valid proof (classical)
-{"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"ids":[2,5],"var_dict":["A","B"],"antecedents":1},"proof":[{"ax":[2,4]},{"ax":[1,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}
+{"version":1,"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"roots":[2,5],"atoms":["A","B"],"antecedents":1},"nodes":[{"ax":[2,4]},{"ax":[1,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}],"mode":"classical"}
 --- stderr

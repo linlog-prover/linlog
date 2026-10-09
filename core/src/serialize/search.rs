@@ -2,13 +2,13 @@
 // Licensed under the EUPL
 
 use super::proofs::Proof;
+use super::sequents::Sequent as SequentForm;
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::Member;
 use crate::search::{
     Bias, Cadence, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation, StateEquation,
     Statistics, Unbalanced, Verdict,
 };
-use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Fragment {
@@ -27,45 +27,41 @@ impl<'a> Deserialize<'a> for Fragment {
     }
 }
 
-/// The serialized form of a mode: its three flags by name.
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "Mode")]
-struct ModeDef {
-    /// Intuitionistic rather than classical.
-    intuitionistic: bool,
-    /// Weakening allowed.
-    affine: bool,
-    /// Mix allowed.
-    mix: bool,
-}
-
 impl Serialize for Mode {
-    /// Serializes the mode as an object of its three flags.
+    /// Serializes the mode as its name, such as `"intuitionistic"`.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        ModeDef::serialize(self, serializer)
+        serializer.serialize_str(self.name())
     }
 }
 
 impl<'a> Deserialize<'a> for Mode {
-    /// Deserializes a mode from an object of its three flags.
+    /// Deserializes a mode from its name, refusing an unknown one by
+    /// naming the known ones.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
-        ModeDef::deserialize(deserializer)
+        let name = <std::borrow::Cow<'a, str>>::deserialize(deserializer)?;
+        name.parse().map_err(serde::de::Error::custom)
     }
 }
 
-/// The serialized form of a reason: a tag, with the bound for the copy
-/// bound and for the memory limit.
+/// The serialized form of a reason: its `kind`, with the bound for the
+/// copy bound and for the memory limit.
 #[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 enum Why {
     /// The stop condition fired.
     Stopped,
     /// The recursion limit was reached.
     RecursionLimit,
     /// Every level up to this copy bound hit it.
-    CopyBound(u32),
+    CopyBound {
+        /// The bound.
+        copies: u32,
+    },
     /// The search held this many bytes with its memo emptied.
-    MemoryLimit(u64),
+    MemoryLimit {
+        /// The bound.
+        limit_bytes: u64,
+    },
     /// A structure of the search outgrew its indices.
     IndexLimit,
 }
@@ -76,17 +72,17 @@ impl From<Reason> for Why {
         match r {
             Reason::Stopped => Why::Stopped,
             Reason::RecursionLimit => Why::RecursionLimit,
-            Reason::CopyBound(n) => Why::CopyBound(n),
-            Reason::MemoryLimit(bytes) => Why::MemoryLimit(bytes),
+            Reason::CopyBound(copies) => Why::CopyBound { copies },
+            Reason::MemoryLimit(limit_bytes) => Why::MemoryLimit { limit_bytes },
             Reason::IndexLimit => Why::IndexLimit,
         }
     }
 }
 
-/// The serialized form of a refutation: a tag, with the counts or the
-/// weights that rule a proof out.
+/// The serialized form of a refutation: its `kind`, with the counts or
+/// the weights that rule a proof out.
 #[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 enum WhyNot {
     /// The search was exhaustive.
     Exhausted,
@@ -174,7 +170,7 @@ impl From<&Refutation> for WhyNot {
 #[derive(Serialize)]
 struct DisproofKeys<'a> {
     /// The sequent.
-    sequent: &'a Sequent,
+    sequent: SequentForm,
     /// The goal refuted, absent for the roots.
     #[serde(skip_serializing_if = "Option::is_none")]
     goal: Option<&'a [Member]>,
@@ -206,8 +202,15 @@ struct StatisticsDef {
 /// proof file too.
 #[derive(Serialize)]
 struct Outcome<'a> {
+    /// The wire level.
+    version: u32,
+    /// The crate's version, which wrote the outcome.
+    linlog: &'static str,
     /// `proved`, `unprovable` or `unknown`.
     verdict: &'static str,
+    /// Whether the proof passed the checker, for `proved`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    checked: Option<bool>,
     /// Why the search could not decide.
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<Why>,
@@ -236,10 +239,10 @@ impl Serialize for Out {
     /// of the search, the statistics, and the proof if there is one.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let (verdict, reason, refutation, proof, disproof) = match &self.verdict {
-            Verdict::Proved(p) => ("proved", None, None, Some(Proof::from(&**p)), None),
+            Verdict::Proved(p) => ("proved", None, None, Some(Proof::keys(p)), None),
             Verdict::Unprovable(d) => {
                 let keys = DisproofKeys {
-                    sequent: d.sequent(),
+                    sequent: SequentForm::from(d.sequent()),
                     goal: d.goal(),
                 };
                 let why = WhyNot::from(d.refutation());
@@ -248,7 +251,10 @@ impl Serialize for Out {
             Verdict::Unknown(r) => ("unknown", Some(Why::from(*r)), None, None, None),
         };
         Outcome {
+            version: crate::wire::LEVEL,
+            linlog: env!("CARGO_PKG_VERSION"),
             verdict,
+            checked: proof.as_ref().map(|_| self.checked),
             reason,
             refutation,
             fragment: self.fragment.name_in(self.mode),

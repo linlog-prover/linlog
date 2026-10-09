@@ -1,11 +1,13 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use super::sequents::Sequent;
 use crate::fragment::Mode;
+use crate::limits::Limits;
 use crate::occurrences::{Forest, Member};
 use crate::proofs::interactive::Interactive as State;
 use crate::proofs::{InfId, Inference, Named, Rule};
-use crate::sequents::Sequent;
+use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The serialized form of one inference: its sequent as occurrence ids,
@@ -32,6 +34,13 @@ struct Step {
 /// order.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct Interactive {
+    /// The wire level.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "wire::version"
+    )]
+    version: Option<u32>,
     /// The sequent being proved.
     sequent: Sequent,
     /// The mode.
@@ -46,7 +55,8 @@ impl From<&State> for Interactive {
     /// Converts a state into its serialized form.
     fn from(state: &State) -> Self {
         Self {
-            sequent: state.sequent().clone(),
+            version: wire::level(),
+            sequent: Sequent::from(state.sequent()),
             mode: state.mode(),
             inferences: state
                 .inferences()
@@ -63,14 +73,14 @@ impl From<&State> for Interactive {
     }
 }
 
-impl TryFrom<Interactive> for State {
-    type Error = crate::Error;
-
-    /// Rebuilds the forest and the state over it, checking that the
-    /// inferences fit together and that every closed one is what its rule
-    /// yields.
-    fn try_from(proxy: Interactive) -> Result<State, Self::Error> {
-        let forest = Forest::from_owned(proxy.sequent, &crate::Limits::default())?;
+impl Interactive {
+    /// Rebuilds the forest within `limits` and the state over it, checking
+    /// that the inferences fit together and that every closed one is what
+    /// its rule yields.
+    fn within(self, limits: &Limits) -> Result<State, crate::Error> {
+        let proxy = self;
+        let sequent = crate::Sequent::try_from(proxy.sequent)?;
+        let forest = Forest::from_owned(sequent, limits)?;
         let inferences = proxy
             .inferences
             .into_iter()
@@ -95,10 +105,21 @@ impl Serialize for State {
 }
 
 impl<'a> Deserialize<'a> for State {
-    /// Deserializes a state and checks that it is consistent; see
-    /// [`Interactive`](State).
+    /// Deserializes a state within the default limits, as
+    /// [`wire::upgrade`] does.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
-        let proxy = Interactive::deserialize(deserializer)?;
-        State::try_from(proxy).map_err(serde::de::Error::custom)
+        Self::read(deserializer, &Limits::default())
+    }
+}
+
+impl Readable for State {
+    const FORM: &'static str = "session";
+
+    /// Reads a state and checks that it is consistent; see
+    /// [`Interactive`](State).
+    fn read<'de, D: Deserializer<'de>>(deserializer: D, limits: &Limits) -> Result<Self, D::Error> {
+        Interactive::deserialize(deserializer)?
+            .within(limits)
+            .map_err(wire::fail)
     }
 }

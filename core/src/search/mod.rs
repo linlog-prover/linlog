@@ -279,6 +279,7 @@ pub fn prove_goal(
             engine,
             statistics: Statistics::default(),
             net: None,
+            checked: false,
         });
     }
     // What the search allocates is counted against the bound.
@@ -328,6 +329,7 @@ pub fn prove_goal(
             debug_assert_eq!(proof.check(mode), Ok(()), "the {engine} engine's proof");
         }
     }
+    let checked = options.check && matches!(verdict, Verdict::Proved(_));
     Ok(Outcome {
         verdict,
         fragment,
@@ -335,6 +337,7 @@ pub fn prove_goal(
         engine,
         statistics: answer.statistics,
         net: answer.net,
+        checked,
     })
 }
 
@@ -1340,16 +1343,19 @@ impl Options {
 /// # JSON
 ///
 /// With the feature `serialize` an outcome is written, never read, as one
-/// object: `verdict` (`"proved"`, `"unprovable"` or `"unknown"`), with
-/// `refutation` for an unprovable sequent (in the form [`Refutation`]
-/// gives) and `reason` for an unknown one (a tag such as `"stopped"`, or
-/// `{"copy_bound": 3}`), `fragment` (its name in the mode, as
-/// [`Fragment::name_in`] gives it), `mode` (`{"intuitionistic": …,
-/// "affine": …, "mix": …}`), `engine`, `statistics`, for a proved
-/// sequent the proof's own keys `sequent` and `proof`, so that the
-/// outcome reads back as a [`Proof`], and for an unprovable one the
-/// [`Disproof`]'s `sequent` and, for a goal off the roots, `goal`. The
-/// command's `prove --format json` writes it.
+/// object ([`wire`](crate::wire)): `version`, `linlog` (the crate's
+/// version, which wrote it), `verdict` (`"proved"`, `"unprovable"` or
+/// `"unknown"`), with `checked` for a proved sequent, `refutation` for an
+/// unprovable one (in the form [`Refutation`] gives) and `reason` for an
+/// unknown one (tagged by `kind`: `{"kind": "stopped"}`, `{"kind":
+/// "copy_bound", "copies": 3}`, `{"kind": "memory_limit", "limit_bytes":
+/// n}`, `{"kind": "recursion_limit"}`, `{"kind": "index_limit"}`),
+/// `fragment` (its name in the mode, as [`Fragment::name_in`] gives it),
+/// `mode` (its name), `engine`, `statistics`, for a proved sequent the
+/// proof's own keys `sequent`, `nodes` and `goal`, so that the outcome
+/// reads back as a [`Proof`], and for an unprovable one the
+/// [`Disproof`]'s `sequent` and `goal`. The command's `prove --format
+/// json` writes it.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Outcome {
@@ -1367,6 +1373,10 @@ pub struct Outcome {
     /// The proof net the proof was read off, when the net engine found
     /// one; `None` for the other engines and for any other verdict.
     pub net: Option<ProofStructure>,
+    /// Whether the proof passed the checker before it was returned:
+    /// false only where [`Options::check`] switched the check off, and
+    /// for every verdict but a proof.
+    pub checked: bool,
 }
 
 /// What a search found: a proof, that there is none, or that it could not
