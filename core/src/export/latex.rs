@@ -65,7 +65,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
-use crate::sequents::notation::Notation;
+use crate::sequents::notation::{Atoms, Notation};
 use std::fmt::Write;
 
 /// The LaTeX spelling of formulas and sequents.
@@ -85,7 +85,7 @@ const NOTATION: Notation = Notation {
     dual: r"^\bot",
     turnstile: r"\vdash",
     align: "&",
-    atom,
+    atom: Atoms::Latex,
     ordinary: Symbols {
         not: r"\lnot ",
         and: r"\land",
@@ -167,7 +167,7 @@ fn greek(c: char) -> Option<&'static str> {
 }
 
 /// Writes an atom's name in math mode.
-fn atom(out: &mut dyn Write, name: &str) -> std::fmt::Result {
+pub(crate) fn atom<W: Write + ?Sized>(out: &mut W, name: &str) -> std::fmt::Result {
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
         if c.is_ascii_alphabetic() {

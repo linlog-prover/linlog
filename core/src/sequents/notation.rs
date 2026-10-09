@@ -49,8 +49,8 @@ pub(crate) struct Notation {
     /// tree so that the turnstiles of a unary inference line up; empty
     /// where the target cannot align them.
     pub(crate) align: &'static str,
-    /// Writes an atom's name.
-    pub(crate) atom: fn(&mut dyn Write, &str) -> FmtResult,
+    /// How an atom's name is written.
+    pub(crate) atom: Atoms,
     /// The connectives and constants of ordinary formulas.
     pub(crate) ordinary: Symbols,
 }
@@ -73,13 +73,42 @@ pub(crate) const TEXT: Notation = Notation {
     dual: "",
     turnstile: "⊢",
     align: "",
-    atom: name,
+    atom: Atoms::Plain,
     ordinary: Symbols::UNICODE,
 };
 
-/// Writes an atom's name as it is.
-fn name(out: &mut dyn Write, name: &str) -> FmtResult {
-    out.write_str(name)
+/// How a target writes an atom's name: a closed set rather than a function
+/// pointer, so that every writer is compiled for the output it writes
+/// into (through `dyn Write` one call per character made the Typst
+/// export a fifth slower).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Atoms {
+    /// As it is.
+    Plain,
+    /// In LaTeX's math mode.
+    #[cfg(feature = "latex")]
+    Latex,
+    /// In Typst's math mode.
+    #[cfg(feature = "typst")]
+    Typst,
+    /// With its Latin letters as mathematical italic characters.
+    #[cfg(feature = "svg")]
+    Italic,
+}
+
+impl Atoms {
+    /// Writes an atom's name into `out`.
+    pub(crate) fn write<W: Write + ?Sized>(self, out: &mut W, name: &str) -> FmtResult {
+        match self {
+            Self::Plain => out.write_str(name),
+            #[cfg(feature = "latex")]
+            Self::Latex => crate::export::latex::atom(out, name),
+            #[cfg(feature = "typst")]
+            Self::Typst => crate::export::typst::atom(out, name),
+            #[cfg(feature = "svg")]
+            Self::Italic => crate::export::svg::italic(out, name),
+        }
+    }
 }
 
 impl Notation {
@@ -100,10 +129,12 @@ impl Notation {
                     let term = sequent.term(k);
                     debug_assert!(term.subterms().all(|sub| sub < k));
                     match term {
-                        Atom(a) => (self.atom)(out, sequent.atom_name(a))?,
+                        Atom(a) => self.atom.write(out, sequent.atom_name(a))?,
                         DualAtom(a) => {
-                            out.write_str(self.dual_prefix)?;
-                            (self.atom)(out, sequent.atom_name(a))?;
+                            if !self.dual_prefix.is_empty() {
+                                out.write_str(self.dual_prefix)?;
+                            }
+                            self.atom.write(out, sequent.atom_name(a))?;
                             out.write_str(self.dual)?;
                         }
                         One => out.write_str(self.one)?,
@@ -156,7 +187,7 @@ impl Notation {
                 Visit::Enter(o, nested) => match (forest.kind(o), reading.position(o)) {
                     (Atom | DualAtom, _) => {
                         let atom = forest.atom(o).expect("a literal has an atom");
-                        (self.atom)(out, forest.sequent().atom_name(atom))?;
+                        self.atom.write(out, forest.sequent().atom_name(atom))?;
                     }
                     (One | Bot, _) => out.write_str(self.one)?,
                     (Top, Side::Output) | (Zero, Side::Input) => out.write_str(self.top)?,
@@ -289,7 +320,7 @@ impl Notation {
         let formula = |out: &mut W, id: NodeId| {
             out.write_str(open)?;
             formulas.write(out, id, false, &self.ordinary, |o, a| {
-                (self.atom)(o, formulas.atom_name(a))
+                self.atom.write(o, formulas.atom_name(a))
             })?;
             out.write_str(close)
         };

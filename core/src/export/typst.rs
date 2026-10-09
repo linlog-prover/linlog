@@ -72,7 +72,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
-use crate::sequents::notation::Notation;
+use crate::sequents::notation::{Atoms, Notation};
 use std::fmt::Write;
 
 /// The version of curryst a standalone document imports, the one the
@@ -97,12 +97,12 @@ const NOTATION: Notation = Notation {
     dual: "^⊥",
     turnstile: "⊢",
     align: "",
-    atom,
+    atom: Atoms::Typst,
     ordinary: Symbols::UNICODE,
 };
 
 /// Writes an atom's name in math mode.
-fn atom(out: &mut dyn Write, name: &str) -> std::fmt::Result {
+pub(crate) fn atom<W: Write + ?Sized>(out: &mut W, name: &str) -> std::fmt::Result {
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.next())
         && c.is_alphabetic()

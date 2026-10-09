@@ -49,7 +49,7 @@ use crate::ordinary::Symbols;
 use crate::proofs::style::{Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
-use crate::sequents::notation::Notation;
+use crate::sequents::notation::{Atoms, Notation};
 pub use font::{Advances, Font, MONOSPACE};
 use font::{DEPTH, HEIGHT, LOWER, RAISE, SCRIPT};
 use std::fmt::Write;
@@ -290,7 +290,7 @@ const NOTATION: Notation = Notation {
     dual: "\u{1}",
     turnstile: "⊢",
     align: "",
-    atom: italic,
+    atom: Atoms::Italic,
     ordinary: Symbols::UNICODE,
 };
 
@@ -298,14 +298,14 @@ const NOTATION: Notation = Notation {
 /// Unicode text.
 const PLAIN: Notation = Notation {
     dual: "⊥",
-    atom: plain,
+    atom: Atoms::Plain,
     ..NOTATION
 };
 
 /// Writes an atom's name with its Latin letters as mathematical italic
 /// characters. A name is an identifier, so it holds none of the control
 /// characters the layout marks its text with.
-fn italic(out: &mut dyn Write, name: &str) -> std::fmt::Result {
+pub(crate) fn italic<W: Write + ?Sized>(out: &mut W, name: &str) -> std::fmt::Result {
     for c in name.chars() {
         out.write_char(match c {
             'h' => 'ℎ',
@@ -315,11 +315,6 @@ fn italic(out: &mut dyn Write, name: &str) -> std::fmt::Result {
         })?;
     }
     Ok(())
-}
-
-/// Writes an atom's name as it is.
-fn plain(out: &mut dyn Write, name: &str) -> std::fmt::Result {
-    out.write_str(name)
 }
 
 /// Writes a character escaped for XML text and attribute values, and one

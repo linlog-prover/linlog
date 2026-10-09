@@ -120,7 +120,7 @@ for NanoYalla. What the code relies on:
 - **One table per target, one printer** (F82): `sequents::notation`
   (always compiled) has `Notation`, the symbol table (connectives,
   units, the dual's marks before and after a name, turnstile, the
-  alignment mark, the atom writer `fn(&mut dyn Write, &str)`, and
+  alignment mark, the atom writer `Atoms`, and
   `ordinary`, the `ordinary::Symbols` of `¬ ∧ ∨ → ↔ ⊤ ⊥`: LaTeX's
   `\lnot ` keeps its space, since `¬` is written straight before its
   operand; Typst and SVG take `Symbols::UNICODE`), and its walks over
@@ -242,6 +242,12 @@ for NanoYalla. What the code relies on:
   sign. A style of huge numbers overflowed in debug and wrote
   `width="-96823495355.-824"` in release (F4). A new number of the
   style gets its maximum in `check`.
+- **An atom writer is a variant of `sequents::notation::Atoms`**, a
+  closed set matched in one generic `write`, never a function pointer:
+  through `&mut dyn Write` every character of a name was a virtual
+  call, and the Typst journey counted 24 % more than with the writer
+  compiled for its `String`. A new target's writer is a variant there,
+  behind its feature, and a generic function in its module.
 - **`escape` is the one place text enters a drawing**: it writes what
   XML 1.0 cannot carry (a control character but tab, line feed and
   carriage return, U+FFFE, U+FFFF) as `�`, whatever string a style or
