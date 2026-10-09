@@ -118,6 +118,13 @@ unnameable_types" cargo check -p linlog --all-features` stays clean: a
 `pub` item is reachable from the root, and a type in a public signature
 can be named.
 
+**The fuzz targets call the public API from outside the gate**
+(`fuzz/`, a workspace of its own on nightly): a commit that changes a
+reader's signature changes its target too, and `nix develop .#fuzz -c
+cargo check --manifest-path fuzz/Cargo.toml --bins` shows that they
+build (the TPTP target stayed broken from the commit that gave
+`read_tptp` its limits until a fuzz run found it).
+
 **One error family** (`errors/mod.rs`, `limits.rs`): every public
 fallible call answers `Error` or a specific type that converts into it
 without loss (`CheckError`, `NetError`, `ShapeError`, `StepError`,
