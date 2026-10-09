@@ -54,7 +54,7 @@ fn pin(name: &str, derivation: &Derivation) {
     };
     snapshot(
         &format!("{name}.tex"),
-        &latex::derivation(derivation, &latex),
+        &written(|out| latex::write(derivation, &latex, out, |_| false)),
     );
     let typst = typst::Options {
         form: Form::Standalone,
@@ -62,11 +62,11 @@ fn pin(name: &str, derivation: &Derivation) {
     };
     snapshot(
         &format!("{name}.typ"),
-        &typst::derivation(derivation, &typst),
+        &written(|out| typst::write(derivation, &typst, out, |_| false)),
     );
     snapshot(
         &format!("{name}.svg"),
-        &svg::derivation(derivation, &Style::default()),
+        &written(|out| svg::write(derivation, &Style::default(), out, |_| false)),
     );
 }
 
@@ -86,7 +86,7 @@ fn pin_certificate(name: &str, derivation: &Derivation) {
         form: Form::Standalone,
         ..rocq::Options::default()
     };
-    let script = rocq::derivation(derivation, &options);
+    let script = certificate(|out| rocq::write(derivation, &options, out, |_| false));
     snapshot(&format!("{name}.v"), &script.unwrap());
 }
 
@@ -106,6 +106,26 @@ fn pin_proof(name: &str, input: &str, mode: Mode) {
     let derivation = derivation.unwrap();
     pin(name, &derivation);
     pin_certificate(name, &derivation);
+}
+
+/// What a target's `write` makes of a derivation, as a string.
+fn written(write: impl FnOnce(&mut String) -> Result<(), linlog::Error>) -> String {
+    let mut out = String::new();
+    write(&mut out).expect("a string takes any text and nothing stops");
+    out
+}
+
+/// What Rocq's `write` makes of a derivation, or why it has no
+/// certificate.
+fn certificate(
+    write: impl FnOnce(&mut String) -> Result<(), linlog::Error>,
+) -> Result<String, Unsupported> {
+    let mut out = String::new();
+    match write(&mut out) {
+        Ok(()) => Ok(out),
+        Err(linlog::Error::Unsupported(unsupported)) => Err(unsupported),
+        Err(error) => panic!("{error}"),
+    }
 }
 
 /// Derivations of each fragment, one-sided and two-sided, as ebproof,
@@ -131,9 +151,9 @@ fn typst_layout() {
         form: Form::Standalone,
         ..typst::Options::default()
     };
-    let written = typst::derivation(&high, &options);
-    assert!(written.contains("#context"), "past curryst's height");
-    snapshot("high.typ", &written);
+    let text = written(|out| typst::write(&high, &options, out, |_| false));
+    assert!(text.contains("#context"), "past curryst's height");
+    snapshot("high.typ", &text);
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
     let goals = state
@@ -149,7 +169,7 @@ fn typst_layout() {
     };
     snapshot(
         "open-linlog.typ",
-        &typst::derivation(&state.derivation().unwrap(), &options),
+        &written(|out| typst::write(&state.derivation().unwrap(), &options, out, |_| false)),
     );
 }
 
@@ -175,15 +195,15 @@ fn ordinary_derivation() {
         form: Form::Standalone,
         ..latex::Options::default()
     };
-    latex::ordinary(&derivation, &latex, &mut tex, |_| false).unwrap();
+    latex::write(&derivation, &latex, &mut tex, |_| false).unwrap();
     snapshot("ordinary.tex", &tex);
     let typst = typst::Options {
         form: Form::Standalone,
         ..typst::Options::default()
     };
-    typst::ordinary(&derivation, &typst, &mut typ, |_| false).unwrap();
+    typst::write(&derivation, &typst, &mut typ, |_| false).unwrap();
     snapshot("ordinary.typ", &typ);
-    svg::ordinary(&derivation, &Style::default(), &mut drawing, |_| false).unwrap();
+    svg::write(&derivation, &Style::default(), &mut drawing, |_| false).unwrap();
     snapshot("ordinary.svg", &drawing);
 }
 
@@ -204,7 +224,7 @@ fn ordinary_certificate_without_binders() {
             panic!("{logic}: {:?}", outcome.verdict);
         };
         let mut out = String::new();
-        rocq::ordinary(&derivation, &rocq::Options::default(), &mut out, |_| false).unwrap();
+        rocq::write(&*derivation, &rocq::Options::default(), &mut out, |_| false).unwrap();
         assert!(out.contains("exact (") && !out.contains("fun =>"), "{out}");
     }
 }
@@ -246,7 +266,7 @@ fn open_goal() {
     );
     let options = rocq::Options::default();
     assert_eq!(
-        rocq::derivation(&state.derivation().unwrap(), &options),
+        certificate(|out| rocq::write(&state.derivation().unwrap(), &options, out, |_| false)),
         Err(Unsupported::Open)
     );
 }
@@ -262,7 +282,7 @@ fn pin_fragments(name: &str, derivation: &Derivation, labels: Labels, open: Open
     };
     snapshot(
         &format!("{name}.frag.tex"),
-        &latex::derivation(derivation, &latex),
+        &written(|out| latex::write(derivation, &latex, out, |_| false)),
     );
     let typst = typst::Options {
         labels,
@@ -271,7 +291,7 @@ fn pin_fragments(name: &str, derivation: &Derivation, labels: Labels, open: Open
     };
     snapshot(
         &format!("{name}.frag.typ"),
-        &typst::derivation(derivation, &typst),
+        &written(|out| typst::write(derivation, &typst, out, |_| false)),
     );
 }
 
@@ -338,7 +358,7 @@ fn ids_name_goals() {
         ids: true,
         ..Style::default()
     };
-    let drawing = svg::derivation(&state.derivation().unwrap(), &style);
+    let drawing = written(|out| svg::write(&state.derivation().unwrap(), &style, out, |_| false));
     let ids = state.derivation_ids();
     let drawn = ids.iter().position(|&id| id == goals[1]).unwrap();
     // The open goal `B ⊢ B` has the hypothesis at position 0.
@@ -366,7 +386,7 @@ fn certificates() {
         lemma: "bang_with".to_owned(),
         prelude: "Require Import kernel.".to_owned(),
     };
-    let script = rocq::derivation(&derivation, &options).unwrap();
+    let script = certificate(|out| rocq::write(&derivation, &options, out, |_| false)).unwrap();
     assert!(script.starts_with("Require Import kernel.\n\nLemma bang_with (A B : formula) : ll ["));
     assert!(script.contains("apply (co_r_ext []); cbn_sequent.\n"));
     assert!(script.ends_with("\nQed."));
@@ -374,12 +394,12 @@ fn certificates() {
     let options = rocq::Options::default();
     let mix = proof("A, B |- A, B", Mode::CLASSICAL.with_mix());
     assert_eq!(
-        rocq::derivation(&mix.derivation().unwrap(), &options),
+        certificate(|out| rocq::write(&mix.derivation().unwrap(), &options, out, |_| false)),
         Err(Unsupported::Mix)
     );
     let affine = proof("A, B |- A", Mode::CLASSICAL.with_affine());
     assert_eq!(
-        rocq::derivation(&affine.derivation().unwrap(), &options),
+        certificate(|out| rocq::write(&affine.derivation().unwrap(), &options, out, |_| false)),
         Err(Unsupported::AffineWeakening)
     );
 }
@@ -574,16 +594,20 @@ fn structure(document: &str) -> [usize; 3] {
 fn svg_structure() {
     let style = Style::default();
     let two_sided = proof("1, A & B, B -o C |- C", Mode::INTUITIONISTIC);
-    let drawn = svg::derivation(
-        &two_sided
-            .derivation_within(
-                &ViewOptions::default().with_sides(Sides::Two),
-                &Limits::default(),
-                |_| false,
-            )
-            .unwrap(),
-        &style,
-    );
+    let drawn = written(|out| {
+        svg::write(
+            &two_sided
+                .derivation_within(
+                    &ViewOptions::default().with_sides(Sides::Two),
+                    &Limits::default(),
+                    |_| false,
+                )
+                .unwrap(),
+            &style,
+            out,
+            |_| false,
+        )
+    });
     assert_eq!(structure(&drawn), [11, 5, 0]);
 
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
@@ -596,7 +620,12 @@ fn svg_structure() {
         .unwrap();
     state.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
     assert_eq!(
-        structure(&svg::derivation(&state.derivation().unwrap(), &style)),
+        structure(&written(|out| svg::write(
+            &state.derivation().unwrap(),
+            &style,
+            out,
+            |_| false
+        ))),
         [6, 2, 0]
     );
 
@@ -626,16 +655,20 @@ fn renders() {
         std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../cli/fonts/Euler-Math.otf"))
             .unwrap();
     let derivation = proof("A, A -o B |- B", Mode::INTUITIONISTIC);
-    let drawing = svg::derivation(
-        &derivation
-            .derivation_within(
-                &ViewOptions::default().with_sides(Sides::Two),
-                &Limits::default(),
-                |_| false,
-            )
-            .unwrap(),
-        &Style::default(),
-    );
+    let drawing = written(|out| {
+        svg::write(
+            &derivation
+                .derivation_within(
+                    &ViewOptions::default().with_sides(Sides::Two),
+                    &Limits::default(),
+                    |_| false,
+                )
+                .unwrap(),
+            &Style::default(),
+            out,
+            |_| false,
+        )
+    });
     let image = png::from_svg(&drawing, &[&font], &png::Options::default()).unwrap();
     assert!(image.starts_with(b"\x89PNG"));
     assert!(image.windows(5).any(|w| w == b"Title"));

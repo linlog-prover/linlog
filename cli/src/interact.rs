@@ -87,6 +87,13 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
     on_large_stack(stack_size, move || session.run())?
 }
 
+/// What a target's `write` makes of a derivation, as a string.
+fn written(write: impl FnOnce(&mut String) -> Result<(), linlog::Error>) -> Result<String> {
+    let mut out = String::new();
+    write(&mut out)?;
+    Ok(out)
+}
+
 /// Reads a session from a JSON file.
 fn load(path: &Path) -> Result<Interactive> {
     let text = io::read(Some(path), "session")?;
@@ -250,10 +257,14 @@ impl Session {
                         derivation.write_text(&styles.text, &mut text, |_| false)?;
                         text
                     }
-                    Format::Latex => latex::derivation(&derivation, &styles.latex),
-                    Format::Typst => typst::derivation(&derivation, &styles.typst),
+                    Format::Latex => {
+                        written(|out| latex::write(&derivation, &styles.latex, out, |_| false))?
+                    }
+                    Format::Typst => {
+                        written(|out| typst::write(&derivation, &styles.typst, out, |_| false))?
+                    }
                     Format::Svg | Format::Png | Format::Pdf => {
-                        svg::derivation(&derivation, &styles.svg)
+                        written(|out| svg::write(&derivation, &styles.svg, out, |_| false))?
                     }
                     Format::Json | Format::Rocq => bail!(
                         "show writes the derivation so far as --text, --latex, --typst, --svg, \

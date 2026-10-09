@@ -41,13 +41,14 @@ mod net;
 /// Derivations as proof trees.
 mod tree;
 
+use super::Drawable;
 use super::notation::Notation;
 use crate::Error;
 use crate::nets::ProofStructure;
 use crate::occurrences::Reading;
-use crate::ordinary::{self, Symbols};
+use crate::ordinary::Symbols;
 use crate::proofs::style::{Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal};
+use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
 pub use font::{Advances, Font, MONOSPACE};
 use font::{DEPTH, HEIGHT, LOWER, RAISE, SCRIPT};
@@ -555,8 +556,10 @@ pub fn two_sided(reading: &Reading, style: &Style) -> String {
     line(style, &title, &drawn)
 }
 
-/// Returns a derivation as an SVG document of its proof tree, two-sided if
-/// the derivation is, titled with its conclusion in plain text.
+/// Writes a derivation into `out` as an SVG document of its proof tree,
+/// titled with its conclusion in plain text, the elements of one
+/// inference at a time, and asks `stop` after each; what it holds besides
+/// is a few numbers per inference. A `String` takes the whole.
 ///
 /// The tree grows upwards from its conclusion: the premises of an
 /// inference stand side by side, their conclusions centred over its own,
@@ -565,53 +568,30 @@ pub fn two_sided(reading: &Reading, style: &Style) -> String {
 /// vertical dots, with no inference line, unless the style says
 /// otherwise. The conclusion of inference `n` is the `<text>` or the group
 /// with the id `i<n>`, and with [`Style::ids`] its formula at position `p`
-/// the group `i<n>-<p>`. The layout is one pass up and one down the tree,
-/// each with a stack of its own, so a derivation of any height fits and
-/// drawing it again after every step of an interactive proof stays cheap.
-pub fn derivation(derivation: &Derivation, style: &Style) -> String {
-    let mut out = String::new();
-    write(derivation, style, &mut out, |_| false).expect("a string takes any text");
-    out
-}
-
-/// Writes a derivation as [`derivation`] returns it into `out`, the
-/// elements of one inference at a time, and asks `stop` after each. What
-/// it holds besides is a few numbers per inference.
-pub fn write(
-    derivation: &Derivation,
-    style: &Style,
-    out: &mut impl Write,
-    stop: impl FnMut(crate::limits::Progress) -> bool,
-) -> Result<(), Error> {
-    tree::draw(
-        derivation,
-        style,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
-}
-
-/// Writes a derivation of LK or LJ into `out` as [`write()`] draws a
-/// linear one, two-sided, the connectives and constants their Unicode
-/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥`, the labels those of [`ordinary::Rule`] (a
+/// the group `i<n>-<p>`, hypotheses first. The layout is one pass up and
+/// one down the tree, each with a stack of its own, so a derivation of any
+/// height fits and drawing it again after every step of an interactive
+/// proof stays cheap. A linear derivation is two-sided if it is; one of
+/// LK or LJ is two-sided, its connectives and constants their Unicode
+/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥`, its labels those of [`ordinary::Rule`](crate::ordinary::Rule) (a
 /// label table of [`Labels::Table`] is keyed by the linear rules, so it
-/// leaves them upright), the formula at position `p` of inference `n`'s
-/// sequent the group `i<n>-<p>` with [`Style::ids`], hypotheses first,
-/// and the `<desc>` its numbered inferences.
+/// leaves them upright), and its `<desc>` its numbered inferences.
 ///
-/// Needs the cargo feature `svg` (on by default).
-pub fn ordinary(
-    derivation: &ordinary::Derivation,
+/// # Errors
+///
+/// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+/// [`Error::WriteFailed`] when `out` refused the text.
+pub fn write<'a>(
+    derivation: impl Into<Drawable<'a>>,
     style: &Style,
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree::draw(
-        derivation,
-        style,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
+    let stop = crate::limits::counting(stop, crate::limits::Phase::Write);
+    match derivation.into() {
+        Drawable::Linear(derivation) => tree::draw(derivation, style, out, stop),
+        Drawable::Ordinary(derivation) => tree::draw(derivation, style, out, stop),
+    }
 }
 
 /// Returns a proof structure, a proof net or not, complete or not, as an

@@ -10,10 +10,11 @@
 //! ([`rocq`](crate::export::rocq), feature `rocq`).
 //! Every function is a pure function of its input and of one options
 //! value per target, which holds everything a user may vary and has serde
-//! behind `serialize`; the output is deterministic. A derivation is
-//! returned as a `String` (`derivation`) or written into any
-//! [`std::fmt::Write`] with a stop condition asked between two inferences
-//! (`write`), the same signature for every target and for the text tree
+//! behind `serialize`; the output is deterministic. Anything
+//! [`Drawable`](crate::export::Drawable), a derivation of linear logic or
+//! one of LK or LJ, is written into any [`std::fmt::Write`] (a `String`
+//! among them) with a stop condition asked between two inferences, by one
+//! `write` per target of the same signature as the text tree's
 //! ([`Derivation::write_text`](crate::Derivation::write_text)). LaTeX,
 //! Typst and Rocq come as a fragment to paste or as a standalone document
 //! ([`Form`](crate::export::Form)), and SVG is always a whole document.
@@ -57,6 +58,33 @@ pub mod svg;
 pub mod typst;
 
 pub use styles::Styles;
+
+/// What the targets write: a derivation of linear logic, one- or
+/// two-sided, or a derivation of LK or LJ read back from a proof of an
+/// ordinary sequent's image. Each target's `write` takes either, as
+/// `&derivation`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug)]
+pub enum Drawable<'a> {
+    /// A derivation of linear logic.
+    Linear(&'a crate::Derivation<'a>),
+    /// A derivation of LK or LJ.
+    Ordinary(&'a crate::ordinary::Derivation),
+}
+
+impl<'a, 'p: 'a> From<&'a crate::Derivation<'p>> for Drawable<'a> {
+    /// Draws a derivation of linear logic.
+    fn from(derivation: &'a crate::Derivation<'p>) -> Self {
+        Self::Linear(derivation)
+    }
+}
+
+impl<'a> From<&'a crate::ordinary::Derivation> for Drawable<'a> {
+    /// Draws a derivation of LK or LJ.
+    fn from(derivation: &'a crate::ordinary::Derivation) -> Self {
+        Self::Ordinary(derivation)
+    }
+}
 
 /// Whether an export is a fragment to paste into a document or a document
 /// of its own.

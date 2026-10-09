@@ -47,8 +47,10 @@
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
+//! let mut written = String::new();
+//! typst::write(&proof.derivation()?, &options, &mut written, |_| false)?;
 //! assert_eq!(
-//!     typst::derivation(&proof.derivation()?, &options),
+//!     written,
 //!     r#"#prooftree(
 //!   rule(
 //!     name: $⊸ upright(L)$,
@@ -61,13 +63,13 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use super::Form;
 use super::notation::{Notation, Step, flush, walk};
+use super::{Drawable, Form};
 use crate::Error;
 use crate::occurrences::Reading;
-use crate::ordinary::{self, Symbols};
+use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal};
+use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -293,54 +295,33 @@ pub fn two_sided(reading: &Reading, options: &Options) -> String {
     formed(out, options)
 }
 
-/// Returns a derivation as a proof tree, two-sided if the derivation is,
-/// in the options' form: a curryst `#prooftree(…)` call, in which a rule
-/// with premises spans several lines, indented by its depth, and a leaf is
-/// one line; or a `#context` block of linlog's own layout
-/// ([`Options::layout`]), the inferences listed first, from the root in
-/// preorder, one line each, then the code that sets them.
-pub fn derivation(derivation: &Derivation, options: &Options) -> String {
-    let mut out = String::new();
-    write(derivation, options, &mut out, |_| false).expect("a string takes any text");
-    out
-}
-
-/// Writes a derivation as [`derivation`] returns it into `out`, one
-/// inference at a time, and asks `stop` after each.
-pub fn write(
-    derivation: &Derivation,
-    options: &Options,
-    out: &mut impl Write,
-    stop: impl FnMut(crate::limits::Progress) -> bool,
-) -> Result<(), Error> {
-    tree(
-        derivation,
-        options,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
-}
-
-/// Writes a derivation of LK or LJ as a proof tree into `out`, two-sided,
-/// in the options' form and layout, one inference at a time, and asks
-/// `stop` after each: the connectives and constants are their Unicode
-/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥`, and the labels those of
-/// [`ordinary::Rule`] (a label table of [`Labels::Table`] is keyed by the
-/// linear rules, so it leaves them upright).
+/// Writes a derivation as a proof tree into `out`, in the options' form,
+/// one inference at a time, and asks `stop` after each: a curryst
+/// `#prooftree(…)` call, in which a rule with premises spans several
+/// lines, indented by its depth, and a leaf is one line; or a `#context`
+/// block of linlog's own layout ([`Options::layout`]), the inferences
+/// listed first, from the root in preorder, one line each, then the code
+/// that sets them. A linear derivation is two-sided if it is; one of LK
+/// or LJ is two-sided, its connectives and constants their Unicode
+/// characters `¬ ∧ ∨ → ↔ ⊤ ⊥` and its labels those of [`ordinary::Rule`](crate::ordinary::Rule)
+/// (a label table of [`Labels::Table`] is keyed by the linear rules, so it
+/// leaves them upright). A `String` takes the whole.
 ///
-/// Needs the cargo feature `typst` (on by default).
-pub fn ordinary(
-    derivation: &ordinary::Derivation,
+/// # Errors
+///
+/// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+/// [`Error::WriteFailed`] when `out` refused the text.
+pub fn write<'a>(
+    derivation: impl Into<Drawable<'a>>,
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree(
-        derivation,
-        options,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
+    let stop = crate::limits::counting(stop, crate::limits::Phase::Write);
+    match derivation.into() {
+        Drawable::Linear(derivation) => tree(derivation, options, out, stop),
+        Drawable::Ordinary(derivation) => tree(derivation, options, out, stop),
+    }
 }
 
 /// Writes any derivation as [`write()`] does, in the layout the options

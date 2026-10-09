@@ -366,14 +366,29 @@ enum Render {
     Svg,
 }
 
+/// What a target's `write` makes of a derivation, as a string.
+fn written(write: impl FnOnce(&mut String) -> Result<(), linlog::Error>) -> String {
+    let mut out = String::new();
+    write(&mut out).expect("a string takes any text and nothing stops");
+    out
+}
+
 /// Renders the derivation of a proof.
 fn render(format: Render) -> Result<()> {
     let proof = proof("chain", 64, 0)?;
     let derivation = proof.derivation()?;
     let length = measured(|| match format {
-        Render::Latex => latex::derivation(&derivation, &latex::Options::default()).len(),
-        Render::Typst => typst::derivation(&derivation, &typst::Options::default()).len(),
-        Render::Svg => svg::derivation(&derivation, &svg::Style::default()).len(),
+        Render::Latex => {
+            written(|out| latex::write(&derivation, &latex::Options::default(), out, |_| false))
+                .len()
+        }
+        Render::Typst => {
+            written(|out| typst::write(&derivation, &typst::Options::default(), out, |_| false))
+                .len()
+        }
+        Render::Svg => {
+            written(|out| svg::write(&derivation, &svg::Style::default(), out, |_| false)).len()
+        }
     });
     black_box(length);
     Ok(())

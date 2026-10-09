@@ -123,7 +123,7 @@ pub(crate) fn derivation(
     }
     if show.format.is_binary() {
         let mut drawing = String::new();
-        if svg::ordinary(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
+        if svg::write(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
             return Ok(stopped());
         }
         drop(d);
@@ -137,10 +137,10 @@ pub(crate) fn derivation(
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
-        Format::Latex => latex::ordinary(&d, &styles.latex, &mut out, |_| halt()),
-        Format::Typst => typst::ordinary(&d, &styles.typst, &mut out, |_| halt()),
-        Format::Svg => svg::ordinary(&d, &styles.svg, &mut out, |_| halt()),
-        Format::Rocq => rocq::ordinary(&d, &styles.rocq, &mut out, |_| halt()),
+        Format::Latex => latex::write(&d, &styles.latex, &mut out, |_| halt()),
+        Format::Typst => typst::write(&d, &styles.typst, &mut out, |_| halt()),
+        Format::Svg => svg::write(&d, &styles.svg, &mut out, |_| halt()),
+        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, |_| halt()),
         Format::Text | Format::Json | Format::Png | Format::Pdf => {
             d.write_text(&styles.text, &mut out, |_| halt())
         }

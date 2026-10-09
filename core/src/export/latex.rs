@@ -43,8 +43,10 @@
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
+//! let mut written = String::new();
+//! latex::write(&proof.derivation()?, &options, &mut written, |_| false)?;
 //! assert_eq!(
-//!     latex::derivation(&proof.derivation()?, &options),
+//!     written,
 //!     r"\begin{prooftree}
 //! \infer0[$\mathrm{ax}$]{A &\vdash A}
 //! \infer0[$\mathrm{ax}$]{B &\vdash B}
@@ -54,13 +56,13 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use super::Form;
 use super::notation::{Notation, Step, flush, walk};
+use super::{Drawable, Form};
 use crate::Error;
 use crate::occurrences::Reading;
-use crate::ordinary::{self, Symbols};
+use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
-use crate::proofs::{Derivation, Labels, OpenGoal};
+use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
 use std::fmt::Write;
 
@@ -349,52 +351,30 @@ pub fn two_sided(reading: &Reading, options: &Options) -> String {
     formed(out, options)
 }
 
-/// Returns a derivation as an ebproof `prooftree` environment, two-sided
-/// if the derivation is, in the options' form.
-pub fn derivation(derivation: &Derivation, options: &Options) -> String {
-    let mut out = String::new();
-    write(derivation, options, &mut out, |_| false).expect("a string takes any text");
-    out
-}
-
-/// Writes a derivation as [`derivation`] returns it into `out`, one
-/// inference at a time, and asks `stop` after each.
-pub fn write(
-    derivation: &Derivation,
-    options: &Options,
-    out: &mut impl Write,
-    stop: impl FnMut(crate::limits::Progress) -> bool,
-) -> Result<(), Error> {
-    tree(
-        derivation,
-        options,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
-}
-
-/// Writes a derivation of LK or LJ as an ebproof `prooftree` environment
-/// into `out`, two-sided with the turnstiles lined up unless
-/// [`Options::align`] is off, in the options' form, one inference at a
-/// time, and asks `stop` after each: the connectives are `\lnot`, `\land`,
-/// `\lor`, `\to` and `\leftrightarrow`, the constants `\top` and `\bot`,
-/// and the labels those of [`ordinary::Rule`] (a label table of
-/// [`Labels::Table`] is keyed by the linear rules, so it leaves them
-/// upright).
+/// Writes a derivation as an ebproof `prooftree` environment into `out`,
+/// in the options' form, one inference at a time, and asks `stop` after
+/// each: a linear one two-sided if it is, one of LK or LJ two-sided with
+/// the turnstiles lined up unless [`Options::align`] is off, its
+/// connectives `\lnot`, `\land`, `\lor`, `\to` and `\leftrightarrow`, its
+/// constants `\top` and `\bot` and its labels those of
+/// [`ordinary::Rule`](crate::ordinary::Rule) (a label table of [`Labels::Table`] is keyed by the
+/// linear rules, so it leaves them upright). A `String` takes the whole.
 ///
-/// Needs the cargo feature `latex` (on by default).
-pub fn ordinary(
-    derivation: &ordinary::Derivation,
+/// # Errors
+///
+/// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+/// [`Error::WriteFailed`] when `out` refused the text.
+pub fn write<'a>(
+    derivation: impl Into<Drawable<'a>>,
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
-    tree(
-        derivation,
-        options,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
+    let stop = crate::limits::counting(stop, crate::limits::Phase::Write);
+    match derivation.into() {
+        Drawable::Linear(derivation) => tree(derivation, options, out, stop),
+        Drawable::Ordinary(derivation) => tree(derivation, options, out, stop),
+    }
 }
 
 /// Writes any derivation as [`write()`] does.

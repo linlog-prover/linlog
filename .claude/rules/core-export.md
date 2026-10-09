@@ -18,19 +18,22 @@ view's (`core-derivations.md`).
 amssymb symbols) and Typst (curryst trees), draws them and proof
 structures as SVG documents, and writes derivations as Rocq proof scripts
 for NanoYalla. What the code relies on:
-- **The entry points**: `latex` and `typst` write `sequent(&sequent,
-  &options)`, `two_sided(&reading, &options)` and `derivation(&derivation,
-  &options)`, finished or with open goals, as a fragment or a standalone
-  document by `Options::form`; `svg` draws `sequent`, `two_sided`,
-  `derivation` and `net(&structure, &style, limit)` under a `Style` (the font
+- **The entry points**: `latex`, `typst` and `svg` write
+  `sequent(&sequent, &options)` and `two_sided(&reading, &options)`, and
+  each target's one `write(&derivation, &options, out, stop)` takes
+  anything `export::Drawable` (an enum: a linear derivation, finished or
+  with open goals, or one of LK or LJ, by `From`), as a fragment or a
+  standalone document by `Options::form`; `svg` draws under a `Style` (the font
   and its advances, labels, the open goal's shape, ids per formula,
-  sizes, gaps, colours; `net` answers `Refusal::Output { what: "drawing" }`
-  past `limit`);
-  `rocq::derivation` writes the lemma
-  `Options::lemma`, or a file that starts with `Options::prelude`, and
-  refuses an open goal, Mix, affine weakening and a compact derivation
-  with `Unsupported`; `png::from_svg` and `pdf::from_svg` render a
-  drawing.
+  sizes, gaps, colours) and also `net(&structure, &style, limit)`
+  (`Refusal::Output { what: "drawing" }` past `limit`);
+  `rocq::write` writes the lemma `Options::lemma`, or a file that starts
+  with `Options::prelude`, for a linear derivation NanoYalla's script,
+  refusing an open goal, Mix, affine weakening and a compact derivation
+  with `Unsupported`, and for one of LK or LJ the term over `Prop`;
+  `png::from_svg` and `pdf::from_svg` render a drawing. There are no
+  `derivation(…) -> String` twins and no per-type `ordinary` functions:
+  a `String` is an `fmt::Write` (F36).
 - **`export::Styles` holds every format's options in one value** (the
   command's `--style` keys and `Settings::styles` address it): a field per
   format, and for a format the build lacks a private `Absent` that reads
@@ -56,13 +59,13 @@ for NanoYalla. What the code relies on:
   the stop after each), so they hold one inference's text; the SVG tree
   keeps a few numbers per inference and lays a conclusion out again
   when it writes it (a laid-out run per inference was 50 bytes per
-  character of sequent). `derivation(…) -> String` is the same with a
-  string and no stop. The command writes the verdict and then the
+  character of sequent). A `String` takes the whole with a stop that
+  never fires. The command writes the verdict and then the
   derivation into its output as it is made (`cli/src/io.rs`, `Output`).
-  A derivation of LK or LJ (`ordinary::Derivation`) has the same
-  signature in `latex::ordinary`, `typst::ordinary`, `svg::ordinary` and
-  `ordinary::Derivation::write_text` (with `text_size` and `Display`);
-  Rocq certifies it separately (`ordinary/rocq.rs`, `core-ordinary.md`).
+  A derivation of LK or LJ (`ordinary::Derivation`) goes through the same
+  `write` of every target, and has `ordinary::Derivation::write_text`
+  (with `text_size` and `Display`); Rocq's `write` certifies it by the
+  term of `ordinary/rocq.rs` (`core-ordinary.md`).
 - **Every emitter is generic over the crate-private trait
   `proofs::style::Drawn`**, implemented by `proofs::Derivation` (in
   `style.rs`) and `ordinary::Derivation` (in `ordinary/derivation.rs`):
@@ -73,10 +76,12 @@ for NanoYalla. What the code relies on:
   (`sequent(out, notation, id, aligned, marks)`), and the SVG's
   `positions` for `Style::ids`. The text tree, the steps of `<desc>`,
   `notation::walk` and the LaTeX, Typst (both layouts) and SVG trees are
-  each one generic function; the public `write`/`ordinary` are
-  non-generic wrappers, since a public function cannot name a
-  crate-private bound. A new kind of derivation implements `Drawn` and
-  adds one wrapper per target; the per-rule label tables (the text
+  each one generic function; the public `write` takes `impl
+  Into<Drawable>` and matches the enum into the generic function, since a
+  public function cannot name a crate-private bound (and a sealed public
+  trait would be unnameable, which the lint check forbids). A new kind of
+  derivation implements `Drawn` and adds a variant of `Drawable` with its
+  `From`, and an arm in each `write`; the per-rule label tables (the text
   tree's `bars`, the SVG's laid-out labels) are indexed by `rule`, plus
   `RULES` for a run.
 - **Rule labels are one table per convention** (`proofs/style.rs`:

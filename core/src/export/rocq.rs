@@ -48,8 +48,10 @@
 //! let Verdict::Proved(proof) = &outcome.verdict else {
 //!     panic!("provable");
 //! };
+//! let mut written = String::new();
+//! rocq::write(&proof.derivation()?, &Options::default(), &mut written, |_| false)?;
 //! assert_eq!(
-//!     rocq::derivation(&proof.derivation()?, &Options::default())?,
+//!     written,
 //!     "Lemma certificate (A B : formula) : ll [dual A; tens A (dual B); B].
 //! Proof.
 //! apply (tens_r_ext [dual A]); cbn_sequent.
@@ -64,8 +66,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use super::Form;
 use super::notation::{Step, flush, walk};
+use super::{Drawable, Form};
 use crate::Error;
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Derivation, InfId, Rule};
@@ -521,30 +523,53 @@ impl Script<'_> {
     }
 }
 
-/// Returns a derivation as a Rocq lemma with its proof script for
-/// NanoYalla, in the options' form, or why it has no certificate.
-pub fn derivation(derivation: &Derivation, options: &Options) -> Result<String, Unsupported> {
-    let mut out = String::new();
-    match write(derivation, options, &mut out, |_| false) {
-        Ok(()) => Ok(out),
-        Err(Error::Unsupported(unsupported)) => Err(unsupported),
-        Err(_) => unreachable!("a string takes any text and nothing stops"),
-    }
-}
-
-/// Writes a derivation as [`derivation`] returns it into `out`, one
-/// inference at a time, and asks `stop` after each; a derivation without
-/// a certificate is refused before anything is written.
-pub fn write(
-    derivation: &Derivation,
+/// Writes the certificate of a derivation into `out`, in the options'
+/// form, one inference at a time, and asks `stop` after each; a
+/// derivation without a certificate is refused before anything is
+/// written. A linear derivation is a lemma with its proof script for
+/// NanoYalla, checked one-sided. One of LK or LJ, which must have passed
+/// [`check`](crate::ordinary::Derivation::check), is the lemma
+/// `options.lemma` stating the ordinary sequent over `Prop`, every atom a
+/// proposition bound by `forall`, the hypotheses as premises and the
+/// formulas right of `⊢` as their disjunction (`False` for none), proved
+/// by a term made rule by rule; it needs no library, but a classical one
+/// uses the excluded middle of the standard library (`NNPP`), which a
+/// standalone file imports instead of `options.prelude`. A `String` takes
+/// the whole.
+///
+/// # Errors
+///
+/// [`Error::Unsupported`] for a derivation without a certificate (an
+/// open goal, Mix, affine weakening, a compact run), [`Error::GoalProof`]
+/// for one of a goal off the roots, [`Refusal::Stopped`](crate::Refusal::Stopped)
+/// when `stop` fired and [`Error::WriteFailed`] when `out` refused the
+/// text.
+pub fn write<'a>(
+    derivation: impl Into<Drawable<'a>>,
     options: &Options,
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
+    let stop = crate::limits::counting(stop, crate::limits::Phase::Write);
+    match derivation.into() {
+        Drawable::Linear(derivation) => linear(derivation, options, out, stop),
+        Drawable::Ordinary(derivation) => {
+            crate::ordinary::rocq::write(derivation, options, out, stop)
+        }
+    }
+}
+
+/// Writes the NanoYalla certificate of a linear derivation as [`write`]
+/// does.
+fn linear(
+    derivation: &Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    mut stop: impl FnMut() -> bool,
+) -> Result<(), Error> {
     if derivation.is_of_goal() {
         return Err(Error::GoalProof);
     }
-    let mut stop = crate::limits::counting(stop, crate::limits::Phase::Write);
     for inference in derivation.inferences() {
         if inference.times > 1 {
             return Err(Unsupported::Compact.into());
@@ -608,29 +633,6 @@ pub fn write(
     })?;
     out.write_str("Qed.")?;
     Ok(())
-}
-
-/// Writes the certificate of a derivation of LK or LJ, which must have
-/// passed [`check`](crate::ordinary::Derivation::check): the lemma
-/// `options.lemma` stating the ordinary sequent over `Prop`, every atom a
-/// proposition bound by `forall`, the hypotheses as premises and the
-/// formulas right of `⊢` as their disjunction (`False` for none), proved
-/// by a term made rule by rule. It needs no library; a classical one uses
-/// the excluded middle of the standard library (`NNPP`), which a
-/// standalone file imports instead of `options.prelude`. Asks `stop` after
-/// each inference.
-pub fn ordinary(
-    derivation: &crate::ordinary::Derivation,
-    options: &Options,
-    out: &mut impl Write,
-    stop: impl FnMut(crate::limits::Progress) -> bool,
-) -> Result<(), Error> {
-    crate::ordinary::rocq::write(
-        derivation,
-        options,
-        out,
-        crate::limits::counting(stop, crate::limits::Phase::Write),
-    )
 }
 
 #[cfg(test)]

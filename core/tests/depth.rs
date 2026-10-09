@@ -125,8 +125,12 @@ fn walk(json: &str, fragment: Fragment) {
     #[cfg(feature = "rocq")]
     {
         use linlog::export::rocq::{self, Options};
-        let certificate = rocq::derivation(&derivation, &Options::default());
-        assert!(certificate.unwrap().len() > DEPTH);
+        let mut certificate = String::new();
+        rocq::write(&derivation, &Options::default(), &mut certificate, |_| {
+            false
+        })
+        .unwrap();
+        assert!(certificate.len() > DEPTH);
     }
 }
 
