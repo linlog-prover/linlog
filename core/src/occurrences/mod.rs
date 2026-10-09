@@ -365,21 +365,37 @@ impl Forest {
     }
 
     /// Returns the arena term of an occurrence.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn term(&self, o: OccId) -> TermId {
         self.term[o.index()]
     }
 
     /// Returns the kind of an occurrence's term.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn kind(&self, o: OccId) -> Kind {
         self.kind[o.index()]
     }
 
     /// Returns the occurrence as a value that prints its formula.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn formula(&self, o: OccId) -> Formula<'_> {
         self.sequent.formula(self.term(o))
     }
 
     /// Returns the parent of an occurrence, or `None` for a root.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn parent(&self, o: OccId) -> Option<OccId> {
         match self.parent[o.index()] {
             NONE => None,
@@ -389,37 +405,65 @@ impl Forest {
 
     /// Returns the root formula an occurrence lies below, or itself if it is
     /// a root.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn root(&self, o: OccId) -> OccId {
         self.root[o.index()]
     }
 
     /// Returns whether two occurrences lie below the same root formula.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn same_root(&self, x: OccId, y: OccId) -> bool {
         self.root(x) == self.root(y)
     }
 
     /// Returns the number of occurrences in the subtree of `o`, itself
     /// included.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn size(&self, o: OccId) -> u32 {
         self.size[o.index()]
     }
 
     /// Returns the number of ancestors of an occurrence: 0 for a root.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn depth(&self, o: OccId) -> u32 {
         self.depth[o.index()]
     }
 
     /// Returns whether the occurrence is a literal, `a` or `~a`.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn is_literal(&self, o: OccId) -> bool {
         self.kind(o).is_literal()
     }
 
     /// Returns the atom of a literal occurrence, or `None` for a connective.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn atom(&self, o: OccId) -> Option<Atom> {
         self.sequent.term(self.term(o)).atom()
     }
 
     /// Returns the sign of a literal occurrence, or `None` for a connective.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn sign(&self, o: OccId) -> Option<Sign> {
         self.kind(o).sign()
     }
@@ -433,11 +477,19 @@ impl Forest {
 
     /// Returns the first child: the only subformula of `!` and `?`, the left
     /// one of a binary connective, and `None` for a literal or a unit.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn left(&self, o: OccId) -> Option<OccId> {
         (self.kind(o).arity() >= 1).then(|| OccId::new(o.0 + 1))
     }
 
     /// Returns the right child of a binary connective, and `None` otherwise.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn right(&self, o: OccId) -> Option<OccId> {
         (self.kind(o).arity() == 2).then(|| {
             let left = o.0 + 1;
@@ -446,17 +498,29 @@ impl Forest {
     }
 
     /// Returns the children of an occurrence in order, left before right.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn children(&self, o: OccId) -> impl Iterator<Item = OccId> {
         self.left(o).into_iter().chain(self.right(o))
     }
 
     /// Returns the subtree of `o` in preorder: `o` itself first, then every
     /// occurrence below it, which are the ids `o .. o + size(o)`.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn subtree(&self, o: OccId) -> impl DoubleEndedIterator<Item = OccId> + ExactSizeIterator {
         (o.0..o.0 + self.size(o)).map(OccId::new)
     }
 
     /// Returns whether `o` is `ancestor` itself or lies below it.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn is_below(&self, o: OccId, ancestor: OccId) -> bool {
         ancestor.0 <= o.0 && o.0 < ancestor.0 + self.size(ancestor)
     }
@@ -464,6 +528,10 @@ impl Forest {
     /// Returns the lowest common ancestor of two occurrences, or `None` if
     /// they lie below different roots. Walks up from `x`, so it costs the
     /// depth of `x` at most.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn lca(&self, x: OccId, y: OccId) -> Option<OccId> {
         if !self.same_root(x, y) {
             return None;

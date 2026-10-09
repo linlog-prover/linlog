@@ -376,6 +376,10 @@ impl<'a> Reading<'a> {
     }
 
     /// Returns the position of an occurrence.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
     pub fn position(&self, o: OccId) -> Side {
         self.position[o.index()]
     }
