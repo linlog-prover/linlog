@@ -338,6 +338,12 @@ impl Sequent {
     /// Merges atoms of the same name and equal terms and drops the terms no
     /// root formula reaches; the root formulas keep the order they were
     /// written in. Fails if the arena breaks its invariants.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IndexOutOfBounds`](crate::Error::IndexOutOfBounds) or
+    /// [`Error::NotTopological`](crate::Error::NotTopological) for an arena
+    /// that breaks its invariants.
     pub fn optimize(&mut self) -> Result<(), crate::Error> {
         self.optimize_atoms()?;
         self.optimize_terms()?;

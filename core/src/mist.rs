@@ -96,6 +96,10 @@ pub enum Safety {
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
 /// unit; [`Refusal::Occurrences`] for more
 /// tokens than the bound.
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "the expects state facts of the problem the reader has checked"
+)]
 pub fn read(text: &str, limits: &Limits) -> Result<Problem, Error> {
     let expected = text.lines().next().and_then(|line| {
         let line = line.trim().strip_prefix('#')?.trim();

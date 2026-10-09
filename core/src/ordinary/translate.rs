@@ -286,6 +286,10 @@ impl Image {
 /// ([`Translation::decides`]), [`Error::Succedents`] for an intuitionistic
 /// or minimal sequent with more than one formula right of `⊢`, and
 /// [`Refusal::Occurrences`](crate::Refusal::Occurrences) for an image larger than an arena holds.
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "the expects state facts of the pattern table the translation builds from"
+)]
 pub fn translate(
     sequent: &Sequent,
     logic: Logic,

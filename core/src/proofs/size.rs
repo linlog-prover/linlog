@@ -88,6 +88,12 @@ impl Proof {
     /// nodes (a pass that would hold more, or that `stop` ends, answers
     /// [`CheckError::Refused`]), and a subproof that several nodes share is
     /// counted at every use, as the derivation repeats it.
+    ///
+    /// # Errors
+    ///
+    /// [`CheckError::Invalid`] for a term that is no proof, and
+    /// [`CheckError::Refused`] when the memory bound or `stop` ended the
+    /// pass.
     pub fn derivation_size(
         &self,
         view: &ViewOptions,

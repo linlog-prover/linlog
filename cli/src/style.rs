@@ -18,6 +18,11 @@ const FORMATS: [&str; 7] = ["text", "latex", "typst", "svg", "png", "pdf", "rocq
 /// Reads the style file and applies the flags to it, in their order; an
 /// unprefixed key names `format`, the format of the command's output, when
 /// it has options. `standalone` makes every document format standalone.
+///
+/// # Errors
+///
+/// A style file that cannot be read or holds no styles, a key that names
+/// no option, or a value the option cannot take.
 pub fn read(args: &StyleArgs, format: Option<&str>, standalone: bool) -> Result<Styles> {
     let mut value = match &args.style_file {
         Some(path) => {

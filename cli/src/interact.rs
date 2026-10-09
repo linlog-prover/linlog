@@ -48,6 +48,12 @@ quit                end the session";
 /// Runs `interact`: starts or resumes a session, then reads commands from
 /// standard input until `quit` or the end of input, on a thread whose stack
 /// fits the recursion limit.
+///
+/// # Errors
+///
+/// A sequent or a saved session that cannot be read or has no session,
+/// or a terminal on standard input; a command's error is its output and
+/// the session goes on.
 pub fn interact(args: &InteractArgs) -> Result<Status> {
     let state = match &args.state {
         Some(path) => load(path)?,

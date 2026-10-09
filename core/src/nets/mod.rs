@@ -116,6 +116,10 @@ impl Criterion {
     /// Returns the criterion of a mode: Mix as the mode has it. Fails
     /// with [`NetError::Mode`] in affine mode, which has no proof nets; in
     /// intuitionistic mode the net is the one of the one-sided sequent.
+    ///
+    /// # Errors
+    ///
+    /// [`NetError::Mode`] in affine mode.
     pub fn of(mode: Mode) -> Result<Self, NetError> {
         if mode.is_affine() {
             return Err(NetError::Mode { mode });
@@ -402,6 +406,11 @@ impl ProofStructure {
     /// [`NetError::Fragment`] if the sequent lies outside unit-free MLL,
     /// where there are no proof nets, and with [`Refusal::Index`] past
     /// 1 431 655 763 vertices.
+    ///
+    /// # Errors
+    ///
+    /// [`NetError::Fragment`] for a sequent outside unit-free MLL, and
+    /// [`Refusal::Index`] for a forest past the vertices a structure holds.
     pub fn new(forest: Forest, criterion: Criterion) -> Result<Self, Error> {
         let fragment = forest.sequent().fragment();
         if !fragment.has_nets() {
@@ -440,6 +449,11 @@ impl ProofStructure {
     /// [`link`](Self::link) if a link names a vertex outside the
     /// structure, does not join two dual literals or links a literal
     /// twice.
+    ///
+    /// # Errors
+    ///
+    /// As [`new`](Self::new) does, and the [`NetError`] of
+    /// [`link`](Self::link) for a link that is none.
     pub fn from_links(
         forest: Forest,
         criterion: Criterion,

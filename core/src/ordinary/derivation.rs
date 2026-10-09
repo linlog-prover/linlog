@@ -545,6 +545,11 @@ impl Derivation {
     /// `stop` before every piece of a row. The labels are those of
     /// [`Rule`] (a label table of [`Labels::Table`] is keyed by the
     /// linear rules, so it leaves them upright).
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Error::WriteFailed`] when `out` refused the text.
     pub fn write_text(
         &self,
         options: &TextOptions,
@@ -715,6 +720,10 @@ impl Image {
     /// As [`Proof::derivation_within`] for the unfolding;
     /// [`Error::ReadBack`] for a proof that is not of this image, or a
     /// rule with no reading; [`Refusal::Stopped`] when `stop` fired.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "the expects state that the forest's preorder tags a parent before its children, which the walk establishes"
+    )]
     pub fn read_back(
         &self,
         proof: &Proof,

@@ -18,6 +18,11 @@ use std::fmt::Write;
 /// Returns the ordinary sequent `text` holds in `format`: text in the
 /// syntax of ordinary logic (a parse error points into `text`), or a TPTP
 /// problem.
+///
+/// # Errors
+///
+/// Text that is no ordinary sequent, with a caret under the place, or no
+/// TPTP problem.
 pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> {
     match format {
         // The library's error says that the text is no TPTP problem.
@@ -33,6 +38,15 @@ pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> 
 
 /// Returns the image of an ordinary sequent under the translation the
 /// flags choose.
+///
+/// # Errors
+///
+/// The translation's error: one that does not decide the logic, or more
+/// than one formula right of `⊢` in intuitionistic or minimal logic.
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "the expect states that the caller reads ordinary logic, which the flags it was called under say"
+)]
 pub fn image(args: &LogicArgs, sequent: &ordinary::Sequent) -> Result<Image> {
     let logic: Logic = args.logic.expect("the caller reads ordinary logic").into();
     let translation = args

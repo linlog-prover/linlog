@@ -881,6 +881,11 @@ fn cgroup_memory() -> Option<u64> {
 /// Runs a batch: reads the entries, decides them on the library's batch,
 /// and writes one result per entry in order; the status is the worst
 /// verdict, an error before unknown before unprovable before proved.
+///
+/// # Errors
+///
+/// An input that cannot be read or a format of one sequent; an entry's
+/// own error is its line, never an error of the batch.
 pub fn run(args: &ProveArgs) -> Result<Status> {
     crate::prove::ordinary_mode(args)?;
     let start = Instant::now();

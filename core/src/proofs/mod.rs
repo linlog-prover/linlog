@@ -339,6 +339,14 @@ impl Proof {
     /// reaches names an occurrence outside the forest or a premise that does
     /// not precede it, if the root lies outside the arena, or if it reaches
     /// more nodes than a [`NodeId`] counts (2³² − 1).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IndexOutOfBounds`] for a root outside the arena or a node
+    /// naming an occurrence outside the forest, [`Error::NotTopological`] for
+    /// a premise that does not precede its node, and
+    /// [`Refusal::Index`](crate::Refusal::Index) for more nodes than a proof
+    /// holds.
     pub fn new(forest: Forest, nodes: Vec<Node>, root: NodeId) -> Result<Self, Error> {
         if root.index() >= nodes.len() {
             return Err(Error::IndexOutOfBounds {
@@ -410,6 +418,11 @@ impl Proof {
     /// sequent of those subformulas, as [`new`](Self::new) builds a proof
     /// of the sequent; its root concludes the goal. Fails as `new` does,
     /// or for a member outside the forest.
+    ///
+    /// # Errors
+    ///
+    /// As [`new`](Self::new) does, and [`Error::IndexOutOfBounds`] for a
+    /// member of the goal outside the forest.
     pub fn new_of_goal(
         forest: Forest,
         goal: &[Member],
@@ -518,6 +531,12 @@ impl Proof {
     /// that the sequent has an intuitionistic reading and every sequent of
     /// the proof one formula on the right of `⊢`. The error names the first
     /// node that fails, in arena order, with what it needed.
+    ///
+    /// # Errors
+    ///
+    /// [`CheckError::Invalid`] naming the first node that fails, and
+    /// [`CheckError::Refused`] when the default memory bound refused the
+    /// pass.
     pub fn check(&self, mode: Mode) -> Result<(), CheckError> {
         check::check(self, mode)
     }
@@ -530,6 +549,11 @@ impl Proof {
     /// beyond the proof and its forest: twelve bytes for every node, and
     /// every sequent it keeps for a later node at the size of its tables
     /// of members, a sequent that several nodes read once for each.
+    ///
+    /// # Errors
+    ///
+    /// As [`check`](Self::check) does, [`CheckError::Refused`] also past
+    /// `limits.work` and when `stop` fired.
     pub fn check_within(
         &self,
         mode: Mode,
@@ -566,6 +590,13 @@ impl Proof {
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Check`] for a term that is no proof in the mode the view
+    /// reads it in, [`Error::NotIntuitionistic`] for a two-sided view of a
+    /// sequent without a reading, and [`Error::Refused`] for a derivation past
+    /// the default bounds.
     pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
         self.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
     }
@@ -575,6 +606,11 @@ impl Proof {
     /// `limits.memory_bytes`, and until `stop` returns true, which is
     /// asked every 4 096 nodes of the checker's passes and once per node
     /// unfolded.
+    ///
+    /// # Errors
+    ///
+    /// As [`derivation`](Self::derivation) does within `limits`, and
+    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired.
     pub fn derivation_within(
         &self,
         view: &ViewOptions,

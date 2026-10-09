@@ -385,6 +385,14 @@ impl Interactive {
     /// Starts a proof of the sequent in the mode, with the whole sequent as
     /// the one open goal. Fails in intuitionistic mode for a sequent with no
     /// intuitionistic reading or with Mix.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::NotIntuitionistic`] in intuitionistic mode for a sequent
+    /// without an intuitionistic reading, [`Error::IntuitionisticMix`] for
+    /// intuitionistic mode with Mix, and
+    /// [`Refusal::Occurrences`] past the default
+    /// bound.
     pub fn new(sequent: &Sequent, mode: Mode) -> Result<Self, Error> {
         Self::within(sequent, mode, &Limits::default())
     }
@@ -392,6 +400,10 @@ impl Interactive {
     /// Starts a proof as [`new`](Self::new) does, of a sequent that
     /// unfolds to at most `limits.occurrences` occurrences
     /// ([`Refusal::Occurrences`] otherwise).
+    ///
+    /// # Errors
+    ///
+    /// As [`new`](Self::new) does, the bound being `limits.occurrences`.
     pub fn within(sequent: &Sequent, mode: Mode, limits: &Limits) -> Result<Self, Error> {
         let forest = Forest::within(sequent, limits)?;
         Self::from_forest(forest, mode)
@@ -722,6 +734,11 @@ impl Interactive {
     /// Whether the goal's context lets a rule apply (the axiom's dual, the
     /// context of `1` and `!`, a valid split, one succedent) is what
     /// [`apply`](Self::apply) decides.
+    ///
+    /// # Errors
+    ///
+    /// [`StepError::NoGoal`] for a goal that is not open, and
+    /// [`StepError::NoFormula`] for a position outside its sequent.
     pub fn rules(&self, goal: GoalId, position: usize) -> Result<Vec<Applicable>, StepError> {
         let sequent = self.open(goal)?;
         let o = formula_at(&sequent, position)?;
@@ -764,6 +781,12 @@ impl Interactive {
     /// one. In intuitionistic mode the rule may be given by its classical
     /// or its two-sided name and is recorded by the latter. Fails with what
     /// the rule needed, and changes nothing then.
+    ///
+    /// # Errors
+    ///
+    /// A [`StepError`] that names what the rule needed: an open goal, a
+    /// formula at the position, a rule that acts on it in the mode, a split
+    /// that fits, the dual of an axiom, an empty context for `1` and `!`.
     pub fn apply(&mut self, goal: GoalId, step: &Step) -> Result<Vec<GoalId>, StepError> {
         let (position, rule, left) = (step.position, step.rule, step.left_positions());
         let sequent = self.open(goal)?;
@@ -966,6 +989,10 @@ impl Interactive {
     /// prunes of the focused engine, a cheap test that says "this split
     /// cannot close" before a client tries it; a split that passes may
     /// still fail. The step's rule is not read.
+    ///
+    /// # Errors
+    ///
+    /// As [`rules`](Self::rules) does for the goal and the position.
     pub fn split_passes(&self, goal: GoalId, step: &Step) -> Result<bool, StepError> {
         let (position, left) = (step.position, step.left_positions());
         let sequent = self.open(goal)?;
@@ -1032,6 +1059,12 @@ impl Interactive {
     /// whose unfolding `stop` ends, stays open, and [`Closed::grafted`]
     /// says why; its proof stays in the outcome. A proved goal is never
     /// lost.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Step`] for a goal that is not open, and the errors of the
+    /// search ([`prove_goal`](crate::search::prove_goal)); a graft the limits
+    /// or `stop` refuse is no error but [`Closed::grafted`].
     pub fn close(
         &mut self,
         goal: GoalId,
@@ -1071,6 +1104,14 @@ impl Interactive {
     /// several of them side by side for one, closes the goal with this.
     ///
     /// [`prove_goal`]: crate::search::prove_goal
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Step`] for a goal that is not open, [`Error::ForeignProof`]
+    /// for a proof of another sequent, [`Error::GoalMismatch`] for one of
+    /// another goal, and [`Error::Check`] for one the checker rejects in the
+    /// session's mode; a graft the limits or `stop` refuse is
+    /// [`Closed::grafted`].
     pub fn close_with(
         &mut self,
         goal: GoalId,
@@ -1141,6 +1182,11 @@ impl Interactive {
     /// [`Rule::Open`], two-sided in intuitionistic mode; its inferences are
     /// renumbered premises before conclusions, so its ids are not this
     /// state's: [`derivation_ids`](Self::derivation_ids) maps them.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Output`] for a derivation past the
+    /// default [`Limits::derivation_bytes`].
     pub fn derivation(&self) -> Result<Derivation<'_>, Error> {
         self.derivation_within(&ViewOptions::default(), &Limits::default(), |_| false)
     }
@@ -1149,6 +1195,12 @@ impl Interactive {
     /// does, refused past `limits.derivation_bytes` by its estimate, as a
     /// proof's derivation is, and until `stop` fires. Its inferences are
     /// the state's own, never compacted, whatever `view` says.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Output`] past
+    /// `limits.derivation_bytes`, and [`Refusal::Stopped`]
+    /// when `stop` fired.
     pub fn derivation_within(
         &self,
         view: &ViewOptions,
@@ -1242,6 +1294,12 @@ impl Interactive {
     /// through this interface, or gives the check up within `limits` or
     /// when `stop` fires ([`Error::Check`] with a
     /// [`CheckError::Refused`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OpenGoals`] while goals are open, and [`Error::Check`] for a
+    /// term the checker rejects or a check given up within `limits` or by
+    /// `stop`.
     pub fn proof(
         &self,
         limits: &Limits,

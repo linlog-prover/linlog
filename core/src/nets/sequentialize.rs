@@ -34,6 +34,10 @@ impl ProofStructure {
     ///
     /// The criterion's [`NetError`](super::NetError) if the structure is
     /// not a proof net; [`NetError::Refused`](super::NetError::Refused) when the bound or the stop ended it.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "the expect states that a sequentialization keeps premises before conclusions, which the stages establish"
+    )]
     pub fn sequentialize(
         &self,
         limits: &Limits,

@@ -44,6 +44,11 @@ pub fn remove_partial_files() {
 
 /// Reads all of a file, or of standard input for `None` or `-`. Refuses to
 /// wait on a terminal, where the user most likely forgot the input.
+///
+/// # Errors
+///
+/// A file that cannot be read, and standard input when it is a
+/// terminal.
 pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
     match path {
         Some(path) if path != Path::new("-") => {
@@ -67,6 +72,11 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 /// single sequent: text (a parse error points into `text`), JSON, an LLTP
 /// problem or a `.spec` problem, whose counts are refused before they are
 /// written out when their tokens pass `most`.
+///
+/// # Errors
+///
+/// Text that is no sequent in `format`, with a caret under the place for
+/// the text syntax, and a `.spec` problem past `most`.
 pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
     // The text is read whole and the bound applied by `admit`, which says
     // how many occurrences the sequent has.
@@ -103,6 +113,11 @@ pub(crate) fn bound(most: u64) -> Limits {
 
 /// Refuses a sequent that unfolds to more than `most` occurrences, before
 /// any command unfolds or prints it.
+///
+/// # Errors
+///
+/// The library's [`Refusal::Occurrences`](linlog::Refusal::Occurrences)
+/// past `most`, naming the flag that raises it.
 pub fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
     let occurrences = sequent.occurrences();
     if occurrences > most {
@@ -148,6 +163,11 @@ impl SequentInput {
 
     /// Reads the one sequent from the argument, the file or standard
     /// input, in the format the flag or the file's extension names.
+    ///
+    /// # Errors
+    ///
+    /// An input that cannot be read, or text that is no sequent in its
+    /// format, or one past the occurrence limit.
     pub fn sequent(&self) -> Result<Sequent> {
         let (text, format) = self.text(false)?;
         if format == InputFormat::Tptp {
@@ -159,6 +179,11 @@ impl SequentInput {
     /// Reads one formula or sequent of ordinary logic and returns its image
     /// under the translation the flags choose, with the image's forest,
     /// within the limit on its occurrences.
+    ///
+    /// # Errors
+    ///
+    /// As [`sequent`](Self::sequent) does for an ordinary sequent, and the
+    /// translation's error.
     pub fn image(&self, logic: &LogicArgs) -> Result<(Forest, Image)> {
         let (text, format) = self.text(true)?;
         let image = crate::ordinary::image(logic, &crate::ordinary::sequent_in(&text, format)?)?;
@@ -173,6 +198,10 @@ impl SequentInput {
 
     /// Reads the sequent and lays it out as a forest, within the limit on
     /// its occurrences.
+    ///
+    /// # Errors
+    ///
+    /// As [`sequent`](Self::sequent) does.
     pub fn forest(&self) -> Result<Forest> {
         Ok(Forest::from_owned(self.sequent()?, &bound(self.most()))?)
     }
@@ -203,6 +232,10 @@ fn write_file(path: &Path, text: &str) -> io::Result<()> {
 
 /// Writes `text` and a newline to the file, which then holds all of it or
 /// is as it was, or to standard output for `None`.
+///
+/// # Errors
+///
+/// The file system's error, the file then left as it was.
 pub fn write(path: Option<&Path>, text: &str) -> Result<()> {
     match path {
         Some(path) => {
@@ -249,6 +282,10 @@ impl std::fmt::Debug for Output {
 impl Output {
     /// Opens the output: the file at `path`, or standard output for
     /// `None`; a binary one ends without a newline.
+    ///
+    /// # Errors
+    ///
+    /// A file that cannot be made beside the path.
     pub fn open(path: Option<&Path>, binary: bool) -> Result<Self> {
         let (sink, rename): (Box<dyn Write>, _) = match path {
             None => (Box::new(io::stdout().lock()), None),
@@ -275,6 +312,10 @@ impl Output {
 
     /// The stream itself, for a writer of bytes such as serde_json's; an
     /// error it meets is the writer's to report.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "the expect states that an output is open until it is finished or dropped"
+    )]
     pub fn stream(&mut self) -> &mut impl Write {
         self.sink.as_mut().expect("written before it is finished")
     }
@@ -282,6 +323,14 @@ impl Output {
     /// Ends the output with a newline and, for a file, gives it its name;
     /// fails with the stream's first error, and then leaves a file as it
     /// was.
+    ///
+    /// # Errors
+    ///
+    /// The stream's first error, or the file system's when it renames.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "the expect states that an output is open until it is finished"
+    )]
     pub fn finish(mut self) -> Result<()> {
         let mut sink = self.sink.take().expect("finished once");
         let done = match self.error.take() {

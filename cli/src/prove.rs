@@ -741,6 +741,10 @@ pub(crate) fn derivation(
 
 /// Returns a sequent as text: one-sided, or two-sided in intuitionistic
 /// mode when it has an intuitionistic reading.
+///
+/// # Errors
+///
+/// As [`sequent_in`] does.
 pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
     sequent_in(sequent, mode, SequentFormat::Text, &Styles::default())
 }
@@ -748,6 +752,11 @@ pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
 /// Returns a sequent in a format, one-sided, or two-sided in
 /// intuitionistic mode when it has an intuitionistic reading, under the
 /// format's options; for PNG and PDF, the SVG document to render.
+///
+/// # Errors
+///
+/// A sequent without an intuitionistic reading in intuitionistic mode,
+/// described with its formulas.
 pub fn sequent_in(
     sequent: &Sequent,
     mode: Mode,
@@ -778,6 +787,10 @@ pub fn sequent_in(
 /// Returns the form `--standalone` asks for, which only the LaTeX, Typst
 /// and Rocq formats (`exported`) have: the others have one form, an SVG
 /// always being a document, so the flag would change nothing.
+///
+/// # Errors
+///
+/// `--standalone` beside a format that has one form.
 pub fn form(standalone: bool, exported: bool) -> Result<Form> {
     match (standalone, exported) {
         (false, _) => Ok(Form::Fragment),
@@ -1038,6 +1051,16 @@ fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
 /// or the outcome as JSON. A time limit counts from here: the sequent is
 /// read, parsed and laid out as a forest under it, on a thread the
 /// command stops waiting for when the limit passes.
+///
+/// # Errors
+///
+/// An input that cannot be read, a sequent the search refuses (an engine
+/// or a fragment that does not apply), an output that cannot be made, or
+/// a proof the checker rejects.
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "the expects state facts the command has established before, such as a proof for a proved verdict"
+)]
 pub fn prove(args: &ProveArgs) -> Result<Status> {
     if crate::batch::is_batch(args) {
         return crate::batch::run(args);
@@ -1304,6 +1327,11 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
 
 /// Runs `check`: reads a proof, checks it in the mode the flags give, and
 /// prints the verdict and the derivation, or the verdict as JSON.
+///
+/// # Errors
+///
+/// A file that is no proof in JSON, a proof of a goal, or an output that
+/// cannot be made; an invalid proof is a verdict, not an error.
 pub fn check(args: &CheckArgs) -> Result<Status> {
     let text = io::read(args.proof.as_deref(), "proof")?;
     let proof: Proof = serde_json::from_str(&text).context("not a proof in JSON")?;

@@ -233,6 +233,15 @@ impl<'a> Reading<'a> {
     /// none: a subformula with no reading in any position, a formula on a
     /// side of `⊢` it cannot stand on, or, with the sides unknown, no root
     /// that can be the goal or two that can.
+    ///
+    /// # Errors
+    ///
+    /// A [`ShapeError`]: [`Formula`](ShapeError::Formula) for a subformula
+    /// with no reading, and for the roots
+    /// [`Succedents`](ShapeError::Succedents), [`NoGoal`](ShapeError::NoGoal),
+    /// [`Hypothesis`](ShapeError::Hypothesis),
+    /// [`SeveralGoals`](ShapeError::SeveralGoals) or
+    /// [`Undetermined`](ShapeError::Undetermined).
     pub fn new(forest: &'a Forest) -> Result<Self, ShapeError> {
         use Kind::*;
         // Which positions each occurrence can take, children before parents.

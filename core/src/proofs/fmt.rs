@@ -429,6 +429,11 @@ impl Derivation<'_> {
     /// without a trailing newline, and asks `stop` before every piece of
     /// a row. The layout takes memory proportional to the inferences and
     /// the text is written as it is made.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Error::WriteFailed`] when `out` refused the text.
     pub fn write_text(
         &self,
         options: &TextOptions,
@@ -449,6 +454,11 @@ impl Derivation<'_> {
     /// run of a structural rule `by ?w 3 times`.
     /// This is the reading of a derivation for a screen reader, which
     /// cannot follow a tree. Asks `stop` before every line.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Error::WriteFailed`] when `out` refused the text.
     pub fn write_steps(
         &self,
         out: &mut impl Write,
