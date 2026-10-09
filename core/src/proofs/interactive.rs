@@ -369,6 +369,9 @@ pub struct Interactive {
     forest: Forest,
     /// The mode.
     mode: Mode,
+    /// In intuitionistic mode, the reading's positions and goal, kept so
+    /// that [`reading`](Self::reading) costs nothing.
+    reading: Option<(Box<[Side]>, OccId)>,
     /// The inferences, top-down: the root first, then the goals each step
     /// opened, in order; an open goal has [`Rule::Open`].
     inferences: Vec<Inference>,
@@ -394,12 +397,15 @@ impl Interactive {
 
     /// Starts a proof over a forest built already.
     fn from_forest(forest: Forest, mode: Mode) -> Result<Self, Error> {
-        if mode.intuitionistic {
+        let reading = if mode.intuitionistic {
             if mode.mix {
                 return Err(Error::IntuitionisticMix);
             }
-            Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
-        }
+            let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
+            Some(reading.into_parts())
+        } else {
+            None
+        };
         let root = Inference {
             sequent: forest.roots().iter().copied().map(Member::from).collect(),
             rule: Rule::Open.into(),
@@ -410,6 +416,7 @@ impl Interactive {
         Ok(Self {
             forest,
             mode,
+            reading,
             inferences: vec![root],
             history: vec![],
         })
@@ -504,19 +511,25 @@ impl Interactive {
                     reason: "the history names an inference that is not a closed one, or names one twice",
                 });
             }
-            let mut added: Vec<usize> = state
-                .subtree(goal)
-                .into_iter()
-                .map(InfId::index)
-                .filter(|&id| id < len)
-                .collect();
-            added.sort_unstable();
-            let start = len - added.len();
-            if added
-                .iter()
-                .zip(start..len)
-                .any(|(&id, expected)| id != expected)
-            {
+            // The inferences this step added: those of its subtree below
+            // `len`. A premise has a larger index than its conclusion, so
+            // the walk enters no inference a later step added, and every
+            // inference is walked by one step only.
+            let (mut added, mut lowest) = (0, len);
+            let mut walk = state.inferences[goal.index()].premises.clone();
+            while let Some(id) = walk.pop() {
+                if id.index() >= len {
+                    continue;
+                }
+                added += 1;
+                lowest = lowest.min(id.index());
+                walk.extend(state.inferences[id.index()].premises.iter().copied());
+            }
+            // Each inference is the premise of one other only, so the walk
+            // counts each once: `added` of them below `len` and none below
+            // `start` is exactly the suffix `start..len`.
+            let start = len - added;
+            if lowest < start {
                 return Err(Error::InconsistentSession {
                     reason: "the history does not match the order of the inferences",
                 });
@@ -570,20 +583,20 @@ impl Interactive {
             if let Some(p) = principal {
                 context.remove(self.forest.left(sequent[p]).unwrap_or(sequent[p]));
             }
-            let mut used = vec![false; sequent.len()];
-            if let Some(p) = principal {
-                used[p] = true;
-            }
+            // Both are sorted, so each member of the context is the next
+            // equal one of the sequent, the principal formula skipped.
+            let mut at = 0;
             for &o in context.as_slice() {
-                let position = sequent
-                    .iter()
-                    .enumerate()
-                    .position(|(i, &x)| x == o && !used[i])
-                    .ok_or(Error::InconsistentSession {
+                while at < sequent.len() && (sequent[at] < o || Some(at) == principal) {
+                    at += 1;
+                }
+                if at == sequent.len() || sequent[at] != o {
+                    return Err(Error::InconsistentSession {
                         reason: "a premise holds a formula its conclusion lacks",
-                    })?;
-                used[position] = true;
-                left.push(position);
+                    });
+                }
+                left.push(at);
+                at += 1;
             }
         }
         let position = match principal {
@@ -649,9 +662,8 @@ impl Interactive {
     /// mode, which says on which side of `⊢` a client shows each formula,
     /// and `None` in classical mode.
     pub fn reading(&self) -> Option<Reading<'_>> {
-        self.mode
-            .intuitionistic
-            .then(|| Reading::new(&self.forest).expect("checked when the proof was started"))
+        let (position, goal) = self.reading.as_ref()?;
+        Some(Reading::of_parts(&self.forest, position, *goal))
     }
 
     /// Returns every inference, the root first and then in the order the

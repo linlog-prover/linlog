@@ -356,6 +356,17 @@ code relies on:
   every Mix and every graft (`graft` now appends a found derivation in
   reverse so that premises keep larger indices); keep the round trip of
   such states in `core/tests/serialize.rs`.
-- **The reading is recomputed** (`Interactive::reading`, O(n)) whenever
-  intuitionistic mode needs positions, since `Reading` borrows the forest
-  and the state owns it; `new` guarantees it exists.
+- **The reading is kept** (`Interactive::reading`, O(1)): the state
+  stores the positions and the goal `Reading::new` computed when it was
+  made (`Reading::into_parts`), and lends a reading over them
+  (`Reading::of_parts`, whose positions are a `Cow`), since `Reading`
+  borrows the forest the state owns. Recomputing it per call was O(n)
+  per `rules` or `apply`: 2 000 queries on a sequent of 300 003
+  occurrences took 2.1 s.
+- **Reading a session back is linear** (`from_parts`): the split of a `⊗`
+  or Mix is recovered by two pointers over the sorted conclusion and the
+  sorted premise context, and the history is walked from the last step
+  back without entering an inference a later step added (a premise has a
+  larger index than its conclusion), so every inference is walked by one
+  step; `added` inferences below `len` none of which is below `len −
+  added` are exactly the suffix the step must have added.

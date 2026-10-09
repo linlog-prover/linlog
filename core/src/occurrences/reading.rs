@@ -20,6 +20,7 @@
 use super::{Forest, OccId};
 use crate::errors::{Described, Owner, Subject};
 use crate::sequents::{Kind, Visit, Walk};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// The side of `⊢` an occurrence stands on under the intuitionistic reading
@@ -220,8 +221,9 @@ const OUT: u8 = 2;
 pub struct Reading<'a> {
     /// The forest read.
     forest: &'a Forest,
-    /// Per occurrence, its position.
-    position: Box<[Side]>,
+    /// Per occurrence, its position: the reading's own, or a session's
+    /// kept beside its forest.
+    position: Cow<'a, [Side]>,
     /// The goal.
     goal: OccId,
 }
@@ -313,9 +315,25 @@ impl<'a> Reading<'a> {
         }
         Ok(Self {
             forest,
-            position,
+            position: Cow::Owned(position.into_vec()),
             goal,
         })
+    }
+
+    /// Returns the positions and the goal, for an owner of the forest to
+    /// keep beside it.
+    pub(crate) fn into_parts(self) -> (Box<[Side]>, OccId) {
+        (self.position.into_owned().into_boxed_slice(), self.goal)
+    }
+
+    /// Returns the reading of `forest` from the positions and the goal
+    /// [`into_parts`](Self::into_parts) gave, in constant time.
+    pub(crate) const fn of_parts(forest: &'a Forest, position: &'a [Side], goal: OccId) -> Self {
+        Self {
+            forest,
+            position: Cow::Borrowed(position),
+            goal,
+        }
     }
 
     /// Returns the forest read.
