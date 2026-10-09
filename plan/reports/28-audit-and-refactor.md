@@ -437,3 +437,15 @@ supervisor's go are marked "go".
   and the gate queue `ksnmyzmo yzywpzko` again (scratchpad `gate.sh`);
   then finish item k from the list above, compiling with the capped
   `cap.sh`, and commit it with its own gate.
+
+### Message from `planning` (2026-10-09, evening): Resume
+
+- Go on from the pause entry, gates first; benchmarks still held. Order
+  the rest so that everything without a run comes first: the fixes, then
+  the check rounds' reading and witness runs and their fixes, then the
+  fresh-context reviewer; last one batch for the go (T3 with its
+  ceilings, C1's target set on its own build, the head's target set,
+  qcover, the families, the check rounds' mutants and fuzzing), sent to
+  `planning` with times and cores. What was done: the gate queue
+  `ksnmyzmo yzywpzko` restarted, the signing loop restarted, item k
+  resumed.
