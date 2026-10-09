@@ -3,7 +3,7 @@
 
 use super::translate::{Core, Image, pattern};
 use super::{Formulas, Logic, Node, NodeId, Symbols, Translation, write_sides};
-use crate::limits::{Limits, Progress};
+use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::occurrences::OccId;
 use crate::proofs::style::Drawn;
 use crate::proofs::{Compact, InfId, Labels, Rule as Linear, Sides, TextOptions, ViewOptions};
@@ -42,6 +42,7 @@ impl Side {
 /// an empty right side would be read as `⊥` by one rule and as anything
 /// by another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum Rule {
     /// `ax`: `A ⊢ A`.
     Axiom,
@@ -230,22 +231,50 @@ impl Display for Rule {
 /// One inference of a derivation of LK or LJ: the sequent it concludes,
 /// the rule, the formula the rule introduces, and its premises.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Inference {
     /// The hypotheses of the sequent concluded, a formula repeated as often
     /// as the sequent holds it.
-    pub left: Vec<NodeId>,
+    pub(crate) left: Vec<NodeId>,
     /// The formulas right of `⊢`.
-    pub right: Vec<NodeId>,
+    pub(crate) right: Vec<NodeId>,
     /// The rule.
-    pub rule: Rule,
+    pub(crate) rule: Rule,
     /// The side and the position there of the formula the rule
     /// introduces, removes or copies; `None` for an axiom.
-    pub principal: Option<(Side, usize)>,
+    pub(crate) principal: Option<(Side, usize)>,
     /// The premises, in the rule's order.
-    pub premises: Vec<InfId>,
+    pub(crate) premises: Vec<InfId>,
 }
 
 impl Inference {
+    /// Returns the hypotheses of the sequent concluded, a formula repeated
+    /// as often as the sequent holds it.
+    pub fn left(&self) -> &[NodeId] {
+        &self.left
+    }
+
+    /// Returns the formulas right of `⊢`.
+    pub fn right(&self) -> &[NodeId] {
+        &self.right
+    }
+
+    /// Returns the rule.
+    pub const fn rule(&self) -> Rule {
+        self.rule
+    }
+
+    /// Returns the side and the position there of the formula the rule
+    /// introduces, removes or copies; `None` for an axiom.
+    pub const fn principal(&self) -> Option<(Side, usize)> {
+        self.principal
+    }
+
+    /// Returns the premises, in the rule's order.
+    pub fn premises(&self) -> &[InfId] {
+        &self.premises
+    }
+
     /// Returns the formulas of one side.
     pub(crate) fn side(&self, side: Side) -> &[NodeId] {
         match side {
@@ -303,11 +332,24 @@ impl Derivation {
     /// describes them, and that its root concludes the sequent it was read
     /// back for: each inference on its own, from the formulas as they
     /// stand, sharing nothing with the linear proof or the read-back.
+    /// Checks `limits.work` inferences at most and asks `stop` before
+    /// each.
     ///
     /// # Errors
     ///
-    /// [`Error::ReadBack`] naming the first inference that breaks a rule.
-    pub fn check(&self) -> Result<(), Error> {
+    /// [`Error::ReadBack`] naming the first inference that breaks a rule;
+    /// [`Refusal::Work`] past the bound and [`Refusal::Stopped`] when
+    /// `stop` fired, neither a verdict on the derivation.
+    pub fn check(
+        &self,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<(), Error> {
+        if let Some(limit) = limits.work
+            && self.inferences.len() as u64 > limit
+        {
+            return Err(Error::Refused(Refusal::Work { limit }));
+        }
         let calculus = self.logic.calculus();
         let fail = |n: usize, why: String| Error::ReadBack {
             calculus,
@@ -329,6 +371,11 @@ impl Derivation {
             ));
         }
         for (n, inference) in self.inferences.iter().enumerate() {
+            if stop(Progress::new(Phase::Check, 1, n as u64 + 1)) {
+                return Err(Error::Refused(Refusal::Stopped {
+                    phase: Phase::Check,
+                }));
+            }
             if inference.premises.iter().any(|p| p.index() >= n) {
                 return Err(fail(n, "a premise does not precede it".to_owned()));
             }
@@ -632,16 +679,11 @@ struct Tag {
 impl Image {
     /// Unfolds a proof of the image into the derivation the read-back
     /// reads: two-sided for an image in ILL, one-sided otherwise, never
-    /// compact; `view` bounds it and `stop` ends it as for
-    /// [`Proof::derivation_within`].
-    ///
-    /// # Errors
-    ///
-    /// As [`Proof::derivation_within`].
-    pub fn linear_derivation<'p>(
+    /// compact, within `limits` and until `stop` fires, as
+    /// [`Proof::derivation_within`] does.
+    pub(crate) fn linear_derivation<'p>(
         &self,
         proof: &'p Proof,
-        view: &ViewOptions,
         limits: &Limits,
         stop: impl FnMut(Progress) -> bool,
     ) -> Result<crate::Derivation<'p>, Error> {
@@ -650,25 +692,36 @@ impl Image {
         } else {
             Sides::One
         };
-        let view = view.with_compact(Compact::Never).with_sides(sides);
+        let view = ViewOptions::default()
+            .with_compact(Compact::Never)
+            .with_sides(sides);
         proof.derivation_within(&view, limits, stop)
     }
 
-    /// Reads a derivation of the image back as one of LK (classical
+    /// Reads a proof of the image back as a derivation of LK (classical
     /// logic) or LJ (intuitionistic and minimal logic) of the ordinary
     /// sequent: a linear rule on an image is the rule of its connective, a
     /// dereliction or a promotion is no inference, a contraction or a
     /// weakening is one of the ordinary formula, and a classical negation,
     /// which has no image of its own, is a `¬` rule where its operand is
-    /// taken apart. The derivation is from
-    /// [`linear_derivation`](Self::linear_derivation);
-    /// [`Derivation::check`] checks the result.
+    /// taken apart. The proof is unfolded first, never compact (two-sided
+    /// for an image in ILL), within `limits.derivation_bytes` and
+    /// `limits.memory_bytes`, and `stop` is asked as that unfolding asks
+    /// it and once per inference read; [`Derivation::check`] checks the
+    /// result.
     ///
     /// # Errors
     ///
-    /// [`Error::ReadBack`] for a derivation that is not of this image, or
-    /// a rule with no reading.
-    pub fn read_back(&self, linear: &crate::Derivation) -> Result<Derivation, Error> {
+    /// As [`Proof::derivation_within`] for the unfolding;
+    /// [`Error::ReadBack`] for a proof that is not of this image, or a
+    /// rule with no reading; [`Refusal::Stopped`] when `stop` fired.
+    pub fn read_back(
+        &self,
+        proof: &Proof,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Derivation, Error> {
+        let linear = &self.linear_derivation(proof, limits, &mut stop)?;
         let calculus = self.logic.calculus();
         let fail = |reason: String| Error::ReadBack { calculus, reason };
         let forest = linear.forest();
@@ -737,7 +790,12 @@ impl Image {
         let mut out = Vec::new();
         // Per linear inference, the ordinary inference that stands for it.
         let mut mapped: Vec<InfId> = Vec::with_capacity(linear.inferences().len());
-        for inference in linear.inferences() {
+        for (i, inference) in linear.inferences().iter().enumerate() {
+            if stop(Progress::new(Phase::ReadBack, 1, i as u64 + 1)) {
+                return Err(Error::Refused(Refusal::Stopped {
+                    phase: Phase::ReadBack,
+                }));
+            }
             let members: Vec<(NodeId, Side)> = inference
                 .sequent
                 .iter()
@@ -935,15 +993,9 @@ mod tests {
         let Verdict::Proved(proof) = &outcome.verdict else {
             panic!("provable");
         };
-        let linear = image
-            .linear_derivation(
-                proof,
-                &ViewOptions::default(),
-                &crate::Limits::default(),
-                |_| false,
-            )
+        let derivation = image
+            .read_back(proof, &crate::Limits::default(), |_| false)
             .unwrap();
-        let derivation = image.read_back(&linear).unwrap();
         let tree = derivation.to_string();
         assert_eq!(
             tree,
@@ -999,10 +1051,126 @@ mod tests {
                 ),
             ],
         };
-        assert!(forged(Logic::Intuitionistic).check().is_ok());
+        let unbounded = crate::Limits::default();
+        assert!(
+            forged(Logic::Intuitionistic)
+                .check(&unbounded, |_| false)
+                .is_ok()
+        );
         assert!(matches!(
-            forged(Logic::Minimal).check(),
+            forged(Logic::Minimal).check(&unbounded, |_| false),
             Err(Error::ReadBack { .. })
         ));
+    }
+
+    /// Every guard of the checker refuses what it guards against: a
+    /// derivation read back checks, and each of these breaks of one of its
+    /// inferences fails, with the bound and the stop refusing besides.
+    #[test]
+    fn the_checker_refuses_each_break() {
+        let sequent: Sequent = "a -> b, b -> c |- a -> c".parse().unwrap();
+        let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName).unwrap();
+        let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+        let Verdict::Proved(proof) = &outcome.verdict else {
+            panic!("provable");
+        };
+        let unbounded = crate::Limits::default();
+        let derivation = image.read_back(proof, &unbounded, |_| false).unwrap();
+        assert_eq!(derivation.check(&unbounded, |_| false), Ok(()));
+        let rules: Vec<Rule> = derivation.inferences.iter().map(|i| i.rule).collect();
+        let at = |rule| rules.iter().position(|&r| r == rule).unwrap();
+        let (axiom, left, right) = (
+            at(Rule::Axiom),
+            at(Rule::ImpliesLeft),
+            at(Rule::ImpliesRight),
+        );
+        let root = rules.len() - 1;
+        // Each break with the reason its guard gives: with the guard
+        // gone, another would fail it for another reason, or none would.
+        type Break = (&'static str, Box<dyn Fn(&mut Derivation)>);
+        let broken: [Break; 10] = [
+            ("the root does not conclude", Box::new(|d| d.right.clear())),
+            (
+                "a premise does not precede",
+                Box::new(move |d| {
+                    d.inferences[left].premises[0] = InfId::new(root as u32);
+                }),
+            ),
+            (
+                "more than one formula right",
+                Box::new(move |d| {
+                    let extra = d.inferences[axiom].left[0];
+                    d.inferences[axiom].right.push(extra);
+                }),
+            ),
+            (
+                "not a sequent A ⊢ A",
+                Box::new(move |d| {
+                    let other = d.inferences[right].right[0];
+                    d.inferences[axiom].right[0] = other;
+                }),
+            ),
+            (
+                "no principal formula",
+                Box::new(move |d| d.inferences[left].principal = None),
+            ),
+            (
+                "lies outside the sequent",
+                Box::new(move |d| {
+                    d.inferences[left].principal = Some((Side::Left, 9));
+                }),
+            ),
+            (
+                "premises instead of 2",
+                Box::new(move |d| {
+                    d.inferences[left].premises.pop();
+                }),
+            ),
+            (
+                "do not share or split",
+                Box::new(move |d| d.inferences[left].premises.reverse()),
+            ),
+            (
+                "does not apply to the principal",
+                Box::new(move |d| {
+                    d.inferences[right].rule = Rule::AndRight;
+                }),
+            ),
+            (
+                "not what the rule makes",
+                Box::new(move |d| {
+                    d.inferences[right].premises[0] = InfId::new(axiom as u32);
+                }),
+            ),
+        ];
+        for (why, mutate) in &broken {
+            let mut d = derivation.clone();
+            mutate(&mut d);
+            match d.check(&unbounded, |_| false) {
+                Err(Error::ReadBack { reason, .. }) => {
+                    assert!(reason.contains(why), "{why}: {reason}")
+                }
+                other => panic!("{why}: {other:?}"),
+            }
+        }
+        let one = unbounded.with_work(Some(1));
+        assert_eq!(
+            derivation.check(&one, |_| false),
+            Err(Error::Refused(Refusal::Work { limit: 1 }))
+        );
+        assert_eq!(
+            derivation.check(&unbounded, |_| true),
+            Err(Error::Refused(Refusal::Stopped {
+                phase: Phase::Check
+            }))
+        );
+        assert_eq!(
+            image
+                .read_back(proof, &unbounded, |p| p.phase == Phase::ReadBack)
+                .unwrap_err(),
+            Error::Refused(Refusal::Stopped {
+                phase: Phase::ReadBack
+            })
+        );
     }
 }

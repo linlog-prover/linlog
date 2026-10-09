@@ -437,9 +437,16 @@ pub(crate) fn write(
             closing.push(')');
         }
     }
+    // A statement without atoms or hypotheses binds nothing, and `fun =>`
+    // is no term.
+    let lambda = if binders.is_empty() {
+        String::new()
+    } else {
+        format!("fun {binders}=> ")
+    };
     write!(
         out,
-        "Lemma {} : {statement}.\nProof.\n  exact (fun {binders}=> {body}",
+        "Lemma {} : {statement}.\nProof.\n  exact ({lambda}{body}",
         options.lemma
     )?;
     let mut stack = vec![Task::Enter(derivation.root())];

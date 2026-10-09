@@ -50,6 +50,9 @@
               '(a <-> b) -> ~(a /\ ~b) /\ (((a -> c) -> a) -> a)'
             linlog prove --logic intuitionistic --copies 8 --format rocq --standalone --output cli_lj.v \
               'a \/ b, ~a, (b -> c) /\ true |- ~~c'
+            # Without atoms or hypotheses, a certificate binds nothing.
+            linlog prove --logic classical --format rocq --standalone --output cli_lk_true.v 'true'
+            linlog prove --logic intuitionistic --format rocq --standalone --output cli_lj_true.v 'true'
             for file in *.v; do
               rocq compile -R nanoyalla NanoYalla "$file" 2>&1 | tee log
               if [ -s log ]; then exit 1; fi

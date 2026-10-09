@@ -18,10 +18,21 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   this crate's (`->`, `/\`, `\/`, `~`, `<->`, `true`, `false` and their
   Unicode symbols) and TPTP's `fof` (`read_tptp`, through
   `lltp::clauses`, which `lltp::read` shares); `translate.rs`: the
-  pattern table, `translate`, `Image`; `derivation.rs`: `Rule`,
-  `Inference`, `Derivation`, the read-back (`Image::read_back`) and the
-  checker (`Derivation::check`); `rocq.rs` (behind `rocq`): the
-  certificate over `Prop`, public as `export::rocq::ordinary`.
+  pattern table, `translate`, `Image`, `Target` (`Translation::target`:
+  MALL in classical affine mode or LL in intuitionistic mode, whose
+  `Display` the command prints, `affine MALL`, `ILL`); `derivation.rs`:
+  `Rule`, `Inference` (private fields, accessors), `Derivation`, the
+  read-back (`Image::read_back`) and the checker (`Derivation::check`);
+  `decide.rs`: `decide`, translation, search, read-back and check in one
+  call, answering an `Outcome` (`Verdict::Valid` with the derivation,
+  `NotValid`, `Unknown`, and the linear outcome); `rocq.rs` (behind
+  `rocq`): the certificate over `Prop`, public as
+  `export::rocq::ordinary`.
+- **The arena refuses what is not its own**: `Formulas::add` refuses an
+  operand that is no node of the arena (an id of another one) and an
+  atom outside its names, and `Sequent::new` an id outside its arena
+  (`Error::IndexOutOfBounds`, `Space::Formula` or `Space::Atom`), so
+  that no later index panics; a full arena is `Refusal::Index`.
 - **The ordinary syntax refuses the linear symbols** (`&`, `|`, `*`,
   `-o`): later.md's requirement that nobody writes `&` and gets the
   wrong connective. TPTP's `&` and `|` are read only by `read_tptp`.
@@ -58,8 +69,14 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   refuses `⊥L` in minimal logic anyway. An intuitionistic or minimal
   sequent with nothing right of `⊢` is decided as `Γ ⊢ ⊥`, and `Image::ordinary`
   is that sequent; more than one formula right is `Error::Succedents`.
-- **The read-back** reads the linear derivation that
-  `Image::linear_derivation` builds (two-sided for ILL, which keeps the
+- **The read-back takes the proof, not a derivation** (`read_back(&proof,
+  &limits, stop)`): it unfolds the proof itself, never compact, within
+  the limits, so a compact derivation (a run of weakenings as one
+  starred inference, which the probe found read as one `WL` that fails
+  the checker, H22) cannot reach it; it and the checker ask the stop
+  once per inference, and the checker checks `limits.work` inferences
+  at most. It reads the linear derivation that
+  `Image::linear_derivation` (crate-private) builds (two-sided for ILL, which keeps the
   goal on the premise without absorbed hypotheses at a `⊗`; one-sided
   for affine MALL; never compact) inference by inference in its order,
   mapping each to zero or more ordinary inferences: `!`/`?d` none (the
@@ -77,7 +94,10 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   empty right side is `⊥` to LK's `¬L` and anything to `WR` or a split
   `∨L`, which together are ex falso; a review forged `a, ¬a ⊢ b` that way,
   `minimal_logic_refuses_an_empty_right_side` pins it), no `⊥L` in minimal logic, the root
-  concluding the image's ordinary sequent. `¬L` and `¬R` take both
+  concluding the image's ordinary sequent. `the_checker_refuses_each_break`
+  breaks a read-back derivation once per guard and asserts that guard's
+  reason, so a guard removed shows (F11: `check_one` replaced by
+  `Ok(())` survived the suite). `¬L` and `¬R` take both
   forms, LK's (one premise; `Γ, A ⊢` for `¬R`) and that of `A → ⊥`. It has
   no counter that can wrap: it compares sorted vectors.
 - **The certificate** (`rocq.rs`) is a term, not a tactic script: an LJ
@@ -87,14 +107,19 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   import `Stdlib`'s `Classical_Prop`). Variables are `h'n`/`k'n`, which no
   atom identifier contains; atoms go through `export::rocq::identifiers`
   plus the names the terms use (`USED`). Every `match` has a `return`,
-  and `↔` goes through a cast to the conjunction it unfolds to. A
+  and `↔` goes through a cast to the conjunction it unfolds to; a
+  statement without atoms or hypotheses binds nothing (`exact (I)`, no
+  `fun =>`, H29). A
   negation is bracketed like a binary formula, since it is an
   application. Minimal logic's `⊥` is Rocq's `False`, so a certificate
   of minimal logic proves the intuitionistic statement only (minimality
   rests on the checker).
-- **Deciding** is the caller's: `prove(image.sequent(), image.mode(), …)`
-  with the command's defaults (no copy bound, the time limit), affine
-  classical mode for `Affine`, intuitionistic mode otherwise. The
+- **Deciding** is `decide(&sequent, &ordinary::Options, &search::Options,
+  &limits, stop)`, which the ordinary journey runs; the command still
+  runs the steps itself (its race and its output), with its defaults
+  (no copy bound, the time limit), affine classical mode for `Affine`,
+  intuitionistic mode otherwise. A proof whose read-back a bound or the
+  stop refuses is that refusal from `decide`, never a verdict. The
   default translation for intuitionistic and minimal logic is
   `Translation::DEFAULT_INTUITIONISTIC`, chosen by the ILTP run
   (`plan/reports/25-ordinary-logic.md`).

@@ -93,8 +93,9 @@ Each entry point is described in the file of its module:
 - `lltp::read`, `mist::read` and `families` (`core-inputs.md`);
 - `ordinary`: `"…".parse::<ordinary::Sequent>()`, `read_tptp`,
   `translate(&sequent, logic, translation)` to an `Image`,
-  `Image::linear_derivation` and `read_back` to a `Derivation` of LK or
-  LJ, `Derivation::check`, `export::rocq::ordinary` (`core-ordinary.md`).
+  `Image::read_back(&proof, &limits, stop)` to a `Derivation` of LK or
+  LJ, `Derivation::check(&limits, stop)`, `ordinary::decide` all of it
+  in one call, `export::rocq::ordinary` (`core-ordinary.md`).
 
 ## Crate-wide rules
 

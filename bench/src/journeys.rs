@@ -421,21 +421,17 @@ fn ordinary() -> Result<()> {
     }
     text.push_str(&clashes.join(" \\/ "));
     let sequent: ordinary::Sequent = text.parse()?;
+    // The search's options as for the image, which `decide` makes again.
+    let image = ordinary::translate(&sequent, Logic::Classical, Translation::Affine)?;
+    let search = options(image.sequent(), None);
+    let logic = ordinary::Options::default()
+        .with_logic(Logic::Classical)
+        .with_translation(Some(Translation::Affine));
     measured(|| -> Result<()> {
-        let image = ordinary::translate(&sequent, Logic::Classical, Translation::Affine)?;
-        let outcome = linlog::prove(
-            image.sequent(),
-            image.mode(),
-            &options(image.sequent(), None),
-        )?;
-        let Verdict::Proved(proof) = outcome.verdict else {
+        let outcome = ordinary::decide(&sequent, &logic, &search, &Limits::default(), |_| false)?;
+        let ordinary::Verdict::Valid(_) = outcome.verdict else {
             bail!("the pigeonhole formula is valid: {:?}", outcome.verdict);
         };
-        let linear =
-            image.linear_derivation(&proof, &ViewOptions::default(), &Limits::default(), |_| {
-                false
-            })?;
-        image.read_back(&linear)?.check()?;
         Ok(())
     })
 }

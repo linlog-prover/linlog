@@ -257,6 +257,8 @@ pub enum Space {
     Vertex,
     /// The inferences of a derivation.
     Inference,
+    /// The formulas of an ordinary arena.
+    Formula,
 }
 
 impl Space {
@@ -270,6 +272,7 @@ impl Space {
             Self::Member => "member",
             Self::Vertex => "vertex",
             Self::Inference => "inference",
+            Self::Formula => "formula",
         }
     }
 
@@ -283,6 +286,7 @@ impl Space {
             Self::Member => "members",
             Self::Vertex => "vertices",
             Self::Inference => "inferences",
+            Self::Formula => "formulas",
         }
     }
 }

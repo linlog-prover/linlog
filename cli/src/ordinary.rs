@@ -82,8 +82,8 @@ pub(crate) fn derivation(
         return Ok(Shown::Nothing);
     }
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
-    let linear = match image.linear_derivation(proof, &show.view, &show.limits, |_| halt()) {
-        Ok(linear) => linear,
+    let d = match image.read_back(proof, &show.limits, |_| halt()) {
+        Ok(d) => d,
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         Err(error) if error.is_refusal() => {
             let sides = if image.mode().is_intuitionistic() {
@@ -99,11 +99,13 @@ pub(crate) fn derivation(
             };
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
+        Err(error @ Error::ReadBack { .. }) => return Err(error.into()),
         Err(error) => return Err(anyhow!(error).context("the proof cannot be unfolded")),
     };
-    let d = image.read_back(&linear)?;
-    drop(linear);
-    d.check()?;
+    match d.check(&show.limits, |_| halt()) {
+        Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
+        checked => checked?,
+    }
     let styles = &show.styles;
     if let Some((columns, most)) = show.fit() {
         let (width, lines) = d.text_size(&styles.text);

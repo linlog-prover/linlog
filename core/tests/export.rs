@@ -166,13 +166,10 @@ fn ordinary_derivation() {
     let Verdict::Proved(proof) = outcome.verdict else {
         panic!("provable");
     };
-    let linear = image
-        .linear_derivation(&proof, &ViewOptions::default(), &Limits::default(), |_| {
-            false
-        })
+    let derivation = image
+        .read_back(&proof, &Limits::default(), |_| false)
         .unwrap();
-    let derivation = image.read_back(&linear).unwrap();
-    derivation.check().unwrap();
+    derivation.check(&Limits::default(), |_| false).unwrap();
     let (mut tex, mut typ, mut drawing) = (String::new(), String::new(), String::new());
     let latex = latex::Options {
         form: Form::Standalone,
@@ -188,6 +185,28 @@ fn ordinary_derivation() {
     snapshot("ordinary.typ", &typ);
     svg::ordinary(&derivation, &Style::default(), &mut drawing, |_| false).unwrap();
     snapshot("ordinary.svg", &drawing);
+}
+
+/// The certificate of an ordinary sequent without atoms or hypotheses
+/// binds nothing, in both logics: `fun =>` is no term.
+#[test]
+fn ordinary_certificate_without_binders() {
+    use linlog::ordinary::{self, Logic};
+    let sequent: ordinary::Sequent = "|- true".parse().unwrap();
+    for logic in [Logic::Classical, Logic::Intuitionistic] {
+        let options = ordinary::Options::default().with_logic(logic);
+        let unbounded = Limits::default();
+        let outcome = ordinary::decide(&sequent, &options, &Options::default(), &unbounded, |_| {
+            false
+        })
+        .unwrap();
+        let ordinary::Verdict::Valid(derivation) = outcome.verdict else {
+            panic!("{logic}: {:?}", outcome.verdict);
+        };
+        let mut out = String::new();
+        rocq::ordinary(&derivation, &rocq::Options::default(), &mut out, |_| false).unwrap();
+        assert!(out.contains("exact (") && !out.contains("fun =>"), "{out}");
+    }
 }
 
 /// A compact derivation draws a run of weakenings as one inference with a

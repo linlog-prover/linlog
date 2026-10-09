@@ -335,7 +335,7 @@ impl std::str::FromStr for Sequent {
             // One formula, or a list, to prove.
             std::mem::swap(&mut left, &mut right);
         }
-        Ok(Sequent::new(formulas, left, right))
+        Sequent::new(formulas, left, right)
     }
 }
 
@@ -390,7 +390,7 @@ pub fn read_tptp(text: &str) -> Result<Problem, Error> {
         .collect::<Result<_, _>>()?;
     let right = vec![read(clauses.conjecture())?];
     Ok(Problem {
-        sequent: Sequent::new(formulas, left, right),
+        sequent: Sequent::new(formulas, left, right)?,
         status: clauses.status,
     })
 }

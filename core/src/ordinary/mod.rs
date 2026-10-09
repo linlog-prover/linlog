@@ -12,7 +12,8 @@
 //! ([`Image::read_back`](crate::ordinary::Image::read_back), a
 //! [`Derivation`](crate::ordinary::Derivation) that
 //! [`Derivation::check`](crate::ordinary::Derivation::check) checks by the
-//! rules of the logic).
+//! rules of the logic); [`decide`](crate::ordinary::decide) does all of it
+//! in one call.
 //!
 //! Classical logic goes into affine MALL without exponentials: the
 //! one-sided sequent in negation normal form with `∧` as `&`, `∨` as `⅋`,
@@ -26,23 +27,24 @@
 //!
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
-//! use linlog::ordinary::{Logic, Sequent, Translation, translate};
-//! use linlog::{Limits, Options, Verdict, ViewOptions, prove};
+//! use linlog::ordinary::{self, Logic, Sequent, Translation, Verdict, translate};
+//! use linlog::{Limits, Options};
 //!
 //! let sequent: Sequent = "a -> b, b -> c |- a -> c".parse()?;
 //! let image = translate(&sequent, Logic::Intuitionistic, Translation::CallByName)?;
 //! assert_eq!(image.sequent().to_string(), "⊢ ?(!a ⊗ ~b), ?(!b ⊗ ~c), ?~a ⅋ c");
-//! let outcome = prove(image.sequent(), image.mode(), &Options::default())?;
-//! let Verdict::Proved(proof) = &outcome.verdict else {
-//!     panic!("provable");
+//! let options = ordinary::Options::default().with_logic(Logic::Intuitionistic);
+//! let outcome =
+//!     ordinary::decide(&sequent, &options, &Options::default(), &Limits::default(), |_| false)?;
+//! let Verdict::Valid(derivation) = &outcome.verdict else {
+//!     panic!("valid");
 //! };
-//! let linear = image.linear_derivation(proof, &ViewOptions::default(), &Limits::default(), |_| false)?;
-//! let derivation = image.read_back(&linear)?;
-//! derivation.check()?;
-//! assert_eq!(derivation.inference(derivation.root()).rule.name(), "→R");
+//! assert_eq!(derivation.inference(derivation.root()).rule().name(), "→R");
 //! # Ok::<(), linlog::Error>(())
 //! ```
 
+/// Deciding an ordinary sequent in one call.
+mod decide;
 /// The derivations of LK and LJ, the read-back and its check.
 mod derivation;
 #[cfg(feature = "parse")]
@@ -53,17 +55,21 @@ pub(crate) mod rocq;
 /// The translations into linear logic.
 mod translate;
 
+pub use decide::{Outcome, Verdict, decide};
 pub use derivation::{Derivation, Inference, Rule, Side};
 #[cfg(feature = "parse")]
 pub use parse::{Problem, read_tptp};
 pub use translate::{FALSE, Image, translate};
 
 use crate::Error;
+use crate::fragment::{Fragment, Mode};
 use crate::hash::HashMap;
+use crate::limits::{Refusal, Space};
 use crate::sequents::{Visit, Walk};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// An ordinary propositional logic.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
@@ -106,6 +112,7 @@ impl Display for Logic {
 }
 
 /// A translation of ordinary logic into linear logic, by its name.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum Translation {
@@ -183,12 +190,41 @@ impl Translation {
         )
     }
 
-    /// Returns the logic the image lies in: affine MALL or ILL.
-    pub const fn target(self) -> &'static str {
+    /// Returns where the image lies: MALL in classical affine mode, or LL
+    /// in intuitionistic mode.
+    pub const fn target(self) -> Target {
         match self {
-            Self::Affine => "affine MALL",
-            Self::CallByName | Self::CallByValue | Self::ZeroOne => "ILL",
+            Self::Affine => Target {
+                fragment: Fragment::MALL,
+                mode: Mode::CLASSICAL.with_affine(),
+            },
+            Self::CallByName | Self::CallByValue | Self::ZeroOne => Target {
+                fragment: Fragment::LL,
+                mode: Mode::INTUITIONISTIC,
+            },
         }
+    }
+}
+
+/// Where a translation's images lie: the largest fragment and the mode
+/// they are decided in.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Target {
+    /// The fragment.
+    pub fragment: Fragment,
+    /// The mode.
+    pub mode: Mode,
+}
+
+impl Display for Target {
+    /// Writes the fragment's name in the mode, after `affine` in classical
+    /// affine mode: `affine MALL`, `ILL`.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.mode.is_affine() && !self.mode.is_intuitionistic() {
+            f.write_str("affine ")?;
+        }
+        f.write_str(self.fragment.name_in(self.mode))
     }
 }
 
@@ -201,6 +237,7 @@ impl Display for Translation {
 
 /// How an ordinary sequent is decided: the logic, and the translation,
 /// `None` for the logic's default ([`Translation::default_for`]).
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
@@ -212,6 +249,22 @@ pub struct Options {
 }
 
 impl Options {
+    /// Returns the options with the logic given.
+    #[must_use]
+    pub const fn with_logic(self, logic: Logic) -> Self {
+        Self { logic, ..self }
+    }
+
+    /// Returns the options with the translation given, `None` for the
+    /// logic's default.
+    #[must_use]
+    pub const fn with_translation(self, translation: Option<Translation>) -> Self {
+        Self {
+            translation,
+            ..self
+        }
+    }
+
     /// Returns the translation these options choose.
     pub const fn translation(&self) -> Translation {
         match self.translation {
@@ -311,17 +364,36 @@ impl Formulas {
         &self.atoms
     }
 
-    /// Returns the id of `node`, adding it unless the arena has it, or
-    /// fails when the arena is full. Its subformulas must belong to the
-    /// arena.
+    /// Returns the id of `node`, adding it unless the arena has it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IndexOutOfBounds`] for a subformula that is no node of
+    /// this arena (an id of another one) or an atom that is not one of its
+    /// names, and [`Refusal::Index`](crate::Refusal::Index) when the arena
+    /// is full.
     pub fn add(&mut self, node: Node) -> Result<NodeId, Error> {
         if let Some(&id) = self.ids.get(&node) {
             return Ok(id);
         }
+        let (a, b) = node.operands();
+        for id in [a, b].into_iter().flatten() {
+            self.holds(id)?;
+        }
+        if let Node::Atom(atom) = node
+            && atom as usize >= self.atoms.len()
+        {
+            return Err(Error::IndexOutOfBounds {
+                space: Space::Atom,
+                index: atom as usize,
+                len: self.atoms.len(),
+            });
+        }
         if self.nodes.len() >= Self::MOST {
-            return Err(Error::Refused(crate::limits::Refusal::Occurrences {
-                occurrences: Self::MOST as u64 + 1,
-                limit: Self::MOST as u64,
+            return Err(Error::Refused(Refusal::Index {
+                what: Space::Formula,
+                count: Self::MOST as u64 + 1,
+                most: Self::MOST as u64,
             }));
         }
         let id = NodeId(self.nodes.len() as u32);
@@ -330,7 +402,24 @@ impl Formulas {
         Ok(id)
     }
 
+    /// Fails unless `id` is a node of this arena.
+    fn holds(&self, id: NodeId) -> Result<(), Error> {
+        if id.index() < self.nodes.len() {
+            Ok(())
+        } else {
+            Err(Error::IndexOutOfBounds {
+                space: Space::Formula,
+                index: id.index(),
+                len: self.nodes.len(),
+            })
+        }
+    }
+
     /// Returns the atom called `name`, adding it unless the arena has it.
+    ///
+    /// # Errors
+    ///
+    /// [`Refusal::Index`](crate::Refusal::Index) when the arena is full.
     pub fn atom(&mut self, name: &str) -> Result<NodeId, Error> {
         let index = match self.names.get(name) {
             Some(&index) => index,
@@ -483,14 +572,21 @@ pub struct Sequent {
 }
 
 impl Sequent {
-    /// Returns the sequent `left ⊢ right` over the formulas given, which
-    /// must hold every id of the two lists.
-    pub fn new(formulas: Formulas, left: Vec<NodeId>, right: Vec<NodeId>) -> Self {
-        Self {
+    /// Returns the sequent `left ⊢ right` over the formulas given.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IndexOutOfBounds`] for an id of the two lists that is no
+    /// node of `formulas`.
+    pub fn new(formulas: Formulas, left: Vec<NodeId>, right: Vec<NodeId>) -> Result<Self, Error> {
+        for &id in left.iter().chain(&right) {
+            formulas.holds(id)?;
+        }
+        Ok(Self {
             formulas,
             left,
             right,
-        }
+        })
     }
 
     /// Returns the arena of the formulas.
@@ -569,23 +665,33 @@ mod tests {
         let outcome = prove(image.sequent(), image.mode(), &search).unwrap();
         match &outcome.verdict {
             Verdict::Proved(proof) => {
-                let linear = image
-                    .linear_derivation(
-                        proof,
-                        &crate::ViewOptions::default(),
-                        &crate::Limits::default(),
-                        |_| false,
-                    )
-                    .unwrap();
-                let derivation = image.read_back(&linear).unwrap();
+                let unbounded = crate::Limits::default();
+                let derivation = image.read_back(proof, &unbounded, |_| false).unwrap();
                 derivation
-                    .check()
+                    .check(&unbounded, |_| false)
                     .unwrap_or_else(|e| panic!("{text} ({translation}): {e}"));
                 Some(true)
             }
             Verdict::Unprovable(_) => Some(false),
             Verdict::Unknown(_) => None,
         }
+    }
+
+    /// An arena refuses a subformula of another arena and an atom
+    /// outside its names, and a sequent an id outside its arena.
+    #[test]
+    fn foreign_ids_are_refused() {
+        let mut other = Formulas::default();
+        let (a, b) = (other.atom("a").unwrap(), other.atom("b").unwrap());
+        let and = other.add(Node::And(a, b)).unwrap();
+        let mut formulas = Formulas::default();
+        let x = formulas.atom("x").unwrap();
+        let refused = |result: Result<_, Error>, space| matches!(result, Err(Error::IndexOutOfBounds { space: s, .. }) if s == space);
+        assert!(refused(formulas.add(Node::Not(and)), Space::Formula));
+        assert!(refused(formulas.add(Node::Atom(5)), Space::Atom));
+        let sequent = Sequent::new(formulas.clone(), vec![x], vec![and]);
+        assert!(refused(sequent.map(|_| x), Space::Formula));
+        assert!(Sequent::new(formulas, vec![], vec![x]).is_ok());
     }
 
     /// In minimal logic false is an atom of its own, also beside an atom
