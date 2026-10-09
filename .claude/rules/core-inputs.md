@@ -64,7 +64,9 @@ the generated families are read; the harness that runs them is
   (`read_within`; `read` takes `Forest::DEFAULT_LIMIT`, the command
   `--occurrence-limit`): a 40-byte file asked for 20 million tokens,
   617 MiB, before the limit counted (the panel's finding); an update from another counter, a counter updated twice,
-  and the names `top` and `bot` (units in this syntax) are refused. The
+  a counter given twice in `init` (`x >= 1, x = 3` was read as `x >= 3`,
+  neither constraint), and the names `top` and `bot` (units in this
+  syntax) are refused. The
   expected result is the first line's `#expected result: safe|unsafe`,
   which only 12 of the suite's files state (`Safety::Unsafe` is
   provable). The mode is not in the file: a coverability question is

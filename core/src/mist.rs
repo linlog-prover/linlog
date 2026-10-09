@@ -90,7 +90,8 @@ pub enum Safety {
 ///
 /// [`Error::Mist`] for text that is not such a problem: a section missing
 /// or out of order, a counter not declared, a counter updated twice by one
-/// rule or from another counter, a count that is no number below 2³², or
+/// rule or from another counter, a counter given twice in `init`, a count
+/// that is no number below 2³², or
 /// a counter named `top` or `bot`, which this crate's syntax reads as a
 /// unit; [`Error::TooManyOccurrences`] for more tokens than the limit.
 pub fn read(text: &str) -> Result<Problem, Error> {
@@ -140,9 +141,16 @@ pub fn read_within(text: &str, most: u64) -> Result<Problem, Error> {
     reader.keyword("init")?;
     let mut tokens = vec![0u32; names.len()];
     let mut parameters = Vec::new();
+    let mut initial = vec![false; names.len()];
     while !reader.at_keyword("target") {
         let name = reader.name()?;
         let x = counter(name)?;
+        // Read either way, `x >= 1, x = 3` would be neither constraint.
+        if std::mem::replace(&mut initial[x], true) {
+            return Err(error(format!(
+                "the counter `{name}` is given twice in `init`"
+            )));
+        }
         let at_least = match reader.next()? {
             Token::Word("=") => false,
             Token::Word(">=") => true,
@@ -644,6 +652,7 @@ mod tests {
             "vars a rules a >= 1 -> b' = b + 1; init target a >= 1",
             "vars a b rules a >= 1 -> a' = b + 1; init target a >= 1",
             "vars a rules a >= 1 -> a' = a + 1, a' = a - 1; init target a >= 1",
+            "vars a b rules a >= 4 -> a' = a - 4, b' = b + 1; init a >= 1, a = 3 target b >= 1",
             "vars a rules init a = 4294967296 target a >= 1",
             "vars top rules init target top >= 1",
         ] {
