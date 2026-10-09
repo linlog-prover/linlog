@@ -273,7 +273,7 @@ pub enum Error {
         fragment: Fragment,
     },
     /// Proof nets exist in linear mode only, and the mode is affine.
-    #[error("proof nets exist in classical mode only, with or without Mix, not in {mode} mode")]
+    #[error("proof nets exist in linear mode only, with or without Mix, not in {mode} mode")]
     NetMode {
         /// The mode asked for.
         mode: Mode,

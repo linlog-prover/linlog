@@ -1754,7 +1754,7 @@ mod tests {
         assert!(matches!(error, Error::NetMode { .. }));
         assert_eq!(
             error.to_string(),
-            "proof nets exist in classical mode only, with or without Mix, not in classical affine mode"
+            "proof nets exist in linear mode only, with or without Mix, not in classical affine mode"
         );
     }
 
