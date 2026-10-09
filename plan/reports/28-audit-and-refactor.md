@@ -35,9 +35,9 @@ its evidence (a commit, a file, a command's result) once it is done.
 | item | state | evidence |
 |---|---|---|
 | 1.1 rubric, `plan/notes/audit-rubric.md` | done | ad4794af |
-| 1.2 machine checks in `nix flake check` | done | the commit "Check the conventions, spelling and unused dependencies, and lint with clippy's pedantic group"; gate passed, the five checks built, planted faults caught |
-| 1.3 audit workflow, rounds and critic | running | `wf_715f365e-ce0` from 03:52 (17 reviewers, merge, cross-examination, critic, up to two gap rounds); resume with `Workflow({scriptPath: "~/.claude/projects/-home-tux-Projects-own-linlog/2fda1898-7f45-4f9b-b25c-cd89c7609bb8/workflows/scripts/step28-audit-wf_715f365e-ce0.js", resumeFromRunId: "wf_715f365e-ce0"})`; its agents' programs on cores 6 to 15, target dir `target/audit` |
-| 1.4 `plan/reports/28-audit.md` | open | |
+| 1.2 machine checks in `nix flake check` | done | 42d0f22d: `conventions`, `typos`, `shear` (modules/conventions.nix), clippy's `pedantic` and picked lints with a backlog in `Cargo.toml`, rustdoc lints; the gate passed, the checks built, planted faults caught |
+| 1.3 audit workflow, rounds and critic | done | `wf_715f365e-ce0`, 03:52–06:02, 81 agents (17 reviewers, 3 merges, 41 examiners, 2 critics, 16 gap readers, 2 rechecks): 226 findings stand (56 must-fix, 170 should-fix), 6 refuted, 135 of taste; two gap rounds, the second still adding 23 |
+| 1.4 `plan/reports/28-audit.md` | done | this commit: the report, the decision list (C1 to C3, T1 to T7), `plan/reports/28-audit-findings.json` |
 
 ### Stage 2: the design
 
@@ -167,5 +167,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 - Usage: the five-hour window reset at 01:50, the weekly one resets at
   05:00. If a limit stops the session, it writes where it stands into
   the checklist and ends its turn; the supervisor says when to go on.
-- What was done: recorded at the session's start; signing failed at
-  the start (no pinentry), so the session commits unsigned.
+- What was done: recorded at the session's start; signing failed
+  throughout (no pinentry), so the session's commits are unsigned. Two
+  confirmed wrong answers (F165, F23) were sent to `planning` at 06:05,
+  as the prompt asks for a soundness fault.
