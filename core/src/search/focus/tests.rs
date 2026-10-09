@@ -6,7 +6,7 @@
 use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
-use crate::search::{Schedule, Verdict, prove_goal};
+use crate::search::{Verdict, prove_goal};
 use crate::{Limits, Progress};
 
 /// Runs the focused engine on the roots of the forest in the fragment
@@ -486,7 +486,9 @@ fn default_bias_takes_turns() {
         assert_eq!(slices.splits, forward.splits + backward.splits);
         assert_eq!(run(&text, m, &options).1, slices);
         // Asked for, the turns run on a build with threads too.
-        let turns = options.clone().with_schedule(Schedule::Turns);
+        let turns = options
+            .clone()
+            .with_schedule(crate::search::Schedule::Turns);
         assert_eq!(run(&text, m, &turns).1, both);
     }
 }
