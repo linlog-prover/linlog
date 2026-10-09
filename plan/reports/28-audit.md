@@ -870,3 +870,54 @@ design starts on the recommended answers.
 sixty, because two examiners per finding needed them. It removed the
 stray `latex` file of F162 before any commit, and it committed unsigned
 while signing failed, as it was told.
+
+## From the probe (2026-10-09)
+
+After the comparison above, the supervisor ran a second soundness pass,
+by running rather than reading, on the parts neither audit had probed
+(the author's yes; workflow `linlog-probe-soundness`). Seven agents,
+one per part, wrote oracles and generators and ran them on the binary
+of 1d144ec6, in capped scopes on cores 6 to 15: Fable 5.1 at `high`
+for the nets, the engines and the library API, Opus 5.5 at `high` for
+the limits, the exports, the read-back and the parallel paths. Each
+finding then went to two examiners of the other models, told to
+refute it by rerunning its witness. Eleven findings were raised and
+none fell. One repeats H2, and the other ten are now `H22` to
+`H31` in `28-audit-findings.json`, status `probe`. Five of them widen a
+finding (F14, F61, F75, F106, H15), named in `also`. Their programs are
+under `/tmp/claude-1000/-home-tux-Projects-own-linlog/e2e2fd87-6303-4e01-bfe1-5c29850a26e0/scratchpad/probe3/parts/`
+(the entries' `scratchpad/` paths), until the machine's `/tmp` ages
+them out after ten days.
+
+| H | area | the fault |
+|---|---|---|
+| H22 | library | `Image::read_back` turns a compact derivation into an LK/LJ derivation its own checker rejects (a run of weakenings read as one) |
+| H23, H24 | library | `is_acyclic` with another structure's scratch, and `partner`, `same_component` and `OccSet::insert` on a foreign id, panic |
+| H25 | library | the checker takes time quadratic in a proof whose shared node a chain of `&` reads, under its memory bound (8.6 MB, 83 s) |
+| H26 | command | a JSON Lines line with `name` and `mode` but no `sequent` is decided as a bare sequent in the flags' mode |
+| H27 | search | after a worker panics, the library batch hangs for good when more problems follow than its look-ahead |
+| H28 | command | so the command's batch hangs after one entry panics (F14's parser panic, more than 8 entries) |
+| H29 | library | an ordinary certificate with no atoms and no hypotheses does not compile (`fun =>`) |
+| H30 | command | a batch entry named `.` or `/` writes `DIR.json` beside `--output DIR`, overwriting it |
+| H31 | command | the Rocq verdict comment does not escape `*)`, so a JSON atom name can end it and write live Rocq |
+
+What the probe found sound, with its evidence:
+- **Proof nets.** The criterion agreed with Danos-Regnier by enumeration
+  and with contractibility on 113 182 linkings. Every correct structure
+  sequentialized to a checked proof. The net engine agreed with three
+  independent oracles on 1 200 sequents of up to 22 literals, on one
+  and two threads, and the cubes partition the sequential search
+  exactly.
+- **The engines.** About 4 000 sequents provable by construction, of 21
+  to 61 connectives in eleven modes, were never answered unprovable.
+  The option matrix (every engine, bias, copy bound, memo limit and
+  fragment) agreed with the reference prover.
+- **The limits.** Over 13 000 Horn engine calls under memory limits
+  agreed with a BFS oracle, and every state-equation certificate
+  checked. The 24 255 calls on sequents that need more copies than
+  their bound never answered unprovable, and 396 000 goal searches off
+  the roots showed no conflict.
+- **What was not reached.** The engines part's runs were cut short:
+  larger Horn nets, the additive engine on larger pairs, and the pool
+  on the MALL and MELL sets are uncovered. The net engine was not run
+  on more than two threads.
