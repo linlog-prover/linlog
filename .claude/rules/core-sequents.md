@@ -143,6 +143,14 @@ time and memory linear in the text. What the code relies on:
   `XID_Continue` (the `unicode-ident` crate's tables, a dependency of
   every build: names enter through JSON and `ordinary::Formulas::atom`
   as well).
+- **A name is read in NFC** (`name::normalized`, the
+  `unicode-normalization` crate, a dependency of every build like
+  `unicode-ident`): the parser keys its names by their NFC (`Cow`, an
+  ASCII or composed name borrowed), the JSON reader composes each name
+  before `merge_atoms`, and `ordinary::Formulas::atom` composes before
+  its lookup; so `é` written composed and decomposed is one atom (H8,
+  HD3), and a table's names are composed. A new reader of names
+  composes them too.
 - **One check of an atom name** (`sequents/name.rs`, `name::check`):
   an identifier that is no keyword (`par`, `top`, `bot`) and no reserved
   word (`forall`, `exists`), else `Error::AtomName` (code `atom_name`,

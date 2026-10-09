@@ -1,11 +1,15 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! Atom names: identifiers of the text syntax that no keyword and no word
-//! reserved for a later version of the syntax takes, so that a sequent
-//! written as text reads back as itself.
+//! Atom names: identifiers of the text syntax in Unicode's composed
+//! normal form (NFC) that no keyword and no word reserved for a later
+//! version of the syntax takes, so that a sequent written as text reads
+//! back as itself, and a name means one atom however its accents were
+//! encoded.
 
 use crate::Error;
+use std::borrow::Cow;
+use unicode_normalization::{IsNormalized, UnicodeNormalization, is_nfc_quick};
 
 /// The keywords of the linear syntax: `par` is a connective, `top` and
 /// `bot` are constants.
@@ -38,6 +42,15 @@ pub(crate) fn is_identifier(name: &str) -> bool {
     }
     let mut chars = name.chars();
     chars.next().is_some_and(starts_identifier) && chars.all(unicode_ident::is_xid_continue)
+}
+
+/// Returns `name` in NFC: itself where it is, which every ASCII name is.
+pub(crate) fn normalized(name: &str) -> Cow<'_, str> {
+    if name.is_ascii() || is_nfc_quick(name.chars()) == IsNormalized::Yes {
+        Cow::Borrowed(name)
+    } else {
+        Cow::Owned(name.nfc().collect())
+    }
 }
 
 /// Checks that `name` can name an atom of a sequent: an identifier that is
@@ -120,5 +133,14 @@ mod tests {
             }
             assert_eq!(fault(name), why, "{name}");
         }
+    }
+
+    /// A name is composed: `é` as `e` and a combining acute is the `é` of
+    /// one code point, and a name already composed is lent back.
+    #[test]
+    fn names_are_composed() {
+        assert_eq!(normalized("e\u{301}x"), "\u{e9}x");
+        assert!(matches!(normalized("\u{e9}x"), Cow::Borrowed(_)));
+        assert!(matches!(normalized("Ax"), Cow::Borrowed(_)));
     }
 }

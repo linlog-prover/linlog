@@ -31,7 +31,8 @@ use crate::hash::HashMap;
 /// postfix `^`, over the constants `0`, `1`, `bot`/`⊥` and `top`/`⊤`,
 /// variables and parentheses. A variable is a Unicode identifier (it
 /// starts with `_` or a character of `XID_Start` and goes on with
-/// characters of `XID_Continue`) other than the keywords `bot`, `top` and
+/// characters of `XID_Continue`), read in NFC, so that one name is one
+/// atom however its accents are encoded, other than the keywords `bot`, `top` and
 /// `par`, which are that constant or connective only as whole
 /// identifiers, and the words `forall` and `exists`, which are reserved
 /// for the quantifiers of a later version: the syntax grows by new tokens

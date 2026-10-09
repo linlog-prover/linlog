@@ -2,9 +2,10 @@
 // Licensed under the EUPL
 
 use crate::limits::{Limits, Refusal};
-use crate::sequents::{Sequent as Seq, Term, TermId};
+use crate::sequents::{Sequent as Seq, Term, TermId, name};
 use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
 
 /// The serialized form of an arena term. Its tags are part of the interchange
 /// format, so renaming one breaks it.
@@ -153,11 +154,14 @@ impl TryFrom<Sequent> for Seq {
 
     /// Converts a deserialized sequent back, failing if its arena breaks the
     /// invariants or an atom's name is none the text syntax reads as that
-    /// atom. A name the dictionary repeats is one atom, as it is in a
-    /// parsed sequent.
-    fn try_from(s: Sequent) -> Result<Seq, Self::Error> {
-        for name in &s.atoms {
-            crate::sequents::name::check(name)?;
+    /// atom. A name the dictionary repeats, in NFC, is one atom, as it is
+    /// in a parsed sequent.
+    fn try_from(mut s: Sequent) -> Result<Seq, Self::Error> {
+        for name in &mut s.atoms {
+            if let Cow::Owned(composed) = name::normalized(name) {
+                *name = composed;
+            }
+            name::check(name)?;
         }
         let mut s = Seq {
             terms: s.terms.into_iter().map(Term::from).collect(),

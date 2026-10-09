@@ -109,6 +109,15 @@ fn repeated_variables() {
     }
 }
 
+/// A name is one atom however its accents are encoded: `é` composed and
+/// as `e` with a combining acute is the composed name (NFC).
+#[test]
+fn names_are_composed() {
+    let sequent: Sequent = "e\u{301} |- \u{e9}".parse().unwrap();
+    assert_eq!(sequent, "\u{e9} |- \u{e9}".parse().unwrap());
+    assert_eq!(sequent.atom_names(), ["\u{e9}"]);
+}
+
 /// Repeated formulas are all kept, each with its own subformulas.
 #[test]
 fn repeated_formulas() {

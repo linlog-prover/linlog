@@ -106,6 +106,17 @@ fn atom_names_are_variables_of_the_text() {
     }
 }
 
+/// A name is read in NFC, so a dictionary that spells one name composed
+/// and decomposed has one atom.
+#[test]
+fn atom_names_are_composed() {
+    let json =
+        r#"{"version":1,"terms":[{"D":0},{"V":1}],"roots":[0,1],"atoms":["e\u0301","\u00e9"]}"#;
+    let s: Sequent = serde_json::from_str(json).unwrap();
+    assert_eq!(s.atom_names(), ["\u{e9}"]);
+    assert_eq!(s.to_string(), "⊢ ~\u{e9}, \u{e9}");
+}
+
 /// JSON whose arena breaks an invariant is rejected on deserialization.
 #[test]
 fn broken_arena_is_rejected() {

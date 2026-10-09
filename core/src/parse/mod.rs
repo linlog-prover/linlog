@@ -20,8 +20,9 @@ use crate::errors::ParseError;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
-use crate::sequents::name::{RESERVED, starts_identifier};
+use crate::sequents::name::{RESERVED, normalized, starts_identifier};
 use crate::sequents::{Atom, Sequent, Term, TermId};
+use std::borrow::Cow;
 
 /// A binary connective as it is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,8 +113,8 @@ struct Parser<'a> {
     antecedents: u32,
     /// The names of the atoms, in the order they first occur.
     atoms: Vec<String>,
-    /// The atom of every name read so far.
-    names: HashMap<&'a str, Atom>,
+    /// The atom of every name read so far, by its NFC.
+    names: HashMap<Cow<'a, str>, Atom>,
     /// The prefix operators, parentheses and binary connectives whose
     /// right operand is being read, the innermost last.
     pending: Vec<Pending>,
@@ -223,13 +224,22 @@ impl<'a> Parser<'a> {
         &self.input[start..self.at]
     }
 
-    /// Returns the atom called `name`, a new one if the name is.
+    /// Returns the atom called `name` in NFC, a new one if the name is.
+    /// A name read before is one lookup; only a new spelling is composed.
     fn atom(&mut self, name: &'a str) -> Atom {
-        let fresh = Atom::new(self.atoms.len() as u32);
-        *self.names.entry(name).or_insert_with(|| {
-            self.atoms.push(name.to_string());
-            fresh
-        })
+        if let Some(&atom) = self.names.get(name) {
+            return atom;
+        }
+        let key = normalized(name);
+        if let Cow::Owned(composed) = &key
+            && let Some(&atom) = self.names.get(composed.as_str())
+        {
+            return atom;
+        }
+        let atom = Atom::new(self.atoms.len() as u32);
+        self.atoms.push(key.clone().into_owned());
+        self.names.insert(key, atom);
+        atom
     }
 
     /// Gives `operand` to the pending operators that take it before the

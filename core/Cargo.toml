@@ -20,6 +20,7 @@ resvg = { version = "0.47", default-features = false, features = [
 serde = { version = "1.0.228", features = ["derive"], optional = true }
 thiserror = "2.0.17"
 unicode-ident = "1.0.26"
+unicode-normalization = { version = "0.1.25", default-features = false }
 
 [features]
 default = ["interactive", "latex", "parse", "rocq", "serialize", "svg", "typst"]

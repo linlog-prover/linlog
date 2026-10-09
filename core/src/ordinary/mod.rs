@@ -422,8 +422,8 @@ impl Formulas {
         }
     }
 
-    /// Returns the atom called `name`, adding it unless the arena has it.
-    /// The name is an identifier of the text syntax and none of its
+    /// Returns the atom called `name` in NFC, adding it unless the arena
+    /// has it. The name is an identifier of the text syntax and none of its
     /// keywords, so that the formula written as text reads back as itself:
     /// neither `true` nor `false`, nor a keyword of the linear syntax, since
     /// the atom keeps its name in the translations.
@@ -434,6 +434,7 @@ impl Formulas {
     /// word reserved for a later version of the syntax (`forall`,
     /// `exists`), and [`Refusal::Index`] when the arena is full.
     pub fn atom(&mut self, name: &str) -> Result<NodeId, Error> {
+        let name = &*crate::sequents::name::normalized(name);
         let index = match self.names.get(name) {
             Some(&index) => index,
             None => {
@@ -690,6 +691,22 @@ mod tests {
             }
             Verdict::Unprovable(_) => Some(false),
             Verdict::Unknown(_) => None,
+        }
+    }
+
+    /// A name is one atom however its accents are encoded, and a keyword
+    /// of either syntax names none.
+    #[test]
+    fn atom_names_are_composed_identifiers() {
+        let mut formulas = Formulas::default();
+        let composed = formulas.atom("\u{e9}").unwrap();
+        assert_eq!(formulas.atom("e\u{301}").unwrap(), composed);
+        assert_eq!(formulas.atom_names(), ["\u{e9}"]);
+        for name in ["top", "true", "forall", "a b"] {
+            assert!(
+                matches!(formulas.atom(name), Err(Error::AtomName { .. })),
+                "{name}"
+            );
         }
     }
 
