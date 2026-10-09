@@ -625,9 +625,19 @@ witnesses, found only this one refuses both):
   factor the lowering put there (the left one, D1), so the symmetric
   reading that turned `(A -o bot) -o bot |- A` into `1 ⊸ (A ⊗ 1) ⊢ A` is
   not tried and the input is refused as `bot |- A` is (H9).
-- **With the sides unknown** (`None`): today's choice, unchanged (the
-  goal the root that can only be output, else the last root that can be
-  output; the symmetric reading inside implications).
+- **With the sides unknown** (`None`; decision 21): the reading answers
+  only where it is the one reading. The goal is the one root that can be
+  it, every other root reading as input; where two roots can each be the
+  goal (only formulas of `⊤` and `0` stand on either side, as in `⊢ 0,
+  ⊤`) the reading refuses, `ShapeError::Undetermined { first, second }`,
+  with a message that says to give the sides (`antecedents`, or the text
+  form). An implication's antecedent is the left factor, as with the
+  sides known: the JSON keeps its operands in the order written (`optimize`
+  does not reorder them), so there is no symmetric reading anywhere, and
+  H9's one-sided form is refused from JSON as from text. `⊢ ⊤, a` has one
+  reading, `0 ⊢ a`, since `a` cannot be a hypothesis, and is answered:
+  H10's question, two succedents, needs the sides, and a JSON sequent
+  that asks it writes `"antecedents": 0` and is refused as the text is.
 - **What it changes for the user**: an intuitionistic sequent is written
   two-sided. Text written one-sided with several roots (`|- ~A, B`,
   read today as `A ⊢ B`) is refused with a message that says to write
@@ -635,15 +645,17 @@ witnesses, found only this one refuses both):
   reading's own error text already says (`⅋ only as A ⊸ B, that is ~A ⅋
   B`); the lock's `error-not-intuitionistic` call (`|- ?A, !~A`) gets
   the succedent message. The commit names these in README and in its
-  lock change. A JSON sequent without the key keeps today's reading.
+  lock change. A JSON sequent without the key is read by decision 21's
+  rule.
 - Both witnesses run on the binary of 2026-10-09 (session `step-28c`):
   `prove -i '|- top, a'` and `prove -i '(A -o bot) -o bot |- A'` both
-  answer `provable`, exit 0; they are the tests of this change, and text
-  on purpose. A JSON sequent without `antecedents` and `Sequent::add`
-  keep today's reading, symmetric implication included, so H9's
-  rereading stays reachable there (`check -i` on such a file): the rule
-  takes the sides from the writer and guesses none, and a writer that
-  wants it writes the key.
+  answer `provable`, exit 0; they are the tests of this change, as text
+  and as JSON without `antecedents` (H9's refused by the factor rule,
+  `⊢ ⊤, a` answered as `0 ⊢ a`, and with `"antecedents": 0` refused), with
+  `⊢ 0, ⊤` without sides refused as undetermined. Neither the reading nor
+  anything after it guesses: `Interactive`, `Derivation`, the checker,
+  the oracle and the Horn engine take the reading the front door or the
+  session made and choose nothing of their own.
 - **The rule is written down** (walk-through 31): the position grammar
   of `core-forest.md` (output: `⊗ ⊕ & ! 1 ⊤ 0`, atoms, `A ⊸ B` stored `A⊥ ⅋
   B`; input: the duals; the flip only at an implication's antecedent),
@@ -1281,7 +1293,8 @@ impl ErrorKind { pub const fn is_refusal(self) -> bool; /* Unsupported | Limit |
   (P3): `Fault::{Succedents { count }, Kind { member }, NotUnderQuest {
   member }, Conclusion { derived }}` (3.8), [34] `NotACut { member }`;
   `ShapeError::{SeveralGoals { first, second }, Formula { occurrence },
-  Succedents { count }}`; `StepError::{NoGoal { goal }, Succedents {
+  Succedents { count }}` and the new `Undetermined { first, second }`
+  (3.6); `StepError::{NoGoal { goal }, Succedents {
   count }}`; `NotTaken::Mode { mode }` (8.6); `Split::Left { positions }`
   (3.10), [36] `At { position }`; [38] `Witness::Term { term }`. The types that held only refusals or a
   failed writer fold into `Error`: `ViewError`, `WriteError`,
@@ -3152,7 +3165,9 @@ time at 37's lift (10.9, 10.10 (e), 11.3 to 11.5, decision 20); (7)
 named fields and P3's two exceptions (P3, 3.6, 3.8, 3.10, 4.1, 6.2, 8.6,
 10.8, 10.10 (i)); (8) the mismatches (2.1, 2.2, 2.4, 2.5, 3.9, 5.1, 5.2,
 8.1, 8.5); (9) `GoalProof` of kind `unsupported` (3.7, 4.4); (10) the
-tests of H9 and H10 text on purpose (3.6).
+tests of H9 and H10, which the supervisor's check of the answer turned
+into decision 21: with the sides unknown the reading answers only where
+it is the one reading (3.6).
 
 ## 13. Findings and requirements answered
 
@@ -3283,3 +3298,4 @@ recommended answers.
 | 18 | **`Term`, `Kind`, `Node`, `Rule` stay closed** (P3), each new variant a planned 0.y bump (0.2.0 at 34, 0.3.0 at 38) | `#[non_exhaustive]` on them, which makes 34 and 38 additive for downstream crates but forces wildcard arms there that silently mishandle a cut or a binder | a downstream `match` should fail to compile when the calculus grows; inside the crate the lint keeps them exhaustive either way (walk-through 30 asked for the author's word) |
 | 19 | **Classical cyclic MLL is read with a reversing dual** by an ordered parse beside `parse_within` (3.1, 10.8) | the order derived from D1's lowering for every ordered mode | a classical cyclic sequent has no reading to derive an order from; with the order-keeping dual `|- ~(a * b), a, b` would be unprovable in cyclic mode, a wrong answer (walk-through 36) |
 | 20 | **The focused engine becomes generic over its zone at 38** (D-7; 10.10 (e), 11.5): adopted on instruction counts, provisional on pinned time, which step 37's lift measures first (G3, on an idle machine; 10.9) | D17's duplicated fast path, a sibling module for the framed zone, which 38 takes if G3 fails | instruction counts: one instance free, a second within the gates once the shared helpers are inlined (M2d, M3i). D-7 and D17 ask for pinned time within a few percent too, and callgrind does not see the instruction cache a second monomorphised engine strains (M3 adds 166 KB, 7 % of the text); nothing public rests on it |
+| 21 | **With the sides unknown, the reading answers only where it is the one reading** (3.6): a JSON sequent without `antecedents`, or one built in code without sides, has as its goal the one root that can be it, and an implication's antecedent is the left factor as with the sides known; two roots that can each be the goal (formulas of `⊤` and `0`) are refused (`ShapeError::Undetermined`) with a message that asks for the sides | today's guess (the last root that can be the goal, the symmetric reading), which keeps H9's and H10's wrong answers reachable through JSON and the library; refusing every intuitionistic sequent without sides, which guesses nothing either and costs nothing found, but refuses a hand-written JSON sequent that has one reading | closes H9 and H10 on every input, not only text. Its cost, checked: no lock entry, fixture, test or README block moves beyond commit (2) of 7.5, since every `-i` input there is text, and the JSON that `check -i` reads in the tests is written by `prove -i` from text, with the key; LLTP, the families and `ordinary::translate` give the sides; `Sequent::add` has no caller outside its own tests; `Interactive`, `Derivation`, the checker, the oracle and the Horn engine choose nothing of their own |
