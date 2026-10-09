@@ -819,3 +819,271 @@ const _: fn() = || {
     const fn shared<T: Send + Sync + 'static>() {}
     shared::<Error>();
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    /// One error of every variant, and of every code a wrapped type
+    /// gives.
+    fn samples() -> Vec<Error> {
+        use crate::limits::Phase;
+        use crate::occurrences::{Member, OccId};
+        use crate::proofs::{Fault, Invalid, Node, NodeId, Refused};
+        let refusals = [
+            Refusal::Stopped {
+                phase: Phase::Search,
+            },
+            Refusal::Memory {
+                phase: Phase::Search,
+                limit_bytes: 1,
+                needed_bytes: None,
+            },
+            Refusal::Occurrences {
+                occurrences: 2,
+                limit: 1,
+            },
+            Refusal::Output {
+                what: "derivation",
+                estimate_bytes: 2,
+                limit_bytes: 1,
+                least_bytes: None,
+            },
+            Refusal::Work { limit: 1 },
+            Refusal::Pixels {
+                pixels: 2,
+                limit: 1,
+            },
+            Refusal::Index {
+                what: Space::Node,
+                count: 2,
+                most: 1,
+            },
+        ];
+        let invalid = CheckError::Invalid(Box::new(Invalid {
+            node: NodeId::new(0),
+            rule: Node::One(Member::from(OccId::new(0))),
+            premises: Vec::new(),
+            fault: Fault::NotDual,
+        }));
+        let message = String::new;
+        let mut samples = vec![
+            Error::UnknownName {
+                what: "mode",
+                name: "x".into(),
+                known: &[],
+            },
+            Error::InvalidOption {
+                key: "typst",
+                message: message(),
+            },
+            Error::Json {
+                form: "sequent",
+                message: message(),
+            },
+            Error::Version {
+                form: "sequent",
+                found: 2,
+                supported: 1,
+            },
+            Error::IndexOutOfBounds {
+                space: Space::Term,
+                index: 1,
+                len: 1,
+            },
+            Error::NotTopological {
+                space: Space::Term,
+                index: 1,
+                parent: 0,
+            },
+            Error::Antecedents {
+                antecedents: 2,
+                roots: 1,
+            },
+            Error::AtomName { name: "par".into() },
+            Error::Check(invalid.clone()),
+            Error::Check(CheckError::Refused(Refused {
+                node: NodeId::new(0),
+                refusal: refusals[0].clone(),
+            })),
+            Error::Net(Box::new(NetError::Empty)),
+            Error::Net(Box::new(NetError::Fragment {
+                fragment: Fragment::LL,
+            })),
+            Error::GoalProof,
+            Error::NotIntuitionistic(ShapeError::NoGoal),
+            Error::IntuitionisticMix,
+            Error::GoalOutputs { count: 2 },
+            Error::Succedents { count: 2 },
+            Error::FragmentMismatch {
+                asserted: Fragment::MLL,
+                detected: Fragment::LL,
+            },
+            Error::Translation {
+                translation: crate::ordinary::Translation::Affine,
+                logic: crate::ordinary::Logic::Intuitionistic,
+            },
+            Error::NoEngine {
+                fragment: Fragment::LL,
+                mode: Mode::CLASSICAL,
+            },
+            Error::NetFragment {
+                fragment: Fragment::LL,
+            },
+            Error::NetMode {
+                mode: Mode::CLASSICAL,
+            },
+            Error::NetGoal,
+            Error::EngineMode {
+                engine: Engine::Net,
+                mode: Mode::CLASSICAL,
+            },
+            Error::NotAdditive {
+                fragment: Fragment::LL,
+                roots: 3,
+            },
+            Error::NotHorn,
+            Error::WriteFailed,
+            Error::Rejected(Box::new(invalid)),
+            Error::ReadBack {
+                calculus: "LK",
+                reason: message(),
+            },
+        ];
+        samples.extend(refusals.into_iter().map(Error::Refused));
+        #[cfg(feature = "parse")]
+        samples.extend([
+            Error::Parse(Box::new(ParseError::spanning("(", 1..1, &["a formula"]))),
+            Error::Lltp { message: message() },
+            Error::Spec { message: message() },
+            Error::Tptp { message: message() },
+            Error::SeveralConjectures { second: message() },
+            Error::FamilySize {
+                family: "chain",
+                size: 0,
+                least: 1,
+                powers_of_two: false,
+            },
+        ]);
+        #[cfg(feature = "interactive")]
+        samples.extend([
+            Error::InconsistentSession { reason: "" },
+            Error::Step(crate::proofs::StepError::NoGoal {
+                goal: crate::proofs::interactive::GoalId::new(0),
+            }),
+            Error::OpenGoals { count: 1 },
+            Error::ForeignProof,
+            Error::GoalMismatch,
+        ]);
+        #[cfg(feature = "rocq")]
+        samples.push(Error::Unsupported(crate::export::rocq::Unsupported::Mix));
+        #[cfg(feature = "parallel")]
+        samples.push(Error::ThreadPool {
+            threads: 2,
+            message: message(),
+        });
+        #[cfg(any(feature = "png", feature = "pdf"))]
+        samples.extend([
+            Error::NotSvg { message: message() },
+            Error::RenderFailed { message: message() },
+        ]);
+        #[cfg(feature = "pdf")]
+        samples.push(Error::NoDate);
+        samples
+    }
+
+    /// Names every variant without a wildcard, so that a variant added
+    /// later fails to compile here until it has a sample above.
+    fn variant(error: &Error) {
+        match error {
+            #[cfg(feature = "parse")]
+            Error::Parse(_)
+            | Error::Lltp { .. }
+            | Error::Spec { .. }
+            | Error::Tptp { .. }
+            | Error::SeveralConjectures { .. }
+            | Error::FamilySize { .. } => {}
+            #[cfg(feature = "interactive")]
+            Error::InconsistentSession { .. }
+            | Error::Step(_)
+            | Error::OpenGoals { .. }
+            | Error::ForeignProof
+            | Error::GoalMismatch => {}
+            #[cfg(feature = "rocq")]
+            Error::Unsupported(_) => {}
+            #[cfg(feature = "parallel")]
+            Error::ThreadPool { .. } => {}
+            #[cfg(any(feature = "png", feature = "pdf"))]
+            Error::NotSvg { .. } | Error::RenderFailed { .. } => {}
+            #[cfg(feature = "pdf")]
+            Error::NoDate => {}
+            Error::UnknownName { .. }
+            | Error::InvalidOption { .. }
+            | Error::Json { .. }
+            | Error::Version { .. }
+            | Error::IndexOutOfBounds { .. }
+            | Error::NotTopological { .. }
+            | Error::Antecedents { .. }
+            | Error::AtomName { .. }
+            | Error::Check(_)
+            | Error::Net(_)
+            | Error::GoalProof
+            | Error::NotIntuitionistic(_)
+            | Error::IntuitionisticMix
+            | Error::GoalOutputs { .. }
+            | Error::Succedents { .. }
+            | Error::FragmentMismatch { .. }
+            | Error::Translation { .. }
+            | Error::NoEngine { .. }
+            | Error::NetFragment { .. }
+            | Error::NetMode { .. }
+            | Error::NetGoal
+            | Error::EngineMode { .. }
+            | Error::NotAdditive { .. }
+            | Error::NotHorn
+            | Error::Refused(_)
+            | Error::WriteFailed
+            | Error::Rejected(_)
+            | Error::ReadBack { .. } => {}
+        }
+    }
+
+    /// `CODES` lists exactly the codes the errors give, once each; a code
+    /// of a feature this build lacks is listed without a sample.
+    #[test]
+    fn the_codes_are_listed() {
+        let listed: BTreeSet<&str> = Error::CODES.iter().copied().collect();
+        assert_eq!(listed.len(), Error::CODES.len(), "a code listed twice");
+        let mut given = BTreeSet::new();
+        for error in samples() {
+            variant(&error);
+            assert!(
+                listed.contains(error.code()),
+                "{} is not listed",
+                error.code()
+            );
+            given.insert(error.code());
+        }
+        let parse = ["parse", "lltp", "spec", "tptp", "several_conjectures"];
+        let interactive = [
+            "inconsistent_session",
+            "step",
+            "open_goals",
+            "foreign_proof",
+            "goal_mismatch",
+        ];
+        let gated = |code: &str| {
+            let render = cfg!(any(feature = "png", feature = "pdf"));
+            (parse.contains(&code) || code == "family_size") && !cfg!(feature = "parse")
+                || interactive.contains(&code) && !cfg!(feature = "interactive")
+                || code == "no_certificate" && !cfg!(feature = "rocq")
+                || code == "thread_pool" && !cfg!(feature = "parallel")
+                || (code == "not_svg" || code == "render_failed") && !render
+                || code == "no_date" && !cfg!(feature = "pdf")
+        };
+        for code in listed.difference(&given) {
+            assert!(gated(code), "no error gives {code}");
+        }
+    }
+}
