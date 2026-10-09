@@ -46,7 +46,7 @@ fn decides_the_horn_families() {
     ] {
         let family = FAMILIES.iter().find(|f| f.name == name).unwrap();
         for &size in sizes {
-            let instance = family.instance(size, 0);
+            let instance = family.instance(size, 0).unwrap();
             let mut modes = vec![instance.mode];
             if name.starts_with("counter") {
                 modes.push(Mode::INTUITIONISTIC);
@@ -219,6 +219,7 @@ fn refuses_at_its_limits() {
         .find(|f| f.name == "counter")
         .unwrap()
         .instance(8, 0)
+        .unwrap()
         .sequent;
     let forest = Forest::new(&sequent).unwrap();
     let counter = program(&forest);

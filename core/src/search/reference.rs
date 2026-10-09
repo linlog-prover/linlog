@@ -796,7 +796,7 @@ mod tests {
             let family = FAMILIES.iter().find(|f| f.name == name).unwrap();
             for &size in sizes {
                 for index in 0..family.instances {
-                    let instance = family.instance(size, index);
+                    let instance = family.instance(size, index).unwrap();
                     let copies = instance.copies.unwrap_or(0);
                     let answer = super::sequent(&instance.sequent, instance.mode, copies);
                     let exponentials = instance.sequent.fragment().has_exponentials();

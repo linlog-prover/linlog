@@ -79,7 +79,7 @@ pub fn families(specs: &[String], all: bool) -> Result<Vec<Reference>> {
     for (family, sizes) in chosen {
         for size in sizes {
             for index in 0..family.instances {
-                let instance = family.instance(size, index);
+                let instance = family.instance(size, index)?;
                 references.push(Reference {
                     source: "family",
                     family: family.name.to_owned(),
@@ -234,7 +234,7 @@ pub fn load(id: &str) -> Result<Problem> {
                 bail!("not a family problem: `{id}`");
             };
             let family = find(name).ok_or_else(|| anyhow!("no family `{name}`"))?;
-            let instance = family.instance(size.parse()?, index.parse()?);
+            let instance = family.instance(size.parse()?, index.parse()?)?;
             Ok(Problem {
                 sequent: instance.sequent,
                 mode: instance.mode,

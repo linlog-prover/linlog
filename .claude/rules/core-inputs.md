@@ -73,9 +73,14 @@ the generated families are read; the harness that runs them is
   provable). The mode is not in the file: a coverability question is
   affine, and the harness runs it intuitionistic affine.
 - **`families`** (feature `parse`): `FAMILIES` lists the benchmark
-  families, each a name, a summary, default sizes, instances per size and
-  a generator `(size, index) → Instance` (sequent, mode, `provable`,
-  `copies`). A family's `provable` comes from the problem it encodes
+  families, each a name, a summary, default sizes, instances per size,
+  the sizes it takes (`least`, `powers_of_two`) and a generator `(size,
+  index) → Instance` (sequent, mode, `provable`, `copies`);
+  `Family::instance` refuses a size the generator has no instance of
+  with `Error::FamilySize` before it runs (a generator asserts its
+  precondition, which a caller's size reached as a panic, F6), and
+  generates without an occurrence bound, a large size being the
+  caller's to ask for. A family's `provable` comes from the problem it encodes
   (subset sums, QBF evaluation, 3-Partition by construction) or from a
   construction argument written at the generator, never from an engine,
   so that an engine disagreeing is a finding. Random families seed

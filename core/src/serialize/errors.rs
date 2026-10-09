@@ -66,6 +66,14 @@ impl Serialize for Details<'_> {
             UnknownName { what, name, known } => {
                 entries!(s; "what" => what; "name" => name; "known" => known)
             }
+            #[cfg(feature = "parse")]
+            FamilySize {
+                family,
+                size,
+                least,
+                powers_of_two,
+            } => entries!(s; "family" => family; "size" => size; "least" => least;
+                "powers_of_two" => powers_of_two),
             InvalidOption { key, message } => entries!(s; "key" => key; "message" => message),
             Json { form, message } => entries!(s; "form" => form; "message" => message),
             Version {

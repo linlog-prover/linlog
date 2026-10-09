@@ -190,7 +190,7 @@ fn options(sequent: &Sequent, copies: Option<u32>) -> Options {
 /// An instance of a family.
 fn instance(family: &str, size: u32, index: u32) -> Result<linlog::families::Instance> {
     let family = linlog::families::find(family).with_context(|| format!("no family {family}"))?;
-    Ok(family.instance(size, index))
+    Ok(family.instance(size, index)?)
 }
 
 /// Decides an instance of a family as the target set does.
@@ -399,10 +399,14 @@ fn batch() -> Result<()> {
     let problems: Vec<batch::Problem> = linlog::families::FAMILIES
         .iter()
         .map(|family| {
-            let problem = family.instance(family.sizes[0], 0);
-            batch::Problem::new(problem.name, problem.sequent, Some(problem.mode))
+            let problem = family.instance(family.sizes[0], 0)?;
+            Ok(batch::Problem::new(
+                problem.name,
+                problem.sequent,
+                Some(problem.mode),
+            ))
         })
-        .collect();
+        .collect::<Result<_>>()?;
     let options = batch::Options::default().with_cores(batch::Cores::Across);
     // The rarer literal's search alone, as `options` takes it with
     // exponentials, for every problem.

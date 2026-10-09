@@ -19,7 +19,7 @@
 //! use linlog::search::{Options, Verdict, prove};
 //!
 //! let family = families::find("partition-no").unwrap();
-//! let instance = family.instance(3, 0);
+//! let instance = family.instance(3, 0)?;
 //! assert!(!instance.provable);
 //! let outcome = prove(&instance.sequent, instance.mode, &Options::default())?;
 //! assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
@@ -28,7 +28,7 @@
 //!
 //! Needs the cargo feature `parse` (on by default).
 
-use crate::{Mode, Sequent};
+use crate::{Error, Mode, Sequent};
 
 /// One problem of a family.
 #[derive(Clone, Debug)]
@@ -62,6 +62,10 @@ pub struct Family {
     /// How many instances each size has: one for the constructed families,
     /// several for the random ones.
     pub instances: u32,
+    /// The least size the family has an instance of.
+    pub least: u32,
+    /// Whether its sizes are the powers of two.
+    pub powers_of_two: bool,
     /// Builds the instance of a size and an index.
     generate: fn(u32, u32) -> Instance,
 }
@@ -70,20 +74,30 @@ impl Family {
     /// Returns the instance of the given size and index (below
     /// [`instances`](Self::instances)), the same on every call.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// For a size the family has no instance of: a 3-Partition bin smaller
-    /// than four, a QBF of fewer than three variables, a solvable Partition
-    /// of fewer than two items or an unsolvable one of fewer than three, a
-    /// counter whose tokens are not a power of two.
-    pub fn instance(&self, size: u32, index: u32) -> Instance {
+    /// [`Error::FamilySize`] for a size the family has no instance of:
+    /// below [`least`](Self::least) (a 3-Partition bin smaller than four,
+    /// a QBF of fewer than three variables, a solvable Partition of fewer
+    /// than two items or an unsolvable one of fewer than three), or no
+    /// power of two where [`powers_of_two`](Self::powers_of_two) asks one
+    /// (a counter's tokens).
+    pub fn instance(&self, size: u32, index: u32) -> Result<Instance, Error> {
+        if size < self.least || (self.powers_of_two && !size.is_power_of_two()) {
+            return Err(Error::FamilySize {
+                family: self.name,
+                size,
+                least: self.least,
+                powers_of_two: self.powers_of_two,
+            });
+        }
         let mut instance = (self.generate)(size, index);
         instance.name = if self.instances > 1 {
             format!("{}/{size}#{index}", self.name)
         } else {
             format!("{}/{size}", self.name)
         };
-        instance
+        Ok(instance)
     }
 }
 
@@ -94,6 +108,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "3-Partition as a Horn program with a `&` over the bins per item (MALL), two bins of the size, solvable",
         sizes: &[4, 6, 8, 12],
         instances: 1,
+        least: 4,
+        powers_of_two: false,
         generate: |b, _| {
             let items = solvable_triples(b);
             instance(three_partition(&items, 2, b), Mode::CLASSICAL, true)
@@ -104,6 +120,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "3-Partition as a Horn program with a `&` over the bins per item (MALL), two bins of the size, unsolvable",
         sizes: &[4, 5],
         instances: 1,
+        least: 4,
+        powers_of_two: false,
         generate: |b, _| {
             instance(
                 three_partition(&unsolvable_triples(b), 2, b),
@@ -117,6 +135,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "3-Partition as Lincoln and Winkler's two-literal MLL sequent, two bins of the size, solvable",
         sizes: &[4, 6, 8, 12],
         instances: 1,
+        least: 4,
+        powers_of_two: false,
         generate: |b, _| {
             let items = solvable_triples(b);
             instance(three_partition_mll(&items, 2, b), Mode::CLASSICAL, true)
@@ -127,6 +147,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "3-Partition as Lincoln and Winkler's two-literal MLL sequent, two bins of the size, unsolvable",
         sizes: &[4, 5, 6, 8],
         instances: 1,
+        least: 4,
+        powers_of_two: false,
         generate: |b, _| {
             instance(
                 three_partition_mll(&unsolvable_triples(b), 2, b),
@@ -140,6 +162,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "Matsuoka's Horn encoding of Partition (MLL) with this many random items, solvable",
         sizes: &[4, 5, 6, 7, 12, 16, 20, 24, 28],
         instances: 1,
+        least: 2,
+        powers_of_two: false,
         generate: |n, _| instance(partition(&partition_items(n, true)), Mode::CLASSICAL, true),
     },
     Family {
@@ -147,6 +171,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "Matsuoka's Horn encoding of Partition (MLL) with this many random items, unsolvable",
         sizes: &[3, 4, 5, 9, 12, 14, 15],
         instances: 1,
+        least: 3,
+        powers_of_two: false,
         generate: |n, _| {
             instance(
                 partition(&partition_items(n, false)),
@@ -160,6 +186,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "random 3-QBF with this many alternating variables (∃ first), 1.5 clauses per variable with two existentials each, under a lock-and-key encoding into MALL",
         sizes: &[8, 12, 16, 20, 24, 32, 40, 44, 48],
         instances: 4,
+        least: 3,
+        powers_of_two: false,
         generate: |n, index| {
             let (formula, valid) = qbf(n, index);
             instance(formula, Mode::CLASSICAL, valid)
@@ -170,6 +198,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "(a1 ⅋ b1) ⊗ … ⊗ (ak ⅋ bk), ~a1 ⊗ ~b1, …, ~ak ⊗ ~bk over distinct atoms (MLL), provable; the size is k",
         sizes: &[8, 16, 24, 32, 256, 2048],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| instance(wide(k, 1), Mode::CLASSICAL, true),
     },
     Family {
@@ -177,6 +207,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "the wide sequent with every atom shared by two pairs: every literal twice",
         sizes: &[8, 16, 24, 32, 256, 2048],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| instance(wide(k, 2), Mode::CLASSICAL, true),
     },
     Family {
@@ -184,6 +216,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "the wide sequent with every atom shared by three pairs: every literal three times",
         sizes: &[12, 24, 30, 36, 256, 1024, 2048],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| instance(wide(k, 3), Mode::CLASSICAL, true),
     },
     Family {
@@ -191,6 +225,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "the wide sequent with every atom shared by four pairs: every literal four times",
         sizes: &[12, 24, 28, 32, 36, 256, 1024, 2048],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| instance(wide(k, 4), Mode::CLASSICAL, true),
     },
     Family {
@@ -198,6 +234,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "(ai ⊗ bi) ⊕ 0, (~ai ⊗ ~bi) ⊕ 0 for this many i under Mix (MALL, where no count equation refutes it at once), unprovable",
         sizes: &[4, 6, 8, 9, 10, 11],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| instance(mix(k), Mode::CLASSICAL.with_mix(), false),
     },
     Family {
@@ -205,6 +243,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "the Petri-net counter !(c0 ⊗ c0 ⊸ c1), …, c0^n ⊢ cL with n tokens, n a power of two (MELL), provable within log2 n copies",
         sizes: &[2, 4, 8, 16, 32, 64],
         instances: 1,
+        least: 0,
+        powers_of_two: true,
         generate: |n, _| {
             let (sequent, levels) = counter(n, false);
             Instance {
@@ -218,6 +258,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "the counter with the unreachable goal cL ⊗ c0 (MELL), unprovable, searched to log2 n copies",
         sizes: &[2, 4, 8, 16, 32, 64],
         instances: 1,
+        least: 0,
+        powers_of_two: true,
         generate: |n, _| {
             let (sequent, levels) = counter(n, true);
             Instance {
@@ -231,6 +273,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "!(a ⊸ a ⊗ a), a ⊢ ?b (MELL), unprovable, a context that grows with every copy; the size is the copy bound",
         sizes: &[16, 64, 256, 1024],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |copies, _| Instance {
             copies: Some(copies),
             ..instance(parse("!(a -o a * a), a |- ?b"), Mode::CLASSICAL, false)
@@ -241,6 +285,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "!(p0 ⊸ p1 & p2), …, !(p(k−1) ⊸ pk & p(k+1)), p0 ⊢ p(k+1) (MELL, ILL-shaped), provable within k + 2 copies; the size is k",
         sizes: &[16, 64, 128, 256],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |k, _| {
             let clauses: Vec<String> = (0..k)
                 .map(|i| format!("!(p{i} -o p{} & p{})", i + 1, i + 2))
@@ -257,6 +303,8 @@ pub static FAMILIES: &[Family] = &[
         summary: "A ⊢ A for A a complete tree of this depth alternating & and ⊕ over distinct atoms (the additive path), provable",
         sizes: &[8, 12, 14, 16],
         instances: 1,
+        least: 0,
+        powers_of_two: false,
         generate: |depth, _| {
             let formula = additive_tree(depth, 0, &mut 0);
             instance(
@@ -523,7 +571,9 @@ fn power(formula: &str, n: u32, separator: &str) -> String {
 
 /// Parses a sequent the generators built.
 fn parse(text: &str) -> Sequent {
-    text.parse()
+    // A large size is the caller's to ask for: no bound on occurrences.
+    let unbounded = crate::Limits::default().with_occurrences(None);
+    Sequent::parse_within(text, &unbounded)
         .unwrap_or_else(|e| panic!("a generated sequent parses: {e}"))
 }
 
@@ -567,7 +617,7 @@ mod tests {
     fn verdicts_as_constructed() {
         for family in FAMILIES.iter().filter(|f| f.name != "3-partition-no") {
             for index in 0..family.instances {
-                let instance = family.instance(family.sizes[0], index);
+                let instance = family.instance(family.sizes[0], index).unwrap();
                 let options = Options::default()
                     .with_copies(Some(instance.copies.unwrap_or(Options::DEFAULT_COPIES)));
                 let outcome = prove(&instance.sequent, instance.mode, &options).unwrap();
@@ -589,7 +639,7 @@ mod tests {
                 }
                 assert_eq!(
                     instance.sequent,
-                    family.instance(family.sizes[0], index).sequent
+                    family.instance(family.sizes[0], index).unwrap().sequent
                 );
             }
         }
@@ -614,5 +664,28 @@ mod tests {
             }
         }
         assert!((10..50).contains(&valid), "{valid} of 60 valid");
+    }
+
+    /// A size a family has no instance of is refused, never a panic.
+    #[test]
+    fn refuses_sizes_without_instances() {
+        for (name, size, least, powers_of_two) in [
+            ("qbf", 2, 3, false),
+            ("3-partition-no", 3, 4, false),
+            ("partition-no", 2, 3, false),
+            ("counter", 6, 0, true),
+        ] {
+            let family = find(name).unwrap();
+            assert_eq!(
+                family.instance(size, 0).map(|i| i.name),
+                Err(Error::FamilySize {
+                    family: family.name,
+                    size,
+                    least,
+                    powers_of_two
+                }),
+                "{name}"
+            );
+        }
     }
 }

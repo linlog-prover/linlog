@@ -467,7 +467,7 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
         }
     }
     for family in crate::families::FAMILIES {
-        let instance = family.instance(family.sizes[0], 0);
+        let instance = family.instance(family.sizes[0], 0).unwrap();
         let options = match instance.copies {
             Some(copies) => Options::default().with_copies(Some(copies)),
             None => Options::default(),

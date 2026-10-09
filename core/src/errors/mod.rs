@@ -92,6 +92,22 @@ pub enum Error {
         /// Every name of that kind.
         known: &'static [&'static str],
     },
+    /// A generated family has no instance of the size asked for.
+    #[cfg(feature = "parse")]
+    #[error(
+        "the family {family} has no instance of size {size}: its sizes are {}at least {least}",
+        if *.powers_of_two { "the powers of two " } else { "" }
+    )]
+    FamilySize {
+        /// The family's name.
+        family: &'static str,
+        /// The size asked for.
+        size: u32,
+        /// The least size it has.
+        least: u32,
+        /// Whether its sizes are the powers of two.
+        powers_of_two: bool,
+    },
     /// An option's value is not one the output can take: a Rocq lemma
     /// that is no identifier.
     #[error("{key}: {message}")]
@@ -410,6 +426,7 @@ impl Error {
         "tptp",
         "several_conjectures",
         "unknown_name",
+        "family_size",
         "invalid_option",
         "json",
         "unsupported_version",
@@ -462,6 +479,8 @@ impl Error {
             | Self::Tptp { .. }
             | Self::SeveralConjectures { .. } => Malformed,
             Self::UnknownName { .. } | Self::InvalidOption { .. } | Self::Json { .. } => Malformed,
+            #[cfg(feature = "parse")]
+            Self::FamilySize { .. } => Malformed,
             Self::Version { .. } => Unsupported,
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
@@ -520,6 +539,8 @@ impl Error {
             #[cfg(feature = "parse")]
             Self::SeveralConjectures { .. } => "several_conjectures",
             Self::UnknownName { .. } => "unknown_name",
+            #[cfg(feature = "parse")]
+            Self::FamilySize { .. } => "family_size",
             Self::InvalidOption { .. } => "invalid_option",
             Self::Json { .. } => "json",
             Self::Version { .. } => "unsupported_version",

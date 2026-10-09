@@ -299,7 +299,10 @@ mod tests {
     /// of depth 8, which decides thousands of pairs, with room for 64.
     #[test]
     fn capped_memo() {
-        let instance = crate::families::find("additive").unwrap().instance(8, 0);
+        let instance = crate::families::find("additive")
+            .unwrap()
+            .instance(8, 0)
+            .unwrap();
         let options = Options::default().with_memo_limit(64);
         let outcome = prove(&instance.sequent, instance.mode, &options).unwrap();
         assert_eq!(outcome.engine, Which::Additive);
