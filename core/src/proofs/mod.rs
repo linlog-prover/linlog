@@ -15,13 +15,10 @@
 //! record the sequent it proves: the checker derives that from the premises,
 //! and the derivation view shows it.
 
-/// The checker.
 pub mod check;
-/// The derivation view.
 pub mod derivation;
 /// Text rendering of derivations.
 pub(crate) mod fmt;
-/// Step-by-step proving.
 #[cfg(feature = "interactive")]
 pub mod interactive;
 /// Multisets of occurrence ids.
@@ -29,12 +26,9 @@ mod multiset;
 /// The checker's first implementation, which the tests compare it with.
 #[cfg(all(test, feature = "parse"))]
 mod oracle;
-/// The size of a derivation, without building it.
 /// The rules of the standard calculus, one-sided and named two-sided.
 mod rule;
 pub mod size;
-/// The labels of rules, the shape of an open goal, and why a derivation was
-/// not written whole, which every output that draws a derivation shares.
 pub mod style;
 
 pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};

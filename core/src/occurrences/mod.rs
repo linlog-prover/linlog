@@ -4,7 +4,6 @@
 // A variant a later step adds must not fall into an existing arm.
 #![deny(clippy::wildcard_enum_match_arm)]
 
-/// The intuitionistic reading of a sequent.
 pub mod reading;
 /// Bitsets over occurrence ids.
 pub(crate) mod set;

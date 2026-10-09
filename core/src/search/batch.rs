@@ -6,8 +6,8 @@
 //! decided, so that a stream of questions is answered one by one. The
 //! machine's threads go across the sequents, one sequent per worker on
 //! the sequential engines, or within one sequent at a time
-//! ([`Cores`](crate::search::batch::Cores)); the memory bound of each search and the batch's own
-//! bound decide how many workers run at once (the [`Plan`](crate::search::batch::Plan) each work
+//! ([`Cores`]); the memory bound of each search and the batch's own
+//! bound decide how many workers run at once (the [`Plan`] each work
 //! call is handed).
 //! The options of every sequent's search and the [`Limits`] each runs
 //! within are the batch's arguments beside its own options.

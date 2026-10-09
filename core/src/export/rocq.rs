@@ -669,8 +669,8 @@ impl Script<'_> {
 /// formulas right of `⊢` as their disjunction (`False` for none), proved
 /// by a term made rule by rule; it needs no library, but a classical one
 /// uses the excluded middle of the standard library (`NNPP`), which a
-/// standalone file imports instead of `options.prelude`. A `String` takes
-/// the whole.
+/// standalone file imports through `options.prelude`, by default
+/// [`CLASSICAL_PRELUDE`]. A `String` takes the whole.
 ///
 /// # Errors
 ///

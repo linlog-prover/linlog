@@ -11,7 +11,6 @@
 
 /// The additive fast path.
 pub(crate) mod additive;
-/// Many sequents decided in one call.
 pub mod batch;
 /// The focused sequent engine.
 pub(crate) mod focus;

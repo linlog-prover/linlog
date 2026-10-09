@@ -8,7 +8,7 @@
 //!
 //! The translation keeps the derivation small: the standard sequent of a
 //! subproof is `⊢ ?Θ, Γ` for the unrestricted zone `Θ` it needs (see
-//! [`check`](crate::proofs::check)), not for the zone in force. So a copy is a
+//! [`check`]), not for the zone in force. So a copy is a
 //! dereliction, and a contraction as well when the copied formula is used
 //! again above; the `?` step is nothing when its formula is used above and
 //! a weakening otherwise; a `⊗` or Mix contracts the `?` formulas both
