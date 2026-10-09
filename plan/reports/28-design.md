@@ -56,23 +56,25 @@ judgements, the walk-through's reports and the spike's report are in
   `plan/notes/api-drafts/review-fable.md`, 6c6a72d0) found nothing
   blocking and ten items; all ten are answered in api.md (1085288f),
   listed at the end of its section 12.
-- **For the author**: api.md section 14, the open questions (C1 to C3,
-  T1 to T7, HD1 to HD5) on their provisional answers with what each other
-  answer changes, and twenty-one decisions this design adds; those that
-  matter most are 1 (the interned atom, which departs from the research's
-  recommendation), 2 (the written sides refuse intuitionistic text written
-  one-sided with several roots), 3 (the stop's form), 18 (the closed core
-  enums), 19 (classical cyclic MLL read with a reversing dual) and 21
-  (with the sides unknown the reading answers only where it is the one
-  reading, so H9 and H10 are closed on JSON and in the library too).
+- **The author's answers** (2026-10-09, through the supervisor, each by
+  the author's own choice): the recommended answer to every open
+  question (C1 to C3, T1 to T7, HD1 to HD5) and to all twenty-one
+  decisions this design adds, except two. Decision 4 is taken with a
+  converter: `wire::upgrade`, the one entry that takes a document of any
+  released level to the current one, the identity at level 1 (api.md
+  7.1). T3 is changed to link-time optimisation now. Decision 3 is taken
+  as recommended, since the author wants a progress value for front ends
+  and left its form to the recommendation. api.md section 14 is marked
+  answered (17711466), and the answers are rules: a `## Decisions`
+  section at the end of eleven files under `.claude/rules/` (f25e2285).
 
 ## What the fix sessions take
 
 | area | from api.md |
 |---|---|
-| 3.1 the library's API, data model and wire forms | sections 2 to 7 and 9 (the renames, `Member`, `Mode`, the written order and sides, `Proof { goal, mode }`, `Disproof`, the checker's `CheckError`, `Rule`/`Named`, `Interactive`'s signatures, `ProofStructure`'s `VertexId` and `Criterion`, the errors, `Limits` and the progress stop on every long call (the search's polls through 5.2's shim until area 3.2), named fields with P3's two exceptions, the reserved words refused by every reader (3.1), the options and `Settings`, the wire level and lock commits (1) to (3) of 7.5 with the fixtures regenerated in the new names, the exports' one `write`), the net-engine counter list before the retype (3.11), the literal-variant rule (3.2) |
+| 3.1 the library's API, data model and wire forms | sections 2 to 7 and 9 (the renames, `Member`, `Mode`, the written order and sides, `Proof { goal, mode }`, `Disproof`, the checker's `CheckError`, `Rule`/`Named`, `Interactive`'s signatures, `ProofStructure`'s `VertexId` and `Criterion`, the errors, `Limits` and the progress stop on every long call (the search's polls through 5.2's shim until area 3.2), named fields with P3's two exceptions, the reserved words refused by every reader (3.1), the options and `Settings`, the wire level and lock commits (1) to (3) of 7.5 with the fixtures regenerated in the new names, `wire::upgrade` with its level-1 identity test in commit (1) or the wire-form commits (7.1, decision 4), the exports' one `write`), the net-engine counter list before the retype (3.11), the literal-variant rule (3.2). Early in the area, a commit of its own (T3): `lto = "fat"` and `codegen-units = 1` in `[profile.release]`, re-recording the ratchet's ceilings and saying why (the profile moves every count), with a note of the gate's longer release build |
 | 3.2 the search | section 8 (the front door's stages, `Goal`, `Engine::{ALL, name, counters}`, `NotTaken`, `Statistics`), 5.2 to 5.4 (the progress stop at every poll site in a measured commit of its own, which removes the shim, then R243's sum test; `Schedule`; `search::race` with one account and its rule at two threads and below; H18's per-thread depth; fallible reservation), lock commit (4) of 7.5 (`work` and `forward_copies` in `statistics`, after the commits that count them), `NET_MULTIPLICITY` private |
-| 3.3 efficiency | nothing beyond the gates; the spike's measurements are its starting evidence |
+| 3.3 efficiency | nothing beyond the gates; the spike's measurements are its starting evidence, taken without link-time optimisation, which area 3.1 turns on (T3) |
 | 3.4 the command, the harness, the flake and the documents | 6.6 (flags onto `Settings`' keys, `--settings`, `--work-limit`, `--schedule`, `--test-period`), the exit statuses by kind (4.1), the harness's one table of mode words and `Engine::counters()`, README's changed examples (the intuitionistic refusals of 3.6, the JSON forms of 7.5) |
 
 ## How the stage ran

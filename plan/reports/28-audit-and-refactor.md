@@ -48,7 +48,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 2.3 walk-through per later step | done | ten Sonnet 5.5 agents at `high`, 08:16 to 08:26, one per step 29 to 38, against ab0b27e5's `plan/notes/api.md`: 2 blocking, 70 friction, 59 notes, every one answered in `api.md` section 12 (most by a change of the sections above); reports in `plan/notes/api-drafts/walk-NN.md` |
 | 2.4 quantifier spike, measured | done | M1 to M3 by the agent, M1d, M2d, M1b by it after the go, M3i finished by the session after the pause (10:20 to 10:55, the supervisor's go for each run): the design's data model (M1d) and the generic zone with one and two instances (M2d, M3i) pass the gates, the drafts' appended `Pred`/`DualPred` cost 6.6 %; `plan/notes/api.md` 11.5, `plan/notes/api-drafts/spike-report.md`; the workspace forgotten and removed |
 | 2.4a the fresh review answered | done | the supervisor's review (Fable 5.1 at `high`, `plan/notes/api-drafts/review-fable.md`, 6c6a72d0): nothing blocking, ten items; all ten answered in `plan/notes/api.md` (1085288f, listed at the end of its section 12) and in `plan/reports/28-design.md`; the supervisor's follow-up on item 10 answered as decision 21 (5b5b3064) |
-| 2.5 the author's sign-off | open | the supervisor puts api.md section 14 to the author |
+| 2.5 the author's sign-off | done | the author answered on 2026-10-09, through the supervisor: every recommended answer, decision 4 with a converter (`wire::upgrade`), T3 changed to link-time optimisation now in area 3.1; api.md section 14 marked answered (17711466); the answers as rules, a `## Decisions` section in eleven files under `.claude/rules/` (f25e2285) |
 
 ### Stage 3 and 4: the fixes and their check rounds
 
@@ -278,3 +278,34 @@ its evidence (a commit, a file, a command's result) once it is done.
   to the left factor in both cases, since H9's one-sided form has one
   reading by the symmetric rule and only the left-factor rule refuses
   it; the stage report amended.
+
+### Message from `planning` (2026-10-09, afternoon): the author's sign-off
+
+- "The author has signed off the design (step-28c), answering every
+  decision in this session by their own choice." All recommended answers
+  are taken except these. **Decision 4**: one global wire level plus a
+  converter, from the first version bump on, of a document of an older
+  level to the current one where possible; its skeleton now, "one
+  upgrade entry point (in the library, behind `serialize`) that takes a
+  document of any known level and returns it at the current level", the
+  identity at level 1 with one test, in §7.1 and area 3.1's plan;
+  between released levels only, so no alias. **Decision 3**: the author
+  likes a progress value for front ends and leaves the form to the
+  recommendation; keep the closure over `Progress`. **T3**: LTO now,
+  `lto = "fat"` and `codegen-units = 1` in `[profile.release]`, a commit
+  of its own early in area 3.1 that re-records the ratchet's ceilings,
+  says why and notes the gate's longer release build.
+- Mark §14 answered, update the stage report and the checklist (2.5
+  done), and make the answers rules under `.claude/rules/` (a decisions
+  file loaded for `core/**` and `cli/**`, or bullets in the modules'
+  existing files), each bullet the rule and its reason. Commit as
+  before; one message to planning with the commits and where the rules
+  went.
+- What was done: §14 answered and `wire::upgrade` in 7.1 and 7.5
+  (17711466); the rules as a `## Decisions` section in eleven existing
+  files (`core.md`, `core-sequents.md`, `core-forest.md`,
+  `core-proofs.md`, `core-search.md`, `core-focus.md`, `core-inputs.md`,
+  `core-ordinary.md`, `cli.md`, `bench.md`, `claude-infra.md`), so each
+  loads with the code it governs and CLAUDE.md's table is unchanged
+  (f25e2285); the stage report's area plan has the converter and the LTO
+  commit.
