@@ -112,6 +112,7 @@ pub enum Kind {
 
 impl Kind {
     /// Returns the kind of the dual term: `⊗` for `⅋`, `Atom` for `DualAtom`, …
+    #[must_use]
     pub const fn dual(self) -> Self {
         use Kind::*;
         match self {
@@ -177,6 +178,7 @@ impl Term {
     /// Returns the term with its top node dualised (`⊗` to `⅋`, `a` to `~a`,
     /// …) and the same subterm indices. Dualising a whole formula dualises
     /// every node, which `Sequent` does when it lowers a two-sided sequent.
+    #[must_use]
     pub const fn dual(self) -> Self {
         use Term::*;
         match self {

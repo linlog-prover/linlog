@@ -48,6 +48,7 @@ pub enum Status {
 impl Status {
     /// Returns the worse of two verdicts of a batch: an error before
     /// unknown before unprovable before proved.
+    #[must_use]
     pub fn worse(self, other: Self) -> Self {
         let rank = |s| match s {
             Status::Yes => 0,

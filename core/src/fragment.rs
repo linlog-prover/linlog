@@ -61,11 +61,13 @@ impl Fragment {
         &["MLL", "MLL with units", "ALL", "MALL", "MELL", "LL"];
 
     /// Returns the fragment with the connective classes of both.
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
     /// Returns the connective classes the two fragments share.
+    #[must_use]
     pub const fn intersection(self, other: Self) -> Self {
         Self(self.0 & other.0)
     }

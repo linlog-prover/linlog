@@ -611,6 +611,7 @@ impl InputFormat {
     /// Returns the format of a file: this one, or for `Auto` the one its
     /// extension names, a `.p` file being a TPTP problem of ordinary logic
     /// when `ordinary` is set and an LLTP problem otherwise.
+    #[must_use]
     pub fn of(self, path: &std::path::Path, ordinary: bool) -> Self {
         if self != Self::Auto {
             return self;
