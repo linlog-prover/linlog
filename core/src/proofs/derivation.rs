@@ -673,8 +673,9 @@ impl<'a> Derivation<'a> {
     /// as the search from a goal returns it, into the inferences of its
     /// derivation, premises before conclusions and the root last, two-sided
     /// in intuitionistic mode, unless it is larger than `view` allows or
-    /// `stop` fires on the way. Fails as the checker would on a node that
-    /// misapplies its rule and on a root that does not conclude the goal.
+    /// `stop` fires on the way. Fails as the checker in `mode` would on a
+    /// node that misapplies its rule and on a root that does not conclude
+    /// the goal.
     pub(crate) fn of_goal(
         proof: &'a Proof,
         goal: &[OccId],
@@ -685,7 +686,7 @@ impl<'a> Derivation<'a> {
         let reading = check::reading(proof, mode)?;
         // A graft is read rule by rule, never drawn compact.
         let view = view.compact(Compact::Never);
-        unfold(proof, goal, mode.affine(), reading.as_ref(), &view, stop)
+        unfold(proof, goal, mode, reading.as_ref(), &view, stop)
     }
 
     /// Returns the forest the sequents' occurrences index.

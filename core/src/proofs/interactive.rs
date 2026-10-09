@@ -829,12 +829,13 @@ impl Interactive {
     }
 
     /// Closes an open goal with a proof of it that a search found, as
-    /// [`close`](Self::close) does with its own: the proof's root must
+    /// [`close`](Self::close) does with its own: the proof must be over the
+    /// session's sequent ([`Error::ForeignProof`] otherwise), its root must
     /// conclude the goal, as the proof of [`prove_goal`] on the goal's
-    /// occurrences ([`goal`](Self::goal)) does, and its derivation is
-    /// grafted within the bound of `view` as one step. A caller that runs
-    /// the search itself, several of them side by side for one, closes the
-    /// goal with this.
+    /// occurrences ([`goal`](Self::goal)) does, and it must pass the
+    /// checker in the session's mode; its derivation is grafted within the
+    /// bound of `view` as one step. A caller that runs the search itself,
+    /// several of them side by side for one, closes the goal with this.
     ///
     /// [`prove_goal`]: crate::search::prove_goal
     pub fn close_with(
@@ -845,6 +846,11 @@ impl Interactive {
         mut stop: impl FnMut() -> bool,
     ) -> Result<(), Error> {
         let sequent = self.open(goal)?.to_vec();
+        // The goal's ids name occurrences of the session's forest, which
+        // is a function of its sequent.
+        if proof.sequent() != self.sequent() {
+            return Err(Error::ForeignProof);
+        }
         let found = Derivation::of_goal(proof, &sequent, self.mode, view, &mut stop)?;
         self.graft(goal, found);
         self.history.push(goal);
@@ -1533,6 +1539,45 @@ mod tests {
         assert!(matches!(outcome.verdict, Verdict::Proved(_)));
         assert!(s.derivation().to_string().contains("!L"));
         assert_eq!(s.proof().unwrap().check(Mode::INTUITIONISTIC), Ok(()));
+    }
+
+    /// A goal is closed only by a proof over the session's sequent that
+    /// passes the checker in the session's mode: a proof of another
+    /// sequent, larger or smaller, and a weakening in a linear session are
+    /// refused, and the session stays as it was.
+    #[test]
+    fn close_with_refuses_a_foreign_proof() {
+        let view = ViewOptions::default();
+        let (mut s, g) = start("A, A -o B |- B", Mode::CLASSICAL);
+        for other in ["|- A, B, C, D, top", "|- top"] {
+            let forest = Forest::new(&sequent(other)).unwrap();
+            let top = *forest.roots().last().unwrap();
+            let proof = Proof::new(forest, vec![Node::Top(top)], NodeId::new(0)).unwrap();
+            assert!(matches!(
+                s.close_with(g, &proof, &view, || false),
+                Err(Error::ForeignProof)
+            ));
+        }
+        assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
+
+        let (mut s, g) = start("A, B |- A", Mode::CLASSICAL);
+        let goal = s.goal(g).unwrap().to_vec();
+        let affine = search::prove_goal(
+            s.forest(),
+            &goal,
+            Mode::CLASSICAL.affine(),
+            &Options::default(),
+            || false,
+        )
+        .unwrap();
+        let Verdict::Proved(proof) = affine.verdict else {
+            panic!("{:?}", affine.verdict)
+        };
+        assert!(matches!(
+            s.close_with(g, &proof, &view, || false),
+            Err(Error::InvalidProof(_))
+        ));
+        assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
     }
 
     /// The split helper says which splits the counts refuse.

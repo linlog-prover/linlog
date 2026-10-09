@@ -185,6 +185,12 @@ pub enum Error {
     #[cfg(feature = "interactive")]
     #[error("not a proof in progress: {0}")]
     InconsistentState(&'static str),
+    /// A proof given to an interactive proof to close a goal is over
+    /// another sequent than the session's, whose goals name occurrences of
+    /// the session's own.
+    #[cfg(feature = "interactive")]
+    #[error("the proof is over another sequent than the session's")]
+    ForeignProof,
     /// An interactive proof still has this many open goals, so there is no
     /// proof term to make of it yet.
     #[cfg(feature = "interactive")]
