@@ -80,17 +80,18 @@ for NanoYalla. What the code relies on:
   tree's `bars`, the SVG's laid-out labels) are indexed by `rule`, plus
   `RULES` for a run.
 - **Rule labels are one table per convention** (`proofs/style.rs`:
-  `UPRIGHT`, `SUBSCRIPT`, indexed by `rule as usize` in the order of
-  `Rule::ALL`, plus the user's `Labels::Table`), written in a markup
+  `UPRIGHT`, `SUBSCRIPT`, indexed by `Named::index` in the order of
+  `Named::ALL`, plus the user's `Labels::Table` keyed by `Named`), written in a markup
   that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`
   and the ordinary `∧∨→¬↔`,
   `_x`/`_{xy}` subscripts, `*` a superscript star where the target sets
   one (the mark of a run), other text upright; `latex::label`,
   `typst::label`, `svg::label`, `style::plain` for text). The upright
   table read as plain text is `Rule::name` exactly, and
-  `Rule::from_str(rule.name())` is the rule, for every rule
-  (`names_round_trip`): the interactive JSON depends on both. A new rule
-  is a new entry in `Rule::ALL`, both tables, `name` and `from_str`.
+  `Named::from_str(rule.name())` is the rule, for every named rule
+  (`names_round_trip`, in `style.rs` and `rule.rs`): the interactive JSON
+  depends on both. A new rule is a new entry in `Rule::ALL`, its named
+  forms in `Named::ALL`, both tables, `name` and `from_str`.
   The labels of LK and LJ are `ordinary::Rule::markup(subscript)`
   (`Upright` the upright one, `Subscript` with `subscript`, `Off` none);
   a `Labels::Table` is keyed by the linear rules, so it leaves them
@@ -307,8 +308,9 @@ for NanoYalla. What the code relies on:
   split around it; every other rule acts in place, and a contraction
   leaves its two copies adjacent. Equal ids are equal formulas, so the
   first matching position serves for a repeated occurrence. The
-  certificate is classical: a two-sided derivation goes through
-  `Rule::classical`, and the checked sequent is the one-sided one. Mix,
+  certificate is classical: a two-sided derivation goes through the
+  one-sided `Rule` of every `Named` rule, and the checked sequent is the
+  one-sided one. Mix,
   affine `wk` and `Rule::Open` are refused before anything is written
   (`Unsupported`), since the kernel has no such rule; atom names are
   escaped to identifiers and made distinct from `RESERVED` (keywords and

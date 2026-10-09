@@ -26,7 +26,7 @@ position in it, `None` for `ax` (its sequent is the two literals) and Mix.
 read two-sided: it checks the proof in intuitionistic affine mode (so
 `wk` shows where used), keeps the `Reading` (`Derivation::reading`), names
 each rule by the position of its principal formula
-(`Rule::intuitionistic`: `⊗` on a hypothesis is `⊸L`, `⅋` on one `⊗L`,
+(`Rule::on(side)`, a `Named` rule: `⊗` on a hypothesis is `⊸L`, `⅋` on one `⊗L`,
 `⊕₁` on one `&L₁`, `&` on one `⊕L`, `⊥` is `1L`, an input `⊤` is `0L`, a
 dereliction `!L`, a promotion `!R`, `?c`/`?w` are `!c`/`!w`; the axiom and
 `wk` keep their names), and the renderer prints `Γ ⊢ A` with the
@@ -195,9 +195,16 @@ its rule an inference stands for). What the code relies on:
   whichever it builds before it decides.
 
 `Rule::Open` is the rule of an open goal in the derivation of a proof in
-progress (below) and appears nowhere else; `Rule::classical` maps every
-two-sided name back to the classical rule it is on the one-sided sequent,
-and `Rule::from_str` reads a rule from its name or an ASCII spelling.
+progress (below) and appears nowhere else. **A rule is one-sided, and a
+derivation names it with a side** (`proofs/rule.rs`): `Rule` has the
+sixteen one-sided rules, `Named { rule, side }` the rule as an inference
+names it (`side` `None` one-sided and for the rules whose name has none;
+`Named::new` normalizes the side of `1`, `⊥` and the exponential rules,
+which have one two-sided name each), so the one-sided rule behind a
+two-sided name is the `rule` field and nothing matches on eighteen
+two-sided variants. `Named::from_str` reads a rule from its name or an
+ASCII spelling (`Error::UnknownName` otherwise), and `Named::ALL` is
+every named rule in the order the label tables have.
 `Derivation::from_parts` wraps inferences that already have the
 derivation's shape, and `Derivation::of_goal` unfolds a proof whose root
 concludes a goal rather than the roots (as `prove_goal` returns it) into

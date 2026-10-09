@@ -26,7 +26,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// of its sequent: a hypothesis, or a subformula that behaves like one, is
 /// input; the goal, or a subformula that behaves like it, is output.
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Side {
     /// A hypothesis, or the antecedent of a formula in output position.
     Input,

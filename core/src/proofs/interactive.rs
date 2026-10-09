@@ -20,9 +20,10 @@
 //!
 //! Needs the cargo feature `interactive` (on by default).
 
-use super::derivation::{Derivation, InfId, Inference, Rule, ViewOptions};
+use super::derivation::{Derivation, InfId, Inference, ViewOptions};
 use super::multiset::Multiset;
 use super::{Branch, Node, NodeId, Proof};
+use super::{Named, Rule};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
@@ -60,7 +61,7 @@ pub enum StepError {
     /// side of `⊢`.
     Rule {
         /// The rule asked for.
-        rule: Rule,
+        rule: Named,
         /// The position of the formula.
         position: usize,
     },
@@ -68,7 +69,7 @@ pub enum StepError {
     /// is not a `?` formula needs affine mode, Mix needs Mix.
     Mode {
         /// The rule asked for.
-        rule: Rule,
+        rule: Named,
         /// The mode of the proof.
         mode: Mode,
     },
@@ -76,7 +77,7 @@ pub enum StepError {
     /// dual (`ax`); in affine mode the other formulas can be weakened first.
     NotAlone {
         /// The rule asked for.
-        rule: Rule,
+        rule: Named,
         /// The position of the formula.
         position: usize,
     },
@@ -101,7 +102,7 @@ pub enum StepError {
     /// A split was given to a rule that takes none.
     NoSplit {
         /// The rule asked for.
-        rule: Rule,
+        rule: Named,
     },
     /// In intuitionistic mode, a premise would have this many formulas on
     /// the right of `⊢` instead of one.
@@ -177,13 +178,13 @@ impl std::error::Error for StepError {}
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::{Interactive, Mode, Rule, Sequent};
+/// use linlog::{Interactive, Mode, Named, Rule, Sequent};
 ///
 /// // ⊢ ~A, A ⊗ ~B, B: the goal's formulas are 0: ~A, 1: A ⊗ ~B, 2: B.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let mut state = Interactive::new(&sequent, Mode::CLASSICAL)?;
 /// let root = state.goals().next().unwrap();
-/// assert_eq!(state.rules(root, 1)?, vec![Rule::Tensor]);
+/// assert_eq!(state.rules(root, 1)?, vec![Named::from(Rule::Tensor)]);
 /// // ⊗ on formula 1, with formula 0 going to the left premise.
 /// let goals = state.apply(root, 1, Rule::Tensor, &[0])?;
 /// assert_eq!(goals.len(), 2);
@@ -239,7 +240,7 @@ impl Interactive {
         }
         let root = Inference {
             sequent: forest.roots().to_vec(),
-            rule: Rule::Open,
+            rule: Rule::Open.into(),
             principal: None,
             premises: vec![],
             times: 1,
@@ -310,7 +311,7 @@ impl Interactive {
         let reading = state.reading();
         for id in 0..n {
             let inference = &state.inferences[id];
-            if inference.rule == Rule::Open {
+            if inference.rule.rule == Rule::Open {
                 if inference.principal.is_some() || !inference.premises.is_empty() {
                     return Err(Error::InconsistentSession {
                         reason: "an open goal has no principal formula and no premise",
@@ -329,7 +330,7 @@ impl Interactive {
             // Below `len`, the arena as this step left it: an entry inside
             // a later step's subtree would make `undo` index past it.
             let closed = goal.index() < len
-                && state.inferences[goal.index()].rule != Rule::Open
+                && state.inferences[goal.index()].rule.rule != Rule::Open
                 && !std::mem::replace(&mut seen[goal.index()], true);
             if !closed {
                 return Err(Error::InconsistentSession {
@@ -367,8 +368,8 @@ impl Interactive {
         let inference = &self.inferences[id.index()];
         let sequent = &inference.sequent;
         let rule = inference.rule;
-        let classical = rule.classical();
-        let has_principal = !matches!(classical, Rule::Ax | Rule::Mix);
+        let classical = rule.rule;
+        let has_principal = classical.has_principal();
         if inference.principal.is_some() != has_principal {
             return Err(Error::InconsistentSession {
                 reason: "a rule other than the axiom and Mix names its principal formula, those two none",
@@ -474,7 +475,7 @@ impl Interactive {
         self.inferences
             .iter()
             .enumerate()
-            .filter(|(_, inference)| inference.rule == Rule::Open)
+            .filter(|(_, inference)| inference.rule.rule == Rule::Open)
             .map(|(i, _)| InfId::new(i as u32))
     }
 
@@ -482,7 +483,7 @@ impl Interactive {
     pub fn goal(&self, id: InfId) -> Option<&[OccId]> {
         self.inferences
             .get(id.index())
-            .filter(|inference| inference.rule == Rule::Open)
+            .filter(|inference| inference.rule.rule == Rule::Open)
             .map(|inference| inference.sequent.as_slice())
     }
 
@@ -516,7 +517,7 @@ impl Interactive {
     /// Whether the goal's context lets a rule apply (the axiom's dual, the
     /// context of `1` and `!`, a valid split, one succedent) is what
     /// [`apply`](Self::apply) decides.
-    pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Rule>, StepError> {
+    pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Named>, StepError> {
         let sequent = self.open(goal)?;
         let o = formula_at(sequent, position)?;
         use Rule::*;
@@ -539,13 +540,11 @@ impl Interactive {
         if self.mode.mix {
             rules.push(Mix);
         }
-        if let Some(reading) = self.reading() {
-            let position = reading.position(o);
-            for rule in &mut rules {
-                *rule = rule.intuitionistic(position);
-            }
-        }
-        Ok(rules)
+        let side = self.reading().map(|reading| reading.position(o));
+        Ok(rules
+            .into_iter()
+            .map(|rule| Named::new(rule, side))
+            .collect())
     }
 
     /// Applies a rule to the formula at `position` of the open goal and
@@ -561,17 +560,18 @@ impl Interactive {
         &mut self,
         goal: InfId,
         position: usize,
-        rule: Rule,
+        rule: impl Into<Named>,
         left: &[usize],
     ) -> Result<Vec<InfId>, StepError> {
+        let rule = rule.into();
         let sequent = self.open(goal)?.to_vec();
         let reading = self.reading();
         let (rule, premises) = {
             let o = formula_at(&sequent, position)?;
             let rule = match &reading {
                 Some(reading) => {
-                    let named = rule.classical().intuitionistic(reading.position(o));
-                    if rule != rule.classical() && rule != named {
+                    let named = rule.rule.on(reading.position(o));
+                    if rule.side.is_some() && rule != named {
                         return Err(StepError::Rule { rule, position });
                     }
                     named
@@ -583,7 +583,7 @@ impl Interactive {
                 self.expand(reading.as_ref(), &sequent, position, rule, left)?,
             )
         };
-        let principal = (rule != Rule::Ax && rule != Rule::Mix).then_some(position);
+        let principal = rule.rule.has_principal().then_some(position);
         let base = self.inferences.len() as u32;
         let ids: Vec<InfId> = (0..premises.len() as u32)
             .map(|i| InfId::new(base + i))
@@ -591,7 +591,7 @@ impl Interactive {
         for premise in premises {
             self.inferences.push(Inference {
                 sequent: premise.into_vec(),
-                rule: Rule::Open,
+                rule: Rule::Open.into(),
                 principal: None,
                 premises: vec![],
                 times: 1,
@@ -615,14 +615,14 @@ impl Interactive {
         reading: Option<&Reading>,
         sequent: &[OccId],
         position: usize,
-        rule: Rule,
+        rule: Named,
         left: &[usize],
     ) -> Result<Vec<Multiset>, StepError> {
         use Rule::*;
         let f = &self.forest;
         let o = formula_at(sequent, position)?;
         let kind = f.kind(o);
-        let classical = rule.classical();
+        let classical = rule.rule;
         // The rule acts on the connective, and on the right side of ⊢.
         let acts = match classical {
             Ax => kind.is_literal(),
@@ -638,12 +638,8 @@ impl Interactive {
             AffineWeakening => kind != Kind::Quest,
             Mix => true,
             Open => false,
-            _ => unreachable!("classical rules only"),
         };
-        let named = match reading {
-            Some(reading) => classical.intuitionistic(reading.position(o)),
-            None => classical,
-        };
+        let named = Named::new(classical, reading.map(|reading| reading.position(o)));
         if !acts || rule != named {
             return Err(StepError::Rule { rule, position });
         }
@@ -778,10 +774,7 @@ impl Interactive {
             Rule::Mix
         };
         let reading = self.reading();
-        let rule = match &reading {
-            Some(reading) => rule.intuitionistic(reading.position(o)),
-            None => rule,
-        };
+        let rule = Named::new(rule, reading.as_ref().map(|reading| reading.position(o)));
         let premises = self.expand(reading.as_ref(), sequent, position, rule, left)?;
         let [l, r] = premises.as_slice() else {
             unreachable!("a split has two premises");
@@ -807,7 +800,7 @@ impl Interactive {
             self.inferences.truncate(first.index());
         }
         let inference = &mut self.inferences[goal.index()];
-        inference.rule = Rule::Open;
+        inference.rule = Rule::Open.into();
         inference.principal = None;
         inference.premises.clear();
         Some(goal)
@@ -1087,7 +1080,7 @@ impl Terms<'_> {
             };
             let a = || f.left(o()).expect("a connective with a subformula");
             let b = || f.right(o()).expect("a binary connective");
-            let rule = inference.rule.classical();
+            let rule = inference.rule.rule;
             if matches!(step, Step::Visit(_)) {
                 // What each premise's sequent gains from the rule.
                 let introduced: [[Option<OccId>; 2]; 2] = match rule {
@@ -1113,7 +1106,6 @@ impl Terms<'_> {
                     PlusRight => [[Some(b()), None], [None; 2]],
                     With | Tensor => [[Some(a()), None], [Some(b()), None]],
                     Open => unreachable!("no goal is open"),
-                    _ => unreachable!("classical rules only"),
                 };
                 steps.push(Step::Build(id));
                 for (&premise, introduced) in premises.iter().zip(introduced).rev() {
@@ -1156,6 +1148,11 @@ mod tests {
     /// Parses `input`.
     fn sequent(input: &str) -> Sequent {
         input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"))
+    }
+
+    /// Returns the rule a client names `name`.
+    fn named(name: &str) -> Named {
+        name.parse().unwrap()
     }
 
     /// Starts a proof of `input` in `mode` and returns it with its goal.
@@ -1231,7 +1228,7 @@ mod tests {
         };
         assert_eq!(s.goals().collect::<Vec<_>>(), [l, r]);
         step(&mut s, l, "a", Ax, &[]);
-        assert_eq!(s.rules(r, 0).unwrap(), [Ax]);
+        assert_eq!(s.rules(r, 0).unwrap(), [Named::from(Ax)]);
         step(&mut s, r, "b", Ax, &[]);
         assert!(s.is_complete());
         let proof = s.proof().unwrap();
@@ -1308,14 +1305,17 @@ mod tests {
         s.proof().unwrap();
         // wk in affine mode, and Mix.
         let (mut s, g) = start("a, b |- a", classical.with_affine());
-        assert_eq!(s.rules(g, at(&s, g, "~b")).unwrap(), [Ax, AffineWeakening]);
+        assert_eq!(
+            s.rules(g, at(&s, g, "~b")).unwrap(),
+            [Named::from(Ax), Named::from(AffineWeakening)]
+        );
         let [g] = step(&mut s, g, "~b", AffineWeakening, &[])[..] else {
             panic!()
         };
         step(&mut s, g, "~a", Ax, &[]);
         s.proof().unwrap();
         let (mut s, g) = start("|- a, ~a, b, ~b", classical.with_mix());
-        assert_eq!(s.rules(g, 0).unwrap(), [Ax, Mix]);
+        assert_eq!(s.rules(g, 0).unwrap(), [Named::from(Ax), Named::from(Mix)]);
         let [l, r] = step(&mut s, g, "a", Mix, &["~a"])[..] else {
             panic!()
         };
@@ -1333,55 +1333,72 @@ mod tests {
         let (mut s, g) = start("|- ~a par ~b, a * b, 1, !c, ?d, top", Mode::CLASSICAL);
         let before = s.clone();
         let p = |s: &Interactive, text: &str| at(s, g, text);
-        let cases: Vec<(&str, Rule, Vec<usize>, StepError)> = vec![
+        let cases: Vec<(&str, Named, Vec<usize>, StepError)> = vec![
             (
                 "~a ⅋ ~b",
-                Tensor,
+                Named::from(Tensor),
                 vec![],
                 StepError::Rule {
-                    rule: Tensor,
+                    rule: Named::from(Tensor),
                     position: p(&s, "~a ⅋ ~b"),
                 },
             ),
             (
                 "1",
-                AffineWeakening,
+                Named::from(AffineWeakening),
                 vec![],
                 StepError::Mode {
-                    rule: AffineWeakening,
+                    rule: Named::from(AffineWeakening),
                     mode: Mode::CLASSICAL,
                 },
             ),
             (
                 "1",
-                Mix,
+                Named::from(Mix),
                 vec![],
                 StepError::Mode {
-                    rule: Mix,
+                    rule: Named::from(Mix),
                     mode: Mode::CLASSICAL,
                 },
             ),
             (
                 "1",
-                One,
+                Named::from(One),
                 vec![],
                 StepError::NotAlone {
-                    rule: One,
+                    rule: Named::from(One),
                     position: p(&s, "1"),
                 },
             ),
-            ("!c", Promotion, vec![], StepError::NotQuest { position: 0 }),
-            ("~a ⅋ ~b", Par, vec![1], StepError::NoSplit { rule: Par }),
-            ("a ⊗ b", Tensor, vec![9], StepError::Split { position: 9 }),
+            (
+                "!c",
+                Named::from(Promotion),
+                vec![],
+                StepError::NotQuest { position: 0 },
+            ),
+            (
+                "~a ⅋ ~b",
+                Named::from(Par),
+                vec![1],
+                StepError::NoSplit {
+                    rule: Named::from(Par),
+                },
+            ),
             (
                 "a ⊗ b",
-                Tensor,
+                Named::from(Tensor),
+                vec![9],
+                StepError::Split { position: 9 },
+            ),
+            (
+                "a ⊗ b",
+                Named::from(Tensor),
                 vec![0, 0],
                 StepError::Split { position: 0 },
             ),
             (
                 "a ⊗ b",
-                Tensor,
+                Named::from(Tensor),
                 vec![p(&s, "a ⊗ b")],
                 StepError::Split {
                     position: p(&s, "a ⊗ b"),
@@ -1389,10 +1406,10 @@ mod tests {
             ),
             (
                 "1",
-                ImpLeft,
+                named("⊸L"),
                 vec![],
                 StepError::Rule {
-                    rule: ImpLeft,
+                    rule: named("⊸L"),
                     position: p(&s, "1"),
                 },
             ),
@@ -1431,7 +1448,7 @@ mod tests {
         assert_eq!(
             s.apply(g, 0, Ax, &[]),
             Err(StepError::NotAlone {
-                rule: Ax,
+                rule: Named::from(Ax),
                 position: 0
             })
         );
@@ -1449,18 +1466,18 @@ mod tests {
         let i = Mode::INTUITIONISTIC;
         let (mut s, g) = start("a, a -o b |- b", i);
         let imp = at(&s, g, "a ⊗ ~b");
-        assert_eq!(s.rules(g, imp).unwrap(), [ImpLeft]);
+        assert_eq!(s.rules(g, imp).unwrap(), [named("⊸L")]);
         assert_eq!(
-            s.apply(g, imp, TensorRight, &[]),
+            s.apply(g, imp, named("⊗R"), &[]),
             Err(StepError::Rule {
-                rule: TensorRight,
+                rule: named("⊗R"),
                 position: imp
             })
         );
         // The goal b with the antecedent a: two on the right.
         let b = at(&s, g, "b");
         assert_eq!(
-            s.apply(g, imp, ImpLeft, &[b]),
+            s.apply(g, imp, named("⊸L"), &[b]),
             Err(StepError::Succedents { count: 2 })
         );
         let (mut s, g) = start("a, b |- a", i.with_affine());
@@ -1488,7 +1505,7 @@ mod tests {
         let [l, r] = s.apply(g, imp, Tensor, &[a]).unwrap()[..] else {
             panic!()
         };
-        assert_eq!(s.inferences()[g.index()].rule, ImpLeft);
+        assert_eq!(s.inferences()[g.index()].rule, named("⊸L"));
         assert_eq!(
             s.derivation().to_string(),
             "a ⊢ a   b ⊢ b\n\
@@ -1505,24 +1522,24 @@ mod tests {
         );
         // !L, !c and !R by their two-sided names.
         let (mut s, g) = start("!a |- !(a * a)", i);
-        let [g] = s.apply(g, at(&s, g, "!(a ⊗ a)"), BangRight, &[]).unwrap()[..] else {
+        let [g] = s.apply(g, at(&s, g, "!(a ⊗ a)"), named("!R"), &[]).unwrap()[..] else {
             panic!()
         };
-        let [g] = s.apply(g, at(&s, g, "?~a"), BangContraction, &[]).unwrap()[..] else {
+        let [g] = s.apply(g, at(&s, g, "?~a"), named("!c"), &[]).unwrap()[..] else {
             panic!()
         };
         assert_eq!(
             s.rules(g, at(&s, g, "?~a")).unwrap(),
-            [BangLeft, BangContraction, BangWeakening]
+            [named("!L"), named("!c"), named("!w")]
         );
         let [l, r] = s
-            .apply(g, at(&s, g, "a ⊗ a"), TensorRight, &[at(&s, g, "?~a")])
+            .apply(g, at(&s, g, "a ⊗ a"), named("⊗R"), &[at(&s, g, "?~a")])
             .unwrap()[..]
         else {
             panic!()
         };
         for g in [l, r] {
-            let [g] = s.apply(g, at(&s, g, "?~a"), BangLeft, &[]).unwrap()[..] else {
+            let [g] = s.apply(g, at(&s, g, "?~a"), named("!L"), &[]).unwrap()[..] else {
                 panic!()
             };
             s.apply(g, 0, Ax, &[]).unwrap();
@@ -1612,7 +1629,7 @@ mod tests {
 
         // Two-sided: the grafted derivation carries the two-sided names.
         let (mut s, g) = start("a & b, !(a -o c) |- c", Mode::INTUITIONISTIC);
-        let [g] = s.apply(g, at(&s, g, "~a ⊕ ~b"), WithLeft1, &[]).unwrap()[..] else {
+        let [g] = s.apply(g, at(&s, g, "~a ⊕ ~b"), named("&L₁"), &[]).unwrap()[..] else {
             panic!()
         };
         let outcome = s
@@ -1770,8 +1787,8 @@ mod tests {
             \x20⊢ ~a ⅋ ~b, a ⊗ b"
         );
         let d = s.derivation();
-        assert_eq!(d.inference(d.root()).rule, Par);
-        assert_eq!(d.inference(InfId::new(0)).rule, Open);
+        assert_eq!(d.inference(d.root()).rule, Named::from(Par));
+        assert_eq!(d.inference(InfId::new(0)).rule, Named::from(Open));
     }
 
     /// Mix on a goal that repeats the formula it is applied at keeps both

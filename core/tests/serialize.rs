@@ -9,7 +9,7 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Forest, Fragment, InfId, Interactive, Member, Mode, Node, NodeId, OccId, Proof,
+    Branch, Forest, Fragment, InfId, Interactive, Member, Mode, Named, Node, NodeId, OccId, Proof,
     ProofStructure, Rule, Sequent, ViewOptions,
 };
 
@@ -377,7 +377,9 @@ fn interactive_json_format_and_round_trip() {
     let s: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&s, Mode::INTUITIONISTIC).unwrap();
     let root = InfId::new(0);
-    let goals = state.apply(root, 1, Rule::ImpLeft, &[0]).unwrap();
+    let goals = state
+        .apply(root, 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .unwrap();
     state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
     let json = serde_json::to_string(&state).unwrap();
     let sequent = serde_json::to_string(&s).unwrap();

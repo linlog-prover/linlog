@@ -747,7 +747,7 @@ impl Image {
                 .iter()
                 .map(|p| mapped[p.index()])
                 .collect();
-            let rule = inference.rule.classical();
+            let rule = inference.rule.rule;
             let next = match rule {
                 Linear::Promotion | Linear::Dereliction => premises[0],
                 Linear::Contraction | Linear::Weakening | Linear::AffineWeakening => {

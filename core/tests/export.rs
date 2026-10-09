@@ -26,7 +26,7 @@ use linlog::{
     ViewOptions,
 };
 use linlog::{Error, Refusal};
-use linlog::{Reading, Rule, Sequent, Verdict, prove};
+use linlog::{Named, Reading, Rule, Sequent, Verdict, prove};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -132,7 +132,9 @@ fn typst_layout() {
     snapshot("high.typ", &written);
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
-    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    let goals = state
+        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .unwrap();
     state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
     let options = typst::Options {
         layout: typst::Layout::Linlog,
@@ -203,7 +205,9 @@ fn compact_view() {
 fn open_goal() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
-    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    let goals = state
+        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .unwrap();
     state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
     pin("open", &state.derivation());
     pin_fragments(
@@ -278,9 +282,9 @@ fn every_label() {
             pin_fragments(name, &derivation, Labels::Subscript, OpenGoal::Dots);
         }
     }
-    let missing: Vec<Rule> = Rule::ALL
+    let missing: Vec<Named> = Named::ALL
         .into_iter()
-        .filter(|r| *r != Rule::Open && !rules.contains(r))
+        .filter(|r| r.rule != Rule::Open && !rules.contains(r))
         .collect();
     assert!(missing.is_empty(), "no snapshot has {missing:?}");
 }
@@ -292,7 +296,9 @@ fn every_label() {
 fn ids_name_goals() {
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
-    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    let goals = state
+        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .unwrap();
     let style = Style {
         ids: true,
         ..Style::default()
@@ -528,7 +534,9 @@ fn svg_structure() {
 
     let sequent: Sequent = "A, A -o B |- B".parse().unwrap();
     let mut state = Interactive::new(&sequent, Mode::INTUITIONISTIC).unwrap();
-    let goals = state.apply(InfId::new(0), 1, Rule::ImpLeft, &[0]).unwrap();
+    let goals = state
+        .apply(InfId::new(0), 1, "⊸L".parse::<Named>().unwrap(), &[0])
+        .unwrap();
     state.apply(goals[0], 0, Rule::Ax, &[]).unwrap();
     assert_eq!(
         structure(&svg::derivation(&state.derivation(), &style)),

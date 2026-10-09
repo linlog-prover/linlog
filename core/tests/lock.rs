@@ -12,7 +12,9 @@
 #![cfg(all(feature = "parse", feature = "serialize", feature = "interactive"))]
 
 use linlog::search::Engine;
-use linlog::{Forest, Interactive, Mode, OccId, Options, ProofStructure, Sequent, ViewOptions};
+use linlog::{
+    Forest, Interactive, Mode, Named, OccId, Options, ProofStructure, Sequent, ViewOptions,
+};
 use std::fmt::Write as _;
 
 /// Parses a sequent of the corpus.
@@ -127,7 +129,9 @@ fn lines() -> String {
     let mut session = Interactive::new(&sequent("A * B |- B * A"), classical).unwrap();
     pin("session-open", json(&session));
     let root = session.goals().next().unwrap();
-    session.apply(root, 0, "par".parse().unwrap(), &[]).unwrap();
+    session
+        .apply(root, 0, "par".parse::<Named>().unwrap(), &[])
+        .unwrap();
     pin("session-step", json(&session));
     session
         .close_all(

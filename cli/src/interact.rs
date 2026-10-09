@@ -16,7 +16,7 @@ use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
 use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{
-    Error, InfId, Interactive, Limits, Reading, Refusal, Rule, Side, StepError, ViewOptions,
+    Error, InfId, Interactive, Limits, Named, Reading, Refusal, Rule, Side, StepError, ViewOptions,
 };
 use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Write};
@@ -188,7 +188,7 @@ impl Session {
                 } else {
                     rules
                         .iter()
-                        .map(|r| match r.classical() {
+                        .map(|r| match r.rule {
                             Rule::Tensor | Rule::Mix => format!("{r} (with a split)"),
                             _ => r.to_string(),
                         })
@@ -199,7 +199,7 @@ impl Session {
             "apply" => {
                 let (goal, position) = (goal(0)?, position(1)?);
                 let word = rest.get(2).context("which rule? see `rules`")?;
-                let rule: Rule = word.parse()?;
+                let rule: Named = word.parse()?;
                 let opened = self.state.apply(goal, position, rule, &positions(3)?)?;
                 self.opened(&opened)
             }

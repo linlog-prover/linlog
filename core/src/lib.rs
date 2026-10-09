@@ -162,7 +162,8 @@ pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{NetError, ProofStructure};
 pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
-    Branch, CheckError, Derivation, InfId, Inference, Node, NodeId, Proof, Rule, Size, ViewOptions,
+    Branch, CheckError, Derivation, InfId, Inference, Named, Node, NodeId, Proof, Rule, Size,
+    ViewOptions,
 };
 #[cfg(feature = "interactive")]
 pub use proofs::{Interactive, StepError};

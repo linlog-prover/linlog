@@ -21,7 +21,8 @@
 //!
 //! The certificate is one of classical linear logic: a two-sided
 //! derivation is exported as the one-sided derivation behind it
-//! ([`Rule::classical`]), which proves the same sequent read one-sided.
+//! (the one-sided [`Rule`] of every [`Named`] rule), which proves the same
+//! sequent read one-sided.
 //! Mix, the weakening of affine mode and an open goal have no rule in the
 //! kernel, and a derivation with one is refused ([`Unsupported`]). A
 //! fragment is the lemma alone, for a file that imports `macroll`; a
@@ -367,7 +368,7 @@ impl Script<'_> {
     fn inference(&mut self, id: InfId, goal: Vec<OccId>) {
         let (derivation, forest) = (self.derivation, self.forest);
         let inference = derivation.inference(id);
-        let rule = inference.rule.classical();
+        let rule = inference.rule.rule;
         if rule == Rule::Ax {
             self.line("ax_expansion.");
             return;
@@ -451,28 +452,9 @@ impl Script<'_> {
                 self.braced[r.index()] = true;
             }
             Rule::Tensor => self.tensor(id, goal),
-            Rule::Ax
-            | Rule::Mix
-            | Rule::AffineWeakening
-            | Rule::Open
-            | Rule::ImpLeft
-            | Rule::ImpRight
-            | Rule::TensorLeft
-            | Rule::TensorRight
-            | Rule::WithLeft1
-            | Rule::WithLeft2
-            | Rule::WithRight
-            | Rule::PlusLeftRule
-            | Rule::PlusRight1
-            | Rule::PlusRight2
-            | Rule::OneLeft
-            | Rule::OneRight
-            | Rule::ZeroLeft
-            | Rule::TopRight
-            | Rule::BangLeft
-            | Rule::BangRight
-            | Rule::BangContraction
-            | Rule::BangWeakening => unreachable!("refused or classical"),
+            Rule::Ax | Rule::Mix | Rule::AffineWeakening | Rule::Open => {
+                unreachable!("refused before anything is written")
+            }
         }
     }
 
@@ -559,7 +541,7 @@ pub fn write(
         if inference.times > 1 {
             return Err(Unsupported::Compact.into());
         }
-        match inference.rule {
+        match inference.rule.rule {
             Rule::Open => return Err(Unsupported::Open.into()),
             Rule::Mix => return Err(Unsupported::Mix.into()),
             Rule::AffineWeakening => return Err(Unsupported::AffineWeakening.into()),

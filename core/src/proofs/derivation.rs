@@ -25,14 +25,13 @@
 use super::check::{self, Allowance, Facts, Observer, State};
 use super::multiset::Multiset;
 use super::size::{self, Size};
-use super::{Branch, Node, NodeId, Proof};
+use super::{Branch, Named, Node, NodeId, Proof, Rule};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
 use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Kind;
-use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// The index of an inference in a derivation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -53,300 +52,6 @@ impl InfId {
     /// Returns the index as a `usize`, for indexing the inferences.
     pub const fn index(self) -> usize {
         self.0 as usize
-    }
-}
-
-/// A rule of the standard sequent calculus, as a derivation names it: the
-/// one-sided rules of classical linear logic, and the two-sided rules of
-/// intuitionistic linear logic that an intuitionistic derivation shows
-/// instead, each the classical rule on the hypothesis or the goal it acts
-/// on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Rule {
-    /// `ax`
-    Ax,
-    /// `⊗`
-    Tensor,
-    /// `⅋`
-    Par,
-    /// `1`
-    One,
-    /// `⊥`
-    Bot,
-    /// `&`
-    With,
-    /// `⊕₁`, the left introduction of `⊕`.
-    PlusLeft,
-    /// `⊕₂`, the right introduction of `⊕`.
-    PlusRight,
-    /// `⊤`
-    Top,
-    /// `!`, promotion.
-    Promotion,
-    /// `?d`, dereliction.
-    Dereliction,
-    /// `?c`, contraction.
-    Contraction,
-    /// `?w`, weakening of a `?` formula.
-    Weakening,
-    /// `mix`
-    Mix,
-    /// `wk`, weakening of a formula that is not a `?`, in affine mode.
-    AffineWeakening,
-    /// `⊸L`: a `⊗` on a hypothesis `A ⊸ B`.
-    ImpLeft,
-    /// `⊸R`: a `⅋` on the goal `A ⊸ B`.
-    ImpRight,
-    /// `⊗L`: a `⅋` on a hypothesis `A ⊗ B`.
-    TensorLeft,
-    /// `⊗R`: a `⊗` on the goal.
-    TensorRight,
-    /// `&L₁`: a `⊕₁` on a hypothesis `A & B`.
-    WithLeft1,
-    /// `&L₂`: a `⊕₂` on a hypothesis `A & B`.
-    WithLeft2,
-    /// `&R`: a `&` on the goal.
-    WithRight,
-    /// `⊕L`: a `&` on a hypothesis `A ⊕ B`.
-    PlusLeftRule,
-    /// `⊕R₁`: a `⊕₁` on the goal.
-    PlusRight1,
-    /// `⊕R₂`: a `⊕₂` on the goal.
-    PlusRight2,
-    /// `1L`: a `⊥` on a hypothesis `1`.
-    OneLeft,
-    /// `1R`: the goal `1`.
-    OneRight,
-    /// `0L`: a `⊤` on a hypothesis `0`.
-    ZeroLeft,
-    /// `⊤R`: the goal `⊤`.
-    TopRight,
-    /// `!L`: a dereliction of a hypothesis `!A`.
-    BangLeft,
-    /// `!R`: a promotion of the goal `!A`.
-    BangRight,
-    /// `!c`: a contraction of a hypothesis `!A`.
-    BangContraction,
-    /// `!w`: a weakening of a hypothesis `!A`.
-    BangWeakening,
-    /// An open goal of a proof in progress: a leaf without a rule, which
-    /// only the derivation of an interactive state contains.
-    Open,
-}
-
-impl Rule {
-    /// Every rule, in the order of declaration.
-    pub const ALL: [Self; 34] = {
-        use Rule::*;
-        [
-            Ax,
-            Tensor,
-            Par,
-            One,
-            Bot,
-            With,
-            PlusLeft,
-            PlusRight,
-            Top,
-            Promotion,
-            Dereliction,
-            Contraction,
-            Weakening,
-            Mix,
-            AffineWeakening,
-            ImpLeft,
-            ImpRight,
-            TensorLeft,
-            TensorRight,
-            WithLeft1,
-            WithLeft2,
-            WithRight,
-            PlusLeftRule,
-            PlusRight1,
-            PlusRight2,
-            OneLeft,
-            OneRight,
-            ZeroLeft,
-            TopRight,
-            BangLeft,
-            BangRight,
-            BangContraction,
-            BangWeakening,
-            Open,
-        ]
-    };
-
-    /// Returns the rule's usual spelling.
-    pub const fn name(self) -> &'static str {
-        use Rule::*;
-        match self {
-            Ax => "ax",
-            Tensor => "⊗",
-            Par => "⅋",
-            One => "1",
-            Bot => "⊥",
-            With => "&",
-            PlusLeft => "⊕₁",
-            PlusRight => "⊕₂",
-            Top => "⊤",
-            Promotion => "!",
-            Dereliction => "?d",
-            Contraction => "?c",
-            Weakening => "?w",
-            Mix => "mix",
-            AffineWeakening => "wk",
-            ImpLeft => "⊸L",
-            ImpRight => "⊸R",
-            TensorLeft => "⊗L",
-            TensorRight => "⊗R",
-            WithLeft1 => "&L₁",
-            WithLeft2 => "&L₂",
-            WithRight => "&R",
-            PlusLeftRule => "⊕L",
-            PlusRight1 => "⊕R₁",
-            PlusRight2 => "⊕R₂",
-            OneLeft => "1L",
-            OneRight => "1R",
-            ZeroLeft => "0L",
-            TopRight => "⊤R",
-            BangLeft => "!L",
-            BangRight => "!R",
-            BangContraction => "!c",
-            BangWeakening => "!w",
-            Open => "open",
-        }
-    }
-
-    /// Returns whether the rule is structural: a weakening or a
-    /// contraction, which a compact view draws a run of as one inference.
-    pub const fn is_structural(self) -> bool {
-        use Rule::*;
-        matches!(
-            self,
-            Contraction | Weakening | AffineWeakening | BangContraction | BangWeakening
-        )
-    }
-
-    /// Returns the classical rule an intuitionistic rule name stands for on
-    /// the one-sided sequent (`⊸L` and `⊗R` are `⊗`, `!L` is `?d`, and so
-    /// on), and every other rule unchanged.
-    pub const fn classical(self) -> Self {
-        use Rule::*;
-        match self {
-            ImpLeft | TensorRight => Tensor,
-            TensorLeft | ImpRight => Par,
-            PlusLeftRule | WithRight => With,
-            WithLeft1 | PlusRight1 => PlusLeft,
-            WithLeft2 | PlusRight2 => PlusRight,
-            OneLeft => Bot,
-            OneRight => One,
-            ZeroLeft | TopRight => Top,
-            BangLeft => Dereliction,
-            BangRight => Promotion,
-            BangContraction => Contraction,
-            BangWeakening => Weakening,
-            rule => rule,
-        }
-    }
-
-    /// Returns the intuitionistic name of a classical rule applied to a
-    /// formula in `position`: `⊗` on a hypothesis is `⊸L`, on the goal
-    /// `⊗R`, and so on. The axiom, Mix and affine weakening keep their
-    /// names.
-    pub const fn intuitionistic(self, position: Side) -> Self {
-        use Rule::*;
-        use Side::{Input, Output};
-        match (self, position) {
-            (Tensor, Input) => ImpLeft,
-            (Tensor, Output) => TensorRight,
-            (Par, Input) => TensorLeft,
-            (Par, Output) => ImpRight,
-            (With, Input) => PlusLeftRule,
-            (With, Output) => WithRight,
-            (PlusLeft, Input) => WithLeft1,
-            (PlusLeft, Output) => PlusRight1,
-            (PlusRight, Input) => WithLeft2,
-            (PlusRight, Output) => PlusRight2,
-            (Bot, _) => OneLeft,
-            (One, _) => OneRight,
-            (Top, Input) => ZeroLeft,
-            (Top, Output) => TopRight,
-            (Dereliction, _) => BangLeft,
-            (Promotion, _) => BangRight,
-            (Contraction, _) => BangContraction,
-            (Weakening, _) => BangWeakening,
-            (rule, _) => rule,
-        }
-    }
-}
-
-impl Display for Rule {
-    /// Writes the rule's [`name`](Self::name).
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(self.name())
-    }
-}
-
-/// The text is not the name of a rule.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UnknownRule(pub String);
-
-impl Display for UnknownRule {
-    /// Writes which text was not a rule name.
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{:?} is not the name of a rule", self.0)
-    }
-}
-
-impl std::error::Error for UnknownRule {}
-
-impl std::str::FromStr for Rule {
-    type Err = UnknownRule;
-
-    /// Parses a rule from its [`name`](Self::name) or an ASCII spelling of
-    /// it: `*` for `⊗`, `par` or `|` for `⅋`, `+1` and `+2` for `⊕₁` and
-    /// `⊕₂`, `bot` and `top` for `⊥` and `⊤`, `-oL` for `⊸L`, `*L` for
-    /// `⊗L`, `&L1` for `&L₁`, `+L` for `⊕L`, `+R1` for `⊕R₁`, `topR` for
-    /// `⊤R`, and so on.
-    fn from_str(text: &str) -> Result<Self, UnknownRule> {
-        use Rule::*;
-        Ok(match text {
-            "ax" => Ax,
-            "⊗" | "*" => Tensor,
-            "⅋" | "par" | "|" => Par,
-            "1" => One,
-            "⊥" | "bot" => Bot,
-            "&" => With,
-            "⊕₁" | "+1" => PlusLeft,
-            "⊕₂" | "+2" => PlusRight,
-            "⊤" | "top" => Top,
-            "!" => Promotion,
-            "?d" => Dereliction,
-            "?c" => Contraction,
-            "?w" => Weakening,
-            "mix" => Mix,
-            "wk" => AffineWeakening,
-            "⊸L" | "-oL" => ImpLeft,
-            "⊸R" | "-oR" => ImpRight,
-            "⊗L" | "*L" => TensorLeft,
-            "⊗R" | "*R" => TensorRight,
-            "&L₁" | "&L1" => WithLeft1,
-            "&L₂" | "&L2" => WithLeft2,
-            "&R" => WithRight,
-            "⊕L" | "+L" => PlusLeftRule,
-            "⊕R₁" | "+R1" => PlusRight1,
-            "⊕R₂" | "+R2" => PlusRight2,
-            "1L" => OneLeft,
-            "1R" => OneRight,
-            "0L" => ZeroLeft,
-            "⊤R" | "topR" => TopRight,
-            "!L" => BangLeft,
-            "!R" => BangRight,
-            "!c" => BangContraction,
-            "!w" => BangWeakening,
-            "open" => Open,
-            _ => return Err(UnknownRule(text.to_owned())),
-        })
     }
 }
 
@@ -401,8 +106,8 @@ pub struct Inference {
     /// The sequent concluded, as occurrence ids in ascending order, an
     /// occurrence repeated as often as the sequent holds it.
     pub sequent: Vec<OccId>,
-    /// The rule applied.
-    pub rule: Rule,
+    /// The rule applied, as the derivation names it.
+    pub rule: Named,
     /// The position in `sequent` of the formula the rule introduces or
     /// removes: `None` for an axiom, whose sequent is its two literals, and
     /// for Mix.
@@ -421,7 +126,7 @@ pub struct Inference {
 /// linear logic or two-sided for intuitionistic linear logic. Premises
 /// precede their conclusion and the root is the last inference.
 ///
-/// [`Display`] draws the tree, see [`Proof`] for an example.
+/// [`Display`](std::fmt::Display) draws the tree, see [`Proof`] for an example.
 #[derive(Clone, Debug)]
 pub struct Derivation<'a> {
     /// The forest the sequents' occurrences index.
@@ -1008,8 +713,8 @@ impl<'a> Build<'a> {
         times: u32,
     ) -> InfId {
         let rule = match (self.reading, principal) {
-            (Some(reading), Some(o)) => rule.intuitionistic(reading.position(o)),
-            _ => rule,
+            (Some(reading), Some(o)) => rule.on(reading.position(o)),
+            _ => rule.into(),
         };
         let principal = principal.map(|o| sequent.position(o).unwrap());
         if let Some(held) = &mut self.compact {
@@ -1306,8 +1011,8 @@ impl<'a> Build<'a> {
     /// are no inference, without a sequent per step.
     fn weaken_run(&mut self, id: NodeId, o: OccId, actual: Multiset) {
         let rule = |o: OccId| match self.reading {
-            Some(reading) => Rule::Weakening.intuitionistic(reading.position(o)),
-            None => Rule::Weakening,
+            Some(reading) => Rule::Weakening.on(reading.position(o)),
+            None => Rule::Weakening.into(),
         };
         let first = rule(o);
         let mut removed = vec![o];
@@ -1766,7 +1471,7 @@ mod tests {
     fn compact_is_the_whole_with_its_runs_merged() {
         /// An inference as the test compares it: its sequent, rule,
         /// principal, times and number of premises.
-        type Shape = (Vec<OccId>, Rule, Option<usize>, u32, usize);
+        type Shape = (Vec<OccId>, Named, Option<usize>, u32, usize);
         /// Returns the tree of a derivation in preorder; with `merge`, a
         /// run of one structural rule as its lowest inference.
         fn shape(d: &Derivation, merge: bool) -> Vec<Shape> {
@@ -1841,7 +1546,11 @@ mod tests {
                 );
             }
         }
-        for rule in [Rule::Weakening, Rule::Contraction, Rule::BangContraction] {
+        for rule in [
+            Named::from(Rule::Weakening),
+            Named::from(Rule::Contraction),
+            Rule::Contraction.on(Side::Input),
+        ] {
             assert!(runs.contains(&rule), "no run of {rule}");
         }
     }
@@ -1880,8 +1589,8 @@ mod tests {
             }
             let size = p.derivation_size(false).unwrap();
             assert_eq!(size.height, u64::from(3 * ROUNDS));
-            assert_eq!(inferences[0].rule, Rule::One);
-            assert_eq!(d.inference(d.root()).rule, Rule::Contraction);
+            assert_eq!(inferences[0].rule, Named::from(Rule::One));
+            assert_eq!(d.inference(d.root()).rule, Named::from(Rule::Contraction));
         };
         std::thread::Builder::new()
             .stack_size(256 << 10)
@@ -2056,12 +1765,17 @@ mod tests {
         assert_eq!(
             d.inferences(),
             [
-                inference(&[1, 3], Rule::Ax, None, &[]),
-                inference(&[0, 3], Rule::Dereliction, Some(0), &[i(0)]),
-                inference(&[1, 4], Rule::Ax, None, &[]),
-                inference(&[0, 4], Rule::Dereliction, Some(0), &[i(2)]),
-                inference(&[0, 0, 2], Rule::Tensor, Some(2), &[i(1), i(3)]),
-                inference(&[0, 2], Rule::Contraction, Some(0), &[i(4)]),
+                inference(&[1, 3], Named::from(Rule::Ax), None, &[]),
+                inference(&[0, 3], Named::from(Rule::Dereliction), Some(0), &[i(0)]),
+                inference(&[1, 4], Named::from(Rule::Ax), None, &[]),
+                inference(&[0, 4], Named::from(Rule::Dereliction), Some(0), &[i(2)]),
+                inference(
+                    &[0, 0, 2],
+                    Named::from(Rule::Tensor),
+                    Some(2),
+                    &[i(1), i(3)]
+                ),
+                inference(&[0, 2], Named::from(Rule::Contraction), Some(0), &[i(4)]),
             ]
         );
         assert_eq!(d.root(), i(5));

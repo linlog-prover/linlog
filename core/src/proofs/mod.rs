@@ -30,16 +30,19 @@ mod multiset;
 #[cfg(test)]
 mod oracle;
 /// The size of a derivation, without building it.
+/// The rules of the standard calculus, one-sided and named two-sided.
+mod rule;
 pub mod size;
 /// The labels of rules, the shape of an open goal, and why a derivation was
 /// not written whole, which every output that draws a derivation shares.
 pub mod style;
 
 pub use check::{CheckError, Dyadic, Fault, Invalid, Refused};
-pub use derivation::{Compact, Derivation, InfId, Inference, Rule, UnknownRule, ViewOptions};
+pub use derivation::{Compact, Derivation, InfId, Inference, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
 pub use interactive::{Interactive, StepError};
+pub use rule::{Named, Rule};
 pub use size::Size;
 pub use style::{Labels, OpenGoal};
 

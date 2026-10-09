@@ -18,7 +18,8 @@
 //! `Drawn`, which the linear derivations and those of LK and LJ
 //! implement.
 
-use super::derivation::{Derivation, InfId, Rule};
+use super::derivation::{Derivation, InfId};
+use super::{Named, Rule};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -29,7 +30,7 @@ use std::fmt::Write;
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
 pub enum Labels {
     /// The connective with an upright `L` or `R` and the subscripts `1`
-    /// and `2`: `⊸L`, `&L₁`, `?d`, as [`Rule::name`] spells them.
+    /// and `2`: `⊸L`, `&L₁`, `?d`, as [`Named::name`] spells them.
     #[default]
     Upright,
     /// The side and the letter of a structural rule as a subscript: `⊸_L`,
@@ -39,18 +40,20 @@ pub enum Labels {
     Off,
     /// The user's labels in the markup of this module, by rule; a rule the
     /// table leaves out keeps its upright label.
-    Table(BTreeMap<Rule, String>),
+    Table(BTreeMap<Named, String>),
 }
 
-/// The labels of the upright convention, by rule in declaration order.
-const UPRIGHT: [&str; Rule::ALL.len()] = [
+/// The labels of the upright convention, by rule in the order of
+/// [`Named::ALL`].
+const UPRIGHT: [&str; Named::ALL.len()] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "⊸L",
     "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L", "⊤R", "!L",
     "!R", "!c", "!w", "",
 ];
 
-/// The labels of the subscript convention, by rule in declaration order.
-const SUBSCRIPT: [&str; Rule::ALL.len()] = [
+/// The labels of the subscript convention, by rule in the order of
+/// [`Named::ALL`].
+const SUBSCRIPT: [&str; Named::ALL.len()] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?_d", "?_c", "?_w", "mix", "wk", "⊸_L",
     "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "1_L", "1_R", "0_L",
     "⊤_R", "!_L", "!_R", "!_c", "!_w", "",
@@ -60,16 +63,15 @@ impl Labels {
     /// Returns the label of a rule in the markup of this module, or `None`
     /// where the rule has none: an open goal, or every rule when labels
     /// are off.
-    pub fn markup(&self, rule: Rule) -> Option<&str> {
+    pub fn markup(&self, rule: Named) -> Option<&str> {
+        let index = rule.index();
         let label = match self {
-            Self::Upright => UPRIGHT[rule as usize],
-            Self::Subscript => SUBSCRIPT[rule as usize],
+            Self::Upright => UPRIGHT[index],
+            Self::Subscript => SUBSCRIPT[index],
             Self::Off => return None,
-            Self::Table(table) => table
-                .get(&rule)
-                .map_or(UPRIGHT[rule as usize], String::as_str),
+            Self::Table(table) => table.get(&rule).map_or(UPRIGHT[index], String::as_str),
         };
-        (rule != Rule::Open && !label.is_empty()).then_some(label)
+        (rule.rule != Rule::Open && !label.is_empty()).then_some(label)
     }
 }
 
@@ -213,11 +215,11 @@ pub(crate) trait Drawn {
 }
 
 impl Drawn for Derivation<'_> {
-    const RULES: usize = Rule::ALL.len();
-    const OPEN: Option<usize> = Some(Rule::Open as usize);
+    const RULES: usize = Named::ALL.len();
+    const OPEN: Option<usize> = Some(Named::new(Rule::Open, None).index());
 
     fn markup(rule: usize, labels: &Labels) -> Option<&str> {
-        labels.markup(Rule::ALL[rule])
+        labels.markup(Named::ALL[rule])
     }
 
     fn len(&self) -> usize {
@@ -233,7 +235,7 @@ impl Drawn for Derivation<'_> {
     }
 
     fn rule(&self, id: InfId) -> usize {
-        self.inference(id).rule as usize
+        self.inference(id).rule.index()
     }
 
     fn name(&self, id: InfId) -> &'static str {
@@ -302,9 +304,9 @@ mod tests {
     /// plain text are the names.
     #[test]
     fn names_round_trip() {
-        for rule in Rule::ALL {
-            assert_eq!(rule.name().parse::<Rule>(), Ok(rule), "{rule:?}");
-            if rule != Rule::Open {
+        for rule in Named::ALL {
+            assert_eq!(rule.name().parse::<Named>().unwrap(), rule, "{rule:?}");
+            if rule.rule != Rule::Open {
                 let label = Labels::Upright.markup(rule).unwrap();
                 assert_eq!(plain(label), rule.name(), "{rule:?}");
             }

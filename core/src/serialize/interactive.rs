@@ -4,7 +4,7 @@
 use crate::fragment::Mode;
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::interactive::Interactive as State;
-use crate::proofs::{InfId, Inference, Rule};
+use crate::proofs::{InfId, Inference, Named, Rule};
 use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -17,7 +17,7 @@ struct Step {
     sequent: Vec<u32>,
     /// The rule, absent for an open goal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    rule: Option<Rule>,
+    rule: Option<Named>,
     /// The position of the principal formula, absent for an axiom, Mix or
     /// an open goal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -53,7 +53,7 @@ impl From<&State> for Interactive {
                 .iter()
                 .map(|inference| Step {
                     sequent: inference.sequent.iter().map(|o| o.get()).collect(),
-                    rule: (inference.rule != Rule::Open).then_some(inference.rule),
+                    rule: (inference.rule.rule != Rule::Open).then_some(inference.rule),
                     principal: inference.principal,
                     premises: inference.premises.iter().map(|p| p.get()).collect(),
                 })
@@ -76,7 +76,7 @@ impl TryFrom<Interactive> for State {
             .into_iter()
             .map(|step| Inference {
                 sequent: step.sequent.into_iter().map(OccId::new).collect(),
-                rule: step.rule.unwrap_or(Rule::Open),
+                rule: step.rule.unwrap_or_else(|| Rule::Open.into()),
                 principal: step.principal,
                 premises: step.premises.into_iter().map(InfId::new).collect(),
                 times: 1,

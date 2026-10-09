@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 use crate::occurrences::{Forest, Member};
-use crate::proofs::{Branch, Node, NodeId, Proof as Prf, Rule};
+use crate::proofs::{Branch, Named, Node, NodeId, Proof as Prf};
 use crate::sequents::Sequent;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -163,15 +163,15 @@ impl<'a> serde::Deserialize<'a> for Prf {
     }
 }
 
-impl serde::Serialize for Rule {
+impl serde::Serialize for Named {
     /// Serializes the rule as its name.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.name())
     }
 }
 
-impl<'a> serde::Deserialize<'a> for Rule {
-    /// Deserializes a rule from its name, as `Rule::from_str` reads it.
+impl<'a> serde::Deserialize<'a> for Named {
+    /// Deserializes a rule from its name, as `Named::from_str` reads it.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
         let name = <std::borrow::Cow<'a, str>>::deserialize(deserializer)?;
         name.parse().map_err(serde::de::Error::custom)
