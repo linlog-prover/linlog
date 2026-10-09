@@ -30,8 +30,16 @@ browser or a stranger's file would.
   tell little more.
 - `mutants/baseline/BATCH.txt` is what survived both passes, missed or
   timed out; a batch whose file exists is done. A later run (a check
-  round) moves the old lists aside, runs again and compares: a file it
-  changed must not have more survivors than before.
+  round) takes a label of its own, `mutants/run.sh --label round-1
+  [BATCH…]`, into `mutants/round-1/`, and `mutants/run.sh --compare
+  round-1` prints each batch's survivors before and now and the new ones:
+  a file the round changed must not have more survivors than before.
+  cargo-mutants' own files are under `target/mutation/LABEL/BATCH/`, not
+  `target/mutants/`, where the cargo profile of that name builds.
+- `exclude_re` leaves out mutants of a `tests` module's own helpers,
+  which say nothing of the code under test (42 of the checker's 319).
+- The baseline of 2026-10-08/09 took 5.1 hours on cores 6 to 11, three
+  mutants at a time; `plan/reports/28-baselines.md` has each batch's.
 - The `mutants` cargo profile (opt-level 1, no debug info, the debug
   assertions and overflow checks of `dev`) runs the whole suite in about
   25 s where `dev` takes two minutes, because
