@@ -168,7 +168,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   pass behind everything**: `check` is it on the roots with no observer;
   the derivation view and the size estimate are observers (`Observer`:
   every node's `State` in arena order and the `Facts` of how its rule
-  applied: `used`, `shared`, `absent`, `needs`, `left_goal`), so what
+  applied: `used`, `shared`, `absent`, `needs`), so what
   they know of a proof is what the checker derived, never a second
   reading of the rules, and every one of them is under the bound. An
   observer may give occurrences a `weight` (a `u32`), which a state adds

@@ -973,9 +973,6 @@ pub(crate) struct Facts<'a> {
     /// For `⊗`, `&` and Mix, how many unrestricted occurrences each
     /// premise needs: the sizes of two sets of occurrences.
     pub(crate) needs: [usize; 2],
-    /// For `⊗` and Mix under a reading, whether the left premise's sequent
-    /// holds a formula in output position, its subformula included.
-    pub(crate) left_goal: bool,
 }
 
 /// The pass over a proof's nodes.
@@ -1369,7 +1366,6 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 self.expect(o, Kind::Tensor)?;
                 let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
-                facts.left_goal = dl.outputs > 0 || self.is_output(self.left(o));
                 facts.absent[0] = self.take(&mut dl, self.left(o), 0)?;
                 facts.absent[1] = self.take(&mut dr, self.right(o), 1)?;
                 let mut d = self.join(dl, dr);
@@ -1479,7 +1475,6 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 }
                 let (dl, dr) = (self.premise(l)?, self.premise(r)?);
                 facts.needs = [dl.theta.len(), dr.theta.len()];
-                facts.left_goal = dl.outputs > 0;
                 Ok(self.join(dl, dr))
             }
         }

@@ -102,7 +102,9 @@ step: per node the inferences and characters of its subtree under the
 sequent it derives itself, and `reached`/`reached_goal`, the number of
 its inferences whose sequent holds a formula that a `⊤` in the subtree
 absorbs (a hypothesis, or two-sided the goal, which the builder sends to
-the premise without one at a `⊗` whose premises both absorb). An
+the premise without one at a `⊗` whose premises both absorb: the right
+one, since the reading takes `⅋` only as `~A ⅋ B`, so a `⊗`'s left
+factor is in output position and its premise has a goal). An
 absorbed formula adds its characters times that number: at the root for
 what the conclusion holds beyond the root's sequent, at every rule for a
 subformula its premise lacked (`Facts::absent`), at a `&` for what the

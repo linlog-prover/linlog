@@ -1588,7 +1588,7 @@ mod tests {
             };
             proofs.push((*proof, mode));
         }
-        let mut runs = vec![];
+        let (mut runs, mut exact) = (vec![], 0);
         for (proof, mode) in proofs {
             let sides: &[bool] = if mode.intuitionistic {
                 &[false, true]
@@ -1609,6 +1609,49 @@ mod tests {
                 let (whole, compact) = (build(Compact::Never), build(Compact::Always));
                 let context = format!("{} ({mode}, two-sided: {two_sided})", proof.sequent());
                 assert_eq!(shape(&compact, false), shape(&whole, true), "{context}");
+                // What the size pass says a compact view holds at least,
+                // which decides whether `Auto` tries one, is no more than
+                // the compact view built holds, by the builder's own count.
+                let (view_mode, reading) = if two_sided {
+                    let reading = check::reading(&proof, Derivation::TWO_SIDED).unwrap();
+                    (Derivation::TWO_SIDED, reading)
+                } else {
+                    (Derivation::ONE_SIDED, None)
+                };
+                let mut stop = |_| false;
+                let limits = crate::Limits::default();
+                let allowance = Allowance::new(&limits, Phase::View, &mut stop);
+                let conclusion = proof.conclusion();
+                let (_, firm) =
+                    size::measured(&proof, &conclusion, view_mode, reading.as_ref(), allowance)
+                        .unwrap();
+                let held = Held {
+                    weights: size::weights(proof.forest()),
+                    bytes: 0,
+                    budget: Budget {
+                        most: None,
+                        error: Error::Refused(Refusal::Stopped { phase: Phase::View }),
+                    },
+                };
+                let bytes = compact
+                    .inferences()
+                    .iter()
+                    .map(|i| held.cost(&i.sequent))
+                    .sum();
+                let inferences = compact.inferences().len() as u64;
+                assert!(firm.inferences <= inferences, "{context}");
+                assert!(firm.bytes <= bytes, "{context}");
+                // Without a structural rule and a `⊤`, whose context the
+                // bound leaves out, the bound is the view.
+                let plain = |i: &Inference| !i.rule.is_structural() && i.rule.rule != Rule::Top;
+                if whole.inferences().iter().all(plain) {
+                    assert_eq!(
+                        (firm.inferences, firm.bytes),
+                        (inferences, bytes),
+                        "{context}"
+                    );
+                    exact += 1;
+                }
                 runs.extend(
                     compact
                         .inferences()
@@ -1625,6 +1668,7 @@ mod tests {
         ] {
             assert!(runs.contains(&rule), "no run of {rule}");
         }
+        assert!(exact > 0, "no sample without a structural rule");
     }
 
     /// A derivation of any height is built on a small stack: 120 000

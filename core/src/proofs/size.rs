@@ -442,11 +442,13 @@ impl Observer for Measure<'_> {
                 // What the rule's conclusion absorbs goes to the left
                 // premise if it absorbs, else to the right one; two-sided,
                 // with both absorbing, the goal goes to the premise that
-                // has none.
+                // has none, which is the right one: the left factor of a
+                // `⊗` is an antecedent or a part of the goal (the reading
+                // takes `⅋` only as `~A ⅋ B`), in output position either
+                // way, so the left premise has its goal.
                 let (reached, reached_goal) = if self.reading.is_some() && pl.absorbs && pr.absorbs
                 {
-                    let goal = if facts.left_goal { &pr } else { &pl };
-                    (pl.reached, goal.reached_goal)
+                    (pl.reached, pr.reached_goal)
                 } else if pl.absorbs {
                     (pl.reached, pl.reached_goal)
                 } else {
@@ -669,6 +671,57 @@ mod tests {
             panic!("provable");
         };
         proofs.push((*proof, Mode::CLASSICAL));
+        // Two-sided, a `⊸L` both of whose premises a `⊤` closes, and the
+        // goal absorbed in the one without a goal of its own, the larger
+        // or the smaller; a `⊕L` of
+        // two such premises over a hypothesis copied twice; and a
+        // generated sample whose goal a premise consumes before a `&`.
+        let affine = Mode::INTUITIONISTIC.with_affine();
+        for (input, mode) in [
+            ("0, 0 -o 0 * D |- C * C * C", Mode::INTUITIONISTIC),
+            ("0 -o 0 * D, 0 |- C * C * C", Mode::INTUITIONISTIC),
+            ("0, 0, (D * 0) -o 0 |- C * C * C", Mode::INTUITIONISTIC),
+            ("0 + 0, !A |- (A * A) * C", Mode::INTUITIONISTIC),
+            (
+                "(c -o a), ((a -o a) -o (c -o c)), c, (c -o c) |- (a * ((b -o top) -o (((c -o \
+                 top) & (top + a)) -o ((c + (top -o a)) -o (((top * b) & b) + (((c * a) + (b & \
+                 top)) + (top & (top * top))))))))",
+                affine,
+            ),
+        ] {
+            let sequent: Sequent = input.parse().unwrap();
+            let outcome = prove(&sequent, mode, &Options::default()).unwrap();
+            let Verdict::Proved(proof) = outcome.verdict else {
+                panic!("{input} is provable");
+            };
+            proofs.push((*proof, mode));
+        }
+        // A `&` both of whose premises absorb, one having derived `~a`
+        // twice, by two axioms on the one subformula of `?~a`: the
+        // conclusion's zone is the larger of the two, `~a` counted twice.
+        {
+            use crate::proofs::{Node::*, NodeId};
+            let sequent: Sequent = "|- ?~a, (a * (a * top)) & top".parse().unwrap();
+            // 0 `?~a`, 1 `~a`, 2 `&`, 3 `a ⊗ (a ⊗ ⊤)`, 4 `a`, 5 `a ⊗ ⊤`,
+            // 6 `a`, 7 `⊤`, 8 `⊤`.
+            let (o, n) = (crate::occurrences::Member::new, NodeId::new);
+            let nodes = vec![
+                Ax(o(4), o(1)),
+                Ax(o(6), o(1)),
+                Top(o(7)),
+                Tensor(o(5), n(1), n(2)),
+                Tensor(o(3), n(0), n(3)),
+                Top(o(8)),
+                With(o(2), n(4), n(5)),
+                Copy(o(1), n(6)),
+                Copy(o(1), n(7)),
+                Quest(o(0), n(8)),
+            ];
+            let forest = crate::Forest::new(&sequent).unwrap();
+            let proof = crate::Proof::new(forest, nodes, n(9)).unwrap();
+            assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
+            proofs.push((proof, Mode::CLASSICAL));
+        }
         for (proof, mode) in proofs {
             let mut views = vec![(
                 false,
