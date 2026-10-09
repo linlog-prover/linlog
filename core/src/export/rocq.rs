@@ -21,7 +21,7 @@
 //!
 //! The certificate is one of classical linear logic: a two-sided
 //! derivation is exported as the one-sided derivation behind it
-//! (the one-sided [`Rule`] of every [`Named`] rule), which proves the same
+//! (the one-sided [`Rule`] of every [`Named`](crate::proofs::Named) rule), which proves the same
 //! sequent read one-sided.
 //! Mix, the weakening of affine mode and an open goal have no rule in the
 //! kernel, and a derivation with one is refused ([`Unsupported`]). A
@@ -34,10 +34,10 @@
 //! name that would clash with a keyword, a name of the kernel, the lemma's
 //! name or another atom gets `'` appended until it is free.
 //!
+//! Needs the cargo feature `rocq` (on by default).
+//!
 //! # Examples
 //!
-//!
-//! Needs the cargo feature `rocq` (on by default).
 #![cfg_attr(feature = "parse", doc = "```")]
 #![cfg_attr(not(feature = "parse"), doc = "```ignore")]
 //! use linlog::export::rocq::{self, Options};
@@ -69,6 +69,7 @@
 use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
 use crate::Error;
+use crate::hash::HashSet;
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Derivation, InfId, Rule};
 use crate::sequents::{Sequent, Term, TermId, Visit, Walk};
@@ -359,15 +360,20 @@ fn identifier(name: &str) -> String {
 /// others.
 pub(crate) fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::with_capacity(atoms.len());
+    // The names taken so far, so that a clash costs a lookup: comparing
+    // with every earlier name was quadratic in the atoms, seconds before
+    // the first poll on a dictionary of a hundred thousand.
+    let mut taken: HashSet<String> = HashSet::default();
     for name in atoms {
         let mut id = identifier(name);
         while KEYWORDS.contains(&id.as_str())
             || KERNEL.contains(&id.as_str())
             || id == lemma
-            || names.contains(&id)
+            || taken.contains(&id)
         {
             id.push('\'');
         }
+        taken.insert(id.clone());
         names.push(id);
     }
     names

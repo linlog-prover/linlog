@@ -76,6 +76,10 @@ pub enum Term {
     Quest(TermId),
 }
 
+/// A term is a tag and two arena indices at most: every arena and every
+/// table keyed by terms grows with it.
+const _: () = assert!(size_of::<Term>() == 12);
+
 /// The kind of a term: its connective, or which literal it is.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

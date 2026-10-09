@@ -42,11 +42,11 @@
 //!
 //! Needs the cargo feature `parse` (on by default).
 
+use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
 use crate::sequents::{Atom, Term, TermId};
 use crate::{Error, Sequent};
-use std::collections::HashMap;
 
 /// A problem read from a `.spec` file.
 #[derive(Clone, Debug)]
