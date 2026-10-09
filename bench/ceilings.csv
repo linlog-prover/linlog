@@ -9,13 +9,13 @@ search-additive-14,621974417
 read-text,18995857
 read-json,13708525
 read-lltp,32990483
-read-tptp,31574017
+read-tptp,32252217
 read-spec,22458173
 check-qbf-20-2,145304340
 check-wide-m1-2048,9383517
 derivation-chain-64,17006453
-render-latex,6585706
-render-typst,5779945
-render-svg,92874266
+render-latex,7258483
+render-typst,7179877
+render-svg,95737255
 batch-families,81563494
 ordinary-pigeons,39298004
