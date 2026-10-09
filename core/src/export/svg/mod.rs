@@ -178,6 +178,65 @@ impl Style {
             ..Self::default()
         }
     }
+
+    /// The most a length may be, in thousandths of an em: a thousand ems.
+    /// Under these maxima an element or a character of a drawing adds at
+    /// most a million thousandths of an em to a coordinate, so a drawing
+    /// passes `i64` only past 9·10¹² elements, far beyond the memory; the
+    /// products with a size are taken in `i128`.
+    pub const MOST_LENGTH: u32 = 1_000_000;
+
+    /// The most `label_size` and an advance may be, in thousandths of an
+    /// em: ten ems.
+    pub const MOST_SIZE: u32 = 10_000;
+
+    /// The most `font_size` may be, in pixels.
+    pub const MOST_FONT_SIZE: u32 = 10_000;
+
+    /// Checks that every number of the style is within its maximum
+    /// ([`MOST_LENGTH`](Self::MOST_LENGTH) for the lengths and
+    /// `link_height`, [`MOST_SIZE`](Self::MOST_SIZE) for `label_size` and
+    /// the font's advances, [`MOST_FONT_SIZE`](Self::MOST_FONT_SIZE)), so
+    /// that no position of a drawing the memory can hold leaves the
+    /// integers it is laid out in. Every drawing checks its style first.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidOption`] naming the first key past its maximum.
+    pub fn check(&self) -> Result<(), Error> {
+        let advances: u32 = match &self.font.advances {
+            Advances::Euler => 0,
+            Advances::Fixed(advance) => *advance,
+            Advances::Table { table, fallback } => {
+                table.values().copied().fold(*fallback, u32::max)
+            }
+        };
+        let numbers = [
+            ("svg.font_size", self.font_size, Self::MOST_FONT_SIZE),
+            ("svg.label_size", self.label_size, Self::MOST_SIZE),
+            ("svg.font.advances", advances, Self::MOST_SIZE),
+            ("svg.line_height", self.line_height, Self::MOST_LENGTH),
+            ("svg.premise_gap", self.premise_gap, Self::MOST_LENGTH),
+            ("svg.literal_gap", self.literal_gap, Self::MOST_LENGTH),
+            ("svg.label_gap", self.label_gap, Self::MOST_LENGTH),
+            ("svg.margin", self.margin, Self::MOST_LENGTH),
+            ("svg.stroke_width", self.stroke_width, Self::MOST_LENGTH),
+            ("svg.link_height", self.link_height, Self::MOST_LENGTH),
+            (
+                "svg.link_cap",
+                self.link_cap.unwrap_or(0),
+                Self::MOST_LENGTH,
+            ),
+            ("svg.node_radius", self.node_radius, Self::MOST_LENGTH),
+        ];
+        match numbers.into_iter().find(|&(_, value, most)| value > most) {
+            Some((key, value, most)) => Err(Error::InvalidOption {
+                key,
+                message: format!("{value} is more than the most it may be, {most}"),
+            }),
+            None => Ok(()),
+        }
+    }
 }
 
 /// The characters that open and close a formula of a sequent in the text
@@ -240,35 +299,36 @@ const PLAIN: Notation = Notation {
 };
 
 /// Writes an atom's name with its Latin letters as mathematical italic
-/// characters and its control characters, which XML cannot carry, as
-/// `�`.
+/// characters. A name is an identifier, so it holds none of the control
+/// characters the layout marks its text with.
 fn italic(out: &mut String, name: &str) {
     for c in name.chars() {
         out.push(match c {
             'h' => 'ℎ',
             'A'..='Z' => char::from_u32(0x1D434 + (c as u32 - 'A' as u32)).unwrap(),
             'a'..='z' => char::from_u32(0x1D44E + (c as u32 - 'a' as u32)).unwrap(),
-            c if c.is_control() => '\u{FFFD}',
             c => c,
         });
     }
 }
 
-/// Writes an atom's name as it is, with its control characters as `�`.
+/// Writes an atom's name as it is.
 fn plain(out: &mut String, name: &str) {
-    out.extend(
-        name.chars()
-            .map(|c| if c.is_control() { '\u{FFFD}' } else { c }),
-    );
+    out.push_str(name);
 }
 
-/// Writes a character escaped for XML text and attribute values.
+/// Writes a character escaped for XML text and attribute values, and one
+/// that XML 1.0 cannot carry (a control character other than tab, line
+/// feed and carriage return, U+FFFE, U+FFFF) as `�`: the one place text
+/// enters a drawing, whatever a style's strings hold.
 fn escape(out: &mut String, c: char) {
     match c {
         '&' => out.push_str("&amp;"),
         '<' => out.push_str("&lt;"),
         '>' => out.push_str("&gt;"),
         '"' => out.push_str("&quot;"),
+        '\t' | '\n' | '\r' => out.push(c),
+        '\0'..='\u{1F}' | '\u{FFFE}' | '\u{FFFF}' => out.push('\u{FFFD}'),
         c => out.push(c),
     }
 }
@@ -317,8 +377,12 @@ struct Run {
 /// that formula. Spaces separate pieces rather than start or end one.
 fn run(text: &str, size: i64, font: &Font) -> Run {
     // Widths in millionths of an em of `size`, which `scale` turns into
-    // thousandths of an em of formula text.
-    let scale = |millionths: i64| millionths * size / 1_000_000;
+    // thousandths of an em of formula text; the product of a long line's
+    // width and a large size passes `i64`, the quotient does not.
+    let scale = |millionths: i64| {
+        let scaled = i128::from(millionths) * i128::from(size) / 1_000_000;
+        i64::try_from(scaled).unwrap_or(i64::MAX)
+    };
     let mut pieces: Vec<Piece> = Vec::new();
     let (mut position, mut start, mut end) = (0, 0, 0);
     let mut current = (0, 1000);
@@ -436,8 +500,10 @@ fn text(
 }
 
 /// Returns thousandths as a decimal number, without trailing zeros.
-fn decimal(thousandths: i64) -> String {
-    let text = format!("{}.{:03}", thousandths / 1000, thousandths % 1000);
+fn decimal(thousandths: i128) -> String {
+    let sign = if thousandths < 0 { "-" } else { "" };
+    let magnitude = thousandths.unsigned_abs();
+    let text = format!("{sign}{}.{:03}", magnitude / 1000, magnitude % 1000);
     text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
@@ -447,7 +513,7 @@ fn decimal(thousandths: i64) -> String {
 /// its accessible name.
 fn head(out: &mut impl Write, style: &Style, title: &str, size: (i64, i64)) -> std::fmt::Result {
     let (width, height) = size;
-    let px = |length: i64| decimal(length * i64::from(style.font_size));
+    let px = |length: i64| decimal(i128::from(length) * i128::from(style.font_size));
     write!(
         out,
         r#"<svg xmlns="http://www.w3.org/2000/svg" role="img" width="{}" height="{}" viewBox="0 0 {width} {height}" font-family="{}" font-size="1000" fill="{}">"#,
@@ -536,14 +602,16 @@ const PER_OCCURRENCE: u64 = 128;
 /// estimated past `limits.derivation_bytes` (`128` bytes an occurrence
 /// and its longest atom name), before anything is laid out;
 /// [`Error::NotIntuitionistic`] in intuitionistic mode for one without an
-/// intuitionistic reading, and the refusal of
-/// [`Forest::within`](crate::Forest::within).
+/// intuitionistic reading, the refusal of
+/// [`Forest::within`](crate::Forest::within), and
+/// [`Error::InvalidOption`] for a style [`Style::check`] refuses.
 pub fn sequent(
     sequent: &Sequent,
     mode: crate::Mode,
     style: &Style,
     limits: &crate::Limits,
 ) -> Result<String, Error> {
+    style.check()?;
     Ok(
         match super::printed(sequent, mode, PER_OCCURRENCE, limits)? {
             None => one_sided(sequent, style),
@@ -612,14 +680,17 @@ fn two_sided(reading: &Reading, style: &Style) -> String {
 ///
 /// # Errors
 ///
-/// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
-/// [`Error::WriteFailed`] when `out` refused the text.
+/// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired,
+/// [`Error::WriteFailed`] when `out` refused the text, and
+/// [`Error::InvalidOption`] for a style [`Style::check`] refuses, before
+/// anything is written.
 pub fn write<'a>(
     derivation: impl Into<Drawable<'a>>,
     style: &Style,
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
+    style.check()?;
     let stop = crate::limits::counting(stop, crate::limits::Phase::Write);
     match derivation.into() {
         Drawable::Linear(derivation) => tree::draw(derivation, style, out, stop),
@@ -651,13 +722,15 @@ pub fn write<'a>(
 /// # Errors
 ///
 /// [`Refusal::Output`](crate::Refusal::Output) past the bound, before
-/// anything is drawn, and the criterion's refusal when `stop` fired.
+/// anything is drawn, the criterion's refusal when `stop` fired, and
+/// [`Error::InvalidOption`] for a style [`Style::check`] refuses.
 pub fn net(
     net: &ProofStructure,
     style: &Style,
     limits: &crate::Limits,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
+    style.check()?;
     if let Some(limit) = limits.derivation_bytes {
         let estimate = net::estimate(net, style, limit);
         if estimate > limit {
@@ -714,12 +787,63 @@ mod tests {
         );
     }
 
-    /// Atom names keep their letters as math italic and lose their control
-    /// characters.
+    /// A style past a maximum is refused before anything is drawn, and
+    /// one at every maximum draws in exact numbers: its width once went
+    /// negative, `-96823495355.-824`.
+    #[cfg(feature = "parse")]
+    #[test]
+    fn styles_are_within_their_maxima() {
+        let s: Sequent = "A * B |- B * A".parse().unwrap();
+        let limits = crate::Limits::default();
+        let drawn = |style: &Style| sequent(&s, crate::Mode::CLASSICAL, style, &limits);
+        let past = Style {
+            font_size: Style::MOST_FONT_SIZE + 1,
+            ..Style::default()
+        };
+        assert!(matches!(
+            drawn(&past),
+            Err(Error::InvalidOption {
+                key: "svg.font_size",
+                ..
+            })
+        ));
+        let most = Style {
+            font: Font {
+                advances: Advances::Fixed(Style::MOST_SIZE),
+                ..Font::euler()
+            },
+            font_size: Style::MOST_FONT_SIZE,
+            label_size: Style::MOST_SIZE,
+            margin: Style::MOST_LENGTH,
+            ..Style::default()
+        };
+        let svg = drawn(&most).unwrap();
+        let width = svg
+            .split("width=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
+        assert!(width.parse::<f64>().unwrap() > 0.0, "{width}");
+        assert_eq!(decimal(-1500), "-1.5");
+    }
+
+    /// Atom names keep their letters as math italic.
     #[test]
     fn names_are_italic() {
         let mut out = String::new();
-        italic(&mut out, "Ah_1α\u{1}");
-        assert_eq!(out, "𝐴ℎ_1α\u{FFFD}");
+        italic(&mut out, "Ah_1α");
+        assert_eq!(out, "𝐴ℎ_1α");
+    }
+
+    /// What XML cannot carry is `�`, whatever text it comes in; tab, line
+    /// feed and carriage return stay.
+    #[test]
+    fn text_is_xml() {
+        assert_eq!(
+            escaped("a\u{7}<b>\t\n\r&\"\u{FFFE}\u{FFFF}\u{0}"),
+            "a\u{FFFD}&lt;b&gt;\t\n\r&amp;&quot;\u{FFFD}\u{FFFD}\u{FFFD}"
+        );
     }
 }

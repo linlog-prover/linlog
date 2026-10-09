@@ -925,7 +925,8 @@ pub struct StyleArgs {
     /// ebproof, preamble; typst: form, labels, open, import, page,
     /// layout (auto, curryst or linlog: curryst for a tree up to nine
     /// inferences high, linlog's own code above), premise_gap, label_gap,
-    /// band, stroke (Typst lengths for linlog's own layout); svg:
+    /// band, stroke (lengths for linlog's own layout: a number and pt,
+    /// mm, cm, in or em); svg:
     /// font (family, advances), labels, open, ids, description, font_size,
     /// label_size, line_height, premise_gap, literal_gap, label_gap,
     /// margin, stroke_width, link_height, link_cap, node_radius, text,

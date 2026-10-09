@@ -619,7 +619,8 @@ instead: a `#context` block that lists the inferences and the Typst code
 that measures and places them, which needs no package and sets a tree of
 any height. `--style layout=linlog` asks for it at any height,
 `layout=curryst` for curryst always, and `premise_gap`, `label_gap`,
-`band` and `stroke` set its spacing:
+`band` and `stroke` set its spacing, each a number and one of the units
+`pt`, `mm`, `cm`, `in` and `em`:
 
 ```console
 $ linlog prove --format typst --style layout=linlog "A & B |- A + B" | head -12

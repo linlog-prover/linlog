@@ -143,6 +143,79 @@ pub enum Layout {
     Linlog,
 }
 
+/// A Typst length the output writes as code: a number of digits, with a
+/// fraction after a `.` or not, and one of the units `pt`, `mm`, `cm`,
+/// `in` and `em`, as in `1.5em`, so that an option's value can never be
+/// other code. In JSON (feature `serialize`) its text.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Length(Box<str>);
+
+impl Length {
+    /// The units a length may have.
+    pub const UNITS: [&'static str; 5] = ["pt", "mm", "cm", "in", "em"];
+
+    /// Returns the length `text` is.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidOption`] for text that is no such length.
+    pub fn new(text: &str) -> Result<Self, Error> {
+        let number = text.trim_end_matches(|c: char| c.is_ascii_alphabetic());
+        let (whole, fraction) = number.split_once('.').unwrap_or((number, "0"));
+        let digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+        if digits(whole) && digits(fraction) && Self::UNITS.contains(&&text[number.len()..]) {
+            Ok(Self(text.into()))
+        } else {
+            Err(Error::InvalidOption {
+                key: "typst",
+                message: format!(
+                    "`{text}` is no Typst length: digits, a fraction or not, and one of {}",
+                    Self::UNITS.join(", ")
+                ),
+            })
+        }
+    }
+
+    /// Returns the length's text.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for Length {
+    type Err = Error;
+
+    /// Reads a length as [`new`](Self::new) does.
+    fn from_str(text: &str) -> Result<Self, Error> {
+        Self::new(text)
+    }
+}
+
+impl std::fmt::Display for Length {
+    /// Writes the length as Typst reads it.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Length {
+    /// Serializes the length as its text.
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'a> serde::Deserialize<'a> for Length {
+    /// Deserializes a length from its text, refusing what
+    /// [`new`](Self::new) refuses.
+    fn deserialize<D: serde::Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = <std::borrow::Cow<'a, str>>::deserialize(deserializer)?;
+        Self::new(&text).map_err(serde::de::Error::custom)
+    }
+}
+
 /// What a user may vary in the Typst output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -163,18 +236,17 @@ pub struct Options {
     /// Which code sets the tree.
     pub layout: Layout,
     /// The least space between two premises side by side in linlog's own
-    /// layout, a Typst length.
-    pub premise_gap: String,
+    /// layout.
+    pub premise_gap: Length,
     /// The space between an inference line and its rule's label in
-    /// linlog's own layout, a Typst length.
-    pub label_gap: String,
+    /// linlog's own layout.
+    pub label_gap: Length,
     /// The least height of the space an inference line stands in, between
-    /// its premises and its conclusion, in linlog's own layout, a Typst
-    /// length; a taller label makes it taller.
-    pub band: String,
-    /// The thickness of an inference line in linlog's own layout, a Typst
-    /// length.
-    pub stroke: String,
+    /// its premises and its conclusion, in linlog's own layout; a taller
+    /// label makes it taller.
+    pub band: Length,
+    /// The thickness of an inference line in linlog's own layout.
+    pub stroke: Length,
 }
 
 impl Default for Options {
@@ -190,10 +262,10 @@ impl Default for Options {
             import: format!("#import \"@preview/curryst:{CURRYST}\": prooftree, rule"),
             page: PAGE.to_owned(),
             layout: Layout::Auto,
-            premise_gap: "1.5em".to_owned(),
-            label_gap: "0.2em".to_owned(),
-            band: "0.8em".to_owned(),
-            stroke: "0.05em".to_owned(),
+            premise_gap: Length("1.5em".into()),
+            label_gap: Length("0.2em".into()),
+            band: Length("0.8em".into()),
+            stroke: Length("0.05em".into()),
         }
     }
 }
@@ -679,6 +751,26 @@ mod tests {
         let mut out = String::new();
         atom(&mut out, name);
         out
+    }
+
+    /// A length is a number and a unit, and nothing else reaches the
+    /// output as code.
+    #[test]
+    fn lengths_are_numbers_and_units() {
+        for text in ["1.5em", "0pt", "12mm", "2.25in", "3cm"] {
+            assert_eq!(Length::new(text).unwrap().as_str(), text);
+        }
+        for text in [
+            "", "em", "1", "1.em", ".5em", "1.5 em", "-1em", "1em)", "1fr", "1em+2pt",
+        ] {
+            assert!(
+                matches!(
+                    Length::new(text),
+                    Err(Error::InvalidOption { key: "typst", .. })
+                ),
+                "{text:?}"
+            );
+        }
     }
 
     /// One letter stays as it is; every other name is an italic string

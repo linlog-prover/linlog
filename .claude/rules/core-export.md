@@ -176,8 +176,11 @@ for NanoYalla. What the code relies on:
   expression statement into the output, so a `pop()` whose value is not
   wanted is `let _ = …pop()`, and a closure cannot change a captured
   variable (loops instead of `map`). The spacing fields (`premise_gap`,
-  `label_gap`, `band`, `stroke`) are Typst lengths written verbatim, as
-  `import` and `page` are; their defaults are curryst's.
+  `label_gap`, `band`, `stroke`) are `typst::Length`s, a number and a
+  unit checked when made or read (`InvalidOption`, key `typst`), so an
+  option's value never reaches the output as other code (F38); `import`
+  and `page` stay code by design, written verbatim. The defaults are
+  curryst's.
 - **Snapshots**: `core/tests/export.rs` pins standalone documents in
   `core/tests/snapshots/` (`BLESS=1` rewrites them; `ordinary.*` is an
   LJ derivation read back through the public API); the flake's `export`
@@ -210,6 +213,25 @@ for NanoYalla. What the code relies on:
   `hmtx` (`ttx -t cmap -t hmtx` of `cli/fonts/Euler-Math.otf`, which
   also gives `⊗` 668 as the table has it); a character added to a printer
   gets its advance the same way, or takes the fallback of 650.
+- **A style's numbers have maxima** (`Style::check`, which `svg::write`,
+  `sequent` and `net` call before anything is drawn, `InvalidOption`
+  naming the key): lengths `MOST_LENGTH` (a thousand ems), `label_size`
+  and every advance `MOST_SIZE` (ten ems), `font_size`
+  `MOST_FONT_SIZE`. Under them a coordinate grows by at most a million
+  thousandths per element, so `i64` holds every drawing the memory
+  holds; the products with a size (`run`'s `scale`, `head`'s pixels)
+  are taken in `i128`, and `decimal` writes a negative number with one
+  sign. A style of huge numbers overflowed in debug and wrote
+  `width="-96823495355.-824"` in release (F4). A new number of the
+  style gets its maximum in `check`.
+- **`escape` is the one place text enters a drawing**: it writes what
+  XML 1.0 cannot carry (a control character but tab, line feed and
+  carriage return, U+FFFE, U+FFFF) as `�`, whatever string a style or
+  a label table holds (F39: a control character made the `<desc>`
+  invalid XML, so PNG and PDF failed on a proved sequent). Atom names
+  need nothing of their own: they are identifiers, which hold no
+  control character, so none can pose as the layout's markers
+  (`\u{1}` to `\u{5}`).
 - **PNG and PDF render the SVG** (`export/png.rs` with resvg and the
   png encoder, `export/pdf.rs` with krilla and krilla-svg, features
   `png` and `pdf`, `export::parse` and `export::texts` shared):
