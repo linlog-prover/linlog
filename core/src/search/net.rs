@@ -30,14 +30,6 @@ use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
 use crate::occurrences::{Forest, OccId, Sign};
 use crate::sequents::{Atom, Kind};
 
-/// The most occurrences a structure may have for the exact test to run
-/// after every link by default.
-const SMALL: usize = 200;
-
-/// How many links go between two exact tests on a larger structure by
-/// default.
-const PERIOD: u32 = 4;
-
 /// The raw index that stands for "no occurrence".
 const NONE: u32 = u32::MAX;
 
@@ -272,8 +264,8 @@ impl<'a> Engine<'a> {
         }
         let period = match options.test_period {
             Cadence::Every(period) => period.max(1),
-            Cadence::Auto if n <= SMALL => 1,
-            Cadence::Auto => PERIOD,
+            Cadence::Auto if n <= Cadence::AUTO_SMALL => 1,
+            Cadence::Auto => Cadence::AUTO_PERIOD,
         };
         Self {
             scratch,

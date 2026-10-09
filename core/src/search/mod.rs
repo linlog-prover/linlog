@@ -1006,12 +1006,23 @@ impl Jobs {
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Cadence {
-    /// After every link on a structure of at most 200 occurrences, every
-    /// fourth link on a larger one.
+    /// After every link on a structure of at most
+    /// [`AUTO_SMALL`](Self::AUTO_SMALL) occurrences, every
+    /// [`AUTO_PERIOD`](Self::AUTO_PERIOD)th link on a larger one.
     #[default]
     Auto,
     /// After this many links; zero counts as one.
     Every(u32),
+}
+
+impl Cadence {
+    /// The most occurrences a structure has on which [`Auto`](Self::Auto)
+    /// tests after every link.
+    pub const AUTO_SMALL: usize = 200;
+
+    /// How many links go between two tests of [`Auto`](Self::Auto) on a
+    /// larger structure.
+    pub const AUTO_PERIOD: u32 = 4;
 }
 
 impl From<u32> for Cadence {
