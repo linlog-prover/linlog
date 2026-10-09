@@ -561,11 +561,16 @@ impl ProofStructure {
             return Err(Error::GoalProof);
         }
         let forest = proof.forest();
-        afford(Self::bytes(forest), limits)?;
+        let bytes = Self::bytes(forest);
+        afford(bytes, limits)?;
         let mut links = Vec::with_capacity(forest.all_literals().len() / 2);
         for (i, &node) in proof.nodes().iter().enumerate() {
             let done = i as u64 + 1;
-            if stop(Progress::new(Phase::Net, 1, done)) {
+            let progress = Progress {
+                held_bytes: bytes,
+                ..Progress::new(Phase::Net, 1, done)
+            };
+            if stop(progress) {
                 return Err(STOPPED.into());
             }
             match node {
@@ -589,7 +594,12 @@ impl ProofStructure {
             }
         }
         let net = Self::from_links(forest.clone(), criterion, &links)?;
-        net.is_correct(stop)?;
+        net.is_correct(|progress| {
+            stop(Progress {
+                held_bytes: bytes,
+                ..progress
+            })
+        })?;
         Ok(net)
     }
 
@@ -1256,8 +1266,14 @@ mod tests {
         let stopped = Refusal::Stopped { phase: Phase::Net };
         let error = ProofStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| true);
         assert_eq!(refused(error.unwrap_err()), stopped);
-        let net = ProofStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| false)
-            .unwrap();
+        let mut held = Vec::new();
+        let net = ProofStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |p| {
+            held.push(p.held_bytes);
+            false
+        })
+        .unwrap();
+        // Each poll says what the call holds by its estimate.
+        assert!(!held.is_empty() && held.iter().all(|&bytes| bytes > 0));
         assert_eq!(
             net.is_correct(|_| true),
             Err(NetError::Refused {

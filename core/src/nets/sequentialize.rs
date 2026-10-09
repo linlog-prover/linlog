@@ -48,7 +48,12 @@ impl ProofStructure {
             forest.sequent().terms().len() as u64 * size_of::<crate::sequents::Term>() as u64;
         let bytes = (forest.len() as u64 * SEQUENTIALIZE_BYTES).saturating_add(arena);
         afford(bytes, limits)?;
-        self.is_correct(&mut stop)?;
+        self.is_correct(|progress| {
+            stop(Progress {
+                held_bytes: bytes,
+                ..progress
+            })
+        })?;
         let mut run = Sequentialization {
             net: self,
             scratch: self.scratch(),
@@ -59,7 +64,10 @@ impl ProofStructure {
         let mut stages = 0;
         let mut stop = |stage: u64| {
             stages += stage;
-            stop(Progress::new(Phase::Net, stage, stages))
+            stop(Progress {
+                held_bytes: bytes,
+                ..Progress::new(Phase::Net, stage, stages)
+            })
         };
         let root = run.sequentialize(self.forest.roots().to_vec(), &mut stop);
         let Some(root) = root else {
