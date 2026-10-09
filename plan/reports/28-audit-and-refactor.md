@@ -141,3 +141,31 @@ its evidence (a commit, a file, a command's result) once it is done.
 - `nix flake check` passed at 2b332aa1 (03:00, `--keep-going`, exit 0)
   after a first run failed on a fuzz target's formatting (8f26bd36).
 
+
+### Where you start, `step-28b` (2026-10-09)
+
+- You are `step-28b`, the second session of step 28: stage 1 only, the
+  audit (Opus 5.5 at `high`; the workflow with the lenses and models the
+  stage names). The session ends when stage 1 is done: the rubric, the
+  machine checks in `nix flake check`, the audit workflow with its
+  rounds and critic, `plan/reports/28-audit.md` with the decision list,
+  all committed, the checklist current and the last message sent to
+  `planning`. The design is the next session's.
+- Read "From the review of stage 0" in the prompt first; the research
+  notes it names are in `plan/notes/research/`. Record this note here
+  first.
+- The author's answers so far: none. The register's conflicts C1 to C3
+  go into the decision list beside the audit's own matters of taste.
+- Signing: the author is away and the passphrase's cache has lapsed.
+  Test a signature before each commit and commit with
+  `--config signing.behavior=drop` while it fails; the unsigned commits
+  since 7c438f1b stay as they are, the supervisor signs them.
+- The machine is the step's, but another project of the author's runs
+  browser tests (headless Chrome and Node) now and then; this stage has
+  no timed run. Builds run on cores 2 to 5, the agents' programs on 6
+  to 15.
+- Usage: the five-hour window reset at 01:50, the weekly one resets at
+  05:00. If a limit stops the session, it writes where it stands into
+  the checklist and ends its turn; the supervisor says when to go on.
+- What was done: recorded at the session's start; signing failed at
+  the start (no pinentry), so the session commits unsigned.
