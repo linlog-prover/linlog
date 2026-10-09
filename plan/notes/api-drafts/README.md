@@ -17,3 +17,10 @@ C). Both proposed the same synthesis (A's frame, B's trusted core, C's
 engines, later steps and spike), both chose C's rule for the written
 sides and the interned atomic formula. `api.md` says where it follows
 them and where not. These files are not kept current.
+
+The walk-through (`brief-walk.md`): ten agents (Sonnet 5.5 at `high`),
+one per step 29 to 38, each sketched its step's first change against
+`api.md` as committed in ab0b27e5 and reported where it had to work
+around it (`walk-29.md` … `walk-38.md`); `api.md` section 12 answers each
+report. The spike (`brief-spike.md`, Opus 5.5 at `xhigh`) is reported in
+`spike-report.md` and answered in `api.md` section 11.
