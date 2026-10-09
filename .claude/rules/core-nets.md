@@ -44,6 +44,14 @@ code relies on:
   estimate (`STRUCTURE_BYTES` and `SCRATCH_BYTES` per vertex, the
   arena's terms) to `limits.memory_bytes` before it builds anything,
   and asks the stop per node and per round of the criterion.
+- **The criterion's stop is a `dyn` inside the graph** (`Graph::acyclic`,
+  `cycle`, the sequentialization's stages): generic, `acyclic` was
+  instantiated in its caller's codegen unit, where `search` and
+  `deletable`, which run per vertex and round, were not inlined, and the
+  net engine's journey counted 4.8 % more (`search-wide-m2-256`, 287.2
+  million against 274.2). A closure asked once a round costs nothing
+  measurable as a `dyn`; keep functions on the hot path of the exact
+  test non-generic.
 - **`is_correct(stop)` takes no limits**: its memory is linear in the
   structure (the scratch), and `stop` is asked per round of the deletion
   procedure, which a cycle's witness runs once per edge. `sequentialize`
