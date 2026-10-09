@@ -171,6 +171,15 @@ that calls itself. `core/tests/depth.rs` runs every walk the public API
 offers on formulas nested 100 000 deep, on a thread with a stack of
 256 KiB.
 
+**No wildcard arm over the calculus's enums** in `sequents`,
+`occurrences`, `nets`, `export` and `ordinary`: each denies clippy's
+`wildcard_enum_match_arm` at its top, so a variant a later step adds to
+`Term`, `Kind`, `Node`, `Rule` or `Named` is a compile error at every
+arm that must decide it, never a fall into an existing branch (F85: a
+binder kept its old index in `optimize`, a quantifier rule reached
+NanoYalla's output). A test's catch-all arm takes an `#[expect]` with
+its reason.
+
 Doc examples that parse are fenced with `cfg_attr(feature = "parse", doc =
 "```")` and an `ignore` fence otherwise, so `cargo test --no-default-features`
 passes; copy that pattern for a new example.

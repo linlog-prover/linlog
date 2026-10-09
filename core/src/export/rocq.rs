@@ -697,7 +697,19 @@ fn linear(
             Rule::Open => return Err(Unsupported::Open.into()),
             Rule::Mix => return Err(Unsupported::Mix.into()),
             Rule::AffineWeakening => return Err(Unsupported::AffineWeakening.into()),
-            _ => {}
+            Rule::Ax
+            | Rule::Tensor
+            | Rule::Par
+            | Rule::One
+            | Rule::Bot
+            | Rule::With
+            | Rule::PlusLeft
+            | Rule::PlusRight
+            | Rule::Top
+            | Rule::Promotion
+            | Rule::Dereliction
+            | Rule::Contraction
+            | Rule::Weakening => {}
         }
     }
     let forest = derivation.forest();

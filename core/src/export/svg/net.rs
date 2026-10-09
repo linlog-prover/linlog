@@ -202,7 +202,17 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         let label = run(&formula, 1000, &style.font);
         let atom = match forest.kind(o) {
             Kind::DualAtom => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
-            _ => label.width,
+            Kind::Atom
+            | Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::Tensor
+            | Kind::Par
+            | Kind::With
+            | Kind::Plus
+            | Kind::Bang
+            | Kind::Quest => label.width,
         };
         x[o.index()] = next + atom / 2;
         let width = label.width;
@@ -293,7 +303,17 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         .unwrap();
         let (symbol, middle) = match forest.kind(o) {
             Kind::Par => ("⅋", PAR_MIDDLE),
-            _ => ("⊗", AXIS),
+            Kind::Atom
+            | Kind::DualAtom
+            | Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::Tensor
+            | Kind::With
+            | Kind::Plus
+            | Kind::Bang
+            | Kind::Quest => ("⊗", AXIS),
         };
         let label = run(symbol, label_size, &style.font);
         let symbol_y = centre.1 + middle * label_size / 1000;

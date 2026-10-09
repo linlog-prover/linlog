@@ -1,6 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+// A variant a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 /// Printing sequents and formulas in one-sided notation.
 pub mod fmt;
 /// The terms an arena is built from.
@@ -334,7 +337,8 @@ impl Sequent {
             });
             *e = match *e {
                 Atom(_) => Atom(merged),
-                _ => DualAtom(merged),
+                DualAtom(_) | One | Bot | Top | Zero | Tensor(..) | Par(..) | With(..)
+                | Plus(..) | Bang(_) | Quest(_) => DualAtom(merged),
             };
         }
         drop(seen);
@@ -383,7 +387,16 @@ impl Sequent {
             *e = match *e {
                 Atom(a) => Atom(merged[a.index()]),
                 DualAtom(a) => DualAtom(merged[a.index()]),
-                other => other,
+                other @ One
+                | other @ Bot
+                | other @ Top
+                | other @ Zero
+                | other @ Tensor(..)
+                | other @ Par(..)
+                | other @ With(..)
+                | other @ Plus(..)
+                | other @ Bang(_)
+                | other @ Quest(_) => other,
             };
         }
         // An entry stays when it is the first of its name, which is when

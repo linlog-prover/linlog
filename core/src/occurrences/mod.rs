@@ -1,6 +1,9 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+// A variant a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 /// The intuitionistic reading of a sequent.
 pub mod reading;
 /// Bitsets over occurrence ids.
@@ -145,7 +148,16 @@ impl Kind {
         match self {
             Kind::Atom => Some(Sign::Atom),
             Kind::DualAtom => Some(Sign::Dual),
-            _ => None,
+            Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::Tensor
+            | Kind::Par
+            | Kind::With
+            | Kind::Plus
+            | Kind::Bang
+            | Kind::Quest => None,
         }
     }
 

@@ -117,7 +117,13 @@ pub(super) fn pattern(
     // An equivalence's implications, read as a conjunction.
     let (forward, backward) = match node {
         Node::Iff(..) => extra.iff[&id],
-        _ => (id, id),
+        Node::Atom(_)
+        | Node::True
+        | Node::False
+        | Node::Not(_)
+        | Node::And(..)
+        | Node::Or(..)
+        | Node::Implies(..) => (id, id),
     };
     let minimal_false = logic == Logic::Minimal && node == Node::False;
     match translation {
@@ -365,7 +371,13 @@ pub fn translate(
                 Core::Atom => {
                     let name = match formulas.node(id) {
                         Node::Atom(a) => formulas.atom_name(a),
-                        _ => &falsity,
+                        Node::True
+                        | Node::False
+                        | Node::Not(_)
+                        | Node::And(..)
+                        | Node::Or(..)
+                        | Node::Implies(..)
+                        | Node::Iff(..) => &falsity,
                     };
                     let atom = builder.atom(name);
                     let (var, dual) = (
@@ -382,14 +394,20 @@ pub fn translate(
                 }
                 Core::Unit(unit) => (builder.add(unit)?, builder.add(unit.dual())?),
                 Core::Pass => a.expect("a negation has an operand"),
-                core => {
+                core @ Core::Tensor
+                | core @ Core::Par
+                | core @ Core::With
+                | core @ Core::Plus
+                | core @ Core::Lollipop => {
                     let ((pa, na), (pb, nb)) = (a.expect("binary"), b.expect("binary"));
                     let (positive, negative) = match core {
                         Core::Tensor => (Term::Tensor(pa, pb), Term::Par(na, nb)),
                         Core::Par => (Term::Par(pa, pb), Term::Tensor(na, nb)),
                         Core::With => (Term::With(pa, pb), Term::Plus(na, nb)),
                         Core::Plus => (Term::Plus(pa, pb), Term::With(na, nb)),
-                        _ => (Term::Par(na, pb), Term::Tensor(pa, nb)),
+                        Core::Atom | Core::Unit(_) | Core::Lollipop | Core::Pass => {
+                            (Term::Par(na, pb), Term::Tensor(pa, nb))
+                        }
                     };
                     (builder.add(positive)?, builder.add(negative)?)
                 }

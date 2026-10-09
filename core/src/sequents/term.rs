@@ -171,7 +171,16 @@ impl Term {
     pub const fn atom(self) -> Option<Atom> {
         match self {
             Term::Atom(a) | Term::DualAtom(a) => Some(a),
-            _ => None,
+            Term::One
+            | Term::Bot
+            | Term::Top
+            | Term::Zero
+            | Term::Tensor(..)
+            | Term::Par(..)
+            | Term::With(..)
+            | Term::Plus(..)
+            | Term::Bang(_)
+            | Term::Quest(_) => None,
         }
     }
 
@@ -225,7 +234,12 @@ impl Term {
             Plus(k, l) => Plus(f(k), f(l)),
             Bang(k) => Bang(f(k)),
             Quest(k) => Quest(f(k)),
-            leaf => leaf,
+            leaf @ Atom(_)
+            | leaf @ DualAtom(_)
+            | leaf @ One
+            | leaf @ Bot
+            | leaf @ Top
+            | leaf @ Zero => leaf,
         }
     }
 
@@ -235,7 +249,16 @@ impl Term {
         match self {
             Atom(a) => Atom(self::Atom(a.0 + atoms)),
             DualAtom(a) => DualAtom(self::Atom(a.0 + atoms)),
-            other => other.map_subterms(|k| TermId(k.0 + terms)),
+            other @ One
+            | other @ Bot
+            | other @ Top
+            | other @ Zero
+            | other @ Tensor(..)
+            | other @ Par(..)
+            | other @ With(..)
+            | other @ Plus(..)
+            | other @ Bang(_)
+            | other @ Quest(_) => other.map_subterms(|k| TermId(k.0 + terms)),
         }
     }
 

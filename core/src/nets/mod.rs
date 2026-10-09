@@ -17,6 +17,9 @@
 //! derivations that differ only by the order of their rules give the same
 //! net.
 
+// A variant a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 /// The coloured structure graph and the criterion's tests on it.
 mod graph;
 /// From a proof net to a proof term.
@@ -244,7 +247,14 @@ impl NetError {
         match self {
             Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => "no_nets",
             Self::Refused { refusal } => refusal.code(),
-            _ => "invalid_net",
+            Self::NoVertex { .. }
+            | Self::NotLiteral { .. }
+            | Self::NotDual { .. }
+            | Self::LinkedTwice { .. }
+            | Self::Unlinked { .. }
+            | Self::Empty
+            | Self::SwitchingCycle { .. }
+            | Self::Disconnected { .. } => "invalid_net",
         }
     }
 
@@ -1146,6 +1156,10 @@ mod tests {
     /// it and sequentializing it, with no verdict.
     #[cfg(feature = "parse")]
     #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "a test's other arm is its failure"
+    )]
     fn refusals() {
         use crate::search::{Options, prove};
         let s: Sequent = "A * B |- B * A".parse().unwrap();

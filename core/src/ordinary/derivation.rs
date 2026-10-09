@@ -779,7 +779,13 @@ impl Image {
                 let px = pattern(formulas, &self.extra, self.translation, self.logic, x, fx);
                 let flips = match p.core {
                     Core::Lollipop => k == 0,
-                    _ => false,
+                    Core::Atom
+                    | Core::Unit(_)
+                    | Core::Tensor
+                    | Core::Par
+                    | Core::With
+                    | Core::Plus
+                    | Core::Pass => false,
                 };
                 // The classical implication's antecedent is on the other
                 // side through its function.
@@ -851,7 +857,16 @@ impl Image {
                     }
                     id
                 }
-                rule => {
+                rule @ Linear::Tensor
+                | rule @ Linear::Par
+                | rule @ Linear::One
+                | rule @ Linear::Bot
+                | rule @ Linear::With
+                | rule @ Linear::PlusLeft
+                | rule @ Linear::PlusRight
+                | rule @ Linear::Top
+                | rule @ Linear::Mix
+                | rule @ Linear::Open => {
                     let at = inference
                         .principal
                         .ok_or_else(|| fail("no principal formula".to_owned()))?;

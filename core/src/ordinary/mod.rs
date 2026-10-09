@@ -43,6 +43,9 @@
 //! # Ok::<(), linlog::Error>(())
 //! ```
 
+// A variant a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 /// Deciding an ordinary sequent in one call.
 mod decide;
 /// The derivations of LK and LJ, the read-back and its check.
@@ -461,7 +464,7 @@ impl Formulas {
                     Node::False => out.push_str(symbols.falsity),
                     Node::Not(_) => out.push_str(symbols.not),
                     _ if nested => out.push('('),
-                    _ => {}
+                    Node::And(..) | Node::Or(..) | Node::Implies(..) | Node::Iff(..) => {}
                 },
                 Visit::Between(k) => {
                     out.push(' ');
@@ -469,7 +472,9 @@ impl Formulas {
                         Node::And(..) => symbols.and,
                         Node::Or(..) => symbols.or,
                         Node::Implies(..) => symbols.implies,
-                        _ => symbols.iff,
+                        Node::Atom(_) | Node::True | Node::False | Node::Not(_) | Node::Iff(..) => {
+                            symbols.iff
+                        }
                     });
                     out.push(' ');
                 }

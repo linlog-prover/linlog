@@ -163,7 +163,8 @@ impl Sequent {
                     Tensor(..) => " ⊗ ",
                     Par(..) => " ⅋ ",
                     With(..) => " & ",
-                    _ => " ⊕ ",
+                    Atom(_) | DualAtom(_) | One | Bot | Top | Zero | Plus(..) | Bang(_)
+                    | Quest(_) => " ⊕ ",
                 })?,
                 Visit::Exit(k, nested) => {
                     if nested && self.terms[k.index()].kind().arity() == 2 {

@@ -63,7 +63,9 @@ pub(super) fn draw<T: Drawn>(
     let labels: Vec<Option<Run>> = (0..T::RULES)
         .map(|rule| match &style.open {
             OpenGoal::Mark(mark) if T::OPEN == Some(rule) => Some(mark.clone()),
-            _ => T::markup(rule, &style.labels).map(str::to_owned),
+            OpenGoal::Dots | OpenGoal::Bare | OpenGoal::Mark(_) | OpenGoal::Dashed => {
+                T::markup(rule, &style.labels).map(str::to_owned)
+            }
         })
         .chain(runs)
         .map(|markup| markup.map(|m| run(&label(&m), label_size, font)))

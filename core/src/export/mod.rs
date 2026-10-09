@@ -34,6 +34,9 @@
 //! inference of a compact derivation that stands for a run of a
 //! structural rule ([`Compact`](crate::proofs::Compact)) has its label starred.
 
+// A variant a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 #[cfg(feature = "latex")]
 pub mod latex;
 /// The symbol tables and the printers the targets share.

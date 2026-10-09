@@ -150,7 +150,16 @@ impl Graph {
             match forest.kind(o) {
                 Kind::Tensor => switched_tree_edges += 2,
                 Kind::Par => switched_tree_edges += 1,
-                _ => to.push(NONE),
+                Kind::Atom
+                | Kind::DualAtom
+                | Kind::One
+                | Kind::Bot
+                | Kind::Top
+                | Kind::Zero
+                | Kind::With
+                | Kind::Plus
+                | Kind::Bang
+                | Kind::Quest => to.push(NONE),
             }
         }
         start.push(to.len() as u32);
@@ -454,6 +463,10 @@ mod tests {
     /// built and tested for a cycle and for connectedness with a
     /// union-find. Returns whether every switching is acyclic and whether
     /// every switching is connected.
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "a structure of MLL has no other parent"
+    )]
     fn enumerate(net: &ProofStructure) -> (bool, bool) {
         let f = net.forest();
         let pars: Vec<OccId> = f.ids().filter(|&p| f.kind(p) == Kind::Par).collect();

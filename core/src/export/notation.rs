@@ -83,7 +83,8 @@ impl Notation {
                         Tensor(..) => self.tensor,
                         Par(..) => self.par,
                         With(..) => self.with,
-                        _ => self.plus,
+                        Atom(_) | DualAtom(_) | One | Bot | Top | Zero | Plus(..) | Bang(_)
+                        | Quest(_) => self.plus,
                     });
                     out.push(' ');
                 }
