@@ -312,6 +312,28 @@ resume" below).
   two after the audit, and its findings then go to the fixes. It is no
   input to the audit.
 
+## From the review of stage 1 (2026-10-09)
+
+- **The held-back audit, compared** (`plan/reports/28-audit.md`, "From
+  the review"): it found 21 faults, and the audit found one of them
+  (F165). They are in `28-audit-findings.json` as `H1` to `H21`, status
+  `held-back`. Each area takes its own like the `F` findings. The wrong
+  verdicts (H1 to H4, H7, H9 to H13, H16) are first fixes beside F23
+  and F165, each with the test that would have caught it. H1 is a wrong
+  refutation: minimal logic by call-by-value.
+- **The decision list grows** by HD1 to HD5: several conjectures, a
+  `.spec` file's mode, identifier normalization, `load` in `interact`,
+  and JSON atom names. The design starts on their recommended answers,
+  provisional like the rest until the author's arrive. The design reads
+  H9 and H10 with C1, and H18 with the bounds.
+- **The check rounds probe.** In an area's check round, a finding without
+  a raising lens (an `H`) goes to the soundness lens, which reruns its
+  witness. A lens that judges a guard, a refusal or an exit status runs
+  a witness rather than only reading the code: the held-back findings
+  came from runs, and the audit's reading missed 20 of 21. Where two
+  deciders exist, a round compares them: the ordinary translations
+  with each other (H21), the engines with the reference prover.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a

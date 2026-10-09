@@ -784,3 +784,89 @@ the cache written and read, and the output the transcripts record):
 | claude-fable-5-1 | all | 25 | 14,354 | 5,737,825 | 65,100,760 | 240,417 |
 | claude-opus-5-5 | all | 32 | 2,840 | 5,922,642 | 254,706,393 | 249,143 |
 | claude-sonnet-5-5 | all | 24 | 2,194 | 3,118,109 | 150,338,717 | 141,077 |
+
+## From the review (2026-10-09)
+
+The supervisor's review of stage 1, before the design starts.
+
+**What was verified, and by what.** `gate` passed at 1d144ec6 (capped,
+cores 2 to 5), and `nix flake check --keep-going` passed on the same
+tree. The new checks and the lint list read as this report describes
+them. F165 is the first finding of the held-back audit's batch round,
+reproduced there on the same witness; F23 holds in the code:
+`close_with` checks the proof only through `Derivation::of_goal`
+against the goal's ids, never against the forest the session holds.
+
+**The held-back audit.** Before this one, the supervisor ran a
+soundness audit of its own (Fable 5.1 at `high`, two rounds: the checker
+and the proof terms, the focused and Horn engines' refutations, the
+ordinary layer; then the readers, the batch and the command, interactive
+proving, the parallel search). Every one of its findings came with a
+witness run on the binary, and beside it ran differential tests: 26 460
+ordinary calls against truth tables and an independent intuitionistic
+prover, and 31 395 linear calls against an independent MALL prover,
+which found no disagreement. Of its 21 findings this audit found one
+(F165). Of the other 20, twelve give a wrong verdict or answer a
+question the input did not ask, two end the process, six are about
+robustness. The held-back audit in turn missed F23, and everything
+outside soundness was outside its scope.
+
+- So the outcome's "no reviewer found a wrong refutation" holds for the
+  reviewers only: **H1 is a wrong refutation**. In minimal logic under
+  the call-by-value translation, `false |- a -> a` and five other valid
+  sequents are answered `not valid`. The `sound-horn` lens read that
+  layer.
+- The difference is one of method. The held-back findings come from
+  runs: a witness, or a disagreement between two deciders. Most of this
+  audit's come from reading. The readers, the batch's exit statuses and
+  the interactive file paths were read by this audit's lenses and not
+  probed.
+- The 21 are in `28-audit-findings.json` as `H1` to `H21`, with status
+  `held-back` and an area and a severity like the rest. H1 to H7 and
+  H9 to H12 were reproduced at 1d144ec6; H8 and H13 to H20 rest on the
+  held-back audit's runs (the sources they concern are unchanged since). The wrong verdicts (H1 to H4, H7,
+  H9 to H13, H16) are the first fixes of their areas, beside F23 and
+  F165, each with the test that would have caught it.
+
+| H | area | the fault |
+|---|---|---|
+| H1 | search | minimal logic by call-by-value refutes valid sequents (`translate.rs:168`) |
+| H2, H3 | library | several TPTP conjectures read as their disjunction, several LLTP ones as their par |
+| H4 | library | a `.spec` counter named twice in `init` read as x ≥ the last count |
+| H5 | command | a `.spec` file without `--affine` asks exact reachability |
+| H6, H7 | library | LLTP's glued `-o` becomes an atom; an empty LLTP formula is decided |
+| H8 | library | identifiers compared by code points (NFC against NFD) |
+| H9, H10 | library | under `-i`, a written `⊥` or a second `⊤`/`0` succedent is reread as another ILL sequent and proved |
+| H11 to H13 | command | a batch ignores a typed SEQUENT, exits 0 with no entries, exits 0 when interrupted |
+| H14, H15 | command | raw entry names forge verdict lines; `--output` files collide |
+| H16 | command | `load` in `interact` changes the question the exit status answers |
+| H17 | library | a crafted session history panics `undo` |
+| H18 | search | the pool overflows its stack under a raised `--recursion-limit` |
+| H19 | library | JSON atom names unchecked, so `check` prints another sequent |
+| H20 | command | a `.p` file without `--logic` is read as LLTP |
+| H21 | search | no test compares the ordinary translations with each other or an oracle |
+
+**Decisions the review adds**, for the author with the list above; the
+design starts on the recommended answers.
+
+| # | from | the question | recommended | the alternative |
+|---|---|---|---|---|
+| HD1 | H2, H3 | A TPTP or LLTP file with several conjectures | **Refuse it**, naming the second, as the intuitionistic reading already does; no file of the libraries has several. | Conjoin them (`∧`, or `&` in linear logic), which is TPTP's meaning. |
+| HD2 | H5 | The mode of a `.spec` file | **Affine, from the file**: its question is coverability, so it is decided in affine mode and a mode flag that contradicts that is refused. | Refuse a `.spec` file without `--affine`. |
+| HD3 | H8 | Identifiers that differ only in their Unicode normalization | **Normalize them to NFC** when reading, as UAX #31 and rustc do (a dependency behind `parse`). | State code-point identity in the syntax's docs. |
+| HD4 | H16 | `load` in an `interact` session | **Refuse a file whose sequent or mode differs** from the session's, as `--state` refuses a file beside a sequent. | `load` starts a new question, printed, and the exit status answers the last one loaded. |
+| HD5 | H19 | Atom names in the JSON forms | **Refuse a name that is not an identifier** of the text syntax when reading. | Print such names quoted. |
+
+**For the design and the fix sessions.**
+- H9 and H10 are C1's matter: with the written sides and order kept, the
+  intuitionistic reading reads what was written and refuses the rest.
+- HD1 to HD5 settle the readers' and `interact`'s behaviour, and H18 the
+  pool's stack bound.
+- A check round (stage 4) probes as well as reads: for a guard, a refusal
+  or an exit status it judges, a witness run. The ordinary layer gets the
+  agreement test of H21.
+
+**The session** kept to its prompt. It ran 81 agents rather than about
+sixty, because two examiners per finding needed them. It removed the
+stray `latex` file of F162 before any commit, and it committed unsigned
+while signing failed, as it was told.

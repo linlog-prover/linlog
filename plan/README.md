@@ -2179,3 +2179,15 @@ client follows it (step 32).
   design constraints, practice, usability, scope) and ran an independent
   soundness audit, held back until the audit's review. Next: stage 1,
   the audit.
+- 2026-10-09: review of step 28's stage 1, the audit (one session, Opus
+  5.5 at high, 03:45 to 06:05, a workflow of 81 agents on three
+  models): 226 findings stand (56 must-fix), with two wrong answers,
+  `prove --isolate -qf` and `Interactive::close_with`; three new flake
+  checks (conventions, typos, shear) and clippy's pedantic group with a
+  backlog of 655 sites; a decision list of C1 to C3 and seven matters of
+  taste. The review reran the gate and the flake check, and compared
+  the audit with the held-back one: of its 21 findings the audit found
+  one. The other 20 and a missing test, among them a wrong refutation
+  (minimal logic by call-by-value), are now findings H1 to H21 for the
+  areas, with five more decisions (HD1 to HD5), and the check rounds run
+  witnesses rather than only reading. Next: stage 2, the design.

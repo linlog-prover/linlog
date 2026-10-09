@@ -9635,6 +9635,474 @@
      "batch": 21
     }
    ]
+  },
+  {
+   "fid": "H1",
+   "id": "held-back-1",
+   "status": "held-back",
+   "area": "search",
+   "severity": "must-fix",
+   "criterion": "S4, S7",
+   "file": "core/src/ordinary/translate.rs",
+   "line": 168,
+   "title": "Minimal logic under the call-by-value translation refutes valid sequents: the minimal `false` atom lacks the `!` every other CBV atom has",
+   "evidence": "The arm `_ if minimal_false => make(0, Atom, None, None)` precedes the `CallByValue` arm whose atoms are `make(1, Atom, …)` (translate.rs:180), and the root loop (translate.rs:408-415) gives a CBV hypothesis no `!` of its own, because every CBV image is meant to carry one. A bare `false` on the left cannot be weakened, contracted or stand beside a promotion.\n`linlog seq print --logic minimal --translation cbv 'false |- a -> a'` gives `false ⊢ !(!a ⊸ !a)`; `linlog prove --logic minimal --translation cbv -q 'false |- a -> a'` gives `not valid (…, two-sided engine): the image is unprovable: ~false occurs 1 more time than false …`, exit 1. Likewise `a, false |- a`, `false, false |- false`, `false |- false /\\ false`, `false /\\ a |- a` and `false \\/ a |- true` (the last by an exhaustive search). `--translation cbn` and `01` answer `valid` on each, and `--logic intuitionistic --translation cbv` too (there false is `0`).\nA differential test of 26 460 ordinary calls against truth tables and an independent G4ip prover found this the only wrong verdict (114 calls). Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Give the arm the CBV atom's shape (one `!` when the translation is `CallByValue`), or move the minimal-false case into each translation's match so that it is the atom case. The read-back takes its `!` count from the pattern and needs no change. Add `false |- a -> a` (valid in all three logics) to `decides_and_reads_back`; no case there has `false` standing positively in a hypothesis of a valid minimal sequent, and cli/tests/cli.rs pins only `a, a -> b |- b` for minimal/cbv.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H2",
+   "id": "held-back-2",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "core/src/ordinary/parse.rs",
+   "line": 379,
+   "title": "A TPTP problem with several conjectures is decided classically as their disjunction",
+   "evidence": "`read_tptp` puts every `conjecture` right of `⊢`, which classical logic reads as their disjunction; TPTP's problem is to prove each. two.p = `fof(a, axiom, p). fof(c1, conjecture, p). fof(c2, conjecture, q).`: `linlog seq print --logic classical --file two.p` gives `⊢ p, ~p, q`, and `linlog prove --logic classical -q --file two.p` gives `valid`, exit 0, though q does not follow. Intuitionistic and minimal logic refuse the file (`Error::Succedents`). ILTP's problems have one conjecture each, so no baseline changes. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Per the decision on several conjectures (HD1): refuse them with an error that names the second, or conjoin them. The same decision closes H3.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD1"
+  },
+  {
+   "fid": "H3",
+   "id": "held-back-3",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "core/src/lltp.rs",
+   "line": 84,
+   "title": "Several LLTP conjectures are joined right of ⊢, so classical linear logic reads them as their par",
+   "evidence": "`lltp::read` assembles `hypotheses |- conjectures` with the conjectures joined by `, ` (lltp.rs:84-89, 210-212). two_conj.p = `fof(c1, conjecture, a). fof(c2, conjecture, a^).`: `linlog prove -q --file two_conj.p` gives `provable (MLL, classical, net engine)`, `⊢ a, ~a` by `ax`, though neither `⊢ a` nor `⊢ ~a` is provable. The function's doc states the behaviour; the LLTP library's files probably have one conjecture each. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "As H2 (HD1). Refusing several conjectures in `lltp::read` also closes H10's LLTP case.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD1"
+  },
+  {
+   "fid": "H4",
+   "id": "held-back-4",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4, S5",
+   "file": "core/src/mist.rs",
+   "line": 143,
+   "title": "A counter named twice in a `.spec` file's `init` is read as neither constraint: `init x >= 1, x = 3` is decided as x ≥ 3",
+   "evidence": "`read_within` stores each `init` entry with `tokens[x] = reader.number()?` and keeps `x` among the parameters for any `>=` (mist.rs:143-156): the last count wins and a `>=` anywhere adds `!x`. Guards and targets merge repeats, and an update named twice is refused (mist.rs:553-557). File: `vars x y / rules x >= 4 -> x' = x - 4, y' = y + 1; / init x >= 1, x = 3 / target y >= 1`: `linlog prove -q -i --affine --file F` gives `provable (IMELL, intuitionistic affine, horn engine)` (unsafe), where the file's initial set is x = 3 under either reading and `init x = 3` alone gives `unprovable` (safe). Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Refuse a counter named twice in `init`, as a twice-updated counter is refused. One test with the file above.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H5",
+   "id": "held-back-5",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S4, S11",
+   "file": "cli/src/io.rs",
+   "line": 66,
+   "title": "A `.spec` file decided without --affine asks exact reachability, so a coverable target is answered unprovable, exit 1",
+   "evidence": "The mode comes only from the flags (io.rs:66-79, argument_parsing.rs:586-591). cov.spec (x = 2, rule x ≥ 1 → x−1, y+1, target y ≥ 1): `linlog prove -q --file cov.spec` gives `unprovable (MELL, classical, horn engine): the search was exhaustive`, exit 1, read as \"safe\"; `-i --affine` gives `provable`, exit 0. README and --help say the question is affine mode's and the verdict line prints the mode, but a coverability file's question is fixed by its format. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Per HD2: decide a `.spec` file in affine mode and refuse a mode flag that contradicts it, or refuse it without --affine.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD2"
+  },
+  {
+   "fid": "H6",
+   "id": "held-back-6",
+   "status": "held-back",
+   "area": "library",
+   "severity": "should-fix",
+   "criterion": "S4",
+   "file": "core/src/lltp.rs",
+   "line": 159,
+   "title": "LLTP's `-o` glued between name characters becomes part of an atom: `a-ob` is the atom `a‿ob`, where the crate's syntax reads `a ⊸ b`",
+   "evidence": "lltp.rs:159-166 keeps `-` as the operator only when `-o` is not followed by a name character, for place names like `P-start_1_1`; so `a-ob`, `a-o1`, `a-o_b` are atoms. hyph.p = `fof(h, axiom, a-ob). fof(c, conjecture, a -o b).` is read `⊢ ~a‿ob, ~a ⅋ b`, unprovable. The misreading is silent. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Check the LLTP library (`nix build .#lltp -o bench/lltp`) for `-o` written without a space before a name character; if none, refuse the ambiguous spelling, otherwise document the rule in the module doc and README.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H7",
+   "id": "held-back-7",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4, S5",
+   "file": "core/src/lltp.rs",
+   "line": 206,
+   "title": "An empty LLTP formula is accepted: an empty conjecture gives an empty succedent and is decided",
+   "evidence": "`clauses` accepts `fof(c, conjecture, ).` (lltp.rs:206-212) and `read` assembles `hyps |- `. `fof(h, axiom, bot). fof(c, conjecture, ).` gives `provable (MLL with units, classical, focus engine)`, `⊢ 1`; a single empty axiom vanishes. `read_tptp` refuses the same file (`unexpected end of input`). Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Refuse an empty formula in `clauses`; one test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H8",
+   "id": "held-back-8",
+   "status": "held-back",
+   "area": "library",
+   "severity": "should-fix",
+   "criterion": "S5, S11",
+   "file": "core/src/parse/mod.rs",
+   "line": 185,
+   "title": "Identifiers are compared by code points, not normalized: `é ⊢ é` written once in NFC and once in NFD is unprovable",
+   "evidence": "Both parsers intern the identifier's bytes (parse/mod.rs:185-203, ordinary/parse.rs:142-153). The verdict is `unprovable (MLL, classical, net engine): ~é occurs 1 more time than é …` and `seq print` shows `⊢ ~é, é`, two atoms printed alike. The grammar implies code-point identity without stating it; UAX #31 and rustc compare identifiers after NFC.",
+   "fix": "Per HD3.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD3"
+  },
+  {
+   "fid": "H9",
+   "id": "held-back-9",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4, S16",
+   "file": "core/src/occurrences/reading.rs",
+   "line": 206,
+   "title": "Under -i, a written ⊥ inside an implication is reread as another ILL sequent: `(A -o bot) -o bot |- A` is proved as `1 ⊸ (A ⊗ 1) ⊢ A`",
+   "evidence": "linlog's ILL has no ⊥ formula (`bot |- A` is refused), but the one-sided image cannot tell `(A ⊸ ⊥) ⊸ ⊥` from `1 ⊸ (A ⊗ 1)`; the reading (reading.rs:206-213, 250-266) picks the form its ILL has. `linlog seq print -i '(A -o bot) -o bot |- A'` gives `1 ⊸ (A ⊗ 1) ⊢ A`, and `linlog prove -i -q` the same input gives `provable (IMLL with units, …)`, exit 0; double-negation elimination is not ILL-provable, and the input is not an ILL sequent of linlog's at all. The verdict line does not show the reread sequent. Needs 1 or ⊥. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Keep the written sides and order of the input (C1) so that the intuitionistic reading reads what was written, and refuse a ⊥ the reading would have to move, as `bot |- A` is refused. One test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H10",
+   "id": "held-back-10",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S4, S16",
+   "file": "core/src/occurrences/reading.rs",
+   "line": 206,
+   "title": "Under -i, a second written succedent built from ⊤ or 0 moves left as its dual: `|- a, top` is proved as `0 ⊢ a` instead of refused",
+   "evidence": "`linlog prove -i '|- a, b'` is refused (both can only be the goal), but `linlog prove -i '|- a, top'` gives `provable (IALL, intuitionistic, additive engine)` by `0L` on `0 ⊢ a`; an ILL LLTP file with conjectures `a` and `top` gives the same. The known ambiguity among ⊤/0 roots (plan/later.md) leaves verdicts alone for one written succedent; here it turns a refusal into `provable`. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "As H9: with the written sides kept, two written succedents are refused whatever they are built from.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H11",
+   "id": "held-back-11",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "cli/src/argument_parsing.rs",
+   "line": 549,
+   "title": "In batch mode the positional SEQUENT is accepted and silently ignored",
+   "evidence": "`sequent` conflicts only with `--file`; `is_batch` and `Entries::new` (batch.rs:34-41, 106-121) never read it. `linlog prove 'A |- B' --input-format lines </dev/null` prints nothing and exits 0; with `--files-from LIST` it decides the list's files and exits by them. On a terminal the first form fails, but in a script or CI job the typed, unprovable sequent ends in status 0. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "Make SEQUENT conflict with every batch input (`--files-from`, a many-sequent `--input-format`, a directory). One CLI test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H12",
+   "id": "held-back-12",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "cli/src/batch.rs",
+   "line": 966,
+   "title": "A batch with no entries exits 0: `worst` starts at proved",
+   "evidence": "`linlog prove --file DIR` on a directory of `.txt` sequents (which `auto` skips) prints nothing and exits 0, as do `--input-format lines --file EMPTY` and a file of comments only, where `linlog prove --file EMPTY` is an error, exit 2 (`the input is empty`). `linlog prove --file problems/ && echo all proved` reports success. Reproduced by the supervisor at 1d144ec6 (the library and command sources are unchanged since main).",
+   "fix": "A batch that decides no entry is an error (exit 2, saying what was skipped), or the worst status starts at a value that is not a verdict. One CLI test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H13",
+   "id": "held-back-13",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "cli/src/batch.rs",
+   "line": 203,
+   "title": "An interrupted batch can exit 0: the first Ctrl-C ends the input, and the entries never read are not reported",
+   "evidence": "`while !interrupted()` makes `Entries::next` return `None` (batch.rs:203) and the status is the worst so far (batch.rs:966). `producer | linlog prove --input-format lines` interrupted with entries unread printed `-:1: provable …` and exited 0; an interrupted single `prove` exits 3.",
+   "fix": "An interrupted batch exits 3 at best (unknown), whatever it decided before; with F210's Ctrl-C test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H14",
+   "id": "held-back-14",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S5",
+   "file": "cli/src/batch.rs",
+   "line": 436,
+   "title": "Entry names are printed raw in text output, so a name with a newline writes lines that read as other entries' verdicts",
+   "evidence": "A JSON Lines `name` is any string (batch.rs:313-317), printed by `format!(\"{name}: {line}\")` (batch.rs:436-445, 557); file names from `--null` lists and directory walks can hold newlines too. A name `q2: unprovable (…): x\\nq1: provable (…)\\nq2` forges `q1: provable` beside the true `q1: unprovable`. The exit status stays right; JSON Lines output escapes the name.",
+   "fix": "Escape control characters in a name in text output (or refuse them), as the JSON output does.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H15",
+   "id": "held-back-15",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S4",
+   "file": "cli/src/batch.rs",
+   "line": 407,
+   "title": "`--output DIR` files collide, so one entry's file can hold another entry's answer",
+   "evidence": "`file_for` (batch.rs:407-420) drops a root and `.` components and maps `..` to `__`, with no check that entries get distinct files: a NAME repeated across `lines` files, repeated JSON Lines names, `/x/a.txt` against `x/a.txt`, `../a` against `__/a`. Two files each with `p: …`, one provable and one not, give one `outd/p.json` holding `proved`; with workers the winner is nondeterministic, and an unprovable outcome's JSON holds no sequent to tie it back.",
+   "fix": "Refuse colliding names before any search, or make the names distinct and say how.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H16",
+   "id": "held-back-16",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "must-fix",
+   "criterion": "S4",
+   "file": "cli/src/interact.rs",
+   "line": 345,
+   "title": "interact's `load` mid-session replaces the sequent and mode that the exit status answers for",
+   "evidence": "The `load` arm assigns `self.state = load(…)` with no comparison (interact.rs:345-349), and the exit status reads only `self.state` (interact.rs:146-150); `--state` refuses a file beside a sequent or a mode flag, and `load` bypasses that guard. After saving a finished affine session of `a, b |- a` as aff.json: `printf 'load aff.json\\n' | linlog interact '|- 1, 1'` prints `no goal is open` and exits 0, and so does `linlog interact -i 'a ⊸ b |- b ⊸ a'`; `prove` answers 1 for both. Only `proof` without --json names the new mode.",
+   "fix": "Per HD4: refuse a `load` whose sequent or mode differs from the session's. One CLI test.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD4"
+  },
+  {
+   "fid": "H17",
+   "id": "held-back-17",
+   "status": "held-back",
+   "area": "library",
+   "severity": "must-fix",
+   "criterion": "S5",
+   "file": "core/src/proofs/interactive.rs",
+   "line": 313,
+   "title": "A session whose history entry lies inside a later entry's subtree passes `from_parts`, and `undo` then panics",
+   "evidence": "The history check (interactive.rs:312-339) requires each entry to be a closed inference below the whole arena's length, not below the arena's length when that step is undone; an entry inside a later entry's subtree passes the suffix test vacuously. A finished session of `A, A -o B |- B` with `\"history\":[0,1,2]` edited to `[1,0]`: `printf 'goals\\nundo\\nundo\\n' | linlog interact --state h1.json` reopens goal 0, then panics at interactive.rs:797 (index out of bounds), exit 101. The argument that this is the check's only gap and that it gives a panic, never a wrong tree, is in the held-back report; the checker would catch a wrong tree anyway.",
+   "fix": "Add `goal.index() < len` to the `closed` test at interactive.rs:313, and the case beside the open-goal and repeated-entry histories of core/tests/serialize.rs:388-425.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H18",
+   "id": "held-back-18",
+   "status": "held-back",
+   "area": "search",
+   "severity": "must-fix",
+   "criterion": "S5, S1",
+   "file": "core/src/search/focus/parallel.rs",
+   "line": 385,
+   "title": "The pool overflows its stack under a raised --recursion-limit: a waiting thread runs a stolen job's whole recursion on top of its own",
+   "evidence": "rayon lets a thread waiting at `in_place_scope` (parallel.rs:385 `choose_parallel`, :501 `with_parallel`) run any job, including one spawned near the root of another branch, so the real stack depth passes the counted `depth` that `Options::stack_size` (search/mod.rs:1176-1187, limit × 2304 B, 8 MiB floor) is sized for; core-parallel.md names the risk. Generator: `n=2900; C(i) = 'b & ('*n + 'c%d' % i + ')'*n; '|- ' + ', '.join('?('+C(i)+')' for i in range(2)) + ', ~b'` (35 KB). `linlog prove -q -j 2 --affine --recursion-limit 3000 -f F` aborts (`has overflowed its stack`, exit 134); `--deterministic` gives unknown at the recursion limit, exit 3. With eight alternatives the default invocation (no -j) aborts too, since the pool joins after 100 ms; one alternative does not abort even at n = 5000. At the default limit of 2048 no abort on two threads; more threads allow more nesting. The `unknown` message tells the user to raise the limit, and a batch without --isolate loses every answer.",
+   "fix": "Make the stack bound hold under stealing: size the pool's stacks for the nesting a wait allows, or keep a waiting thread from taking jobs of another branch (a scope of its own per branch), or count a stolen job's depth on top of the thief's. A test at a raised limit on two threads.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H19",
+   "id": "held-back-19",
+   "status": "held-back",
+   "area": "library",
+   "severity": "should-fix",
+   "criterion": "S5, S11",
+   "file": "core/src/serialize/sequents.rs",
+   "line": 123,
+   "title": "A JSON sequent's atom names are not checked, so `check` prints a valid certificate as a proof of a sequent the printed text does not denote",
+   "evidence": "`TryFrom<Sequent>` (serialize/sequents.rs:123-132) checks the arena and merges atoms but not the names, and `check` prints the sequent one-sided with the names as they are (cli/src/prove.rs:1307-1311, sequents/fmt.rs:146-147). `{\"sequent\":{\"terms\":[{\"D\":0},{\"V\":0}],\"ids\":[0,1],\"var_dict\":[\"A ⅋ B\"]},\"proof\":[{\"ax\":[0,1]}]}`: `linlog check -q` gives `valid proof of ⊢ ~A ⅋ B, A ⅋ B (classical)`, exit 0, while `linlog prove -q '|- ~A par B, A par B'` is unprovable. The verdict about the file is right; what is shown is not, and `check --format json` shows no sequent at all (F170).",
+   "fix": "Per HD5: refuse names that are not identifiers of the text syntax when a sequent is read from JSON.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": [],
+   "decision": "HD5"
+  },
+  {
+   "fid": "H20",
+   "id": "held-back-20",
+   "status": "held-back",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S4, S11",
+   "file": "cli/src/argument_parsing.rs",
+   "line": 614,
+   "title": "A `.p` file without --logic is read as LLTP, so an intuitionistically valid ILTP problem is answered unprovable",
+   "evidence": "`InputFormat::of` maps `.p` to LLTP unless --logic is given (argument_parsing.rs:614-621); both libraries write `fof(…)`, and TPTP's `&`, `|`, `~` parse as with, par and negation. `fof(c, conjecture, ~ (p & ~ p)).` (ILTP status Theorem): `linlog prove -q --file nc.p` gives `unprovable (ALL, classical, focus engine)`, exit 1; with `--logic intuitionistic`, `valid`. Files with `=>` or `<=>` fail to parse, which is safe. Documented, and the verdict line names the linear fragment.",
+   "fix": "Keep LLTP as the reading of `.p` (the harness and the LLTP batch rely on it), and say in the `unprovable` line or a note on standard error that the file was read as linear logic when its clauses use only `&`, `|` and `~`; or refuse the ambiguity. The area judges.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "H21",
+   "id": "held-back-21",
+   "status": "held-back",
+   "area": "search",
+   "severity": "should-fix",
+   "criterion": "S7",
+   "file": "core/src/ordinary/translate.rs",
+   "line": 168,
+   "title": "No test compares the ordinary layer's translations with each other or with an oracle on generated sequents",
+   "evidence": "H1 makes call-by-value disagree with call-by-name and the 01 translation on `false |- a -> a` in minimal logic, and nothing in the suite notices: `decides_and_reads_back` lists cases by hand, and the generated-sequent tests of `search::reference` cover the linear engines, not the ordinary layer. A differential run of 26 460 ordinary calls (classical against truth tables, intuitionistic and minimal against an independent G4ip-style prover) found H1 and nothing else.",
+   "fix": "A test over generated ordinary sequents, as `search::reference` does for the engines: in each logic the translations agree with each other, and in classical logic with a truth table; the cases kept small enough for the suite's time.",
+   "lenses": [
+    "held-back"
+   ],
+   "models": [
+    "fable"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
   }
  ],
  "refuted": [
