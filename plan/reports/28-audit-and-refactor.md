@@ -47,7 +47,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 2.2 judged and synthesised, `plan/notes/api.md` | done | two judges started 07:37 (Fable 5.1 at `high`, Opus 5.5 at `high`), independent, with two added questions (an interned-atom representation, H9/H10); Opus done 07:52 (ranks A 56, C 52, B 49; base A with grafts), Fable 08:00 (A 56, B 56, C 54, ranked B, A, C; the same synthesis); both chose C's sides rule and the interned atomic formula; drafts and judgements committed in `plan/notes/api-drafts/`; `plan/notes/api.md` synthesised 08:14 (sections 11.5 and 12 open) |
 | 2.3 walk-through per later step | done | ten Sonnet 5.5 agents at `high`, 08:16 to 08:26, one per step 29 to 38, against ab0b27e5's `plan/notes/api.md`: 2 blocking, 70 friction, 59 notes, every one answered in `api.md` section 12 (most by a change of the sections above); reports in `plan/notes/api-drafts/walk-NN.md` |
 | 2.4 quantifier spike, measured | done | M1 to M3 by the agent, M1d, M2d, M1b by it after the go, M3i finished by the session after the pause (10:20 to 10:55, the supervisor's go for each run): the design's data model (M1d) and the generic zone with one and two instances (M2d, M3i) pass the gates, the drafts' appended `Pred`/`DualPred` cost 6.6 %; `plan/notes/api.md` 11.5, `plan/notes/api-drafts/spike-report.md`; the workspace forgotten and removed |
-| 2.4a the fresh review answered | done | the supervisor's review (Fable 5.1 at `high`, `plan/notes/api-drafts/review-fable.md`, 6c6a72d0): nothing blocking, ten items; all ten answered in `plan/notes/api.md` (1085288f, listed at the end of its section 12) and in `plan/reports/28-design.md` |
+| 2.4a the fresh review answered | done | the supervisor's review (Fable 5.1 at `high`, `plan/notes/api-drafts/review-fable.md`, 6c6a72d0): nothing blocking, ten items; all ten answered in `plan/notes/api.md` (1085288f, listed at the end of its section 12) and in `plan/reports/28-design.md`; the supervisor's follow-up on item 10 answered as decision 21 (5b5b3064) |
 | 2.5 the author's sign-off | open | the supervisor puts api.md section 14 to the author |
 
 ### Stage 3 and 4: the fixes and their check rounds
@@ -260,3 +260,21 @@ its evidence (a commit, a file, a command's result) once it is done.
   your last message to planning listing what changed, by item."
 - What was done: all ten answered in `plan/notes/api.md` (1085288f), the
   stage report and this checklist amended; nothing was run.
+
+### Message from `planning` (2026-10-09, afternoon): decision 21
+
+- With the sides unknown, today's choice keeps H9's and H10's wrong
+  answers reachable through JSON and the library. "Write this as
+  decision 21 in §14.2": recommended, the reading takes today's choice
+  only where it is the only intuitionistic reading, else refuses asking
+  for the sides; set aside, today's guess. "Check its cost before you
+  write it" (lock entries, fixtures, tests, README blocks with `-i` and
+  JSON; whether `Interactive`, `Derivation` or the Horn engine rely on
+  the guess), "then fix §3.6's wording", commit as before, one short
+  message to planning.
+- What was done: the cost checked in the code (nothing moves beyond
+  commit (2) of 7.5; nothing downstream of the reading guesses);
+  decision 21 and 3.6 written (5b5b3064), with the factor rule sharpened
+  to the left factor in both cases, since H9's one-sided form has one
+  reading by the symmetric rule and only the left-factor rule refuses
+  it; the stage report amended.

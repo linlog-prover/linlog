@@ -58,11 +58,13 @@ judgements, the walk-through's reports and the spike's report are in
   listed at the end of its section 12.
 - **For the author**: api.md section 14, the open questions (C1 to C3,
   T1 to T7, HD1 to HD5) on their provisional answers with what each other
-  answer changes, and twenty decisions this design adds; those that
+  answer changes, and twenty-one decisions this design adds; those that
   matter most are 1 (the interned atom, which departs from the research's
   recommendation), 2 (the written sides refuse intuitionistic text written
   one-sided with several roots), 3 (the stop's form), 18 (the closed core
-  enums) and 19 (classical cyclic MLL read with a reversing dual).
+  enums), 19 (classical cyclic MLL read with a reversing dual) and 21
+  (with the sides unknown the reading answers only where it is the one
+  reading, so H9 and H10 are closed on JSON and in the library too).
 
 ## What the fix sessions take
 
