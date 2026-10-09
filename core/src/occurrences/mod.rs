@@ -321,6 +321,11 @@ impl Forest {
         (0..self.term.len() as u32).map(OccId::new)
     }
 
+    /// Returns the roots as members, in the order the sequent lists them.
+    pub(crate) fn root_members(&self) -> Vec<Member> {
+        self.roots().iter().copied().map(Member::from).collect()
+    }
+
     /// Returns the occurrence of each root formula, in the order the sequent
     /// lists them.
     pub fn roots(&self) -> &[OccId] {

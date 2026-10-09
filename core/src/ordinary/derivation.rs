@@ -740,7 +740,7 @@ impl Image {
             let members: Vec<(NodeId, Side)> = inference
                 .sequent
                 .iter()
-                .map(|&o| (tag(o).node, tag(o).side))
+                .map(|&o| (tag(o.occ()).node, tag(o.occ()).side))
                 .collect();
             let premises: Vec<InfId> = inference
                 .premises

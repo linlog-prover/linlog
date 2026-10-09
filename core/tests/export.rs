@@ -22,7 +22,7 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Derivation, Forest, InfId, Interactive, Mode, OccId, Options, Proof, ProofStructure,
+    Derivation, Forest, InfId, Inference, Interactive, Mode, OccId, Options, Proof, ProofStructure,
     ViewOptions,
 };
 use linlog::{Error, Refusal};
@@ -195,7 +195,7 @@ fn compact_view() {
     let derivation = proof
         .two_sided_derivation_within(&view, &linlog::Limits::default(), |_| false)
         .unwrap();
-    assert!(derivation.inferences().iter().any(|i| i.times == 3));
+    assert!(derivation.inferences().iter().any(|i| i.times() == 3));
     pin("compact", &derivation);
 }
 
@@ -273,7 +273,7 @@ fn every_label() {
             proof.derivation()
         };
         let derivation = derivation.unwrap();
-        rules.extend(derivation.inferences().iter().map(|i| i.rule));
+        rules.extend(derivation.inferences().iter().map(Inference::rule));
         pin(name, &derivation);
         if name.starts_with("labels") {
             pin_certificate(name, &derivation);

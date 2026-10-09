@@ -370,7 +370,9 @@ impl Session {
             .state
             .goal(goal)
             .ok_or(StepError::NoGoal { goal })?
-            .to_vec();
+            .iter()
+            .map(|&m| self.state.occurrence(m))
+            .collect::<Vec<_>>();
         let (forest, mode) = (self.state.forest(), self.state.mode());
         let parallel =
             || engine_for(forest, &goal_sequent, mode, &self.options).is_ok_and(Engine::parallel);
@@ -449,7 +451,9 @@ impl Session {
     /// Returns `goal G: ` and the goal's sequent with the position of every
     /// formula, two-sided in intuitionistic mode.
     fn goal_line(&self, goal: InfId) -> String {
-        let sequent = self.state.goal(goal).unwrap_or(&[]);
+        let sequent: Vec<_> = (self.state.goal(goal).unwrap_or(&[]).iter())
+            .map(|&m| self.state.occurrence(m))
+            .collect();
         let forest = self.state.forest();
         let reading = self.state.reading();
         let mut line = format!("goal {}:", goal.get());

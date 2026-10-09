@@ -341,7 +341,7 @@ pub fn two_sided(reading: &Reading, options: &Options) -> String {
         &mut out,
         forest,
         Some(reading),
-        forest.roots(),
+        &forest.root_members(),
         false,
         false,
     );

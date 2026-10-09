@@ -16,10 +16,16 @@ a proof comes from the checker's pass (`core-proofs.md`, "The checker").
 ## The derivation view
 
 `proofs/derivation.rs` unfolds a checked term into the tree of standard
-one-sided inferences (`Inference { sequent, rule, principal, premises }`,
-premises before conclusions, root last, `Rule` with the usual spellings).
-The sequent is the ids in ascending order with repeats; `principal` is a
-position in it, `None` for `ax` (its sequent is the two literals) and Mix.
+one-sided inferences (`Inference`, non-exhaustive with `pub(crate)`
+fields and the accessors `sequent()`, `rule()`, `principal()`,
+`premises()`, `times()`; premises before conclusions, root last, the rule
+a `Named` with the usual spellings). The sequent is members (`Member`)
+in ascending order with repeats, which the writers read through
+`Member::occ` where they print (`fmt::write_sequent`,
+`Notation::sequent`), and the builder makes from its multisets
+(`Multiset::into_members`); `principal` is a position in it, `None` for
+`ax` (its sequent is the two literals) and Mix. `Derivation::occurrence`
+and `formula` read a member, as `Proof`'s and `Interactive`'s do.
 `ProofStructure::from_proof` reads the axiom links off the `Ax` nodes.
 
 `Derivation::two_sided` (`Proof::two_sided_derivation`) is the same tree

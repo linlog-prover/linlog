@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 use crate::fragment::Mode;
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, Member};
 use crate::proofs::interactive::Interactive as State;
 use crate::proofs::{InfId, Inference, Named, Rule};
 use crate::sequents::Sequent;
@@ -75,7 +75,7 @@ impl TryFrom<Interactive> for State {
             .inferences
             .into_iter()
             .map(|step| Inference {
-                sequent: step.sequent.into_iter().map(OccId::new).collect(),
+                sequent: step.sequent.into_iter().map(Member::new).collect(),
                 rule: step.rule.unwrap_or_else(|| Rule::Open.into()),
                 principal: step.principal,
                 premises: step.premises.into_iter().map(InfId::new).collect(),

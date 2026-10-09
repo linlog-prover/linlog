@@ -465,7 +465,7 @@ fn interactive_json_format_and_round_trip() {
             .goal(goal)
             .unwrap()
             .iter()
-            .position(|&o| state.forest().formula(o).to_string() == text)
+            .position(|&m| state.formula(m).to_string() == text)
             .unwrap()
     };
     let g = state

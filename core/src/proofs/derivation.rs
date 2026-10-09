@@ -30,7 +30,7 @@ use crate::Error;
 use crate::fragment::Mode;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
-use crate::occurrences::{Forest, OccId, Reading, Side};
+use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::sequents::Kind;
 
 /// The index of an inference in a derivation.
@@ -101,24 +101,58 @@ impl ViewOptions {
 
 /// One inference of a derivation: the sequent it concludes, the rule, and
 /// the inferences of its premises.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Inference {
-    /// The sequent concluded, as occurrence ids in ascending order, an
-    /// occurrence repeated as often as the sequent holds it.
-    pub sequent: Vec<OccId>,
+    /// The sequent concluded, as members in ascending order, one repeated
+    /// as often as the sequent holds it.
+    pub(crate) sequent: Vec<Member>,
     /// The rule applied, as the derivation names it.
-    pub rule: Named,
+    pub(crate) rule: Named,
     /// The position in `sequent` of the formula the rule introduces or
     /// removes: `None` for an axiom, whose sequent is its two literals, and
     /// for Mix.
-    pub principal: Option<usize>,
+    pub(crate) principal: Option<usize>,
     /// The premises, in the rule's order.
-    pub premises: Vec<InfId>,
+    pub(crate) premises: Vec<InfId>,
     /// How many applications of the rule the inference stands for: one,
     /// or more for a run of a structural rule that a compact view draws
     /// as one inference ([`Compact`]), whose principal formula is then
     /// that of the lowest application.
-    pub times: u32,
+    pub(crate) times: u32,
+}
+
+impl Inference {
+    /// Returns the sequent concluded, as members in ascending order, one
+    /// repeated as often as the sequent holds it.
+    pub fn sequent(&self) -> &[Member] {
+        &self.sequent
+    }
+
+    /// Returns the rule applied, as the derivation names it.
+    pub const fn rule(&self) -> Named {
+        self.rule
+    }
+
+    /// Returns the position in [`sequent`](Self::sequent) of the formula
+    /// the rule introduces or removes: `None` for an axiom, whose sequent
+    /// is its two literals, for Mix and for an open goal.
+    pub const fn principal(&self) -> Option<usize> {
+        self.principal
+    }
+
+    /// Returns the premises, in the rule's order.
+    pub fn premises(&self) -> &[InfId] {
+        &self.premises
+    }
+
+    /// Returns how many applications of the rule the inference stands for:
+    /// one, or more for a run of a structural rule that a compact view
+    /// draws as one inference ([`Compact`]), whose principal formula is then
+    /// that of the lowest application.
+    pub const fn times(&self) -> u32 {
+        self.times
+    }
 }
 
 /// A derivation in the standard sequent calculus: the tree of inferences a
@@ -274,9 +308,20 @@ impl<'a> Derivation<'a> {
         unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)
     }
 
-    /// Returns the forest the sequents' occurrences index.
+    /// Returns the forest the sequents' members index.
     pub fn forest(&self) -> &'a Forest {
         self.forest
+    }
+
+    /// Returns the occurrence a member of the derivation stands for.
+    pub fn occurrence(&self, member: Member) -> OccId {
+        member.occ()
+    }
+
+    /// Returns the formula a member of the derivation stands for, as the
+    /// one-sided sequent writes it.
+    pub fn formula(&self, member: Member) -> impl std::fmt::Display + 'a {
+        self.forest.formula(member.occ())
     }
 
     /// Returns the intuitionistic reading of a two-sided derivation, or
@@ -434,7 +479,7 @@ struct Held {
 
 impl Held {
     /// Returns the bytes an inference with this sequent takes.
-    fn cost(&self, sequent: &[OccId]) -> u64 {
+    fn cost(&self, sequent: &[Member]) -> u64 {
         sequent
             .iter()
             .fold(0u64, |sum, o| {
@@ -718,7 +763,7 @@ impl<'a> Build<'a> {
         };
         let principal = principal.map(|o| sequent.position(o).unwrap());
         if let Some(held) = &mut self.compact {
-            let sequent = sequent.into_vec();
+            let sequent = sequent.into_members();
             let cost = held.cost(&sequent);
             held.bytes = held.bytes.saturating_add(cost);
             if let [p] = premises[..]
@@ -744,7 +789,7 @@ impl<'a> Build<'a> {
             });
         }
         self.push(Inference {
-            sequent: sequent.into_vec(),
+            sequent: sequent.into_members(),
             rule,
             principal,
             premises,
@@ -1471,7 +1516,7 @@ mod tests {
     fn compact_is_the_whole_with_its_runs_merged() {
         /// An inference as the test compares it: its sequent, rule,
         /// principal, times and number of premises.
-        type Shape = (Vec<OccId>, Named, Option<usize>, u32, usize);
+        type Shape = (Vec<Member>, Named, Option<usize>, u32, usize);
         /// Returns the tree of a derivation in preorder; with `merge`, a
         /// run of one structural rule as its lowest inference.
         fn shape(d: &Derivation, merge: bool) -> Vec<Shape> {
@@ -1756,7 +1801,7 @@ mod tests {
         let d = p.derivation().unwrap();
         let i = InfId::new;
         let inference = |sequent: &[u32], rule, principal, premises: &[InfId]| Inference {
-            sequent: sequent.iter().map(|&x| o(x).occ()).collect(),
+            sequent: sequent.iter().map(|&x| o(x)).collect(),
             rule,
             principal,
             premises: premises.to_vec(),

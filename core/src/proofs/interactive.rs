@@ -239,7 +239,7 @@ impl Interactive {
             Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
         }
         let root = Inference {
-            sequent: forest.roots().to_vec(),
+            sequent: forest.roots().iter().copied().map(Member::from).collect(),
             rule: Rule::Open.into(),
             principal: None,
             premises: vec![],
@@ -271,7 +271,12 @@ impl Interactive {
                 reason: "there is no inference",
             });
         };
-        if root.sequent != state.forest.roots() {
+        if !root
+            .sequent
+            .iter()
+            .map(|m| m.occ())
+            .eq(state.forest.roots().iter().copied())
+        {
             return Err(Error::InconsistentSession {
                 reason: "inference 0 does not conclude the sequent",
             });
@@ -366,7 +371,11 @@ impl Interactive {
     /// the left premise.
     fn replay(&self, reading: Option<&Reading>, id: InfId) -> Result<(), Error> {
         let inference = &self.inferences[id.index()];
-        let sequent = &inference.sequent;
+        let sequent: &[OccId] = &inference
+            .sequent
+            .iter()
+            .map(|m| m.occ())
+            .collect::<Vec<_>>();
         let rule = inference.rule;
         let classical = rule.rule;
         let has_principal = classical.has_principal();
@@ -390,7 +399,12 @@ impl Interactive {
                     reason: "a split has no premise",
                 });
             };
-            let mut context = Multiset::of(self.inferences[first.index()].sequent.iter().copied());
+            let mut context = Multiset::of(
+                self.inferences[first.index()]
+                    .sequent
+                    .iter()
+                    .map(|m| m.occ()),
+            );
             if let Some(p) = principal {
                 context.remove(self.forest.left(sequent[p]).unwrap_or(sequent[p]));
             }
@@ -427,10 +441,13 @@ impl Interactive {
         };
         let expected = self.expand(reading, sequent, position, rule, &left)?;
         let same = expected.len() == inference.premises.len()
-            && expected
-                .iter()
-                .zip(&inference.premises)
-                .all(|(e, p)| e.as_slice() == self.inferences[p.index()].sequent);
+            && expected.iter().zip(&inference.premises).all(|(e, p)| {
+                e.as_slice()
+                    .iter()
+                    .copied()
+                    .map(Member::from)
+                    .eq(self.inferences[p.index()].sequent.iter().copied())
+            });
         if same {
             Ok(())
         } else {
@@ -443,6 +460,17 @@ impl Interactive {
     /// Returns the forest of the sequent being proved.
     pub fn forest(&self) -> &Forest {
         &self.forest
+    }
+
+    /// Returns the occurrence a member of the session stands for.
+    pub fn occurrence(&self, member: Member) -> OccId {
+        member.occ()
+    }
+
+    /// Returns the formula a member of the session stands for, as the
+    /// one-sided sequent writes it.
+    pub fn formula(&self, member: Member) -> impl Display + '_ {
+        self.forest.formula(member.occ())
     }
 
     /// Returns the sequent being proved.
@@ -480,7 +508,7 @@ impl Interactive {
     }
 
     /// Returns the sequent of an open goal, or `None` if the id is not one.
-    pub fn goal(&self, id: InfId) -> Option<&[OccId]> {
+    pub fn goal(&self, id: InfId) -> Option<&[Member]> {
         self.inferences
             .get(id.index())
             .filter(|inference| inference.rule.rule == Rule::Open)
@@ -504,8 +532,9 @@ impl Interactive {
     }
 
     /// Returns the sequent of an open goal, or the refusal.
-    fn open(&self, id: InfId) -> Result<&[OccId], StepError> {
-        self.goal(id).ok_or(StepError::NoGoal { goal: id })
+    fn open(&self, id: InfId) -> Result<Vec<OccId>, StepError> {
+        let goal = self.goal(id).ok_or(StepError::NoGoal { goal: id })?;
+        Ok(goal.iter().map(|m| m.occ()).collect())
     }
 
     /// Returns the rules that can act on the formula at `position` of the
@@ -519,7 +548,7 @@ impl Interactive {
     /// [`apply`](Self::apply) decides.
     pub fn rules(&self, goal: InfId, position: usize) -> Result<Vec<Named>, StepError> {
         let sequent = self.open(goal)?;
-        let o = formula_at(sequent, position)?;
+        let o = formula_at(&sequent, position)?;
         use Rule::*;
         let mut rules = match self.forest.kind(o) {
             Kind::Atom | Kind::DualAtom => vec![Ax],
@@ -564,7 +593,7 @@ impl Interactive {
         left: &[usize],
     ) -> Result<Vec<InfId>, StepError> {
         let rule = rule.into();
-        let sequent = self.open(goal)?.to_vec();
+        let sequent = self.open(goal)?;
         let reading = self.reading();
         let (rule, premises) = {
             let o = formula_at(&sequent, position)?;
@@ -590,7 +619,7 @@ impl Interactive {
             .collect();
         for premise in premises {
             self.inferences.push(Inference {
-                sequent: premise.into_vec(),
+                sequent: premise.into_members(),
                 rule: Rule::Open.into(),
                 principal: None,
                 premises: vec![],
@@ -767,7 +796,7 @@ impl Interactive {
         left: &[usize],
     ) -> Result<bool, StepError> {
         let sequent = self.open(goal)?;
-        let o = formula_at(sequent, position)?;
+        let o = formula_at(&sequent, position)?;
         let rule = if self.forest.kind(o) == Kind::Tensor {
             Rule::Tensor
         } else {
@@ -775,11 +804,11 @@ impl Interactive {
         };
         let reading = self.reading();
         let rule = Named::new(rule, reading.as_ref().map(|reading| reading.position(o)));
-        let premises = self.expand(reading.as_ref(), sequent, position, rule, left)?;
+        let premises = self.expand(reading.as_ref(), &sequent, position, rule, left)?;
         let [l, r] = premises.as_slice() else {
             unreachable!("a split has two premises");
         };
-        let fragment = search::goal_fragment(&self.forest, sequent);
+        let fragment = search::goal_fragment(&self.forest, &sequent);
         Ok(focus::split_passes(
             &self.forest,
             fragment,
@@ -837,7 +866,7 @@ impl Interactive {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Outcome, Error> {
-        let sequent = self.open(goal)?.to_vec();
+        let sequent = self.open(goal)?;
         let outcome = search::prove_goal(
             &self.forest,
             &sequent,
@@ -870,7 +899,7 @@ impl Interactive {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<(), Error> {
-        let sequent = self.open(goal)?.to_vec();
+        let sequent = self.open(goal)?;
         // The goal's ids name occurrences of the session's forest, which
         // is a function of its sequent.
         if proof.sequent() != self.sequent() {
@@ -1078,17 +1107,17 @@ impl Terms<'_> {
                     .principal
                     .expect("every rule but ax and mix has one")]
             };
-            let a = || f.left(o()).expect("a connective with a subformula");
-            let b = || f.right(o()).expect("a binary connective");
+            let a = || f.left(o().occ()).expect("a connective with a subformula");
+            let b = || f.right(o().occ()).expect("a binary connective");
             let rule = inference.rule.rule;
             if matches!(step, Step::Visit(_)) {
                 // What each premise's sequent gains from the rule.
                 let introduced: [[Option<OccId>; 2]; 2] = match rule {
                     Ax | One | Top => {
                         let leaf = match rule {
-                            Ax => Node::Ax(sequent[0].into(), sequent[1].into()),
-                            One => Node::One(Member::from(o())),
-                            _ => Node::Top(Member::from(o())),
+                            Ax => Node::Ax(sequent[0], sequent[1]),
+                            One => Node::One(o()),
+                            _ => Node::Top(o()),
                         };
                         let leaf = self.push(leaf);
                         done.push(leaf);
@@ -1116,18 +1145,18 @@ impl Terms<'_> {
             }
             let mut premise = || done.pop().expect("a premise's term");
             let node = match rule {
-                Par => Node::Par(Member::from(o()), premise()),
-                Bot => Node::Bot(Member::from(o()), premise()),
-                PlusLeft => Node::Plus(Member::from(o()), Branch::Left, premise()),
-                PlusRight => Node::Plus(Member::from(o()), Branch::Right, premise()),
-                Promotion => Node::Bang(Member::from(o()), premise()),
+                Par => Node::Par(o(), premise()),
+                Bot => Node::Bot(o(), premise()),
+                PlusLeft => Node::Plus(o(), Branch::Left, premise()),
+                PlusRight => Node::Plus(o(), Branch::Right, premise()),
+                Promotion => Node::Bang(o(), premise()),
                 Dereliction => Node::Copy(Member::from(a()), premise()),
-                AffineWeakening => Node::Weaken(Member::from(o()), premise()),
+                AffineWeakening => Node::Weaken(o(), premise()),
                 With | Tensor | Mix => {
                     let (r, l) = (premise(), premise());
                     match rule {
-                        With => Node::With(Member::from(o()), l, r),
-                        Tensor => Node::Tensor(Member::from(o()), l, r),
+                        With => Node::With(o(), l, r),
+                        Tensor => Node::Tensor(o(), l, r),
                         _ => Node::Mix(l, r),
                     }
                 }
@@ -1192,7 +1221,7 @@ mod tests {
         let sequent = state.goal(goal).unwrap();
         sequent
             .iter()
-            .position(|&o| state.forest().formula(o).to_string() == text)
+            .position(|&o| state.forest().formula(o.occ()).to_string() == text)
             .unwrap_or_else(|| panic!("no {text} in goal {}", goal.get()))
     }
 
@@ -1667,7 +1696,7 @@ mod tests {
         assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
 
         let (mut s, g) = start("A, B |- A", Mode::CLASSICAL);
-        let goal = s.goal(g).unwrap().to_vec();
+        let goal: Vec<OccId> = s.goal(g).unwrap().iter().map(|m| m.occ()).collect();
         let affine = search::prove_goal(
             s.forest(),
             &goal,

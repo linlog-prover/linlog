@@ -7,7 +7,7 @@
 //! time.
 
 use crate::Error;
-use crate::occurrences::{Forest, OccId, Reading, Side};
+use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
 use crate::proofs::InfId;
 use crate::proofs::style::Drawn;
@@ -154,14 +154,14 @@ impl Notation {
         out: &mut String,
         forest: &Forest,
         reading: Option<&Reading>,
-        sequent: &[OccId],
+        sequent: &[Member],
         aligned: bool,
         marks: bool,
     ) {
         let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
         let Some(reading) = reading else {
             out.push_str(self.turnstile);
-            for (i, &o) in sequent.iter().enumerate() {
+            for (i, o) in sequent.iter().map(|m| m.occ()).enumerate() {
                 out.push_str(if i == 0 { " " } else { ", " });
                 out.push_str(open);
                 self.term(out, forest.sequent(), forest.term(o), false);
@@ -171,7 +171,7 @@ impl Notation {
         };
         let mut goal = None;
         let mut hypotheses = 0;
-        for &o in sequent {
+        for o in sequent.iter().map(|m| m.occ()) {
             if reading.position(o) == Side::Output {
                 goal = Some(o);
                 continue;

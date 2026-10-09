@@ -12,7 +12,7 @@
 use super::derivation::{Derivation, InfId};
 use super::style::{Drawn, Labels, OpenGoal, RUN, plain};
 use crate::Error;
-use crate::occurrences::{Forest, OccId, Reading, Side};
+use crate::occurrences::{Forest, Member, Reading, Side};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// What a user may vary in the text tree of a derivation.
@@ -172,18 +172,18 @@ pub(super) fn write_sequent(
     out: &mut impl Write,
     forest: &Forest,
     reading: Option<&Reading>,
-    sequent: &[OccId],
+    sequent: &[Member],
 ) -> FmtResult {
     let Some(reading) = reading else {
         out.write_char('⊢')?;
-        for (i, &o) in sequent.iter().enumerate() {
+        for (i, o) in sequent.iter().map(|m| m.occ()).enumerate() {
             out.write_str(if i == 0 { " " } else { ", " })?;
             write!(out, "{}", forest.formula(o))?;
         }
         return Ok(());
     };
     let (mut goal, mut first) = (None, true);
-    for &o in sequent {
+    for o in sequent.iter().map(|m| m.occ()) {
         if reading.position(o) == Side::Output {
             goal = Some(o);
             continue;
@@ -210,7 +210,7 @@ pub(super) fn write_sequent(
 pub(crate) fn sequent_text(
     forest: &Forest,
     reading: Option<&Reading>,
-    sequent: &[OccId],
+    sequent: &[Member],
 ) -> String {
     let mut text = String::new();
     write_sequent(&mut text, forest, reading, sequent).unwrap();

@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::occurrences::OccId;
+use crate::occurrences::{Member, OccId};
 
 /// A multiset of occurrence ids, kept as an ascending list with repeats: the
 /// linear zone of a sequent, which holds an occurrence more than once after
@@ -30,6 +30,12 @@ impl Multiset {
     /// Returns the members as a vector in ascending order, with repeats.
     pub(crate) fn into_vec(self) -> Vec<OccId> {
         self.0
+    }
+
+    /// Returns the members, ascending with repeats, as a sequent of an
+    /// inference holds them.
+    pub(crate) fn into_members(self) -> Vec<Member> {
+        self.0.into_iter().map(Member::from).collect()
     }
 
     /// Returns whether the multiset has no member.

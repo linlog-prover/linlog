@@ -540,7 +540,7 @@ pub fn two_sided(reading: &Reading, style: &Style) -> String {
         &mut drawn,
         forest,
         Some(reading),
-        forest.roots(),
+        &forest.root_members(),
         false,
         false,
     );
@@ -548,7 +548,7 @@ pub fn two_sided(reading: &Reading, style: &Style) -> String {
         &mut title,
         forest,
         Some(reading),
-        forest.roots(),
+        &forest.root_members(),
         false,
         false,
     );

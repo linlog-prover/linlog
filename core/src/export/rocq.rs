@@ -374,10 +374,10 @@ impl Script<'_> {
             return;
         }
         let o = inference.sequent[inference.principal.unwrap()];
-        let at = goal.iter().position(|&x| x == o).unwrap();
+        let at = goal.iter().position(|&x| x == o.occ()).unwrap();
         let (before, after) = (&goal[..at], &goal[at + 1..]);
         let prefix = self.list(before);
-        let (left, right) = (forest.left(o), forest.right(o));
+        let (left, right) = (forest.left(o.occ()), forest.right(o.occ()));
         // The goal of the premise when the rule replaces the principal
         // formula by `with`.
         let replaced = |with: &[OccId]| {
@@ -419,7 +419,7 @@ impl Script<'_> {
             }
             Rule::Contraction => {
                 self.apply("co_r_ext", &[prefix], false);
-                premise(self, replaced(&[o, o]));
+                premise(self, replaced(&[o.occ(), o.occ()]));
             }
             Rule::Promotion => {
                 // The context is `?` formulas, which the rule takes
@@ -465,15 +465,23 @@ impl Script<'_> {
         let (derivation, forest) = (self.derivation, self.forest);
         let inference = derivation.inference(id);
         let o = inference.sequent[inference.principal.unwrap()];
-        let (a, b) = (forest.left(o).unwrap(), forest.right(o).unwrap());
+        let (a, b) = (
+            forest.left(o.occ()).unwrap(),
+            forest.right(o.occ()).unwrap(),
+        );
         let (l, r) = (inference.premises[0], inference.premises[1]);
         // The left context, consumed as the goal's formulas are assigned.
-        let mut left: Vec<OccId> = derivation.inference(l).sequent.clone();
+        let mut left: Vec<OccId> = derivation
+            .inference(l)
+            .sequent
+            .iter()
+            .map(|m| m.occ())
+            .collect();
         left.remove(left.iter().position(|&x| x == a).unwrap());
         let (mut before, mut after) = (Vec::new(), Vec::new());
         let mut principal = false;
         for &x in &goal {
-            if x == o && !principal {
+            if x == o.occ() && !principal {
                 principal = true;
             } else if let Some(i) = left.iter().position(|&y| y == x) {
                 left.remove(i);
@@ -483,7 +491,7 @@ impl Script<'_> {
             }
         }
         let mut target = before.clone();
-        target.push(o);
+        target.push(o.occ());
         target.extend_from_slice(&after);
         if target != goal {
             // `ex_perm_r p l` proves `l` permuted so that position `i`
@@ -561,7 +569,12 @@ pub fn write(
         depth: 0,
     };
     let root = derivation.root();
-    script.goals[root.index()] = derivation.inference(root).sequent.clone();
+    script.goals[root.index()] = derivation
+        .inference(root)
+        .sequent
+        .iter()
+        .map(|m| m.occ())
+        .collect();
 
     if options.form == Form::Standalone {
         write!(out, "{}\n\n", options.prelude.trim_end())?;

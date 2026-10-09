@@ -616,7 +616,7 @@ mod tests {
             let width: u64 = inference
                 .sequent
                 .iter()
-                .map(|&o| forest.formula(o).to_string().chars().count() as u64 + 2)
+                .map(|&o| forest.formula(o.occ()).to_string().chars().count() as u64 + 2)
                 .sum();
             characters += width;
             widest = widest.max(width);
@@ -731,7 +731,7 @@ mod tests {
             .inference(derivation.root())
             .sequent
             .iter()
-            .map(|&o| forest.formula(o).to_string().chars().count() as u64 + 2)
+            .map(|&o| forest.formula(o.occ()).to_string().chars().count() as u64 + 2)
             .sum()
     }
 }
