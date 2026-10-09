@@ -46,7 +46,7 @@ pub use style::{Labels, OpenGoal};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{Forest, Member};
+use crate::occurrences::{Forest, Member, OccId};
 use crate::sequents::Sequent;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -99,11 +99,15 @@ pub enum Branch {
     Right,
 }
 
-/// One rule instance of a proof: the rule, the occurrence it acts on, and
-/// the nodes that prove its premises, which precede it in the arena. The
-/// rules are the dyadic calculus's, so `⊢ Θ ; Γ` below is a sequent with the
+/// One rule instance of a proof: the rule, the member it acts on, and the
+/// nodes that prove its premises, which precede it in the arena. The rules
+/// are the dyadic calculus's, so `⊢ Θ ; Γ` below is a sequent with the
 /// unrestricted zone `Θ` and the linear zone `Γ`; `Θ` is empty until a
 /// [`Quest`](Self::Quest) fills it.
+///
+/// The type is closed: a new rule is a new release of the calculus, with
+/// its tag, its checker's arm, its rule of the derivation view and its
+/// constructor wherever the type is mirrored ([`NAMES`](Self::NAMES)).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Node {
     /// The axiom `⊢ Θ ; a, ~a` on two literal occurrences of one atom with
@@ -149,6 +153,20 @@ pub enum Node {
 const _: () = assert!(size_of::<Node>() == 16);
 
 impl Node {
+    /// The variants' names, in their order: what a mirror of the type in
+    /// another language matches, one constructor each.
+    pub const NAMES: &'static [&'static str] = &[
+        "Ax", "Tensor", "Par", "One", "Bot", "With", "Plus", "Top", "Bang", "Quest", "Copy",
+        "Weaken", "Mix",
+    ];
+
+    /// The rules' tags in a proof's JSON form and their names
+    /// ([`name`](Self::name)): one per variant, and two for `Plus`, whose
+    /// branch is in its tag.
+    pub const TAGS: &'static [&'static str] = &[
+        "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?", "copy", "wk", "mix",
+    ];
+
     /// Returns the member the rule acts on: `None` for Mix, and the first
     /// literal of an axiom.
     pub const fn principal(self) -> Option<Member> {
@@ -302,6 +320,11 @@ pub struct Proof {
     forest: Forest,
     /// The rule instances, premises before conclusions, the root last.
     nodes: Box<[Node]>,
+    /// The members the root concludes, where they are not the sequent's
+    /// root formulas.
+    goal: Option<Box<[Member]>>,
+    /// The mode the proof is meant for: a claim, which only a check tests.
+    mode: Option<Mode>,
 }
 
 impl Proof {
@@ -372,7 +395,80 @@ impl Proof {
         Ok(Self {
             forest,
             nodes: kept.into_boxed_slice(),
+            goal: None,
+            mode: None,
         })
+    }
+
+    /// Builds a proof of `goal`, members of the forest that stand for the
+    /// sequent of those subformulas, as [`new`](Self::new) builds a proof
+    /// of the sequent; its root concludes the goal. Fails as `new` does,
+    /// or for a member outside the forest.
+    pub fn new_of_goal(
+        forest: Forest,
+        goal: &[Member],
+        nodes: Vec<Node>,
+        root: NodeId,
+    ) -> Result<Self, Error> {
+        if let Some(m) = goal.iter().find(|m| m.occurrence(&forest).is_none()) {
+            return Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Member,
+                index: m.index(),
+                len: forest.len(),
+            });
+        }
+        let mut proof = Self::new(forest, nodes, root)?;
+        proof.goal = Some(goal.into());
+        Ok(proof)
+    }
+
+    /// Returns the proof with the mode it is meant for recorded.
+    #[must_use]
+    pub fn with_mode(self, mode: Mode) -> Self {
+        Self {
+            mode: Some(mode),
+            ..self
+        }
+    }
+
+    /// Returns the members the root concludes, or `None` for a proof of
+    /// the sequent, whose root concludes its root formulas.
+    pub fn goal(&self) -> Option<&[Member]> {
+        self.goal.as_deref()
+    }
+
+    /// Returns the mode the proof is meant for, as the search that found
+    /// it records: a claim, which [`check`](Self::check) tests in the mode
+    /// it is given.
+    pub fn mode(&self) -> Option<Mode> {
+        self.mode
+    }
+
+    /// Returns the occurrence a member of the proof stands for.
+    pub fn occurrence(&self, member: Member) -> OccId {
+        member.occ()
+    }
+
+    /// Returns the formula a member of the proof stands for.
+    pub fn formula(&self, member: Member) -> impl Display + '_ {
+        self.forest.formula(member.occ())
+    }
+
+    /// Returns the proof with `goal` recorded as what its root concludes.
+    pub(crate) fn concluding(self, goal: &[OccId]) -> Self {
+        Self {
+            goal: Some(goal.iter().copied().map(Member::from).collect()),
+            ..self
+        }
+    }
+
+    /// Returns the occurrences the root concludes: the goal's, or the
+    /// sequent's roots.
+    pub(crate) fn conclusion(&self) -> Vec<OccId> {
+        match &self.goal {
+            Some(goal) => goal.iter().map(|m| m.occ()).collect(),
+            None => self.forest.roots().to_vec(),
+        }
     }
 
     /// Returns the forest of the sequent the proof is of.
@@ -499,5 +595,40 @@ impl Node {
             Mix(l, r) => Mix(f(l), f(r)),
             leaf @ (Ax(..) | One(_) | Top(_)) => leaf,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The name lists follow the variants: `NAMES` one each in order, and
+    /// `TAGS` every rule's name, in order, `Plus` twice.
+    #[test]
+    fn name_lists_follow_the_variants() {
+        let (m, n) = (Member::new(0), NodeId::new(0));
+        let nodes = [
+            Node::Ax(m, m),
+            Node::Tensor(m, n, n),
+            Node::Par(m, n),
+            Node::One(m),
+            Node::Bot(m, n),
+            Node::With(m, n, n),
+            Node::Plus(m, Branch::Left, n),
+            Node::Top(m),
+            Node::Bang(m, n),
+            Node::Quest(m, n),
+            Node::Copy(m, n),
+            Node::Weaken(m, n),
+            Node::Mix(n, n),
+        ];
+        let names: Vec<String> = nodes
+            .iter()
+            .map(|node| format!("{node:?}").split('(').next().unwrap().to_owned())
+            .collect();
+        assert_eq!(names, Node::NAMES);
+        let mut tags: Vec<&str> = nodes.iter().map(|node| node.name()).collect();
+        tags.insert(7, Node::Plus(m, Branch::Right, n).name());
+        assert_eq!(tags, Node::TAGS);
     }
 }

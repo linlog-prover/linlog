@@ -107,13 +107,7 @@ impl Proof {
         };
         let reading = check::reading(self, mode)?;
         let allowance = Allowance::new(limits, Phase::View, &mut stop);
-        measure(
-            self,
-            self.forest().roots(),
-            mode,
-            reading.as_ref(),
-            allowance,
-        )
+        measure(self, &self.conclusion(), mode, reading.as_ref(), allowance)
     }
 }
 

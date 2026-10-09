@@ -87,7 +87,7 @@ pub(crate) fn derive(
     reading: Option<&Reading>,
 ) -> Result<Vec<Derived>, CheckError> {
     let mut derived = Vec::with_capacity(proof.nodes().len());
-    let (nodes, roots) = (proof.nodes().len(), proof.forest().roots().len());
+    let (nodes, roots) = (proof.nodes().len(), proof.conclusion().len());
     for id in proof.ids() {
         // A zone the later nodes cannot bring down to the roots: each
         // consumes two members at most.
@@ -102,7 +102,7 @@ pub(crate) fn derive(
 pub(crate) fn conclude(proof: &Proof, mode: Mode, derived: &[Derived]) -> Result<(), CheckError> {
     let root = proof.root();
     let d = &derived[root.index()];
-    let roots = Multiset::of(proof.forest().roots().iter().copied());
+    let roots = Multiset::of(proof.conclusion());
     let concludes = if d.any {
         d.gamma.is_subset(&roots)
     } else {

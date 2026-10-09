@@ -1288,6 +1288,9 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
 pub fn check(args: &CheckArgs) -> Result<Status> {
     let text = io::read(args.proof.as_deref(), "proof")?;
     let proof: Proof = serde_json::from_str(&text).context("not a proof in JSON")?;
+    if proof.goal().is_some() {
+        return Err(Error::GoalProof.into());
+    }
     let mode = args.mode.mode();
     let quiet = args.output.quiet;
     let show = Show::new(&args.output)?.within(args.memory_limit.0);

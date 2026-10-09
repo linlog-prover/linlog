@@ -38,6 +38,17 @@ serve intuitionistic mode. Invariants:
 - A node never records the sequent it proves; the checker derives it. So
   `Top(o)` does not say what context the `⊤` absorbs, and an engine need
   not record it.
+- **A proof records what it concludes and the mode it is meant for**
+  (`goal`, `None` for the sequent's roots, and `mode`, a claim the check
+  tests in the mode it is given): `Proof::new` makes a proof of the
+  sequent, `new_of_goal` one of a goal, `with_mode` records the mode, and
+  the checker, the size pass and the derivation conclude at
+  `Proof::conclusion()`. Where a proof of the sequent is needed a goal
+  proof is `Error::GoalProof` (kind unsupported: no wrong proof):
+  `ProofStructure::from_proof`, the Rocq writer (through
+  `Derivation::is_of_goal`) and `linlog check`; `Interactive::close_with`
+  refuses a proof of another goal with `Error::GoalMismatch`. Neither key
+  is on the wire yet: the wire level adds them.
 - Occurrence ids are those of the proof's own forest; a proof is meaningful
   only with it. Serialization stores the sequent and rebuilds the forest,
   which is deterministic (D5).

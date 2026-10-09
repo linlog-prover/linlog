@@ -261,6 +261,9 @@ impl ProofStructure {
     /// The checker is not run: the net of a term the checker would reject
     /// can still be a proof net, and is returned as one.
     pub fn from_proof(proof: &Proof, mix: bool) -> Result<Self, Error> {
+        if proof.goal().is_some() {
+            return Err(Error::GoalProof);
+        }
         let links: Vec<(OccId, OccId)> = proof
             .nodes()
             .iter()

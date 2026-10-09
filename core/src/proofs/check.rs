@@ -344,9 +344,10 @@ impl State {
     }
 }
 
-/// A dyadic sequent as the checker derived it, by occurrence ids: the
+/// A dyadic sequent as the checker derived it, by members: the
 /// unrestricted zone `Θ`, the linear zone `Γ` with repeats, and whether a
 /// `⊤` above absorbs any further linear context.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dyadic {
     /// The unrestricted zone, ascending.
@@ -793,7 +794,7 @@ pub(crate) fn check_within(
     let reading = reading(proof, mode)?;
     examine(
         proof,
-        proof.forest().roots(),
+        &proof.conclusion(),
         mode,
         reading.as_ref(),
         Allowance::new(limits, Phase::Check, stop),

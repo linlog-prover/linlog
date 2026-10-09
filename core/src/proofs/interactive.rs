@@ -883,6 +883,11 @@ impl Interactive {
         if proof.sequent() != self.sequent() {
             return Err(Error::ForeignProof);
         }
+        let mut concluded: Vec<OccId> = proof.conclusion();
+        concluded.sort_unstable();
+        if concluded != sequent {
+            return Err(Error::GoalMismatch);
+        }
         let found = Derivation::of_goal(proof, &sequent, self.mode, view, limits, &mut stop)?;
         self.graft(goal, found);
         self.history.push(goal);
@@ -1663,6 +1668,21 @@ mod tests {
             Err(Error::Check(crate::proofs::CheckError::Invalid(_)))
         ));
         assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
+
+        // A proof of the sequent closes the root's goal and no other.
+        let (mut s, g) = start("A, B |- A * B", Mode::CLASSICAL);
+        let outcome = search::prove(s.sequent(), Mode::CLASSICAL, &Options::default()).unwrap();
+        let Verdict::Proved(whole) = outcome.verdict else {
+            panic!("{:?}", outcome.verdict)
+        };
+        let tensor = at(&s, g, "A ⊗ B");
+        let premises = s
+            .apply(g, tensor, Rule::Tensor, &[at(&s, g, "~A")])
+            .unwrap();
+        assert!(matches!(
+            s.close_with(premises[0], &whole, &view, &Limits::default(), |_| false),
+            Err(Error::GoalMismatch)
+        ));
     }
 
     /// The split helper says which splits the counts refuse.

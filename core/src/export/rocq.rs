@@ -551,6 +551,9 @@ pub fn write(
     out: &mut impl Write,
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<(), Error> {
+    if derivation.is_of_goal() {
+        return Err(Error::GoalProof);
+    }
     let mut stop = crate::limits::counting(stop, crate::limits::Phase::Write);
     for inference in derivation.inferences() {
         if inference.times > 1 {

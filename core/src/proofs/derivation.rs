@@ -430,6 +430,9 @@ pub struct Derivation<'a> {
     reading: Option<Reading<'a>>,
     /// The inferences, premises before conclusions, the root last.
     inferences: Vec<Inference>,
+    /// Whether the root concludes a goal of a proof rather than the
+    /// sequent.
+    of_goal: bool,
 }
 
 impl<'a> Derivation<'a> {
@@ -505,10 +508,10 @@ impl<'a> Derivation<'a> {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Self, Error> {
-        let roots = proof.forest().roots();
+        let conclusion = proof.conclusion();
         let inferences = unfold(
             proof,
-            roots,
+            &conclusion,
             mode,
             reading.as_ref(),
             view,
@@ -519,6 +522,7 @@ impl<'a> Derivation<'a> {
             forest: proof.forest(),
             reading,
             inferences,
+            of_goal: proof.goal().is_some(),
         })
     }
 
@@ -534,7 +538,14 @@ impl<'a> Derivation<'a> {
             forest,
             reading,
             inferences,
+            of_goal: false,
         }
+    }
+
+    /// Returns whether the root concludes a goal of its proof rather than
+    /// the sequent.
+    pub(crate) const fn is_of_goal(&self) -> bool {
+        self.of_goal
     }
 
     /// Unfolds a proof whose root concludes `goal` rather than the roots,

@@ -163,6 +163,15 @@ pub enum Error {
     #[cfg(feature = "interactive")]
     #[error("the proof is over another sequent than the session's")]
     ForeignProof,
+    /// A proof given to close a goal of a session concludes another goal.
+    #[cfg(feature = "interactive")]
+    #[error("the proof concludes another goal than the one it is to close")]
+    GoalMismatch,
+    /// A proof of a goal, given where a proof of the sequent is needed: a
+    /// proof of a goal is checked against the goal, so it is no wrong
+    /// proof, only not one of the sequent.
+    #[error("the proof concludes a goal, not the sequent")]
+    GoalProof,
     /// The mode is intuitionistic and the sequent has no intuitionistic
     /// reading. The message names occurrences by id;
     /// [`ShapeError::describe`] names them by formula.
@@ -382,6 +391,8 @@ impl Error {
         "step",
         "open_goals",
         "foreign_proof",
+        "goal_mismatch",
+        "goal_proof",
         "not_intuitionistic",
         "intuitionistic_mix",
         "goal_outputs",
@@ -428,7 +439,10 @@ impl Error {
             Self::Check(CheckError::Refused(refused)) => refusal_kind(&refused.refusal),
             Self::Net(error) => error.kind(),
             #[cfg(feature = "interactive")]
-            Self::Step(_) | Self::OpenGoals { .. } | Self::ForeignProof => Invalid,
+            Self::Step(_) | Self::OpenGoals { .. } | Self::ForeignProof | Self::GoalMismatch => {
+                Invalid
+            }
+            Self::GoalProof => Unsupported,
             Self::NotIntuitionistic(_)
             | Self::IntuitionisticMix
             | Self::GoalOutputs { .. }
@@ -487,6 +501,9 @@ impl Error {
             Self::OpenGoals { .. } => "open_goals",
             #[cfg(feature = "interactive")]
             Self::ForeignProof => "foreign_proof",
+            #[cfg(feature = "interactive")]
+            Self::GoalMismatch => "goal_mismatch",
+            Self::GoalProof => "goal_proof",
             Self::NotIntuitionistic(_) => "not_intuitionistic",
             Self::IntuitionisticMix => "intuitionistic_mix",
             Self::GoalOutputs { .. } => "goal_outputs",

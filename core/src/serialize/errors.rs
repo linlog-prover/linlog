@@ -114,7 +114,8 @@ impl Serialize for Details<'_> {
                 entries!(s; "calculus" => calculus; "reason" => reason)
             }
             #[cfg(feature = "interactive")]
-            ForeignProof => entries!(s),
+            ForeignProof | GoalMismatch => entries!(s),
+            GoalProof => entries!(s),
             #[cfg(feature = "pdf")]
             NoDate => entries!(s),
             IntuitionisticMix | NetGoal | NotHorn | WriteFailed => entries!(s),

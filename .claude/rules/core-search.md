@@ -28,18 +28,19 @@ picks the prunes and the engine, the net engine only for the roots
 are the forest's roots), the additive path for any two additive-only
 occurrences (`additive::search_goal`), the focused engine otherwise; in
 intuitionistic mode a goal must have exactly one occurrence in output
-position (`Error::GoalOutputs`). **Every proof of the roots has passed
-the checker when it is returned, in every build** (`Options::check`,
+position (`Error::GoalOutputs`). **Every proof, of the roots or of a
+goal, has passed the checker when it is returned, in every build** (`Options::check`,
 `DEFAULT_CHECK` true; the check is at the end of `prove_goal`, one place
 for every engine, and a proof it rejects is `Error::Rejected`, an error
 and never a verdict). The engines' own `debug_assert!`s on their proofs
 stay, and the flake's `test-debug-assertions` check is what runs them,
 since crane tests in the release profile. The harness switches the check
 off to time the search alone and checks the proof itself. The proof of a
-goal other than the roots
-has a root that concludes the goal, so `Proof::check` rejects it; only
-`Interactive` consumes such proofs, by grafting their derivation, and
-`Derivation::of_goal` checks them against the goal on the way. Where
+goal other than the roots records the goal (`Proof::goal`, set by
+`prove_goal` through `Proof::concluding`) and every proof the mode it was
+found in (`Proof::mode`, a claim); the check is against the proof's own
+`conclusion()`, and only `Interactive` consumes goal proofs, by grafting
+their derivation. Where
 `Outcome` carries the `Verdict` (`Proved(Box<Proof>)`, `Unprovable(Refutation)`
 only after an exhaustive search, which with exponentials means a
 deepening level that never hit the copy bound, `Unknown(Reason)`, with

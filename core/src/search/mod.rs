@@ -219,9 +219,11 @@ pub(crate) fn without_progress(
 /// other goal is what an interactive proof leaves open, and the engine that
 /// decides it is the one its own fragment calls for, except that the net
 /// engine works on the roots only. The proof of a goal other than the
-/// roots is a [`Proof`] whose root concludes the goal, so
-/// [`Proof::check`], which expects the sequent's roots, rejects it; it is
-/// meant to be grafted onto the goal, as the interactive state does.
+/// roots is a [`Proof`] whose root concludes the goal, which it records
+/// ([`Proof::goal`]) and [`Proof::check`] checks it against; it is meant
+/// to be grafted onto the goal, as the interactive state does, and is
+/// refused where a proof of the sequent is needed ([`Error::GoalProof`]).
+/// Every proof records the mode it was found in ([`Proof::mode`]).
 ///
 /// # Errors
 ///
@@ -287,7 +289,9 @@ pub fn prove_goal(
     // says what the counts of the goal rule out, under the same limits as
     // the search.
     let verdict = match answer.result {
-        Ok(Some(proof)) => Verdict::Proved(Box::new(proof)),
+        // A proof records what it concludes and the mode it was found in.
+        Ok(Some(proof)) if roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
+        Ok(Some(proof)) => Verdict::Proved(Box::new(proof.concluding(goal).with_mode(mode))),
         Ok(None) => Verdict::Unprovable(match answer.refutation {
             Some(refutation) => refutation,
             None => {
@@ -299,10 +303,8 @@ pub fn prove_goal(
     };
     drop(polled);
     // No engine is trusted with its own proof: the checker has the last
-    // word on every proof of the sequent, in every build.
-    if let Verdict::Proved(proof) = &verdict
-        && roots
-    {
+    // word on every proof, of the sequent or of a goal, in every build.
+    if let Verdict::Proved(proof) = &verdict {
         if options.check {
             proof
                 .check_within(mode, limits, &mut stop)
@@ -1148,8 +1150,7 @@ pub struct Options {
     /// the search returns it; one that does not is [`Error::Rejected`],
     /// never a verdict. Without the check the proof is the engine's word,
     /// which a caller that checks it itself, or times the search alone,
-    /// may prefer. The proof of a goal other than the roots is not checked
-    /// here in either case: what grafts it does.
+    /// may prefer. A proof of a goal is checked against the goal.
     pub check: bool,
     /// The thread pools a parallel search borrows instead of starting
     /// threads of its own, or `None`, the default, for a pool built for
@@ -2042,10 +2043,9 @@ mod tests {
         assert_eq!(outcome.engine, Engine::Focus);
         assert_eq!(outcome.fragment, Fragment::EMPTY);
         let proof = outcome.verdict.proof().unwrap();
-        assert!(
-            proof.check(Mode::CLASSICAL).is_err(),
-            "a goal proof is not a proof of the roots"
-        );
+        // A goal proof is checked against the goal it records.
+        assert!(proof.goal().is_some());
+        assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
         let outcome = prove_goal(
             &forest,
             &o(&[0, 2, 7]),
@@ -2155,6 +2155,47 @@ mod tests {
                 matches!(error, Error::GoalOutputs { count: n } if n == outputs),
                 "{error}"
             );
+        }
+    }
+
+    /// A proof of a goal records the goal and the mode it was found in,
+    /// passes the checker against the goal, and is refused where a proof
+    /// of the sequent is needed.
+    #[test]
+    fn a_goal_proof_records_its_goal() {
+        // 0: a ⊗ b, 1: a, 2: b, 3: ~a, 4: ~b, 5: c, 6: ~c
+        let sequent: Sequent = "|- a * b, ~a, ~b, c, ~c".parse().unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        let goal = [OccId::new(6), OccId::new(5)];
+        let mode = Mode::CLASSICAL;
+        let outcome = prove_goal(
+            &forest,
+            &goal,
+            mode,
+            &Options::default(),
+            &Limits::default(),
+            |_| false,
+        );
+        let Verdict::Proved(proof) = outcome.unwrap().verdict else {
+            panic!("⊢ ~c, c is provable");
+        };
+        let members = [crate::Member::new(6), crate::Member::new(5)];
+        assert_eq!(
+            (proof.goal(), proof.mode()),
+            (Some(&members[..]), Some(mode))
+        );
+        assert_eq!(proof.check(mode), Ok(()));
+        assert!(matches!(
+            ProofStructure::from_proof(&proof, false),
+            Err(Error::GoalProof)
+        ));
+        #[cfg(feature = "rocq")]
+        {
+            let derivation = proof.derivation().unwrap();
+            let options = crate::export::rocq::Options::default();
+            let written =
+                crate::export::rocq::write(&derivation, &options, &mut String::new(), |_| false);
+            assert!(matches!(written, Err(Error::GoalProof)));
         }
     }
 
