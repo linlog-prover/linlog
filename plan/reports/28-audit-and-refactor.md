@@ -43,10 +43,10 @@ its evidence (a commit, a file, a command's result) once it is done.
 
 | item | state | evidence |
 |---|---|---|
-| 2.1 three drafts | running | session `step-28c`: three Opus 5.5 agents at `xhigh` started 07:05 (A web and wire forms, B proof term, checker and Rocq, C engines, calculi and quantifiers), brief in the session's scratchpad |
-| 2.2 judged and synthesised, `plan/notes/api.md` | open | |
+| 2.1 three drafts | running | session `step-28c`: three Opus 5.5 agents at `xhigh` started 06:55 (A web and wire forms, B proof term, checker and Rocq, C engines, calculi and quantifiers), brief in the session's scratchpad; C done 07:31 (98 KB), B 07:35 (93 KB), A 07:37 (97 KB) |
+| 2.2 judged and synthesised, `plan/notes/api.md` | running | two judges started 07:37 (Fable 5.1 at `high`, Opus 5.5 at `high`), independent, with two added questions (an interned-atom representation, H9/H10); Opus done 07:52 (ranks A 56, C 52, B 49; base A with grafts) |
 | 2.3 walk-through per later step | open | |
-| 2.4 quantifier spike, measured | open | |
+| 2.4 quantifier spike, measured | running | jj workspace `spike` at `../linlog-spike`; base taken 06:56–07:04 (journeys: scratchpad `spike/base-journeys.txt`; target set `spike-base.csv`, counters equal to `after-coverability.csv` on all 225 decided rows); an Opus 5.5 agent at `xhigh` builds M1 (data model) and M2 (generic zone) of draft C's section 11 from 07:31 on cores 12–15 |
 | 2.5 the author's sign-off | open | |
 
 ### Stage 3 and 4: the fixes and their check rounds
