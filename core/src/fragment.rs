@@ -46,7 +46,7 @@ impl Fragment {
 
     /// The named fragments, in the order of [`NAMES`](Self::NAMES): each is
     /// the largest fragment of its name.
-    pub const NAMED: [Self; 6] = [
+    pub const NAMED: &'static [Self] = &[
         Self::MLL,
         Self::MLL_WITH_UNITS,
         Self::ADDITIVE,
@@ -517,7 +517,7 @@ mod tests {
                 ..
             })
         ));
-        for (fragment, name) in Fragment::NAMED.into_iter().zip(Fragment::NAMES) {
+        for (&fragment, name) in Fragment::NAMED.iter().zip(Fragment::NAMES) {
             assert_eq!(fragment.name(), *name);
             assert_eq!(name.parse::<Fragment>().unwrap(), fragment);
             assert_eq!(format!("I{name}").parse::<Fragment>().unwrap(), fragment);

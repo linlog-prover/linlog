@@ -221,7 +221,9 @@ the commit that lands it rewrites that bullet.
   downstream `match` fails to compile when the calculus grows instead of
   falling into a wildcard arm. A front end therefore never builds an
   error of the library: it asks the call that does (`nets::exist`,
-  `Interactive::goal`).
+  `Interactive::goal`). A public list of an open enum's values (`ALL`,
+  `Fragment::NAMED`) is a slice, never an array, whose length is part of
+  its type and would change with a new value.
 - **One error family**: every public fallible call returns `Error` or a
   specific type that converts into it without loss. `ErrorKind` has seven
   kinds: malformed, invalid, unsupported, limit, stopped, failed and

@@ -178,7 +178,7 @@ fn ordinary(text: &str, unicode: &str) {
     use linlog::ordinary::{Logic, Translation, translate};
     let sequent: linlog::ordinary::Sequent = text.parse().unwrap();
     assert!(sequent.to_string() == format!("⊢ {unicode}"), "printed");
-    for translation in Translation::ALL {
+    for &translation in Translation::ALL {
         let logic = match translation {
             Translation::Affine => Logic::Classical,
             _ => Logic::Intuitionistic,

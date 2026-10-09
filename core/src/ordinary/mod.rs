@@ -91,7 +91,7 @@ pub enum Logic {
 
 impl Logic {
     /// Every logic, in the order of [`NAMES`](Self::NAMES).
-    pub const ALL: [Self; 3] = [Self::Classical, Self::Intuitionistic, Self::Minimal];
+    pub const ALL: &'static [Self] = &[Self::Classical, Self::Intuitionistic, Self::Minimal];
 
     /// The logics' names, which [`name`](Self::name) writes and `FromStr`
     /// reads.
@@ -130,7 +130,8 @@ impl std::str::FromStr for Logic {
     /// [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
         Self::ALL
-            .into_iter()
+            .iter()
+            .copied()
             .find(|logic| logic.name() == name)
             .ok_or_else(|| Error::UnknownName {
                 what: "logic",
@@ -172,7 +173,7 @@ pub enum Translation {
 
 impl Translation {
     /// Every translation, in the order of [`NAMES`](Self::NAMES).
-    pub const ALL: [Self; 4] = [
+    pub const ALL: &'static [Self] = &[
         Self::Affine,
         Self::CallByName,
         Self::CallByValue,
@@ -275,7 +276,8 @@ impl std::str::FromStr for Translation {
     /// [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
         Self::ALL
-            .into_iter()
+            .iter()
+            .copied()
             .find(|translation| translation.name() == name)
             .ok_or_else(|| Error::UnknownName {
                 what: "translation",
@@ -713,12 +715,14 @@ mod tests {
     /// translation keep to the occurrence bound.
     #[test]
     fn names_read_back_and_bounds_hold() {
-        assert_eq!(Logic::ALL.map(Logic::name), Logic::NAMES);
-        assert_eq!(Translation::ALL.map(Translation::name), Translation::NAMES);
-        for logic in Logic::ALL {
+        let logics: Vec<_> = Logic::ALL.iter().map(|l| l.name()).collect();
+        let translations: Vec<_> = Translation::ALL.iter().map(|t| t.name()).collect();
+        assert_eq!(logics, Logic::NAMES);
+        assert_eq!(translations, Translation::NAMES);
+        for &logic in Logic::ALL {
             assert_eq!(logic.name().parse::<Logic>().unwrap(), logic);
         }
-        for translation in Translation::ALL {
+        for &translation in Translation::ALL {
             assert_eq!(
                 translation.name().parse::<Translation>().unwrap(),
                 translation

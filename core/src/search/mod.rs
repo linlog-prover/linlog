@@ -890,7 +890,7 @@ pub enum Bias {
 
 impl Engine {
     /// Every engine, in the order of [`NAMES`](Self::NAMES).
-    pub const ALL: [Self; 5] = [
+    pub const ALL: &'static [Self] = &[
         Self::Focus,
         Self::Net,
         Self::TwoSided,
@@ -921,7 +921,8 @@ impl FromStr for Engine {
     /// Reads an engine's name, one of [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
         Self::ALL
-            .into_iter()
+            .iter()
+            .copied()
             .find(|engine| engine.name() == name)
             .ok_or_else(|| Error::UnknownName {
                 what: "engine",
@@ -933,7 +934,7 @@ impl FromStr for Engine {
 
 impl Bias {
     /// Every rule, in the order of [`NAMES`](Self::NAMES).
-    pub const ALL: [Self; 3] = [Self::Auto, Self::Rarer, Self::Factors];
+    pub const ALL: &'static [Self] = &[Self::Auto, Self::Rarer, Self::Factors];
 
     /// The rules' names, as [`name`](Self::name) writes them and
     /// [`FromStr`] reads them.
@@ -962,7 +963,8 @@ impl FromStr for Bias {
     /// Reads a rule's name, one of [`NAMES`](Self::NAMES).
     fn from_str(name: &str) -> Result<Self, Error> {
         Self::ALL
-            .into_iter()
+            .iter()
+            .copied()
             .find(|bias| bias.name() == name)
             .ok_or_else(|| Error::UnknownName {
                 what: "bias",
@@ -1544,12 +1546,14 @@ mod tests {
     /// back as its value.
     #[test]
     fn names_are_listed() {
-        assert_eq!(Engine::ALL.map(Engine::name), Engine::NAMES);
-        assert_eq!(Bias::ALL.map(Bias::name), Bias::NAMES);
-        for engine in Engine::ALL {
+        let engines: Vec<_> = Engine::ALL.iter().map(|e| e.name()).collect();
+        let biases: Vec<_> = Bias::ALL.iter().map(|b| b.name()).collect();
+        assert_eq!(engines, Engine::NAMES);
+        assert_eq!(biases, Bias::NAMES);
+        for &engine in Engine::ALL {
             assert_eq!(engine.to_string().parse::<Engine>().unwrap(), engine);
         }
-        for bias in Bias::ALL {
+        for &bias in Bias::ALL {
             assert_eq!(bias.to_string().parse::<Bias>().unwrap(), bias);
         }
     }
