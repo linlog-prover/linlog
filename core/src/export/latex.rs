@@ -60,7 +60,6 @@
 use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
 use crate::Error;
-use crate::occurrences::Reading;
 use crate::ordinary::Symbols;
 use crate::proofs::style::{Drawn, Part, parts};
 use crate::proofs::{Labels, OpenGoal};
@@ -386,42 +385,7 @@ pub fn sequent(
     options: &Options,
     limits: &crate::Limits,
 ) -> Result<String, Error> {
-    Ok(
-        match super::printed(sequent, mode, PER_OCCURRENCE, limits)? {
-            None => one_sided(sequent, options),
-            Some(forest) => {
-                let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
-                two_sided(&reading, options)
-            }
-        },
-    )
-}
-
-/// Returns a sequent one-sided, `$\vdash A^\bot, A$`, in the options' form.
-fn one_sided(sequent: &Sequent, options: &Options) -> String {
-    let mut out = String::from("$");
-    NOTATION.one_sided(&mut out, sequent).unwrap();
-    out.push('$');
-    formed(out, options)
-}
-
-/// Returns the sequent of an intuitionistic reading two-sided,
-/// `$A, A \multimap B \vdash B$`, in the options' form.
-fn two_sided(reading: &Reading, options: &Options) -> String {
-    let forest = reading.forest();
-    let mut out = String::from("$");
-    NOTATION
-        .sequent(
-            &mut out,
-            forest,
-            Some(reading),
-            &forest.root_members(),
-            false,
-            false,
-        )
-        .unwrap();
-    out.push('$');
-    formed(out, options)
+    super::math(sequent, mode, PER_OCCURRENCE, limits, &NOTATION).map(|out| formed(out, options))
 }
 
 /// Writes a derivation as an ebproof `prooftree` environment into `out`,

@@ -99,6 +99,32 @@ pub(crate) fn printed(
     crate::Forest::within(sequent, limits).map(Some)
 }
 
+/// Returns a sequent in math mode between `$`s in `notation`: one-sided,
+/// or in intuitionistic mode two-sided by its reading, after
+/// [`printed`]'s estimate.
+#[cfg(any(feature = "latex", feature = "typst"))]
+pub(crate) fn math(
+    sequent: &crate::Sequent,
+    mode: crate::Mode,
+    per_occurrence: u64,
+    limits: &crate::Limits,
+    notation: &crate::sequents::notation::Notation,
+) -> Result<String, crate::Error> {
+    let mut out = String::from("$");
+    match printed(sequent, mode, per_occurrence, limits)? {
+        None => notation.one_sided(&mut out, sequent),
+        Some(forest) => {
+            let reading = crate::occurrences::Reading::new(&forest)
+                .map_err(crate::Error::NotIntuitionistic)?;
+            let roots = forest.root_members();
+            notation.sequent(&mut out, &forest, Some(&reading), &roots, false, false)
+        }
+    }
+    .map_err(|_| crate::Error::WriteFailed)?;
+    out.push('$');
+    Ok(out)
+}
+
 /// What the targets write: a derivation of linear logic, one- or
 /// two-sided, or a derivation of LK or LJ read back from a proof of an
 /// ordinary sequent's image. Each target's `write` takes either, as
