@@ -114,6 +114,15 @@ unnecessary_wraps = "allow"
 unnested_or_patterns = "allow"
 unused_self = "allow"
 
+# Release builds link the whole program as one unit: the command and the
+# harness run faster, and a journey's instruction count follows its own
+# code, where the default sixteen units moved a count by up to 8 % on a
+# commit that left the journey's code alone. The release build of a gate
+# takes longer for it.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
 # The profile cargo-mutants builds with (.cargo/mutants.toml): the whole
 # suite in about half a minute where the dev profile takes two, and the
 # assertions and overflow checks of a development build kept.
