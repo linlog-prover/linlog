@@ -16,6 +16,13 @@ use crate::occurrences::{Forest, Member, Reading, Side};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// What a user may vary in the text tree of a derivation.
+///
+/// # JSON
+///
+/// With the feature `serialize` an object `{"labels": "upright", "open":
+/// "bare", "bar": "─", "gap": 3}` of the fields ([`Labels`] and
+/// [`OpenGoal`] say theirs); a key left out keeps its default, and an
+/// unknown one is refused, as for every options value.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]

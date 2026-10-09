@@ -65,6 +65,13 @@ impl InfId {
 /// its proof by any factor), and `memory_bytes`, the most the making of
 /// one may hold at once, every pass of the checker on the way and the
 /// derivation itself by the same estimate.
+///
+/// # JSON
+///
+/// With the feature `serialize` an object `{"compact": "auto", "sides":
+/// "auto"}`, `compact` one of `"auto"`, `"always"` and `"never"`, `sides`
+/// one of `"auto"`, `"one"` and `"two"`; a key left out keeps its default,
+/// and an unknown one is refused, as for every options value.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1739,6 +1746,7 @@ mod tests {
         let size = p.size_of(false).unwrap();
         assert_eq!((size.inferences, size.characters), (u64::MAX, u64::MAX));
         assert_eq!((size.bytes(), size.height), (u64::MAX, 141));
+        assert!(!size.exact, "a saturated count is no exact one");
         let unbounded = crate::Limits::UNBOUNDED;
         let too_many = p
             .derivation_within(&ViewOptions::default(), &unbounded, |_| never())

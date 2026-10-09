@@ -2111,6 +2111,38 @@ mod tests {
         assert_eq!((zone.bytes(), zone.members.capacity()), (bytes, room));
     }
 
+    /// The pass's own tables are asked for before it judges anything: a
+    /// term whose first node is no rule is refused, not judged, under a
+    /// bound of a byte less than its tables, and judged at the tables'
+    /// size exactly.
+    #[test]
+    fn refuses_its_tables_before_it_judges() {
+        let (o, mode) = (|i| Member::new(i), Mode::CLASSICAL);
+        let crossed = proof("|- a, a", vec![Node::Ax(o(0), o(1))]);
+        assert_eq!(tables(&crossed), 12);
+        let within = |bytes| {
+            let limits = crate::Limits::default().with_memory_bytes(Some(bytes));
+            crossed.check_within(mode, &limits, |_| false)
+        };
+        match within(12) {
+            Err(CheckError::Invalid(invalid)) => assert_eq!(invalid.fault, Fault::NotDual),
+            other => panic!("{other:?}"),
+        }
+        match within(11) {
+            Err(CheckError::Refused(refused)) => assert!(
+                matches!(
+                    refused.refusal,
+                    Refusal::Memory {
+                        limit_bytes: 11,
+                        ..
+                    }
+                ),
+                "{refused:?}"
+            ),
+            other => panic!("{other:?}"),
+        }
+    }
+
     /// A check holds no more than it is allowed: a proof file of a megabyte
     /// whose pass would hold 16 384 copies of a sequent of 14 001 formulas,
     /// over two gigabytes, is refused after a few hundred of them, and the
@@ -2351,6 +2383,16 @@ mod tests {
                 .to_string(),
             "node 2 (⊗ on A ⊗ ~B from 1, 0) with premises ⊢ ~B, B and ⊢ ~A, A: \
              premise 0 lacks A"
+        );
+        // Cut to three characters a formula, as a long report is.
+        assert_eq!(
+            p.check(Mode::CLASSICAL)
+                .unwrap_err()
+                .describe(p.forest())
+                .abbreviated(Some(3))
+                .to_string(),
+            "node 2 (⊗ on A ⊗… from 1, 0) with premises ⊢ ~B… (2 formulas) and ⊢ ~A… \
+             (2 formulas): premise 0 lacks A"
         );
         // ⊢ ?~A, A with the ? step missing: a dyadic sequent with Θ.
         let p = proof("!A |- A", vec![Ax(o(1), o(2)), Copy(o(1), n(0))]);

@@ -168,6 +168,13 @@ fn error_positions() {
         ("A - B |- C", 3, Some(" ")),
         ("A -", 3, None),
         ("|- é * ∀", 8, Some("∀")),
+        // The Unicode turnstile out of place, and a `)` that closes
+        // nothing; `⊢` is three bytes.
+        ("A, ⊢ B", 3, Some("⊢")),
+        ("A ⊢ ⊢ B", 6, Some("⊢")),
+        ("A ⊢ B ⊢ C", 8, Some("⊢")),
+        ("(A ⊢ A)", 3, Some("⊢")),
+        ("|- A)", 4, Some(")")),
     ] {
         let Err(Error::Parse(error)) = input.parse::<Sequent>() else {
             panic!("{input:?} is no parse error");

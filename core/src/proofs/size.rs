@@ -24,11 +24,14 @@ use crate::occurrences::{Forest, OccId, Reading, Side};
 use crate::sequents::Term;
 
 /// How large the derivation of a proof is, as
-/// [`Proof::derivation_size`] computes it.
+/// [`Proof::derivation_size`] computes it. A count that passes `u64::MAX`
+/// is written as `u64::MAX`, meaning more than can be counted, and then
+/// `exact` is false. In JSON (feature `serialize`) an object of its
+/// fields.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Size {
-    /// The inferences of the derivation. Exact.
+    /// The inferences of the derivation, exact unless saturated.
     pub inferences: u64,
     /// The characters of every inference's sequent added up, each sequent
     /// written one-sided with its formulas separated by a comma and a
@@ -36,16 +39,17 @@ pub struct Size {
     /// its own spelling of the connectives. Exact when `exact` is set, and
     /// never less than the sum otherwise.
     pub characters: u64,
-    /// The inferences on the longest branch. Exact. The text tree has two
-    /// lines for each.
+    /// The inferences on the longest branch, exact unless saturated. The
+    /// text tree has two lines for each.
     pub height: u64,
     /// The characters of the widest sequent the pass saw, which the text
     /// tree is at least as wide as: a lower bound of its width.
     pub width: u64,
-    /// Whether `characters` is the exact sum. It is an upper bound when a
-    /// `&` has several `?` formulas that only one of its premises uses:
-    /// the weakenings above the other premise are then each counted with
-    /// the sequent of the last.
+    /// Whether every count is exact: false when one saturated, and when
+    /// `characters` is an upper bound because a `&` has several `?`
+    /// formulas that only one of its premises uses (the weakenings above
+    /// the other premise are then each counted with the sequent of the
+    /// last).
     pub exact: bool,
 }
 
@@ -604,12 +608,13 @@ pub(crate) fn measured(
         };
         return Ok((size, root.firm));
     }
+    let saturated = [root.inferences, characters, root.height].contains(&u64::MAX);
     let size = Size {
         inferences: root.inferences,
         characters,
         height: root.height,
         width: root.width.max(all),
-        exact: measure.exact,
+        exact: measure.exact && !saturated,
     };
     Ok((size, root.firm))
 }
