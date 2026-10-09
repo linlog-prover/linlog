@@ -1074,7 +1074,7 @@ pub enum Schedule {
 /// The knobs of a search: how much to remember, how deep to go, and which
 /// fragment and engine to use instead of the detected ones. The defaults
 /// suit a sequent of a few hundred occurrences on a thread with the usual
-/// stack; the bounds on memory, occurrences, recursion and work are the
+/// stack; the bounds on memory, occurrences and recursion are the
 /// [`Limits`] a search is given.
 ///
 /// Every field has a builder, so that the options chain from the default.

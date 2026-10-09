@@ -1133,9 +1133,11 @@ impl Interactive {
     ///
     /// [`Error::Step`] for a goal that is not open, [`Error::ForeignProof`]
     /// for a proof of another sequent, [`Error::GoalMismatch`] for one of
-    /// another goal, and [`Error::Check`] for one the checker rejects in the
-    /// session's mode, and [`Error::Refused`] for a graft the limits or
-    /// `stop` refuse, which leaves the goal open.
+    /// another goal, [`Error::Check`] with [`CheckError::Invalid`] for one
+    /// the checker rejects in the session's mode; and, leaving the goal
+    /// open, [`Error::Check`] with [`CheckError::Refused`] when a bound or
+    /// `stop` ends the check, and [`Error::Refused`] when they refuse the
+    /// graft. [`Error::is_refusal`] tells the refusals from the rejection.
     pub fn close_with(
         &mut self,
         goal: GoalId,
