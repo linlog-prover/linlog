@@ -11,8 +11,8 @@ read-json,13708525
 read-lltp,32990483
 read-tptp,31574017
 read-spec,22458173
-check-qbf-20-2,140541526
-check-wide-m1-2048,9103833
+check-qbf-20-2,145304340
+check-wide-m1-2048,9383517
 derivation-chain-64,17006453
 render-latex,6585706
 render-typst,5779945
