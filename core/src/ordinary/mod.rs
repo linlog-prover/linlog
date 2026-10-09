@@ -357,6 +357,10 @@ pub enum Node {
     Iff(NodeId, NodeId),
 }
 
+/// A node is a tag and two arena indices at most: the arena and the
+/// translation's tables grow with it.
+const _: () = assert!(size_of::<Node>() == 12);
+
 impl Node {
     /// Returns the subformulas, in the order they are written.
     pub const fn operands(self) -> (Option<NodeId>, Option<NodeId>) {

@@ -20,6 +20,9 @@
 //!
 //! Needs the cargo feature `interactive` (on by default).
 
+// A rule a later step adds must not fall into an existing arm.
+#![deny(clippy::wildcard_enum_match_arm)]
+
 use super::derivation::{Derivation, InfId, Inference, ViewOptions};
 use super::multiset::Multiset;
 use super::size::Size;
@@ -790,7 +793,10 @@ impl Interactive {
                 rule: Named::new(rule, side),
                 needs: match rule {
                     Tensor | Mix => Needs::Split,
-                    _ => Needs::Nothing,
+                    Ax | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
+                    | Dereliction | Contraction | Weakening | AffineWeakening | Open => {
+                        Needs::Nothing
+                    }
                 },
             })
             .collect())
@@ -889,20 +895,17 @@ impl Interactive {
         if !acts || rule != named {
             return Err(StepError::Rule { rule, position });
         }
-        match classical {
-            AffineWeakening if !self.mode.affine => {
-                return Err(StepError::Mode {
-                    rule,
-                    mode: self.mode,
-                });
-            }
-            Mix if !self.mode.mix => {
-                return Err(StepError::Mode {
-                    rule,
-                    mode: self.mode,
-                });
-            }
-            _ => {}
+        let allowed = match classical {
+            AffineWeakening => self.mode.affine,
+            Mix => self.mode.mix,
+            Ax | Tensor | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
+            | Dereliction | Contraction | Weakening | Open => true,
+        };
+        if !allowed {
+            return Err(StepError::Mode {
+                rule,
+                mode: self.mode,
+            });
         }
         let splits = matches!(classical, Tensor | Mix);
         if !splits && !left.is_empty() {
@@ -992,7 +995,7 @@ impl Interactive {
                 }
                 vec![with(&[])]
             }
-            _ => unreachable!("handled above"),
+            Open => unreachable!("no formula is the principal one of an open goal"),
         };
         if let Some(reading) = reading {
             for premise in &premises {
@@ -1430,6 +1433,10 @@ impl Terms<'_> {
                 // What each premise's sequent gains from the rule.
                 let introduced: [[Option<OccId>; 2]; 2] = match rule {
                     Ax | One | Top => {
+                        #[expect(
+                            clippy::wildcard_enum_match_arm,
+                            reason = "the arm holds three rules"
+                        )]
                         let leaf = match rule {
                             Ax => Node::Ax(sequent[0], sequent[1]),
                             One => Node::One(o()),
@@ -1468,15 +1475,21 @@ impl Terms<'_> {
                 Promotion => Node::Bang(o(), premise()),
                 Dereliction => Node::Copy(Member::from(a()), premise()),
                 AffineWeakening => Node::Weaken(o(), premise()),
-                With | Tensor | Mix => {
+                With => {
                     let (r, l) = (premise(), premise());
-                    match rule {
-                        With => Node::With(o(), l, r),
-                        Tensor => Node::Tensor(o(), l, r),
-                        _ => Node::Mix(l, r),
-                    }
+                    Node::With(o(), l, r)
                 }
-                _ => unreachable!("a rule with premises"),
+                Tensor => {
+                    let (r, l) = (premise(), premise());
+                    Node::Tensor(o(), l, r)
+                }
+                Mix => {
+                    let (r, l) = (premise(), premise());
+                    Node::Mix(l, r)
+                }
+                Ax | One | Top | Contraction | Weakening | Open => {
+                    unreachable!("a rule that is no node over its premises")
+                }
             };
             let node = self.push(node);
             done.push(node);
