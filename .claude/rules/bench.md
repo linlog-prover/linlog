@@ -385,11 +385,16 @@ serde_json, which the CLI and the core's tests already have.
   0.1 % elsewhere, and the environment of a run changes nothing. The
   committed ceilings are the larger of the two builds' counts; a
   before-and-after comparison takes both counts from one build.
-- **Counts are trusted where they track time**: the baselines report
-  (`plan/reports/28-baselines.md`) has, per journey, the counts and the
-  pinned wall-clock times of builds at several optimization levels, and
-  which journeys' times do not follow their counts (memory-bound ones,
-  `memset` counted per byte).
+- **Counts are trusted where they track time**:
+  `bench/counts-against-time.py` times every journey for builds at
+  opt-level 1, 2 and 3 on one pinned core (its header has the commands),
+  and `bench/counts-against-time/DAY*` keeps a run's rows and counts. On
+  2026-10-09 a drop of 8 to 60 % in count was a drop in time on all
+  twenty journeys, but a few percent was not on four (the checker's two
+  journeys ran faster with 5 to 7 % more instructions): a change claimed
+  to save a few percent is shown by pinned time beside the count. That
+  run had another project's tests on the other cores and is to be
+  repeated in a quiet window.
 
 ## Extension points
 
