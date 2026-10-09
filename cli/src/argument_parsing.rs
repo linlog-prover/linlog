@@ -944,8 +944,8 @@ pub struct StyleArgs {
     /// The name of the lemma of a Rocq certificate (rocq.lemma)
     #[arg(long, value_name = "NAME")]
     pub lemma: Option<String>,
-    /// The lines a standalone Rocq file starts with, before the lemma
-    /// (rocq.prelude)
+    /// The lines a standalone Rocq file starts with, before the lemma, in
+    /// place of the certificate's own import (rocq.prelude)
     #[arg(long, value_name = "TEXT")]
     pub prelude: Option<String>,
 }

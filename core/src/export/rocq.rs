@@ -82,6 +82,7 @@ use thiserror::Error;
 pub const NANOYALLA: &str = "1.1.3";
 
 /// What a user may vary in a certificate.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
@@ -89,22 +90,127 @@ pub struct Options {
     /// The lemma alone, or a whole file that starts with the prelude.
     pub form: Form,
     /// The name of the lemma.
-    pub lemma: String,
-    /// The lines a standalone file starts with, before the lemma: what
-    /// brings the kernel's `ll`, its formulas and its derived rules into
-    /// scope.
-    pub prelude: String,
+    pub lemma: Identifier,
+    /// The lines a standalone file starts with, before the lemma, or
+    /// `None` for the target's own: the import of NanoYalla's `macroll`
+    /// for a linear certificate ([`NANOYALLA_PRELUDE`]), of the standard
+    /// library's excluded middle for a classical one over `Prop`
+    /// ([`CLASSICAL_PRELUDE`]), nothing for one of LJ.
+    pub prelude: Option<String>,
 }
 
 impl Default for Options {
-    /// Returns the lemma `certificate` alone, and the import of
-    /// NanoYalla's `macroll` as the prelude of a whole file.
+    /// Returns the lemma `certificate` alone, and each target's own
+    /// prelude for a whole file.
     fn default() -> Self {
         Self {
             form: Form::Fragment,
-            lemma: "certificate".to_owned(),
-            prelude: "From NanoYalla Require Import macroll.".to_owned(),
+            lemma: Identifier::new("certificate").expect("an identifier"),
+            prelude: None,
         }
+    }
+}
+
+impl Options {
+    /// Returns the options with the form given.
+    #[must_use]
+    pub fn with_form(self, form: Form) -> Self {
+        Self { form, ..self }
+    }
+
+    /// Returns the options with the lemma given.
+    #[must_use]
+    pub fn with_lemma(self, lemma: Identifier) -> Self {
+        Self { lemma, ..self }
+    }
+
+    /// Returns the options with the prelude given, `None` for each
+    /// target's own.
+    #[must_use]
+    pub fn with_prelude(self, prelude: Option<String>) -> Self {
+        Self { prelude, ..self }
+    }
+}
+
+/// The prelude of a linear certificate: the import of NanoYalla's
+/// `macroll`, which brings the kernel's `ll`, its formulas and its derived
+/// rules into scope.
+pub const NANOYALLA_PRELUDE: &str = "From NanoYalla Require Import macroll.";
+
+/// The prelude of a classical certificate over `Prop`: the import of the
+/// standard library's excluded middle, for `NNPP`.
+pub const CLASSICAL_PRELUDE: &str = "From Stdlib Require Import Classical_Prop.";
+
+/// A Rocq identifier, which a lemma's name must be: an ASCII letter or
+/// `_` and then letters, digits, `_` and `'`, and no keyword of Rocq.
+/// The names a kernel uses are its writer's to avoid, so a name stays an
+/// identifier whatever kernel a later release adds.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Identifier(Box<str>);
+
+impl Identifier {
+    /// Returns the identifier `name` is.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidOption`] for a name that is no identifier or a
+    /// keyword.
+    pub fn new(name: &str) -> Result<Self, Error> {
+        let mut chars = name.chars();
+        let lexical = chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '\'');
+        let why = if !lexical {
+            "is no Rocq identifier: an ASCII letter or _, then letters, digits, _ and '"
+        } else if KEYWORDS.contains(&name) {
+            "is a keyword of Rocq"
+        } else {
+            return Ok(Self(name.into()));
+        };
+        Err(Error::InvalidOption {
+            key: "rocq.lemma",
+            message: format!("`{name}` {why}"),
+        })
+    }
+
+    /// Returns the identifier's text.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for Identifier {
+    type Err = Error;
+
+    /// Reads an identifier as [`new`](Self::new) does.
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Self::new(name)
+    }
+}
+
+impl std::fmt::Display for Identifier {
+    /// Writes the identifier.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Identifier {
+    /// Serializes the identifier as its text.
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'a> serde::Deserialize<'a> for Identifier {
+    /// Deserializes an identifier from its text, refusing what
+    /// [`new`](Self::new) refuses.
+    fn deserialize<D: serde::Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = <std::borrow::Cow<'a, str>>::deserialize(deserializer)?;
+        Self::new(&name).map_err(serde::de::Error::custom)
     }
 }
 
@@ -135,9 +241,8 @@ pub enum Unsupported {
     Compact,
 }
 
-/// Rocq's keywords and the names of the kernel a script uses, which no
-/// atom may take.
-const RESERVED: &[&str] = &[
+/// Rocq's keywords, which no atom and no lemma may take.
+pub(crate) const KEYWORDS: &[&str] = &[
     "_",
     "Axiom",
     "CoFixpoint",
@@ -179,6 +284,10 @@ const RESERVED: &[&str] = &[
     "using",
     "where",
     "with",
+];
+
+/// The names of the kernel a script uses, which no atom may take.
+const KERNEL: &[&str] = &[
     "Atom",
     "app",
     "aplus",
@@ -252,7 +361,11 @@ pub(crate) fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::with_capacity(atoms.len());
     for name in atoms {
         let mut id = identifier(name);
-        while RESERVED.contains(&id.as_str()) || id == lemma || names.contains(&id) {
+        while KEYWORDS.contains(&id.as_str())
+            || KERNEL.contains(&id.as_str())
+            || id == lemma
+            || names.contains(&id)
+        {
             id.push('\'');
         }
         names.push(id);
@@ -582,7 +695,7 @@ fn linear(
         }
     }
     let forest = derivation.forest();
-    let names = identifiers(forest.sequent().atom_names(), &options.lemma);
+    let names = identifiers(forest.sequent().atom_names(), options.lemma.as_str());
     let count = derivation.inferences().len();
     let mut script = Script {
         derivation,
@@ -602,7 +715,8 @@ fn linear(
         .collect();
 
     if options.form == Form::Standalone {
-        write!(out, "{}\n\n", options.prelude.trim_end())?;
+        let prelude = options.prelude.as_deref().unwrap_or(NANOYALLA_PRELUDE);
+        write!(out, "{}\n\n", prelude.trim_end())?;
     }
     write!(script.out, "Lemma {}", options.lemma)?;
     if !script.names.is_empty() {

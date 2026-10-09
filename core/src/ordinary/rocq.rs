@@ -15,7 +15,7 @@ use super::derivation::Side;
 use super::{Derivation, Formulas, Logic, NodeId, Rule, Symbols};
 use crate::Error;
 use crate::export::Form;
-use crate::export::rocq::{Options, identifiers};
+use crate::export::rocq::{CLASSICAL_PRELUDE, Options, identifiers};
 use crate::hash::HashMap;
 use crate::proofs::InfId;
 use std::fmt::Write;
@@ -344,8 +344,9 @@ fn implications(formulas: &Formulas, a: NodeId, b: NodeId) -> (NodeId, NodeId) {
 /// Writes the certificate of a derivation, which must have passed
 /// [`Derivation::check`]: the lemma `options.lemma` stating the sequent
 /// over `Prop`, with a variable for every atom, and its proof term;
-/// standalone, a classical certificate starts with the import of the
-/// standard library's excluded middle. Asks `stop` after each inference.
+/// standalone, it starts with `options.prelude`, by default the import of
+/// the standard library's excluded middle for a classical certificate and
+/// nothing for one of LJ. Asks `stop` after each inference.
 pub(crate) fn write(
     derivation: &Derivation,
     options: &Options,
@@ -354,7 +355,7 @@ pub(crate) fn write(
 ) -> Result<(), Error> {
     let classical = derivation.logic() == Logic::Classical;
     let formulas = derivation.formulas();
-    let mut atoms = identifiers(formulas.atom_names(), &options.lemma);
+    let mut atoms = identifiers(formulas.atom_names(), options.lemma.as_str());
     for atom in &mut atoms {
         while USED.contains(&atom.as_str()) {
             atom.push('\'');
@@ -366,8 +367,15 @@ pub(crate) fn write(
         names: HashMap::default(),
         fresh: 0,
     };
-    if options.form == Form::Standalone && classical {
-        out.write_str("From Stdlib Require Import Classical_Prop.\n\n")?;
+    if options.form == Form::Standalone {
+        let prelude = match &options.prelude {
+            Some(prelude) => Some(prelude.as_str()),
+            None if classical => Some(CLASSICAL_PRELUDE),
+            None => None,
+        };
+        if let Some(prelude) = prelude {
+            write!(out, "{}\n\n", prelude.trim_end())?;
+        }
     }
     let root = derivation.inference(derivation.root());
     let mut statement = String::new();

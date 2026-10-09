@@ -82,10 +82,7 @@ fn proof(input: &str, mode: Mode) -> Proof {
 
 /// Pins a derivation's certificate as the snapshot `name.v`.
 fn pin_certificate(name: &str, derivation: &Derivation) {
-    let options = rocq::Options {
-        form: Form::Standalone,
-        ..rocq::Options::default()
-    };
+    let options = rocq::Options::default().with_form(Form::Standalone);
     let script = certificate(|out| rocq::write(derivation, &options, out, |_| false));
     snapshot(&format!("{name}.v"), &script.unwrap());
 }
@@ -218,7 +215,8 @@ fn ordinary_derivation() {
 }
 
 /// The certificate of an ordinary sequent without atoms or hypotheses
-/// binds nothing, in both logics: `fun =>` is no term.
+/// binds nothing, in both logics: `fun =>` is no term; and its prelude is
+/// the one given, or the logic's own.
 #[test]
 fn ordinary_certificate_without_binders() {
     use linlog::ordinary::{self, Logic};
@@ -236,6 +234,23 @@ fn ordinary_certificate_without_binders() {
         let mut out = String::new();
         rocq::write(&*derivation, &rocq::Options::default(), &mut out, |_| false).unwrap();
         assert!(out.contains("exact (") && !out.contains("fun =>"), "{out}");
+
+        // Standalone, a certificate over `Prop` starts with the prelude
+        // given, or by default with the excluded middle's import if it is
+        // classical and with the lemma if it is of LJ.
+        let standalone = rocq::Options::default().with_form(Form::Standalone);
+        let start = |options: &rocq::Options| {
+            let mut out = String::new();
+            rocq::write(&*derivation, options, &mut out, |_| false).unwrap();
+            out.lines().next().unwrap().to_owned()
+        };
+        let own = match logic {
+            Logic::Classical => rocq::CLASSICAL_PRELUDE,
+            _ => "Lemma certificate : True.",
+        };
+        assert_eq!(start(&standalone), own);
+        let given = standalone.with_prelude(Some("From Coq Require Import Classical_Prop.".into()));
+        assert_eq!(start(&given), "From Coq Require Import Classical_Prop.");
     }
 }
 
@@ -391,11 +406,24 @@ fn certificates() {
     let ll = proof("!(A & B) |- !A * !B", Mode::CLASSICAL);
     let derivation = ll.derivation().unwrap();
     pin_certificate("ll", &derivation);
-    let options = rocq::Options {
-        form: Form::Standalone,
-        lemma: "bang_with".to_owned(),
-        prelude: "Require Import kernel.".to_owned(),
-    };
+    let options = rocq::Options::default()
+        .with_form(Form::Standalone)
+        .with_lemma("bang_with".parse().unwrap())
+        .with_prelude(Some("Require Import kernel.".to_owned()));
+    // A lemma's name is an identifier and no keyword of Rocq.
+    for name in ["two words", "1st", "fun", "_", ""] {
+        let refused = name.parse::<rocq::Identifier>();
+        assert!(
+            matches!(
+                &refused,
+                Err(linlog::Error::InvalidOption {
+                    key: "rocq.lemma",
+                    ..
+                })
+            ),
+            "{name:?}: {refused:?}"
+        );
+    }
     let script = certificate(|out| rocq::write(&derivation, &options, out, |_| false)).unwrap();
     assert!(script.starts_with("Require Import kernel.\n\nLemma bang_with (A B : formula) : ll ["));
     assert!(script.contains("apply (co_r_ext []); cbn_sequent.\n"));

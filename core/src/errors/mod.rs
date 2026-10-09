@@ -92,6 +92,15 @@ pub enum Error {
         /// Every name of that kind.
         known: &'static [&'static str],
     },
+    /// An option's value is not one the output can take: a Rocq lemma
+    /// that is no identifier.
+    #[error("{key}: {message}")]
+    InvalidOption {
+        /// The option, as the settings name it: `rocq.lemma`.
+        key: &'static str,
+        /// What is wrong with the value.
+        message: String,
+    },
     /// A document is not of the form it was read as: not JSON, a key
     /// missing or of another type.
     #[error("not a {form} of linlog's wire form: {message}")]
@@ -401,6 +410,7 @@ impl Error {
         "tptp",
         "several_conjectures",
         "unknown_name",
+        "invalid_option",
         "json",
         "unsupported_version",
         "index_out_of_bounds",
@@ -451,7 +461,7 @@ impl Error {
             | Self::Spec { .. }
             | Self::Tptp { .. }
             | Self::SeveralConjectures { .. } => Malformed,
-            Self::UnknownName { .. } | Self::Json { .. } => Malformed,
+            Self::UnknownName { .. } | Self::InvalidOption { .. } | Self::Json { .. } => Malformed,
             Self::Version { .. } => Unsupported,
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
@@ -510,6 +520,7 @@ impl Error {
             #[cfg(feature = "parse")]
             Self::SeveralConjectures { .. } => "several_conjectures",
             Self::UnknownName { .. } => "unknown_name",
+            Self::InvalidOption { .. } => "invalid_option",
             Self::Json { .. } => "json",
             Self::Version { .. } => "unsupported_version",
             Self::IndexOutOfBounds { .. } => "index_out_of_bounds",

@@ -51,10 +51,10 @@ pub fn read(args: &StyleArgs, format: Option<&str>, standalone: bool) -> Result<
     let mut styles: Styles =
         serde_json::from_value(value).context("the style is not one linlog knows")?;
     if let Some(lemma) = &args.lemma {
-        styles.rocq.lemma = lemma.clone();
+        styles.rocq.lemma = lemma.parse()?;
     }
     if let Some(prelude) = &args.prelude {
-        styles.rocq.prelude = prelude.clone();
+        styles.rocq.prelude = Some(prelude.clone());
     }
     if standalone {
         styles.latex.form = Form::Standalone;

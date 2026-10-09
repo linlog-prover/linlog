@@ -66,6 +66,7 @@ impl Serialize for Details<'_> {
             UnknownName { what, name, known } => {
                 entries!(s; "what" => what; "name" => name; "known" => known)
             }
+            InvalidOption { key, message } => entries!(s; "key" => key; "message" => message),
             Json { form, message } => entries!(s; "form" => form; "message" => message),
             Version {
                 form,

@@ -329,8 +329,17 @@ for NanoYalla. What the code relies on:
   (`Unsupported`), since the kernel has no such rule; atom names are
   escaped to identifiers and made distinct from `RESERVED` (keywords and
   every kernel name a script mentions), the lemma's name and each other.
-  `Options` (D15: `lemma`, `prelude`) is the configuration; no other
-  choice is a constant. The snapshots' `.v` files are compiled by the
+  `Options` (D15: `form`, `lemma`, `prelude`, non-exhaustive with
+  `with_*`) is the configuration; no other choice is a constant.
+  `lemma` is an `Identifier`, checked for its lexical form (an ASCII
+  letter or `_`, then letters, digits, `_`, `'`) and against Rocq's
+  `KEYWORDS` when it is made or read (`Error::InvalidOption`, key
+  `rocq.lemma`, F38); the names a kernel uses (`KERNEL`) only keep atoms
+  apart, so a lemma's name stays valid whatever kernel a later release
+  adds. `prelude` is `None` for each certificate's own
+  (`NANOYALLA_PRELUDE` for a linear one, `CLASSICAL_PRELUDE` for a
+  classical one over `Prop`, nothing for LJ) and a given text for every
+  kind (F15). The snapshots' `.v` files are compiled by the
   flake's `rocq` check against the kernel built from the `nanoyalla`
   input; the kernel needs Rocq 9 with `rocq-stdlib` (its `From Coq
   Require Import Lia`, deprecated but accepted) and nothing of Yalla.
