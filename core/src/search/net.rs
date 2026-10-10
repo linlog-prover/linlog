@@ -700,6 +700,9 @@ pub(super) mod tests {
         let (verdict, statistics) = run(input, Mode::CLASSICAL, &Options::default());
         assert!(matches!(verdict, Verdict::Unprovable(_)));
         assert_eq!(statistics.links, 2, "the cycle is seen at the second link");
+        // An exact test that fails is a poll of its own, beside the
+        // literals chosen: a run of failures chooses no literal.
+        assert!(statistics.work > statistics.nodes, "{statistics:?}");
         let provable_twin = "|- a, a, a, a, ((~a * ~a) * (~a * ~a)) * (b * c), \
                              (~b par ~c) * (d * f), ~d, ~f";
         assert!(provable(provable_twin, Mode::CLASSICAL));

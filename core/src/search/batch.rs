@@ -420,7 +420,7 @@ mod workers {
     /// How many problems per worker may be taken beyond the first result
     /// not yet given out, so that the results held for their turn stay
     /// few while a slow problem is decided.
-    const AHEAD: usize = 4;
+    pub(super) const AHEAD: usize = 4;
 
     /// How long a worker waits for its turn before it looks again.
     const WAIT: Duration = Duration::from_millis(10);
@@ -734,6 +734,66 @@ mod tests {
             first.unwrap().outcome.unwrap().verdict,
             Verdict::Proved(_)
         ));
+    }
+
+    /// A client that sends the next problem only once it has the answer
+    /// to the last is answered: a worker that waits on the stream holds
+    /// the queue, and the iterator gives each answer out without it. And
+    /// no worker takes a problem more than its window ahead of the first
+    /// answer not yet given out.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn a_stream_is_answered_question_by_question() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::mpsc::channel;
+        let (sender, received) = channel();
+        std::thread::spawn(move || {
+            let (answered, answers) = channel::<usize>();
+            let questions = (0..20usize).inspect(move |&i| {
+                if i > 0 {
+                    // The answer to the last question first.
+                    assert_eq!(answers.recv().unwrap(), i - 1);
+                }
+            });
+            let options = Options::default().with_workers(4).with_cores(Cores::Across);
+            let results = run(
+                questions,
+                &options,
+                &Search::default(),
+                &Limits::default(),
+                |i, _, _| i,
+            );
+            for answer in results {
+                let _ = answered.send(answer);
+            }
+            sender.send(()).unwrap();
+        });
+        assert!(
+            received
+                .recv_timeout(std::time::Duration::from_secs(20))
+                .is_ok()
+        );
+
+        let taken = std::sync::Arc::new(AtomicUsize::new(0));
+        let counted = taken.clone();
+        let problems = (0..1_000usize).inspect(move |_| {
+            counted.fetch_add(1, Ordering::Relaxed);
+        });
+        let options = Options::default().with_workers(2).with_cores(Cores::Across);
+        let mut results = run(
+            problems,
+            &options,
+            &Search::default(),
+            &Limits::default(),
+            |i, _, _| {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                i
+            },
+        );
+        assert_eq!(results.next(), Some(0));
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let window = 1 + workers::AHEAD * 2;
+        assert!(taken.load(Ordering::Relaxed) <= window, "{taken:?}");
     }
 
     /// A panic in the work is resumed at its problem's place, after the

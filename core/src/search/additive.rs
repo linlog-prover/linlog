@@ -334,6 +334,35 @@ mod tests {
         assert_eq!(proof.check(instance.mode), Ok(()));
     }
 
+    /// The stop is asked as the pairs are decided, every so many of them:
+    /// the identity of depth 8 stops at the first poll when the stop says
+    /// so from the start.
+    #[test]
+    fn stops_between_pairs() {
+        let instance = crate::families::find("additive")
+            .unwrap()
+            .instance(8, 0)
+            .unwrap();
+        let outcome = crate::search::prove_within(
+            &instance.sequent,
+            instance.mode,
+            &Options::default(),
+            &crate::Limits::default(),
+            |_| true,
+        )
+        .unwrap();
+        assert_eq!(outcome.engine, Which::Additive);
+        assert!(
+            matches!(
+                outcome.verdict,
+                Verdict::Unknown(crate::search::Reason::Stopped)
+            ),
+            "{:?}",
+            outcome.verdict
+        );
+        assert_eq!(outcome.statistics.nodes, super::PAIRS_PER_POLL);
+    }
+
     /// The additive fragment's textbook sequents, classically and
     /// intuitionistically.
     #[test]
