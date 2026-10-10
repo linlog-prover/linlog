@@ -1994,6 +1994,7 @@ impl Options {
     }
 
     /// Returns the threads the search may use: [`Jobs::count`].
+    #[cfg(feature = "parallel")]
     pub(crate) fn threads(&self) -> usize {
         self.jobs.count()
     }
@@ -3386,6 +3387,7 @@ mod tests {
         assert_eq!(Jobs::Count(usize::MAX).count(), Options::MAX_JOBS);
         assert_eq!(Jobs::Count(0).count(), 1);
         assert!((1..=Options::MAX_JOBS).contains(&Jobs::Auto.count()));
+        #[cfg(feature = "parallel")]
         assert_eq!(Options::default().with_jobs(2).threads(), 2);
     }
 

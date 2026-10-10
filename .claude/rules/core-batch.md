@@ -46,9 +46,11 @@ in one call, the library's side of `linlog prove`'s batch.
   each search keeps the bound of the search options (so a batch's
   verdicts are those of single calls with the same bound) and as many
   workers run as the batch's bound holds such searches, at least one,
-  whose bound is then the batch's; within, one worker whose search may be
-  two at once (the command races one thread against a pool), each held
-  to half the batch's bound. What the bound does not count is what the
+  whose bound is then the batch's; within, one worker at the batch's
+  bound, which the command's race of one thread against a pool shares
+  between its two searches (`search::race`, one account; each held half
+  of it until the race's searches shared one, which halved the bound
+  twice). What the bound does not count is what the
   search's bound does not count (the forest, the derivation's own bound,
   a render's bound, thread stacks): a worker can hold the forest of its
   sequent beside its search.

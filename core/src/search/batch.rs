@@ -29,7 +29,7 @@
 //! assert_eq!(proved, [true, false]);
 //! ```
 
-use super::{Options as Search, Outcome};
+use super::{Options as SearchOptions, Outcome};
 use crate::{Error, Limits, Mode, Sequent};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -77,7 +77,7 @@ pub struct Options {
     /// Where the threads go.
     pub cores: Cores,
     /// The most sequents decided at once, across the sequents: at least
-    /// one, and more than [`MAX_JOBS`](Search::MAX_JOBS) are taken as that
+    /// one, and more than [`MAX_JOBS`](SearchOptions::MAX_JOBS) are taken as that
     /// many.
     pub workers: usize,
     /// The most memory all the searches of the batch may hold together,
@@ -125,23 +125,22 @@ impl Options {
     /// Returns how the batch runs, `within` its sequents or across them:
     /// across, as many workers as the batch's bound holds searches at the
     /// bound of each (at least one, whose bound is then the batch's), each
-    /// on one thread; within, one worker whose search may be two at once
-    /// (a front end may race one thread against a pool of the others), so
-    /// each holds at most half the batch's bound.
-    pub(crate) fn plan(&self, within: bool, search: &Search, limits: &Limits) -> Plan {
+    /// on one thread; within, one worker at the batch's bound, which a race
+    /// of one thread against a pool of the others shares between its two
+    /// searches ([`race`](super::race), feature `parallel`).
+    pub(crate) fn plan(&self, within: bool, search: &SearchOptions, limits: &Limits) -> Plan {
         let search = search.clone();
         let mut limits = *limits;
         let total = self.total_memory_bytes;
         if within {
-            let share = total.map(|t| if search.threads() > 1 { t / 2 } else { t });
-            limits.memory_bytes = smaller(limits.memory_bytes, share);
+            limits.memory_bytes = smaller(limits.memory_bytes, total);
             return Plan {
                 workers: 1,
                 search,
                 limits,
             };
         }
-        let most = self.workers.clamp(1, Search::MAX_JOBS);
+        let most = self.workers.clamp(1, SearchOptions::MAX_JOBS);
         let workers = match (limits.memory_bytes, total) {
             (Some(each), Some(total)) => usize::try_from(total / each.max(1)).unwrap_or(usize::MAX),
             (None, Some(total)) => {
@@ -188,7 +187,7 @@ pub struct Plan {
     /// The sequents decided at once.
     pub workers: usize,
     /// The options of each sequent's search.
-    pub search: Search,
+    pub search: SearchOptions,
     /// The limits each search runs within.
     pub limits: Limits,
 }
@@ -196,7 +195,7 @@ pub struct Plan {
 impl Plan {
     /// Returns the plan of one sequent decided alone, with these options
     /// and limits.
-    pub const fn alone(search: Search, limits: Limits) -> Self {
+    pub const fn alone(search: SearchOptions, limits: Limits) -> Self {
         Self {
             workers: 1,
             search,
@@ -246,7 +245,7 @@ pub struct Answer {
 pub fn prove(
     problems: impl IntoIterator<Item = Problem, IntoIter: Send + 'static>,
     options: &Options,
-    search: &Search,
+    search: &SearchOptions,
     limits: &Limits,
 ) -> Results<Answer> {
     let mode = options.mode;
@@ -283,7 +282,7 @@ pub fn prove(
 pub fn run<P, R>(
     problems: impl IntoIterator<Item = P, IntoIter: Send + 'static>,
     options: &Options,
-    search: &Search,
+    search: &SearchOptions,
     limits: &Limits,
     work: impl Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
 ) -> Results<R>
@@ -297,7 +296,7 @@ where
         Cores::Across => false,
         Cores::Within => true,
         Cores::Auto => {
-            let workers = options.workers.clamp(1, Search::MAX_JOBS);
+            let workers = options.workers.clamp(1, SearchOptions::MAX_JOBS);
             first.extend(problems.by_ref().take(workers));
             first.len() < workers
         }
@@ -638,7 +637,7 @@ mod tests {
                 cores,
                 ..Options::default()
             };
-            let search = Search::default();
+            let search = SearchOptions::default();
             let answers: Vec<(String, bool)> =
                 prove(problems, &options, &search, &Limits::default())
                     .map(|a| {
@@ -656,8 +655,8 @@ mod tests {
     }
 
     /// Across the sequents, the batch's bound decides how many searches
-    /// run at once at the bound of each; within, each of the two searches
-    /// of a sequent holds at most half of it.
+    /// run at once at the bound of each; within, the one search, or the
+    /// race of two that share one account, holds at most all of it.
     #[test]
     fn the_batch_bound_shares_out_the_memory() {
         let options = Options {
@@ -665,7 +664,7 @@ mod tests {
             total_memory_bytes: Some(5 << 30),
             ..Options::default()
         };
-        let search = Search::default().with_jobs(4);
+        let search = SearchOptions::default().with_jobs(4);
         let limits = Limits::default().with_memory_bytes(Some(1 << 30));
         let across = options.plan(false, &search, &limits);
         assert_eq!(
@@ -680,13 +679,13 @@ mod tests {
         .plan(true, &search, &limits);
         assert_eq!(
             (within.workers, within.limits.memory_bytes),
-            (1, Some(1 << 29))
+            (1, Some(1 << 30))
         );
         // Without a bound the workers are what was asked, at most as many
         // as the options take.
         let unbounded = options.with_workers(100_000).with_total_memory_bytes(None);
         let plan = unbounded.plan(false, &search, &Limits::UNBOUNDED);
-        assert_eq!(plan.workers, Search::MAX_JOBS);
+        assert_eq!(plan.workers, SearchOptions::MAX_JOBS);
     }
 
     /// Cancelled results end the searches in flight and those not begun,
@@ -709,7 +708,12 @@ mod tests {
                 .with_mode(Mode::CLASSICAL.with_affine())
                 .with_workers(workers)
                 .with_cores(Cores::Across);
-            let results = prove(problems, &options, &Search::default(), &Limits::default());
+            let results = prove(
+                problems,
+                &options,
+                &SearchOptions::default(),
+                &Limits::default(),
+            );
             results.cancel();
             for answer in results {
                 let verdict = answer.outcome.unwrap().verdict;
@@ -732,7 +736,7 @@ mod tests {
             .collect();
         let options = Options::default().with_workers(2).with_cores(Cores::Across);
         let limits = Limits::default().with_recursion_depth(u32::MAX);
-        for answer in prove(problems, &options, &Search::default(), &limits) {
+        for answer in prove(problems, &options, &SearchOptions::default(), &limits) {
             let verdict = answer.outcome.unwrap().verdict;
             assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
         }
@@ -742,7 +746,13 @@ mod tests {
             .with_cores(Cores::Auto);
         let endless =
             std::iter::repeat_with(move || Problem::new("p".to_owned(), sequent.clone(), None));
-        let first = prove(endless, &options, &Search::default(), &Limits::default()).next();
+        let first = prove(
+            endless,
+            &options,
+            &SearchOptions::default(),
+            &Limits::default(),
+        )
+        .next();
         assert!(matches!(
             first.unwrap().outcome.unwrap().verdict,
             Verdict::Proved(_)
@@ -772,7 +782,7 @@ mod tests {
             let results = run(
                 questions,
                 &options,
-                &Search::default(),
+                &SearchOptions::default(),
                 &Limits::default(),
                 |i, _, _| i,
             );
@@ -796,7 +806,7 @@ mod tests {
         let mut results = run(
             problems,
             &options,
-            &Search::default(),
+            &SearchOptions::default(),
             &Limits::default(),
             |i, _, _| {
                 std::thread::sleep(std::time::Duration::from_millis(1));
@@ -820,7 +830,7 @@ mod tests {
             let mut results = run(
                 0..100usize,
                 &options,
-                &Search::default(),
+                &SearchOptions::default(),
                 &Limits::default(),
                 |i, _, _| {
                     assert_ne!(i, 5, "the work panics on problem 5");
