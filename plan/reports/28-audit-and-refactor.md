@@ -365,6 +365,24 @@ supervisor's go are marked "go".
   (an atom name is an identifier); the comment's own escape is still the
   command's (3.4). H27 is the search area's.
 
+#### The command's wrong answers, first (session `step-28e`)
+
+By the author's leave to reorder (2026-10-09), before area 3.2; each
+with the test that would have caught it, each a commit of its own.
+
+| item | state | evidence |
+|---|---|---|
+| F165: `--isolate` with bundled short flags | open | |
+| H11: a typed SEQUENT ignored in a batch | open | |
+| H12: an empty batch exits 0 | open | |
+| H13: an interrupted batch exits 0 | open | |
+| H16: `load` in `interact` changes the question (HD4) | open | |
+| H5: a `.spec` file decided in affine mode (HD2) | open | |
+| H26: a JSON Lines line without `sequent`, a record read through `Value` | open | |
+| H28: the command's batch hangs after an entry panics | open | |
+| H30: an entry named `.` or `/` writes outside `--output DIR` | open | |
+| H31: the Rocq verdict comment closed by `*)` | open | |
+
 ## From the supervisor
 
 ### Where you start, `step-28` (2026-10-08 20:51)
@@ -803,3 +821,47 @@ supervisor's go are marked "go".
   (mzxpvzpm and the records after it) passed, every check of the flake,
   which closes the area.
 
+
+### Where you start, `step-28e` (2026-10-10)
+
+- You are `step-28e`, the fifth session of step 28, Opus 5.5 at
+  `xhigh`, in two parts in this order: (1) the command's wrong answers
+  first, by the author's leave to reorder: F165 (`--isolate` with
+  bundled short flags), H11 (a typed SEQUENT ignored in a batch), H12
+  (an empty batch exits 0), H13 (an interrupted batch exits 0), H16
+  (`load` in `interact` changes the question; HD4: refuse another
+  sequent or mode), H5 (HD2: a `.spec` file is decided in affine mode,
+  and a mode flag that contradicts it is refused), then the probe's H26,
+  H28, H30 and H31, each with the test that would have caught it and
+  each a commit of its own; the rest of the command's findings stay with
+  area 3.4. (2) Then area 3.2, the search, as the step prompt's stage 3
+  and the design say. The session ends with area 3.2's check rounds
+  (three at most), the fresh-context reviewer and a passing `nix flake
+  check`, all committed, the checklist current and the last message sent
+  to `planning`.
+- The findings: the command's above; `area == "search"` in
+  `plan/reports/28-audit-findings.json`, among them H18 (the pool's
+  stack under a raised recursion limit), H21 (the ordinary translations
+  compared over generated sequents) and H27 (the library batch hanging
+  after a worker panics); H1 is done (orszuxqx) and H21 stays this
+  session's. What area 3.1 moved here: `Statistics::memo_entries` as a
+  `u64` and F56's private engine names; the search's halves of H27 and
+  F139; the shim `without_progress` removed in one measured commit, with
+  `Limits::work` counted at the engines' polls and `Reason::WorkLimit`;
+  the forced-engine refusals folded into `EngineRefused` with
+  `NotTaken`; `search::race` with `Clock` (F103, F104); the stack bound
+  per worker (H18); lock commit (4) of design §7.5, `work` and
+  `forward_copies` in `statistics`.
+- The oracles under LTO: `bench/targets/head-lto.csv` for the focused
+  engine (`bench/targets.sh`, cores 2 and 3) and
+  `bench/targets/net-after-retype.csv` for the net engine
+  (`bench/net-targets.sh`). A commit that claims no change of the
+  search keeps their counters; one that changes it is reviewed by the
+  panel the prompt names.
+- Benchmarks are allowed while the author leaves the machine free, one
+  line to `planning` when a run starts and one when it ends; "Pause" or
+  "hold" stops runs gracefully. Cores 2 to 15 only, queue rather than
+  take 0 or 1. Wait on a run with a background watcher. Signing: a loop
+  keeps the cache warm until about 11:20, then commit with
+  `--config signing.behavior=drop` while a signature fails. The weekly
+  quota is near 62 %, and the author's failsafe pauses the step at 80 %.
