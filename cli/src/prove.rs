@@ -13,14 +13,13 @@ use linlog::export::Styles;
 use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
 use linlog::proofs::{Compact, Sides};
-use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
+use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, prove_goal, race};
 use linlog::{
     CheckError, Criterion, Error, ErrorKind, Forest, Limits, Mode, Proof, ProofStructure, Reading,
     Refusal, Sequent, Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -45,79 +44,41 @@ pub(crate) fn on_large_stack<T: Send>(size: usize, f: impl FnOnce() -> T + Send)
     })
 }
 
-/// Runs a search with the threads `threads` gives: from the start, or on
-/// one thread first and, if that has not decided when `threads.alone` has
-/// passed, with a pool of the other threads beside it, the first of the
-/// two to decide answering. The single thread is not stopped when the
-/// pool starts: a pool may search worse than one thread, and what one
-/// thread decides within the limit stays decided. Each is the search it
-/// would be alone, within the memory bound of the options: a halved bound
-/// starves the memo of a wide sequent, whose every entry is large, and
-/// the search with it. `halt` is the command's stop condition, `search`
-/// runs a search with the options and stop condition given, and
-/// `parallel`, asked only when the pool would start, says whether the
-/// engine that runs searches on a pool at all: one that runs on one
-/// thread whatever the options say would only search again beside
-/// itself. The outcome of two searches has the counters of both.
-pub(crate) fn alone_first<E: Send>(
+/// Runs a search with the threads `threads` gives: a pool of them from
+/// the start, or the library's race, one thread first and, once
+/// `threads.alone` has passed, a pool of the others beside it, the first
+/// of the two to decide answering, both within one memory bound
+/// (`search::race`). `halt` is the command's stop condition. The single
+/// search runs on the calling thread, whose stack the caller sized.
+pub(crate) fn searched(
+    goal: Goal<'_>,
+    mode: linlog::Mode,
     options: &Options,
-    stack: usize,
+    limits: &linlog::Limits,
     threads: Threads,
     halt: &(dyn Fn() -> bool + Sync),
-    parallel: impl FnOnce() -> bool,
-    search: impl Fn(&Options, &mut dyn FnMut() -> bool) -> Result<Outcome, E> + Sync,
-) -> Result<Outcome, E> {
-    let Some(alone) = threads.alone else {
-        return search(options, &mut || halt());
-    };
-    // A pool of one thread would be the single thread's search again.
-    let pool = threads.jobs.saturating_sub(1).max(2);
-    let decided = AtomicBool::new(false);
-    let is_decided =
-        |o: &Result<Outcome, E>| matches!(o, Ok(o) if !matches!(o.verdict, Verdict::Unknown(_)));
-    thread::scope(|scope| {
-        let (done, finished) = std::sync::mpsc::channel::<()>();
-        let (search, decided, is_decided) = (&search, &decided, &is_decided);
-        let single = thread::Builder::new()
-            .name("search alone".into())
-            .stack_size(stack)
-            .spawn_scoped(scope, move || {
-                let outcome = search(&options.clone().with_jobs(1), &mut || {
-                    halt() || decided.load(Ordering::Relaxed)
-                });
-                if is_decided(&outcome) {
-                    decided.store(true, Ordering::Relaxed);
-                }
-                let _ = done.send(());
-                outcome
-            });
-        // Without a second thread the search runs on this one alone.
-        let Ok(single) = single else {
-            return search(&options.clone().with_jobs(1), &mut || halt());
-        };
-        let join = |single: thread::ScopedJoinHandle<'_, Result<Outcome, E>>| {
-            single
-                .join()
-                .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-        };
-        if finished.recv_timeout(alone).is_ok() || halt() || !parallel() {
-            return join(single);
+) -> Result<Outcome, linlog::Error> {
+    match threads.alone {
+        None => prove_goal(
+            goal,
+            mode,
+            &options.clone().with_jobs(threads.jobs),
+            limits,
+            |_| halt(),
+        ),
+        Some(alone) => {
+            let start = Instant::now();
+            race(
+                goal,
+                mode,
+                options,
+                limits,
+                threads.jobs,
+                |_| start.elapsed() >= alone,
+                |_| halt(),
+            )
         }
-        let pooled = search(&options.clone().with_jobs(pool), &mut || {
-            halt() || decided.load(Ordering::Relaxed)
-        });
-        if is_decided(&pooled) {
-            decided.store(true, Ordering::Relaxed);
-        }
-        let first = join(single);
-        let (mut outcome, other) = if is_decided(&first) {
-            (first?, pooled?)
-        } else {
-            (pooled?, first?)
-        };
-        outcome.statistics.add(&other.statistics);
-        Ok(outcome)
-    })
+    }
 }
 
 /// How long a search runs before a line on standard error says that it
@@ -1108,19 +1069,13 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let notice = Notice::start(NOTICE_AFTER, notice_line(deadline.limit(), deepens));
         // Both conditions are flags, so every poll asks both.
         let halt = || interrupted() || deadline.passed();
-        let parallel =
-            || engine_for(Goal::conclusion(&forest), mode, &options).is_ok_and(Engine::parallel);
-        let outcome = alone_first(
+        let outcome = searched(
+            Goal::conclusion(&forest),
+            mode,
             &options,
-            limits.stack_bytes(),
+            &limits,
             threads,
             &halt,
-            parallel,
-            |options, halt| {
-                prove_goal(Goal::conclusion(&forest), mode, options, &limits, |_| {
-                    halt()
-                })
-            },
         )
         .map_err(|e| describe(e, sequent))?;
         let stop = stopped(&deadline);

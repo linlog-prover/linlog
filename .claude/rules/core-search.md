@@ -93,8 +93,8 @@ workers alike. **Every poll is told the work done** (`Stop::fired(units)`,
 the engines' `&mut dyn FnMut(u64) -> bool`): `prove_goal` keeps one
 `Work` per search (an atomic count shared by its threads, against
 `Limits::work`), adds each poll's units to it and asks the caller's stop
-with `Progress { phase: Search, work: since the stop was last asked,
-done }`; past the bound the poll answers true and `prove_goal` turns the
+with `Progress { phase: Search, work: the poll's own units, done: every
+thread's }` (so on one thread the `work` add up to `done`); past the bound the poll answers true and `prove_goal` turns the
 engine's `Stopped` into `Reason::WorkLimit { limit }`. A pool's workers
 add their units through their `Flags` (`Flags::fired`, which also ends a
 worker past the bound) and the driver asks the caller's stop with 0
@@ -115,6 +115,20 @@ levels, and the others stay zero; `work` is every engine's, set by
 `prove_goal` from the search's `Work` (on one thread the sum of the
 progress' `work`, `the_search_counts_its_work`). `Statistics::add` is
 two searches' merge (the race's), `add_run` a pool's workers'.
+
+**The race** (`search::race`, feature `parallel`): one thread first on
+the calling thread and, once the caller's `add_pool` says so at one of
+its polls, a pool of `threads − 1` beside it (`decide_goal` on a scoped
+thread of `Limits::stack_bytes`), the first to decide raising a flag
+both stops ask; below three threads, or on an engine that is not
+`Engine::parallel`, one search with that many threads and `add_pool`
+never asked. Both draw on one bound: the race's `Account` is the whole
+and each search's is `Account::part_of` it, whose charges, shares and
+forks count in the whole and stop at its bound (a part gives the whole
+back what it holds when it drops); an account outside a race has no
+whole, so no other search pays for it. One `Work` counts both, and the
+outcome's `work` is that count. The command's default and the harness's
+`--pool-after` call it; the copies they had are gone (F103, F104).
 
 - **An engine's own refutation** goes in `Answer::refutation`, which
   `prove_goal` takes as it is: the Horn engine's

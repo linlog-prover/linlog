@@ -168,7 +168,8 @@ pub struct ProveArgs {
     /// built from it are under the same limit: a derivation estimated
     /// above it is left out even with `--derivation-limit none`. By
     /// default one thread and, after `--pool-after`, a pool beside it
-    /// search at once, each within the limit. A png or pdf render is
+    /// search at once, both together within the limit. A png or pdf
+    /// render is
     /// estimated before it starts, its time counted as the memory the
     /// renderer fills in it, and left out above the limit (the default
     /// is a few seconds of rendering).
@@ -199,8 +200,10 @@ pub struct ProveArgs {
     /// The default is 100ms when `--jobs` is not given, and 0 when it is.
     /// The single thread goes on searching beside a pool of the other
     /// threads, which starts the search afresh, and the first to decide
-    /// answers; each holds at most `--memory-limit`. The additive and the
-    /// Horn engine run on one thread and get no pool.
+    /// answers; both together hold at most `--memory-limit`. Below three
+    /// threads there is no single thread: two search on a pool from the
+    /// start. The additive and the Horn engine run on one thread and get
+    /// no pool.
     #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
     pub pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input

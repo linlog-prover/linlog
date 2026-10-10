@@ -621,7 +621,7 @@ fn tail(args: &OneArgs) -> String {
             expired.store(true, Ordering::Relaxed);
         });
     }
-    let outcome = alone_first(&problem.sequent, mode, &options, &limits, args, &expired);
+    let outcome = decide(&problem.sequent, mode, &options, &limits, args, &expired);
     let time = start.elapsed().as_secs_f64() * 1000.0;
     // The time the search took on the CPUs, and the time its thread was
     // ready but waited for one: a run another process slowed down has the
@@ -718,13 +718,12 @@ fn tail(args: &OneArgs) -> String {
 }
 
 /// Decides a problem under the options until the flag is raised: with
-/// the options' threads from the start, or with `--pool-after` on one
-/// thread first and, if that has not decided when the time has passed,
-/// with a pool of the other threads beside it, the first to decide
-/// answering, each within the memory bound, as the command does by
-/// default.
-/// The outcome of two searches has the counters of both.
-fn alone_first(
+/// the options' threads from the start, or with `--pool-after` the
+/// library's race, one thread first and, once the time has passed, a pool
+/// of the other threads beside it, the first to decide answering, both
+/// within one memory bound, as the command does by default. The outcome
+/// of two searches has the counters of both.
+fn decide(
     sequent: &linlog::Sequent,
     mode: linlog::Mode,
     options: &Options,
@@ -736,59 +735,18 @@ fn alone_first(
     let Some(alone) = args.pool_after.filter(|_| args.jobs > 1) else {
         return prove_within(sequent, mode, options, limits, |_| stop());
     };
-    // A pool of one thread would be the single thread's search again.
-    let pool = args.jobs.saturating_sub(1).max(2);
-    let decided = AtomicBool::new(false);
-    let is_decided = |o: &Result<linlog::search::Outcome, Error>| matches!(o, Ok(o) if !matches!(o.verdict, Verdict::Unknown(_)));
-    let halt = || stop() || decided.load(Ordering::Relaxed);
-    thread::scope(|scope| {
-        let (done, finished) = mpsc::channel::<()>();
-        let (decided, is_decided, halt) = (&decided, &is_decided, &halt);
-        let single = thread::Builder::new()
-            .stack_size(limits.stack_bytes())
-            .spawn_scoped(scope, move || {
-                let outcome =
-                    prove_within(sequent, mode, &options.clone().with_jobs(1), limits, |_| {
-                        halt()
-                    });
-                if is_decided(&outcome) {
-                    decided.store(true, Ordering::Relaxed);
-                }
-                let _ = done.send(());
-                outcome
-            })
-            .expect("a thread for the single search");
-        let join = |single: thread::ScopedJoinHandle<'_, _>| {
-            single
-                .join()
-                .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-        };
-        if finished
-            .recv_timeout(Duration::from_secs_f64(alone))
-            .is_ok()
-            || stop()
-        {
-            return join(single);
-        }
-        let pooled = prove_within(
-            sequent,
-            mode,
-            &options.clone().with_jobs(pool),
-            limits,
-            |_| halt(),
-        );
-        if is_decided(&pooled) {
-            decided.store(true, Ordering::Relaxed);
-        }
-        let first = join(single);
-        let (mut outcome, other) = if is_decided(&first) {
-            (first?, pooled?)
-        } else {
-            (pooled?, first?)
-        };
-        outcome.statistics.add(&other.statistics);
-        Ok(outcome)
-    })
+    let forest = Forest::within(sequent, limits)?;
+    let alone = Duration::from_secs_f64(alone);
+    let start = Instant::now();
+    linlog::search::race(
+        linlog::Goal::conclusion(&forest),
+        mode,
+        options,
+        limits,
+        args.jobs,
+        |_| start.elapsed() >= alone,
+        |_| stop(),
+    )
 }
 
 /// A tail with the given fields filled in and the others empty.

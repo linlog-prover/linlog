@@ -10,6 +10,7 @@
 //! because the workers of a parallel search share one account; one thread
 //! pays an uncontended addition per allocation, which is rare by design.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The bytes a search holds, and the most it may.
@@ -21,6 +22,13 @@ pub(crate) struct Account {
     /// allocations, each below `isize::MAX`, of which an address space
     /// holds fewer than 2⁶⁴ bytes' worth: it cannot wrap.
     used: AtomicU64,
+    /// The account of the race this one is a part of, which every charge
+    /// counts in too and which no part passes: the two searches of a race
+    /// draw on one bound. `None` outside a race.
+    whole: Option<Arc<Account>>,
+    /// What this account held in the whole when it began: a fork starts
+    /// from what its original holds, which the whole counts already.
+    base: u64,
 }
 
 impl Account {
@@ -29,12 +37,27 @@ impl Account {
         Self {
             limit: limit.unwrap_or(u64::MAX),
             used: AtomicU64::new(0),
+            whole: None,
+            base: 0,
+        }
+    }
+
+    /// An account for one search of a race, with the whole's bound, whose
+    /// charges count in the whole: what one search holds the other may
+    /// not.
+    #[cfg(feature = "parallel")]
+    pub(crate) fn part_of(whole: &Arc<Account>) -> Self {
+        Self {
+            limit: whole.limit,
+            used: AtomicU64::new(0),
+            whole: Some(whole.clone()),
+            base: 0,
         }
     }
 
     /// An account for one of `parts` searches that run side by side: the
     /// same bound divided evenly, so that neither search's memory decides
-    /// what the other may keep.
+    /// what the other may keep; within a race, a part of its whole too.
     pub(crate) fn share(&self, parts: u64) -> Self {
         Self {
             limit: if self.limit == u64::MAX {
@@ -43,6 +66,8 @@ impl Account {
                 self.limit / parts
             },
             used: AtomicU64::new(0),
+            whole: self.whole.clone(),
+            base: 0,
         }
     }
 
@@ -53,6 +78,8 @@ impl Account {
         Self {
             limit: self.limit,
             used: AtomicU64::new(self.used()),
+            whole: self.whole.clone(),
+            base: self.used(),
         }
     }
 
@@ -64,11 +91,17 @@ impl Account {
     /// Counts `bytes` more as held.
     pub(crate) fn charge(&self, bytes: usize) {
         self.used.fetch_add(bytes as u64, Ordering::Relaxed);
+        if let Some(whole) = &self.whole {
+            whole.charge(bytes);
+        }
     }
 
     /// Counts `bytes` as given back, which must have been charged.
     pub(crate) fn release(&self, bytes: usize) {
         self.used.fetch_sub(bytes as u64, Ordering::Relaxed);
+        if let Some(whole) = &self.whole {
+            whole.release(bytes);
+        }
     }
 
     /// Counts a buffer whose allocation went from `before` to `after`
@@ -89,6 +122,7 @@ impl Account {
     /// Returns whether `bytes` more would still be within the bound.
     pub(crate) fn fits(&self, bytes: usize) -> bool {
         self.used().saturating_add(bytes as u64) <= self.limit
+            && self.whole.as_ref().is_none_or(|whole| whole.fits(bytes))
     }
 
     /// Returns whether `bytes` more would leave an eighth of the bound
@@ -101,11 +135,24 @@ impl Account {
             .saturating_add(bytes as u64)
             .saturating_add(self.limit / 8)
             <= self.limit
+            && self.whole.as_ref().is_none_or(|whole| whole.spares(bytes))
     }
 
     /// Returns whether more is held than the bound allows.
     pub(crate) fn over(&self) -> bool {
-        self.used() > self.limit
+        self.used() > self.limit || self.whole.as_ref().is_some_and(|whole| whole.over())
+    }
+}
+
+impl Drop for Account {
+    /// Gives the whole back what this account still holds of its own.
+    fn drop(&mut self) {
+        if let Some(whole) = &self.whole {
+            let own = self.used().saturating_sub(self.base);
+            whole
+                .used
+                .fetch_sub(own.min(whole.used()), Ordering::Relaxed);
+        }
     }
 }
 

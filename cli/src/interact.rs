@@ -6,8 +6,8 @@ use crate::argument_parsing::Threads;
 use crate::argument_parsing::{InteractArgs, threads};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
-    Ended, Rendered, Show, Shown, alone_first, bytes_text, derivation, describe, notice_line,
-    on_large_stack, render, stopped, unknown,
+    Ended, Rendered, Show, Shown, bytes_text, derivation, describe, notice_line, on_large_stack,
+    render, searched, stopped, unknown,
 };
 use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
@@ -15,7 +15,7 @@ use anyhow::{Context, Result, bail};
 use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
-use linlog::search::{Engine, Goal, Options, Outcome, Verdict, engine_for, prove_goal};
+use linlog::search::{Goal, Options, Outcome, Verdict};
 use linlog::{
     Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, ViewOptions,
 };
@@ -407,15 +407,13 @@ impl Session {
         let halt = || interrupted() || deadline.passed();
         let (forest, mode) = (self.state.forest(), self.state.mode());
         let target = Goal::new(forest, self.state.goal(goal)?)?;
-        let parallel = || engine_for(target, mode, &self.options).is_ok_and(Engine::parallel);
-        let limits = &self.limits;
-        let searched = alone_first(
+        let searched = searched(
+            target,
+            mode,
             &self.options,
-            limits.stack_bytes(),
+            &self.limits,
             self.threads,
             &halt,
-            parallel,
-            |options, halt| prove_goal(target, mode, options, limits, |_| halt()),
         );
         let closed = searched.and_then(|outcome| {
             if let Verdict::Proved(proof) = &outcome.verdict {

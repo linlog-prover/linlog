@@ -315,20 +315,25 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--jobs` above what the machine runs at once, or above
   `Options::MAX_JOBS`, is taken as that many with a note on standard
   error).
-  `alone_first` in `prove.rs` runs the search on a thread of its own
-  and waits for it up to `Threads::alone`; if it has not decided, and
-  the engine searches on a pool at all (`search::engine_for` and
-  `Engine::parallel`, asked only then: the additive and the Horn engine
-  run on one thread, and a pool beside them was the same search again at
-  twice the memory, which a panel of step 27 found), a pool
-  of the other threads (`jobs − 1`, at least two: a pool of one would be
-  the same search again) searches beside it, each within the whole of
-  `--memory-limit` (a halved bound starved the memo of a wide sequent:
-  `SYJ212+1.013` in `cbn`, refuted in 0.52 s by the restart's pool, was
-  not refuted in 5 s by the race's with a quarter of the bound per
-  search), and the first to decide raises a flag that stops the
-  other (its stop is the command's or that flag); the outcome adds the
-  other's counters (`copies` and `memo_entries` by the maximum). The
+  `searched` in `prove.rs` (for `prove`, a batch's entry within the
+  cores and a session's `close`) runs `prove_goal` with the threads
+  from the start, or the library's `search::race` with `Threads::alone`
+  as its `add_pool` (asked at the single search's polls, `start.elapsed()
+  >= alone`): the single search on the calling thread, which
+  `on_large_stack` sized, and once `add_pool` says so, where the engine
+  searches on a pool at all (`Engine::parallel`: the additive and the
+  Horn engine run on one thread, and a pool beside them was the same
+  search again), a pool of the other `jobs − 1` threads beside it;
+  below three threads there is no single thread (two search on a pool
+  from the start: `--jobs 2` ran three threads before). Both draw on
+  one memory account (`Account::part_of`, so together they hold at most
+  `--memory-limit`; each held the whole bound before, 2.05 GB in one
+  call; a halved bound per search starved the memo of a wide sequent,
+  `SYJ212+1.013` in `cbn`, which one account does not, since whichever
+  search needs the memory takes it) and one work count, and the first
+  to decide stops the other; the outcome adds the other's counters
+  (`Statistics::add`). The race's code lives once, in the library; the
+  harness's `--pool-after` calls it too. The
   single thread is not stopped when the pool starts, because a pool can
   search worse than one thread: on two cores, restarting the search on
   the pool at the switch lost three LLTP problems that one thread proves

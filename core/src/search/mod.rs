@@ -370,6 +370,134 @@ pub fn prove_goal(
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
+    let account = memory::Account::new(limits.memory_bytes);
+    let work = Work::new(limits.work);
+    decide_goal(goal, mode, options, limits, &account, &work, &mut stop)
+}
+
+/// Decides a goal as [`prove_goal`] does, on at most `threads` threads,
+/// the calling one counted. From three: one thread first and, once
+/// `add_pool` says so at one of its polls, a pool of the other
+/// `threads − 1` beside it, which starts the search afresh; the first to
+/// decide answers and stops the other, and both draw on one memory bound
+/// and one bound on work. The single search goes on beside the pool, since
+/// a pool may search worse than one thread. With two threads a pool of two
+/// from the start, with one the calling thread alone, and so on an engine
+/// that searches on one thread ([`Engine::parallel`]); `add_pool` is then
+/// never asked. The single search runs on the calling thread, whose stack
+/// must hold the recursion ([`Limits::stack_bytes`]). `add_pool` is asked
+/// with the single search's progress, so a front end decides with its own
+/// clock; `stop` is asked by both searches, from two threads. The outcome
+/// is the deciding search's, with both searches' counters
+/// ([`Statistics::add`]).
+///
+/// Needs the cargo feature `parallel` (off by default).
+///
+/// # Errors
+///
+/// Those of [`prove_goal`], and [`Error::ThreadPool`] when the pool's
+/// threads cannot start.
+#[cfg(feature = "parallel")]
+pub fn race(
+    goal: Goal<'_>,
+    mode: Mode,
+    options: &Options,
+    limits: &Limits,
+    threads: usize,
+    mut add_pool: impl FnMut(Progress) -> bool,
+    stop: impl Fn(Progress) -> bool + Sync,
+) -> Result<Outcome, Error> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let threads = threads.clamp(1, Options::MAX_JOBS);
+    let whole = std::sync::Arc::new(memory::Account::new(limits.memory_bytes));
+    let work = Work::new(limits.work);
+    if threads < 3 || !engine_for(goal, mode, options)?.parallel() {
+        let options = options.clone().with_jobs(threads);
+        let account = memory::Account::part_of(&whole);
+        return decide_goal(goal, mode, &options, limits, &account, &work, &mut |p| {
+            stop(p)
+        });
+    }
+    let decided = AtomicBool::new(false);
+    let settled = |outcome: &Result<Outcome, Error>| matches!(outcome, Ok(o) if !matches!(o.verdict, Verdict::Unknown(_)));
+    let (single, pooled) = (
+        options.clone().with_jobs(1),
+        options.clone().with_jobs(threads - 1),
+    );
+    std::thread::scope(|scope| {
+        let (whole, work, stop, decided) = (&whole, &work, &stop, &decided);
+        let pooled = &pooled;
+        let mut pool = None;
+        let account = memory::Account::part_of(whole);
+        let first = decide_goal(
+            goal,
+            mode,
+            &single,
+            limits,
+            &account,
+            work,
+            &mut |progress| {
+                if pool.is_none() && add_pool(progress) {
+                    // A pool whose thread cannot start leaves the single
+                    // search alone.
+                    pool = Some(
+                        std::thread::Builder::new()
+                            .name("linlog-race".into())
+                            .stack_size(limits.stack_bytes())
+                            .spawn_scoped(scope, move || {
+                                let account = memory::Account::part_of(whole);
+                                let outcome = decide_goal(
+                                    goal,
+                                    mode,
+                                    pooled,
+                                    limits,
+                                    &account,
+                                    work,
+                                    &mut |p| stop(p) || decided.load(Ordering::Relaxed),
+                                );
+                                if settled(&outcome) {
+                                    decided.store(true, Ordering::Relaxed);
+                                }
+                                outcome
+                            })
+                            .ok(),
+                    );
+                }
+                stop(progress) || decided.load(Ordering::Relaxed)
+            },
+        );
+        if settled(&first) {
+            decided.store(true, Ordering::Relaxed);
+        }
+        let Some(Some(handle)) = pool else {
+            return first;
+        };
+        let second = handle
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+        let (mut outcome, other) = if settled(&first) {
+            (first?, second?)
+        } else {
+            (second?, first?)
+        };
+        outcome.statistics.add(&other.statistics);
+        outcome.statistics.work = work.done();
+        Ok(outcome)
+    })
+}
+
+/// Decides a goal as [`prove_goal`] does, charging what the search holds
+/// to `account` and counting its work in `work`, which a race's two
+/// searches share.
+fn decide_goal(
+    goal: Goal<'_>,
+    mode: Mode,
+    options: &Options,
+    limits: &Limits,
+    account: &memory::Account,
+    work: &Work,
+    stop: &mut dyn FnMut(Progress) -> bool,
+) -> Result<Outcome, Error> {
     let forest = goal.forest;
     let occurrences = goal.occurrences();
     let fragment = fragment_of(forest, &occurrences, options)?;
@@ -383,19 +511,12 @@ pub fn prove_goal(
         reading.as_ref(),
     )?;
     let implementation = engine.implementation();
-    // Every poll of the engines adds the units of work done since the
-    // last, of whichever thread, and tells the caller's stop what was done
-    // since it last asked it; past the bound on work the search ends.
-    let work = Work::new(limits.work);
-    let mut reported = 0;
+    // Every poll of the engines adds its units of work, and tells the
+    // caller's stop those and the units every thread of the search has
+    // done; past the bound on work the search ends.
     let mut polled = |units: u64| {
         let done = work.add(units);
-        if work.passed() {
-            return true;
-        }
-        let progress = Progress::new(Phase::Search, done - reported, done);
-        reported = done;
-        stop(progress)
+        work.passed() || stop(Progress::new(Phase::Search, units, done))
     };
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
@@ -411,12 +532,11 @@ pub fn prove_goal(
         });
     }
     // What the search allocates is counted against the bound.
-    let account = memory::Account::new(limits.memory_bytes);
     #[cfg(feature = "parallel")]
     let options = &options
         .clone()
         .with_jobs(parallel::threads(options.threads()));
-    let mut answer = implementation.decide(&task, options, limits, &account, &work, &mut polled)?;
+    let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
     answer.statistics.work = work.done();
     if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
         answer.result = Err(Reason::WorkLimit { limit: work.limit });
@@ -428,7 +548,7 @@ pub fn prove_goal(
         goal.members,
         options,
         limits,
-        &mut stop,
+        stop,
     )?;
     let checked = options.check && matches!(verdict, Verdict::Proved(_));
     Ok(Outcome {
@@ -2001,6 +2121,50 @@ mod tests {
                 outcome.verdict
             );
         }
+    }
+
+    /// The race counts every thread: below three it asks nothing and
+    /// searches as one call with that many threads would; from three it
+    /// starts the pool once, when asked to, and answers as one thread
+    /// does.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn the_race_counts_every_thread() {
+        let s = sequent("!(a -o b), !(b -o c), a |- c * !(d -o d)");
+        let forest = Forest::new(&s).unwrap();
+        let goal = Goal::conclusion(&forest);
+        let (options, limits) = (Options::default(), Limits::default());
+        for threads in [1, 2] {
+            let outcome = race(
+                goal,
+                Mode::CLASSICAL,
+                &options,
+                &limits,
+                threads,
+                |_| panic!("no pool is added below three threads"),
+                |_| false,
+            )
+            .unwrap();
+            assert!(outcome.verdict.proof().is_some(), "{threads}");
+        }
+        let alone = prove(&s, Mode::CLASSICAL, &options).unwrap();
+        let mut asked = 0;
+        let raced = race(
+            goal,
+            Mode::CLASSICAL,
+            &options,
+            &limits,
+            3,
+            |_| {
+                asked += 1;
+                true
+            },
+            |_| false,
+        )
+        .unwrap();
+        assert_eq!(asked, 1);
+        assert!(raced.verdict.proof().is_some());
+        assert_eq!(raced.engine, alone.engine);
     }
 
     /// A reason names the settings key a caller raises to search further,

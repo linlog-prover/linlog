@@ -11,14 +11,14 @@ use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
-    Ended, STEPS_PER_CLOCK, Show, Shown, alone_first, derivation, describe, net_into, nets_exist,
-    on_large_stack, statistics, stopped, verdict_line,
+    Ended, STEPS_PER_CLOCK, Show, Shown, derivation, describe, net_into, nets_exist,
+    on_large_stack, searched, statistics, stopped, verdict_line,
 };
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
-use linlog::search::{Engine, Goal, Options, Outcome, Pool, Verdict, engine_for, prove_goal};
+use linlog::search::{Goal, Options, Outcome, Pool, Verdict, prove_goal};
 use linlog::{Forest, Mode};
 use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
 use serde_json::value::RawValue;
@@ -585,18 +585,13 @@ impl Shared {
         let start = Instant::now();
         let halt = || interrupted() || deadline.passed() || self.batch.passed();
         let outcome = if search.jobs.count() > 1 {
-            let parallel =
-                || engine_for(Goal::conclusion(&forest), mode, search).is_ok_and(Engine::parallel);
-            let stack = limits.stack_bytes();
-            alone_first(
+            searched(
+                Goal::conclusion(&forest),
+                mode,
                 search,
-                stack,
+                limits,
                 self.threads,
                 &halt,
-                parallel,
-                |options, halt| {
-                    prove_goal(Goal::conclusion(&forest), mode, options, limits, |_| halt())
-                },
             )
         } else {
             prove_goal(Goal::conclusion(&forest), mode, search, limits, |_| halt())
