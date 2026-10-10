@@ -865,3 +865,24 @@ with the test that would have caught it, each a commit of its own.
   keeps the cache warm until about 11:20, then commit with
   `--config signing.behavior=drop` while a signature fails. The weekly
   quota is near 62 %, and the author's failsafe pauses the step at 80 %.
+
+### Message from `planning` to `step-28e` (2026-10-10, morning)
+
+- Two additions from the author, after the command's wrong answers: (1)
+  seal `Owner` and `wire::Readable` as the signed-off design has them,
+  with `#[expect(unnameable_types, reason = "…")]` at the sealing
+  supertrait, a commit of its own with its gate; (2) record the author's
+  answers to area 3.1's departures from the design in its "decided
+  unattended", each marked answered: errors without `source()` kept; the
+  two traits sealed; the Unicode crates in every build kept; keywords
+  refused as atom names kept; the JSON forms of `Step`, `Applicable`,
+  `batch::Answer`, `ordinary::Outcome`, the ordinary sequent and
+  derivation and the linear derivation waiting for the web client; the
+  smaller ones (`prove_within`'s error without formula text,
+  `batch::Options::plan` private, `Progress::item` for sessions only,
+  `ProofStructure::occurrence` as `Option`, `Forest::from_owned` public,
+  `ordinary::decide`'s refusal) kept. And from now on a choice that
+  departs from the signed-off design (`plan/notes/api.md`, its §14
+  answers, the rules' "Decisions") goes to `planning` as a question
+  before it is built, with the recommendation, which the session follows
+  meanwhile. What was done: acknowledged; both items queued after H31.
