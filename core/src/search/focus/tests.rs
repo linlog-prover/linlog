@@ -466,17 +466,24 @@ fn default_bias_takes_turns() {
         let second = second.expect("two searches");
         let counts = [first, second].map(|rule| Counts::new(&forest, rule.bias));
         let account = Account::new(None);
+        let task = Task {
+            forest: &forest,
+            goal: forest.roots(),
+            fragment: sequent.fragment(),
+            mode: m,
+            reading: None,
+            roots: true,
+        };
+        let set_up = SetUp {
+            task: &task,
+            classes: &classes,
+            options: &options,
+            limits: &Limits::default(),
+        };
         let Finished {
             result, statistics, ..
         } = turns(
-            &forest,
-            forest.roots(),
-            sequent.fragment(),
-            m,
-            None,
-            &classes,
-            &options,
-            &Limits::default(),
+            set_up,
             [
                 (first, &counts[0], &account),
                 (second, &counts[1], &account),

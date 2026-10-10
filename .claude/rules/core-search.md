@@ -300,8 +300,8 @@ outcome's `work` is that count. The command's default and the harness's
     literal.
   - *The set-up*, on a forest of `SET_UP_POLL` (65 536) occurrences or
     more (`set_up_stopped`): in `prove_goal` once the fragment, the
-    reading and the dispatch are done, in `focus::search_goal` (and the
-    pool's) after the classes and after the plan, and inside
+    reading and the dispatch are done, in `focus::prepare` (both
+    `search_goal`s' set-up) after the classes and after the plan, and inside
     `Counts::new_until` every 65 536 occurrences visited, which is the
     longest pass. On the library's largest problem (`SYJ212+1.020` in
     its cbv translation, 27.8 million occurrences) the first poll comes

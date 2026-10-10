@@ -8,13 +8,13 @@
 //! slices on two threads ([`alternate`](self::alternate)).
 
 use super::arena::{Arena, Kept};
-use super::classes::Classes;
 use super::counts::Counts;
 use super::memo::{Memo, Table};
-use super::{Problem, Run};
+use super::{Problem, Run, SetUp};
 use crate::fragment::{Fragment, Mode};
+#[cfg(feature = "parallel")]
 use crate::limits::Limits;
-use crate::occurrences::{Forest, OccId, Reading};
+use crate::occurrences::{Forest, OccId};
 use crate::search::Bias;
 use crate::search::memory::Account;
 use crate::search::{Finished, Options, Reason, Statistics, Stop};
@@ -30,19 +30,12 @@ use std::sync::{Condvar, Mutex};
 /// ended without deciding takes no further turn, and the other then runs
 /// to its own end. The counters are those of every turn together, the
 /// memo's entries the most of one turn.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn turns(
-    forest: &Forest,
-    goal: &[OccId],
-    fragment: Fragment,
-    mode: Mode,
-    reading: Option<&Reading>,
-    classes: &Classes,
-    options: &Options,
-    limits: &Limits,
+    set_up: SetUp<'_>,
     searches: [(Plan, &Counts, &Account); 2],
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Finished {
+    let (options, limits) = (set_up.options, set_up.limits);
     let mut ended: [Option<Reason>; 2] = [None, None];
     let mut statistics = Statistics::default();
     // The forward search's level and the backward one's, apart.
@@ -75,14 +68,8 @@ pub(super) fn turns(
                 },
                 over,
             ) = rule.search(
-                forest,
-                goal,
-                fragment,
-                mode,
-                reading,
-                (counts, classes),
-                options,
-                limits,
+                set_up,
+                counts,
                 // A turn's memo and arena go when it ends.
                 &account.fork(),
                 stop,
@@ -152,40 +139,20 @@ impl Plan {
     /// own, until it ends or the stop condition fires. Returns what
     /// [`search_goal`](super::search_goal) does, and whether it was a turn that ran out of
     /// its work.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn search<'a>(
         self,
-        forest: &'a Forest,
-        goal: &[OccId],
-        fragment: Fragment,
-        mode: Mode,
-        reading: Option<&'a Reading<'a>>,
-        (counts, classes): (&'a Counts, &'a Classes),
-        options: &Options,
-        limits: &Limits,
+        set_up: SetUp<'a>,
+        counts: &'a Counts,
         account: &'a Account,
         stop: Stop<'a>,
     ) -> (Finished, bool) {
-        let problem = Problem::new(
-            forest,
-            reading,
-            (counts, classes),
-            fragment,
-            mode,
-            options,
-            limits,
-            self.copies,
-            account,
-        );
         let mut engine = Run::new(
-            problem,
+            Problem::new(set_up, counts, self.copies, account),
             stop,
-            Table::Own(Memo::new(options.memo_entries())),
+            Table::Own(Memo::new(set_up.options.memo_entries())),
             Arena::new(Kept::Own(Vec::new()), account),
         );
-        let result = engine
-            .run(goal)
-            .and_then(|root| root.map(|root| engine.nodes.keep(0, root)).transpose());
+        let result = engine.run_kept(set_up.task.goal);
         let statistics = engine.statistics();
         let over = matches!(engine.stop, Stop::Turn(_, 0));
         let nodes = match engine.nodes.kept {
@@ -494,16 +461,8 @@ impl Drop for Ended<'_> {
 /// has its turn or runs on alone. Returns what
 /// [`search_goal`](super::search_goal) does, the counters of both searches together,
 /// or `None` when the thread cannot start.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn alternate(
-    forest: &Forest,
-    goal: &[OccId],
-    fragment: Fragment,
-    mode: Mode,
-    reading: Option<&Reading>,
-    classes: &Classes,
-    options: &Options,
-    limits: &Limits,
+    set_up: SetUp<'_>,
     [
         (first, first_counts, first_account),
         (second, second_counts, second_account),
@@ -511,6 +470,7 @@ pub(super) fn alternate(
     work: &crate::search::Work,
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Option<Finished> {
+    let (options, limits) = (set_up.options, set_up.limits);
     let baton = Baton::default();
     let (forward, backward) = std::thread::scope(|scope| {
         let baton = &baton;
@@ -536,14 +496,8 @@ pub(super) fn alternate(
                 };
                 let slice = SLICE * BACKWARD_SHARE;
                 let (finished, _) = second.search(
-                    forest,
-                    goal,
-                    fragment,
-                    mode,
-                    reading,
-                    (second_counts, classes),
-                    options,
-                    limits,
+                    set_up,
+                    second_counts,
                     second_account,
                     Stop::Slice(&mut give_way, slice, slice),
                 );
@@ -560,14 +514,8 @@ pub(super) fn alternate(
             let mut give_way =
                 |units: u64, passed: bool| stop(units) || (passed && baton.pass_polling(stop));
             let (finished, _) = first.search(
-                forest,
-                goal,
-                fragment,
-                mode,
-                reading,
-                (first_counts, classes),
-                options,
-                limits,
+                set_up,
+                first_counts,
                 first_account,
                 Stop::Slice(&mut give_way, SLICE, SLICE),
             );

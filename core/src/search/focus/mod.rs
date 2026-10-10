@@ -69,7 +69,7 @@ use self::classes::Classes;
 use self::context::Context;
 use self::counts::{Counts, Split, Tally};
 use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
-use self::schedule::{plan, turns};
+use self::schedule::{Plan, plan, turns};
 use self::scratch::{Pooled, Pools};
 use self::split::Join;
 use super::memory::{Account, Charged};
@@ -158,25 +158,13 @@ impl Decide for Focused {
         work: &Work,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
-        let Task {
-            forest,
-            goal,
-            fragment,
-            mode,
-            reading,
-            ..
-        } = *task;
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
-            let found = parallel::search_goal(
-                forest, goal, fragment, mode, reading, options, limits, account, work, stop,
-            )?;
-            return Ok(Answer::of_arena(forest, found));
+            let found = parallel::search_goal(task, options, limits, account, work, stop)?;
+            return Ok(Answer::of_arena(task.forest, found));
         }
-        let found = search_goal(
-            forest, goal, fragment, mode, reading, options, limits, account, work, stop,
-        );
-        Ok(Answer::of_arena(forest, found))
+        let found = search_goal(task, options, limits, account, work, stop);
+        Ok(Answer::of_arena(task.forest, found))
     }
 }
 
@@ -189,47 +177,32 @@ impl Decide for Focused {
 /// lives in, and the statistics. What the search allocates is charged to
 /// `account`; two searches that decide the goal together have half its
 /// bound each.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn search_goal(
-    forest: &Forest,
-    goal: &[OccId],
-    fragment: Fragment,
-    mode: Mode,
-    reading: Option<&Reading>,
+    task: &Task<'_>,
     options: &Options,
     limits: &Limits,
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Finished {
-    // On a large forest every pass of the set-up is followed by a poll.
+    let forest = task.forest;
     let gave_up = |r: Reason| Finished::gave_up(r.as_set(options, limits));
-    let classes = Classes::new(forest, reading);
-    if set_up_stopped(forest, stop) {
+    let Some((classes, first, second)) = prepare(task, options, stop) else {
         return gave_up(Reason::Stopped);
-    }
-    let (first, second) = plan(forest, goal, fragment, mode, options);
-    if set_up_stopped(forest, stop) {
-        return gave_up(Reason::Stopped);
-    }
+    };
+    let set_up = SetUp {
+        task,
+        classes: &classes,
+        options,
+        limits,
+    };
     let Some(second) = second else {
         account.charge(classes.bytes());
         let counts = match Counts::new_until(forest, first.bias, account, stop) {
             Ok(counts) => counts,
             Err(reason) => return gave_up(reason),
         };
-        let (finished, _) = first.search(
-            forest,
-            goal,
-            fragment,
-            mode,
-            reading,
-            (&counts, &classes),
-            options,
-            limits,
-            account,
-            Stop::Closure(stop),
-        );
+        let (finished, _) = first.search(set_up, &counts, account, Stop::Closure(stop));
         return Finished {
             result: finished.result.map_err(|r| r.as_set(options, limits)),
             ..finished
@@ -260,15 +233,44 @@ pub(crate) fn search_goal(
     let _ = work;
     #[cfg(feature = "parallel")]
     if options.schedule == super::Schedule::Auto
-        && let Some(result) = schedule::alternate(
-            forest, goal, fragment, mode, reading, &classes, options, limits, searches, work, stop,
-        )
+        && let Some(result) = schedule::alternate(set_up, searches, work, stop)
     {
         return result;
     }
-    turns(
-        forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
-    )
+    turns(set_up, searches, stop)
+}
+
+/// What every search of a goal is set up with: the task, the classes of
+/// its forest, the options and the limits.
+#[derive(Clone, Copy)]
+struct SetUp<'a> {
+    /// The goal, its forest, fragment, mode and reading.
+    task: &'a Task<'a>,
+    /// The forest's classes of interchangeable occurrences.
+    classes: &'a Classes,
+    /// The options.
+    options: &'a Options,
+    /// The limits.
+    limits: &'a Limits,
+}
+
+/// The passes before any search of the goal, on one thread or a pool:
+/// the forest's classes and the plan of its searches, each followed by a
+/// poll on a large forest. `None` when the stop fired at one.
+fn prepare(
+    task: &Task<'_>,
+    options: &Options,
+    stop: &mut dyn FnMut(u64) -> bool,
+) -> Option<(Classes, Plan, Option<Plan>)> {
+    let classes = Classes::new(task.forest, task.reading);
+    if set_up_stopped(task.forest, stop) {
+        return None;
+    }
+    let (first, second) = plan(task.forest, task.goal, task.fragment, task.mode, options);
+    if set_up_stopped(task.forest, stop) {
+        return None;
+    }
+    Some((classes, first, second))
 }
 
 /// The rules in force beyond the core ones, switched by fragment and mode.
@@ -486,30 +488,19 @@ struct Problem<'a> {
 }
 
 impl<'a> Problem<'a> {
-    /// The problem of a search of the forest under the fragment and the
-    /// mode, given its reading, counts and classes, with the limits of
-    /// the options and a copy bound of `copies`, charging `account`.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn new(
-        forest: &'a Forest,
-        reading: Option<&'a Reading<'a>>,
-        (counts, classes): (&'a Counts, &'a Classes),
-        fragment: Fragment,
-        mode: Mode,
-        options: &Options,
-        limits: &Limits,
-        copies: u32,
-        account: &'a Account,
-    ) -> Self {
+    /// The problem of a search of the set-up's goal with its counts and a
+    /// copy bound of `copies`, charging `account`.
+    fn new(set_up: SetUp<'a>, counts: &'a Counts, copies: u32, account: &'a Account) -> Self {
+        let task = set_up.task;
         Self {
-            forest,
-            reading,
+            forest: task.forest,
+            reading: task.reading,
             counts,
-            classes,
-            rules: Switches::new(fragment, mode, counts),
+            classes: set_up.classes,
+            rules: Switches::new(task.fragment, task.mode, counts),
             account,
-            memoizes: options.memo_limit != 0,
-            recursion_limit: limits.recursion_depth,
+            memoizes: set_up.options.memo_limit != 0,
+            recursion_limit: set_up.limits.recursion_depth,
             copies,
         }
     }
@@ -634,6 +625,13 @@ impl<'a> Run<'a> {
                 members: Pooled::default(),
             },
         }
+    }
+
+    /// Searches the goal ([`Run::run`]) and keeps the proof found: the
+    /// kept node, `None` for an exhaustive search, or why it stopped.
+    fn run_kept(&mut self, goal: &[OccId]) -> Result<Option<NodeId>, Reason> {
+        self.run(goal)
+            .and_then(|root| root.map(|root| self.nodes.keep(0, root)).transpose())
     }
 
     /// Returns the counters, with the memo's.

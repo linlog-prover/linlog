@@ -233,6 +233,13 @@ relies on:
   of `Γ`, so a comparison of sequents ran over both bitsets before it
   met the difference (the `growing` family at a bound of 1 024 took
   530 ms of CPU for 392 961 stable sequents, 260 ms with the hashes).
+- **One set-up on one thread and on a pool**: `prepare` makes the
+  classes and the plan, polling after each on a large forest; a `SetUp`
+  (the task, the classes, the options, the limits) is what `turns`,
+  `alternate`, `Plan::search`, `Plan::search_on` and `Problem::new`
+  take; `Run::run_kept` runs a search and keeps its proof. A new way to
+  run the searches takes a `SetUp`, never the task's fields one by one,
+  so that the two `search_goal`s cannot drift apart.
 - **The default bias with exponentials is two searches** (`focus::plan`,
   `search_goal`). `Bias::Auto` on a goal with exponentials in linear
   mode, classical or intuitionistic (the fragment searched and the

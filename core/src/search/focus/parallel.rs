@@ -23,21 +23,19 @@
 //! read.
 
 use super::arena::{Arena, Kept};
-use super::classes::Classes;
 use super::context::Context;
 use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
 use super::schedule::{Plan, merged};
 use super::split::Join;
-use super::{Alternative, Cuts, Found, Problem, Run, Step};
+use super::{Alternative, Cuts, Found, Problem, Run, SetUp, Step};
 use crate::Error;
-use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
-use crate::occurrences::{Forest, OccId, OccSet, Reading};
+use crate::occurrences::{OccId, OccSet};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, lock, record, taken};
-use crate::search::{Finished, Options, Reason, Statistics, Stop, Work, set_up_stopped};
+use crate::search::{Finished, Options, Reason, Statistics, Stop, Task, Work};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -60,37 +58,28 @@ const MAX_FIXED: usize = 6;
 /// # Errors
 ///
 /// [`Error::ThreadPool`] when a pool's threads cannot start.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn search_goal(
-    forest: &Forest,
-    goal: &[OccId],
-    fragment: Fragment,
-    mode: Mode,
-    reading: Option<&Reading>,
+    task: &Task<'_>,
     options: &Options,
     limits: &Limits,
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Result<Finished, Error> {
-    // On a large forest the passes of the set-up are followed by a poll;
-    // from the pool's start the driver polls.
-    let stopped = || Ok(Finished::gave_up(Reason::Stopped));
-    let classes = Classes::new(forest, reading);
-    if set_up_stopped(forest, stop) {
-        return stopped();
-    }
+    // From the pool's start the driver polls.
+    let Some((classes, first, second)) = super::prepare(task, options, stop) else {
+        return Ok(Finished::gave_up(Reason::Stopped));
+    };
+    let set_up = SetUp {
+        task,
+        classes: &classes,
+        options,
+        limits,
+    };
     let stack = limits.stack_bytes();
-    let (first, second) = super::plan(forest, goal, fragment, mode, options);
-    if set_up_stopped(forest, stop) {
-        return stopped();
-    }
     let search = |rule: Plan, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
         account.charge(classes.bytes());
-        rule.search_on(
-            forest, goal, fragment, mode, reading, &classes, options, limits, account, runtime,
-            flags,
-        )
+        rule.search_on(set_up, account, runtime, flags)
     };
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
@@ -127,51 +116,30 @@ impl Plan {
     /// with a memo and an arena of its own that its workers share, stopped
     /// by the flags; on a pool of one thread it is the sequential engine.
     /// Returns what [`Plan::search`] does.
-    #[allow(clippy::too_many_arguments)]
     fn search_on(
         self,
-        forest: &Forest,
-        goal: &[OccId],
-        fragment: Fragment,
-        mode: Mode,
-        reading: Option<&Reading>,
-        classes: &Classes,
-        options: &Options,
-        limits: &Limits,
+        set_up: SetUp<'_>,
         account: &Account,
         runtime: &Runtime,
         flags: Flags<'_>,
     ) -> Finished {
         // The longest pass of the set-up reads the flags too.
+        let forest = set_up.task.forest;
         let counts = match Counts::new_until(forest, self.bias, account, &mut |_| flags.raised()) {
             Ok(counts) => counts,
             Err(reason) => return Finished::gave_up(reason),
         };
-        let memo = Shared::new(options.memo_entries());
+        let memo = Shared::new(set_up.options.memo_entries());
         let arena = Mutex::new(Vec::new());
         let (result, statistics) = {
-            let problem = Problem::new(
-                forest,
-                reading,
-                (&counts, classes),
-                fragment,
-                mode,
-                options,
-                limits,
-                self.copies,
-                account,
-            );
             let mut engine = Run::new(
-                problem,
+                Problem::new(set_up, &counts, self.copies, account),
                 Stop::Flags(flags, 0),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
             );
             engine.runtime = (runtime.threads() > 1).then_some(runtime);
-            let result = engine
-                .run(goal)
-                .and_then(|root| root.map(|root| engine.nodes.keep(0, root)).transpose());
-            (result, engine.statistics())
+            (engine.run_kept(set_up.task.goal), engine.statistics())
         };
         Finished {
             result,
