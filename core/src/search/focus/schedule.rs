@@ -73,8 +73,6 @@ pub(super) fn turns(
                 stop,
             );
             statistics.add(&run);
-            statistics.memo_hits += run.memo_hits;
-            statistics.memo_entries = statistics.memo_entries.max(run.memo_entries);
             match result {
                 Err(Reason::Stopped) if over => {}
                 Err(Reason::Stopped) => return (Err(Reason::Stopped), nodes, statistics),
@@ -563,7 +561,8 @@ pub(super) fn merged(
     limits: &Limits,
 ) -> (Search, Vec<Node>, Statistics) {
     let mut statistics = first.2;
-    statistics.add(&second.2);
+    // The two memos were held at once.
+    statistics.add_run(&second.2);
     statistics.memo_hits += second.2.memo_hits;
     statistics.memo_entries += second.2.memo_entries;
     debug_assert!(

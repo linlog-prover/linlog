@@ -988,7 +988,7 @@ pub(crate) mod parallel {
                             }
                             break;
                         }
-                        lock(collected).statistics.add(&engine.statistics);
+                        lock(collected).statistics.add_run(&engine.statistics);
                     });
                 }
             });

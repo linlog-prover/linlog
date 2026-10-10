@@ -786,14 +786,7 @@ fn alone_first(
         } else {
             (pooled?, first?)
         };
-        let (s, f) = (&mut outcome.statistics, &other.statistics);
-        s.nodes += f.nodes;
-        s.memo_hits += f.memo_hits;
-        s.memo_entries = s.memo_entries.max(f.memo_entries);
-        s.splits += f.splits;
-        s.links += f.links;
-        s.tests += f.tests;
-        s.copies = s.copies.max(f.copies);
+        outcome.statistics.add(&other.statistics);
         Ok(outcome)
     })
 }

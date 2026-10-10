@@ -105,7 +105,7 @@ pub(crate) fn search_goal(
         .pair(*x, *y)
         .map_err(|r| super::focus::reason(r, options, limits));
     let statistics = Statistics {
-        memo_entries: engine.memo_peak,
+        memo_entries: engine.memo_peak as u64,
         ..engine.statistics
     };
     (result, engine.nodes, statistics)
@@ -451,6 +451,6 @@ mod tests {
         let s = outcome.statistics;
         assert!(s.memo_entries <= 255 * 255, "{}", s.memo_entries);
         assert!(s.memo_hits > 0);
-        assert_eq!(s.memo_entries as u64 + s.memo_hits, s.nodes);
+        assert_eq!(s.memo_entries + s.memo_hits, s.nodes);
     }
 }

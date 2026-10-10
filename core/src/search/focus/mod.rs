@@ -792,7 +792,7 @@ impl<'a> Engine<'a> {
     fn statistics(&self) -> Statistics {
         Statistics {
             memo_hits: self.memo.hits(),
-            memo_entries: self.memo.peak(),
+            memo_entries: self.memo.peak() as u64,
             ..self.statistics
         }
     }

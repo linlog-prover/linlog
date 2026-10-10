@@ -247,7 +247,7 @@ impl Collected {
     /// Takes a worker's result: a proof or an error settles the choice
     /// and raises its flag, a failure adds its cuts.
     fn take(&mut self, result: Step, worker: &Engine<'_>, cancel: &AtomicBool) {
-        self.statistics.add(&worker.statistics);
+        self.statistics.add_run(&worker.statistics);
         match result {
             Ok(Found::Proved(node)) => {
                 self.proof.get_or_insert(node);
@@ -423,7 +423,7 @@ impl<'a> Engine<'a> {
         let collected = collected
             .into_inner()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        self.statistics.add(&collected.statistics);
+        self.statistics.add_run(&collected.statistics);
         match (collected.proof, collected.error) {
             (Some(node), _) => Ok(Found::proved(node)),
             (None, Some(reason)) => Err(reason),
@@ -529,8 +529,8 @@ impl<'a> Engine<'a> {
             .into_inner()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .expect("the worker reports before the scope ends");
-        self.statistics.add(&left.statistics);
-        self.statistics.add(&right.statistics);
+        self.statistics.add_run(&left.statistics);
+        self.statistics.add_run(&right.statistics);
         match (left.result, right.result) {
             (Ok(Found::Proved(l)), Ok(right @ Found::Proved(_))) => {
                 Ok(self.both(o, l, right, self.nodes.mark()))

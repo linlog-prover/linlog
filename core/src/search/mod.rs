@@ -1754,11 +1754,13 @@ pub struct Statistics {
     /// it had kept already, and in affine mode those a marking kept
     /// already covers.
     pub memo_hits: u64,
-    /// The most stable sequents the memo held at once; of two searches
-    /// that ran together, the two memos' together, and of two that took
-    /// turns from their start, the most of one turn; of the Horn engine,
-    /// the markings it kept.
-    pub memo_entries: usize,
+    /// The most stable sequents the memo held at once; on a pool, whose
+    /// memo is shards each emptied by itself, the sum of the shards'
+    /// peaks, which bounds it from above; of two searches that ran
+    /// together, the two memos' together, and of two that took turns from
+    /// their start, the most of one turn; of the Horn engine, the markings
+    /// it kept. A `u64` on every target, as every counter is.
+    pub memo_entries: u64,
     /// The context splits examined for `⊗` and Mix, most of them rejected by
     /// the counts.
     pub splits: u64,
@@ -1775,10 +1777,20 @@ pub struct Statistics {
 }
 
 impl Statistics {
+    /// Adds the counters of another search, one that ran beside this one
+    /// or after it, to these: the work done adds up, and the memo's peak
+    /// and the copy bound reached are the larger of the two, since each
+    /// search had a memo and a deepening of its own.
+    pub fn add(&mut self, other: &Statistics) {
+        self.add_run(other);
+        self.memo_hits += other.memo_hits;
+        self.memo_entries = self.memo_entries.max(other.memo_entries);
+    }
+
     /// Adds another engine's counters to these, the memo's excepted: they
     /// describe a table, not a run, and a parallel search reads them off
     /// the one table its workers share.
-    pub(crate) fn add(&mut self, other: &Statistics) {
+    pub(crate) fn add_run(&mut self, other: &Statistics) {
         self.nodes += other.nodes;
         self.splits += other.splits;
         self.links += other.links;
@@ -1920,6 +1932,43 @@ mod tests {
                 (setting, text)
             );
         }
+    }
+
+    /// Two searches' counters add up, but the memo's peak and the copy
+    /// bound reached, which are the larger of the two.
+    #[test]
+    fn statistics_add_up() {
+        let mut first = Statistics {
+            nodes: 3,
+            memo_hits: 1,
+            memo_entries: 7,
+            splits: 2,
+            links: 1,
+            tests: 4,
+            copies: 2,
+        };
+        let second = Statistics {
+            nodes: 5,
+            memo_hits: 2,
+            memo_entries: 4,
+            splits: 1,
+            links: 3,
+            tests: 1,
+            copies: 5,
+        };
+        first.add(&second);
+        assert_eq!(
+            first,
+            Statistics {
+                nodes: 8,
+                memo_hits: 3,
+                memo_entries: 7,
+                splits: 3,
+                links: 4,
+                tests: 5,
+                copies: 5,
+            }
+        );
     }
 
     /// Unit-free MLL reaches the net engine unless a literal occurs more

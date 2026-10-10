@@ -77,7 +77,7 @@ pub(super) fn search(
     let statistics = Statistics {
         nodes: forward.nodes() + nodes,
         memo_hits: forward.repeated + hits,
-        memo_entries: forward.kept + kept,
+        memo_entries: (forward.kept + kept) as u64,
         ..Statistics::default()
     };
     (result, statistics)

@@ -52,7 +52,7 @@ pub(super) fn search(
     let statistics = Statistics {
         nodes: search.computed,
         memo_hits: search.covered,
-        memo_entries: search.parents.len(),
+        memo_entries: search.parents.len() as u64,
         ..Statistics::default()
     };
     (result, statistics)
