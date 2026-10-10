@@ -21,7 +21,12 @@ in one call, the library's side of `linlog prove`'s batch.
   next problem holds the lock, and a client that sends the next question
   only after the answer would otherwise deadlock with it. A worker that
   waits for its turn looks again every `WAIT`, so a lost wake-up costs
-  10 ms, not a hang.
+  10 ms, not a hang. **The end of a batch is a flag beside the queue**
+  (`Shared::over`, set without the lock when the results are dropped or
+  a work panics): the queue's own mark is set with `try_lock`, which a
+  worker waiting on a stream can hold, and a worker waiting at the
+  window that missed the mark woke every 10 ms for good, keeping the
+  problems alive (`dropped_results_end_the_batch` pins the drop).
 - **Threads only behind `parallel`** (the crate's rule): without the
   feature, or with one worker, the batch runs lazily on the caller's
   thread, one problem per `next`; the workers' stacks are the plan's

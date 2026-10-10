@@ -410,7 +410,7 @@ mod workers {
     use super::{Cancel, Plan};
     use std::collections::BTreeMap;
     use std::panic::AssertUnwindSafe;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
     use std::sync::{Arc, Condvar, Mutex};
     use std::thread::JoinHandle;
@@ -444,6 +444,11 @@ mod workers {
         given: AtomicUsize,
         /// Woken when a result is given out.
         turn: Condvar,
+        /// Whether the batch ended, which a worker that waits for its
+        /// turn reads without the lock: the queue's own mark is set with
+        /// `try_lock`, which a worker waiting on a stream can hold, and
+        /// a worker that missed it waited at the window for good.
+        over: AtomicBool,
     }
 
     /// The workers and the results they sent before their turn.
@@ -484,6 +489,7 @@ mod workers {
                 }),
                 given: AtomicUsize::new(0),
                 turn: Condvar::new(),
+                over: AtomicBool::new(false),
             });
             let work = Arc::new(work);
             let (sender, done) = channel();
@@ -500,6 +506,7 @@ mod workers {
                             let (place, problem) = {
                                 let mut queue = shared.queue.lock().expect("no panic holds it");
                                 while !queue.ended
+                                    && !shared.over.load(Ordering::Acquire)
                                     && queue.taken >= shared.given.load(Ordering::Acquire) + ahead
                                 {
                                     queue = shared
@@ -508,7 +515,7 @@ mod workers {
                                         .expect("no panic holds it")
                                         .0;
                                 }
-                                if queue.ended {
+                                if queue.ended || shared.over.load(Ordering::Acquire) {
                                     return;
                                 }
                                 let Some(problem) = queue.problems.next() else {
@@ -530,6 +537,8 @@ mod workers {
                                     // holds the queue waits on a stream, and
                                     // ends at its next send.
                                     cancel.cancel();
+                                    shared.over.store(true, Ordering::Release);
+                                    shared.turn.notify_all();
                                     if let Ok(mut queue) = shared.queue.try_lock() {
                                         queue.ended = true;
                                     }
@@ -564,6 +573,8 @@ mod workers {
                     raise.turn.notify_all();
                 }),
                 end: Box::new(move || {
+                    end.over.store(true, Ordering::Release);
+                    end.turn.notify_all();
                     if let Ok(mut queue) = end.queue.try_lock() {
                         queue.ended = true;
                     }
