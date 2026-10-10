@@ -5,7 +5,7 @@
 //! from a pool and gives it back, so that no step allocates once the
 //! pools are warm.
 
-use super::Engine;
+use super::Run;
 use super::context::Context;
 use super::counts::{Split, Tally};
 use super::split::{Cursors, Frame};
@@ -13,7 +13,7 @@ use crate::occurrences::{OccId, OccSet};
 use crate::proofs::{Branch, NodeId};
 use crate::search::memory::{Charged, bytes_of};
 
-impl Engine<'_> {
+impl Run<'_> {
     /// Takes an empty set from the pool.
     pub(super) fn take_set(&mut self) -> OccSet {
         match self.pools.sets.pop() {

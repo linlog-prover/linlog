@@ -145,13 +145,13 @@ outcome's `work` is that count. The command's default and the harness's
   the goal's members, and reports the first atom by the sequent's order
   whose summed interval excludes zero (`Tally::unbalanced`, through
   `Counts::ranked`, the atoms that have rows by rank), else the count
-  equation when `Rules` applies it, with the goal's `⊗`, `⅋`, `1` and
+  equation when `Switches` applies it, with the goal's `⊗`, `⅋`, `1` and
   `⊥` counted. Why the goal's sums are a refutation although the engine
   tests stable sequents only: the asynchronous phase keeps them (a `⅋`
   adds a member and a `−1` of weight, a `⊥` takes a member and a `+1`,
   a premise of `&` lies in its hull, a `?` moves a formula whose atoms
   have no rows), so every stable sequent the goal reaches fails the same
-  test, under the same `Rules` the engine searched with. It runs only on
+  test, under the same `Switches` the engine searched with. It runs only on
   a refutation, after the search, so no counter of a run moves; its
   time is one more `Counts` pass on a refuted sequent. Without a
   refutation from the counts (a `⊤` absorbs, weakening, exponential
@@ -274,10 +274,10 @@ outcome's `work` is that count. The command's default and the harness's
   - *The focused engine*: once per stable sequent (`prove_stable`); once
     every `SPLITS_PER_POLL` (4096) steps of its searches for the splits
     of a `⊗` or a Mix (`poll_splits`, on a counter of its own,
-    `Engine::steps`: a split search whose splits fail in focus visits no
+    `Run::steps`: a split search whose splits fail in focus visits no
     stable sequent and can run for minutes); once every
     `FORCED_PER_POLL` (4096) forced splits and literals of tensors
-    closed in place (`poll_forced`, counter `Engine::forced`: a chain of
+    closed in place (`poll_forced`, counter `Run::forced`: a chain of
     forced splits visits no stable sequent either, and a marking of a
     Petri net is a tensor of thousands of literals); and on a pool at
     every `&` (`with_parallel`, below). The first two pass the work
@@ -363,12 +363,12 @@ not by what is in use. `prove_goal` makes one per search.
   ends by the bound at a peak of 253 MiB, under 16 MiB at 20 MiB.
 - **The order of answers** when memory runs short: a memo that has no
   room for a new key is emptied and the kept arena collected
-  (`Engine::remember`; the same as at `memo_limit`, which stays as the
+  (`Run::remember`; the same as at `memo_limit`, which stays as the
   finer knob: it is what the pinned counters depend on, and a table
   that fits the cache can beat one that fits the memory); a search
   that finds itself over the bound at a stable sequent empties the
   memo, collects, and if that is not enough gives the memo's memory
-  back (`Engine::relieve`); `Unknown(Reason::MemoryLimit(bytes))` when
+  back (`Run::relieve`); `Unknown(Reason::MemoryLimit(bytes))` when
   what is left, the branch's own buffers and proofs as allocated, is
   still over, or when an empty memo cannot have its first chunk. The
   value in the reason is the option's, whatever share a search had

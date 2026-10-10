@@ -237,7 +237,7 @@ What the code relies on:
   costs a test over the structure. A frame is `forced` when its literal
   had exactly one admissible partner when it was chosen (`choose`
   counts the best literal's partners to the end, so the count is exact
-  and is what `next_partner` will find); `Engine::choices` counts the
+  and is what `next_partner` will find); `Linker::choices` counts the
   frames that are not, which is what a pool's cubes are cut by (below).
   Neither changes the search on one thread.
 - **Where it loses.** Horn encodings (Matsuoka's Partition and Lincoln's

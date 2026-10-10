@@ -154,14 +154,14 @@ has no or-choices worth sharing out). What the code relies on:
   skip's stop included) is recorded. Mix stays sequential after the
   parallel alternatives failed (`last_resort`).
 - **A worker reads its branch in place, and is not a copy of the
-  engine** (`Spawn`, `Spawn::worker`): `Engine::new` builds it, the one
+  engine** (`Spawn`, `Spawn::worker`): `Run::new` builds it, the one
   constructor of an engine, from the spawning engine's `Problem`
   (forest, reading, counts, classes, rules, account and limits), with
   the shared memo and arena by reference and fresh pools and counters,
   and then gives it the branch: `depth`, `or_depth`, and as `ancestors`
   the spawning engine's own ancestors and live stack of keys with their
-  hashes, as slices (`Engine::repeated` reads them before its own stack,
-  `Engine::above` counts them into a depth). The keys are not copied: the
+  hashes, as slices (`Run::repeated` reads them before its own stack,
+  `Run::above` counts them into a depth). The keys are not copied: the
   spawning engine waits at the scope while its workers run, so its
   stack cannot change under them; a worker's `ancestors` are one slice
   pair per spawn above it, at most `LEVELS` + 1. Copying it, two bitsets of the
@@ -182,10 +182,10 @@ has no or-choices worth sharing out). What the code relies on:
 - **Each rule is written once; the merge of cuts is the scheduler's.**
   A choice's alternatives are one type (`focus::Alternative`: a focus on
   a member of `Γ`, a copy, a side of a `⊕`, the splits under a pattern)
-  with one implementation (`Engine::alternative`), which one thread runs
-  in order (`Engine::choose_here`) and a pool as tasks within its first
-  `LEVELS` choices (`Engine::choose`, `choose_parallel`); a `&` premise
-  is `Engine::premise` and its node `Engine::both` on either. A choice's
+  with one implementation (`Run::alternative`), which one thread runs
+  in order (`Run::choose_here`) and a pool as tasks within its first
+  `LEVELS` choices (`Run::choose`, `choose_parallel`); a `&` premise
+  is `Run::premise` and its node `Run::both` on either. A choice's
   result is a proof if any alternative found one (a proof of one
   alternative wins over an error of another, so the pool may decide
   where one thread gives up with `RecursionLimit`), else the first error
@@ -257,7 +257,7 @@ has no or-choices worth sharing out). What the code relies on:
   the keep, so a hit always finds a complete subtree. A pending id means
   nothing outside its engine, so a result that leaves a worker (an
   alternative's, a `&` premise's, the root's) is kept first
-  (`Engine::exported`); the spawning engine wraps kept ids in pending
+  (`Run::exported`); the spawning engine wraps kept ids in pending
   nodes of its own. Failed branches therefore cost the shared arena
   nothing on the pool either.
 - **Levels never overlap**: `run` deepens the copy bound on the root

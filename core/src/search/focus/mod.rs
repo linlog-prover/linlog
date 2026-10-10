@@ -203,7 +203,7 @@ pub(crate) fn search_goal(
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> (Search, Vec<Node>, Statistics) {
+) -> (Searched, Vec<Node>, Statistics) {
     // On a large forest every pass of the set-up is followed by a poll.
     let gave_up = |r| {
         (
@@ -300,7 +300,7 @@ pub(crate) fn refutation(
     let Ok(counts) = Counts::new_until(forest, Bias::Rarer, account, stop) else {
         return Refutation::Exhausted;
     };
-    let rules = Rules::new(fragment, mode, &counts);
+    let rules = Switches::new(fragment, mode, &counts);
     let mut tally = counts.tally();
     for &o in goal {
         tally.add(&counts, o);
@@ -368,7 +368,7 @@ pub(crate) fn split_passes(
     right: &[OccId],
 ) -> bool {
     let counts = Counts::new(forest, Bias::Auto);
-    let rules = Rules::new(fragment, mode, &counts);
+    let rules = Switches::new(fragment, mode, &counts);
     let mut split = counts.split();
     for (members, side) in [(left, Branch::Left), (right, Branch::Right)] {
         for &m in members {
@@ -380,7 +380,7 @@ pub(crate) fn split_passes(
 
 /// The rules in force beyond the core ones, switched by fragment and mode.
 #[derive(Clone, Copy, Debug)]
-struct Rules {
+struct Switches {
     /// The Mix rule, tried last on a stable sequent; off under weakening,
     /// which makes it admissible.
     mix: bool,
@@ -400,7 +400,7 @@ struct Rules {
     stack: bool,
 }
 
-impl Rules {
+impl Switches {
     /// The rules for a fragment and a mode: the count equation only in the
     /// multiplicative fragments without weakening, the interval check
     /// unless weakening or a `⊤` under an exponential defeats it, and Mix
@@ -426,7 +426,7 @@ impl Rules {
 
 /// The result of a search: the node proving the goal, `None` when it is
 /// unprovable, or the reason the search stopped.
-pub(crate) type Search = Result<Option<NodeId>, Reason>;
+pub(crate) type Searched = Result<Option<NodeId>, Reason>;
 
 /// What a failure below a step rests on besides the sequents it searched:
 /// a branch cut by the copy budget, or a prune by the loop check, which
@@ -580,7 +580,7 @@ struct Problem<'a> {
     /// Its classes of interchangeable occurrences.
     classes: &'a Classes,
     /// The rules in force.
-    rules: Rules,
+    rules: Switches,
     /// The search's account, which the memo, the arena and the buffers are
     /// charged to.
     account: &'a Account,
@@ -613,7 +613,7 @@ impl<'a> Problem<'a> {
             reading,
             counts,
             classes,
-            rules: Rules::new(fragment, mode, counts),
+            rules: Switches::new(fragment, mode, counts),
             account,
             memoizes: options.memo_limit != 0,
             recursion_limit: limits.recursion_depth,
@@ -646,7 +646,7 @@ struct ByClass {
 /// The state of one run: the problem, the memo, the proof arena, the
 /// counters, the branch, and pools of scratch buffers so that no step
 /// allocates once the pools are warm.
-struct Engine<'a> {
+struct Run<'a> {
     /// The problem.
     forest: &'a Forest,
     /// Its intuitionistic reading, for a two-sided search.
@@ -656,7 +656,7 @@ struct Engine<'a> {
     /// Its classes of interchangeable occurrences.
     classes: &'a Classes,
     /// The rules in force.
-    rules: Rules,
+    rules: Switches,
     /// The memo of stable sequents.
     memo: Table<'a>,
     /// The proof arena.
@@ -725,7 +725,7 @@ struct Engine<'a> {
     by_class: ByClass,
 }
 
-impl<'a> Engine<'a> {
+impl<'a> Run<'a> {
     /// Prepares a run on the problem with the stop condition, the memo and
     /// the arena to use, at the root of its branch; a pool's worker is one
     /// that is then given the branch it continues.
@@ -806,7 +806,7 @@ impl<'a> Engine<'a> {
     /// phase on its formulas, once per copy bound from zero up to the
     /// configured one, until a level proves it or fails without ever
     /// spending its budget. Without exponentials there is one level.
-    fn run(&mut self, goal: &[OccId]) -> Search {
+    fn run(&mut self, goal: &[OccId]) -> Searched {
         let levels = if self.rules.exponentials {
             self.copies
         } else {

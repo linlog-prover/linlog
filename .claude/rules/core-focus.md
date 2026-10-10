@@ -13,20 +13,20 @@ memory account counts are in `core-search.md`; the pool it runs on is
 
 ## The focused engine
 
-**Files.** `mod.rs` holds the engine (`Engine`, built only by
-`Engine::new` from a `Problem`: the forest, reading, counts, classes,
+**Files.** `mod.rs` holds the engine (`Run`, a run of it, built only by
+`Run::new` from a `Problem`: the forest, reading, counts, classes,
 rules, account and limits every engine of a search shares), its phases
 and the interface the front door calls (`Focused`, `ONE_SIDED`,
 `TWO_SIDED`); `split.rs` the `⊗` rule and Mix (forced chains, the split
 search); `arena.rs` the proof arena; `scratch.rs` the pools of buffers
 (`Pools`); `schedule.rs` the two searches of the default bias (`plan`,
-`chains`, `Rule`, `turns`, and the threaded `alternate` with its baton);
+`chains`, `Plan`, `turns`, and the threaded `alternate` with its baton);
 `parallel.rs` the engine on a pool; `tests.rs` the tests; `bias.rs`,
 `classes.rs`, `context.rs`, `counts.rs`, `memo.rs` as named below.
 
 `search/focus/mod.rs` is the spec's MALL-Seq and MELL-Seq in one engine, for
 every classical fragment up to full LL, with units, Mix, the exponentials
-and affine mode as rule switches (`Rules`, from `Fragment` and `Mode`), and
+and affine mode as rule switches (`Switches`, from `Fragment` and `Mode`), and
 the spec's two-sided engine for every intuitionistic fragment when given
 the sequent's `Reading` (`Engine::TwoSided` is that configuration). Its
 functions are the spec's rules: `asynchronous` (the phase `⊢ Θ ; Γ ⇑ L`),
@@ -239,7 +239,7 @@ relies on:
   forest both have a `!` or `?`, the mode is not affine), is decided by
   the *backward* search, `Bias::Rarer` within `Options::copies`, which
   is what `Auto` was alone before, and by the *forward* search,
-  `Bias::Factors`, each an unchanged search of the engine (`Rule`: a
+  `Bias::Factors`, each an unchanged search of the engine (`Plan`: a
   bias and a copy bound) with a memo, an arena, a branch stack and
   counts of its own. The first to decide answers. What the code relies
   on, and what it promises:
@@ -252,7 +252,7 @@ relies on:
     restarted, only made to wait, so its run is the explicit one
     counter for counter (`default_bias_takes_turns` pins the sum);
     where they take turns from their start, every turn begins with a
-    fresh `Engine`, memo and arena, so a turn is a prefix of the
+    fresh `Run`, memo and arena, so a turn is a prefix of the
     explicit run and the turn that is not cut *is* that run. `Auto`
     ends only on a decided result or when both searches ended. The
     forward search's levels up to `copies` are those of `Bias::Factors`
@@ -354,7 +354,7 @@ relies on:
     `NODE_WORK` plus what grows with its size (the forest's width for
     the zones, the members, the copies and their comparisons with the
     members in `meets`), a split whose premises are tried the forest's
-    width again. The engine adds these up in `Engine::work` and hands
+    width again. The engine adds these up in `Run::work` and hands
     them to the stop condition at its two polls (`Stop::fired(work)`);
     `Stop::Closure` and `Stop::Flags` ignore them, so nothing changes
     for a search that runs alone. So a run is a function of the input.
@@ -419,7 +419,7 @@ relies on:
     baseline decided to the 5 s limit, which is why threads are used
     where they exist.
   - **On a pool** (`focus::parallel::search_goal`, `search::parallel::
-    race`, `Rule::search_on`) the two searches run side by side, each
+    race`, `Plan::search_on`) the two searches run side by side, each
     with its own shared memo and arena, the forward one on a pool of
     `jobs / 2` threads and the backward one on a pool of the rest, and
     a decided result raises the other's root flag. Two pools and not
@@ -427,7 +427,7 @@ relies on:
     on one pool a thread of the search that has just decided can be
     deep inside a task of the other, which nothing stops, and the
     verdict waits for it. A pool of one thread runs the sequential
-    engine (`Rule::search_on` leaves `runtime` unset). The merge
+    engine (`Plan::search_on` leaves `runtime` unset). The merge
     (`merged`, shared with `alternate`): a verdict of either; else
     `Stopped` when either was stopped, which without a verdict can only
     be the caller's stop; else the backward search's reason.
@@ -450,7 +450,7 @@ relies on:
   goes on to the next pair when the budget refuses a copy), `1` and `!`
   are candidates with any context, a `0` is not fatal (it is weakened at a
   leaf), and the interval check and the count equation are off
-  (`Rules::intervals`, `Rules::equation`): weakening discards any
+  (`Switches::intervals`, `Switches::equation`): weakening discards any
   imbalance.
 - **The rules with `Θ`.** D1 candidates first (`⊗`, `⊕`; `1` and `!` only
   when alone), then the copies from `Θ`: a member with an unconsumed copy
@@ -499,11 +499,11 @@ relies on:
   the node and marks the arena (`overflowed`), after which every `keep`
   fails, so no proof resting on the missing node gets out (every proof
   that leaves an engine passes a `keep`: the memo's, the root's in
-  `Rule::search`, a worker's in `exported`). A proof's node order is
+  `Plan::search`, a worker's in `exported`). A proof's node order is
   the order of keeping, which `core/tests/serialize.rs` pins on one
   small proof.
 - **The kept arena is collected when an engine's own memo is emptied**
-  (`Arena::collect`, from `Engine::remember` and `relieve`): the proofs
+  (`Arena::collect`, from `Run::remember` and `relieve`): the proofs
   of entries the memo dropped were never reclaimed, and on `qbf/48#0`
   they grew by 15 MB a second until the machine's memory was gone. A
   collection keeps what the pending nodes, the ids *held* and the root
@@ -553,7 +553,7 @@ relies on:
   stronger, and is a follow-up. The count equation
   `c = t − p − #1 + #⊥ + 2` (`≥` with Mix, and `>` for a Mix to be worth
   trying) is only sound without additives, additive units or
-  exponentials and without weakening, and `Rules::equation` switches it on
+  exponentials and without weakening, and `Switches::equation` switches it on
   for exactly those cases; `⊢ a ⊕ b, ~a` is the counterexample the spec
   names. A `Tally` keeps a set's sums incrementally; a `Split` keeps those
   of the two sides of a split in the making and what the members not yet
@@ -616,7 +616,7 @@ relies on:
   varies (`C(n, k)` splits of `n` equal hypotheses become one per `k`).
   Sound and complete by the lemma: a split with another choice of as
   many gives the same two premises up to a replacement. In the order of
-  `Engine::open` a class is a run with descending ids, so the rule is
+  `Run::open` a class is a run with descending ids, so the rule is
   "a member goes left at once when the one before it is of its class
   and went left", which the trail decides; on the pool the patterns
   that break it are not spawned (`split_parallel`), so the chunks still
@@ -675,7 +675,7 @@ relies on:
   proved in 1.1 s and `Diffusion2D_2D8_gradient_40x40_50_5_1` in 0.27 s
   where 4.9 s were needed before it.
 - **`split_passes`** is the count test of a split as a function (the
-  engine's `Rules::new` and a `Split` with every member placed), for the
+  engine's `Switches::new` and a `Split` with every member placed), for the
   interactive state's helper. It is `Split::feasible`, the very test the
   engine's search ends on, so the two cannot drift apart.
 - **Free splits are searched, not enumerated** (`search_splits`, for `⊗`
@@ -703,7 +703,7 @@ relies on:
   whose every leaf fails that test. `Split::bad` counts the excluded
   atoms incrementally (`update` compares before and after, both sides,
   on the atoms of the member's row), so a step costs the member's row.
-  The order (`Engine::open`): longer rows first (a compound member
+  The order (`Run::open`): longer rows first (a compound member
   bears on several atoms; once the compounds are placed the literals of
   an atom are settled by its counts), then by the row's first atom, so
   that an atom's literals are neighbours, then descending id, so that
@@ -713,7 +713,7 @@ relies on:
   which proof is found first and nothing else. `Statistics::splits`
   counts the steps of these searches (one feasibility test each) and the
   forced splits. Where no prune can cut (`Split::set_inert`, decided in
-  `Engine::open`: the equation off and no member, placed or open, with a
+  `Run::open`: the equation off and no member, placed or open, with a
   row entry that excludes zero by itself, which is every split under
   weakening and every Mix of formulas like `(a ⊗ b) ⊕ 0`), `feasible` is
   true whatever the assignment, so the counts are left alone and the
@@ -731,7 +731,7 @@ relies on:
   partitions searched by `search_splits` like the splits of a `⊗`, and
   each part decided by `prove` with the same `Θ` and budget, so the memo
   shares parts between partitions.
-- **Mix is left out of the search in affine mode** (`Rules::new`: `mix`
+- **Mix is left out of the search in affine mode** (`Switches::new`: `mix`
   is `mode.mix && !mode.affine`; `Mode`, the checker, the interactive
   rules and the net engine's refusal are untouched). With weakening it
   proves nothing new: carry the other part down the proof of one part;
@@ -874,8 +874,8 @@ relies on:
   with more than twenty copies and called `meets` at every comparison
   (58 % of the samples on the chain of 256 clauses). `meets` itself
   reads marks: `mark_literals` stamps, once per stable sequent, the
-  lists of the literals among its members (`Engine::present`, one
-  stamp per list of the forest, `Engine::stamp` the current one, a
+  lists of the literals among its members (`Run::present`, one
+  stamp per list of the forest, `Run::stamp` the current one, a
   `u64` that cannot wrap in any run), and a formula of `Θ` meets a
   member when a literal below it has its dual's list stamped. Comparing
   every literal below every formula with every member was their

@@ -3,7 +3,7 @@
 
 //! The two searches of the default bias and how they share the cores:
 //! which searches decide a goal ([`plan`]), one search on its own
-//! ([`Rule::search`]), and the two ways they share one core, in turns
+//! ([`Plan::search`]), and the two ways they share one core, in turns
 //! from their start without threads ([`turns`]) and alternating in
 //! slices on two threads ([`alternate`]).
 
@@ -11,7 +11,7 @@ use super::arena::{Arena, Kept};
 use super::classes::Classes;
 use super::counts::Counts;
 use super::memo::{Memo, Table};
-use super::{Engine, Problem, Search, reason};
+use super::{Problem, Run, Searched, reason};
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Reading};
@@ -41,9 +41,9 @@ pub(super) fn turns(
     classes: &Classes,
     options: &Options,
     limits: &Limits,
-    searches: [(Rule, &Counts, &Account); 2],
+    searches: [(Plan, &Counts, &Account); 2],
     stop: &mut dyn FnMut(u64) -> bool,
-) -> (Search, Vec<Node>, Statistics) {
+) -> (Searched, Vec<Node>, Statistics) {
     let mut ended: [Option<Reason>; 2] = [None, None];
     let mut statistics = Statistics::default();
     // The forward search's level and the backward one's, apart.
@@ -124,14 +124,14 @@ const TURN_GROWTH: u64 = 4;
 
 /// One search of a goal: the bias it runs under and its copy bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Rule {
+pub(crate) struct Plan {
     /// The bias.
     pub(super) bias: Bias,
     /// The most copies a branch may take; `u32::MAX` is no bound.
     pub(super) copies: u32,
 }
 
-impl Rule {
+impl Plan {
     /// Runs the search of this rule alone, with a memo and an arena of its
     /// own, until it ends or the stop condition fires. Returns what
     /// [`search_goal`] does, and whether it was a turn that ran out of
@@ -149,7 +149,7 @@ impl Rule {
         limits: &Limits,
         account: &'a Account,
         stop: Stop<'a>,
-    ) -> (Search, Vec<Node>, Statistics, bool) {
+    ) -> (Searched, Vec<Node>, Statistics, bool) {
         let problem = Problem::new(
             forest,
             reading,
@@ -161,7 +161,7 @@ impl Rule {
             self.copies,
             account,
         );
-        let mut engine = Engine::new(
+        let mut engine = Run::new(
             problem,
             stop,
             Table::Own(Memo::new(options.memo_entries())),
@@ -202,7 +202,7 @@ pub(crate) fn plan(
     fragment: Fragment,
     mode: Mode,
     options: &Options,
-) -> (Rule, Option<Rule>) {
+) -> (Plan, Option<Plan>) {
     let copies = options.copy_bound();
     let both = options.bias == Bias::Auto
         && !mode.affine
@@ -214,9 +214,9 @@ pub(crate) fn plan(
         } else {
             options.bias
         };
-        return (Rule { bias, copies }, None);
+        return (Plan { bias, copies }, None);
     }
-    let forward = Rule {
+    let forward = Plan {
         bias: Bias::Factors,
         copies: if !mode.mix && chains(forest, goal) {
             copies.max(options.forward_copies)
@@ -224,7 +224,7 @@ pub(crate) fn plan(
             copies
         },
     };
-    let backward = Rule {
+    let backward = Plan {
         bias: Bias::Rarer,
         copies,
     };
@@ -484,10 +484,10 @@ pub(super) fn alternate(
     [
         (first, first_counts, first_account),
         (second, second_counts, second_account),
-    ]: [(Rule, &Counts, &Account); 2],
+    ]: [(Plan, &Counts, &Account); 2],
     work: &crate::search::Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> Option<(Search, Vec<Node>, Statistics)> {
+) -> Option<(Searched, Vec<Node>, Statistics)> {
     let baton = Baton::default();
     let (forward, backward) = std::thread::scope(|scope| {
         let baton = &baton;
@@ -573,11 +573,11 @@ pub(super) fn alternate(
 /// verdict is the caller's; else the second search's reason. The counters
 /// are both searches' together.
 pub(super) fn merged(
-    first: (Search, Vec<Node>, Statistics),
-    second: (Search, Vec<Node>, Statistics),
+    first: (Searched, Vec<Node>, Statistics),
+    second: (Searched, Vec<Node>, Statistics),
     options: &Options,
     limits: &Limits,
-) -> (Search, Vec<Node>, Statistics) {
+) -> (Searched, Vec<Node>, Statistics) {
     let mut statistics = first.2;
     // The two memos were held at once.
     statistics.add_run(&second.2);

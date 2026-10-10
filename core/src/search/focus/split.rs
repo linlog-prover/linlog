@@ -9,14 +9,14 @@ use super::context::Context;
 use super::counts::{Split, Tally};
 use super::scratch::Pooled;
 use super::{
-    Cuts, Engine, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, SPLITS_PER_POLL, Search, Step,
+    Cuts, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, Run, SPLITS_PER_POLL, Searched, Step,
 };
 use crate::occurrences::{Member, OccId, OccSet, Side};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
 
-impl Engine<'_> {
+impl Run<'_> {
     /// The first occurrence of the literal dual to `literal` in `rest`, the
     /// context of a chain of forced splits, which is what [`Self::dual_in`]
     /// finds there, read from where the chain's last lookup of that
@@ -199,7 +199,7 @@ impl Engine<'_> {
     /// nodes from the last occurrence back, so a tensor of any depth costs
     /// no recursion; the stop condition is polled as in the chain around
     /// it.
-    fn literal_tensor(&mut self, x: OccId, rest: &mut Context, cursors: &mut Cursors) -> Search {
+    fn literal_tensor(&mut self, x: OccId, rest: &mut Context, cursors: &mut Cursors) -> Searched {
         let mut duals = self.take_list();
         for leaf in self.forest.subtree(x) {
             if !self.forest.is_literal(leaf) {

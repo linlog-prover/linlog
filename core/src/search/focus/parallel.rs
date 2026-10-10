@@ -27,9 +27,9 @@ use super::classes::Classes;
 use super::context::Context;
 use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
-use super::schedule::{Rule, merged};
+use super::schedule::{Plan, merged};
 use super::split::Join;
-use super::{Alternative, Cuts, Engine, Found, Problem, Search, Step};
+use super::{Alternative, Cuts, Found, Problem, Run, Searched, Step};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
@@ -72,7 +72,7 @@ pub(crate) fn search_goal(
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> Result<(Search, Vec<Node>, Statistics), Error> {
+) -> Result<(Searched, Vec<Node>, Statistics), Error> {
     // On a large forest the passes of the set-up are followed by a poll;
     // from the pool's start the driver polls.
     let stopped = || Ok((Err(Reason::Stopped), Vec::new(), Statistics::default()));
@@ -85,7 +85,7 @@ pub(crate) fn search_goal(
     if set_up_stopped(forest, stop) {
         return stopped();
     }
-    let search = |rule: Rule, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
+    let search = |rule: Plan, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
         account.charge(classes.bytes());
         rule.search_on(
             forest, goal, fragment, mode, reading, &classes, options, limits, account, runtime,
@@ -121,11 +121,11 @@ pub(crate) fn search_goal(
     Ok(merged(forward, backward, options, limits))
 }
 
-impl Rule {
+impl Plan {
     /// Runs the search of this rule on a pool, from one of its threads,
     /// with a memo and an arena of its own that its workers share, stopped
     /// by the flags; on a pool of one thread it is the sequential engine.
-    /// Returns what [`Rule::search`] does.
+    /// Returns what [`Plan::search`] does.
     #[allow(clippy::too_many_arguments)]
     fn search_on(
         self,
@@ -140,7 +140,7 @@ impl Rule {
         account: &Account,
         runtime: &Runtime,
         flags: Flags<'_>,
-    ) -> (Search, Vec<Node>, Statistics) {
+    ) -> (Searched, Vec<Node>, Statistics) {
         // The longest pass of the set-up reads the flags too.
         let counts = match Counts::new_until(forest, self.bias, account, &mut |_| flags.raised()) {
             Ok(counts) => counts,
@@ -160,7 +160,7 @@ impl Rule {
                 self.copies,
                 account,
             );
-            let mut engine = Engine::new(
+            let mut engine = Run::new(
                 problem,
                 Stop::Flags(flags),
                 Table::Shared(&memo),
@@ -205,8 +205,8 @@ struct Spawn<'s> {
 impl<'s> Spawn<'s> {
     /// Starts a worker: a fresh engine on the spawn's problem that
     /// continues its branch, stopped by the spawn's flags or by `cancel`.
-    fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Engine<'w> {
-        let mut worker = Engine::new(
+    fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w> {
+        let mut worker = Run::new(
             self.problem,
             Stop::Flags(self.flags.child(cancel)),
             Table::Shared(self.memo),
@@ -248,7 +248,7 @@ impl Collected {
 
     /// Takes a worker's result: a proof or an error settles the choice
     /// and raises its flag, a failure adds its cuts.
-    fn take(&mut self, result: Step, worker: &Engine<'_>, cancel: &AtomicBool) {
+    fn take(&mut self, result: Step, worker: &Run<'_>, cancel: &AtomicBool) {
         self.statistics.add_run(&worker.statistics);
         match result {
             Ok(Found::Proved(node)) => {
@@ -292,7 +292,7 @@ struct Premise {
 
 impl Premise {
     /// What a worker found on a premise, with its counters.
-    fn of(worker: &Engine<'_>, result: Step) -> Self {
+    fn of(worker: &Run<'_>, result: Step) -> Self {
         Self {
             result,
             statistics: worker.statistics,
@@ -300,7 +300,7 @@ impl Premise {
     }
 }
 
-impl<'a> Engine<'a> {
+impl<'a> Run<'a> {
     /// Whether the next choice of the branch runs on several threads.
     pub(super) fn cubes(&self) -> bool {
         self.runtime.is_some() && self.or_depth < LEVELS
@@ -504,7 +504,7 @@ impl<'a> Engine<'a> {
         // that gives up cancels the right one too, which one thread never
         // starts then; a right one that gives up leaves the left to run,
         // since its failure still decides the rule, as on one thread.
-        let search = |worker: &mut Engine<'_>, sub: OccId, left: bool| {
+        let search = |worker: &mut Run<'_>, sub: OccId, left: bool| {
             // A premise that panics cancels the other.
             let _cancel = RaiseOnPanic(&cancel);
             let result = worker.premise(theta, gamma, list, sub, budget);

@@ -21,7 +21,7 @@
 //! has one goal by itself, and neither weakening nor Mix can help a
 //! sequent of two formulas, so the procedure is the same in every mode.
 
-use super::focus::Search;
+use super::focus::Searched;
 use super::memory::{Account, bytes_of};
 use super::{Answer, Decide, Engine, NotTaken, Options, Reason, Statistics, Task, Work};
 use crate::Error;
@@ -85,7 +85,7 @@ pub(crate) fn search_goal(
     limits: &Limits,
     account: &Account,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> (Search, Vec<Node>, Statistics) {
+) -> (Searched, Vec<Node>, Statistics) {
     let [x, y] = goal else {
         unreachable!("the dispatch sends goals of two formulas here");
     };
