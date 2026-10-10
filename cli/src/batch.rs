@@ -859,9 +859,16 @@ fn cgroup_memory() -> Option<u64> {
 ///
 /// # Errors
 ///
-/// An input that cannot be read or a format of one sequent; an entry's
-/// own error is its line, never an error of the batch.
+/// A sequent given as an argument, an input that cannot be read or a
+/// format of one sequent; an entry's own error is its line, never an
+/// error of the batch.
 pub fn run(args: &ProveArgs) -> Result<Status> {
+    if args.input.sequent.is_some() {
+        bail!(
+            "a sequent given as an argument is not read in a batch, whose sequents come from \
+             --files-from or a format of many sequents"
+        );
+    }
     crate::prove::ordinary_mode(args)?;
     let start = Instant::now();
     let format = args.output.format();

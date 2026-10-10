@@ -1277,6 +1277,23 @@ fn isolated_entries_with_bundled_flags() {
     assert!(out.contains(&format!("{d}/b.txt: unprovable")), "{out}");
 }
 
+/// A sequent typed as the argument is refused beside a batch's input,
+/// which would otherwise decide its own entries, or none, and leave the
+/// typed sequent unanswered.
+#[test]
+fn a_typed_sequent_is_no_batch_entry() {
+    let list = scratch("typed.list");
+    std::fs::write(&list, "").unwrap();
+    for batch in [
+        &["--input-format", "lines"][..],
+        &["--files-from", &list.to_string_lossy()],
+    ] {
+        let (status, out, err) = linlog(&[&["prove", "A |- B"][..], batch].concat(), "");
+        assert_eq!((status, out.as_str()), (2, ""), "{batch:?}");
+        assert!(err.contains("not read in a batch"), "{err}");
+    }
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

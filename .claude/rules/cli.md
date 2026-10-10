@@ -46,7 +46,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the inputs lazily in order (a directory sorted, links followed, a
   canonical path walked once; a list line by line or by NUL; a file of
   lines as it is read), so a stream on standard input is answered line by
-  line. Each entry is decided by `Shared::answer` on a worker of the
+  line. A sequent given as the argument is refused beside a batch's
+  input, exit 2 (clap's `conflicts_with` names `--file` alone: the other
+  commands lack `--files-from`, and a format of many is a value); it was
+  ignored, and the batch's own status answered for it. Each entry is decided by `Shared::answer` on a worker of the
   library's `search::batch::run`, which keeps the order; the main thread
   writes and flushes each result. `--isolate` runs `linlog` itself per
   entry with the command's whole command line and, right after the
