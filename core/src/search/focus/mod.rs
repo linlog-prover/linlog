@@ -130,21 +130,26 @@ pub(crate) const ONE_SIDED: Focused = Focused { two_sided: false };
 pub(crate) const TWO_SIDED: Focused = Focused { two_sided: true };
 
 impl Decide for Focused {
-    /// Refuses the one-sided engine in intuitionistic mode and the
-    /// two-sided one in classical mode.
+    /// Refuses a goal beyond `LL`, which no detected fragment is yet,
+    /// the one-sided engine in intuitionistic mode and the two-sided one
+    /// in classical mode.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if task.mode.intuitionistic == self.two_sided {
+        let because = if !Fragment::LL.contains(task.fragment) {
+            super::NotTaken::Fragment {
+                decides: Fragment::LL,
+                goal: task.fragment,
+            }
+        } else if task.mode.intuitionistic != self.two_sided {
+            super::NotTaken::Mode { mode: task.mode }
+        } else {
             return Ok(());
-        }
+        };
         let engine = if self.two_sided {
             super::Engine::TwoSided
         } else {
             super::Engine::Focus
         };
-        Err(Error::EngineRefused {
-            engine,
-            because: super::NotTaken::Mode { mode: task.mode },
-        })
+        Err(Error::EngineRefused { engine, because })
     }
 
     /// Searches the goal on one thread, or with the feature `parallel` on
