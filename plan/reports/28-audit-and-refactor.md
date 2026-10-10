@@ -793,4 +793,12 @@ supervisor's go are marked "go".
   its 15 minutes run, coverage 2 839 after 11.7 million inputs, no
   find), to run again from the
   start. Both restart on `planning`'s go.
+- Go (about 09:35): the runs restarted and ended. What was done: the
+  gates of ywyytxwu, myllqqsn and yxxuumxn passed (kvrrwumq before the
+  hold), and so did mzxpvzpm's, which names the nets' test's `alls`
+  `additive` for the flake's `typos` check (`planning`'s find); the fuzz
+  target `json_disproof` ran its 15 minutes: 61 million inputs,
+  coverage 3 138, no find. `nix flake check --keep-going` on the head
+  (mzxpvzpm and the records after it) passed, every check of the flake,
+  which closes the area.
 
