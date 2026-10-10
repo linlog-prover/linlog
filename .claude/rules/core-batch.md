@@ -22,19 +22,22 @@ in one call, the library's side of `linlog prove`'s batch.
   only after the answer would otherwise deadlock with it. A worker that
   waits for its turn looks again every `WAIT`, so a lost wake-up costs
   10 ms, not a hang. **The end of a batch is a flag beside the queue**
-  (`Shared::over`, set without the lock when the results are dropped or
-  a work panics): the queue's own mark is set with `try_lock`, which a
-  worker waiting on a stream can hold, and a worker waiting at the
-  window that missed the mark woke every 10 ms for good, keeping the
-  problems alive (`dropped_results_end_the_batch` pins the drop).
+  (`Shared::over`, set and read without the lock when the results are
+  dropped or a work panics; `Queue::ended` says only that the problems
+  ran out): a mark under the lock, set with `try_lock` since a worker
+  waiting on a stream holds it, was missed, and a worker waiting at the
+  window then woke every 10 ms for good, keeping the problems alive
+  (`dropped_results_end_the_batch` pins the drop; the miss itself needs
+  a worker blocked in the stream at the drop's instant, which no test
+  arranges without sleeps).
 - **Threads only behind `parallel`** (the crate's rule): without the
   feature, or with one worker, the batch runs lazily on the caller's
   thread, one problem per `next`; the workers' stacks are the plan's
   `Limits::stack_bytes`. **A panic in the work is resumed at its
   problem's place** (`a_panic_ends_the_batch_at_its_place`): the worker
-  catches it and sends it with its place, then cancels the batch and ends
-  the queue (`try_lock`: a worker that holds the queue waits on a
-  stream, and ends at its next send), so the other workers take no more
+  catches it and sends it with its place, then cancels the batch and
+  raises `over` (a worker that holds the queue waits on a stream, and
+  ends at its next send), so the other workers take no more
   problems and the iterator, having given out the results before it,
   resumes the panic. A panic that ended a worker had it drop no result,
   so a later place's results filled the window of `AHEAD` per worker,

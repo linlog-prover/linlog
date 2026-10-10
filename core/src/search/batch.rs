@@ -430,7 +430,7 @@ mod workers {
         problems: Box<dyn Iterator<Item = P> + Send>,
         /// How many were taken.
         taken: usize,
-        /// Whether they ended, or the batch did.
+        /// Whether the problems ran out.
         ended: bool,
     }
 
@@ -444,10 +444,10 @@ mod workers {
         given: AtomicUsize,
         /// Woken when a result is given out.
         turn: Condvar,
-        /// Whether the batch ended, which a worker that waits for its
-        /// turn reads without the lock: the queue's own mark is set with
-        /// `try_lock`, which a worker waiting on a stream can hold, and
-        /// a worker that missed it waited at the window for good.
+        /// Whether the batch ended (its results dropped, or a work
+        /// panicked), set and read without the lock, which a worker
+        /// waiting on a stream holds: a mark set under it with `try_lock`
+        /// was missed, and a worker waiting at the window waited for good.
         over: AtomicBool,
     }
 
@@ -504,7 +504,7 @@ mod workers {
                     .spawn(move || {
                         loop {
                             let (place, problem) = {
-                                let mut queue = shared.queue.lock().expect("no panic holds it");
+                                let mut queue = crate::search::lock(&shared.queue);
                                 while !queue.ended
                                     && !shared.over.load(Ordering::Acquire)
                                     && queue.taken >= shared.given.load(Ordering::Acquire) + ahead
@@ -512,7 +512,7 @@ mod workers {
                                     queue = shared
                                         .turn
                                         .wait_timeout(queue, WAIT)
-                                        .expect("no panic holds it")
+                                        .unwrap_or_else(|poisoned| poisoned.into_inner())
                                         .0;
                                 }
                                 if queue.ended || shared.over.load(Ordering::Acquire) {
@@ -538,10 +538,6 @@ mod workers {
                                     // ends at its next send.
                                     cancel.cancel();
                                     shared.over.store(true, Ordering::Release);
-                                    shared.turn.notify_all();
-                                    if let Ok(mut queue) = shared.queue.try_lock() {
-                                        queue.ended = true;
-                                    }
                                     shared.turn.notify_all();
                                 }
                                 return;
@@ -575,9 +571,6 @@ mod workers {
                 end: Box::new(move || {
                     end.over.store(true, Ordering::Release);
                     end.turn.notify_all();
-                    if let Ok(mut queue) = end.queue.try_lock() {
-                        queue.ended = true;
-                    }
                 }),
                 threads,
             })
