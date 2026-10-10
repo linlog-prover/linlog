@@ -31,7 +31,8 @@ front door, the dispatch and the memory account it plugs into are in
   !-Horn sequent `W, Γ, !Δ ⊢ Z`: atoms, implications between tensors of
   atoms used once and under `!`, and one tensor of atoms to reach. It is
   stricter than `focus::schedule::chains`, the forward bound's test,
-  which also takes a goal under `?` (`growing`), no goal or several:
+  which shares its tests of a head and of a clause (`is_head`,
+  `clause_head`) but also takes a goal under `?` (`growing`), no goal or several:
   there the correspondence below fails (`⊢ ~a, a, ~b, b` is reachable as
   a net and unprovable without Mix).
 - **Why a proof is a firing sequence, and a refutation sound.** Every

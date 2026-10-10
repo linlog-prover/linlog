@@ -371,7 +371,7 @@ impl Program {
                 head?;
                 reusable.push((clause, inputs, outputs));
                 quests.push(member);
-            } else if reader.head(member) {
+            } else if is_head(forest, reader.body, member) {
                 tokens.extend(reader.literals(member));
                 markings.push(member);
             } else {
@@ -396,10 +396,7 @@ impl Program {
                 forest.subtree(member).all(|x| {
                     // An occurrence is on the left exactly when it holds
                     // the head or lies in it; a marking is its own head.
-                    let left = head.is_some_and(|h| {
-                        (x <= h && h.index() < x.index() + forest.size(x) as usize)
-                            || (h <= x && x.index() < h.index() + forest.size(h) as usize)
-                    });
+                    let left = head.is_some_and(|h| forest.is_below(h, x) || forest.is_below(x, h));
                     reading.position(x) == if left { Side::Input } else { Side::Output }
                 })
             })
@@ -449,15 +446,6 @@ struct Reader<'a> {
 }
 
 impl Reader<'_> {
-    /// Whether a subformula is a head: `⅋` and `⊥` over literals of the
-    /// heads' sign.
-    fn head(&self, o: OccId) -> bool {
-        self.forest.subtree(o).all(|x| match self.forest.kind(x) {
-            Kind::Par | Kind::Bot => true,
-            _ => self.forest.sign(x) == Some(!self.body),
-        })
-    }
-
     /// The place of a literal's atom, given out when the atom is new.
     fn place(&mut self, literal: OccId) -> u32 {
         let atom = self.forest.atom(literal).expect("a literal").index();
@@ -491,7 +479,7 @@ impl Reader<'_> {
                 Kind::Tensor => factors.extend(forest.children(x)),
                 Kind::One => {}
                 _ if forest.sign(x) == Some(self.body) => inputs.push(self.place(x)),
-                _ if head.is_none() && self.head(x) => head = Some(x),
+                _ if head.is_none() && is_head(forest, self.body, x) => head = Some(x),
                 _ => return None,
             }
         }
@@ -502,7 +490,9 @@ impl Reader<'_> {
     /// The head of a clause read before, or the clause itself for a
     /// marking.
     fn head_of(&self, clause: OccId) -> OccId {
-        head_of(self.forest, self.body, clause).unwrap_or(clause)
+        clause_head(self.forest, self.body, clause)
+            .flatten()
+            .unwrap_or(clause)
     }
 
     /// Gathers the transitions: the clauses under `?` with distinct arcs
@@ -688,17 +678,34 @@ fn live(program: &mut Program) {
     });
 }
 
-/// The head of a clause: its one factor that is neither a tensor, `1`
-/// nor a body literal, if it has one.
-fn head_of(forest: &Forest, body: Sign, clause: OccId) -> Option<OccId> {
+/// Whether a subformula is a head for bodies of the sign `body`: `⅋` and
+/// `⊥` over literals of the other sign.
+pub(crate) fn is_head(forest: &Forest, body: Sign, o: OccId) -> bool {
+    forest.subtree(o).all(|x| match forest.kind(x) {
+        Kind::Par | Kind::Bot => true,
+        _ => forest.sign(x) == Some(!body),
+    })
+}
+
+/// The head of a clause whose bodies have the sign `body`: `Some(None)`
+/// for a clause without one, `None` for no clause, which has a factor
+/// that is neither a body literal, `1`, a tensor nor a head, or two
+/// heads.
+#[expect(
+    clippy::option_option,
+    reason = "no clause, or a clause with or without a head: the goal has none"
+)]
+pub(crate) fn clause_head(forest: &Forest, body: Sign, clause: OccId) -> Option<Option<OccId>> {
+    let mut head = None;
     let mut factors = vec![clause];
     while let Some(x) = factors.pop() {
         match forest.kind(x) {
             Kind::Tensor => factors.extend(forest.children(x)),
             Kind::One => {}
             _ if forest.sign(x) == Some(body) => {}
-            _ => return Some(x),
+            _ if head.is_none() && is_head(forest, body, x) => head = Some(x),
+            _ => return None,
         }
     }
-    None
+    Some(head)
 }

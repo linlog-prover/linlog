@@ -11,7 +11,7 @@
 //! the tokens beyond the goal's and the clauses used once that were not
 //! are weakened there.
 
-use super::{Clause, Program, head_of};
+use super::{Clause, Program, clause_head};
 use crate::occurrences::{Forest, Member, OccId, Sign};
 use crate::proofs::{Node, NodeId};
 use crate::search::Reason;
@@ -116,7 +116,7 @@ pub(super) fn build(
         root = builder.push(Node::Weaken(Member::from(weakened), root));
     }
     for (i, &(clause, reusable)) in clauses.iter().enumerate().rev() {
-        let head = head_of(forest, program.body, clause);
+        let head = clause_head(forest, program.body, clause).expect("a clause the program read");
         let mut fired = &pairs[starts[i]..starts[i + 1]];
         root = builder.clause(clause, head, &mut fired, root);
         debug_assert!(fired.is_empty());
@@ -176,7 +176,7 @@ fn replay(
         };
     for &(clause, _) in clauses {
         starts.push(pairs.len());
-        let head = head_of(forest, program.body, clause);
+        let head = clause_head(forest, program.body, clause).expect("a clause the program read");
         take(clause, head, &mut tokens, &mut pairs);
         if let Some(h) = head {
             for x in forest.subtree(h).filter(|&x| forest.is_literal(x)) {

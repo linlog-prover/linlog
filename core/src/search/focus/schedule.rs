@@ -236,41 +236,14 @@ pub(crate) fn plan(
 /// nothing else, which is what makes a bound of its own affordable.
 pub(super) fn chains(forest: &Forest, goal: &[OccId]) -> bool {
     use crate::occurrences::Sign;
+    use crate::search::horn::{clause_head, is_head};
     [Sign::Atom, Sign::Dual].into_iter().any(|body| {
-        // A tree of one connective and its unit over literals of one sign.
-        let tree = |o: OccId, connective: Kind, unit: Kind, sign: Sign| {
-            forest.subtree(o).all(|x| {
-                let kind = forest.kind(x);
-                kind == connective || kind == unit || forest.sign(x) == Some(sign)
-            })
-        };
-        let head = |o: OccId| tree(o, Kind::Par, Kind::Bot, !body);
-        // A tensor of body literals with at most one factor a head.
-        let mut factors = Vec::new();
-        let mut clause = |o: OccId| {
-            let mut heads = 0;
-            factors.clear();
-            factors.push(o);
-            while let Some(x) = factors.pop() {
-                match forest.kind(x) {
-                    Kind::Tensor => factors.extend(forest.children(x)),
-                    Kind::One => {}
-                    _ if forest.sign(x) == Some(body) => {}
-                    _ => {
-                        heads += 1;
-                        if heads > 1 || !head(x) {
-                            return false;
-                        }
-                    }
-                }
-            }
-            true
-        };
+        let clause = |o: OccId| clause_head(forest, body, o).is_some();
         goal.iter().all(|&member| {
             if forest.kind(member) == Kind::Quest {
                 clause(forest.left(member).unwrap())
             } else {
-                head(member) || clause(member)
+                is_head(forest, body, member) || clause(member)
             }
         })
     })
