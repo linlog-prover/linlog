@@ -10,7 +10,7 @@
 //! (`y·(M − M₀) > 0`), and in affine mode no weight is negative: then no
 //! firing sequence reaches, or covers, the target.
 //!
-//! A simplex in floating point proposes the weights; [`certify`] checks
+//! A simplex in floating point proposes the weights; [`certify`](self::certify) checks
 //! them in exact integer arithmetic, and only a vector it accepts refutes,
 //! so a rounding error of the simplex costs a refutation and never makes
 //! a wrong one. The simplex runs beside a search, a slice at a time, its

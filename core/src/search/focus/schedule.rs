@@ -3,9 +3,9 @@
 
 //! The two searches of the default bias and how they share the cores:
 //! which searches decide a goal ([`plan`]), one search on its own
-//! ([`Plan::search`]), and the two ways they share one core, in turns
+//! ([`Plan::search`](self::Plan::search)), and the two ways they share one core, in turns
 //! from their start without threads ([`turns`]) and alternating in
-//! slices on two threads ([`alternate`]).
+//! slices on two threads ([`alternate`](self::alternate)).
 
 use super::arena::{Arena, Kept};
 use super::classes::Classes;
@@ -105,7 +105,7 @@ pub(super) fn turns(
 
 /// The work each of the two searches of the default bias gets in the
 /// first round of their turns, in steps of a split search, a stable
-/// sequent counting [`NODE_WORK`] of them and more with its size: some
+/// sequent counting [`NODE_WORK`](super::NODE_WORK) of them and more with its size: some
 /// thousand stable sequents of a small problem.
 const FIRST_TURN: u64 = 1 << 16;
 
@@ -134,7 +134,7 @@ pub(crate) struct Plan {
 impl Plan {
     /// Runs the search of this rule alone, with a memo and an arena of its
     /// own, until it ends or the stop condition fires. Returns what
-    /// [`search_goal`] does, and whether it was a turn that ran out of
+    /// [`search_goal`](super::search_goal) does, and whether it was a turn that ran out of
     /// its work.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn search<'a>(
@@ -461,7 +461,7 @@ impl Drop for Ended<'_> {
 /// Decides a goal by two searches that alternate on one core: the first
 /// on the calling thread, the second on a thread of its own, one of them
 /// running at a time for a slice of work ([`SLICE`], the second search
-/// [`BACKWARD_SHARE`](BACKWARD_SHARE) of them), so that each is the
+/// [`BACKWARD_SHARE`] of them), so that each is the
 /// search it would be alone, none starts again, and the run is a function
 /// of the input. The first to decide stops the other at the end of its
 /// slice; a search that ended without deciding leaves the other to run

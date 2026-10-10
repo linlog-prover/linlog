@@ -984,8 +984,8 @@ impl<'a> Run<'a> {
         Found::proved(self.push(Node::With(Member::from(o), left, right)))
     }
 
-    /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check and the
-    /// affine prune, the immediate tests, then a focus on each positive
+    /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check, the
+    /// immediate tests, then a focus on each positive
     /// formula in turn, first from `Γ`, then copied from `Θ`, then Mix.
     fn prove(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
         Ok(self.prove_part(theta, gamma, budget)?.0)

@@ -451,10 +451,11 @@ their mutants and a few that need contractions, and the families'
 verdicts at the sizes it decides; what they assert is what the contract
 allows: never a proof against a refutation, either way.
 
-- **It refutes nothing whose search can contract**: a failing branch with
-  a `?` formula (or a `!` hypothesis) contracts to an empty budget and is
-  cut. With exponentials it judges an engine's "unprovable" only; an
-  engine's proof is the checker's.
+- **It cuts every failing sequent whose search can contract**: one with a
+  `?` member (or a `!` hypothesis) contracts to an empty budget and is
+  cut, so with exponentials it refutes only where the failure lies on a
+  premise without one (`⊢ 0 ⊗ ?a`). It judges an engine's "unprovable";
+  an engine's proof is the checker's.
 - **Its budget counts contractions per branch**, one less than an
   engine's copies of a formula; the two are never compared.
 - **`VISITS`** (a million sequents and splits per decision) bounds its

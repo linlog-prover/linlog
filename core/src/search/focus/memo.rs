@@ -16,7 +16,7 @@
 //! or a cut failure, a canonical one may also hold a complete failure,
 //! which is all a relative reads there. The table has a cap in entries
 //! and takes its memory from the search's account; when the search runs on
-//! several threads it is one shard of a sharded map, [`Shared`], whose
+//! several threads it is one shard of a sharded map, [`Shared`](self::Shared), whose
 //! merge under the shard's lock keeps the same invariant: an entry's
 //! validity only ever grows.
 

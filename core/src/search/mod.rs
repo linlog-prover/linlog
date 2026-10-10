@@ -191,12 +191,13 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut(u64) -> bool)
 /// classical mode, the additive engine on anything but two additive-only
 /// formulas, the Horn engine on anything but a Horn program); and a sequent
 /// that unfolds to more subformula occurrences than
-/// `limits.occurrences` allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
+/// `limits.occurrences` allows ([`Refusal::Occurrences`]). A proof that the checker rejects is
 /// [`Error::Rejected`], a defect and no verdict; one whose check would
 /// hold more than `limits.memory_bytes` makes the verdict
 /// [`Reason::Unchecked`], one that `limits.work` or the stop gave up
 /// [`Reason::WorkLimit`] or [`Reason::Stopped`]: every proof returned has
-/// passed the checker, unless [`Options::check`] says otherwise.
+/// passed the checker, unless [`Options::check`] says otherwise. On
+/// several threads, [`Error::ThreadPool`] when they cannot start.
 ///
 /// # Examples
 ///
@@ -1268,9 +1269,11 @@ pub enum Bias {
     /// factor rule visited up to 700 times the stable sequents of the
     /// rarer one on random affine sequents; with exponentials neither
     /// rule wins (of the Petri nets of the LLTP library within 5 s, the
-    /// two searches together decide 1 520, the backward one alone 442,
-    /// the forward one alone 1 576, and the pair costs 1.3 times the
+    /// pair decides 1 520, the backward search run alone 442 and the
+    /// forward one run alone 1 576, since under a time limit each of the
+    /// pair has its share of the time, and the pair costs 1.3 times the
     /// backward search and 1.6 times the forward one where each decides).
+    /// That the pair decides whatever either does holds without a stop.
     #[default]
     Auto,
     /// The literal with fewer occurrences in the sequent is positive, `Atom`
@@ -1547,8 +1550,9 @@ pub struct Options {
     /// Without exponentials the bound has no effect. A proof found at some
     /// level may reuse a memoized subproof found with more copies left, so
     /// the bound limits the search, not the proof returned. Only the
-    /// focused engine reads it: the goals of the others have no
-    /// exponentials.
+    /// focused engine reads it: the net and the additive engine's goals
+    /// have no exponentials, and the Horn engine keeps every marking once
+    /// and needs no bound.
     pub copies: Option<u32>,
     /// The most copies of `?` formulas one branch may take in the forward
     /// search that [`Bias::Auto`] runs beside the backward one on a Horn
@@ -1865,17 +1869,19 @@ pub enum Reason {
         /// The copy bound.
         copies: u32,
     },
-    /// The search held [`Limits::memory_bytes`](crate::Limits::memory_bytes)
-    /// bytes with its memo already emptied, or had no room left for a
-    /// memo at all.
+    /// The search would have held more than
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes): with its memo
+    /// emptied, where it keeps one, or with no room left for a memo, the
+    /// Horn engine's markings or a proof's nodes.
     #[non_exhaustive]
     MemoryLimit {
         /// The memory bound, in bytes.
         limit_bytes: u64,
     },
     /// A structure of the search outgrew what its indices address: the
-    /// proof arena at 2³¹ nodes, the count invariants at 2³² row entries,
-    /// the Horn engine's markings at 2³² or a count of its tokens at 2³².
+    /// proof arena at 2³¹ nodes, the additive path's at 2³² nodes, the
+    /// count invariants at 2³² row entries, the Horn engine's markings at
+    /// 2³² or a count of its tokens at 2³².
     /// Only a search without a memory bound gets this far, but for the
     /// tokens, which a clause that adds thousands of them at each firing
     /// can pass in a few hundred thousand markings.

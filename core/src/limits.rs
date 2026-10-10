@@ -74,7 +74,11 @@ pub struct Limits {
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub work: Option<u64>,
     /// The deepest recursion on any one stack; every thread the library
-    /// starts is sized for it ([`stack_bytes`](Self::stack_bytes)).
+    /// starts is sized for it ([`stack_bytes`](Self::stack_bytes)). The
+    /// focused engine takes a level per asynchronous phase, per stable
+    /// sequent and per focus, a chain of `⅋`, `⊥` and `?` rules or of
+    /// forced splits none, so a formula copied `k` times on a branch takes
+    /// `k` focus levels; the additive path takes one per pair.
     pub recursion_depth: u32,
 }
 

@@ -9,9 +9,9 @@
 //! of a `⊕`, the splits of a `⊗`) within the first [`LEVELS`] such
 //! choices of a branch runs its alternatives as tasks of the pool: the
 //! engine that meets the choice spawns a worker for each alternative but
-//! the first, a copy of its own state at that point (the branch stack,
-//! the nesting depth, the budget) with pools of its own, which is the
-//! per-worker scratch, and runs the first alternative on one more worker
+//! the first, which reads the branch in place (its stack of keys, the
+//! nesting depth, the budget) and has pools of its own, the per-worker
+//! scratch, and runs the first alternative on one more worker
 //! on its own thread; the first alternative to succeed raises the
 //! choice's flag, which every worker of the choice polls, and the others
 //! stop at their next stable sequent. Below those levels every worker runs the sequential
@@ -178,8 +178,8 @@ impl Plan {
 }
 
 /// What a worker starts from: the problem of the engine that spawns it at
-/// a parallel choice, the shared parts by reference and the branch's by
-/// copy.
+/// a parallel choice, the shared parts and the branch by reference, the
+/// branch read in place while the spawning engine waits at the scope.
 struct Spawn<'s> {
     /// The problem.
     problem: Problem<'s>,

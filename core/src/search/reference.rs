@@ -23,10 +23,11 @@
 //! "Within the budget" counts contractions on a branch, which is one less
 //! than the engines' copies of a formula (every use of it), so the two
 //! bounds are not compared: only a proof and a refutation are. And the
-//! reference refutes nothing whose search can contract: a failing branch
-//! with a `?` formula (one-sided) or a `!` hypothesis (two-sided) contracts
-//! down to an empty budget and is cut there, at every budget. With
-//! exponentials it answers "proved" or "unknown", which judges an engine's
+//! reference cuts every failing sequent with a `?` member (one-sided) or a
+//! `!` hypothesis (two-sided), at every budget, since it contracts down
+//! to an empty budget there; so with exponentials it refutes only where
+//! the failure lies on a premise without one (`⊢ 0 ⊗ ?a`), and answers
+//! any of the three verdicts, each sound. It judges an engine's
 //! "unprovable"; an engine's proof is the checker's to judge.
 
 use super::generate::Tree;
