@@ -686,6 +686,7 @@ impl Display for Sequent {
 #[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::*;
+    use crate::search::generate::Rng;
     use crate::{Options as Search, Verdict, prove};
 
     /// Decides `text` in `logic` by `translation` with a copy bound of
@@ -874,6 +875,147 @@ mod tests {
                         );
                     }
                 }
+            }
+        }
+    }
+
+    /// Returns a formula of depth `depth` at most over `atoms`, true and
+    /// false, built with `¬`, `∧`, `∨` and `→`.
+    fn generated(rng: &mut Rng, formulas: &mut Formulas, atoms: &[NodeId], depth: usize) -> NodeId {
+        if depth == 0 || rng.one_in(4) {
+            // Each atom twice as likely as each constant.
+            let leaf = rng.below(2 * atoms.len() + 2);
+            let node = match leaf.checked_sub(2 * atoms.len()) {
+                None => return atoms[leaf % atoms.len()],
+                Some(0) => Node::True,
+                Some(_) => Node::False,
+            };
+            return formulas.add(node).unwrap();
+        }
+        let a = generated(rng, formulas, atoms, depth - 1);
+        let node = match rng.below(4) {
+            0 => Node::Not(a),
+            choice => {
+                let b = generated(rng, formulas, atoms, depth - 1);
+                match choice {
+                    1 => Node::And(a, b),
+                    2 => Node::Or(a, b),
+                    _ => Node::Implies(a, b),
+                }
+            }
+        };
+        formulas.add(node).unwrap()
+    }
+
+    /// Returns a sequent in the atoms `a`, `b` and `c` of up to two
+    /// hypotheses and at most one formula right of `⊢`, each of depth
+    /// three at most.
+    fn generated_sequent(rng: &mut Rng) -> Sequent {
+        let mut formulas = Formulas::default();
+        let atoms: Vec<_> = ["a", "b", "c"]
+            .into_iter()
+            .map(|name| formulas.atom(name).unwrap())
+            .collect();
+        let left = (0..rng.below(3))
+            .map(|_| generated(rng, &mut formulas, &atoms, 3))
+            .collect();
+        let right = (0..usize::from(!rng.one_in(6)))
+            .map(|_| generated(rng, &mut formulas, &atoms, 3))
+            .collect();
+        Sequent::new(formulas, left, right).unwrap()
+    }
+
+    /// Returns whether every assignment of the sequent's atoms that makes
+    /// all its hypotheses true makes some formula right of `⊢` true.
+    fn valid_by_truth_table(sequent: &Sequent) -> bool {
+        let formulas = sequent.formulas();
+        (0..1_u32 << formulas.atom_names().len()).all(|assignment| {
+            // Every node after its operands, so one pass evaluates all.
+            let mut value: Vec<bool> = Vec::with_capacity(formulas.len());
+            for n in 0..formulas.len() {
+                let of = |id: NodeId| value[id.index()];
+                let holds = match formulas.node(NodeId(n as u32)) {
+                    Node::Atom(atom) => assignment >> atom & 1 == 1,
+                    Node::True => true,
+                    Node::False => false,
+                    Node::Not(a) => !of(a),
+                    Node::And(a, b) => of(a) && of(b),
+                    Node::Or(a, b) => of(a) || of(b),
+                    Node::Implies(a, b) => !of(a) || of(b),
+                    Node::Iff(a, b) => of(a) == of(b),
+                };
+                value.push(holds);
+            }
+            !sequent.left().iter().all(|id| value[id.index()])
+                || sequent.right().iter().any(|id| value[id.index()])
+        })
+    }
+
+    /// On a few hundred generated sequents, each logic's translations
+    /// agree: wherever two of them decide a sequent they give it the same
+    /// verdict, and each decides at least half of the sequents. Classical
+    /// logic's verdicts are the truth table's, and a sequent valid in
+    /// intuitionistic or minimal logic is valid by the truth table.
+    #[test]
+    fn translations_agree_with_each_other_and_the_truth_table() {
+        const SEQUENTS: usize = 300;
+        // Bounds that keep the run to a second or two unoptimized.
+        let search = Search::default().with_copies(Some(6));
+        let limits = crate::Limits::default().with_work(Some(50_000));
+        let mut rng = Rng::new(2_026);
+        let mut decided: HashMap<(Logic, Translation), usize> = HashMap::default();
+        for _ in 0..SEQUENTS {
+            let sequent = generated_sequent(&mut rng);
+            let classical = valid_by_truth_table(&sequent);
+            for &logic in Logic::ALL {
+                let verdicts: Vec<_> = Translation::ALL
+                    .iter()
+                    .filter(|translation| translation.decides(logic))
+                    .map(|&translation| {
+                        let options = Options::default()
+                            .with_logic(logic)
+                            .with_translation(Some(translation));
+                        let outcome =
+                            super::decide(&sequent, &options, &search, &limits, |_| false)
+                                .unwrap_or_else(|e| {
+                                    panic!("{sequent} in {logic} logic by {translation}: {e}")
+                                });
+                        let valid = match outcome.verdict {
+                            super::Verdict::Valid(_) => Some(true),
+                            super::Verdict::NotValid => Some(false),
+                            super::Verdict::Unknown(_) => None,
+                        };
+                        if valid.is_some() {
+                            *decided.entry((logic, translation)).or_default() += 1;
+                        }
+                        (translation, valid)
+                    })
+                    .collect();
+                let answers: Vec<bool> = verdicts.iter().filter_map(|&(_, valid)| valid).collect();
+                assert!(
+                    answers.windows(2).all(|pair| pair[0] == pair[1]),
+                    "{sequent} in {logic} logic: {verdicts:?}"
+                );
+                if logic == Logic::Classical {
+                    assert!(
+                        answers.iter().all(|&valid| valid == classical),
+                        "{sequent} classically: {verdicts:?}, the truth table says {classical}"
+                    );
+                } else {
+                    assert!(
+                        classical || !answers.contains(&true),
+                        "{sequent} in {logic} logic: {verdicts:?}, the truth table refutes it"
+                    );
+                }
+            }
+        }
+        for &logic in Logic::ALL {
+            for &translation in Translation::ALL.iter().filter(|t| t.decides(logic)) {
+                let count = decided.get(&(logic, translation)).copied().unwrap_or(0);
+                assert!(
+                    2 * count >= SEQUENTS,
+                    "{translation} decided {count} of {SEQUENTS} sequents in {logic} logic"
+                );
             }
         }
     }
