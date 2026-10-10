@@ -628,3 +628,67 @@ fn counts_its_work() {
         assert_eq!(counted, counters, "{sequent} affine {affine}");
     }
 }
+
+/// The simplex's weights for nets whose state equation has no solution,
+/// a place and its weight each, the places numbered as the goal's atoms
+/// are met, and the units it polls, one before each pivot and one at the
+/// optimum. In affine mode it enters the surplus columns, and no weight is
+/// negative. The tokens of `z` grow without end, so only the equation
+/// refutes these nets.
+#[test]
+fn the_simplex_finds_these_weights() {
+    for (text, linear, affine) in [
+        (
+            "!(A -o A * A), !(B * B -o C), A, B |- C",
+            (vec![(0, -2), (1, 1), (2, 2)], 2),
+            (vec![(0, 0), (1, 1), (2, 2)], 3),
+        ),
+        (
+            "!(a * a -o b), !(b -o a * a), !(b * b -o c), !(c -o b * b), !(z -o z * z), z, a |- c",
+            (vec![(0, 1), (1, 2), (2, 4), (3, -4)], 3),
+            (vec![(0, 1), (1, 2), (2, 4), (3, 0)], 4),
+        ),
+        (
+            "!(a -o b * b), !(b * b * b -o c), !(z -o z * z), z, a, a |- c * c",
+            (vec![(0, 2), (1, 1), (2, 3), (3, -3)], 3),
+            (vec![(0, 2), (1, 1), (2, 3), (3, 0)], 4),
+        ),
+        (
+            "!(a * b -o c), !(c -o a * a), !(c -o b * b), a, b, !(z -o z * z), z |- c * c",
+            (vec![(0, 1), (1, 1), (2, 2), (3, -2)], 3),
+            (vec![(0, 1), (1, 1), (2, 2), (3, 0)], 4),
+        ),
+    ] {
+        let sequent: Sequent = text.parse().unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        let net = program(&forest);
+        for (affine, (weights, polls)) in [(false, linear), (true, affine)] {
+            let account = Account::new(None);
+            let mut equation = Equation::new(affine, &account);
+            let mut polled = 0;
+            let refuted = equation.run(&net, u64::MAX, &mut |units| {
+                polled += units;
+                false
+            });
+            assert_eq!(refuted, Ok(true), "{text} affine {affine}");
+            assert_eq!(
+                (equation.certificate(), polled),
+                (Some(&weights[..]), polls),
+                "{text} affine {affine}"
+            );
+        }
+    }
+}
+
+/// A search that runs out of room gives its memory back, and the simplex
+/// then runs to its end with the rest of the bound: at this bound the
+/// search cannot keep its first marking, while the tableau fits.
+#[test]
+fn the_simplex_refutes_after_the_search() {
+    let sequent: Sequent = "!(A -o A * A), !(B * B -o C), A, B |- C".parse().unwrap();
+    let verdict = bounded(&sequent, Mode::CLASSICAL, 300);
+    assert!(
+        matches!(&verdict, Verdict::Unprovable(d) if matches!(d.refutation(), Refutation::StateEquation(_))),
+        "{verdict:?}"
+    );
+}
