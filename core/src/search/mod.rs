@@ -282,7 +282,8 @@ pub fn prove(sequent: &Sequent, mode: Mode, options: &Options) -> Result<Outcome
 /// Decides a sequent as [`prove`] does, within `limits` (its forest within
 /// `limits.occurrences`, the search's structures and the check of its
 /// proof within `limits.memory_bytes`, its recursion within
-/// `limits.recursion_depth`), polling `stop` and giving up with
+/// `limits.recursion_depth`, its work and that of the check each within
+/// `limits.work`), polling `stop` and giving up with
 /// [`Reason::Stopped`] once it returns true. The condition is the
 /// caller's: a deadline on a clock the caller has, a flag an interrupt
 /// handler sets; this crate has no clock of its own. The engines poll at
@@ -657,7 +658,9 @@ fn decide_goal(
 /// counts', or why the search stopped. No engine is trusted with its own
 /// proof: the checker has the last word on every proof, of the sequent or
 /// of a goal, in every build, and a check that a bound or the stop gave up
-/// is no verdict on the proof, so no proof is returned unchecked.
+/// is no verdict on the proof, so no proof is returned unchecked, unless
+/// [`Options::check`] is off: the proof is then the engine's word, and
+/// `Outcome::checked` says so.
 ///
 /// # Errors
 ///
@@ -730,10 +733,10 @@ fn unchecked(refusal: Refusal) -> Result<Reason, Error> {
 /// search would answer before it starts. It costs what `prove_goal` does
 /// before it searches: a pass over the goal for its fragment, in
 /// intuitionistic mode the reading of the forest, and the dispatch's
-/// test of the goal's shape. A front end that runs a search on one thread
-/// first and adds a pool when it takes long asks this before it adds one,
-/// since an engine that runs on one thread
-/// ([`Engine::parallel`]) would only search again.
+/// test of the goal's shape. `race` (feature `parallel`) asks it before it adds a pool beside
+/// a single thread, since an engine that runs on one thread
+/// ([`Engine::parallel`]) would only search again; a front end asks it to
+/// say which engine will run.
 ///
 /// # Errors
 ///
@@ -1451,7 +1454,7 @@ impl Engine {
             Counter::new(
                 "copies",
                 "copy bound reached",
-                "the copy bound of the last level begun",
+                "the level of the search that decided, else of the backward one",
             ),
             Counter::new(
                 "forward_copies",
@@ -1683,9 +1686,9 @@ pub enum Schedule {
 /// The knobs of a search: how much to remember, how deep to go, and which
 /// fragment and engine to use instead of the detected ones. The defaults
 /// suit a sequent of a few hundred occurrences on a thread with the usual
-/// stack; the bounds on memory, occurrences and recursion are the
-/// [`Limits`] a search is given, whose bound on work binds the check of
-/// the proof found.
+/// stack; the bounds on memory, occurrences, recursion and work are the
+/// [`Limits`] a search is given, each of which binds the check of the
+/// proof found as well.
 ///
 /// Every field has a builder, so that the options chain from the default.
 ///
@@ -1988,10 +1991,7 @@ impl Options {
 /// version, which wrote it), `verdict` (`"proved"`, `"unprovable"` or
 /// `"unknown"`), with `checked` for a proved sequent, `refutation` for an
 /// unprovable one (in the form [`Refutation`] gives) and `reason` for an
-/// unknown one (tagged by `kind`: `{"kind": "stopped"}`, `{"kind":
-/// "copy_bound", "copies": 3}`, `{"kind": "memory_limit", "limit_bytes":
-/// n}`, `{"kind": "recursion_limit", "depth": n}`, `{"kind":
-/// "index_limit"}`),
+/// unknown one (in the form [`Reason`] gives, tagged by `kind`),
 /// `fragment` (its name in the mode, as [`Fragment::name_in`] gives it),
 /// `mode` (its name), `engine`, `statistics`, for a proved sequent the
 /// proof's own keys `sequent`, `nodes` and `goal`, so that the outcome
@@ -2171,7 +2171,7 @@ impl Display for Reason {
 ///
 /// In JSON (feature `serialize`) an object of the counters by name, read
 /// back with a missing one as zero.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default))]
 #[non_exhaustive]
