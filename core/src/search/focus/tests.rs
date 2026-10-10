@@ -6,7 +6,7 @@
 use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
-use crate::search::{Verdict, prove_goal};
+use crate::search::{Goal, Verdict, prove_goal};
 use crate::{Limits, Progress};
 
 /// Runs the focused engine on the roots of the forest in the fragment
@@ -55,8 +55,7 @@ fn search_within(
         .with_fragment(Some(fragment))
         .with_check(false);
     let outcome = prove_goal(
-        forest,
-        forest.roots(),
+        Goal::conclusion(forest),
         mode,
         &options,
         limits,
@@ -1502,11 +1501,16 @@ fn the_horn_test_reads_the_goal() {
         *derelicted = forest.left(*derelicted).unwrap();
     }
     assert!(schedule::chains(&forest, &goal));
+    let goal: Vec<_> = goal.into_iter().map(crate::Member::from).collect();
     for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
         let limits = Limits::default();
-        let outcome = prove_goal(&forest, &goal, mode, &Options::default(), &limits, |_| {
-            false
-        })
+        let outcome = prove_goal(
+            Goal::new(&forest, &goal).unwrap(),
+            mode,
+            &Options::default(),
+            &limits,
+            |_| false,
+        )
         .unwrap();
         assert!(matches!(outcome.verdict, Verdict::Proved(_)), "{mode}");
     }

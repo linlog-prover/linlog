@@ -76,7 +76,7 @@ Each entry point is described in the file of its module:
   `sides`, one, two or by the proof's mode), `derivation_size(&view, …)`,
   `write_text`;
   `Interactive` (`core-derivations.md`);
-- `prove`, `prove_within`, `prove_goal` with `Options` and `Limits`, returning an
+- `prove`, `prove_within`, `prove_goal` (on a `Goal`) with `Options` and `Limits`, returning an
   `Outcome` with a `Verdict` (`Proved`, `Unprovable` with a `Disproof`,
   `Unknown` with a `Reason`) and `Statistics`; `Options::engine` forces
   an `Engine`, whose variants describe the engines of the crate-private

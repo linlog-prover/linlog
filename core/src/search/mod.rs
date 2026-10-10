@@ -213,7 +213,72 @@ pub fn prove_within(
     stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
     let forest = Forest::within(sequent, limits)?;
-    prove_goal(&forest, forest.roots(), mode, options, limits, stop)
+    prove_goal(Goal::conclusion(&forest), mode, options, limits, stop)
+}
+
+/// Members of a forest that a search decides: its conclusion, the roots,
+/// or a goal a session left open, any multiset of its occurrences. The
+/// roots in any order are the conclusion.
+#[derive(Clone, Copy, Debug)]
+pub struct Goal<'a> {
+    /// The forest.
+    forest: &'a Forest,
+    /// The members, as given; empty for the conclusion.
+    members: &'a [Member],
+    /// Whether the members are the roots.
+    conclusion: bool,
+}
+
+impl<'a> Goal<'a> {
+    /// The forest's conclusion: the sequent itself.
+    pub fn conclusion(forest: &'a Forest) -> Self {
+        Self {
+            forest,
+            members: &[],
+            conclusion: true,
+        }
+    }
+
+    /// The goal of the members given, in any order and with repeats.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::IndexOutOfBounds`] for a member outside the forest.
+    pub fn new(forest: &'a Forest, members: &'a [Member]) -> Result<Self, Error> {
+        if let Some(m) = members.iter().find(|m| m.index() >= forest.len()) {
+            return Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Occurrence,
+                index: m.index(),
+                len: forest.len(),
+            });
+        }
+        let occurrences: Vec<OccId> = members.iter().map(|m| m.occ()).collect();
+        Ok(Self {
+            forest,
+            members,
+            conclusion: forest.is_roots(&occurrences),
+        })
+    }
+
+    /// Returns whether the goal is the forest's conclusion.
+    pub fn is_conclusion(&self) -> bool {
+        self.conclusion
+    }
+
+    /// Returns the forest.
+    pub fn forest(&self) -> &'a Forest {
+        self.forest
+    }
+
+    /// Returns the goal's occurrences: the roots in the forest's order
+    /// for the conclusion, the members as given otherwise.
+    fn occurrences(&self) -> std::borrow::Cow<'a, [OccId]> {
+        if self.conclusion {
+            std::borrow::Cow::Borrowed(self.forest.roots())
+        } else {
+            std::borrow::Cow::Owned(self.members.iter().map(|m| m.occ()).collect())
+        }
+    }
 }
 
 /// Asks the caller's stop as the engines poll it: in the search's phase,
@@ -224,8 +289,8 @@ pub(crate) fn without_progress(
     move || stop(Progress::new(Phase::Search, 0, 0))
 }
 
-/// Decides a goal: a multiset of occurrences of a forest, given in any
-/// order, which stands for the sequent of those subformulas, within
+/// Decides a [`Goal`]: a multiset of occurrences of a forest, given in
+/// any order, which stands for the sequent of those subformulas, within
 /// `limits` and until `stop` fires, as [`prove_within`] does. The roots are
 /// the sequent itself, and [`prove_within`] is this function on them; any
 /// other goal is what an interactive proof leaves open, and the engine that
@@ -239,8 +304,7 @@ pub(crate) fn without_progress(
 ///
 /// # Errors
 ///
-/// Those of [`prove`], plus [`Error::IndexOutOfBounds`] for an
-/// occurrence outside the forest, [`Error::GoalOutputs`] for an
+/// Those of [`prove`], plus [`Error::GoalOutputs`] for an
 /// intuitionistic goal without exactly one formula on the right of `⊢`,
 /// and [`Error::EngineRefused`] with [`NotTaken::Goal`] for the net engine
 /// forced on a goal other than the roots.
@@ -249,30 +313,39 @@ pub(crate) fn without_progress(
 ///
 #[cfg_attr(feature = "parse", doc = "```")]
 #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
-/// use linlog::search::{Options, Verdict, prove_goal};
-/// use linlog::{Forest, Limits, Mode, OccId, Sequent};
+/// use linlog::search::{Goal, Options, Verdict, prove_goal};
+/// use linlog::{Forest, Limits, Member, Mode, Sequent};
 ///
 /// // ⊢ ~A, A ⊗ ~B, B, with the occurrences 0: ~A, 1: A ⊗ ~B, 2: A,
 /// // 3: ~B, 4: B. The goal ⊢ ~A, A is the left premise of the ⊗.
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let forest = Forest::new(&sequent)?;
-/// let goal = [OccId::new(0), OccId::new(2)];
+/// let members = [Member::new(0), Member::new(2)];
+/// let goal = Goal::new(&forest, &members)?;
 /// let limits = Limits::default();
-/// let outcome = prove_goal(&forest, &goal, Mode::CLASSICAL, &Options::default(), &limits, |_| false)?;
+/// let outcome = prove_goal(goal, Mode::CLASSICAL, &Options::default(), &limits, |_| false)?;
 /// assert!(matches!(outcome.verdict, Verdict::Proved(_)));
 /// # Ok::<(), linlog::Error>(())
 /// ```
 pub fn prove_goal(
-    forest: &Forest,
-    goal: &[OccId],
+    goal: Goal<'_>,
     mode: Mode,
     options: &Options,
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
-    let fragment = fragment_of(forest, goal, options)?;
+    let forest = goal.forest;
+    let occurrences = goal.occurrences();
+    let fragment = fragment_of(forest, &occurrences, options)?;
     let reading = read(forest, mode)?;
-    let (task, engine) = prepare(forest, goal, mode, fragment, options, reading.as_ref())?;
+    let (task, engine) = prepare(
+        goal,
+        &occurrences,
+        mode,
+        fragment,
+        options,
+        reading.as_ref(),
+    )?;
     let roots = task.roots;
     let implementation = engine.implementation();
     // The engines poll a condition without progress, which asks the
@@ -304,7 +377,9 @@ pub fn prove_goal(
     let verdict = match answer.result {
         // A proof records what it concludes and the mode it was found in.
         Ok(Some(proof)) if roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
-        Ok(Some(proof)) => Verdict::Proved(Box::new(proof.concluding(goal).with_mode(mode))),
+        Ok(Some(proof)) => {
+            Verdict::Proved(Box::new(proof.concluding(&occurrences).with_mode(mode)))
+        }
         Ok(None) => {
             let refutation = match answer.refutation {
                 Some(refutation) => refutation,
@@ -317,7 +392,7 @@ pub fn prove_goal(
             Verdict::Unprovable(Box::new(if roots {
                 disproof
             } else {
-                disproof.of_goal(goal.iter().map(|&o| Member::from(o)).collect())
+                disproof.of_goal(goal.members.into())
             }))
         }
         Err(reason) => Verdict::Unknown(reason),
@@ -378,27 +453,23 @@ fn unchecked(refusal: Refusal) -> Result<Reason, Error> {
 /// # Errors
 ///
 /// Those of [`prove_goal`] that come before the search.
-pub fn engine_for(
-    forest: &Forest,
-    goal: &[OccId],
-    mode: Mode,
-    options: &Options,
-) -> Result<Engine, Error> {
-    let fragment = fragment_of(forest, goal, options)?;
-    let reading = read(forest, mode)?;
-    prepare(forest, goal, mode, fragment, options, reading.as_ref()).map(|(_, engine)| engine)
+pub fn engine_for(goal: Goal<'_>, mode: Mode, options: &Options) -> Result<Engine, Error> {
+    let occurrences = goal.occurrences();
+    let fragment = fragment_of(goal.forest, &occurrences, options)?;
+    let reading = read(goal.forest, mode)?;
+    prepare(
+        goal,
+        &occurrences,
+        mode,
+        fragment,
+        options,
+        reading.as_ref(),
+    )
+    .map(|(_, engine)| engine)
 }
 
-/// The fragment a goal is searched in, the options' or its own, once its
-/// occurrences are checked.
+/// The fragment a goal is searched in, the options' or its own.
 fn fragment_of(forest: &Forest, goal: &[OccId], options: &Options) -> Result<Fragment, Error> {
-    if let Some(o) = goal.iter().find(|o| o.index() >= forest.len()) {
-        return Err(Error::IndexOutOfBounds {
-            space: crate::limits::Space::Occurrence,
-            index: o.index(),
-            len: forest.len(),
-        });
-    }
     let detected = goal_fragment(forest, goal);
     match options.fragment {
         Some(asserted) if !asserted.contains(detected) => {
@@ -428,29 +499,28 @@ fn read(forest: &Forest, mode: Mode) -> Result<Option<Reading<'_>>, Error> {
 /// it, which admits it; in intuitionistic mode the goal has one output
 /// under the reading given.
 fn prepare<'a>(
-    forest: &'a Forest,
-    goal: &'a [OccId],
+    goal: Goal<'a>,
+    occurrences: &'a [OccId],
     mode: Mode,
     fragment: Fragment,
     options: &Options,
     reading: Option<&'a Reading<'a>>,
 ) -> Result<(Task<'a>, Engine), Error> {
     if let Some(reading) = reading {
-        let outputs = reading.outputs(goal.iter().copied());
+        let outputs = reading.outputs(occurrences.iter().copied());
         if outputs != 1 {
             return Err(Error::GoalOutputs { count: outputs });
         }
     }
     // The roots in any order are the sequent itself, which the engines
     // are handed in the forest's order.
-    let roots = forest.is_roots(goal);
     let task = Task {
-        forest,
-        goal: if roots { forest.roots() } else { goal },
+        forest: goal.forest,
+        goal: occurrences,
         fragment,
         mode,
         reading,
-        roots,
+        roots: goal.conclusion,
     };
     let engine = match options.engine {
         Some(engine) => engine,
@@ -1920,13 +1990,17 @@ mod tests {
     fn goal_in_any_order() {
         let s = sequent("a, a -o b |- b");
         let forest = Forest::new(&s).unwrap();
-        let mut goal = forest.roots().to_vec();
-        goal.reverse();
-        assert_ne!(goal, forest.roots());
+        let goal: Vec<Member> = forest
+            .roots()
+            .iter()
+            .rev()
+            .map(|&o| Member::from(o))
+            .collect();
+        assert_ne!(goal[0], Member::from(forest.roots()[0]));
+        assert!(Goal::new(&forest, &goal).unwrap().is_conclusion());
         let classical = Mode::CLASSICAL;
         let outcome = prove_goal(
-            &forest,
-            &goal,
+            Goal::new(&forest, &goal).unwrap(),
             classical,
             &Options::default(),
             &Limits::default(),
@@ -1936,9 +2010,13 @@ mod tests {
         assert_eq!(outcome.engine, Engine::Net);
         assert!(outcome.verdict.proof().is_some());
         let net = Options::default().with_engine(Some(Engine::Net));
-        let outcome = prove_goal(&forest, &goal, classical, &net, &Limits::default(), |_| {
-            false
-        })
+        let outcome = prove_goal(
+            Goal::new(&forest, &goal).unwrap(),
+            classical,
+            &net,
+            &Limits::default(),
+            |_| false,
+        )
         .unwrap();
         assert!(outcome.verdict.proof().is_some());
     }
@@ -2241,16 +2319,14 @@ mod tests {
     /// off the roots, and an intuitionistic goal must have one output.
     #[test]
     fn goals() {
-        use crate::occurrences::OccId;
-        let o = |ids: &[u32]| ids.iter().map(|&i| OccId::new(i)).collect::<Vec<_>>();
+        let o = |ids: &[u32]| ids.iter().map(|&i| Member::new(i)).collect::<Vec<_>>();
         // 0: ~a, 1: (a ⊗ ~b) ⊗ ?c, 2: a ⊗ ~b, 3: a, 4: ~b, 5: ?c, 6: c, 7: b.
         let s = sequent("|- ~a, (a * ~b) * ?c, b");
         let forest = Forest::new(&s).unwrap();
         let options = Options::default();
         let goal = o(&[0, 3]);
         let outcome = prove_goal(
-            &forest,
-            &goal,
+            Goal::new(&forest, &goal).unwrap(),
             Mode::CLASSICAL,
             &options,
             &Limits::default(),
@@ -2264,8 +2340,7 @@ mod tests {
         assert!(proof.goal().is_some());
         assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
         let outcome = prove_goal(
-            &forest,
-            &o(&[0, 2, 7]),
+            Goal::new(&forest, &o(&[0, 2, 7])).unwrap(),
             Mode::CLASSICAL,
             &options,
             &Limits::default(),
@@ -2275,8 +2350,7 @@ mod tests {
         assert!(outcome.verdict.proof().is_some());
         assert_eq!(outcome.fragment, Fragment::MLL);
         let outcome = prove_goal(
-            &forest,
-            &o(&[4, 5]),
+            Goal::new(&forest, &o(&[4, 5])).unwrap(),
             Mode::CLASSICAL,
             &options,
             &Limits::default(),
@@ -2291,8 +2365,7 @@ mod tests {
         assert_eq!(outcome.fragment, Fragment::EXPONENTIALS);
         let net = Options::default().with_engine(Some(Engine::Net));
         let error = prove_goal(
-            &forest,
-            &goal,
+            Goal::new(&forest, &goal).unwrap(),
             Mode::CLASSICAL,
             &net,
             &Limits::default(),
@@ -2309,15 +2382,7 @@ mod tests {
             ),
             "{error}"
         );
-        let error = prove_goal(
-            &forest,
-            &o(&[9]),
-            Mode::CLASSICAL,
-            &options,
-            &Limits::default(),
-            |_| false,
-        )
-        .unwrap_err();
+        let error = Goal::new(&forest, &o(&[9])).unwrap_err();
         assert!(
             matches!(
                 error,
@@ -2335,8 +2400,7 @@ mod tests {
         let s = sequent("|- (~a & ~b) par (a & b)");
         let forest = Forest::new(&s).unwrap();
         let outcome = prove_goal(
-            &forest,
-            &o(&[1, 4]),
+            Goal::new(&forest, &o(&[1, 4])).unwrap(),
             Mode::CLASSICAL,
             &options,
             &Limits::default(),
@@ -2346,8 +2410,7 @@ mod tests {
         assert_eq!(outcome.engine, Engine::Additive);
         assert!(matches!(outcome.verdict, Verdict::Unprovable(_)));
         let outcome = prove_goal(
-            &forest,
-            &o(&[5, 2]),
+            Goal::new(&forest, &o(&[5, 2])).unwrap(),
             Mode::CLASSICAL,
             &options,
             &Limits::default(),
@@ -2364,8 +2427,7 @@ mod tests {
         let forest = Forest::new(&s).unwrap();
         let i = Mode::INTUITIONISTIC;
         let outcome = prove_goal(
-            &forest,
-            &o(&[0, 2]),
+            Goal::new(&forest, &o(&[0, 2])).unwrap(),
             i,
             &options,
             &Limits::default(),
@@ -2375,8 +2437,14 @@ mod tests {
         assert_eq!(outcome.engine, Engine::TwoSided);
         assert!(outcome.verdict.proof().is_some());
         for (goal, outputs) in [(o(&[0]), 0), (o(&[2, 4]), 2)] {
-            let error =
-                prove_goal(&forest, &goal, i, &options, &Limits::default(), |_| false).unwrap_err();
+            let error = prove_goal(
+                Goal::new(&forest, &goal).unwrap(),
+                i,
+                &options,
+                &Limits::default(),
+                |_| false,
+            )
+            .unwrap_err();
             assert!(
                 matches!(error, Error::GoalOutputs { count: n } if n == outputs),
                 "{error}"
@@ -2392,11 +2460,10 @@ mod tests {
         // 0: a ⊗ b, 1: a, 2: b, 3: ~a, 4: ~b, 5: c, 6: ~c
         let sequent: Sequent = "|- a * b, ~a, ~b, c, ~c".parse().unwrap();
         let forest = Forest::new(&sequent).unwrap();
-        let goal = [OccId::new(6), OccId::new(5)];
+        let goal = [Member::new(6), Member::new(5)];
         let mode = Mode::CLASSICAL;
         let outcome = prove_goal(
-            &forest,
-            &goal,
+            Goal::new(&forest, &goal).unwrap(),
             mode,
             &Options::default(),
             &Limits::default(),

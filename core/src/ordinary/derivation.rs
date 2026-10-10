@@ -1165,11 +1165,10 @@ mod tests {
         .unwrap();
         let forest = crate::Forest::new(image.sequent()).unwrap();
         let roots = forest.roots();
-        let goal = [roots[0], roots[2]];
+        let goal = [crate::Member::from(roots[0]), crate::Member::from(roots[2])];
         let limits = crate::Limits::default();
         let outcome = crate::search::prove_goal(
-            &forest,
-            &goal,
+            crate::search::Goal::new(&forest, &goal).unwrap(),
             image.mode(),
             &Options::default(),
             &limits,

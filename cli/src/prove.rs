@@ -13,7 +13,7 @@ use linlog::export::Styles;
 use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
 use linlog::proofs::{Compact, Sides};
-use linlog::search::{Engine, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
+use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, engine_for, prove_goal};
 use linlog::{
     CheckError, Criterion, Error, ErrorKind, Forest, Limits, Mode, Proof, ProofStructure, Reading,
     Refusal, Sequent, Size, ViewOptions,
@@ -1116,14 +1116,18 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         // Both conditions are flags, so every poll asks both.
         let halt = || interrupted() || deadline.passed();
         let parallel =
-            || engine_for(&forest, forest.roots(), mode, &options).is_ok_and(Engine::parallel);
+            || engine_for(Goal::conclusion(&forest), mode, &options).is_ok_and(Engine::parallel);
         let outcome = alone_first(
             &options,
             limits.stack_bytes(),
             threads,
             &halt,
             parallel,
-            |options, halt| prove_goal(&forest, forest.roots(), mode, options, &limits, |_| halt()),
+            |options, halt| {
+                prove_goal(Goal::conclusion(&forest), mode, options, &limits, |_| {
+                    halt()
+                })
+            },
         )
         .map_err(|e| describe(e, sequent))?;
         let stop = stopped(&deadline);

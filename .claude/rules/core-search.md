@@ -18,9 +18,11 @@ own: `core-focus.md`, `core-nets.md` (the net engine) and
 
 `search/mod.rs` is what a front end calls: `prove(&sequent, mode,
 &options)` and `prove_within(…, &limits, stop)` return `Result<Outcome,
-Error>`, and `prove_goal(&forest, goal, mode, &options, &limits, stop)`
-decides any multiset of occurrences of a forest, given in any order,
-`prove_within` being that on
+Error>`, and `prove_goal(goal, mode, &options, &limits, stop)` decides
+a `Goal` (`Copy`: the forest and the members; `Goal::conclusion(&forest)`,
+or `Goal::new(&forest, &members)`, which checks the members against the
+forest and is `is_conclusion` for the roots in any order) of any
+multiset of a forest's occurrences, `prove_within` being that on
 the roots (the roots in any order are the roots, `Forest::is_roots`,
 which `Proof::new_of_goal` asks too, and the
 engines get them in the forest's order, so the net engine takes them and

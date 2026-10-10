@@ -15,7 +15,7 @@ use anyhow::{Context, Result, bail};
 use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
-use linlog::search::{Engine, Options, Outcome, Verdict, engine_for, prove_goal};
+use linlog::search::{Engine, Goal, Options, Outcome, Verdict, engine_for, prove_goal};
 use linlog::{
     Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, ViewOptions,
 };
@@ -405,15 +405,9 @@ impl Session {
             notice_line(self.timeout, self.deepens),
         );
         let halt = || interrupted() || deadline.passed();
-        let goal_sequent = self
-            .state
-            .goal(goal)?
-            .iter()
-            .map(|&m| self.state.occurrence(m))
-            .collect::<Vec<_>>();
         let (forest, mode) = (self.state.forest(), self.state.mode());
-        let parallel =
-            || engine_for(forest, &goal_sequent, mode, &self.options).is_ok_and(Engine::parallel);
+        let target = Goal::new(forest, self.state.goal(goal)?)?;
+        let parallel = || engine_for(target, mode, &self.options).is_ok_and(Engine::parallel);
         let limits = &self.limits;
         let searched = alone_first(
             &self.options,
@@ -421,7 +415,7 @@ impl Session {
             self.threads,
             &halt,
             parallel,
-            |options, halt| prove_goal(forest, &goal_sequent, mode, options, limits, |_| halt()),
+            |options, halt| prove_goal(target, mode, options, limits, |_| halt()),
         );
         let closed = searched.and_then(|outcome| {
             if let Verdict::Proved(proof) = &outcome.verdict {

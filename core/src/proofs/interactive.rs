@@ -1097,10 +1097,9 @@ impl Interactive {
         limits: &Limits,
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Closed, Error> {
-        let sequent = self.open(goal)?;
+        let members = self.goal(goal)?;
         let outcome = search::prove_goal(
-            &self.forest,
-            &sequent,
+            search::Goal::new(&self.forest, members)?,
             self.mode,
             options,
             limits,
@@ -2078,10 +2077,8 @@ mod tests {
         assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
 
         let (mut s, g) = start("A, B |- A", Mode::CLASSICAL);
-        let goal: Vec<OccId> = s.goal(g).unwrap().iter().map(|m| m.occ()).collect();
         let affine = search::prove_goal(
-            s.forest(),
-            &goal,
+            search::Goal::new(s.forest(), s.goal(g).unwrap()).unwrap(),
             Mode::CLASSICAL.with_affine(),
             &Options::default(),
             &Limits::default(),
