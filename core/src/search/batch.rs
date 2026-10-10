@@ -845,4 +845,49 @@ mod tests {
         let answer = received.recv_timeout(std::time::Duration::from_secs(20));
         assert_eq!(answer, Ok(((0..5).collect(), true)));
     }
+
+    /// Dropping the results ends the batch, however long its queue: the
+    /// cancel is raised, so the work in flight stops, the workers end and
+    /// let the problems go, and no worker took a problem beyond its window.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn dropped_results_end_the_batch() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::mpsc::{RecvTimeoutError, channel};
+        let taken = Arc::new(AtomicUsize::new(0));
+        let counted = taken.clone();
+        // Dropped with the problems, when the last worker has ended.
+        let (gone, problems_kept) = channel::<()>();
+        let problems = (0..1_000usize).inspect(move |_| {
+            let _ = &gone;
+            counted.fetch_add(1, Ordering::Relaxed);
+        });
+        let workers = 2;
+        let options = Options::default()
+            .with_workers(workers)
+            .with_cores(Cores::Across);
+        let mut results = run(
+            problems,
+            &options,
+            &SearchOptions::default(),
+            &Limits::default(),
+            |i, _, cancel: &Cancel| {
+                // Every problem but the first waits for the cancel.
+                while i > 0 && !cancel.is_cancelled() {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                i
+            },
+        );
+        let cancel = results.canceller();
+        assert_eq!(results.next(), Some(0));
+        drop(results);
+        assert!(cancel.is_cancelled());
+        assert_eq!(
+            problems_kept.recv_timeout(std::time::Duration::from_secs(20)),
+            Err(RecvTimeoutError::Disconnected)
+        );
+        let window = 1 + workers::AHEAD * workers;
+        assert!(taken.load(Ordering::Relaxed) <= window, "{taken:?}");
+    }
 }
