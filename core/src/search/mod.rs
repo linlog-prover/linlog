@@ -47,11 +47,11 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 /// The work a search has done, in its engine's units, shared by every
-/// thread of it, and the bound on it ([`Limits::work`]). The calling
-/// thread counts its own units apart and adds them at the end, and other
-/// threads add theirs in batches of [`Work::BATCH`]: an atomic addition
-/// at every poll cost the additive path, which polls at every pair, 5 % of
-/// its instructions, and would contend on a pool.
+/// thread of it, and the bound on it ([`Limits::work`]). Each thread
+/// counts its own units apart and adds them in batches of
+/// [`Work::BATCH`], the rest when it ends: an atomic addition at every
+/// poll cost the additive path 5 % of its instructions, and would contend
+/// on a pool.
 #[derive(Debug)]
 pub(crate) struct Work {
     /// The units done.
@@ -62,9 +62,8 @@ pub(crate) struct Work {
 }
 
 impl Work {
-    /// How many units a thread other than the calling one counts before it
-    /// adds them: what the total and the bound see of it is late by at
-    /// most this much per thread.
+    /// How many units a thread counts before it adds them: what the total
+    /// and the bound see of it is late by at most this much per thread.
     #[cfg(feature = "parallel")]
     pub(crate) const BATCH: u64 = 1 << 12;
 
@@ -133,7 +132,10 @@ impl Stop<'_> {
             Self::Closure(stop) => stop(work),
             Self::Turn(stop, left) => {
                 *left = left.saturating_sub(work);
-                *left == 0 || stop(work)
+                // The caller is told the units of the poll that ends the
+                // turn too.
+                let stopped = stop(work);
+                *left == 0 || stopped
             }
             Self::Slice(stop, left, slice) => {
                 *left = left.saturating_sub(work);
@@ -535,10 +537,16 @@ fn decide_goal(
     let implementation = engine.implementation();
     // Every poll on this thread counts its units of work, and tells the
     // caller's stop those and the units of every thread of the search;
-    // past the bound on work the search ends.
+    // past the bound on work the search ends. With other threads, which
+    // read the shared count, this one adds its units to it in batches.
     let mut mine = 0u64;
     let mut polled = |units: u64| {
         mine += units;
+        #[cfg(feature = "parallel")]
+        if mine >= Work::BATCH {
+            work.add(mine);
+            mine = 0;
+        }
         let done = work.done().saturating_add(mine);
         done > work.limit || stop(Progress::new(Phase::Search, units, done))
     };
@@ -2357,6 +2365,54 @@ mod tests {
                 outcome.verdict
             );
         }
+    }
+
+    /// A turn tells the caller the units of every poll, the one that ends
+    /// it too.
+    #[test]
+    fn a_turn_tells_the_caller_every_poll() {
+        let mut told = 0;
+        let mut caller = |units| {
+            told += units;
+            false
+        };
+        let mut turn = Stop::Turn(&mut caller, 5);
+        assert!(!turn.fired(3));
+        assert!(turn.fired(3), "the turn is over");
+        drop(turn);
+        assert_eq!(told, 6);
+    }
+
+    /// Beside the default bias's second search, which reads the shared
+    /// count, the bound on work is late by a few batches at most: the
+    /// calling thread adds its units in batches too, where it kept them
+    /// to the end and the second search ran a whole slice past the bound.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn the_work_bound_holds_beside_the_second_search() {
+        let tokens = vec!["a"; 32].join(", ");
+        let s = sequent(&format!(
+            "!(a * a -o b), !(b * b -o c), !(c * c -o d), !(d * d -o e), !(e * e -o f), \
+             !(a -o x), !(x -o y), !(y -o a), !(a -o u), !(u -o v), !(v -o a), !(b -o w), \
+             !(w -o b), !(x -o u), {tokens} |- f * a"
+        ));
+        let options = Options::default()
+            .with_engine(Some(Engine::Focus))
+            .with_copies(None)
+            .with_jobs(1);
+        let limit = 300_000;
+        let limits = Limits::default().with_work(Some(limit));
+        let outcome = prove_within(&s, Mode::CLASSICAL, &options, &limits, |_| false).unwrap();
+        assert!(
+            matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { .. })),
+            "{:?}",
+            outcome.verdict
+        );
+        assert!(
+            outcome.statistics.work < limit + 4 * Work::BATCH,
+            "{} units under a bound of {limit}",
+            outcome.statistics.work
+        );
     }
 
     /// The race counts every thread: below three it asks nothing and

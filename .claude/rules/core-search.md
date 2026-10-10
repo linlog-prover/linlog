@@ -92,18 +92,30 @@ parallel pool's workers, the default bias's second search and a batch's
 workers alike. **Every poll is told the work done** (`Stop::fired(units)`,
 the engines' `&mut dyn FnMut(u64) -> bool`): `prove_goal` keeps one
 `Work` per search (an atomic count shared by its threads, against
-`Limits::work`), adds each poll's units to it and asks the caller's stop
+`Limits::work`), counts each poll's units and asks the caller's stop
 with `Progress { phase: Search, work: the poll's own units, done: every
-thread's }` (so on one thread the `work` add up to `done`); past the bound the poll answers true and `prove_goal` turns the
-engine's `Stopped` into `Reason::WorkLimit { limit }`. A pool's workers
-add their units through their `Flags` (`Flags::fired`, which also ends a
-worker past the bound) in batches of `Work::BATCH` and the rest when the
-worker's `Stop` drops (its `Drop`; without it a worker's last units were
-lost, `forced_links_are_made_once` and `default_bias_takes_turns` pin the
-sums), and the driver asks the caller's stop with 0
-units each millisecond, which reports theirs; the default bias's second
-thread adds its own, the rest at its end, and the calling thread replays
-its polls with 0. The
+thread's }` (so on one thread the `work` add up to `done` and to
+`Statistics::work`); past the bound the poll answers true and `prove_goal` turns the
+engine's `Stopped` into `Reason::WorkLimit { limit }`. **Every thread
+adds its units to the count in batches of `Work::BATCH` and the rest when
+it ends**: the calling thread in `decide_goal`'s poll (with `parallel`;
+alone it keeps them to its end), a pool's workers through their `Flags`
+(`Flags::fired`, which also ends a worker past the bound; the rest when
+the worker's `Stop` drops), the default bias's second thread in its
+`give_way`. So the bound is late by at most a batch and a poll per
+thread. Two panel findings: the calling thread kept its units to the
+end, and the second search, which reads the shared count, ran a whole
+slice past the bound (`the_work_bound_holds_beside_the_second_search`,
+which needs a release build to catch it: the calling thread's
+millisecond wake-up hides it in a debug one); and `Stop::Turn` skipped
+the caller at the poll that ended a turn, whose units were lost
+(`a_turn_tells_the_caller_every_poll`). The driver asks the caller's
+stop with 0 units each millisecond, which reports the workers' units,
+and so does the calling thread while the second search has its turn.
+The units an engine counted after its last poll are no work: the
+additive path, which polls every 1 024 pairs, tells the stop its last
+pairs when it ends, and the focused engine's last stable sequent or
+split steps (under a poll's worth) go uncounted. The
 units are what each engine already passed (the focused engine's slicing
 work, one per literal or failed test, pair, marking or pivot; a set-up
 poll none), so no poll moved and no counter of a decided run changed;
