@@ -416,6 +416,28 @@ with the test that would have caught it, each a commit of its own.
   writing atom names in their Rocq form: every line a Rocq note carries
   goes through `note`, names or not.
 
+#### Area 3.2, item by item (session `step-28e`)
+
+The search's findings (`area == "search"`) and what area 3.1 moved
+here, in an order where wrong answers and crashes come first, then the
+front door and its types, then the measured progress commit, the race,
+the inner names and refactorings, the tests and the docs.
+
+| item | state | evidence |
+|---|---|---|
+| a. F93 coverability's `tried`, F128 the Horn refutation kept, F139 a refused check `Unknown`, F117 a pool's panic cancels its siblings | open | |
+| b. H18 the pool's depth per worker, a test at a raised limit on two threads | open | |
+| c. F92 a pool's `&` premises without copying the ancestors | open | |
+| d. `Reason` with named fields and `setting()`; `NotTaken` and `Error::EngineRefused`; `Engine::parallel` exhaustive (F141), `Engine::counters`; F140 no `expect` in the dispatch | open | |
+| e. `Goal` and the front door's stages (8.1), one place a verdict is built | open | |
+| f. `Statistics`: `memo_entries` a `u64` (F102), `add` public, F144 the forward level apart from `copies` | open | |
+| g. the progress stop at every poll site, measured, the shim removed; `Limits::work` and `Reason::WorkLimit`; lock commit (4) with `work` and `forward_copies`; R243's test | open | |
+| h. `search::race` with one account (F103, F104, F168), the command and the harness its callers | open | |
+| i. names inside (F56, F113) and the refactorings F107 to F121, F126, F132, F133, F135 | open | |
+| j. tests: the Horn engine's (F94 to F97, F124, F125, F127, F129 to F131, F134), F98, F105, F106, F138, F143, F145, F122, F123, H21 | open | |
+| k. docs: F91, F99 to F101, F118, F137, F142, F146 | open | |
+| l. check rounds (at most three), the fresh-context reviewer, `nix flake check` | open | |
+
 ## From the supervisor
 
 ### Where you start, `step-28` (2026-10-08 20:51)
