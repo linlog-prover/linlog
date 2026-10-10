@@ -50,9 +50,8 @@ pub(crate) struct Counts {
     /// `n` lies between the entries `n − 1 − o` and `n − o`. Every bound
     /// fits a `u32`: a set-up whose rows have more entries is refused.
     bound: Box<[u32]>,
-    /// The atom of each row entry: its rank among the atoms that have rows
-    /// at all, in the order of the sequent's atoms.
-    atom: Box<[Atom]>,
+    /// The rank of each row entry's atom.
+    rank: Box<[Rank]>,
     /// The least balance of each row entry's atom. A sum of ±1 over the
     /// literals below an occurrence, of which a forest that gets counts has
     /// fewer than 2³¹: within an `i32`.
@@ -80,11 +79,23 @@ pub(crate) struct Counts {
     positive: Box<[Sign]>,
 }
 
-/// One entry of a row: the atom and the interval of its balance.
+/// An atom's rank among the atoms that have rows, in the order of the
+/// sequent's atoms: its column in a [`Tally`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Rank(u32);
+
+impl Rank {
+    /// The rank as an index into a tally's columns.
+    pub(crate) const fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
+/// One entry of a row: the atom's rank and the interval of its balance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Entry {
-    /// The atom, as its rank among the atoms that have rows.
-    pub(crate) atom: Atom,
+    /// The atom's rank.
+    pub(crate) rank: Rank,
     /// The least balance.
     pub(crate) lo: i32,
     /// The greatest balance.
@@ -94,8 +105,8 @@ pub(crate) struct Entry {
 /// The rows of the occurrences computed so far, one after another.
 #[derive(Default)]
 struct Rows {
-    /// The atom of each entry.
-    atom: Vec<Atom>,
+    /// The rank of each entry's atom.
+    rank: Vec<Rank>,
     /// The least balance of each entry.
     lo: Vec<i32>,
     /// The greatest balance of each entry.
@@ -106,7 +117,7 @@ impl Rows {
     /// The entry at a place.
     fn at(&self, i: usize) -> Entry {
         Entry {
-            atom: self.atom[i],
+            rank: self.rank[i],
             lo: self.lo[i],
             hi: self.hi[i],
         }
@@ -114,14 +125,14 @@ impl Rows {
 
     /// Appends an entry.
     fn push(&mut self, e: Entry) {
-        self.atom.push(e.atom);
+        self.rank.push(e.rank);
         self.lo.push(e.lo);
         self.hi.push(e.hi);
     }
 
     /// The bytes the entries' allocations take.
     fn bytes(&self) -> usize {
-        bytes_of(&self.atom) + bytes_of(&self.lo) + bytes_of(&self.hi)
+        bytes_of(&self.rank) + bytes_of(&self.lo) + bytes_of(&self.hi)
     }
 
     /// Appends the merge of two rows that lie among the entries, each
@@ -130,25 +141,25 @@ impl Rows {
     /// contributing `0 ..= 0` there. Returns how many entries it read.
     fn merge(&mut self, a: std::ops::Range<usize>, b: std::ops::Range<usize>, sum: bool) -> usize {
         let (mut i, mut j) = (a.start, b.start);
-        let zero = |atom| Entry { atom, lo: 0, hi: 0 };
+        let zero = |rank| Entry { rank, lo: 0, hi: 0 };
         while i < a.end || j < b.end {
             let (x, y) = match (i < a.end, j < b.end) {
-                (true, true) if self.atom[i] == self.atom[j] => {
+                (true, true) if self.rank[i] == self.rank[j] => {
                     i += 1;
                     j += 1;
                     (self.at(i - 1), self.at(j - 1))
                 }
-                (true, other) if !other || self.atom[i] < self.atom[j] => {
+                (true, other) if !other || self.rank[i] < self.rank[j] => {
                     i += 1;
-                    (self.at(i - 1), zero(self.atom[i - 1]))
+                    (self.at(i - 1), zero(self.rank[i - 1]))
                 }
                 _ => {
                     j += 1;
-                    (zero(self.atom[j - 1]), self.at(j - 1))
+                    (zero(self.rank[j - 1]), self.at(j - 1))
                 }
             };
             self.push(Entry {
-                atom: x.atom,
+                rank: x.rank,
                 lo: if sum { x.lo + y.lo } else { x.lo.min(y.lo) },
                 hi: if sum { x.hi + y.hi } else { x.hi.max(y.hi) },
             });
@@ -285,7 +296,7 @@ impl Counts {
                     let atom = forest.atom(o).unwrap();
                     if !exponential[atom.index()] {
                         rows.push(Entry {
-                            atom: crate::sequents::Atom::new(rank[atom.index()]),
+                            rank: Rank(rank[atom.index()]),
                             lo: sign,
                             hi: sign,
                         });
@@ -322,7 +333,7 @@ impl Counts {
                     (absorb, w)
                 }
             };
-            let Ok(end) = u32::try_from(rows.atom.len()) else {
+            let Ok(end) = u32::try_from(rows.rank.len()) else {
                 return Err(Reason::IndexLimit);
             };
             bound.push(end);
@@ -347,7 +358,7 @@ impl Counts {
         }
         let counts = Self {
             bound: bound.into_boxed_slice(),
-            atom: rows.atom.into_boxed_slice(),
+            rank: rows.rank.into_boxed_slice(),
             lo: rows.lo.into_boxed_slice(),
             hi: rows.hi.into_boxed_slice(),
             absorbs: absorbs.into_boxed_slice(),
@@ -360,7 +371,7 @@ impl Counts {
         };
         account.resize(
             charged,
-            counts.atom.len() * (size_of::<Atom>() + 2 * size_of::<i32>()),
+            counts.rank.len() * (size_of::<Rank>() + 2 * size_of::<i32>()),
         );
         Ok(counts)
     }
@@ -393,7 +404,7 @@ impl Counts {
     pub(crate) fn row(&self, o: OccId) -> impl Iterator<Item = Entry> + '_ {
         let (start, end) = self.span(o);
         (start..end).map(move |i| Entry {
-            atom: self.atom[i],
+            rank: self.rank[i],
             lo: self.lo[i],
             hi: self.hi[i],
         })
@@ -417,15 +428,15 @@ impl Counts {
         self.absorbs_from_copies
     }
 
-    /// Returns the first atom of the occurrence's row, as an index, or
+    /// Returns the rank of the first atom of the occurrence's row, or
     /// `u32::MAX` when the row is empty: members of a context sorted by it
     /// have every atom's members next to each other.
-    pub(crate) fn first_atom(&self, o: OccId) -> u32 {
+    pub(crate) fn first_rank(&self, o: OccId) -> u32 {
         let (start, end) = self.span(o);
         if start == end {
             u32::MAX
         } else {
-            self.atom[start].index() as u32
+            self.rank[start].0
         }
     }
 
@@ -470,7 +481,7 @@ impl Counts {
         self.row(o).any(|e| e.lo > 0 || e.hi < 0)
     }
 
-    /// Returns an empty tally of this forest's width.
+    /// Returns an empty tally, a column per atom that has rows.
     pub(crate) fn tally(&self) -> Tally {
         Tally {
             lo: vec![0; self.row_atoms],
@@ -537,7 +548,7 @@ impl Tally {
     /// absorption.
     fn apply(&mut self, counts: &Counts, o: OccId, sign: i32) {
         for e in counts.row(o) {
-            let a = e.atom.index();
+            let a = e.rank.index();
             self.touched.push(a as u32);
             let was_bad = self.lo[a] > 0 || self.hi[a] < 0;
             self.lo[a] += sign * e.lo;
@@ -697,7 +708,7 @@ impl Split {
     fn shift(&mut self, counts: &Counts, o: OccId, side: Branch, settled: i32, opened: i32) {
         let side = side as usize;
         for e in counts.row(o) {
-            let a = e.atom.index();
+            let a = e.rank.index();
             let was = [self.excludes(0, a), self.excludes(1, a)];
             self.lo[side][a] += settled * e.lo;
             self.hi[side][a] += settled * e.hi;
@@ -724,15 +735,13 @@ impl Split {
     /// Adds a member to a side for good: a subformula of the `⊗`, or a
     /// member the search does not move.
     pub(crate) fn place(&mut self, counts: &Counts, o: OccId, side: Branch) {
-        self.touched
-            .extend(counts.row(o).map(|e| e.atom.index() as u32));
+        self.touched.extend(counts.row(o).map(|e| e.rank.0));
         self.shift(counts, o, side, 1, 0);
     }
 
     /// Adds a member that a search will assign to a side.
     pub(crate) fn open(&mut self, counts: &Counts, o: OccId) {
-        self.touched
-            .extend(counts.row(o).map(|e| e.atom.index() as u32));
+        self.touched.extend(counts.row(o).map(|e| e.rank.0));
         self.shift(counts, o, Branch::Left, 0, 1);
     }
 
@@ -750,7 +759,7 @@ impl Split {
         }
         let (to, from) = (side as usize, 1 - side as usize);
         for e in counts.row(o) {
-            let a = e.atom.index();
+            let a = e.rank.index();
             let was = [self.excludes(0, a), self.excludes(1, a)];
             self.lo[from][a] -= e.lo;
             self.hi[from][a] -= e.hi;
@@ -833,12 +842,12 @@ mod tests {
     fn rows() {
         // ⊢ (a ⊗ ~a) ⅋ b, (a & ~b) ⊕ ~a, 1
         let (f, c) = counts("|- (a * ~a) par b, (a & ~b) + ~a, 1");
-        let (a, b) = (
-            f.sequent().atom("a").unwrap(),
-            f.sequent().atom("b").unwrap(),
-        );
+        // Without exponentials every atom has rows, ranked as it is
+        // numbered.
+        let rank = |name| Rank(f.sequent().atom(name).unwrap().index() as u32);
+        let (a, b) = (rank("a"), rank("b"));
         let row = |o: u32| c.row(OccId::new(o)).collect::<Vec<_>>();
-        let e = |atom, lo, hi| Entry { atom, lo, hi };
+        let e = |rank, lo, hi| Entry { rank, lo, hi };
         assert_eq!(row(0), [e(a, 0, 0), e(b, 1, 1)], "the ⅋");
         assert_eq!(row(1), [e(a, 0, 0)], "the ⊗");
         assert_eq!(row(2), [e(a, 1, 1)]);

@@ -505,7 +505,7 @@ impl Run<'_> {
         members.sort_unstable_by_key(|&m| {
             (
                 std::cmp::Reverse(self.problem.counts.row_len(m)),
-                self.problem.counts.first_atom(m),
+                self.problem.counts.first_rank(m),
                 self.problem.classes.of(m),
                 std::cmp::Reverse(m),
             )
