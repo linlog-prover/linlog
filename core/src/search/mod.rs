@@ -3309,6 +3309,7 @@ mod tests {
             outcome.verdict
         );
         assert_eq!(outcome.fragment, Fragment::EXPONENTIALS);
+        assert!(!Goal::new(&forest, &goal).unwrap().is_conclusion());
         let net = Options::default().with_engine(Some(Engine::Net));
         let error = prove_goal(
             Goal::new(&forest, &goal).unwrap(),
