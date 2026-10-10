@@ -786,4 +786,11 @@ supervisor's go are marked "go".
   recorded as fixed by orszuxqx with its witness in yxxuumxn, H21 not
   covered. Signing came back at 09:20; these commits are signed but
   kvrrwumq and ywyytxwu, made before it.
+- Hold (2026-10-10, 09:26 to about 09:42): the author needed the machine
+  quiet. What was done: the gate queue and the fuzzing stopped at 09:26.
+  Left: the gates of ywyytxwu (stopped in its tests), myllqqsn and
+  yxxuumxn (kvrrwumq had passed); the fuzz target `json_disproof` (3 of
+  its 15 minutes run, coverage 2 839 after 11.7 million inputs, no
+  find), to run again from the
+  start. Both restart on `planning`'s go.
 
