@@ -162,7 +162,7 @@ impl Plan {
             );
             let mut engine = Run::new(
                 problem,
-                Stop::Flags(flags),
+                Stop::Flags(flags, 0),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
             );
@@ -206,7 +206,7 @@ impl<'s> Spawn<'s> {
     fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w> {
         let mut worker = Run::new(
             self.problem,
-            Stop::Flags(self.flags.child(cancel)),
+            Stop::Flags(self.flags.child(cancel), 0),
             Table::Shared(self.memo),
             Arena::new(Kept::Shared(self.arena), self.problem.account),
         );
@@ -309,7 +309,7 @@ impl<'a> Run<'a> {
     where
         'a: 's,
     {
-        let (Table::Shared(memo), Kept::Shared(arena), Stop::Flags(flags), Some(runtime)) =
+        let (Table::Shared(memo), Kept::Shared(arena), Stop::Flags(flags, _), Some(runtime)) =
             (&self.memo, &self.nodes.kept, &self.stop, self.runtime)
         else {
             unreachable!("a parallel choice is met on a worker of the pool")

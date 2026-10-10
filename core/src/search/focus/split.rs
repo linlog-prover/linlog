@@ -239,12 +239,20 @@ impl Run<'_> {
     /// them. No work is passed: the units two alternating searches count
     /// their slices in are what they are without this poll, and so is
     /// where each gives way.
+    #[inline]
     fn poll_forced(&mut self) -> Result<(), Reason> {
         self.forced += 1;
         if self.forced < FORCED_PER_POLL {
             return Ok(());
         }
         self.forced = 0;
+        self.poll_now()
+    }
+
+    /// Polls the stop condition, passing no work: the rare branch of
+    /// [`Self::poll_forced`], kept out of the chain's loop.
+    #[cold]
+    fn poll_now(&mut self) -> Result<(), Reason> {
         if self.stop.fired(0) {
             Err(Reason::Stopped)
         } else {

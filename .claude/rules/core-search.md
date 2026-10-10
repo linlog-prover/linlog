@@ -97,9 +97,13 @@ with `Progress { phase: Search, work: the poll's own units, done: every
 thread's }` (so on one thread the `work` add up to `done`); past the bound the poll answers true and `prove_goal` turns the
 engine's `Stopped` into `Reason::WorkLimit { limit }`. A pool's workers
 add their units through their `Flags` (`Flags::fired`, which also ends a
-worker past the bound) and the driver asks the caller's stop with 0
+worker past the bound) in batches of `Work::BATCH` and the rest when the
+worker's `Stop` drops (its `Drop`; without it a worker's last units were
+lost, `forced_links_are_made_once` and `default_bias_takes_turns` pin the
+sums), and the driver asks the caller's stop with 0
 units each millisecond, which reports theirs; the default bias's second
-thread adds its own and the calling thread replays its polls with 0. The
+thread adds its own, the rest at its end, and the calling thread replays
+its polls with 0. The
 units are what each engine already passed (the focused engine's slicing
 work, one per literal or failed test, pair, marking or pivot; a set-up
 poll none), so no poll moved and no counter of a decided run changed;

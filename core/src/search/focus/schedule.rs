@@ -501,8 +501,13 @@ pub(super) fn alternate(
                 }
                 // The caller's stop lives on the calling thread, which asks
                 // it for this search's polls; the work is added here.
+                let mut pending = 0;
                 let mut give_way = |units: u64, passed: bool| {
-                    work.add(units);
+                    pending += units;
+                    if pending >= crate::search::Work::BATCH {
+                        work.add(pending);
+                        pending = 0;
+                    }
                     baton.polls.fetch_add(1, Ordering::Relaxed);
                     work.passed() || baton.halt.load(Ordering::Relaxed) || (passed && baton.pass(1))
                 };
@@ -519,6 +524,7 @@ pub(super) fn alternate(
                     second_account,
                     Stop::Slice(&mut give_way, slice, slice),
                 );
+                work.add(pending);
                 if result.is_ok() {
                     baton.stop();
                 }

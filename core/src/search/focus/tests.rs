@@ -503,6 +503,7 @@ fn default_bias_takes_turns() {
         assert!(verdict.proof().is_some());
         assert_eq!(slices.nodes, forward.nodes + backward.nodes);
         assert_eq!(slices.splits, forward.splits + backward.splits);
+        assert_eq!(slices.work, forward.work + backward.work);
         assert_eq!(run(&text, m, &options).1, slices);
         // Asked for, the turns run on a build with threads too.
         let turns = options

@@ -47,8 +47,11 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 /// The work a search has done, in its engine's units, shared by every
-/// thread of it, and the bound on it ([`Limits::work`]): every poll adds
-/// what was done since the last, so the bound ends the search at a poll.
+/// thread of it, and the bound on it ([`Limits::work`]). The calling
+/// thread counts its own units apart and adds them at the end, and other
+/// threads add theirs in batches of [`Work::BATCH`]: an atomic addition
+/// at every poll cost the additive path, which polls at every pair, 5 % of
+/// its instructions, and would contend on a pool.
 #[derive(Debug)]
 pub(crate) struct Work {
     /// The units done.
@@ -59,6 +62,12 @@ pub(crate) struct Work {
 }
 
 impl Work {
+    /// How many units a thread other than the calling one counts before it
+    /// adds them: what the total and the bound see of it is late by at
+    /// most this much per thread.
+    #[cfg(feature = "parallel")]
+    pub(crate) const BATCH: u64 = 1 << 12;
+
     /// No work done yet, under the bound `limit`.
     pub(crate) const fn new(limit: Option<u64>) -> Self {
         Self {
@@ -110,9 +119,10 @@ pub(crate) enum Stop<'a> {
         )
     )]
     Slice(&'a mut dyn FnMut(u64, bool) -> bool, u64, u64),
-    /// A worker's flags.
+    /// A worker's flags, and the units it has not yet added to the
+    /// search's work.
     #[cfg(feature = "parallel")]
-    Flags(parallel::Flags<'a>),
+    Flags(parallel::Flags<'a>, u64),
 }
 
 impl Stop<'_> {
@@ -134,7 +144,18 @@ impl Stop<'_> {
                 stop(work, passed)
             }
             #[cfg(feature = "parallel")]
-            Self::Flags(flags) => flags.fired(work),
+            Self::Flags(flags, pending) => flags.fired(work, pending),
+        }
+    }
+}
+
+#[cfg(feature = "parallel")]
+impl Drop for Stop<'_> {
+    /// Adds a worker's last units, fewer than a batch, to the search's
+    /// work, which would not count them otherwise.
+    fn drop(&mut self) {
+        if let Self::Flags(flags, pending) = self {
+            flags.settle(*pending);
         }
     }
 }
@@ -496,7 +517,7 @@ fn decide_goal(
     limits: &Limits,
     account: &memory::Account,
     work: &Work,
-    stop: &mut dyn FnMut(Progress) -> bool,
+    stop: &mut impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
     let forest = goal.forest;
     let occurrences = goal.occurrences();
@@ -511,12 +532,14 @@ fn decide_goal(
         reading.as_ref(),
     )?;
     let implementation = engine.implementation();
-    // Every poll of the engines adds its units of work, and tells the
-    // caller's stop those and the units every thread of the search has
-    // done; past the bound on work the search ends.
+    // Every poll on this thread counts its units of work, and tells the
+    // caller's stop those and the units of every thread of the search;
+    // past the bound on work the search ends.
+    let mut mine = 0u64;
     let mut polled = |units: u64| {
-        let done = work.add(units);
-        work.passed() || stop(Progress::new(Phase::Search, units, done))
+        mine += units;
+        let done = work.done().saturating_add(mine);
+        done > work.limit || stop(Progress::new(Phase::Search, units, done))
     };
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
@@ -536,7 +559,9 @@ fn decide_goal(
     let options = &options
         .clone()
         .with_jobs(parallel::threads(options.threads()));
-    let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
+    let answer = implementation.decide(&task, options, limits, account, work, &mut polled);
+    work.add(mine);
+    let mut answer = answer?;
     answer.statistics.work = work.done();
     if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
         answer.result = Err(Reason::WorkLimit { limit: work.limit });
@@ -1051,7 +1076,8 @@ pub enum Engine {
     /// [`Options::check`], and the limits' recursion depth and memory
     /// bound, and runs on the calling thread whatever
     /// [`Options::jobs`] says; two additive formulas have no copies and no
-    /// atoms to bias. Its unit of work is a pair decided.
+    /// atoms to bias. Its unit of work is a pair decided, which it counts
+    /// at its polls, every 1 024 pairs.
     Additive,
     /// The engine for Horn programs: clauses under `!` that may be used
     /// any number of times, implications used once, atoms, and one goal
