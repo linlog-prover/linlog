@@ -1328,23 +1328,6 @@ fn generated_intuitionistic_sequents() {
     );
 }
 
-/// The same on a larger sample of larger proofs, without exponentials:
-/// with them, a few sequents of a sample this size take minutes at the
-/// bound their derelictions give. Run it in release mode and read the
-/// numbers it prints.
-#[test]
-#[ignore = "a larger sample; run with --release -- --ignored --nocapture"]
-fn generated_large_sample() {
-    let start = std::time::Instant::now();
-    let (sequents, mutants, provable_mutants, _, most_nodes) = generated(500, 24, false);
-    println!(
-        "{sequents} generated sequents proved, {mutants} mutants decided consistently \
-         ({provable_mutants} of them provable), at most {most_nodes} stable sequents per \
-         search, in {:.2?}",
-        start.elapsed()
-    );
-}
-
 /// Encodes a Horn program with reusable clauses, as the ILLTP library
 /// states Petri-net reachability: every clause `body ⊸ head` (products
 /// of atoms) under a `!`, the initial marking as hypotheses, the goal

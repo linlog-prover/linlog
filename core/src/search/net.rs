@@ -537,7 +537,6 @@ pub(super) mod tests {
     use crate::search::generate::{self, Rng, Rules};
     use crate::search::{Engine, Verdict, prove};
     use crate::sequents::Sequent;
-    use std::time::{Duration, Instant};
 
     /// Runs the net engine on `input` under `mode` with `options`, checks
     /// the proof if there is one against the checker and against the net,
@@ -779,29 +778,21 @@ pub(super) mod tests {
     }
 
     /// Compares the two engines on a sample and returns how many sequents
-    /// were decided, how many were provable, and the time each engine
-    /// took.
-    fn compare(
-        sample: &[(String, Mode)],
-        period: Option<u32>,
-    ) -> (usize, usize, Duration, Duration) {
+    /// were decided and how many were provable.
+    fn compare(sample: &[(String, Mode)], period: Option<u32>) -> (usize, usize) {
         let options = Options::default().with_test_period(period);
-        let (mut provable, mut net_time, mut focus_time) = (0, Duration::ZERO, Duration::ZERO);
+        let mut provable = 0;
         for (text, mode) in sample {
             let s: Sequent = text.parse().unwrap();
-            let start = Instant::now();
             let by_focus = focus_verdict(&s, *mode);
-            focus_time += start.elapsed();
-            let start = Instant::now();
             let by_net = net_verdict(text, *mode, &options);
-            net_time += start.elapsed();
             assert_eq!(
                 by_net, by_focus,
                 "{text:?} in {mode} mode: net {by_net}, focus {by_focus}"
             );
             provable += usize::from(by_net);
         }
-        (sample.len(), provable, net_time, focus_time)
+        (sample.len(), provable)
     }
 
     /// The net engine agrees with the focused engine on every sequent of
@@ -810,27 +801,13 @@ pub(super) mod tests {
     #[test]
     fn agrees_with_the_focused_engine() {
         let sample = sample(60, 12, 8);
-        let (decided, provable, _, _) = compare(&sample, None);
+        let (decided, provable) = compare(&sample, None);
         assert_eq!(decided, sample.len());
         assert!(
             provable > 100 && provable < decided - 100,
             "{provable} of {decided}"
         );
         compare(&sample, Some(3));
-    }
-
-    /// The same on a larger sample, with the time each engine took; run it
-    /// in release mode and read the numbers it prints.
-    #[test]
-    #[ignore = "a larger sample; run with --release -- --ignored --nocapture"]
-    fn net_versus_focus_timing() {
-        let sample = sample(150, 16, 10);
-        let (decided, provable, net_time, focus_time) = compare(&sample, None);
-        println!(
-            "{decided} sequents decided alike, {provable} provable; net {net_time:.2?}, focus {focus_time:.2?}"
-        );
-        let (_, _, net_time, _) = compare(&sample, Some(4));
-        println!("net with the exact test every fourth link: {net_time:.2?}");
     }
 
     /// Small Partition instances are decided as the instance says, by both
