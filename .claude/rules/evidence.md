@@ -69,12 +69,14 @@ browser or a stranger's file would.
   (`sequent_text`), the ordinary syntax (`ordinary_text`), TPTP (`tptp`),
   LLTP (`lltp`), Mist's `.spec` (`spec`), and the JSON forms of a
   sequent, a proof (read and checked, the first byte the mode), a proof
-  structure (the criterion, then sequentialization and the checker) and
-  a session. `Outcome` and `Refutation` have no reader: they are written,
-  never read.
+  structure (the criterion, then sequentialization and the checker), a
+  session and a disproof (written back and read again; the seeds are
+  unprovable outcomes, which read as disproofs). `Outcome` has no reader
+  of its own: it reads as a proof or a disproof.
 - Besides "no panic", a target asserts what must hold of what it read:
   a printed sequent parses back, a correct structure sequentializes to a
-  proof the checker accepts, a complete session's proof checks.
+  proof the checker accepts, a complete session's proof checks, a
+  disproof writes back as a document that reads back as itself.
 - `fuzz/seed.sh` seeds the corpora from `bench/problems`, the command's
   own JSON and the LLTP, ILTP and qcover libraries; without seeds a JSON
   target rarely gets past the arena's consistency checks.

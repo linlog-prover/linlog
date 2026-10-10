@@ -89,3 +89,10 @@ path = "fuzz_targets/json_session.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "json_disproof"
+path = "fuzz_targets/json_disproof.rs"
+test = false
+doc = false
+bench = false

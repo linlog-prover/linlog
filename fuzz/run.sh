@@ -24,8 +24,8 @@ cd "$(dirname "$self")/.."
 cores=(12 13 14 15)
 stall=${STALL:-900}
 cap=${CAP:-5400}
-targets=(json_proof json_session json_structure json_sequent sequent_text
-  ordinary_text tptp lltp spec)
+targets=(json_proof json_session json_structure json_sequent json_disproof
+  sequent_text ordinary_text tptp lltp spec)
 bin=fuzz/target/x86_64-unknown-linux-gnu/release
 out=target/fuzz
 

@@ -14,7 +14,7 @@ set -euo pipefail
 cd "$(dirname "$(realpath "$0")")/.."
 linlog=${LINLOG:-target/debug/linlog}
 corpus=fuzz/corpus
-for t in sequent_text ordinary_text tptp lltp spec json_sequent json_proof json_structure json_session; do
+for t in sequent_text ordinary_text tptp lltp spec json_sequent json_proof json_structure json_session json_disproof; do
   mkdir -p "$corpus/$t"
 done
 seed() { # TARGET NAME: standard input into the corpus
@@ -33,6 +33,9 @@ grep -v '^#' bench/problems/* | cut -d';' -f5 | sed 's/^ //' | while read -r s; 
       printf '\0'
       printf '%s' "$out"
     } | seed json_proof "problem-$i"
+  elif [ $? -eq 1 ]; then
+    # An unprovable outcome reads as its disproof.
+    printf '%s' "$out" | seed json_disproof "problem-$i"
   fi
 done
 for s in "A |- A" "A * B |- B * A" "!A |- A * !A" "A & B |- A + B" "|- 1" "0 |-" \
