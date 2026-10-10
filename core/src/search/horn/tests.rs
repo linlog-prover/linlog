@@ -570,3 +570,61 @@ fn charges_what_it_grows() {
         );
     }
 }
+
+/// The searches' counters on these runs, the simplex given no room so
+/// that the search alone decides: the markings taken (`nodes`), those
+/// dropped as kept already, covered or above a cap (`memo_hits`), those
+/// kept (`memo_entries`), and the units of work polled. The numbers are
+/// the search's own, a function of the net: they change only when the
+/// search does. Forward and backward on the partitions, and the net the
+/// backward reachability search refutes beside the forward one.
+#[test]
+fn counts_its_work() {
+    let family = |name: &str| -> Sequent {
+        FAMILIES
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap()
+            .instance(4, 0)
+            .unwrap()
+            .sequent
+    };
+    let (yes, no) = (family("partition-yes"), family("partition-no"));
+    let both: Sequent = "!(c * a -o b), !(1 -o b * d), !(b * b * d -o a), d |- a"
+        .parse()
+        .unwrap();
+    let no_room = Account::new(Some(0));
+    for (sequent, affine, proved, counters) in [
+        (&yes, false, true, [75, 27, 48, 74]),
+        (&no, false, false, [217, 136, 81, 217]),
+        (&yes, true, true, [126, 44, 82, 145]),
+        (&no, true, false, [2289, 1848, 442, 2731]),
+        (&both, false, false, [32_233, 15_846, 16_387, 32_233]),
+    ] {
+        let forest = Forest::new(sequent).unwrap();
+        let net = program(&forest);
+        let account = Account::new(None);
+        let mut equation = Equation::new(affine, &no_room);
+        let mut work = 0;
+        let mut stop = |units| {
+            work += units;
+            false
+        };
+        let search = if affine { cover::search } else { reach::search };
+        let (found, statistics) = search(
+            &net,
+            &account,
+            reach::MOST_MARKINGS,
+            &mut equation,
+            &mut stop,
+        );
+        assert_eq!(found.map(|f| f.is_some()), Ok(proved), "{sequent}");
+        let counted = [
+            statistics.nodes,
+            statistics.memo_hits,
+            statistics.memo_entries,
+            work,
+        ];
+        assert_eq!(counted, counters, "{sequent} affine {affine}");
+    }
+}
