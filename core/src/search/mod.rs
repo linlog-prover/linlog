@@ -2529,6 +2529,34 @@ mod tests {
         );
     }
 
+    /// The race answers with the side that decided, whichever it is: the
+    /// caller's stop ends one side at its first poll (the pool's thread is
+    /// named), and the other proves the sequent.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn the_race_answers_with_the_side_that_decided() {
+        let s = sequent("!(a -o b), !(b -o c), a |- c * !(d -o d)");
+        let forest = Forest::new(&s).unwrap();
+        let goal = Goal::conclusion(&forest);
+        for pool_stops in [false, true] {
+            let outcome = race(
+                goal,
+                Mode::CLASSICAL,
+                &Options::default(),
+                &Limits::default(),
+                3,
+                |_| true,
+                |_| (std::thread::current().name() == Some("linlog-race")) == pool_stops,
+            )
+            .unwrap();
+            assert!(
+                matches!(outcome.verdict, Verdict::Proved(_)),
+                "the pool stopped: {pool_stops}, {:?}",
+                outcome.verdict
+            );
+        }
+    }
+
     /// A panic on one side of the race stops the other side, and then
     /// goes on to the caller: the pool's stop panics here, and the
     /// single search of minutes ends at its next poll.
