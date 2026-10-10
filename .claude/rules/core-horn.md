@@ -69,7 +69,7 @@ front door, the dispatch and the memory account it plugs into are in
   checked the count rule by rule and wrote the induction independently;
   no test can exhaust it.
 - **What the counts rule out is refuted before the search**
-  (`Horn::decide` calls `focus::refutation`, the test the front door
+  (`Horn::decide` calls `focus::counts::refutation`, the test the front door
   applies to every engine's `Unprovable`): a goal with an atom that
   nothing balances, `|- b, ?~c` or `c, !c |- a`, is an infinite net the
   search would run to the memory bound, where the focused engines

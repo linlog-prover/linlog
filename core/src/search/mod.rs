@@ -618,7 +618,7 @@ fn conclude(
             let refutation = refutation.unwrap_or_else(|| {
                 let account = memory::Account::new(limits.memory_bytes);
                 let mut polled = |_| stop(Progress::new(Phase::Refute, 0, 0));
-                focus::refutation(
+                focus::counts::refutation(
                     forest,
                     task.goal,
                     task.fragment,
@@ -2045,6 +2045,22 @@ pub enum Reason {
 }
 
 impl Reason {
+    /// The reason a search of the options gives up with, given the reason
+    /// one of its searches did: a copy bound is [`Options::copies`], the
+    /// bound every search ran within at the least, and a memory limit is
+    /// [`Limits::memory_bytes`], of which a search may have had a part.
+    pub(crate) fn as_set(self, options: &Options, limits: &Limits) -> Self {
+        match self {
+            Self::CopyBound { .. } => Self::CopyBound {
+                copies: options.copy_bound(),
+            },
+            Self::MemoryLimit { limit_bytes: bytes } => Self::MemoryLimit {
+                limit_bytes: limits.memory_bytes.unwrap_or(bytes),
+            },
+            reason => reason,
+        }
+    }
+
     /// Returns the settings key whose bound the search reached, which a
     /// caller raises to search further; `None` for the stop and the
     /// indices, which no setting lifts.

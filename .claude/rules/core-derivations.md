@@ -337,7 +337,7 @@ code relies on:
   of the goal, and the net engine never runs off the roots. The outcome
   returned is the search's, its proof the proof of the goal alone.
   `split_passes` lends the client the focused engine's count prunes
-  (`focus::split_passes`, which builds the engine's `Switches` and tallies
+  (`focus::counts::split_passes`, which builds the engine's `Switches` and tallies
   for the two sides) as a "this split cannot close" test; a split that
   passes may still fail.
 - **Reading a state back** (`from_parts`, used by deserialization) checks

@@ -96,9 +96,7 @@ pub(crate) fn search_goal(
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
         let finished = runtime.drive(stop, work, |flags| search(first, &runtime, account, flags));
         return Ok(Finished {
-            result: finished
-                .result
-                .map_err(|r| super::reason(r, options, limits)),
+            result: finished.result.map_err(|r| r.as_set(options, limits)),
             ..finished
         });
     };

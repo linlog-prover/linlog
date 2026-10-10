@@ -101,9 +101,7 @@ pub(crate) fn search_goal(
         charged: 0,
         stop,
     };
-    let result = engine
-        .pair(*x, *y)
-        .map_err(|r| super::focus::reason(r, options, limits));
+    let result = engine.pair(*x, *y).map_err(|r| r.as_set(options, limits));
     // The pairs since the last poll are work too: the stop is told them,
     // and its answer comes after the search.
     let _ = (engine.stop)(engine.statistics.nodes % PAIRS_PER_POLL);

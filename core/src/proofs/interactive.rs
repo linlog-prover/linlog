@@ -1033,7 +1033,7 @@ impl Interactive {
             unreachable!("a split has two premises");
         };
         let fragment = search::goal_fragment(&self.forest, &sequent);
-        Ok(focus::split_passes(
+        Ok(focus::counts::split_passes(
             &self.forest,
             fragment,
             self.mode,

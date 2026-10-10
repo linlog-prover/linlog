@@ -6,7 +6,7 @@
 use super::*;
 use crate::Sequent;
 use crate::search::generate::{self, Rng, Rules};
-use crate::search::{Goal, Verdict, prove_goal};
+use crate::search::{Bias, Goal, Verdict, prove_goal};
 use crate::{Limits, Progress};
 
 /// Runs the focused engine on the roots of the forest in the fragment

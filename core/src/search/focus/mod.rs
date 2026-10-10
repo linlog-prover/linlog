@@ -50,7 +50,7 @@ mod classes;
 /// The linear zone as a multiset.
 mod context;
 /// The count invariants the engine prunes with.
-mod counts;
+pub(crate) mod counts;
 /// The memo of stable sequents.
 mod memo;
 #[cfg(feature = "parallel")]
@@ -72,11 +72,9 @@ use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{plan, turns};
 use self::scratch::{Pooled, Pools};
 use self::split::Join;
-use super::Bias;
 use super::memory::{Account, Charged};
 use super::{
-    Answer, Decide, Equation, Finished, Options, Reason, Refutation, Statistics, Stop, Task,
-    Unbalanced, Work, set_up_stopped,
+    Answer, Decide, Finished, Options, Reason, Statistics, Stop, Task, Work, set_up_stopped,
 };
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
@@ -205,7 +203,7 @@ pub(crate) fn search_goal(
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Finished {
     // On a large forest every pass of the set-up is followed by a poll.
-    let gave_up = |r| Finished::gave_up(reason(r, options, limits));
+    let gave_up = |r: Reason| Finished::gave_up(r.as_set(options, limits));
     let classes = Classes::new(forest, reading);
     if set_up_stopped(forest, stop) {
         return gave_up(Reason::Stopped);
@@ -233,7 +231,7 @@ pub(crate) fn search_goal(
             Stop::Closure(stop),
         );
         return Finished {
-            result: finished.result.map_err(|r| reason(r, options, limits)),
+            result: finished.result.map_err(|r| r.as_set(options, limits)),
             ..finished
         };
     };
@@ -271,104 +269,6 @@ pub(crate) fn search_goal(
     turns(
         forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
     )
-}
-
-/// Returns why a goal that the search refuted is unprovable, as far as its
-/// counts tell: an atom whose literals cannot pair up, or the count
-/// equation that fails, each under the rules the engine searched the
-/// fragment and the mode with; else that the search was exhaustive. The
-/// asynchronous phase keeps the sums of the goal's members (a `⅋` or `⊥`
-/// keeps the count equation, a premise of `&` lies within its hull), so
-/// a goal that fails a test makes every stable sequent above it fail it,
-/// where the engine checks it. Counting is a pass over the forest under
-/// the search's limits; a pass given up says only what the verdict does.
-pub(crate) fn refutation(
-    forest: &Forest,
-    goal: &[OccId],
-    fragment: Fragment,
-    mode: Mode,
-    account: &Account,
-    stop: &mut dyn FnMut(u64) -> bool,
-) -> Refutation {
-    let Ok(counts) = Counts::new_until(forest, Bias::Rarer, account, stop) else {
-        return Refutation::Exhausted;
-    };
-    let rules = Switches::new(fragment, mode, &counts);
-    let mut tally = counts.tally();
-    for &o in goal {
-        tally.add(&counts, o);
-    }
-    if rules.intervals
-        && let Some((atom, least, most)) = tally.unbalanced(&counts)
-    {
-        return Refutation::Unbalanced(Unbalanced { atom, least, most });
-    }
-    if rules.equation && !tally.equation(rules.mix) {
-        let (mut tensors, mut pars, mut ones, mut bottoms) = (0, 0, 0, 0);
-        for &o in goal {
-            for x in forest.subtree(o) {
-                match forest.kind(x) {
-                    Kind::Tensor => tensors += 1,
-                    Kind::Par => pars += 1,
-                    Kind::One => ones += 1,
-                    Kind::Bot => bottoms += 1,
-                    _ => {}
-                }
-            }
-        }
-        // Each count is below 2³², so the sum is exact.
-        let needed = tensors as i64 - pars as i64 - ones as i64 + bottoms as i64 + 2;
-        return Refutation::Equation(Equation {
-            formulas: goal.len() as u64,
-            needed,
-            tensors,
-            pars,
-            ones,
-            bottoms,
-            mix: rules.mix,
-        });
-    }
-    Refutation::Exhausted
-}
-
-/// The reason a search of the options gives up with, given the reason one
-/// of its searches did: a copy bound is [`Options::copies`], the bound
-/// every search ran within at the least, and a memory limit is
-/// [`Limits::memory_bytes`], of which a search may have had a part.
-pub(crate) fn reason(reason: Reason, options: &Options, limits: &Limits) -> Reason {
-    match reason {
-        Reason::CopyBound { .. } => Reason::CopyBound {
-            copies: options.copy_bound(),
-        },
-        Reason::MemoryLimit { limit_bytes: bytes } => Reason::MemoryLimit {
-            limit_bytes: limits.memory_bytes.unwrap_or(bytes),
-        },
-        reason => reason,
-    }
-}
-
-/// Whether a split of a goal into the two premises of a `⊗`, each given
-/// with its subformula of the `⊗`, or of a Mix passes the count prunes the
-/// engine applies to every split: the interval check per atom and, in the
-/// multiplicative fragments, the count equation. A split that fails cannot
-/// close; one that passes may still fail. `fragment` is the goal's.
-#[cfg(feature = "interactive")]
-pub(crate) fn split_passes(
-    forest: &Forest,
-    fragment: Fragment,
-    mode: Mode,
-    left: &[OccId],
-    right: &[OccId],
-) -> bool {
-    let counts = Counts::new(forest, Bias::Auto);
-    let rules = Switches::new(fragment, mode, &counts);
-    let mut split = counts.split();
-    for (members, side) in [(left, Branch::Left), (right, Branch::Right)] {
-        for &m in members {
-            split.place(&counts, m, side);
-        }
-    }
-    split.feasible(rules.intervals, rules.equation, rules.mix)
 }
 
 /// The rules in force beyond the core ones, switched by fragment and mode.

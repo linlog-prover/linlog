@@ -11,7 +11,7 @@ use super::arena::{Arena, Kept};
 use super::classes::Classes;
 use super::counts::Counts;
 use super::memo::{Memo, Table};
-use super::{Problem, Run, reason};
+use super::{Problem, Run};
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Reading};
@@ -110,7 +110,7 @@ pub(super) fn turns(
         }
         if let [Some(_), Some(backward)] = ended {
             return Finished {
-                result: Err(reason(backward, options, limits)),
+                result: Err(backward.as_set(options, limits)),
                 nodes: Vec::new(),
                 statistics: leveled(statistics, levels, 1),
             };
@@ -629,7 +629,7 @@ pub(super) fn merged(
         (Ok(root), _) => (Ok(root), first.nodes),
         (_, Ok(root)) => (Ok(root), second.nodes),
         (Err(Reason::Stopped), _) | (_, Err(Reason::Stopped)) => (Err(Reason::Stopped), Vec::new()),
-        (Err(_), Err(reason)) => (Err(super::reason(reason, options, limits)), Vec::new()),
+        (Err(_), Err(reason)) => (Err(reason.as_set(options, limits)), Vec::new()),
     };
     Finished {
         result,

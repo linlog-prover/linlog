@@ -145,7 +145,7 @@ outcome's `work` is that count. The command's default and the harness's
   the one refutation not computed from the
   counts. Every other `Unprovable` gets the counts' below.
 - **A refutation says what the counts rule out** (`Refutation`,
-  `focus::refutation`, called by `prove_goal` on every `Unprovable` of
+  `focus::counts::refutation`, called by `prove_goal` on every `Unprovable` of
   every engine that gives none of its own, which construct
   `Refutation::Exhausted`). It builds the
   focused engine's `Counts` (fresh account, the caller's stop: a pass
@@ -380,7 +380,7 @@ not by what is in use. `prove_goal` makes one per search.
   what is left, the branch's own buffers and proofs as allocated, is
   still over, or when an empty memo cannot have its first chunk. The
   value in the reason is the option's, whatever share a search had
-  (`focus::reason`). `relieve` does not squeeze the arena to fit: the
+  (`Reason::as_set`). `relieve` does not squeeze the arena to fit: the
   next `keep` would double it again, and a search at its bound would
   copy its arena at every node (seen: 170 stable sequents a second
   where there were 400 000).
