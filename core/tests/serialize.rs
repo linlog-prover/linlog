@@ -616,6 +616,21 @@ fn error_json_format() {
         described.contains("\"message\":\"invalid proof: node 0 (ax on a, ~a)"),
         "{described}"
     );
+    // A switching cycle writes its vertices' ids.
+    let s: Sequent = "|- a * b, ~a * ~b".parse().unwrap();
+    let links = [
+        (VertexId::new(1), VertexId::new(4)),
+        (VertexId::new(2), VertexId::new(5)),
+    ];
+    let net = ProofStructure::from_links(Forest::new(&s).unwrap(), Criterion::MLL, &links).unwrap();
+    let error = net.is_correct(|_| false).unwrap_err();
+    let linlog::nets::NetError::SwitchingCycle { cycle, .. } = &error else {
+        panic!("{error}");
+    };
+    let ids: Vec<u32> = cycle.iter().map(|v| v.get()).collect();
+    assert!(ids.len() > 1, "{ids:?}");
+    let json = serde_json::to_value(linlog::Error::from(error.clone())).unwrap();
+    assert_eq!(json["details"]["cycle"], serde_json::json!(ids));
 }
 
 /// The search options are an object of their fields: a missing key is
@@ -657,6 +672,11 @@ fn options_json_format() {
     let error = serde_json::from_str::<Options>("{\"engine\":\"fast\"}").unwrap_err();
     assert!(
         error.to_string().contains("unknown engine `fast`"),
+        "{error}"
+    );
+    let error = serde_json::from_str::<Options>("{\"jobs\":\"many\"}").unwrap_err();
+    assert!(
+        error.to_string().contains("expected a number or \"auto\""),
         "{error}"
     );
 }
@@ -775,6 +795,8 @@ fn wire_levels() {
     assert!(written.contains(r#""memory_bytes":null"#), "{written}");
     let error = serde_json::from_str::<Limits>(r#"{"memory_bytes":9007199254740993}"#);
     assert!(error.unwrap_err().to_string().contains("null lifts it"));
+    let most = serde_json::from_str::<Limits>(r#"{"memory_bytes":9007199254740992}"#);
+    assert_eq!(most.unwrap().memory_bytes, Some(1 << 53));
 
     let tiny = Limits::default().with_occurrences(Some(3));
     let refused = |result: Result<(), Error>| {
@@ -785,6 +807,8 @@ fn wire_levels() {
     };
     let document = serde_json::Deserializer::from_str;
     assert!(refused(read(&sequent, &tiny).map(drop)));
+    let exact = Limits::default().with_occurrences(Some(s.occurrences()));
+    assert!(read(&sequent, &exact).is_ok());
     assert!(refused(
         wire::upgrade::<Proof, _>(&mut document(&proof), &tiny).map(drop)
     ));
