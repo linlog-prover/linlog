@@ -859,3 +859,22 @@ fn wire_levels() {
         wire::upgrade::<Interactive, _>(&mut document(&session), &tiny).map(drop)
     ));
 }
+
+/// A forced engine's refusal is written with its reason, tagged by
+/// `kind`, under the error's `details`.
+#[test]
+fn engine_refusals_json() {
+    let net = Options::default().with_engine(Some(Engine::Net));
+    let refused = |text: &str, mode: Mode| {
+        let error = prove(&text.parse().unwrap(), mode, &net).unwrap_err();
+        serde_json::to_value(&error).unwrap()["details"].to_string()
+    };
+    assert_eq!(
+        refused("|- !a, ?~a", Mode::CLASSICAL),
+        r#"{"because":{"decides":"MLL","goal":"MELL","kind":"fragment"},"engine":"net"}"#
+    );
+    assert_eq!(
+        refused("|- a, ~a", Mode::CLASSICAL.with_affine()),
+        r#"{"because":{"kind":"mode","mode":"affine"},"engine":"net"}"#
+    );
+}

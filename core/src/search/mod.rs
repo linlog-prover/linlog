@@ -1283,6 +1283,12 @@ impl Counter {
 /// Why an engine the options force does not take a goal, which each
 /// engine checks in this order: the largest fragment it decides, its
 /// modes, whether the goal is the sequent itself, and the goal's shape.
+///
+/// In JSON (feature `serialize`), as the `because` of an
+/// `engine_refused` error's `details` beside its `engine`, tagged by
+/// `kind`: `{"kind": "fragment", "decides": "MLL", "goal": "MELL"}`,
+/// `{"kind": "mode", "mode": "affine"}`, `{"kind": "goal"}` or
+/// `{"kind": "shape"}`; written, never read.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NotTaken {
@@ -2287,8 +2293,9 @@ mod tests {
                 assert!(written.get(key).is_some(), "{engine}: {key}");
             }
             let mut unique = keys.clone();
+            unique.sort_unstable();
             unique.dedup();
-            assert_eq!(unique, keys, "{engine}");
+            assert_eq!(unique.len(), keys.len(), "{engine}");
         }
     }
 
@@ -2296,6 +2303,29 @@ mod tests {
     /// back as its value.
     #[test]
     fn names_are_listed() {
+        // Every variant has an arm, with no wildcard, and its place in the
+        // list: a new variant fails to compile here until it has one, and
+        // the lengths until it is listed.
+        let engine_at = |engine| match engine {
+            Engine::Focus => 0,
+            Engine::Net => 1,
+            Engine::TwoSided => 2,
+            Engine::Additive => 3,
+            Engine::Horn => 4,
+        };
+        let bias_at = |bias| match bias {
+            Bias::Auto => 0,
+            Bias::Rarer => 1,
+            Bias::Factors => 2,
+        };
+        assert_eq!(Engine::ALL.len(), 5);
+        assert_eq!(Bias::ALL.len(), 3);
+        for (i, &engine) in Engine::ALL.iter().enumerate() {
+            assert_eq!(engine_at(engine), i);
+        }
+        for (i, &bias) in Bias::ALL.iter().enumerate() {
+            assert_eq!(bias_at(bias), i);
+        }
         let engines: Vec<_> = Engine::ALL.iter().map(|e| e.name()).collect();
         let biases: Vec<_> = Bias::ALL.iter().map(|b| b.name()).collect();
         assert_eq!(engines, Engine::NAMES);
