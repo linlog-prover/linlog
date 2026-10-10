@@ -19,7 +19,7 @@ it; only what holds for the whole crate goes here.
 | `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading |
 | `core-proofs.md` | `proofs/mod.rs`, `check.rs`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
 | `core-derivations.md` | `proofs/derivation.rs`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive.rs` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
-| `core-search.md` | `search/mod.rs`, `memory.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the additive path, the test-only reference prover |
+| `core-search.md` | `search/mod.rs`, `memory.rs`, `work.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the work count, the additive path, the test-only reference prover |
 | `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: the atom bias, dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
 | `core-horn.md` | `search/horn/` | the Horn engine: the shape it reads as a Petri net and why its refutations are sound in every mode, places, classes and dead transitions, the sparse markings, the frontier and the backward search beside it, coverability in affine mode and its trie, the state equation and its exact check, sharing memory and time, its limits, the proof read off a firing sequence |
 | `core-nets.md` | `nets/`, `search/net.rs` | proof structures, the correctness criterion, sequentialization, the net engine |
@@ -42,7 +42,8 @@ parse error), `limits` (`Limits`, `Progress`, `Refusal`), `settings`
 for tests only, `derivation`, `size`, the text tree `fmt`, the rule
 labels `style`, the crate-private `multiset`, and `interactive` behind
 the feature of that name), `search` (the front door in `mod.rs`, the
-memory account in `memory`, the focused engine in `focus/` with
+memory account in `memory`, the work count and the helpers for what
+threads share in `work`, the focused engine in `focus/` with
 `arena`, `bias`, `classes`, `context`, `counts`, `memo`, `schedule`, `scratch`,
 `split`, `tests` and `parallel`, the net engine in
 `net`, the Horn engine in `horn/` with `reach`, `cover`, `equation`, `proof` and `tests`, the runtime of the pool in `parallel` behind the feature of that

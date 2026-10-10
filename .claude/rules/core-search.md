@@ -2,6 +2,7 @@
 paths:
   - "core/src/search/mod.rs"
   - "core/src/search/memory.rs"
+  - "core/src/search/work.rs"
   - "core/src/search/additive.rs"
   - "core/src/search/reference.rs"
   - "core/src/search/refutation.rs"
