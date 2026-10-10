@@ -348,3 +348,225 @@ fn refuses_at_its_limits() {
         outcome.verdict
     );
 }
+
+/// A sequent's verdict under the engine within a memory bound.
+fn bounded(sequent: &Sequent, mode: Mode, bytes: u64) -> Verdict {
+    let limits = crate::Limits::default().with_memory_bytes(Some(bytes));
+    crate::search::prove_within(sequent, mode, &horn(), &limits, |_| false)
+        .unwrap()
+        .verdict
+}
+
+/// The backward search tries every transition on every element it takes.
+/// Elements leave the queue by their tokens, not by their index, so an
+/// element kept later may be taken earlier: a transition already tried on
+/// that one is still to be tried on this one, here the step that covers
+/// the goal.
+#[test]
+fn tries_every_transition_on_every_element() {
+    let text = "(c * b -o c * c * b), (1 -o b * c * b), !(c * b * c -o c * a * a) |- a";
+    for mode in [
+        Mode::CLASSICAL.with_affine(),
+        Mode::INTUITIONISTIC.with_affine(),
+    ] {
+        assert_eq!(verdict(text, mode), "proved", "{mode}");
+    }
+}
+
+/// The backward search caps a place at its initial count unless some
+/// clause gives it more tokens than it takes, which no marking on the way
+/// from the initial one passes: a place only taken from, or given back as
+/// many as taken, is capped, the place of a class of clauses used once
+/// among them, and one that a clause raises is not.
+#[test]
+fn caps_the_places_no_clause_raises() {
+    // The places `a`, `d`, `g`, `b`, `c` and the class of the clause used
+    // once. The clause under `!` gives `d` back after taking an `a`, a
+    // place before it; the clause used once raises `c` and takes `b` and
+    // its ticket, a place before it and one after.
+    let sequent: Sequent = "!(a -o a * a), !(a * d -o d * g), a, b, b, b, d, (a * b -o c) |- c"
+        .parse()
+        .unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let open = u32::MAX;
+    assert_eq!(program(&forest).caps(), [open, 1, open, 3, open, 1]);
+}
+
+/// Once the forward search has kept its share of markings without
+/// deciding, the backward search runs beside it and may find the firing
+/// sequence first. Forward, every marking of fewer than 200 tokens comes
+/// before the clause used once can fire; backward, its 200 tokens are
+/// walked down to one, with its ticket at its cap, the initial count.
+#[test]
+fn the_backward_search_finds_a_long_firing_sequence() {
+    let tokens = vec!["a"; 200].join(" * ");
+    let sequent: Sequent = format!("!(a -o a * a), !(a -o b), !(b -o a), ({tokens} -o c), a |- c")
+        .parse()
+        .unwrap();
+    let outcome = prove(&sequent, Mode::CLASSICAL, &horn()).unwrap();
+    assert!(
+        matches!(outcome.verdict, Verdict::Proved(_)),
+        "{:?}",
+        outcome.verdict
+    );
+    // More markings than the forward search keeps alone.
+    assert!(
+        outcome.statistics.memo_entries > 1 << 14,
+        "{:?}",
+        outcome.statistics
+    );
+}
+
+/// The distance to the target after a firing merges the clause's inputs
+/// and outputs by place, so a place both touch is counted once even when
+/// an output on a place before it comes first: the firing that reaches the
+/// target is seen to.
+#[test]
+fn sees_the_firing_that_reaches_the_target() {
+    for text in [
+        "!(a -o b * a), !(c * c -o b * c), c, c |- b * c",
+        "(b -o a), !(a * c -o b * a), b, c |- b * a",
+    ] {
+        assert_eq!(verdict(text, Mode::CLASSICAL), "proved", "{text}");
+    }
+}
+
+/// A marking kept with a count past a byte reads back as written: 130
+/// tokens on one place, moved one by one to another.
+#[test]
+fn keeps_counts_past_a_byte() {
+    let given = vec!["a"; 130].join(", ");
+    let goal = vec!["b"; 130].join(" * ");
+    let text = format!("!(a -o b), {given} |- {goal}");
+    assert_eq!(verdict(&text, Mode::CLASSICAL), "proved");
+}
+
+/// Out of room, a search takes the simplex's tableau back, and the
+/// forward search the backward one's markings, and tries once more: the
+/// simplex never costs it a decision. At these bounds the tableau is held
+/// when the search's buffers next grow, and without it the search has
+/// room to prove the goal.
+#[test]
+fn the_simplex_gives_its_memory_back() {
+    let sequent: Sequent = "!(c * a -o b), !(1 -o b * d), !(b * b * d -o a), d |- a"
+        .parse()
+        .unwrap();
+    let verdict = bounded(&sequent, Mode::CLASSICAL.with_affine(), 1500);
+    assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
+    let partition = FAMILIES
+        .iter()
+        .find(|f| f.name == "partition-yes")
+        .unwrap()
+        .instance(4, 0)
+        .unwrap()
+        .sequent;
+    let verdict = bounded(&partition, Mode::CLASSICAL, 8400);
+    assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
+}
+
+/// In intuitionistic mode a marking of several atoms is read whole on the
+/// left of `⊢`, each literal lying within the marking's extent, here
+/// where the marking is the forest's first occurrence.
+#[test]
+fn reads_a_marking_of_several_atoms_intuitionistically() {
+    let text = "a * c, !(a -o a * c * c) |- 1";
+    assert_eq!(verdict(text, Mode::INTUITIONISTIC), "state equation");
+    assert_eq!(verdict(text, Mode::INTUITIONISTIC.with_affine()), "proved");
+}
+
+/// In intuitionistic mode the reading must put on the left of `⊢` exactly
+/// the occurrences that hold a head or lie in one, and not what follows
+/// the head within its member. The reading is given by hand, since only
+/// so can a clause be written with its head before a body literal:
+/// `a, a ⊸ b ⊢ b` with the clause `b⊥ ⊗ a`.
+#[cfg(feature = "interactive")]
+#[test]
+fn the_reading_puts_exactly_the_heads_on_the_left() {
+    use crate::occurrences::{Reading, Side};
+    use Side::{Input, Output};
+    let sequent: Sequent = "|- ~b * a, ~a, b".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let reads = |sides: &[Side]| {
+        let reading = Reading::of_parts(&forest, sides, forest.roots()[2]);
+        let task = Task {
+            forest: &forest,
+            goal: forest.roots(),
+            fragment: sequent.fragment(),
+            mode: Mode::INTUITIONISTIC,
+            reading: Some(&reading),
+            roots: true,
+        };
+        Program::read(&task).is_some()
+    };
+    // The clause, its head, its body literal, the marking and the goal.
+    assert!(reads(&[Input, Input, Output, Input, Output]));
+    assert!(!reads(&[Input, Input, Input, Input, Output]));
+}
+
+/// The simplex polls the stop before every pivot: a stop that fires at
+/// once ends it with the reason the caller gets, where it would refute.
+#[test]
+fn the_simplex_polls_the_stop() {
+    let sequent: Sequent = "!(A -o A * A), !(B * B -o C), A, B |- C".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let net = program(&forest);
+    let account = Account::new(None);
+    let mut stopped = Equation::new(false, &account);
+    assert_eq!(
+        stopped.run(&net, u64::MAX, &mut |_| true),
+        Err(Reason::Stopped)
+    );
+    let mut equation = Equation::new(false, &account);
+    assert_eq!(equation.run(&net, u64::MAX, &mut |_| false), Ok(true));
+}
+
+/// The searches charge every buffer they grow, at its capacity: each
+/// decides these nets exactly from the least bound below and refuses one
+/// byte under it. The bounds are the account's, so they move when what is
+/// charged does; the simplex has no room here. Forward, the markings of
+/// the partition run out; backward, its elements; and the third net is
+/// refuted by the backward search beside the forward one, which keeps
+/// 2¹⁴ markings first.
+#[test]
+fn charges_what_it_grows() {
+    let partition: Sequent = FAMILIES
+        .iter()
+        .find(|f| f.name == "partition-no")
+        .unwrap()
+        .instance(4, 0)
+        .unwrap()
+        .sequent;
+    let both: Sequent = "!(c * a -o b), !(1 -o b * d), !(b * b * d -o a), d |- a"
+        .parse()
+        .unwrap();
+    let no_room = Account::new(Some(0));
+    for (sequent, affine, least) in [
+        (&partition, false, 7536),
+        (&partition, true, 116_204),
+        (&both, false, 659_984),
+    ] {
+        let forest = Forest::new(sequent).unwrap();
+        let net = program(&forest);
+        let within = |bytes| {
+            let account = Account::new(Some(bytes));
+            let mut equation = Equation::new(affine, &no_room);
+            let search = if affine { cover::search } else { reach::search };
+            search(
+                &net,
+                &account,
+                reach::MOST_MARKINGS,
+                &mut equation,
+                &mut |_| false,
+            )
+            .0
+        };
+        assert_eq!(within(least), Ok(None), "{sequent} within {least}");
+        assert_eq!(
+            within(least - 1),
+            Err(Reason::MemoryLimit {
+                limit_bytes: least - 1
+            }),
+            "{sequent}"
+        );
+    }
+}
