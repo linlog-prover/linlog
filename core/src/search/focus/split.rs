@@ -11,7 +11,7 @@ use super::scratch::Pooled;
 use super::{
     Cuts, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, Run, SPLITS_PER_POLL, Searched, Step,
 };
-use crate::occurrences::{Member, OccId, OccSet, Side};
+use crate::occurrences::{Forest, Member, OccId, OccSet, Side};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
@@ -29,7 +29,7 @@ impl Run<'_> {
         let f = self.forest;
         let (atom, sign) = (f.atom(literal)?, f.sign(literal)?);
         let duals = f.literals(atom, !sign);
-        let list = 2 * atom.index() + (!sign) as usize;
+        let list = Forest::list(atom, !sign);
         let start = cursors.passed[list] as usize;
         let found = duals[start..].iter().position(|&d| rest.contains(d));
         let passed = found.map_or(duals.len(), |at| start + at);

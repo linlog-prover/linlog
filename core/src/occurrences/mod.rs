@@ -547,9 +547,21 @@ impl Forest {
     /// ascending id order: the candidate partners in an axiom of a literal
     /// of the other sign, which `dual_literals` decides.
     pub fn literals(&self, atom: Atom, sign: Sign) -> &[OccId] {
-        let group = 2 * atom.index() + sign as usize;
+        let group = Self::list(atom, sign);
         let (start, end) = (self.literal_start[group], self.literal_start[group + 1]);
         &self.literals[start as usize..end as usize]
+    }
+
+    /// Returns the number of the list of the literals of `atom` with
+    /// `sign`, in `0..lists()`: the atom's two lists side by side, `a`
+    /// before `~a`.
+    pub(crate) const fn list(atom: Atom, sign: Sign) -> usize {
+        2 * atom.index() + sign as usize
+    }
+
+    /// Returns how many lists of literals the forest has: two per atom.
+    pub(crate) fn lists(&self) -> usize {
+        2 * self.sequent.atom_names().len()
     }
 
     /// Returns every literal occurrence, grouped by atom, `a` before `~a`
@@ -610,7 +622,7 @@ impl Forest {
         for (o, k) in kind.iter().enumerate() {
             if let Some(s) = k.sign() {
                 let a = terms[term[o].index()].atom().unwrap();
-                literal_start[2 * a.index() + s as usize + 1] += 1;
+                literal_start[Self::list(a, s) + 1] += 1;
             }
         }
         for g in 1..literal_start.len() {
@@ -621,7 +633,7 @@ impl Forest {
         for (o, k) in kind.iter().enumerate() {
             if let Some(s) = k.sign() {
                 let a = terms[term[o].index()].atom().unwrap();
-                let group = 2 * a.index() + s as usize;
+                let group = Self::list(a, s);
                 literals[next[group] as usize] = OccId::new(o as u32);
                 next[group] += 1;
             }

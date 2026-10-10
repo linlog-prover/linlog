@@ -1629,7 +1629,7 @@ impl<'a> Run<'a> {
             let (Some(atom), Some(sign)) = (f.atom(p), f.sign(p)) else {
                 continue;
             };
-            let dual = 2 * atom.index() + (!sign) as usize;
+            let dual = Forest::list(atom, !sign);
             // No member before `p` has a dual among the members, else the
             // pair would have closed the sequent there, so `p`'s first dual
             // comes after it.
@@ -1697,7 +1697,7 @@ impl<'a> Run<'a> {
     fn mark_literals(&mut self, members: &[OccId]) {
         let f = self.forest;
         if self.lists.is_empty() {
-            let lists = 2 * f.sequent().atom_names().len();
+            let lists = f.lists();
             self.scratch.charge(lists * size_of::<Marks>());
             self.lists = vec![
                 Marks {
@@ -1711,7 +1711,7 @@ impl<'a> Run<'a> {
         self.stamp += 1;
         for &m in members {
             if let (Some(atom), Some(sign)) = (f.atom(m), f.sign(m)) {
-                let list = &mut self.lists[2 * atom.index() + sign as usize];
+                let list = &mut self.lists[Forest::list(atom, sign)];
                 if list.stamp != self.stamp {
                     list.stamp = self.stamp;
                     list.first = m;
@@ -1726,9 +1726,7 @@ impl<'a> Run<'a> {
     fn meets(&self, a: OccId) -> bool {
         let f = self.forest;
         f.subtree(a).any(|l| match (f.atom(l), f.sign(l)) {
-            (Some(atom), Some(sign)) => {
-                self.lists[2 * atom.index() + (!sign) as usize].stamp == self.stamp
-            }
+            (Some(atom), Some(sign)) => self.lists[Forest::list(atom, !sign)].stamp == self.stamp,
             _ => false,
         })
     }
