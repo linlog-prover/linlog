@@ -1223,10 +1223,10 @@ mod tests {
     /// code, where the net engine answers its own refusal.
     #[test]
     fn exist_refuses_as_the_constructors() {
-        let alls = forest("|- a & b, ~a");
-        let fragment = alls.sequent().fragment();
+        let additive = forest("|- a & b, ~a");
+        let fragment = additive.sequent().fragment();
         let refused = exist(fragment, Mode::CLASSICAL).unwrap_err();
-        let built = ProofStructure::new(alls, Criterion::MLL).unwrap_err();
+        let built = ProofStructure::new(additive, Criterion::MLL).unwrap_err();
         assert_eq!(Error::Net(Box::new(refused)), built);
         assert_eq!(built.code(), "no_nets");
         let affine = Mode::CLASSICAL.with_affine();
