@@ -2066,6 +2066,36 @@ mod tests {
         }
     }
 
+    /// An engine's proof that the checker rejects is a defect, never a
+    /// verdict: a weakening in classical mode, as an affine search would
+    /// leave it.
+    #[test]
+    fn a_rejected_proof_is_an_error() {
+        let s = sequent("|- a, b, ~a");
+        let forest = Forest::new(&s).unwrap();
+        let (m, n) = (Member::new, NodeId::new);
+        let nodes = vec![Node::Ax(m(0), m(2)), Node::Weaken(m(1), n(0))];
+        let proof = Proof::new(forest.clone(), nodes, n(1)).unwrap();
+        let task = Task {
+            forest: &forest,
+            goal: forest.roots(),
+            fragment: s.fragment(),
+            mode: Mode::CLASSICAL,
+            reading: None,
+            roots: true,
+        };
+        let verdict = conclude(
+            Ok(Some(proof)),
+            None,
+            &task,
+            &[],
+            &Options::default(),
+            &Limits::default(),
+            &mut |_| false,
+        );
+        assert!(matches!(verdict, Err(Error::Rejected(_))), "{verdict:?}");
+    }
+
     /// A proof whose check a bound gives up is no proof returned: the
     /// verdict is unknown, by the bound that refused the check.
     #[test]
@@ -2197,6 +2227,94 @@ mod tests {
         assert_eq!(asked, 1);
         assert!(raced.verdict.proof().is_some());
         assert_eq!(raced.engine, alone.engine);
+    }
+
+    /// The front door's plain parts: a sequent past the bound on
+    /// occurrences is refused before anything unfolds, the engines that
+    /// search on a pool are the focused and the net engine, the default
+    /// options are their documented constants, and each refutation says
+    /// its counts in words, with the singular, a range, the minus sign and
+    /// Mix's inequality where they apply.
+    #[test]
+    fn the_front_door_s_plain_parts() {
+        let tight = Limits::default().with_occurrences(Some(2));
+        let error = prove_within(
+            &sequent("|- a, ~a, b"),
+            Mode::CLASSICAL,
+            &Options::default(),
+            &tight,
+            |_| false,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error, Error::Refused(Refusal::Occurrences { limit: 2, .. })),
+            "{error}"
+        );
+        let parallel: Vec<bool> = Engine::ALL.iter().map(|e| e.parallel()).collect();
+        assert_eq!(parallel, [true, true, true, false, false]);
+        let defaults = Options::default();
+        assert_eq!(
+            (
+                defaults.copies,
+                defaults.forward_copies,
+                defaults.memo_limit,
+                defaults.check
+            ),
+            (
+                Some(Options::DEFAULT_COPIES),
+                Options::DEFAULT_FORWARD_COPIES,
+                Options::DEFAULT_MEMO_LIMIT,
+                Options::DEFAULT_CHECK
+            )
+        );
+        assert_eq!(
+            (Options::DEFAULT_COPIES, Options::DEFAULT_MEMO_LIMIT),
+            (3, 1 << 20)
+        );
+        let atom = Atom::new(0);
+        for (refutation, says) in [
+            (
+                Refutation::Unbalanced(Unbalanced {
+                    atom,
+                    least: 1,
+                    most: 1,
+                }),
+                "#0 occurs 1 more time than ~#0 in the one-sided sequent, so",
+            ),
+            (
+                Refutation::Unbalanced(Unbalanced {
+                    atom,
+                    least: -3,
+                    most: -2,
+                }),
+                "~#0 occurs 2 to 3 more times than #0 in the one-sided sequent, whichever",
+            ),
+            (
+                Refutation::Equation(Equation {
+                    formulas: 3,
+                    needed: -1,
+                    tensors: 0,
+                    pars: 3,
+                    ones: 0,
+                    bottoms: 0,
+                    mix: true,
+                }),
+                "has at least #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 0 − 3 − 0 + 0 + 2 = −1, and this \
+                 one has 3",
+            ),
+            (
+                Refutation::StateEquation(StateEquation {
+                    atoms: vec![(atom, -2), (Atom::new(1), 1)],
+                    clauses: vec![(OccId::new(4), 1)],
+                    dropped: Vec::new(),
+                }),
+                "weighting each #0 by −2, #1 by 1 and the clauses used once by weights of their \
+                 own, no clause",
+            ),
+        ] {
+            let text = refutation.to_string();
+            assert!(text.contains(says), "{text}");
+        }
     }
 
     /// A reason names the settings key a caller raises to search further,
