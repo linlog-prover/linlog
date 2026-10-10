@@ -526,7 +526,9 @@ fn the_simplex_polls_the_stop() {
 /// charged does; the simplex has no room here. Forward, the markings of
 /// the partition run out; backward, its elements; and the third net is
 /// refuted by the backward search beside the forward one, which keeps
-/// 2¹⁴ markings first.
+/// 2¹⁴ markings first. The fourth is proved by the first marking the
+/// backward search computes, so its bound is its first element's, whose
+/// last buffer to grow is the queue.
 #[test]
 fn charges_what_it_grows() {
     let partition: Sequent = FAMILIES
@@ -539,11 +541,13 @@ fn charges_what_it_grows() {
     let both: Sequent = "!(c * a -o b), !(1 -o b * d), !(b * b * d -o a), d |- a"
         .parse()
         .unwrap();
+    let one: Sequent = "a, !(a -o b) |- b".parse().unwrap();
     let no_room = Account::new(Some(0));
-    for (sequent, affine, least) in [
-        (&partition, false, 7536),
-        (&partition, true, 116_204),
-        (&both, false, 659_984),
+    for (sequent, affine, least, proved) in [
+        (&partition, false, 7536, false),
+        (&partition, true, 116_204, false),
+        (&both, false, 659_984, false),
+        (&one, true, 1171, true),
     ] {
         let forest = Forest::new(sequent).unwrap();
         let net = program(&forest);
@@ -560,7 +564,11 @@ fn charges_what_it_grows() {
             )
             .0
         };
-        assert_eq!(within(least), Ok(None), "{sequent} within {least}");
+        assert_eq!(
+            within(least).map(|f| f.is_some()),
+            Ok(proved),
+            "{sequent} within {least}"
+        );
         assert_eq!(
             within(least - 1),
             Err(Reason::MemoryLimit {
@@ -691,4 +699,36 @@ fn the_simplex_refutes_after_the_search() {
         matches!(&verdict, Verdict::Unprovable(d) if matches!(d.refutation(), Refutation::StateEquation(_))),
         "{verdict:?}"
     );
+}
+
+/// Out of room for its frontier, the forward search takes the simplex's
+/// tableau back and expands the marking again. The tableau is built before
+/// the search and held; at this bound the frontier's growth, not the
+/// markings', is the first to find no room, and without the tableau the
+/// counter is proved.
+#[test]
+fn the_frontier_takes_the_simplex_memory() {
+    let sequent: Sequent = FAMILIES
+        .iter()
+        .find(|f| f.name == "counter")
+        .unwrap()
+        .instance(16, 0)
+        .unwrap()
+        .sequent;
+    let forest = Forest::new(&sequent).unwrap();
+    let net = program(&forest);
+    let account = Account::new(Some(1040));
+    let mut equation = Equation::new(false, &account);
+    // Enough for the set-up and not for a pivot.
+    let set_up = 3 * (net.places as u64).pow(2) + net.arcs.len() as u64;
+    assert_eq!(equation.run(&net, set_up, &mut |_| false), Ok(false));
+    assert!(account.used() > 0);
+    let (found, _) = reach::search(
+        &net,
+        &account,
+        reach::MOST_MARKINGS,
+        &mut equation,
+        &mut |_| false,
+    );
+    assert!(matches!(found, Ok(Some(_))), "{found:?}");
 }
