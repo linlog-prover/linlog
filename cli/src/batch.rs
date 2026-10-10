@@ -855,7 +855,8 @@ fn cgroup_memory() -> Option<u64> {
 
 /// Runs a batch: reads the entries, decides them on the library's batch,
 /// and writes one result per entry in order; the status is the worst
-/// verdict, an error before unknown before unprovable before proved.
+/// verdict, an error before unknown before unprovable before proved, and
+/// unknown at best after an interrupt.
 ///
 /// # Errors
 ///
@@ -968,6 +969,12 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
                 .and_then(|()| stdout.flush())
                 .context("cannot write to standard output")?;
             worst = Some(worst.map_or(done.status, |worst| worst.worse(done.status)));
+        }
+        if interrupted() {
+            // The interrupt ended the input: what was not read is not
+            // answered, so the batch is unknown at best.
+            eprintln!("interrupted: the rest of the input was not read");
+            return Ok(worst.map_or(Status::Unknown, |worst| worst.worse(Status::Unknown)));
         }
         worst.ok_or_else(|| {
             anyhow!(

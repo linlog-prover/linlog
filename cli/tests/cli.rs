@@ -1312,6 +1312,43 @@ fn an_empty_batch_is_an_error() {
     }
 }
 
+/// An interrupted batch is unknown at best, whatever it decided before:
+/// the interrupt ends its input, whose rest is never answered.
+#[cfg(unix)]
+#[test]
+fn an_interrupted_batch_is_unknown() {
+    use std::io::{BufRead, BufReader};
+    let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
+        .args(["prove", "--input-format", "lines"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    stdin.write_all(b"a: A |- A\n").unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.as_mut().unwrap())
+        .read_line(&mut line)
+        .unwrap();
+    assert!(line.starts_with("a: provable"), "{line}");
+    let pid = child.id().to_string();
+    assert!(
+        Command::new("kill")
+            .args(["-INT", &pid])
+            .status()
+            .unwrap()
+            .success()
+    );
+    // The handler sets the flag on a thread of its own; the end of the
+    // input then finds it set.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    drop(stdin);
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("interrupted"));
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

@@ -244,7 +244,8 @@ pub struct ProveArgs {
 /// The mode is the flags', or a problem file's column or a record's.
 /// The exit status is the worst verdict: an error (2) before unknown
 /// (3) before unprovable (1) before proved (0); a batch that holds no
-/// sequent is an error.
+/// sequent is an error, and one interrupted with Ctrl-C, which ends its
+/// input, is unknown at best.
 #[derive(Args, Clone, Debug)]
 pub struct BatchArgs {
     /// Read the paths of the inputs from this file, one per line, or

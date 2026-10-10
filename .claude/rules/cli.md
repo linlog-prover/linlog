@@ -208,7 +208,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   default per sequent would multiply the time of every hopeless
   sequent, most of the library; so the default stays, and `--cores`'
   help and README give the second pass with `--cores within`. The first Ctrl-C stops the running searches
-  and ends the input; the batch's own limit answers the entries not yet
+  and ends the input, and the batch's status is then unknown at best
+  (`interrupted: the rest of the input was not read` on standard error):
+  the entries never read are not answered, and a producer that the same
+  Ctrl-C ends closes the pipe as if the input were whole; the batch's own limit answers the entries not yet
   begun as unknown without reading them. A load thread left behind by a
   time limit lives on in a batch until its read and parse end (linear in
   the input).

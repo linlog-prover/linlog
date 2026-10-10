@@ -904,7 +904,8 @@ broken: error: cannot parse the sequent
 
 The exit status is the worst verdict: an error (2) before unknown (3)
 before unprovable (1) before proved (0), so this one is 2; a batch that
-holds no sequent is an error. The second
+holds no sequent is an error, and one interrupted with Ctrl-C, which
+ends its input, is unknown at best. The second
 command writes each proved sequent's derivation into the directory
 `--output` names, in the format asked for, named after the sequent with
 the format's extension (`drawings/identity.svg`; `ILL/01/X.p` becomes
