@@ -269,8 +269,8 @@ impl Tableau {
         let mut touched = vec![false; places];
         for transition in &program.transitions {
             // The inputs and the outputs are each sorted by place: one merge.
-            let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
-            let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
+            let inputs = program.inputs(transition);
+            let outputs = program.outputs(transition);
             let mut effect: Vec<(u32, i64)> = Vec::with_capacity(inputs.len() + outputs.len());
             let (mut i, mut o) = (0, 0);
             while i < inputs.len() || o < outputs.len() {
@@ -621,8 +621,8 @@ pub(super) fn certify(program: &Program, affine: bool, weights: &[(u32, i64)]) -
         })
     };
     for transition in &program.transitions {
-        let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
-        let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
+        let inputs = program.inputs(transition);
+        let outputs = program.outputs(transition);
         let raised = weighted(outputs)
             .zip(weighted(inputs))
             .and_then(|(o, i)| o.checked_sub(i));

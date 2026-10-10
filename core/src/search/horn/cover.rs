@@ -127,7 +127,7 @@ impl<'a> Cover<'a> {
         let width = program.places;
         let mut starts = vec![0u32; width + 1];
         for transition in &program.transitions {
-            for &(p, _) in &program.arcs[transition.outputs as usize..transition.end as usize] {
+            for &(p, _) in program.outputs(transition) {
                 starts[p as usize + 1] += 1;
             }
         }
@@ -137,7 +137,7 @@ impl<'a> Cover<'a> {
         let mut next = starts.clone();
         let mut by_output = vec![0; starts[width] as usize];
         for (t, transition) in program.transitions.iter().enumerate() {
-            for &(p, _) in &program.arcs[transition.outputs as usize..transition.end as usize] {
+            for &(p, _) in program.outputs(transition) {
                 by_output[next[p as usize] as usize] = t as u32;
                 next[p as usize] += 1;
             }
@@ -269,8 +269,8 @@ impl<'a> Cover<'a> {
     fn before(&mut self, e: u32, t: u32) -> Result<(), Reason> {
         let program = self.program;
         let transition = &program.transitions[t as usize];
-        let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
-        let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
+        let outputs = program.outputs(transition);
+        let inputs = program.inputs(transition);
         let (start, end) = self.span(e);
         let element = &self.entries[start..end];
         self.next.clear();

@@ -162,6 +162,16 @@ pub(crate) fn is_net(task: &Task<'_>) -> bool {
 type Arcs = Vec<(u32, u32)>;
 
 impl Program {
+    /// A transition's inputs, each a place and a weight, by place.
+    fn inputs(&self, t: &Transition) -> &[(u32, u32)] {
+        &self.arcs[t.inputs as usize..t.outputs as usize]
+    }
+
+    /// A transition's outputs, each a place and a weight, by place.
+    fn outputs(&self, t: &Transition) -> &[(u32, u32)] {
+        &self.arcs[t.outputs as usize..t.end as usize]
+    }
+
     /// The program with every transition reversed and the initial and the
     /// target marking swapped: a firing sequence of one is one of the
     /// other read backward. Only the net is kept, for a search.
@@ -172,9 +182,9 @@ impl Program {
             .iter()
             .map(|t| {
                 let inputs = arcs.len() as u32;
-                arcs.extend_from_slice(&self.arcs[t.outputs as usize..t.end as usize]);
+                arcs.extend_from_slice(self.outputs(t));
                 let outputs = arcs.len() as u32;
-                arcs.extend_from_slice(&self.arcs[t.inputs as usize..t.outputs as usize]);
+                arcs.extend_from_slice(self.inputs(t));
                 Transition {
                     clause: t.clause,
                     inputs,
@@ -207,10 +217,8 @@ impl Program {
         let mut raised = vec![false; self.places];
         for t in &self.transitions {
             // The inputs and the outputs are each sorted by place.
-            let mut inputs = self.arcs[t.inputs as usize..t.outputs as usize]
-                .iter()
-                .peekable();
-            for &(p, w) in &self.arcs[t.outputs as usize..t.end as usize] {
+            let mut inputs = self.inputs(t).iter().peekable();
+            for &(p, w) in self.outputs(t) {
                 while inputs.next_if(|&&(q, _)| q < p).is_some() {}
                 let taken = inputs.next_if(|&&(q, _)| q == p).map_or(0, |&(_, v)| v);
                 if w > taken {

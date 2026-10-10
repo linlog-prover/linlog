@@ -78,8 +78,8 @@ pub(super) fn build(
     );
     for &t in firings {
         let transition = &program.transitions[t as usize];
-        taken += literals(&program.arcs[transition.inputs as usize..transition.outputs as usize]);
-        made += literals(&program.arcs[transition.outputs as usize..transition.end as usize]);
+        taken += literals(program.inputs(transition));
+        made += literals(program.outputs(transition));
     }
     let nodes = nodes + (made - taken) + unused.len() as u64;
     if nodes > most {

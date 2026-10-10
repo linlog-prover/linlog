@@ -435,11 +435,11 @@ impl<'a> Reach<'a> {
         for t in candidates {
             examined += 1;
             let transition = &program.transitions[t as usize];
-            let inputs = &program.arcs[transition.inputs as usize..transition.outputs as usize];
+            let inputs = program.inputs(transition);
             if inputs.iter().any(|&(p, w)| counts[p as usize] < w) {
                 continue;
             }
-            let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
+            let outputs = program.outputs(transition);
             let d = moved(distance, inputs, outputs, counts, &program.target);
             if d == 0 {
                 self.marked = marked;
@@ -487,13 +487,13 @@ impl<'a> Reach<'a> {
         }
         let program = self.program;
         let transition = &program.transitions[transition as usize];
-        for &(p, w) in &program.arcs[transition.inputs as usize..transition.outputs as usize] {
+        for &(p, w) in program.inputs(transition) {
             self.counts[p as usize] -= w;
         }
         // The places marked before and those the transition marks, in
         // order, without those it empties.
         self.next.clear();
-        let outputs = &program.arcs[transition.outputs as usize..transition.end as usize];
+        let outputs = program.outputs(transition);
         let (mut i, mut o) = (0, 0);
         while i < self.marked.len() || o < outputs.len() {
             let p = match (self.marked.get(i), outputs.get(o)) {
