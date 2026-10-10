@@ -18,18 +18,15 @@
 //! lemma). How long it takes, Dickson does not bound: the memory bound
 //! and the caller's stop do.
 
-use super::Program;
 use super::equation::Equation;
 use super::reach::room;
+use super::{Parents, Program};
 use crate::hash::HashMap;
 use crate::search::memory::{Account, Charged};
 use crate::search::{Reason, Statistics};
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-
-/// The parent of the target, the first element.
-const ROOT: u32 = u32::MAX;
 
 /// Searches backward from the program's target for a marking at most the
 /// initial one, polling `stop` at every element taken from the queue,
@@ -71,9 +68,8 @@ struct Cover<'a> {
     ends: Vec<usize>,
     /// The tokens of each element.
     sums: Vec<u64>,
-    /// The element each came from and the transition, as
-    /// `parent << 32 | transition`; [`ROOT`] above for the target.
-    parents: Vec<u64>,
+    /// The element each came from and the transition.
+    parents: Parents,
     /// The index of the elements by their places, a trie: the child of a
     /// node by a place, the root being node zero and a path following
     /// places in increasing order. An element is listed at the node its
@@ -147,7 +143,7 @@ impl<'a> Cover<'a> {
             entries: Vec::new(),
             ends: Vec::new(),
             sums: Vec::new(),
-            parents: Vec::new(),
+            parents: Parents::default(),
             edges: HashMap::default(),
             listed: vec![0],
             first_child: vec![0],
@@ -187,7 +183,7 @@ impl<'a> Cover<'a> {
         if self.below_initial() {
             return Ok(Some(Vec::new()));
         }
-        self.keep(ROOT, 0, most)?;
+        self.keep(Parents::ROOT, 0, most)?;
         while let Some(Reverse((_, e))) = self.queue.pop() {
             if stop(1) {
                 return Err(Reason::Stopped);
@@ -388,7 +384,7 @@ impl<'a> Cover<'a> {
         if !room(&mut self.entries, more, &mut self.charged)
             || !room(&mut self.ends, 1, &mut self.charged)
             || !room(&mut self.sums, 1, &mut self.charged)
-            || !room(&mut self.parents, 1, &mut self.charged)
+            || !room(&mut self.parents.0, 1, &mut self.charged)
             || !room(&mut self.listed, more, &mut self.charged)
             || !room(&mut self.first_child, more, &mut self.charged)
             || !room(&mut self.sibling, more, &mut self.charged)
@@ -406,8 +402,7 @@ impl<'a> Cover<'a> {
         self.ends.push(self.entries.len());
         let tokens = self.next.iter().map(|&(_, c)| u64::from(c)).sum();
         self.sums.push(tokens);
-        self.parents
-            .push(u64::from(parent) << 32 | u64::from(transition));
+        self.parents.push(parent, transition);
         let index = index as u32;
         let mut node = 0;
         for &(p, _) in &self.next {
@@ -481,16 +476,8 @@ impl<'a> Cover<'a> {
     /// The transitions fired from a marking at least element `e` to one
     /// that covers the target: `e`'s transition, then its parent's, up to
     /// the target.
-    fn path(&self, mut e: u32) -> Vec<u32> {
-        let mut firings = Vec::new();
-        loop {
-            let parent = self.parents[e as usize];
-            if (parent >> 32) as u32 == ROOT {
-                return firings;
-            }
-            firings.push(parent as u32);
-            e = (parent >> 32) as u32;
-        }
+    fn path(&self, e: u32) -> Vec<u32> {
+        self.parents.up(e)
     }
 }
 

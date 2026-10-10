@@ -19,8 +19,8 @@
 //! and its exhausting its markings refutes: nets whose markings grow
 //! without end forward often have few backward.
 
-use super::Program;
 use super::equation::Equation;
+use super::{Parents, Program};
 use crate::search::memory::{Account, Charged, bytes_of};
 use crate::search::{Reason, Statistics};
 use std::cell::OnceCell;
@@ -33,9 +33,6 @@ use std::hash::BuildHasher;
 /// [`Reason::IndexLimit`]; with a memory bound the bound comes first,
 /// since a marking kept takes more than thirty bytes.
 pub(super) const MOST_MARKINGS: usize = u32::MAX as usize - 1;
-
-/// The parent of the initial marking.
-const ROOT: u32 = u32::MAX;
 
 /// The markings the forward search keeps alone before the backward
 /// search starts beside it: a net decided within them is searched exactly
@@ -177,9 +174,8 @@ struct Reach<'a> {
     ends: Vec<u64>,
     /// The hash of each marking's bytes.
     hashes: Vec<u64>,
-    /// The marking each was reached from and the transition fired, as
-    /// `parent << 32 | transition`; [`ROOT`] above for the initial one.
-    parents: Vec<u64>,
+    /// The marking each was reached from and the transition fired.
+    parents: Parents,
     /// The table of markings: a power of two of slots, each zero or a
     /// marking's index plus one, at most half of them used.
     slots: Vec<u32>,
@@ -251,7 +247,7 @@ impl<'a> Reach<'a> {
             bytes: Vec::new(),
             ends: Vec::new(),
             hashes: Vec::new(),
-            parents: Vec::new(),
+            parents: Parents::default(),
             slots: Vec::new(),
             frontier: BinaryHeap::new(),
             starts,
@@ -287,7 +283,7 @@ impl<'a> Reach<'a> {
         self.bytes = Vec::new();
         self.ends = Vec::new();
         self.hashes = Vec::new();
-        self.parents = Vec::new();
+        self.parents = Parents::default();
         self.slots = Vec::new();
         self.frontier = BinaryHeap::new();
         self.charged = Charged::new(self.charged.account());
@@ -312,7 +308,7 @@ impl<'a> Reach<'a> {
         if self.distance() == 0 {
             return Ok(Some(Vec::new()));
         }
-        self.take(ROOT, 0, most, release)
+        self.take(Parents::ROOT, 0, most, release)
     }
 
     /// Takes the next successor from the frontier.
@@ -584,7 +580,7 @@ impl<'a> Reach<'a> {
             || !room(&mut self.bytes, more, &mut self.charged)
             || !room(&mut self.ends, 1, &mut self.charged)
             || !room(&mut self.hashes, 1, &mut self.charged)
-            || !room(&mut self.parents, 1, &mut self.charged)
+            || !room(&mut self.parents.0, 1, &mut self.charged)
         {
             return Err(Reason::MemoryLimit {
                 limit_bytes: self.charged.account().limit(),
@@ -595,8 +591,7 @@ impl<'a> Reach<'a> {
         self.bytes.extend_from_slice(&self.written);
         self.ends.push(self.bytes.len() as u64);
         self.hashes.push(hash);
-        self.parents
-            .push(u64::from(parent) << 32 | u64::from(transition));
+        self.parents.push(parent, transition);
         let index = index as u32;
         self.place(index, hash);
         Ok(index)
@@ -634,16 +629,8 @@ impl<'a> Reach<'a> {
     }
 
     /// The transitions fired from the initial marking to marking `j`.
-    fn path(&self, mut j: u32) -> Vec<u32> {
-        let mut firings = Vec::new();
-        loop {
-            let parent = self.parents[j as usize];
-            if (parent >> 32) as u32 == ROOT {
-                break;
-            }
-            firings.push(parent as u32);
-            j = (parent >> 32) as u32;
-        }
+    fn path(&self, j: u32) -> Vec<u32> {
+        let mut firings = self.parents.up(j);
         firings.reverse();
         firings
     }

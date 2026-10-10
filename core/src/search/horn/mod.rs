@@ -276,6 +276,41 @@ enum Clause {
     Once(u32),
 }
 
+/// The line of parents of a search's markings or elements: for each, the
+/// one it came from and the transition between them, as
+/// `parent << 32 | transition`, with [`Parents::ROOT`] above the first.
+#[derive(Default)]
+struct Parents(Vec<u64>);
+
+impl Parents {
+    /// The parent recorded for the first entry, which has none.
+    const ROOT: u32 = u32::MAX;
+
+    /// How many entries have their parent recorded.
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Records the next entry's parent and the transition from it.
+    fn push(&mut self, parent: u32, transition: u32) {
+        self.0.push(u64::from(parent) << 32 | u64::from(transition));
+    }
+
+    /// The transitions on the line from entry `i` up to the first, `i`'s
+    /// own first.
+    fn up(&self, mut i: u32) -> Vec<u32> {
+        let mut transitions = Vec::new();
+        loop {
+            let parent = self.0[i as usize];
+            if (parent >> 32) as u32 == Self::ROOT {
+                return transitions;
+            }
+            transitions.push(parent as u32);
+            i = (parent >> 32) as u32;
+        }
+    }
+}
+
 /// A transition of the net: the clause it fires and its arcs.
 #[derive(Clone, Copy, Debug)]
 struct Transition {
