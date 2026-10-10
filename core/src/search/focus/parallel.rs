@@ -36,7 +36,7 @@ use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
-use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime};
+use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, lock, record, taken};
 use crate::search::{Options, Reason, Statistics, Stop, Work, set_up_stopped};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -172,9 +172,7 @@ impl Plan {
                 .and_then(|root| root.map(|root| engine.nodes.keep(0, root)).transpose());
             (result, engine.statistics())
         };
-        let nodes = arena
-            .into_inner()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let nodes = taken(arena);
         (result, nodes, statistics)
     }
 }
@@ -258,9 +256,7 @@ impl Collected {
             Ok(Found::Failed(failed)) => self.cuts = self.cuts.and(failed),
             Err(Reason::Stopped) if cancel.load(Ordering::Relaxed) => {}
             Err(reason) => {
-                if self.error.is_none_or(|old| old == Reason::Stopped) {
-                    self.error = Some(reason);
-                }
+                record(&mut self.error, reason);
                 cancel.store(true, Ordering::Relaxed);
             }
         }
@@ -347,13 +343,6 @@ impl<'a> Run<'a> {
         }
     }
 
-    /// Locks what the workers report.
-    fn lock<T>(shared: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-        shared
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-
     /// Searches one alternative of a choice on a worker of its own and
     /// returns what leaves it.
     fn run_alternative(
@@ -404,13 +393,13 @@ impl<'a> Run<'a> {
                     // Petri net queues a task per transition, and each
                     // copy is the forest's width times the depth.
                     if spawn.flags.child(cancel).raised() {
-                        Self::lock(collected).skip(cancel);
+                        lock(collected).skip(cancel);
                         return;
                     }
                     let _cancel = RaiseOnPanic(cancel);
                     let mut worker = spawn.worker(cancel);
                     let result = worker.run_alternative(theta, gamma, alternative, budget);
-                    Self::lock(collected).take(result, &worker, cancel);
+                    lock(collected).take(result, &worker, cancel);
                 });
             }
             // The first alternative on this thread, on a worker of its
@@ -419,12 +408,10 @@ impl<'a> Run<'a> {
             let _cancel = RaiseOnPanic(&cancel);
             let mut worker = spawn.worker(&cancel);
             let result = worker.run_alternative(theta, gamma, first, budget);
-            Self::lock(&collected).take(result, &worker, &cancel);
+            lock(&collected).take(result, &worker, &cancel);
         });
         drop(waiting);
-        let collected = collected
-            .into_inner()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let collected = taken(collected);
         self.statistics.add_run(&collected.statistics);
         match (collected.proof, collected.error) {
             (Some(node), _) => Ok(Found::proved(node)),
@@ -520,17 +507,14 @@ impl<'a> Run<'a> {
             scope.spawn(move |_| {
                 let mut worker = spawn.worker(cancel);
                 let result = search(&mut worker, right_sub, false);
-                *Self::lock(premise) = Some(Premise::of(&worker, result));
+                *lock(premise) = Some(Premise::of(&worker, result));
             });
             let mut worker = spawn.worker(cancel);
             let result = search(&mut worker, left_sub, true);
             Premise::of(&worker, result)
         });
         drop(waiting);
-        let right = premise
-            .into_inner()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .expect("the worker reports before the scope ends");
+        let right = taken(premise).expect("the worker reports before the scope ends");
         self.statistics.add_run(&left.statistics);
         self.statistics.add_run(&right.statistics);
         match (left.result, right.result) {

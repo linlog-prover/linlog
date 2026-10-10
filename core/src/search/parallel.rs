@@ -78,10 +78,7 @@ impl Pool {
     /// Locks the idle runtimes; a panic elsewhere leaves the list whole,
     /// since it is changed only by one push or one removal.
     fn idle(&self) -> MutexGuard<'_, Vec<Runtime>> {
-        self.inner
-            .idle
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        lock(&self.inner.idle)
     }
 
     /// Gives a runtime back for later searches, dropping the one given
@@ -311,6 +308,31 @@ impl Drop for Waiting<'_> {
         if let Some((i, before)) = self.saved {
             self.runtime.depths[i].store(before, Ordering::Relaxed);
         }
+    }
+}
+
+/// Locks what a search's workers share. A panic in one of them leaves
+/// it whole, since each change is one assignment or one push, so a
+/// poisoned lock is taken as it is.
+pub(crate) fn lock<T>(shared: &Mutex<T>) -> MutexGuard<'_, T> {
+    shared
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Returns what the workers shared, once they ended, poisoned or not, as
+/// [`lock`] takes it.
+pub(crate) fn taken<T>(shared: Mutex<T>) -> T {
+    shared
+        .into_inner()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Records a worker's reason for giving up: the first, a stop giving way
+/// to any other, which is the reason.
+pub(crate) fn record(slot: &mut Option<super::Reason>, reason: super::Reason) {
+    if slot.is_none_or(|old| old == super::Reason::Stopped) {
+        *slot = Some(reason);
     }
 }
 

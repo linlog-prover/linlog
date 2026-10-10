@@ -878,7 +878,7 @@ pub(crate) mod parallel {
     use crate::limits::Limits;
     use crate::nets::{ProofStructure, VertexId};
     use crate::occurrences::Forest;
-    use crate::search::parallel::{RaiseOnPanic, Runtime};
+    use crate::search::parallel::{RaiseOnPanic, Runtime, lock, record, taken};
     use crate::search::{Answer, Options, Reason, Statistics, Stop, Work};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -986,10 +986,7 @@ pub(crate) mod parallel {
                                 }
                                 Err(Reason::Stopped) if found.load(Ordering::Relaxed) => {}
                                 Err(reason) => {
-                                    let mut collected = lock(collected);
-                                    if collected.error.is_none_or(|old| old == Reason::Stopped) {
-                                        collected.error = Some(reason);
-                                    }
+                                    record(&mut lock(collected).error, reason);
                                     found.store(true, Ordering::Relaxed);
                                 }
                             }
@@ -999,9 +996,7 @@ pub(crate) mod parallel {
                     });
                 }
             });
-            let collected = collected
-                .into_inner()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let collected = taken(collected);
             match (collected.net, collected.error) {
                 (Some(net), _) => (Ok(true), collected.statistics, Some(net)),
                 (None, Some(reason)) => (Err(reason), collected.statistics, None),
@@ -1009,13 +1004,6 @@ pub(crate) mod parallel {
             }
         });
         super::answer(result, statistics, net, limits, stop)
-    }
-
-    /// Locks what the workers report.
-    fn lock<T>(shared: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-        shared
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
