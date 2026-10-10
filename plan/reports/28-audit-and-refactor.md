@@ -755,4 +755,7 @@ supervisor's go are marked "go".
   area's commits are unsigned (`signing.behavior=drop`), for the
   supervisor to re-sign with trzotrqx, mnkunorl and kwxnmzvw. What was
   done: told `planning`.
-
+- Gate queues: one launcher waited on a process id that `pgrep -f`
+  matched in its own shell, so skrpywxo's gate started early (it
+  passed) and the launcher after it was stopped and chained again by
+  the right id; no gate was lost.
