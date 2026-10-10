@@ -209,10 +209,15 @@ impl Display for Refutation {
 ///
 /// # JSON
 ///
-/// With the feature `serialize` an unprovable outcome writes the
-/// disproof's keys: `sequent`, `mode`, `refutation` (in the form
-/// [`Refutation`] gives) and `goal` (the members, only for a goal off the
-/// roots).
+/// With the feature `serialize` a disproof is the document `{"version":
+/// 1, "sequent": …, "mode": …, "refutation": …, "goal": […]}`: the
+/// refutation in the form [`Refutation`] gives, the goal's members only
+/// for a goal off the roots. An unprovable outcome writes the same keys,
+/// so it reads back as its disproof. Reading counts the sequent against
+/// the limits and checks every atom and occurrence the refutation and the
+/// goal name against it (`Error::IndexOutOfBounds` otherwise), not the
+/// refutation itself; a refutation kind the reader does not know is
+/// refused (`Error::Json`, kind malformed).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Disproof {
     /// The sequent.

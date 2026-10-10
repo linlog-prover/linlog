@@ -4,12 +4,14 @@
 use super::proofs::Proof;
 use super::sequents::Sequent as SequentForm;
 use crate::fragment::{Fragment, Mode};
+use crate::limits::{Limits, Space};
 use crate::occurrences::{Member, OccId};
 use crate::search::{
-    Bias, Cadence, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation, StateEquation,
-    Statistics, Unbalanced, Verdict,
+    Bias, Cadence, Disproof, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation,
+    StateEquation, Statistics, Unbalanced, Verdict,
 };
 use crate::sequents::Atom;
+use crate::wire::{self, Readable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Fragment {
@@ -251,6 +253,119 @@ impl<'a> Deserialize<'a> for Refutation {
     /// know.
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
         WhyNot::deserialize(deserializer).map(Refutation::from)
+    }
+}
+
+/// The serialized form of a disproof: its level at the top of a
+/// document, the sequent, the mode, the refutation and the goal where it
+/// is not the roots. An unprovable outcome holds the same keys, so it
+/// reads back as its disproof.
+#[derive(Serialize, Deserialize)]
+struct DisproofForm {
+    /// The wire level, written only at the top of a document.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "wire::version"
+    )]
+    version: Option<u32>,
+    /// The sequent.
+    sequent: SequentForm,
+    /// The mode it is refuted in.
+    mode: Mode,
+    /// Why it is unprovable.
+    refutation: WhyNot,
+    /// The goal refuted, absent for the roots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    goal: Option<Vec<u32>>,
+}
+
+impl DisproofForm {
+    /// Rebuilds the disproof the form holds, its sequent within `limits`,
+    /// every atom and occurrence it names checked against the sequent; the
+    /// refutation itself is not checked.
+    fn within(self, limits: &Limits) -> Result<Disproof, crate::Error> {
+        let sequent = self.sequent.within(limits)?;
+        let atoms = sequent.atom_names().len();
+        let occurrences = usize::try_from(sequent.occurrences()).unwrap_or(usize::MAX);
+        let atom = |atom: Atom| match atom.index() {
+            index if index < atoms => Ok(()),
+            index => Err(crate::Error::IndexOutOfBounds {
+                space: Space::Atom,
+                index,
+                len: atoms,
+            }),
+        };
+        let occurrence = |index: usize| match index {
+            index if index < occurrences => Ok(()),
+            index => Err(crate::Error::IndexOutOfBounds {
+                space: Space::Occurrence,
+                index,
+                len: occurrences,
+            }),
+        };
+        let refutation = Refutation::from(self.refutation);
+        match &refutation {
+            Refutation::Unbalanced(unbalanced) => atom(unbalanced.atom)?,
+            Refutation::StateEquation(equation) => {
+                for &(a, _) in &equation.atoms {
+                    atom(a)?;
+                }
+                for &(o, _) in &equation.clauses {
+                    occurrence(o.index())?;
+                }
+                for o in &equation.dropped {
+                    occurrence(o.index())?;
+                }
+            }
+            Refutation::Exhausted | Refutation::Equation(_) => {}
+        }
+        let disproof = Disproof::new(sequent, self.mode, refutation);
+        Ok(match self.goal {
+            None => disproof,
+            Some(goal) => {
+                for &m in &goal {
+                    occurrence(m as usize)?;
+                }
+                disproof.of_goal(goal.into_iter().map(Member::new).collect())
+            }
+        })
+    }
+}
+
+impl Serialize for Disproof {
+    /// Serializes the disproof as a document.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        DisproofForm {
+            version: wire::level(),
+            sequent: SequentForm::from(self.sequent()),
+            mode: self.mode(),
+            refutation: WhyNot::from(self.refutation()),
+            goal: self
+                .goal()
+                .map(|goal| goal.iter().map(|m| m.get()).collect()),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'a> Deserialize<'a> for Disproof {
+    /// Deserializes a disproof within the default limits, as
+    /// [`wire::upgrade`] does.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::read(deserializer, &Limits::default())
+    }
+}
+
+impl Readable for Disproof {
+    const FORM: &'static str = "disproof";
+
+    /// Reads a disproof: rebuilds its sequent within the limits and checks
+    /// every index of its refutation and goal, not the refutation.
+    fn read<'de, D: Deserializer<'de>>(deserializer: D, limits: &Limits) -> Result<Self, D::Error> {
+        DisproofForm::deserialize(deserializer)?
+            .within(limits)
+            .map_err(wire::fail)
     }
 }
 

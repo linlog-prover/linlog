@@ -53,6 +53,10 @@
 //! - **Proof**: `{"version": 1, "sequent": {…}, "nodes": [{"ax": [0, 2]},
 //!   {"ax": [3, 4]}, {"⊗": [1, 0, 1]}], "mode": "classical"}`, with `goal`
 //!   for a proof of a goal off the roots, see [`Proof`](crate::Proof).
+//! - **Disproof**: `{"version": 1, "sequent": {…}, "mode": "classical",
+//!   "refutation": {"kind": "unbalanced", "atom": 0, "least": 2, "most":
+//!   2}}`, with `goal` for a goal off the roots, see
+//!   [`Disproof`](crate::Disproof).
 //! - **Proof structure**: `{"version": 1, "sequent": {…}, "mix": false,
 //!   "links": [[0, 2], [3, 4]]}`, see
 //!   [`ProofStructure`](crate::ProofStructure).
@@ -63,7 +67,7 @@
 //!   "verdict": "proved", "checked": true, "fragment": "MLL", "mode":
 //!   "classical", "engine": "net", "statistics": {…}, "sequent": {…},
 //!   "nodes": […]}`, a proof's keys for `proved` and a disproof's for
-//!   `unprovable`, so that it reads back as a proof; see
+//!   `unprovable`, so that it reads back as a proof or as a disproof; see
 //!   [`Outcome`](crate::Outcome).
 
 use crate::Error;

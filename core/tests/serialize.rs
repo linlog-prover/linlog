@@ -709,6 +709,46 @@ fn settings_json_format() {
     );
 }
 
+/// A disproof is a document of its own and reads back as itself, as an
+/// unprovable outcome does; a refutation kind the reader does not know is
+/// malformed, never read as another, and an atom or an occurrence the
+/// sequent lacks is refused.
+#[test]
+fn disproof_json_format_and_round_trip() {
+    use linlog::{Disproof, Error, ErrorKind, Limits, Verdict, wire};
+    let s: Sequent = "|- a, a".parse().unwrap();
+    let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+    let Verdict::Unprovable(disproof) = &outcome.verdict else {
+        panic!("|- a, a is unprovable");
+    };
+    let json = serde_json::to_string(disproof.as_ref()).unwrap();
+    assert_eq!(
+        json,
+        "{\"version\":1,\"sequent\":{\"terms\":[{\"V\":0}],\"roots\":[0,0],\"atoms\":[\"a\"],\
+         \"antecedents\":0},\"mode\":\"classical\",\"refutation\":{\"kind\":\"unbalanced\",\
+         \"atom\":0,\"least\":2,\"most\":2}}"
+    );
+    assert_eq!(read_alike::<Disproof>(&json), json);
+    let back: Disproof = serde_json::from_str(&json).unwrap();
+    assert_eq!(&back, disproof.as_ref());
+    let from_outcome: Disproof =
+        serde_json::from_str(&serde_json::to_string(&outcome).unwrap()).unwrap();
+    assert_eq!(&from_outcome, disproof.as_ref());
+    let read = |json: &str| {
+        wire::upgrade::<Disproof, _>(
+            &mut serde_json::Deserializer::from_str(json),
+            &Limits::default(),
+        )
+    };
+    let unknown = read(&json.replace("unbalanced", "tableau")).unwrap_err();
+    assert_eq!(unknown.kind(), ErrorKind::Malformed, "{unknown}");
+    let outside = read(&json.replace("\"atom\":0", "\"atom\":3")).unwrap_err();
+    assert!(
+        matches!(outside, Error::IndexOutOfBounds { index: 3, .. }),
+        "{outside}"
+    );
+}
+
 /// Reads a document through `wire::upgrade`, through `Within` and through
 /// plain serde, asserts that the three write back alike, and returns what
 /// they write.

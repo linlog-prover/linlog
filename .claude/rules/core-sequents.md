@@ -255,8 +255,13 @@ same test file:
   by `kind`: `exhausted`, `unbalanced {atom, least, most}` with the
   atom's index, `equation {…}`, `state_equation {atoms: [[atom,
   weight]], clauses: [[occurrence, weight]], dropped: [occurrence]}`),
-  `sequent` after `statistics`, and `goal` for a goal off the roots
-  (written only until a refutation's checker reads it).
+  `sequent` after `statistics`, and `goal` for a goal off the roots,
+  so that an unprovable outcome reads back as a `Disproof`, whose own
+  document is `{version, sequent, mode, refutation, goal}`
+  (`DisproofForm`): reading counts the sequent against the limits and
+  checks every atom and occurrence the refutation and the goal name,
+  not the refutation, which a checker of refutations will
+  (`disproof_json_format_and_round_trip`).
   A new `Reason` or `Refutation` variant needs its arms in the proxy,
   both ways (`Why`, `WhyNot`; `serialize` denies wildcard arms, so a
   variant missing there does not compile); a `Reason` reads back by its
