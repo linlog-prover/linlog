@@ -18,12 +18,11 @@
 //! first, as the writer puts it; a document without `version` reads as
 //! level 1. Nested values carry no `version`.
 //!
-//! What raises the level: a new tag, a new value of a closed enumeration
-//! (a mode, a criterion), a key whose presence changes what the other keys
-//! mean. What does not: a key an older reader may ignore without
-//! misreading (a counter, an error's detail), and a new value of an open
-//! enumeration with a meaning to fall back on (a refutation's kind reads as
-//! `exhausted`).
+//! What raises the level: a new tag, a new value of an enumeration a
+//! reader refuses when it does not know it (a mode, a criterion, a
+//! refutation's or a reason's kind), a key whose presence changes what the
+//! other keys mean. What does not: a key an older reader may ignore
+//! without misreading (a counter, an error's detail).
 //!
 //! # Reading
 //!

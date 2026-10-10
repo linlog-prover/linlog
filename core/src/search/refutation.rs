@@ -19,14 +19,15 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// mode, which a [`Disproof`] holds; its [`Display`] writes atoms by
 /// number (`#0`), the disproof's by name.
 ///
-/// In JSON (feature `serialize`) an unprovable outcome's `refutation` is
-/// tagged by `kind`: `{"kind": "exhausted"}`, `{"kind": "unbalanced",
+/// In JSON (feature `serialize`) a refutation, as an unprovable outcome's
+/// and a disproof's `refutation`, is tagged by `kind`: `{"kind": "exhausted"}`, `{"kind": "unbalanced",
 /// "atom", "least", "most"}` (the atom by its index into the sequent
 /// beside it), `{"kind": "equation", "formulas", "needed", "tensors",
 /// "pars", "ones", "bottoms", "mix"}` or `{"kind": "state_equation",
 /// "atoms": [[atom, weight], …], "clauses": [[occurrence, weight], …],
-/// "dropped": [occurrence, …]}`. A reader that meets a kind it does not
-/// know reads it as `exhausted`: no certificate it can check.
+/// "dropped": [occurrence, …]}`, and reads back so. A reader refuses a
+/// kind it does not know: read as another, it would claim a certificate
+/// it does not hold.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refutation {

@@ -4,11 +4,12 @@
 use super::proofs::Proof;
 use super::sequents::Sequent as SequentForm;
 use crate::fragment::{Fragment, Mode};
-use crate::occurrences::Member;
+use crate::occurrences::{Member, OccId};
 use crate::search::{
     Bias, Cadence, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation, StateEquation,
     Statistics, Unbalanced, Verdict,
 };
+use crate::sequents::Atom;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for Fragment {
@@ -109,8 +110,9 @@ impl<'a> Deserialize<'a> for Reason {
 }
 
 /// The serialized form of a refutation: its `kind`, with the counts or
-/// the weights that rule a proof out.
-#[derive(Serialize)]
+/// the weights that rule a proof out. A kind it does not know is no
+/// refutation, never one of these.
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum WhyNot {
     /// The search was exhaustive.
@@ -190,6 +192,65 @@ impl From<&Refutation> for WhyNot {
             },
             Refutation::Exhausted => WhyNot::Exhausted,
         }
+    }
+}
+
+impl From<WhyNot> for Refutation {
+    /// Converts a refutation's serialized form back; its indices are the
+    /// disproof's to check against its sequent.
+    fn from(w: WhyNot) -> Self {
+        match w {
+            WhyNot::Exhausted => Refutation::Exhausted,
+            WhyNot::Unbalanced { atom, least, most } => Refutation::Unbalanced(Unbalanced {
+                atom: Atom::new(atom),
+                least,
+                most,
+            }),
+            WhyNot::Equation {
+                formulas,
+                needed,
+                tensors,
+                pars,
+                ones,
+                bottoms,
+                mix,
+            } => Refutation::Equation(Equation {
+                formulas,
+                needed,
+                tensors,
+                pars,
+                ones,
+                bottoms,
+                mix,
+            }),
+            WhyNot::StateEquation {
+                atoms,
+                clauses,
+                dropped,
+            } => Refutation::StateEquation(StateEquation {
+                atoms: atoms.into_iter().map(|(a, w)| (Atom::new(a), w)).collect(),
+                clauses: clauses
+                    .into_iter()
+                    .map(|(o, w)| (OccId::new(o), w))
+                    .collect(),
+                dropped: dropped.into_iter().map(OccId::new).collect(),
+            }),
+        }
+    }
+}
+
+impl Serialize for Refutation {
+    /// Serializes the refutation tagged by its `kind`.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        WhyNot::from(self).serialize(serializer)
+    }
+}
+
+impl<'a> Deserialize<'a> for Refutation {
+    /// Deserializes a refutation from its `kind`, refusing one it does not
+    /// know.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        WhyNot::deserialize(deserializer).map(Refutation::from)
     }
 }
 
@@ -405,5 +466,41 @@ mod tests {
                 .to_string()
                 .contains("unknown variant `tired`")
         );
+    }
+
+    /// Every refutation reads back as itself, and a kind no refutation
+    /// has is refused, never read as `exhausted`.
+    #[test]
+    fn refutations_read_back() {
+        let (a, o) = (Atom::new, OccId::new);
+        for refutation in [
+            Refutation::Exhausted,
+            Refutation::Unbalanced(Unbalanced {
+                atom: a(1),
+                least: 1,
+                most: 2,
+            }),
+            Refutation::Equation(Equation {
+                formulas: 2,
+                needed: 3,
+                tensors: 1,
+                pars: 0,
+                ones: 0,
+                bottoms: 0,
+                mix: false,
+            }),
+            Refutation::StateEquation(StateEquation {
+                atoms: vec![(a(0), 2), (a(2), -1)],
+                clauses: vec![(o(3), 1)],
+                dropped: vec![o(5)],
+            }),
+        ] {
+            let json = serde_json::to_string(&refutation).unwrap();
+            let back = serde_json::from_str::<Refutation>(&json).unwrap();
+            assert_eq!(back, refutation, "{json}");
+        }
+        let unknown = serde_json::from_str::<Refutation>(r#"{"kind":"tableau"}"#);
+        let message = unknown.unwrap_err().to_string();
+        assert!(message.contains("unknown variant `tableau`"), "{message}");
     }
 }
