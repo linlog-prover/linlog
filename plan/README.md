@@ -2203,3 +2203,20 @@ client follows it (step 32).
   on the head and found one spelling failure, which the area fixed
   before its closing `nix flake check`. Next: the command's wrong
   answers, then area 3.2, the search.
+- 2026-10-10: review of step 28's area 3.2, the search, which began
+  with the command's ten wrong answers (F165, H5, H11 to H13, H16, H26,
+  H28, H30, H31). One session (Opus 5.5 at xhigh, 10:45 to 17:47) did
+  it:
+  - the progress stop at every poll and `Limits::work`, one race with
+    one account, the pool's depth per worker (H18) and its `&` without
+    copies, the refactorings and the Horn engine's tests;
+  - H21's agreement test of the ordinary translations;
+  - the step 26 panel: no wrong verdict in 95 634 runs, two accounting
+    faults fixed;
+  - three check rounds and a fresh-context reviewer, which found
+    nothing.
+
+  Both target sets are unchanged at the head, and every mutation batch
+  is below its baseline. The review reran the command's witnesses and
+  `nix flake check`. The step pauses here until the author resumes it;
+  areas 3.3 and 3.4 remain.

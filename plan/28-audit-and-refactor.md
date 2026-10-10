@@ -382,6 +382,43 @@ resume" below).
   at `-j 2` and `-j 4`, at the head and at area 3.1's last commit
   (kktkswpq), times and nodes side by side.
 
+## From the review of area 3.2 (2026-10-10)
+
+- **Verified**: `nix flake check` passed at the area's head (the
+  supervisor's own run, besides the session's). On a release build of
+  the head, the command's wrong answers answer as they should:
+  - F165: `--isolate -qf` decides each file;
+  - H11 and H12: a typed sequent beside a batch, and an empty batch,
+    are errors;
+  - H5: a `.spec` file is decided in affine mode;
+  - H26: a JSON Lines line without `sequent` is refused;
+  - H30: an entry named `/` stays inside `--output DIR`, and `DIR.json`
+    is untouched;
+  - H18: the pool's stack overflow at a raised recursion limit ends in
+    unknown at the limit.
+- **Departures from the design, for the author's review at the step's
+  end** (marked in "Area 3.2: decided unattended"):
+  - `Decide::decide` takes `FnMut(u64)`, and the front door builds the
+    `Progress`;
+  - a search tells its stop `held_bytes` 0;
+  - no `Engine::modes()`: each `admits` keeps its own mode test.
+  Area 3.1's departures were answered by the author on 2026-10-10.
+- **Area 3.3's first measurement** is the pool's speed after H18 and
+  F92 (`-j 2` and `-j 4`, the head against kktkswpq) on a quiet machine,
+  as "From area 3.2, for area 3.3" in this file says. Its other starting
+  points:
+  - read-json, and the printing journeys' one printer (area 3.1's
+    review);
+  - F114 and F121, which wait for the stack measured on quiet cores.
+- **Left on disk**: the directories of forgotten workspaces
+  (`../linlog-gate2`, `../linlog-horn-tests`, `../linlog-horn-tests2`,
+  `../linlog-gen-tests`, `../linlog-mutants32`, `../linlog-ordinary-test`,
+  `../linlog-prof`), for the author to delete. The F123 draft is kept
+  as the head ukrmvowr.
+- **The step pauses here** by the author's word (2026-10-10), until they
+  resume it, most likely after the weekly reset on 2026-10-16 05:00.
+  Areas 3.3 and 3.4 remain.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
