@@ -74,7 +74,8 @@ the generated families are read; the harness that runs them is
   expected result is the first line's `#expected result: safe|unsafe`,
   which only 12 of the suite's files state (`Safety::Unsafe` is
   provable). The mode is not in the file: a coverability question is
-  affine, and the harness runs it intuitionistic affine.
+  affine, the harness runs it intuitionistic affine, and the command
+  makes the flags' mode affine for every `.spec` input.
 - **`families`** (feature `parse`): `FAMILIES` lists the benchmark
   families, each a name, a summary, default sizes, instances per size,
   the sizes it takes (`least`, `powers_of_two`) and a generator `(size,

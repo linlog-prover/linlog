@@ -479,6 +479,10 @@ impl Shared {
         let args = &self.args;
         let deadline = Deadline::start(args.timeout.0, Instant::now())?;
         let most = args.input.most();
+        let format = match &entry.source {
+            Source::Text(_, format) | Source::File(_, format) => Some(*format),
+            Source::Bad(_) => None,
+        };
         let source = entry.source;
         let logic = args.logic.clone();
         let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
@@ -514,7 +518,10 @@ impl Shared {
         let sequent = forest.sequent();
         let mode = match &image {
             Some(image) => image.mode(),
-            None => entry.mode.unwrap_or(args.mode.mode()),
+            None => {
+                let mode = entry.mode.unwrap_or(args.mode.mode());
+                format.map_or(mode, |format| io::affine_for(format, mode))
+            }
         };
         if self.show.net {
             nets_exist(sequent, mode)?;

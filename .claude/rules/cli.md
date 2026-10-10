@@ -33,8 +33,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--output` or standard output. A file's kind is `--input-format`
   (`InputFormat`), else its extension's (`InputFormat::of`: `.p` an LLTP
   problem through `lltp::read`, or under `--logic` a TPTP problem,
-  `.spec` a coverability problem through `mist::read`, `.json` a JSON
-  sequent, else text), never
+  `.spec` a coverability problem through `mist::read`, decided in
+  affine mode whatever the flags say (`SequentInput::mode`,
+  `io::affine_for`, in `prove`, the batch and `interact`: the question
+  of coverability is affine mode's, and exact reachability answered a
+  coverable target unprovable; no flag takes weakening away, so none is
+  refused), `.json` a JSON sequent, else text), never
   guessed from the text (`A` is an atom and a file name alike);
   `sequent_in` reads the four formats of one sequent, `admit` applies
   `--occurrence-limit`. The formats of many (`lines`, `jsonl`,

@@ -1374,6 +1374,42 @@ fn load_keeps_the_question() {
     }
 }
 
+/// A `.spec` file is a coverability question, decided in affine mode
+/// without `--affine`, alone and in a batch: here a marking covers the
+/// target that no marking reaches exactly.
+#[test]
+fn a_spec_file_is_affine() {
+    let dir = scratch("cover");
+    std::fs::create_dir_all(&dir).unwrap();
+    let spec = dir.join("cov.spec");
+    std::fs::write(
+        &spec,
+        "vars x y\nrules\n  x >= 1 -> x' = x - 1, y' = y + 1;\ninit x = 2\ntarget y >= 1\n",
+    )
+    .unwrap();
+    let (status, out, _) = linlog(&["prove", "-q", "--file", spec.to_str().unwrap()], "");
+    assert_eq!(
+        (status, out.as_str()),
+        (0, "provable (MELL, classical affine, horn engine)\n")
+    );
+    let (status, out, _) = linlog(
+        &[
+            "prove",
+            "-q",
+            "--file",
+            dir.to_str().unwrap(),
+            "--input-format",
+            "spec",
+        ],
+        "",
+    );
+    assert_eq!(status, 0, "{out}");
+    assert!(
+        out.ends_with("cov.spec: provable (MELL, classical affine, horn engine)\n"),
+        "{out}"
+    );
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

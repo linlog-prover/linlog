@@ -64,7 +64,8 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
                 );
             }
             let sequent = args.input.sequent()?;
-            Interactive::new(&sequent, args.mode.mode()).map_err(|e| describe(e, &sequent))?
+            Interactive::new(&sequent, args.input.mode(args.mode.mode()))
+                .map_err(|e| describe(e, &sequent))?
         }
     };
     let options = Options::default()

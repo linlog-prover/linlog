@@ -602,7 +602,7 @@ pub enum InputFormat {
     Lltp,
     /// A coverability problem in the .spec format of the Mist tool: its
     /// rules under !, its initial marking ⊢ its target, a question of
-    /// affine mode, which --affine asks for
+    /// affine mode, in which it is decided without --affine
     Spec,
     /// One sequent per line in the text syntax, as `NAME: SEQUENT` or
     /// `SEQUENT`; blank lines and everything from `#` on are skipped

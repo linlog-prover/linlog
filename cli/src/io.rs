@@ -5,7 +5,7 @@ use crate::argument_parsing::{InputFormat, LogicArgs, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::wire::Within;
-use linlog::{Forest, Limits, Sequent};
+use linlog::{Forest, Limits, Mode, Sequent};
 use serde::de::DeserializeSeed;
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
@@ -65,6 +65,16 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
                 .context("cannot read standard input")?;
             Ok(text)
         }
+    }
+}
+
+/// Returns `mode`, made affine for a sequent in `format` if that is a
+/// coverability problem's, whose question is affine mode's.
+pub fn affine_for(format: InputFormat, mode: Mode) -> Mode {
+    if format == InputFormat::Spec {
+        mode.with_affine()
+    } else {
+        mode
     }
 }
 
@@ -135,6 +145,24 @@ pub fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
 }
 
 impl SequentInput {
+    /// Returns the format of the one input: the flag's, or the one the
+    /// file's extension names, a `.p` file being a TPTP problem when
+    /// `ordinary` is set.
+    pub fn format(&self, ordinary: bool) -> InputFormat {
+        match self.file.first() {
+            Some(path) if path != Path::new("-") => self.input_format.of(path, ordinary),
+            _ => self.input_format,
+        }
+    }
+
+    /// Returns the mode a sequent of this input is decided in: the flags'
+    /// `mode`, made affine for a coverability problem, whose question is
+    /// affine mode's whatever the flags say; no flag takes weakening
+    /// away, so none contradicts it.
+    pub fn mode(&self, mode: Mode) -> Mode {
+        affine_for(self.format(false), mode)
+    }
+
     /// Reads the one input from the argument, the file or standard input,
     /// and returns it with the format the flag or the file's extension
     /// names, a `.p` file being a TPTP problem when `ordinary` is set.
@@ -143,10 +171,7 @@ impl SequentInput {
             bail!("this command reads one sequent: give --file once");
         }
         let file = self.file.first().map(PathBuf::as_path);
-        let format = match file {
-            Some(path) if path != Path::new("-") => self.input_format.of(path, ordinary),
-            _ => self.input_format,
-        };
+        let format = self.format(ordinary);
         if format.is_many() {
             let name = clap::ValueEnum::to_possible_value(&format).expect("no value is skipped");
             bail!(

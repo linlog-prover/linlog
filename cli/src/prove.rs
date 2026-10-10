@@ -1079,7 +1079,9 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     };
     let (forest, image) = forest?;
     let sequent = forest.sequent();
-    let mode = image.as_ref().map_or(args.mode.mode(), Image::mode);
+    let mode = image
+        .as_ref()
+        .map_or_else(|| args.input.mode(args.mode.mode()), Image::mode);
     if args.output.net {
         nets_exist(sequent, mode)?;
     }

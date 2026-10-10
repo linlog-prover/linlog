@@ -1,5 +1,5 @@
 $ linlog prove --file mutex.spec
 --- status 1
 --- stdout
-unprovable (MELL, classical, horn engine): the search was exhaustive
+unprovable (MELL, classical affine, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each lock by 1 and crit by 1, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
 --- stderr

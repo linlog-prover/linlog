@@ -934,8 +934,9 @@ coverability suites of software verification write it: counters, rules
 that test and change them, an initial marking (`x >= k` for at least `k`
 tokens, any number more), and the markings to cover, a line each. It is
 read as a Horn program, the rules under `!` and the initial tokens left
-of `⊢`, and covering is a question of affine mode, which the flags ask
-for. Two processes in the critical section at once, for any number of
+of `⊢`, and covering is a question of affine mode, in which a `.spec`
+file is decided whatever the flags say (`-i` and `--mix` keep their
+meaning). Two processes in the critical section at once, for any number of
 processes and one lock:
 
 ```console
