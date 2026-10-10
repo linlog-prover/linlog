@@ -137,7 +137,7 @@ impl<'a> Arena<'a> {
         match &mut self.kept {
             Kept::Own(kept) => Self::append(kept, &mut self.pending, mark, node, most, account),
             Kept::Shared(kept) => {
-                let mut kept = kept.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let mut kept = crate::search::lock(kept);
                 Self::append(&mut kept, &mut self.pending, mark, node, most, account)
             }
         }

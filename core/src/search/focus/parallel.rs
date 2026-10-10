@@ -34,8 +34,9 @@ use crate::limits::Limits;
 use crate::occurrences::{OccId, OccSet};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
-use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, lock, record, taken};
+use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, record};
 use crate::search::{Finished, Options, Reason, Statistics, Stop, Task, Work};
+use crate::search::{lock, taken};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -77,9 +78,9 @@ pub(crate) fn search_goal(
         limits,
     };
     let stack = limits.stack_bytes();
-    let search = |rule: Plan, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
+    let search = |plan: Plan, runtime: &Runtime, account: &Account, flags: Flags<'_>| {
         account.charge(classes.bytes());
-        rule.search_on(set_up, account, runtime, flags)
+        plan.search_on(set_up, account, runtime, flags)
     };
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
@@ -112,7 +113,7 @@ pub(crate) fn search_goal(
 }
 
 impl Plan {
-    /// Runs the search of this rule on a pool, from one of its threads,
+    /// Runs the search of this plan on a pool, from one of its threads,
     /// with a memo and an arena of its own that its workers share, stopped
     /// by the flags; on a pool of one thread it is the sequential engine.
     /// Returns what [`Plan::search`] does.
@@ -360,10 +361,10 @@ impl<'a> Run<'a> {
                     // A task the pool reaches after its choice was settled
                     // or a flag above it was raised (the caller's stop, a
                     // proof at an enclosing choice, the other premise of
-                    // a `&`) ends before it builds a worker, which copies
-                    // the branch's stack of keys: a stable sequent of a
-                    // Petri net queues a task per transition, and each
-                    // copy is the forest's width times the depth.
+                    // a `&`) ends before it builds a worker: a stable
+                    // sequent of a Petri net queues a task per transition,
+                    // and each worker takes its pools, its branch's slices
+                    // and a stolen task's start on a busy thread.
                     if spawn.flags.child(cancel).raised() {
                         lock(collected).skip(cancel);
                         return;

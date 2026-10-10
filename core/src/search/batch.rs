@@ -550,8 +550,7 @@ mod workers {
                 let queue = Arc::try_unwrap(shared).ok().map(|s| s.queue);
                 let work = Arc::try_unwrap(work).ok();
                 if let (Some(queue), Some(work)) = (queue, work) {
-                    let Queue { problems, .. } =
-                        queue.into_inner().unwrap_or_else(|e| e.into_inner());
+                    let Queue { problems, .. } = crate::search::taken(queue);
                     return Err((problems, work));
                 }
                 unreachable!("no worker started, so none holds the queue or the work");

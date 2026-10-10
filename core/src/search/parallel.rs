@@ -8,7 +8,7 @@
 //! own the rest (shared memo, cubes, per-worker state); nothing here is
 //! global.
 
-use super::Work;
+use super::{Work, lock};
 use crate::Error;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
@@ -309,23 +309,6 @@ impl Drop for Waiting<'_> {
             self.runtime.depths[i].store(before, Ordering::Relaxed);
         }
     }
-}
-
-/// Locks what a search's workers share. A panic in one of them leaves
-/// it whole, since each change is one assignment or one push, so a
-/// poisoned lock is taken as it is.
-pub(crate) fn lock<T>(shared: &Mutex<T>) -> MutexGuard<'_, T> {
-    shared
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-/// Returns what the workers shared, once they ended, poisoned or not, as
-/// [`lock`] takes it.
-pub(crate) fn taken<T>(shared: Mutex<T>) -> T {
-    shared
-        .into_inner()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Records a worker's reason for giving up: the first, a stop giving way

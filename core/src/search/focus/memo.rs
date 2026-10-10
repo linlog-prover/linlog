@@ -497,16 +497,7 @@ impl Shared {
 
     /// The shard of a key with the hash given.
     fn shard(&self, hash: u64) -> std::sync::MutexGuard<'_, Memo> {
-        Self::lock(&self.shards[(hash >> (64 - SHARDS.trailing_zeros())) as usize])
-    }
-
-    /// Locks a shard, recovering the memo from a worker that panicked
-    /// while holding the lock: every entry is a fact the worker had
-    /// finished writing before the panic could interrupt it.
-    fn lock(shard: &Mutex<Memo>) -> std::sync::MutexGuard<'_, Memo> {
-        shard
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        crate::search::lock(&self.shards[(hash >> (64 - SHARDS.trailing_zeros())) as usize])
     }
 
     /// [`Memo::get_hashed`] on the key's shard.
@@ -534,19 +525,25 @@ impl Shared {
     /// Empties every shard and gives its memory back.
     pub(crate) fn release(&self, account: &Account) {
         for shard in &self.shards {
-            Self::lock(shard).release(account);
+            crate::search::lock(shard).release(account);
         }
     }
 
     /// Returns the sum over the shards of the most entries each held at
     /// once: an upper bound on the most entries the memo held at once.
     pub(crate) fn peak(&self) -> usize {
-        self.shards.iter().map(|s| Self::lock(s).peak()).sum()
+        self.shards
+            .iter()
+            .map(|s| crate::search::lock(s).peak())
+            .sum()
     }
 
     /// Returns how many lookups found an entry that applied.
     pub(crate) fn hits(&self) -> u64 {
-        self.shards.iter().map(|s| Self::lock(s).hits()).sum()
+        self.shards
+            .iter()
+            .map(|s| crate::search::lock(s).hits())
+            .sum()
     }
 }
 

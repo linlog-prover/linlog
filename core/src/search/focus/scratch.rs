@@ -161,7 +161,7 @@ impl Run<'_> {
     /// Takes cursors at the head of every list from the pool.
     pub(super) fn take_cursors(&mut self) -> Cursors {
         self.pools.cursors.pop().unwrap_or_else(|| {
-            let lists = 2 * self.problem.forest.sequent().atom_names().len();
+            let lists = self.problem.forest.lists();
             self.scratch.charge(lists * size_of::<u32>());
             Cursors {
                 passed: vec![0; lists],

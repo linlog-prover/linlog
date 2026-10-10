@@ -96,6 +96,24 @@ impl Work {
     }
 }
 
+/// Locks what a search's threads share. A panic in one of them leaves
+/// it whole, since each change is one assignment or one push, so a
+/// poisoned lock is taken as it is.
+pub(crate) fn lock<T>(shared: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    shared
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Returns what the threads shared, once they ended, poisoned or not, as
+/// [`lock`] takes it.
+#[cfg(feature = "parallel")]
+pub(crate) fn taken<T>(shared: std::sync::Mutex<T>) -> T {
+    shared
+        .into_inner()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// A thread's count of the work it does: its units not yet added to the
 /// search's [`Work`], which it adds in batches of [`Work::BATCH`] (with
 /// `parallel`, where other threads read the count) and the rest when it

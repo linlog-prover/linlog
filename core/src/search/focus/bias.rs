@@ -26,7 +26,7 @@ pub(super) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
         Bias::Rarer => false,
         Bias::Factors => true,
     };
-    let mut factors = vec![0u64; 2 * num_atoms];
+    let mut factors = vec![0u64; forest.lists()];
     if by_factors {
         /// The weight of an occurrence under no additive choice.
         const WHOLE: u64 = 1 << 31;
@@ -40,7 +40,7 @@ pub(super) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
             if let (Some(atom), Some(s)) = (forest.atom(o), forest.sign(o))
                 && forest.kind(p) == Kind::Tensor
             {
-                factors[2 * atom.index() + s as usize] += WHOLE
+                factors[Forest::list(atom, s)] += WHOLE
                     .checked_shr(u32::from(choices[o.index()]))
                     .unwrap_or(0);
             }
@@ -53,7 +53,9 @@ pub(super) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
                 forest.literals(atom, Sign::Atom).len(),
                 forest.literals(atom, Sign::Dual).len(),
             );
-            match factors[2 * a].cmp(&factors[2 * a + 1]) {
+            match factors[Forest::list(atom, Sign::Atom)]
+                .cmp(&factors[Forest::list(atom, Sign::Dual)])
+            {
                 Ordering::Greater => Sign::Atom,
                 Ordering::Less => Sign::Dual,
                 Ordering::Equal if duals < vars => Sign::Dual,

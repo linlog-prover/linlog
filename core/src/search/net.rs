@@ -860,8 +860,9 @@ pub(crate) mod parallel {
     use crate::limits::Limits;
     use crate::nets::{ProofStructure, VertexId};
     use crate::occurrences::Forest;
-    use crate::search::parallel::{RaiseOnPanic, Runtime, lock, record, taken};
+    use crate::search::parallel::{RaiseOnPanic, Runtime, record};
     use crate::search::{Answer, Options, Reason, Statistics, Stop, Work};
+    use crate::search::{lock, taken};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 

@@ -49,7 +49,7 @@ pub(super) fn turns(
     };
     let mut turn = FIRST_TURN;
     loop {
-        for (i, (rule, counts, account)) in searches.into_iter().enumerate() {
+        for (i, (plan, counts, account)) in searches.into_iter().enumerate() {
             if ended[i].is_some() {
                 continue;
             }
@@ -67,7 +67,7 @@ pub(super) fn turns(
                     statistics: run,
                 },
                 over,
-            ) = rule.search(
+            ) = plan.search(
                 set_up,
                 counts,
                 // A turn's memo and arena go when it ends.
@@ -135,7 +135,7 @@ pub(crate) struct Plan {
 }
 
 impl Plan {
-    /// Runs the search of this rule alone, with a memo and an arena of its
+    /// Runs the search of this plan alone, with a memo and an arena of its
     /// own, until it ends or the stop condition fires. Returns what
     /// [`search_goal`](super::search_goal) does, and whether it was a turn that ran out of
     /// its work.
@@ -297,9 +297,7 @@ impl Baton {
     /// Locks the state; it is plain data, so a panic of the other thread
     /// leaves it usable.
     fn lock(&self) -> std::sync::MutexGuard<'_, Turns> {
-        self.state
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        crate::search::lock(&self.state)
     }
 
     /// Waits until search `me` may run, and returns whether it must stop
