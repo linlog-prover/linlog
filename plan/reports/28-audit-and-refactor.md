@@ -506,6 +506,25 @@ asked on 2026-10-10.
   `moved`, `Tableau::new` and `caps` keep their own merges of a
   transition's inputs and outputs, `moved` being the expansion's hot
   loop, where an iterator was not measured.
+- **What the panel found and this session left as it is**, each read
+  in the code and none a wrong verdict: (1) the recursion limit bounds
+  a worker's stack through the levels it counts, and the frames it does
+  not count (a fork's and a steal's, once per fork on a branch and once
+  per steal nested on a thread) rest on `Limits`' reserve of a
+  mebibyte; rayon's order bounds the nesting of steals by about the
+  threads, which no test witnesses. (2) The race's proof check and
+  refutation run under the search's limits outside the race's whole,
+  so for the moment one side concludes while the other stops, the two
+  can hold up to twice `--memory-limit`. (3) The checker counts its own
+  work against `Limits::work` from zero, so a search and its check may
+  do close to twice the bound: each long phase has the bound, as each
+  has the memory bound. (4) The net engine's own count refusal
+  (`counts_admit`) is counted again at the front door, which costs a
+  second pass and can turn into `Exhausted` at a stop, which is always
+  true of the verdict. (5) txuvownw's message says no poll moved; the
+  additive path's did, from every pair to every 1 024, so a stop at its
+  first poll now sees 1 024 pairs where it saw one; no counter of a
+  decided run moved.
 - **The panel's second reference is step 26's**, written then by a
   fresh agent from the calculus alone and kept in that session's
   scratchpad, not one written anew: this area changed how the search is
