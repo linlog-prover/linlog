@@ -25,6 +25,7 @@ mod tests;
 use super::memory::Account;
 use super::{
     Answer, Decide, Engine, NotTaken, Options, Reason, Refutation, StateEquation, Statistics, Task,
+    Work,
 };
 use crate::Error;
 use crate::fragment::Fragment;
@@ -66,7 +67,8 @@ impl Decide for Horn {
         _options: &Options,
         _limits: &Limits,
         account: &Account,
-        stop: &mut dyn FnMut() -> bool,
+        _work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         // What the counts of the goal's literals rule out needs no
         // search: a goal that never balances an atom, whose net may be

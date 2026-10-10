@@ -21,7 +21,9 @@
 //! linking. The net is sequentialized into the proof term returned.
 
 use super::memory::Account;
-use super::{Answer, Cadence, Decide, Engine, NotTaken, Options, Reason, Statistics, Stop, Task};
+use super::{
+    Answer, Cadence, Decide, Engine, NotTaken, Options, Reason, Statistics, Stop, Task, Work,
+};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Refusal};
@@ -66,7 +68,8 @@ impl Decide for Nets {
         options: &Options,
         limits: &Limits,
         _account: &Account,
-        stop: &mut dyn FnMut() -> bool,
+        work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
@@ -81,9 +84,12 @@ impl Decide for Nets {
                 options,
                 limits,
                 &runtime,
+                work,
                 stop,
             ));
         }
+        #[cfg(not(feature = "parallel"))]
+        let _ = work;
         Ok(search(task.forest, task.mode, options, limits, stop))
     }
 }
@@ -97,7 +103,7 @@ pub(crate) fn search(
     mode: Mode,
     options: &Options,
     limits: &Limits,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Answer {
     if !counts_admit(forest, mode.mix) {
         return answer(Ok(false), Statistics::default(), None, limits, stop);
@@ -118,14 +124,14 @@ fn answer(
     statistics: Statistics,
     net: Option<ProofStructure>,
     limits: &Limits,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Answer {
     let result = result.and_then(|linked| {
         if !linked {
             return Ok(None);
         }
         let net = net.as_ref().expect("a proof net was found");
-        match net.sequentialize(limits, |_| stop()) {
+        match net.sequentialize(limits, |_| stop(0)) {
             Ok(proof) => Ok(Some(proof)),
             Err(Error::Net(error)) => match *error {
                 NetError::Refused {
@@ -705,7 +711,7 @@ pub(super) mod tests {
         let forest = Forest::new(&s).unwrap();
         let mut polls = 0;
         let (options, limits) = (Options::default(), Limits::default());
-        let answer = search(&forest, Mode::CLASSICAL, &options, &limits, &mut || {
+        let answer = search(&forest, Mode::CLASSICAL, &options, &limits, &mut |_| {
             polls += 1;
             polls == 2
         });
@@ -873,7 +879,7 @@ pub(crate) mod parallel {
     use crate::nets::{ProofStructure, VertexId};
     use crate::occurrences::Forest;
     use crate::search::parallel::{RaiseOnPanic, Runtime};
-    use crate::search::{Answer, Options, Reason, Statistics, Stop};
+    use crate::search::{Answer, Options, Reason, Statistics, Stop, Work};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -917,13 +923,14 @@ pub(crate) mod parallel {
         options: &Options,
         limits: &Limits,
         runtime: &Runtime,
-        stop: &mut dyn FnMut() -> bool,
+        work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Answer {
         if !counts_admit(forest, mode.mix) {
             return super::answer(Ok(false), Statistics::default(), None, limits, stop);
         }
         let threads = runtime.threads();
-        let (result, statistics, net) = runtime.drive(stop, |flags| {
+        let (result, statistics, net) = runtime.drive(stop, work, |flags| {
             let mut root = Linker::new(forest, mode, options, Stop::Flags(flags));
             // The cubes are what is left of the search at every moment,
             // each a branch nobody has followed yet, in the order of the

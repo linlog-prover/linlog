@@ -162,7 +162,8 @@ impl Counts {
     /// the literals that are positive under the bias given.
     #[cfg(any(all(test, feature = "parse"), feature = "interactive"))]
     pub(crate) fn new(forest: &Forest, bias: Bias) -> Self {
-        Self::new_until(forest, bias, &Account::new(None), &mut || false).expect("nothing stops it")
+        Self::new_until(forest, bias, &Account::new(None), &mut |_| false)
+            .expect("nothing stops it")
     }
 
     /// Computes the rows and weights of every occurrence of a forest, and
@@ -179,7 +180,7 @@ impl Counts {
         forest: &Forest,
         bias: Bias,
         account: &Account,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Self, Reason> {
         /// How many occurrences are visited between two polls.
         const PERIOD: usize = 1 << 16;

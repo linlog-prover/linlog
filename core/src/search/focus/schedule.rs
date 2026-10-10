@@ -42,7 +42,7 @@ pub(super) fn turns(
     options: &Options,
     limits: &Limits,
     searches: [(Rule, &Counts, &Account); 2],
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
     let mut ended: [Option<Reason>; 2] = [None, None];
     let mut statistics = Statistics::default();
@@ -361,7 +361,7 @@ impl Baton {
     /// made meanwhile, so that a slice of the second search, which in
     /// seconds may be long, does not keep the condition waiting. Returns
     /// whether both must stop.
-    fn pass_polling(&self, stop: &mut dyn FnMut() -> bool) -> bool {
+    fn pass_polling(&self, stop: &mut dyn FnMut(u64) -> bool) -> bool {
         {
             let mut turns = self.lock();
             if turns.stop || turns.ended[1] {
@@ -402,8 +402,9 @@ impl Baton {
     /// search made since it was last done, so that a condition that
     /// counts its polls, or looks at a clock every so many, sees the two
     /// searches as it sees one. Returns whether it fired.
-    fn caught_up(&self, stop: &mut dyn FnMut() -> bool) -> bool {
-        (0..self.polls.swap(0, Ordering::Relaxed)).any(|_| stop())
+    fn caught_up(&self, stop: &mut dyn FnMut(u64) -> bool) -> bool {
+        // The other search added its work at its polls.
+        (0..self.polls.swap(0, Ordering::Relaxed)).any(|_| stop(0))
     }
 }
 
@@ -472,7 +473,8 @@ pub(super) fn alternate(
         (first, first_counts, first_account),
         (second, second_counts, second_account),
     ]: [(Rule, &Counts, &Account); 2],
-    stop: &mut dyn FnMut() -> bool,
+    work: &crate::search::Work,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Option<(Search, Vec<Node>, Statistics)> {
     let baton = Baton::default();
     let (forward, backward) = std::thread::scope(|scope| {
@@ -485,9 +487,12 @@ pub(super) fn alternate(
                 if baton.wait(1) {
                     return (Err(Reason::Stopped), Vec::new(), Statistics::default());
                 }
-                let mut give_way = |passed: bool| {
+                // The caller's stop lives on the calling thread, which asks
+                // it for this search's polls; the work is added here.
+                let mut give_way = |units: u64, passed: bool| {
+                    work.add(units);
                     baton.polls.fetch_add(1, Ordering::Relaxed);
-                    baton.halt.load(Ordering::Relaxed) || (passed && baton.pass(1))
+                    work.passed() || baton.halt.load(Ordering::Relaxed) || (passed && baton.pass(1))
                 };
                 let slice = SLICE * BACKWARD_SHARE;
                 let (result, nodes, statistics, _) = second.search(
@@ -511,7 +516,8 @@ pub(super) fn alternate(
         let _stop = StopOnPanic(baton);
         let forward = {
             let _ended = Ended(baton, 0);
-            let mut give_way = |passed: bool| stop() || (passed && baton.pass_polling(stop));
+            let mut give_way =
+                |units: u64, passed: bool| stop(units) || (passed && baton.pass_polling(stop));
             let (result, nodes, statistics, _) = first.search(
                 forest,
                 goal,

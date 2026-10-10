@@ -76,7 +76,7 @@ use super::Bias;
 use super::memory::{Account, Charged};
 use super::{
     Answer, Decide, Equation, Options, Reason, Refutation, Statistics, Stop, Task, Unbalanced,
-    set_up_stopped,
+    Work, set_up_stopped,
 };
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
@@ -157,7 +157,8 @@ impl Decide for Focused {
         options: &Options,
         limits: &Limits,
         account: &Account,
-        stop: &mut dyn FnMut() -> bool,
+        work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         let Task {
             forest,
@@ -170,12 +171,12 @@ impl Decide for Focused {
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
             let found = parallel::search_goal(
-                forest, goal, fragment, mode, reading, options, limits, account, stop,
+                forest, goal, fragment, mode, reading, options, limits, account, work, stop,
             )?;
             return Ok(Answer::of_arena(forest, found));
         }
         let found = search_goal(
-            forest, goal, fragment, mode, reading, options, limits, account, stop,
+            forest, goal, fragment, mode, reading, options, limits, account, work, stop,
         );
         Ok(Answer::of_arena(forest, found))
     }
@@ -200,7 +201,8 @@ pub(crate) fn search_goal(
     options: &Options,
     limits: &Limits,
     account: &Account,
-    stop: &mut dyn FnMut() -> bool,
+    work: &Work,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
     // On a large forest every pass of the set-up is followed by a poll.
     let gave_up = |r| {
@@ -261,11 +263,14 @@ pub(crate) fn search_goal(
     ];
     // With threads the two searches alternate in slices and none starts
     // again; without them, when a thread cannot start, or where the
-    // options ask for it, they take turns from their start.
+    // options ask for it, they take turns from their start, on this
+    // thread, whose stop adds the work.
+    #[cfg(not(feature = "parallel"))]
+    let _ = work;
     #[cfg(feature = "parallel")]
     if options.schedule == super::Schedule::Auto
         && let Some(result) = schedule::alternate(
-            forest, goal, fragment, mode, reading, &classes, options, limits, searches, stop,
+            forest, goal, fragment, mode, reading, &classes, options, limits, searches, work, stop,
         )
     {
         return result;
@@ -290,7 +295,7 @@ pub(crate) fn refutation(
     fragment: Fragment,
     mode: Mode,
     account: &Account,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Refutation {
     let Ok(counts) = Counts::new_until(forest, Bias::Rarer, account, stop) else {
         return Refutation::Exhausted;

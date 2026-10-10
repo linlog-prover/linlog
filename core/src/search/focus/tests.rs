@@ -20,7 +20,7 @@ fn search(
     mode: Mode,
     reading: Option<&Reading>,
     options: &Options,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Verdict, Statistics) {
     search_within(
         forest,
@@ -41,7 +41,7 @@ fn search_within(
     reading: Option<&Reading>,
     options: &Options,
     limits: &Limits,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Verdict, Statistics) {
     assert_eq!(reading.is_some(), mode.intuitionistic);
     let engine = if mode.intuitionistic {
@@ -59,7 +59,7 @@ fn search_within(
         mode,
         &options,
         limits,
-        |_: Progress| stop(),
+        |progress: Progress| stop(progress.work),
     )
     .unwrap_or_else(|e| panic!("{}: {e}", forest.sequent()));
     (outcome.verdict, outcome.statistics)
@@ -90,7 +90,7 @@ fn run_within(
         reading.as_ref(),
         options,
         limits,
-        &mut || false,
+        &mut |_| false,
     );
     if let Verdict::Proved(proof) = &verdict {
         assert_eq!(proof.sequent(), &s);
@@ -262,7 +262,7 @@ fn limits() {
         Mode::CLASSICAL,
         None,
         &Options::default(),
-        &mut || {
+        &mut |_| {
             calls += 1;
             calls >= 1
         },
@@ -359,7 +359,7 @@ fn bias_option() {
             Mode::CLASSICAL,
             None,
             options,
-            &mut || false,
+            &mut |_| false,
         )
     };
     let backward = Options::default()
@@ -393,7 +393,7 @@ fn an_unbounded_search_deepens() {
     let run = |options: &Options| {
         let fragment = sequent.fragment();
         let mode = Mode::CLASSICAL;
-        search(&forest, fragment, mode, None, options, &mut || false)
+        search(&forest, fragment, mode, None, options, &mut |_| false)
     };
     let forward = Options::default().with_bias(Bias::Factors);
     let (verdict, statistics) = run(&forward.clone().with_copies(Some(3)));
@@ -471,7 +471,7 @@ fn default_bias_takes_turns() {
                 (first, &counts[0], &account),
                 (second, &counts[1], &account),
             ],
-            &mut || false,
+            &mut |_| false,
         );
         assert!(matches!(result, Ok(Some(_))));
         statistics
@@ -555,7 +555,7 @@ fn proofs_survive_collections() {
             mode,
             reading.as_ref(),
             options,
-            &mut || {
+            &mut |_| {
                 polls += 1;
                 polls > 20_000
             },
@@ -700,7 +700,7 @@ fn stops_inside_a_split_search() {
         Mode::CLASSICAL.with_affine(),
         None,
         &Options::default(),
-        &mut || {
+        &mut |_| {
             polls += 1;
             polls > 3
         },
@@ -742,7 +742,7 @@ fn stops_inside_a_forced_chain() {
                     Mode::CLASSICAL,
                     None,
                     &Options::default(),
-                    &mut || {
+                    &mut |_| {
                         polls += 1;
                         polls > 1
                     },
@@ -1530,7 +1530,7 @@ fn unprovable_parts_cost_no_partitions() {
         Mode::CLASSICAL.with_mix(),
         None,
         &Options::default(),
-        &mut || false,
+        &mut |_| false,
     );
     assert!(matches!(verdict, Verdict::Unprovable(_)), "{verdict:?}");
     assert!(statistics.nodes <= 12 << 12, "{statistics:?}");
@@ -1590,7 +1590,7 @@ fn affine_mode_leaves_mix_out() {
             mode,
             None,
             &Options::default(),
-            &mut || false,
+            &mut |_| false,
         )
     };
     let (with, with_statistics) = decide(Mode::CLASSICAL.with_affine().with_mix());

@@ -23,7 +23,7 @@
 
 use super::focus::Search;
 use super::memory::{Account, bytes_of};
-use super::{Answer, Decide, Engine, NotTaken, Options, Reason, Statistics, Task};
+use super::{Answer, Decide, Engine, NotTaken, Options, Reason, Statistics, Task, Work};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
@@ -62,7 +62,8 @@ impl Decide for Additive {
         options: &Options,
         limits: &Limits,
         account: &Account,
-        stop: &mut dyn FnMut() -> bool,
+        _work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         let found = search_goal(task.forest, task.goal, options, limits, account, stop);
         Ok(Answer::of_arena(task.forest, found))
@@ -71,7 +72,7 @@ impl Decide for Additive {
 
 /// Runs the additive fast path on a goal of exactly two additive-only
 /// occurrences of the forest, the roots or any other pair, polling `stop`
-/// at every pair of occurrences. Returns the node proving the goal (`None`
+/// every [`PAIRS_PER_POLL`] pairs of occurrences. Returns the node proving the goal (`None`
 /// when it is unprovable, or the reason the search gave up), the arena the
 /// node lives in, and the statistics. The mode plays no part: the additive
 /// rules keep one goal by themselves, and neither weakening nor Mix can
@@ -83,7 +84,7 @@ pub(crate) fn search_goal(
     options: &Options,
     limits: &Limits,
     account: &Account,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Search, Vec<Node>, Statistics) {
     let [x, y] = goal else {
         unreachable!("the dispatch sends goals of two formulas here");
@@ -104,12 +105,19 @@ pub(crate) fn search_goal(
     let result = engine
         .pair(*x, *y)
         .map_err(|r| super::focus::reason(r, options, limits));
+    // The pairs since the last poll are work too: the stop is told them,
+    // and its answer comes after the search.
+    let _ = (engine.stop)(engine.statistics.nodes % PAIRS_PER_POLL);
     let statistics = Statistics {
         memo_entries: engine.memo_peak as u64,
         ..engine.statistics
     };
     (result, engine.nodes, statistics)
 }
+
+/// How many pairs the search decides between two polls of its stop: some
+/// microseconds.
+const PAIRS_PER_POLL: u64 = 1 << 10;
 
 /// The state of one run: the problem, the memo of pairs, the proof arena
 /// and the counters.
@@ -135,7 +143,7 @@ struct Pairs<'a> {
     /// The bytes of the memo and the arena that were charged.
     charged: usize,
     /// The caller's stop condition.
-    stop: &'a mut dyn FnMut() -> bool,
+    stop: &'a mut dyn FnMut(u64) -> bool,
 }
 
 impl Pairs<'_> {
@@ -143,7 +151,9 @@ impl Pairs<'_> {
     /// `None` when it is unprovable, or the reason the search stops.
     fn pair(&mut self, x: OccId, y: OccId) -> Result<Option<NodeId>, Reason> {
         self.statistics.nodes += 1;
-        if (self.stop)() {
+        // A pair is the unit of work, which the stop is told in batches:
+        // asked at every pair, it cost a twentieth of the search.
+        if self.statistics.nodes.is_multiple_of(PAIRS_PER_POLL) && (self.stop)(PAIRS_PER_POLL) {
             return Err(Reason::Stopped);
         }
         self.settle()?;

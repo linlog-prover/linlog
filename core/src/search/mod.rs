@@ -46,18 +46,62 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-/// An engine's stop condition: the caller's closure in a sequential
-/// search, the chain of stop flags of a worker in a parallel one.
+/// The work a search has done, in its engine's units, shared by every
+/// thread of it, and the bound on it ([`Limits::work`]): every poll adds
+/// what was done since the last, so the bound ends the search at a poll.
+#[derive(Debug)]
+pub(crate) struct Work {
+    /// The units done.
+    done: std::sync::atomic::AtomicU64,
+    /// The most units allowed; `u64::MAX` for no bound, which no search
+    /// reaches (a unit takes a nanosecond at the least).
+    limit: u64,
+}
+
+impl Work {
+    /// No work done yet, under the bound `limit`.
+    pub(crate) const fn new(limit: Option<u64>) -> Self {
+        Self {
+            done: std::sync::atomic::AtomicU64::new(0),
+            limit: match limit {
+                Some(limit) => limit,
+                None => u64::MAX,
+            },
+        }
+    }
+
+    /// Adds `units` and returns the units done since the search began.
+    pub(crate) fn add(&self, units: u64) -> u64 {
+        self.done
+            .fetch_add(units, std::sync::atomic::Ordering::Relaxed)
+            .saturating_add(units)
+    }
+
+    /// Returns the units done since the search began.
+    pub(crate) fn done(&self) -> u64 {
+        self.done.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Returns whether the work passed its bound.
+    pub(crate) fn passed(&self) -> bool {
+        self.done() > self.limit
+    }
+}
+
+/// An engine's stop condition: the caller's in a sequential search, the
+/// chain of stop flags of a worker in a parallel one. Each poll is told
+/// the units of work done since the last.
 pub(crate) enum Stop<'a> {
     /// The caller's condition.
-    Closure(&'a mut dyn FnMut() -> bool),
+    Closure(&'a mut dyn FnMut(u64) -> bool),
     /// The caller's condition, and an amount of work after which the
     /// search stops as well: one turn of a search that takes turns with
     /// another.
-    Turn(&'a mut dyn FnMut() -> bool, u64),
-    /// A condition that is told, at every poll, whether a slice of work
-    /// (the last field) has passed since it was last told so: one of two
-    /// searches that alternate, which gives way to the other there.
+    Turn(&'a mut dyn FnMut(u64) -> bool, u64),
+    /// A condition that is told, at every poll, the work since the last
+    /// and whether a slice of work (the last field) has passed since it
+    /// was last told so: one of two searches that alternate, which gives
+    /// way to the other there.
     #[cfg_attr(
         not(feature = "parallel"),
         expect(
@@ -65,7 +109,7 @@ pub(crate) enum Stop<'a> {
             reason = "only threads alternate the two searches in slices"
         )
     )]
-    Slice(&'a mut dyn FnMut(bool) -> bool, u64, u64),
+    Slice(&'a mut dyn FnMut(u64, bool) -> bool, u64, u64),
     /// A worker's flags.
     #[cfg(feature = "parallel")]
     Flags(parallel::Flags<'a>),
@@ -76,10 +120,10 @@ impl Stop<'_> {
     /// the engine that polls counts its turns in.
     pub(crate) fn fired(&mut self, work: u64) -> bool {
         match self {
-            Self::Closure(stop) => stop(),
+            Self::Closure(stop) => stop(work),
             Self::Turn(stop, left) => {
                 *left = left.saturating_sub(work);
-                *left == 0 || stop()
+                *left == 0 || stop(work)
             }
             Self::Slice(stop, left, slice) => {
                 *left = left.saturating_sub(work);
@@ -87,10 +131,10 @@ impl Stop<'_> {
                 if passed {
                     *left = *slice;
                 }
-                stop(passed)
+                stop(work, passed)
             }
             #[cfg(feature = "parallel")]
-            Self::Flags(flags) => flags.raised(),
+            Self::Flags(flags) => flags.fired(work),
         }
     }
 }
@@ -105,8 +149,8 @@ const SET_UP_POLL: usize = 1 << 16;
 /// that set a search up, when the forest is large enough for a pass to
 /// take time ([`SET_UP_POLL`]): on millions of occurrences the set-up
 /// takes a second, and the engine's first poll comes after it.
-pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) -> bool {
-    forest.len() >= SET_UP_POLL && stop()
+pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut(u64) -> bool) -> bool {
+    forest.len() >= SET_UP_POLL && stop(0)
 }
 
 /// Decides a sequent under a mode with the engine its fragment calls for,
@@ -281,14 +325,6 @@ impl<'a> Goal<'a> {
     }
 }
 
-/// Asks the caller's stop as the engines poll it: in the search's phase,
-/// with no work counted yet.
-pub(crate) fn without_progress(
-    stop: &mut (impl FnMut(Progress) -> bool + ?Sized),
-) -> impl FnMut() -> bool + '_ {
-    move || stop(Progress::new(Phase::Search, 0, 0))
-}
-
 /// Decides a [`Goal`]: a multiset of occurrences of a forest, given in
 /// any order, which stands for the sequent of those subformulas, within
 /// `limits` and until `stop` fires, as [`prove_within`] does. The roots are
@@ -347,9 +383,20 @@ pub fn prove_goal(
         reading.as_ref(),
     )?;
     let implementation = engine.implementation();
-    // The engines poll a condition without progress, which asks the
-    // caller's with the search's phase.
-    let mut polled = without_progress(&mut stop);
+    // Every poll of the engines adds the units of work done since the
+    // last, of whichever thread, and tells the caller's stop what was done
+    // since it last asked it; past the bound on work the search ends.
+    let work = Work::new(limits.work);
+    let mut reported = 0;
+    let mut polled = |units: u64| {
+        let done = work.add(units);
+        if work.passed() {
+            return true;
+        }
+        let progress = Progress::new(Phase::Search, done - reported, done);
+        reported = done;
+        stop(progress)
+    };
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
     if set_up_stopped(forest, &mut polled) {
@@ -369,8 +416,10 @@ pub fn prove_goal(
     let options = &options
         .clone()
         .with_jobs(parallel::threads(options.threads()));
-    let answer = implementation.decide(&task, options, limits, &account, &mut polled)?;
-    drop(polled);
+    let mut answer = implementation.decide(&task, options, limits, &account, &work, &mut polled)?;
+    if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
+        answer.result = Err(Reason::WorkLimit { limit: work.limit });
+    }
     let verdict = conclude(
         answer.result,
         answer.refutation,
@@ -421,7 +470,7 @@ fn conclude(
             // as the search, where the engine has no refutation of its own.
             let refutation = refutation.unwrap_or_else(|| {
                 let account = memory::Account::new(limits.memory_bytes);
-                let mut polled = without_progress(stop);
+                let mut polled = |_| stop(Progress::new(Phase::Refute, 0, 0));
                 focus::refutation(
                     forest,
                     task.goal,
@@ -622,8 +671,10 @@ pub(crate) trait Decide {
     /// options get when they force it there.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error>;
 
-    /// Decides the goal under the options, polling `stop`, and charges
-    /// what the search holds to `account`.
+    /// Decides the goal under the options, polling `stop` with the units
+    /// of work done since the last poll (which `work` adds up for every
+    /// thread of the search), and charges what the search holds to
+    /// `account`.
     ///
     /// # Errors
     ///
@@ -635,7 +686,8 @@ pub(crate) trait Decide {
         options: &Options,
         limits: &Limits,
         account: &memory::Account,
-        stop: &mut dyn FnMut() -> bool,
+        work: &Work,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error>;
 }
 
@@ -844,6 +896,9 @@ pub enum Engine {
     /// level that never met its bound. With Mix a stable sequent may be
     /// split in two, and in affine mode a leaf weakens what is left. It
     /// reads every option but [`Options::test_period`], the net engine's.
+    /// Its unit of work ([`Progress::work`], [`Limits::work`]) is a stable
+    /// sequent, weighed by the size of its zones, members and copies, and
+    /// a step of a split search; forced splits count none.
     Focus,
     /// The proof-net engine, for unit-free MLL with or without Mix; in
     /// intuitionistic mode it decides IMLL through the embedding into MLL.
@@ -859,12 +914,14 @@ pub enum Engine {
     /// bias, the memo limit and the recursion limit have nothing to bound
     /// here, and its structure and scratch, linear in the forest, are not
     /// counted under [`Limits::memory_bytes`](crate::Limits::memory_bytes).
+    /// Its unit of work is a literal chosen and an exact test that fails.
     Net,
     /// The focused sequent engine two-sided: intuitionistic mode. It is
     /// the search of `Focus` on the one-sided sequent, which keeps one goal
     /// on every branch by itself except at the split of a hypothesis
     /// `A ⊸ B`, where the goal must go with `B`: the one place it reads the
-    /// sequent's [`Reading`]. It reads the options `Focus` does.
+    /// sequent's [`Reading`]. It reads the options `Focus` does, and
+    /// counts its work as `Focus` does.
     TwoSided,
     /// The fast path for a sequent of two additive-only formulas, in every
     /// mode: a recursion on pairs of subformula occurrences, one below each
@@ -873,7 +930,7 @@ pub enum Engine {
     /// [`Options::check`], and the limits' recursion depth and memory
     /// bound, and runs on the calling thread whatever
     /// [`Options::jobs`] says; two additive formulas have no copies and no
-    /// atoms to bias.
+    /// atoms to bias. Its unit of work is a pair decided.
     Additive,
     /// The engine for Horn programs: clauses under `!` that may be used
     /// any number of times, implications used once, atoms, and one goal
@@ -919,7 +976,9 @@ pub enum Engine {
     /// [`Options::check`] and the limits' memory bound, runs on the
     /// calling thread whatever [`Options::jobs`] says, and needs no copy
     /// bound, memo limit or recursion limit: it keeps every marking once
-    /// and recurses nowhere.
+    /// and recurses nowhere. Its unit of work is a marking taken from the
+    /// frontier or an element from the queue, a marking computed backward,
+    /// and a pivot of the state equation.
     Horn,
 }
 
@@ -1886,6 +1945,48 @@ mod tests {
             outcome.verdict
         );
         assert!(!outcome.checked);
+    }
+
+    /// Every poll tells the stop the work done since the last and in all,
+    /// in the engine's units, and the bound on work ends a search there:
+    /// an unknown verdict that names the bound.
+    #[test]
+    fn the_search_counts_its_work() {
+        let partition = crate::families::FAMILIES
+            .iter()
+            .find(|f| f.name == "partition-no")
+            .unwrap()
+            .instance(3, 0)
+            .unwrap();
+        let atoms: Vec<String> = (0..8).map(|i| format!("a{i}")).collect();
+        let tensor = sequent(&format!("{} |- {}", atoms.join(", "), atoms.join(" * ")));
+        for (sequent, mode, engine) in [
+            (&partition.sequent, partition.mode, Engine::Focus),
+            (&tensor, Mode::CLASSICAL, Engine::Net),
+        ] {
+            let options = Options::default().with_engine(Some(engine));
+            let (mut sum, mut last, mut polls) = (0, 0, 0);
+            let outcome = prove_within(sequent, mode, &options, &Limits::default(), |progress| {
+                assert_eq!(progress.phase, Phase::Search);
+                sum += progress.work;
+                last = progress.done;
+                polls += 1;
+                false
+            })
+            .unwrap();
+            assert!(!matches!(outcome.verdict, Verdict::Unknown(_)), "{engine}");
+            assert!(
+                polls > 1 && last > 1 && sum == last,
+                "{engine}: {sum} {last}"
+            );
+            let bound = Limits::default().with_work(Some(last / 2));
+            let outcome = prove_within(sequent, mode, &options, &bound, |_| false).unwrap();
+            assert!(
+                matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { limit }) if limit == last / 2),
+                "{engine}: {:?}",
+                outcome.verdict
+            );
+        }
     }
 
     /// A reason names the settings key a caller raises to search further,

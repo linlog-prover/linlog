@@ -8,6 +8,7 @@
 //! own the rest (shared memo, cubes, per-worker state); nothing here is
 //! global.
 
+use super::Work;
 use crate::Error;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
@@ -261,7 +262,8 @@ impl Runtime {
     /// propagates to the caller.
     pub(crate) fn drive<T: Send>(
         &self,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
+        done: &Work,
         work: impl FnOnce(Flags<'_>) -> T + Send,
     ) -> T {
         let flag = AtomicBool::new(false);
@@ -269,7 +271,7 @@ impl Runtime {
         let result = self.pool.in_place_scope(|scope| {
             let flag = &flag;
             scope.spawn(move |_| {
-                let result = work(Flags::root(flag));
+                let result = work(Flags::root(flag, done));
                 // The receiver is gone only when the caller's loop ended,
                 // which it does only on a result.
                 let _ = sender.send(result);
@@ -280,7 +282,8 @@ impl Runtime {
                 match receiver.recv_timeout(POLL) {
                     Ok(result) => return Some(result),
                     Err(RecvTimeoutError::Timeout) => {
-                        if stop() {
+                        // The workers add their work themselves.
+                        if stop(0) {
                             flag.store(true, Ordering::Relaxed);
                         }
                     }
@@ -334,7 +337,8 @@ impl Drop for RaiseOnPanic<'_> {
 /// A panic in either propagates to the caller once both have ended.
 pub(crate) fn race<T: Send>(
     runtimes: (&Runtime, &Runtime),
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
+    done: &Work,
     work: (
         impl FnOnce(Flags<'_>) -> T + Send,
         impl FnOnce(Flags<'_>) -> T + Send,
@@ -349,10 +353,10 @@ pub(crate) fn race<T: Send>(
             let flags = &flags;
             let other = sender.clone();
             first.spawn(move |_| {
-                let _ = sender.send((0, work.0(Flags::root(&flags[0]))));
+                let _ = sender.send((0, work.0(Flags::root(&flags[0], done))));
             });
             second.spawn(move |_| {
-                let _ = other.send((1, work.1(Flags::root(&flags[1]))));
+                let _ = other.send((1, work.1(Flags::root(&flags[1], done))));
             });
             let _raise = [RaiseOnPanic(&flags[0]), RaiseOnPanic(&flags[1])];
             while results.0.is_none() || results.1.is_none() {
@@ -368,7 +372,7 @@ pub(crate) fn race<T: Send>(
                         }
                     }
                     Err(RecvTimeoutError::Timeout) => {
-                        if stop() {
+                        if stop(0) {
                             flags[0].store(true, Ordering::Relaxed);
                             flags[1].store(true, Ordering::Relaxed);
                         }
@@ -397,12 +401,18 @@ pub(crate) struct Flags<'a> {
     flag: &'a AtomicBool,
     /// The enclosing level's flags.
     parent: Option<&'a Flags<'a>>,
+    /// The search's work, which every worker adds to at its polls.
+    work: &'a Work,
 }
 
 impl<'a> Flags<'a> {
-    /// The root of a chain: the driver's flag.
-    pub(crate) fn root(flag: &'a AtomicBool) -> Self {
-        Self { flag, parent: None }
+    /// The root of a chain: the driver's flag, and the search's work.
+    pub(crate) fn root(flag: &'a AtomicBool, work: &'a Work) -> Self {
+        Self {
+            flag,
+            parent: None,
+            work,
+        }
     }
 
     /// A level below this one, with a flag of its own.
@@ -413,7 +423,15 @@ impl<'a> Flags<'a> {
         Flags {
             flag,
             parent: Some(self),
+            work: self.work,
         }
+    }
+
+    /// Adds `units` of work and returns whether the worker stops: the
+    /// work passed its bound, or a flag of the chain is raised.
+    pub(crate) fn fired(&self, units: u64) -> bool {
+        self.work.add(units);
+        self.work.passed() || self.raised()
     }
 
     /// Whether any flag of the chain is raised.

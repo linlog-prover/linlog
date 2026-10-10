@@ -126,7 +126,7 @@ impl<'a> Equation<'a> {
     pub(super) fn finish(
         &mut self,
         program: &Program,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<bool, Reason> {
         if let State::Yielded = self.state {
             self.state = State::Waiting;
@@ -143,7 +143,7 @@ impl<'a> Equation<'a> {
         &mut self,
         program: &Program,
         budget: u64,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<bool, Reason> {
         if let State::Waiting = self.state {
             // The set-up reads every arc and lays out a basis of up to a
@@ -175,7 +175,7 @@ impl<'a> Equation<'a> {
             if self.spent.saturating_add(tableau.entries()) > budget {
                 return Ok(false);
             }
-            if stop() {
+            if stop(1) {
                 return Err(Reason::Stopped);
             }
             match tableau.pivot() {

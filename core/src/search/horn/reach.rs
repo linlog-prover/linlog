@@ -63,7 +63,7 @@ pub(super) fn search(
     account: &Account,
     most: usize,
     equation: &mut Equation<'_>,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
     // The reversed program and the backward search are made only when the
     // backward search starts: most nets are decided before.
@@ -92,7 +92,7 @@ fn both<'a>(
     reversed: &'a OnceCell<Program>,
     most: usize,
     equation: &mut Equation<'_>,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Result<Option<Vec<u32>>, Reason> {
     let program = forward.program;
     let account = forward.charged.account();
@@ -107,7 +107,7 @@ fn both<'a>(
         return Ok(Some(firings));
     }
     loop {
-        if stop() {
+        if stop(1) {
             return Err(Reason::Stopped);
         }
         let work = forward.work;
@@ -334,7 +334,7 @@ impl<'a> Search<'a> {
         &mut self,
         until: u64,
         most: usize,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Slice, Reason> {
         if !self.started
             && let Some(firings) = self.start(most, &mut || false)?
@@ -342,7 +342,7 @@ impl<'a> Search<'a> {
             return Ok(Slice::Found(firings));
         }
         while self.work < until {
-            if stop() {
+            if stop(1) {
                 return Err(Reason::Stopped);
             }
             match self.step(most, &mut || false)? {

@@ -45,7 +45,7 @@ pub(super) fn search(
     account: &Account,
     most: usize,
     equation: &mut Equation<'_>,
-    stop: &mut dyn FnMut() -> bool,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
     let mut search = Search::new(program, account);
     let result = search.run(most, equation, stop);
@@ -175,7 +175,7 @@ impl<'a> Search<'a> {
         &mut self,
         most: usize,
         equation: &mut Equation<'_>,
-        stop: &mut dyn FnMut() -> bool,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Option<Vec<u32>>, Reason> {
         let program = self.program;
         self.next.clear();
@@ -189,7 +189,7 @@ impl<'a> Search<'a> {
         }
         self.keep(ROOT, 0, most)?;
         while let Some(Reverse((_, e))) = self.queue.pop() {
-            if stop() {
+            if stop(1) {
                 return Err(Reason::Stopped);
             }
             let budget = equation.budget(self.work);
@@ -224,7 +224,7 @@ impl<'a> Search<'a> {
                         continue;
                     }
                     self.tried[t as usize] = e + 1;
-                    if stop() {
+                    if stop(1) {
                         return Err(Reason::Stopped);
                     }
                     self.computed += 1;

@@ -126,7 +126,14 @@ fn counted_refutations_are_handed_back() {
     };
     let limits = crate::Limits::default();
     let answer = super::Horn
-        .decide(&task, &horn(), &limits, &Account::new(None), &mut || false)
+        .decide(
+            &task,
+            &horn(),
+            &limits,
+            &Account::new(None),
+            &crate::search::Work::new(None),
+            &mut |_| false,
+        )
         .unwrap();
     assert!(matches!(answer.result, Ok(None)));
     assert!(
@@ -265,20 +272,20 @@ fn refuses_at_its_limits() {
     let forest = Forest::new(&sequent).unwrap();
     let counter = program(&forest);
     let equation = || Equation::new(false, &account);
-    let (found, _) = reach::search(&counter, &account, 2, &mut equation(), &mut || false);
+    let (found, _) = reach::search(&counter, &account, 2, &mut equation(), &mut |_| false);
     assert_eq!(found, Err(Reason::IndexLimit));
     let (found, _) = reach::search(
         &counter,
         &account,
         reach::MOST_MARKINGS,
         &mut equation(),
-        &mut || false,
+        &mut |_| false,
     );
     let firings = found.unwrap().expect("the counter is provable");
     let built = proof::build(&forest, &counter, &firings, false, &account, 3);
     assert_eq!(built.err(), Some(Reason::IndexLimit));
     let affine = || Equation::new(true, &account);
-    let (found, _) = cover::search(&counter, &account, 1, &mut affine(), &mut || false);
+    let (found, _) = cover::search(&counter, &account, 1, &mut affine(), &mut |_| false);
     assert_eq!(found, Err(Reason::IndexLimit));
 
     // A clause that adds almost 2³² tokens passes the count's bound at
@@ -295,7 +302,7 @@ fn refuses_at_its_limits() {
         &account,
         reach::MOST_MARKINGS,
         &mut Equation::new(false, &no_room),
-        &mut || false,
+        &mut |_| false,
     );
     assert_eq!(found, Err(Reason::IndexLimit));
 
@@ -316,7 +323,7 @@ fn refuses_at_its_limits() {
         &account,
         reach::MOST_MARKINGS,
         &mut affine(),
-        &mut || false,
+        &mut |_| false,
     );
     assert_eq!(found, Err(Reason::IndexLimit));
 

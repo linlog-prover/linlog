@@ -89,9 +89,22 @@ call takes beside its stop (`FnMut(Progress) -> bool`), whose defaults
 the CLI shows as its own; `Limits::stack_bytes()` is the stack a thread
 needs at the recursion depth, which sizes the CLI's search thread, the
 parallel pool's workers, the default bias's second search and a batch's
-workers alike. The engines still take a stop of no arguments:
-`without_progress` wraps the caller's, which is asked with the search's
-phase and no work counted;
+workers alike. **Every poll is told the work done** (`Stop::fired(units)`,
+the engines' `&mut dyn FnMut(u64) -> bool`): `prove_goal` keeps one
+`Work` per search (an atomic count shared by its threads, against
+`Limits::work`), adds each poll's units to it and asks the caller's stop
+with `Progress { phase: Search, work: since the stop was last asked,
+done }`; past the bound the poll answers true and `prove_goal` turns the
+engine's `Stopped` into `Reason::WorkLimit { limit }`. A pool's workers
+add their units through their `Flags` (`Flags::fired`, which also ends a
+worker past the bound) and the driver asks the caller's stop with 0
+units each millisecond, which reports theirs; the default bias's second
+thread adds its own and the calling thread replays its polls with 0. The
+units are what each engine already passed (the focused engine's slicing
+work, one per literal or failed test, pair, marking or pivot; a set-up
+poll none), so no poll moved and no counter of a decided run changed;
+each `Engine` variant documents its unit. A search's `held_bytes` stays
+zero: the default bias's two searches have accounts of their own;
 `Reason`, `Statistics`, `Engine` and `Outcome` are `#[non_exhaustive]` so
 later steps add variants and fields without a breaking change.
 `Statistics` has one set of counters for both engines: `nodes` is stable
@@ -250,8 +263,9 @@ the net engine's, and the others stay zero.
     forced splits visits no stable sequent either, and a marking of a
     Petri net is a tensor of thousands of literals); and on a pool at
     every `&` (`with_parallel`, below). The first two pass the work
-    done since the last poll (`Stop::fired(work)`), which only the two
-    searches of the default bias count (`Stop::Slice`, `Stop::Turn`);
+    done since the last poll (`Stop::fired(work)`), which the two
+    searches of the default bias slice by (`Stop::Slice`, `Stop::Turn`)
+    and the caller's progress reports;
     the chain's poll passes none, so that the slices of those two
     searches are what they were before it existed and the counters of a
     decided run did not move.

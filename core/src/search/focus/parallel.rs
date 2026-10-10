@@ -37,7 +37,7 @@ use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime};
-use crate::search::{Options, Reason, Statistics, Stop, set_up_stopped};
+use crate::search::{Options, Reason, Statistics, Stop, Work, set_up_stopped};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -70,7 +70,8 @@ pub(crate) fn search_goal(
     options: &Options,
     limits: &Limits,
     account: &Account,
-    stop: &mut dyn FnMut() -> bool,
+    work: &Work,
+    stop: &mut dyn FnMut(u64) -> bool,
 ) -> Result<(Search, Vec<Node>, Statistics), Error> {
     // On a large forest the passes of the set-up are followed by a poll;
     // from the pool's start the driver polls.
@@ -94,7 +95,7 @@ pub(crate) fn search_goal(
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
         let (result, nodes, statistics) =
-            runtime.drive(stop, |flags| search(first, &runtime, account, flags));
+            runtime.drive(stop, work, |flags| search(first, &runtime, account, flags));
         let result = result.map_err(|r| super::reason(r, options, limits));
         return Ok((result, nodes, statistics));
     };
@@ -110,6 +111,7 @@ pub(crate) fn search_goal(
     let (forward, backward) = crate::search::parallel::race(
         (&runtimes.0, &runtimes.1),
         stop,
+        work,
         (
             |flags: Flags<'_>| search(first, &runtimes.0, &accounts.0, flags),
             |flags: Flags<'_>| search(second, &runtimes.1, &accounts.1, flags),
@@ -140,7 +142,7 @@ impl Rule {
         flags: Flags<'_>,
     ) -> (Search, Vec<Node>, Statistics) {
         // The longest pass of the set-up reads the flags too.
-        let counts = match Counts::new_until(forest, self.bias, account, &mut || flags.raised()) {
+        let counts = match Counts::new_until(forest, self.bias, account, &mut |_| flags.raised()) {
             Ok(counts) => counts,
             Err(reason) => return (Err(reason), Vec::new(), Statistics::default()),
         };
