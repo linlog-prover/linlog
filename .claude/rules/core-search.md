@@ -61,7 +61,8 @@ only after an exhaustive search, which with exponentials means a
 deepening level that never hit the copy bound, `Unknown(Reason)`, with
 `Reason::CopyBound` when every level up to a bound hit it), the `Fragment` searched in,
 the `Mode`, the `Engine` that ran, the `Statistics`, and `net`, the
-`ProofStructure` the net engine found (`None` from the focused engine).
+`ProofStructure` the net engine found, boxed (`None` from the other
+engines).
 `Options` (`#[non_exhaustive]`) has public fields, each documented
 with what reads it, and a `#[must_use]` `with_*` builder per field
 (`engine`, `fragment`, `bias`, `copies`, `forward_copies`, `memo_limit`

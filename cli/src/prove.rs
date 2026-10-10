@@ -1114,7 +1114,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         };
         let shown = match (&outcome.verdict, format, quiet) {
             (Verdict::Proved(proof), _, false) if show.net => {
-                let found = outcome.net.as_ref();
+                let found = outcome.net.as_deref();
                 net_into(
                     found,
                     proof,

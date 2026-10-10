@@ -665,7 +665,7 @@ fn decide_goal(
         mode,
         engine,
         statistics: answer.statistics,
-        net: answer.net,
+        net: answer.net.map(Box::new),
         checked,
     })
 }
@@ -2038,7 +2038,7 @@ pub struct Outcome {
     pub statistics: Statistics,
     /// The proof net the proof was read off, when the net engine found
     /// one; `None` for the other engines and for any other verdict.
-    pub net: Option<ProofStructure>,
+    pub net: Option<Box<ProofStructure>>,
     /// Whether the proof passed the checker before it was returned:
     /// false only where [`Options::check`] switched the check off, and
     /// for every verdict but a proof.

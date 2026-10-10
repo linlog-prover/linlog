@@ -680,7 +680,7 @@ impl Shared {
             None => "stopped".to_owned(),
         };
         let shown = if show.net {
-            let found = outcome.net.as_ref();
+            let found = outcome.net.as_deref();
             net_into(
                 found,
                 proof,
