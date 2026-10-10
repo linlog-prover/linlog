@@ -16,19 +16,22 @@ Put each thing in the cheapest mechanism that can carry it:
 | mechanism | loaded | for |
 |---|---|---|
 | `CLAUDE.md` | every session | commands, hard rules, conventions, pointers |
-| `.claude/rules/*.md` with `paths:` | when a matching file is **read** | guidance for one area of the tree |
+| `.claude/rules/*.md` with `paths:` | when a matching file is **read, written or edited** | guidance for one area of the tree |
 | `.claude/skills/<name>/SKILL.md` | when invoked, or when Claude judges it relevant | a multi-step *procedure* |
 | `.claude/agents/<name>.md` | when delegated to | a self-contained question answered in its own context |
 | `.claude/settings.json` hooks / permissions | enforced by the harness | what must happen, or must not, regardless of what Claude decides |
 
-A `paths:` rule cannot fire for a file that does not exist yet, and it does not
-fire just because a tool touches a path. Several rules files may match one
+A `paths:` rule loads when Claude reads, writes or edits a matching file, or
+views one with a Bash read such as `cat` or `head` (code.claude.com/docs/en/memory,
+checked 2026-10-10); a search or a build over the path does not load it. For a
+file that does not exist yet it can only arrive with the Write that creates
+it, after that file's content is chosen. Several rules files may match one
 path, and all of them load (`search/net.rs` loads `core.md`,
 `core-nets.md` and `core-parallel.md`): a rules file is scoped to a
 module so that a session reads the rules of what it touches and no
 others, and a point two modules need lives in one file that the other
 names. Anything needed *before* a file is
-opened stays in CLAUDE.md. Block-level `<!-- -->` comments in CLAUDE.md are
+first touched stays in CLAUDE.md. Block-level `<!-- -->` comments in CLAUDE.md are
 stripped before injection, so they are free notes for maintainers.
 CLAUDE.md's "Compact instructions" section is what Claude Code's
 compaction is told to keep (code.claude.com/docs/en/how-claude-code-works):
