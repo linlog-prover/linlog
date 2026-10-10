@@ -98,6 +98,37 @@ fn verdict(text: &str, mode: Mode) -> &'static str {
     }
 }
 
+/// The refutation the counts give before any search is handed back with
+/// the answer, which the front door takes as it is rather than count
+/// again.
+#[test]
+fn counted_refutations_are_handed_back() {
+    use crate::search::{Decide, Unbalanced};
+    let sequent: Sequent = "c, !c |- a".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let task = Task {
+        forest: &forest,
+        goal: forest.roots(),
+        fragment: sequent.fragment(),
+        mode: Mode::CLASSICAL,
+        reading: None,
+        roots: true,
+    };
+    let limits = crate::Limits::default();
+    let answer = super::Horn
+        .decide(&task, &horn(), &limits, &Account::new(None), &mut || false)
+        .unwrap();
+    assert!(matches!(answer.result, Ok(None)));
+    assert!(
+        matches!(
+            answer.refutation,
+            Some(Refutation::Unbalanced(Unbalanced { .. }))
+        ),
+        "{:?}",
+        answer.refutation
+    );
+}
+
 /// Nets whose markings grow without end are refuted by the state
 /// equation where it has no solution, the transitions that can never fire
 /// left out, or by a backward search whose markings run out; in affine

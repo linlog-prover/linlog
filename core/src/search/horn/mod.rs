@@ -69,10 +69,13 @@ impl Decide for Horn {
             stop,
         );
         if counted != Refutation::Exhausted {
-            return Ok(Answer::of_arena(
-                task.forest,
-                (Ok(None), Vec::new(), Statistics::default()),
-            ));
+            // The front door takes the refutation as it is, rather than
+            // count again, which a stop between the two would answer as
+            // an exhausted search no search ran.
+            return Ok(Answer {
+                refutation: Some(counted),
+                ..Answer::of_arena(task.forest, (Ok(None), Vec::new(), Statistics::default()))
+            });
         }
         let mut program = Program::read(task).expect("the engine admitted the goal");
         live(&mut program);

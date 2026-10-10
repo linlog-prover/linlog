@@ -84,9 +84,10 @@ front door, the dispatch and the memory account it plugs into are in
   account (`Account::fork`), which goes with them: charged to the
   search's own, they stayed counted and cost the search decisions near
   its bound (the second panel's finding). When they refute,
-  `prove_goal` computes them again to say why, so a stop that fires
-  between the two on a forest of 65 536 occurrences or more makes the
-  reason "exhausted" for a goal no search touched: the verdict is right.
+  the engine hands the refutation back (`Answer::refutation`), which
+  `prove_goal` takes as it is: computing it again there doubled the
+  counts' cost on every such goal, and a stop between the two passes
+  made the reason "exhausted" for a goal no search touched.
   Found when the Horn row made such sequents the Horn engine's by
   default: three tests of the focused engines answered "the memory
   limit" instead of "unprovable".
