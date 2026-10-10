@@ -97,7 +97,7 @@ supervisor's go are marked "go".
 - **`Forest::from_owned` stays public** (2.3 would have made it
   private): the command builds the forest of a sequent it owns, and the
   alternative, `Forest::within(&sequent)`, clones a sequent of up to
-  fifty million occurrences.
+  fifty million occurrences. **Answered by the author (2026-10-10): kept.**
 - **The derivation's refusal carries bytes, not a `Size`**
   (`Refusal::Output { estimate_bytes, limit_bytes, least_bytes }`): the
   command's line about a derivation too large to build names its
@@ -135,17 +135,17 @@ supervisor's go are marked "go".
 - **`Owner` is not sealed** (the design says sealed): a sealed
   supertrait is an unnameable public type, which the crate's
   `unnameable_types` check forbids; a method added later gets a default
-  body, so implementing it outside the crate breaks nothing.
+  body, so implementing it outside the crate breaks nothing. **Answered by the author (2026-10-10): sealed (pysomtmo, with `#[expect(unnameable_types)]` at the supertrait).**
 - **Errors give no `source()`** (the design asks for it): every wrapping
   variant's message already holds the inner error's, and the command
   and the harness print errors with anyhow's `{:#}`, which appends each
   source; a `source()` would print the inner message twice in the
   pinned output, and dropping it from the message would empty the
-  `message` of the written form. API guideline C-GOOD-ERR allows either.
+  `message` of the written form. API guideline C-GOOD-ERR allows either. **Answered by the author (2026-10-10): kept.**
 - **An error from `prove_within` carries no formula text**: the design
   would have `ShapeError` carry the subformula's text, since the caller
   holds no forest; the forest is a function of the sequent, so the
-  caller rebuilds it (`Forest::new`) and describes, as the command does.
+  caller rebuilds it (`Forest::new`) and describes, as the command does. **Answered by the author (2026-10-10): kept.**
 - **`memo_limit` is a `u32`**, as the design's table has it, so that a
   settings file reads alike on a 32-bit build; the command's
   `--memo-limit` now refuses a value past four billion, which no search
@@ -170,7 +170,7 @@ supervisor's go are marked "go".
   `StepError::NoGoal`).
 - **`ProofStructure::occurrence` answers `Option<OccId>`** (the design
   has `OccId`), like `vertex` and `Member::occurrence`: H24 asks that an
-  id outside the structure be answered, not panicked on or mistaken.
+  id outside the structure be answered, not panicked on or mistaken. **Answered by the author (2026-10-10): kept.**
 - **A node `from_proof` cannot read is `NetError::Rule { node, rule }`**,
   a variant the design's list lacks (F49 asks for one naming the
   kind), with `Fragment` and `Mode` under the new code `no_nets`; the
@@ -203,14 +203,14 @@ supervisor's go are marked "go".
   not as "valid" without a derivation: `Verdict::Valid` carries the
   derivation, as the design has it, and a caller that wants the verdict
   alone reads `outcome.linear` after a refusal it can tell by its kind.
-  The command keeps its own steps (its race, its output) until its area.
+  The command keeps its own steps (its race, its output) until its area. **Answered by the author (2026-10-10): kept.**
 - **The ordinary checker's bound is `limits.work`** (inferences
   checked), as the linear checker's is its nodes: the pass holds one
   inference's copies at a time, so a memory bound would bound nothing.
 - **`wire::Readable` is a public, unsealed trait** (the design's
   `sealed::Readable`): a sealed one is unnameable, which the crate's lint
   check forbids, as for `Owner`; an outside implementation only reads its
-  own type through the same calls.
+  own type through the same calls. **Answered by the author (2026-10-10): sealed (pysomtmo).**
 - **`upgrade` learns the library's own error through a thread-local**: a
   deserializer's error is text, so `wire::fail` keeps the refusal, the
   index error or the version that ended a read beside it, and `upgrade`
@@ -222,7 +222,7 @@ supervisor's go are marked "go".
   through `Within` without a bound and `admit` after, as its text does.
 - **The ordinary forms and the linear derivation's written form** (7.3,
   F53, R4) wait for their first caller, the web client: a new form is no
-  new level, so they come at level 1 whenever they come.
+  new level, so they come at level 1 whenever they come. **Answered by the author (2026-10-10): they wait for the web client.**
 - **`recursion_limit` carries no `depth`**: `Reason::RecursionLimit` has
   none to write; the search area may add it with its reasons (F144).
 - **A keyword names no atom in the text either**: `|- par` is refused
@@ -230,14 +230,14 @@ supervisor's go are marked "go".
   the keywords; a JSON, `.spec` or ordinary name is `AtomName`, a text
   one a parse error (a reserved word's with `reserved` set and the
   word's span), and the LLTP reader, which assembles text, answers the
-  parse error with its place in the file.
+  parse error with its place in the file. **Answered by the author (2026-10-10): kept.**
 - **Ordinary names refuse `true` and `false` as well**, the ordinary
   syntax's constants, and the linear keywords, since an atom keeps its
   name in the image; a linear name may be `false`, minimal logic's
-  atom. The `_` appended to that atom's name is gone with the case.
+  atom. The `_` appended to that atom's name is gone with the case. **Answered by the author (2026-10-10): kept.**
 - **`unicode-ident` and `unicode-normalization` are dependencies of
   every build**, not of `parse` (the design's place): names enter through
-  JSON and `ordinary::Formulas::atom` in builds without it.
+  JSON and `ordinary::Formulas::atom` in builds without it. **Answered by the author (2026-10-10): kept.**
 - **`typst::Length` is refused under the key `typst`**: a length does not
   know its field, and the message names the value.
 - **The SVG maxima are checked by every drawing, not by serde**: a front
@@ -297,7 +297,7 @@ supervisor's go are marked "go".
   the web client's request and response and the batch's own record; an
   item without a caller waits for one, and a form added later needs no
   new level. The readers of `Reason` and `Refutation` are built, by the
-  author's answer above.
+  author's answer above. **Answered by the author (2026-10-10): they wait for the web client.**
 - **F31's rest stays as it is**: `Error::ReadBack`'s `calculus` and
   `Logic::calculus()` are the name a message prints (`LK`, `LJ`), and a
   program branches on the logic it asked for; `text_size`'s pair is the
@@ -343,12 +343,12 @@ supervisor's go are marked "go".
 - **`batch::Options::plan` is crate-private** (the design has a public
   `plan(Cores)`): `run` resolves `Cores::Auto` from the problems it
   reads ahead and plans with the result, and no front end plans a batch
-  it does not run; `Plan` stays public, since each work call gets one.
+  it does not run; `Plan` stays public, since each work call gets one. **Answered by the author (2026-10-10): kept.**
 - **`Progress::item` names a session's goal only** (the design also
   names a batch's problem): a batch's searches take no stop of the
   caller's, since `batch::prove` asks its own cancel and `run`'s work
   closure is the caller's, which knows its problem; nothing would read
-  the stamp.
+  the stamp. **Answered by the author (2026-10-10): kept.**
 - **H1 is fixed here** (the held-back finding of the register, area
   3.2's): orszuxqx gives minimal logic's `false` an atom's `!` under
   cbv, which the fresh-context reviewer found as the same wrong answer,
@@ -372,16 +372,49 @@ with the test that would have caught it, each a commit of its own.
 
 | item | state | evidence |
 |---|---|---|
-| F165: `--isolate` with bundled short flags | open | |
-| H11: a typed SEQUENT ignored in a batch | open | |
-| H12: an empty batch exits 0 | open | |
-| H13: an interrupted batch exits 0 | open | |
-| H16: `load` in `interact` changes the question (HD4) | open | |
-| H5: a `.spec` file decided in affine mode (HD2) | open | |
-| H26: a JSON Lines line without `sequent`, a record read through `Value` | open | |
-| H28: the command's batch hangs after an entry panics | open | |
-| H30: an entry named `.` or `/` writes outside `--output DIR` | open | |
-| H31: the Rocq verdict comment closed by `*)` | open | |
+| F165: `--isolate` with bundled short flags | done | orkrklyn: the child gets the whole command line and its entry by the hidden `--entry-file`/`--entry-format`, reading no input of the batch's; test `isolated_entries_with_bundled_flags` (fails on the old code, passes); gate passed |
+| H11: a typed SEQUENT ignored in a batch | done | slnpmxrp: refused beside `--files-from` or a format of many, exit 2; test `a_typed_sequent_is_no_batch_entry`; gate passed |
+| H12: an empty batch exits 0 | done | lwyutvnn: a batch that holds no entry is an error, exit 2; test `an_empty_batch_is_an_error`; README and `--help` |
+| H13: an interrupted batch exits 0 | done | rtsmunkm: unknown at best after an interrupt, a line on standard error; test `an_interrupted_batch_is_unknown` (SIGINT through `kill`, Unix; exit 0 on the old code) |
+| H16: `load` in `interact` changes the question (HD4) | done | tutmumqw: `load` refuses another sequent or mode, the session goes on; test `load_keeps_the_question` (exit 0 on the old code); `HELP` left as it was, so the lock's `interact-help` holds |
+| H5: a `.spec` file decided in affine mode (HD2) | done | myssxkvz: `SequentInput::mode`/`io::affine_for` in `prove`, the batch and `interact`; no flag takes weakening away, so none is refused; test `a_spec_file_is_affine`; the lock's `file-spec` call reblessed in the same commit (now answered in affine mode, as the finding requires) |
+| H26: a JSON Lines line without `sequent`, a record read through `Value` | done | ouxkpull: the record read member by member (`Members`, serde_json's `raw_value`), its sequent through the JSON sequent reader; test `json_lines_records_are_whole` |
+| H28: the command's batch hangs after an entry panics | done | rqnnqtor (H27's library half): the work's panic resumed at its place, the batch cancelled and its queue ended; test `a_panic_ends_the_batch_at_its_place` (100 problems, two workers; the old code hangs into the test's 20 s timeout). Witness with a panic injected into a scratch build of the command (reverted): `--cores across --workers 2`, `--cores within -j 2` and `--workers 1` each exit 101 within 7 ms on 42 entries |
+| H30: an entry named `.` or `/` writes outside `--output DIR` | done | nsssnqmt: a name with no component but a root or `.` is no name (`names_a_file`), the entry named by its place; test `every_entry_file_lies_inside_the_directory`; collisions (H15) stay area 3.4's |
+| H31: the Rocq verdict comment closed by `*)` | done | unkroolo: `note` writes `(*` and `*)` apart and doubles every `"`; unit test `rocq_notes_stay_comments` |
+| The author's additions: `Owner` and `wire::Readable` sealed | done | pysomtmo: `crate::sealed`, `#[expect(unnameable_types)]` at each supertrait; the reachability check (`-W unreachable_pub -W unnameable_types`) clean with all features and none |
+| The author's answers to area 3.1's departures recorded | done | marked "Answered by the author" in area 3.1's "decided unattended" |
+
+#### The command's wrong answers: decided unattended
+
+- **F165: the child takes its entry by hidden flags and reads no input
+  of the batch's**, so the command line passes whole, however its flags
+  are spelt (bundled, `=`, abbreviated). Set aside: rebuilding the
+  child's command line from the parsed `ProveArgs` (the finding's first
+  option), a writer per flag that a new flag could miss silently.
+- **H13: an interrupted batch writes one line on standard error**
+  (`interrupted: the rest of the input was not read`) besides exiting 3
+  at best: the entries never read have no line of their own.
+- **H16: `HELP`'s `load` line is unchanged**: the lock pins the session's
+  `help`, and the refusal says itself when it happens; README says it.
+- **H5: no flag is refused**: the file's affine is added to the flags'
+  mode, and no flag of the command takes weakening away; `-i` and
+  `--mix` keep their meaning, coverability being the same question under
+  both (a Horn program's classical and intuitionistic affine provability
+  agree). The library's `mist::Problem` gains no mode field: the command
+  and the harness each know the format they read.
+- **H28: no `catch_unwind` per entry in the command** (the finding's
+  "better" option): the library's fix ends the batch at once with the
+  panic (exit 101, as with one worker), no input known today panics the
+  command (the ordinary parser's was fixed in area 3.1), and a catch that
+  no input reaches would have no test; `--isolate` is the way to keep a
+  batch going past a crash.
+- **H30: a nameless line is named by its place** (`FILE:LINE`), as an
+  empty name was; collisions of names inside the directory are H15's,
+  area 3.4's.
+- **H31: the comment escapes its text** (`( *`, `* )`, `""`) rather than
+  writing atom names in their Rocq form: every line a Rocq note carries
+  goes through `note`, names or not.
 
 ## From the supervisor
 
