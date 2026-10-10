@@ -220,7 +220,9 @@ outcome's `work` is that count. The command's default and the harness's
   documented there, never refused, since the dispatch may pick an engine
   the caller did not name. A new engine is a variant, an implementation
   of `Decide`, a line in `Engine::implementation`, and where it is the
-  default a row in `DISPATCH`.
+  default a row in `DISPATCH`; its modes are tested in its own `admits`
+  and written in its row's `Modes`, not read from one `Engine::modes()`
+  as the design has it (a departure the step's report records).
 - **The dispatch is a table** (`DISPATCH`, plan decision D8 as D19
   keeps it): rows of a largest fragment, the modes (`Modes`), a feature
   (`Feature`) and the engine, read from the first down (`dispatch`); the

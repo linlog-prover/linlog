@@ -441,17 +441,18 @@ impl Serialize for Out {
     /// Serializes the outcome as its verdict, the fragment, mode and engine
     /// of the search, the statistics, and the proof if there is one.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let (verdict, reason, refutation, proof, disproof) = match &self.verdict {
-            Verdict::Proved(p) => ("proved", None, None, Some(Proof::keys(p)), None),
+        let verdict = self.verdict.name();
+        let (reason, refutation, proof, disproof) = match &self.verdict {
+            Verdict::Proved(p) => (None, None, Some(Proof::keys(p)), None),
             Verdict::Unprovable(d) => {
                 let keys = DisproofKeys {
                     sequent: SequentForm::from(d.sequent()),
                     goal: d.goal(),
                 };
                 let why = WhyNot::from(d.refutation());
-                ("unprovable", None, Some(why), None, Some(keys))
+                (None, Some(why), None, Some(keys))
             }
-            Verdict::Unknown(r) => ("unknown", Some(Why::from(*r)), None, None, None),
+            Verdict::Unknown(r) => (Some(Why::from(*r)), None, None, None),
         };
         Outcome {
             version: crate::wire::LEVEL,

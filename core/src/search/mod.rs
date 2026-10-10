@@ -2145,8 +2145,10 @@ pub struct Statistics {
     /// memo is shards each emptied by itself, the sum of the shards'
     /// peaks, which bounds it from above; of two searches that ran
     /// together, the two memos' together, and of two that took turns from
-    /// their start, the most of one turn; of the Horn engine, the markings
-    /// it kept in either direction, or in affine mode the elements. A
+    /// their start, the most of one turn; of the additive path, the pairs
+    /// of subformulas its memo held at once; of the Horn engine, the
+    /// markings it kept in either direction, or in affine mode the
+    /// elements. A
     /// `u64` on every target, as every counter is.
     pub memo_entries: u64,
     /// The context splits examined for `⊗` and Mix, most of them rejected by
@@ -2277,8 +2279,72 @@ mod tests {
             #[cfg(feature = "serialize")]
             assert_eq!(serde_json::to_value(reason).unwrap()["kind"], reason.name());
         }
-        let unknown = Verdict::Unknown(Reason::Stopped);
-        assert_eq!(unknown.name(), Verdict::NAMES[2]);
+        // The verdicts likewise, each written as its word.
+        let verdict_at = |verdict: &Verdict| match verdict {
+            Verdict::Proved(_) => 0,
+            Verdict::Unprovable(_) => 1,
+            Verdict::Unknown(_) => 2,
+        };
+        let bounded = Options::default()
+            .with_engine(Some(Engine::Focus))
+            .with_bias(Bias::Rarer)
+            .with_copies(Some(0));
+        let mut seen = Vec::new();
+        for (text, options) in [
+            ("a |- a", Options::default()),
+            ("a |- b", Options::default()),
+            ("!a |- a * a", bounded),
+        ] {
+            let outcome = prove(&sequent(text), Mode::CLASSICAL, &options).unwrap();
+            let i = verdict_at(&outcome.verdict);
+            assert_eq!(outcome.verdict.name(), Verdict::NAMES[i]);
+            #[cfg(feature = "serialize")]
+            assert_eq!(
+                serde_json::to_value(&outcome).unwrap()["verdict"],
+                outcome.verdict.name()
+            );
+            seen.push(i);
+        }
+        assert_eq!((seen, Verdict::NAMES.len()), (vec![0, 1, 2], 3));
+        // And the refutations, each its JSON `kind`.
+        let refutations = [
+            Refutation::Exhausted,
+            Refutation::Unbalanced(Unbalanced {
+                atom: Atom::new(0),
+                least: 1,
+                most: 1,
+            }),
+            Refutation::Equation(Equation {
+                formulas: 1,
+                needed: 2,
+                tensors: 0,
+                pars: 0,
+                ones: 0,
+                bottoms: 0,
+                mix: false,
+            }),
+            Refutation::StateEquation(StateEquation {
+                atoms: Vec::new(),
+                clauses: Vec::new(),
+                dropped: Vec::new(),
+            }),
+        ];
+        let refutation_at = |refutation: &Refutation| match refutation {
+            Refutation::Exhausted => 0,
+            Refutation::Unbalanced(_) => 1,
+            Refutation::Equation(_) => 2,
+            Refutation::StateEquation(_) => 3,
+        };
+        assert_eq!(refutations.len(), Refutation::NAMES.len());
+        for (i, refutation) in refutations.iter().enumerate() {
+            assert_eq!(refutation_at(refutation), i);
+            assert_eq!(refutation.name(), Refutation::NAMES[i]);
+            #[cfg(feature = "serialize")]
+            assert_eq!(
+                serde_json::to_value(refutation).unwrap()["kind"],
+                refutation.name()
+            );
+        }
     }
 
     /// The listed names are the names written, in order, and each reads

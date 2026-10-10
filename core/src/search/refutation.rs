@@ -102,6 +102,21 @@ pub struct StateEquation {
 }
 
 impl Refutation {
+    /// The words of the refutations, as [`Refutation::name`] gives them and
+    /// the JSON form's `kind` writes them.
+    pub const NAMES: &'static [&'static str] =
+        &["exhausted", "unbalanced", "equation", "state_equation"];
+
+    /// Returns the refutation's word, its `kind` in the JSON form.
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Refutation::Exhausted => "exhausted",
+            Refutation::Unbalanced(_) => "unbalanced",
+            Refutation::Equation(_) => "equation",
+            Refutation::StateEquation(_) => "state_equation",
+        }
+    }
+
     /// Writes the refutation as a phrase, each atom by its name in
     /// `names`, or by its number without them.
     fn write(&self, f: &mut Formatter<'_>, names: Option<&[String]>) -> FmtResult {

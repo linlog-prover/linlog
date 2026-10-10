@@ -9,10 +9,10 @@ use crate::limits::Limits;
 
 /// The work a search has done, in its engine's units, shared by every
 /// thread of it, and the bound on it ([`Limits::work`]). Each thread
-/// counts its own units apart and adds them in batches of
-/// [`Work::BATCH`], the rest when it ends: an atomic addition at every
-/// poll cost the additive path 5 % of its instructions, and would contend
-/// on a pool.
+/// counts its own units through a [`Counted`], which adds them in batches
+/// of `BATCH` with `parallel` (and all at once when it ends without): an
+/// atomic addition at every poll cost the additive path 5 % of its
+/// instructions, and would contend on a pool.
 #[derive(Debug)]
 pub(crate) struct Work {
     /// The units done.
