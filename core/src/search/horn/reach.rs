@@ -46,7 +46,7 @@ const BACKWARD_AFTER: usize = 1 << 14;
 
 /// The backward search's share: it may do one unit of work for every
 /// this many of the forward search's.
-const BACKWARD_SHARE: u64 = 4;
+const FORWARD_PER_BACKWARD: u64 = 4;
 
 /// Searches the program's markings from the initial one for the target,
 /// polling `stop` at every successor taken from the frontier, keeping at
@@ -68,12 +68,12 @@ pub(super) fn search(
     // The reversed program and the backward search are made only when the
     // backward search starts: most nets are decided before.
     let reversed = OnceCell::new();
-    let mut forward = Search::new(program, account, Vec::new());
+    let mut forward = Reach::new(program, account, Vec::new());
     let mut backward = None;
     let result = both(&mut forward, &mut backward, &reversed, most, equation, stop);
     let (nodes, hits, kept) = backward
         .as_ref()
-        .map_or((0, 0, 0), |b: &Search<'_>| (b.nodes(), b.repeated, b.kept));
+        .map_or((0, 0, 0), |b: &Reach<'_>| (b.nodes(), b.repeated, b.kept));
     let statistics = Statistics {
         nodes: forward.nodes() + nodes,
         memo_hits: forward.repeated + hits,
@@ -87,8 +87,8 @@ pub(super) fn search(
 /// beside it, as [`search`] describes; the backward search is made in
 /// `backward` when it starts, on the program reversed in `reversed`.
 fn both<'a>(
-    forward: &mut Search<'a>,
-    backward: &mut Option<Search<'a>>,
+    forward: &mut Reach<'a>,
+    backward: &mut Option<Reach<'a>>,
     reversed: &'a OnceCell<Program>,
     most: usize,
     equation: &mut Equation<'_>,
@@ -98,10 +98,10 @@ fn both<'a>(
     let account = forward.charged.account();
     // Out of room, the forward search takes back the simplex's memory and
     // the backward search's, and tries once more.
-    let release = |equation: &mut Equation<'_>, backward: &mut Option<Search<'a>>| {
+    let release = |equation: &mut Equation<'_>, backward: &mut Option<Reach<'a>>| {
         // Both give back, whichever held something.
         let gave = equation.release();
-        backward.as_mut().is_some_and(Search::give_back) || gave
+        backward.as_mut().is_some_and(Reach::give_back) || gave
     };
     if let Some(firings) = forward.start(most, &mut || release(equation, backward))? {
         return Ok(Some(firings));
@@ -118,10 +118,10 @@ fn both<'a>(
         if forward.kept >= BACKWARD_AFTER {
             let behind = backward.get_or_insert_with(|| {
                 let reversed = reversed.get_or_init(|| program.reversed());
-                Search::new(reversed, account, program.caps())
+                Reach::new(reversed, account, program.caps())
             });
             if behind.alive {
-                match behind.advance(work / BACKWARD_SHARE, most, stop) {
+                match behind.advance(work / FORWARD_PER_BACKWARD, most, stop) {
                     Ok(Slice::Found(mut firings)) => {
                         firings.reverse();
                         return Ok(Some(firings));
@@ -162,7 +162,7 @@ type Entry = Reverse<(u64, u32)>;
 /// The state of a search: the markings kept, the frontier, the index of
 /// the transitions by their first input place, the marking at hand, and
 /// the counters.
-struct Search<'a> {
+struct Reach<'a> {
     /// The program.
     program: &'a Program,
     /// The tokens of the target, the distance to it of the empty
@@ -219,7 +219,7 @@ struct Search<'a> {
     alive: bool,
 }
 
-impl<'a> Search<'a> {
+impl<'a> Reach<'a> {
     /// A search of the program with nothing kept yet, with caps per place
     /// or none.
     fn new(program: &'a Program, account: &'a Account, caps: Vec<u32>) -> Self {

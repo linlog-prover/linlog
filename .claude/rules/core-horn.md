@@ -200,7 +200,7 @@ front door, the dispatch and the memory account it plugs into are in
   library's largest nets, a quarter slower in the median), the same search runs on the reversed program
   (`Program::reversed`: every transition's inputs and outputs swapped,
   the initial and the target marking swapped), a unit of work for every
-  `BACKWARD_SHARE` (4) of the forward's. Its finding its target, the
+  `FORWARD_PER_BACKWARD` (4) of the forward's. Its finding its target, the
   forward initial marking, is a firing sequence read backward (the same
   transition indices); its exhausting its markings refutes, since every
   marking a firing sequence from the initial marking to the target

@@ -47,7 +47,7 @@ pub(super) fn search(
     equation: &mut Equation<'_>,
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> (Result<Option<Vec<u32>>, Reason>, Statistics) {
-    let mut search = Search::new(program, account);
+    let mut search = Cover::new(program, account);
     let result = search.run(most, equation, stop);
     let statistics = Statistics {
         nodes: search.computed,
@@ -61,7 +61,7 @@ pub(super) fn search(
 /// The state of a search: the elements kept, their index by their first
 /// place, the queue, the index of the transitions by their output places,
 /// and the counters.
-struct Search<'a> {
+struct Cover<'a> {
     /// The program.
     program: &'a Program,
     /// The elements, one after the other, each as its places in
@@ -121,7 +121,7 @@ struct Search<'a> {
     work: u64,
 }
 
-impl<'a> Search<'a> {
+impl<'a> Cover<'a> {
     /// A search of the program with nothing kept yet.
     fn new(program: &'a Program, account: &'a Account) -> Self {
         let width = program.places;

@@ -114,7 +114,7 @@ const FIRST_TURN: u64 = 1 << 16;
 /// before, so under a time limit what it decides alone in two thirds of
 /// the limit is still decided, and what the forward search decides in a
 /// third.
-pub(crate) const BACKWARD_SHARE: u64 = 2;
+const BACKWARD_SHARE: u64 = 2;
 
 /// The factor by which the turns of the two searches grow from round to
 /// round. A search starts afresh in every turn, so with turns that grow
