@@ -23,7 +23,7 @@ impl Run<'_> {
             }
             None => {
                 self.scratch.charge(self.set_bytes());
-                self.forest.empty_set()
+                self.problem.forest.empty_set()
             }
         }
     }
@@ -42,7 +42,7 @@ impl Run<'_> {
             }
             None => {
                 self.scratch.charge(self.set_bytes());
-                Context::empty(self.forest.len())
+                Context::empty(self.problem.forest.len())
             }
         }
     }
@@ -53,7 +53,7 @@ impl Run<'_> {
     pub(super) fn take_context_any(&mut self) -> Context {
         self.pools.contexts.pop().unwrap_or_else(|| {
             self.scratch.charge(self.set_bytes());
-            Context::empty(self.forest.len())
+            Context::empty(self.problem.forest.len())
         })
     }
 
@@ -90,8 +90,8 @@ impl Run<'_> {
                 tally
             }
             None => {
-                self.scratch.charge(self.counts.tally_bytes());
-                self.counts.tally()
+                self.scratch.charge(self.problem.counts.tally_bytes());
+                self.problem.counts.tally()
             }
         }
     }
@@ -109,8 +109,8 @@ impl Run<'_> {
                 split
             }
             None => {
-                self.scratch.charge(self.counts.split_bytes());
-                Box::new(self.counts.split())
+                self.scratch.charge(self.problem.counts.split_bytes());
+                Box::new(self.problem.counts.split())
             }
         }
     }
@@ -161,7 +161,7 @@ impl Run<'_> {
     /// Takes cursors at the head of every list from the pool.
     pub(super) fn take_cursors(&mut self) -> Cursors {
         self.pools.cursors.pop().unwrap_or_else(|| {
-            let lists = 2 * self.forest.sequent().atom_names().len();
+            let lists = 2 * self.problem.forest.sequent().atom_names().len();
             self.scratch.charge(lists * size_of::<u32>());
             Cursors {
                 passed: vec![0; lists],

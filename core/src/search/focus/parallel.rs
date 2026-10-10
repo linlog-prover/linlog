@@ -321,7 +321,7 @@ impl<'a> Run<'a> {
             unreachable!("a parallel choice is met on a worker of the pool")
         };
         Spawn {
-            problem: self.problem(),
+            problem: self.problem,
             memo,
             arena,
             runtime,
@@ -450,7 +450,7 @@ impl<'a> Run<'a> {
             (1..fixed).all(|i| {
                 pattern >> (i - 1) & 1 == 0
                     || pattern >> i & 1 == 1
-                    || !self.classes.same(members[i - 1], members[i])
+                    || !self.problem.classes.same(members[i - 1], members[i])
             })
         };
         let alternatives: Vec<Alternative<'_>> = (0..1u64 << fixed)
@@ -491,7 +491,10 @@ impl<'a> Run<'a> {
         let cancel = AtomicBool::new(false);
         let spawn = self.spawn(self.or_depth + 1);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
-        let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
+        let (left_sub, right_sub) = (
+            self.problem.forest.left(o).unwrap(),
+            self.problem.forest.right(o).unwrap(),
+        );
         // A premise on a worker, which cancels the other when it fails:
         // the rule fails then, whatever the other finds. A left premise
         // that gives up cancels the right one too, which one thread never

@@ -640,27 +640,16 @@ struct ByClass {
 /// counters, the branch, and pools of scratch buffers so that no step
 /// allocates once the pools are warm.
 struct Run<'a> {
-    /// The problem.
-    forest: &'a Forest,
-    /// Its intuitionistic reading, for a two-sided search.
-    reading: Option<&'a Reading<'a>>,
-    /// Its count invariants.
-    counts: &'a Counts,
-    /// Its classes of interchangeable occurrences.
-    classes: &'a Classes,
-    /// The rules in force.
-    rules: Switches,
+    /// The problem: the forest and what was computed from it, the rules,
+    /// the account and the limits.
+    problem: Problem<'a>,
     /// The memo of stable sequents.
     memo: Table<'a>,
     /// The proof arena.
     nodes: Arena<'a>,
-    /// The search's account, which the memo is charged to.
-    account: &'a Account,
     /// What the engine's own buffers were charged: the branch stack and
     /// the pools, which go with the engine.
     scratch: Charged<'a>,
-    /// Whether the memo takes entries: a proof it refers to is kept.
-    memoizes: bool,
     /// The counters.
     statistics: Statistics,
     /// The steps of split searches since the stop condition was last
@@ -675,10 +664,6 @@ struct Run<'a> {
     work: u64,
     /// The nesting of engine calls right now.
     depth: u32,
-    /// The deepest nesting allowed.
-    recursion_limit: u32,
-    /// The most copies a branch may take at the last deepening level.
-    copies: u32,
     /// The stop condition.
     stop: Stop<'a>,
     /// The runtime, when the search runs on several threads.
@@ -723,35 +708,16 @@ impl<'a> Run<'a> {
     /// the arena to use, at the root of its branch; a pool's worker is one
     /// that is then given the branch it continues.
     fn new(problem: Problem<'a>, stop: Stop<'a>, memo: Table<'a>, nodes: Arena<'a>) -> Self {
-        let Problem {
-            forest,
-            reading,
-            counts,
-            classes,
-            rules,
-            account,
-            memoizes,
-            recursion_limit,
-            copies,
-        } = problem;
         Self {
-            forest,
-            reading,
-            counts,
-            classes,
-            rules,
+            problem,
             memo,
-            account,
-            scratch: Charged::new(account),
+            scratch: Charged::new(problem.account),
             nodes,
-            memoizes,
             statistics: Statistics::default(),
             steps: 0,
             forced: 0,
             work: 0,
             depth: 0,
-            recursion_limit,
-            copies,
             stop,
             #[cfg(feature = "parallel")]
             runtime: None,
@@ -770,22 +736,6 @@ impl<'a> Run<'a> {
         }
     }
 
-    /// The problem this engine searches, as it was given.
-    #[cfg(feature = "parallel")]
-    fn problem(&self) -> Problem<'a> {
-        Problem {
-            forest: self.forest,
-            reading: self.reading,
-            counts: self.counts,
-            classes: self.classes,
-            rules: self.rules,
-            account: self.account,
-            memoizes: self.memoizes,
-            recursion_limit: self.recursion_limit,
-            copies: self.copies,
-        }
-    }
-
     /// Returns the counters, with the memo's.
     fn statistics(&self) -> Statistics {
         Statistics {
@@ -800,8 +750,8 @@ impl<'a> Run<'a> {
     /// configured one, until a level proves it or fails without ever
     /// spending its budget. Without exponentials there is one level.
     fn run(&mut self, goal: &[OccId]) -> Searched {
-        let levels = if self.rules.exponentials {
-            self.copies
+        let levels = if self.problem.rules.exponentials {
+            self.problem.copies
         } else {
             0
         };
@@ -867,10 +817,10 @@ impl<'a> Run<'a> {
             let Some(o) = list.pop() else {
                 break self.prove(grown.as_ref().unwrap_or(theta), gamma, budget);
             };
-            match self.forest.kind(o) {
+            match self.problem.forest.kind(o) {
                 Kind::Par => {
-                    list.push(self.forest.right(o).unwrap());
-                    list.push(self.forest.left(o).unwrap());
+                    list.push(self.problem.forest.right(o).unwrap());
+                    list.push(self.problem.forest.left(o).unwrap());
                     applied.push(o);
                 }
                 Kind::Bot => applied.push(o),
@@ -881,7 +831,7 @@ impl<'a> Run<'a> {
                 Kind::Quest => {
                     // The subformula joins the unrestricted zone, which is
                     // a set: a formula already there changes nothing.
-                    let a = self.forest.left(o).unwrap();
+                    let a = self.problem.forest.left(o).unwrap();
                     if !grown.as_ref().unwrap_or(theta).contains(a) {
                         if grown.is_none() {
                             let mut larger = self.take_set();
@@ -905,7 +855,7 @@ impl<'a> Run<'a> {
         let result = result.map(|found| {
             found.map(|mut node| {
                 for &o in applied.iter().rev() {
-                    node = self.push(match self.forest.kind(o) {
+                    node = self.push(match self.problem.forest.kind(o) {
                         Kind::Par => Node::Par(Member::from(o), node),
                         Kind::Quest => Node::Quest(Member::from(o), node),
                         _ => Node::Bot(Member::from(o), node),
@@ -934,12 +884,18 @@ impl<'a> Run<'a> {
             return self.with_parallel(theta, gamma, list, o, budget);
         }
         let mark = self.nodes.mark();
-        let left = self.premise(theta, gamma, list, self.forest.left(o).unwrap(), budget)?;
+        let left = self.premise(
+            theta,
+            gamma,
+            list,
+            self.problem.forest.left(o).unwrap(),
+            budget,
+        )?;
         let Found::Proved(left_node) = left else {
             return Ok(left);
         };
         // The right premise on the state itself, which the rule leaves.
-        list.push(self.forest.right(o).unwrap());
+        list.push(self.problem.forest.right(o).unwrap());
         let held = self.nodes.hold(left_node);
         let right = self.asynchronous(theta, gamma, list, budget)?;
         let left_node = self.nodes.unhold(held);
@@ -1008,18 +964,18 @@ impl<'a> Run<'a> {
     ) -> Result<(Found, bool), Reason> {
         self.statistics.nodes += 1;
         let work = NODE_WORK
-            + (self.forest.len() / OCCURRENCES_PER_WORK) as u64
+            + (self.problem.forest.len() / OCCURRENCES_PER_WORK) as u64
             + std::mem::take(&mut self.work);
         if self.stop.fired(work) {
             return Err(Reason::Stopped);
         }
-        if self.account.over() {
+        if self.problem.account.over() {
             self.relieve()?;
         }
         // The memo and the loop check read the zones where they are, under
         // one hash.
         let key = Zones { theta, gamma };
-        let hash = if self.memoizes || self.rules.stack {
+        let hash = if self.problem.memoizes || self.problem.rules.stack {
             key.hash()
         } else {
             0
@@ -1027,12 +983,13 @@ impl<'a> Run<'a> {
         // Complete failures are recorded up to interchangeable members:
         // under the canonical key, where it differs from the sequent's own.
         let mut canonical = self.take_context_any();
-        let renamed = !self.classes.distinct() && canonical.canonical_from(gamma, self.classes);
+        let renamed = !self.problem.classes.distinct()
+            && canonical.canonical_from(gamma, self.problem.classes);
         let canonical_key = Zones {
             theta,
             gamma: &canonical,
         };
-        let canonical_hash = if renamed && self.memoizes {
+        let canonical_hash = if renamed && self.problem.memoizes {
             canonical_key.hash()
         } else {
             0
@@ -1069,7 +1026,7 @@ impl<'a> Run<'a> {
         // redundant, with or without weakening: a proof of the larger
         // sequent proves nothing about the smaller one, and ⊢ ?(a ⅋ ~a) is
         // proved only through ⊢ a ⅋ ~a ; a, ~a.)
-        if self.rules.stack
+        if self.problem.rules.stack
             && let Some(depth) = self.repeated(key, hash)
         {
             self.give_context(canonical);
@@ -1082,7 +1039,7 @@ impl<'a> Run<'a> {
             self.give_context(canonical);
             return Ok((Found::failed(Cuts::BUDGET), false));
         }
-        if self.rules.stack {
+        if self.problem.rules.stack {
             if self.stack_len < self.stack.len() {
                 // Into the entry's own buffers: a derived `clone_from`
                 // would allocate both zones anew.
@@ -1101,7 +1058,7 @@ impl<'a> Run<'a> {
         let mark = self.nodes.mark();
         let mut hereditary = false;
         let result = self.decide(theta, gamma, budget, &mut hereditary);
-        let own_depth = if self.rules.stack {
+        let own_depth = if self.problem.rules.stack {
             self.stack_len -= 1;
             (self.above() + self.stack_len) as u32
         } else {
@@ -1136,7 +1093,7 @@ impl<'a> Run<'a> {
             gamma: &canonical,
         };
         let recorded = match node {
-            Some(proof) if self.memoizes => {
+            Some(proof) if self.problem.memoizes => {
                 // The entry outlives the branch, so the proof is kept.
                 self.nodes.keep(mark, proof).and_then(|proof| {
                     match self.remember(key, hash, Entry::Proved(proof))? {
@@ -1204,7 +1161,7 @@ impl<'a> Run<'a> {
     /// after that. Fails when even the emptied memo has no room: the
     /// search's memory is at its bound without it.
     fn remember(&mut self, key: Zones<'_>, hash: u64, entry: Entry) -> Result<Entry, Reason> {
-        if self.memo.insert(key, hash, entry, self.account) == Inserted::Done {
+        if self.memo.insert(key, hash, entry, self.problem.account) == Inserted::Done {
             return Ok(entry);
         }
         self.memo.clear();
@@ -1219,7 +1176,7 @@ impl<'a> Run<'a> {
                 failed
             }
         };
-        if self.memo.insert(key, hash, entry, self.account) == Inserted::Done {
+        if self.memo.insert(key, hash, entry, self.problem.account) == Inserted::Done {
             return Ok(entry);
         }
         // Not even the first entry fits: what the proofs dropped leave
@@ -1235,10 +1192,10 @@ impl<'a> Run<'a> {
                 failed
             }
         };
-        match self.memo.insert(key, hash, entry, self.account) {
+        match self.memo.insert(key, hash, entry, self.problem.account) {
             Inserted::Done => Ok(entry),
             _ => Err(Reason::MemoryLimit {
-                limit_bytes: self.account.limit(),
+                limit_bytes: self.problem.account.limit(),
             }),
         }
     }
@@ -1253,13 +1210,13 @@ impl<'a> Run<'a> {
     fn relieve(&mut self) -> Result<(), Reason> {
         self.memo.clear();
         self.nodes.collect(None, false);
-        if !self.account.over() {
+        if !self.problem.account.over() {
             return Ok(());
         }
-        self.memo.release(self.account);
-        if self.account.over() {
+        self.memo.release(self.problem.account);
+        if self.problem.account.over() {
             Err(Reason::MemoryLimit {
-                limit_bytes: self.account.limit(),
+                limit_bytes: self.problem.account.limit(),
             })
         } else {
             Ok(())
@@ -1273,7 +1230,7 @@ impl<'a> Run<'a> {
 
     /// The bytes a set of the forest's width allocates.
     fn set_bytes(&self) -> usize {
-        self.forest.len().div_ceil(64) * size_of::<u64>()
+        self.problem.forest.len().div_ceil(64) * size_of::<u64>()
     }
 
     /// Decides a stable sequent the memo does not know, and sets
@@ -1302,7 +1259,7 @@ impl<'a> Run<'a> {
             budget,
             hereditary,
         );
-        if self.rules.mix && members.len() == 1 && matches!(result, Ok(Found::Failed(_))) {
+        if self.problem.rules.mix && members.len() == 1 && matches!(result, Ok(Found::Failed(_))) {
             *hereditary = true;
         }
         self.give_list(members);
@@ -1325,7 +1282,7 @@ impl<'a> Run<'a> {
         budget: u32,
         hereditary: &mut bool,
     ) -> Step {
-        let affine = self.rules.affine;
+        let affine = self.problem.rules.affine;
         // One pass over the members: the counts, a `0`, and the positive
         // formulas worth focusing on. `1` and `!` only when alone, since
         // they need an empty context (any context, with weakening); a
@@ -1334,8 +1291,8 @@ impl<'a> Run<'a> {
         self.work += members.len() as u64;
         let mut zero = false;
         for &o in members {
-            tally.add(self.counts, o);
-            match self.forest.kind(o) {
+            tally.add(self.problem.counts, o);
+            match self.problem.forest.kind(o) {
                 Kind::Zero => zero = true,
                 Kind::Tensor | Kind::Plus => candidates.push(o),
                 Kind::One | Kind::Bang if members.len() == 1 || affine => candidates.push(o),
@@ -1348,17 +1305,21 @@ impl<'a> Run<'a> {
         // sequent: ⊢ 0, ⊤ ⊕ b is provable. (The spec calls a `0` in a
         // stable sequent fatal, which overlooks this.) With weakening the
         // `0` is discarded at a leaf like anything else.
-        if zero && !affine && !tally.absorbs() && !theta.iter().any(|a| self.counts.absorbs(a)) {
+        if zero
+            && !affine
+            && !tally.absorbs()
+            && !theta.iter().any(|a| self.problem.counts.absorbs(a))
+        {
             return Ok(Found::NOTHING);
         }
         let mut cuts = match self.initial(theta, gamma, members, budget)? {
             Found::Failed(cuts) => cuts,
             proved => return Ok(proved),
         };
-        if self.rules.intervals && !tally.balanced() {
+        if self.problem.rules.intervals && !tally.balanced() {
             return Ok(Found::failed(cuts));
         }
-        if self.rules.equation && !tally.equation(self.rules.mix) {
+        if self.problem.rules.equation && !tally.equation(self.problem.rules.mix) {
             return Ok(Found::failed(cuts));
         }
 
@@ -1371,7 +1332,7 @@ impl<'a> Run<'a> {
         // After them the copies from `Θ`, a formula with an unconsumed copy
         // in `Γ` skipped (a second copy cannot help before the first is
         // used), those that can meet a literal of `Γ` first, then by id.
-        if self.rules.exponentials {
+        if self.problem.rules.exponentials {
             let unconsumed = self.one_of_each_copy(theta, gamma, copies);
             // Each is looked up in `Γ`, compared with its class and sorted.
             self.work += 2 * unconsumed as u64;
@@ -1509,9 +1470,9 @@ impl<'a> Run<'a> {
                     if pattern >> i & 1 == 1 {
                         right.remove(m);
                         left.insert(m);
-                        counts.assign(self.counts, m, Branch::Left);
+                        counts.assign(self.problem.counts, m, Branch::Left);
                     } else {
-                        counts.assign(self.counts, m, Branch::Right);
+                        counts.assign(self.problem.counts, m, Branch::Right);
                     }
                 }
                 let result = self.search_splits(
@@ -1550,14 +1511,14 @@ impl<'a> Run<'a> {
                 Some(zone) => zone.clone_from(theta),
                 None => {
                     self.scratch
-                        .charge(self.forest.len().div_ceil(64) * size_of::<u64>());
+                        .charge(self.problem.forest.len().div_ceil(64) * size_of::<u64>());
                     by_class.zone = Some(theta.clone());
                 }
             }
             by_class.members.clear();
             by_class
                 .members
-                .extend(theta.iter().map(|a| (self.classes.of(a), a)));
+                .extend(theta.iter().map(|a| (self.problem.classes.of(a), a)));
             by_class.members.sort_unstable();
             by_class.members.settle(&mut self.scratch);
         }
@@ -1579,8 +1540,8 @@ impl<'a> Run<'a> {
     /// Keeps, of the occurrences that are interchangeable, the one with
     /// the lowest id.
     fn one_of_each(&self, occurrences: &mut Vec<OccId>) {
-        occurrences.sort_unstable_by_key(|&o| (self.classes.of(o), o));
-        occurrences.dedup_by_key(|o| self.classes.of(*o));
+        occurrences.sort_unstable_by_key(|&o| (self.problem.classes.of(o), o));
+        occurrences.dedup_by_key(|o| self.problem.classes.of(*o));
     }
 
     /// What is tried on a stable sequent after every focus failed: Mix,
@@ -1595,7 +1556,7 @@ impl<'a> Run<'a> {
         budget: u32,
         hereditary: &mut bool,
     ) -> Step {
-        if self.rules.mix {
+        if self.problem.rules.mix {
             return self.mix(theta, gamma, members, tally, budget, hereditary);
         }
         Ok(Found::NOTHING)
@@ -1611,12 +1572,12 @@ impl<'a> Run<'a> {
     /// linear in the members: comparing every pair was quadratic under
     /// weakening, where any number of members may close a sequent.
     fn initial(&mut self, theta: &OccSet, gamma: &Context, members: &[OccId], budget: u32) -> Step {
-        let affine = self.rules.affine;
+        let affine = self.problem.rules.affine;
         if !affine && members.len() > 2 {
             return Ok(Found::NOTHING);
         }
         self.mark_literals(members);
-        let f = self.forest;
+        let f = self.problem.forest;
         let mut cuts = Cuts::NONE;
         for &p in members {
             let (Some(atom), Some(sign)) = (f.atom(p), f.sign(p)) else {
@@ -1643,7 +1604,7 @@ impl<'a> Run<'a> {
             // dual is looked up in `Θ` once, since another copy of it finds
             // what the first found.
             if !(affine || members.len() == 1)
-                || !self.rules.exponentials
+                || !self.problem.rules.exponentials
                 || self.lists[dual].tried == self.stamp
             {
                 continue;
@@ -1675,7 +1636,7 @@ impl<'a> Run<'a> {
     /// a zone, found through the forest's list of that literal's
     /// occurrences rather than through the zone's members.
     fn dual_in(&self, literal: OccId, within: impl Fn(OccId) -> bool) -> Option<OccId> {
-        let f = self.forest;
+        let f = self.problem.forest;
         let (atom, sign) = (f.atom(literal)?, f.sign(literal)?);
         f.literals(atom, !sign).iter().copied().find(|&d| within(d))
     }
@@ -1688,7 +1649,7 @@ impl<'a> Run<'a> {
     /// marking of thousands of tokens under clauses of thousands of
     /// literals was a quarter of a second per stable sequent.
     fn mark_literals(&mut self, members: &[OccId]) {
-        let f = self.forest;
+        let f = self.problem.forest;
         if self.lists.is_empty() {
             let lists = f.lists();
             self.scratch.charge(lists * size_of::<Marks>());
@@ -1717,7 +1678,7 @@ impl<'a> Run<'a> {
     /// member of the stable sequent marked last: the copy heuristic's
     /// notion of a copy that can meet something.
     fn meets(&self, a: OccId) -> bool {
-        let f = self.forest;
+        let f = self.problem.forest;
         f.subtree(a).any(|l| match (f.atom(l), f.sign(l)) {
             (Some(atom), Some(sign)) => self.lists[Forest::list(atom, !sign)].stamp == self.stamp,
             _ => false,
@@ -1728,10 +1689,11 @@ impl<'a> Run<'a> {
     /// forced by a factor (a positive literal, `1`, `!`; or `0`, which
     /// fails at once), then `⊕`, then a `⊗` whose split must be searched.
     fn focus_class(&self, o: OccId) -> u8 {
-        match self.forest.kind(o) {
+        match self.problem.forest.kind(o) {
             Kind::One | Kind::Bang => 0,
             Kind::Tensor => {
                 let forced = self
+                    .problem
                     .forest
                     .children(o)
                     .any(|c| self.forced_side(c).is_some());
@@ -1753,11 +1715,11 @@ impl<'a> Run<'a> {
 
     /// The body of `focus`.
     fn focus_on(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
-        match self.forest.kind(f) {
+        match self.problem.forest.kind(f) {
             Kind::Plus => {
                 let sides = [
-                    Alternative::Branch(f, Branch::Left, self.forest.left(f).unwrap()),
-                    Alternative::Branch(f, Branch::Right, self.forest.right(f).unwrap()),
+                    Alternative::Branch(f, Branch::Left, self.problem.forest.left(f).unwrap()),
+                    Alternative::Branch(f, Branch::Right, self.problem.forest.right(f).unwrap()),
                 ];
                 self.choose(theta, gamma, sides.into_iter(), budget)
             }
@@ -1775,7 +1737,7 @@ impl<'a> Run<'a> {
                 }
                 let mut released = self.take_context();
                 let mut list = self.take_list();
-                list.push(self.forest.left(f).unwrap());
+                list.push(self.problem.forest.left(f).unwrap());
                 let result = self.asynchronous(theta, &mut released, &mut list, budget);
                 self.give_context(released);
                 self.give_list(list);
@@ -1785,7 +1747,7 @@ impl<'a> Run<'a> {
                 }))
             }
             Kind::Zero => Ok(Found::NOTHING),
-            Kind::Atom | Kind::DualAtom if self.counts.positive(self.forest, f) => {
+            Kind::Atom | Kind::DualAtom if self.problem.counts.positive(self.problem.forest, f) => {
                 // The initial rules: the context is the dual literal, or
                 // nothing and the dual lies in `Θ`.
                 let mut members = self.take_list();
@@ -1814,18 +1776,20 @@ impl<'a> Run<'a> {
     /// Whether a rule that needs an empty linear zone can be applied with
     /// this one: it is empty, or weakening will discard it.
     fn leftover(&self, gamma: &Context) -> bool {
-        gamma.is_empty() || self.rules.affine
+        gamma.is_empty() || self.problem.rules.affine
     }
 
     /// Weakens every member of `gamma` below `node`, one `Weaken` per copy;
     /// nothing when it is empty.
     fn weakened(&mut self, gamma: &Context, mut node: NodeId) -> NodeId {
         debug_assert!(
-            gamma.is_empty() || self.rules.affine,
+            gamma.is_empty() || self.problem.rules.affine,
             "weakening needs affine mode"
         );
         debug_assert!(
-            self.reading.is_none_or(|r| r.outputs(gamma.iter()) == 0),
+            self.problem
+                .reading
+                .is_none_or(|r| r.outputs(gamma.iter()) == 0),
             "a leaf is the goal, so only hypotheses are left over"
         );
         for o in gamma.iter() {
@@ -1843,9 +1807,9 @@ impl<'a> Run<'a> {
 
     /// Enters a nested engine call, unless the nesting is at its limit.
     fn enter(&mut self) -> Result<(), Reason> {
-        if self.depth >= self.recursion_limit {
+        if self.depth >= self.problem.recursion_limit {
             return Err(Reason::RecursionLimit {
-                depth: self.recursion_limit,
+                depth: self.problem.recursion_limit,
             });
         }
         self.depth += 1;

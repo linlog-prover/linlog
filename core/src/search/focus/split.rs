@@ -26,7 +26,7 @@ impl Run<'_> {
     /// which on a marking of thousands of equal tokens was most of a
     /// search's time.
     fn dual_from(&self, literal: OccId, rest: &Context, cursors: &mut Cursors) -> Option<OccId> {
-        let f = self.forest;
+        let f = self.problem.forest;
         let (atom, sign) = (f.atom(literal)?, f.sign(literal)?);
         let duals = f.literals(atom, !sign);
         let list = Forest::list(atom, !sign);
@@ -51,14 +51,16 @@ impl Run<'_> {
     /// weakening nothing but `0` forces anything, since every leaf takes
     /// any context.
     pub(super) fn forced_side(&self, factor: OccId) -> Option<Forced> {
-        match self.forest.kind(factor) {
+        match self.problem.forest.kind(factor) {
             Kind::Zero => Some(Forced::Nothing),
-            _ if self.rules.affine => None,
+            _ if self.problem.rules.affine => None,
             Kind::One | Kind::Bang => Some(Forced::Empty),
-            Kind::Atom | Kind::DualAtom if self.counts.positive(self.forest, factor) => {
+            Kind::Atom | Kind::DualAtom
+                if self.problem.counts.positive(self.problem.forest, factor) =>
+            {
                 Some(Forced::Dual)
             }
-            Kind::Tensor if self.counts.literal_tensor(factor) => Some(Forced::Duals),
+            Kind::Tensor if self.problem.counts.literal_tensor(factor) => Some(Forced::Duals),
             _ => None,
         }
     }
@@ -70,7 +72,10 @@ impl Run<'_> {
     /// tensor of a thousand literals, nested to the left as it is read,
     /// must not pay a level of recursion per link; otherwise the left one.
     fn forced_factor(&self, f: OccId) -> Option<(Forced, OccId, OccId, bool)> {
-        let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
+        let (a, b) = (
+            self.problem.forest.left(f).unwrap(),
+            self.problem.forest.right(f).unwrap(),
+        );
         [(a, b, true), (b, a, false)]
             .into_iter()
             .filter_map(|(x, y, left)| Some((self.forced_side(x)?, x, y, left)))
@@ -186,7 +191,7 @@ impl Run<'_> {
                 return Ok(Found::failed(cuts));
             };
             links.push((f, x_node, x_is_left));
-            if self.forest.kind(y) != Kind::Tensor {
+            if self.problem.forest.kind(y) != Kind::Tensor {
                 return Ok(self.focus(theta, rest, y, budget)?.after(cuts));
             }
             f = y;
@@ -201,8 +206,8 @@ impl Run<'_> {
     /// it.
     fn literal_tensor(&mut self, x: OccId, rest: &mut Context, cursors: &mut Cursors) -> Searched {
         let mut duals = self.take_list();
-        for leaf in self.forest.subtree(x) {
-            if !self.forest.is_literal(leaf) {
+        for leaf in self.problem.forest.subtree(x) {
+            if !self.problem.forest.is_literal(leaf) {
                 continue;
             }
             self.poll_forced()?;
@@ -216,8 +221,8 @@ impl Run<'_> {
         // An occurrence's subtree follows it, so in reverse a `⊗` comes
         // after both its subformulas, the left one's proof on top.
         let mut built = self.take_links();
-        for o in self.forest.subtree(x).rev() {
-            let node = if self.forest.is_literal(o) {
+        for o in self.problem.forest.subtree(x).rev() {
+            let node = if self.problem.forest.is_literal(o) {
                 let dual = duals.pop().expect("a dual per literal");
                 self.push(Node::Ax(o.into(), dual.into()))
             } else {
@@ -317,19 +322,22 @@ impl Run<'_> {
     /// hypothesis `A ⊸ B`, the goal on the consequent's side.
     #[inline(always)]
     fn open_split(&mut self, gamma: &Context, f: OccId) -> Opened {
-        let (a, b) = (self.forest.left(f).unwrap(), self.forest.right(f).unwrap());
+        let (a, b) = (
+            self.problem.forest.left(f).unwrap(),
+            self.problem.forest.right(f).unwrap(),
+        );
         let mut members = self.take_list();
         members.extend(gamma.iter());
         let mut left = self.take_context();
         let mut right = self.take_context_from(gamma);
         let mut split = self.take_split();
-        split.place(self.counts, a, Branch::Left);
-        split.place(self.counts, b, Branch::Right);
+        split.place(self.problem.counts, a, Branch::Left);
+        split.place(self.problem.counts, b, Branch::Right);
         let mut placed = self.take_list();
         placed.extend([a, b]);
         // Two-sided, on a hypothesis `A ⊸ B`: the goal stays with `B`, so it
         // is fixed on the consequent's side and left out of the search.
-        if let Some(reading) = self.reading
+        if let Some(reading) = self.problem.reading
             && let Some((_, consequent)) = reading.implication(f)
             && let Some(at) = members
                 .iter()
@@ -340,9 +348,9 @@ impl Run<'_> {
             if consequent == a {
                 right.remove(goal);
                 left.insert(goal);
-                split.place(self.counts, goal, Branch::Left);
+                split.place(self.problem.counts, goal, Branch::Left);
             } else {
-                split.place(self.counts, goal, Branch::Right);
+                split.place(self.problem.counts, goal, Branch::Right);
             }
         }
         self.open(&mut members, &mut split, &placed);
@@ -377,8 +385,8 @@ impl Run<'_> {
         if self.cubes() {
             return false;
         }
-        self.forest.size(a) >= CHAIN_SIZE
-            && self.forest.kind(a) == Kind::Tensor
+        self.problem.forest.size(a) >= CHAIN_SIZE
+            && self.problem.forest.kind(a) == Kind::Tensor
             && self.forced_factor(a).is_none()
     }
 
@@ -462,7 +470,7 @@ impl Run<'_> {
                 given = Some(Found::failed(cuts));
                 continue;
             }
-            self.work += (self.forest.len() / OCCURRENCES_PER_LEAF) as u64;
+            self.work += (self.problem.forest.len() / OCCURRENCES_PER_LEAF) as u64;
             frame.mark = self.nodes.mark();
             let a = frame.opened.a;
             if self.chains_on(a) {
@@ -496,9 +504,9 @@ impl Run<'_> {
     fn open(&self, members: &mut [OccId], split: &mut Split, placed: &[OccId]) {
         members.sort_unstable_by_key(|&m| {
             (
-                std::cmp::Reverse(self.counts.row_len(m)),
-                self.counts.first_atom(m),
-                self.classes.of(m),
+                std::cmp::Reverse(self.problem.counts.row_len(m)),
+                self.problem.counts.first_atom(m),
+                self.problem.classes.of(m),
                 std::cmp::Reverse(m),
             )
         });
@@ -506,13 +514,13 @@ impl Run<'_> {
         // member whose own interval of some atom excludes zero: with none,
         // every sum of intervals contains zero and every split passes, and
         // the counts need not know the members at all.
-        let tight = |o: &OccId| self.counts.tight(*o);
-        let inert = !self.rules.equation
-            && (!self.rules.intervals || !placed.iter().chain(members.iter()).any(tight));
+        let tight = |o: &OccId| self.problem.counts.tight(*o);
+        let inert = !self.problem.rules.equation
+            && (!self.problem.rules.intervals || !placed.iter().chain(members.iter()).any(tight));
         split.set_inert(inert);
         if !inert {
             for &m in members.iter() {
-                split.open(self.counts, m);
+                split.open(self.problem.counts, m);
             }
         }
     }
@@ -551,7 +559,7 @@ impl Run<'_> {
                 Ok(false) => break Ok(None),
                 Err(reason) => break Err(reason),
             }
-            self.work += (self.forest.len() / OCCURRENCES_PER_LEAF) as u64;
+            self.work += (self.problem.forest.len() / OCCURRENCES_PER_LEAF) as u64;
             let joined = match join {
                 Join::Tensor(f, a, b) => self.premises(theta, left, right, f, a, b, budget),
                 // A Mix needs two parts.
@@ -606,7 +614,7 @@ impl Run<'_> {
         (left, right): (&mut Context, &mut Context),
         split: &mut Split,
     ) -> Result<bool, Reason> {
-        let rules = self.rules;
+        let rules = self.problem.rules;
         // The walk's place in locals while it moves, written back where it
         // stops.
         let (start, mut next) = (walk.start, walk.next);
@@ -628,7 +636,7 @@ impl Run<'_> {
                         // interchangeable and went left: the lowest ids do.
                         let side = if next > 0
                             && trail[next - 1] == Branch::Left
-                            && self.classes.same(members[next - 1], m)
+                            && self.problem.classes.same(members[next - 1], m)
                         {
                             right.remove(m);
                             left.insert(m);
@@ -636,7 +644,7 @@ impl Run<'_> {
                         } else {
                             Branch::Right
                         };
-                        split.assign(self.counts, m, side);
+                        split.assign(self.problem.counts, m, side);
                         trail[next] = side;
                         next += 1;
                         continue;
@@ -654,14 +662,14 @@ impl Run<'_> {
                 next -= 1;
                 let m = members[next];
                 if trail[next] == Branch::Right {
-                    split.flip(self.counts, m, Branch::Left);
+                    split.flip(self.problem.counts, m, Branch::Left);
                     right.remove(m);
                     left.insert(m);
                     trail[next] = Branch::Left;
                     next += 1;
                     continue 'search;
                 }
-                split.unassign(self.counts, m, Branch::Left);
+                split.unassign(self.problem.counts, m, Branch::Left);
                 left.remove(m);
                 right.insert(m);
             }
@@ -741,10 +749,10 @@ impl Run<'_> {
         budget: u32,
         hereditary: &mut bool,
     ) -> Step {
-        if members.len() < 2 || (self.rules.equation && !tally.admits_mix()) {
+        if members.len() < 2 || (self.problem.rules.equation && !tally.admits_mix()) {
             return Ok(Found::NOTHING);
         }
-        if self.memoizes && self.parts_fail(theta, gamma, members, budget)? {
+        if self.problem.memoizes && self.parts_fail(theta, gamma, members, budget)? {
             *hereditary = true;
             return Ok(Found::NOTHING);
         }
@@ -753,7 +761,7 @@ impl Run<'_> {
         let mut right = self.take_context_from(gamma);
         right.remove(members[0]);
         let mut split = self.take_split();
-        split.place(self.counts, members[0], Branch::Left);
+        split.place(self.problem.counts, members[0], Branch::Left);
         let mut rest = self.take_list();
         rest.extend_from_slice(&members[1..]);
         self.open(&mut rest, &mut split, &members[..1]);
