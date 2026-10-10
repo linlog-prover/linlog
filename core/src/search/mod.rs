@@ -1421,6 +1421,12 @@ impl Verdict {
 }
 
 /// Why a search stopped without deciding.
+///
+/// In JSON (feature `serialize`) a reason is tagged by `kind`:
+/// `{"kind": "stopped"}`, `{"kind": "recursion_limit"}`, `{"kind":
+/// "copy_bound", "copies": 3}`, `{"kind": "memory_limit", "limit_bytes":
+/// 1073741824}` or `{"kind": "index_limit"}`; a reader refuses a kind it
+/// does not know.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Reason {

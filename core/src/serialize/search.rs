@@ -44,8 +44,9 @@ impl<'a> Deserialize<'a> for Mode {
 }
 
 /// The serialized form of a reason: its `kind`, with the bound for the
-/// copy bound and for the memory limit.
-#[derive(Serialize)]
+/// copy bound and for the memory limit. A kind it does not know is no
+/// reason, never one of these.
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum Why {
     /// The stop condition fired.
@@ -76,6 +77,34 @@ impl From<Reason> for Why {
             Reason::MemoryLimit(limit_bytes) => Why::MemoryLimit { limit_bytes },
             Reason::IndexLimit => Why::IndexLimit,
         }
+    }
+}
+
+impl From<Why> for Reason {
+    /// Converts a reason's serialized form back.
+    fn from(w: Why) -> Self {
+        match w {
+            Why::Stopped => Reason::Stopped,
+            Why::RecursionLimit => Reason::RecursionLimit,
+            Why::CopyBound { copies } => Reason::CopyBound(copies),
+            Why::MemoryLimit { limit_bytes } => Reason::MemoryLimit(limit_bytes),
+            Why::IndexLimit => Reason::IndexLimit,
+        }
+    }
+}
+
+impl Serialize for Reason {
+    /// Serializes the reason tagged by its `kind`.
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Why::from(*self).serialize(serializer)
+    }
+}
+
+impl<'a> Deserialize<'a> for Reason {
+    /// Deserializes a reason from its `kind`, refusing one it does not
+    /// know.
+    fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
+        Why::deserialize(deserializer).map(Reason::from)
     }
 }
 
@@ -340,5 +369,41 @@ impl<'a> Deserialize<'a> for Cadence {
             None => Self::Auto,
             Some(n) => Self::Every(u32::try_from(n).map_err(serde::de::Error::custom)?),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every reason reads back as itself, and a kind no reason has is
+    /// refused.
+    #[test]
+    fn reasons_read_back() {
+        for reason in [
+            Reason::Stopped,
+            Reason::RecursionLimit,
+            Reason::CopyBound(3),
+            Reason::MemoryLimit(1 << 30),
+            Reason::IndexLimit,
+        ] {
+            let json = serde_json::to_string(&reason).unwrap();
+            assert_eq!(
+                serde_json::from_str::<Reason>(&json).unwrap(),
+                reason,
+                "{json}"
+            );
+        }
+        assert_eq!(
+            serde_json::to_string(&Reason::CopyBound(3)).unwrap(),
+            r#"{"kind":"copy_bound","copies":3}"#
+        );
+        let unknown = serde_json::from_str::<Reason>(r#"{"kind":"tired"}"#);
+        assert!(
+            unknown
+                .unwrap_err()
+                .to_string()
+                .contains("unknown variant `tired`")
+        );
     }
 }

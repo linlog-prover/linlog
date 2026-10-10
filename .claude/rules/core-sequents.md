@@ -257,9 +257,11 @@ same test file:
   weight]], clauses: [[occurrence, weight]], dropped: [occurrence]}`),
   `sequent` after `statistics`, and `goal` for a goal off the roots
   (written only until a refutation's checker reads it).
-  A new `Reason` or `Refutation` variant needs its arm in the proxy
-  (`Why`, `WhyNot`; `serialize` denies wildcard arms, so a variant
-  missing there does not compile); `Statistics` derives its form
+  A new `Reason` or `Refutation` variant needs its arms in the proxy,
+  both ways (`Why`, `WhyNot`; `serialize` denies wildcard arms, so a
+  variant missing there does not compile); a `Reason` reads back by its
+  `kind`, and a kind the proxy does not know is refused, never read as
+  another; `Statistics` derives its form
   (`serde(default)`, read back too), so a new counter is written by
   itself;
   `Outcome::net` is not serialized (the proof's keys are, and the net is
