@@ -2521,10 +2521,11 @@ mod tests {
             told += units;
             false
         };
-        let mut turn = Stop::Turn(&mut caller, 5);
-        assert!(!turn.fired(3));
-        assert!(turn.fired(3), "the turn is over");
-        drop(turn);
+        {
+            let mut turn = Stop::Turn(&mut caller, 5);
+            assert!(!turn.fired(3));
+            assert!(turn.fired(3), "the turn is over");
+        }
         assert_eq!(told, 6);
     }
 
