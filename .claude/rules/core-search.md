@@ -34,7 +34,11 @@ position (`Error::GoalOutputs`). **Every proof, of the roots or of a
 goal, has passed the checker when it is returned, in every build** (`Options::check`,
 `DEFAULT_CHECK` true; the check is at the end of `prove_goal`, one place
 for every engine, and a proof it rejects is `Error::Rejected`, an error
-and never a verdict). The engines' own `debug_assert!`s on their proofs
+and never a verdict; a check that a bound or the stop gives up makes the
+verdict `Unknown` (`unchecked`: `Reason::Unchecked { limit_bytes }` at
+the memory bound, `WorkLimit` at the work bound, `Stopped`), never an
+error, since a refusal is no fault of the input, and never a proof
+returned unchecked). The engines' own `debug_assert!`s on their proofs
 stay, and the flake's `test-debug-assertions` check is what runs them,
 since crane tests in the release profile. The harness switches the check
 off to time the search alone and checks the proof itself. The proof of a

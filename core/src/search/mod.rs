@@ -37,7 +37,7 @@ pub use refutation::{Disproof, Equation, Refutation, StateEquation, Unbalanced};
 
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
-use crate::limits::{Limits, Phase, Progress};
+use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
@@ -126,9 +126,11 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// but two additive-only formulas ([`Error::NotAdditive`]); and a sequent
 /// that unfolds to more subformula occurrences than
 /// `limits.occurrences` allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
-/// [`Error::Rejected`], and one whose check would hold more than
-/// `limits.memory_bytes` is [`Error::Check`] with a [`CheckError::Refused`]: every proof returned
-/// has passed the checker, unless [`Options::check`] says otherwise.
+/// [`Error::Rejected`], a defect and no verdict; one whose check would
+/// hold more than `limits.memory_bytes` makes the verdict
+/// [`Reason::Unchecked`], one that `limits.work` or the stop gave up
+/// [`Reason::WorkLimit`] or [`Reason::Stopped`]: every proof returned has
+/// passed the checker, unless [`Options::check`] says otherwise.
 ///
 /// # Examples
 ///
@@ -321,16 +323,19 @@ pub fn prove_goal(
     };
     drop(polled);
     // No engine is trusted with its own proof: the checker has the last
-    // word on every proof, of the sequent or of a goal, in every build.
+    // word on every proof, of the sequent or of a goal, in every build. A
+    // check that a bound or the stop gave up is no verdict on the proof,
+    // and no proof is returned unchecked: the search's answer is unknown.
+    let mut verdict = verdict;
     if let Verdict::Proved(proof) = &verdict {
         if options.check {
-            proof
-                .check_within(mode, limits, &mut stop)
-                .map_err(|e| match e {
-                    // A check given up is no verdict on the proof.
-                    CheckError::Refused(_) => Error::Check(e),
-                    CheckError::Invalid(_) => Error::Rejected(Box::new(e)),
-                })?;
+            match proof.check_within(mode, limits, &mut stop) {
+                Ok(()) => {}
+                Err(e @ CheckError::Invalid(_)) => return Err(Error::Rejected(Box::new(e))),
+                Err(CheckError::Refused(refused)) => {
+                    verdict = Verdict::Unknown(unchecked(refused.refusal)?);
+                }
+            }
         } else {
             debug_assert_eq!(proof.check(mode), Ok(()), "the {engine} engine's proof");
         }
@@ -345,6 +350,18 @@ pub fn prove_goal(
         net: answer.net,
         checked,
     })
+}
+
+/// Returns why a search whose proof's check was given up is unknown: the
+/// stop, the work bound, or the memory bound the check would have passed;
+/// a refusal no check makes stays the error it is.
+fn unchecked(refusal: Refusal) -> Result<Reason, Error> {
+    match refusal {
+        Refusal::Stopped { .. } => Ok(Reason::Stopped),
+        Refusal::Memory { limit_bytes, .. } => Ok(Reason::Unchecked { limit_bytes }),
+        Refusal::Work { limit } => Ok(Reason::WorkLimit { limit }),
+        refusal => Err(Error::Refused(refusal)),
+    }
 }
 
 /// Returns the engine [`prove_goal`] runs on a goal under the options:
@@ -1426,8 +1443,9 @@ impl Verdict {
 /// In JSON (feature `serialize`) a reason is tagged by `kind`:
 /// `{"kind": "stopped"}`, `{"kind": "recursion_limit", "depth": 2048}`,
 /// `{"kind": "copy_bound", "copies": 3}`, `{"kind": "memory_limit",
-/// "limit_bytes": 1073741824}` or `{"kind": "index_limit"}`; a reader
-/// refuses a kind it does not know.
+/// "limit_bytes": 1073741824}`, `{"kind": "index_limit"}`, `{"kind":
+/// "work_limit", "limit": 1000000}` or `{"kind": "unchecked",
+/// "limit_bytes": 1073741824}`; a reader refuses a kind it does not know.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Reason {
@@ -1463,6 +1481,21 @@ pub enum Reason {
     /// tokens, which a clause that adds thousands of them at each firing
     /// can pass in a few hundred thousand markings.
     IndexLimit,
+    /// The search did the most work [`Limits::work`](crate::Limits::work)
+    /// allows, or the check of the proof it found would have done more.
+    #[non_exhaustive]
+    WorkLimit {
+        /// The bound on work.
+        limit: u64,
+    },
+    /// The search found a proof whose check would have held more than
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes): no proof is
+    /// returned that has not passed the checker.
+    #[non_exhaustive]
+    Unchecked {
+        /// The memory bound, in bytes.
+        limit_bytes: u64,
+    },
 }
 
 impl Reason {
@@ -1474,7 +1507,8 @@ impl Reason {
             Self::Stopped | Self::IndexLimit => None,
             Self::RecursionLimit { .. } => Some("limits.recursion_depth"),
             Self::CopyBound { .. } => Some("search.copies"),
-            Self::MemoryLimit { .. } => Some("limits.memory_bytes"),
+            Self::MemoryLimit { .. } | Self::Unchecked { .. } => Some("limits.memory_bytes"),
+            Self::WorkLimit { .. } => Some("limits.work"),
         }
     }
 }
@@ -1495,6 +1529,12 @@ impl Display for Reason {
                 write!(f, "the memory limit of {} was reached", Bytes(*limit_bytes))
             }
             Reason::IndexLimit => f.write_str("the search outgrew what its indices address"),
+            Reason::WorkLimit { limit } => write!(f, "the work limit of {limit} was reached"),
+            Reason::Unchecked { limit_bytes } => write!(
+                f,
+                "a proof was found, but its check would hold more than the memory limit of {}",
+                Bytes(*limit_bytes)
+            ),
         }
     }
 }
@@ -1597,6 +1637,52 @@ mod tests {
         }
     }
 
+    /// A proof whose check a bound gives up is no proof returned: the
+    /// verdict is unknown, by the bound that refused the check.
+    #[test]
+    fn a_refused_check_is_unknown() {
+        let refusals = [
+            Refusal::Stopped {
+                phase: Phase::Check,
+            },
+            Refusal::Memory {
+                phase: Phase::Check,
+                limit_bytes: 64,
+                needed_bytes: None,
+            },
+            Refusal::Work { limit: 1 },
+        ];
+        let reasons = refusals.map(|r| unchecked(r).unwrap());
+        assert_eq!(
+            reasons,
+            [
+                Reason::Stopped,
+                Reason::Unchecked { limit_bytes: 64 },
+                Reason::WorkLimit { limit: 1 }
+            ]
+        );
+        // The check counts its work, the search's proof found within one
+        // unit of it is unknown.
+        let work = Limits::default().with_work(Some(1));
+        let outcome = prove_within(
+            &sequent("a, b |- a * b"),
+            Mode::CLASSICAL,
+            &Options::default(),
+            &work,
+            |_| false,
+        )
+        .unwrap();
+        assert!(
+            matches!(
+                outcome.verdict,
+                Verdict::Unknown(Reason::WorkLimit { limit: 1 })
+            ),
+            "{:?}",
+            outcome.verdict
+        );
+        assert!(!outcome.checked);
+    }
+
     /// A reason names the settings key a caller raises to search further,
     /// and says the bound it reached.
     #[test]
@@ -1624,6 +1710,16 @@ mod tests {
                 Reason::IndexLimit,
                 None,
                 "the search outgrew what its indices address",
+            ),
+            (
+                Reason::WorkLimit { limit: 9 },
+                Some("limits.work"),
+                "the work limit of 9 was reached",
+            ),
+            (
+                Reason::Unchecked { limit_bytes: 1024 },
+                Some("limits.memory_bytes"),
+                "a proof was found, but its check would hold more than the memory limit of 1 KiB",
             ),
         ] {
             assert_eq!(

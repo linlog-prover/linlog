@@ -362,7 +362,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   before `prove_goal` returns (`Options::check`), so `--quiet` and
   `--format json` are checked like the drawn formats; `--no-check`
   switches it off. A proof the checker rejects is `Error::Rejected`, exit
-  status 2: a defect to report, not a verdict.
+  status 2: a defect to report, not a verdict; one whose check a bound
+  gives up is unknown, exit 3 (`Reason::Unchecked`, which names
+  `--memory-limit`).
 - **A derivation is made by `derivation(proof, mode, &show, halt, why,
   out)` and nowhere else** (`prove.rs`; `Show` is what the output
   arguments ask for and where the output goes, `Shown` what became of

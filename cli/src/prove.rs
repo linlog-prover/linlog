@@ -1268,7 +1268,7 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
             "the recursion limit of {depth} was reached {after}{at}; raise it with \
              --recursion-limit N"
         ),
-        (Reason::MemoryLimit { .. }, _) => {
+        (Reason::MemoryLimit { .. } | Reason::Unchecked { .. }, _) => {
             format!("{reason} {after}{at}; raise it with --memory-limit SIZE")
         }
         // Any other reason, which no flag changes.

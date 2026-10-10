@@ -71,6 +71,16 @@ enum Why {
     },
     /// A structure of the search outgrew its indices.
     IndexLimit,
+    /// The work limit was reached.
+    WorkLimit {
+        /// The bound.
+        limit: u64,
+    },
+    /// A proof was found whose check would hold more than the memory bound.
+    Unchecked {
+        /// The bound.
+        limit_bytes: u64,
+    },
 }
 
 impl From<Reason> for Why {
@@ -82,6 +92,8 @@ impl From<Reason> for Why {
             Reason::CopyBound { copies } => Why::CopyBound { copies },
             Reason::MemoryLimit { limit_bytes } => Why::MemoryLimit { limit_bytes },
             Reason::IndexLimit => Why::IndexLimit,
+            Reason::WorkLimit { limit } => Why::WorkLimit { limit },
+            Reason::Unchecked { limit_bytes } => Why::Unchecked { limit_bytes },
         }
     }
 }
@@ -95,6 +107,8 @@ impl From<Why> for Reason {
             Why::CopyBound { copies } => Reason::CopyBound { copies },
             Why::MemoryLimit { limit_bytes } => Reason::MemoryLimit { limit_bytes },
             Why::IndexLimit => Reason::IndexLimit,
+            Why::WorkLimit { limit } => Reason::WorkLimit { limit },
+            Why::Unchecked { limit_bytes } => Reason::Unchecked { limit_bytes },
         }
     }
 }
@@ -569,6 +583,10 @@ mod tests {
                 limit_bytes: 1 << 30,
             },
             Reason::IndexLimit,
+            Reason::WorkLimit { limit: 1 << 20 },
+            Reason::Unchecked {
+                limit_bytes: 1 << 30,
+            },
         ] {
             let json = serde_json::to_string(&reason).unwrap();
             assert_eq!(
