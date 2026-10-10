@@ -1258,6 +1258,25 @@ fn batch_inputs_and_exit_status() {
     }
 }
 
+/// A child of `--isolate` decides the entry it is given, however the
+/// command's flags are spelt: `-qf DIR` bundles the batch's input with
+/// another flag.
+#[test]
+fn isolated_entries_with_bundled_flags() {
+    let dir = scratch("bundled");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.txt"), "A |- A").unwrap();
+    std::fs::write(dir.join("b.txt"), "A |- A * A").unwrap();
+    let d = dir.to_string_lossy();
+    let common = ["prove", "--deterministic", "--workers", "1"];
+    let flags = ["--input-format", "text", "-qf", &d];
+    let (status, out, _) = linlog(&[&common[..], &flags].concat(), "");
+    let isolated = linlog(&[&common[..], &["--isolate"], &flags].concat(), "");
+    assert_eq!((isolated.0, &isolated.1), (status, &out));
+    assert_eq!(status, 1);
+    assert!(out.contains(&format!("{d}/b.txt: unprovable")), "{out}");
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

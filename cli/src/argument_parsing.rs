@@ -295,8 +295,21 @@ pub struct BatchArgs {
     #[arg(long, hide = true, value_name = "NAME")]
     pub entry_name: Option<String>,
     /// The mode of the one sequent a child of --isolate decides.
-    #[arg(long, hide = true, value_name = "MODE")]
+    #[arg(long, hide = true, value_name = "MODE", requires = "entry_name")]
     pub entry_mode: Option<String>,
+    /// The format of the one sequent a child of --isolate decides.
+    #[arg(
+        long,
+        hide = true,
+        value_enum,
+        value_name = "FORMAT",
+        requires = "entry_name"
+    )]
+    pub entry_format: Option<InputFormat>,
+    /// The file of the one sequent a child of --isolate decides; standard
+    /// input when absent.
+    #[arg(long, hide = true, value_name = "PATH", requires = "entry_name")]
+    pub entry_file: Option<PathBuf>,
 }
 
 /// Where a batch's threads go.

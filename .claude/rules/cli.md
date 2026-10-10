@@ -49,12 +49,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   line. Each entry is decided by `Shared::answer` on a worker of the
   library's `search::batch::run`, which keeps the order; the main thread
   writes and flushes each result. `--isolate` runs `linlog` itself per
-  entry with the command's own arguments minus the batch's
-  (`child_arguments`, which filters the raw arguments by name: a new
-  batch flag with a value goes into its list) and the hidden
-  `--entry-name`/`--entry-mode`, as a batch of one whose line the parent
-  relays; a child that outlives its time limit by `CHILD_GRACE` is
-  killed.
+  entry with the command's whole command line and, right after the
+  subcommand, the hidden `--entry-name`, `--entry-mode`,
+  `--entry-format` and `--entry-file` (standard input when absent), as a
+  batch of one whose line the parent relays; a child reads no input of
+  the batch's and starts no child, so no flag is filtered out by its
+  spelling (a filter by name missed `-qf DIR`, bundled short flags, and
+  answered every entry with the directory's first). A child that
+  outlives its time limit by `CHILD_GRACE` is killed.
 - `ordinary.rs`: ordinary logic under `--logic` (`LogicArgs`, flattened
   into `prove` and `seq print`; `--translation`, and `prove`'s `--linear`,
   require it, and `ordinary_mode` refuses `-i`, `-a` and `--mix` beside it, exit 2 (clap's `conflicts_with` cannot name flags `seq print` lacks): the image's

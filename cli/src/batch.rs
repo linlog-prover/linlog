@@ -21,7 +21,6 @@ use linlog::search::batch::{self, Cores};
 use linlog::search::{Engine, Options, Outcome, Pool, Verdict, engine_for, prove_goal};
 use linlog::{Forest, Mode};
 use std::collections::{HashSet, VecDeque};
-use std::ffi::OsString;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -278,6 +277,7 @@ impl Iterator for Entries {
 fn path_of(bytes: Vec<u8>) -> PathBuf {
     #[cfg(unix)]
     {
+        use std::ffi::OsString;
         use std::os::unix::ffi::OsStringExt;
         PathBuf::from(OsString::from_vec(bytes))
     }
@@ -467,7 +467,7 @@ impl Shared {
                 status: Status::Unknown,
             };
         }
-        if self.args.batch.isolate {
+        if self.args.batch.isolate && self.args.batch.entry_name.is_none() {
             return self.isolated(entry).unwrap_or_else(failed);
         }
         self.decide(entry, plan).unwrap_or_else(failed)
@@ -670,13 +670,18 @@ impl Shared {
     }
 
     /// Decides an entry in a child process of this command, which is given
-    /// the command's own arguments without the batch's and the entry
-    /// alone, and answers as a batch of one.
+    /// the command's own arguments and the entry, and answers as a batch
+    /// of one.
     fn isolated(&self, entry: Entry) -> Result<Done> {
         let exe = std::env::current_exe().context("cannot find this program to start a child")?;
+        // The entry's flags go right after the subcommand, before any `--`
+        // of the command's own; the child reads no input of the batch's,
+        // so the command line is passed whole, however its flags are
+        // spelt.
+        let mut arguments = std::env::args_os().skip(1);
         let mut command = Command::new(exe);
         command
-            .args(child_arguments())
+            .args(arguments.next())
             .arg("--entry-name")
             .arg(&entry.name);
         if let Some(mode) = entry.mode {
@@ -687,16 +692,17 @@ impl Shared {
             Source::Bad(why) => bail!(why),
             Source::File(path, format) => {
                 command
-                    .arg("--file")
+                    .arg("--entry-file")
                     .arg(path)
-                    .arg("--input-format")
+                    .arg("--entry-format")
                     .arg(format_name(format));
             }
             Source::Text(text, format) => {
-                command.arg("--input-format").arg(format_name(format));
+                command.arg("--entry-format").arg(format_name(format));
                 stdin = Some(text);
             }
         }
+        command.args(arguments);
         let mut child = command
             .stdin(if stdin.is_some() {
                 Stdio::piped()
@@ -796,37 +802,6 @@ fn format_name(format: InputFormat) -> String {
         .expect("no value is skipped")
         .get_name()
         .to_owned()
-}
-
-/// The command's own arguments without those that name the batch's
-/// inputs and how it runs, for a child that decides one entry.
-fn child_arguments() -> Vec<OsString> {
-    const WITH_VALUE: [&str; 8] = [
-        "--file",
-        "--files-from",
-        "--input-format",
-        "--workers",
-        "--cores",
-        "--batch-memory",
-        "--batch-timeout",
-        "-f",
-    ];
-    const ALONE: [&str; 2] = ["--isolate", "--null"];
-    let mut kept = Vec::new();
-    let mut arguments = std::env::args_os().skip(1);
-    while let Some(argument) = arguments.next() {
-        let text = argument.to_string_lossy();
-        let flag = text.split_once('=').map_or(&*text, |(flag, _)| flag);
-        if WITH_VALUE.contains(&flag) {
-            if !text.contains('=') {
-                arguments.next();
-            }
-        } else if ALONE.contains(&flag) || (text.starts_with("-f") && !text.starts_with("--")) {
-        } else {
-            kept.push(argument);
-        }
-    }
-    kept
 }
 
 /// Returns the memory the process may use where the system says: the
@@ -939,19 +914,26 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
                 Some(machine_memory().map_or(batch::Options::DEFAULT_TOTAL_MEMORY_BYTES, |m| m / 2))
             }
         });
-    let mut entries = Entries::new(args)?;
     if let Some(name) = &args.batch.entry_name {
-        let mut entry = entries.next().ok_or_else(|| anyhow!("no sequent given"))?;
-        entry.name.clone_from(name);
-        entry.mode = args
-            .batch
-            .entry_mode
-            .as_deref()
-            .map(mode_named)
-            .transpose()?;
+        // A child of `--isolate`: the batch's inputs are the parent's, and
+        // the one entry is the hidden flags' or standard input.
+        let entry = Entry {
+            name: name.clone(),
+            mode: args
+                .batch
+                .entry_mode
+                .as_deref()
+                .map(mode_named)
+                .transpose()?,
+            source: Source::File(
+                args.batch.entry_file.clone().unwrap_or_else(|| "-".into()),
+                args.batch.entry_format.unwrap_or(InputFormat::Text),
+            ),
+        };
         let plan = batch::Plan::alone(search, limits);
         return one(args, show, threads, directory, &plan, entry);
     }
+    let entries = Entries::new(args)?;
     catch_interrupt();
     let shared = Arc::new(Shared {
         args: Arc::new(args.clone()),
