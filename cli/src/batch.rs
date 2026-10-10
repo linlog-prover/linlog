@@ -20,6 +20,8 @@ use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
 use linlog::search::{Engine, Options, Outcome, Pool, Verdict, engine_for, prove_goal};
 use linlog::{Forest, Mode};
+use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
+use serde_json::value::RawValue;
 use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -330,26 +332,66 @@ fn entry_of(line: &str, origin: &str, number: usize, format: InputFormat) -> Opt
     })
 }
 
-/// Reads a JSON line: a sequent, or a record with a name, a mode and the
-/// sequent in JSON or as text.
+/// A JSON object's members in the order written, a key written twice
+/// kept twice, each value as its text.
+struct Members(Vec<(String, Box<RawValue>)>);
+
+impl<'de> Deserialize<'de> for Members {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        /// Collects the members of an object.
+        struct Collect;
+        impl<'de> Visitor<'de> for Collect {
+            type Value = Members;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Members, A::Error> {
+                let mut members = Vec::new();
+                while let Some(member) = map.next_entry()? {
+                    members.push(member);
+                }
+                Ok(Members(members))
+            }
+        }
+        deserializer.deserialize_map(Collect)
+    }
+}
+
+/// Reads a JSON line: a sequent, or a record of a `sequent` in JSON or
+/// as text with a `name` and a `mode` if it names them. A line with any
+/// of the record's keys is a record, whose other keys and repeated keys
+/// are refused; its sequent is read as `--input-format json` reads one.
 fn record(line: &str) -> Result<(Option<String>, Option<Mode>, Source)> {
-    let value: serde_json::Value = serde_json::from_str(line).context("not JSON")?;
-    let Some(sequent) = value.get("sequent") else {
+    let Members(members) = serde_json::from_str(line).context("not a JSON object")?;
+    let keys = ["name", "mode", "sequent"];
+    if !members.iter().any(|(key, _)| keys.contains(&key.as_str())) {
         return Ok((None, None, Source::Text(line.to_owned(), InputFormat::Json)));
+    }
+    let [mut name, mut mode, mut sequent] = [None, None, None];
+    for (key, value) in members {
+        let slot = match key.as_str() {
+            "name" => &mut name,
+            "mode" => &mut mode,
+            "sequent" => &mut sequent,
+            _ => bail!("a record's keys are name, mode and sequent, not `{key}`"),
+        };
+        if slot.replace(value).is_some() {
+            bail!("the record names `{key}` twice");
+        }
+    }
+    let sequent = sequent.context("the record has no `sequent`")?;
+    let string = |value: &RawValue, what: &str| {
+        serde_json::from_str::<String>(value.get())
+            .with_context(|| format!("the record's {what} is not a string"))
     };
-    let name = match value.get("name") {
-        None => None,
-        Some(serde_json::Value::String(name)) => Some(name.clone()),
-        Some(_) => bail!("the record's name is not a string"),
-    };
-    let mode = match value.get("mode") {
-        None => None,
-        Some(serde_json::Value::String(mode)) => Some(mode_named(mode)?),
-        Some(_) => bail!("the record's mode is not a string"),
-    };
-    let source = match sequent {
-        serde_json::Value::String(text) => Source::Text(text.clone(), InputFormat::Text),
-        json => Source::Text(json.to_string(), InputFormat::Json),
+    let name = name.map(|name| string(&name, "name")).transpose()?;
+    let mode = mode
+        .map(|mode| mode_named(&string(&mode, "mode")?))
+        .transpose()?;
+    let source = if sequent.get().starts_with('"') {
+        Source::Text(string(&sequent, "sequent")?, InputFormat::Text)
+    } else {
+        Source::Text(sequent.get().to_owned(), InputFormat::Json)
     };
     Ok((name, mode, source))
 }

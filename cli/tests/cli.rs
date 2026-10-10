@@ -1410,6 +1410,40 @@ fn a_spec_file_is_affine() {
     );
 }
 
+/// A JSON Lines record is read key by key: a line with a record's keys
+/// and no `sequent`, a key written twice and a sequent with a key written
+/// twice are that line's errors, never a sequent read in another mode.
+#[test]
+fn json_lines_records_are_whole() {
+    let lines = r#"{"name":"flat","mode":"affine","terms":[{"D":0},{"D":1},{"V":0}],"roots":[0,1,2],"atoms":["A","B"]}
+{"name":"rec","mode":"affine","sequent":{"terms":[{"D":0},{"D":1},{"V":0}],"roots":[0,1,2],"atoms":["A","B"]}}
+{"name":"dup","mode":"affine","mode":"classical","sequent":"A, B |- A"}
+{"name":"ids","sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"roots":[1],"atoms":["A"]}}
+"#;
+    let (status, out, _) = linlog(
+        &["prove", "--deterministic", "--input-format", "jsonl"],
+        lines,
+    );
+    let out: Vec<&str> = out.lines().collect();
+    assert_eq!(status, 2);
+    assert_eq!(out.len(), 4, "{out:?}");
+    assert!(
+        out[0].starts_with("-:1: error: a record's keys are"),
+        "{}",
+        out[0]
+    );
+    assert_eq!(
+        out[1],
+        "rec: provable (MLL, classical affine, focus engine)"
+    );
+    assert_eq!(out[2], "-:3: error: the record names `mode` twice");
+    assert!(
+        out[3].starts_with("ids: error: not a sequent in JSON: duplicate field"),
+        "{}",
+        out[3]
+    );
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

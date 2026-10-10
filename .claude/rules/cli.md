@@ -53,7 +53,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   line. A sequent given as the argument is refused beside a batch's
   input, exit 2 (clap's `conflicts_with` names `--file` alone: the other
   commands lack `--files-from`, and a format of many is a value); it was
-  ignored, and the batch's own status answered for it. Each entry is decided by `Shared::answer` on a worker of the
+  ignored, and the batch's own status answered for it. A JSON Lines line
+  (`record`) is read member by member (`Members`, each value its raw
+  text, serde_json's `raw_value`): a line with any of `name`, `mode`,
+  `sequent` is a record, whose other keys, repeated keys and missing
+  `sequent` are its error, and its JSON sequent goes to the reader of
+  `--input-format json` as written; through `serde_json::Value` a line
+  without `sequent` was read as a bare sequent in the flags' mode and a
+  repeated key silently took the last value. Each entry is decided by `Shared::answer` on a worker of the
   library's `search::batch::run`, which keeps the order; the main thread
   writes and flushes each result. `--isolate` runs `linlog` itself per
   entry with the command's whole command line and, right after the

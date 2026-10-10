@@ -36,7 +36,9 @@ linlog = { version = "0.1.0", path = "../core", features = [
   "typst",
 ] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+# raw_value: a JSON Lines record hands its sequent to the sequent reader
+# as written, so that the reader refuses what it refuses in a file.
+serde_json = { version = "1.0.149", features = ["raw_value"] }
 terminal_size = "0.4.4"
 
 [lints]
