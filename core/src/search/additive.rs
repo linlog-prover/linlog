@@ -145,7 +145,9 @@ impl Engine<'_> {
             return Ok(node);
         }
         if self.depth >= self.recursion_limit {
-            return Err(Reason::RecursionLimit);
+            return Err(Reason::RecursionLimit {
+                depth: self.recursion_limit,
+            });
         }
         self.depth += 1;
         let result = self.decide(x, y);
@@ -248,7 +250,9 @@ impl Engine<'_> {
             self.account.resize(self.charged, bytes_of(&self.nodes));
             self.charged = bytes_of(&self.nodes);
             if self.account.over() {
-                return Err(Reason::MemoryLimit(self.account.limit()));
+                return Err(Reason::MemoryLimit {
+                    limit_bytes: self.account.limit(),
+                });
             }
         }
         Ok(())

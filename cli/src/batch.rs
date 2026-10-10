@@ -609,11 +609,7 @@ impl Shared {
             Verdict::Unprovable(_) => Status::No,
             Verdict::Unknown(_) => Status::Unknown,
         };
-        let ended = Ended {
-            stop,
-            elapsed,
-            recursion_limit: args.recursion_limit,
-        };
+        let ended = Ended { stop, elapsed };
         let line = match &image {
             Some(image) => ordinary::verdict_line(&outcome, image, &ended),
             None => verdict_line(&outcome, args.fragment.is_some(), &ended),

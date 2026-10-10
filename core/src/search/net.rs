@@ -123,7 +123,7 @@ fn answer(
             Err(Error::Net(error)) => match *error {
                 NetError::Refused {
                     refusal: Refusal::Memory { limit_bytes, .. },
-                } => Err(Reason::MemoryLimit(limit_bytes)),
+                } => Err(Reason::MemoryLimit { limit_bytes }),
                 NetError::Refused { .. } => Err(Reason::Stopped),
                 error => {
                     panic!("a complete linking that passed the exact test is a proof net: {error}")

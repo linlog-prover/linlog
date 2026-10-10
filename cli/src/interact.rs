@@ -88,7 +88,6 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
         timeout: args.timeout.0,
         threads,
         deepens: args.copies.0.is_none(),
-        recursion_limit: args.recursion_limit,
     };
     on_large_stack(stack_size, move || session.run())?
 }
@@ -126,8 +125,6 @@ struct Session {
     threads: Threads,
     /// Whether a `close` deepens the copy bound without a bound.
     deepens: bool,
-    /// The recursion limit of a `close`.
-    recursion_limit: u32,
 }
 
 impl Session {
@@ -437,7 +434,6 @@ impl Session {
         let ended = Ended {
             stop: stopped(&deadline),
             elapsed: start.elapsed(),
-            recursion_limit: self.recursion_limit,
         };
         match closed {
             Ok(outcome) => Ok((outcome, ended)),

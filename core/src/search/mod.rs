@@ -1366,7 +1366,8 @@ impl Options {
 /// unprovable one (in the form [`Refutation`] gives) and `reason` for an
 /// unknown one (tagged by `kind`: `{"kind": "stopped"}`, `{"kind":
 /// "copy_bound", "copies": 3}`, `{"kind": "memory_limit", "limit_bytes":
-/// n}`, `{"kind": "recursion_limit"}`, `{"kind": "index_limit"}`),
+/// n}`, `{"kind": "recursion_limit", "depth": n}`, `{"kind":
+/// "index_limit"}`),
 /// `fragment` (its name in the mode, as [`Fragment::name_in`] gives it),
 /// `mode` (its name), `engine`, `statistics`, for a proved sequent the
 /// proof's own keys `sequent`, `nodes` and `goal`, so that the outcome
@@ -1423,10 +1424,10 @@ impl Verdict {
 /// Why a search stopped without deciding.
 ///
 /// In JSON (feature `serialize`) a reason is tagged by `kind`:
-/// `{"kind": "stopped"}`, `{"kind": "recursion_limit"}`, `{"kind":
-/// "copy_bound", "copies": 3}`, `{"kind": "memory_limit", "limit_bytes":
-/// 1073741824}` or `{"kind": "index_limit"}`; a reader refuses a kind it
-/// does not know.
+/// `{"kind": "stopped"}`, `{"kind": "recursion_limit", "depth": 2048}`,
+/// `{"kind": "copy_bound", "copies": 3}`, `{"kind": "memory_limit",
+/// "limit_bytes": 1073741824}` or `{"kind": "index_limit"}`; a reader
+/// refuses a kind it does not know.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Reason {
@@ -1434,15 +1435,27 @@ pub enum Reason {
     Stopped,
     /// The nesting of engine calls reached
     /// [`Limits::recursion_depth`](crate::Limits::recursion_depth).
-    RecursionLimit,
-    /// Every level up to the bound [`Options::copies`] set, which is this
-    /// value, hit its bound on some branch, so a proof with more copies of
-    /// a `?` formula per branch may exist.
-    CopyBound(u32),
-    /// The search held [`Limits::memory_bytes`](crate::Limits::memory_bytes) bytes, which is this
-    /// value, with its memo already emptied, or had no room left for a
+    #[non_exhaustive]
+    RecursionLimit {
+        /// The recursion depth the limits allowed.
+        depth: u32,
+    },
+    /// Every level up to the bound [`Options::copies`] set hit its bound
+    /// on some branch, so a proof with more copies of a `?` formula per
+    /// branch may exist.
+    #[non_exhaustive]
+    CopyBound {
+        /// The copy bound.
+        copies: u32,
+    },
+    /// The search held [`Limits::memory_bytes`](crate::Limits::memory_bytes)
+    /// bytes with its memo already emptied, or had no room left for a
     /// memo at all.
-    MemoryLimit(u64),
+    #[non_exhaustive]
+    MemoryLimit {
+        /// The memory bound, in bytes.
+        limit_bytes: u64,
+    },
     /// A structure of the search outgrew what its indices address: the
     /// proof arena at 2³¹ nodes, the count invariants at 2³² row entries,
     /// the Horn engine's markings at 2³² or a count of its tokens at 2³².
@@ -1452,17 +1465,34 @@ pub enum Reason {
     IndexLimit,
 }
 
+impl Reason {
+    /// Returns the settings key whose bound the search reached, which a
+    /// caller raises to search further; `None` for the stop and the
+    /// indices, which no setting lifts.
+    pub const fn setting(&self) -> Option<&'static str> {
+        match self {
+            Self::Stopped | Self::IndexLimit => None,
+            Self::RecursionLimit { .. } => Some("limits.recursion_depth"),
+            Self::CopyBound { .. } => Some("search.copies"),
+            Self::MemoryLimit { .. } => Some("limits.memory_bytes"),
+        }
+    }
+}
+
 impl Display for Reason {
-    /// Writes the reason as a phrase, such as `the time limit was reached`.
+    /// Writes the reason as a phrase, such as `the copy bound of 3 was
+    /// reached`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Reason::Stopped => f.write_str("the search was stopped"),
-            Reason::RecursionLimit => f.write_str("the recursion limit was reached"),
-            Reason::CopyBound(n) => {
-                write!(f, "the copy bound of {n} was reached")
+            Reason::RecursionLimit { depth } => {
+                write!(f, "the recursion limit of {depth} was reached")
             }
-            Reason::MemoryLimit(bytes) => {
-                write!(f, "the memory limit of {} was reached", Bytes(*bytes))
+            Reason::CopyBound { copies } => {
+                write!(f, "the copy bound of {copies} was reached")
+            }
+            Reason::MemoryLimit { limit_bytes } => {
+                write!(f, "the memory limit of {} was reached", Bytes(*limit_bytes))
             }
             Reason::IndexLimit => f.write_str("the search outgrew what its indices address"),
         }
@@ -1564,6 +1594,42 @@ mod tests {
         }
         for &bias in Bias::ALL {
             assert_eq!(bias.to_string().parse::<Bias>().unwrap(), bias);
+        }
+    }
+
+    /// A reason names the settings key a caller raises to search further,
+    /// and says the bound it reached.
+    #[test]
+    fn reasons_name_their_setting() {
+        for (reason, setting, text) in [
+            (Reason::Stopped, None, "the search was stopped"),
+            (
+                Reason::RecursionLimit { depth: 7 },
+                Some("limits.recursion_depth"),
+                "the recursion limit of 7 was reached",
+            ),
+            (
+                Reason::CopyBound { copies: 3 },
+                Some("search.copies"),
+                "the copy bound of 3 was reached",
+            ),
+            (
+                Reason::MemoryLimit {
+                    limit_bytes: 1 << 20,
+                },
+                Some("limits.memory_bytes"),
+                "the memory limit of 1 MiB was reached",
+            ),
+            (
+                Reason::IndexLimit,
+                None,
+                "the search outgrew what its indices address",
+            ),
+        ] {
+            assert_eq!(
+                (reason.setting(), reason.to_string().as_str()),
+                (setting, text)
+            );
         }
     }
 

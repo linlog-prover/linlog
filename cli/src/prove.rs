@@ -1141,11 +1141,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
             return Ok(status);
         }
         // The verdict first, then the derivation as it is made.
-        let ended = Ended {
-            stop,
-            elapsed,
-            recursion_limit: args.recursion_limit,
-        };
+        let ended = Ended { stop, elapsed };
         let line = show.verdict.then(|| match &image {
             Some(image) => crate::ordinary::verdict_line(&outcome, image, &ended),
             None => verdict_line(&outcome, args.fragment.is_some(), &ended),
@@ -1224,8 +1220,6 @@ pub(crate) struct Ended {
     pub(crate) stop: Option<Stop>,
     /// How long the search took.
     pub(crate) elapsed: Duration,
-    /// The recursion limit it ran under.
-    pub(crate) recursion_limit: u32,
 }
 
 /// Returns the first line of the text output: the verdict, where the
@@ -1266,15 +1260,15 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
             )
         }
         (Reason::Stopped, Some(Stop::Interrupt)) => format!("interrupted {after}{at}"),
-        (Reason::CopyBound(_), _) => format!(
+        (Reason::CopyBound { .. }, _) => format!(
             "{reason} {after}; raise it with --copies N, or lift it with --copies none to deepen \
              it while the time limit lasts"
         ),
-        (Reason::RecursionLimit, _) => format!(
-            "the recursion limit of {} was reached {after}{at}; raise it with --recursion-limit N",
-            ended.recursion_limit
+        (Reason::RecursionLimit { depth, .. }, _) => format!(
+            "the recursion limit of {depth} was reached {after}{at}; raise it with \
+             --recursion-limit N"
         ),
-        (Reason::MemoryLimit(_), _) => {
+        (Reason::MemoryLimit { .. }, _) => {
             format!("{reason} {after}{at}; raise it with --memory-limit SIZE")
         }
         // Any other reason, which no flag changes.

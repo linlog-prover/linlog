@@ -339,8 +339,12 @@ pub(crate) fn refutation(
 /// [`Limits::memory_bytes`], of which a search may have had a part.
 pub(crate) fn reason(reason: Reason, options: &Options, limits: &Limits) -> Reason {
     match reason {
-        Reason::CopyBound(_) => Reason::CopyBound(options.copy_bound()),
-        Reason::MemoryLimit(bytes) => Reason::MemoryLimit(limits.memory_bytes.unwrap_or(bytes)),
+        Reason::CopyBound { .. } => Reason::CopyBound {
+            copies: options.copy_bound(),
+        },
+        Reason::MemoryLimit { limit_bytes: bytes } => Reason::MemoryLimit {
+            limit_bytes: limits.memory_bytes.unwrap_or(bytes),
+        },
         reason => reason,
     }
 }
@@ -824,7 +828,7 @@ impl<'a> Engine<'a> {
             }
         }
         self.give_set(theta);
-        Err(Reason::CopyBound(levels))
+        Err(Reason::CopyBound { copies: levels })
     }
 
     // The phases.
@@ -1235,7 +1239,9 @@ impl<'a> Engine<'a> {
         };
         match self.memo.insert(key, hash, entry, self.account) {
             Inserted::Done => Ok(entry),
-            _ => Err(Reason::MemoryLimit(self.account.limit())),
+            _ => Err(Reason::MemoryLimit {
+                limit_bytes: self.account.limit(),
+            }),
         }
     }
 
@@ -1254,7 +1260,9 @@ impl<'a> Engine<'a> {
         }
         self.memo.release(self.account);
         if self.account.over() {
-            Err(Reason::MemoryLimit(self.account.limit()))
+            Err(Reason::MemoryLimit {
+                limit_bytes: self.account.limit(),
+            })
         } else {
             Ok(())
         }
@@ -1840,7 +1848,9 @@ impl<'a> Engine<'a> {
     /// Enters a nested engine call, unless the nesting is at its limit.
     fn enter(&mut self) -> Result<(), Reason> {
         if self.depth >= self.recursion_limit {
-            return Err(Reason::RecursionLimit);
+            return Err(Reason::RecursionLimit {
+                depth: self.recursion_limit,
+            });
         }
         self.depth += 1;
         Ok(())

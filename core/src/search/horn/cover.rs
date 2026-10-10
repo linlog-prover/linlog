@@ -244,7 +244,7 @@ impl<'a> Search<'a> {
                         // Out of room, the search takes back the simplex's
                         // memory and tries once more.
                         match self.keep(e, t, most) {
-                            Err(Reason::MemoryLimit(_)) if equation.release() => {
+                            Err(Reason::MemoryLimit { .. }) if equation.release() => {
                                 self.keep(e, t, most)?;
                             }
                             kept => kept?,
@@ -398,7 +398,9 @@ impl<'a> Search<'a> {
             || !self.room_in_edges(more)
             || !self.room_in_queue()
         {
-            return Err(Reason::MemoryLimit(self.charged.account().limit()));
+            return Err(Reason::MemoryLimit {
+                limit_bytes: self.charged.account().limit(),
+            });
         }
         self.entries.extend_from_slice(&self.next);
         self.ends.push(self.entries.len());

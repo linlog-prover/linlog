@@ -205,7 +205,9 @@ impl Counts {
             + num_atoms * (2 * size_of::<bool>() + 2 * size_of::<u32>() + size_of::<Sign>());
         account.charge(fixed);
         if account.over() {
-            return Err(Reason::MemoryLimit(account.limit()));
+            return Err(Reason::MemoryLimit {
+                limit_bytes: account.limit(),
+            });
         }
         let mut exponential = vec![false; num_atoms];
         let mut absorbs_from_copies = false;
@@ -333,7 +335,9 @@ impl Counts {
                 account.resize(charged, rows.bytes());
                 charged = rows.bytes();
                 if account.over() {
-                    return Err(Reason::MemoryLimit(account.limit()));
+                    return Err(Reason::MemoryLimit {
+                        limit_bytes: account.limit(),
+                    });
                 }
             }
             if stopped(steps) {

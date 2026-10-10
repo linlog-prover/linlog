@@ -323,7 +323,10 @@ fn refuses_at_its_limits() {
         crate::search::prove_within(&sequent, Mode::CLASSICAL, &horn(), &limits, |_| false)
             .unwrap();
     assert!(
-        matches!(outcome.verdict, Verdict::Unknown(Reason::MemoryLimit(4096))),
+        matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::MemoryLimit { limit_bytes: 4096 })
+        ),
         "{:?}",
         outcome.verdict
     );

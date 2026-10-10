@@ -272,7 +272,10 @@ fn limits() {
 
     let depth = |depth| Limits::default().with_recursion_depth(depth);
     let (verdict, _) = run_within(input, Mode::CLASSICAL, &Options::default(), &depth(2));
-    assert!(matches!(verdict, Verdict::Unknown(Reason::RecursionLimit)));
+    assert!(matches!(
+        verdict,
+        Verdict::Unknown(Reason::RecursionLimit { .. })
+    ));
     let (verdict, _) = run_within(input, Mode::CLASSICAL, &Options::default(), &depth(8));
     assert!(verdict.proof().is_some());
 
@@ -367,7 +370,10 @@ fn bias_option() {
     assert!(verdict.proof().is_some());
     let forward = backward.clone().with_bias(Bias::Factors);
     let (verdict, _) = run(&forward);
-    assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(_))));
+    assert!(matches!(
+        verdict,
+        Verdict::Unknown(Reason::CopyBound { .. })
+    ));
     let (verdict, fast) = run(&forward.with_copies(Some(7)));
     let proof = verdict.proof().expect("seven steps on one branch");
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
@@ -392,7 +398,10 @@ fn an_unbounded_search_deepens() {
     };
     let forward = Options::default().with_bias(Bias::Factors);
     let (verdict, statistics) = run(&forward.clone().with_copies(Some(3)));
-    assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(3))));
+    assert!(matches!(
+        verdict,
+        Verdict::Unknown(Reason::CopyBound { copies: 3 })
+    ));
     assert_eq!(statistics.copies, 3);
     let (verdict, statistics) = run(&forward.with_copies(None));
     assert!(verdict.proof().is_some(), "seven steps on one branch");
@@ -437,7 +446,10 @@ fn default_bias_takes_turns() {
             .with_bias(Bias::Factors)
             .with_copies(Some(4)),
     );
-    assert!(matches!(verdict, Verdict::Unknown(Reason::CopyBound(4))));
+    assert!(matches!(
+        verdict,
+        Verdict::Unknown(Reason::CopyBound { copies: 4 })
+    ));
 
     let sequent: Sequent = text.parse().unwrap();
     let forest = Forest::new(&sequent).unwrap();
@@ -519,7 +531,7 @@ fn memory_bound() {
     let (verdict, _) = bounded(1 << 10);
     assert!(matches!(
         verdict,
-        Verdict::Unknown(Reason::MemoryLimit(1024))
+        Verdict::Unknown(Reason::MemoryLimit { limit_bytes: 1024 })
     ));
 }
 
@@ -877,7 +889,7 @@ fn classic_exponentials() {
         assert!(
             matches!(
                 run(input, m, &Options::default()).0,
-                Verdict::Unknown(Reason::CopyBound(3))
+                Verdict::Unknown(Reason::CopyBound { copies: 3 })
             ),
             "{input:?}"
         );
@@ -914,7 +926,7 @@ fn full_ll() {
             &Options::default()
         )
         .0,
-        Verdict::Unknown(Reason::CopyBound(3))
+        Verdict::Unknown(Reason::CopyBound { copies: 3 })
     ));
     let mix = Mode::CLASSICAL.with_mix();
     for (input, without, with) in [
@@ -962,7 +974,7 @@ fn affine() {
     for mode in [Mode::CLASSICAL, affine] {
         assert!(matches!(
             run(growing, mode, &Options::default()).0,
-            Verdict::Unknown(Reason::CopyBound(3))
+            Verdict::Unknown(Reason::CopyBound { copies: 3 })
         ));
     }
     // A sequent proved only through a larger one above it.
@@ -998,7 +1010,7 @@ fn copy_bound() {
     // ⊢ ?~a, a needs one copy: bound 0 is hit, bound 1 proves.
     assert!(matches!(
         run("!a |- a", m, &with(0)).0,
-        Verdict::Unknown(Reason::CopyBound(0))
+        Verdict::Unknown(Reason::CopyBound { copies: 0 })
     ));
     assert!(run("!a |- a", m, &with(1)).0.proof().is_some());
     // ⊢ ?~a, a ⊗ a: the stable sequent ⊢ ~a ; a fails at level 0 for
@@ -1009,7 +1021,7 @@ fn copy_bound() {
     // of ⊢ ?~a, (a ⊗ a) ⊗ a take one copy each.
     assert!(matches!(
         run("!a, !(a -o a -o a -o b) |- b", m, &with(1)).0,
-        Verdict::Unknown(Reason::CopyBound(1))
+        Verdict::Unknown(Reason::CopyBound { copies: 1 })
     ));
     assert!(
         run("!a, !(a -o a -o a -o b) |- b", m, &with(2))
@@ -1027,7 +1039,7 @@ fn copy_bound() {
     ));
     assert!(matches!(
         run("!a |- ?b", m, &with(1)).0,
-        Verdict::Unknown(Reason::CopyBound(1))
+        Verdict::Unknown(Reason::CopyBound { copies: 1 })
     ));
     assert!(matches!(
         run("!a |- ?b", m, &with(2)).0,
@@ -1043,11 +1055,11 @@ fn copy_bound() {
     for copies in [0, 2, 5] {
         assert!(matches!(
             run("!(a -o a * a), a |- ?b", m, &with(copies)).0,
-            Verdict::Unknown(Reason::CopyBound(c)) if c == copies
+            Verdict::Unknown(Reason::CopyBound { copies: c }) if c == copies
         ));
     }
     assert_eq!(
-        Reason::CopyBound(3).to_string(),
+        Reason::CopyBound { copies: 3 }.to_string(),
         "the copy bound of 3 was reached"
     );
 }
@@ -1147,7 +1159,7 @@ fn decided(input: &str, mode: Mode, options: &Options) -> Option<bool> {
     match run(input, mode, options).0 {
         Verdict::Proved(_) => Some(true),
         Verdict::Unprovable(_) => Some(false),
-        Verdict::Unknown(Reason::CopyBound(_)) => None,
+        Verdict::Unknown(Reason::CopyBound { .. }) => None,
         Verdict::Unknown(reason) => panic!("{input:?}: {reason}"),
     }
 }
@@ -1381,7 +1393,7 @@ fn horn_programs() {
                 &Options::default().with_bias(bias).with_copies(Some(5))
             )
             .0,
-            Verdict::Unknown(Reason::CopyBound(5))
+            Verdict::Unknown(Reason::CopyBound { copies: 5 })
         ));
     }
     assert!(
@@ -1399,7 +1411,7 @@ fn horn_programs() {
                 .with_forward_copies(0)
         )
         .0,
-        Verdict::Unknown(Reason::CopyBound(5))
+        Verdict::Unknown(Reason::CopyBound { copies: 5 })
     ));
 
     let (clauses, marking, goal) = counter(4);
@@ -1414,7 +1426,7 @@ fn horn_programs() {
             &Options::default().with_bias(Bias::Rarer)
         )
         .0,
-        Verdict::Unknown(Reason::CopyBound(3))
+        Verdict::Unknown(Reason::CopyBound { copies: 3 })
     ));
     assert!(matches!(
         run(
@@ -1432,7 +1444,7 @@ fn horn_programs() {
             &Options::default()
         )
         .0,
-        Verdict::Unknown(Reason::CopyBound(3))
+        Verdict::Unknown(Reason::CopyBound { copies: 3 })
     ));
     let mut five = marking.clone();
     five.push("a");

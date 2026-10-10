@@ -128,7 +128,7 @@ fn both<'a>(
                     }
                     Ok(Slice::Exhausted) => return Ok(None),
                     Ok(Slice::Paused) => {}
-                    Err(Reason::MemoryLimit(_) | Reason::IndexLimit) => {
+                    Err(Reason::MemoryLimit { .. } | Reason::IndexLimit) => {
                         behind.give_back();
                     }
                     Err(reason) => return Err(reason),
@@ -375,11 +375,13 @@ impl<'a> Search<'a> {
             self.repeated += 1;
         } else {
             let index = match self.keep(parent, transition, most) {
-                Err(Reason::MemoryLimit(_)) if release() => self.keep(parent, transition, most)?,
+                Err(Reason::MemoryLimit { .. }) if release() => {
+                    self.keep(parent, transition, most)?
+                }
                 kept => kept?,
             };
             let found = match self.expand(index) {
-                Err(Reason::MemoryLimit(_)) if release() => self.expand(index)?,
+                Err(Reason::MemoryLimit { .. }) if release() => self.expand(index)?,
                 expanded => expanded?,
             };
             if let Some(t) = found {
@@ -456,7 +458,9 @@ impl<'a> Search<'a> {
                 .checked_mul(size_of::<Entry>())
                 .is_some_and(|bytes| self.charged.account().fits(bytes));
             if !fits {
-                return Err(Reason::MemoryLimit(self.charged.account().limit()));
+                return Err(Reason::MemoryLimit {
+                    limit_bytes: self.charged.account().limit(),
+                });
             }
             self.frontier.reserve_exact(more);
         }
@@ -582,7 +586,9 @@ impl<'a> Search<'a> {
             || !room(&mut self.hashes, 1, &mut self.charged)
             || !room(&mut self.parents, 1, &mut self.charged)
         {
-            return Err(Reason::MemoryLimit(self.charged.account().limit()));
+            return Err(Reason::MemoryLimit {
+                limit_bytes: self.charged.account().limit(),
+            });
         }
         let hash = self.hash();
         self.kept += 1;

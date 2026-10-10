@@ -553,7 +553,7 @@ mod tests {
                 Some(true)
             }
             Verdict::Unprovable(_) => Some(false),
-            Verdict::Unknown(Reason::CopyBound(_)) => None,
+            Verdict::Unknown(Reason::CopyBound { .. }) => None,
             Verdict::Unknown(reason) => panic!("{input:?}: {reason}"),
         }
     }
@@ -734,7 +734,10 @@ mod tests {
             let outcome =
                 prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false).unwrap();
             assert!(
-                matches!(outcome.verdict, Verdict::Unknown(Reason::RecursionLimit)),
+                matches!(
+                    outcome.verdict,
+                    Verdict::Unknown(Reason::RecursionLimit { .. })
+                ),
                 "{:?} on {jobs} threads",
                 outcome.verdict
             );

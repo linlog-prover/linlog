@@ -244,8 +244,8 @@ same test file:
   crate's version; the command's lock and README's test read it as `…`),
   `verdict` (`proved`, `unprovable`, `unknown`), `checked` for `proved`
   (`Outcome::checked`), `reason` for `unknown` (tagged by `kind`:
-  `stopped`, `recursion_limit`, `copy_bound {copies}`, `memory_limit
-  {limit_bytes}`, `index_limit`), `fragment`, `mode`, `engine`,
+  `stopped`, `recursion_limit {depth}`, `copy_bound {copies}`,
+  `memory_limit {limit_bytes}`, `index_limit`), `fragment`, `mode`, `engine`,
   `statistics`, and for `proved` the proof's own `sequent`, `nodes` and
   `goal` keys (`Proof::keys`, no `version` and no `mode` of their own:
   the outcome's are the proof's), flattened, so that the whole outcome

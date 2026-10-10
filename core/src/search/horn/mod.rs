@@ -89,7 +89,7 @@ impl Decide for Horn {
         };
         // A search that ran out of room has given its memory back: the
         // state equation may still refute, and has the rest of the time.
-        if let Err(Reason::MemoryLimit(_) | Reason::IndexLimit) = found
+        if let Err(Reason::MemoryLimit { .. } | Reason::IndexLimit) = found
             && let Ok(true) = equation.finish(&program, stop)
         {
             found = Ok(None);

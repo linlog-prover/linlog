@@ -666,9 +666,9 @@ fn tail(args: &OneArgs) -> String {
         Verdict::Unknown(reason) => {
             let reason = match reason {
                 Reason::Stopped => "timeout",
-                Reason::CopyBound(_) => "copy_bound",
-                Reason::RecursionLimit => "recursion_limit",
-                Reason::MemoryLimit(_) => "memory_limit",
+                Reason::CopyBound { .. } => "copy_bound",
+                Reason::RecursionLimit { .. } => "recursion_limit",
+                Reason::MemoryLimit { .. } => "memory_limit",
                 Reason::IndexLimit => "index_limit",
                 _ => "other",
             };

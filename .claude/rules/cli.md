@@ -349,8 +349,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   joined, before anything else is written. Nothing is written into a
   pipe or a file.
 - **What "unknown" says** (`unknown`, shared by `verdict_line` and the
-  session's `verdict`, with `Ended`: the command's `Stop`, the time the
-  search took and the recursion limit): for every `Reason` the bound or
+  session's `verdict`, with `Ended`: the command's `Stop` and the time the
+  search took; the recursion limit is the reason's `depth`): for every `Reason` the bound or
   limit with its value, after how long (except at the time limit, which
   says it), at which copy bound where the engine deepened one (the
   fragment has exponentials, the engine is `focus` or `two-sided`), and

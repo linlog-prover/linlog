@@ -96,7 +96,9 @@ pub(super) fn build(
         .and_then(|bytes| bytes.checked_add(clauses.len() * per_firing))
         .filter(|&bytes| account.fits(bytes));
     let Some(bytes) = bytes else {
-        return Err(Reason::MemoryLimit(account.limit()));
+        return Err(Reason::MemoryLimit {
+            limit_bytes: account.limit(),
+        });
     };
     charged.charge(bytes);
     let (pairs, starts, left) = replay(forest, program, &clauses, nodes as usize);

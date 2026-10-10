@@ -55,7 +55,10 @@ enum Why {
     /// The stop condition fired.
     Stopped,
     /// The recursion limit was reached.
-    RecursionLimit,
+    RecursionLimit {
+        /// The depth the limits allowed.
+        depth: u32,
+    },
     /// Every level up to this copy bound hit it.
     CopyBound {
         /// The bound.
@@ -75,9 +78,9 @@ impl From<Reason> for Why {
     fn from(r: Reason) -> Self {
         match r {
             Reason::Stopped => Why::Stopped,
-            Reason::RecursionLimit => Why::RecursionLimit,
-            Reason::CopyBound(copies) => Why::CopyBound { copies },
-            Reason::MemoryLimit(limit_bytes) => Why::MemoryLimit { limit_bytes },
+            Reason::RecursionLimit { depth } => Why::RecursionLimit { depth },
+            Reason::CopyBound { copies } => Why::CopyBound { copies },
+            Reason::MemoryLimit { limit_bytes } => Why::MemoryLimit { limit_bytes },
             Reason::IndexLimit => Why::IndexLimit,
         }
     }
@@ -88,9 +91,9 @@ impl From<Why> for Reason {
     fn from(w: Why) -> Self {
         match w {
             Why::Stopped => Reason::Stopped,
-            Why::RecursionLimit => Reason::RecursionLimit,
-            Why::CopyBound { copies } => Reason::CopyBound(copies),
-            Why::MemoryLimit { limit_bytes } => Reason::MemoryLimit(limit_bytes),
+            Why::RecursionLimit { depth } => Reason::RecursionLimit { depth },
+            Why::CopyBound { copies } => Reason::CopyBound { copies },
+            Why::MemoryLimit { limit_bytes } => Reason::MemoryLimit { limit_bytes },
             Why::IndexLimit => Reason::IndexLimit,
         }
     }
@@ -560,9 +563,11 @@ mod tests {
     fn reasons_read_back() {
         for reason in [
             Reason::Stopped,
-            Reason::RecursionLimit,
-            Reason::CopyBound(3),
-            Reason::MemoryLimit(1 << 30),
+            Reason::RecursionLimit { depth: 2048 },
+            Reason::CopyBound { copies: 3 },
+            Reason::MemoryLimit {
+                limit_bytes: 1 << 30,
+            },
             Reason::IndexLimit,
         ] {
             let json = serde_json::to_string(&reason).unwrap();
@@ -573,7 +578,7 @@ mod tests {
             );
         }
         assert_eq!(
-            serde_json::to_string(&Reason::CopyBound(3)).unwrap(),
+            serde_json::to_string(&Reason::CopyBound { copies: 3 }).unwrap(),
             r#"{"kind":"copy_bound","copies":3}"#
         );
         let unknown = serde_json::from_str::<Reason>(r#"{"kind":"tired"}"#);
