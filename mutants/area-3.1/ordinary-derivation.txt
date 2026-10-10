@@ -1,0 +1,18 @@
+core/src/ordinary/derivation.rs:237:9: replace Inference::left -> &[NodeId] with Vec::leak(Vec::new())
+core/src/ordinary/derivation.rs:242:9: replace Inference::right -> &[NodeId] with Vec::leak(Vec::new())
+core/src/ordinary/derivation.rs:253:9: replace Inference::principal -> Option<(Side, usize)> with None
+core/src/ordinary/derivation.rs:258:9: replace Inference::premises -> &[InfId] with Vec::leak(Vec::new())
+core/src/ordinary/derivation.rs:303:9: replace Derivation::inferences -> &[Inference] with Vec::leak(Vec::new())
+core/src/ordinary/derivation.rs:339:45: replace > with >= in Derivation::check
+core/src/ordinary/derivation.rs:364:61: replace + with * in Derivation::check
+core/src/ordinary/derivation.rs:513:47: replace match guard self.logic != Logic::Minimal with true in Derivation::check_one
+core/src/ordinary/derivation.rs:514:32: replace match guard self.logic == Logic::Minimal with true in Derivation::check_one
+core/src/ordinary/derivation.rs:650:9: replace <impl Drawn for Derivation>::positions -> Vec<usize> with vec![]
+core/src/ordinary/derivation.rs:650:9: replace <impl Drawn for Derivation>::positions -> Vec<usize> with vec![0]
+core/src/ordinary/derivation.rs:650:9: replace <impl Drawn for Derivation>::positions -> Vec<usize> with vec![1]
+core/src/ordinary/derivation.rs:651:34: replace + with - in <impl Drawn for Derivation>::positions
+core/src/ordinary/derivation.rs:651:34: replace + with * in <impl Drawn for Derivation>::positions
+core/src/ordinary/derivation.rs:668:16: replace <= with > in same
+core/src/ordinary/derivation.rs:669:77: replace == with != in same
+core/src/ordinary/derivation.rs:834:64: replace + with * in Image::read_back
+core/src/ordinary/derivation.rs:983:36: replace == with != in push

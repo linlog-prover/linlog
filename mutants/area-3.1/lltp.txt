@@ -1,0 +1,3 @@
+core/src/lltp.rs:110:21: replace += with *= in read
+core/src/lltp.rs:200:33: replace - with / in Clauses::located
+core/src/lltp.rs:250:56: replace + with - in clauses

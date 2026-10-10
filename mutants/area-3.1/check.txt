@@ -1,0 +1,18 @@
+core/src/proofs/check.rs:1046:30: replace >= with < in Pass<'a, 's, O>::run
+core/src/proofs/check.rs:1051:28: replace + with * in Pass<'a, 's, O>::run
+core/src/proofs/check.rs:1052:39: replace - with + in Pass<'a, 's, O>::run
+core/src/proofs/check.rs:1076:41: replace > with >= in Pass<'a, 's, O>::run
+core/src/proofs/check.rs:1257:26: replace > with < in Pass<'a, 's, O>::unite
+core/src/proofs/check.rs:1257:26: replace > with == in Pass<'a, 's, O>::unite
+core/src/proofs/check.rs:1257:26: replace > with >= in Pass<'a, 's, O>::unite
+core/src/proofs/check.rs:208:31: replace > with < in Bag::add
+core/src/proofs/check.rs:208:31: replace > with == in Bag::add
+core/src/proofs/check.rs:208:31: replace > with >= in Bag::add
+core/src/proofs/check.rs:222:31: replace > with < in Bag::unite
+core/src/proofs/check.rs:222:31: replace > with == in Bag::unite
+core/src/proofs/check.rs:222:31: replace > with >= in Bag::unite
+core/src/proofs/check.rs:227:18: replace > with >= in Bag::unite
+core/src/proofs/check.rs:299:19: replace + with - in State::bytes
+core/src/proofs/check.rs:387:37: replace && with || in Dyadic::write
+core/src/proofs/check.rs:897:9: replace Observer::weight -> u32 with 0
+core/src/proofs/check.rs:897:9: replace Observer::weight -> u32 with 1

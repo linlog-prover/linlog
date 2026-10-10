@@ -1,0 +1,18 @@
+core/src/mist.rs:182:53: replace + with * in read
+core/src/mist.rs:193:23: replace > with == in read
+core/src/mist.rs:193:23: replace > with >= in read
+core/src/mist.rs:236:14: replace > with >= in read
+core/src/mist.rs:374:31: replace > with >= in merged
+core/src/mist.rs:409:20: replace += with *= in tokens
+core/src/mist.rs:441:21: replace += with *= in Reader<'a>::skip_lines
+core/src/mist.rs:502:16: replace += with *= in Reader<'a>::comma_or_line
+core/src/mist.rs:509:13: delete match arm Some(Token::Word(_)) in Reader<'a>::comma_or_line
+core/src/mist.rs:539:25: replace += with -= in Reader<'a>::rule
+core/src/mist.rs:539:25: replace += with *= in Reader<'a>::rule
+core/src/mist.rs:555:35: replace * with / in Reader<'a>::rule
+core/src/mist.rs:573:17: replace < with > in Reader<'a>::rule
+core/src/mist.rs:581:34: replace match guard y == x with false in Reader<'a>::rule
+core/src/mist.rs:581:36: replace == with != in Reader<'a>::rule
+core/src/mist.rs:588:34: replace match guard y == x with false in Reader<'a>::rule
+core/src/mist.rs:588:36: replace == with != in Reader<'a>::rule
+core/src/mist.rs:601:22: replace > with >= in Reader<'a>::rule

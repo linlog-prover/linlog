@@ -1,0 +1,4 @@
+core/src/ordinary/parse.rs:223:58: replace > with < in Parser<'a>::formula
+core/src/ordinary/parse.rs:223:58: replace > with == in Parser<'a>::formula
+core/src/ordinary/parse.rs:223:58: replace > with >= in Parser<'a>::formula
+core/src/ordinary/parse.rs:225:44: replace == with != in Parser<'a>::formula

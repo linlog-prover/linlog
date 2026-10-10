@@ -1,0 +1,12 @@
+core/src/search/mod.rs:1029:9: replace <impl From<u32> for Cadence>::from -> Self with Default::default()
+core/src/search/mod.rs:109:5: replace set_up_stopped -> bool with false
+core/src/search/mod.rs:1228:43: replace << with >>
+core/src/search/mod.rs:1327:16: delete field check from struct Self expression in Options::with_check
+core/src/search/mod.rs:1513:20: replace += with -= in Statistics::add
+core/src/search/mod.rs:1515:20: replace += with *= in Statistics::add
+core/src/search/mod.rs:1516:20: replace += with *= in Statistics::add
+core/src/search/mod.rs:338:33: replace && with || in prove_goal
+core/src/search/mod.rs:686:13: replace && with || in few_equal_literals
+core/src/search/mod.rs:811:9: delete ! in Engine::parallel
+core/src/search/mod.rs:811:9: replace Engine::parallel -> bool with false
+core/src/search/mod.rs:811:9: replace Engine::parallel -> bool with true

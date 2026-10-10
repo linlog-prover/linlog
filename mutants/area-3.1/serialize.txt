@@ -1,0 +1,6 @@
+core/src/serialize/errors.rs:247:5: replace vertices -> Vec<u32> with vec![]
+core/src/serialize/errors.rs:247:5: replace vertices -> Vec<u32> with vec![0]
+core/src/serialize/errors.rs:247:5: replace vertices -> Vec<u32> with vec![1]
+core/src/serialize/mod.rs:68:34: replace > with >= in exact::deserialize
+core/src/serialize/search.rs:298:33: replace match guard word == "auto" with true in AutoOrNumber::number
+core/src/serialize/sequents.rs:141:40: replace > with >= in Sequent::within
