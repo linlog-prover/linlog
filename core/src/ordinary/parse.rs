@@ -516,6 +516,16 @@ mod tests {
                 "{bad:?}"
             );
         }
+        // Inside a parenthesis only a connective or its end can follow;
+        // outside, in TPTP, the end.
+        let Err(Error::Parse(e)) = "(a".parse::<Sequent>() else {
+            panic!("(a");
+        };
+        assert_eq!(e.expected, ["a connective", "`)`"]);
+        let Err(Error::Parse(e)) = read_tptp("fof(c, conjecture, a b).", &Limits::default()) else {
+            panic!("a b");
+        };
+        assert_eq!(e.expected, ["a connective", "the end"]);
     }
 
     /// TPTP's connectives, its constants, the clauses' roles and the

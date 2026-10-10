@@ -221,6 +221,9 @@ fn error_places_and_expectations() {
         (e.found, e.expected),
         (None, &["a connective", "`,`", "`|-`"][..])
     );
+    // Inside a parenthesis only a connective or its end can follow.
+    let e = error("|- (A * B");
+    assert_eq!((e.found, e.expected), (None, &["a connective", "`)`"][..]));
     // A word reserved for the quantifiers names no atom.
     let e = error("exists |- é");
     assert_eq!(

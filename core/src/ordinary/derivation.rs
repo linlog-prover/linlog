@@ -1073,6 +1073,11 @@ mod tests {
         let width = tree.lines().map(|l| l.chars().count()).max();
         let size = derivation.text_size(&crate::proofs::TextOptions::default());
         assert_eq!(Some(size), width.map(|w| (w, tree.lines().count())));
+        let root = derivation.inferences().last().unwrap();
+        assert_eq!(root.rule(), Rule::ImpliesRight);
+        assert_eq!((root.left().len(), root.right().len()), (2, 1));
+        assert_eq!(root.principal(), Some((Side::Right, 0)));
+        assert_eq!(root.premises(), [InfId::new(4)]);
         let mut steps = String::new();
         derivation.write_steps(&mut steps, |_| false).unwrap();
         assert_eq!(steps.lines().count(), 6);
@@ -1398,6 +1403,8 @@ mod tests {
             derivation.check(&one, |_| false),
             Err(Error::Refused(Refusal::Work { limit: 1 }))
         );
+        let enough = unbounded.with_work(Some(derivation.inferences.len() as u64));
+        assert_eq!(derivation.check(&enough, |_| false), Ok(()));
         assert_eq!(
             derivation.check(&unbounded, |_| true),
             Err(Error::Refused(Refusal::Stopped {
