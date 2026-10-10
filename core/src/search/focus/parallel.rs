@@ -36,7 +36,7 @@ use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
-use crate::search::parallel::{Flags, Lent, Runtime};
+use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime};
 use crate::search::{Options, Reason, Statistics, Stop, set_up_stopped};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -402,13 +402,16 @@ impl<'a> Engine<'a> {
                         Self::lock(collected).skip(cancel);
                         return;
                     }
+                    let _cancel = RaiseOnPanic(cancel);
                     let mut worker = spawn.worker(cancel);
                     let result = worker.run_alternative(theta, gamma, alternative, budget);
                     Self::lock(collected).take(result, &worker, cancel);
                 });
             }
             // The first alternative on this thread, on a worker of its
-            // own so that it polls the choice's flag like the others.
+            // own so that it polls the choice's flag like the others; a
+            // panic in any alternative cancels the rest.
+            let _cancel = RaiseOnPanic(&cancel);
             let mut worker = spawn.worker(&cancel);
             let result = worker.run_alternative(theta, gamma, first, budget);
             Self::lock(&collected).take(result, &worker, &cancel);
@@ -496,6 +499,8 @@ impl<'a> Engine<'a> {
         // starts then; a right one that gives up leaves the left to run,
         // since its failure still decides the rule, as on one thread.
         let search = |worker: &mut Engine<'_>, sub: OccId, left: bool| {
+            // A premise that panics cancels the other.
+            let _cancel = RaiseOnPanic(&cancel);
             let result = worker.premise(theta, gamma, list, sub, budget);
             let result = worker.exported(result);
             if matches!(result, Ok(Found::Failed(_))) || (left && result.is_err()) {
@@ -766,6 +771,36 @@ mod tests {
                 outcome.statistics.nodes
             );
         }
+    }
+
+    /// A stop condition that panics ends the search on the pool at once:
+    /// the panic raises the root flag, so the workers stop at their next
+    /// poll and the scope that waits for them lets the panic go on, where
+    /// they ran a search of minutes to its end before.
+    #[test]
+    fn a_panicking_stop_ends_every_worker() {
+        let (sender, ended) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let sequent = crate::families::mix(11);
+            let options = Options::default().with_jobs(2);
+            let mut polls = 0;
+            let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                prove_within(
+                    &sequent,
+                    Mode::CLASSICAL.with_mix(),
+                    &options,
+                    &crate::Limits::default(),
+                    |_| {
+                        polls += 1;
+                        assert!(polls < 20, "the stop condition panics");
+                        false
+                    },
+                )
+            }));
+            sender.send(panicked.is_err()).unwrap();
+        });
+        let panicked = ended.recv_timeout(std::time::Duration::from_secs(20));
+        assert_eq!(panicked, Ok(true));
     }
 
     /// An alternative that a choice skips because an ancestor's flag was

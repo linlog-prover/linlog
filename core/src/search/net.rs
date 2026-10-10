@@ -865,7 +865,7 @@ pub(crate) mod parallel {
     use crate::limits::Limits;
     use crate::nets::{ProofStructure, VertexId};
     use crate::occurrences::Forest;
-    use crate::search::parallel::Runtime;
+    use crate::search::parallel::{RaiseOnPanic, Runtime};
     use crate::search::{Answer, Options, Reason, Statistics, Stop};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -950,6 +950,8 @@ pub(crate) mod parallel {
                     let (cubes, next, found, collected, flags) =
                         (&cubes, &next, &found, &collected, &flags);
                     scope.spawn(move |_| {
+                        // A worker that panics stops the others.
+                        let _found = RaiseOnPanic(found);
                         let mut engine =
                             Engine::new(forest, mode, options, Stop::Flags(flags.child(found)));
                         loop {

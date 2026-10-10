@@ -244,6 +244,8 @@ impl Runtime {
                 // which it does only on a result.
                 let _ = sender.send(result);
             });
+            // The caller's stop may panic: the work then stops too.
+            let _raise = RaiseOnPanic(flag);
             loop {
                 match receiver.recv_timeout(POLL) {
                     Ok(result) => return Some(result),
@@ -259,6 +261,21 @@ impl Runtime {
             }
         });
         result.expect("a task that ends without a result panicked, which the scope propagates")
+    }
+}
+
+/// Raises a flag when a panic drops it, so that the tasks the flag reaches
+/// stop at their next poll: a scope runs every task it spawned to its end
+/// before it lets a panic go on, which without the flag is the whole
+/// search below the panic.
+pub(crate) struct RaiseOnPanic<'a>(pub(crate) &'a AtomicBool);
+
+impl Drop for RaiseOnPanic<'_> {
+    /// Raises the flag if the thread is panicking.
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            self.0.store(true, Ordering::Relaxed);
+        }
     }
 }
 
@@ -290,6 +307,7 @@ pub(crate) fn race<T: Send>(
             second.spawn(move |_| {
                 let _ = other.send((1, work.1(Flags::root(&flags[1]))));
             });
+            let _raise = [RaiseOnPanic(&flags[0]), RaiseOnPanic(&flags[1])];
             while results.0.is_none() || results.1.is_none() {
                 match receiver.recv_timeout(POLL) {
                     Ok((i, result)) => {

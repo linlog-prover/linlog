@@ -77,6 +77,15 @@ has no or-choices worth sharing out). What the code relies on:
   `Stop::Flags`; the sequential engines poll the closure through
   `Stop::Closure`. rayon tasks cannot be killed, so a place that stops
   polling is a place cancellation does not reach.
+- **A panic stops the rest of the search** (`RaiseOnPanic`, a guard
+  that raises its flag when a panic drops it): the driver's and the
+  race's loops, which call the caller's stop, raise the root flags; a
+  choice's tasks and a `&` premise raise the choice's `cancel`; a net
+  worker raises `found`. rayon's scope runs every task it spawned to its
+  end before it lets a panic go on, so without the guard a panicking
+  stop condition waited for the whole search (`mix(11)` on two threads,
+  minutes; `a_panicking_stop_ends_every_worker`) and a panicking
+  premise for its siblings' searches.
 - **The split searches poll too** (`poll_splits`, every
   `SPLITS_PER_POLL` steps, through the same `Stop`): before, the poll
   there was tied to `Statistics::splits` being a multiple of 4 096, and a
