@@ -772,6 +772,30 @@ pub(crate) struct Task<'a> {
     pub(crate) roots: bool,
 }
 
+/// What a search that keeps its proofs in an arena ended with: the node
+/// proving the goal, `None` when the search was exhaustive, or the reason
+/// it stopped; the arena; and the counters.
+pub(crate) struct Finished {
+    /// The node proving the goal, `None` for an unprovable goal, or why
+    /// the search stopped.
+    pub(crate) result: Result<Option<NodeId>, Reason>,
+    /// The arena the node lives in.
+    pub(crate) nodes: Vec<Node>,
+    /// The counters.
+    pub(crate) statistics: Statistics,
+}
+
+impl Finished {
+    /// A search that gave up for `reason` before it found anything.
+    pub(crate) fn gave_up(reason: Reason) -> Self {
+        Self {
+            result: Err(reason),
+            nodes: Vec::new(),
+            statistics: Statistics::default(),
+        }
+    }
+}
+
 /// What an engine's search ended with: a proof of the goal, `None` when
 /// the search was exhaustive, or the reason it stopped; its counters; and
 /// the proof net the net engine read its proof off.
@@ -793,7 +817,11 @@ impl Answer {
     /// the result as a node, the arena and the counters.
     pub(crate) fn of_arena(
         forest: &Forest,
-        (result, nodes, statistics): (Result<Option<NodeId>, Reason>, Vec<Node>, Statistics),
+        Finished {
+            result,
+            nodes,
+            statistics,
+        }: Finished,
     ) -> Self {
         let result = result.map(|root| {
             root.map(|root| {

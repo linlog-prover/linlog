@@ -29,7 +29,7 @@ use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
 use super::schedule::{Plan, merged};
 use super::split::Join;
-use super::{Alternative, Cuts, Found, Problem, Run, Searched, Step};
+use super::{Alternative, Cuts, Found, Problem, Run, Step};
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
@@ -37,7 +37,7 @@ use crate::occurrences::{Forest, OccId, OccSet, Reading};
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, lock, record, taken};
-use crate::search::{Options, Reason, Statistics, Stop, Work, set_up_stopped};
+use crate::search::{Finished, Options, Reason, Statistics, Stop, Work, set_up_stopped};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -72,10 +72,10 @@ pub(crate) fn search_goal(
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> Result<(Searched, Vec<Node>, Statistics), Error> {
+) -> Result<Finished, Error> {
     // On a large forest the passes of the set-up are followed by a poll;
     // from the pool's start the driver polls.
-    let stopped = || Ok((Err(Reason::Stopped), Vec::new(), Statistics::default()));
+    let stopped = || Ok(Finished::gave_up(Reason::Stopped));
     let classes = Classes::new(forest, reading);
     if set_up_stopped(forest, stop) {
         return stopped();
@@ -94,10 +94,13 @@ pub(crate) fn search_goal(
     };
     let Some(second) = second else {
         let runtime = Lent::take(options.pool.as_ref(), options.threads(), stack)?;
-        let (result, nodes, statistics) =
-            runtime.drive(stop, work, |flags| search(first, &runtime, account, flags));
-        let result = result.map_err(|r| super::reason(r, options, limits));
-        return Ok((result, nodes, statistics));
+        let finished = runtime.drive(stop, work, |flags| search(first, &runtime, account, flags));
+        return Ok(Finished {
+            result: finished
+                .result
+                .map_err(|r| super::reason(r, options, limits)),
+            ..finished
+        });
     };
     // Two pools, so that no thread of one search is ever busy with a task
     // of the other when its own search has decided.
@@ -116,7 +119,7 @@ pub(crate) fn search_goal(
             |flags: Flags<'_>| search(first, &runtimes.0, &accounts.0, flags),
             |flags: Flags<'_>| search(second, &runtimes.1, &accounts.1, flags),
         ),
-        |(result, _, _)| result.is_ok(),
+        |finished: &Finished| finished.result.is_ok(),
     );
     Ok(merged(forward, backward, options, limits))
 }
@@ -140,11 +143,11 @@ impl Plan {
         account: &Account,
         runtime: &Runtime,
         flags: Flags<'_>,
-    ) -> (Searched, Vec<Node>, Statistics) {
+    ) -> Finished {
         // The longest pass of the set-up reads the flags too.
         let counts = match Counts::new_until(forest, self.bias, account, &mut |_| flags.raised()) {
             Ok(counts) => counts,
-            Err(reason) => return (Err(reason), Vec::new(), Statistics::default()),
+            Err(reason) => return Finished::gave_up(reason),
         };
         let memo = Shared::new(options.memo_entries());
         let arena = Mutex::new(Vec::new());
@@ -172,8 +175,11 @@ impl Plan {
                 .and_then(|root| root.map(|root| engine.nodes.keep(0, root)).transpose());
             (result, engine.statistics())
         };
-        let nodes = taken(arena);
-        (result, nodes, statistics)
+        Finished {
+            result,
+            nodes: taken(arena),
+            statistics,
+        }
     }
 }
 

@@ -11,14 +11,13 @@ use super::arena::{Arena, Kept};
 use super::classes::Classes;
 use super::counts::Counts;
 use super::memo::{Memo, Table};
-use super::{Problem, Run, Searched, reason};
+use super::{Problem, Run, reason};
 use crate::fragment::{Fragment, Mode};
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Reading};
-use crate::proofs::Node;
 use crate::search::Bias;
 use crate::search::memory::Account;
-use crate::search::{Options, Reason, Statistics, Stop};
+use crate::search::{Finished, Options, Reason, Statistics, Stop};
 use crate::sequents::Kind;
 #[cfg(feature = "parallel")]
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -43,7 +42,7 @@ pub(super) fn turns(
     limits: &Limits,
     searches: [(Plan, &Counts, &Account); 2],
     stop: &mut dyn FnMut(u64) -> bool,
-) -> (Searched, Vec<Node>, Statistics) {
+) -> Finished {
     let mut ended: [Option<Reason>; 2] = [None, None];
     let mut statistics = Statistics::default();
     // The forward search's level and the backward one's, apart.
@@ -68,7 +67,14 @@ pub(super) fn turns(
             } else {
                 Stop::Turn(&mut *stop, turn.saturating_mul(BACKWARD_SHARE))
             };
-            let (result, nodes, run, over) = rule.search(
+            let (
+                Finished {
+                    result,
+                    nodes,
+                    statistics: run,
+                },
+                over,
+            ) = rule.search(
                 forest,
                 goal,
                 fragment,
@@ -86,18 +92,28 @@ pub(super) fn turns(
             match result {
                 Err(Reason::Stopped) if over => {}
                 Err(Reason::Stopped) => {
-                    return (Err(Reason::Stopped), nodes, leveled(statistics, levels, 1));
+                    return Finished {
+                        result: Err(Reason::Stopped),
+                        nodes,
+                        statistics: leveled(statistics, levels, 1),
+                    };
                 }
                 Err(reason) => ended[i] = Some(reason),
-                decided => return (decided, nodes, leveled(statistics, levels, i)),
+                decided => {
+                    return Finished {
+                        result: decided,
+                        nodes,
+                        statistics: leveled(statistics, levels, i),
+                    };
+                }
             }
         }
         if let [Some(_), Some(backward)] = ended {
-            return (
-                Err(reason(backward, options, limits)),
-                Vec::new(),
-                leveled(statistics, levels, 1),
-            );
+            return Finished {
+                result: Err(reason(backward, options, limits)),
+                nodes: Vec::new(),
+                statistics: leveled(statistics, levels, 1),
+            };
         }
         turn = turn.saturating_mul(TURN_GROWTH);
     }
@@ -149,7 +165,7 @@ impl Plan {
         limits: &Limits,
         account: &'a Account,
         stop: Stop<'a>,
-    ) -> (Searched, Vec<Node>, Statistics, bool) {
+    ) -> (Finished, bool) {
         let problem = Problem::new(
             forest,
             reading,
@@ -176,7 +192,14 @@ impl Plan {
             Kept::Own(nodes) => nodes,
             Kept::Shared(_) => unreachable!("a sequential search owns its arena"),
         };
-        (result, nodes, statistics, over)
+        (
+            Finished {
+                result,
+                nodes,
+                statistics,
+            },
+            over,
+        )
     }
 }
 
@@ -487,7 +510,7 @@ pub(super) fn alternate(
     ]: [(Plan, &Counts, &Account); 2],
     work: &crate::search::Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> Option<(Searched, Vec<Node>, Statistics)> {
+) -> Option<Finished> {
     let baton = Baton::default();
     let (forward, backward) = std::thread::scope(|scope| {
         let baton = &baton;
@@ -497,7 +520,7 @@ pub(super) fn alternate(
             .spawn_scoped(scope, move || {
                 let _ended = Ended(baton, 1);
                 if baton.wait(1) {
-                    return (Err(Reason::Stopped), Vec::new(), Statistics::default());
+                    return Finished::gave_up(Reason::Stopped);
                 }
                 // The caller's stop lives on the calling thread, which asks
                 // it for this search's polls; the work is added here.
@@ -512,7 +535,7 @@ pub(super) fn alternate(
                     work.passed() || baton.halt.load(Ordering::Relaxed) || (passed && baton.pass(1))
                 };
                 let slice = SLICE * BACKWARD_SHARE;
-                let (result, nodes, statistics, _) = second.search(
+                let (finished, _) = second.search(
                     forest,
                     goal,
                     fragment,
@@ -525,10 +548,10 @@ pub(super) fn alternate(
                     Stop::Slice(&mut give_way, slice, slice),
                 );
                 work.add(pending);
-                if result.is_ok() {
+                if finished.result.is_ok() {
                     baton.stop();
                 }
-                (result, nodes, statistics)
+                finished
             })
             .ok()?;
         let _stop = StopOnPanic(baton);
@@ -536,7 +559,7 @@ pub(super) fn alternate(
             let _ended = Ended(baton, 0);
             let mut give_way =
                 |units: u64, passed: bool| stop(units) || (passed && baton.pass_polling(stop));
-            let (result, nodes, statistics, _) = first.search(
+            let (finished, _) = first.search(
                 forest,
                 goal,
                 fragment,
@@ -548,10 +571,10 @@ pub(super) fn alternate(
                 first_account,
                 Stop::Slice(&mut give_way, SLICE, SLICE),
             );
-            if !matches!(result, Err(reason) if reason != Reason::Stopped) {
+            if !matches!(finished.result, Err(reason) if reason != Reason::Stopped) {
                 baton.stop();
             }
-            (result, nodes, statistics)
+            finished
         };
         // The second search runs on alone, or is about to end.
         loop {
@@ -579,34 +602,38 @@ pub(super) fn alternate(
 /// verdict is the caller's; else the second search's reason. The counters
 /// are both searches' together.
 pub(super) fn merged(
-    first: (Searched, Vec<Node>, Statistics),
-    second: (Searched, Vec<Node>, Statistics),
+    first: Finished,
+    second: Finished,
     options: &Options,
     limits: &Limits,
-) -> (Searched, Vec<Node>, Statistics) {
-    let mut statistics = first.2;
+) -> Finished {
+    let mut statistics = first.statistics;
     // The two memos were held at once.
-    statistics.add_run(&second.2);
-    statistics.memo_hits += second.2.memo_hits;
-    statistics.memo_entries += second.2.memo_entries;
+    statistics.add_run(&second.statistics);
+    statistics.memo_hits += second.statistics.memo_hits;
+    statistics.memo_entries += second.statistics.memo_entries;
     // The first is the forward search, the second the backward one; the
     // level under the copy bound is the deciding search's, else the
     // backward one's.
-    statistics.forward_copies = first.2.copies;
-    statistics.copies = if first.0.is_ok() {
-        first.2.copies
+    statistics.forward_copies = first.statistics.copies;
+    statistics.copies = if first.result.is_ok() {
+        first.statistics.copies
     } else {
-        second.2.copies
+        second.statistics.copies
     };
     debug_assert!(
-        !matches!((&first.0, &second.0), (Ok(a), Ok(b)) if a.is_some() != b.is_some()),
+        !matches!((&first.result, &second.result), (Ok(a), Ok(b)) if a.is_some() != b.is_some()),
         "the two searches contradict each other"
     );
-    let (result, nodes) = match (first.0, second.0) {
-        (Ok(root), _) => (Ok(root), first.1),
-        (_, Ok(root)) => (Ok(root), second.1),
+    let (result, nodes) = match (first.result, second.result) {
+        (Ok(root), _) => (Ok(root), first.nodes),
+        (_, Ok(root)) => (Ok(root), second.nodes),
         (Err(Reason::Stopped), _) | (_, Err(Reason::Stopped)) => (Err(Reason::Stopped), Vec::new()),
         (Err(_), Err(reason)) => (Err(super::reason(reason, options, limits)), Vec::new()),
     };
-    (result, nodes, statistics)
+    Finished {
+        result,
+        nodes,
+        statistics,
+    }
 }

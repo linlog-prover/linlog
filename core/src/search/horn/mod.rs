@@ -24,8 +24,8 @@ mod tests;
 
 use super::memory::Account;
 use super::{
-    Answer, Decide, Engine, NotTaken, Options, Reason, Refutation, StateEquation, Statistics, Task,
-    Work,
+    Answer, Decide, Engine, Finished, NotTaken, Options, Reason, Refutation, StateEquation,
+    Statistics, Task, Work,
 };
 use crate::Error;
 use crate::fragment::Fragment;
@@ -89,7 +89,14 @@ impl Decide for Horn {
             // an exhausted search no search ran.
             return Ok(Answer {
                 refutation: Some(counted),
-                ..Answer::of_arena(task.forest, (Ok(None), Vec::new(), Statistics::default()))
+                ..Answer::of_arena(
+                    task.forest,
+                    Finished {
+                        result: Ok(None),
+                        nodes: Vec::new(),
+                        statistics: Statistics::default(),
+                    },
+                )
             });
         }
         let mut program = Program::read(task).expect("the engine admitted the goal");
@@ -130,7 +137,14 @@ impl Decide for Horn {
             Ok(None) => (Ok(None), Vec::new()),
             Err(reason) => (Err(reason), Vec::new()),
         };
-        let mut answer = Answer::of_arena(task.forest, (result, nodes, statistics));
+        let mut answer = Answer::of_arena(
+            task.forest,
+            Finished {
+                result,
+                nodes,
+                statistics,
+            },
+        );
         answer.refutation = equation
             .certificate()
             .map(|weights| program.refutation(weights));

@@ -75,8 +75,8 @@ use self::split::Join;
 use super::Bias;
 use super::memory::{Account, Charged};
 use super::{
-    Answer, Decide, Equation, Options, Reason, Refutation, Statistics, Stop, Task, Unbalanced,
-    Work, set_up_stopped,
+    Answer, Decide, Equation, Finished, Options, Reason, Refutation, Statistics, Stop, Task,
+    Unbalanced, Work, set_up_stopped,
 };
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
@@ -203,15 +203,9 @@ pub(crate) fn search_goal(
     account: &Account,
     work: &Work,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> (Searched, Vec<Node>, Statistics) {
+) -> Finished {
     // On a large forest every pass of the set-up is followed by a poll.
-    let gave_up = |r| {
-        (
-            Err(reason(r, options, limits)),
-            Vec::new(),
-            Statistics::default(),
-        )
-    };
+    let gave_up = |r| Finished::gave_up(reason(r, options, limits));
     let classes = Classes::new(forest, reading);
     if set_up_stopped(forest, stop) {
         return gave_up(Reason::Stopped);
@@ -226,7 +220,7 @@ pub(crate) fn search_goal(
             Ok(counts) => counts,
             Err(reason) => return gave_up(reason),
         };
-        let (result, nodes, statistics, _) = first.search(
+        let (finished, _) = first.search(
             forest,
             goal,
             fragment,
@@ -238,11 +232,10 @@ pub(crate) fn search_goal(
             account,
             Stop::Closure(stop),
         );
-        return (
-            result.map_err(|r| reason(r, options, limits)),
-            nodes,
-            statistics,
-        );
+        return Finished {
+            result: finished.result.map_err(|r| reason(r, options, limits)),
+            ..finished
+        };
     };
     // Each search is charged what it reads, the classes included.
     let accounts = [account.share(2), account.share(2)];
