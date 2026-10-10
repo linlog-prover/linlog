@@ -425,13 +425,13 @@ the inner names and refactorings, the tests and the docs.
 
 | item | state | evidence |
 |---|---|---|
-| a. F93 coverability's `tried`, F128 the Horn refutation kept, F139 a refused check `Unknown`, F117 a pool's panic cancels its siblings | open | |
-| b. H18 the pool's depth per worker, a test at a raised limit on two threads | open | |
-| c. F92 a pool's `&` premises without copying the ancestors | open | |
-| d. `Reason` with named fields and `setting()`; `NotTaken` and `Error::EngineRefused`; `Engine::parallel` exhaustive (F141), `Engine::counters`; F140 no `expect` in the dispatch | open | |
-| e. `Goal` and the front door's stages (8.1), one place a verdict is built | open | |
-| f. `Statistics`: `memo_entries` a `u64` (F102), `add` public, F144 the forward level apart from `copies` | open | |
-| g. the progress stop at every poll site, measured, the shim removed; `Limits::work` and `Reason::WorkLimit`; lock commit (4) with `work` and `forward_copies`; R243's test | open | |
+| a. F93 coverability's `tried`, F128 the Horn refutation kept, F139 a refused check `Unknown`, F117 a pool's panic cancels its siblings | done but F93 (a test, item j) | vkkvvktz F128 (test `counted_refutations_are_handed_back`); onxqtvpq F139 (`Reason::Unchecked`, `WorkLimit`; test `a_refused_check_is_unknown`); mrxutqxo F117 (`RaiseOnPanic`; test `a_panicking_stop_ends_every_worker`, 20 s timeout on the old code); gates passed |
+| b. H18 the pool's depth per worker, a test at a raised limit on two threads | done | slwktolx: a pool's `&` is a level of its forks (or_depth + 1), and a stolen task starts at its thread's depth (`Runtime::waiting`, `depth_here`); the witness aborted before (two threads, limit 3 000) and answers unknown at 3 000, 5 000 and 10 000 on two and four threads; test `a_raised_limit_holds_on_the_pool` (aborts on the old code in release, the flake's build). Changes the search on a pool only: for the panel |
+| c. F92 a pool's `&` premises without copying the ancestors | done | slwktolx (with b): a spawn's branch is at most `LEVELS` + 1 slices; the witness (5 000 nested `&`, two threads, 64 MiB) 24 MB against 823 MB |
+| d. `Reason` with named fields and `setting()`; `NotTaken` and `Error::EngineRefused`; `Engine::parallel` exhaustive (F141), `Engine::counters`; F140 no `expect` in the dispatch | done but `Engine::counters` | tvvvvluq `Reason` (`RecursionLimit { depth }` on the wire, test `reasons_name_their_setting`); ssxwovxw `EngineRefused { engine, because: NotTaken }`, the internal `Pairs` and `Linker`, F141, F140 (`NoEngine`) |
+| e. `Goal` and the front door's stages (8.1), one place a verdict is built | done | mrvtkppt `Goal` (`Copy`, `conclusion`, `new` checking the members, `is_conclusion`), `prove_goal` and `engine_for` on it; nulpvyxn `conclude` |
+| f. `Statistics`: `memo_entries` a `u64` (F102), `add` public, F144 the forward level apart from `copies` | done | tpnlumuk (`u64`, `add` public and the command's and harness's hand merges gone, `add_run` crate-private, test `statistics_add_up`); F144 in syqnnmno (item g) |
+| g. the progress stop at every poll site, measured, the shim removed; `Limits::work` and `Reason::WorkLimit`; lock commit (4) with `work` and `forward_copies`; R243's test | running | txuvownw (`Work`, every poll told its units, `WorkLimit`, test `the_search_counts_its_work`); syqnnmno lock commit (4) (`work`, `forward_copies`, `copies` the decider's level; both locks, README). Open: the target set and the journeys' counts against the parent's |
 | h. `search::race` with one account (F103, F104, F168), the command and the harness its callers | open | |
 | i. names inside (F56, F113) and the refactorings F107 to F121, F126, F132, F133, F135 | open | |
 | j. tests: the Horn engine's (F94 to F97, F124, F125, F127, F129 to F131, F134), F98, F105, F106, F138, F143, F145, F122, F123, H21 | open | |
