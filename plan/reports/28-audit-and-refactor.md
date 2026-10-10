@@ -436,7 +436,7 @@ the inner names and refactorings, the tests and the docs.
 | i. names inside (F56, F113) and the refactorings F107 to F121, F126, F132, F133, F135 | done, some in part (decided below) | zrxrxurw F113 and F56's engine names (`Run`, `Switches`, `Plan`, `Searched`; `Pairs` and `Linker` in ssxwovxw); ysrmnpss F133 (`Reach`, `Cover`, `FORWARD_PER_BACKWARD`); xxpxyrkt F107; mvzqmplu F108 (`Rank`); ptkmmtsy F109 (`prepare`, `SetUp`, `run_kept`: seven `too_many_arguments` gone); F110 by area 3.1's `Schedule` (tuooxrol); rurkzopt F111 in part (`Reason::as_set`, the count refutations in `counts`); lrmnkmvl F112; ymosnlvq F115 (`Forest::list`); nrswyxyn F116 (`lock`, `record`); mrxutqxo F117 (item a); lrynyvqu F118; vonxrkzw F119 (`Finished`); wxzwqtkz F120 in part (the batch's `Queue`); xzkwrqsm F126 in part (`Parents`); mqnqzzyk F132 (`is_head`, `clause_head`, `is_below`); mystyvxw F135 in part (`Program::inputs`, `outputs`); F114 and F121 decided below |
 | j. tests: the Horn engine's (F94 to F97, F124, F125, F127, F129 to F131, F134), F98, F105, F106, F138, F143, F145, F122, F123, H21 | running: the Horn engine's and F122, F123 with agents in workspaces of their own | onxqtvpq and qwukxtlu F98 (`a_refused_check_is_unknown`, `a_rejected_proof_is_an_error`); ymkmoyno F105's additive and net halves (`stops_between_pairs`, the net's failed-test poll) and F106 (the stream answered question by question, the window; the panic in rqnnqtor); kumqpqyx F138; qwukxtlu and tpnlumuk F143 (the refusals, `occurrence_limit`, `Engine::parallel`, the defaults, every refutation's sentence, `statistics_add_up`); wkouswzu F145 (the two ignored timing tests dropped); qromqtpw H21 (each logic's translations against each other and a truth table on 300 generated sequents, written by an agent and reviewed here) |
 | k. docs: F91, F99 to F101, F118, F137, F142, F146 | done | lrynyvqu: F91, F99, F100 (a recursion level), F101, F118 (the private docs' links), F137 (the Horn and additive engines in the front door's docs), F142 (the default bias's measurements under a time limit), F146 (the reference's refutations with exponentials) |
-| l. the panel, the target sets, check rounds (at most three), the fresh-context reviewer, `nix flake check` | running | **The panel** (step 26's three lenses over the area's seven changes of the search, mrxutqxo..xwqpwrwo, the argument read again on Fable 5.1): counterexamples found none (2 812 classical and 674 intuitionistic generated items, 95 634 runs over 23 configurations each, against the committed reference and step 26's second one, and the base tree); the argument and the integers each refuted claim 7 with reproduced witnesses, both fixed in ysoxrlsz with a test each: the work bound ran a whole slice late beside the default bias's second search, and a turn's last poll lost its units (no verdict either way). **The target sets** at the head (rsrlxspt): the focused engine's 265 rows the same verdicts as `head-lto.csv` and the 225 decided rows equal in `nodes`, `splits`, `memo_hits` and `memo_entries`, 116.8 s of CPU against 118.5 s; the net engine's 64 rows equal to `net-after-retype.csv` in verdict, `links` and `tests`, 213.9 s against 238.2 s (the LTO build). The families at 5 s with the harness's new columns: 123 runs, no mismatch |
+| l. the panel, the target sets, check rounds (at most three), the fresh-context reviewer, `nix flake check` | running | **The panel** (step 26's three lenses over the area's seven changes of the search, mrxutqxo..xwqpwrwo, the argument read again on Fable 5.1): counterexamples found none (2 812 classical and 674 intuitionistic generated items, 95 634 runs over 23 configurations each, against the committed reference and step 26's second one, and the base tree); the argument and the integers each refuted claim 7 with reproduced witnesses, both fixed in ysoxrlsz with a test each: the work bound ran a whole slice late beside the default bias's second search, and a turn's last poll lost its units (no verdict either way). **The target sets** at the head (rsrlxspt): the focused engine's 265 rows the same verdicts as `head-lto.csv` and the 225 decided rows equal in `nodes`, `splits`, `memo_hits` and `memo_entries`, 116.8 s of CPU against 118.5 s; the net engine's 64 rows equal to `net-after-retype.csv` in verdict, `links` and `tests`, 213.9 s against 238.2 s (the LTO build). The families at 5 s with the harness's new columns: 123 runs, no mismatch. **Round 1** (eight lenses one effort below the audit's, over the area's 62 findings and the diff xxsymnro..kuxlqyuq, with witness runs; every H finding's witness rerun): 37 fixed, 20 partly, 5 not (F122 and F123, with an agent then; F114 and F121, the deferrals, which the lens accepts; F134, then with the Horn tests' author); 18 new, all should-fix, no must-fix. Fixed since: the docs of the Horn engine's counters, `RowEntry` (toprrtwl); every thread's work through one `Counted`, and the caller told the poll that passes the bound (orkmzlry, `the_search_counts_its_work` extended: 616 units told against 632 counted before); the front door's docs (Outcome's reasons, Options, `prove_within`, `conclude` with the check off, `engine_for`, the `copies` counter) and `Statistics: Hash` (nrsqrszl); `NotTaken`'s JSON form documented and pinned, `ALL` against every engine and bias, `counters_are_fields`' dedup (xukokyku); the lock and taken helpers in one place, the literal lists, the plans' names, a worker's poll comment (nlklyupr); the forcing side as `Branch`, every arc through its transition, `Parents::room`, the frontier's `Successor` (svwmmxvp); `Engine` in one impl block (uolssulw); the batch within one sequent at its whole bound (wnqvqlpx, F104); the focused engines' fragment check (txktlzuu, F140). Decided below: F113's `Answer`, F119's flag, F132's walk, `held_bytes`, `Decide::decide`'s stop, F122 and F123; to area 3.4: the command's `--stats` labels and F141's half. The Horn and batch tests the round asked for (F106's early drop, F124's retry, F125's queue, F127's pivots, F134's counters) went to the Horn tests' author. **Gates**: the 28 commits rewritten by the fold of the additive path's last pairs into txuvownw run again in two streams (cores 2 to 5 and 12 to 15, workspaces `../linlog-gate` and `../linlog-gate2`); the pool worker's lost units (xwqpwrwo, fixed in wtqxszqu) failed `forced_links_are_made_once` on the six commits between, so wtqxszqu was folded into xwqpwrwo, the commits after it keeping their trees and their gates |
 
 #### Area 3.2: decided unattended
 
@@ -525,6 +525,44 @@ asked on 2026-10-10.
   additive path's did, from every pair to every 1 024, so a stop at its
   first poll now sees 1 024 pairs where it saw one; no counter of a
   decided run moved.
+- **No fuzz run for area 3.2**: the area changed no reader a fuzz
+  target covers; what it changed in `serialize` is the written form of
+  `Reason`, `Statistics` and `NotTaken` and their derived serde readers,
+  pinned by round trips, and the command's JSON Lines reader (H26) is the
+  command's, area 3.4's to fuzz if any.
+- **Kept from round 1, each read again**: F114 and F121 as above
+  (the lens accepts them as deferrals); F113's `Answer`, which the design
+  names twice, crate-private for an engine's answer and public in
+  `batch`, the reference prover's being test-only; F132's
+  `Reader::clause`, which keeps its own walk because it gives the places
+  out in the order it meets the literals, and a second walk would number
+  them otherwise and change the search's order; F119's flag beside a
+  turn's `Finished`, a plain `bool` that one caller reads.
+- **Moved to area 3.4, the command's**: the command's `--stats` lines
+  read through `Engine::counters` (round 1), and F141's half in the
+  command and the harness (their engine arguments from `Engine::ALL`).
+- **`Decide::decide` takes `FnMut(u64) -> bool`** (departs from the
+  design): the design's engines took the caller's `FnMut(Progress) ->
+  bool` inward; an engine passes its units and the front door builds the
+  `Progress` with the search's count across threads, which a worker
+  could not, and the `Stop` that slices the default bias's searches
+  needs the units alone. The public calls take `FnMut(Progress)` as the
+  design has them.
+- **A search tells its stop `held_bytes` 0** (departs from the design):
+  the design has `Progress::held_bytes` the bytes the call holds; a
+  search's are spread over the parts and shares of its account (the
+  default bias's halves count in no parent), so the poll would read a
+  number that is not the search's, and summing the shares at every poll
+  costs the hot path; the limits' doc says so, and a front end that
+  wants the bytes reads its own allocator.
+- **F122 and F123 are not taken into the line** (`plan/later.md`, the
+  focused engine's follow-ups, has the agent's measurements): F122's
+  generator gives the intuitionistic samples real contractions but one
+  of its samples doubles the debug suite (158 s in the classical engine,
+  undecided within the copy bound), and F123's transposed mutants reach
+  a search but one runs for over twenty minutes under Mix; both need the
+  engine's time on those sequents looked at first, which is no fix of
+  this area's, and neither found a wrong verdict.
 - **The panel's second reference is step 26's**, written then by a
   fresh agent from the calculus alone and kept in that session's
   scratchpad, not one written anew: this area changed how the search is
@@ -1055,3 +1093,13 @@ asked on 2026-10-10.
   area.
 - Benchmarks are allowed, with one line to `planning` when a run starts
   and when it ends; "pause" or "hold" stops runs gracefully.
+
+### Message from `planning` to `step-28e` (2026-10-10, afternoon)
+
+- The mutation run (cores 6 to 11) and the F122/F123 test agent (cores
+  6 to 9) overlap: under contention a mutant's test run can time out,
+  and a timeout counts as a survivor. Move the agent's runs to cores 12
+  to 15 between the gates, or read every timed-out mutant in the
+  results and rerun it alone before counting it. What was done: cores
+  12 to 15 carry the second gate stream, so the agent stayed; every
+  timed-out mutant is read and rerun alone before it counts.

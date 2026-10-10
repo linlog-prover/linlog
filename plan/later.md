@@ -982,6 +982,27 @@ meets first on a large problem, and come before any new engine:
   that the default leaves at 3, all in under 5 s. Whether `--copies`
   should rise is step 17's question.
 
+- **The generators' contraction and mutants** (step 28's F122 and F123,
+  begun in area 3.2 and left there, 2026-10-10). F122: the intuitionistic
+  generator's contraction was a no-op in 98.5 % of its draws; a fix that
+  derelicts a hypothesis and contracts it beside an identity on it
+  (change `supyqoln`, workspace `step28-gen-tests`) gives 65 to 131
+  effective contractions per exponential rule set on the tests' seeds,
+  where there were 0 to 3, but one of the new samples takes the
+  classical engine 158 s unoptimized (`b, b, (!!!c * !b), (((b -o !b) -o
+  (b -o (b * b))) -o !((b -o c) * (a -o c))) |- ((((((b -o c) -o c) * b)
+  * a) * b) * (b -o b))`, undecided within the copy bound), which doubles
+  the debug test suite. F123: every generated negative of the rule sets
+  without additives and exponentials is refuted by the interval check
+  before any search; a second mutation that transposes two literals of
+  one sign (change `ukrmvowr`, unfinished) sends 10 to 25 % of them to a
+  search, and found a sequent the focused engine searches for over
+  twenty minutes unoptimized without deciding: `|- (?((((!~a par c) + c)
+  par a) par ~c) par ?((~c * ~c) * c))`, classical with Mix, the default
+  options. That sequent is the first thing to look at: a Mix search
+  that the copy bound of 3 does not end in reasonable time. No engine
+  disagreed with another or with the reference prover in either run.
+
 ## Follow-ups: the Horn engine
 
 Left by step 27's first session (`plan/reports/27-horn.md`):
