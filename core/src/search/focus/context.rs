@@ -16,7 +16,7 @@ use std::hash::{Hash, Hasher};
 
 /// A multiset of occurrence ids over one forest. Two zones are equal, and
 /// hash alike, when they hold the same members, whatever their ranges.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct Context {
     /// The occurrences present at least once.
     set: OccSet,
@@ -35,6 +35,36 @@ pub(crate) struct Context {
 /// forest of a few hundred occurrences the bookkeeping of a range costs
 /// more than it saves.
 const NARROW: usize = 8;
+
+impl Clone for Context {
+    /// Returns a copy of the zone.
+    fn clone(&self) -> Self {
+        Self {
+            set: self.set.clone(),
+            extra: self.extra.clone(),
+            lo: self.lo,
+            hi: self.hi,
+        }
+    }
+
+    /// Makes this zone a copy of `other`, a zone of the same forest,
+    /// reusing the buffers.
+    fn clone_from(&mut self, other: &Self) {
+        debug_assert_eq!(self.set.capacity(), other.set.capacity(), "one forest");
+        // One copy over both ranges: the words of `other` outside its own
+        // are empty, so they clear what this zone held there.
+        let (lo, hi) = if self.lo == self.hi {
+            (other.lo, other.hi)
+        } else if other.lo == other.hi {
+            (self.lo, self.hi)
+        } else {
+            (self.lo.min(other.lo), self.hi.max(other.hi))
+        };
+        self.set.copy_words(&other.set, lo, hi);
+        (self.lo, self.hi) = (other.lo, other.hi);
+        self.extra.clone_from(&other.extra);
+    }
+}
 
 impl PartialEq for Context {
     fn eq(&self, other: &Self) -> bool {
@@ -146,24 +176,6 @@ impl Context {
         let width = self.set.words().len();
         (self.lo, self.hi) = if width <= NARROW { (0, width) } else { (0, 0) };
         self.extra.clear();
-    }
-
-    /// Makes this zone a copy of `other`, a zone of the same forest,
-    /// reusing the buffers.
-    pub(crate) fn clone_from(&mut self, other: &Self) {
-        debug_assert_eq!(self.set.capacity(), other.set.capacity(), "one forest");
-        // One copy over both ranges: the words of `other` outside its own
-        // are empty, so they clear what this zone held there.
-        let (lo, hi) = if self.lo == self.hi {
-            (other.lo, other.hi)
-        } else if other.lo == other.hi {
-            (self.lo, self.hi)
-        } else {
-            (self.lo.min(other.lo), self.hi.max(other.hi))
-        };
-        self.set.copy_words(&other.set, lo, hi);
-        (self.lo, self.hi) = (other.lo, other.hi);
-        self.extra.clone_from(&other.extra);
     }
 
     /// Makes this zone `other` with every member replaced by the first
