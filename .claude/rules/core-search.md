@@ -33,8 +33,11 @@ are the forest's roots), the additive path for any two additive-only
 occurrences (`additive::search_goal`), the focused engine otherwise; in
 intuitionistic mode a goal must have exactly one occurrence in output
 position (`Error::GoalOutputs`). **Every proof, of the roots or of a
-goal, has passed the checker when it is returned, in every build** (`Options::check`,
-`DEFAULT_CHECK` true; the check is at the end of `prove_goal`, one place
+goal, has passed the checker when it is returned, in every build,
+unless `Options::check` is off** (`DEFAULT_CHECK` true; off, the proof
+is the engine's word, `Outcome::checked` is false and the engine's
+`debug_assert!` is all that runs on it; the check is in `conclude`, which
+`prove_goal` calls, one place
 for every engine, and a proof it rejects is `Error::Rejected`, an error
 and never a verdict; a check that a bound or the stop gives up makes the
 verdict `Unknown` (`unchecked`: `Reason::Unchecked { limit_bytes }` at
@@ -207,7 +210,7 @@ outcome's `work` is that count. The command's default and the harness's
   `additive::Additive`, `horn::Horn`); a `Task` is what they are handed (forest, goal,
   fragment, mode, reading, whether it is the roots). An engine that keeps
   its proof as nodes of an arena answers through `Answer::of_arena`.
-  **`prove_goal` is the one place an answer becomes a `Verdict`**: the
+  **`conclude` (through `prove_goal`) is the one place an answer becomes a `Verdict`**: the
   refutation of an exhausted search, the check of a proof of the roots
   (and, with the check off, a `debug_assert!` of it), whatever engine
   ran. Which options each engine reads is said on its `Engine` variant

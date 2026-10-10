@@ -1139,8 +1139,9 @@ fn few_equal_literals(forest: &Forest) -> bool {
 /// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent |
 ///
 /// The bias of the focused engines, [`Bias::Auto`], is chosen per goal as
-/// well, by the measurements its documentation names.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// well, by the measurements its documentation names. Engines are ordered
+/// as [`ALL`](Self::ALL) lists them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub enum Engine {
     /// The focused sequent engine, one-sided: classical mode, every
@@ -1257,7 +1258,7 @@ impl Display for Engine {
 pub struct Counter {
     /// The field's name in the statistics' JSON form.
     pub key: &'static str,
-    /// A short label, as the command's `--stats` prints it.
+    /// A short label, for a line of statistics.
     pub label: &'static str,
     /// What it counts for the engine.
     pub meaning: &'static str,
@@ -1709,8 +1710,8 @@ pub enum Schedule {
 /// fragment and engine to use instead of the detected ones. The defaults
 /// suit a sequent of a few hundred occurrences on a thread with the usual
 /// stack; the bounds on memory, occurrences, recursion and work are the
-/// [`Limits`] a search is given, each of which binds the check of the
-/// proof found as well.
+/// [`Limits`] a search is given; those on memory and work bind the check
+/// of the proof found as well.
 ///
 /// Every field has a builder, so that the options chain from the default.
 ///
@@ -2059,6 +2060,19 @@ pub enum Verdict {
 }
 
 impl Verdict {
+    /// The words of the verdicts, as [`Verdict::name`] gives them and the
+    /// JSON form's `verdict` writes them.
+    pub const NAMES: &'static [&'static str] = &["proved", "unprovable", "unknown"];
+
+    /// Returns the verdict's word: `proved`, `unprovable` or `unknown`.
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Verdict::Proved(_) => "proved",
+            Verdict::Unprovable(_) => "unprovable",
+            Verdict::Unknown(_) => "unknown",
+        }
+    }
+
     /// Returns the proof, if the sequent was proved.
     pub fn proof(&self) -> Option<&Proof> {
         match self {
@@ -2131,6 +2145,31 @@ pub enum Reason {
 }
 
 impl Reason {
+    /// The words of the reasons, as [`Reason::name`] gives them and the
+    /// JSON form's `kind` writes them.
+    pub const NAMES: &'static [&'static str] = &[
+        "stopped",
+        "recursion_limit",
+        "copy_bound",
+        "memory_limit",
+        "index_limit",
+        "work_limit",
+        "unchecked",
+    ];
+
+    /// Returns the reason's word, its `kind` in the JSON form.
+    pub const fn name(&self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::RecursionLimit { .. } => "recursion_limit",
+            Self::CopyBound { .. } => "copy_bound",
+            Self::MemoryLimit { .. } => "memory_limit",
+            Self::IndexLimit => "index_limit",
+            Self::WorkLimit { .. } => "work_limit",
+            Self::Unchecked { .. } => "unchecked",
+        }
+    }
+
     /// The reason a search of the options gives up with, given the reason
     /// one of its searches did: a copy bound is [`Options::copies`], the
     /// bound every search ran within at the least, and a memory limit is
@@ -2187,10 +2226,9 @@ impl Display for Reason {
     }
 }
 
-/// What a search cost. The focused engine counts stable sequents, memo use
-/// and splits; the net engine counts literals chosen, links and exact
-/// tests; the additive path counts pairs of subformulas; the Horn engine
-/// counts markings in the first three; the other counters stay zero.
+/// What a search cost. Which counters an engine fills, and what each
+/// counts for it, is [`Engine::counters`]; every engine counts `work`, and
+/// the counters an engine does not list stay zero.
 ///
 /// In JSON (feature `serialize`) an object of the counters by name, read
 /// back with a missing one as zero.
@@ -2314,6 +2352,40 @@ mod tests {
             unique.dedup();
             assert_eq!(unique.len(), keys.len(), "{engine}");
         }
+    }
+
+    /// Every reason has its word, listed in `NAMES` in its order, and in
+    /// JSON its `kind` is that word; the verdicts' words likewise.
+    #[test]
+    fn reasons_and_verdicts_are_named() {
+        let reasons = [
+            Reason::Stopped,
+            Reason::RecursionLimit { depth: 1 },
+            Reason::CopyBound { copies: 1 },
+            Reason::MemoryLimit { limit_bytes: 1 },
+            Reason::IndexLimit,
+            Reason::WorkLimit { limit: 1 },
+            Reason::Unchecked { limit_bytes: 1 },
+        ];
+        // No wildcard: a new reason fails to compile here until listed.
+        let at = |reason: &Reason| match reason {
+            Reason::Stopped => 0,
+            Reason::RecursionLimit { .. } => 1,
+            Reason::CopyBound { .. } => 2,
+            Reason::MemoryLimit { .. } => 3,
+            Reason::IndexLimit => 4,
+            Reason::WorkLimit { .. } => 5,
+            Reason::Unchecked { .. } => 6,
+        };
+        assert_eq!(reasons.len(), Reason::NAMES.len());
+        for (i, reason) in reasons.iter().enumerate() {
+            assert_eq!(at(reason), i);
+            assert_eq!(reason.name(), Reason::NAMES[i]);
+            #[cfg(feature = "serialize")]
+            assert_eq!(serde_json::to_value(reason).unwrap()["kind"], reason.name());
+        }
+        let unknown = Verdict::Unknown(Reason::Stopped);
+        assert_eq!(unknown.name(), Verdict::NAMES[2]);
     }
 
     /// The listed names are the names written, in order, and each reads
