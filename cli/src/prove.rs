@@ -805,7 +805,15 @@ pub(crate) fn note(format: Format, text: &str) -> String {
     let comment = |line: &str| match format {
         Format::Latex => format!("% {line}"),
         Format::Typst => format!("// {line}"),
-        Format::Rocq => format!("(* {line} *)"),
+        // Rocq nests comments and reads string literals inside them, so a
+        // `(*`, a `*)` or an odd number of `"` would end the comment early
+        // or never, and the text after it would be read as vernacular.
+        Format::Rocq => format!(
+            "(* {} *)",
+            line.replace("(*", "( *")
+                .replace("*)", "* )")
+                .replace('"', "\"\"")
+        ),
         // An XML comment cannot hold `--`, which flag names bring.
         Format::Svg => format!("<!-- {} -->", line.replace('-', "\u{2010}")),
         Format::Text | Format::Json | Format::Png | Format::Pdf => line.to_owned(),
@@ -1425,4 +1433,19 @@ fn check_into(
     let stopped = || "stopped".to_owned();
     let shown = derivation(proof, mode, show, || false, stopped, prefix.as_deref(), out)?;
     Ok((true, show.close(out, shown, line.as_deref())?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Format, note};
+
+    /// A Rocq comment stays one comment whatever its text holds: no `(*`
+    /// opens a nested one, no `*)` closes it, every `"` is paired.
+    #[test]
+    fn rocq_notes_stay_comments() {
+        assert_eq!(
+            note(Format::Rocq, r#"a *) Lemma x : True. (* b (*) " c"#),
+            r#"(* a * ) Lemma x : True. ( * b ( * ) "" c *)"#
+        );
+    }
 }

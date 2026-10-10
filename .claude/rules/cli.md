@@ -158,7 +158,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   source formats (`latex`, `typst`, `svg`, `rocq`) write the verdict line
   and the statistics as comments of the target (`note`; an XML comment
   turns every `-` into `‐`, since it cannot hold `--` and the advice
-  names flags) and the derivation through the library's `write` under
+  names flags; a Rocq comment writes `(*` as `( *`, `*)` as `* )` and
+  doubles every `"`, since Rocq nests comments and lexes strings in
+  them, and a JSON atom named `*) Lemma …` once closed the comment and
+  ran the rest as vernacular, `rocq_notes_stay_comments`) and the derivation through the library's `write` under
   the format's options from `Styles`; `--standalone` makes the LaTeX,
   Typst or Rocq output a document and is refused, exit 2, for the
   others (`form`: an SVG is always a whole document). **An output is made only with
