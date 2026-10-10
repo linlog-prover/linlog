@@ -425,11 +425,20 @@ mod workers {
     /// How long a worker waits for its turn before it looks again.
     const WAIT: Duration = Duration::from_millis(10);
 
+    /// The problems not yet taken, and where the workers are in them.
+    struct Queue<P> {
+        /// The problems not yet taken.
+        problems: Box<dyn Iterator<Item = P> + Send>,
+        /// How many were taken.
+        taken: usize,
+        /// Whether they ended, or the batch did.
+        ended: bool,
+    }
+
     /// What the workers share.
     struct Shared<P> {
-        /// The problems not yet taken, how many were taken, and whether
-        /// they ended; locked only to take one.
-        queue: Mutex<(Box<dyn Iterator<Item = P> + Send>, usize, bool)>,
+        /// The queue, locked only to take a problem.
+        queue: Mutex<Queue<P>>,
         /// How many results were given out, which the iterator raises
         /// without the lock: a worker that waits on a stream for the next
         /// problem holds the lock, and the answer it waits for must not.
@@ -469,7 +478,11 @@ mod workers {
             W: Fn(P, &Plan, &Cancel) -> R + Send + Sync + 'static,
         {
             let shared = Arc::new(Shared {
-                queue: Mutex::new((problems, 0, false)),
+                queue: Mutex::new(Queue {
+                    problems,
+                    taken: 0,
+                    ended: false,
+                }),
                 given: AtomicUsize::new(0),
                 turn: Condvar::new(),
             });
@@ -487,8 +500,8 @@ mod workers {
                         loop {
                             let (place, problem) = {
                                 let mut queue = shared.queue.lock().expect("no panic holds it");
-                                while !queue.2
-                                    && queue.1 >= shared.given.load(Ordering::Acquire) + ahead
+                                while !queue.ended
+                                    && queue.taken >= shared.given.load(Ordering::Acquire) + ahead
                                 {
                                     queue = shared
                                         .turn
@@ -496,15 +509,15 @@ mod workers {
                                         .expect("no panic holds it")
                                         .0;
                                 }
-                                if queue.2 {
+                                if queue.ended {
                                     return;
                                 }
-                                let Some(problem) = queue.0.next() else {
-                                    queue.2 = true;
+                                let Some(problem) = queue.problems.next() else {
+                                    queue.ended = true;
                                     return;
                                 };
-                                queue.1 += 1;
-                                (queue.1 - 1, problem)
+                                queue.taken += 1;
+                                (queue.taken - 1, problem)
                             };
                             let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                                 work(problem, &plan, &cancel)
@@ -519,7 +532,7 @@ mod workers {
                                     // ends at its next send.
                                     cancel.cancel();
                                     if let Ok(mut queue) = shared.queue.try_lock() {
-                                        queue.2 = true;
+                                        queue.ended = true;
                                     }
                                     shared.turn.notify_all();
                                 }
@@ -537,7 +550,8 @@ mod workers {
                 let queue = Arc::try_unwrap(shared).ok().map(|s| s.queue);
                 let work = Arc::try_unwrap(work).ok();
                 if let (Some(queue), Some(work)) = (queue, work) {
-                    let (problems, ..) = queue.into_inner().unwrap_or_else(|e| e.into_inner());
+                    let Queue { problems, .. } =
+                        queue.into_inner().unwrap_or_else(|e| e.into_inner());
                     return Err((problems, work));
                 }
                 unreachable!("no worker started, so none holds the queue or the work");
@@ -553,7 +567,7 @@ mod workers {
                 }),
                 end: Box::new(move || {
                     if let Ok(mut queue) = end.queue.try_lock() {
-                        queue.2 = true;
+                        queue.ended = true;
                     }
                 }),
                 threads,
