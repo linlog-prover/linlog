@@ -323,7 +323,7 @@ fn outcome_json_format() {
     assert_eq!(
         json,
         format!(
-            r#"{head}"statistics":{{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0}},"sequent":{sequent},"nodes":[{{"ax":[0,2]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
+            r#"{head}"statistics":{{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0,"forward_copies":0,"work":2}},"sequent":{sequent},"nodes":[{{"ax":[0,2]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
         )
     );
     let proof: Proof = serde_json::from_str(&json).unwrap();
@@ -334,7 +334,7 @@ fn outcome_json_format() {
     assert_eq!(
         json,
         format!(
-            r#"{head}"statistics":{{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":1,"links":0,"tests":0,"copies":0}},"sequent":{sequent},"nodes":[{{"ax":[2,0]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
+            r#"{head}"statistics":{{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":1,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":16}},"sequent":{sequent},"nodes":[{{"ax":[2,0]}},{{"ax":[3,4]}},{{"⊗":[1,0,1]}}]}}"#
         )
     );
 
@@ -344,7 +344,7 @@ fn outcome_json_format() {
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
         format!(
-            r#"{{"version":1,"linlog":"0.1.0","verdict":"unprovable","refutation":{{"kind":"equation","formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":"classical","engine":"net","statistics":{{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}},"sequent":{sequent}}}"#
+            r#"{{"version":1,"linlog":"0.1.0","verdict":"unprovable","refutation":{{"kind":"equation","formulas":3,"needed":1,"tensors":0,"pars":1,"ones":0,"bottoms":0,"mix":false}},"fragment":"MLL","mode":"classical","engine":"net","statistics":{{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":0}},"sequent":{sequent}}}"#
         )
     );
     let outcome = prove_within(
@@ -357,7 +357,7 @@ fn outcome_json_format() {
     .unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
-        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"stopped"},"fragment":"MLL","mode":"mix","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}"#
+        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"stopped"},"fragment":"MLL","mode":"mix","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":1}}"#
     );
     // The focused engine, whose copy bound this is; the dispatch's Horn
     // engine has none and proves the sequent.
@@ -369,7 +369,7 @@ fn outcome_json_format() {
     let outcome = prove(&s, Mode::CLASSICAL, &options).unwrap();
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
-        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"copy_bound","copies":0},"fragment":"MELL","mode":"classical","engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0}}"#
+        r#"{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"copy_bound","copies":0},"fragment":"MELL","mode":"classical","engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":16}}"#
     );
 }
 

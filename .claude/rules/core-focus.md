@@ -138,9 +138,13 @@ relies on:
   (`Options::copy_bound` is then `u32::MAX`, which the inclusive range
   reaches without a wrap and no search reaches at all: every level
   visits a stable sequent). `Statistics::copies` is the budget of the
-  last level begun, of two searches the larger (`Statistics::add` takes
-  the maximum), which is how far an unbounded search got when its stop
-  fired. The library's default keeps `DEFAULT_COPIES` (3): `prove` has
+  last level begun of the search that decided, else of the backward
+  one (`turns` and `merged` keep the two searches' levels apart, the
+  first of a pair being the forward one), which is how far an unbounded
+  search got when its stop fired; `Statistics::forward_copies` is the
+  forward search's level, zero where it did not run (F144: under a
+  bound of 3 on a Horn program `copies` read 30, the forward search's
+  level, and `--stats` said so). The library's default keeps `DEFAULT_COPIES` (3): `prove` has
   no stop condition, and a search without a bound ends only when it
   decides; the command's default is `None` under a time limit. A
   level whose search skipped a copy for lack of budget returns

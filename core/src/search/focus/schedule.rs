@@ -46,6 +46,15 @@ pub(super) fn turns(
 ) -> (Search, Vec<Node>, Statistics) {
     let mut ended: [Option<Reason>; 2] = [None, None];
     let mut statistics = Statistics::default();
+    // The forward search's level and the backward one's, apart.
+    let mut levels = [0, 0];
+    // The level reported under the copy bound is the deciding search's,
+    // else the backward one's.
+    let leveled = |mut statistics: Statistics, levels: [u32; 2], decider: usize| {
+        statistics.copies = levels[decider];
+        statistics.forward_copies = levels[0];
+        statistics
+    };
     let mut turn = FIRST_TURN;
     loop {
         for (i, (rule, counts, account)) in searches.into_iter().enumerate() {
@@ -73,18 +82,21 @@ pub(super) fn turns(
                 stop,
             );
             statistics.add(&run);
+            levels[i] = levels[i].max(run.copies);
             match result {
                 Err(Reason::Stopped) if over => {}
-                Err(Reason::Stopped) => return (Err(Reason::Stopped), nodes, statistics),
+                Err(Reason::Stopped) => {
+                    return (Err(Reason::Stopped), nodes, leveled(statistics, levels, 1));
+                }
                 Err(reason) => ended[i] = Some(reason),
-                decided => return (decided, nodes, statistics),
+                decided => return (decided, nodes, leveled(statistics, levels, i)),
             }
         }
         if let [Some(_), Some(backward)] = ended {
             return (
                 Err(reason(backward, options, limits)),
                 Vec::new(),
-                statistics,
+                leveled(statistics, levels, 1),
             );
         }
         turn = turn.saturating_mul(TURN_GROWTH);
@@ -571,6 +583,15 @@ pub(super) fn merged(
     statistics.add_run(&second.2);
     statistics.memo_hits += second.2.memo_hits;
     statistics.memo_entries += second.2.memo_entries;
+    // The first is the forward search, the second the backward one; the
+    // level under the copy bound is the deciding search's, else the
+    // backward one's.
+    statistics.forward_copies = first.2.copies;
+    statistics.copies = if first.0.is_ok() {
+        first.2.copies
+    } else {
+        second.2.copies
+    };
     debug_assert!(
         !matches!((&first.0, &second.0), (Ok(a), Ok(b)) if a.is_some() != b.is_some()),
         "the two searches contradict each other"

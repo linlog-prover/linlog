@@ -1278,50 +1278,50 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
 /// fragment has exponentials.
 pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
     let s = &outcome.statistics;
-    match outcome.engine {
+    let counters = match outcome.engine {
         Engine::Additive => format!(
             "pairs of subformulas visited: {} ({} from the memo)\n\
-             memo entries: {}\n\
-             time: {elapsed:.2?}",
+             memo entries: {}",
             s.nodes, s.memo_hits, s.memo_entries
         ),
         // Backward, the markings are the least from which the goal can be
         // covered.
         Engine::Horn if outcome.mode.is_affine() => format!(
             "markings computed backward: {} ({} of them covered already)\n\
-             markings kept: {}\n\
-             time: {elapsed:.2?}",
+             markings kept: {}",
             s.nodes, s.memo_hits, s.memo_entries
         ),
         Engine::Horn => format!(
             "markings reached: {} ({} of them again)\n\
-             markings kept: {}\n\
-             time: {elapsed:.2?}",
+             markings kept: {}",
             s.nodes, s.memo_hits, s.memo_entries
         ),
         Engine::Net => format!(
             "literals chosen: {}\n\
              links tried: {}\n\
-             exact tests run: {}\n\
-             time: {elapsed:.2?}",
+             exact tests run: {}",
             s.nodes, s.links, s.tests
         ),
-        _ => format!(
-            "stable sequents visited: {} ({} from the memo)\n\
-             memo entries at most: {}\n\
-             splits examined: {}\n{}\
-             time: {elapsed:.2?}",
-            s.nodes,
-            s.memo_hits,
-            s.memo_entries,
-            s.splits,
+        _ => {
+            let mut lines = format!(
+                "stable sequents visited: {} ({} from the memo)\n\
+                 memo entries at most: {}\n\
+                 splits examined: {}",
+                s.nodes, s.memo_hits, s.memo_entries, s.splits,
+            );
             if outcome.fragment.has_exponentials() {
-                format!("copy bound reached: {}\n", s.copies)
-            } else {
-                String::new()
+                lines.push_str(&format!("\ncopy bound reached: {}", s.copies));
             }
-        ),
-    }
+            if s.forward_copies > 0 {
+                lines.push_str(&format!(
+                    "\nforward search's copy bound reached: {}",
+                    s.forward_copies
+                ));
+            }
+            lines
+        }
+    };
+    format!("{counters}\nunits of work: {}\ntime: {elapsed:.2?}", s.work)
 }
 
 /// Runs `check`: reads a proof, checks it in the mode the flags give, and

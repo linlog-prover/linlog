@@ -151,7 +151,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Options::forward_copies`, the forward search's own copy bound on
   Horn programs. A test that pins a copy bound's message sets both
   bounds, or names a bias. `--stats` prints `copy bound reached`
-  (`Statistics::copies`) where the fragment has exponentials. `--net` prints the net the
+  (`Statistics::copies`) where the fragment has exponentials, `forward
+  search's copy bound reached` (`forward_copies`) where the default
+  bias's forward search ran, and for every engine `units of work`
+  (`Statistics::work`, deterministic on one thread). `--net` prints the net the
   net engine found (`Outcome::net`) and otherwise the net read off the
   proof (`net_into`); `--stats` prints the counters of the engine that
   ran (`statistics`, one arm per engine with its own counters). The

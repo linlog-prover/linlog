@@ -442,7 +442,7 @@ fn prove_verdicts_and_exit_statuses() {
     assert!(
         out.starts_with(
             "provable (MLL, classical, net engine)\nliterals chosen: 2\nlinks tried: 2\n\
-             exact tests run: 2\ntime: "
+             exact tests run: 2\nunits of work: 2\ntime: "
         ),
         "{out}"
     );

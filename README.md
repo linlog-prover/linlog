@@ -74,12 +74,14 @@ provable (MLL, classical with Mix, net engine)
 literals chosen: 2
 links tried: 2
 exact tests run: 2
+units of work: 2
 time: 63.45µs
 $ linlog prove --engine focus --stats --quiet --deterministic "|- A * B, C * (~A par ~B), ~C"
 provable (MLL, classical, focus engine)
 stable sequents visited: 2 (0 from the memo)
 memo entries at most: 2
 splits examined: 3
+units of work: 35
 time: 56.66µs
 ```
 
@@ -171,11 +173,13 @@ $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c
 provable (MELL, classical, horn engine)
 markings reached: 7 (0 of them again)
 markings kept: 7
+units of work: 6
 time: 45.06µs
 $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d * a"
 unprovable (MELL, classical, horn engine): the search was exhaustive
 markings reached: 12 (2 of them again)
 markings kept: 10
+units of work: 13
 time: 31.81µs
 $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
 unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
@@ -183,6 +187,7 @@ $ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"
 provable (MELL, classical affine, horn engine)
 markings computed backward: 1 (0 of them covered already)
 markings kept: 1
+units of work: 2
 time: 268.07µs
 $ linlog prove -q --affine "!(a * a -o b * b * b), a, a, a |- b * b * b * b"
 unprovable (MELL, classical affine, horn engine): the search was exhaustive
@@ -224,6 +229,7 @@ stable sequents visited: 10 (0 from the memo)
 memo entries at most: 4
 splits examined: 24
 copy bound reached: 3
+units of work: 250
 time: 36.65µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer --timeout none "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
 provable (MELL, classical, focus engine)
@@ -231,6 +237,7 @@ stable sequents visited: 15 (0 from the memo)
 memo entries at most: 5
 splits examined: 28
 copy bound reached: 4
+units of work: 380
 time: 60.01µs
 ```
 
@@ -281,6 +288,8 @@ stable sequents visited: 47 (5 from the memo)
 memo entries at most: 9
 splits examined: 151
 copy bound reached: 7
+forward search's copy bound reached: 7
+units of work: 1297
 time: 136.45µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
@@ -288,6 +297,7 @@ stable sequents visited: 14228 (13935 from the memo)
 memo entries at most: 190
 splits examined: 42105
 copy bound reached: 3
+units of work: 271889
 time: 1.79ms
 $ linlog prove -q --deterministic --stats --engine focus --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 55.51µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
@@ -295,6 +305,7 @@ stable sequents visited: 11 (0 from the memo)
 memo entries at most: 5
 splits examined: 31
 copy bound reached: 3
+units of work: 322
 time: 55.51µs
 $ linlog prove -q --engine focus --copies 1 "!A, !(A -o B), !(B -o C) |- C"
 provable (MELL, classical, focus engine)
@@ -393,6 +404,7 @@ $ linlog prove -i -q --stats "(A & B) + (A & C) |- A & (B + C)"
 provable (IALL, intuitionistic, additive engine)
 pairs of subformulas visited: 20 (0 from the memo)
 memo entries: 20
+units of work: 20
 time: 89.90µs
 $ linlog prove -i "|- A par B"
 error: not an intuitionistic sequent: the subformula A ⅋ B is neither an intuitionistic formula nor the negation of one (⅋ only as A ⊸ B, that is ~A ⅋ B, and ? only under a negation)
@@ -476,7 +488,7 @@ time and never an answer; when that is not enough, the verdict is
 $ linlog prove --memory-limit 100 "|- (a & b) + (a & c), ~a par (~b & ~c)"
 unknown (MALL, classical, focus engine): the memory limit of 100 B was reached after 32.28µs; raise it with --memory-limit SIZE
 $ linlog prove --memory-limit 100 --format json "|- (a & b) + (a & c), ~a par (~b & ~c)"
-{"version":1,"linlog":"…","verdict":"unknown","reason":{"kind":"memory_limit","limit_bytes":100},"fragment":"MALL","mode":"classical","engine":"focus","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0}}
+{"version":1,"linlog":"…","verdict":"unknown","reason":{"kind":"memory_limit","limit_bytes":100},"fragment":"MALL","mode":"classical","engine":"focus","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":0}}
 ```
 
 The bound counts what grows with the search (what it remembers, the
@@ -504,7 +516,7 @@ logic flags):
 
 ```console
 $ linlog prove --format json "A |- A"
-{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
+{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0,"forward_copies":0,"work":1},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
 $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
 ```
@@ -962,7 +974,7 @@ file's column or a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
-{"version":1,"name":"pair","linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"roots":[0,1,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
+{"version":1,"name":"pair","linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0,"forward_copies":0,"work":2},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"roots":[0,1,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
 ```
 
 By default the cores go across the sequents, one sequent per worker on

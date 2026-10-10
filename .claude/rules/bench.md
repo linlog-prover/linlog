@@ -434,7 +434,9 @@ serde_json, which the CLI and the core's tests already have.
   before the column ran without one, which is how `finished` and the
   summary read an empty field. The reasons `memory_limit` and
   `index_limit` are the two the bound added. After it come
-  `copies_reached` (`Statistics::copies`: how far the deepening got) and
+  `copies_reached` (`Statistics::copies`: how far the deepening got, of
+  the deciding search or else the backward one since the forward
+  search's level is apart; until then the larger of the two) and
   `pool_after` (`--pool-after SECONDS`: the child searches on one thread
   that long and then with a pool of `--jobs` − 1 threads (at least two)
   beside it, the first to decide answering, each within the memory bound,

@@ -417,6 +417,7 @@ pub fn prove_goal(
         .clone()
         .with_jobs(parallel::threads(options.threads()));
     let mut answer = implementation.decide(&task, options, limits, &account, &work, &mut polled)?;
+    answer.statistics.work = work.done();
     if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
         answer.result = Err(Reason::WorkLimit { limit: work.limit });
     }
@@ -1828,11 +1829,21 @@ pub struct Statistics {
     pub links: u64,
     /// The exact acyclicity tests the net engine ran.
     pub tests: u64,
-    /// The largest copy bound a level of the focused engine's deepening
-    /// began under, of two searches the larger: how far a search without
-    /// a bound got before it was stopped. Zero without exponentials and
-    /// for the other engines.
+    /// The copy bound the last level of the focused engine's deepening
+    /// began under: of the search that decided, else of the one under
+    /// [`Options::copies`] (the backward one of the default bias's two),
+    /// so how far a search without a bound got before it was stopped.
+    /// Zero without exponentials and for the other engines.
     pub copies: u32,
+    /// The copy bound the last level of the forward search of
+    /// [`Bias::Auto`] began under, which runs within
+    /// [`Options::forward_copies`] on a Horn program; zero where it did
+    /// not run.
+    pub forward_copies: u32,
+    /// The units of work the search did, in its engine's unit (each
+    /// [`Engine`] variant says which): on one thread what the
+    /// [`Progress::work`] of its polls add up to.
+    pub work: u64,
 }
 
 impl Statistics {
@@ -1844,6 +1855,8 @@ impl Statistics {
         self.add_run(other);
         self.memo_hits += other.memo_hits;
         self.memo_entries = self.memo_entries.max(other.memo_entries);
+        self.forward_copies = self.forward_copies.max(other.forward_copies);
+        self.work += other.work;
     }
 
     /// Adds another engine's counters to these, the memo's excepted: they
@@ -1979,6 +1992,7 @@ mod tests {
                 polls > 1 && last > 1 && sum == last,
                 "{engine}: {sum} {last}"
             );
+            assert_eq!(outcome.statistics.work, last, "{engine}");
             let bound = Limits::default().with_work(Some(last / 2));
             let outcome = prove_within(sequent, mode, &options, &bound, |_| false).unwrap();
             assert!(
@@ -2047,6 +2061,8 @@ mod tests {
             links: 1,
             tests: 4,
             copies: 2,
+            forward_copies: 9,
+            work: 10,
         };
         let second = Statistics {
             nodes: 5,
@@ -2056,6 +2072,8 @@ mod tests {
             links: 3,
             tests: 1,
             copies: 5,
+            forward_copies: 0,
+            work: 20,
         };
         first.add(&second);
         assert_eq!(
@@ -2068,6 +2086,8 @@ mod tests {
                 links: 4,
                 tests: 5,
                 copies: 5,
+                forward_copies: 9,
+                work: 30,
             }
         );
     }

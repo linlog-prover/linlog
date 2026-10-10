@@ -381,7 +381,15 @@ fn bias_option() {
     // search has its own bound and its proof comes first, at its cost.
     let (verdict, default) = run(&Options::default().with_copies(Some(copies)));
     assert_eq!(verdict.proof().unwrap().check(Mode::CLASSICAL), Ok(()));
-    assert_eq!(default, fast);
+    // The forward search decided, at the level the explicit one did.
+    assert_eq!(default.forward_copies, fast.copies);
+    assert_eq!(
+        Statistics {
+            forward_copies: 0,
+            ..default
+        },
+        fast
+    );
 }
 
 /// Without a copy bound the search goes on to the next level until it
@@ -500,7 +508,9 @@ fn default_bias_takes_turns() {
         let turns = options
             .clone()
             .with_schedule(crate::search::Schedule::Turns);
-        assert_eq!(run(&text, m, &turns).1, both);
+        // The front door adds the work, which the turns leave to it.
+        let through = run(&text, m, &turns).1;
+        assert_eq!(Statistics { work: 0, ..through }, both);
     }
 }
 

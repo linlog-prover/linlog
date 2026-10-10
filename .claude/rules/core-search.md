@@ -107,10 +107,14 @@ each `Engine` variant documents its unit. A search's `held_bytes` stays
 zero: the default bias's two searches have accounts of their own;
 `Reason`, `Statistics`, `Engine` and `Outcome` are `#[non_exhaustive]` so
 later steps add variants and fields without a breaking change.
-`Statistics` has one set of counters for both engines: `nodes` is stable
+`Statistics` has one set of counters for every engine: `nodes` is stable
 sequents for `focus` and literals chosen for `net`; `memo_hits`,
 `memo_entries` and `splits` are the focused engine's, `links` and `tests`
-the net engine's, and the others stay zero.
+the net engine's, `copies` and `forward_copies` the focused engine's
+levels, and the others stay zero; `work` is every engine's, set by
+`prove_goal` from the search's `Work` (on one thread the sum of the
+progress' `work`, `the_search_counts_its_work`). `Statistics::add` is
+two searches' merge (the race's), `add_run` a pool's workers'.
 
 - **An engine's own refutation** goes in `Answer::refutation`, which
   `prove_goal` takes as it is: the Horn engine's
