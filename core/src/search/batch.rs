@@ -275,7 +275,9 @@ pub fn prove(
 /// as many problems as there are workers before the first starts; a
 /// stream whose next problem waits on an answer wants `Across` or
 /// `Within`. `work` is handed the batch's [`Cancel`], which its stop asks.
-/// A panic in `work` is resumed by the iterator. Workers that cannot
+/// A panic in `work` is resumed by the iterator at its problem's place,
+/// after the results before it; the batch then takes no more problems
+/// and is cancelled, so the other workers end. Workers that cannot
 /// start (the stack the limits ask for is not to be had) leave the batch
 /// to those that did, or to the caller's thread.
 pub fn run<P, R>(
@@ -408,6 +410,7 @@ impl<R> Iterator for Results<R> {
 mod workers {
     use super::{Cancel, Plan};
     use std::collections::BTreeMap;
+    use std::panic::AssertUnwindSafe;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
     use std::sync::{Arc, Condvar, Mutex};
@@ -437,10 +440,11 @@ mod workers {
 
     /// The workers and the results they sent before their turn.
     pub(super) struct Workers<R> {
-        /// The results as they are done, with their places.
-        done: Receiver<(usize, R)>,
+        /// The results as they are done, with their places, or the panic
+        /// of the work at that place.
+        done: Receiver<(usize, std::thread::Result<R>)>,
         /// Results done before those ahead of them.
-        held: BTreeMap<usize, R>,
+        held: BTreeMap<usize, std::thread::Result<R>>,
         /// The place of the next result to give out.
         next: usize,
         /// Raises `given` and wakes the workers.
@@ -502,7 +506,23 @@ mod workers {
                                 queue.1 += 1;
                                 (queue.1 - 1, problem)
                             };
-                            if sender.send((place, work(problem, &plan, &cancel))).is_err() {
+                            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                                work(problem, &plan, &cancel)
+                            }));
+                            let panicked = result.is_err();
+                            if sender.send((place, result)).is_err() || panicked {
+                                if panicked {
+                                    // The batch ends at the panic: no worker
+                                    // takes another problem, and the work in
+                                    // flight is asked to stop. A worker that
+                                    // holds the queue waits on a stream, and
+                                    // ends at its next send.
+                                    cancel.cancel();
+                                    if let Ok(mut queue) = shared.queue.try_lock() {
+                                        queue.2 = true;
+                                    }
+                                    shared.turn.notify_all();
+                                }
                                 return;
                             }
                         }
@@ -542,14 +562,17 @@ mod workers {
     }
 
     impl<R> Workers<R> {
-        /// Returns the next result in order, waiting for it; at the end,
-        /// resumes a worker's panic.
+        /// Returns the next result in order, waiting for it; resumes the
+        /// panic of the work at its place, and at the end a worker's own.
         pub(super) fn next(&mut self) -> Option<R> {
             loop {
                 if let Some(result) = self.held.remove(&self.next) {
                     self.next += 1;
                     (self.given)(self.next);
-                    return Some(result);
+                    match result {
+                        Ok(result) => return Some(result),
+                        Err(panic) => std::panic::resume_unwind(panic),
+                    }
                 }
                 match self.done.recv() {
                     Ok((place, result)) => {
@@ -711,5 +734,32 @@ mod tests {
             first.unwrap().outcome.unwrap().verdict,
             Verdict::Proved(_)
         ));
+    }
+
+    /// A panic in the work is resumed at its problem's place, after the
+    /// results before it, however many problems follow it: the other
+    /// workers stop taking problems, so the batch never waits for good.
+    #[test]
+    fn a_panic_ends_the_batch_at_its_place() {
+        let (sender, received) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let options = Options::default().with_workers(2).with_cores(Cores::Across);
+            let mut results = run(
+                0..100usize,
+                &options,
+                &Search::default(),
+                &Limits::default(),
+                |i, _, _| {
+                    assert_ne!(i, 5, "the work panics on problem 5");
+                    i
+                },
+            );
+            let before: Vec<usize> = results.by_ref().take(5).collect();
+            let panicked =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| results.next())).is_err();
+            sender.send((before, panicked)).unwrap();
+        });
+        let answer = received.recv_timeout(std::time::Duration::from_secs(20));
+        assert_eq!(answer, Ok(((0..5).collect(), true)));
     }
 }
