@@ -114,8 +114,17 @@ has no or-choices worth sharing out). What the code relies on:
   workers": a spawned task nobody steals runs on the spawning thread
   after its own alternative. The `&` rule within the levels runs its
   right premise on a worker of the pool and its left one on a worker on
-  its own thread (`with_parallel`); the `⊗` premises stay sequential
-  (the first usually fails fast). **`with_parallel` polls the engine's
+  its own thread (`with_parallel`), and **is a level itself** (its
+  workers have `or_depth + 1`, like a choice's): a tower of nested `&`
+  forks at its first `LEVELS` and runs sequentially below. When it kept
+  the level, every `&` of a branch with no choice forked, so each level
+  of the tower cost a scope, a worker and a copy of the branch on the
+  stack and the heap: two copies of 2 900 nested `&` overflowed an
+  8 MiB worker stack at a recursion limit of 3 000 on two threads (H18,
+  `a_raised_limit_holds_on_the_pool`, which aborts in a release build
+  only: a debug build's allowance per level hides it), and 5 000 nested
+  `&` held 823 MB under a 64 MiB bound (F92; 24 MB now). The `⊗`
+  premises stay sequential (the first usually fails fast). **`with_parallel` polls the engine's
   flags before it starts anything.** The asynchronous phase polls
   nowhere else (its stable sequents do), and the `&` rule on the pool,
   unlike the sequential one, starts its right premise without waiting
@@ -152,20 +161,24 @@ has no or-choices worth sharing out). What the code relies on:
   and then gives it the branch: `depth`, `or_depth`, and as `ancestors`
   the spawning engine's own ancestors and live stack of keys with their
   hashes, as slices (`Engine::repeated` reads them before its own stack,
-  `Engine::above` counts them into a depth). Nothing is copied: the
+  `Engine::above` counts them into a depth). The keys are not copied: the
   spawning engine waits at the scope while its workers run, so its
-  stack cannot change under them. Copying it, two bitsets of the
+  stack cannot change under them; a worker's `ancestors` are one slice
+  pair per spawn above it, at most `LEVELS` + 1. Copying it, two bitsets of the
   forest's width per stable sequent of the branch, for every task of a
   choice, was a fifth of the samples of a Petri net on four threads (with
   hashing the keys again, which a copy of the hashes had removed before).
-  The ancestors are what keeps the loop check's prunes below the cube;
-  `depth` keeps the recursion limit's meaning for the counter, not for
-  the stack: a pool thread that waits at a scope runs stolen tasks on
-  its own stack, so its frames are the scope's (a choice near the root,
-  a few dozen levels) plus the stolen task's, and nested waits compound;
-  the 2× margin of `Limits::stack_bytes` and its 8 MiB floor cover this
-  at the default limit, and a raised limit is where an overflow would
-  first show.
+  The ancestors are what keeps the loop check's prunes below the cube.
+  **The recursion limit holds for a worker's stack**: a pool thread that
+  waits at a scope runs stolen tasks on its own stack, on top of the
+  waiting engine's frames, so the runtime keeps per worker the depth of
+  the engine waiting there (`Runtime::waiting`, a guard that restores
+  the depth it replaced; indexed by the pool's own
+  `current_thread_index`, written only by the worker itself), and a
+  task's worker starts at the larger of its branch's depth and its
+  thread's (`Runtime::depth_here`): its recursion counts on top of the
+  frames it sits on, and `Reason::RecursionLimit` comes before an
+  overflow at any limit.
 - **Each rule is written once; the merge of cuts is the scheduler's.**
   A choice's alternatives are one type (`focus::Alternative`: a focus on
   a member of `Γ`, a copy, a side of a `⊕`, the splits under a pattern)

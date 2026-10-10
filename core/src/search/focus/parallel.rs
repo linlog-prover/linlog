@@ -211,7 +211,9 @@ impl<'s> Spawn<'s> {
             Arena::new(Kept::Shared(self.arena), self.problem.account),
         );
         worker.runtime = Some(self.runtime);
-        worker.depth = self.depth;
+        // A task stolen by a thread that waits at a scope runs on that
+        // scope's frames: its recursion counts on top of them.
+        worker.depth = self.depth.max(self.runtime.depth_here());
         worker.or_depth = self.or_depth;
         worker.ancestors = self.branch.clone();
         worker
@@ -387,6 +389,7 @@ impl<'a> Engine<'a> {
         let (&first, rest) = alternatives
             .split_first()
             .expect("a choice has an alternative");
+        let waiting = spawn.runtime.waiting(self.depth);
         spawn.runtime.pool.in_place_scope(|scope| {
             for &alternative in rest {
                 let (spawn, cancel, collected) = (&spawn, &cancel, &collected);
@@ -416,6 +419,7 @@ impl<'a> Engine<'a> {
             let result = worker.run_alternative(theta, gamma, first, budget);
             Self::lock(&collected).take(result, &worker, &cancel);
         });
+        drop(waiting);
         let collected = collected
             .into_inner()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -490,7 +494,7 @@ impl<'a> Engine<'a> {
             return Err(Reason::Stopped);
         }
         let cancel = AtomicBool::new(false);
-        let spawn = self.spawn(self.or_depth);
+        let spawn = self.spawn(self.or_depth + 1);
         let premise: Mutex<Option<Premise>> = Mutex::new(None);
         let (left_sub, right_sub) = (self.forest.left(o).unwrap(), self.forest.right(o).unwrap());
         // A premise on a worker, which cancels the other when it fails:
@@ -508,6 +512,7 @@ impl<'a> Engine<'a> {
             }
             result
         };
+        let waiting = spawn.runtime.waiting(self.depth);
         let left = spawn.runtime.pool.in_place_scope(|scope| {
             let (spawn, cancel, premise, search) = (&spawn, &cancel, &premise, &search);
             scope.spawn(move |_| {
@@ -519,6 +524,7 @@ impl<'a> Engine<'a> {
             let result = search(&mut worker, left_sub, true);
             Premise::of(&worker, result)
         });
+        drop(waiting);
         let right = premise
             .into_inner()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -771,6 +777,37 @@ mod tests {
                 outcome.statistics.nodes
             );
         }
+    }
+
+    /// Under a raised recursion limit the pool's threads hold the recursion
+    /// the limit allows: two copies of a tower of 2 900 nested `&`, at a
+    /// limit of 3 000 on two threads, overflowed a worker's stack when
+    /// every `&` of the tower forked on the pool.
+    #[test]
+    fn a_raised_limit_holds_on_the_pool() {
+        let n = 2_900;
+        let tower = |i: usize| format!("{}c{i}{}", "b & (".repeat(n), ")".repeat(n));
+        let sequent: Sequent = format!("|- ?({}), ?({}), ~b", tower(0), tower(1))
+            .parse()
+            .unwrap();
+        let limits = crate::Limits::default().with_recursion_depth(3_000);
+        let options = Options::default().with_jobs(2);
+        let outcome = prove_within(
+            &sequent,
+            Mode::CLASSICAL.with_affine(),
+            &options,
+            &limits,
+            |_| false,
+        )
+        .unwrap();
+        assert!(
+            matches!(
+                outcome.verdict,
+                Verdict::Unknown(Reason::RecursionLimit { .. } | Reason::CopyBound { .. })
+            ),
+            "{:?}",
+            outcome.verdict
+        );
     }
 
     /// A stop condition that panics ends the search on the pool at once:

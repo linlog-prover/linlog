@@ -12,7 +12,7 @@ use crate::Error;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -196,6 +196,10 @@ pub(crate) struct Runtime {
     threads: usize,
     /// The size of each worker's stack, in bytes.
     stack_size: usize,
+    /// Per worker, the recursion depth of the engine that waits at a scope
+    /// on its thread: a task the thread runs meanwhile sits on that
+    /// engine's frames. Only the worker itself writes its own.
+    depths: Box<[AtomicU32]>,
 }
 
 impl Runtime {
@@ -216,12 +220,38 @@ impl Runtime {
             pool,
             threads,
             stack_size,
+            depths: (0..threads).map(|_| AtomicU32::new(0)).collect(),
         })
     }
 
     /// Returns how many workers the pool has.
     pub(crate) fn threads(&self) -> usize {
         self.threads
+    }
+
+    /// Returns the recursion depth on the calling thread's stack below
+    /// what it runs now: that of the engine waiting at a scope there, zero
+    /// on a thread outside the pool. A task stolen by a waiting thread
+    /// starts from it, so that its recursion counts on top of the frames it
+    /// sits on and the recursion limit holds for the stack.
+    pub(crate) fn depth_here(&self) -> u32 {
+        self.pool
+            .current_thread_index()
+            .map_or(0, |i| self.depths[i].load(Ordering::Relaxed))
+    }
+
+    /// Records that an engine at `depth` waits at a scope on the calling
+    /// thread until the returned guard is dropped, which restores what the
+    /// thread recorded before.
+    pub(crate) fn waiting(&self, depth: u32) -> Waiting<'_> {
+        let saved = self.pool.current_thread_index().map(|i| {
+            let before = self.depths[i].swap(depth, Ordering::Relaxed);
+            (i, before)
+        });
+        Waiting {
+            runtime: self,
+            saved,
+        }
     }
 
     /// Runs `work` on the pool, given the root of the stop flags, and
@@ -261,6 +291,23 @@ impl Runtime {
             }
         });
         result.expect("a task that ends without a result panicked, which the scope propagates")
+    }
+}
+
+/// A thread's recorded depth while an engine waits at a scope there.
+pub(crate) struct Waiting<'a> {
+    /// The runtime.
+    runtime: &'a Runtime,
+    /// The worker's index and the depth recorded before.
+    saved: Option<(usize, u32)>,
+}
+
+impl Drop for Waiting<'_> {
+    /// Restores the depth recorded before the wait.
+    fn drop(&mut self) {
+        if let Some((i, before)) = self.saved {
+            self.runtime.depths[i].store(before, Ordering::Relaxed);
+        }
     }
 }
 
