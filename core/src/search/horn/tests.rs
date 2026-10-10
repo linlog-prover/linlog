@@ -68,8 +68,8 @@ fn decides_the_horn_families() {
     }
 }
 
-/// A goal that is no Horn program is refused with the error a forced
-/// engine gets.
+/// A goal that is no Horn program, or lies beyond MELL, is refused with
+/// the error a forced engine gets.
 #[test]
 fn refuses_what_it_does_not_decide() {
     for text in [
@@ -80,7 +80,17 @@ fn refuses_what_it_does_not_decide() {
     ] {
         let sequent: Sequent = text.parse().unwrap();
         let error = prove(&sequent, Mode::CLASSICAL, &horn()).unwrap_err();
-        assert!(matches!(error, Error::NotHorn), "{text}: {error}");
+        assert!(
+            matches!(
+                error,
+                Error::EngineRefused {
+                    engine: Engine::Horn,
+                    because: crate::search::NotTaken::Shape
+                        | crate::search::NotTaken::Fragment { .. },
+                }
+            ),
+            "{text}: {error}"
+        );
     }
 }
 

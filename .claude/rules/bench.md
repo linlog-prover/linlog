@@ -98,8 +98,7 @@ serde_json, which the CLI and the core's tests already have.
   `timeout`, `copy_bound`, `recursion_limit`, `memory_limit`,
   `index_limit`, `other` for a `Reason` added since, `killed`,
   `crash …`; `context_too_wide` is gone with its reason and only read in
-  older files), `refused` (`NetFragment`, `NetMode`, `EngineMode`,
-  `NotAdditive`, `NotHorn`, `IntuitionisticMix`: the configuration does
+  older files), `refused` (`EngineRefused`, `IntuitionisticMix`: the configuration does
   not apply)
   and `error` (every other `Error`, a parse failure, a missing reading;
   these are findings, not configurations). `checked` is `ok` or the

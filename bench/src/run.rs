@@ -637,12 +637,7 @@ fn tail(args: &OneArgs) -> String {
         Ok(outcome) => outcome,
         Err(error) => {
             let verdict = match error {
-                Error::NetFragment { .. }
-                | Error::NetMode { .. }
-                | Error::EngineMode { .. }
-                | Error::NotAdditive { .. }
-                | Error::NotHorn
-                | Error::IntuitionisticMix => "refused",
+                Error::EngineRefused { .. } | Error::IntuitionisticMix => "refused",
                 _ => "error",
             };
             return row(&[

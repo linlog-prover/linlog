@@ -26,7 +26,7 @@ which `Proof::new_of_goal` asks too, and the
 engines get them in the forest's order, so the net engine takes them and
 the proof is checked): the goal's own fragment (`goal_fragment`, over the subtrees)
 picks the prunes and the engine, the net engine only for the roots
-(`Error::NetGoal` when forced elsewhere, since a structure's conclusions
+(`NotTaken::Goal` when forced elsewhere, since a structure's conclusions
 are the forest's roots), the additive path for any two additive-only
 occurrences (`additive::search_goal`), the focused engine otherwise; in
 intuitionistic mode a goal must have exactly one occurrence in output
@@ -124,9 +124,16 @@ the net engine's, and the others stay zero.
   refutation from the counts (a `⊤` absorbs, weakening, exponential
   atoms) the answer is `Exhausted`, never a guess.
 - **One interface every engine implements** (`Decide`, crate-private):
-  `admits(&task)` refuses a goal with the error a forced engine answers
-  (`NetFragment`, `NetMode`, `NetGoal`, `EngineMode`, `NotAdditive`,
-  `NotHorn`), and
+  `admits(&task)` refuses a goal with the error a forced engine answers,
+  `Error::EngineRefused { engine, because: NotTaken }`, checking in this
+  order its largest fragment (`NotTaken::Fragment { decides, goal }`:
+  focused `LL`, net `MLL`, additive `ADDITIVE`, Horn `MELL`), its modes
+  (`Mode`), whether the goal is the roots (`Goal`, the net engine) and
+  the goal's shape (`Shape`: not two formulas, no Horn program);
+  `NotTaken::explained(engine)` is the message, in each engine's words
+  where the behaviour lock pins them (`proof nets exist for MLL without
+  units only, not for …`); code `engine_refused`, kind `unsupported`,
+  and the harness reads the kind, not the variant, as `refused`; and
   `decide(&task, &options, &account, stop)` returns an `Answer`: the
   proof (`Ok(Some)`), an exhausted search (`Ok(None)`) or the reason it
   stopped, the counters, and the net the net engine found.
@@ -207,12 +214,11 @@ the net engine's, and the others stay zero.
   would have no goal); then the same rows, with `two_sided` in place of
   `focus`, and `net` on unit-free IMLL by the embedding (below).
   `Options::engine` forces an engine; `Engine::Net` on a fragment outside
-  unit-free MLL, asserted or detected, is `Error::NetFragment`, and in
-  affine mode `Error::NetMode`; `Focus` in intuitionistic mode and
-  `TwoSided` in classical mode are `Error::EngineMode`; `Additive` on
-  anything but two additive-only formulas is `Error::NotAdditive`; `Horn`
-  on a goal that is no Horn program is `Error::NotHorn`, and in affine
-  mode `Error::EngineMode` (each engine's `Decide::admits`). A new engine's `Engine` variant has a
+  unit-free MLL, asserted or detected, or in affine mode, `Focus` in
+  intuitionistic mode and `TwoSided` in classical mode, `Additive` on
+  anything but two additive-only formulas and `Horn` on a goal that is no
+  Horn program are `Error::EngineRefused` (each engine's
+  `Decide::admits`). A new engine's `Engine` variant has a
   `Display` that is its name in text and JSON, and a value of `--engine`
   in the CLI (`.claude/rules/cli.md`).
 - **IMLL by embedding.** In intuitionistic mode the net engine runs on the

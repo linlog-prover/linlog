@@ -6,6 +6,7 @@ use crate::Error;
 use crate::nets::{NetError, VertexId};
 use crate::occurrences::ShapeError;
 use crate::proofs::{CheckError, Dyadic, Fault};
+use crate::search::NotTaken;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 
 /// Writes a map of the given entries.
@@ -110,11 +111,8 @@ impl Serialize for Details<'_> {
                 entries!(s; "translation" => translation; "logic" => logic)
             }
             NoEngine { fragment, mode } => entries!(s; "fragment" => fragment; "mode" => mode),
-            NetFragment { fragment } => entries!(s; "fragment" => fragment),
-            NetMode { mode } => entries!(s; "mode" => mode),
-            EngineMode { engine, mode } => entries!(s; "engine" => engine; "mode" => mode),
-            NotAdditive { fragment, roots } => {
-                entries!(s; "fragment" => fragment; "roots" => roots)
+            EngineRefused { engine, because } => {
+                entries!(s; "engine" => engine; "because" => because)
             }
             #[cfg(feature = "rocq")]
             Unsupported(e) => entries!(s; "missing" => e),
@@ -134,7 +132,23 @@ impl Serialize for Details<'_> {
             GoalProof => entries!(s),
             #[cfg(feature = "pdf")]
             NoDate => entries!(s),
-            IntuitionisticMix | NetGoal | NotHorn | WriteFailed => entries!(s),
+            IntuitionisticMix | WriteFailed => entries!(s),
+        }
+    }
+}
+
+impl Serialize for NotTaken {
+    /// Writes the reason tagged by its `kind`: `fragment` with the
+    /// engine's largest and the goal's, `mode` with the mode, `goal`, or
+    /// `shape`.
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            NotTaken::Fragment { decides, goal } => {
+                entries!(s; "kind" => "fragment"; "decides" => decides; "goal" => goal)
+            }
+            NotTaken::Mode { mode } => entries!(s; "kind" => "mode"; "mode" => mode),
+            NotTaken::Goal => entries!(s; "kind" => "goal"),
+            NotTaken::Shape => entries!(s; "kind" => "shape"),
         }
     }
 }

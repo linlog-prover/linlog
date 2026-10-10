@@ -143,9 +143,9 @@ impl Decide for Focused {
         } else {
             super::Engine::Focus
         };
-        Err(Error::EngineMode {
+        Err(Error::EngineRefused {
             engine,
-            mode: task.mode,
+            because: super::NotTaken::Mode { mode: task.mode },
         })
     }
 

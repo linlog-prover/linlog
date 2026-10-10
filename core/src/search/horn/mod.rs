@@ -23,8 +23,11 @@ mod reach;
 mod tests;
 
 use super::memory::Account;
-use super::{Answer, Decide, Options, Reason, Refutation, StateEquation, Statistics, Task};
+use super::{
+    Answer, Decide, Engine, NotTaken, Options, Reason, Refutation, StateEquation, Statistics, Task,
+};
 use crate::Error;
+use crate::fragment::Fragment;
 use crate::hash::HashMap;
 use crate::limits::Limits;
 use crate::occurrences::{Forest, OccId, Side, Sign};
@@ -35,12 +38,22 @@ use equation::Equation;
 pub(crate) struct Horn;
 
 impl Decide for Horn {
-    /// Refuses a goal that is no Horn program.
+    /// Refuses a goal beyond MELL and one that is no Horn program.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if Program::read(task).is_none() {
-            return Err(Error::NotHorn);
-        }
-        Ok(())
+        let because = if !Fragment::MELL.contains(task.fragment) {
+            NotTaken::Fragment {
+                decides: Fragment::MELL,
+                goal: task.fragment,
+            }
+        } else if Program::read(task).is_none() {
+            NotTaken::Shape
+        } else {
+            return Ok(());
+        };
+        Err(Error::EngineRefused {
+            engine: Engine::Horn,
+            because,
+        })
     }
 
     /// Searches the markings on the calling thread, whatever

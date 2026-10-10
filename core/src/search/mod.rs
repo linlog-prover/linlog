@@ -119,11 +119,12 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut() -> bool) ->
 /// A sequent outside the fragment the options assert is refused
 /// ([`Error::FragmentMismatch`]); in intuitionistic mode a sequent with no
 /// intuitionistic reading ([`Error::NotIntuitionistic`]) and Mix
-/// ([`Error::IntuitionisticMix`]); the net engine outside unit-free MLL
-/// ([`Error::NetFragment`]) and in affine mode ([`Error::NetMode`]); the
+/// ([`Error::IntuitionisticMix`]); an engine the options force where it
+/// does not search ([`Error::EngineRefused`], with the [`NotTaken`] that
+/// says why: the net engine outside unit-free MLL and in affine mode, the
 /// focus engine in intuitionistic mode and the two-sided engine in
-/// classical mode ([`Error::EngineMode`]); the additive engine on anything
-/// but two additive-only formulas ([`Error::NotAdditive`]); and a sequent
+/// classical mode, the additive engine on anything but two additive-only
+/// formulas, the Horn engine on anything but a Horn program); and a sequent
 /// that unfolds to more subformula occurrences than
 /// `limits.occurrences` allows ([`Refusal::Occurrences`](crate::Refusal::Occurrences)). A proof that the checker rejects is
 /// [`Error::Rejected`], a defect and no verdict; one whose check would
@@ -241,8 +242,8 @@ pub(crate) fn without_progress(
 /// Those of [`prove`], plus [`Error::IndexOutOfBounds`] for an
 /// occurrence outside the forest, [`Error::GoalOutputs`] for an
 /// intuitionistic goal without exactly one formula on the right of `⊢`,
-/// and [`Error::NetGoal`] for the net engine forced on a goal other than
-/// the roots.
+/// and [`Error::EngineRefused`] with [`NotTaken::Goal`] for the net engine
+/// forced on a goal other than the roots.
 ///
 /// # Examples
 ///
@@ -451,7 +452,10 @@ fn prepare<'a>(
         reading,
         roots,
     };
-    let engine = options.engine.unwrap_or_else(|| dispatch(&task));
+    let engine = match options.engine {
+        Some(engine) => engine,
+        None => dispatch(&task)?,
+    };
     engine.implementation().admits(&task)?;
     Ok((task, engine))
 }
@@ -540,13 +544,17 @@ pub(crate) trait Decide {
 }
 
 /// The engine the dispatch picks for a goal: that of the first row of
-/// [`DISPATCH`] that takes it.
-fn dispatch(task: &Task<'_>) -> Engine {
+/// [`DISPATCH`] that takes it, or [`Error::NoEngine`] when none does,
+/// which a mode or a fragment no row names would meet.
+fn dispatch(task: &Task<'_>) -> Result<Engine, Error> {
     DISPATCH
         .iter()
         .find(|row| row.takes(task))
         .map(|row| row.engine)
-        .expect("the last two rows take every goal")
+        .ok_or(Error::NoEngine {
+            fragment: task.fragment,
+            mode: task.mode,
+        })
 }
 
 /// The dispatch, read from the first row down: for each fragment, mode and
@@ -824,8 +832,11 @@ impl Engine {
     /// [`Options::jobs`] asks for them: the focused engines and the net
     /// engine do; the additive and the Horn engine run on the calling
     /// thread whatever it says.
-    pub fn parallel(self) -> bool {
-        !matches!(self, Engine::Additive | Engine::Horn)
+    pub const fn parallel(self) -> bool {
+        match self {
+            Engine::Focus | Engine::Net | Engine::TwoSided => true,
+            Engine::Additive | Engine::Horn => false,
+        }
     }
 
     /// The implementation of the engine.
@@ -845,6 +856,92 @@ impl Display for Engine {
     /// `horn`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
+    }
+}
+
+/// Why an engine the options force does not take a goal, which each
+/// engine checks in this order: the largest fragment it decides, its
+/// modes, whether the goal is the sequent itself, and the goal's shape.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NotTaken {
+    /// The goal lies beyond the largest fragment the engine decides.
+    #[non_exhaustive]
+    Fragment {
+        /// The largest fragment the engine decides.
+        decides: Fragment,
+        /// The fragment the goal was searched in.
+        goal: Fragment,
+    },
+    /// The engine does not search in the mode.
+    #[non_exhaustive]
+    Mode {
+        /// The mode asked for.
+        mode: Mode,
+    },
+    /// The goal is not the sequent itself, the only goal the engine takes.
+    Goal,
+    /// The goal is not of the engine's shape: two additive-only formulas,
+    /// or a Horn program.
+    Shape,
+}
+
+impl NotTaken {
+    /// Returns the sentence that says why `engine` does not take the goal.
+    pub fn explained(self, engine: Engine) -> impl Display {
+        Explained(engine, self)
+    }
+}
+
+/// The sentence of a refusal of a forced engine.
+struct Explained(Engine, NotTaken);
+
+impl Display for Explained {
+    /// Writes why the engine does not take the goal, in the engine's
+    /// words where it has them.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let Explained(engine, because) = *self;
+        match (engine, because) {
+            (Engine::Net, NotTaken::Fragment { goal, .. }) => {
+                write!(
+                    f,
+                    "proof nets exist for MLL without units only, not for {goal}"
+                )
+            }
+            (Engine::Net, NotTaken::Mode { mode }) => write!(
+                f,
+                "proof nets exist in linear mode only, with or without Mix, not in {mode} mode"
+            ),
+            (_, NotTaken::Goal) => write!(
+                f,
+                "the {engine} engine decides the whole sequent only, not a goal within it"
+            ),
+            (_, NotTaken::Mode { mode }) => {
+                write!(f, "the {engine} engine does not search in {mode} mode")
+            }
+            (Engine::Additive, NotTaken::Fragment { goal, .. }) => write!(
+                f,
+                "the additive engine decides a sequent of two additive-only formulas, not one of \
+                 {goal}"
+            ),
+            (Engine::Additive, NotTaken::Shape) => f.write_str(
+                "the additive engine decides a sequent of two additive-only formulas only",
+            ),
+            (Engine::Horn, NotTaken::Fragment { .. } | NotTaken::Shape) => f.write_str(
+                "the horn engine decides a Horn program only: atoms, implications between \
+                 tensors of atoms, such implications under !, and one goal that is a tensor of \
+                 atoms",
+            ),
+            (_, NotTaken::Fragment { decides, goal }) => {
+                write!(
+                    f,
+                    "the {engine} engine decides {decides} at most, not {goal}"
+                )
+            }
+            (_, NotTaken::Shape) => {
+                write!(f, "the {engine} engine does not take a goal of this shape")
+            }
+        }
     }
 }
 
@@ -1873,7 +1970,14 @@ mod tests {
         ] {
             let error = prove(&sequent(input), Mode::CLASSICAL, &options).unwrap_err();
             assert!(
-                matches!(error, Error::NetFragment { .. }),
+                matches!(
+                    error,
+                    Error::EngineRefused {
+                        engine: Engine::Net,
+                        because: NotTaken::Fragment { .. },
+                        ..
+                    }
+                ),
                 "{input:?}: {error}"
             );
         }
@@ -1975,7 +2079,13 @@ mod tests {
         }
         let net = Options::default().with_engine(Some(Engine::Net));
         let error = prove(&sequent("a, b |- a"), Mode::CLASSICAL.with_affine(), &net).unwrap_err();
-        assert!(matches!(error, Error::NetMode { .. }));
+        assert!(matches!(
+            error,
+            Error::EngineRefused {
+                because: NotTaken::Mode { .. },
+                ..
+            }
+        ));
         assert_eq!(
             error.to_string(),
             "proof nets exist in linear mode only, with or without Mix, not in classical affine mode"
@@ -2036,16 +2146,28 @@ mod tests {
         );
         let two_sided = Options::default().with_engine(Some(Engine::TwoSided));
         let error = prove(&sequent("a |- a"), Mode::CLASSICAL, &two_sided).unwrap_err();
-        assert!(matches!(error, Error::EngineMode { .. }));
+        assert!(matches!(
+            error,
+            Error::EngineRefused {
+                because: NotTaken::Mode { .. },
+                ..
+            }
+        ));
         let outcome = prove(&sequent("a, a -o b |- b"), i, &two_sided).unwrap();
         assert_eq!(outcome.engine, Engine::TwoSided);
         assert!(outcome.verdict.proof().is_some());
         let additive = Options::default().with_engine(Some(Engine::Additive));
         let error = prove(&sequent("a & b, c |- a"), i, &additive).unwrap_err();
-        assert!(matches!(error, Error::NotAdditive { .. }));
+        assert!(matches!(
+            error,
+            Error::EngineRefused {
+                engine: Engine::Additive,
+                ..
+            }
+        ));
         assert_eq!(
             error.to_string(),
-            "the additive engine decides a sequent of two additive-only formulas, not 3 formulas of ALL"
+            "the additive engine decides a sequent of two additive-only formulas only"
         );
     }
 
@@ -2177,7 +2299,16 @@ mod tests {
             |_| false,
         )
         .unwrap_err();
-        assert!(matches!(error, Error::NetGoal), "{error}");
+        assert!(
+            matches!(
+                error,
+                Error::EngineRefused {
+                    because: NotTaken::Goal,
+                    ..
+                }
+            ),
+            "{error}"
+        );
         let error = prove_goal(
             &forest,
             &o(&[9]),

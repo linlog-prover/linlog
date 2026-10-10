@@ -17,7 +17,7 @@ use crate::limits::{Refusal, Space};
 use crate::nets::NetError;
 use crate::occurrences::ShapeError;
 use crate::proofs::CheckError;
-use crate::search::Engine;
+use crate::search::{Engine, NotTaken};
 use thiserror::Error;
 
 /// Everything that can go wrong in a call of this crate, as one family:
@@ -316,54 +316,17 @@ pub enum Error {
         /// The mode the search was asked for.
         mode: Mode,
     },
-    /// Proof nets exist for unit-free MLL only, and the sequent lies in a
-    /// larger fragment.
-    #[error("proof nets exist for MLL without units only, not for {fragment}")]
+    /// The engine the options force does not take the goal, for the
+    /// reason given: beyond its fragment, outside its modes, not the
+    /// sequent itself, or not of its shape.
+    #[error("{}", .because.explained(*.engine))]
     #[non_exhaustive]
-    NetFragment {
-        /// The sequent's fragment.
-        fragment: Fragment,
-    },
-    /// Proof nets exist in linear mode only, and the mode is affine.
-    #[error("proof nets exist in linear mode only, with or without Mix, not in {mode} mode")]
-    #[non_exhaustive]
-    NetMode {
-        /// The mode asked for.
-        mode: Mode,
-    },
-    /// The net engine, forced by the options, decides the sequent's roots
-    /// only, not a goal deeper in the forest.
-    #[error("the net engine decides the whole sequent only, not a goal within it")]
-    NetGoal,
-    /// The engine forced by the options does not search in the mode: the
-    /// two-sided engine is for intuitionistic mode, the focus engine for
-    /// classical mode.
-    #[error("the {engine} engine does not search in {mode} mode")]
-    #[non_exhaustive]
-    EngineMode {
+    EngineRefused {
         /// The engine the options force.
         engine: Engine,
-        /// The mode the search was asked for.
-        mode: Mode,
+        /// Why it does not take the goal.
+        because: NotTaken,
     },
-    /// The additive engine, forced by the options, decides only sequents of
-    /// exactly two additive-only formulas.
-    #[error(
-        "the additive engine decides a sequent of two additive-only formulas, not {roots} formulas of {fragment}"
-    )]
-    #[non_exhaustive]
-    NotAdditive {
-        /// The fragment the sequent was searched in.
-        fragment: Fragment,
-        /// How many formulas the sequent has.
-        roots: usize,
-    },
-    /// The Horn engine, forced by the options, decides only Horn programs.
-    #[error(
-        "the horn engine decides a Horn program only: atoms, implications between tensors of \
-         atoms, such implications under !, and one goal that is a tensor of atoms"
-    )]
-    NotHorn,
     /// The output has no form for the derivation; nothing was written.
     ///
     /// Needs the cargo feature `rocq`.
@@ -573,12 +536,7 @@ impl Error {
             | Self::FragmentMismatch { .. }
             | Self::Translation { .. }
             | Self::NoEngine { .. }
-            | Self::NetFragment { .. }
-            | Self::NetMode { .. }
-            | Self::NetGoal
-            | Self::EngineMode { .. }
-            | Self::NotAdditive { .. }
-            | Self::NotHorn => Unsupported,
+            | Self::EngineRefused { .. } => Unsupported,
             #[cfg(feature = "rocq")]
             Self::Unsupported(_) => Unsupported,
             Self::Refused(refusal) => refusal_kind(refusal),
@@ -640,12 +598,7 @@ impl Error {
             Self::FragmentMismatch { .. } => "fragment_mismatch",
             Self::Translation { .. } => "translation",
             Self::NoEngine { .. } => "no_engine",
-            Self::NetFragment { .. }
-            | Self::NetMode { .. }
-            | Self::NetGoal
-            | Self::EngineMode { .. }
-            | Self::NotAdditive { .. }
-            | Self::NotHorn => "engine_refused",
+            Self::EngineRefused { .. } => "engine_refused",
             #[cfg(feature = "rocq")]
             Self::Unsupported(_) => "no_certificate",
             Self::Refused(refusal) => refusal.code(),
@@ -924,22 +877,10 @@ mod tests {
                 fragment: Fragment::LL,
                 mode: Mode::CLASSICAL,
             },
-            Error::NetFragment {
-                fragment: Fragment::LL,
-            },
-            Error::NetMode {
-                mode: Mode::CLASSICAL,
-            },
-            Error::NetGoal,
-            Error::EngineMode {
+            Error::EngineRefused {
                 engine: Engine::Net,
-                mode: Mode::CLASSICAL,
+                because: NotTaken::Goal,
             },
-            Error::NotAdditive {
-                fragment: Fragment::LL,
-                roots: 3,
-            },
-            Error::NotHorn,
             Error::WriteFailed,
             Error::Rejected(Box::new(invalid)),
             Error::ReadBack {
@@ -1082,12 +1023,7 @@ mod tests {
             | Error::FragmentMismatch { .. }
             | Error::Translation { .. }
             | Error::NoEngine { .. }
-            | Error::NetFragment { .. }
-            | Error::NetMode { .. }
-            | Error::NetGoal
-            | Error::EngineMode { .. }
-            | Error::NotAdditive { .. }
-            | Error::NotHorn
+            | Error::EngineRefused { .. }
             | Error::WriteFailed
             | Error::Rejected(_)
             | Error::ReadBack { .. } => {}

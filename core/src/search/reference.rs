@@ -746,13 +746,7 @@ mod tests {
             let limits = crate::Limits::default();
             let outcome = match prove_within(&sequent, mode, &options, &limits, stop) {
                 Ok(outcome) => outcome,
-                Err(
-                    Error::NetFragment { .. }
-                    | Error::NetMode { .. }
-                    | Error::EngineMode { .. }
-                    | Error::NotAdditive { .. }
-                    | Error::NotHorn,
-                ) => continue,
+                Err(Error::EngineRefused { .. }) => continue,
                 Err(e) => panic!("{text:?} in {mode} mode, {name}: {e}"),
             };
             let contradiction = match outcome.verdict {

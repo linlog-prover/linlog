@@ -541,7 +541,7 @@ fn intuitionistic_mode() {
         ),
         (
             &["prove", "--engine", "additive", "A, B |- A * B"],
-            "the additive engine decides a sequent of two additive-only formulas, not 3 formulas of MLL",
+            "the additive engine decides a sequent of two additive-only formulas, not one of MLL",
         ),
     ] {
         let (status, out, err) = linlog(args, "");

@@ -23,7 +23,7 @@
 
 use super::focus::Search;
 use super::memory::{Account, bytes_of};
-use super::{Answer, Decide, Options, Reason, Statistics, Task};
+use super::{Answer, Decide, Engine, NotTaken, Options, Reason, Statistics, Task};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
@@ -38,12 +38,19 @@ pub(crate) struct Additive;
 impl Decide for Additive {
     /// Refuses anything but two formulas of the additive fragment.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
-        if Fragment::ADDITIVE.contains(task.fragment) && task.goal.len() == 2 {
+        let because = if !Fragment::ADDITIVE.contains(task.fragment) {
+            NotTaken::Fragment {
+                decides: Fragment::ADDITIVE,
+                goal: task.fragment,
+            }
+        } else if task.goal.len() != 2 {
+            NotTaken::Shape
+        } else {
             return Ok(());
-        }
-        Err(Error::NotAdditive {
-            fragment: task.fragment,
-            roots: task.goal.len(),
+        };
+        Err(Error::EngineRefused {
+            engine: Engine::Additive,
+            because,
         })
     }
 
@@ -81,7 +88,7 @@ pub(crate) fn search_goal(
     let [x, y] = goal else {
         unreachable!("the dispatch sends goals of two formulas here");
     };
-    let mut engine = Engine {
+    let mut engine = Pairs {
         forest,
         memo: HashMap::default(),
         memo_limit: options.memo_entries(),
@@ -106,7 +113,7 @@ pub(crate) fn search_goal(
 
 /// The state of one run: the problem, the memo of pairs, the proof arena
 /// and the counters.
-struct Engine<'a> {
+struct Pairs<'a> {
     /// The problem.
     forest: &'a Forest,
     /// The pairs decided: the node proving the pair, or `None`.
@@ -131,7 +138,7 @@ struct Engine<'a> {
     stop: &'a mut dyn FnMut() -> bool,
 }
 
-impl Engine<'_> {
+impl Pairs<'_> {
     /// Decides the sequent of the two occurrences: the node proving it,
     /// `None` when it is unprovable, or the reason the search stops.
     fn pair(&mut self, x: OccId, y: OccId) -> Result<Option<NodeId>, Reason> {

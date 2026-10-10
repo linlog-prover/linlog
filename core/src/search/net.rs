@@ -21,9 +21,9 @@
 //! linking. The net is sequentialized into the proof term returned.
 
 use super::memory::Account;
-use super::{Answer, Cadence, Decide, Options, Reason, Statistics, Stop, Task};
+use super::{Answer, Cadence, Decide, Engine, NotTaken, Options, Reason, Statistics, Stop, Task};
 use crate::Error;
-use crate::fragment::Mode;
+use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Refusal};
 use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
 use crate::occurrences::{Forest, OccId, Sign};
@@ -40,13 +40,20 @@ impl Decide for Nets {
     /// other than the roots: a structure's conclusions are the forest's
     /// roots.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
+        let refused = |because| Error::EngineRefused {
+            engine: Engine::Net,
+            because,
+        };
         crate::nets::exist(task.fragment, task.mode).map_err(|error| match error {
-            NetError::Fragment { fragment } => Error::NetFragment { fragment },
-            NetError::Mode { mode } => Error::NetMode { mode },
+            NetError::Fragment { fragment } => refused(NotTaken::Fragment {
+                decides: Fragment::MLL,
+                goal: fragment,
+            }),
+            NetError::Mode { mode } => refused(NotTaken::Mode { mode }),
             other => other.into(),
         })?;
         if !task.roots {
-            return Err(Error::NetGoal);
+            return Err(refused(NotTaken::Goal));
         }
         Ok(())
     }
@@ -95,7 +102,7 @@ pub(crate) fn search(
     if !counts_admit(forest, mode.mix) {
         return answer(Ok(false), Statistics::default(), None, limits, stop);
     }
-    let mut engine = Engine::new(forest, mode, options, Stop::Closure(stop));
+    let mut engine = Linker::new(forest, mode, options, Stop::Closure(stop));
     let result = engine.run();
     let statistics = engine.statistics;
     let net = matches!(result, Ok(true)).then_some(engine.net);
@@ -203,7 +210,7 @@ enum Choice {
 /// of the exact test, the counts the choice of the next literal reads, the
 /// stack of decisions and the counters. Nothing allocates once the run has
 /// started.
-struct Engine<'a> {
+struct Linker<'a> {
     /// The proof structure being linked.
     net: ProofStructure,
     /// Working memory for the exact test.
@@ -230,7 +237,7 @@ struct Engine<'a> {
     stop: Stop<'a>,
 }
 
-impl<'a> Engine<'a> {
+impl<'a> Linker<'a> {
     /// Prepares a run on the forest, which must be one of unit-free MLL.
     fn new(forest: &Forest, mode: Mode, options: &Options, stop: Stop<'a>) -> Self {
         let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
@@ -860,7 +867,7 @@ pub(super) mod tests {
 /// links.
 #[cfg(feature = "parallel")]
 pub(crate) mod parallel {
-    use super::{Engine, counts_admit};
+    use super::{Linker, counts_admit};
     use crate::fragment::Mode;
     use crate::limits::Limits;
     use crate::nets::{ProofStructure, VertexId};
@@ -917,7 +924,7 @@ pub(crate) mod parallel {
         }
         let threads = runtime.threads();
         let (result, statistics, net) = runtime.drive(stop, |flags| {
-            let mut root = Engine::new(forest, mode, options, Stop::Flags(flags));
+            let mut root = Linker::new(forest, mode, options, Stop::Flags(flags));
             // The cubes are what is left of the search at every moment,
             // each a branch nobody has followed yet, in the order of the
             // search: the branches of a cube take its place.
@@ -953,7 +960,7 @@ pub(crate) mod parallel {
                         // A worker that panics stops the others.
                         let _found = RaiseOnPanic(found);
                         let mut engine =
-                            Engine::new(forest, mode, options, Stop::Flags(flags.child(found)));
+                            Linker::new(forest, mode, options, Stop::Flags(flags.child(found)));
                         loop {
                             let i = next.fetch_add(1, Ordering::Relaxed);
                             let Some(cube) = cubes.get(i) else {
