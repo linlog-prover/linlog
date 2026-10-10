@@ -369,6 +369,19 @@ resume" below).
   background task watching them, and one nudge fixed it. The waiting
   recipe above holds for every area.
 
+## From area 3.2 (2026-10-10), for area 3.3
+
+- **The pool's speed after H18 and F92 is unmeasured**: a pool's `&`
+  is now a level of its forks (`or_depth + 1`), so a tower of nested
+  `&` forks at its first `LEVELS` and runs sequentially below, and a
+  stolen task starts at its thread's depth. The verdicts were checked
+  on two and four threads (the parallel tests, the panel's runs, the
+  reviewer's), the speed was not: the target sets run on one thread.
+  The efficiency area's first measurement, on a quiet machine: the
+  focused engine's target set and the second baseline's parallel pass
+  at `-j 2` and `-j 4`, at the head and at area 3.1's last commit
+  (kktkswpq), times and nodes side by side.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
