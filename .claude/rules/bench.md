@@ -5,7 +5,7 @@ paths:
 
 # linlog-bench: the benchmark harness
 
-Loaded when a file under `bench/` is read. The package is `linlog-bench`,
+Loaded when a file under `bench/` is read or changed. The package is `linlog-bench`,
 the binary `linlog-bench` (`doc = false`: a command, not an API). It
 depends on core with `parse`, `parallel`, `serialize`, `latex`, `typst`
 and `svg` (the last four for the journeys), and on clap, anyhow and

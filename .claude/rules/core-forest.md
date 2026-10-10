@@ -6,7 +6,7 @@ paths:
 # linlog core: the occurrence forest and its intuitionistic reading
 
 Loaded, beside `core.md`, when a file under `core/src/occurrences/` is
-read.
+read or changed.
 
 ## The occurrence forest
 

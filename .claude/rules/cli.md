@@ -5,7 +5,7 @@ paths:
 
 # linlog-cli: the `linlog` command
 
-Loaded when a file under `cli/` is read. The package is `linlog-cli`, the
+Loaded when a file under `cli/` is read or changed. The package is `linlog-cli`, the
 binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 `modules/workspace.nix` so that `nix run` finds it).
 

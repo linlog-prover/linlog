@@ -7,7 +7,7 @@ paths:
 
 # The flake's modules
 
-Loaded when `flake.nix`, its lock or a file under `modules/` is read.
+Loaded when `flake.nix`, its lock or a file under `modules/` is read or changed.
 CLAUDE.md says how the flake is put together (dendritic flake-parts,
 import-tree, one aspect per file); this is what each module holds.
 

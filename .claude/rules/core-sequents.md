@@ -12,7 +12,7 @@ paths:
 # linlog core: sequents, parsing and serialization
 
 Loaded, beside `core.md`, when a file of the sequents, the fragments,
-the parser or the serialization is read.
+the parser or the serialization is read or changed.
 
 ## Sequents are arena-allocated DAGs
 

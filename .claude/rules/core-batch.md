@@ -5,7 +5,7 @@ paths:
 
 # linlog core: the batch
 
-Loaded, beside `core.md`, when `search/batch.rs` is read: many sequents
+Loaded, beside `core.md`, when `search/batch.rs` is read or changed: many sequents
 in one call, the library's side of `linlog prove`'s batch.
 
 - **Problems in, results out, as iterators** (`run`, and `prove` over

@@ -11,7 +11,7 @@ paths:
 # linlog core: proof search, its front door, its memory bound, the additive path and the reference prover
 
 Loaded, beside `core.md`, when the search's front door, its memory
-account, the additive path or the reference prover is read. The engines have files of their
+account, the additive path or the reference prover is read or changed. The engines have files of their
 own: `core-focus.md`, `core-nets.md` (the net engine) and
 `core-parallel.md` (the pool).
 

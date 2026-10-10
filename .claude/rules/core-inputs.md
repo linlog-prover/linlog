@@ -8,7 +8,7 @@ paths:
 # linlog core: the benchmark inputs
 
 Loaded, beside `core.md`, when the LLTP reader, the `.spec` reader or
-the generated families are read; the harness that runs them is
+the generated families are read or changed; the harness that runs them is
 `bench.md`'s.
 
 ## Benchmark inputs: LLTP, `.spec` and the families

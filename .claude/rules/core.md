@@ -5,10 +5,10 @@ paths:
 
 # linlog core: the crate, and where its rules are
 
-Loaded when any file under `core/` is read. This file holds what is
+Loaded when any file under `core/` is read or changed. This file holds what is
 true of the whole crate; the invariants of each module are in a file of
 their own, which loads beside this one when a file of that module is
-read, so a session reads the rules of the code it touches and no others.
+read or changed, so a session reads the rules of the code it touches and no others.
 A note for the rules goes into the file of its module, one point per
 bullet; one that two modules need lives in one file and the other names
 it; only what holds for the whole crate goes here.

@@ -5,7 +5,7 @@ paths:
 
 # CI: the GitHub workflows
 
-Loaded when a file under `.github/` is read.
+Loaded when a file under `.github/` is read or changed.
 
 GitHub Actions runs `.github/workflows/ci.yml` on every push to `main`, on
 every pull request and weekly: `nix flake check`, and the online

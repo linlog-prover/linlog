@@ -6,7 +6,7 @@ paths:
 
 # The Claude Code setup in this repo
 
-Loaded only when a session opens something under `.claude/` or `CLAUDE.md`.
+Loaded only when a session reads or changes something under `.claude/` or `CLAUDE.md`.
 This is documentation about the harness, not the logic suite.
 
 ## What lives where

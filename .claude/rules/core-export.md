@@ -9,7 +9,7 @@ paths:
 # linlog core: the exports
 
 Loaded, beside `core.md`, when a file of the exports, the rule labels
-or the export snapshots is read. The text tree is the derivation
+or the export snapshots is read or changed. The text tree is the derivation
 view's (`core-derivations.md`).
 
 ## Export

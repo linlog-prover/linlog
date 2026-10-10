@@ -5,7 +5,7 @@ paths:
 
 # linlog core: ordinary logic through its embeddings
 
-Loaded, beside `core.md`, when a file of `core/src/ordinary/` is read:
+Loaded, beside `core.md`, when a file of `core/src/ordinary/` is read or changed:
 classical, intuitionistic and minimal propositional logic decided by
 translating into linear logic, and the linear proof read back as LK or LJ.
 

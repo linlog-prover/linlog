@@ -7,7 +7,7 @@ paths:
 # linlog core: the focused engine
 
 Loaded, beside `core.md`, when a file of the focused engine or the
-test-only generator is read. Where it polls its stop and what its
+test-only generator is read or changed. Where it polls its stop and what its
 memory account counts are in `core-search.md`; the pool it runs on is
 `core-parallel.md`.
 

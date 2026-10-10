@@ -10,7 +10,7 @@ paths:
 # linlog core: the derivation view and interactive proving
 
 Loaded, beside `core.md`, when the derivation view, its size estimate,
-the text tree or interactive proving is read. What a derivation knows of
+the text tree or interactive proving is read or changed. What a derivation knows of
 a proof comes from the checker's pass (`core-proofs.md`, "The checker").
 
 ## The derivation view

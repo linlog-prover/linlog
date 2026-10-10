@@ -8,7 +8,7 @@ paths:
 # linlog core: the parallel runtime
 
 Loaded, beside `core.md`, when the runtime or one of the two engines on
-it is read (`net::parallel` is inside `search/net.rs`).
+it is read or changed (`net::parallel` is inside `search/net.rs`).
 
 ## The parallel runtime
 

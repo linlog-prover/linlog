@@ -7,7 +7,7 @@ paths:
 
 # Mutation testing and fuzzing
 
-Loaded when a file of the mutation run or the fuzz targets is read. Both
+Loaded when a file of the mutation run or the fuzz targets is read or changed. Both
 are evidence no reviewer supplies: a mutant no test notices is a
 behaviour no test pins, and a fuzzer feeds the readers the input a
 browser or a stranger's file would.

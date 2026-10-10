@@ -7,7 +7,7 @@ paths:
 
 # linlog core: proof terms and the checker
 
-Loaded, beside `core.md`, when the proof terms or the checker are read.
+Loaded, beside `core.md`, when the proof terms or the checker are read or changed.
 The derivation view, the size estimate and interactive proving, which
 are observers of the checker's pass, are in `core-derivations.md`.
 

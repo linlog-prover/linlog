@@ -7,7 +7,7 @@ paths:
 # linlog core: proof nets and the net engine
 
 Loaded, beside `core.md`, when a file of the proof nets or the net
-engine is read. The net engine's cubes on a pool are in
+engine is read or changed. The net engine's cubes on a pool are in
 `core-parallel.md`, which loads for `search/net.rs` too.
 
 ## Proof nets
