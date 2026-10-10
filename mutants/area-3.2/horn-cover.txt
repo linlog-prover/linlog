@@ -1,0 +1,17 @@
+core/src/search/horn/cover.rs:236:36: replace + with * in Cover<'a>::run
+core/src/search/horn/cover.rs:285:22: replace == with != in Cover<'a>::before
+core/src/search/horn/cover.rs:287:19: replace += with *= in Cover<'a>::before
+core/src/search/horn/cover.rs:289:23: replace += with *= in Cover<'a>::before
+core/src/search/horn/cover.rs:298:22: replace == with != in Cover<'a>::before
+core/src/search/horn/cover.rs:328:20: replace += with *= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:333:28: replace += with -= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:333:28: replace += with *= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:347:38: replace - with + in Cover<'a>::dominated
+core/src/search/horn/cover.rs:349:25: replace <= with > in Cover<'a>::dominated
+core/src/search/horn/cover.rs:350:24: replace += with *= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:355:27: replace > with >= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:361:24: replace += with *= in Cover<'a>::dominated
+core/src/search/horn/cover.rs:364:53: replace + with * in Cover<'a>::dominated
+core/src/search/horn/cover.rs:381:30: replace + with * in Cover<'a>::keep
+core/src/search/horn/cover.rs:420:50: replace += with *= in Cover<'a>::keep
+core/src/search/horn/cover.rs:451:35: replace - with + in Cover<'a>::room_in_edges

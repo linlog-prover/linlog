@@ -1,0 +1,3 @@
+core/src/search/horn/mod.rs:296:45: replace | with ^ in Parents::push
+core/src/search/horn/mod.rs:741:18: replace match guard head.is_none() && is_head(forest, body, x) with true in clause_head
+core/src/search/horn/mod.rs:741:33: replace && with || in clause_head

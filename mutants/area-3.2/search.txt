@@ -1,0 +1,10 @@
+core/src/search/mod.rs:1011:13: replace && with || in few_equal_literals
+core/src/search/mod.rs:127:5: replace set_up_stopped -> bool with false
+core/src/search/mod.rs:1771:43: replace << with >>
+core/src/search/mod.rs:285:9: replace Goal<'a>::is_conclusion -> bool with true
+core/src/search/mod.rs:401:43: replace - with + in race
+core/src/search/mod.rs:401:43: replace - with / in race
+core/src/search/mod.rs:435:54: replace || with && in race
+core/src/search/mod.rs:461:32: replace match guard settled(&first) with false in race
+core/src/search/mod.rs:462:32: replace match guard settled(&second) with false in race
+core/src/search/mod.rs:462:32: replace match guard settled(&second) with true in race

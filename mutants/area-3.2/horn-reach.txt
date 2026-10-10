@@ -1,0 +1,18 @@
+core/src/search/horn/reach.rs:121:43: replace / with * in both
+core/src/search/horn/reach.rs:279:24: replace || with && in Reach<'a>::give_back
+core/src/search/horn/reach.rs:340:25: replace < with <= in Reach<'a>::advance
+core/src/search/horn/reach.rs:35:59: replace - with /
+core/src/search/horn/reach.rs:35:59: replace - with +
+core/src/search/horn/reach.rs:446:49: replace | with ^ in Reach<'a>::expand
+core/src/search/horn/reach.rs:500:48: replace < with <= in Reach<'a>::successor
+core/src/search/horn/reach.rs:550:9: replace Reach<'a>::hash -> u64 with 0
+core/src/search/horn/reach.rs:550:9: replace Reach<'a>::hash -> u64 with 1
+core/src/search/horn/reach.rs:564:39: replace && with || in Reach<'a>::find
+core/src/search/horn/reach.rs:567:26: replace + with * in Reach<'a>::find
+core/src/search/horn/reach.rs:567:31: replace & with ^ in Reach<'a>::find
+core/src/search/horn/reach.rs:579:30: replace / with * in Reach<'a>::keep
+core/src/search/horn/reach.rs:602:37: replace - with / in Reach<'a>::place
+core/src/search/horn/reach.rs:604:32: replace != with == in Reach<'a>::place
+core/src/search/horn/reach.rs:605:26: replace + with * in Reach<'a>::place
+core/src/search/horn/reach.rs:605:31: replace & with ^ in Reach<'a>::place
+core/src/search/horn/reach.rs:657:49: replace < with <= in moved

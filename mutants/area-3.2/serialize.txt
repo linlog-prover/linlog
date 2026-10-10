@@ -1,0 +1,6 @@
+core/src/serialize/search.rs:309:28: replace < with <= in DisproofForm::within
+core/src/serialize/search.rs:317:22: replace match guard index < occurrences with false in DisproofForm::within
+core/src/serialize/search.rs:317:22: replace match guard index < occurrences with true in DisproofForm::within
+core/src/serialize/search.rs:317:28: replace < with <= in DisproofForm::within
+core/src/serialize/search.rs:317:28: replace < with == in DisproofForm::within
+core/src/serialize/search.rs:317:28: replace < with > in DisproofForm::within
