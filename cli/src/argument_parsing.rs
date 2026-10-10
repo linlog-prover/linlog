@@ -243,7 +243,8 @@ pub struct ProveArgs {
 /// is decided; with `--format json` a JSON Lines record with the name.
 /// The mode is the flags', or a problem file's column or a record's.
 /// The exit status is the worst verdict: an error (2) before unknown
-/// (3) before unprovable (1) before proved (0).
+/// (3) before unprovable (1) before proved (0); a batch that holds no
+/// sequent is an error.
 #[derive(Args, Clone, Debug)]
 pub struct BatchArgs {
     /// Read the paths of the inputs from this file, one per line, or

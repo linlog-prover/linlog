@@ -184,7 +184,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   whose first keys are the wire level and the name and the rest
   `Outcome`'s JSON (`seconds` with `--stats`; `record_json`, which drops
   the outcome's own `version`). Its exit status is the worst (`Status::worse`: error,
-  unknown, unprovable, proved); `Status::Error` is an entry's error,
+  unknown, unprovable, proved), and a batch that holds no entry is an
+  error, exit 2 (the worst once started at proved, so an input of
+  comments, or a directory of files its format does not take, exited 0); `Status::Error` is an entry's error,
   printed as its line, never an `error:` of the command. A drawn format
   needs `--output DIR`; a file per proved sequent is
   `file_for(DIR, name)`, the name's path with `..` as `__` and the

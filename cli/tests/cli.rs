@@ -1294,6 +1294,24 @@ fn a_typed_sequent_is_no_batch_entry() {
     }
 }
 
+/// A batch that holds no entry is an error, not a batch of verdicts all
+/// proved: a directory of files its format does not take, an input of
+/// comments.
+#[test]
+fn an_empty_batch_is_an_error() {
+    let dir = scratch("none");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("c.txt"), "A |- A").unwrap();
+    for (args, input) in [
+        (&["prove", "--file", &dir.to_string_lossy()][..], ""),
+        (&["prove", "--input-format", "lines"], "# a comment\n\n"),
+    ] {
+        let (status, out, err) = linlog(args, input);
+        assert_eq!((status, out.as_str()), (2, ""), "{args:?}");
+        assert!(err.contains("the batch holds no sequent"), "{err}");
+    }
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

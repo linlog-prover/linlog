@@ -859,9 +859,9 @@ fn cgroup_memory() -> Option<u64> {
 ///
 /// # Errors
 ///
-/// A sequent given as an argument, an input that cannot be read or a
-/// format of one sequent; an entry's own error is its line, never an
-/// error of the batch.
+/// A sequent given as an argument, an input that cannot be read, a format
+/// of one sequent, or inputs that hold no entry; an entry's own error is
+/// its line, never an error of the batch.
 pub fn run(args: &ProveArgs) -> Result<Status> {
     if args.input.sequent.is_some() {
         bail!(
@@ -961,15 +961,21 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
             &limits,
             move |entry, plan, _| worker.answer(entry, plan),
         );
-        let mut worst = Status::Yes;
+        let mut worst: Option<Status> = None;
         let mut stdout = std::io::stdout().lock();
         for done in results {
             writeln!(stdout, "{}", done.text)
                 .and_then(|()| stdout.flush())
                 .context("cannot write to standard output")?;
-            worst = worst.worse(done.status);
+            worst = Some(worst.map_or(done.status, |worst| worst.worse(done.status)));
         }
-        Ok(worst)
+        worst.ok_or_else(|| {
+            anyhow!(
+                "the batch holds no sequent: a directory is walked for the files of the input \
+                 format's extension (.p and .json for auto), and blank lines and comments are \
+                 no entries"
+            )
+        })
     })?
 }
 
