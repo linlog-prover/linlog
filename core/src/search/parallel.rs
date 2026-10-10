@@ -356,7 +356,8 @@ impl Drop for RaiseOnPanic<'_> {
 /// thread polls `stop` once a millisecond, as [`Runtime::drive`] does, and
 /// raises both flags when it fires; a result that `settles` the matter
 /// raises the other work's flag, so the other returns as soon as it polls.
-/// A panic in either propagates to the caller once both have ended.
+/// A panic in either raises the other's flag too, and propagates to the
+/// caller once both have ended.
 pub(crate) fn race<T: Send>(
     runtimes: (&Runtime, &Runtime),
     stop: &mut dyn FnMut(u64) -> bool,
@@ -375,9 +376,11 @@ pub(crate) fn race<T: Send>(
             let flags = &flags;
             let other = sender.clone();
             first.spawn(move |_| {
+                let _other = RaiseOnPanic(&flags[1]);
                 let _ = sender.send((0, work.0(Flags::root(&flags[0], done))));
             });
             second.spawn(move |_| {
+                let _other = RaiseOnPanic(&flags[0]);
                 let _ = other.send((1, work.1(Flags::root(&flags[1], done))));
             });
             let _raise = [RaiseOnPanic(&flags[0]), RaiseOnPanic(&flags[1])];

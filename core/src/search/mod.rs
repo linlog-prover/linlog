@@ -453,6 +453,8 @@ pub fn race(
         let pooled = &pooled;
         let mut pool = None;
         let account = memory::Account::part_of(whole);
+        // A panic on either side stops the other, which the scope waits for.
+        let _raise = parallel::RaiseOnPanic(decided);
         let first = decide_goal(
             goal,
             mode,
@@ -469,6 +471,7 @@ pub fn race(
                             .name("linlog-race".into())
                             .stack_size(limits.stack_bytes())
                             .spawn_scoped(scope, move || {
+                                let _raise = parallel::RaiseOnPanic(decided);
                                 let account = memory::Account::part_of(whole);
                                 let outcome = decide_goal(
                                     goal,
@@ -499,12 +502,17 @@ pub fn race(
         let second = handle
             .join()
             .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
-        let (mut outcome, other) = if settled(&first) {
-            (first?, second?)
-        } else {
-            (second?, first?)
+        // A decision of either side answers, whatever the other ended
+        // with (a pool that could not start its threads, say); else an
+        // error of either.
+        let (mut outcome, other) = match (first, second) {
+            (first, second) if settled(&first) => (first?, second.ok()),
+            (first, second) if settled(&second) => (second?, first.ok()),
+            (first, second) => (second?, Some(first?)),
         };
-        outcome.statistics.add(&other.statistics);
+        if let Some(other) = other {
+            outcome.statistics.add(&other.statistics);
+        }
         outcome.statistics.work = work.done();
         Ok(outcome)
     })
@@ -553,8 +561,15 @@ fn decide_goal(
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
     if set_up_stopped(forest, &mut polled) {
+        // This thread has done no work yet: another thread's passed the
+        // bound, or the caller stopped.
+        let reason = if work.passed() {
+            Reason::WorkLimit { limit: work.limit }
+        } else {
+            Reason::Stopped
+        };
         return Ok(Outcome {
-            verdict: Verdict::Unknown(Reason::Stopped),
+            verdict: Verdict::Unknown(reason),
             fragment,
             mode,
             engine,
@@ -2158,8 +2173,11 @@ pub struct Statistics {
     /// not run.
     pub forward_copies: u32,
     /// The units of work the search did, in its engine's unit (each
-    /// [`Engine`] variant says which): on one thread what the
-    /// [`Progress::work`] of its polls add up to.
+    /// [`Engine`] variant says which): where every search runs on the
+    /// calling thread (one thread, and the default bias's two searches
+    /// in [`Schedule::Turns`]), what the [`Progress::work`] of its polls
+    /// add up to; other threads' units come into [`Progress::done`]
+    /// only.
     pub work: u64,
 }
 
@@ -2413,6 +2431,38 @@ mod tests {
             "{} units under a bound of {limit}",
             outcome.statistics.work
         );
+    }
+
+    /// A panic on one side of the race stops the other side, and then
+    /// goes on to the caller: the pool's stop panics here, and the
+    /// single search of minutes ends at its next poll.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn a_panic_on_one_side_of_the_race_stops_the_other() {
+        let (sender, ended) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let s = crate::families::mix(11);
+            let forest = Forest::new(&s).unwrap();
+            let goal = Goal::conclusion(&forest);
+            let panicked = std::panic::catch_unwind(|| {
+                race(
+                    goal,
+                    Mode::CLASSICAL.with_mix(),
+                    &Options::default(),
+                    &Limits::default(),
+                    3,
+                    |_| true,
+                    |_| {
+                        let pool = std::thread::current().name() == Some("linlog-race");
+                        assert!(!pool, "the pool's stop panics");
+                        false
+                    },
+                )
+            });
+            sender.send(panicked.is_err()).unwrap();
+        });
+        let panicked = ended.recv_timeout(std::time::Duration::from_secs(20));
+        assert_eq!(panicked, Ok(true));
     }
 
     /// The race counts every thread: below three it asks nothing and

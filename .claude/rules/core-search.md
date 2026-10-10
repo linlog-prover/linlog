@@ -94,8 +94,11 @@ the engines' `&mut dyn FnMut(u64) -> bool`): `prove_goal` keeps one
 `Work` per search (an atomic count shared by its threads, against
 `Limits::work`), counts each poll's units and asks the caller's stop
 with `Progress { phase: Search, work: the poll's own units, done: every
-thread's }` (so on one thread the `work` add up to `done` and to
-`Statistics::work`); past the bound the poll answers true and `prove_goal` turns the
+thread's }` (so where every search runs on the calling thread, one
+thread and the default bias in `Schedule::Turns`, the `work` add up to
+`done` and to `Statistics::work`; the default bias's second search in
+`Schedule::Auto` runs on a thread of its own, whose units reach `done`
+only); past the bound the poll answers true and `prove_goal` turns the
 engine's `Stopped` into `Reason::WorkLimit { limit }`. **Every thread
 adds its units to the count in batches of `Work::BATCH` and the rest when
 it ends**: the calling thread in `decide_goal`'s poll (with `parallel`;
@@ -128,8 +131,9 @@ sequents for `focus` and literals chosen for `net`; `memo_hits`,
 `memo_entries` and `splits` are the focused engine's, `links` and `tests`
 the net engine's, `copies` and `forward_copies` the focused engine's
 levels, and the others stay zero; `work` is every engine's, set by
-`prove_goal` from the search's `Work` (on one thread the sum of the
-progress' `work`, `the_search_counts_its_work`). `Statistics::add` is
+`prove_goal` from the search's `Work` (where every search runs on the
+calling thread, the sum of the progress' `work`,
+`the_search_counts_its_work`). `Statistics::add` is
 two searches' merge (the race's), `add_run` a pool's workers'.
 `Engine::counters` lists the counters each engine fills (`Counter`: the
 key in the JSON form, a label, the meaning), which a front end shows

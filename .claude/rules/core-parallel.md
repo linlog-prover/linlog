@@ -81,7 +81,10 @@ has no or-choices worth sharing out). What the code relies on:
   that raises its flag when a panic drops it): the driver's and the
   race's loops, which call the caller's stop, raise the root flags; a
   choice's tasks and a `&` premise raise the choice's `cancel`; a net
-  worker raises `found`. rayon's scope runs every task it spawned to its
+  worker raises `found`; each of `parallel::race`'s two works (the
+  default bias's searches on two pools) raises the other's root flag,
+  and each side of `search::race` raises `decided`, which the other's
+  stop reads (`a_panic_on_one_side_of_the_race_stops_the_other`). rayon's scope runs every task it spawned to its
   end before it lets a panic go on, so without the guard a panicking
   stop condition waited for the whole search (`mix(11)` on two threads,
   minutes; `a_panicking_stop_ends_every_worker`) and a panicking
