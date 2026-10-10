@@ -284,7 +284,7 @@ impl<'a> Goal<'a> {
 /// Asks the caller's stop as the engines poll it: in the search's phase,
 /// with no work counted yet.
 pub(crate) fn without_progress(
-    stop: &mut impl FnMut(Progress) -> bool,
+    stop: &mut (impl FnMut(Progress) -> bool + ?Sized),
 ) -> impl FnMut() -> bool + '_ {
     move || stop(Progress::new(Phase::Search, 0, 0))
 }
@@ -346,7 +346,6 @@ pub fn prove_goal(
         options,
         reading.as_ref(),
     )?;
-    let roots = task.roots;
     let implementation = engine.implementation();
     // The engines poll a condition without progress, which asks the
     // caller's with the search's phase.
@@ -371,51 +370,16 @@ pub fn prove_goal(
         .clone()
         .with_jobs(parallel::threads(options.threads()));
     let answer = implementation.decide(&task, options, limits, &account, &mut polled)?;
-    // The one place an engine's answer becomes a verdict. A refutation
-    // says what the counts of the goal rule out, under the same limits as
-    // the search.
-    let verdict = match answer.result {
-        // A proof records what it concludes and the mode it was found in.
-        Ok(Some(proof)) if roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
-        Ok(Some(proof)) => {
-            Verdict::Proved(Box::new(proof.concluding(&occurrences).with_mode(mode)))
-        }
-        Ok(None) => {
-            let refutation = match answer.refutation {
-                Some(refutation) => refutation,
-                None => {
-                    let account = memory::Account::new(limits.memory_bytes);
-                    focus::refutation(forest, task.goal, fragment, mode, &account, &mut polled)
-                }
-            };
-            let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
-            Verdict::Unprovable(Box::new(if roots {
-                disproof
-            } else {
-                disproof.of_goal(goal.members.into())
-            }))
-        }
-        Err(reason) => Verdict::Unknown(reason),
-    };
     drop(polled);
-    // No engine is trusted with its own proof: the checker has the last
-    // word on every proof, of the sequent or of a goal, in every build. A
-    // check that a bound or the stop gave up is no verdict on the proof,
-    // and no proof is returned unchecked: the search's answer is unknown.
-    let mut verdict = verdict;
-    if let Verdict::Proved(proof) = &verdict {
-        if options.check {
-            match proof.check_within(mode, limits, &mut stop) {
-                Ok(()) => {}
-                Err(e @ CheckError::Invalid(_)) => return Err(Error::Rejected(Box::new(e))),
-                Err(CheckError::Refused(refused)) => {
-                    verdict = Verdict::Unknown(unchecked(refused.refusal)?);
-                }
-            }
-        } else {
-            debug_assert_eq!(proof.check(mode), Ok(()), "the {engine} engine's proof");
-        }
-    }
+    let verdict = conclude(
+        answer.result,
+        answer.refutation,
+        &task,
+        goal.members,
+        options,
+        limits,
+        &mut stop,
+    )?;
     let checked = options.check && matches!(verdict, Verdict::Proved(_));
     Ok(Outcome {
         verdict,
@@ -426,6 +390,68 @@ pub fn prove_goal(
         net: answer.net,
         checked,
     })
+}
+
+/// Returns the verdict of an engine's answer, the one place it is made:
+/// a proof that passed the checker and records the goal it concludes and
+/// the mode, an exhausted search with the engine's refutation or the
+/// counts', or why the search stopped. No engine is trusted with its own
+/// proof: the checker has the last word on every proof, of the sequent or
+/// of a goal, in every build, and a check that a bound or the stop gave up
+/// is no verdict on the proof, so no proof is returned unchecked.
+///
+/// # Errors
+///
+/// [`Error::Rejected`] for a proof the checker rejects, a defect.
+fn conclude(
+    result: Result<Option<Proof>, Reason>,
+    refutation: Option<Refutation>,
+    task: &Task<'_>,
+    members: &[Member],
+    options: &Options,
+    limits: &Limits,
+    stop: &mut dyn FnMut(Progress) -> bool,
+) -> Result<Verdict, Error> {
+    let (forest, mode) = (task.forest, task.mode);
+    let verdict = match result {
+        Ok(Some(proof)) if task.roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
+        Ok(Some(proof)) => Verdict::Proved(Box::new(proof.concluding(task.goal).with_mode(mode))),
+        Ok(None) => {
+            // What the counts of the goal rule out, under the same limits
+            // as the search, where the engine has no refutation of its own.
+            let refutation = refutation.unwrap_or_else(|| {
+                let account = memory::Account::new(limits.memory_bytes);
+                let mut polled = without_progress(stop);
+                focus::refutation(
+                    forest,
+                    task.goal,
+                    task.fragment,
+                    mode,
+                    &account,
+                    &mut polled,
+                )
+            });
+            let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
+            Verdict::Unprovable(Box::new(if task.roots {
+                disproof
+            } else {
+                disproof.of_goal(members.into())
+            }))
+        }
+        Err(reason) => Verdict::Unknown(reason),
+    };
+    let Verdict::Proved(proof) = &verdict else {
+        return Ok(verdict);
+    };
+    if !options.check {
+        debug_assert_eq!(proof.check(mode), Ok(()), "an engine's proof");
+        return Ok(verdict);
+    }
+    match proof.check_within(mode, limits, stop) {
+        Ok(()) => Ok(verdict),
+        Err(e @ CheckError::Invalid(_)) => Err(Error::Rejected(Box::new(e))),
+        Err(CheckError::Refused(refused)) => Ok(Verdict::Unknown(unchecked(refused.refusal)?)),
+    }
 }
 
 /// Returns why a search whose proof's check was given up is unknown: the
