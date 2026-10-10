@@ -1349,6 +1349,31 @@ fn an_interrupted_batch_is_unknown() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("interrupted"));
 }
 
+/// `load` resumes a session of the same sequent and mode only: the exit
+/// status answers for the session's own question.
+#[test]
+fn load_keeps_the_question() {
+    let saved = scratch("affine-session.json");
+    let saved = saved.to_str().unwrap();
+    let finished = format!("close\nsave {saved}\n");
+    let (status, _, _) = linlog(&["interact", "-a", "a, b |- a"], &finished);
+    assert_eq!(status, 0);
+    let load = format!("load {saved}\n");
+    let (status, _, _) = linlog(&["interact", "-a", "a, b |- a"], &load);
+    assert_eq!(status, 0);
+    for (args, why) in [
+        (&["interact", "|- 1, 1"][..], "a session of another sequent"),
+        (
+            &["interact", "a, b |- a"],
+            "in classical affine mode, this one is in classical",
+        ),
+    ] {
+        let (status, out, _) = linlog(args, &load);
+        assert_eq!(status, 1, "{args:?}");
+        assert!(out.starts_with("error: ") && out.contains(why), "{out}");
+    }
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

@@ -516,7 +516,8 @@ formula, `rules` names the rules that act on a formula, `apply` applies one
 premise), `undo` retracts the last step, `close` lets the search close one
 goal or all of them, `show` draws the derivation so far with the open
 goals as bare sequents (`show --latex`, `show --typst` and `show --svg`
-as proof trees), `save` and `load` keep a session as JSON, and `proof`
+as proof trees), `save` and `load` keep a session as JSON (`load` takes
+a session of the same sequent and mode, `--state FILE` any), and `proof`
 checks the finished proof independently and prints it or writes it for
 `check` (`proof --rocq` certifies it, `proof --pdf FILE` draws it, and
 `show proof.pdf` writes the derivation so far, open goals included;

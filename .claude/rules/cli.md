@@ -457,6 +457,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   The time is not in the JSON (core has no clock, and the output stays
   reproducible); `--stats` prints it as text.
 - `check` takes the mode from its flags, never from the file's `mode` key.
+- **`load` in a session refuses a file of another sequent or mode**
+  (`Interactive::sequent` and `mode` compared), as `--state` refuses a
+  file beside a sequent: the exit status answers for the session's own
+  question, and a finished session of another loaded into `|- 1, 1`
+  exited 0.
 - **`interact` needs the sequent as an argument or `--file`**: standard
   input carries the commands, so the fallback to standard input that
   `SequentInput` gives the other commands is refused with a message. Its

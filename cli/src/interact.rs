@@ -370,7 +370,25 @@ impl Session {
             }
             "load" => {
                 let path = rest.first().context("load what? give a file")?;
-                self.state = load(Path::new(path))?;
+                let state = load(Path::new(path))?;
+                // The exit status answers for the session's sequent and
+                // mode, so a file of another question is refused, as
+                // `--state` beside a sequent is.
+                if state.sequent() != self.state.sequent() {
+                    bail!(
+                        "{path} holds a session of another sequent; `load` resumes one of this \
+                         sequent, and `linlog interact --state {path}` starts that one"
+                    );
+                }
+                if state.mode() != self.state.mode() {
+                    bail!(
+                        "{path} holds a session in {} mode, this one is in {} mode; \
+                         `linlog interact --state {path}` starts that one",
+                        state.mode(),
+                        self.state.mode()
+                    );
+                }
+                self.state = state;
                 self.goals()
             }
             _ => bail!("unknown command {command:?}; `help` lists them"),
