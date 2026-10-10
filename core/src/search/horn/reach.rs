@@ -154,7 +154,7 @@ enum Slice {
 /// target above and its parent's index complemented below, so that the
 /// nearest comes first and, among equals, a successor of the latest
 /// marking expanded; and the transition that leads to it.
-type Entry = Reverse<(u64, u32)>;
+type Successor = Reverse<(u64, u32)>;
 
 /// The state of a search: the markings kept, the frontier, the index of
 /// the transitions by their first input place, the marking at hand, and
@@ -180,7 +180,7 @@ struct Reach<'a> {
     /// marking's index plus one, at most half of them used.
     slots: Vec<u32>,
     /// The successors to expand.
-    frontier: BinaryHeap<Entry>,
+    frontier: BinaryHeap<Successor>,
     /// The transitions whose first input is each place: those of place
     /// `p` are `by_place[starts[p]..starts[p + 1]]`.
     starts: Vec<u32>,
@@ -226,7 +226,7 @@ impl<'a> Reach<'a> {
             if transition.inputs == transition.outputs {
                 free.push(t as u32);
             } else {
-                starts[program.arcs[transition.inputs as usize].0 as usize + 1] += 1;
+                starts[program.inputs(transition)[0].0 as usize + 1] += 1;
             }
         }
         for p in 0..width {
@@ -236,7 +236,7 @@ impl<'a> Reach<'a> {
         let mut by_place = vec![0; starts[width] as usize];
         for (t, transition) in program.transitions.iter().enumerate() {
             if transition.inputs != transition.outputs {
-                let p = program.arcs[transition.inputs as usize].0 as usize;
+                let p = program.inputs(transition)[0].0 as usize;
                 by_place[next[p] as usize] = t as u32;
                 next[p] += 1;
             }
@@ -447,11 +447,11 @@ impl<'a> Reach<'a> {
         }
         self.work += examined;
         self.marked = marked;
-        let before = self.frontier.capacity() * size_of::<Entry>();
+        let before = self.frontier.capacity() * size_of::<Successor>();
         if self.frontier.capacity() - self.frontier.len() < successors.len() {
             let more = successors.len().max(self.frontier.capacity());
             let fits = more
-                .checked_mul(size_of::<Entry>())
+                .checked_mul(size_of::<Successor>())
                 .is_some_and(|bytes| self.charged.account().fits(bytes));
             if !fits {
                 return Err(Reason::MemoryLimit {
@@ -461,7 +461,7 @@ impl<'a> Reach<'a> {
             self.frontier.reserve_exact(more);
         }
         self.charged
-            .resize(before, self.frontier.capacity() * size_of::<Entry>());
+            .resize(before, self.frontier.capacity() * size_of::<Successor>());
         self.frontier.extend(successors);
         Ok(None)
     }
@@ -580,7 +580,7 @@ impl<'a> Reach<'a> {
             || !room(&mut self.bytes, more, &mut self.charged)
             || !room(&mut self.ends, 1, &mut self.charged)
             || !room(&mut self.hashes, 1, &mut self.charged)
-            || !room(&mut self.parents.0, 1, &mut self.charged)
+            || !self.parents.room(&mut self.charged)
         {
             return Err(Reason::MemoryLimit {
                 limit_bytes: self.charged.account().limit(),

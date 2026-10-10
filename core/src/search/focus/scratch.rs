@@ -134,14 +134,14 @@ impl Run<'_> {
     }
 
     /// Takes an empty list of links from the pool.
-    pub(super) fn take_links(&mut self) -> Pooled<(OccId, NodeId, bool)> {
+    pub(super) fn take_links(&mut self) -> Pooled<(OccId, NodeId, Branch)> {
         let mut links = self.pools.links.pop().unwrap_or_default();
         links.clear();
         links
     }
 
     /// Returns a list of links to the pool.
-    pub(super) fn give_links(&mut self, mut links: Pooled<(OccId, NodeId, bool)>) {
+    pub(super) fn give_links(&mut self, mut links: Pooled<(OccId, NodeId, Branch)>) {
         links.settle(&mut self.scratch);
         self.pools.links.push(links);
     }
@@ -198,7 +198,7 @@ pub(super) struct Pools {
     /// Spare trails of split searches.
     trails: Vec<Pooled<Branch>>,
     /// Spare lists of the links of a chain of forced splits.
-    links: Vec<Pooled<(OccId, NodeId, bool)>>,
+    links: Vec<Pooled<(OccId, NodeId, Branch)>>,
     /// Spare cursors of a chain of forced splits.
     cursors: Vec<Cursors>,
     /// Spare lists of the frames of a chain of free splits.

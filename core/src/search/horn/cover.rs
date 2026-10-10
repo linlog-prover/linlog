@@ -384,7 +384,7 @@ impl<'a> Cover<'a> {
         if !room(&mut self.entries, more, &mut self.charged)
             || !room(&mut self.ends, 1, &mut self.charged)
             || !room(&mut self.sums, 1, &mut self.charged)
-            || !room(&mut self.parents.0, 1, &mut self.charged)
+            || !self.parents.room(&mut self.charged)
             || !room(&mut self.listed, more, &mut self.charged)
             || !room(&mut self.first_child, more, &mut self.charged)
             || !room(&mut self.sibling, more, &mut self.charged)

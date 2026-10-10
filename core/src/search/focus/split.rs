@@ -66,19 +66,19 @@ impl Run<'_> {
     }
 
     /// The factor of `F = A ⊗ B` that forces its split, with what it
-    /// forces, the other factor, and whether the forcing one is the left.
+    /// forces, the other factor, and which of the two the forcing one is.
     /// When both force, one that is closed in place (a literal, a unit)
     /// before a tensor of literals, which takes a focus of its own: a
     /// tensor of a thousand literals, nested to the left as it is read,
     /// must not pay a level of recursion per link; otherwise the left one.
-    fn forced_factor(&self, f: OccId) -> Option<(Forced, OccId, OccId, bool)> {
+    fn forced_factor(&self, f: OccId) -> Option<(Forced, OccId, OccId, Branch)> {
         let (a, b) = (
             self.problem.forest.left(f).unwrap(),
             self.problem.forest.right(f).unwrap(),
         );
-        [(a, b, true), (b, a, false)]
+        [(a, b, Branch::Left), (b, a, Branch::Right)]
             .into_iter()
-            .filter_map(|(x, y, left)| Some((self.forced_side(x)?, x, y, left)))
+            .filter_map(|(x, y, side)| Some((self.forced_side(x)?, x, y, side)))
             .min_by_key(|&(forced, ..)| forced == Forced::Duals)
     }
 
@@ -98,8 +98,8 @@ impl Run<'_> {
         self.give_context(rest);
         let result = match result {
             Ok(Found::Proved(mut node)) => {
-                for &(f, x_node, x_is_left) in links.iter().rev() {
-                    let (left, right) = if x_is_left {
+                for &(f, x_node, x_side) in links.iter().rev() {
+                    let (left, right) = if x_side == Branch::Left {
                         (x_node, node)
                     } else {
                         (node, x_node)
@@ -134,13 +134,13 @@ impl Run<'_> {
         theta: &OccSet,
         rest: &mut Context,
         mut f: OccId,
-        (links, cursors): (&mut Vec<(OccId, NodeId, bool)>, &mut Cursors),
+        (links, cursors): (&mut Vec<(OccId, NodeId, Branch)>, &mut Cursors),
         budget: u32,
     ) -> Step {
         // What the focuses on forcing factors along the chain cut.
         let mut cuts = Cuts::NONE;
         loop {
-            let Some((forced, x, y, x_is_left)) = self.forced_factor(f) else {
+            let Some((forced, x, y, x_side)) = self.forced_factor(f) else {
                 return Ok(self.focus(theta, rest, f, budget)?.after(cuts));
             };
             self.statistics.splits += 1;
@@ -190,7 +190,7 @@ impl Run<'_> {
             let Some(x_node) = x_node else {
                 return Ok(Found::failed(cuts));
             };
-            links.push((f, x_node, x_is_left));
+            links.push((f, x_node, x_side));
             if self.problem.forest.kind(y) != Kind::Tensor {
                 return Ok(self.focus(theta, rest, y, budget)?.after(cuts));
             }
@@ -231,7 +231,7 @@ impl Run<'_> {
                 let (_, right, _) = built.pop().expect("the right subformula's proof");
                 self.push(Node::Tensor(Member::from(o), left, right))
             };
-            built.push((o, node, true));
+            built.push((o, node, Branch::Left));
         }
         let (_, node, _) = built.pop().expect("the tensor's proof");
         self.give_list(duals);

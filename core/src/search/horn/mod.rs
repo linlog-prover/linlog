@@ -22,7 +22,7 @@ mod reach;
 #[cfg(test)]
 mod tests;
 
-use super::memory::Account;
+use super::memory::{Account, Charged};
 use super::{
     Answer, Decide, Engine, Finished, NotTaken, Options, Reason, Refutation, StateEquation,
     Statistics, Task, Work,
@@ -164,12 +164,12 @@ type Arcs = Vec<(u32, u32)>;
 impl Program {
     /// A transition's inputs, each a place and a weight, by place.
     fn inputs(&self, t: &Transition) -> &[(u32, u32)] {
-        &self.arcs[t.inputs as usize..t.outputs as usize]
+        t.inputs_in(&self.arcs)
     }
 
     /// A transition's outputs, each a place and a weight, by place.
     fn outputs(&self, t: &Transition) -> &[(u32, u32)] {
-        &self.arcs[t.outputs as usize..t.end as usize]
+        t.outputs_in(&self.arcs)
     }
 
     /// The program with every transition reversed and the initial and the
@@ -291,6 +291,12 @@ impl Parents {
         self.0.len()
     }
 
+    /// Makes room for one more entry and charges what the list grew by;
+    /// false when the bound has no room.
+    fn room(&mut self, charged: &mut Charged<'_>) -> bool {
+        reach::room(&mut self.0, 1, charged)
+    }
+
     /// Records the next entry's parent and the transition from it.
     fn push(&mut self, parent: u32, transition: u32) {
         self.0.push(u64::from(parent) << 32 | u64::from(transition));
@@ -322,6 +328,20 @@ struct Transition {
     outputs: u32,
     /// Where its outputs end.
     end: u32,
+}
+
+impl Transition {
+    /// Its inputs among a program's `arcs`, each a place and a weight, by
+    /// place.
+    fn inputs_in(self, arcs: &[(u32, u32)]) -> &[(u32, u32)] {
+        &arcs[self.inputs as usize..self.outputs as usize]
+    }
+
+    /// Its outputs among a program's `arcs`, each a place and a weight, by
+    /// place.
+    fn outputs_in(self, arcs: &[(u32, u32)]) -> &[(u32, u32)] {
+        &arcs[self.outputs as usize..self.end as usize]
+    }
 }
 
 /// A Horn program read off a goal, as a Petri net. Every count below is
@@ -667,7 +687,8 @@ fn live(program: &mut Program) {
     let mut by_input: Vec<Vec<u32>> = vec![Vec::new(); width];
     let mut ready = Vec::new();
     for (t, transition) in transitions.iter().enumerate() {
-        let unmarked = arcs[transition.inputs as usize..transition.outputs as usize]
+        let unmarked = transition
+            .inputs_in(arcs)
             .iter()
             .filter(|&&(p, _)| !marked[p as usize])
             .inspect(|&&(p, _)| by_input[p as usize].push(t as u32))
@@ -681,7 +702,7 @@ fn live(program: &mut Program) {
     while let Some(t) = ready.pop() {
         enabled[t as usize] = true;
         let transition = transitions[t as usize];
-        for &(p, _) in &arcs[transition.outputs as usize..transition.end as usize] {
+        for &(p, _) in transition.outputs_in(arcs) {
             if !marked[p as usize] {
                 marked[p as usize] = true;
                 for &u in &by_input[p as usize] {
