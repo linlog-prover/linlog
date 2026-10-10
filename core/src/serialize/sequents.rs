@@ -193,6 +193,8 @@ impl<'a> serde::Deserialize<'a> for Seq {
     }
 }
 
+impl crate::sealed::Readable for Seq {}
+
 impl Readable for Seq {
     const FORM: &'static str = "sequent";
 

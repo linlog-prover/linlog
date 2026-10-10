@@ -357,6 +357,8 @@ impl<'a> Deserialize<'a> for Disproof {
     }
 }
 
+impl crate::sealed::Readable for Disproof {}
+
 impl Readable for Disproof {
     const FORM: &'static str = "disproof";
 

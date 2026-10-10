@@ -78,11 +78,14 @@ pub(crate) fn cut(
 }
 
 /// What owns the occurrences an error names, whose formulas [`Described`]
-/// prints: a forest, or a value built on one.
-pub trait Owner {
+/// prints: a forest, or a value built on one. Sealed: the crate's types
+/// alone implement it.
+pub trait Owner: crate::sealed::Owner {
     /// Returns the forest whose occurrences the error's ids name.
     fn forest(&self) -> &Forest;
 }
+
+impl crate::sealed::Owner for Forest {}
 
 impl Owner for Forest {
     /// The forest itself.
@@ -91,12 +94,16 @@ impl Owner for Forest {
     }
 }
 
+impl crate::sealed::Owner for Proof {}
+
 impl Owner for Proof {
     /// The proof's forest.
     fn forest(&self) -> &Forest {
         Proof::forest(self)
     }
 }
+
+impl crate::sealed::Owner for Derivation<'_> {}
 
 impl Owner for Derivation<'_> {
     /// The forest of the proof the derivation unfolds.
@@ -105,12 +112,17 @@ impl Owner for Derivation<'_> {
     }
 }
 
+impl crate::sealed::Owner for ProofStructure {}
+
 impl Owner for ProofStructure {
     /// The structure's forest.
     fn forest(&self) -> &Forest {
         ProofStructure::forest(self)
     }
 }
+
+#[cfg(feature = "interactive")]
+impl crate::sealed::Owner for crate::Interactive {}
 
 #[cfg(feature = "interactive")]
 impl Owner for crate::Interactive {

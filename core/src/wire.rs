@@ -80,10 +80,9 @@ use std::marker::PhantomData;
 pub const LEVEL: u32 = 1;
 
 /// A form [`upgrade`] and [`Within`] read: one whose reading counts a
-/// sequent against the caller's limits. Implemented by the crate's data
-/// forms; a type outside the crate may implement it to be read by the same
-/// calls.
-pub trait Readable: Sized {
+/// sequent against the caller's limits. Sealed: the crate's data forms
+/// alone implement it.
+pub trait Readable: Sized + crate::sealed::Readable {
     /// The form's name, as an error names it: `sequent`, `proof`, …
     const FORM: &'static str;
 

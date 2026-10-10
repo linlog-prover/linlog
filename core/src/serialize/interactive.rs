@@ -112,6 +112,8 @@ impl<'a> Deserialize<'a> for State {
     }
 }
 
+impl crate::sealed::Readable for State {}
+
 impl Readable for State {
     const FORM: &'static str = "session";
 

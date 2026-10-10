@@ -154,9 +154,14 @@ stays within 64 bytes (a `const` assertion), larger payloads boxed, and
   file of 594 bytes). Each type writes itself
   once, `write(f, Option<&Forest>, …)`, which its `Display` calls with
   `None`, so the two cannot drift; `Error::write` adds the prefix of a
-  wrapping variant, the same words its `#[error]` has. `Owner` is not
-  sealed: a sealed supertrait is unnameable, which the crate's lint
-  check forbids, so a later method gets a default body.
+  wrapping variant, the same words its `#[error]` has. `Owner` is sealed.
+- **Sealed traits** (`Owner`, `wire::Readable`): the supertrait is a
+  public trait of the private `crate::sealed` module, named after the
+  trait it seals, with `#[expect(unnameable_types, reason = …)]` at it
+  (the lint check refuses an unnameable type otherwise), and every
+  implementing type of the crate implements both. A method added later
+  then needs no default body, and no other crate's type is read as a
+  wire form or asked for a forest.
 - **No `source()`**: a wrapping variant's message holds the inner
   error's, and the command and the harness print errors with anyhow's
   `{:#}`, which would print a source a second time.

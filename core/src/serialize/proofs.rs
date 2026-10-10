@@ -199,6 +199,8 @@ impl<'a> serde::Deserialize<'a> for Prf {
     }
 }
 
+impl crate::sealed::Readable for Prf {}
+
 impl Readable for Prf {
     const FORM: &'static str = "proof";
 

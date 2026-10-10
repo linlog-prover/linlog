@@ -94,8 +94,9 @@ for NanoYalla. What the code relies on:
   `notation::walk` and the LaTeX, Typst (both layouts) and SVG trees are
   each one generic function; the public `write` takes `impl
   Into<Drawable>` and matches the enum into the generic function, since a
-  public function cannot name a crate-private bound (and a sealed public
-  trait would be unnameable, which the lint check forbids). A new kind of
+  public function cannot name a crate-private bound (a sealed public
+  trait, as `Owner` is, would do as well; the enum needs no
+  `#[expect(unnameable_types)]`). A new kind of
   derivation implements `Drawn` and adds a variant of `Drawable` with its
   `From`, and an arm in each `write`; the per-rule label tables (the text
   tree's `bars`, the SVG's laid-out labels) are indexed by `rule`, plus

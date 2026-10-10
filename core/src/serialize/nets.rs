@@ -54,6 +54,8 @@ impl<'a> Deserialize<'a> for ProofStructure {
     }
 }
 
+impl crate::sealed::Readable for ProofStructure {}
+
 impl Readable for ProofStructure {
     const FORM: &'static str = "proof structure";
 

@@ -132,6 +132,25 @@ pub mod ordinary;
 /// Parsing sequents from text.
 #[cfg(feature = "parse")]
 mod parse;
+/// The supertraits that keep the crate's public traits to its own types.
+mod sealed {
+    /// Seals [`Owner`](crate::Owner): only the crate's types own the
+    /// occurrences its errors name.
+    #[expect(
+        unnameable_types,
+        reason = "a sealing supertrait is public, so that it may bound a public trait, and unnameable, so that no other crate implements it"
+    )]
+    pub trait Owner {}
+
+    /// Seals [`Readable`](crate::wire::Readable): only the crate's forms
+    /// are read at a wire level.
+    #[cfg(feature = "serialize")]
+    #[expect(
+        unnameable_types,
+        reason = "a sealing supertrait is public, so that it may bound a public trait, and unnameable, so that no other crate implements it"
+    )]
+    pub trait Readable {}
+}
 pub mod proofs;
 pub mod search;
 /// Sequents and the terms they are built from.
