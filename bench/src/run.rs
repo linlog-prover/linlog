@@ -33,10 +33,10 @@ pub const HEADER: &str = "source,family,size,index,problem,mode,engine_requested
                           test_period,timeout_s,run,copies,expected,verdict,reason,checked,engine,\
                           fragment,occurrences,multiplicity,time_ms,nodes,memo_hits,memo_entries,\
                           splits,links,tests,recursion_limit,cpu_ms,wait_ms,bias,forward_copies,\
-                          check_ms,memory_limit,copies_reached,pool_after";
+                          check_ms,memory_limit,copies_reached,pool_after,forward_copies_reached,work";
 
 /// The columns the child prints.
-const TAIL: usize = 25;
+const TAIL: usize = 27;
 
 /// The line the child prints when its problem is loaded and its search
 /// starts, from which the parent counts the time limit.
@@ -698,6 +698,8 @@ fn tail(args: &OneArgs) -> String {
             memory_column(args.memory_limit),
             s.copies.to_string(),
             pool_column(args.pool_after),
+            s.forward_copies.to_string(),
+            s.work.to_string(),
         ]
         .join(",")
     };

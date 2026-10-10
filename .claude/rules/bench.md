@@ -36,7 +36,7 @@ serde_json, which the CLI and the core's tests already have.
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
   and with the library's own check off (`Options::check(false)`), prints
-  the 25-field tail of the CSV row (`TAIL`) with the search's verdict, and for a
+  the 27-field tail of the CSV row (`TAIL`) with the search's verdict, and for a
   proof checks it outside the timed part and prints the tail once more
   with `checked` and `check_ms`. The parent takes the last tail. It kills
   a child that has not said `loaded` within `--load-limit` seconds
@@ -442,7 +442,11 @@ serde_json, which the CLI and the core's tests already have.
   beside it, the first to decide answering, each within the memory bound,
   adding the counters of both, as the command does by default; empty for
   threads from the start, which is what a file from before the column
-  ran). `--copies
+  ran). Last come two counters, empty on a row without an outcome:
+  `forward_copies_reached` (`Statistics::forward_copies`, the forward
+  search's level beside `copies_reached`; `forward_copies` before it is
+  the option) and `work` (`Statistics::work`, in the engine's units).
+  `--copies
   none` (`run::Bound`) is a search without a bound, written `none` in
   the `copies` column; without the flag the copy bound is still the
   problem's, else 3, so the harness's own defaults did not move when the
