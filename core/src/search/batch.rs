@@ -518,12 +518,31 @@ mod workers {
                                 if queue.ended || shared.over.load(Ordering::Acquire) {
                                     return;
                                 }
-                                let Some(problem) = queue.problems.next() else {
-                                    queue.ended = true;
-                                    return;
-                                };
-                                queue.taken += 1;
-                                (queue.taken - 1, problem)
+                                let next = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                                    queue.problems.next()
+                                }));
+                                let place = queue.taken;
+                                match next {
+                                    Ok(Some(problem)) => {
+                                        queue.taken += 1;
+                                        (place, problem)
+                                    }
+                                    Ok(None) => {
+                                        queue.ended = true;
+                                        return;
+                                    }
+                                    // The problems' own panic ends the batch
+                                    // at its place, as a work's does.
+                                    Err(panic) => {
+                                        queue.taken += 1;
+                                        drop(queue);
+                                        let _ = sender.send((place, Err(panic)));
+                                        cancel.cancel();
+                                        shared.over.store(true, Ordering::Release);
+                                        shared.turn.notify_all();
+                                        return;
+                                    }
+                                }
                             };
                             let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                                 work(problem, &plan, &cancel)
@@ -840,6 +859,32 @@ mod tests {
                     assert_ne!(i, 5, "the work panics on problem 5");
                     i
                 },
+            );
+            let before: Vec<usize> = results.by_ref().take(5).collect();
+            let panicked =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| results.next())).is_err();
+            sender.send((before, panicked)).unwrap();
+        });
+        let answer = received.recv_timeout(std::time::Duration::from_secs(20));
+        assert_eq!(answer, Ok(((0..5).collect(), true)));
+    }
+
+    /// A panic of the problems themselves, on a worker, ends the batch at
+    /// its place too: the results before it, then the panic, where the
+    /// workers went on past it and moved the later results up a place.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn a_panic_of_the_problems_ends_the_batch_at_its_place() {
+        let (sender, received) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let options = Options::default().with_workers(2).with_cores(Cores::Across);
+            let problems = (0..100usize).inspect(|&i| assert_ne!(i, 5, "the problems panic at 5"));
+            let mut results = run(
+                problems,
+                &options,
+                &SearchOptions::default(),
+                &Limits::default(),
+                |i, _, _| i,
             );
             let before: Vec<usize> = results.by_ref().take(5).collect();
             let panicked =

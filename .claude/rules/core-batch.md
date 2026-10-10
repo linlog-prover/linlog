@@ -33,8 +33,13 @@ in one call, the library's side of `linlog prove`'s batch.
 - **Threads only behind `parallel`** (the crate's rule): without the
   feature, or with one worker, the batch runs lazily on the caller's
   thread, one problem per `next`; the workers' stacks are the plan's
-  `Limits::stack_bytes`. **A panic in the work is resumed at its
-  problem's place** (`a_panic_ends_the_batch_at_its_place`): the worker
+  `Limits::stack_bytes`. **A panic in the work, or in the problems'
+  iterator on a worker, is resumed at its problem's place**
+  (`a_panic_ends_the_batch_at_its_place`,
+  `a_panic_of_the_problems_ends_the_batch_at_its_place`; the iterator's
+  is caught around `next`, since a queue that a panic poisoned is taken
+  as it is and the workers went on past it, moving the later results up
+  a place): the worker
   catches it and sends it with its place, then cancels the batch and
   raises `over` (a worker that holds the queue waits on a stream, and
   ends at its next send), so the other workers take no more
