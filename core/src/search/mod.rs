@@ -1242,30 +1242,6 @@ pub enum Engine {
     Horn,
 }
 
-impl Engine {
-    /// Whether the engine searches on several threads when
-    /// [`Options::jobs`] asks for them: the focused engines and the net
-    /// engine do; the additive and the Horn engine run on the calling
-    /// thread whatever it says.
-    pub const fn parallel(self) -> bool {
-        match self {
-            Engine::Focus | Engine::Net | Engine::TwoSided => true,
-            Engine::Additive | Engine::Horn => false,
-        }
-    }
-
-    /// The implementation of the engine.
-    fn implementation(self) -> &'static dyn Decide {
-        match self {
-            Engine::Focus => &focus::ONE_SIDED,
-            Engine::TwoSided => &focus::TWO_SIDED,
-            Engine::Net => &net::Nets,
-            Engine::Additive => &additive::Additive,
-            Engine::Horn => &horn::Horn,
-        }
-    }
-}
-
 impl Display for Engine {
     /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive` or
     /// `horn`.
@@ -1545,6 +1521,28 @@ impl Engine {
             Self::TwoSided => "two-sided",
             Self::Additive => "additive",
             Self::Horn => "horn",
+        }
+    }
+
+    /// Whether the engine searches on several threads when
+    /// [`Options::jobs`] asks for them: the focused engines and the net
+    /// engine do; the additive and the Horn engine run on the calling
+    /// thread whatever it says.
+    pub const fn parallel(self) -> bool {
+        match self {
+            Engine::Focus | Engine::Net | Engine::TwoSided => true,
+            Engine::Additive | Engine::Horn => false,
+        }
+    }
+
+    /// The implementation of the engine.
+    fn implementation(self) -> &'static dyn Decide {
+        match self {
+            Engine::Focus => &focus::ONE_SIDED,
+            Engine::TwoSided => &focus::TWO_SIDED,
+            Engine::Net => &net::Nets,
+            Engine::Additive => &additive::Additive,
+            Engine::Horn => &horn::Horn,
         }
     }
 }
