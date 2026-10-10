@@ -561,7 +561,14 @@ criterion or a requirement.
    check, the declared systems are those CI builds, the constants that
    name pinned versions are checked against the pins. Every stale claim
    of section 1.1 that step 23 did not correct, and the spec's two wrong
-   statements moved to its errata.
+   statements moved to its errata. And F59, which area 3.1 left (the
+   author's placing, 2026-10-10): `proofs/derivation.rs`,
+   `proofs/check.rs` and `proofs/interactive.rs` split along their
+   seams as pure moves, each a commit that passes its gate:
+   `proofs/derivation/{view.rs, build.rs}`, `proofs/check/{zones.rs,
+   error.rs, pass.rs}` and `proofs/interactive/{mod.rs, expand.rs,
+   replay.rs, terms.rs}`, the re-exports unchanged and the paths in
+   `core-derivations.md` and `core-proofs.md` with them.
 
 ## Stage 4: the check rounds
 

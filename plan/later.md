@@ -85,22 +85,6 @@ reported, not slipped in. Where it belongs in the order, and what it
 should settle before new engines are written on top, is for step 17 to
 say.
 
-**Left by step 28's area 3.1: three long files split along their seams
-(F59).** `proofs/derivation.rs`, `proofs/check.rs` and
-`proofs/interactive.rs` (about 1 900, 2 600 and 2 300 lines at the
-area's end) hold several components each: the view's options and the
-builder (`unfold`, `Record`, `Task`, `Build`); the zones, the error
-types with their writers, and the pass; the state, `expand`,
-`from_parts` with `replay`, and the translation `Terms`. The fix is pure
-moves: `proofs/derivation/{view.rs, build.rs}`,
-`proofs/check/{zones.rs, error.rs, pass.rs}` and
-`proofs/interactive/{mod.rs, expand.rs, replay.rs, terms.rs}`, the
-re-exports unchanged, and the paths in `core-derivations.md` and
-`core-proofs.md` with them (`Rule` already moved to `proofs/rule.rs`).
-Not done in the area because moves would have made every diff of its
-check rounds and of its fresh-context review unreadable; they go first
-in a later area or step with no review pending, which planning places.
-
 ## Configurable output, and no font in the LaTeX and Typst output
 
 The author's requests of 2026-09-29, which D15 records as a decision for
