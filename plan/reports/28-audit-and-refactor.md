@@ -54,7 +54,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 
 | area | state | evidence |
 |---|---|---|
-| 3.1 the library's API, data model and wire forms | running (session `step-28d`) | sub-items below |
+| 3.1 the library's API, data model and wire forms | done (session `step-28d`, 2026-10-09 to 10-10; reviewed by the supervisor) | sub-items below; `nix flake check` passed at kktkswpq |
 | 3.2 the search | open | |
 | 3.3 efficiency | open | |
 | 3.4 the command, the harness, the flake and the documents | open | |
@@ -293,10 +293,11 @@ supervisor's go are marked "go".
   at the head, so the earlier gates stay valid, and T3 lowers the
   ceilings with every other count.
 - **The forms of `Step`, `Applicable`, `batch::Answer` and
-  `ordinary::Outcome`, and the readers of `Reason` and `Refutation`, wait
-  for their first caller** (design 7.2, N15): the web client's request
-  and response and the batch's own record; an item without a caller
-  waits for one, and a form added later needs no new level.
+  `ordinary::Outcome` wait for their first caller** (design 7.2, N15):
+  the web client's request and response and the batch's own record; an
+  item without a caller waits for one, and a form added later needs no
+  new level. The readers of `Reason` and `Refutation` are built, by the
+  author's answer above.
 - **F31's rest stays as it is**: `Error::ReadBack`'s `calculus` and
   `Logic::calculus()` are the name a message prints (`LK`, `LJ`), and a
   program branches on the logic it asked for; `text_size`'s pair is the

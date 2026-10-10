@@ -334,6 +334,41 @@ resume" below).
   deciders exist, a round compares them: the ordinary translations
   with each other (H21), the engines with the reference prover.
 
+## From the review of area 3.1 (2026-10-10)
+
+- **Verified**: `nix flake check` passed at kktkswpq, the area's own
+  run. It followed a `typos` failure that the supervisor's run found at
+  4d4e3e96, a test variable the gate does not spell-check. On a release
+  build of the head, the area's held-back witnesses answer as they
+  should:
+  - H1 is valid;
+  - H2, H3, H4, H6, H7, H9 and H10 are refused, each with its message;
+  - H8's two spellings are one atom;
+  - the JSON forms carry `version` and the new names.
+- **Every area ends with `nix flake check`**, not with the gate alone,
+  since the gate runs neither typos, conventions, shear, doc nor deny.
+- **The command's wrong answers come first**, by the author's leave to
+  reorder (2026-10-09). They are F165, H11, H12, H13 and H16, with the
+  probe's H26, H28, H30 and H31, and H5 (HD2: a `.spec` file is affine).
+  They are the first fixes of the next session, `step-28e`, before area
+  3.2's search work, so that they land before a pause at the weekly
+  quota. Area 3.4 keeps the rest of the command's findings, the harness,
+  the flake, the documents and F59.
+- **The six ceiling raises of area 3.1**: three are the layout's
+  noise, and three are the cost of new checks, all below T3's savings:
+  - read-json: every atom name checked and read in NFC;
+  - the two check journeys: the work counted by entries;
+  - render-svg: the style's check and the escapes.
+  The efficiency area looks at read-json and at the printing journeys,
+  whose one printer goes through a `dyn` atom writer: Typst +2.9 %,
+  LaTeX +2.5 % and SVG +3.3 % after the area's own fixes.
+- **The oracles under LTO**: the focused engine's target set is
+  `bench/targets/head-lto.csv`, whose counters equal after-coverability's;
+  the net engine's is `bench/targets/net-after-retype.csv`.
+- **Waiting**: `step-28d` once ended a turn with runs going and no
+  background task watching them, and one nudge fixed it. The waiting
+  recipe above holds for every area.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a

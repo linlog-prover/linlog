@@ -2191,3 +2191,15 @@ client follows it (step 32).
   (minimal logic by call-by-value), are now findings H1 to H21 for the
   areas, with five more decisions (HD1 to HD5), and the check rounds run
   witnesses rather than only reading. Next: stage 2, the design.
+- 2026-10-10: review of step 28's area 3.1, the library's API, data
+  model and wire forms (one session, Opus 5.5 at xhigh, 2026-10-09 15:00
+  to 10-10 09:55, paused once): the signed-off design built, every wrong
+  answer of the area fixed with its test (F23, H1 to H4, H6 to H10, H17,
+  H22), three check rounds and a fresh-context reviewer, link-time
+  optimisation (every journey 1 to 43 % fewer instructions), the
+  disproof's readers on the author's answer. The target sets, qcover
+  and the families are unchanged; 95 mutants survive against 139, and
+  fuzzing found nothing new. The review reran the held-back witnesses
+  on the head and found one spelling failure, which the area fixed
+  before its closing `nix flake check`. Next: the command's wrong
+  answers, then area 3.2, the search.
