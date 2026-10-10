@@ -1938,6 +1938,34 @@ mod tests {
         );
     }
 
+    /// The search closes a goal that repeats an occurrence, as a
+    /// contraction leaves it, and in affine mode goals that need a
+    /// weakening; every proof the session ends with passes the checker.
+    #[test]
+    fn search_closes_repeated_and_affine_goals() {
+        use Rule::*;
+        let close_all = |s: &mut Interactive| {
+            let outcomes = s.close_all(
+                &Options::default(),
+                &ViewOptions::default(),
+                &Limits::default(),
+                |_| false,
+            );
+            assert!(s.is_complete(), "{outcomes:?}");
+            s.proof(&Limits::default(), |_| false).unwrap()
+        };
+        let (mut s, g) = start("|- ?(a par ~a)", Mode::CLASSICAL);
+        let [repeated] = step(&mut s, g, "?(a ⅋ ~a)", Contraction, &[])[..] else {
+            panic!()
+        };
+        assert_eq!(s.goal(repeated).unwrap().len(), 2);
+        assert_eq!(close_all(&mut s).check(Mode::CLASSICAL), Ok(()));
+        let affine = Mode::CLASSICAL.with_affine();
+        let (mut s, g) = start("|- a * b, ~a, ~b, c", affine);
+        step(&mut s, g, "a ⊗ b", Tensor, &["~a"]);
+        assert_eq!(close_all(&mut s).check(affine), Ok(()));
+    }
+
     /// The search closes one goal or every goal, grafting its derivation,
     /// and the result passes the checker; an unprovable goal stays open.
     #[test]
