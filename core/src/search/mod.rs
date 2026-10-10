@@ -1162,6 +1162,30 @@ impl Display for Engine {
     }
 }
 
+/// A counter of [`Statistics`] as an engine fills it
+/// ([`Engine::counters`]).
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Counter {
+    /// The field's name in the statistics' JSON form.
+    pub key: &'static str,
+    /// A short label, as the command's `--stats` prints it.
+    pub label: &'static str,
+    /// What it counts for the engine.
+    pub meaning: &'static str,
+}
+
+impl Counter {
+    /// A counter of the key, the label and the meaning given.
+    const fn new(key: &'static str, label: &'static str, meaning: &'static str) -> Self {
+        Self {
+            key,
+            label,
+            meaning,
+        }
+    }
+}
+
 /// Why an engine the options force does not take a goal, which each
 /// engine checks in this order: the largest fragment it decides, its
 /// modes, whether the goal is the sequent itself, and the goal's shape.
@@ -1304,6 +1328,95 @@ impl Engine {
     /// The engines' names, as [`name`](Self::name) writes them and
     /// [`FromStr`] reads them.
     pub const NAMES: &'static [&'static str] = &["focus", "net", "two-sided", "additive", "horn"];
+
+    /// Returns the counters of [`Statistics`] the engine fills, each with
+    /// its key in the statistics' JSON form, a label and what it counts
+    /// for this engine; the others stay zero. A front end shows these.
+    pub const fn counters(self) -> &'static [Counter] {
+        /// The unit of work, which every engine counts.
+        const WORK: Counter = Counter::new("work", "units of work", "the engine's unit of work");
+        /// The focused engines' counters.
+        const FOCUSED: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "stable sequents visited",
+                "stable sequents visited, memo hits included",
+            ),
+            Counter::new(
+                "memo_hits",
+                "from the memo",
+                "stable sequents the memo answered",
+            ),
+            Counter::new(
+                "memo_entries",
+                "memo entries at most",
+                "the most entries the memo held at once",
+            ),
+            Counter::new(
+                "splits",
+                "splits examined",
+                "steps of the split searches and forced splits",
+            ),
+            Counter::new(
+                "copies",
+                "copy bound reached",
+                "the copy bound of the last level begun",
+            ),
+            Counter::new(
+                "forward_copies",
+                "forward search's copy bound reached",
+                "the forward search's level under the default bias",
+            ),
+            WORK,
+        ];
+        /// The net engine's counters.
+        const NET: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "literals chosen",
+                "literals the search chose a partner for",
+            ),
+            Counter::new("links", "links tried", "axiom links made"),
+            Counter::new("tests", "exact tests run", "exact acyclicity tests"),
+            WORK,
+        ];
+        /// The additive path's counters.
+        const ADDITIVE: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "pairs of subformulas visited",
+                "pairs decided, memo hits included",
+            ),
+            Counter::new("memo_hits", "from the memo", "pairs the memo answered"),
+            Counter::new(
+                "memo_entries",
+                "memo entries",
+                "the most pairs the memo held at once",
+            ),
+            WORK,
+        ];
+        /// The Horn engine's counters.
+        const HORN: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "markings reached",
+                "markings reached, or in affine mode computed backward",
+            ),
+            Counter::new(
+                "memo_hits",
+                "markings met again",
+                "markings kept already, or covered already",
+            ),
+            Counter::new("memo_entries", "markings kept", "markings kept"),
+            WORK,
+        ];
+        match self {
+            Self::Focus | Self::TwoSided => FOCUSED,
+            Self::Net => NET,
+            Self::Additive => ADDITIVE,
+            Self::Horn => HORN,
+        }
+    }
 
     /// Returns the engine's name: `focus`, `net`, `two-sided`, `additive`
     /// or `horn`.
@@ -2048,6 +2161,23 @@ mod tests {
         let refuted = prove(&sequent("|- a, a"), Mode::CLASSICAL, &Options::default()).unwrap();
         assert!(matches!(refuted.verdict, Verdict::Unprovable(_)) && !refuted.checked);
         assert_eq!(Cadence::from(7), Cadence::Every(7));
+    }
+
+    /// Every counter an engine lists is a field of the statistics' JSON
+    /// form, once.
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn counters_are_fields() {
+        let written = serde_json::to_value(Statistics::default()).unwrap();
+        for &engine in Engine::ALL {
+            let keys: Vec<&str> = engine.counters().iter().map(|c| c.key).collect();
+            for key in &keys {
+                assert!(written.get(key).is_some(), "{engine}: {key}");
+            }
+            let mut unique = keys.clone();
+            unique.dedup();
+            assert_eq!(unique, keys, "{engine}");
+        }
     }
 
     /// The listed names are the names written, in order, and each reads

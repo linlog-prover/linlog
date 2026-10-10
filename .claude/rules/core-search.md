@@ -119,6 +119,10 @@ levels, and the others stay zero; `work` is every engine's, set by
 `prove_goal` from the search's `Work` (on one thread the sum of the
 progress' `work`, `the_search_counts_its_work`). `Statistics::add` is
 two searches' merge (the race's), `add_run` a pool's workers'.
+`Engine::counters` lists the counters each engine fills (`Counter`: the
+key in the JSON form, a label, the meaning), which a front end shows
+and `counters_are_fields` ties to the form; a new engine lists its own,
+and a new counter goes into the lists of the engines that fill it.
 
 **The race** (`search::race`, feature `parallel`): one thread first on
 the calling thread and, once the caller's `add_pool` says so at one of
