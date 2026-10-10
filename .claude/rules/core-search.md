@@ -100,13 +100,14 @@ thread and the default bias in `Schedule::Turns`, the `work` add up to
 `Schedule::Auto` runs on a thread of its own, whose units reach `done`
 only); past the bound the poll answers true and `prove_goal` turns the
 engine's `Stopped` into `Reason::WorkLimit { limit }`. **Every thread
-adds its units to the count in batches of `Work::BATCH` and the rest when
-it ends**: the calling thread in `decide_goal`'s poll (with `parallel`;
-alone it keeps them to its end), a pool's workers through their `Flags`
-(`Flags::fired`, which also ends a worker past the bound; the rest when
-the worker's `Stop` drops), the default bias's second thread in its
-`give_way`. So the bound is late by at most a batch and a poll per
-thread. Two panel findings: the calling thread kept its units to the
+counts through one `Counted`**, which adds its units to the count in
+batches of `Work::BATCH` (with `parallel`; alone it keeps them to its
+end) and the rest when it drops, and reads the bound with its own units
+(`Counted::passed`): the calling thread in `decide_goal`'s poll, which
+tells the caller every poll, the one that passes the bound too; a pool's
+worker in its `Stop::Flags` (`Flags::fired`, which also ends the worker
+past the bound); the default bias's second thread in its `give_way`. So
+the bound is late by at most a batch and a poll per thread. Two panel findings: the calling thread kept its units to the
 end, and the second search, which reads the shared count, ran a whole
 slice past the bound (`the_work_bound_holds_beside_the_second_search`,
 which needs a release build to catch it: the calling thread's

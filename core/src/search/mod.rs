@@ -96,6 +96,55 @@ impl Work {
     }
 }
 
+/// A thread's count of the work it does: its units not yet added to the
+/// search's [`Work`], which it adds in batches of [`Work::BATCH`] (with
+/// `parallel`, where other threads read the count) and the rest when it
+/// drops. Every thread of a search counts through one.
+pub(crate) struct Counted<'a> {
+    /// The search's work.
+    work: &'a Work,
+    /// The units not yet added to it.
+    pending: u64,
+}
+
+impl<'a> Counted<'a> {
+    /// No units counted yet towards `work`.
+    pub(crate) const fn new(work: &'a Work) -> Self {
+        Self { work, pending: 0 }
+    }
+
+    /// Counts `units` and returns the search's units in all, this
+    /// thread's not yet added included.
+    pub(crate) fn add(&mut self, units: u64) -> u64 {
+        self.pending += units;
+        #[cfg(feature = "parallel")]
+        if self.pending >= Work::BATCH {
+            self.work.add(self.pending);
+            self.pending = 0;
+        }
+        self.done()
+    }
+
+    /// Returns the search's units in all, this thread's not yet added
+    /// included.
+    pub(crate) fn done(&self) -> u64 {
+        self.work.done().saturating_add(self.pending)
+    }
+
+    /// Returns whether the search's work, this thread's included, passed
+    /// its bound.
+    pub(crate) fn passed(&self) -> bool {
+        self.done() > self.work.limit
+    }
+}
+
+impl Drop for Counted<'_> {
+    /// Adds the units not yet added.
+    fn drop(&mut self) {
+        self.work.add(self.pending);
+    }
+}
+
 /// An engine's stop condition: the caller's in a sequential search, the
 /// chain of stop flags of a worker in a parallel one. Each poll is told
 /// the units of work done since the last.
@@ -118,13 +167,12 @@ pub(crate) enum Stop<'a> {
         )
     )]
     Slice(&'a mut dyn FnMut(u64, bool) -> bool, u64, u64),
-    /// A worker's flags, and the units it has not yet added to the
-    /// search's work.
+    /// A worker's flags, and its count of the search's work.
     #[cfg(feature = "parallel")]
-    Flags(parallel::Flags<'a>, u64),
+    Flags(parallel::Flags<'a>, Counted<'a>),
 }
 
-impl Stop<'_> {
+impl<'a> Stop<'a> {
     /// Polls the condition after `work` more units of work, in the unit
     /// the engine that polls counts its turns in.
     pub(crate) fn fired(&mut self, work: u64) -> bool {
@@ -146,19 +194,15 @@ impl Stop<'_> {
                 stop(work, passed)
             }
             #[cfg(feature = "parallel")]
-            Self::Flags(flags, pending) => flags.fired(work, pending),
+            Self::Flags(flags, counted) => flags.fired(work, counted),
         }
     }
-}
 
-#[cfg(feature = "parallel")]
-impl Drop for Stop<'_> {
-    /// Adds a worker's last units, fewer than a batch, to the search's
-    /// work, which would not count them otherwise.
-    fn drop(&mut self) {
-        if let Self::Flags(flags, pending) = self {
-            flags.settle(*pending);
-        }
+    /// A worker's stop: its flags, and a count of its own of the search's
+    /// work, whose units it adds when the worker ends.
+    #[cfg(feature = "parallel")]
+    pub(crate) fn flags(flags: parallel::Flags<'a>) -> Self {
+        Self::Flags(flags, flags.counted())
     }
 }
 
@@ -547,16 +591,12 @@ fn decide_goal(
     // caller's stop those and the units of every thread of the search;
     // past the bound on work the search ends. With other threads, which
     // read the shared count, this one adds its units to it in batches.
-    let mut mine = 0u64;
+    let mut mine = Counted::new(work);
     let mut polled = |units: u64| {
-        mine += units;
-        #[cfg(feature = "parallel")]
-        if mine >= Work::BATCH {
-            work.add(mine);
-            mine = 0;
-        }
-        let done = work.done().saturating_add(mine);
-        done > work.limit || stop(Progress::new(Phase::Search, units, done))
+        let done = mine.add(units);
+        // The caller is told the poll that passes the bound too.
+        let stopped = stop(Progress::new(Phase::Search, units, done));
+        mine.passed() || stopped
     };
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
@@ -584,7 +624,7 @@ fn decide_goal(
         .clone()
         .with_jobs(parallel::threads(options.threads()));
     let answer = implementation.decide(&task, options, limits, account, work, &mut polled);
-    work.add(mine);
+    drop(mine);
     let mut answer = answer?;
     answer.statistics.work = work.done();
     if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
@@ -2378,12 +2418,19 @@ mod tests {
             );
             assert_eq!(outcome.statistics.work, last, "{engine}");
             let bound = Limits::default().with_work(Some(last / 2));
-            let outcome = prove_within(sequent, mode, &options, &bound, |_| false).unwrap();
+            let mut told = 0;
+            let outcome = prove_within(sequent, mode, &options, &bound, |progress| {
+                told += progress.work;
+                false
+            })
+            .unwrap();
             assert!(
                 matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { limit }) if limit == last / 2),
                 "{engine}: {:?}",
                 outcome.verdict
             );
+            // The poll that passes the bound is told too.
+            assert_eq!(outcome.statistics.work, told, "{engine}");
         }
     }
 

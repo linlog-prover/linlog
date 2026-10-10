@@ -913,7 +913,7 @@ pub(crate) mod parallel {
         }
         let threads = runtime.threads();
         let (result, statistics, net) = runtime.drive(stop, work, |flags| {
-            let mut root = Linker::new(forest, mode, options, Stop::Flags(flags, 0));
+            let mut root = Linker::new(forest, mode, options, Stop::flags(flags));
             // The cubes are what is left of the search at every moment,
             // each a branch nobody has followed yet, in the order of the
             // search: the branches of a cube take its place.
@@ -949,7 +949,7 @@ pub(crate) mod parallel {
                         // A worker that panics stops the others.
                         let _found = RaiseOnPanic(found);
                         let mut engine =
-                            Linker::new(forest, mode, options, Stop::Flags(flags.child(found), 0));
+                            Linker::new(forest, mode, options, Stop::flags(flags.child(found)));
                         loop {
                             let i = next.fetch_add(1, Ordering::Relaxed);
                             let Some(cube) = cubes.get(i) else {

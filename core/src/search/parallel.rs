@@ -452,23 +452,18 @@ impl<'a> Flags<'a> {
         }
     }
 
-    /// Counts `units` of work into `pending`, the worker's own, which it
-    /// adds to the search's in batches, and returns whether the worker
-    /// stops: the work passed its bound, or a flag of the chain is raised.
+    /// Counts `units` of work into the worker's `counted`, and returns
+    /// whether the worker stops: the work passed its bound, or a flag of
+    /// the chain is raised.
     #[inline(never)]
-    pub(crate) fn fired(&self, units: u64, pending: &mut u64) -> bool {
-        *pending += units;
-        if *pending >= Work::BATCH {
-            self.work.add(*pending);
-            *pending = 0;
-        }
-        self.work.passed() || self.raised()
+    pub(crate) fn fired(&self, units: u64, counted: &mut crate::search::Counted<'_>) -> bool {
+        counted.add(units);
+        counted.passed() || self.raised()
     }
 
-    /// Adds the units a worker counted and has not yet added, when it
-    /// ends.
-    pub(crate) fn settle(&self, pending: u64) {
-        self.work.add(pending);
+    /// A count of the search's work for a worker of this chain.
+    pub(crate) const fn counted(&self) -> crate::search::Counted<'a> {
+        crate::search::Counted::new(self.work)
     }
 
     /// Whether any flag of the chain is raised.

@@ -134,7 +134,7 @@ impl Plan {
         let (result, statistics) = {
             let mut engine = Run::new(
                 Problem::new(set_up, &counts, self.copies, account),
-                Stop::Flags(flags, 0),
+                Stop::flags(flags),
                 Table::Shared(&memo),
                 Arena::new(Kept::Shared(&arena), account),
             );
@@ -178,7 +178,7 @@ impl<'s> Spawn<'s> {
     fn worker<'w>(&'w self, cancel: &'w AtomicBool) -> Run<'w> {
         let mut worker = Run::new(
             self.problem,
-            Stop::Flags(self.flags.child(cancel), 0),
+            Stop::flags(self.flags.child(cancel)),
             Table::Shared(self.memo),
             Arena::new(Kept::Shared(self.arena), self.problem.account),
         );

@@ -456,16 +456,14 @@ pub(super) fn alternate(
                     return Finished::gave_up(Reason::Stopped);
                 }
                 // The caller's stop lives on the calling thread, which asks
-                // it for this search's polls; the work is added here.
-                let mut pending = 0;
+                // it for this search's polls; the work is counted here.
+                let mut counted = crate::search::Counted::new(work);
                 let mut give_way = |units: u64, passed: bool| {
-                    pending += units;
-                    if pending >= crate::search::Work::BATCH {
-                        work.add(pending);
-                        pending = 0;
-                    }
+                    counted.add(units);
                     baton.polls.fetch_add(1, Ordering::Relaxed);
-                    work.passed() || baton.halt.load(Ordering::Relaxed) || (passed && baton.pass(1))
+                    counted.passed()
+                        || baton.halt.load(Ordering::Relaxed)
+                        || (passed && baton.pass(1))
                 };
                 let slice = SLICE * BACKWARD_SHARE;
                 let (finished, _) = second.search(
@@ -474,7 +472,7 @@ pub(super) fn alternate(
                     second_account,
                     Stop::Slice(&mut give_way, slice, slice),
                 );
-                work.add(pending);
+                drop(counted);
                 if finished.result.is_ok() {
                     baton.stop();
                 }
