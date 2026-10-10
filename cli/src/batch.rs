@@ -304,7 +304,10 @@ fn entry_of(line: &str, origin: &str, number: usize, format: InputFormat) -> Opt
         return None;
     }
     let entry = |name: Option<&str>, mode, source| Entry {
-        name: name.filter(|n| !n.is_empty()).unwrap_or(&place).to_owned(),
+        name: name
+            .filter(|n| names_a_file(n))
+            .unwrap_or(&place)
+            .to_owned(),
         mode,
         source,
     };
@@ -433,10 +436,21 @@ fn extension(format: Format) -> &'static str {
     }
 }
 
+/// Returns whether a line's name names a file of `file_for`: whether it
+/// has a component other than a root or `.`, so that its file lies inside
+/// the directory. A name without one (empty, `.`, `/`) is no name.
+fn names_a_file(name: &str) -> bool {
+    Path::new(name)
+        .components()
+        .any(|c| matches!(c, Component::Normal(_) | Component::ParentDir))
+}
+
 /// Returns the file in `directory` for an entry named `name`: the name as
 /// a relative path (`..` written `__`, a root dropped) with the format's
 /// extension added, so that entries of the same file name in different
-/// directories, or of different kinds, get different files.
+/// directories, or of different kinds, get different files. Every name
+/// of an entry names a file (a path given, or `names_a_file`), so the
+/// file lies inside `directory`.
 fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
     let mut path = directory.to_owned();
     for component in Path::new(name).components() {

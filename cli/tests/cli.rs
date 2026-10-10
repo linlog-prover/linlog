@@ -1444,6 +1444,34 @@ fn json_lines_records_are_whole() {
     );
 }
 
+/// A line named `/` or `.` is named by its place, so that its file lies
+/// inside `--output DIR`, never beside it.
+#[test]
+fn every_entry_file_lies_inside_the_directory() {
+    let dir = scratch("inside");
+    std::fs::create_dir_all(&dir).unwrap();
+    let out = dir.join("out");
+    let args = [
+        "prove",
+        "--input-format",
+        "lines",
+        "--format",
+        "json",
+        "--output",
+    ];
+    let (status, lines, _) = linlog(
+        &[&args[..], &[out.to_str().unwrap()]].concat(),
+        "/: A |- A\n.: A |- A\n",
+    );
+    assert_eq!(status, 0);
+    assert!(
+        lines.starts_with("-:1: provable") && lines.contains("\n-:2: provable"),
+        "{lines}"
+    );
+    assert!(!dir.join("out.json").exists());
+    assert!(out.join("-:1.json").is_file() && out.join("-:2.json").is_file());
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a
