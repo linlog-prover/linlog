@@ -428,15 +428,96 @@ the inner names and refactorings, the tests and the docs.
 | a. F93 coverability's `tried`, F128 the Horn refutation kept, F139 a refused check `Unknown`, F117 a pool's panic cancels its siblings | done but F93 (a test, item j) | vkkvvktz F128 (test `counted_refutations_are_handed_back`); onxqtvpq F139 (`Reason::Unchecked`, `WorkLimit`; test `a_refused_check_is_unknown`); mrxutqxo F117 (`RaiseOnPanic`; test `a_panicking_stop_ends_every_worker`, 20 s timeout on the old code); gates passed |
 | b. H18 the pool's depth per worker, a test at a raised limit on two threads | done | slwktolx: a pool's `&` is a level of its forks (or_depth + 1), and a stolen task starts at its thread's depth (`Runtime::waiting`, `depth_here`); the witness aborted before (two threads, limit 3 000) and answers unknown at 3 000, 5 000 and 10 000 on two and four threads; test `a_raised_limit_holds_on_the_pool` (aborts on the old code in release, the flake's build). Changes the search on a pool only: for the panel |
 | c. F92 a pool's `&` premises without copying the ancestors | done | slwktolx (with b): a spawn's branch is at most `LEVELS` + 1 slices; the witness (5 000 nested `&`, two threads, 64 MiB) 24 MB against 823 MB |
-| d. `Reason` with named fields and `setting()`; `NotTaken` and `Error::EngineRefused`; `Engine::parallel` exhaustive (F141), `Engine::counters`; F140 no `expect` in the dispatch | done but `Engine::counters` | tvvvvluq `Reason` (`RecursionLimit { depth }` on the wire, test `reasons_name_their_setting`); ssxwovxw `EngineRefused { engine, because: NotTaken }`, the internal `Pairs` and `Linker`, F141, F140 (`NoEngine`) |
+| d. `Reason` with named fields and `setting()`; `NotTaken` and `Error::EngineRefused`; `Engine::parallel` exhaustive (F141), `Engine::counters`; F140 no `expect` in the dispatch | done | tvvvvluq `Reason` (`RecursionLimit { depth }` on the wire, test `reasons_name_their_setting`); ssxwovxw `EngineRefused { engine, because: NotTaken }`, the internal `Pairs` and `Linker`, F141, F140 (`NoEngine`); lxkxvszu `Engine::counters` (`Counter`: key, label, meaning; test `counters_are_fields`) |
 | e. `Goal` and the front door's stages (8.1), one place a verdict is built | done | mrvtkppt `Goal` (`Copy`, `conclusion`, `new` checking the members, `is_conclusion`), `prove_goal` and `engine_for` on it; nulpvyxn `conclude` |
 | f. `Statistics`: `memo_entries` a `u64` (F102), `add` public, F144 the forward level apart from `copies` | done | tpnlumuk (`u64`, `add` public and the command's and harness's hand merges gone, `add_run` crate-private, test `statistics_add_up`); F144 in syqnnmno (item g) |
-| g. the progress stop at every poll site, measured, the shim removed; `Limits::work` and `Reason::WorkLimit`; lock commit (4) with `work` and `forward_copies`; R243's test | running | txuvownw (`Work`, every poll told its units, `WorkLimit`, test `the_search_counts_its_work`); syqnnmno lock commit (4) (`work`, `forward_copies`, `copies` the decider's level; both locks, README). Open: the target set and the journeys' counts against the parent's |
-| h. `search::race` with one account (F103, F104, F168), the command and the harness its callers | open | |
-| i. names inside (F56, F113) and the refactorings F107 to F121, F126, F132, F133, F135 | open | |
-| j. tests: the Horn engine's (F94 to F97, F124, F125, F127, F129 to F131, F134), F98, F105, F106, F138, F143, F145, F122, F123, H21 | open | |
-| k. docs: F91, F99 to F101, F118, F137, F142, F146 | open | |
-| l. check rounds (at most three), the fresh-context reviewer, `nix flake check` | open | |
+| g. the progress stop at every poll site, measured, the shim removed; `Limits::work` and `Reason::WorkLimit`; lock commit (4) with `work` and `forward_copies`; R243's test | done | txuvownw (`Work`, every poll told its units, `WorkLimit`, test `the_search_counts_its_work`; the additive path polls every 1 024 pairs, which took search-additive-14 from +5.7 % to −1.1 % against its ceiling, and tells the stop the pairs after its last poll when it ends, without which a search of fewer pairs reported no work and syqnnmno's lock and README failed); syqnnmno lock commit (4) (`work`, `forward_copies`, `copies` the decider's level; both locks, README); xwqpwrwo the calling thread's count apart and the polls' fast paths inline (the journeys' counts below their ceilings: additive −1.09 %, chain-128 −0.24 %); wtqxszqu a pool worker's and the second search's last units, lost before (the net engine on two threads reported 0 units against 128; `forced_links_are_made_once` and the new sum in `default_bias_takes_turns` catch it) |
+| h. `search::race` with one account (F103, F104, F168), the command and the harness its callers | done | zoywtttw: `race` (one thread, a pool of `threads − 1` once `add_pool` says so, the first to decide answering), `Account::part_of` (both searches within one bound: 2.05 GB in one call before), `threads` counting every thread (`--jobs 2` runs two); the command's `searched` and the harness's `--pool-after` call it; test `the_race_counts_every_thread` |
+| i. names inside (F56, F113) and the refactorings F107 to F121, F126, F132, F133, F135 | done, some in part (decided below) | zrxrxurw F113 and F56's engine names (`Run`, `Switches`, `Plan`, `Searched`; `Pairs` and `Linker` in ssxwovxw); ysrmnpss F133 (`Reach`, `Cover`, `FORWARD_PER_BACKWARD`); xxpxyrkt F107; mvzqmplu F108 (`Rank`); ptkmmtsy F109 (`prepare`, `SetUp`, `run_kept`: seven `too_many_arguments` gone); F110 by area 3.1's `Schedule` (tuooxrol); rurkzopt F111 in part (`Reason::as_set`, the count refutations in `counts`); lrmnkmvl F112; ymosnlvq F115 (`Forest::list`); nrswyxyn F116 (`lock`, `record`); mrxutqxo F117 (item a); lrynyvqu F118; vonxrkzw F119 (`Finished`); wxzwqtkz F120 in part (the batch's `Queue`); xzkwrqsm F126 in part (`Parents`); mqnqzzyk F132 (`is_head`, `clause_head`, `is_below`); mystyvxw F135 in part (`Program::inputs`, `outputs`); F114 and F121 decided below |
+| j. tests: the Horn engine's (F94 to F97, F124, F125, F127, F129 to F131, F134), F98, F105, F106, F138, F143, F145, F122, F123, H21 | running: the Horn engine's and F122, F123 with agents in workspaces of their own | onxqtvpq and qwukxtlu F98 (`a_refused_check_is_unknown`, `a_rejected_proof_is_an_error`); ymkmoyno F105's additive and net halves (`stops_between_pairs`, the net's failed-test poll) and F106 (the stream answered question by question, the window; the panic in rqnnqtor); kumqpqyx F138; qwukxtlu and tpnlumuk F143 (the refusals, `occurrence_limit`, `Engine::parallel`, the defaults, every refutation's sentence, `statistics_add_up`); wkouswzu F145 (the two ignored timing tests dropped); qromqtpw H21 (each logic's translations against each other and a truth table on 300 generated sequents, written by an agent and reviewed here) |
+| k. docs: F91, F99 to F101, F118, F137, F142, F146 | done | lrynyvqu: F91, F99, F100 (a recursion level), F101, F118 (the private docs' links), F137 (the Horn and additive engines in the front door's docs), F142 (the default bias's measurements under a time limit), F146 (the reference's refutations with exponentials) |
+| l. the panel, the target sets, check rounds (at most three), the fresh-context reviewer, `nix flake check` | running | **The panel** (step 26's three lenses over the area's seven changes of the search, mrxutqxo..xwqpwrwo, the argument read again on Fable 5.1): counterexamples found none (2 812 classical and 674 intuitionistic generated items, 95 634 runs over 23 configurations each, against the committed reference and step 26's second one, and the base tree); the argument and the integers each refuted claim 7 with reproduced witnesses, both fixed in ysoxrlsz with a test each: the work bound ran a whole slice late beside the default bias's second search, and a turn's last poll lost its units (no verdict either way). **The target sets** at the head (rsrlxspt): the focused engine's 265 rows the same verdicts as `head-lto.csv` and the 225 decided rows equal in `nodes`, `splits`, `memo_hits` and `memo_entries`, 116.8 s of CPU against 118.5 s; the net engine's 64 rows equal to `net-after-retype.csv` in verdict, `links` and `tests`, 213.9 s against 238.2 s (the LTO build). The families at 5 s with the harness's new columns: 123 runs, no mismatch |
+
+#### Area 3.2: decided unattended
+
+Each choice below is the session's; where it departs from the
+signed-off design (`plan/notes/api.md`, its §14 answers, the rules'
+"Decisions") it is marked so, with what the design said, as `planning`
+asked on 2026-10-10.
+
+- **`Progress::work` is the poll's own units, in the engine's unit**,
+  and `done` every thread's: on one thread the `work` add up to `done`
+  and to `Statistics::work`, as the design's comment on `Progress` has
+  it. Every thread adds its units to the shared count in batches of
+  4 096 and the rest when it ends, and the calling thread is asked with
+  0 units at the driver's polls, so on several threads `done` runs ahead
+  of the sum of `work` by what the others did, and the bound is late by
+  at most a batch and a poll per thread. The units an engine counted
+  after its last poll are no work, but for the additive path's last
+  pairs, which it tells the stop when it ends.
+- **An engine tells the stop the units it counts at the polls it
+  already had** (the focused engine's slicing work, a literal or a
+  failed test, a pair, a marking, a pivot), so no poll moved and no
+  counter of a decided run changed. The additive path, which polled at
+  every pair, polls every 1 024 since its poll cost 5 % of its
+  instructions, and tells the stop the pairs after its last poll when it
+  ends; the stop's answer to that last call comes after the search and
+  changes nothing.
+- **`copies` is the deciding search's level, else the backward
+  search's, and `forward_copies` the forward search's** (F144): the
+  design's "the level of the search that decided", with the undecided
+  case, which it leaves open, given the backward search's level, the
+  search whose bound a `CopyBound` verdict names; before, `copies` was
+  the larger of the two.
+- **`--jobs N` keeps a pool of N from the start; only the default
+  `auto` races** one thread against a pool once the pool's delay has
+  passed: a count the user gives is a count to use.
+- **`NotTaken::Shape` carries no payload**, as the design's §8.6 has
+  it: the additive engine's refusal no longer counts the goal's
+  formulas, which the old `NotAdditive` did, and says "two additive-only
+  formulas only".
+- **F114 stays an out-parameter**: the hereditary flag rides on the
+  recursion's frame cycle (`decide`, `decide_with`, `last_resort`,
+  `mix`), where a returned pair grows every frame of the cycle that the
+  `PER_LEVEL` stack measure bounds; the parameter is documented at each.
+- **F121 is not done**: one `two_premises` with three closures sits on
+  the same frame cycle, so it needs the stack per level measured again
+  before and after, which this session did not have the quiet cores
+  for; the hold before the second premise is the invariant
+  `core-focus.md` states, and the checker catches a forgotten one.
+- **F120 in part**: the batch's queue is named; the forcing factor's
+  `bool` stays, since the crate has no left/right type (`occurrences::
+  Side` is the reading's input and output) and one enum for one flag
+  read in two places was not worth it; `literal_tensor` keeps reusing
+  the links' pool as its node stack rather than a ninth pool with its
+  own charge; the Horn proof's `(clause, reusable)` stays, `Clause::Once`
+  naming a class where the proof needs the clause the replay chose; the
+  additive path's `ordered` stays one call with its flag.
+- **F111 in part**: the front door's `reason` and the count refutations
+  moved out of the focused engine's module; `search/mod.rs` is not split
+  into `options.rs` and `outcome.rs`, and `prove_stable` keeps its six
+  steps in one function: moves of a thousand lines each, which a
+  reviewer reads as a whole, for no change of behaviour.
+- **F126 in part**: the line of parents is one type; the two searches'
+  indices of transitions by place, the span of an element and the
+  growth of their heaps stay apart, since they select different arcs
+  (the first input, every output) and charge different buffers.
+- **F135 in part**: `Program::inputs` and `outputs` replace the slices;
+  `moved`, `Tableau::new` and `caps` keep their own merges of a
+  transition's inputs and outputs, `moved` being the expansion's hot
+  loop, where an iterator was not measured.
+- **The panel's second reference is step 26's**, written then by a
+  fresh agent from the calculus alone and kept in that session's
+  scratchpad, not one written anew: this area changed how the search is
+  run (levels, depths, stops, races, the work count), not the calculus,
+  and the counterexample agent runs both references beside the
+  committed one.
+- **One panel over the area's seven changes of the search** (the
+  panic's stop, the Horn refutation handed back, the unchecked proof,
+  the pool's levels and depths, the work bound, the race, the work
+  count on every thread) rather than one per commit: each lens reads
+  each commit's diff and the head, which keeps the agents within the
+  machine's cores.
 
 ## From the supervisor
 
@@ -941,3 +1022,17 @@ the inner names and refactorings, the tests and the docs.
   answers, the rules' "Decisions") goes to `planning` as a question
   before it is built, with the recommendation, which the session follows
   meanwhile. What was done: acknowledged; both items queued after H31.
+
+### Messages from `planning` to `step-28e` (2026-10-10, late morning)
+
+- A departure from the signed-off design is no longer sent as a
+  question: decide it, and mark it "(departs from the design)" in
+  "decided unattended" with what the design said and why. What was
+  done: the section "Area 3.2: decided unattended".
+- Signatures work until about 13:45; test one before each commit, and
+  commit with `--config signing.behavior=drop` when it fails.
+- The failsafe is lifted: finish area 3.2 with its check rounds, the
+  reviewer and `nix flake check`, then end; step 28 stops after this
+  area.
+- Benchmarks are allowed, with one line to `planning` when a run starts
+  and when it ends; "pause" or "hold" stops runs gracefully.
