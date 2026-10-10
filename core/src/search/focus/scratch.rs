@@ -188,7 +188,7 @@ pub(super) struct Pools {
     contexts: Vec<Context>,
     /// Spare lists of occurrences.
     lists: Vec<Pooled<OccId>>,
-    /// Spare tallies of the forest's atoms.
+    /// Spare tallies, a column per atom that has rows.
     tallies: Vec<Tally>,
     /// Spare counts of splits, boxed so that a split search holds a
     /// pointer on the stack and not the counts: a level of recursion

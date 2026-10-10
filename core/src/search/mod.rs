@@ -1451,7 +1451,7 @@ impl Engine {
             Counter::new(
                 "nodes",
                 "markings reached",
-                "markings reached, or in affine mode computed backward",
+                "markings reached from either end, or in affine mode computed backward",
             ),
             Counter::new(
                 "memo_hits",
@@ -2139,19 +2139,21 @@ pub struct Statistics {
     /// The nodes of the search: the stable sequents the focused engine
     /// visited, memo hits included, the literals the net engine chose a
     /// partner for, the pairs of subformulas the additive path decided, or
-    /// the markings the Horn engine reached, the initial one included, and
-    /// in affine mode the markings it computed backward from the goal.
+    /// the markings the Horn engine reached, the initial one included, with
+    /// those its backward search reached from the goal (in affine mode the
+    /// elements it computed backward).
     pub nodes: u64,
     /// The visits answered from the memo; of the Horn engine, the markings
-    /// it had kept already, and in affine mode those a marking kept
-    /// already covers.
+    /// it had kept already, in either direction, and in affine mode the
+    /// elements an element kept already covers.
     pub memo_hits: u64,
     /// The most stable sequents the memo held at once; on a pool, whose
     /// memo is shards each emptied by itself, the sum of the shards'
     /// peaks, which bounds it from above; of two searches that ran
     /// together, the two memos' together, and of two that took turns from
     /// their start, the most of one turn; of the Horn engine, the markings
-    /// it kept. A `u64` on every target, as every counter is.
+    /// it kept in either direction, or in affine mode the elements. A
+    /// `u64` on every target, as every counter is.
     pub memo_entries: u64,
     /// The context splits examined for `⊗` and Mix, most of them rejected by
     /// the counts.
