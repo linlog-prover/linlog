@@ -718,5 +718,16 @@ mod tests {
             super::read(big, &limits(99_999)),
             Err(Error::Refused(Refusal::Occurrences { .. }))
         ));
+        // A rule's tokens are those it takes and those it gives: 4 of the
+        // initial marking, 2 taken and 3 given, 3 of the target.
+        let rule = "vars a b rules a >= 2 -> a' = a - 2, b' = b + 3; init a = 4 target b >= 3";
+        assert!(super::read(rule, &limits(12)).is_ok());
+        assert!(matches!(
+            super::read(rule, &limits(11)),
+            Err(Error::Refused(Refusal::Occurrences {
+                occurrences: 12,
+                ..
+            }))
+        ));
     }
 }

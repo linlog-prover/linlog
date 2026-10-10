@@ -460,6 +460,16 @@ mod tests {
             place("fof(c, conjecture, a * )."),
             (1, 24, Some(")".to_owned()), false)
         );
+        // Without hypotheses, inside the conjecture, and after the white
+        // space that ends it.
+        assert_eq!(
+            place("fof(c, conjecture, a * * b)."),
+            (1, 24, Some("*".to_owned()), false)
+        );
+        assert_eq!(
+            place("fof(c, conjecture, a *   )."),
+            (1, 26, Some(")".to_owned()), false)
+        );
     }
 
     /// A second conjecture is refused by name: joined right of `⊢`, the
