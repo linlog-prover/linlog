@@ -1527,6 +1527,24 @@ mod tests {
         input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"))
     }
 
+    /// An outcome is checked exactly when it is a proof and the options
+    /// ask for the check; a cadence of links is a number.
+    #[test]
+    fn checked_when_proved_and_asked() {
+        let tautology = sequent("|- a, ~a");
+        let proved = prove(&tautology, Mode::CLASSICAL, &Options::default()).unwrap();
+        assert!(proved.checked);
+        let unchecked = Options::default().with_check(false);
+        assert!(
+            !prove(&tautology, Mode::CLASSICAL, &unchecked)
+                .unwrap()
+                .checked
+        );
+        let refuted = prove(&sequent("|- a, a"), Mode::CLASSICAL, &Options::default()).unwrap();
+        assert!(matches!(refuted.verdict, Verdict::Unprovable(_)) && !refuted.checked);
+        assert_eq!(Cadence::from(7), Cadence::Every(7));
+    }
+
     /// The listed names are the names written, in order, and each reads
     /// back as its value.
     #[test]
