@@ -1,0 +1,22 @@
+| journey | instructions | ceiling | change |
+|---|--:|--:|--:|
+| search-qbf-20-2 | 635135774 | – | new |
+| search-chain-128 | 1200416016 | – | new |
+| search-partition-no-5 | 8270643 | – | new |
+| search-wide-m2-256 | 277213715 | – | new |
+| search-spec-chain | 38963849 | – | new |
+| search-chain-64-intuitionistic | 151950014 | – | new |
+| search-additive-14 | 588702619 | – | new |
+| read-text | 18563300 | – | new |
+| read-json | 12726564 | – | new |
+| read-lltp | 33866428 | – | new |
+| read-tptp | 34936473 | – | new |
+| read-spec | 20545379 | – | new |
+| check-qbf-20-2 | 135890929 | – | new |
+| check-wide-m1-2048 | 8562760 | – | new |
+| derivation-chain-64 | 9885713 | – | new |
+| render-latex | 5610841 | – | new |
+| render-typst | 4658857 | – | new |
+| render-svg | 84271075 | – | new |
+| batch-families | 87131513 | – | new |
+| ordinary-pigeons | 32535707 | – | new |

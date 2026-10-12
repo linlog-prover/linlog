@@ -403,12 +403,13 @@ serde_json, which the CLI and the core's tests already have.
   `bench/counts-against-time.py` times every journey for builds at
   opt-level 1, 2 and 3 on one pinned core (its header has the commands),
   and `bench/counts-against-time/DAY*` keeps a run's rows and counts. On
-  2026-10-09 a drop of 8 to 60 % in count was a drop in time on all
-  twenty journeys, but a few percent was not on four (the checker's two
-  journeys ran faster with 5 to 7 % more instructions): a change claimed
-  to save a few percent is shown by pinned time beside the count. That
-  run had another project's tests on the other cores and is to be
-  repeated in a quiet window.
+  2026-10-09, with another project's tests on the other cores, and on
+  2026-10-13, on a quiet machine (the other cores 0 to 2 % busy), a
+  drop of 19 to 65 % in count was a drop in time on all twenty journeys,
+  but a few percent was not on four (the checker's two journeys ran 8 %
+  faster at opt-level 2 with about the same count; the renderers and the
+  derivation spread by up to 9 % between rounds): a change claimed to
+  save a few percent is shown by pinned time beside the count.
 
 ## Extension points
 
