@@ -29,6 +29,7 @@ fn program(forest: &Forest) -> Program {
         mode: Mode::CLASSICAL,
         reading: None,
         roots: true,
+        program: std::sync::OnceLock::new(),
     };
     Program::read(&task).expect("a Horn program")
 }
@@ -123,6 +124,7 @@ fn counted_refutations_are_handed_back() {
         mode: Mode::CLASSICAL,
         reading: None,
         roots: true,
+        program: std::sync::OnceLock::new(),
     };
     let limits = crate::Limits::default();
     let answer = super::Horn
@@ -495,6 +497,7 @@ fn the_reading_puts_exactly_the_heads_on_the_left() {
             mode: Mode::INTUITIONISTIC,
             reading: Some(&reading),
             roots: true,
+            program: std::sync::OnceLock::new(),
         };
         Program::read(&task).is_some()
     };

@@ -473,6 +473,7 @@ fn default_bias_takes_turns() {
             mode: m,
             reading: None,
             roots: true,
+            program: std::sync::OnceLock::new(),
         };
         let set_up = SetUp {
             task: &task,

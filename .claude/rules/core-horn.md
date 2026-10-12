@@ -137,10 +137,11 @@ front door, the dispatch and the memory account it plugs into are in
   its `certify` then see only the transitions that may fire, so the
   equation's refutation rests on this too (`!(a -o a * a), !(a * c -o
   b * c), a |- b`: without the clause that needs a `c`, nothing makes
-  `b`). One pass, a count of missing inputs per transition, made in
-  `Horn::decide` only: `Program::read` runs for the dispatch's feature
-  and for `admits` too, and three passes cost the library's nets a few
-  percent in the median.
+  `b`). One pass, a count of missing inputs per transition, made where the
+  program is read: `Program::of` reads a goal once per task (the task's
+  cell), for the dispatch's feature, `admits` and the search alike;
+  three readings, one each, were 62 % of the `search-spec-chain`
+  journey.
 - **Every count of the program fits a `u32`**: a weight counts literals
   of one clause, a marking's count literals of the goal, a place an atom
   or a class, and a forest has fewer than 2³² occurrences. Counts that

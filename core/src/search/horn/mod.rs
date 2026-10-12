@@ -46,7 +46,7 @@ impl Decide for Horn {
                 decides: Fragment::MELL,
                 goal: task.fragment,
             }
-        } else if Program::read(task).is_none() {
+        } else if Program::of(task).is_none() {
             NotTaken::Shape
         } else {
             return Ok(());
@@ -99,20 +99,19 @@ impl Decide for Horn {
                 )
             });
         }
-        let mut program = Program::read(task).expect("the engine admitted the goal");
-        live(&mut program);
+        let program = Program::of(task).expect("the engine admitted the goal");
         let affine = task.mode.affine;
         let mut equation = Equation::new(affine, account);
         let most = reach::MOST_MARKINGS;
         let (mut found, statistics) = if affine {
-            cover::search(&program, account, most, &mut equation, stop)
+            cover::search(program, account, most, &mut equation, stop)
         } else {
-            reach::search(&program, account, most, &mut equation, stop)
+            reach::search(program, account, most, &mut equation, stop)
         };
         // A search that ran out of room has given its memory back: the
         // state equation may still refute, and has the rest of the time.
         if let Err(Reason::MemoryLimit { .. } | Reason::IndexLimit) = found
-            && let Ok(true) = equation.finish(&program, stop)
+            && let Ok(true) = equation.finish(program, stop)
         {
             found = Ok(None);
         }
@@ -124,7 +123,7 @@ impl Decide for Horn {
             Ok(Some(firings)) => {
                 match proof::build(
                     task.forest,
-                    &program,
+                    program,
                     &firings,
                     affine,
                     account,
@@ -155,7 +154,7 @@ impl Decide for Horn {
 /// Whether a goal is a Horn program with a clause under `!`, a Petri net:
 /// the feature of the engine's row in the dispatch.
 pub(crate) fn is_net(task: &Task<'_>) -> bool {
-    Program::read(task).is_some_and(|program| !program.quests.is_empty())
+    Program::of(task).is_some_and(|program| !program.quests.is_empty())
 }
 
 /// A list of arcs: places with their weights.
@@ -387,6 +386,20 @@ pub(super) struct Program {
 }
 
 impl Program {
+    /// The Horn program a goal is, its transitions that can never fire
+    /// dropped ([`live`]), or `None` when it is none: read on the task's
+    /// first call and kept in it.
+    fn of<'t>(task: &'t Task<'_>) -> Option<&'t Self> {
+        task.program
+            .get_or_init(|| {
+                Self::read(task).map(|mut program| {
+                    live(&mut program);
+                    program
+                })
+            })
+            .as_ref()
+    }
+
     /// Reads the Horn program a goal is, with the atoms of bodies written
     /// `a` or else with all of them written `~a`, or `None` when it is
     /// none: every member under a `?` a clause with exactly one head,
@@ -667,8 +680,7 @@ impl Reader<'_> {
 /// marked, by induction on the firing sequence; a transition with an
 /// input outside them is never enabled. Their clauses go to
 /// [`Program::dropped`], with those under `?` that share their arcs.
-/// Only the search needs it, so the dispatch's reading of a goal does not
-/// pay for it.
+/// One pass, made where the program is read ([`Program::of`]).
 fn live(program: &mut Program) {
     let Program {
         transitions,

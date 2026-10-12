@@ -47,6 +47,7 @@ use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 #[cfg(feature = "parallel")]
 pub(crate) use work::taken;
@@ -720,6 +721,7 @@ fn prepare<'a>(
         mode,
         reading,
         roots: goal.conclusion,
+        program: OnceLock::new(),
     };
     let engine = match options.engine {
         Some(engine) => engine,
@@ -747,6 +749,10 @@ pub(crate) struct Task<'a> {
     pub(crate) reading: Option<&'a Reading<'a>>,
     /// Whether the goal is the sequent's roots.
     pub(crate) roots: bool,
+    /// The Horn program the goal is, or `None`, read by the first that
+    /// asks (the dispatch's feature, the Horn engine's `admits` or its
+    /// search), so that a goal is read once.
+    program: OnceLock<Option<horn::Program>>,
 }
 
 /// What a search that keeps its proofs in an arena ended with: the node
@@ -2403,6 +2409,7 @@ mod tests {
             mode: Mode::CLASSICAL,
             reading: None,
             roots: true,
+            program: OnceLock::new(),
         };
         let verdict = conclude(
             Ok(Some(proof)),
