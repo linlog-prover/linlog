@@ -307,33 +307,34 @@ impl Sequent {
             .collect();
     }
 
-    /// Merges atoms of the same name, numbered in order of first
-    /// occurrence; every literal must name an atom of the table.
-    fn optimize_atoms(&mut self) {
+    /// Numbers the atoms in the order the terms first name them and drops
+    /// the entries no term names; every literal must name an atom of the
+    /// table. The names move into the new table, none is copied.
+    fn renumber_atoms(&mut self) {
         use Term::*;
-        let num_atoms = self.atoms.len();
-        let mut atoms = Vec::<String>::with_capacity(num_atoms);
-        let mut seen =
-            HashMap::<&str, term::Atom>::with_capacity_and_hasher(num_atoms, Default::default());
-
-        for e in self.terms.iter_mut() {
-            let (Atom(a) | DualAtom(a)) = *e else {
+        /// No term names the atom.
+        const UNUSED: u32 = u32::MAX;
+        // Per entry of the table its new number, and per new number the
+        // entry: a table has fewer entries than `u32::MAX`, as it is
+        // indexed by `Atom`s.
+        let mut number = vec![UNUSED; self.atoms.len()];
+        let mut entries = Vec::with_capacity(self.atoms.len());
+        for e in &mut self.terms {
+            let (Atom(a) | DualAtom(a)) = e else {
                 continue;
             };
-            let name: &str = &self.atoms[a.index()];
-            let merged = *seen.entry(name).or_insert_with(|| {
-                atoms.push(name.to_string());
-                term::Atom::new((atoms.len() - 1) as u32)
-            });
-            *e = match *e {
-                Atom(_) => Atom(merged),
-                DualAtom(_) | One | Bot | Top | Zero | Tensor(..) | Par(..) | With(..)
-                | Plus(..) | Bang(_) | Quest(_) => DualAtom(merged),
-            };
+            let slot = &mut number[a.index()];
+            if *slot == UNUSED {
+                *slot = entries.len() as u32;
+                entries.push(a.index());
+            }
+            *a = term::Atom::new(*slot);
         }
-        drop(seen);
-        atoms.shrink_to_fit();
-        self.atoms = atoms;
+        let mut names = std::mem::take(&mut self.atoms);
+        self.atoms = entries
+            .into_iter()
+            .map(|entry| std::mem::take(&mut names[entry]))
+            .collect();
     }
 
     /// Merges atoms of the same name and equal terms and drops the terms no
@@ -341,9 +342,10 @@ impl Sequent {
     /// written in. Every sequent a caller can hold keeps the arena's
     /// invariants, which this relies on.
     pub fn optimize(&mut self) {
-        self.optimize_atoms();
+        // Equal names first, so that terms over them are equal terms.
+        self.merge_atoms();
         self.optimize_terms();
-        self.optimize_atoms();
+        self.renumber_atoms();
     }
 
     /// Gives atoms of the same name one index, the first's, and drops the
