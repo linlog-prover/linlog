@@ -56,7 +56,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 |---|---|---|
 | 3.1 the library's API, data model and wire forms | done (session `step-28d`, 2026-10-09 to 10-10; reviewed by the supervisor) | sub-items below; `nix flake check` passed at kktkswpq |
 | 3.2 the search | done (session `step-28e`, 2026-10-10) | sub-items below; every code commit gated; the target sets equal; three check rounds, the fresh-context reviewer (no finding), the mutation run; `nix flake check` passed at vuuroryz |
-| 3.3 efficiency | open | |
+| 3.3 efficiency | running (session `step-28f`, from 2026-10-13) | sub-items below |
 | 3.4 the command, the harness, the flake and the documents | open | |
 | last reader of the rustdoc front page and README | open | |
 
@@ -599,6 +599,31 @@ asked on 2026-10-10.
   each commit's diff and the head, which keeps the agents within the
   machine's cores.
 
+#### Area 3.3, item by item (session `step-28f`)
+
+The efficiency findings (`area == "efficiency"`, F147 to F154), the
+two printing and reading costs area 3.1's review named, and F114 and
+F121 from area 3.2, after the two measurements the supervisor put
+first. Each fix: a profile read as text, a test that pins the
+behaviour where none does, the change, the journey's count and its
+pinned time after, the ceiling lowered.
+
+| item | state | evidence |
+|---|---|---|
+| a. the timed validation of counts against time again (`bench/counts-against-time.py`), in a quiet window | open | |
+| b. the pool's speed after H18 and F92: the target set and the second baseline's parallel pass at `-j 2` and `-j 4`, the head against kktkswpq | open | |
+| c. F152 the Horn program read once per call | open | |
+| d. F154 `optimize_atoms` once and without copies; read-json's names in NFC | open | |
+| e. F151 `forced_factor` once per split, the forced side per occurrence | open | |
+| f. F150 the canonical key only where a member is renamed | open | |
+| g. F147 a stable sequent's member list by a word loop | open | |
+| h. F149 the memo's chunks without the zero fill | open | |
+| i. F148 a sparse memo key | open | |
+| j. F153 the net engine's quadratic parts | open | |
+| k. the printing journeys' one printer through a `dyn` atom writer | open | |
+| l. F114 and F121, with the stack per level measured before and after | open | |
+| m. the ratchet lowered, the target sets, check rounds (at most three), the fresh-context reviewer, mutants and fuzzing of what changed, `nix flake check` | open | |
+
 ## From the supervisor
 
 ### Where you start, `step-28` (2026-10-08 20:51)
@@ -1126,3 +1151,58 @@ asked on 2026-10-10.
   results and rerun it alone before counting it. What was done: cores
   12 to 15 carry the second gate stream, so the agent stayed; every
   timed-out mutant is read and rerun alone before it counts.
+
+### Where you start, `step-28f` (2026-10-13)
+
+- You are `step-28f`, the sixth session of step 28, Opus 5.5 at
+  `xhigh`: area 3.3, efficiency, as the step prompt's stage 3 item 3
+  says. The step resumes after its pause at area 3.2's review on the
+  author's word, under a new supervisor: `planning` and this session
+  run on the author's second account. The session ends with the area's
+  check rounds (three at most), a fresh-context reviewer and a passing
+  `nix flake check`, all committed, the checklist current and the last
+  message sent to `planning`.
+- Read the step prompt's "From the review" sections, area 3.2's and
+  "From area 3.2, for area 3.3" last, and "Ultra reviews" (this area's
+  diff is run 2's slice, of any size).
+- The first measurement: the pool's speed after H18 and F92, which
+  nothing measured: the focused engine's target set and the second
+  baseline's parallel pass at `-j 2` and `-j 4`, at the head and at
+  kktkswpq, times and nodes side by side; before the first timing, the
+  timed validation of counts against time again
+  (`bench/counts-against-time.py`). The quiet window is now: the author
+  has left the machine to the step until they say stop. Timed runs
+  pinned on core 2 or 3, nothing heavy beside them, no timer due during
+  them (`nix-optimise` at 04:03).
+- The findings: the eight `perf-*` (F147 to F154); from area 3.1's
+  review read-json and the printing journeys' one printer through a
+  `dyn` atom writer (Typst +2.9 %, LaTeX +2.5 %, SVG +3.3 %); from area
+  3.2 F114 and F121, which wait for the stack per level measured on
+  quiet cores, before and after. Link-time optimisation is on and the
+  ceilings were recorded under it. A gain that costs more code than it
+  is worth goes to `planning` as a decision.
+- The oracles under LTO: `bench/targets/head-lto.csv` and
+  `bench/targets/net-after-retype.csv`; a commit that claims no change
+  of the search keeps their counters, one that changes it is reviewed by
+  the panel.
+- Benchmarks, callgrind, mutants, fuzzing and anything timed are
+  allowed now, one line to `planning` when a run starts and one when it
+  ends; "Pause" or "hold" stops runs gracefully. Cores 0 and 1 are the
+  desktop's; builds on 2 to 5; agents' programs and long runs on 6 to
+  15; every unit and scope named `step28-…`. Wait on a run with a
+  background watcher. Mutation runs from a jj workspace of their own at
+  the head; a mutant that timed out is rerun alone on quiet cores before
+  it counts. Departures from the design are decided and marked "(departs
+  from the design)" in "Area 3.3: decided unattended". Signing: test a
+  signature before each commit, `--config signing.behavior=drop` while
+  it fails. The account is on Max 5x: keep the checklist current, spend
+  agents where they buy evidence.
+
+### Messages from `planning` to `step-28f` (2026-10-13, night)
+
+- 00:27: signing is not available yet (the machine rebooted); commit
+  with `--config signing.behavior=drop` meanwhile. 00:31: signing works
+  until about 02:25 (the passphrase entered at 00:28, the warm loop
+  `step28-gpg-warm` running); test a signature before each commit, and
+  after 02:25 commit unsigned. What was done: each commit tests a
+  signature first.
