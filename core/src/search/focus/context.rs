@@ -213,6 +213,16 @@ impl Context {
         }
     }
 
+    /// Returns whether an occurrence of `set`, a set over the same
+    /// forest, is a member.
+    pub(crate) fn meets(&self, set: &OccSet) -> bool {
+        let (ours, theirs) = (self.set.words(), set.words());
+        ours[self.lo..self.hi]
+            .iter()
+            .zip(&theirs[self.lo..self.hi])
+            .any(|(a, b)| a & b != 0)
+    }
+
     /// Returns whether the zone has no member.
     pub(crate) fn is_empty(&self) -> bool {
         self.set.words()[self.lo..self.hi].iter().all(|&w| w == 0)

@@ -206,9 +206,12 @@ relies on:
   always did. One table holds everything: a key that is not canonical
   holds a proof or an `Exhausted`, a canonical key may also hold a
   `Complete`, which is all a relative reads there; when the two keys
-  are equal, or no two occurrences of the forest are interchangeable
-  (`Classes::distinct`, which skips the canonical key altogether), the
-  one `get` of before. Keying `Θ` by class too would merge more (a `?`
+  are equal the one `get` of before. **The canonical key is built only
+  where it differs** (`Classes::renames`: the zone's words against the
+  set of occurrences that are not the first of their class, a few words
+  per stable sequent): building it for every stable sequent, of which
+  under 5 % renamed a member, was 12.5 % of `search-qbf-20-2`. Keying
+  `Θ` by class too would merge more (a `?`
   below interchangeable members adds different ids) and is not done: it
   would cost a pass over `Θ` per stable sequent. Measured (stable
   sequents, memo entries): the unsolvable 3-Partition with bins of four

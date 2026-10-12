@@ -9,7 +9,8 @@
 //! member is replaced by another occurrence of the same formula in the
 //! same position, and the search need only try one of each kind.
 
-use crate::occurrences::{Forest, OccId, Reading, Side};
+use super::context::Context;
+use crate::occurrences::{Forest, OccId, OccSet, Reading, Side};
 
 /// The class of every occurrence of a forest: the occurrences of the same
 /// term, and under an intuitionistic reading in the same position, are
@@ -21,6 +22,8 @@ use crate::occurrences::{Forest, OccId, Reading, Side};
 pub(crate) struct Classes {
     /// Per occurrence, the first occurrence of its class.
     class: Box<[OccId]>,
+    /// The occurrences that are not the first of their class.
+    renamed: OccSet,
     /// Whether no two occurrences are interchangeable.
     distinct: bool,
 }
@@ -44,19 +47,33 @@ impl Classes {
                 OccId::new(*slot)
             })
             .collect();
+        let mut renamed = OccSet::empty(forest.len());
+        renamed.extend(forest.ids().filter(|&o| class[o.index()] != o));
         let distinct = forest.ids().all(|o| class[o.index()] == o);
-        Self { class, distinct }
+        Self {
+            class,
+            renamed,
+            distinct,
+        }
     }
 
     /// Returns whether no two occurrences of the forest are
     /// interchangeable, so that every occurrence is its own class.
+    #[cfg(test)]
     pub(crate) fn distinct(&self) -> bool {
         self.distinct
     }
 
     /// Returns the bytes the classes allocate.
     pub(crate) fn bytes(&self) -> usize {
-        self.class.len() * size_of::<OccId>()
+        self.class.len() * size_of::<OccId>() + size_of_val(self.renamed.words())
+    }
+
+    /// Returns whether a member of `gamma` is not the first of its class,
+    /// so that its canonical form (`Context::canonical_from`) differs from
+    /// it: a test of the zone's words alone.
+    pub(crate) fn renames(&self, gamma: &Context) -> bool {
+        !self.distinct && gamma.meets(&self.renamed)
     }
 
     /// Returns the class of an occurrence: its first interchangeable

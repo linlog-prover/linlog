@@ -886,8 +886,11 @@ impl<'a> Run<'a> {
         // Complete failures are recorded up to interchangeable members:
         // under the canonical key, where it differs from the sequent's own.
         let mut canonical = self.take_context_any();
-        let renamed = !self.problem.classes.distinct()
-            && canonical.canonical_from(gamma, self.problem.classes);
+        let renamed = self.problem.classes.renames(gamma);
+        if renamed {
+            let replaced = canonical.canonical_from(gamma, self.problem.classes);
+            debug_assert!(replaced, "a member's class is another occurrence");
+        }
         let canonical_key = Zones {
             theta,
             gamma: &canonical,
