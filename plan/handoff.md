@@ -263,6 +263,10 @@ what the steps so far showed.
 
 ## Step 28: supervising
 
+A conductor on the author's second account takes over from
+`plan/28-conductor.md` (2026-10-12), which holds where the step stands
+and everything the first conductor knew that no other file says.
+
 The author asked on 2026-10-08 that this session run step 28: start
 each of its sessions, review each before the next, report to the author
 in short plain-language reports, and relay the author's corrections
@@ -287,7 +291,9 @@ in short plain-language reports, and relay the author's corrections
   session `linlog-NAME` (the author attaches with `zellij attach
   linlog-NAME`) and clears the markers a child session would inherit:
   without that it saves no transcript and cannot be messaged by name.
-  It prints the session's id; note it. When a session is reviewed,
+  It keeps the account it runs on (`CLAUDE_CONFIG_DIR`, as `claude2`
+  sets it), so the sessions run on the conductor's account. It prints
+  the session's id; note it. When a session is reviewed,
   `zellij kill-session linlog-NAME` ends it; after a reboot,
   `plan/start-session.sh --resume ID NAME MODEL EFFORT` brings a session
   back in a new zellij session, its context kept.

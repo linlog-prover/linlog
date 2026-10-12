@@ -2229,3 +2229,9 @@ client follows it (step 32).
   Area 3.1 is past what they cover. The runs, the bookmarks they need
   and where their findings go are in prompt 28's "Ultra reviews" and
   the handoff.
+- 2026-10-12: a conductor for the rest of step 28 on the author's
+  second account. `plan/28-conductor.md` is its prompt: where the step
+  stands, how to start, supervise and review the remaining areas, and
+  the author's standing instructions. The first conductor's log is in
+  `plan/notes/step28-supervision-log.md`. The launcher now keeps the
+  account it runs on, so the step's sessions run on the conductor's.
