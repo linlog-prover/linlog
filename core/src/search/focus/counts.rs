@@ -7,6 +7,7 @@
 //! provable sequent, computed once per forest and summed per sequent.
 
 use super::Switches;
+use super::split::Forced;
 use crate::fragment::{Fragment, Mode};
 use crate::occurrences::{Forest, OccId, Sign};
 use crate::proofs::Branch;
@@ -74,9 +75,9 @@ pub(crate) struct Counts {
     /// that a copy can absorb any imbalance and the intervals prune
     /// nothing.
     absorbs_from_copies: bool,
-    /// Per occurrence, whether it is a tensor of positive literals none of
-    /// whose duals can lie in the unrestricted zone.
-    literal_tensor: Box<[bool]>,
+    /// Per occurrence, what it forces on its side of a split as a factor
+    /// of a `⊗`, without weakening: [`forced`](Self::forced).
+    forced: Box<[Option<Forced>]>,
     /// Per atom, the sign of its positive literal in this search.
     positive: Box<[Sign]>,
 }
@@ -274,7 +275,7 @@ impl Counts {
             }
             _ => false,
         };
-        let mut literal_tensor = vec![false; n];
+        let mut forced = vec![None; n];
         // Every descendant has a larger id than its ancestor, so a pass from
         // the last id down sees the children before the parent, and a row
         // is merged from two that are written already.
@@ -341,10 +342,23 @@ impl Counts {
             bound.push(end);
             absorbs[o.index()] = absorb;
             weight[o.index()] = w;
-            literal_tensor[o.index()] = kind == Tensor
-                && forest
-                    .children(o)
-                    .all(|c| linear(c) || literal_tensor[c.index()]);
+            forced[o.index()] = match kind {
+                Zero => Some(Forced::Nothing),
+                One | Bang => Some(Forced::Empty),
+                Atom | DualAtom
+                    if forest.sign(o) == Some(positive[forest.atom(o).unwrap().index()]) =>
+                {
+                    Some(Forced::Dual)
+                }
+                Tensor
+                    if forest
+                        .children(o)
+                        .all(|c| linear(c) || forced[c.index()] == Some(Forced::Duals)) =>
+                {
+                    Some(Forced::Duals)
+                }
+                Atom | DualAtom | Bot | Top | Quest | Tensor | Par | With | Plus => None,
+            };
             if rows.bytes() != charged {
                 account.resize(charged, rows.bytes());
                 charged = rows.bytes();
@@ -368,7 +382,7 @@ impl Counts {
             row_atoms,
             ranked: ranked.into_boxed_slice(),
             absorbs_from_copies,
-            literal_tensor: literal_tensor.into_boxed_slice(),
+            forced: forced.into_boxed_slice(),
             positive,
         };
         account.resize(
@@ -393,12 +407,15 @@ impl Counts {
         }
     }
 
-    /// Returns whether the occurrence is a tensor of positive literals
+    /// Returns what the occurrence forces on its side of a split as a
+    /// factor of a `⊗`, without weakening: nothing at all for `0`, the
+    /// empty context for `1` and `!`, the dual literal alone for a positive
+    /// literal, and one dual per literal for a tensor of positive literals
     /// none of whose duals can lie in the unrestricted zone (none is
-    /// directly under a `?`): in focus, such a tensor is proved by exactly
-    /// one dual per literal, each from the linear zone.
-    pub(crate) fn literal_tensor(&self, o: OccId) -> bool {
-        self.literal_tensor[o.index()]
+    /// directly under a `?`), which in focus is proved by exactly one dual
+    /// per literal, each from the linear zone.
+    pub(super) fn forced(&self, o: OccId) -> Option<Forced> {
+        self.forced[o.index()]
     }
 
     /// Returns the row of an occurrence: its interval per atom occurring

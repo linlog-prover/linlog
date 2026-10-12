@@ -44,24 +44,15 @@ impl Run<'_> {
         found.map(|at| duals[start + at])
     }
 
-    /// What a factor of a `⊗` forces on its side of the split: nothing at
-    /// all for `0`, the empty context for `1` and `!`, the dual literal
-    /// alone for a positive literal, and one dual per literal for a tensor
-    /// of positive literals whose duals lie in the linear zone only. With
-    /// weakening nothing but `0` forces anything, since every leaf takes
-    /// any context.
+    /// What a factor of a `⊗` forces on its side of the split
+    /// ([`Counts::forced`](super::counts::Counts::forced)). With weakening
+    /// nothing but `0` forces anything, since every leaf takes any context.
     pub(super) fn forced_side(&self, factor: OccId) -> Option<Forced> {
-        match self.problem.forest.kind(factor) {
-            Kind::Zero => Some(Forced::Nothing),
-            _ if self.problem.rules.affine => None,
-            Kind::One | Kind::Bang => Some(Forced::Empty),
-            Kind::Atom | Kind::DualAtom
-                if self.problem.counts.positive(self.problem.forest, factor) =>
-            {
-                Some(Forced::Dual)
-            }
-            Kind::Tensor if self.problem.counts.literal_tensor(factor) => Some(Forced::Duals),
-            _ => None,
+        let forced = self.problem.counts.forced(factor);
+        if self.problem.rules.affine && forced != Some(Forced::Nothing) {
+            None
+        } else {
+            forced
         }
     }
 
@@ -71,29 +62,38 @@ impl Run<'_> {
     /// before a tensor of literals, which takes a focus of its own: a
     /// tensor of a thousand literals, nested to the left as it is read,
     /// must not pay a level of recursion per link; otherwise the left one.
-    fn forced_factor(&self, f: OccId) -> Option<(Forced, OccId, OccId, Branch)> {
+    fn forced_factor(&self, f: OccId) -> Option<Forcing> {
         let (a, b) = (
             self.problem.forest.left(f).unwrap(),
             self.problem.forest.right(f).unwrap(),
         );
-        [(a, b, Branch::Left), (b, a, Branch::Right)]
-            .into_iter()
-            .filter_map(|(x, y, side)| Some((self.forced_side(x)?, x, y, side)))
-            .min_by_key(|&(forced, ..)| forced == Forced::Duals)
+        match (self.forced_side(a), self.forced_side(b)) {
+            (Some(x), _) if x != Forced::Duals => Some((x, a, b, Branch::Left)),
+            (_, Some(y)) if y != Forced::Duals => Some((y, b, a, Branch::Right)),
+            (Some(x), _) => Some((x, a, b, Branch::Left)),
+            (None, Some(y)) => Some((y, b, a, Branch::Right)),
+            (None, None) => None,
+        }
     }
 
     /// The `⊗` rule on `F = A ⊗ B` with context `Γ`: the forced split when
     /// a factor allows only one, else a search over the members of `Γ` for
     /// the splits whose two sides pass the counts.
     pub(super) fn split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
-        if self.forced_factor(f).is_none() {
+        let Some(forcing) = self.forced_factor(f) else {
             return self.free_split(theta, gamma, f, budget);
-        }
+        };
         let mark = self.nodes.mark();
         let mut rest = self.take_context_from(gamma);
         let mut links = self.take_links();
         let mut cursors = self.take_cursors();
-        let result = self.forced_splits(theta, &mut rest, f, (&mut links, &mut cursors), budget);
+        let result = self.forced_splits(
+            theta,
+            &mut rest,
+            (f, forcing),
+            (&mut links, &mut cursors),
+            budget,
+        );
         self.give_cursors(cursors);
         self.give_context(rest);
         let result = match result {
@@ -118,8 +118,10 @@ impl Run<'_> {
         result
     }
 
-    /// The forced splits of `F` and, as long as the factor they leave is a
-    /// `⊗` with a forced split again, of that factor, in a loop: a tensor
+    /// The forced splits of `F`, given with its forcing factor as
+    /// [`forced_factor`](Self::forced_factor) found it, and, as long as
+    /// the factor they leave is a `⊗` with a forced split again, of that
+    /// factor, in a loop: a tensor
     /// of a thousand literals costs one level of recursion and one copy of
     /// the context, not a thousand. `rest` is the context, from which
     /// every forcing factor takes its own; `links` gets every `⊗` with the
@@ -133,14 +135,15 @@ impl Run<'_> {
         &mut self,
         theta: &OccSet,
         rest: &mut Context,
-        mut f: OccId,
+        (mut f, first): (OccId, Forcing),
         (links, cursors): (&mut Vec<(OccId, NodeId, Branch)>, &mut Cursors),
         budget: u32,
     ) -> Step {
         // What the focuses on forcing factors along the chain cut.
         let mut cuts = Cuts::NONE;
+        let mut forcing = Some(first);
         loop {
-            let Some((forced, x, y, x_side)) = self.forced_factor(f) else {
+            let Some((forced, x, y, x_side)) = forcing else {
                 return Ok(self.focus(theta, rest, f, budget)?.after(cuts));
             };
             self.statistics.splits += 1;
@@ -195,6 +198,7 @@ impl Run<'_> {
                 return Ok(self.focus(theta, rest, y, budget)?.after(cuts));
             }
             f = y;
+            forcing = self.forced_factor(f);
         }
     }
 
@@ -862,6 +866,11 @@ pub(super) enum Join {
     /// The Mix rule: the sides are its parts.
     Mix,
 }
+
+/// The factor of a `⊗` that forces its split, as
+/// [`forced_factor`](Run::forced_factor) returns it: what it forces, the
+/// factor, the other factor, and which of the two the forcing one is.
+type Forcing = (Forced, OccId, OccId, Branch);
 
 /// What a factor of a `⊗` forces on its side of the split.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
