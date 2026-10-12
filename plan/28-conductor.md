@@ -12,8 +12,10 @@ and in plain words.
 ## Starting
 
 - **How the author starts you**: in `/home/tux/Projects/own/linlog`,
-  `claude2 --name planning --model claude-opus-5-5 --effort high
-  --permission-mode auto`, with this file as the first prompt.
+  from the author's shell, which is nushell:
+  ```nu
+  claude2 --name planning --model claude-opus-5-5 --effort high --permission-mode auto (open --raw plan/28-conductor.md)
+  ```
   - **The name** matters: the step's sessions send their messages to
     `planning`, and two sessions of one name confuse the messaging.
   - **Auto mode** matters too: a message between sessions of different
@@ -192,7 +194,7 @@ plan/start-session.sh NAME claude-opus-5-5 EFFORT \
 - **Signing**: the gpg cache lasts two hours from the author's entry,
   whatever a loop does. The author refreshes it with:
   ```
-  ! gpg-connect-agent 'CLEAR_PASSPHRASE --mode=normal 2DD4A80714617BA2CF92FF8C2A544F9421F92E27' /bye && echo x | gpg --local-user flgrubm@grubmueller.dev --sign -o /dev/null
+  ! gpg-connect-agent 'CLEAR_PASSPHRASE --mode=normal 2DD4A80714617BA2CF92FF8C2A544F9421F92E27' /bye; echo x | gpg --local-user flgrubm@grubmueller.dev --sign -o /dev/null
   ```
   After a refresh:
   - keep the idle cache warm with a loop, `systemd-run --user
@@ -303,3 +305,9 @@ These are on top of CLAUDE.md and the handoff:
   before its first use.
 - **The author's email address** is for identifying the author only;
   never send it to any service.
+- **The author's shell is nushell.** A command you give the author to
+  type in a terminal must work there: `;` between commands (no `&&`),
+  `(open --raw FILE)` for a file's text (no `$(cat FILE)`), and no other
+  bash-only syntax. A command the author runs through Claude Code's `!`
+  prefix runs in Claude Code's own shell, but keep those to the syntax
+  both shells share as well.
