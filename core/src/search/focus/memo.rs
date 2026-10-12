@@ -171,8 +171,11 @@ pub(crate) struct Memo {
     /// from the hash's low bits. A power of two in length, at least twice
     /// the records, or empty.
     slots: Vec<u32>,
-    /// The records, `1 << shift` to a chunk.
-    chunks: Vec<Box<[u64]>>,
+    /// The records, `1 << shift` to a chunk, each chunk allocated whole
+    /// and filled record by record: records are only ever added, in order,
+    /// and a record is read only once it is written, so a chunk is never
+    /// zeroed first.
+    chunks: Vec<Vec<u64>>,
     /// The words of one record, known from the first key: zero until
     /// then.
     stride: usize,
@@ -371,13 +374,11 @@ impl Memo {
         self.extras.extend_from_slice(key.gamma.extra());
         account.resize(extras, bytes_of(&self.extras));
         let e = self.len;
-        let width = (self.stride - HEADER) / 2;
-        let record = self.record_mut(e);
-        record[0] = hash;
-        record[1] = entry.code();
-        record[2] = span;
-        record[HEADER..HEADER + width].copy_from_slice(key.theta.words());
-        record[HEADER + width..].copy_from_slice(key.gamma.set().words());
+        let chunk = &mut self.chunks[e >> self.shift];
+        debug_assert_eq!(chunk.len(), (e & ((1 << self.shift) - 1)) * self.stride);
+        chunk.extend_from_slice(&[hash, entry.code(), span]);
+        chunk.extend_from_slice(key.theta.words());
+        chunk.extend_from_slice(key.gamma.set().words());
         self.len += 1;
         self.index(e, hash);
         self.peak = self.peak.max(self.len);
@@ -426,17 +427,20 @@ impl Memo {
                 return false;
             }
             account.charge(words * size_of::<u64>());
-            self.chunks.push(vec![0; words].into_boxed_slice());
+            self.chunks.push(Vec::with_capacity(words));
         }
         true
     }
 
     /// Empties the table and keeps its memory for the entries to come: a
-    /// count is reset and the index zeroed.
+    /// count is reset, the index zeroed and the chunks' lengths reset.
     pub(crate) fn clear(&mut self) {
         self.len = 0;
         self.slots.fill(0);
         self.extras.clear();
+        for chunk in &mut self.chunks {
+            chunk.clear();
+        }
     }
 
     /// Empties the table and gives its memory back.
