@@ -327,6 +327,20 @@ in short plain-language reports, and relay the author's corrections
   evidence, what was skipped or is unverified; plain words, no working
   shorthand. A push notification only when the author must act or the
   step is done.
+- **The ultra reviews** (prompt 28, "Ultra reviews", the author's
+  plan of 2026-10-12): three free runs of `/code-review ultra`, which
+  only the author starts. At each slice's turn (run 1 now, run 2 after
+  area 3.3's review, run 3 after area 3.4's), measure the slice with
+  `jj diff --stat --from BASE --to END`, all files counted. Past about
+  8 000 changed lines, split it at a commit boundary. Make a bookmark
+  `review/NAME` at END and give the author the base commit. The author
+  checks the branch out in a separate git worktree and runs it there.
+  Then record the findings as `U…` in `28-audit-findings.json` for the
+  area that fixes them, and delete the bookmark.
+- **Departures from the design** that sessions mark "(departs from the
+  design)" are collected for the author's review at the step's end;
+  they are not put to the author during the run (the author,
+  2026-10-10).
 - When the last area's session is reviewed, finish
   `plan/29-comparison.md`.
 

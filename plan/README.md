@@ -2220,3 +2220,12 @@ client follows it (step 32).
   is below its baseline. The review reran the command's witnesses and
   `nix flake check`. The step pauses here until the author resumes it;
   areas 3.3 and 3.4 remain.
+- 2026-10-12: the author's plan for outside review. Three free runs
+  of Claude Code's `/code-review ultra`, each limited to about 8 000
+  changed lines:
+  - the command's wrong answers and area 3.2;
+  - area 3.3;
+  - area 3.4.
+  Area 3.1 is past what they cover. The runs, the bookmarks they need
+  and where their findings go are in prompt 28's "Ultra reviews" and
+  the handoff.

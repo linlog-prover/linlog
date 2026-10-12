@@ -419,6 +419,48 @@ resume" below).
   resume it, most likely after the weekly reset on 2026-10-16 05:00.
   Areas 3.3 and 3.4 remain.
 
+## Ultra reviews (the author, 2026-10-12)
+
+The author runs Claude Code's `/code-review ultra` three times on parts
+of the step, as a review from outside the models the step ran on.
+These are the account's three free runs: they come once, never
+refresh, and step 28 uses no paid ones. A run reviews the changes from
+a base commit to the end of the checked-out git branch, uncommitted
+work included. It is refused past about 8 000 changed lines or 500
+files (plan and report files count, and paths cannot be left out),
+and it takes 5 to 10 minutes.
+
+1. **The command's wrong answers and area 3.2**, kktkswpq to 3488a0dd:
+   about 8 150 changed lines, at the limit. If the run is refused, it
+   splits into the command's fixes (kktkswpq to the commit before
+   area 3.2's first) and area 3.2 (from there to 3488a0dd), which then
+   takes run 3.
+2. **Area 3.3**, from the review of area 3.2 to the end of area 3.3.
+3. **Area 3.4**, or the second half of run 1.
+
+Area 3.1 (about 27 000 lines) is past what the free runs cover. It
+rests on its three check rounds, its fresh-context reviewer and the
+supervisor's probes.
+
+- **How it runs.** Only the author can start a run.
+  - The supervisor makes a jj bookmark at the slice's last commit
+    (`review/3.2`, `review/3.3`, …), which is a git branch in the
+    colocated repository. jj leaves git's `HEAD` detached, so the
+    author checks that branch out in a separate git worktree or clone
+    and runs `/code-review ultra <base commit>` there, never in this
+    working copy.
+  - The supervisor deletes the bookmark after the run. Nothing is
+    pushed for it.
+- **Its findings** go into `28-audit-findings.json` as `U1` and on,
+  status `ultra`, each with the area that fixes it.
+  - Runs 1 and 2 fall before area 3.4, so their findings are that
+    area's first fixes, beside its own; a finding in code area 3.4
+    does not touch gets a commit of its own there.
+  - Run 3's findings are fixed in a short session after area 3.4,
+    with the gate and `nix flake check`.
+- **Area sessions** need not keep their diffs under the limit; the
+  supervisor splits a slice at a commit boundary when one is too large.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
