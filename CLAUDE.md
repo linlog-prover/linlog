@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <!--
 Maintainer note (stripped before it reaches Claude's context). This file is
-loaded into every session: keep it well under 200 lines, to commands, rules,
-conventions and pointers. Guidance for one area of the tree goes in
+loaded into every session, so each line is paid in each: keep it to commands,
+rules, conventions and pointers. Guidance for one area of the tree goes in
 `.claude/rules/<area>.md` behind a `paths:` glob; procedures go in
 `.claude/skills/<name>/`. `.claude/rules/claude-infra.md` explains the split.
 -->
