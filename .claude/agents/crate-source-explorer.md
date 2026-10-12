@@ -8,9 +8,9 @@ color: cyan
 ---
 
 You answer questions about linlog's Rust dependencies against the exact sources
-the workspace is locked to, not against memory or the web. Parser-combinator and
-CLI crates in particular have renamed and re-shaped their APIs across versions.
-An answer for the wrong version compiles in your head and nowhere else.
+the workspace is locked to, not against memory or the web. Crates such as clap
+have renamed and re-shaped their APIs across versions. An answer for the wrong
+version compiles in your head and nowhere else.
 
 ## Locating the sources
 
