@@ -30,7 +30,14 @@ shift 3
 # CLAUDE_CODE_CHILD_SESSION, its messaging socket, …) that make the new
 # one a child: no transcript, no entry in the session registry, so no
 # --resume and no messages by name. Clear them, so that the new session
-# is what the author would start from a terminal.
+# is what the author would start from a terminal. The account
+# (CLAUDE_CONFIG_DIR, ~/.claude when unset) is kept, so that the new
+# session runs on the same account as the one that starts it.
+account=()
+if [[ -n ${CLAUDE_CONFIG_DIR-} ]]; then
+  account=("CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR")
+fi
+config_dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 while IFS= read -r var; do
   case $var in CLAUDE* | AI_AGENT) unset "$var" ;; esac
 done < <(compgen -e)
@@ -47,16 +54,17 @@ fi
 cd "$(dirname "$0")/.."
 zellij attach --create-background "linlog-$name" >/dev/null
 zellij --session "linlog-$name" run --name "$name" --cwd "$PWD" -- \
+  env "${account[@]}" \
   claude "${resume[@]}" --model "$model" --effort "$effort" \
   --permission-mode auto --name "$name" "${prompt[@]}"
 
-# The session registers itself under ~/.claude/sessions/PID.json.
+# The session registers itself under the account's sessions/PID.json.
 for _ in $(seq 60); do
   sleep 1
   id=$(
-    python3 - "$name" <<'EOF'
+    python3 - "$name" "$config_dir" <<'EOF'
 import glob, json, sys
-for path in glob.glob(f"{__import__('os').path.expanduser('~')}/.claude/sessions/*.json"):
+for path in glob.glob(f"{sys.argv[2]}/sessions/*.json"):
     try:
         record = json.load(open(path))
     except (OSError, ValueError):
