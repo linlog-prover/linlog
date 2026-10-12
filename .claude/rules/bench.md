@@ -475,8 +475,8 @@ serde_json, which the CLI and the core's tests already have.
   core, four streams on cores 2 to 5 split by every fourth net
   (`--only`). `horn-families.csv` is the default against `--engines
   horn` on the Horn families (Partition, the counters) at 10 s, which
-  kept the row to programs with `!`. Step 27's second session added
-  three: `horn-qcover.csv`, qcover's 176 problems (`--spec`,
+  kept the row to programs with `!`. Three more: `horn-qcover.csv`,
+  qcover's 176 problems (`--spec`,
   intuitionistic affine) at 5 s with `--engines horn` (the final engine)
   beside the two-sided engine's rows of the same day (`--engines
   two-sided --bias factors --copies 30`, and `--engines auto --copies

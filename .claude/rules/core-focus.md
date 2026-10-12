@@ -390,11 +390,11 @@ relies on:
     backward search's (counted in `Baton::polls`) within a millisecond
     of each, since the calling thread wakes that often while the
     backward search has its turn (`Baton::pass_polling`) and after the
-    forward one has ended (`Baton::caught_up`). It used to wait for the
-    whole slice on the condition variable, and a slice is counted in
-    work, not in time. A condition that counts its polls or reads a
-    clock every `n` of them therefore sees what it sees of one search; polled only once per
-    wake-up, it was a second late (a review's finding). The backward
+    forward one has ended (`Baton::caught_up`). A condition that counts
+    its polls or reads a clock every `n` of them therefore sees what it
+    sees of one search. Waiting for the whole slice on the condition
+    variable instead would poll it once per wake-up, a second late, since
+    a slice is counted in work, not in time. The backward
     search reads `Baton::halt` at every poll. `StopOnPanic` stops it
     when the caller's condition panics. `Ended`, dropped on return and
     on a panic, hands the baton on so that nobody waits for a thread
@@ -866,12 +866,11 @@ relies on:
   path only costs an allocation later. A memo insertion copies the key
   into the memo's own chunk, and a repeated occurrence grows a
   context's extra list, which is the one allocation left per stable
-  sequent. Two derived `clone_from`s used to allocate behind this
-  sentence's back, which a heap profile showed (three million
-  allocations in five seconds of an ILLTP problem): `OccSet`'s, which
-  every copy of a zone goes through, and `Key`'s, on the branch stack;
-  `OccSet` has its own now, and the stack copies with `Key::assign`.
-  A derived `Clone` on a type that owns a buffer never reuses it.
+  sequent. `OccSet` has a `clone_from` of its own, which every copy of
+  a zone goes through, and the branch stack copies with `Key::assign`:
+  a derived `Clone` on a type that owns a buffer never reuses it, and
+  the two derived ones allocated three million times in five seconds of
+  an ILLTP problem.
   Every pool buffer is charged to the search's account when it is
   made, the lists when they are given back (`Pooled`), through the
   engine's `scratch`, which releases the charge when the engine goes:
@@ -901,11 +900,9 @@ relies on:
   relied on). A failure carries the cuts of every failed step it rests
   on; a proof carries none, since it is a fact at every budget and on
   every branch, and a failure of a rule whose other premise was proved
-  rests on its own premise alone (until step 26, one thread's proofs
-  carried the cuts of the alternatives tried before them, as the
-  engine-wide flags these values replaced did; dropping them made more
-  failures complete and was a change of the search with its panel). Why
-  that is sound (the panel's argument, sharper than the first one): a
+  rests on its own premise alone, which leaves more failures complete
+  than carrying the cuts of the alternatives tried before a proof. Why
+  that is sound: a
   failed premise was searched under the same branch stack and the same
   budget as the rule's conclusion, so every proof through the rule
   contains a proof of that premise under the same conditions and its

@@ -198,22 +198,22 @@ has no or-choices worth sharing out). What the code relies on:
   their end (`Collected::take`). **A proof carries no cuts**, on one
   thread as on the pool (`Found` is a proof or a failure with its cuts):
   a failure after a proved premise or alternative rests on its own cuts
-  alone. Until step 26 one thread's proof carried those of the
-  alternatives tried before it and a proved premise's cuts went into
-  its sibling's failure, which was sound and less decisive at the copy
-  bound. For `&`, a failed premise decides, whatever the other found.
+  alone: carrying a proof's cuts of the alternatives tried before it, or
+  a proved premise's cuts into its sibling's failure, is sound and less
+  decisive at the copy bound. For `&`, a failed premise decides,
+  whatever the other found.
   Success raises `cancel` at an or-node; at the `&`, **a failure of
   either premise, and the left premise's giving up**: a right premise
   that gives up (the recursion limit, the memory bound) does not cancel
   the left, whose failure still decides the rule, as on one thread, which
-  searches the left first; it cancelled it before, so the pool answered
-  `RecursionLimit` where one thread answered
+  searches the left first; cancelling it would make the pool answer
+  `RecursionLimit` where one thread answers
   `Unprovable` (`a_premise_that_gives_up_cancels_no_other`). A left
   premise that gives up still cancels the right, which one thread never
   starts then: with neither cancelling on a give-up, `k` nested `&` whose
-  leaves all reach the limit searched all `2ᵏ` leaves where one thread
-  stops at the first (a panel's finding,
-  `nested_premises_that_give_up_search_no_tree`). An error at a choice
+  leaves all reach the limit would search all `2ᵏ` leaves where one
+  thread stops at the first
+  (`nested_premises_that_give_up_search_no_tree`). An error at a choice
   still cancels its siblings, so a pool may answer `RecursionLimit` where
   one thread, whose memo spared it the depth, refutes (`|- !?~c, (?(a *
   c) par ?!~c)` under Mix at a limit of 9 on four threads): the or-node
