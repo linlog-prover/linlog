@@ -29,18 +29,19 @@ pub(crate) struct Deadline {
 }
 
 impl Deadline {
-    /// Starts a limit counted from `start`; `None` is a deadline that
-    /// never passes, and starts no thread.
+    /// Starts a limit counted from `start`; `None`, or a limit past what
+    /// the clock can name, is a deadline that never passes, and starts no
+    /// thread.
     pub(crate) fn start(limit: Option<Duration>, start: Instant) -> Result<Self> {
         let passed = Arc::new(AtomicBool::new(false));
-        let Some(limit) = limit else {
+        let Some((limit, end)) = limit.and_then(|limit| Some((limit, start.checked_add(limit)?)))
+        else {
             return Ok(Self {
                 passed,
                 limit: None,
                 _alive: None,
             });
         };
-        let end = start + limit;
         let (alive, dropped) = channel::<()>();
         let flag = Arc::clone(&passed);
         thread::Builder::new()

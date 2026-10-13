@@ -20,15 +20,18 @@ mod limit;
 pub mod ordinary;
 /// The `prove` and `check` commands.
 pub mod prove;
+/// The `seq` commands.
+mod seq;
+/// The settings of a command, from its defaults, a file and its flags.
+pub mod settings;
 /// The options of every output format, from a file and flags.
 pub mod style;
 
-use anyhow::{Result, bail};
-use argument_parsing::{Cli, Command, Format, SeqCommand, SequentFormat};
-use clap::Parser;
-use linlog::{Error, Mode};
+use anyhow::Result;
+use argument_parsing::{Cli, Command};
+use clap::{CommandFactory, FromArgMatches};
+use linlog::Error;
 use std::fmt::Write;
-use std::io::{IsTerminal, Write as _};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -210,113 +213,23 @@ pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
     anyhow::Error::msg(message)
 }
 
-/// Returns the mode of `seq`'s `--intuitionistic` flag.
-const fn mode_of(intuitionistic: bool) -> Mode {
-    if intuitionistic {
-        Mode::INTUITIONISTIC
-    } else {
-        Mode::CLASSICAL
-    }
-}
-
-/// Runs the command the arguments name.
-fn run(cli: &Cli) -> Result<Status> {
+/// Runs the command the arguments name, with the flags given on the
+/// command line.
+fn run(cli: &Cli, given: &settings::Given) -> Result<Status> {
     match &cli.command {
-        Command::Prove(args) => prove::prove(args),
-        Command::Check(args) => prove::check(args),
-        Command::Interact(args) => interact::interact(args),
-        Command::Seq { command } => {
-            match command {
-                SeqCommand::Print {
-                    input,
-                    intuitionistic,
-                    logic,
-                    format,
-                    standalone,
-                    output,
-                    style,
-                    memory_limit,
-                } => {
-                    exit_on_interrupt();
-                    if logic.logic.is_some() && *intuitionistic {
-                        bail!(
-                            "the logic decides how its image is printed: leave out --intuitionistic"
-                        );
-                    }
-                    let (sequent, mode) = match logic.logic {
-                        Some(_) => {
-                            let image = input.image(logic)?.1;
-                            let mode = image.mode();
-                            (image.sequent().clone(), mode)
-                        }
-                        None => (input.sequent()?, mode_of(*intuitionistic)),
-                    };
-                    prove::form(
-                        *standalone,
-                        matches!(format, SequentFormat::Latex | SequentFormat::Typst),
-                    )?;
-                    let (key, binary) = match format {
-                        SequentFormat::Text => ("text", None),
-                        SequentFormat::Latex => ("latex", None),
-                        SequentFormat::Typst => ("typst", None),
-                        SequentFormat::Svg => ("svg", None),
-                        SequentFormat::Png => ("png", Some(Format::Png)),
-                        SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
-                    };
-                    let styles = style::read(style, Some(key), *standalone)?;
-                    let text = prove::sequent_in(&sequent, mode, *format, &styles)?;
-                    match binary {
-                        None => io::write(output.as_deref(), &text)?,
-                        Some(format) => {
-                            if output.is_none() && std::io::stdout().is_terminal() {
-                                bail!(
-                                    "a {format:?} is not for a terminal: write it with --output FILE"
-                                );
-                            }
-                            // The sequent is all the output: a render the
-                            // bound refuses is an error.
-                            let memory = memory_limit.0;
-                            let bytes =
-                                match prove::render(text, format, &styles, memory, &|| false)? {
-                                    prove::Rendered::Bytes(bytes) => bytes,
-                                    prove::Rendered::Refused(line) => bail!("{line}"),
-                                    prove::Rendered::Stopped => unreachable!("nothing stops it"),
-                                };
-                            let mut out = io::Output::open(output.as_deref(), true)?;
-                            out.stream().write_all(&bytes)?;
-                            out.finish()?;
-                        }
-                    }
-                }
-                SeqCommand::Json {
-                    input,
-                    optimize,
-                    output,
-                } => {
-                    let mut sequent = input.sequent()?;
-                    if *optimize {
-                        sequent.optimize();
-                    }
-                    io::write(output.as_deref(), &serde_json::to_string(&sequent)?)?;
-                }
-                SeqCommand::Fragment {
-                    input,
-                    intuitionistic,
-                } => {
-                    let mode = mode_of(*intuitionistic);
-                    io::write(None, input.sequent()?.fragment().name_in(mode))?;
-                }
-            }
-            Ok(Status::Yes)
-        }
+        Command::Prove(args) => prove::prove(args, given),
+        Command::Check(args) => prove::check(args, given),
+        Command::Interact(args) => interact::interact(args, given),
+        Command::Seq { command } => seq::run(command, given),
     }
 }
 
 /// Parses the command line arguments, runs the command, and returns the
 /// exit status of its verdict, or 2 after printing an error.
 pub fn main() -> ExitCode {
-    let cli = Cli::parse();
-    match run(&cli) {
+    let matches = Cli::command().get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    match run(&cli, &settings::Given::of(&matches)) {
         Ok(status) => status.into(),
         Err(e) => {
             eprintln!("error: {e:#}");

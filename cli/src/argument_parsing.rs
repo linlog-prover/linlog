@@ -3,7 +3,7 @@
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::proofs::Compact;
-use linlog::search::{Engine, Options};
+use linlog::search::{Cadence, Engine, Options, Schedule};
 use linlog::{Bias, Clock, Fragment, Limits, Mode};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -105,112 +105,9 @@ pub struct ProveArgs {
     /// The engine to search with
     #[arg(long, value_enum, value_name = "ENGINE", default_value_t = EngineArg::Auto)]
     pub engine: EngineArg,
-    /// How the focused engines pick the positive literal of every atom
-    ///
-    /// No choice changes what is provable. `rarer` mostly chains backward
-    /// from the goal, `factors` forward from the hypotheses, which on Horn
-    /// clauses under `!`, such as a Petri net, is often much faster but
-    /// takes one copy per step on a single branch. `auto` runs both
-    /// searches on a sequent with exponentials and answers with the first
-    /// that decides: alternating on one core, side by side on several.
-    #[arg(long, value_enum, value_name = "BIAS", default_value_t = BiasArg::Auto)]
-    pub bias: BiasArg,
-    /// How often `?` formulas may be copied on one branch of the proof, or
-    /// `none` for no bound
-    ///
-    /// The search tries the bounds 0, 1, … in turn. By default it goes on
-    /// to the next bound until it decides or the time limit passes, and an
-    /// unknown verdict says which bound it reached. With a bound, a sequent
-    /// with exponentials that has no proof within it is unknown (exit
-    /// status 3) unless a smaller bound already exhausted the search
-    /// space, in which case it is unprovable. Sequents without exponentials
-    /// are not affected.
-    #[arg(long, value_name = "N", value_parser = parse_bound, default_value_t = Bound(None))]
-    pub copies: Bound,
-    /// How often `?` formulas may be copied on one branch of the forward
-    /// search that `--bias auto` runs
-    ///
-    /// It applies to a Horn program: clauses such as `!(a * b -o c * d)`,
-    /// a marking and a goal of atoms, as a Petri net is. There a copy is
-    /// one step of a chain, and a chain of n steps needs n of them. The
-    /// forward search never runs within less than `--copies`; on any other
-    /// sequent, and under Mix, it runs within `--copies`. Without a bound
-    /// from `--copies` it has no effect: both searches deepen while the
-    /// time limit lasts.
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_FORWARD_COPIES)]
-    pub forward_copies: u32,
-    /// Give up after this long, such as 500ms, 10s, 2m or 1h, or `none`
-    /// for no limit
-    ///
-    /// The verdict is then unknown (exit status 3). The time counts from
-    /// the start of the command, so it covers reading and parsing the
-    /// sequent as well as the search: a sequent that is not read in time
-    /// is given up on like one that is not decided. Without the limit, the
-    /// search runs until it decides or is interrupted with Ctrl-C, which
-    /// with exponentials and no `--copies` bound can be forever.
-    #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(Some(DEFAULT_TIMEOUT)))]
-    pub timeout: Time,
-    /// The most decided sequents the search remembers at once
-    ///
-    /// When the memo is full it is emptied, which costs time but not
-    /// correctness. Zero switches the memo off. `--memory-limit` bounds
-    /// the memo in bytes; this is the finer knob beside it.
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
-    pub memo_limit: u32,
-    /// The most memory the search may hold: a number of bytes with a unit
-    /// such as 512MiB or 4GiB, or `none` for no limit
-    ///
-    /// Counted is what grows with the search: what it remembers, the
-    /// proofs it keeps and what every level of its recursion takes; not
-    /// the sequent itself. A memo that no longer fits is emptied first,
-    /// as at `--memo-limit`; when that is not enough the verdict is
-    /// unknown (exit status 3). The check of the proof and the derivation
-    /// built from it are under the same limit: a derivation estimated
-    /// above it is left out even with `--derivation-limit none`. By
-    /// default one thread and, after `--pool-after`, a pool beside it
-    /// search at once, both together within the limit. A png or pdf
-    /// render is
-    /// estimated before it starts, its time counted as the memory the
-    /// renderer fills in it, and left out above the limit (the default
-    /// is a few seconds of rendering).
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-    pub memory_limit: Limit,
-    /// The deepest nesting of rules on one branch before the search gives up
-    ///
-    /// Raise it for sequents with thousands of connectives; the search runs on
-    /// a thread whose stack grows with the limit.
-    #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
-    pub recursion_limit: u32,
-    /// How many threads the search may use
-    ///
-    /// By default one thread searches first, for the time `--pool-after`
-    /// gives, and then the machine's other threads join it: a small
-    /// sequent is decided at once and always the same way, a hard one
-    /// gets every core. A number given here is used from the
-    /// start, unless `--pool-after` is given too; a number above the
-    /// machine's parallelism is taken as that, with a note on standard
-    /// error. More than one runs the focused engine and the net engine on
-    /// that many threads; the proof found may then differ from run to run,
-    /// the verdict never does.
-    #[arg(short, long, value_name = "N")]
-    pub jobs: Option<usize>,
-    /// How long one thread searches before the other threads join it,
-    /// such as 100ms; 0 starts them at once
-    ///
-    /// The default is 100ms when `--jobs` is not given, and 0 when it is.
-    /// The single thread goes on searching beside a pool of the other
-    /// threads, which starts the search afresh, and the first to decide
-    /// answers; both together hold at most `--memory-limit`. Below three
-    /// threads there is no single thread: two search on a pool from the
-    /// start. The additive and the Horn engine run on one thread and get
-    /// no pool.
-    #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
-    pub pool_after: Option<Duration>,
-    /// Run the sequential engines, whose proof is a function of the input
-    ///
-    /// The same as `--jobs 1`, and takes precedence over `--jobs`.
-    #[arg(long)]
-    pub deterministic: bool,
+    /// The search's options, bounds and threads.
+    #[command(flatten)]
+    pub search: SearchArgs,
     /// Report the proof the search found without checking it
     ///
     /// By default every proof passes the proof checker, which shares no
@@ -229,9 +126,186 @@ pub struct ProveArgs {
     /// text.
     #[arg(long)]
     pub stats: bool,
+    /// Read the settings from a JSON file, before the flags, which
+    /// override it: an object with any of the keys `clock`, `limits`,
+    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
+    /// of the fields the flags name in parentheses (`{"search":
+    /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
+    /// out keeps the command's default, and a misspelt one is an error
+    #[arg(long, value_name = "PATH")]
+    pub settings: Option<PathBuf>,
     /// How a batch of many sequents runs.
     #[command(flatten)]
     pub batch: BatchArgs,
+}
+
+/// The search's options, bounds and threads, on `prove` and on a
+/// session's `close`; each flag sets one key of `--settings`.
+#[derive(Args, Clone, Debug)]
+pub struct SearchArgs {
+    /// How the focused engines pick the positive literal of every atom
+    /// (search.bias)
+    ///
+    /// No choice changes what is provable. `rarer` mostly chains backward
+    /// from the goal, `factors` forward from the hypotheses, which on Horn
+    /// clauses under `!`, such as a Petri net, is often much faster but
+    /// takes one copy per step on a single branch. `auto` takes `factors`
+    /// on a sequent without exponentials, `rarer` under weakening, and in
+    /// linear mode with exponentials runs both searches and answers with
+    /// the first that decides: alternating on one core, side by side on
+    /// several.
+    #[arg(long, value_enum, value_name = "BIAS", default_value_t = BiasArg::Auto)]
+    pub bias: BiasArg,
+    /// How often `?` formulas may be copied on one branch of the proof, or
+    /// `none` for no bound (search.copies)
+    ///
+    /// The search tries the bounds 0, 1, … in turn. By default it goes on
+    /// to the next bound until it decides or the time limit passes, and an
+    /// unknown verdict says which bound it reached. With a bound, a sequent
+    /// with exponentials that has no proof within it is unknown (exit
+    /// status 3) unless a smaller bound already exhausted the search
+    /// space, in which case it is unprovable. Sequents without exponentials
+    /// are not affected.
+    #[arg(long, value_name = "N", value_parser = parse_count::<u32>, default_value_t = Count(None))]
+    pub copies: Count<u32>,
+    /// How often `?` formulas may be copied on one branch of the forward
+    /// search that `--bias auto` runs (search.forward_copies)
+    ///
+    /// It applies to a Horn program: clauses such as `!(a * b -o c * d)`,
+    /// a marking and a goal of atoms, as a Petri net is. There a copy is
+    /// one step of a chain, and a chain of n steps needs n of them. The
+    /// forward search never runs within less than `--copies`; on any other
+    /// sequent, and under Mix, it runs within `--copies`. Without a bound
+    /// from `--copies` it has no effect: both searches deepen while the
+    /// time limit lasts.
+    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_FORWARD_COPIES)]
+    pub forward_copies: u32,
+    /// Give up after this long, such as 500ms, 10s, 2m or 1h, or `none`
+    /// for no limit (clock.time_limit_ms)
+    ///
+    /// The verdict is then unknown (exit status 3). The time counts from
+    /// the start of the command, so it covers reading and parsing the
+    /// sequent as well as the search: a sequent that is not read in time
+    /// is given up on like one that is not decided. Without the limit, the
+    /// search runs until it decides or is interrupted with Ctrl-C, which
+    /// with exponentials and no `--copies` bound can be forever. In a
+    /// session it is each `close`'s limit.
+    #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(Some(DEFAULT_TIMEOUT)))]
+    pub timeout: Time,
+    /// The most decided sequents the search remembers at once
+    /// (search.memo_limit)
+    ///
+    /// When the memo is full it is emptied, which costs time but not
+    /// correctness. Zero switches the memo off. `--memory-limit` bounds
+    /// the memo in bytes; this is the finer knob beside it.
+    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
+    pub memo_limit: u32,
+    /// The most memory the search may hold: a number of bytes with a unit
+    /// such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
+    ///
+    /// Counted is what grows with the search: what it remembers, the
+    /// proofs it keeps and what every level of its recursion takes; not
+    /// the sequent itself. A memo that no longer fits is emptied first,
+    /// as at `--memo-limit`; when that is not enough the verdict is
+    /// unknown (exit status 3). The check of the proof and the derivation
+    /// built from it are under the same limit: a derivation estimated
+    /// above it is left out even with `--derivation-limit none`. By
+    /// default one thread and, after `--pool-after`, a pool beside it
+    /// search at once, both together within the limit. A png or pdf
+    /// render is estimated before it starts, its time counted as the
+    /// memory the renderer fills in it, and left out above the limit (the
+    /// default is a few seconds of rendering).
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
+    pub memory_limit: Bytes,
+    /// The deepest nesting of rules on one branch before the search gives
+    /// up (limits.recursion_depth)
+    ///
+    /// Raise it for sequents with thousands of connectives; the search runs on
+    /// a thread whose stack grows with the limit.
+    #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
+    pub recursion_limit: u32,
+    /// The most units of work the search may do, or `none` (limits.work)
+    ///
+    /// A unit is what each engine counts at its polls (a stable sequent
+    /// or a split for the focused engine, a literal or a failed test for
+    /// the net engine, a pair for the additive one, a marking for the
+    /// Horn engine), so a limit gives the same verdict on every machine
+    /// where a time limit does not; past it the verdict is unknown (exit
+    /// status 3). `--stats` prints the units a search did.
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(None))]
+    pub work_limit: Count<u64>,
+    /// How many threads the search may use (search.jobs)
+    ///
+    /// By default one thread searches first, for the time `--pool-after`
+    /// gives, and then the machine's other threads join it: a small
+    /// sequent is decided at once and always the same way, a hard one
+    /// gets every core. A number given here is used from the
+    /// start, unless `--pool-after` is given too; a number above the
+    /// machine's parallelism is taken as that, with a note on standard
+    /// error. More than one runs the focused engine and the net engine on
+    /// that many threads; the proof found may then differ from run to run,
+    /// the verdict never does.
+    #[arg(short, long, value_name = "N")]
+    pub jobs: Option<usize>,
+    /// How long one thread searches before the other threads join it,
+    /// such as 100ms; 0 starts them at once (clock.pool_after_ms)
+    ///
+    /// The default is 100ms when `--jobs` is not given, and 0 when it is.
+    /// The single thread goes on searching beside a pool of the other
+    /// threads, which starts the search afresh, and the first to decide
+    /// answers; both together hold at most `--memory-limit`. Below three
+    /// threads there is no single thread: two search on a pool from the
+    /// start. The additive and the Horn engine run on one thread and get
+    /// no pool.
+    #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
+    pub pool_after: Option<Duration>,
+    /// Run the sequential engines, whose proof is a function of the input
+    ///
+    /// The same as `--jobs 1`, and takes precedence over `--jobs` and
+    /// `--pool-after`.
+    #[arg(long)]
+    pub deterministic: bool,
+    /// How often the net engine runs its exact test of correctness: after
+    /// this many links, or `auto` (search.test_period)
+    ///
+    /// `auto` tests after every link on a small structure and every few
+    /// links on a large one. The verdict never depends on it.
+    #[arg(long, value_name = "N", value_parser = parse_cadence, default_value = "auto")]
+    pub test_period: Cadence,
+    /// How the two searches of `--bias auto` share one thread
+    /// (search.schedule)
+    #[arg(long, value_enum, value_name = "SCHEDULE", default_value_t = ScheduleArg::Auto)]
+    pub schedule: ScheduleArg,
+}
+
+/// How the two searches of the default bias share one thread.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScheduleArg {
+    /// In slices on two threads
+    Auto,
+    /// In turns on the calling thread, each turn from the search's start:
+    /// the same answer and the same counts on every machine
+    Turns,
+}
+
+impl From<ScheduleArg> for Schedule {
+    /// Returns the library's value of the choice.
+    fn from(schedule: ScheduleArg) -> Self {
+        match schedule {
+            ScheduleArg::Auto => Self::Auto,
+            ScheduleArg::Turns => Self::Turns,
+        }
+    }
+}
+
+/// Parses a test period: a number of links, or `auto`.
+fn parse_cadence(text: &str) -> Result<Cadence, String> {
+    if text == "auto" {
+        return Ok(Cadence::Auto);
+    }
+    text.parse()
+        .map(Cadence::Every)
+        .map_err(|_| format!("{text:?} is neither a number of links nor `auto`"))
 }
 
 /// How `prove` decides many sequents in one call: given several times
@@ -284,8 +358,8 @@ pub struct BatchArgs {
     /// Each search holds at most --memory-limit, and as many run at once
     /// as this holds; within one sequent the race of one thread and a
     /// pool is two searches, which share it.
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit)]
-    pub batch_memory: Option<Limit>,
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes)]
+    pub batch_memory: Option<Bytes>,
     /// Give up on the rest of a batch after this long, or `none`
     ///
     /// The sequents still searched are stopped and those not begun are
@@ -349,53 +423,25 @@ pub struct InteractArgs {
     /// The logic.
     #[command(flatten)]
     pub mode: ModeArgs,
-    /// How often `?` formulas may be copied on one branch when the search
-    /// closes a goal, or `none` for no bound; see `prove --copies`
-    #[arg(long, value_name = "N", value_parser = parse_bound, default_value_t = Bound(None))]
-    pub copies: Bound,
-    /// How a `close` picks the positive literal of every atom; see
-    /// `prove --bias`
-    #[arg(long, value_enum, value_name = "BIAS", default_value_t = BiasArg::Auto)]
-    pub bias: BiasArg,
-    /// How often `?` formulas may be copied on one branch of the forward
-    /// search of `--bias auto` when the search closes a goal; see `prove
-    /// --forward-copies`
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_FORWARD_COPIES)]
-    pub forward_copies: u32,
-    /// Give up on a `close` after this long, such as 500ms, 10s, 2m or 1h,
-    /// or `none` for no limit; see `prove --timeout`
-    #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(Some(DEFAULT_TIMEOUT)))]
-    pub timeout: Time,
-    /// The most decided sequents a `close` remembers at once; see
-    /// `prove --memo-limit`
-    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
-    pub memo_limit: u32,
-    /// The most memory a `close` may hold, and a png or pdf render of
-    /// `show` or `proof`; see `prove --memory-limit`
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-    pub memory_limit: Limit,
-    /// The deepest nesting of rules on one branch before a `close` gives
-    /// up; see `prove --recursion-limit`
-    #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
-    pub recursion_limit: u32,
-    /// How many threads a `close` may use; see `prove --jobs`
-    #[arg(short, long, value_name = "N")]
-    pub jobs: Option<usize>,
-    /// How long one thread searches before the other threads join it;
-    /// see `prove --pool-after`
-    #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
-    pub pool_after: Option<Duration>,
-    /// Run the sequential engines; see `prove --deterministic`
-    #[arg(long)]
-    pub deterministic: bool,
+    /// The search's options, bounds and threads, for a `close`.
+    #[command(flatten)]
+    pub search: SearchArgs,
     /// The largest derivation `close` grafts, by its estimated size; see
     /// `prove --derivation-limit`
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit::default())]
-    pub derivation_limit: Limit,
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
+    pub derivation_limit: Bytes,
     /// How `show` and `proof` write; a `--style` key names its format
     /// with a prefix here, `latex.labels=subscript`.
     #[command(flatten)]
     pub style: StyleArgs,
+    /// Read the settings from a JSON file, before the flags, which
+    /// override it: an object with any of the keys `clock`, `limits`,
+    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
+    /// of the fields the flags name in parentheses (`{"search":
+    /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
+    /// out keeps the command's default, and a misspelt one is an error
+    #[arg(long, value_name = "PATH")]
+    pub settings: Option<PathBuf>,
 }
 
 /// The time limit of `prove` and of a session's `close` when none is
@@ -412,60 +458,6 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(Clock::DEFAULT_TIME_
 /// threads' timing.
 pub const DEFAULT_POOL_AFTER: Duration = Duration::from_millis(Clock::DEFAULT_POOL_AFTER_MS);
 
-/// The threads a search gets, and how long one thread searches before
-/// they join it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Threads {
-    /// The threads, at most those the machine runs at once.
-    pub(crate) jobs: usize,
-    /// How long one thread searches first, when the threads are more than
-    /// one and do not start at once.
-    pub(crate) alone: Option<Duration>,
-}
-
-/// The threads a search gets for `--jobs`, `--pool-after` and
-/// `--deterministic`: one for the last; else the threads asked for, from
-/// the start unless `--pool-after` says otherwise; and without `--jobs`
-/// every thread the machine runs at once after [`DEFAULT_POOL_AFTER`]. The
-/// library bounds the threads by those the machine runs at once; a number
-/// above that bound is taken as the bound, and a note on standard error
-/// says so. Where the machine does not tell, the library's own bound
-/// stands in for a number asked, and one thread is the default.
-pub(crate) fn threads(
-    asked: Option<usize>,
-    pool_after: Option<Duration>,
-    deterministic: bool,
-) -> Threads {
-    if deterministic {
-        return Threads {
-            jobs: 1,
-            alone: None,
-        };
-    }
-    let machine = std::thread::available_parallelism().map(std::num::NonZero::get);
-    let (jobs, alone) = match asked {
-        Some(asked) => {
-            let most = machine.map_or(Options::MAX_JOBS, |m| m.min(Options::MAX_JOBS));
-            if asked > most {
-                let threads = if most == 1 { "thread" } else { "threads" };
-                eprintln!(
-                    "note: --jobs {asked} is more than the {most} {threads} a search uses at most \
-                     on this machine; it uses {most}"
-                );
-            }
-            (asked.clamp(1, most), pool_after)
-        }
-        None => (
-            machine.map_or(1, |m| m.min(Options::MAX_JOBS)),
-            Some(pool_after.unwrap_or(DEFAULT_POOL_AFTER)),
-        ),
-    };
-    Threads {
-        jobs,
-        alone: alone.filter(|t| jobs > 1 && !t.is_zero()),
-    }
-}
-
 /// The arguments of `check`.
 #[derive(Args, Debug)]
 pub struct CheckArgs {
@@ -476,8 +468,8 @@ pub struct CheckArgs {
     /// the command ends with an error. A derivation estimated above it
     /// is left out, as past `--derivation-limit`, and so is a png or pdf
     /// render; see `prove --memory-limit`.
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-    pub memory_limit: Limit,
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
+    pub memory_limit: Bytes,
     /// The proof file, or standard input when absent or `-`
     #[arg(value_name = "PROOF")]
     pub proof: Option<PathBuf>,
@@ -487,6 +479,14 @@ pub struct CheckArgs {
     /// Where to write the result.
     #[command(flatten)]
     pub output: OutputArgs,
+    /// Read the settings from a JSON file, before the flags, which
+    /// override it: an object with any of the keys `clock`, `limits`,
+    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
+    /// of the fields the flags name in parentheses (`{"search":
+    /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
+    /// out keeps the command's default, and a misspelt one is an error
+    #[arg(long, value_name = "PATH")]
+    pub settings: Option<PathBuf>,
 }
 
 /// The subcommands of `seq`.
@@ -528,8 +528,16 @@ pub enum SeqCommand {
         /// The most memory a png or pdf render may take, by its estimate:
         /// a number of bytes with a unit such as 512MiB or 4GiB, or `none`
         /// for no limit; see `prove --memory-limit`
-        #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-        memory_limit: Limit,
+        #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
+        memory_limit: Bytes,
+        /// Read the settings from a JSON file, before the flags, which
+        /// override it: an object with any of the keys `clock`, `limits`,
+        /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
+        /// of the fields the flags name in parentheses (`{"search":
+        /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
+        /// out keeps the command's default, and a misspelt one is an error
+        #[arg(long, value_name = "PATH")]
+        settings: Option<PathBuf>,
     },
     /// Print a sequent as JSON, the form `--input-format json` reads
     #[command(after_help = SYNTAX)]
@@ -586,8 +594,8 @@ pub struct SequentInput {
     /// for a sequent of any size; one beyond the limit is refused before
     /// it is unfolded. Occurrences cost some 25 bytes each before any
     /// search, and no limit lets through more than about four billion.
-    #[arg(long, value_name = "N", value_parser = parse_most, default_value_t = Most::default())]
-    pub occurrence_limit: Most,
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
+    pub occurrence_limit: Count<u64>,
 }
 
 /// How an input is read.
@@ -647,38 +655,6 @@ impl InputFormat {
     pub fn is_many(self) -> bool {
         matches!(self, Self::Lines | Self::Jsonl | Self::Problems)
     }
-}
-
-/// The most occurrences a sequent may have, or none for no limit but the
-/// library's own.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Most(pub Option<u64>);
-
-impl Default for Most {
-    /// The library's default.
-    fn default() -> Self {
-        Self(Some(Limits::DEFAULT_OCCURRENCES))
-    }
-}
-
-impl std::fmt::Display for Most {
-    /// Writes the limit as `--occurrence-limit` reads it.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            None => f.write_str("none"),
-            Some(most) => write!(f, "{most}"),
-        }
-    }
-}
-
-/// Parses a number of occurrences, or `none`.
-fn parse_most(text: &str) -> Result<Most, String> {
-    if text == "none" {
-        return Ok(Most(None));
-    }
-    text.parse()
-        .map(|most| Most(Some(most)))
-        .map_err(|_| format!("{text:?} is neither a number nor `none`"))
 }
 
 /// The ordinary logic an input is in, and the translation that decides
@@ -769,29 +745,6 @@ pub struct ModeArgs {
     pub mix: bool,
 }
 
-impl ProveArgs {
-    /// Returns the limits the flags set: the memory, the occurrences, the
-    /// derivation's size and the recursion.
-    pub fn limits(&self) -> Limits {
-        Limits::default()
-            .with_memory_bytes(self.memory_limit.0)
-            .with_occurrences(self.input.occurrence_limit.0)
-            .with_derivation_bytes(self.output.derivation_limit.0)
-            .with_recursion_depth(self.recursion_limit)
-    }
-}
-
-impl InteractArgs {
-    /// Returns the limits the flags set, as `prove`'s do.
-    pub fn limits(&self) -> Limits {
-        Limits::default()
-            .with_memory_bytes(self.memory_limit.0)
-            .with_occurrences(self.input.occurrence_limit.0)
-            .with_derivation_bytes(self.derivation_limit.0)
-            .with_recursion_depth(self.recursion_limit)
-    }
-}
-
 impl ModeArgs {
     /// Returns the mode the flags ask for.
     pub fn mode(&self) -> Mode {
@@ -854,13 +807,13 @@ pub struct OutputArgs {
     pub tree: Tree,
     /// How many screens of lines a text tree may fill and still be
     /// printed on a terminal by `--tree auto`, or `none` for any number
-    #[arg(long, value_name = "N", value_parser = parse_bound, default_value_t = Bound(Some(SCREENS)))]
-    pub screens: Bound,
+    #[arg(long, value_name = "N", value_parser = parse_count::<u32>, default_value_t = Count(Some(SCREENS)))]
+    pub screens: Count<u32>,
     /// The most characters of a sequent in a verdict line, and of a list
     /// of formulas in an error report, or `none` for no limit; a longer
     /// one is cut with `…` and the number of its formulas
-    #[arg(long, value_name = "CHARS", value_parser = parse_bound, default_value_t = Bound(Some(ABBREVIATE)))]
-    pub abbreviate: Bound,
+    #[arg(long, value_name = "CHARS", value_parser = parse_count::<u32>, default_value_t = Count(Some(ABBREVIATE)))]
+    pub abbreviate: Count<u32>,
     /// How the output looks.
     #[command(flatten)]
     pub style: StyleArgs,
@@ -875,8 +828,8 @@ pub struct OutputArgs {
     /// the verdict's. `--format json` writes the proof itself at any size.
     /// The drawing of a proof net (`--net`) is estimated before it is
     /// drawn and left out above the same limit.
-    #[arg(long, value_name = "SIZE", value_parser = parse_limit, default_value_t = Limit::default())]
-    pub derivation_limit: Limit,
+    #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
+    pub derivation_limit: Bytes,
     /// When a run of one structural rule, such as the weakenings of every
     /// unused `?` formula, is drawn as one inference labelled with a
     /// star (`?w*`), in every format but rocq
@@ -970,20 +923,13 @@ pub struct StyleArgs {
     pub prelude: Option<String>,
 }
 
-/// The largest derivation a command builds, in bytes of its estimated
-/// size, or none for no limit.
+/// A number of bytes, or none for no limit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Limit(pub Option<u64>);
+pub struct Bytes(pub Option<u64>);
 
-impl Default for Limit {
-    /// The library's default.
-    fn default() -> Self {
-        Self(Some(Limits::DEFAULT_DERIVATION_BYTES))
-    }
-}
-
-impl std::fmt::Display for Limit {
-    /// Writes the limit as `--derivation-limit` reads it.
+impl std::fmt::Display for Bytes {
+    /// Writes the bytes as a size flag reads them, in the largest unit
+    /// that divides them.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             None => f.write_str("none"),
@@ -998,28 +944,28 @@ impl std::fmt::Display for Limit {
     }
 }
 
-/// A copy bound, or none for a search that deepens until it decides.
+/// A number, or none for no bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Bound(pub Option<u32>);
+pub struct Count<T>(pub Option<T>);
 
-impl std::fmt::Display for Bound {
-    /// Writes the bound as `--copies` reads it.
+impl<T: std::fmt::Display> std::fmt::Display for Count<T> {
+    /// Writes the number as a flag reads it.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
+        match &self.0 {
             None => f.write_str("none"),
             Some(n) => write!(f, "{n}"),
         }
     }
 }
 
-/// Parses a copy bound: a number, or `none`.
-fn parse_bound(text: &str) -> Result<Bound, String> {
+/// Parses a number, or `none`.
+fn parse_count<T: std::str::FromStr>(text: &str) -> Result<Count<T>, String> {
     if text == "none" {
-        return Ok(Bound(None));
+        return Ok(Count(None));
     }
     text.parse()
-        .map(|n| Bound(Some(n)))
-        .map_err(|_| format!("{text:?} is not a number of copies, or `none`"))
+        .map(|n| Count(Some(n)))
+        .map_err(|_| format!("{text:?} is neither a number nor `none`"))
 }
 
 /// A time limit, or none.
@@ -1048,9 +994,9 @@ fn parse_time(text: &str) -> Result<Time, String> {
 const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
 
 /// Parses a size such as `64MiB`, `2GiB` or `1000000` (bytes), or `none`.
-fn parse_limit(text: &str) -> Result<Limit, String> {
+fn parse_bytes(text: &str) -> Result<Bytes, String> {
     if text == "none" {
-        return Ok(Limit(None));
+        return Ok(Bytes(None));
     }
     let split = text
         .find(|c: char| !c.is_ascii_digit())
@@ -1064,7 +1010,7 @@ fn parse_limit(text: &str) -> Result<Limit, String> {
     let number: u64 = number
         .parse()
         .map_err(|_| format!("{text:?} is not a size such as 64MiB or 2GiB, or `none`"))?;
-    Ok(Limit(Some(
+    Ok(Bytes(Some(
         number.saturating_mul(1024u64.saturating_pow(power as u32)),
     )))
 }
@@ -1241,8 +1187,8 @@ impl From<EngineArg> for Option<Engine> {
 /// The rules `--bias` names.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BiasArg {
-    /// `factors` without exponentials, `rarer` with weakening, and with
-    /// exponentials both, each in a search of its own
+    /// `factors` without exponentials, `rarer` under weakening, and in
+    /// linear mode with exponentials both, each in a search of its own
     Auto,
     /// The literal with fewer occurrences is positive
     Rarer,

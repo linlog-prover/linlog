@@ -1,11 +1,10 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::argument_parsing::{
-    CheckArgs, Format, OutputArgs, ProveArgs, SequentFormat, Threads, Tree, threads,
-};
+use crate::argument_parsing::{CheckArgs, Format, OutputArgs, ProveArgs, SequentFormat, Tree};
 use crate::io;
 use crate::limit::{Deadline, Notice, detached};
+use crate::settings::{Given, Threads, time_limit};
 use crate::style;
 use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
@@ -170,8 +169,9 @@ fn style_key(format: Format) -> Option<&'static str> {
 }
 
 impl Show {
-    /// Reads the output arguments.
-    pub(crate) fn new(output: &OutputArgs) -> Result<Self> {
+    /// Reads the output arguments over the settings' styles, view and
+    /// limits.
+    pub(crate) fn new(output: &OutputArgs, settings: &linlog::Settings) -> Result<Self> {
         let format = output.format();
         if output.net
             && !matches!(
@@ -192,7 +192,12 @@ impl Show {
             output.standalone,
             matches!(format, Format::Latex | Format::Typst | Format::Rocq),
         )?;
-        let styles = style::read(&output.style, style_key(format), output.standalone)?;
+        let styles = style::read(
+            &settings.styles,
+            &output.style,
+            style_key(format),
+            output.standalone,
+        )?;
         // The size of the terminal that standard output is, and of no
         // other stream's.
         let terminal = match (&output.output, stdout.is_terminal()) {
@@ -207,25 +212,18 @@ impl Show {
             net: output.net,
             file: output.output.is_some(),
             styles,
-            view: ViewOptions::default().with_compact(match format {
+            view: match format {
                 // A certificate names every formula it weakens.
-                Format::Rocq => Compact::Never,
-                _ => output.compact.into(),
-            }),
-            limits: Limits::default().with_derivation_bytes(output.derivation_limit.0),
+                Format::Rocq => settings.view.with_compact(Compact::Never),
+                _ => settings.view,
+            },
+            limits: settings.limits,
             tree: output.tree,
             terminal,
             screens: output.screens.0.map(u64::from),
             verdict: !output.no_verdict,
             abbreviate: output.abbreviate.0.map(|n| n as usize),
         })
-    }
-
-    /// The same, with every derivation and the check behind it, and every
-    /// render, within `memory` bytes.
-    pub(crate) fn within(mut self, memory: Option<u64>) -> Self {
-        self.limits.memory_bytes = memory;
-        self
     }
 
     /// A derivation of any size within `limits`, shown as `view` says, in
@@ -1021,19 +1019,22 @@ fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
     clippy::missing_panics_doc,
     reason = "the expects state facts the command has established before, such as a proof for a proved verdict"
 )]
-pub fn prove(args: &ProveArgs) -> Result<Status> {
+pub fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
+    let start = Instant::now();
+    let settings = args.settings(given)?;
     if crate::batch::is_batch(args) {
-        return crate::batch::run(args);
+        return crate::batch::run(args, &settings, start);
     }
     ordinary_mode(args)?;
-    let deadline = Deadline::start(args.timeout.0, Instant::now())?;
+    let deadline = Deadline::start(time_limit(&settings), start)?;
     let input = args.input.clone();
-    let logic = args.logic.clone();
-    let loaded = deadline.within(move || match logic.logic {
-        Some(_) => input
-            .image(&logic)
+    let most = crate::settings::most(&settings);
+    let ordinary = crate::settings::ordinary(&settings, &args.logic);
+    let loaded = deadline.within(move || match ordinary {
+        Some(options) => input
+            .image(&options, most)
             .map(|(forest, image)| (forest, Some(image))),
-        None => input.forest().map(|forest| (forest, None)),
+        None => input.forest(most).map(|forest| (forest, None)),
     })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");
@@ -1047,21 +1048,13 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
     if args.output.net {
         nets_exist(sequent, mode)?;
     }
-    let options = Options::default()
-        .with_memo_limit(args.memo_limit)
-        .with_engine(args.engine.into())
-        .with_fragment(args.fragment.map(Into::into))
-        .with_copies(args.copies.0)
-        .with_bias(args.bias.into())
-        .with_forward_copies(args.forward_copies)
-        .with_check(!args.no_check);
-    let limits = args.limits();
-    let threads = threads(args.jobs, args.pool_after, args.deterministic);
-    let options = options.with_jobs(threads.jobs);
-    let deepens = args.copies.0.is_none() && sequent.fragment().has_exponentials();
+    let options = &settings.search;
+    let limits = settings.limits;
+    let threads = Threads::of(&settings);
+    let deepens = options.copies.is_none() && sequent.fragment().has_exponentials();
     let format = args.output.format();
     let quiet = args.output.quiet;
-    let show = Show::new(&args.output)?.within(args.memory_limit.0);
+    let show = Show::new(&args.output, &settings)?;
     catch_interrupt();
 
     let status = on_large_stack(limits.stack_bytes(), || {
@@ -1072,7 +1065,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let outcome = searched(
             Goal::conclusion(&forest),
             mode,
-            &options,
+            options,
             &limits,
             threads,
             &halt,
@@ -1096,7 +1089,7 @@ pub fn prove(args: &ProveArgs) -> Result<Status> {
         let ended = Ended { stop, elapsed };
         let line = show.verdict.then(|| match &image {
             Some(image) => crate::ordinary::verdict_line(&outcome, image, &ended),
-            None => verdict_line(&outcome, args.fragment.is_some(), &ended),
+            None => verdict_line(&outcome, options.fragment.is_some(), &ended),
         });
         let prefix = show.open(&mut out, line.as_deref())?;
         // The time limit and Ctrl-C hold for the derivation as for the
@@ -1286,7 +1279,8 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
 ///
 /// A file that is no proof in JSON, a proof of a goal, or an output that
 /// cannot be made; an invalid proof is a verdict, not an error.
-pub fn check(args: &CheckArgs) -> Result<Status> {
+pub fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
+    let settings = args.settings(given)?;
     let text = io::read(args.proof.as_deref(), "proof")?;
     let proof: Proof = serde_json::from_str(&text).context("not a proof in JSON")?;
     if proof.goal().is_some() {
@@ -1294,7 +1288,7 @@ pub fn check(args: &CheckArgs) -> Result<Status> {
     }
     let mode = args.mode.mode();
     let quiet = args.output.quiet;
-    let show = Show::new(&args.output)?.within(args.memory_limit.0);
+    let show = Show::new(&args.output, &settings)?;
     let path = args.output.output.clone();
     exit_on_interrupt();
     let valid = on_large_stack(Limits::default().stack_bytes(), move || {

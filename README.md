@@ -746,6 +746,22 @@ The first two draw these:
 ![The derivation of 1, A & B, B ⊸ C ⊢ C](core/tests/snapshots/ill.svg)
 ![The proof net of ⊢ A⊥ ⅋ B⊥, B ⊗ A](core/tests/snapshots/net.svg)
 
+`--settings FILE` reads every setting the flags set from one JSON file,
+in the form a front end keeps: an object with any of `clock`, `limits`,
+`search`, `view`, `styles`, `batch` and `ordinary`, each holding the
+fields the flags name in their `--help` (`--copies` sets
+`search.copies`, `--timeout` `clock.time_limit_ms`, `--memory-limit`
+`limits.memory_bytes`). A field the file leaves out keeps the command's
+default, and a flag given beside the file overrides it.
+
+```console
+$ echo '{"search": {"copies": 0, "engine": "focus"}}' > settings.json
+$ linlog prove --settings settings.json "|- ?(~a * ~a), a * a * a * a"
+unknown (MELL, classical, focus engine): the copy bound of 0 was reached after 300.39µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
+$ linlog prove --settings settings.json --copies 3 "|- ?(~a * ~a), a * a * a * a"
+unprovable (MELL, classical, focus engine): the search was exhaustive
+```
+
 `--format rocq` writes the derivation as a proof script that the Rocq
 kernel [NanoYalla](https://github.com/ComputerAidedLL/click-and-collect/tree/master/nanoyalla)
 checks, the kernel of Click & coLLecT: a lemma stating the one-sided

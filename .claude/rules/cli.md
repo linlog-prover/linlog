@@ -106,11 +106,32 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   and the whole loop runs inside `on_large_stack` so that `close` and the
   derivation drawing have the stack `prove` has. `goal_line` prints a goal
   with the position of every formula, two-sided under the reading.
+- `settings.rs`: the one `linlog::Settings` a command runs under (R183,
+  the library's `Settings::default()` being the command's behaviour):
+  the command's defaults (`defaults`: a batch's workers the machine's
+  threads and its memory half the process's, which the library cannot
+  know), the JSON of `--settings FILE` written over them key by key
+  (`over`, so a key the file leaves out keeps the default and a
+  misspelt one is refused by serde), then every flag given on the
+  command line, each the spelling of one key (`Given::of` reads clap's
+  `value_source`, so a flag's default never overrides the file; without
+  a file every flag applies, its default being the command's). The
+  search flags are one struct, `SearchArgs`, flattened into `prove` and
+  `interact` (`SearchArgs::apply`); `ProveArgs::settings`,
+  `InteractArgs::settings`, `CheckArgs::settings` and `of_print` add
+  their own. Every command then reads the settings, never the flags:
+  `Threads::of`, `time_limit`, `most`, `ordinary`. A new flag that sets
+  a key is applied in its command's `settings` under its argument's
+  name; a value no key holds (the output's path, `--quiet`) stays a
+  flag. `--deterministic` is `search.jobs` 1 and no pool, and leaves
+  `search.schedule` as it is (the design names `turns`; `--schedule
+  turns` is the flag of its own).
+- `seq.rs`: `seq print`, `seq json` and `seq fragment`.
 - `style.rs`: `read`, which makes the library's `export::Styles`, the
   options value of every format (`TextOptions`, `latex::Options`, `typst::Options`,
   `svg::Style`, `png::Options`, `pdf::Options`, `rocq::Options`) under a
-  key per format, read from `--style-file` and changed by `--style
-  KEY=VALUE` (a key is dotted; a format's name is a prefix only before a
+  key per format, the settings' `styles` with `--style-file` read over
+  them, then changed by `--style KEY=VALUE` (a key is dotted; a format's name is a prefix only before a
   dot, so `--style text=navy` is SVG's colour under `--format svg`; a
   value that is no JSON is a string), then `--lemma`, `--prelude`,
   `--standalone`. `interact` and every command with several formats need
@@ -136,7 +157,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   else the clock (`made`); the tests set it, so their PDFs are byte for
   byte the same. An accessible PDF (`--style pdf.accessible=true`)
   prints a note on standard error that a screen reader reads the
-  drawing's description, not the drawing. `--copies N|none` (`Bound`, default `none`,
+  drawing's description, not the drawing. `--copies N|none` (`Count<u32>`, default `none`,
   on `prove` and `interact`) is `Options::copies`: by default the
   focused engine's deepening goes on until it decides or the time limit
   passes, and with a number it ends there with `unknown … the copy
@@ -308,7 +329,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - **The defaults of a call without flags**, on `prove` and on a
   session's `close` alike: no copy bound, the time limit
   `DEFAULT_TIMEOUT` (2 s; `--timeout DURATION|none`, `Time`), and one
-  thread first (`threads` in `argument_parsing.rs` makes `Threads`:
+  thread first (`Threads::of` in `settings.rs` reads them from the
+  settings:
   without `--jobs` every thread the machine runs at once after
   `DEFAULT_POOL_AFTER`, 100 ms; `--jobs N` from the start unless
   `--pool-after` is given; `--deterministic` one thread throughout; a
@@ -383,7 +405,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   name and renamed when whole, and an output dropped unfinished (an
   error) drops its buffer, so that a refused certificate leaves standard
   output empty. `--derivation-limit`
-  (`Limit`, default the library's `Limits::DEFAULT_DERIVATION_BYTES`, `none`
+  (`Bytes`, default the library's `Limits::DEFAULT_DERIVATION_BYTES`, `none`
   lifts it) is `Limits::derivation_bytes`, on `prove`, `check` and `interact`.
   A derivation past it is not built: the verdict line stands, the exit
   status is the verdict's, and one line says how large the derivation is
@@ -442,7 +464,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   200 characters, `none`), through `abbreviated` and the library's
   `Described::abbreviated`. `--no-verdict` leaves the verdict line out.
 - **The two limits on size** are the library's, with its defaults.
-  `--memory-limit SIZE|none` (`Limit`, default
+  `--memory-limit SIZE|none` (`Bytes`, default
   `Limits::DEFAULT_MEMORY_BYTES`; on `prove` and `interact`) is
   `Limits::memory_bytes`: a search that passes it answers `unknown …
   the memory limit of 1 GiB was reached; raise it with --memory-limit`,
@@ -456,7 +478,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   output; in `seq print`, whose drawing is all its output, an error,
   exit 2. `--derivation-limit` is also the bound of a net's drawing
   (`svg::net`'s limits; `net_too_large`'s line names the flag).
-  `--occurrence-limit N|none` (`Most`, default
+  `--occurrence-limit N|none` (`Count<u64>`, default
   `Limits::DEFAULT_OCCURRENCES`) is on `SequentInput`, so on every command
   that reads a sequent: `SequentInput::sequent` compares
   `Sequent::occurrences()` with it and refuses with exit status 2

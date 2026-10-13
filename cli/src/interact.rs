@@ -1,14 +1,13 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::argument_parsing::Format;
-use crate::argument_parsing::Threads;
-use crate::argument_parsing::{InteractArgs, threads};
+use crate::argument_parsing::{Format, InteractArgs};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
     Ended, Rendered, Show, Shown, bytes_text, derivation, describe, notice_line, on_large_stack,
     render, searched, stopped, unknown,
 };
+use crate::settings::{Given, Threads, time_limit};
 use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
@@ -54,7 +53,8 @@ quit                end the session";
 /// A sequent or a saved session that cannot be read or has no session,
 /// or a terminal on standard input; a command's error is its output and
 /// the session goes on.
-pub fn interact(args: &InteractArgs) -> Result<Status> {
+pub fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
+    let settings = args.settings(given)?;
     let state = match &args.state {
         Some(path) => load(path)?,
         None => {
@@ -63,31 +63,25 @@ pub fn interact(args: &InteractArgs) -> Result<Status> {
                     "no sequent given: pass it as an argument or with --file, since standard input carries the commands"
                 );
             }
-            let sequent = args.input.sequent()?;
+            let sequent = args.input.sequent(crate::settings::most(&settings))?;
             Interactive::new(&sequent, args.input.mode(args.mode.mode()))
                 .map_err(|e| describe(e, &sequent))?
         }
     };
-    let options = Options::default()
-        .with_memo_limit(args.memo_limit)
-        .with_copies(args.copies.0)
-        .with_bias(args.bias.into())
-        .with_forward_copies(args.forward_copies);
-    let limits = args.limits();
-    let threads = threads(args.jobs, args.pool_after, args.deterministic);
-    let options = options.with_jobs(threads.jobs);
+    let limits = settings.limits;
+    let threads = Threads::of(&settings);
     catch_interrupt();
     let stack_size = limits.stack_bytes();
-    let styles = style::read(&args.style, None, false)?;
+    let styles = style::read(&settings.styles, &args.style, None, false)?;
     let mut session = Session {
         styles,
         state,
-        options,
+        deepens: settings.search.copies.is_none(),
+        timeout: time_limit(&settings),
+        options: settings.search,
         view: ViewOptions::default(),
         limits,
-        timeout: args.timeout.0,
         threads,
-        deepens: args.copies.0.is_none(),
     };
     on_large_stack(stack_size, move || session.run())?
 }

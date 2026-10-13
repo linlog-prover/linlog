@@ -15,23 +15,27 @@ use serde_json::Value;
 /// style file name them.
 const FORMATS: [&str; 7] = ["text", "latex", "typst", "svg", "png", "pdf", "rocq"];
 
-/// Reads the style file and applies the flags to it, in their order; an
-/// unprefixed key names `format`, the format of the command's output, when
-/// it has options. `standalone` makes every document format standalone.
+/// Reads the style file over `base` and applies the flags to it, in their
+/// order; an unprefixed key names `format`, the format of the command's
+/// output, when it has options. `standalone` makes every document format standalone.
 ///
 /// # Errors
 ///
 /// A style file that cannot be read or holds no styles, a key that names
 /// no option, or a value the option cannot take.
-pub fn read(args: &StyleArgs, format: Option<&str>, standalone: bool) -> Result<Styles> {
-    let mut value = match &args.style_file {
-        Some(path) => {
-            let text = io::read(Some(path), "style file")?;
-            serde_json::from_str(&text)
-                .with_context(|| format!("{} is not JSON", path.display()))?
-        }
-        None => Value::Object(serde_json::Map::new()),
-    };
+pub fn read(
+    base: &Styles,
+    args: &StyleArgs,
+    format: Option<&str>,
+    standalone: bool,
+) -> Result<Styles> {
+    let mut value = serde_json::to_value(base)?;
+    if let Some(path) = &args.style_file {
+        let text = io::read(Some(path), "style file")?;
+        let file = serde_json::from_str(&text)
+            .with_context(|| format!("{} is not JSON", path.display()))?;
+        crate::settings::over(&mut value, file);
+    }
     for setting in &args.style {
         let Some((key, text)) = setting.split_once('=') else {
             bail!("--style {setting}: give KEY=VALUE");

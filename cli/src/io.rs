@@ -1,7 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-use crate::argument_parsing::{InputFormat, LogicArgs, SequentInput};
+use crate::argument_parsing::{InputFormat, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::wire::Within;
@@ -80,17 +80,27 @@ pub fn affine_for(format: InputFormat, mode: Mode) -> Mode {
 
 /// Returns the sequent `text` holds in `format`, one of the formats of a
 /// single sequent: text (a parse error points into `text`), JSON, an LLTP
-/// problem or a `.spec` problem, whose counts are refused before they are
-/// written out when their tokens pass `most`.
+/// problem or a `.spec` problem. Text, LLTP and `.spec` are refused at the
+/// first occurrence past `most`, before anything of that size is built; a
+/// JSON sequent is its own arena, as small as its file, and `admit` says
+/// how many occurrences it unfolds to.
 ///
 /// # Errors
 ///
 /// Text that is no sequent in `format`, with a caret under the place for
-/// the text syntax, and a `.spec` problem past `most`.
+/// the text syntax, and a sequent past `most`.
 pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
-    // The text is read whole and the bound applied by `admit`, which says
-    // how many occurrences the sequent has.
     let unbounded = Limits::default().with_occurrences(None);
+    let within = bound(most);
+    let refused = |error: linlog::Error| match error {
+        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { occurrences, .. }) => {
+            anyhow::anyhow!(
+                "the sequent has {occurrences} subformula occurrences or more, more than the \
+                 limit of {most}; raise it with --occurrence-limit"
+            )
+        }
+        error => error.into(),
+    };
     match format {
         InputFormat::Json => {
             let mut document = serde_json::Deserializer::from_str(text);
@@ -100,8 +110,10 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
             sequent.context("not a sequent in JSON")
         }
         // The library's error says that the text is no LLTP problem.
-        InputFormat::Lltp => Ok(linlog::lltp::read(text, &unbounded)?.sequent),
-        InputFormat::Spec => match linlog::mist::read(text, &bound(most)) {
+        InputFormat::Lltp => Ok(linlog::lltp::read(text, &unbounded)
+            .map_err(refused)?
+            .sequent),
+        InputFormat::Spec => match linlog::mist::read(text, &within) {
             Ok(problem) => Ok(problem.sequent),
             Err(linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
                 occurrences,
@@ -112,7 +124,10 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
             ),
             Err(e) => Err(e.into()),
         },
-        _ => Sequent::parse_within(text, &unbounded).map_err(|e| crate::parse_error(text, e)),
+        _ => Sequent::parse_within(text, &unbounded).map_err(|e| match e {
+            linlog::Error::Parse(_) => crate::parse_error(text, e),
+            e => refused(e),
+        }),
     }
 }
 
@@ -187,48 +202,49 @@ impl SequentInput {
     }
 
     /// Reads the one sequent from the argument, the file or standard
-    /// input, in the format the flag or the file's extension names.
+    /// input, in the format the flag or the file's extension names, with
+    /// `most` occurrences at most.
     ///
     /// # Errors
     ///
     /// An input that cannot be read, or text that is no sequent in its
     /// format, or one past the occurrence limit.
-    pub fn sequent(&self) -> Result<Sequent> {
+    pub fn sequent(&self, most: u64) -> Result<Sequent> {
         let (text, format) = self.text(false)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        admit(sequent_in(&text, format, self.most())?, self.most())
+        admit(sequent_in(&text, format, most)?, most)
     }
 
     /// Reads one formula or sequent of ordinary logic and returns its image
-    /// under the translation the flags choose, with the image's forest,
-    /// within the limit on its occurrences.
+    /// under the translation `options` choose, with the image's forest,
+    /// with `most` occurrences at most.
     ///
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does for an ordinary sequent, and the
     /// translation's error.
-    pub fn image(&self, logic: &LogicArgs) -> Result<(Forest, Image)> {
+    pub fn image(&self, options: &linlog::ordinary::Options, most: u64) -> Result<(Forest, Image)> {
         let (text, format) = self.text(true)?;
-        let image = crate::ordinary::image(logic, &crate::ordinary::sequent_in(&text, format)?)?;
-        let sequent = admit(image.sequent().clone(), self.most())?;
-        Ok((Forest::from_owned(sequent, &bound(self.most()))?, image))
+        let image = crate::ordinary::image(options, &crate::ordinary::sequent_in(&text, format)?)?;
+        let sequent = admit(image.sequent().clone(), most)?;
+        Ok((Forest::from_owned(sequent, &bound(most))?, image))
     }
 
-    /// Returns the most occurrences the sequent may have.
+    /// Returns the most occurrences the flag gives the sequent.
     pub fn most(&self) -> u64 {
         self.occurrence_limit.0.unwrap_or(u64::MAX)
     }
 
-    /// Reads the sequent and lays it out as a forest, within the limit on
-    /// its occurrences.
+    /// Reads the sequent and lays it out as a forest, with `most`
+    /// occurrences at most.
     ///
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does.
-    pub fn forest(&self) -> Result<Forest> {
-        Ok(Forest::from_owned(self.sequent()?, &bound(self.most()))?)
+    pub fn forest(&self, most: u64) -> Result<Forest> {
+        Ok(Forest::from_owned(self.sequent(most)?, &bound(most))?)
     }
 }
 

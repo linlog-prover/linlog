@@ -5,11 +5,11 @@
 //! intuitionistic or minimal logic read under `--logic`, translated into
 //! linear logic, decided there, and its proof read back as LK or LJ.
 
-use crate::argument_parsing::{Format, InputFormat, LogicArgs, Tree};
+use crate::argument_parsing::{Format, InputFormat, Tree};
 use crate::prove::{Ended, Prefixed, Show, Shown, not_built, render, unfit, unknown};
 use anyhow::{Result, anyhow, bail};
 use linlog::export::{latex, rocq, svg, typst};
-use linlog::ordinary::{self, Image, Logic, Translation};
+use linlog::ordinary::{self, Image};
 use linlog::proofs::Sides;
 use linlog::search::{Outcome, Verdict};
 use linlog::{Error, Limits, Proof, Refusal, ViewOptions};
@@ -36,26 +36,18 @@ pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> 
     }
 }
 
-/// Returns the image of an ordinary sequent under the translation the
-/// flags choose.
+/// Returns the image of an ordinary sequent in the logic, under the
+/// translation, that `options` give.
 ///
 /// # Errors
 ///
 /// The translation's error: one that does not decide the logic, or more
 /// than one formula right of `⊢` in intuitionistic or minimal logic.
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "the expect states that the caller reads ordinary logic, which the flags it was called under say"
-)]
-pub fn image(args: &LogicArgs, sequent: &ordinary::Sequent) -> Result<Image> {
-    let logic: Logic = args.logic.expect("the caller reads ordinary logic").into();
-    let translation = args
-        .translation
-        .map_or(Translation::default_for(logic), Into::into);
+pub fn image(options: &ordinary::Options, sequent: &ordinary::Sequent) -> Result<Image> {
     Ok(ordinary::translate(
         sequent,
-        logic,
-        translation,
+        options.logic,
+        options.translation(),
         &Limits::UNBOUNDED,
     )?)
 }

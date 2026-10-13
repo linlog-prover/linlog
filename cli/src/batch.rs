@@ -6,7 +6,7 @@
 //! and one result per entry written as soon as it and those before it
 //! are decided.
 
-use crate::argument_parsing::{CoresArg, Format, InputFormat, ProveArgs, Threads, threads};
+use crate::argument_parsing::{Format, InputFormat, ProveArgs};
 use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
@@ -14,12 +14,13 @@ use crate::prove::{
     Ended, STEPS_PER_CLOCK, Show, Shown, derivation, describe, net_into, nets_exist,
     on_large_stack, searched, statistics, stopped, verdict_line,
 };
+use crate::settings::{Threads, time_limit};
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
-use linlog::search::{Goal, Options, Outcome, Pool, Verdict, prove_goal};
-use linlog::{Forest, Mode};
+use linlog::search::{Goal, Outcome, Pool, Verdict, prove_goal};
+use linlog::{Forest, Mode, Settings};
 use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
 use serde_json::value::RawValue;
 use std::collections::{HashSet, VecDeque};
@@ -416,6 +417,12 @@ struct Shared {
     show: Show,
     /// The batch's own time limit.
     batch: Deadline,
+    /// Each sequent's time limit.
+    timeout: Option<Duration>,
+    /// The options of ordinary logic, under `--logic`.
+    ordinary: Option<linlog::ordinary::Options>,
+    /// The most occurrences a sequent may have.
+    most: u64,
     /// The threads of a sequent searched within the cores.
     threads: Threads,
     /// The directory the derivations go to.
@@ -533,22 +540,22 @@ impl Shared {
     fn decide(&self, entry: Entry, plan: &batch::Plan) -> Result<Done> {
         let (search, limits) = (&plan.search, &plan.limits);
         let args = &self.args;
-        let deadline = Deadline::start(args.timeout.0, Instant::now())?;
-        let most = args.input.most();
+        let deadline = Deadline::start(self.timeout, Instant::now())?;
+        let most = self.most;
         let format = match &entry.source {
             Source::Text(_, format) | Source::File(_, format) => Some(*format),
             Source::Bad(_) => None,
         };
         let source = entry.source;
-        let logic = args.logic.clone();
+        let logic = self.ordinary;
         let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
             let (text, format) = match source {
                 Source::Bad(why) => return Err(anyhow!(why)),
                 Source::Text(text, format) => (text, format),
                 Source::File(path, format) => (io::read(Some(&path), "sequent")?, format),
             };
-            let (sequent, image) = if logic.logic.is_some() {
-                let image = ordinary::image(&logic, &ordinary::sequent_in(&text, format)?)?;
+            let (sequent, image) = if let Some(options) = logic {
+                let image = ordinary::image(&options, &ordinary::sequent_in(&text, format)?)?;
                 (image.sequent().clone(), Some(image))
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
@@ -607,7 +614,7 @@ impl Shared {
         let ended = Ended { stop, elapsed };
         let line = match &image {
             Some(image) => ordinary::verdict_line(&outcome, image, &ended),
-            None => verdict_line(&outcome, args.fragment.is_some(), &ended),
+            None => verdict_line(&outcome, search.fragment.is_some(), &ended),
         };
         let mut text = if self.json_lines() {
             let mut body = serde_json::to_string(&outcome)?;
@@ -673,7 +680,7 @@ impl Shared {
         let mut out = open()?;
         let prefix = (show.verdict && !show.format.is_binary())
             .then(|| format!("{}\n", crate::prove::note(show.format, line)));
-        let why = || match self.args.timeout.0 {
+        let why = || match self.timeout {
             _ if interrupted() => "interrupted".to_owned(),
             _ if self.batch.passed() => "the batch's time limit was reached".to_owned(),
             Some(t) => format!("the time limit of {t:?} was reached"),
@@ -772,12 +779,10 @@ impl Shared {
                 .context("cannot write to the child")?;
         }
         // The child keeps its own time limit; a child that outlives it by
-        // the grace is stopped.
+        // the grace is stopped; one too long to say when has no end.
         let end = self
-            .args
             .timeout
-            .0
-            .map(|t| Instant::now() + t + CHILD_GRACE);
+            .and_then(|t| Instant::now().checked_add(t.saturating_add(CHILD_GRACE)));
         let (mut out, mut err) = (child.stdout.take(), child.stderr.take());
         let reading = std::thread::spawn(move || {
             let mut text = String::new();
@@ -917,7 +922,7 @@ fn cgroup_memory() -> Option<u64> {
 /// A sequent given as an argument, an input that cannot be read, a format
 /// of one sequent, or inputs that hold no entry; an entry's own error is
 /// its line, never an error of the batch.
-pub fn run(args: &ProveArgs) -> Result<Status> {
+pub fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Result<Status> {
     if args.input.sequent.is_some() {
         bail!(
             "a sequent given as an argument is not read in a batch, whose sequents come from \
@@ -925,7 +930,6 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
         );
     }
     crate::prove::ordinary_mode(args)?;
-    let start = Instant::now();
     let format = args.output.format();
     let directory = args.output.output.clone();
     if directory.is_none() && !matches!(format, Format::Text | Format::Json) {
@@ -938,44 +942,25 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
         fs::create_dir_all(directory)
             .with_context(|| format!("cannot make the directory {}", directory.display()))?;
     }
-    let show = Show::new(&args.output)?.within(args.memory_limit.0);
-    let threads = threads(args.jobs, args.pool_after, args.deterministic);
-    let search = Options::default()
-        .with_memo_limit(args.memo_limit)
-        .with_engine(args.engine.into())
-        .with_fragment(args.fragment.map(Into::into))
-        .with_copies(args.copies.0)
-        .with_bias(args.bias.into())
-        .with_forward_copies(args.forward_copies)
-        .with_check(!args.no_check)
+    let show = Show::new(&args.output, settings)?;
+    let threads = Threads::of(settings);
+    let search = settings
+        .search
+        .clone()
         .with_jobs(threads.jobs)
         .with_pool(Some(Pool::new()));
-    let limits = args.limits();
+    let limits = settings.limits;
     let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
-    let cores = match args.batch.cores {
-        // A program that writes a question and waits for its answer
-        // cannot be read ahead of.
-        CoresArg::Auto if stdin_stream => Cores::Within,
-        CoresArg::Auto => Cores::Auto,
-        CoresArg::Across => Cores::Across,
-        CoresArg::Within => Cores::Within,
-    };
-    let machine = std::thread::available_parallelism().map_or(1, |n| n.get());
     let options = batch::Options::default()
         .with_mode(args.mode.mode())
-        .with_cores(cores)
-        .with_workers(
-            args.batch
-                .workers
-                .unwrap_or(machine)
-                .clamp(1, Options::MAX_JOBS),
-        )
-        .with_total_memory_bytes(match args.batch.batch_memory {
-            Some(limit) => limit.0,
-            None => {
-                Some(machine_memory().map_or(batch::Options::DEFAULT_TOTAL_MEMORY_BYTES, |m| m / 2))
-            }
-        });
+        .with_cores(match settings.batch.cores {
+            // A program that writes a question and waits for its answer
+            // cannot be read ahead of.
+            Cores::Auto if stdin_stream => Cores::Within,
+            cores => cores,
+        })
+        .with_workers(settings.batch.workers)
+        .with_total_memory_bytes(settings.batch.total_memory_bytes);
     if let Some(name) = &args.batch.entry_name {
         // A child of `--isolate`: the batch's inputs are the parent's, and
         // the one entry is the hidden flags' or standard input.
@@ -993,14 +978,23 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
             ),
         };
         let plan = batch::Plan::alone(search, limits);
-        return one(args, show, threads, directory, &plan, entry);
+        return one(args, settings, show, threads, directory, &plan, entry);
     }
     let entries = Entries::new(args)?;
     catch_interrupt();
     let shared = Arc::new(Shared {
         args: Arc::new(args.clone()),
         show,
-        batch: Deadline::start(args.batch.batch_timeout.0, start)?,
+        batch: Deadline::start(
+            settings
+                .clock
+                .batch_time_limit_ms
+                .map(Duration::from_millis),
+            start,
+        )?,
+        timeout: time_limit(settings),
+        ordinary: crate::settings::ordinary(settings, &args.logic),
+        most: crate::settings::most(settings),
         threads,
         directory,
     });
@@ -1044,6 +1038,7 @@ pub fn run(args: &ProveArgs) -> Result<Status> {
 /// writes its result.
 fn one(
     args: &ProveArgs,
+    settings: &Settings,
     show: Show,
     threads: Threads,
     directory: Option<PathBuf>,
@@ -1054,6 +1049,9 @@ fn one(
         args: Arc::new(args.clone()),
         show,
         batch: Deadline::start(None, Instant::now())?,
+        timeout: time_limit(settings),
+        ordinary: crate::settings::ordinary(settings, &args.logic),
+        most: crate::settings::most(settings),
         threads,
         directory,
     };
