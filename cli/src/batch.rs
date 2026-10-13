@@ -505,33 +505,31 @@ impl Shared {
     /// `NAME: LINE`.
     fn unknown(&self, name: &str, line: &str) -> String {
         if self.json_lines() {
-            let body = serde_json::json!({
-                "verdict": "unknown",
-                "reason": linlog::search::Reason::Stopped,
-                "message": line,
-            });
-            record_json(name, &body.to_string())
+            let reason =
+                serde_json::to_string(&linlog::search::Reason::Stopped).expect("a reason is JSON");
+            let line = serde_json::to_string(line).expect("a string is JSON");
+            let body = format!(r#"{{"verdict":"unknown","reason":{reason},"message":{line}}}"#);
+            record_json(name, &body)
         } else {
             format!("{}: {line}", shown(name))
         }
     }
 
     /// Returns what is written for an entry whose read or search ended
-    /// in an error: in JSON the verdict `error` and the error as the
-    /// library writes it (`code`, `kind`, `details`) where it is the
-    /// library's, with the whole message, else `NAME: error: MESSAGE`.
+    /// in an error: in JSON the verdict `error`, the error as the library
+    /// writes it where the library's is the cause, and the whole message
+    /// as `message`, else `NAME: error: MESSAGE`.
     fn error(&self, name: &str, error: &anyhow::Error) -> String {
         let message = format!("{error:#}");
         if self.json_lines() {
-            let mut written = error
+            let written = error
                 .downcast_ref::<linlog::Error>()
-                .and_then(|e| serde_json::to_value(e).ok())
-                .unwrap_or_else(|| serde_json::json!({}));
-            if let Some(fields) = written.as_object_mut() {
-                fields.insert("message".to_owned(), message.into());
-            }
-            let body = serde_json::json!({ "verdict": "error", "error": written });
-            record_json(name, &body.to_string())
+                .and_then(|e| serde_json::to_string(e).ok())
+                .map(|e| format!(r#","error":{e}"#))
+                .unwrap_or_default();
+            let message = serde_json::to_string(&message).expect("a string is JSON");
+            let body = format!(r#"{{"verdict":"error"{written},"message":{message}}}"#);
+            record_json(name, &body)
         } else {
             format!("{}: error: {message}", shown(name))
         }

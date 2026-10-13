@@ -238,8 +238,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   whose first keys are the wire level and the name and the rest
   `Outcome`'s JSON (`seconds` with `--stats`; `record_json`, which drops
   the outcome's own `version`); an entry's error is `"verdict":
-  "error"` with an `error` object (`Shared::error`: the message, and the
-  library's written error where the chain holds one), and an entry the
+  "error"` with its `message` and, where the chain holds the library's
+  error, that `error` as the library writes it (`Shared::error`; the keys
+  are written in order, verdict first, since `serde_json::Value` would
+  sort them), and an entry the
   batch stopped unread is `"verdict": "unknown"` with the reason
   `stopped` and a `message` (`Shared::unknown`): every record has a name
   and a verdict. Two entries whose files in `--output DIR` would be one
@@ -556,8 +558,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   **unknown, exit 3** (`unknown: the proof of … is not checked: …`, the
   flag that raises the limit named), never an error and never invalid.
   Its JSON is `{"version", "verdict": "valid"|"invalid"|"unknown",
-  "mode", "error"}`, `error` the library's written error with the
-  message in formulas. A file that is an outcome without a proof is
+  "mode", "error"}`, `error` the library's written error and `message` its
+  text with formulas. A file that is an outcome without a proof is
   refused as such (`read_proof`), not by the key it lacks.
 - **`load` in a session refuses a file of another sequent or mode**
   (`Interactive::sequent` and `mode` compared), as `--state` refuses a

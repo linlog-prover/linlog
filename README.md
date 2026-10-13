@@ -1005,9 +1005,9 @@ the batch is a stream: each line is answered as soon as it is decided,
 so a program can ask, wait for the answer and ask again. With `--format
 json` every answer is a JSON Lines record, the wire level and the name
 first and then what `--format json` writes for one sequent; an entry
-that could not be read or searched is `"verdict": "error"` with an
-`error` object (its `message`, and the library's `code`, `kind` and
-`details` where the library refused it), and one the batch stopped before
+that could not be read or searched is `"verdict": "error"` with a
+`message`, and the library's `error` object (its `code`, `kind` and
+`details`) where the library refused it, and one the batch stopped before
 it was decided `"verdict": "unknown"` with a `message`. The mode is the
 flags', a problem file's column or a record's:
 

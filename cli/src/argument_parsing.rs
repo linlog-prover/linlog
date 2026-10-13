@@ -70,10 +70,10 @@ pub(crate) enum Command {
     /// input format's extension (`.p` and `.json` for `auto`). Each sequent
     /// is named by its path as given, or by its line's name or
     /// `FILE:LINE`, and gets one line in input order, `NAME: VERDICT`, as
-    /// soon as it is decided; with `--format json` a JSON Lines record, `{
-    /// "version", "name", …}` and the outcome's keys, or `{"version",
-    /// "name", "verdict": "error", "error": {…}}` for an entry that could
-    /// not be decided. A drawn format writes a file per proved sequent into
+    /// soon as it is decided; with `--format json` a JSON Lines record of
+    /// `version` and `name` and the outcome's keys, or with the verdict
+    /// `error` and a `message` (and the library's `error` where it caused
+    /// it) for an entry that could not be decided. A drawn format writes a file per proved sequent into
     /// `--output DIR`. The mode is the flags', or a problem file's column or
     /// a record's. The exit status is the worst: an error (2) before
     /// unknown (3) before unprovable (1) before proved (0); a batch that
@@ -88,8 +88,8 @@ pub(crate) enum Command {
     /// an invalid one, 3 when the check was given up at a limit (neither
     /// valid nor invalid), and 2 for an error. With `--format json` the
     /// verdict is `{"version", "verdict", "mode"}`, the verdict `valid`,
-    /// `invalid` or `unknown`, with an `error` object for the last two, as
-    /// the library writes its errors.
+    /// `invalid` or `unknown`, with the library's `error` object and its
+    /// `message` with formulas for the last two.
     Check(CheckArgs),
     /// Prove a sequent step by step, reading commands from standard input
     ///

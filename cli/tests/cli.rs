@@ -1554,7 +1554,7 @@ fn a_batch_s_records_names_and_files() {
     assert_eq!(records.len(), 2, "{lines}");
     for record in &records {
         assert_eq!(record["verdict"], "error", "{record}");
-        assert!(record["error"]["message"].is_string(), "{record}");
+        assert!(record["message"].is_string(), "{record}");
     }
     let (status, lines, _) = linlog(
         &[

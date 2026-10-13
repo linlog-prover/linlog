@@ -1477,17 +1477,16 @@ fn check_into(
             /// The mode checked in.
             mode: Mode,
             /// Why the proof is not valid, as the library writes its
-            /// errors, with formulas in the message.
+            /// errors.
             #[serde(skip_serializing_if = "Option::is_none")]
-            error: Option<serde_json::Value>,
+            error: Option<Error>,
+            /// The error's message with formulas for its ids.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            message: Option<String>,
         }
-        let error = match &result {
-            Ok(()) => None,
-            Err(e) => {
-                let mut error = serde_json::to_value(Error::from(e.clone()))?;
-                error["message"] = report(e).into();
-                Some(error)
-            }
+        let (error, message) = match &result {
+            Ok(()) => (None, None),
+            Err(e) => (Some(Error::from(e.clone())), Some(report(e))),
         };
         let checked = Checked {
             version: linlog::wire::LEVEL,
@@ -1498,6 +1497,7 @@ fn check_into(
             },
             mode,
             error,
+            message,
         };
         serde_json::to_writer(out.stream(), &checked)?;
         return Ok((status, true));
