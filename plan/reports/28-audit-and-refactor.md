@@ -1630,3 +1630,18 @@ signed-off design or from a finding's proposed fix it says so.
     settings and derivation tests, which passed alone with the unit
     tests and clippy.
 
+### Message from `planning` to `step-28g` (2026-10-14, 00:48): Resume
+
+- Go on from the pause entry; usage near its limit, so start the runs
+  first. Signatures work until about 02:49. What was done, 00:50 to
+  01:00: `step28-gates4` gates the 24 commits from toxvsokk to vxwmzrmx
+  (log in scratch `gates/summary`, under "resume 2026-10-14");
+  `linlog-mutants` runs every batch again from `../linlog-mutants34`
+  at rrrkklkp (the mutation scope is core files only, which no fix
+  left to make touches); `linlog-fuzz` runs the nine targets not done,
+  built at oxvxmwko, where `proof_views` reads through `wire::upgrade`
+  as `check` does. If paused again: the gate resumes at the first
+  commit without a line in the summary, the mutation run with
+  `mutants/run.sh --label area-3.4` (it skips the batches done), the
+  fuzz run with `fuzz/run.sh` (it skips the targets done).
+
