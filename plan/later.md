@@ -191,8 +191,9 @@ Step 28's audit (F153) measured the engine quadratic on `wide-m2`
 every `period`-th link searches the whole structure (38 %), `choose`
 recounts every unlinked literal's partners per decision (22 %), and
 sequentializing searches a sub-net per stage (40 %). Area 3.3
-(2026-10-13) took only the reset of the search's arrays per search (5 %
-of `search-wide-m2-256`); left, each to be earned by the harness: a
+(2026-10-13) tried the cheapest part, the search without the fill of
+its arrays per search, and reverted it: 4.6 % of `search-wide-m2-256`'s
+instructions, no measured time. Left, each to be earned by the harness: a
 test period that grows while tests pass, which changes
 `Statistics::tests` and so the behaviour lock's `--stats` lines (a
 commit of its own); partner counts kept per literal, which keep `tests`
@@ -758,7 +759,10 @@ there:
   search the key is 14.5 % (`SYJ207+1.018`, 5 770 occurrences, at its
   copy bound in 108 ms) and 29 % (`SYJ212+1.010`, 27 105 occurrences,
   30 ms) of the instructions, and no focused row ends at the memory
-  bound. Γ by its members would halve that; `Θ` spans the forest on a
+  bound. Without a copy bound, as the command searches by default, both
+  run into the time limit and the key is 18 % (`SYJ207+1.018`) and 43 %
+  (`SYJ212+1.010`): up to about 1.7 times the stable sequents per
+  second. Γ by its members would halve that; `Θ` spans the forest on a
   net of transitions, so the rest needs `Θ` interned (an id carried
   with it, shared by a pool's workers), a rewrite of `memo.rs`, the
   shared memo and the signatures that pass `Θ`.

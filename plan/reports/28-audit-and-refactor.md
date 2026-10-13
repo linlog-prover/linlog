@@ -612,18 +612,18 @@ pinned time after, the ceiling lowered.
 |---|---|---|
 | a. the timed validation of counts against time again (`bench/counts-against-time.py`), in a quiet window | done | tympzvtu: `bench/counts-against-time/2026-10-13*`, 01:21–01:50 on core 2, the other cores 0 to 2 % busy; a drop of 19 to 65 % in count (opt-level 1 against 3) is a drop in time on all twenty journeys; a few percent (opt-level 2 against 3) orders count and time alike on 16 of 20 (not on `search-additive-14`, `derivation-chain-64`, `render-latex`, `render-typst`, whose rounds spread by up to 9 %); `check-qbf-20-2` and `check-wide-m1-2048` run 8 % faster at opt-level 2 at about the same count, as on 2026-10-09. So a claimed saving of a few percent is shown by pinned time beside the count |
 | b. the pool's speed after H18 and F92: the target set and the second baseline's parallel pass at `-j 2` and `-j 4`, the head against kktkswpq | done: no verdict differs, the sums within 1 %; Mix 1.4 to 3.6 % slower at the head on every thread count, from the sequential search (fixed, row n) | unit `step28-pool`, 01:51–03:06: `-j 2` on CPUs 2–3 (performance cores, 5.1 GHz), `-j 4` on 4–7 (efficiency cores, 4.0 GHz, one shared L2, so the two settings compare within themselves only), each harness run at both commits back to back, the order alternating (scratch script `pool.sh`; the head's binary is qqooxnzz's code, before this area's changes). Rows decided by both: `-j 2` 171, head/base 1.009 in summed median time; `-j 4` 172, 0.999; no verdict differs; nodes equal on every row the pool does not split (Mix, qbf/24 and 40, 3-Partition-MLL, the Horn rows). Overlaps: this session's compiles and callgrind runs on CPUs 12–15 overlapped the target set's first run at `-j 2` (base 01:51–01:58: two builds, the journeys' counts, the core tests; head 01:58–02:05: the tests' end, the stack probes' builds and runs) and the start of the parallel pass at `-j 2` on the head (02:05:53–02:07:15, the probes' builds). Both pairs rerun alone (unit `step28-pool-rerun`, 03:07–03:34, the order reversed): 49 decided rows, head/base 1.018 (1.012 the first time); mix/8, 9, 10 +1.4, +3.6, +2.8 % (first +4.0, +3.5, +1.8 %; `-j 4` +3.0, +3.3, +2.5 %), qbf/40 and partition-yes/24 within 0.3 %. On one thread (core 2, mix/9, three runs each, alternating) kktkswpq 8.71 s, the head 8.86 s (+1.7 %): the gap is the sequential search's; callgrind on mix/8: 28.35 G against 28.99 G instructions, all of it `Run::poll_splits`, an outlined call per step of the split search (653 M). The runs: `bench/targets/pool-{kktkswpq,head}-j{2,4}.csv`, the reruns `pool-rerun-{kktkswpq,head}-j2.csv` |
-| c. F152 the Horn program read once per call | done, gate pending | zrquosrw: the task keeps the program the first reader reads (`Program::of`, a `OnceLock` in `Task`), with `live` applied there; `search-spec-chain` 39.11 M → 23.27 M instructions (−40.5 %) |
-| d. F154 `optimize_atoms` once and without copies; read-json's names in NFC | done (read-json: no change, decided below), gate pending | qwkozsow: `merge_atoms` then one renumbering through an index, names moved; `read-text` 17.39 M → 12.27 M (−29.5 %), `read-lltp` 32.16 M → 27.07 M (−15.8 %), `read-spec` 19.60 M → 17.07 M (−12.9 %) |
-| e. F151 `forced_factor` once per split, the forced side per occurrence | done, gate pending | onxpxzuv: `Counts::forced` (one byte per occurrence, in place of `literal_tensor`), the split hands its forcing factor to the chain, the choice of factor a `match`; with the others below `search-chain-128` 1 198.8 M → 973.7 M (−18.8 %) |
-| f. F150 the canonical key only where a member is renamed | done, gate pending | lxppxszv: `Classes::renames` (the zone's words against the renamed occurrences) |
-| g. F147 a stable sequent's member list by a word loop | done, gate pending | kzszyqqz: `Context::list_into`, `iter` with a cursor over the extra copies; with F150, F151 and F149 `search-qbf-20-2` 628.8 M → 508.8 M (−19.1 %), `search-chain-64-intuitionistic` 151.7 M → 130.6 M (−13.9 %), `search-partition-no-5` 8.22 M → 7.43 M (−9.7 %) |
-| h. F149 the memo's chunks without the zero fill | done, gate pending | zsvqrusy: chunks allocated with capacity and filled record by record; `batch-families` 80.6 M → 70.5 M (−12.5 %, with the others) |
-| i. F148 a sparse memo key | not done (decided below) | the measured nets now go to the Horn engine; on the widest rows the focused engines still search the key is 14.5 % (`SYJ207+1.018`) and 29 % (`SYJ212+1.010`) of rows that end at their copy bound in 108 and 30 ms; `plan/later.md` keeps it |
-| j. F153 the net engine's quadratic parts | done in part (decided below), gate pending | luzlznty: the graph's search keeps rising discovery times (`Scratch::base`), so no search fills the width again: `search-wide-m2-256` 260.4 M → 248.5 M (−4.6 %); a list of the vertices reached, tried first, cost +0.3 %; test `discovery_times_restart_below_the_top` |
+| c. F152 the Horn program read once per call | done | zrquosrw: the task keeps the program the first reader reads (`Program::of`, a `OnceLock` in `Task`), with `live` applied there; `search-spec-chain` 39.11 M → 23.27 M instructions (−40.5 %) |
+| d. F154 `optimize_atoms` once and without copies; read-json's names in NFC | done (read-json: no change, decided below) | qwkozsow: `merge_atoms` then one renumbering through an index, names moved; `read-text` 17.39 M → 12.27 M (−29.5 %), `read-lltp` 32.16 M → 27.07 M (−15.8 %), `read-spec` 19.60 M → 17.07 M (−12.9 %) |
+| e. F151 `forced_factor` once per split, the forced side per occurrence | done | onxpxzuv: `Counts::forced` (one byte per occurrence, in place of `literal_tensor`), the split hands its forcing factor to the chain, the choice of factor a `match`; with the others below `search-chain-128` 1 198.8 M → 973.7 M (−18.8 %) |
+| f. F150 the canonical key only where a member is renamed | done | lxppxszv: `Classes::renames` (the zone's words against the renamed occurrences) |
+| g. F147 a stable sequent's member list by a word loop | done | kzszyqqz: `Context::list_into`, `iter` with a cursor over the extra copies; with F150, F151 and F149 `search-qbf-20-2` 628.8 M → 508.8 M (−19.1 %), `search-chain-64-intuitionistic` 151.7 M → 130.6 M (−13.9 %), `search-partition-no-5` 8.22 M → 7.43 M (−9.7 %) |
+| h. F149 the memo's chunks without the zero fill | done | zsvqrusy: chunks allocated with capacity and filled record by record; `batch-families` 80.6 M → 70.5 M (−12.5 %, with the others) |
+| i. F148 a sparse memo key | not done, a decision for `planning` (below) | the measured nets now go to the Horn engine; on the widest rows the focused engines still search the key is 14.5 % (`SYJ207+1.018`) and 29 % (`SYJ212+1.010`) of rows that end at the target set's copy bound in 108 and 30 ms, and 18 % and 43 % of the same searches without a copy bound, which run into the time limit; `plan/later.md` keeps it |
+| j. F153 the net engine's quadratic parts | not done (decided below) | luzlznty took the fill of the search's arrays per search away (−4.6 % of `search-wide-m2-256`'s instructions) but no time (+0.2 % pinned, spread 3.4 %); uyvwqrqp reverts it; the rest changes `tests` or is a new sequentialization |
 | k. the printing journeys' one printer through a `dyn` atom writer | done: no change (decided below) | profile of `render-typst` and `render-latex`: the walk (`Notation::term`) 50 to 60 %, the atom writer (an enum since area 3.1, no `dyn`) 15 to 25 %, LaTeX's escapes 22 % |
-| l. F114 and F121, with the stack per level measured before and after | done, gate pending | qmwrzops F121 (`Run::holding`, `two_premises`), mzoyxxpz F114 (the flag returned beside the `Found`); stack per level, release and debug, by a scratch probe (smallest stack reaching the recursion limit at 500 and 1 000): chain of searched splits 1 184/5 521 → 1 200/5 888 bytes, nested `&` 383/1 221 → 383/1 411, Mix of pairs 1 423/6 158 → 1 409/6 576; the Mix's level exceeded half of `PER_LEVEL` before the change too, so kuwluzvm raises it to 3 KiB and 13 KiB |
-| n. found: the split search's poll outlined since area 3.2's work count | done, gate pending | wrpvvvmv: the count inline, the poll `#[cold]`, as the forced chain's; mix/8 28.99 G → 27.89 G (kktkswpq 28.35 G), mix/9 on one thread 8.76 s before it (pinned times after it with the rest, row m), `search-partition-no-5` 7.43 M → 7.12 M |
-| m. the ratchet lowered, the target sets, check rounds (at most three), the fresh-context reviewer, mutants and fuzzing of what changed, `nix flake check` | open | |
+| l. F114 and F121, with the stack per level measured before and after | done | qmwrzops F121 (`Run::holding`, `two_premises`), mzoyxxpz F114 (the flag returned beside the `Found`); stack per level, release and debug, by a scratch probe (smallest stack reaching the recursion limit at 500 and 1 000): chain of searched splits 1 184/5 521 → 1 200/5 888 bytes, nested `&` 383/1 221 → 383/1 411, Mix of pairs 1 423/6 158 → 1 409/6 576; the Mix's level exceeded half of `PER_LEVEL` before the change too, so kuwluzvm raises it to 3 KiB and 13 KiB; after round 1's fixes (kxknzumq) 1 217, 383, 1 423 bytes in release and 5 921, 1 411, 6 609 in debug, twice the deepest within 3 072 and 13 312 |
+| n. found: the split search's poll outlined since area 3.2's work count | done | wrpvvvmv: the count inline, the poll `#[cold]`, as the forced chain's; mix/8 28.99 G → 27.89 G (kktkswpq 28.35 G), mix/9 on one thread, pinned on core 2, three runs each alternating: 8.71 to 8.83 s at luzlznty, 8.59 to 8.64 s at wrpvvvmv (medians 8.77 and 8.64 s, −1.6 %); `search-partition-no-5` 7.43 M → 7.12 M |
+| m. the ratchet lowered, the target sets, check rounds (at most three), the fresh-context reviewer, mutants and fuzzing of what changed, `nix flake check` | running | **The gates**: every code commit of the area passed, zrquosrw to luzlznty in two streams 03:39–04:05, wrpvvvmv, xpvmvxsr, kxknzumq, ouuslowo, sttxsqwq and zsktvppn 04:03–04:24 (scratch `gates/`). **The target set** at the head (zsktvppn, 04:25–04:32, quiet; `bench/targets/after-efficiency.csv`): the 265 rows the verdicts of `head-lto.csv`, every decided row equal in `nodes`, `splits`, `memo_hits` and `memo_entries`; CPU over the decided rows 86.5 s against 96.1 s (−10 %), its rows over a second the Mix's (mix/8, 9, 10: −9.8, −9.4, −9.9 %). Run at the head only, as area 3.2 did, not after each commit that touches `search/` (departs from the step's Verification): every commit claims the counters kept, the lenses read each one, and the head equals the oracle on every decided row. **Round 1** (eight lenses one effort below the audit's, over the area's ten findings and the diff qqooxnzz..wrpvvvmv, with witness runs; the readiness and API lenses not run, since the area changes no public item, wire form or requirement of the register; scratch `round1/`): perf: F149, F150, F151, F152, F154 fixed, F147 partly (the tally per distinct member not done, which changes nothing on qbf), F148 and F153 partly, both decisions upheld, F153's reason corrected (partner counts kept per literal would keep `tests`; they are no local update); idiom: F114 and F121 fixed. New, all should-fix, no must-fix: docs and coherence, `Counts::literal_tensor` still named in core-focus.md, and measurement history in the rules the diff changed; idiom, the copies' walk twice in `Context`, `distinct` beside `renamed`, `Forcing` a 4-tuple, `#[inline(always)]` without a recorded reason, `premises` and `parts` one-line wrappers, two docs unwrapped; soundness of refutations, no test of `renumber_atoms`'s first-naming order; tests, four gaps the mutants of the changed lines showed (`Forced::Duals` in nested tensors, the canonical key's sharing, the atom order, the graph's restart). Fixed: xpvmvxsr (the copies' walk, `distinct`), kxknzumq (`Forcing` a struct, the docs, the wrappers kept with their reason: inlined, a debug level grows from 5 921 to 6 400 bytes on the chain and from 6 609 to 7 137 on a Mix, past half of `PER_LEVEL`; the allowance an `#[expect]`), ouuslowo (the atom order), tmrwuquz (the rules), sttxsqwq (the tests; the graph test kills the restart's mutants, checked by hand). The soundness lenses found nothing: the refutations' lens argued points (a) to (h) and ran the suite and the 29 quick rows of the target set's families, every counter equal to `after-bias.csv`; the checker's lens ran a differential test of the graph's search, old against new, 2 910 searches with 37 restarts, every field equal. Not taken: the `<` to `<=` mutant of the graph's discovery test, equivalent in effect (a root found again is searched again at a later time, and every comparison `low` and the bridge test make keeps its outcome; a triangle, a square and a pendant before and after the cycle worked by hand), and the mutants of `Context::clear` and `Memo::reserve`, outside the diff's lines, which change sizes, not answers. **Round 2** (the lenses with round-1 findings, over them and the fixes wrpvvvmv..sttxsqwq: idiom, docs with coherence, tests, soundness of refutations): every round-1 finding fixed, the declined two upheld (the idiom lens: at opt-level 0 no stack colouring, so both arms' locals would sit in the frame; the tests lens: a differential run of the search with the `<=` mutant against the real one, 108 000 searches over 18 000 random linked nets, the first root found again 18 637 times, trees, reach, components and every edge's bridge flag equal); no new must-fix or should-fix, so no third round. Taste kept apart: `forced_factor`'s preference for a factor closed in place has no test that sees it (four mutants; the splits, nodes, entries and recursion are equal either way on chains of 40 000 literals). Found while counting the fixes: xpvmvxsr's shared walk was called from `canonical_from`, +1 % on `search-partition-no-5` (7.19 M against 7.12 M), attributed by building wrpvvvmv, xpvmvxsr and kxknzumq; zsktvppn inlines it, the counts those before (7 120 724, and `search-qbf-20-2` 506 226 963) |
 
 #### Area 3.3: decided unattended
 
@@ -654,18 +654,29 @@ with what the design or the finding said.
   "F114 stays an out-parameter"): `decide`, `decide_with`,
   `last_resort` and `mix` return `(Found, bool)` as `prove_stable` and
   `prove_part` already did, so the flag still travels as a value no
-  other rule's failure carries.
+  other rule's failure carries. Set aside: keeping the out-parameter
+  (area 3.2's choice, which the finding faults), and a field of `Found`,
+  which would let any rule's failure carry it.
 - **`Limits::PER_LEVEL` is raised** (3 KiB release, 13 KiB debug), a
-  finding of this area's: the Mix's levels (`prove`, `decide`, `mix`,
-  `search_splits`, `parts`) are deeper than the chain of splits the
-  bound was measured on, and left it at 1.6 times their depth in
-  release where the rules claim twice.
+  finding of this area's (departs from the design: `plan/notes/api.md`
+  gives `stack_bytes` "2 304 bytes a level optimized, measured on
+  x86-64"): the Mix's levels (`prove`, `decide`, `mix`, `search_splits`,
+  `parts`) are deeper than the chain of splits the bound was measured
+  on, and left it at 1.6 times their depth in release where the rules
+  claim twice. Set aside: shrinking the Mix cycle's frames (its locals
+  boxed or moved into the engine's pools), a change of the search's
+  hottest functions for a stack the default depth already fits in a
+  release build (2 048 levels of 3 KiB and the reserve are 7 MiB of the
+  main thread's 8); and lowering the default depth, which would end
+  searches the rules record as reaching their answers.
 - **The split search's poll is inlined by hand** (`#[inline(always)]`,
   its slow branch `#[cold]`), a finding of this area's from the pool
   measurement: since area 3.2's work count the compiler called it at
   every step of the split search, 653 M of mix/8's 28.99 G instructions
   (kktkswpq 28.35 G, now 27.89 G); the forced chain's poll already had
-  that form.
+  that form. Set aside: `#[inline]`, a hint the compiler had already
+  declined, and counting the steps in the split loop's own local, which
+  would spread the poll's bookkeeping over its two callers.
 - **F148 is not done** (departs from the finding's fix, a sparse memo
   key): the measured hot spot moved. The three nets it was measured on
   (`CloudDeployment_deploy_5_b_100_1`, `DLCround_dlcro_07_b_5_1`,
@@ -678,16 +689,25 @@ with what the design or the finding said.
   and compare are 14.5 % (`SYJ207+1.018`) and 29 % (`SYJ212+1.010`) of
   the instructions (callgrind, 2026-10-13); on `SYJ207+1.018` sorting
   `Θ` by class again is another 12.9 %, a cache of one `Θ` that
-  alternating branches miss. A sparse key is a
-  rewrite of `memo.rs` and the shared memo, with `Θ` interned to gain
-  anything on nets whose `Θ` spans the forest; `plan/later.md` keeps it
-  with these numbers, for `planning` to place.
-- **F153 in part**: the graph's search keeps discovery times that rise
-  from search to search (`Scratch::base`), so no search fills the
-  width, which sequentializing paid per stage (`search-wide-m2-256` 260.4 M
-  to 248.5 M instructions; a list of the vertices reached, tried first,
-  cost more than the fill, +0.3 %, since the exact test reaches nearly
-  all of them). The rest is not
+  alternating branches miss. Under the command's default, with no copy
+  bound, both rows run into the time limit (10 s: copy levels 6 and 4),
+  and there the key weighs more: hashing 36.7 % and the lookup 6.6 % of
+  `SYJ212+1.010`, 13.0 % and 5.1 % of `SYJ207+1.018` (callgrind, 60 s
+  each; the fresh-context reviewer's point), so a sparse key would make
+  the widest two-sided searches up to about 1.7 times as fast per
+  stable sequent, for no verdict the target set shows. It is a rewrite
+  of `memo.rs` and the shared memo, with `Θ` interned to gain anything
+  on nets whose `Θ` spans the forest: **a decision for `planning`**;
+  `plan/later.md` keeps it with these numbers.
+- **F153 is not done** (departs from the finding's fix): its cheapest
+  part, the graph's search without the fill of `disc` over the width per
+  search, was made (luzlznty: discovery times rising from search to
+  search; a list of the vertices reached, tried first, cost +0.3 %) and
+  saved 4.6 % of `search-wide-m2-256`'s instructions (260.4 M to
+  248.5 M) but no time: pinned, 7.95 ms before, 7.96 ms after and
+  8.02 ms with the search's first time in a local (nine rounds, spread
+  3.4 %), a memset being cheap per instruction; uyvwqrqp reverts it, as
+  a few percent claimed must show in pinned time. The rest is not
   done (departs from the finding's fix): a test period that grows
   changes `Statistics::tests`, which the lock prints with `--stats`;
   admissible-partner counts kept per literal keep it, but a link changes
@@ -697,6 +717,85 @@ with what the design or the finding said.
   stages with the sides assigned from the smaller one is a new
   sequentialization algorithm, all for `wide-m2` at 2 048 links in
   0.6 s; `plan/later.md`, "Net-engine pruning and routing", holds them.
+- **The check rounds run eight of the audit's ten lenses**: the
+  readiness lens and the API lens read the register's requirements and
+  the public surface, which the area does not change (no public item,
+  wire form or option; `Limits::stack_bytes` answers more for the same
+  depth, which the input and bounds lens judged).
+- **`premises` and `parts` stay functions** (the idiom lens's fix
+  declined): inlined into `search_splits`, both rules' locals sit in its
+  frame in a debug build, and a level of the chain grows from 5 921 to
+  6 400 bytes and of a Mix from 6 609 to 7 137, past half of
+  `PER_LEVEL`'s 13 KiB; the allowance became an `#[expect]` with its
+  reason and the doc says why. The margin left in debug builds is 94
+  bytes a level (twice 6 609 against 13 312): a frame added to the cycle
+  measures again, as the rules say.
+
+#### Area 3.3: the journeys before and after
+
+The counts: callgrind, the shell's release build (fat link-time
+optimisation), before the area's ceilings (`bench/ceilings.csv` at
+qqooxnzz), after at the area's head (`ratchet`, 05:03). The times:
+`journey --repeat` pinned on core 2, the other cores 0 to 3 % busy, the
+median of five rounds with the two builds' order rotating (a scratch
+copy of `bench/counts-against-time.py`'s timing for two builds),
+qqooxnzz against zsktvppn (04:32–04:51); uyvwqrqp, after them, changes
+only `search-wide-m2-256`, whose count it takes back and whose time
+moved by neither commit. A count that fell by a fifth fell in time by
+half as much or more; the printers, the derivation and the checker
+move within their rounds' spread, as the validation of 2026-10-13
+found.
+
+| journey | count before | count after | change | time before (ms) | time after (ms) | change |
+|---|--:|--:|--:|--:|--:|--:|
+| `search-qbf-20-2` | 636.04 M | 506.23 M | -20.4% | 27.353 | 24.760 | -9.5% |
+| `search-chain-128` | 1202.71 M | 972.95 M | -19.1% | 37.787 | 33.843 | -10.4% |
+| `search-partition-no-5` | 8.28 M | 7.12 M | -14.0% | 0.352 | 0.317 | -9.9% |
+| `search-wide-m2-256` | 260.39 M | 260.44 M | +0.0% | 7.724 | 7.817 | +1.2% |
+| `search-spec-chain` | 38.43 M | 23.27 M | -39.4% | 1.322 | 0.766 | -42.0% |
+| `search-chain-64-intuitionistic` | 152.13 M | 123.66 M | -18.7% | 4.921 | 4.417 | -10.2% |
+| `search-additive-14` | 591.40 M | 584.99 M | -1.1% | 56.400 | 56.444 | +0.1% |
+| `read-text` | 17.39 M | 12.27 M | -29.5% | 0.843 | 0.688 | -18.5% |
+| `read-json` | 12.61 M | 12.48 M | -1.1% | 0.362 | 0.345 | -4.6% |
+| `read-lltp` | 32.17 M | 27.07 M | -15.9% | 1.418 | 1.338 | -5.6% |
+| `read-tptp` | 32.26 M | 32.25 M | -0.0% | 1.289 | 1.266 | -1.8% |
+| `read-spec` | 19.61 M | 17.06 M | -13.0% | 0.863 | 0.610 | -29.3% |
+| `check-qbf-20-2` | 136.74 M | 138.58 M | +1.3% | 7.502 | 7.507 | +0.1% |
+| `check-wide-m1-2048` | 8.80 M | 8.79 M | -0.0% | 0.502 | 0.501 | -0.1% |
+| `derivation-chain-64` | 9.73 M | 9.75 M | +0.2% | 0.396 | 0.369 | -6.9% |
+| `render-latex` | 5.74 M | 5.74 M | +0.1% | 0.212 | 0.205 | -3.2% |
+| `render-typst` | 4.79 M | 4.79 M | -0.0% | 0.168 | 0.164 | -2.5% |
+| `render-svg` | 84.85 M | 84.47 M | -0.4% | 3.252 | 3.215 | -1.1% |
+| `batch-families` | 79.92 M | 69.57 M | -12.9% | 3.009 | 2.823 | -6.2% |
+| `ordinary-pigeons` | 32.67 M | 32.55 M | -0.4% | 1.569 | 1.565 | -0.2% |
+
+Each fix against its parent, the same timing on the journeys it names
+(five rounds; spread is the largest of a build's rounds):
+
+| commit | journey | parent (ms) | commit (ms) | change | spread |
+|---|---|--:|--:|--:|--:|
+| zrquosrw F152 | `search-spec-chain` | 1.344 | 0.780 | −42.0 % | 1.3 % |
+| qwkozsow F154 | `read-text` | 0.858 | 0.696 | −18.9 % | 0.3 % |
+| | `read-lltp` | 1.449 | 1.346 | −7.1 % | 1.2 % |
+| | `read-spec` | 0.879 | 0.617 | −29.8 % | 2.0 % |
+| zsvqrusy F149 | `batch-families` | 3.066 | 2.971 | −3.1 % | 0.6 % |
+| | `search-qbf-20-2` | 27.982 | 27.645 | −1.2 % | 3.2 % |
+| onxpxzuv F151 | `search-chain-128` | 38.911 | 35.602 | −8.5 % | 0.8 % |
+| lxppxszv F150 | `search-qbf-20-2` | 27.381 | 25.739 | −6.0 % | 2.1 % |
+| kzszyqqz F147 | `search-qbf-20-2` | 25.708 | 24.960 | −2.9 % | 1.5 % |
+| | `search-partition-no-5` | 0.327 | 0.324 | −0.9 % | 1.3 % |
+| qmwrzops F121 | `search-chain-128` | 34.904 | 35.267 | +1.0 % | 1.4 % |
+| | `search-partition-no-5` | 0.323 | 0.321 | −0.4 % | 0.6 % |
+| mzoyxxpz F114 | `search-partition-no-5` | 0.322 | 0.325 | +1.2 % | 1.0 % |
+| luzlznty (reverted) | `search-wide-m2-256`, nine rounds | 7.945 | 7.959 | +0.2 % | 3.4 % |
+| wrpvvvmv | mix/9, one thread (s) | 8.773 | 8.636 | −1.6 % | runs apart |
+| | `search-partition-no-5` | 0.324 | 0.325 | +0.3 % | 1.9 % |
+| xpvmvxsr | `search-partition-no-5` | 0.326 | 0.319 | −2.2 % | 3.5 % |
+| zsktvppn | `search-partition-no-5` | 0.320 | 0.324 | +1.1 % | 1.0 % |
+
+F121 and F114 claim no gain and cost none beyond the spread; F149's
+claim is `batch-families`' (its qbf row is within the spread).
+
 
 ## From the supervisor
 
