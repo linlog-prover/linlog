@@ -1072,12 +1072,17 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
             move |entry, plan, _| worker.answer(entry, plan),
         );
         let mut worst: Option<Status> = None;
-        let mut stdout = std::io::stdout().lock();
+        let mut stdout = io::Stdout::lock();
         for done in results {
             writeln!(stdout, "{}", done.text)
                 .and_then(|()| stdout.flush())
                 .context("cannot write to standard output")?;
             worst = Some(worst.map_or(done.status, |worst| worst.worse(done.status)));
+            // A reader that closed the pipe asks nothing more: the batch
+            // ends with what it answered.
+            if io::closed() {
+                break;
+            }
         }
         if interrupted() {
             // The interrupt ended the input: what was not read is not
@@ -1118,6 +1123,6 @@ fn one(
         files: std::sync::Mutex::default(),
     };
     let done = on_large_stack(plan.limits.stack_bytes(), || shared.answer(entry, plan))?;
-    println!("{}", done.text);
+    writeln!(io::Stdout::lock(), "{}", done.text).context("cannot write to standard output")?;
     Ok(done.status)
 }

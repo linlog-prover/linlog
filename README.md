@@ -435,7 +435,9 @@ unprovable (IMALL, intuitionistic, two-sided engine): the search was exhaustive
 The exit status tells scripts the verdict: 0 provable, 1 unprovable, 3
 unknown (the time limit, a bound, a limit or Ctrl-C stopped the search), 2 an
 error, such as a sequent outside the asserted fragment or an engine forced
-on a sequent it cannot search.
+on a sequent it cannot search. A reader that closes the pipe early, as
+`linlog prove … | head -1` does, changes none of it, and a second Ctrl-C
+ends the command at once with 130, as the shell's own interrupt does.
 
 Every proof the search finds passes the proof checker before anything is
 reported, whatever the output (`--no-check` reports it unchecked). A proof

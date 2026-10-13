@@ -215,8 +215,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 ## Invariants
 
 - **Exit status**: 0 proved, valid or done; 1 unprovable or invalid; 2 an
-  error, the same status clap uses for bad arguments; 3 unknown. Scripts
-  depend on it, and `cli/tests/cli.rs` pins it.
+  error, the same status clap uses for bad arguments; 3 unknown; 130 at a
+  second Ctrl-C (the first one stops the search). Scripts depend on it,
+  and `cli/tests/cli.rs` pins it. **A closed standard output keeps it**
+  (`io::Stdout`, which every write to standard output goes through: a
+  write into a closed pipe is dropped and sets `io::closed`, a batch then
+  stops answering and a session ends as at the end of its input); it once
+  turned `prove … | head -1` into exit 2. Rust ignores `SIGPIPE`, so the
+  closed pipe is an error of the write, and restoring the signal's default
+  would end the command with 141 and lose the verdict.
 - **A batch's results are those of single calls**, verdict for verdict:
   an entry runs what `prove` runs (the read and parse under its own
   `Deadline::within`, the same `Options`, `alone_first` within the cores

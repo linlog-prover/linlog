@@ -266,27 +266,55 @@ impl SequentInput {
     }
 }
 
-/// Writes `text` and a newline to a file under another name beside
-/// `path` and gives it that name once it is whole, so that `path` never
-/// holds half an output; what is no regular file (a device, a pipe) is
-/// written to as it is.
-fn write_file(path: &Path, text: &str) -> io::Result<()> {
-    let whole = |file: &Path| {
-        let mut out = fs::File::create(file)?;
-        out.write_all(text.as_bytes())?;
-        out.write_all(b"\n")
-    };
-    if fs::metadata(path).is_ok_and(|m| !m.is_file()) {
-        return whole(path);
+/// Standard output, which takes a closed pipe as a reader that has read
+/// all it wants: what is written after is dropped and nothing fails, so
+/// `prove … | head -1` keeps the verdict's exit status. Whether the pipe
+/// closed is [`closed`]'s.
+pub(crate) struct Stdout(io::StdoutLock<'static>);
+
+/// Set once a write to standard output met a closed pipe.
+static CLOSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether standard output's reader has closed the pipe.
+pub(crate) fn closed() -> bool {
+    CLOSED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+impl Stdout {
+    /// Locks standard output.
+    pub(crate) fn lock() -> Self {
+        Self(io::stdout().lock())
     }
-    let partial = partial(path);
-    let done = whole(&partial)
-        .and_then(|()| fs::rename(&partial, path))
-        .inspect_err(|_| {
-            let _ = fs::remove_file(&partial);
-        });
-    settled(&partial);
-    done
+
+    /// Returns the result, a closed pipe taken as written.
+    fn taken<T>(result: io::Result<T>, written: T) -> io::Result<T> {
+        match result {
+            Err(e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                CLOSED.store(true, std::sync::atomic::Ordering::Relaxed);
+                Ok(written)
+            }
+            result => result,
+        }
+    }
+}
+
+impl Write for Stdout {
+    /// Writes into standard output, or drops the bytes once its pipe is
+    /// closed.
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if closed() {
+            return Ok(buf.len());
+        }
+        Self::taken(self.0.write(buf), buf.len())
+    }
+
+    /// Flushes standard output, or nothing once its pipe is closed.
+    fn flush(&mut self) -> io::Result<()> {
+        if closed() {
+            return Ok(());
+        }
+        Self::taken(self.0.flush(), ())
+    }
 }
 
 /// Writes `text` and a newline to the file, which then holds all of it or
@@ -296,15 +324,9 @@ fn write_file(path: &Path, text: &str) -> io::Result<()> {
 ///
 /// The file system's error, the file then left as it was.
 pub(crate) fn write(path: Option<&Path>, text: &str) -> Result<()> {
-    match path {
-        Some(path) => {
-            write_file(path, text).with_context(|| format!("cannot write {}", path.display()))
-        }
-        None => {
-            let mut stdout = io::stdout().lock();
-            writeln!(stdout, "{text}").context("cannot write to standard output")
-        }
-    }
+    let mut out = Output::open(path, false)?;
+    out.stream().write_all(text.as_bytes())?;
+    out.finish()
 }
 
 /// Where a command's output goes while it is written: standard output, or
@@ -347,7 +369,7 @@ impl Output {
     /// A file that cannot be made beside the path.
     pub(crate) fn open(path: Option<&Path>, binary: bool) -> Result<Self> {
         let (sink, rename): (Box<dyn Write>, _) = match path {
-            None => (Box::new(io::stdout().lock()), None),
+            None => (Box::new(Stdout::lock()), None),
             Some(path) if fs::metadata(path).is_ok_and(|m| !m.is_file()) => {
                 let file = fs::File::create(path)
                     .with_context(|| format!("cannot write {}", path.display()))?;

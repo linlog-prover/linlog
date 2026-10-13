@@ -182,9 +182,11 @@ impl Session {
     fn run(&mut self) -> Result<Status> {
         let stdin = std::io::stdin();
         let prompt = stdin.is_terminal();
-        let mut stdout = std::io::stdout();
+        let mut stdout = io::Stdout::lock();
         let mut lines = stdin.lock().lines();
-        loop {
+        // A reader that closed the pipe ends the session as the end of
+        // its input does.
+        while !io::closed() {
             if prompt {
                 write!(stdout, "> ")?;
                 stdout.flush()?;

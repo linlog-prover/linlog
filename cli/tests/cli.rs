@@ -1476,6 +1476,29 @@ fn every_entry_file_lies_inside_the_directory() {
     assert!(out.join("-:1.json").is_file() && out.join("-:2.json").is_file());
 }
 
+/// A reader that closes standard output keeps the verdict's exit status:
+/// what is written after is dropped, where it once ended in an error, exit
+/// status 2.
+#[test]
+fn a_closed_pipe_keeps_the_verdict() {
+    for (sequent, status) in [("|- a * b * c * d * e, ~a, ~b, ~c, ~d, ~e", 0), ("|- a", 1)] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
+            .args(["prove", "--tree", "always", sequent])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        drop(child.stdout.take());
+        let out = child.wait_with_output().unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(status),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+}
+
 /// `check` gives up at its limits with an unknown verdict, exit status 3,
 /// which its JSON says too; an outcome that holds no proof is refused
 /// with what it is; an invalid proof is `invalid` in JSON with the error.
