@@ -138,14 +138,14 @@ impl Run<'_> {
     /// [`forced_factor`](Self::forced_factor) found it, and, as long as
     /// the factor they leave is a `⊗` with a forced split again, of that
     /// factor, in a loop: a tensor of a thousand literals costs one level
-    /// of recursion and one copy of the context, not a thousand. `rest` is the context, from which
-    /// every forcing factor takes its own; `links` gets every `⊗` with the
-    /// proof of its forcing factor and whether that is the left one, and
-    /// `cursors` remembers where the chain's lookups of duals ended.
-    /// Returns the proof of the factor left at the end with what remains
-    /// of the context. The chain visits no stable sequent, so it polls
-    /// the stop condition itself, once every [`FORCED_PER_POLL`] splits
-    /// and literals closed.
+    /// of recursion and one copy of the context, not a thousand. `rest`
+    /// is the context, from which every forcing factor takes its own;
+    /// `links` gets every `⊗` with the proof of its forcing factor and
+    /// whether that is the left one, and `cursors` remembers where the
+    /// chain's lookups of duals ended. Returns the proof of the factor
+    /// left at the end with what remains of the context. The chain visits
+    /// no stable sequent, so it polls the stop condition itself, once
+    /// every [`FORCED_PER_POLL`] splits and literals closed.
     fn forced_splits(
         &mut self,
         theta: &OccSet,

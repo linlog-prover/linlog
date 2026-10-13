@@ -243,7 +243,9 @@ impl Context {
     }
 
     /// Returns each member once, in ascending order, with the number of
-    /// its copies.
+    /// its copies. Always inlined: `canonical_from` walks it per stable
+    /// sequent that renames a member, where a call was measurable.
+    #[inline(always)]
     fn with_copies(&self) -> impl Iterator<Item = (OccId, u32)> + '_ {
         // The extra list is in ascending order, like the set.
         let mut extra = self.extra.iter().peekable();
