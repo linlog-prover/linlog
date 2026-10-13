@@ -58,6 +58,10 @@ browser or a stranger's file would.
   a run, read the failing tests of every caught mutant's log
   (`mutants.out/log/`, and `mutants.out.old/` for the first pass) and
   rerun a batch with a catch by one test that also fails unmutated.
+- A mutant that fails one test and hangs another is filed as a
+  timeout: after a failure nextest waits for the tests still running.
+  Before a timed-out mutant counts as surviving, read its log's `FAIL`
+  lines; a test that fails there, and passes unmutated, catches it.
 
 ## Fuzzing (`fuzz/`, `modules/fuzz.nix`)
 
