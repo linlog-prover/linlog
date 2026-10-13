@@ -11,7 +11,7 @@ use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
-    Ended, STEPS_PER_CLOCK, Show, Shown, derivation, describe, net_into, nets_exist,
+    Ended, STEPS_PER_CLOCK, Show, Shown, Stop, derivation, describe, net_into, nets_exist,
     on_large_stack, searched, statistics, stopped, verdict_line,
 };
 use crate::settings::{Threads, time_limit};
@@ -504,6 +504,17 @@ impl Shared {
         }
     }
 
+    /// Returns why an entry's search or derivation was stopped, if it was:
+    /// Ctrl-C, its own time limit, or the batch's.
+    fn stopped(&self, deadline: &Deadline) -> Option<Stop> {
+        stopped(deadline).or_else(|| {
+            self.batch
+                .passed()
+                .then(|| self.batch.limit().map(Stop::BatchTimeout))
+                .flatten()
+        })
+    }
+
     /// Whether the results are JSON Lines: JSON without a directory.
     fn json_lines(&self) -> bool {
         self.show.format == Format::Json && self.directory.is_none()
@@ -569,9 +580,7 @@ impl Shared {
         })?;
         let Some(forest) = loaded else {
             let limit = deadline.limit().expect("only a limit passes");
-            let line = format!(
-                "unknown: the time limit of {limit:?} was reached while the sequent was read"
-            );
+            let line = crate::prove::unread(limit);
             return Ok(Done {
                 text: self.line(&entry.name, "unknown", &line),
                 status: Status::Unknown,
@@ -605,12 +614,8 @@ impl Shared {
         }
         .map_err(|e| describe(e, sequent))?;
         let elapsed = start.elapsed();
-        let stop = stopped(&deadline).or_else(|| stopped(&self.batch));
-        let status = match outcome.verdict {
-            Verdict::Proved(_) => Status::Yes,
-            Verdict::Unprovable(_) => Status::No,
-            Verdict::Unknown(_) => Status::Unknown,
-        };
+        let stop = self.stopped(&deadline);
+        let status = Status::from(&outcome.verdict);
         let ended = Ended { stop, elapsed };
         let line = match &image {
             Some(image) => ordinary::verdict_line(&outcome, image, &ended),
@@ -626,7 +631,6 @@ impl Shared {
         } else {
             format!("{}: {line}", entry.name)
         };
-        let over = || interrupted() || deadline.passed() || self.batch.passed();
         if let Some(directory) = &self.directory
             && let Some(note) = self.write(
                 &entry.name,
@@ -634,7 +638,7 @@ impl Shared {
                 &outcome,
                 (mode, image.as_ref()),
                 &line,
-                over,
+                &deadline,
             )?
         {
             text.push_str(&format!("\n  {note}"));
@@ -648,7 +652,7 @@ impl Shared {
     }
 
     /// Writes the outcome, or the proof's derivation or net, into its file
-    /// in `directory`, and returns the line that says why nothing was
+    /// in `directory`, under the entry's `deadline`, and returns the line that says why nothing was
     /// written when a proof's file is not.
     fn write(
         &self,
@@ -657,9 +661,10 @@ impl Shared {
         outcome: &Outcome,
         (mode, image): (Mode, Option<&Image>),
         line: &str,
-        over: impl Fn() -> bool,
+        deadline: &Deadline,
     ) -> Result<Option<String>> {
         let show = &self.show;
+        let over = || interrupted() || deadline.passed() || self.batch.passed();
         let path = file_for(directory, name, show.format);
         let open = || -> Result<io::Output> {
             if let Some(parent) = path.parent() {
@@ -680,12 +685,7 @@ impl Shared {
         let mut out = open()?;
         let prefix = (show.verdict && !show.format.is_binary())
             .then(|| format!("{}\n", crate::prove::note(show.format, line)));
-        let why = || match self.timeout {
-            _ if interrupted() => "interrupted".to_owned(),
-            _ if self.batch.passed() => "the batch's time limit was reached".to_owned(),
-            Some(t) => format!("the time limit of {t:?} was reached"),
-            None => "stopped".to_owned(),
-        };
+        let why = || Stop::why(self.stopped(deadline));
         let shown = if show.net {
             let found = outcome.net.as_deref();
             net_into(

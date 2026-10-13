@@ -115,8 +115,29 @@ pub(crate) fn stopped(deadline: &Deadline) -> Option<Stop> {
 pub(crate) enum Stop {
     /// The time limit passed.
     Timeout(Duration),
+    /// A batch's own time limit passed.
+    BatchTimeout(Duration),
     /// The user pressed Ctrl-C.
     Interrupt,
+}
+
+impl Stop {
+    /// Says why a derivation or a drawing was left out or cut short.
+    pub(crate) fn why(stop: Option<Self>) -> String {
+        match stop {
+            Some(Self::Interrupt) => "interrupted".to_owned(),
+            Some(Self::Timeout(t)) => format!("the time limit of {t:?} was reached"),
+            Some(Self::BatchTimeout(t)) => format!("the batch's time limit of {t:?} was reached"),
+            None => "stopped".to_owned(),
+        }
+    }
+}
+
+/// Returns the line of a sequent the time limit passed on before it was
+/// read: nothing is known of it, so the line names no fragment and no
+/// engine.
+pub(crate) fn unread(limit: Duration) -> String {
+    format!("unknown: the time limit of {limit:?} was reached while the sequent was read")
 }
 
 /// How many inferences are built, or pieces of text written, between two
@@ -992,9 +1013,8 @@ pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
 /// engine, since nothing is known of the sequent. The line is the output,
 /// as a comment of the format; JSON has no form for it, so there it goes
 /// to standard error.
-fn unread(args: &ProveArgs, limit: Duration) -> Result<Status> {
-    let line =
-        format!("unknown: the time limit of {limit:?} was reached while the sequent was read");
+fn unread_into(args: &ProveArgs, limit: Duration) -> Result<Status> {
+    let line = unread(limit);
     // A file holds a derivation or nothing, and JSON has no form for this.
     match (args.output.format(), &args.output.output) {
         (Format::Json, _) | (_, Some(_)) => eprintln!("{line}"),
@@ -1038,7 +1058,7 @@ pub fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");
-        return unread(args, limit);
+        return unread_into(args, limit);
     };
     let (forest, image) = forest?;
     let sequent = forest.sequent();
@@ -1074,11 +1094,7 @@ pub fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
         let stop = stopped(&deadline);
         drop(notice);
         let elapsed = start.elapsed();
-        let status = match outcome.verdict {
-            Verdict::Proved(_) => Status::Yes,
-            Verdict::Unprovable(_) => Status::No,
-            Verdict::Unknown(_) => Status::Unknown,
-        };
+        let status = Status::from(&outcome.verdict);
         let mut out = io::Output::open(args.output.output.as_deref(), format.is_binary())?;
         if format == Format::Json {
             serde_json::to_writer(out.stream(), &outcome)?;
@@ -1100,11 +1116,7 @@ pub fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
             steps = steps.wrapping_add(1);
             steps.is_multiple_of(STEPS_PER_CLOCK) && over()
         };
-        let why = || match deadline.limit() {
-            _ if interrupted() => "interrupted".to_owned(),
-            Some(t) => format!("the time limit of {t:?} was reached"),
-            None => "stopped".to_owned(),
-        };
+        let why = || Stop::why(stopped(&deadline));
         let shown = match (&outcome.verdict, format, quiet) {
             (Verdict::Proved(proof), _, false) if show.net => {
                 let found = outcome.net.as_deref();
@@ -1204,7 +1216,14 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
                 "the time limit of {t:?} was reached{at}; --timeout DURATION gives the search longer"
             )
         }
+        (Reason::Stopped, Some(Stop::BatchTimeout(t))) => format!(
+            "the batch's time limit of {t:?} was reached{at}; --batch-timeout DURATION gives the \
+             batch longer"
+        ),
         (Reason::Stopped, Some(Stop::Interrupt)) => format!("interrupted {after}{at}"),
+        (Reason::WorkLimit { .. }, _) => {
+            format!("{reason} {after}{at}; raise it with --work-limit N")
+        }
         (Reason::CopyBound { .. }, _) => format!(
             "{reason} {after}; raise it with --copies N, or lift it with --copies none to deepen \
              it while the time limit lasts"

@@ -67,6 +67,17 @@ impl Status {
     }
 }
 
+impl From<&linlog::search::Verdict> for Status {
+    /// Returns the status of a verdict: proved, unprovable or unknown.
+    fn from(verdict: &linlog::search::Verdict) -> Self {
+        match verdict {
+            linlog::search::Verdict::Proved(_) => Self::Yes,
+            linlog::search::Verdict::Unprovable(_) => Self::No,
+            linlog::search::Verdict::Unknown(_) => Self::Unknown,
+        }
+    }
+}
+
 /// The exit status of an error: bad arguments (as clap reports them),
 /// unreadable input, a sequent no engine handles.
 const ERROR: u8 = 2;
