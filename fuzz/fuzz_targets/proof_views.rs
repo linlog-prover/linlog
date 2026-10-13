@@ -40,8 +40,12 @@ fuzz_target!(|data: &[u8]| {
     let limits = Limits::default()
         .with_memory_bytes(Some(1 << 26))
         .with_derivation_bytes(Some(1 << 22))
-        .with_work(Some(1 << 22));
-    let Ok(proof) = serde_json::from_slice::<Proof>(json) else {
+        .with_work(Some(1 << 22))
+        .with_occurrences(Some(1 << 16));
+    // Read as `check` reads a proof file: through the wire level, its
+    // sequent within the limits.
+    let mut document = serde_json::Deserializer::from_slice(json);
+    let Ok(proof) = linlog::wire::upgrade::<Proof, _>(&mut document, &limits) else {
         return;
     };
     if proof.check_within(mode, &limits, |_| false).is_err() {
