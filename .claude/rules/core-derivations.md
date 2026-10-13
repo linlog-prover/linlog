@@ -4,7 +4,7 @@ paths:
   - "core/src/proofs/size.rs"
   - "core/src/proofs/fmt.rs"
   - "core/src/proofs/multiset.rs"
-  - "core/src/proofs/interactive.rs"
+  - "core/src/proofs/interactive/**"
 ---
 
 # linlog core: the derivation view and interactive proving
@@ -255,7 +255,9 @@ itself.
 
 ## Interactive proving
 
-`proofs/interactive.rs` (feature `interactive`) is the state a client
+`proofs/interactive/` (feature `interactive`; `mod.rs` the types, the
+queries and the tests, `expand.rs` the steps, `replay.rs` a session
+rebuilt from its parts, `terms.rs` the proof term) is the state a client
 holds for step-by-step proving: the forest, the mode, the inferences of a
 derivation of the standard calculus with open goals as leaves, and the
 steps taken. It reuses `Inference` (its arena private, numbered by

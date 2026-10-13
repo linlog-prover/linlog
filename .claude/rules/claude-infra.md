@@ -55,7 +55,7 @@ Current contents:
   - `rules/core-proofs.md` (`proofs/mod.rs`, `check/`, `oracle.rs`):
     proof terms and the checker;
   - `rules/core-derivations.md` (`proofs/derivation/`, `size.rs`,
-    `fmt.rs`, `multiset.rs`, `interactive.rs`): the derivation view, its
+    `fmt.rs`, `multiset.rs`, `interactive/`): the derivation view, its
     size and bounds, the compact view, the text tree, interactive proving;
   - `rules/core-search.md` (`search/mod.rs`, `memory.rs`, `work.rs`,
     `additive.rs`, `reference.rs`, `refutation.rs`): the search's front door, the engine
