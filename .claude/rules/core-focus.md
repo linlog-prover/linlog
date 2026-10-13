@@ -38,7 +38,7 @@ relies on:
   the sequent alone, so a run stays deterministic; `Counts::new_until`
   reads it once per search and the engine reads polarities off
   `Counts::positive`, so that the option reaches every place a literal's
-  polarity matters, `literal_tensor` included; it lived in the forest
+  polarity matters, `Counts::forced` included; it lived in the forest
   until the forest's only reader was this engine).
   Focusing is
   complete for every assignment of polarities to atoms, so the bias is
@@ -209,9 +209,8 @@ relies on:
   are equal the one `get` of before. **The canonical key is built only
   where it differs** (`Classes::renames`: the zone's words against the
   set of occurrences that are not the first of their class, a few words
-  per stable sequent): building it for every stable sequent, of which
-  under 5 % renamed a member, was 12.5 % of `search-qbf-20-2`. Keying
-  `Θ` by class too would merge more (a `?`
+  per stable sequent), since most stable sequents rename no member.
+  Keying `Θ` by class too would merge more (a `?`
   below interchangeable members adds different ids) and is not done: it
   would cost a pass over `Θ` per stable sequent. Measured (stable
   sequents, memo entries): the unsolvable 3-Partition with bins of four
@@ -655,7 +654,7 @@ relies on:
   sequent. `⊤`, `⊥` and negative literals force nothing: `⊢ ⊥ ⊗ b, a, ~a,
   ~b` needs `{a, ~a}` on the `⊥` side.
 - **A factor that is a tensor of positive literals forces its side too**
-  (`Forced::Duals`, `Counts::literal_tensor`): one dual per literal, each
+  (`Forced::Duals`, `Counts::forced`): one dual per literal, each
   the first left in `Γ`, and the candidate fails when one is missing;
   the factor's proof is then built in place (`literal_tensor`: the
   axioms and the `⊗` nodes from the last occurrence back), with no focus
@@ -849,15 +848,18 @@ relies on:
   in 0.35 s; at 4 096 the counts of a split per link (a frame keeps its
   own, as the recursion kept them on the stack) reach the memory bound.
   **The stack per level** (`Limits::PER_LEVEL`, twice the most
-  measured) is measured as the smallest stack on which a search reaches
-  its recursion limit, at limits of 500 and 1 000, on the three shapes
-  that recurse: a right-nested chain of tensors whose splits are
-  searched (`focus`, `split`, `free_split`, `search_splits`,
-  `premises`), nested `&`, and a Mix of `a ⅋ ~a` pairs (`prove`,
-  `decide`, `mix`, `search_splits`, `parts`): 1.2, 0.4 and 1.4 KiB per
-  level in release, 5.8, 1.4 and 6.4 KiB in debug (2026-10-13). The
-  Mix's levels are the deepest; a first measurement of the chain alone
-  had left `PER_LEVEL` at 1.6 times the Mix's. The default of 2048
+  measured, the numbers in its doc) is measured as the smallest stack on
+  which a search reaches its recursion limit, at limits of 500 and
+  1 000, on each of the three shapes that recurse: a right-nested chain
+  of tensors whose splits are searched (`focus`, `split`, `free_split`,
+  `search_splits`, `premises`), nested `&`, and a Mix of `a ⅋ ~a` pairs
+  (`prove`, `decide`, `mix`, `search_splits`, `parts`), whose levels are
+  the deepest; one shape alone measured too little. `free_split`,
+  `open_split`, `next_split`, `holding` and `two_premises` are
+  `#[inline(always)]`, so that a debug build adds no frame of theirs to
+  a level, and `premises` and `parts` stay functions of their own:
+  inlined into `search_splits`, both rules' locals take its frame in a
+  debug build (half a KiB more per level). The default of 2048
   levels fits an 8 MiB main-thread stack in a release build; in a debug
   build a recursion to the limit takes up to 13 MiB, which the threads
   `stack_bytes` sizes have and a debug caller's main thread does not.

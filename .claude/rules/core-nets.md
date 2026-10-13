@@ -94,9 +94,8 @@ code relies on:
   which skips the search-tree parent vertex, valid because the graph is
   simple: a literal's tree edge and its link never join the same pair).
   A search resets nothing: discovery times rise from search to search,
-  and a vertex was reached iff its time is at least the search's `base`
-  (the reset over the width was 5 % of `search-wide-m2-256`), so a new
-  reader of `disc` compares with `base`.
+  and a vertex was reached iff its time is at least the search's
+  `base`, so a new reader of `disc` compares with `base`.
 - **The Yeo test is exact on partial structures.** `acyclic` deletes, in
   rounds, every vertex deletable by the round's bridges and stops when a
   round deletes nothing: everything gone means no switching cycle, and

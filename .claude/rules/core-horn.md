@@ -139,9 +139,7 @@ front door, the dispatch and the memory account it plugs into are in
   b * c), a |- b`: without the clause that needs a `c`, nothing makes
   `b`). One pass, a count of missing inputs per transition, made where the
   program is read: `Program::of` reads a goal once per task (the task's
-  cell), for the dispatch's feature, `admits` and the search alike;
-  three readings, one each, were 62 % of the `search-spec-chain`
-  journey.
+  cell), for the dispatch's feature, `admits` and the search alike.
 - **Every count of the program fits a `u32`**: a weight counts literals
   of one clause, a marking's count literals of the goal, a place an atom
   or a class, and a forest has fewer than 2³² occurrences. Counts that
