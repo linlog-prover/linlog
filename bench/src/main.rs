@@ -145,7 +145,7 @@ pub struct RunArgs {
     /// The engines to run every problem with: `auto` (the one the fragment
     /// calls for), `focus`, `net`, `two-sided`, `additive` or `horn`; a forced
     /// engine that does not apply to a problem gives a `refused` row
-    #[arg(long, value_delimiter = ',', default_value = "auto")]
+    #[arg(long, value_delimiter = ',', default_value = "auto", value_parser = run::EngineChoice::parser())]
     engines: Vec<run::EngineChoice>,
     /// The thread counts to run every problem with; `all` is every core
     #[arg(long, value_delimiter = ',', default_value = "1")]
@@ -226,7 +226,7 @@ pub struct OneArgs {
     #[arg(long)]
     mode: run::ModeChoice,
     /// The engine to run
-    #[arg(long)]
+    #[arg(long, value_parser = run::EngineChoice::parser())]
     engine: run::EngineChoice,
     /// The threads
     #[arg(long)]

@@ -157,34 +157,24 @@ fn forward_copies(asked: Option<u32>) -> u32 {
     asked.unwrap_or(Options::DEFAULT_FORWARD_COPIES)
 }
 
-/// Which engine to run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
-pub enum EngineChoice {
-    /// The one the fragment and the mode call for
-    Auto,
-    /// The focused engine, one-sided
-    Focus,
-    /// The proof-net engine
-    Net,
-    /// The focused engine, two-sided
-    TwoSided,
-    /// The additive fast path
-    Additive,
-    /// The Horn engine
-    Horn,
-}
+/// Which engine to run: one the library names, or `None` for the one the
+/// fragment and the mode call for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EngineChoice(pub Option<Engine>);
 
 impl EngineChoice {
-    /// Returns the engine to force, if any.
-    fn engine(self) -> Option<Engine> {
-        match self {
-            Self::Auto => None,
-            Self::Focus => Some(Engine::Focus),
-            Self::Net => Some(Engine::Net),
-            Self::TwoSided => Some(Engine::TwoSided),
-            Self::Additive => Some(Engine::Additive),
-            Self::Horn => Some(Engine::Horn),
-        }
+    /// Reads an engine's name, as the library spells it, or `auto`.
+    pub fn parser() -> impl clap::builder::TypedValueParser<Value = Self> {
+        use clap::builder::TypedValueParser as _;
+        clap::builder::PossibleValuesParser::new(
+            std::iter::once("auto").chain(Engine::NAMES.iter().copied()),
+        )
+        .map(|name| Self(name.parse().ok()))
+    }
+
+    /// Returns the engine's name, `auto` for the automatic choice.
+    fn name(self) -> &'static str {
+        self.0.map_or("auto", Engine::name)
     }
 }
 
@@ -277,7 +267,7 @@ pub fn run(args: &RunArgs) -> Result<()> {
                         &reference.family,
                         &reference.name,
                         mode_name(mode),
-                        &name(&engine),
+                        engine.name(),
                         &threads.to_string(),
                         &args.test_period.map_or(String::new(), |p| p.to_string()),
                         &name(&args.bias),
@@ -303,7 +293,7 @@ pub fn run(args: &RunArgs) -> Result<()> {
                             reference.index.map_or(String::new(), |i| i.to_string()),
                             reference.name,
                             mode_name(mode),
-                            name(&engine),
+                            engine.name().to_owned(),
                             args.test_period.map_or(String::new(), |p| p.to_string()),
                             args.timeout,
                         )?;
@@ -318,7 +308,7 @@ pub fn run(args: &RunArgs) -> Result<()> {
                                  about {left:.0} min left",
                                 reference.name,
                                 mode_name(mode),
-                                name(&engine),
+                                engine.name().to_owned(),
                                 fields[3],
                             );
                         }
@@ -406,7 +396,7 @@ fn child(
     let mut command = Command::new(exe);
     command
         .args(["one", "--problem", &reference.id])
-        .args(["--mode", &name(&mode), "--engine", &name(&engine)])
+        .args(["--mode", &name(&mode), "--engine", engine.name()])
         .args([
             "--jobs",
             &jobs.to_string(),
@@ -593,7 +583,7 @@ fn tail(args: &OneArgs) -> String {
         Err(_) => (0, 0),
     };
     let options = Options::default()
-        .with_engine(args.engine.engine())
+        .with_engine(args.engine.0)
         .with_jobs(args.jobs)
         .with_copies(copies)
         .with_bias(args.bias.bias())

@@ -538,8 +538,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 
 ## Extension points
 
-- **An engine**: a variant of `EngineArg` with a doc comment (its `--help`
-  line) and its arm in `From<EngineArg> for Option<Engine>`. The verdict
+- **An engine**: its name reaches `--engine` from `Engine::NAMES`
+  (`engine_name`, and the harness's `EngineChoice::parser`), so the
+  command needs only a sentence in `--engine`'s long help. The verdict
   line prints `Engine`'s `Display`; `--stats` prints the counters its
   `Engine::counters` lists, so the command needs nothing for them.
 - **An `interact` command**: an arm in `Session::command`, a line in

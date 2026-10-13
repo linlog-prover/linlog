@@ -189,7 +189,7 @@ impl ProveArgs {
         };
         self.search.apply(&mut settings, &apply);
         if apply.set("engine") {
-            settings.search.engine = self.engine.into();
+            settings.search.engine = self.engine.0;
         }
         if apply.set("fragment") {
             settings.search.fragment = self.fragment.map(Into::into);

@@ -1,6 +1,7 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+use clap::builder::TypedValueParser;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::proofs::Compact;
 use linlog::search::{Cadence, Engine, Options, Schedule};
@@ -102,9 +103,21 @@ pub struct ProveArgs {
     /// is a way to compare them.
     #[arg(long, value_enum, value_name = "FRAGMENT")]
     pub fragment: Option<FragmentArg>,
-    /// The engine to search with
-    #[arg(long, value_enum, value_name = "ENGINE", default_value_t = EngineArg::Auto)]
-    pub engine: EngineArg,
+    /// The engine to search with, or `auto` for the one the fragment and
+    /// the mode call for (search.engine)
+    ///
+    /// `focus` is focused sequent search, for every classical fragment,
+    /// with or without units, Mix, exponentials and weakening;
+    /// `two-sided` the same for every intuitionistic fragment; `net`
+    /// proof-net search, for MLL without units, with or without Mix, and
+    /// in intuitionistic mode for IMLL without units by its embedding;
+    /// `additive` the fast path for two additive-only formulas, in every
+    /// mode; `horn` the markings of a Petri net, for Horn programs (atoms,
+    /// implications between tensors of atoms, such implications under !,
+    /// and one goal that is a tensor of atoms): reachability in linear
+    /// mode, coverability in affine mode.
+    #[arg(long, value_name = "ENGINE", value_parser = engine_name(), default_value = "auto")]
+    pub engine: Forced,
     /// The search's options, bounds and threads.
     #[command(flatten)]
     pub search: SearchArgs,
@@ -1148,42 +1161,16 @@ impl From<FragmentArg> for Fragment {
     }
 }
 
-/// The engines `--engine` names.
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EngineArg {
-    /// The engine the fragment and the mode call for
-    Auto,
-    /// Focused sequent search, for every classical fragment, with or
-    /// without units, Mix, exponentials and weakening
-    Focus,
-    /// Proof-net search, for MLL without units, with or without Mix; in
-    /// intuitionistic mode for IMLL without units, by its embedding into
-    /// MLL
-    Net,
-    /// Focused sequent search two-sided, for every intuitionistic fragment
-    TwoSided,
-    /// The fast path for a sequent of two additive-only formulas, in every
-    /// mode
-    Additive,
-    /// Markings of a Petri net, for Horn programs: atoms, implications
-    /// between tensors of atoms, such implications under !, and one goal
-    /// that is a tensor of atoms; reachability in linear mode, coverability
-    /// in affine mode
-    Horn,
-}
+/// The engine `--engine` forces, or `None` for the automatic choice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Forced(pub Option<Engine>);
 
-impl From<EngineArg> for Option<Engine> {
-    /// Returns the engine the name forces, or `None` for automatic choice.
-    fn from(e: EngineArg) -> Self {
-        match e {
-            EngineArg::Auto => None,
-            EngineArg::Focus => Some(Engine::Focus),
-            EngineArg::Net => Some(Engine::Net),
-            EngineArg::TwoSided => Some(Engine::TwoSided),
-            EngineArg::Additive => Some(Engine::Additive),
-            EngineArg::Horn => Some(Engine::Horn),
-        }
-    }
+/// Reads an engine's name, as the library spells it, or `auto`.
+fn engine_name() -> impl TypedValueParser<Value = Forced> {
+    clap::builder::PossibleValuesParser::new(
+        std::iter::once("auto").chain(Engine::NAMES.iter().copied()),
+    )
+    .map(|name| Forced(name.parse().ok()))
 }
 
 /// The rules `--bias` names.
