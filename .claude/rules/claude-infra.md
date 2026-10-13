@@ -54,7 +54,7 @@ Current contents:
     `OccSet`, the intuitionistic reading;
   - `rules/core-proofs.md` (`proofs/mod.rs`, `check/`, `oracle.rs`):
     proof terms and the checker;
-  - `rules/core-derivations.md` (`proofs/derivation.rs`, `size.rs`,
+  - `rules/core-derivations.md` (`proofs/derivation/`, `size.rs`,
     `fmt.rs`, `multiset.rs`, `interactive.rs`): the derivation view, its
     size and bounds, the compact view, the text tree, interactive proving;
   - `rules/core-search.md` (`search/mod.rs`, `memory.rs`, `work.rs`,

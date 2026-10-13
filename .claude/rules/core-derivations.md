@@ -1,6 +1,6 @@
 ---
 paths:
-  - "core/src/proofs/derivation.rs"
+  - "core/src/proofs/derivation/**"
   - "core/src/proofs/size.rs"
   - "core/src/proofs/fmt.rs"
   - "core/src/proofs/multiset.rs"
@@ -15,7 +15,9 @@ a proof comes from the checker's pass (`core-proofs.md`, "The checker").
 
 ## The derivation view
 
-`proofs/derivation.rs` unfolds a checked term into the tree of standard
+`proofs/derivation/` (`view.rs` the options, `Inference` and
+`Derivation`, `build.rs` the translation and what it holds, `mod.rs`
+the tests) unfolds a checked term into the tree of standard
 one-sided inferences (`Inference`, non-exhaustive with `pub(crate)`
 fields and the accessors `sequent()`, `rule()`, `principal()`,
 `premises()`, `times()`; premises before conclusions, root last, the rule

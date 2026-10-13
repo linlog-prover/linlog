@@ -1,0 +1,363 @@
+// linlog © Fabian Lukas Grubmüller 2026
+// Licensed under the EUPL
+
+//! The derivation view's public face: its options, its inferences and
+//! the queries a renderer asks.
+
+use super::build::unfold;
+use crate::Error;
+use crate::fragment::Mode;
+use crate::limits::{Limits, Progress};
+use crate::occurrences::{Forest, Member, OccId, Reading};
+use crate::proofs::check;
+use crate::proofs::{Named, Proof};
+
+/// The index of an inference in a derivation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde(transparent))]
+pub struct InfId(u32);
+
+impl InfId {
+    /// Wraps a raw index.
+    pub const fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    /// Returns the raw index.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    /// Returns the index as a `usize`, for indexing the inferences.
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
+/// How a derivation is shown: the one value that every path which builds
+/// a derivation takes, whatever it then draws or writes. The bounds that
+/// keep a call from building what the machine cannot hold are the
+/// [`Limits`] beside it: `derivation_bytes`, the most bytes a derivation
+/// may be estimated to take ([`Size::bytes`]) and still be built (a proof
+/// stores a shared subproof once and its derivation repeats it, and every
+/// inference carries its whole sequent, so a derivation can be larger than
+/// its proof by any factor), and `memory_bytes`, the most the making of
+/// one may hold at once, every pass of the checker on the way and the
+/// derivation itself by the same estimate.
+///
+/// # JSON
+///
+/// With the feature `serialize` an object `{"compact": "auto", "sides":
+/// "auto"}`, `compact` one of `"auto"`, `"always"` and `"never"`, `sides`
+/// one of `"auto"`, `"one"` and `"two"`; a key left out keeps its default,
+/// and an unknown one is refused, as for every options value.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default, deny_unknown_fields))]
+pub struct ViewOptions {
+    /// Whether a run of one structural rule is drawn as one inference.
+    pub compact: Compact,
+    /// Whether the derivation is one-sided or two-sided.
+    pub sides: Sides,
+}
+
+/// Whether a derivation is drawn one-sided, as classical linear logic
+/// writes it, or two-sided, as intuitionistic linear logic does.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Sides {
+    /// Two-sided exactly when the proof was found in intuitionistic mode
+    /// ([`Proof::mode`]), one-sided otherwise.
+    #[default]
+    Auto,
+    /// One-sided.
+    One,
+    /// Two-sided, under the sequent's intuitionistic reading.
+    Two,
+}
+
+/// Whether a derivation draws a run of one structural rule, such as the
+/// weakenings of every unused `?` formula, as one inference labelled with
+/// a star.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Compact {
+    /// Every rule as its own inference, unless the derivation would then
+    /// pass a bound of the options and the compact one would not.
+    #[default]
+    Auto,
+    /// Every run as one inference.
+    Always,
+    /// Every rule as its own inference.
+    Never,
+}
+
+impl ViewOptions {
+    /// Returns the options with another [`compact`](Self::compact).
+    #[must_use]
+    pub const fn with_compact(self, compact: Compact) -> Self {
+        Self { compact, ..self }
+    }
+
+    /// Returns the options with another [`sides`](Self::sides).
+    #[must_use]
+    pub const fn with_sides(self, sides: Sides) -> Self {
+        Self { sides, ..self }
+    }
+
+    /// Returns whether a derivation of `proof` is two-sided.
+    pub(crate) fn two_sided(&self, proof: &Proof) -> bool {
+        match self.sides {
+            Sides::One => false,
+            Sides::Two => true,
+            Sides::Auto => proof.mode().is_some_and(Mode::is_intuitionistic),
+        }
+    }
+}
+
+/// One inference of a derivation: the sequent it concludes, the rule, and
+/// the inferences of its premises.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Inference {
+    /// The sequent concluded, as members in ascending order, one repeated
+    /// as often as the sequent holds it.
+    pub(crate) sequent: Vec<Member>,
+    /// The rule applied, as the derivation names it.
+    pub(crate) rule: Named,
+    /// The position in `sequent` of the formula the rule introduces or
+    /// removes: `None` for an axiom, whose sequent is its two literals, and
+    /// for Mix.
+    pub(crate) principal: Option<usize>,
+    /// The premises, in the rule's order.
+    pub(crate) premises: Vec<InfId>,
+    /// How many applications of the rule the inference stands for: one,
+    /// or more for a run of a structural rule that a compact view draws
+    /// as one inference ([`Compact`]), whose principal formula is then
+    /// that of the lowest application.
+    pub(crate) times: u32,
+}
+
+impl Inference {
+    /// Returns the sequent concluded, as members in ascending order, one
+    /// repeated as often as the sequent holds it.
+    pub fn sequent(&self) -> &[Member] {
+        &self.sequent
+    }
+
+    /// Returns the rule applied, as the derivation names it.
+    pub const fn rule(&self) -> Named {
+        self.rule
+    }
+
+    /// Returns the position in [`sequent`](Self::sequent) of the formula
+    /// the rule introduces or removes: `None` for an axiom, whose sequent
+    /// is its two literals, for Mix and for an open goal.
+    pub const fn principal(&self) -> Option<usize> {
+        self.principal
+    }
+
+    /// Returns the premises, in the rule's order.
+    pub fn premises(&self) -> &[InfId] {
+        &self.premises
+    }
+
+    /// Returns how many applications of the rule the inference stands for:
+    /// one, or more for a run of a structural rule that a compact view
+    /// draws as one inference ([`Compact`]), whose principal formula is then
+    /// that of the lowest application.
+    pub const fn times(&self) -> u32 {
+        self.times
+    }
+}
+
+/// A derivation in the standard sequent calculus: the tree of inferences a
+/// proof term stands for, over the proof's forest, one-sided for classical
+/// linear logic or two-sided for intuitionistic linear logic. Premises
+/// precede their conclusion and the root is the last inference.
+///
+/// [`Display`](std::fmt::Display) draws the tree, see [`Proof`] for an example.
+///
+/// A derivation has no JSON form of its own: the proof's form and the
+/// [`ViewOptions`] it was made with make it again.
+#[derive(Clone, Debug)]
+pub struct Derivation<'a> {
+    /// The forest the sequents' occurrences index.
+    forest: &'a Forest,
+    /// The intuitionistic reading, for a two-sided derivation.
+    reading: Option<Reading<'a>>,
+    /// The inferences, premises before conclusions, the root last.
+    inferences: Vec<Inference>,
+    /// Whether the root concludes a goal of a proof rather than the
+    /// sequent.
+    #[cfg_attr(
+        not(feature = "rocq"),
+        expect(dead_code, reason = "only a certificate asks")
+    )]
+    of_goal: bool,
+}
+
+impl<'a> Derivation<'a> {
+    /// Unfolds a proof into the one-sided derivation of classical linear
+    /// logic, unless it is larger than `view` allows or `stop` fires on
+    /// the way, once per inference. The proof must be correct, and the
+    /// unfolding fails as [`check`](Proof::check) would if it is not. Mode
+    /// is not a question here: a derivation shows every rule the proof
+    /// uses.
+    pub(crate) fn new(
+        proof: &'a Proof,
+        view: &ViewOptions,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Self, Error> {
+        Self::build(proof, Self::ONE_SIDED, None, view, limits, stop)
+    }
+
+    /// The most inferences a derivation holds: as many as an [`InfId`]
+    /// counts.
+    pub const MOST: u64 = u32::MAX as u64;
+
+    /// The rules of a one-sided derivation: every rule a proof can use.
+    pub(crate) const ONE_SIDED: Mode = Mode::CLASSICAL.with_affine().with_mix();
+
+    /// The rules of a two-sided derivation, weakening among them so that
+    /// it shows where used.
+    pub(crate) const TWO_SIDED: Mode = Mode::INTUITIONISTIC.with_affine();
+
+    /// Unfolds a proof into the two-sided derivation of intuitionistic
+    /// linear logic, `Γ ⊢ A` at every inference with the intuitionistic
+    /// rule names, unless it is larger than `view` allows or `stop` fires
+    /// on the way. The proof must pass the checker in intuitionistic mode
+    /// (affine or not), and the unfolding fails as it would otherwise.
+    pub(crate) fn two_sided(
+        proof: &'a Proof,
+        view: &ViewOptions,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Self, Error> {
+        let reading = check::reading(proof, Self::TWO_SIDED)?;
+        Self::build(proof, Self::TWO_SIDED, reading, view, limits, stop)
+    }
+
+    /// Checks the proof in `mode` and unfolds it, two-sided when a reading
+    /// is given.
+    fn build(
+        proof: &'a Proof,
+        mode: Mode,
+        reading: Option<Reading<'a>>,
+        view: &ViewOptions,
+        limits: &Limits,
+        mut stop: impl FnMut(Progress) -> bool,
+    ) -> Result<Self, Error> {
+        let conclusion = proof.conclusion();
+        let inferences = unfold(
+            proof,
+            &conclusion,
+            mode,
+            reading.as_ref(),
+            view,
+            limits,
+            &mut stop,
+        )?;
+        Ok(Self {
+            forest: proof.forest(),
+            reading,
+            inferences,
+            of_goal: proof.goal().is_some(),
+        })
+    }
+
+    /// Wraps inferences that already have the derivation's shape: premises
+    /// before conclusions, the root last, two-sided under a reading.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn from_parts(
+        forest: &'a Forest,
+        reading: Option<Reading<'a>>,
+        inferences: Vec<Inference>,
+    ) -> Self {
+        debug_assert!(!inferences.is_empty());
+        Self {
+            forest,
+            reading,
+            inferences,
+            of_goal: false,
+        }
+    }
+
+    /// Returns whether the root concludes a goal of its proof rather than
+    /// the sequent.
+    #[cfg(feature = "rocq")]
+    pub(crate) const fn is_of_goal(&self) -> bool {
+        self.of_goal
+    }
+
+    /// Unfolds a proof whose root concludes `goal` rather than the roots,
+    /// as the search from a goal returns it, into the inferences of its
+    /// derivation, premises before conclusions and the root last, two-sided
+    /// in intuitionistic mode, unless it is larger than `view` allows or
+    /// `stop` fires on the way. Fails as the checker in `mode` would on a
+    /// node that misapplies its rule and on a root that does not conclude
+    /// the goal.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn of_goal(
+        proof: &'a Proof,
+        goal: &[OccId],
+        mode: Mode,
+        view: &ViewOptions,
+        limits: &Limits,
+        stop: &mut dyn FnMut(Progress) -> bool,
+    ) -> Result<Vec<Inference>, Error> {
+        let reading = check::reading(proof, mode)?;
+        // A graft is read rule by rule, never drawn compact.
+        let view = view.with_compact(Compact::Never);
+        unfold(proof, goal, mode, reading.as_ref(), &view, limits, stop)
+    }
+
+    /// Returns the forest the sequents' members index.
+    pub fn forest(&self) -> &'a Forest {
+        self.forest
+    }
+
+    /// Returns the occurrence a member of the derivation stands for.
+    pub fn occurrence(&self, member: Member) -> OccId {
+        member.occ()
+    }
+
+    /// Returns the formula a member of the derivation stands for, as the
+    /// one-sided sequent writes it.
+    pub fn formula(&self, member: Member) -> impl std::fmt::Display + 'a {
+        self.forest.formula(member.occ())
+    }
+
+    /// Returns the intuitionistic reading of a two-sided derivation, or
+    /// `None` for a one-sided one.
+    pub fn reading(&self) -> Option<&Reading<'a>> {
+        self.reading.as_ref()
+    }
+
+    /// Returns every inference, premises before conclusions, the root last.
+    pub fn inferences(&self) -> &[Inference] {
+        &self.inferences
+    }
+
+    /// Returns the inference at `id`, which must belong to this derivation.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
+    pub fn inference(&self, id: InfId) -> &Inference {
+        &self.inferences[id.index()]
+    }
+
+    /// Returns the root: the inference that concludes the sequent.
+    pub fn root(&self) -> InfId {
+        // A derivation has at least one inference and [`MOST`](Self::MOST)
+        // at most.
+        InfId::new(self.inferences.len() as u32 - 1)
+    }
+}
