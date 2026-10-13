@@ -5,7 +5,7 @@
 //! `--style-file` and changed by `--style KEY=VALUE`, `--lemma`,
 //! `--prelude` and `--standalone`.
 
-use crate::argument_parsing::StyleArgs;
+use crate::argument_parsing::{RocqArgs, StyleArgs};
 use crate::io;
 use anyhow::{Context, Result, bail};
 use linlog::export::{Form, Styles};
@@ -26,6 +26,7 @@ const FORMATS: [&str; 7] = ["text", "latex", "typst", "svg", "png", "pdf", "rocq
 pub(crate) fn read(
     base: &Styles,
     args: &StyleArgs,
+    rocq: Option<&RocqArgs>,
     format: Option<&str>,
     standalone: bool,
 ) -> Result<Styles> {
@@ -59,10 +60,10 @@ pub(crate) fn read(
     }
     let mut styles: Styles =
         serde_json::from_value(value).context("the style is not one linlog knows")?;
-    if let Some(lemma) = &args.lemma {
+    if let Some(lemma) = rocq.and_then(|r| r.lemma.as_ref()) {
         styles.rocq.lemma = lemma.parse()?;
     }
-    if let Some(prelude) = &args.prelude {
+    if let Some(prelude) = rocq.and_then(|r| r.prelude.as_ref()) {
         styles.rocq.prelude = Some(prelude.clone());
     }
     if standalone {

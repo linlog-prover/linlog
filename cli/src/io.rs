@@ -57,7 +57,8 @@ pub(crate) fn read(path: Option<&Path>, what: &str) -> Result<String> {
         _ => {
             let mut stdin = io::stdin();
             if stdin.is_terminal() {
-                bail!("no {what} given: pass it as an argument, with --file, or on standard input");
+                let flag = if what == "sequent" { ", with --file," } else { "" };
+                bail!("no {what} given: pass it as an argument{flag} or on standard input");
             }
             let mut text = String::new();
             stdin
@@ -210,7 +211,20 @@ impl SequentInput {
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        admit(sequent_in(&text, format, most)?, most)
+        let sequent = admit(sequent_in(&text, format, most)?, most)?;
+        // A `.p` file is LLTP's unless `--logic` says otherwise, and the
+        // ILTP library's problems are `.p` files too: one that reads both
+        // ways gets a note, since its verdicts differ.
+        if self.input_format == InputFormat::Auto
+            && format == InputFormat::Lltp
+            && linlog::ordinary::read_tptp(&text, &bound(most)).is_ok()
+        {
+            eprintln!(
+                "note: the file is read as an LLTP problem of linear logic; it is also a TPTP \
+                 problem of ordinary logic, which --logic reads"
+            );
+        }
+        Ok(sequent)
     }
 
     /// Reads one formula or sequent of ordinary logic and returns its image
@@ -221,7 +235,11 @@ impl SequentInput {
     ///
     /// As [`sequent`](Self::sequent) does for an ordinary sequent, and the
     /// translation's error.
-    pub(crate) fn image(&self, options: &linlog::ordinary::Options, most: u64) -> Result<(Forest, Image)> {
+    pub(crate) fn image(
+        &self,
+        options: &linlog::ordinary::Options,
+        most: u64,
+    ) -> Result<(Forest, Image)> {
         let (text, format) = self.text(true)?;
         let image = crate::ordinary::image(options, &crate::ordinary::sequent_in(&text, format)?)?;
         let sequent = admit(image.sequent().clone(), most)?;

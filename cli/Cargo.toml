@@ -3,7 +3,7 @@
 
 [package]
 name = "linlog-cli"
-description = "A linear logic suite for all your needs."
+description = "The linlog command: decide, check, prove step by step and export sequents of linear logic, and ordinary logic through its translations."
 version = "0.1.0"
 edition = "2024"
 license = "EUPL-1.2"

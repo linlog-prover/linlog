@@ -216,6 +216,7 @@ impl Show {
         let styles = style::read(
             &settings.styles,
             &output.style,
+            Some(&output.rocq),
             style_key(format),
             output.standalone,
         )?;

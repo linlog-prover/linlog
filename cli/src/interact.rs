@@ -58,7 +58,8 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
     let state = match &args.state {
         Some(path) => load(path)?,
         None => {
-            if args.input.sequent.is_none() && args.input.file.is_empty() {
+            let stdin = args.input.file.iter().any(|f| f.as_os_str() == "-");
+            if stdin || (args.input.sequent.is_none() && args.input.file.is_empty()) {
                 bail!(
                     "no sequent given: pass it as an argument or with --file, since standard input carries the commands"
                 );
@@ -72,7 +73,7 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
     let threads = Threads::of(&settings);
     catch_interrupt();
     let stack_size = limits.stack_bytes();
-    let styles = style::read(&settings.styles, &args.style, None, false)?;
+    let styles = style::read(&settings.styles, &args.style, Some(&args.rocq), None, false)?;
     let mut session = Session {
         styles,
         state,
@@ -91,6 +92,49 @@ fn written(write: impl FnOnce(&mut String) -> Result<(), linlog::Error>) -> Resu
     let mut out = String::new();
     write(&mut out)?;
     Ok(out)
+}
+
+/// Splits a command line into its words as a shell does: at blanks, but
+/// not within single or double quotes, and a backslash outside single
+/// quotes takes the next character as it is.
+///
+/// # Errors
+///
+/// A quote left open, or a backslash at the end of the line.
+fn words(line: &str) -> Result<Vec<String>> {
+    let (mut words, mut word, mut quote, mut started) = (Vec::new(), String::new(), None, false);
+    let mut chars = line.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some(q), c) if c == q => quote = None,
+            (None | Some('"'), '\\') => {
+                word.push(chars.next().context("a backslash ends the line")?);
+                started = true;
+            }
+            (Some(_), c) => word.push(c),
+            (None, '\'' | '"') => {
+                quote = Some(c);
+                started = true;
+            }
+            (None, c) if c.is_whitespace() => {
+                if started {
+                    words.push(std::mem::take(&mut word));
+                    started = false;
+                }
+            }
+            (None, c) => {
+                word.push(c);
+                started = true;
+            }
+        }
+    }
+    if let Some(q) = quote {
+        bail!("the quote {q} is not closed");
+    }
+    if started {
+        words.push(word);
+    }
+    Ok(words)
 }
 
 /// Reads a session from a JSON file.
@@ -138,12 +182,13 @@ impl Session {
                 break;
             };
             let line = line.context("cannot read standard input")?;
-            let words: Vec<&str> = line.split_whitespace().collect();
-            if words.first() == Some(&"quit") {
-                break;
-            }
-            let text = match self.command(&words) {
-                Ok(text) => text,
+            let text = match words(&line) {
+                Ok(words) if words.first().is_some_and(|w| w == "quit") => break,
+                Ok(words) => {
+                    let words: Vec<&str> = words.iter().map(String::as_str).collect();
+                    self.command(&words)
+                        .unwrap_or_else(|e| format!("error: {e:#}"))
+                }
                 Err(e) => format!("error: {e:#}"),
             };
             if !text.is_empty() {
@@ -361,12 +406,16 @@ impl Session {
                 }
             }
             "save" => {
-                let path = rest.first().context("save where? give a file")?;
+                let [path] = rest else {
+                    bail!("save where? give one file, in quotes if its name has blanks");
+                };
                 io::write(Some(Path::new(path)), &serde_json::to_string(&self.state)?)?;
                 format!("session written to {path}")
             }
             "load" => {
-                let path = rest.first().context("load what? give a file")?;
+                let [path] = rest else {
+                    bail!("load what? give one file, in quotes if its name has blanks");
+                };
                 let state = load(Path::new(path))?;
                 // The exit status answers for the session's sequent and
                 // mode, so a file of another question is refused, as
@@ -537,4 +586,25 @@ fn proof_format(word: &str) -> Result<Format> {
              --pdf and --rocq"
         ),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A command's words are split as a shell splits them: quotes keep
+    /// blanks in a word, a backslash takes the next character, and a quote
+    /// left open is an error.
+    #[test]
+    fn words_are_split_as_a_shell_splits_them() {
+        assert_eq!(
+            words(r#"save "my file.json""#).unwrap(),
+            ["save", "my file.json"]
+        );
+        assert_eq!(
+            words(r"  apply 1 0 '?d'  a\ b ''").unwrap(),
+            ["apply", "1", "0", "?d", "a b", ""]
+        );
+        assert!(words("load 'open").is_err());
+    }
 }

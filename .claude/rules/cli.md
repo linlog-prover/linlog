@@ -521,7 +521,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   exited 0.
 - **`interact` needs the sequent as an argument or `--file`**: standard
   input carries the commands, so the fallback to standard input that
-  `SequentInput` gives the other commands is refused with a message. Its
+  `SequentInput` gives the other commands is refused with a message, and
+  so is `--file -`. A command line is split into words as a shell splits
+  it (`words`: quotes keep blanks in a word, a backslash takes the next
+  character), so `save "my file.json"` names one file; `save` and `load`
+  refuse more than one word (`save my file.json` once wrote `my`). Its
   exit status is 0 only when the session ends with a finished proof that
   checks (`Interactive::proof`), 1 otherwise; a refused command is not an
   error of the session. Rule names on the command line are what

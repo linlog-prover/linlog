@@ -9,9 +9,10 @@ use linlog::{Bias, Clock, Fragment, Limits, Mode};
 use std::path::PathBuf;
 use std::time::Duration;
 
-/// How to write a sequent, shown under the help of every command that reads
-/// one.
-const SYNTAX: &str = "\
+/// The syntax of linear logic, for the help texts below.
+macro_rules! linear_syntax {
+    () => {
+        "\
 Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
   tensor  A * B, A ⊗ B        par   A | B, A par B, A ⅋ B
   with    A & B               plus  A + B, A ⊕ B
@@ -19,18 +20,32 @@ Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
   negation  ~A, A^            exponentials  !A, ?A
   units  1, bot, ⊥, top, ⊤, 0
 Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, and last -o, which
-groups to the right.
+groups to the right."
+    };
+}
+
+/// How to write a sequent, shown under the help of every command that reads
+/// one.
+const SYNTAX: &str = linear_syntax!();
+
+/// How to write a sequent of linear or of ordinary logic, shown under the
+/// help of the commands that read ordinary logic with `--logic`.
+const ORDINARY: &str = concat!(
+    linear_syntax!(),
+    "
 
 With --logic the input is ordinary logic: `a, a -> b |- b`, or a formula alone.
   and  a /\\ b, a ∧ b         or   a \\/ b, a ∨ b
   implies  a -> b, a → b      iff  a <-> b, a ↔ b
   not  ~a, ¬a                 constants  true, ⊤, false, ⊥
 Binding, tightest first: ~, /\\, \\/, ->, and last <->; -> and <-> group to
-the right.";
+the right."
+);
 
-/// Decide, print and convert sequents of linear logic.
+/// Decide, check, prove step by step and export sequents of linear logic,
+/// and ordinary logic through its translations
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, after_help = SYNTAX)]
+#[command(version, long_about = None, after_help = ORDINARY)]
 pub(crate) struct Cli {
     /// What to do.
     #[command(subcommand)]
@@ -46,7 +61,25 @@ pub(crate) enum Command {
     /// engine; the first line of the output names both. The exit status is 0
     /// for provable, 1 for unprovable, 3 when the search stopped before
     /// deciding, and 2 for an error.
-    #[command(after_help = SYNTAX)]
+    ///
+    /// Given several times `--file`, a directory, `--files-from`, or an
+    /// input format of many sequents (`lines`, `jsonl`, `problems`; on
+    /// standard input a stream, answered line by line), `prove` decides a
+    /// batch. Paths are taken literally, with no glob or `~`; a directory
+    /// is walked in sorted order, links followed, for the files of the
+    /// input format's extension (`.p` and `.json` for `auto`). Each sequent
+    /// is named by its path as given, or by its line's name or
+    /// `FILE:LINE`, and gets one line in input order, `NAME: VERDICT`, as
+    /// soon as it is decided; with `--format json` a JSON Lines record, `{
+    /// "version", "name", …}` and the outcome's keys, or `{"version",
+    /// "name", "verdict": "error", "error": {…}}` for an entry that could
+    /// not be decided. A drawn format writes a file per proved sequent into
+    /// `--output DIR`. The mode is the flags', or a problem file's column or
+    /// a record's. The exit status is the worst: an error (2) before
+    /// unknown (3) before unprovable (1) before proved (0); a batch that
+    /// holds no sequent is an error, and one interrupted with Ctrl-C, which
+    /// ends its input, is unknown at best.
+    #[command(after_help = ORDINARY)]
     Prove(ProveArgs),
     /// Check a proof read from JSON, as `prove --format json` writes it
     ///
@@ -56,20 +89,29 @@ pub(crate) enum Command {
     Check(CheckArgs),
     /// Prove a sequent step by step, reading commands from standard input
     ///
-    /// The session starts with the whole sequent as the one open goal.
-    /// Commands, one per line: `goals` lists the open goals with the
-    /// positions of their formulas; `rules G P` lists the rules that act on
-    /// formula P of goal G; `apply G P RULE [P…]` applies a rule, the
-    /// further positions being the formulas that go to the left premise of
-    /// a ⊗ or Mix; `undo` retracts the last step; `close [G]` lets the
-    /// search close goal G, or every open goal; `show [latex|typst|svg]`
-    /// draws the derivation so far, as text, as a LaTeX or Typst proof
-    /// tree, or as an SVG document;
-    /// `proof [FILE]` checks the finished proof and prints it, or writes it
-    /// as JSON for `check`; `save FILE` and `load FILE` keep and resume the
-    /// session as JSON; `help`; `quit`. The exit status is 0
-    /// when the session ends with a finished proof that checks, 1
-    /// otherwise, and 2 for an error.
+    /// The session starts with the whole sequent as the one open goal; the
+    /// sequent is an argument or `--file`, since standard input carries the
+    /// commands. Commands, one per line, their words split as a shell
+    /// splits them (quotes keep a name with blanks one word): `goals` lists
+    /// the open goals with the positions of their formulas; `rules G P`
+    /// lists the rules that act on formula P of goal G; `apply G P RULE
+    /// [P…]` applies a rule, the further positions being the formulas that
+    /// go to the left premise of a ⊗ or Mix; `undo` retracts the last step;
+    /// `close [G]` lets the search close goal G, or every open goal; `show
+    /// [--FORMAT] [FILE]` draws the derivation so far, open goals included,
+    /// as text, or --latex, --typst, --svg, --png or --pdf; `proof
+    /// [--FORMAT] [FILE]` checks the finished proof and prints or writes it,
+    /// as JSON for `check` with a FILE and no format, or --rocq for a
+    /// certificate; `save FILE` and `load FILE` keep and resume the session
+    /// as JSON (`load` takes a session of the same sequent and mode);
+    /// `help`; `quit`. A RULE is a rule's usual name or its ASCII spelling:
+    /// ax, 1, bot, top, *, par, &, +1, +2, ?d, ?c, ?w, !, mix, wk (affine
+    /// weakening), and in intuitionistic mode the two-sided names (-oL,
+    /// -oR, *L, *R, &L1, &L2, &R, +L, +R1, +R2, 1L, 1R, 0L, topR, !L, !R,
+    /// !c, !w); `rules` prints the names it applies. The exit status is 0 when the session
+    /// ends with a finished proof that checks and 1 otherwise; a command's
+    /// error is printed as `error: …` on standard output and the session
+    /// goes on; 2 when the session cannot start or read its input.
     #[command(after_help = SYNTAX)]
     Interact(InteractArgs),
     /// Print a sequent, convert it to JSON, or name its fragment
@@ -323,21 +365,8 @@ fn parse_cadence(text: &str) -> Result<Cadence, String> {
         .map_err(|_| format!("{text:?} is neither a number of links nor `auto`"))
 }
 
-/// How `prove` decides many sequents in one call: given several times
-/// `--file`, a directory, `--files-from`, or an input format of many
-/// sequents (`lines`, `jsonl`, `problems`; on standard input a stream,
-/// answered line by line). Paths are relative to the current directory
-/// and taken literally, with no glob or `~`; a directory is walked in
-/// sorted order, links followed, for the files of the input format's
-/// extension (`.p` and `.json` for `auto`). Each sequent is named by
-/// its path as given, or by its line's name or `FILE:LINE`, and gets
-/// one line of output in input order, `NAME: VERDICT`, as soon as it
-/// is decided; with `--format json` a JSON Lines record with the name.
-/// The mode is the flags', or a problem file's column or a record's.
-/// The exit status is the worst verdict: an error (2) before unknown
-/// (3) before unprovable (1) before proved (0); a batch that holds no
-/// sequent is an error, and one interrupted with Ctrl-C, which ends its
-/// input, is unknown at best.
+/// How `prove` decides many sequents in one call (`prove --help` says
+/// when a call is a batch and what it writes).
 #[derive(Args, Clone, Debug)]
 pub(crate) struct BatchArgs {
     /// Read the paths of the inputs from this file, one per line, or
@@ -449,6 +478,9 @@ pub(crate) struct InteractArgs {
     /// with a prefix here, `latex.labels=subscript`.
     #[command(flatten)]
     pub(crate) style: StyleArgs,
+    /// The Rocq certificate's lemma and prelude, for `proof --rocq`.
+    #[command(flatten)]
+    pub(crate) rocq: RocqArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
@@ -508,7 +540,7 @@ pub(crate) enum SeqCommand {
     /// to the atoms. With --intuitionistic it prints as `A, A ⊸ B ⊢ B`
     /// again, which requires an intuitionistic sequent: one formula on the
     /// right, and pars only as implications.
-    #[command(after_help = SYNTAX)]
+    #[command(after_help = ORDINARY)]
     Print {
         /// The sequent.
         #[command(flatten)]
@@ -579,16 +611,17 @@ pub(crate) enum SeqCommand {
 /// Where a sequent comes from.
 #[derive(Args, Clone, Debug)]
 pub(crate) struct SequentInput {
-    /// The sequent, such as "A, A -o B |- B"; read from --file or standard
-    /// input when absent
+    /// The sequent, such as "A, A -o B |- B"; read from --file when absent,
+    /// or from standard input by every command but `interact`
     #[arg(value_name = "SEQUENT", conflicts_with = "file")]
     pub(crate) sequent: Option<String>,
     /// Read the sequent from this file, or `-` for standard input
     ///
     /// The file's kind is its extension's unless --input-format says
-    /// otherwise: `.p` an LLTP problem, `.json` a JSON sequent, anything
-    /// else the text syntax, which may span lines. `prove` takes the flag
-    /// more than once, and a directory, as a batch.
+    /// otherwise: `.p` an LLTP problem (with --logic a TPTP problem of
+    /// ordinary logic), `.spec` a coverability problem, `.json` a JSON
+    /// sequent, anything else the text syntax, which may span lines.
+    /// `prove` takes the flag more than once, and a directory, as a batch.
     #[arg(short, long, value_name = "PATH", action = clap::ArgAction::Append)]
     pub(crate) file: Vec<PathBuf>,
     /// How to read the input, rather than by the file's extension
@@ -670,17 +703,18 @@ impl InputFormat {
 /// it.
 #[derive(Args, Clone, Debug)]
 pub(crate) struct LogicArgs {
-    /// Read the input as ordinary logic, decided through its translation
-    /// into linear logic
+    /// Read the input as ordinary logic, through its translation into
+    /// linear logic
     ///
     /// The input is a formula or a sequent of propositional logic in the
     /// syntax below (a `.p` file a TPTP problem, as the ILTP library writes
-    /// them), and a proof is read back as a derivation of LK (classical) or
-    /// LJ (intuitionistic, minimal), which is checked by the rules of the
-    /// logic before it is shown. Classical logic is decided in affine MALL,
-    /// with no copy bound; intuitionistic and minimal logic in ILL, under
-    /// the time limit, so they may be answered unknown. The JSON output is
-    /// the search's outcome on the image.
+    /// them). `prove` decides its image and reads a proof back as a
+    /// derivation of LK (classical) or LJ (intuitionistic, minimal), which
+    /// is checked by the rules of the logic before it is shown; classical
+    /// logic is decided in affine MALL, with no copy bound, intuitionistic
+    /// and minimal logic in ILL, under the time limit, so they may be
+    /// answered unknown, and the JSON output is the search's outcome on the
+    /// image. `seq print` prints the image.
     #[arg(long, value_enum, value_name = "LOGIC")]
     pub(crate) logic: Option<LogicArg>,
     /// The translation into linear logic: affine for classical logic, cbn
@@ -826,6 +860,9 @@ pub(crate) struct OutputArgs {
     /// How the output looks.
     #[command(flatten)]
     pub(crate) style: StyleArgs,
+    /// The Rocq certificate's lemma and prelude.
+    #[command(flatten)]
+    pub(crate) rocq: RocqArgs,
     /// The largest derivation to build, by its estimated size: a number
     /// of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
     ///
@@ -923,6 +960,11 @@ pub(crate) struct StyleArgs {
     /// default
     #[arg(long, value_name = "PATH")]
     pub(crate) style_file: Option<PathBuf>,
+}
+
+/// The Rocq certificate's two flags, on the commands that write one.
+#[derive(Args, Clone, Debug, Default)]
+pub(crate) struct RocqArgs {
     /// The name of the lemma of a Rocq certificate (rocq.lemma)
     #[arg(long, value_name = "NAME")]
     pub(crate) lemma: Option<String>,
@@ -1220,6 +1262,26 @@ mod tests {
     #[test]
     fn arguments_are_consistent() {
         Cli::command().debug_assert();
+    }
+
+    /// The `--style` help names every field of every format's options,
+    /// as the settings' JSON form has them.
+    #[test]
+    fn the_style_help_names_every_option() {
+        let command = Cli::command();
+        let prove = command.find_subcommand("prove").unwrap();
+        let style = prove
+            .get_arguments()
+            .find(|a| a.get_id() == "style")
+            .unwrap();
+        let help = style.get_long_help().unwrap().to_string();
+        let styles = serde_json::to_value(linlog::export::Styles::default()).unwrap();
+        for (format, fields) in styles.as_object().unwrap() {
+            assert!(help.contains(&format!("{format}:")), "{format}");
+            for field in fields.as_object().unwrap().keys() {
+                assert!(help.contains(field.as_str()), "{format}.{field}");
+            }
+        }
     }
 
     /// Durations take a unit, seconds by default.

@@ -2,7 +2,7 @@ $ linlog
 --- status 2
 --- stdout
 --- stderr
-A linear logic suite for all your needs.
+Decide, check, prove step by step and export sequents of linear logic, and ordinary logic through its translations
 
 Usage: linlog <COMMAND>
 
