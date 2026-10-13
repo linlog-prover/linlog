@@ -64,7 +64,6 @@ WRAPPERS = {
 }
 SHELLS = {"bash", "dash", "ksh", "sh", "zsh"}
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=\S*\Z")
-GIT_PACKAGE = re.compile(r"#git(Full|Minimal)?\Z")
 
 # `(` separates only where it opens a subshell or `$(`, not inside a word such
 # as the permission pattern `Bash(git *)`.

@@ -151,6 +151,9 @@ Current contents:
   it. A wrapper it does not know hides what it runs: add it to
   `WRAPPERS` with its cases. A heredoc line that starts with `git` still
   reads as a command: write files with Write/Edit.
+- The guards set `sys.dont_write_bytecode` before importing
+  `command_line.py`: its `__pycache__` was once committed, and
+  `.gitignore` names `__pycache__/` too.
 - `block-git.py` blocks git behind the wrappers it knows, read-only
   invocations too, `nix run nixpkgs#git` and `--commit-lock-file`, which
   the `Bash(git *)` deny rule cannot (the capped form CLAUDE.md
@@ -160,8 +163,9 @@ Current contents:
   and wherever the shared reading finds the command.
 - **The `claude-hooks` flake check (`modules/claude-hooks.nix`) pins every
   guard**: the commands it blocks and allows, that malformed payloads pass,
-  that `settings.json` registers it, and that it runs as the harness runs it,
-  by its path (executable, `#!/usr/bin/env python3`); an executable `.py`
+  that `settings.json` registers it, and that the harness can run it by
+  its path (executable, `#!/usr/bin/env python3`; the cases run it with
+  `python3 FILE`, which tests neither); an executable `.py`
   there without cases fails it. A new guard gets its cases there in the
   same change.
 - `jq` is not installed on this machine. Parse payloads with python3.

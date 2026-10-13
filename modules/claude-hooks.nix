@@ -143,8 +143,9 @@
           }
           ''
             fail=0
-            # Each guard runs as settings.json runs it, by its path: it must
-            # be executable and say its interpreter; and every executable
+            # settings.json runs each guard by its path, so it must be
+            # executable and say its interpreter (the cases below run it
+            # with python3, which tests neither); and every executable
             # script there is a guard with cases (command_line.py is a module
             # the guards import, not executable).
             for hook in ${lib.concatStringsSep " " (lib.attrNames cases)}; do

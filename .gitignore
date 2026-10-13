@@ -6,6 +6,9 @@
 /fuzz/corpus
 /fuzz/artifacts
 
+# Python's bytecode of the hooks' shared module
+__pycache__/
+
 # nix
 result*
 # The LLTP library, `nix build .#lltp -o bench/lltp`

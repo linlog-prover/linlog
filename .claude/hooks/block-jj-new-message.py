@@ -16,6 +16,8 @@ import json
 import os
 import sys
 
+# No bytecode beside the module: it would land in the checkout.
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from command_line import commands  # noqa: E402
 
