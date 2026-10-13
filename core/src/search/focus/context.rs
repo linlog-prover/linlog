@@ -241,10 +241,23 @@ impl Context {
     /// Returns the members in ascending order, an occurrence repeated as
     /// often as it is present.
     pub(crate) fn iter(&self) -> impl Iterator<Item = OccId> + '_ {
+        // The extra list is in ascending order, like the set.
+        let mut extra = self.extra.iter().peekable();
         self.set.iter_words(self.lo, self.hi).flat_map(move |o| {
-            let copies = 1 + self.slot(o).map_or(0, |i| self.extra[i].1);
+            let copies = 1 + extra.next_if(|&&(x, _)| x == o).map_or(0, |&(_, n)| n);
             std::iter::repeat_n(o, copies as usize)
         })
+    }
+
+    /// Appends the members to `list` as [`iter`](Self::iter) returns
+    /// them, without the extra copies' bookkeeping where there are none,
+    /// which is the common case.
+    pub(crate) fn list_into(&self, list: &mut Vec<OccId>) {
+        if self.extra.is_empty() {
+            list.extend(self.set.iter_words(self.lo, self.hi));
+        } else {
+            list.extend(self.iter());
+        }
     }
 }
 

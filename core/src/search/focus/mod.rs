@@ -1151,7 +1151,7 @@ impl<'a> Run<'a> {
         hereditary: &mut bool,
     ) -> Step {
         let mut members = self.take_list();
-        members.extend(gamma.iter());
+        gamma.list_into(&mut members);
         let mut tally = self.take_tally();
         let mut candidates = self.take_list();
         let mut copies = self.take_list();
@@ -1658,7 +1658,7 @@ impl<'a> Run<'a> {
                 // nothing and the dual lies in `Θ`.
                 let mut members = self.take_list();
                 members.push(f);
-                members.extend(gamma.iter());
+                gamma.list_into(&mut members);
                 let mut whole = self.take_context_from(gamma);
                 whole.insert(f);
                 let result = self.initial(theta, &whole, &members, budget);

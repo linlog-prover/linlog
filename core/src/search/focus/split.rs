@@ -331,7 +331,7 @@ impl Run<'_> {
             self.problem.forest.right(f).unwrap(),
         );
         let mut members = self.take_list();
-        members.extend(gamma.iter());
+        gamma.list_into(&mut members);
         let mut left = self.take_context();
         let mut right = self.take_context_from(gamma);
         let mut split = self.take_split();
