@@ -1263,7 +1263,9 @@ Built:
 - The `linlog` command: `prove`, `check`, `interact` and `seq`, with time
   limits, Ctrl-C, statistics, JSON output, proof nets, LaTeX, Typst,
   SVG and Rocq output, and `--jobs`, `--pool-after` and `--deterministic`
-  for the search;
+  for the search; every setting a flag sets read from one file with
+  `--settings` as well, the form a front end keeps; `check` under a time
+  limit and limits of work and memory, unknown where one ends it;
   a proof tree is printed on a terminal where it fits, a run of one
   structural rule is drawn as one inference where the whole tree would
   not fit or pass `--derivation-limit`, and a derivation past the limit
@@ -1317,7 +1319,8 @@ all the logic; the command line program `linlog` (package `linlog-cli`) in
 `bench/` runs the library's engines on problem sets; a web front end will
 compile the library to
 WebAssembly, so the library uses no clock, and threads only behind its
-`parallel` feature, which the web front end leaves off.
+`parallel` feature, which the web front end leaves off (the flake builds
+it for `wasm32-unknown-unknown` with every other feature).
 
 The library keeps a sequent as a compact arena of subformulas in negation
 normal form, one-sided (`Γ ⊢ Δ` becomes `⊢ Γ^⊥, Δ`); an intuitionistic
