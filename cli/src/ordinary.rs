@@ -23,7 +23,7 @@ use std::fmt::Write;
 ///
 /// Text that is no ordinary sequent, with a caret under the place, or no
 /// TPTP problem.
-pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> {
+pub(crate) fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> {
     match format {
         // The library's error says that the text is no TPTP problem.
         InputFormat::Tptp => Ok(ordinary::read_tptp(text, &Limits::UNBOUNDED)?.sequent),
@@ -43,7 +43,7 @@ pub fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> 
 ///
 /// The translation's error: one that does not decide the logic, or more
 /// than one formula right of `⊢` in intuitionistic or minimal logic.
-pub fn image(options: &ordinary::Options, sequent: &ordinary::Sequent) -> Result<Image> {
+pub(crate) fn image(options: &ordinary::Options, sequent: &ordinary::Sequent) -> Result<Image> {
     Ok(ordinary::translate(
         sequent,
         options.logic,

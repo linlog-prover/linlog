@@ -23,7 +23,7 @@ const FORMATS: [&str; 7] = ["text", "latex", "typst", "svg", "png", "pdf", "rocq
 ///
 /// A style file that cannot be read or holds no styles, a key that names
 /// no option, or a value the option cannot take.
-pub fn read(
+pub(crate) fn read(
     base: &Styles,
     args: &StyleArgs,
     format: Option<&str>,

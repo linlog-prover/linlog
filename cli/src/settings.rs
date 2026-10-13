@@ -22,13 +22,13 @@ use std::time::Duration;
 
 /// The flags given on the command line, by the names of their arguments.
 #[derive(Clone, Debug, Default)]
-pub struct Given(HashSet<String>);
+pub(crate) struct Given(HashSet<String>);
 
 impl Given {
     /// Returns the flags given to the command the matches lead to, its
     /// subcommands followed to the last.
     #[must_use]
-    pub fn of(matches: &ArgMatches) -> Self {
+    pub(crate) fn of(matches: &ArgMatches) -> Self {
         let mut leaf = matches;
         while let Some((_, sub)) = leaf.subcommand() {
             leaf = sub;
@@ -181,7 +181,7 @@ impl ProveArgs {
     /// # Errors
     ///
     /// Those of reading the settings file.
-    pub fn settings(&self, given: &Given) -> Result<Settings> {
+    pub(crate) fn settings(&self, given: &Given) -> Result<Settings> {
         let mut settings = read(self.settings.as_deref())?;
         let apply = Apply {
             file: self.settings.is_some(),
@@ -234,7 +234,7 @@ impl InteractArgs {
     /// # Errors
     ///
     /// Those of reading the settings file.
-    pub fn settings(&self, given: &Given) -> Result<Settings> {
+    pub(crate) fn settings(&self, given: &Given) -> Result<Settings> {
         let mut settings = read(self.settings.as_deref())?;
         let apply = Apply {
             file: self.settings.is_some(),
@@ -258,7 +258,7 @@ impl CheckArgs {
     /// # Errors
     ///
     /// Those of reading the settings file.
-    pub fn settings(&self, given: &Given) -> Result<Settings> {
+    pub(crate) fn settings(&self, given: &Given) -> Result<Settings> {
         let mut settings = read(self.settings.as_deref())?;
         let apply = Apply {
             file: self.settings.is_some(),
@@ -283,7 +283,7 @@ impl CheckArgs {
 /// # Errors
 ///
 /// Those of reading the settings file.
-pub fn of_print(
+pub(crate) fn of_print(
     path: Option<&Path>,
     memory: Option<u64>,
     occurrences: Option<u64>,

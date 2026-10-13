@@ -712,16 +712,6 @@ pub(crate) fn derivation(
     }
 }
 
-/// Returns a sequent as text: one-sided, or two-sided in intuitionistic
-/// mode when it has an intuitionistic reading.
-///
-/// # Errors
-///
-/// As [`sequent_in`] does.
-pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
-    sequent_in(sequent, mode, SequentFormat::Text, &Styles::default())
-}
-
 /// Returns a sequent in a format, one-sided, or two-sided in
 /// intuitionistic mode when it has an intuitionistic reading, under the
 /// format's options; for PNG and PDF, the SVG document to render.
@@ -730,7 +720,7 @@ pub fn sequent_text(sequent: &Sequent, mode: Mode) -> Result<String> {
 ///
 /// A sequent without an intuitionistic reading in intuitionistic mode,
 /// described with its formulas.
-pub fn sequent_in(
+pub(crate) fn sequent_in(
     sequent: &Sequent,
     mode: Mode,
     format: SequentFormat,
@@ -764,7 +754,7 @@ pub fn sequent_in(
 /// # Errors
 ///
 /// `--standalone` beside a format that has one form.
-pub fn form(standalone: bool, exported: bool) -> Result<Form> {
+pub(crate) fn form(standalone: bool, exported: bool) -> Result<Form> {
     match (standalone, exported) {
         (false, _) => Ok(Form::Fragment),
         (true, true) => Ok(Form::Standalone),
@@ -1035,11 +1025,7 @@ fn unread_into(args: &ProveArgs, limit: Duration) -> Result<Status> {
 /// An input that cannot be read, a sequent the search refuses (an engine
 /// or a fragment that does not apply), an output that cannot be made, or
 /// a proof the checker rejects.
-#[expect(
-    clippy::missing_panics_doc,
-    reason = "the expects state facts the command has established before, such as a proof for a proved verdict"
-)]
-pub fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
+pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     let start = Instant::now();
     let settings = args.settings(given)?;
     if crate::batch::is_batch(args) {
@@ -1273,7 +1259,7 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
 ///
 /// A file that is no proof in JSON, a proof of a goal, or an output that
 /// cannot be made; an invalid proof is a verdict, not an error.
-pub fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
+pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
     let settings = args.settings(given)?;
     let text = io::read(args.proof.as_deref(), "proof")?;
     let proof: Proof = serde_json::from_str(&text).context("not a proof in JSON")?;

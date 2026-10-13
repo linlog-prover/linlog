@@ -6,26 +6,26 @@
 //! one call and this documentation exists.
 
 /// The command line arguments.
-pub mod argument_parsing;
+mod argument_parsing;
 /// `prove` over many sequents.
-pub mod batch;
+mod batch;
 /// The `interact` command.
-pub mod interact;
+mod interact;
 /// Reading input and writing output.
-pub mod io;
+mod io;
 /// The time limit of a command.
 mod limit;
 /// Ordinary logic: its input, its verdict line and the derivation read
 /// back.
-pub mod ordinary;
+mod ordinary;
 /// The `prove` and `check` commands.
-pub mod prove;
+mod prove;
 /// The `seq` commands.
 mod seq;
 /// The settings of a command, from its defaults, a file and its flags.
-pub mod settings;
+mod settings;
 /// The options of every output format, from a file and flags.
-pub mod style;
+mod style;
 
 use anyhow::Result;
 use argument_parsing::{Cli, Command};

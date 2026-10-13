@@ -35,7 +35,7 @@ fn settled(partial: &Path) {
 
 /// Removes every file an output of this process is being written to:
 /// what an interrupt that ends the process does first.
-pub fn remove_partial_files() {
+pub(crate) fn remove_partial_files() {
     let files = PARTIAL.lock().unwrap_or_else(PoisonError::into_inner);
     for file in files.iter() {
         let _ = fs::remove_file(file);
@@ -49,7 +49,7 @@ pub fn remove_partial_files() {
 ///
 /// A file that cannot be read, and standard input when it is a
 /// terminal.
-pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
+pub(crate) fn read(path: Option<&Path>, what: &str) -> Result<String> {
     match path {
         Some(path) if path != Path::new("-") => {
             fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))
@@ -70,7 +70,7 @@ pub fn read(path: Option<&Path>, what: &str) -> Result<String> {
 
 /// Returns `mode`, made affine for a sequent in `format` if that is a
 /// coverability problem's, whose question is affine mode's.
-pub fn affine_for(format: InputFormat, mode: Mode) -> Mode {
+pub(crate) fn affine_for(format: InputFormat, mode: Mode) -> Mode {
     if format == InputFormat::Spec {
         mode.with_affine()
     } else {
@@ -89,7 +89,7 @@ pub fn affine_for(format: InputFormat, mode: Mode) -> Mode {
 ///
 /// Text that is no sequent in `format`, with a caret under the place for
 /// the text syntax, and a sequent past `most`.
-pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
+pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
     let unbounded = Limits::default().with_occurrences(None);
     let within = bound(most);
     let refused = |error: linlog::Error| match error {
@@ -139,7 +139,7 @@ pub(crate) fn bound(most: u64) -> Limits {
 ///
 /// The library's [`Refusal::Occurrences`](linlog::Refusal::Occurrences)
 /// past `most`, naming the flag that raises it.
-pub fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
+pub(crate) fn admit(sequent: Sequent, most: u64) -> Result<Sequent> {
     let occurrences = sequent.occurrences();
     if occurrences > most {
         bail!(
@@ -159,7 +159,7 @@ impl SequentInput {
     /// Returns the format of the one input: the flag's, or the one the
     /// file's extension names, a `.p` file being a TPTP problem when
     /// `ordinary` is set.
-    pub fn format(&self, ordinary: bool) -> InputFormat {
+    pub(crate) fn format(&self, ordinary: bool) -> InputFormat {
         match self.file.first() {
             Some(path) if path != Path::new("-") => self.input_format.of(path, ordinary),
             _ => self.input_format,
@@ -170,7 +170,7 @@ impl SequentInput {
     /// `mode`, made affine for a coverability problem, whose question is
     /// affine mode's whatever the flags say; no flag takes weakening
     /// away, so none contradicts it.
-    pub fn mode(&self, mode: Mode) -> Mode {
+    pub(crate) fn mode(&self, mode: Mode) -> Mode {
         affine_for(self.format(false), mode)
     }
 
@@ -205,7 +205,7 @@ impl SequentInput {
     ///
     /// An input that cannot be read, or text that is no sequent in its
     /// format, or one past the occurrence limit.
-    pub fn sequent(&self, most: u64) -> Result<Sequent> {
+    pub(crate) fn sequent(&self, most: u64) -> Result<Sequent> {
         let (text, format) = self.text(false)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
@@ -221,7 +221,7 @@ impl SequentInput {
     ///
     /// As [`sequent`](Self::sequent) does for an ordinary sequent, and the
     /// translation's error.
-    pub fn image(&self, options: &linlog::ordinary::Options, most: u64) -> Result<(Forest, Image)> {
+    pub(crate) fn image(&self, options: &linlog::ordinary::Options, most: u64) -> Result<(Forest, Image)> {
         let (text, format) = self.text(true)?;
         let image = crate::ordinary::image(options, &crate::ordinary::sequent_in(&text, format)?)?;
         let sequent = admit(image.sequent().clone(), most)?;
@@ -229,7 +229,7 @@ impl SequentInput {
     }
 
     /// Returns the most occurrences the flag gives the sequent.
-    pub fn most(&self) -> u64 {
+    pub(crate) fn most(&self) -> u64 {
         self.occurrence_limit.0.unwrap_or(u64::MAX)
     }
 
@@ -239,7 +239,7 @@ impl SequentInput {
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does.
-    pub fn forest(&self, most: u64) -> Result<Forest> {
+    pub(crate) fn forest(&self, most: u64) -> Result<Forest> {
         Ok(Forest::from_owned(self.sequent(most)?, &bound(most))?)
     }
 }
@@ -273,7 +273,7 @@ fn write_file(path: &Path, text: &str) -> io::Result<()> {
 /// # Errors
 ///
 /// The file system's error, the file then left as it was.
-pub fn write(path: Option<&Path>, text: &str) -> Result<()> {
+pub(crate) fn write(path: Option<&Path>, text: &str) -> Result<()> {
     match path {
         Some(path) => {
             write_file(path, text).with_context(|| format!("cannot write {}", path.display()))
@@ -293,7 +293,7 @@ pub fn write(path: Option<&Path>, text: &str) -> Result<()> {
 /// more: what its buffer holds is dropped with it, so that an error found
 /// before the derivation is written leaves standard output as empty as a
 /// file.
-pub struct Output {
+pub(crate) struct Output {
     /// The stream, until it is finished.
     sink: Option<io::BufWriter<Box<dyn Write>>>,
     /// The file the output is for and the one it is written to meanwhile,
@@ -323,7 +323,7 @@ impl Output {
     /// # Errors
     ///
     /// A file that cannot be made beside the path.
-    pub fn open(path: Option<&Path>, binary: bool) -> Result<Self> {
+    pub(crate) fn open(path: Option<&Path>, binary: bool) -> Result<Self> {
         let (sink, rename): (Box<dyn Write>, _) = match path {
             None => (Box::new(io::stdout().lock()), None),
             Some(path) if fs::metadata(path).is_ok_and(|m| !m.is_file()) => {
@@ -349,11 +349,7 @@ impl Output {
 
     /// The stream itself, for a writer of bytes such as serde_json's; an
     /// error it meets is the writer's to report.
-    #[expect(
-        clippy::missing_panics_doc,
-        reason = "the expect states that an output is open until it is finished or dropped"
-    )]
-    pub fn stream(&mut self) -> &mut impl Write {
+    pub(crate) fn stream(&mut self) -> &mut impl Write {
         self.sink.as_mut().expect("written before it is finished")
     }
 
@@ -364,11 +360,7 @@ impl Output {
     /// # Errors
     ///
     /// The stream's first error, or the file system's when it renames.
-    #[expect(
-        clippy::missing_panics_doc,
-        reason = "the expect states that an output is open until it is finished"
-    )]
-    pub fn finish(mut self) -> Result<()> {
+    pub(crate) fn finish(mut self) -> Result<()> {
         let mut sink = self.sink.take().expect("finished once");
         let done = match self.error.take() {
             Some(error) => Err(error),

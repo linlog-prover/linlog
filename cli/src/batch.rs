@@ -33,7 +33,7 @@ use std::time::{Duration, Instant};
 
 /// Whether the arguments ask for a batch: several files, a directory, a
 /// list of paths, or a format of many sequents.
-pub fn is_batch(args: &ProveArgs) -> bool {
+pub(crate) fn is_batch(args: &ProveArgs) -> bool {
     let input = &args.input;
     input.file.len() > 1
         || input.file.iter().any(|f| f.is_dir())
@@ -867,7 +867,7 @@ fn format_name(format: InputFormat) -> String {
 /// machine's (`MemTotal`), or less where a control group bounds it, as a
 /// container, a systemd scope or a CI runner does. Half of it is the
 /// default of `--batch-memory`.
-pub fn machine_memory() -> Option<u64> {
+pub(crate) fn machine_memory() -> Option<u64> {
     let total = fs::read_to_string("/proc/meminfo").ok().and_then(|info| {
         let line = info.lines().find(|l| l.starts_with("MemTotal:"))?;
         let kib: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
@@ -922,7 +922,7 @@ fn cgroup_memory() -> Option<u64> {
 /// A sequent given as an argument, an input that cannot be read, a format
 /// of one sequent, or inputs that hold no entry; an entry's own error is
 /// its line, never an error of the batch.
-pub fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Result<Status> {
+pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Result<Status> {
     if args.input.sequent.is_some() {
         bail!(
             "a sequent given as an argument is not read in a batch, whose sequents come from \

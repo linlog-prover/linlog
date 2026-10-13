@@ -31,15 +31,15 @@ the right.";
 /// Decide, print and convert sequents of linear logic.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, after_help = SYNTAX)]
-pub struct Cli {
+pub(crate) struct Cli {
     /// What to do.
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 }
 
 /// The commands.
 #[derive(Subcommand, Debug)]
-pub enum Command {
+pub(crate) enum Command {
     /// Decide whether a sequent is provable, and print a proof if it is
     ///
     /// The fragment of the sequent (MLL, MALL, …) is detected and picks the
@@ -82,27 +82,27 @@ pub enum Command {
 
 /// The arguments of `prove`.
 #[derive(Args, Clone, Debug)]
-pub struct ProveArgs {
+pub(crate) struct ProveArgs {
     /// The sequent.
     #[command(flatten)]
-    pub input: SequentInput,
+    pub(crate) input: SequentInput,
     /// The logic.
     #[command(flatten)]
-    pub mode: ModeArgs,
+    pub(crate) mode: ModeArgs,
     /// The ordinary logic the input is in, if any.
     #[command(flatten)]
-    pub logic: LogicArgs,
+    pub(crate) logic: LogicArgs,
     /// With --logic, show the linear proof of the image instead of the
     /// proof read back as LK or LJ
     #[arg(long, requires = "logic")]
-    pub linear: bool,
+    pub(crate) linear: bool,
     /// Search in this fragment instead of the detected one
     ///
     /// A sequent outside it is an error. A larger fragment than the detected
     /// one switches off the prunes that only hold in the smaller one, which
     /// is a way to compare them.
     #[arg(long, value_enum, value_name = "FRAGMENT")]
-    pub fragment: Option<FragmentArg>,
+    pub(crate) fragment: Option<FragmentArg>,
     /// The engine to search with, or `auto` for the one the fragment and
     /// the mode call for (search.engine)
     ///
@@ -117,20 +117,20 @@ pub struct ProveArgs {
     /// and one goal that is a tensor of atoms): reachability in linear
     /// mode, coverability in affine mode.
     #[arg(long, value_name = "ENGINE", value_parser = engine_name(), default_value = "auto")]
-    pub engine: Forced,
+    pub(crate) engine: Forced,
     /// The search's options, bounds and threads.
     #[command(flatten)]
-    pub search: SearchArgs,
+    pub(crate) search: SearchArgs,
     /// Report the proof the search found without checking it
     ///
     /// By default every proof passes the proof checker, which shares no
     /// code with the search, before anything is reported; a proof it
     /// rejects is an error (exit status 2), not a verdict.
     #[arg(long)]
-    pub no_check: bool,
+    pub(crate) no_check: bool,
     /// Where and how to write the result.
     #[command(flatten)]
-    pub output: OutputArgs,
+    pub(crate) output: OutputArgs,
     /// Also print what the search cost: the counters of the engine that
     /// ran, a line each, and the time
     ///
@@ -140,7 +140,7 @@ pub struct ProveArgs {
     /// engine markings; every engine its units of work. JSON output always
     /// carries the counts; the time is printed only as text.
     #[arg(long)]
-    pub stats: bool,
+    pub(crate) stats: bool,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
@@ -148,16 +148,16 @@ pub struct ProveArgs {
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error
     #[arg(long, value_name = "PATH")]
-    pub settings: Option<PathBuf>,
+    pub(crate) settings: Option<PathBuf>,
     /// How a batch of many sequents runs.
     #[command(flatten)]
-    pub batch: BatchArgs,
+    pub(crate) batch: BatchArgs,
 }
 
 /// The search's options, bounds and threads, on `prove` and on a
 /// session's `close`; each flag sets one key of `--settings`.
 #[derive(Args, Clone, Debug)]
-pub struct SearchArgs {
+pub(crate) struct SearchArgs {
     /// How the focused engines pick the positive literal of every atom
     /// (search.bias)
     ///
@@ -170,7 +170,7 @@ pub struct SearchArgs {
     /// the first that decides: alternating on one core, side by side on
     /// several.
     #[arg(long, value_enum, value_name = "BIAS", default_value_t = BiasArg::Auto)]
-    pub bias: BiasArg,
+    pub(crate) bias: BiasArg,
     /// How often `?` formulas may be copied on one branch of the proof, or
     /// `none` for no bound (search.copies)
     ///
@@ -182,7 +182,7 @@ pub struct SearchArgs {
     /// space, in which case it is unprovable. Sequents without exponentials
     /// are not affected.
     #[arg(long, value_name = "N", value_parser = parse_count::<u32>, default_value_t = Count(None))]
-    pub copies: Count<u32>,
+    pub(crate) copies: Count<u32>,
     /// How often `?` formulas may be copied on one branch of the forward
     /// search that `--bias auto` runs (search.forward_copies)
     ///
@@ -194,7 +194,7 @@ pub struct SearchArgs {
     /// from `--copies` it has no effect: both searches deepen while the
     /// time limit lasts.
     #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_FORWARD_COPIES)]
-    pub forward_copies: u32,
+    pub(crate) forward_copies: u32,
     /// Give up after this long, such as 500ms, 10s, 2m or 1h, or `none`
     /// for no limit (clock.time_limit_ms)
     ///
@@ -206,7 +206,7 @@ pub struct SearchArgs {
     /// with exponentials and no `--copies` bound can be forever. In a
     /// session it is each `close`'s limit.
     #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(Some(DEFAULT_TIMEOUT)))]
-    pub timeout: Time,
+    pub(crate) timeout: Time,
     /// The most decided sequents the search remembers at once
     /// (search.memo_limit)
     ///
@@ -214,7 +214,7 @@ pub struct SearchArgs {
     /// correctness. Zero switches the memo off. `--memory-limit` bounds
     /// the memo in bytes; this is the finer knob beside it.
     #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_MEMO_LIMIT)]
-    pub memo_limit: u32,
+    pub(crate) memo_limit: u32,
     /// The most memory the search may hold: a number of bytes with a unit
     /// such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
     ///
@@ -231,14 +231,14 @@ pub struct SearchArgs {
     /// memory the renderer fills in it, and left out above the limit (the
     /// default is a few seconds of rendering).
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-    pub memory_limit: Bytes,
+    pub(crate) memory_limit: Bytes,
     /// The deepest nesting of rules on one branch before the search gives
     /// up (limits.recursion_depth)
     ///
     /// Raise it for sequents with thousands of connectives; the search runs on
     /// a thread whose stack grows with the limit.
     #[arg(long, value_name = "N", default_value_t = Limits::DEFAULT_RECURSION_DEPTH)]
-    pub recursion_limit: u32,
+    pub(crate) recursion_limit: u32,
     /// The most units of work the search may do, or `none` (limits.work)
     ///
     /// A unit is what each engine counts at its polls (a stable sequent
@@ -248,7 +248,7 @@ pub struct SearchArgs {
     /// where a time limit does not; past it the verdict is unknown (exit
     /// status 3). `--stats` prints the units a search did.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(None))]
-    pub work_limit: Count<u64>,
+    pub(crate) work_limit: Count<u64>,
     /// How many threads the search may use (search.jobs)
     ///
     /// By default one thread searches first, for the time `--pool-after`
@@ -261,7 +261,7 @@ pub struct SearchArgs {
     /// that many threads; the proof found may then differ from run to run,
     /// the verdict never does.
     #[arg(short, long, value_name = "N")]
-    pub jobs: Option<usize>,
+    pub(crate) jobs: Option<usize>,
     /// How long one thread searches before the other threads join it,
     /// such as 100ms; 0 starts them at once (clock.pool_after_ms)
     ///
@@ -273,29 +273,29 @@ pub struct SearchArgs {
     /// start. The additive and the Horn engine run on one thread and get
     /// no pool.
     #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
-    pub pool_after: Option<Duration>,
+    pub(crate) pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input
     ///
     /// The same as `--jobs 1 --schedule turns`, and takes precedence over
     /// `--jobs`, `--pool-after` and `--schedule`.
     #[arg(long)]
-    pub deterministic: bool,
+    pub(crate) deterministic: bool,
     /// How often the net engine runs its exact test of correctness: after
     /// this many links, or `auto` (search.test_period)
     ///
     /// `auto` tests after every link on a small structure and every few
     /// links on a large one. The verdict never depends on it.
     #[arg(long, value_name = "N", value_parser = parse_cadence, default_value = "auto")]
-    pub test_period: Cadence,
+    pub(crate) test_period: Cadence,
     /// How the two searches of `--bias auto` share one thread
     /// (search.schedule)
     #[arg(long, value_enum, value_name = "SCHEDULE", default_value_t = ScheduleArg::Auto)]
-    pub schedule: ScheduleArg,
+    pub(crate) schedule: ScheduleArg,
 }
 
 /// How the two searches of the default bias share one thread.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ScheduleArg {
+pub(crate) enum ScheduleArg {
     /// In slices on two threads
     Auto,
     /// In turns on the calling thread, each turn from the search's start:
@@ -339,21 +339,21 @@ fn parse_cadence(text: &str) -> Result<Cadence, String> {
 /// sequent is an error, and one interrupted with Ctrl-C, which ends its
 /// input, is unknown at best.
 #[derive(Args, Clone, Debug)]
-pub struct BatchArgs {
+pub(crate) struct BatchArgs {
     /// Read the paths of the inputs from this file, one per line, or
     /// `-` for standard input, read as it streams
     #[arg(long, value_name = "LIST")]
-    pub files_from: Option<PathBuf>,
+    pub(crate) files_from: Option<PathBuf>,
     /// The paths of --files-from are separated by NUL, as `find -print0`
     /// writes them
     #[arg(long)]
-    pub null: bool,
+    pub(crate) null: bool,
     /// How many sequents of a batch are decided at once, across the
     /// cores; by default as many as the machine runs threads, fewer when
     /// --batch-memory does not hold that many searches at
     /// --memory-limit each
     #[arg(long, value_name = "N")]
-    pub workers: Option<usize>,
+    pub(crate) workers: Option<usize>,
     /// Where a batch's threads go
     ///
     /// Across the sequents, each gets one thread for its --timeout, as with
@@ -365,7 +365,7 @@ pub struct BatchArgs {
     /// left unknown, run those sequents again with --cores within or a
     /// longer --timeout.
     #[arg(long, value_enum, value_name = "WHERE", default_value_t = CoresArg::Auto)]
-    pub cores: CoresArg,
+    pub(crate) cores: CoresArg,
     /// The most memory all the searches of a batch hold together: a size
     /// such as 8GiB, or `none`; by default half the memory the process may
     /// use (the machine's, or its control group's limit where one is set)
@@ -374,23 +374,23 @@ pub struct BatchArgs {
     /// as this holds; within one sequent the race of one thread and a
     /// pool is two searches, which share it.
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes)]
-    pub batch_memory: Option<Bytes>,
+    pub(crate) batch_memory: Option<Bytes>,
     /// Give up on the rest of a batch after this long, or `none`
     ///
     /// The sequents still searched are stopped and those not begun are
     /// unknown; --timeout is each sequent's own limit.
     #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(None))]
-    pub batch_timeout: Time,
+    pub(crate) batch_timeout: Time,
     /// Decide each sequent of a batch in a child process of its own, so
     /// that one that exhausts the memory or the stack ends only itself
     #[arg(long)]
-    pub isolate: bool,
+    pub(crate) isolate: bool,
     /// The name of the one sequent a child of --isolate decides.
     #[arg(long, hide = true, value_name = "NAME")]
-    pub entry_name: Option<String>,
+    pub(crate) entry_name: Option<String>,
     /// The mode of the one sequent a child of --isolate decides.
     #[arg(long, hide = true, value_name = "MODE", requires = "entry_name")]
-    pub entry_mode: Option<String>,
+    pub(crate) entry_mode: Option<String>,
     /// The format of the one sequent a child of --isolate decides.
     #[arg(
         long,
@@ -399,16 +399,16 @@ pub struct BatchArgs {
         value_name = "FORMAT",
         requires = "entry_name"
     )]
-    pub entry_format: Option<InputFormat>,
+    pub(crate) entry_format: Option<InputFormat>,
     /// The file of the one sequent a child of --isolate decides; standard
     /// input when absent.
     #[arg(long, hide = true, value_name = "PATH", requires = "entry_name")]
-    pub entry_file: Option<PathBuf>,
+    pub(crate) entry_file: Option<PathBuf>,
 }
 
 /// Where a batch's threads go.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CoresArg {
+pub(crate) enum CoresArg {
     /// Across the sequents when the batch has at least as many as
     /// --workers, else within; within on a stream from standard input,
     /// whose next question may wait for an answer
@@ -422,11 +422,11 @@ pub enum CoresArg {
 
 /// The arguments of `interact`.
 #[derive(Args, Debug)]
-pub struct InteractArgs {
+pub(crate) struct InteractArgs {
     /// The sequent, as an argument or with --file, since standard input
     /// carries the commands.
     #[command(flatten)]
-    pub input: SequentInput,
+    pub(crate) input: SequentInput,
     /// Resume a session saved with `save` instead of starting from a
     /// sequent; the mode is the file's, so the mode flags are refused
     #[arg(
@@ -434,21 +434,21 @@ pub struct InteractArgs {
         value_name = "PATH",
         conflicts_with_all = ["sequent", "file", "intuitionistic", "affine", "mix"]
     )]
-    pub state: Option<PathBuf>,
+    pub(crate) state: Option<PathBuf>,
     /// The logic.
     #[command(flatten)]
-    pub mode: ModeArgs,
+    pub(crate) mode: ModeArgs,
     /// The search's options, bounds and threads, for a `close`.
     #[command(flatten)]
-    pub search: SearchArgs,
+    pub(crate) search: SearchArgs,
     /// The largest derivation `close` grafts, by its estimated size; see
     /// `prove --derivation-limit`
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
-    pub derivation_limit: Bytes,
+    pub(crate) derivation_limit: Bytes,
     /// How `show` and `proof` write; a `--style` key names its format
     /// with a prefix here, `latex.labels=subscript`.
     #[command(flatten)]
-    pub style: StyleArgs,
+    pub(crate) style: StyleArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
@@ -456,7 +456,7 @@ pub struct InteractArgs {
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error
     #[arg(long, value_name = "PATH")]
-    pub settings: Option<PathBuf>,
+    pub(crate) settings: Option<PathBuf>,
 }
 
 /// The time limit of `prove` and of a session's `close` when none is
@@ -465,17 +465,11 @@ pub struct InteractArgs {
 /// a copy bound of 3 leaves undecided and a larger bound decides, nine in
 /// ten are decided within a second or two, while the many that nothing
 /// decides each wait the whole limit.
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(Clock::DEFAULT_TIME_LIMIT_MS);
-
-/// How long one thread searches before the others join it, when
-/// `--jobs` is not given: a small sequent is decided in microseconds, and
-/// a pool costs milliseconds to start and makes the proof depend on the
-/// threads' timing.
-pub const DEFAULT_POOL_AFTER: Duration = Duration::from_millis(Clock::DEFAULT_POOL_AFTER_MS);
+pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_millis(Clock::DEFAULT_TIME_LIMIT_MS);
 
 /// The arguments of `check`.
 #[derive(Args, Debug)]
-pub struct CheckArgs {
+pub(crate) struct CheckArgs {
     /// The most memory the check may hold: a number of bytes with a unit
     /// such as 512MiB or 4GiB, or `none` for no limit
     ///
@@ -484,16 +478,16 @@ pub struct CheckArgs {
     /// is left out, as past `--derivation-limit`, and so is a png or pdf
     /// render; see `prove --memory-limit`.
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
-    pub memory_limit: Bytes,
+    pub(crate) memory_limit: Bytes,
     /// The proof file, or standard input when absent or `-`
     #[arg(value_name = "PROOF")]
-    pub proof: Option<PathBuf>,
+    pub(crate) proof: Option<PathBuf>,
     /// The logic the proof must hold in.
     #[command(flatten)]
-    pub mode: ModeArgs,
+    pub(crate) mode: ModeArgs,
     /// Where to write the result.
     #[command(flatten)]
-    pub output: OutputArgs,
+    pub(crate) output: OutputArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
@@ -501,12 +495,12 @@ pub struct CheckArgs {
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error
     #[arg(long, value_name = "PATH")]
-    pub settings: Option<PathBuf>,
+    pub(crate) settings: Option<PathBuf>,
 }
 
 /// The subcommands of `seq`.
 #[derive(Subcommand, Debug)]
-pub enum SeqCommand {
+pub(crate) enum SeqCommand {
     /// Print a sequent one-sided, in negation normal form, or two-sided
     ///
     /// `A, A -o B |- B` prints as `⊢ ~A, A ⊗ ~B, B`: hypotheses are negated
@@ -584,11 +578,11 @@ pub enum SeqCommand {
 
 /// Where a sequent comes from.
 #[derive(Args, Clone, Debug)]
-pub struct SequentInput {
+pub(crate) struct SequentInput {
     /// The sequent, such as "A, A -o B |- B"; read from --file or standard
     /// input when absent
     #[arg(value_name = "SEQUENT", conflicts_with = "file")]
-    pub sequent: Option<String>,
+    pub(crate) sequent: Option<String>,
     /// Read the sequent from this file, or `-` for standard input
     ///
     /// The file's kind is its extension's unless --input-format says
@@ -596,13 +590,13 @@ pub struct SequentInput {
     /// else the text syntax, which may span lines. `prove` takes the flag
     /// more than once, and a directory, as a batch.
     #[arg(short, long, value_name = "PATH", action = clap::ArgAction::Append)]
-    pub file: Vec<PathBuf>,
+    pub(crate) file: Vec<PathBuf>,
     /// How to read the input, rather than by the file's extension
     ///
     /// `lines`, `jsonl` and `problems` hold many sequents, which `prove`
     /// decides as a batch.
     #[arg(long, value_enum, value_name = "FORMAT", default_value_t = InputFormat::Auto)]
-    pub input_format: InputFormat,
+    pub(crate) input_format: InputFormat,
     /// The most subformula occurrences the sequent may have, or `none`
     ///
     /// A sequent in JSON can share subformulas, so a small file may stand
@@ -610,12 +604,12 @@ pub struct SequentInput {
     /// it is unfolded. Occurrences cost some 25 bytes each before any
     /// search, and no limit lets through more than about four billion.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
-    pub occurrence_limit: Count<u64>,
+    pub(crate) occurrence_limit: Count<u64>,
 }
 
 /// How an input is read.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InputFormat {
+pub(crate) enum InputFormat {
     /// By the file's extension: `.p` lltp (tptp with --logic), `.spec`
     /// spec, `.json` json, else text
     Auto,
@@ -653,7 +647,7 @@ impl InputFormat {
     /// extension names, a `.p` file being a TPTP problem of ordinary logic
     /// when `ordinary` is set and an LLTP problem otherwise.
     #[must_use]
-    pub fn of(self, path: &std::path::Path, ordinary: bool) -> Self {
+    pub(crate) fn of(self, path: &std::path::Path, ordinary: bool) -> Self {
         if self != Self::Auto {
             return self;
         }
@@ -667,7 +661,7 @@ impl InputFormat {
     }
 
     /// Whether an input in the format holds many sequents.
-    pub fn is_many(self) -> bool {
+    pub(crate) fn is_many(self) -> bool {
         matches!(self, Self::Lines | Self::Jsonl | Self::Problems)
     }
 }
@@ -675,7 +669,7 @@ impl InputFormat {
 /// The ordinary logic an input is in, and the translation that decides
 /// it.
 #[derive(Args, Clone, Debug)]
-pub struct LogicArgs {
+pub(crate) struct LogicArgs {
     /// Read the input as ordinary logic, decided through its translation
     /// into linear logic
     ///
@@ -688,16 +682,16 @@ pub struct LogicArgs {
     /// the time limit, so they may be answered unknown. The JSON output is
     /// the search's outcome on the image.
     #[arg(long, value_enum, value_name = "LOGIC")]
-    pub logic: Option<LogicArg>,
+    pub(crate) logic: Option<LogicArg>,
     /// The translation into linear logic: affine for classical logic, cbn
     /// (by default), cbv or 01 for intuitionistic and minimal logic
     #[arg(long, value_enum, value_name = "TRANSLATION", requires = "logic")]
-    pub translation: Option<TranslationArg>,
+    pub(crate) translation: Option<TranslationArg>,
 }
 
 /// An ordinary logic.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LogicArg {
+pub(crate) enum LogicArg {
     /// Classical propositional logic, derivations in LK
     Classical,
     /// Intuitionistic propositional logic, derivations in LJ
@@ -718,7 +712,7 @@ impl From<LogicArg> for linlog::ordinary::Logic {
 
 /// A translation of ordinary logic into linear logic.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TranslationArg {
+pub(crate) enum TranslationArg {
     /// Classical logic into affine MALL: negation normal form, ∧ as &, ∨
     /// as ⅋
     Affine,
@@ -747,22 +741,22 @@ impl From<TranslationArg> for linlog::ordinary::Translation {
 
 /// The logic a sequent is proved in.
 #[derive(Args, Clone, Debug)]
-pub struct ModeArgs {
+pub(crate) struct ModeArgs {
     /// Intuitionistic linear logic: one formula on the right of ⊢, pars
     /// only as implications, and two-sided derivations
     #[arg(short, long)]
-    pub intuitionistic: bool,
+    pub(crate) intuitionistic: bool,
     /// Affine logic: a hypothesis may go unused (weakening)
     #[arg(short, long)]
-    pub affine: bool,
+    pub(crate) affine: bool,
     /// Allow the Mix rule, which proves ⊢ Γ, Δ from ⊢ Γ and ⊢ Δ
     #[arg(long)]
-    pub mix: bool,
+    pub(crate) mix: bool,
 }
 
 impl ModeArgs {
     /// Returns the mode the flags ask for.
-    pub fn mode(&self) -> Mode {
+    pub(crate) fn mode(&self) -> Mode {
         let mut mode = if self.intuitionistic {
             Mode::INTUITIONISTIC
         } else {
@@ -780,36 +774,36 @@ impl ModeArgs {
 
 /// Where and how a command writes its result.
 #[derive(Args, Clone, Debug)]
-pub struct OutputArgs {
+pub(crate) struct OutputArgs {
     /// The output format; by default the one the extension of the
     /// `--output` file names (.txt, .json, .tex, .typ, .svg, .png, .pdf,
     /// .v), and text otherwise
     #[arg(long, value_enum, value_name = "FORMAT")]
-    pub format: Option<Format>,
+    pub(crate) format: Option<Format>,
     /// Write to this file instead of standard output; the file is made
     /// only with a derivation or a net in it (or in JSON, always), and
     /// otherwise the verdict goes to standard error
     #[arg(short, long, value_name = "PATH")]
-    pub output: Option<PathBuf>,
+    pub(crate) output: Option<PathBuf>,
     /// Write the proof net of the proof instead of its derivation, for MLL
     /// without units, with or without Mix: as text (the sequent, its axiom
     /// links as pairs of literals with their occurrence numbers, and the
     /// verdict of the correctness criterion), or drawn as svg, png or pdf
     /// (the formula trees with the axiom links as arcs over the literals)
     #[arg(long)]
-    pub net: bool,
+    pub(crate) net: bool,
     /// Print only the verdict line, not the derivation; with --output,
     /// on standard error, since a file holds a derivation or nothing
     #[arg(short, long)]
-    pub quiet: bool,
+    pub(crate) quiet: bool,
     /// Write a document that compiles on its own instead of a fragment to
     /// paste (latex, typst and rocq)
     #[arg(long)]
-    pub standalone: bool,
+    pub(crate) standalone: bool,
     /// Leave out the verdict line, so that the output is the derivation
     /// alone; the exit status still gives the verdict
     #[arg(long)]
-    pub no_verdict: bool,
+    pub(crate) no_verdict: bool,
     /// When to write the derivation, in every format
     ///
     /// By default the text tree is printed on a terminal only if it fits:
@@ -819,19 +813,19 @@ pub struct OutputArgs {
     /// format, the derivation is written whatever its size, up to
     /// `--derivation-limit`; `never` writes the verdict alone.
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = Tree::Auto)]
-    pub tree: Tree,
+    pub(crate) tree: Tree,
     /// How many screens of lines a text tree may fill and still be
     /// printed on a terminal by `--tree auto`, or `none` for any number
     #[arg(long, value_name = "N", value_parser = parse_count::<u32>, default_value_t = Count(Some(SCREENS)))]
-    pub screens: Count<u32>,
+    pub(crate) screens: Count<u32>,
     /// The most characters of a sequent in a verdict line, and of a list
     /// of formulas in an error report, or `none` for no limit; a longer
     /// one is cut with `…` and the number of its formulas
     #[arg(long, value_name = "CHARS", value_parser = parse_count::<u32>, default_value_t = Count(Some(ABBREVIATE)))]
-    pub abbreviate: Count<u32>,
+    pub(crate) abbreviate: Count<u32>,
     /// How the output looks.
     #[command(flatten)]
-    pub style: StyleArgs,
+    pub(crate) style: StyleArgs,
     /// The largest derivation to build, by its estimated size: a number
     /// of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
     ///
@@ -844,17 +838,17 @@ pub struct OutputArgs {
     /// The drawing of a proof net (`--net`) is estimated before it is
     /// drawn and left out above the same limit.
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
-    pub derivation_limit: Bytes,
+    pub(crate) derivation_limit: Bytes,
     /// When a run of one structural rule, such as the weakenings of every
     /// unused `?` formula, is drawn as one inference labelled with a
     /// star (`?w*`), in every format but rocq
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = CompactArg::Auto)]
-    pub compact: CompactArg,
+    pub(crate) compact: CompactArg,
 }
 
 /// When a derivation draws a run of one structural rule as one inference.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CompactArg {
+pub(crate) enum CompactArg {
     /// Where the whole derivation would pass `--derivation-limit` or, as
     /// a text tree on a terminal, not fit it
     Auto,
@@ -877,7 +871,7 @@ impl From<CompactArg> for Compact {
 
 /// When a command writes the derivation of a proof.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tree {
+pub(crate) enum Tree {
     /// The text tree on a terminal if it fits, everything else always
     Auto,
     /// Whatever its size, up to `--derivation-limit`
@@ -888,16 +882,16 @@ pub enum Tree {
 
 /// How many screens of lines a text tree may fill on a terminal by
 /// default.
-pub const SCREENS: u32 = 3;
+pub(crate) const SCREENS: u32 = 3;
 
 /// The most characters of a sequent in a verdict line by default: two
 /// or three lines of a terminal.
-pub const ABBREVIATE: u32 = 200;
+pub(crate) const ABBREVIATE: u32 = 200;
 
 /// How the outputs look: one options value per format, read from a file
 /// and changed by flags.
 #[derive(Args, Clone, Debug, Default)]
-pub struct StyleArgs {
+pub(crate) struct StyleArgs {
     /// Set an option of an output format, such as `labels=subscript`,
     /// `latex.open=bare` or `svg.font.family=monospace` (repeatable)
     ///
@@ -922,25 +916,25 @@ pub struct StyleArgs {
     /// are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal
     /// is dots, bare, dashed or {"mark":TEXT}
     #[arg(long = "style", value_name = "KEY=VALUE")]
-    pub style: Vec<String>,
+    pub(crate) style: Vec<String>,
     /// Read the options of the output formats from a JSON file: an object
     /// with a key per format (text, latex, typst, svg, png, pdf, rocq),
     /// each holding the fields `--style` names; a field left out keeps its
     /// default
     #[arg(long, value_name = "PATH")]
-    pub style_file: Option<PathBuf>,
+    pub(crate) style_file: Option<PathBuf>,
     /// The name of the lemma of a Rocq certificate (rocq.lemma)
     #[arg(long, value_name = "NAME")]
-    pub lemma: Option<String>,
+    pub(crate) lemma: Option<String>,
     /// The lines a standalone Rocq file starts with, before the lemma, in
     /// place of the certificate's own import (rocq.prelude)
     #[arg(long, value_name = "TEXT")]
-    pub prelude: Option<String>,
+    pub(crate) prelude: Option<String>,
 }
 
 /// A number of bytes, or none for no limit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Bytes(pub Option<u64>);
+pub(crate) struct Bytes(pub Option<u64>);
 
 impl std::fmt::Display for Bytes {
     /// Writes the bytes as a size flag reads them, in the largest unit
@@ -961,7 +955,7 @@ impl std::fmt::Display for Bytes {
 
 /// A number, or none for no bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Count<T>(pub Option<T>);
+pub(crate) struct Count<T>(pub Option<T>);
 
 impl<T: std::fmt::Display> std::fmt::Display for Count<T> {
     /// Writes the number as a flag reads it.
@@ -985,7 +979,7 @@ fn parse_count<T: std::str::FromStr>(text: &str) -> Result<Count<T>, String> {
 
 /// A time limit, or none.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Time(pub Option<Duration>);
+pub(crate) struct Time(pub Option<Duration>);
 
 impl std::fmt::Display for Time {
     /// Writes the limit as `--timeout` reads it.
@@ -1032,7 +1026,7 @@ fn parse_bytes(text: &str) -> Result<Bytes, String> {
 
 /// The output formats of `prove` and `check`.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Format {
+pub(crate) enum Format {
     /// The verdict on one line, then the derivation as a text tree
     Text,
     /// One JSON object: verdict, fragment, mode, engine, statistics, and the
@@ -1067,7 +1061,7 @@ pub enum Format {
 
 impl Format {
     /// Returns the format a file's extension names, if it names one.
-    pub fn of_path(path: &std::path::Path) -> Option<Self> {
+    pub(crate) fn of_path(path: &std::path::Path) -> Option<Self> {
         let extension = path.extension()?.to_str()?.to_ascii_lowercase();
         Some(match extension.as_str() {
             "txt" => Self::Text,
@@ -1084,12 +1078,12 @@ impl Format {
 
     /// Whether the format is binary, so that it goes to a file or a pipe
     /// and its verdict to standard error.
-    pub fn is_binary(self) -> bool {
+    pub(crate) fn is_binary(self) -> bool {
         matches!(self, Self::Png | Self::Pdf)
     }
 
     /// Returns the format's name as a message writes it.
-    pub fn title(self) -> &'static str {
+    pub(crate) fn title(self) -> &'static str {
         match self {
             Self::Text => "text",
             Self::Json => "JSON",
@@ -1106,7 +1100,7 @@ impl Format {
 impl OutputArgs {
     /// Returns the format the output is written in: `--format`, else the
     /// one the output file's extension names, else text.
-    pub fn format(&self) -> Format {
+    pub(crate) fn format(&self) -> Format {
         self.format
             .or_else(|| self.output.as_deref().and_then(Format::of_path))
             .unwrap_or(Format::Text)
@@ -1115,7 +1109,7 @@ impl OutputArgs {
 
 /// The output formats of `seq print`.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SequentFormat {
+pub(crate) enum SequentFormat {
     /// Unicode text
     Text,
     /// LaTeX math, with the connectives of cmll and amssymb
@@ -1132,7 +1126,7 @@ pub enum SequentFormat {
 
 /// The fragments `--fragment` names.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FragmentArg {
+pub(crate) enum FragmentArg {
     /// Multiplicatives: ⊗ ⅋
     Mll,
     /// Multiplicatives and their units: ⊗ ⅋ 1 ⊥
@@ -1163,7 +1157,7 @@ impl From<FragmentArg> for Fragment {
 
 /// The engine `--engine` forces, or `None` for the automatic choice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Forced(pub Option<Engine>);
+pub(crate) struct Forced(pub Option<Engine>);
 
 /// Reads an engine's name, as the library spells it, or `auto`.
 fn engine_name() -> impl TypedValueParser<Value = Forced> {
@@ -1175,7 +1169,7 @@ fn engine_name() -> impl TypedValueParser<Value = Forced> {
 
 /// The rules `--bias` names.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BiasArg {
+pub(crate) enum BiasArg {
     /// `factors` without exponentials, `rarer` under weakening, and in
     /// linear mode with exponentials both, each in a search of its own
     Auto,

@@ -53,7 +53,7 @@ quit                end the session";
 /// A sequent or a saved session that cannot be read or has no session,
 /// or a terminal on standard input; a command's error is its output and
 /// the session goes on.
-pub fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
+pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
     let settings = args.settings(given)?;
     let state = match &args.state {
         Some(path) => load(path)?,
