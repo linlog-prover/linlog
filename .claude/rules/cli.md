@@ -210,7 +210,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   weakening is exit 2 with the library's `Unsupported` message, after
   the search, and standard output stays empty. `seq print --format`
   (`SequentFormat`, with `svg`, `png`, `pdf`) prints through
-  `sequent_in`, which `sequent_text` wraps. There
+  `sequent_in`, under the settings' limits: the library's sequent writers
+  refuse a text estimated past `limits.derivation_bytes` before they lay
+  anything out (a 451-byte JSON sequent once took 2.6 GB as SVG), and are
+  linear after it, so they need no stop. There
   is no `net` subcommand: the CLI's nets are those of proofs, which
   `prove` and `check` draw.
 

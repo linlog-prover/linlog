@@ -72,7 +72,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
             };
             let styles = style::read(&settings.styles, style, None, Some(key), *standalone)?;
-            let text = prove::sequent_in(&sequent, mode, *format, &styles)?;
+            let text = prove::sequent_in(&sequent, mode, *format, &styles, &settings.limits)?;
             match binary {
                 None => io::write(output.as_deref(), &text)?,
                 Some(format) => {

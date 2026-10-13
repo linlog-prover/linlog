@@ -835,36 +835,45 @@ pub(crate) fn shown(
 
 /// Returns a sequent in a format, one-sided, or two-sided in
 /// intuitionistic mode when it has an intuitionistic reading, under the
-/// format's options; for PNG and PDF, the SVG document to render.
+/// format's options; for PNG and PDF, the SVG document to render. A
+/// LaTeX, Typst or SVG text estimated past `limits.derivation_bytes` is
+/// refused before anything is laid out.
 ///
 /// # Errors
 ///
 /// A sequent without an intuitionistic reading in intuitionistic mode,
-/// described with its formulas.
+/// described with its formulas, and a text past the bound.
 pub(crate) fn sequent_in(
     sequent: &Sequent,
     mode: Mode,
     format: SequentFormat,
     styles: &Styles,
+    limits: &Limits,
 ) -> Result<String> {
     // The sequent was admitted when it was read; the reading's error is
     // described with formulas before the library prints it.
-    let limits = Limits::UNBOUNDED;
+    let limits = &limits.with_occurrences(None);
     let text = if mode.is_intuitionistic() {
-        let forest = Forest::within(sequent, &limits)?;
+        let forest = Forest::within(sequent, limits)?;
         let reading = Reading::new(&forest)
             .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
         reading.to_string()
     } else {
         sequent.to_string()
     };
-    Ok(match format {
-        SequentFormat::Text => text,
-        SequentFormat::Latex => latex::sequent(sequent, mode, &styles.latex, &limits)?,
-        SequentFormat::Typst => typst::sequent(sequent, mode, &styles.typst, &limits)?,
+    match format {
+        SequentFormat::Text => Ok(text),
+        SequentFormat::Latex => latex::sequent(sequent, mode, &styles.latex, limits),
+        SequentFormat::Typst => typst::sequent(sequent, mode, &styles.typst, limits),
         SequentFormat::Svg | SequentFormat::Png | SequentFormat::Pdf => {
-            svg::sequent(sequent, mode, &styles.svg, &limits)?
+            svg::sequent(sequent, mode, &styles.svg, limits)
         }
+    }
+    .map_err(|e| match e {
+        Error::Refused(Refusal::Output { .. }) => {
+            anyhow!("{e}; raise the limit with a settings file's limits.derivation_bytes")
+        }
+        e => e.into(),
     })
 }
 
