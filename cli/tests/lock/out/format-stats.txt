@@ -14,7 +14,8 @@ provable (LL, classical, focus engine)
   ⊢ ?(~A ⊕ ~B), ?(~A ⊕ ~B), !A ⊗ ?B
   ───────────────────────────────── ?c
         ⊢ ?(~A ⊕ ~B), !A ⊗ ?B
-stable sequents visited: 21 (5 from the memo)
+stable sequents visited: 21
+from the memo: 5
 memo entries at most: 10
 splits examined: 5
 copy bound reached: 2

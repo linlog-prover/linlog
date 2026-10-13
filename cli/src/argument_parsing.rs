@@ -118,12 +118,14 @@ pub struct ProveArgs {
     /// Where and how to write the result.
     #[command(flatten)]
     pub output: OutputArgs,
-    /// Also print what the search cost: the sequents visited, memo use and
-    /// splits tried of the focus engine, or the literals chosen, links tried
-    /// and exact tests run of the net engine, and the time
+    /// Also print what the search cost: the counters of the engine that
+    /// ran, a line each, and the time
     ///
-    /// JSON output always carries the counts; the time is printed only as
-    /// text.
+    /// The focused engines count stable sequents, memo use, splits and the
+    /// copy bound reached, the net engine literals chosen, links tried and
+    /// exact tests run, the additive one pairs of subformulas, the Horn
+    /// engine markings; every engine its units of work. JSON output always
+    /// carries the counts; the time is printed only as text.
     #[arg(long)]
     pub stats: bool,
     /// Read the settings from a JSON file, before the flags, which

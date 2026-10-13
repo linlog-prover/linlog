@@ -1240,55 +1240,30 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
     }
 }
 
-/// Returns the statistics as text, one counter per line: the counters the
-/// engine that ran keeps, and the copy bound it reached where the
-/// fragment has exponentials.
+/// Returns the statistics as text, one line per counter the engine that
+/// ran keeps (`Engine::counters`, with the library's labels), then the
+/// time. The copy bound reached is left out where the fragment has no
+/// exponentials, and the forward search's where it did not run.
 pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
-    let s = &outcome.statistics;
-    let counters = match outcome.engine {
-        Engine::Additive => format!(
-            "pairs of subformulas visited: {} ({} from the memo)\n\
-             memo entries: {}",
-            s.nodes, s.memo_hits, s.memo_entries
-        ),
-        // Backward, the markings are the least from which the goal can be
-        // covered.
-        Engine::Horn if outcome.mode.is_affine() => format!(
-            "markings computed backward: {} ({} of them covered already)\n\
-             markings kept: {}",
-            s.nodes, s.memo_hits, s.memo_entries
-        ),
-        Engine::Horn => format!(
-            "markings reached: {} ({} of them again)\n\
-             markings kept: {}",
-            s.nodes, s.memo_hits, s.memo_entries
-        ),
-        Engine::Net => format!(
-            "literals chosen: {}\n\
-             links tried: {}\n\
-             exact tests run: {}",
-            s.nodes, s.links, s.tests
-        ),
-        _ => {
-            let mut lines = format!(
-                "stable sequents visited: {} ({} from the memo)\n\
-                 memo entries at most: {}\n\
-                 splits examined: {}",
-                s.nodes, s.memo_hits, s.memo_entries, s.splits,
-            );
-            if outcome.fragment.has_exponentials() {
-                lines.push_str(&format!("\ncopy bound reached: {}", s.copies));
-            }
-            if s.forward_copies > 0 {
-                lines.push_str(&format!(
-                    "\nforward search's copy bound reached: {}",
-                    s.forward_copies
-                ));
-            }
-            lines
+    // The counters by their keys in the statistics' JSON form.
+    let values = serde_json::to_value(outcome.statistics).unwrap_or_default();
+    let mut lines = String::new();
+    for counter in outcome.engine.counters() {
+        let value = values
+            .get(counter.key)
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let idle = match counter.key {
+            "copies" => !outcome.fragment.has_exponentials(),
+            "forward_copies" => value == 0,
+            _ => false,
+        };
+        if !idle {
+            writeln!(lines, "{}: {value}", counter.label).expect("a string takes it");
         }
-    };
-    format!("{counters}\nunits of work: {}\ntime: {elapsed:.2?}", s.work)
+    }
+    write!(lines, "time: {elapsed:.2?}").expect("a string takes it");
+    lines
 }
 
 /// Runs `check`: reads a proof, checks it in the mode the flags give, and

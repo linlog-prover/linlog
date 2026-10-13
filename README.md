@@ -78,7 +78,8 @@ units of work: 2
 time: 63.45µs
 $ linlog prove --engine focus --stats --quiet --deterministic "|- A * B, C * (~A par ~B), ~C"
 provable (MLL, classical, focus engine)
-stable sequents visited: 2 (0 from the memo)
+stable sequents visited: 2
+from the memo: 0
 memo entries at most: 2
 splits examined: 3
 units of work: 35
@@ -171,13 +172,15 @@ provable (MELL, classical, horn engine)
   ⊢ ?~A, ?(A ⊗ ~B), ?(B ⊗ ~C), C
 $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, horn engine)
-markings reached: 7 (0 of them again)
+markings reached: 7
+markings met again: 0
 markings kept: 7
 units of work: 6
 time: 45.06µs
 $ linlog prove -q --deterministic --stats "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d * a"
 unprovable (MELL, classical, horn engine): the search was exhaustive
-markings reached: 12 (2 of them again)
+markings reached: 12
+markings met again: 2
 markings kept: 10
 units of work: 13
 time: 31.81µs
@@ -185,7 +188,8 @@ $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
 unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
 $ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"
 provable (MELL, classical affine, horn engine)
-markings computed backward: 1 (0 of them covered already)
+markings reached: 1
+markings met again: 0
 markings kept: 1
 units of work: 2
 time: 268.07µs
@@ -225,7 +229,8 @@ bound (`--copies`) or lifts the limit (`--timeout none`), and
 ```console
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer --copies 3 "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 36.65µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
-stable sequents visited: 10 (0 from the memo)
+stable sequents visited: 10
+from the memo: 0
 memo entries at most: 4
 splits examined: 24
 copy bound reached: 3
@@ -233,7 +238,8 @@ units of work: 250
 time: 36.65µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer --timeout none "!(A -o B), !(B -o C), !(C -o D), !(D -o E), A |- E"
 provable (MELL, classical, focus engine)
-stable sequents visited: 15 (0 from the memo)
+stable sequents visited: 15
+from the memo: 0
 memo entries at most: 5
 splits examined: 28
 copy bound reached: 4
@@ -284,7 +290,8 @@ of atoms, which is what a Petri net is), where it runs within
 ```console
 $ linlog prove -q --deterministic --stats --engine focus "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
-stable sequents visited: 47 (5 from the memo)
+stable sequents visited: 47
+from the memo: 5
 memo entries at most: 9
 splits examined: 151
 copy bound reached: 7
@@ -293,7 +300,8 @@ units of work: 1297
 time: 136.45µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
-stable sequents visited: 14228 (13935 from the memo)
+stable sequents visited: 14228
+from the memo: 13935
 memo entries at most: 190
 splits examined: 42105
 copy bound reached: 3
@@ -301,7 +309,8 @@ units of work: 271889
 time: 1.79ms
 $ linlog prove -q --deterministic --stats --engine focus --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 55.51µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
-stable sequents visited: 11 (0 from the memo)
+stable sequents visited: 11
+from the memo: 0
 memo entries at most: 5
 splits examined: 31
 copy bound reached: 3
@@ -402,7 +411,8 @@ A ⊢ A
           !A, !(A ⊸ B) ⊢ !B & A
 $ linlog prove -i -q --stats "(A & B) + (A & C) |- A & (B + C)"
 provable (IALL, intuitionistic, additive engine)
-pairs of subformulas visited: 20 (0 from the memo)
+pairs of subformulas visited: 20
+from the memo: 0
 memo entries: 20
 units of work: 20
 time: 89.90µs

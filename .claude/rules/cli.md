@@ -171,14 +171,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Options::DEFAULT_FORWARD_COPIES`, on both commands too) is
   `Options::forward_copies`, the forward search's own copy bound on
   Horn programs. A test that pins a copy bound's message sets both
-  bounds, or names a bias. `--stats` prints `copy bound reached`
-  (`Statistics::copies`) where the fragment has exponentials, `forward
-  search's copy bound reached` (`forward_copies`) where the default
-  bias's forward search ran, and for every engine `units of work`
-  (`Statistics::work`, deterministic on one thread). `--net` prints the net the
+  bounds, or names a bias. `--stats` prints, a line each, the counters
+  the library lists for the engine that ran (`statistics` reads
+  `Engine::counters` and each counter's key in the statistics' JSON
+  form, with the library's labels), leaving out `copy bound reached`
+  where the fragment has no exponentials and the forward search's where
+  it did not run; `units of work` (`Statistics::work`) is deterministic
+  on one thread. `--net` prints the net the
   net engine found (`Outcome::net`) and otherwise the net read off the
-  proof (`net_into`); `--stats` prints the counters of the engine that
-  ran (`statistics`, one arm per engine with its own counters). The
+  proof (`net_into`). The
   source formats (`latex`, `typst`, `svg`, `rocq`) write the verdict line
   and the statistics as comments of the target (`note`; an XML comment
   turns every `-` into `‐`, since it cannot hold `--` and the advice
@@ -539,12 +540,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 
 - **An engine**: a variant of `EngineArg` with a doc comment (its `--help`
   line) and its arm in `From<EngineArg> for Option<Engine>`. The verdict
-  line prints `Engine`'s `Display`; `statistics` in `prove.rs` gets an arm
-  only if the engine has counters of its own, as the net, additive and
-  Horn engines have (`two-sided` shares the focus engine's; the Horn
-  engine prints markings reached, those reached again and markings kept,
-  and in affine mode, where it searches backward, the markings computed,
-  those an element kept already covers, and the elements kept).
+  line prints `Engine`'s `Display`; `--stats` prints the counters its
+  `Engine::counters` lists, so the command needs nothing for them.
 - **An `interact` command**: an arm in `Session::command`, a line in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.
