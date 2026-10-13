@@ -57,7 +57,11 @@ pub(crate) fn read(path: Option<&Path>, what: &str) -> Result<String> {
         _ => {
             let mut stdin = io::stdin();
             if stdin.is_terminal() {
-                let flag = if what == "sequent" { ", with --file," } else { "" };
+                let flag = if what == "sequent" {
+                    ", with --file,"
+                } else {
+                    ""
+                };
                 bail!("no {what} given: pass it as an argument{flag} or on standard input");
             }
             let mut text = String::new();

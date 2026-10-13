@@ -221,10 +221,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   an entry runs what `prove` runs (the read and parse under its own
   `Deadline::within`, the same `Options`, `alone_first` within the cores
   and the sequential engines across them, as `--deterministic` does),
-  and its line is `NAME: ` and `verdict_line`, or a JSON Lines record
+  and its line is `NAME: ` and `verdict_line` (the name's control
+  characters escaped, `shown`), or a JSON Lines record
   whose first keys are the wire level and the name and the rest
   `Outcome`'s JSON (`seconds` with `--stats`; `record_json`, which drops
-  the outcome's own `version`). Its exit status is the worst (`Status::worse`: error,
+  the outcome's own `version`); an entry's error is `"verdict":
+  "error"` with an `error` object (`Shared::error`: the message, and the
+  library's written error where the chain holds one), and an entry the
+  batch stopped unread is `"verdict": "unknown"` with the reason
+  `stopped` and a `message` (`Shared::unknown`): every record has a name
+  and a verdict. Two entries whose files in `--output DIR` would be one
+  are refused, the second an error before it is searched (`Shared::files`). Its exit status is the worst (`Status::worse`: error,
   unknown, unprovable, proved), and a batch that holds no entry is an
   error, exit 2 (the worst once started at proved, so an input of
   comments, or a directory of files its format does not take, exited 0); `Status::Error` is an entry's error,

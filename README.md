@@ -995,8 +995,12 @@ taken literally, relative to the current directory. On standard input
 the batch is a stream: each line is answered as soon as it is decided,
 so a program can ask, wait for the answer and ask again. With `--format
 json` every answer is a JSON Lines record, the wire level and the name
-first and then what `--format json` writes for one sequent; the mode is the flags', a problem
-file's column or a record's:
+first and then what `--format json` writes for one sequent; an entry
+that could not be read or searched is `"verdict": "error"` with an
+`error` object (its `message`, and the library's `code`, `kind` and
+`details` where the library refused it), and one the batch stopped before
+it was decided `"verdict": "unknown"` with a `message`. The mode is the
+flags', a problem file's column or a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json

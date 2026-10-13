@@ -1476,6 +1476,68 @@ fn every_entry_file_lies_inside_the_directory() {
     assert!(out.join("-:1.json").is_file() && out.join("-:2.json").is_file());
 }
 
+/// Every JSON Lines record of a batch has a name and a verdict: an entry
+/// that could not be read is `error` with the error's message (and the
+/// library's code where the library refused it), one the batch's time
+/// limit stopped is `unknown`; in text a name's control characters are
+/// escaped, so it cannot read as another entry's line; and two entries
+/// of one file name in `--output DIR` are refused, the second an error.
+#[test]
+fn a_batch_s_records_names_and_files() {
+    let (status, lines, _) = linlog(
+        &["prove", "--input-format", "jsonl", "--format", "json"],
+        "{\"name\": \"bad\", \"sequent\": \"A |-|- B\"}\n\
+         {\"name\": \"big\", \"sequent\": {\"terms\": [{\"V\": 0}], \"roots\": [0, 0, 0], \"var_dict\": [\"a\"]}}\n",
+    );
+    assert_eq!(status, 2);
+    let records: Vec<serde_json::Value> = lines
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(records.len(), 2, "{lines}");
+    for record in &records {
+        assert_eq!(record["verdict"], "error", "{record}");
+        assert!(record["error"]["message"].is_string(), "{record}");
+    }
+    let (status, lines, _) = linlog(
+        &[
+            "prove",
+            "--input-format",
+            "lines",
+            "--format",
+            "json",
+            "--batch-timeout",
+            "0ms",
+        ],
+        "a: A |- A\n",
+    );
+    let record: serde_json::Value = serde_json::from_str(lines.trim()).unwrap();
+    assert_eq!((status, &record["verdict"]), (3, &"unknown".into()));
+    let (_, lines, _) = linlog(
+        &["prove", "--input-format", "jsonl"],
+        "{\"name\": \"x\\ny: proved\", \"sequent\": \"A |- A\"}\n",
+    );
+    assert!(lines.starts_with("x\\ny: proved: provable"), "{lines}");
+    let dir = scratch("collide");
+    let (status, lines, _) = linlog(
+        &[
+            "prove",
+            "--input-format",
+            "lines",
+            "--format",
+            "json",
+            "--output",
+            dir.to_str().unwrap(),
+        ],
+        "x: A |- A\nx: B |- B\n",
+    );
+    assert_eq!(status, 2);
+    assert!(
+        lines.starts_with("x: provable") && lines.contains("\nx: error: its file"),
+        "{lines}"
+    );
+}
+
 /// `--logic` decides ordinary logic through the translation it names:
 /// the exit statuses are the verdicts', the derivation is read back as LK
 /// or LJ, `--linear` shows the image's proof instead, a `.p` file is a

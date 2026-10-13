@@ -427,6 +427,8 @@ struct Shared {
     threads: Threads,
     /// The directory the derivations go to.
     directory: Option<PathBuf>,
+    /// The files of the entries so far, so that no two entries write one.
+    files: std::sync::Mutex<HashSet<PathBuf>>,
 }
 
 /// The extension of a file a derivation is written to in a format.
@@ -473,6 +475,26 @@ fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
     file.into()
 }
 
+/// Returns an entry's name as a line of text shows it: its control
+/// characters escaped, so that a name with a newline cannot write a line
+/// that reads as another entry's verdict.
+fn shown(name: &str) -> std::borrow::Cow<'_, str> {
+    if name.chars().any(char::is_control) {
+        name.chars()
+            .map(|c| {
+                if c.is_control() {
+                    c.escape_default().to_string()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect::<String>()
+            .into()
+    } else {
+        name.into()
+    }
+}
+
 /// Returns the JSON of a record: the wire level, the entry's name, then
 /// the fields of `body`, a JSON object, but its own `version`.
 fn record_json(name: &str, body: &str) -> String {
@@ -491,16 +513,41 @@ fn record_json(name: &str, body: &str) -> String {
 }
 
 impl Shared {
-    /// Returns what is written for an entry: in JSON a record, else
+    /// Returns what is written for an entry the batch stopped before it
+    /// was decided, `line` saying why: in JSON an unknown verdict, its
+    /// reason that the search was stopped and the line as `message`, else
     /// `NAME: LINE`.
-    fn line(&self, name: &str, kind: &str, line: &str) -> String {
+    fn unknown(&self, name: &str, line: &str) -> String {
         if self.json_lines() {
-            let body = serde_json::json!({ kind: line }).to_string();
-            record_json(name, &body)
-        } else if kind == "error" {
-            format!("{name}: error: {line}")
+            let body = serde_json::json!({
+                "verdict": "unknown",
+                "reason": linlog::search::Reason::Stopped,
+                "message": line,
+            });
+            record_json(name, &body.to_string())
         } else {
-            format!("{name}: {line}")
+            format!("{}: {line}", shown(name))
+        }
+    }
+
+    /// Returns what is written for an entry whose read or search ended
+    /// in an error: in JSON the verdict `error` and the error as the
+    /// library writes it (`code`, `kind`, `details`) where it is the
+    /// library's, with the whole message, else `NAME: error: MESSAGE`.
+    fn error(&self, name: &str, error: &anyhow::Error) -> String {
+        let message = format!("{error:#}");
+        if self.json_lines() {
+            let mut written = error
+                .downcast_ref::<linlog::Error>()
+                .and_then(|e| serde_json::to_value(e).ok())
+                .unwrap_or_else(|| serde_json::json!({}));
+            if let Some(fields) = written.as_object_mut() {
+                fields.insert("message".to_owned(), message.into());
+            }
+            let body = serde_json::json!({ "verdict": "error", "error": written });
+            record_json(name, &body.to_string())
+        } else {
+            format!("{}: error: {message}", shown(name))
         }
     }
 
@@ -525,9 +572,22 @@ impl Shared {
     fn answer(&self, entry: Entry, plan: &batch::Plan) -> Done {
         let name = entry.name.clone();
         let failed = |e: anyhow::Error| Done {
-            text: self.line(&name, "error", &format!("{e:#}")),
+            text: self.error(&name, &e),
             status: Status::Error,
         };
+        if let Some(directory) = &self.directory {
+            let file = file_for(directory, &name, self.show.format);
+            let mut files = self
+                .files
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if !files.insert(file.clone()) {
+                return failed(anyhow!(
+                    "its file {} is another entry's of this batch: give the entries distinct names",
+                    file.display()
+                ));
+            }
+        }
         if self.batch.passed() || interrupted() {
             let why = match self.batch.limit() {
                 _ if interrupted() => "interrupted before it was searched".to_owned(),
@@ -537,7 +597,7 @@ impl Shared {
                 None => unreachable!("only a limit passes"),
             };
             return Done {
-                text: self.line(&name, "unknown", &format!("unknown: {why}")),
+                text: self.unknown(&name, &format!("unknown: {why}")),
                 status: Status::Unknown,
             };
         }
@@ -582,7 +642,7 @@ impl Shared {
             let limit = deadline.limit().expect("only a limit passes");
             let line = crate::prove::unread(limit);
             return Ok(Done {
-                text: self.line(&entry.name, "unknown", &line),
+                text: self.unknown(&entry.name, &line),
                 status: Status::Unknown,
             });
         };
@@ -629,7 +689,7 @@ impl Shared {
             }
             record_json(&entry.name, &body)
         } else {
-            format!("{}: {line}", entry.name)
+            format!("{}: {line}", shown(&entry.name))
         };
         if let Some(directory) = &self.directory
             && let Some(note) = self.write(
@@ -652,8 +712,8 @@ impl Shared {
     }
 
     /// Writes the outcome, or the proof's derivation or net, into its file
-    /// in `directory`, under the entry's `deadline`, and returns the line that says why nothing was
-    /// written when a proof's file is not.
+    /// in `directory`, under the entry's `deadline`, and returns the line
+    /// that says why nothing was written when a proof's file is not.
     fn write(
         &self,
         name: &str,
@@ -997,6 +1057,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         most: crate::settings::most(settings),
         threads,
         directory,
+        files: std::sync::Mutex::default(),
     });
     let worker = shared.clone();
     let stack = limits.stack_bytes();
@@ -1054,6 +1115,7 @@ fn one(
         most: crate::settings::most(settings),
         threads,
         directory,
+        files: std::sync::Mutex::default(),
     };
     let done = on_large_stack(plan.limits.stack_bytes(), || shared.answer(entry, plan))?;
     println!("{}", done.text);
