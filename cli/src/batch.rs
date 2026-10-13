@@ -462,13 +462,22 @@ fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
 }
 
 /// Returns an entry's name as a line of text shows it: its control
-/// characters escaped, so that a name with a newline cannot write a line
-/// that reads as another entry's verdict.
+/// characters, line separators and marks that reorder text escaped, so
+/// that a name cannot write a line that reads as another entry's verdict.
 fn shown(name: &str) -> std::borrow::Cow<'_, str> {
-    if name.chars().any(char::is_control) {
+    // A control character, a line or paragraph separator, or a mark that
+    // reorders the text around it.
+    let hidden = |c: char| {
+        c.is_control()
+            || matches!(
+                c,
+                '\u{200e}' | '\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+            )
+    };
+    if name.chars().any(hidden) {
         name.chars()
             .map(|c| {
-                if c.is_control() {
+                if hidden(c) {
                     c.escape_default().to_string()
                 } else {
                     c.to_string()

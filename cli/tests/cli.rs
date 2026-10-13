@@ -1557,9 +1557,10 @@ fn check_s_verdicts() {
 
 /// Every JSON Lines record of a batch has a name and a verdict: an entry
 /// that could not be read is `error` with the error's message (and the
-/// library's code where the library refused it), one the batch's time
-/// limit stopped is `unknown`; in text a name's control characters are
-/// escaped, so it cannot read as another entry's line; and two entries
+/// library's error where the error is the library's), one the batch's
+/// time limit stopped is `unknown`; in text a name's control characters
+/// and reordering marks are escaped, so it cannot read as another
+/// entry's line; and two entries
 /// of one file name in `--output DIR` are refused, the second an error.
 #[test]
 fn a_batch_s_records_names_and_files() {
@@ -1578,6 +1579,9 @@ fn a_batch_s_records_names_and_files() {
         assert_eq!(record["verdict"], "error", "{record}");
         assert!(record["message"].is_string(), "{record}");
     }
+    // The parse error is the command's line with a caret, and the
+    // library's error object beside it.
+    assert_eq!(records[0]["error"]["code"], "parse", "{}", records[0]);
     let (status, lines, _) = linlog(
         &[
             "prove",
@@ -1597,6 +1601,12 @@ fn a_batch_s_records_names_and_files() {
         "{\"name\": \"x\\ny: proved\", \"sequent\": \"A |- A\"}\n",
     );
     assert!(lines.starts_with("x\\ny: proved: provable"), "{lines}");
+    // A mark that reorders the text after it is escaped too.
+    let (_, lines, _) = linlog(
+        &["prove", "--input-format", "jsonl"],
+        "{\"name\": \"a\\u202eb\", \"sequent\": \"A |- A\"}\n",
+    );
+    assert!(lines.starts_with("a\\u{202e}b: provable"), "{lines}");
     let dir = scratch("collide");
     let (status, lines, _) = linlog(
         &[
