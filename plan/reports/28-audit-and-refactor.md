@@ -804,6 +804,32 @@ F121 and F114 claim no gain and cost none beyond the spread; F149's
 claim is `batch-families`' (its qbf row is within the spread).
 
 
+#### Area 3.4, item by item (session `step-28g`)
+
+The command, the harness, the flake and the documents: the open
+findings of `area == "command-harness-flake-docs"` (F155 to F226
+without F165, H14, H15, H20), the halves earlier areas moved here (F5,
+F16, F27, H25, F65; the `--stats` lines through `Engine::counters`, the
+engine arguments from `Engine::ALL`, the harness's reason column through
+`Reason::name`, F141's command half), `--settings FILE` (R183), F59's
+pure moves, the race mutant at `search/mod.rs:436`, the ultra reviews'
+findings, and the step's last evidence.
+
+| item | state | evidence |
+|---|---|---|
+| a. F59: `derivation.rs`, `check.rs`, `interactive.rs` split as pure moves | open | |
+| b. a test that kills the race's `||` for `&&`; why the reruns' `--re` took twelve mutants | open | |
+| c. the command's shared search flags, `Options`, stop and verdict line (F194, F200), `--settings FILE` (R183), `--stats` and the engines from the library (area 3.2's halves) | open | |
+| d. the command's other findings (F5, F16, F27, H25, F65, F162 to F170, F189 to F208, H14, H15, H20) | open | |
+| e. the command's tests (F192, F209 to F216) | open | |
+| f. the harness (F161, F182 to F188, F219, F220, the reason column, F141's half) | open | |
+| g. the flake, CI and the hooks (F155, F172, F173, F180, F221, F222, F226, the step's flake items) | open | |
+| h. the documents (F156 to F160, F171, F174 to F179, F181, F190, F223 to F225, section 1.1's stale claims) | open | |
+| i. the fuzz targets of the command and the read-back (F217, F218) | open | |
+| j. the ultra reviews' findings (`U…`) | open | |
+| k. stage 0's evidence again: every mutation batch, every fuzz target, the ratchet | open | |
+| l. check rounds (at most three), the fresh-context reviewer, `nix flake check` | open | |
+
 ## From the supervisor
 
 ### Where you start, `step-28` (2026-10-08 20:51)
@@ -1402,3 +1428,41 @@ claim is `batch-families`' (its qbf row is within the spread).
   code was touched until it ended; "Area 3.3: decided unattended" names
   the commit; the four that timed out were rerun one at a time on cores
   6 to 11 (row m: three caught by a failing test, one surviving).
+
+### Where you start, `step-28g` (2026-10-13)
+
+- You are `step-28g`, the seventh session of step 28, Opus 5.5 at
+  `high`: area 3.4, the command, the harness, the flake and the
+  documents, the step's last area. The session ends with the area's
+  check rounds (three at most), in which the last area takes all of
+  stage 0's evidence again (every mutation batch, every fuzz target, the
+  ratchet); the fresh-context reviewer; the last reader of stage 4
+  (Fable 5.1 at `high`, fresh context: the rustdoc's front page and
+  README as a stranger reads them, against
+  `plan/notes/research/usability-baseline.md`); a passing `nix flake
+  check`; all committed, the checklist current, the last message sent.
+- The findings: `area == "command-harness-flake-docs"` still open (the
+  command's wrong answers were area 3.2's session's); from area 3.1
+  F5, F16, F27, H25 and F65; from area 3.2 the `--stats` lines through
+  `Engine::counters`, the engine arguments from `Engine::ALL`, the
+  harness's reason column through `Reason::name` and F141's command
+  half; `--settings FILE` (R183); F160 and F181 with the oracles
+  `bench/targets/after-efficiency.csv` and
+  `bench/targets/net-after-efficiency.csv`; F59's moves into the files
+  the step prompt names; a test that kills the race's `||` for `&&` at
+  `search/mod.rs:436`, and why the reruns' `--re` took twelve mutants
+  it does not match; the ultra reviews' `U…` findings if they come (a
+  commit of their own where the code is otherwise untouched).
+- Benchmarks are allowed, one line to `planning` at a run's start and
+  end; "Pause" or "hold" stops runs gracefully; a timed run alone on
+  core 2 or 3, timers looked at first. Cores 0 and 1 the desktop's,
+  builds on 2 to 5, agents' programs and long runs on 6 to 15, every
+  scope `step28-…`, a background watcher on every run. Mutation runs
+  from a jj workspace of their own at the head; a timed-out mutant
+  rerun alone before it counts. Departures from the design marked
+  "(departs from the design)" in "Area 3.4: decided unattended". Signing
+  has lapsed: commit with `--config signing.behavior=drop` until
+  `planning` says it works, testing a signature before each commit.
+  Leftover workspaces `../linlog-pool-base`, `../linlog-round1` (area
+  3.3's) and `../linlog-gate` (live, usable) stay; the last message
+  lists the ones added.
