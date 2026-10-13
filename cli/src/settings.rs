@@ -14,7 +14,7 @@ use clap::ArgMatches;
 use clap::parser::ValueSource;
 use linlog::Settings;
 use linlog::search::batch::{self, Cores};
-use linlog::search::{Jobs, Options};
+use linlog::search::{Jobs, Options, Schedule};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
@@ -161,6 +161,7 @@ impl SearchArgs {
         // `--pool-after` says otherwise, and `--deterministic` on one.
         if self.deterministic {
             search.jobs = Jobs::Count(1);
+            search.schedule = Schedule::Turns;
             clock.pool_after_ms = None;
             return;
         }

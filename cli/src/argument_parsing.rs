@@ -261,8 +261,8 @@ pub struct SearchArgs {
     pub pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input
     ///
-    /// The same as `--jobs 1`, and takes precedence over `--jobs` and
-    /// `--pool-after`.
+    /// The same as `--jobs 1 --schedule turns`, and takes precedence over
+    /// `--jobs`, `--pool-after` and `--schedule`.
     #[arg(long)]
     pub deterministic: bool,
     /// How often the net engine runs its exact test of correctness: after
