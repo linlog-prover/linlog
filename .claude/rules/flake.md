@@ -37,8 +37,10 @@ the version) with nixpkgs' Rocq and standard library and compiles the
 `.v` snapshots and six CLI certificates against it (four of them over
 `Prop`, of ordinary logic, classical and intuitionistic, two of `true`,
 which bind nothing), requiring Rocq to print nothing; `bench.nix` is the `linlog-bench` package, the `bench`
-check (the harness on the smallest instance of every family and on the
-problem file, failing on a verdict against a known one, a `MISMATCH`)
+check (the harness on the smallest instance of every family, the
+problem file, and an LLTP and a `.spec` file of the command's lock
+inputs, failing through `summary --strict` on a verdict against a known
+one, an `error` row, a crash, a kill or no rows)
 and the `lltp` package, the LLTP library fetched at a pinned commit with
 its Petri-net archives unpacked and its one malformed file repaired,
 which no check uses, and the `iltp` package, the ILTP library's

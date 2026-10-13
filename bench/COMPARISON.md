@@ -104,13 +104,17 @@ gained and 6 lost, the same time in the median (1.01×).
 
 None.
 
+### Counters that differ
+
+Of the 2170 problems both decide alike on one thread, 940 differ in nodes, splits, memo_hits, memo_entries, links, tests.
+
 ### Decided by before, not by after
 
 None.
 
 ### By group
 
-Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `wide` a context too wide to split, `crash` out of memory); the median ratio of after's time to before's on the problems both decide within the limit (how many); and the problems only after has.
+Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `memory` the memory limit, `index` an index past its width, `wide` a context too wide to split, `crash` out of memory); the median ratio of after's time to before's on the problems both decide within the limit (how many); and the problems only after has.
 
 | file | family | configuration | problems | before decided | after decided | only before | only after | before ended | after ended | after/before | new |
 |---|---|---|--:|--:|--:|--:|--:|---|---|--:|--:|
@@ -1004,6 +1008,10 @@ Problems in both; decided (late: after the time limit); decided by one and not t
 
 None.
 
+#### Counters that differ
+
+Of the 967 problems both decide alike on one thread, 452 differ in nodes, splits, memo_hits, memo_entries, links, tests.
+
 #### Decided by lltp-rarer, not by lltp-intuitionistic
 
 | file | family | configuration | problem | lltp-rarer | lltp-intuitionistic |
@@ -1013,7 +1021,7 @@ None.
 
 #### By group
 
-Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `wide` a context too wide to split, `crash` out of memory); the median ratio of lltp-intuitionistic's time to lltp-rarer's on the problems both decide within the limit (how many); and the problems only lltp-intuitionistic has.
+Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `memory` the memory limit, `index` an index past its width, `wide` a context too wide to split, `crash` out of memory); the median ratio of lltp-intuitionistic's time to lltp-rarer's on the problems both decide within the limit (how many); and the problems only lltp-intuitionistic has.
 
 | file | family | configuration | problems | lltp-rarer decided | lltp-intuitionistic decided | only lltp-rarer | only lltp-intuitionistic | lltp-rarer ended | lltp-intuitionistic ended | lltp-intuitionistic/lltp-rarer | new |
 |---|---|---|--:|--:|--:|--:|--:|---|---|--:|--:|
@@ -1041,6 +1049,10 @@ Problems in both; decided (late: after the time limit); decided by one and not t
 #### Verdicts that differ
 
 None.
+
+#### Counters that differ
+
+Of the 2038 problems both decide alike on one thread, 668 differ in nodes, splits, memo_hits, memo_entries, links, tests.
 
 #### Decided by lltp-forward, not by lltp-intuitionistic
 
@@ -1404,7 +1416,7 @@ None.
 
 #### By group
 
-Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `wide` a context too wide to split, `crash` out of memory); the median ratio of lltp-intuitionistic's time to lltp-forward's on the problems both decide within the limit (how many); and the problems only lltp-intuitionistic has.
+Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `memory` the memory limit, `index` an index past its width, `wide` a context too wide to split, `crash` out of memory); the median ratio of lltp-intuitionistic's time to lltp-forward's on the problems both decide within the limit (how many); and the problems only lltp-intuitionistic has.
 
 | file | family | configuration | problems | lltp-forward decided | lltp-intuitionistic decided | only lltp-forward | only lltp-intuitionistic | lltp-forward ended | lltp-intuitionistic ended | lltp-intuitionistic/lltp-forward | new |
 |---|---|---|--:|--:|--:|--:|--:|---|---|--:|--:|

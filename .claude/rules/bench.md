@@ -13,8 +13,11 @@ serde_json, which the CLI and the core's tests already have.
 
 ## Layout
 
-- `src/main.rs`: the clap tree (`run`, `summary`, `families`, and the
-  hidden `one`); doc comments are the `--help` text, as in the CLI.
+- `src/main.rs`: the clap tree (`run`, `summary`, `families`,
+  `journeys`, `journey`, `ratchet`, and the hidden `one`); doc comments
+  are the `--help` text, as in the CLI. `--engines` and `--engine` take
+  the library's names (`EngineChoice::parser`, from `Engine::NAMES`, and
+  `auto`).
 - `src/problems.rs`: the four sources. The parent lists `Reference`s
   (family and size, an LLTP path, a `.spec` path, a problem file and
   line) and never parses a problem file's formulas; the child `load`s
@@ -36,7 +39,9 @@ serde_json, which the CLI and the core's tests already have.
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
   and with the library's own check off (`Options::check(false)`), prints
-  the 27-field tail of the CSV row (`TAIL`) with the search's verdict, and for a
+  the 27-field tail of the CSV row (`TAIL`, whose fields are named by
+  `HEADER` and set through `column(name)`, never by position) with the
+  search's verdict, and for a
   proof checks it outside the timed part and prints the tail once more
   with `checked` and `check_ms`. The parent takes the last tail. It kills
   a child that has not said `loaded` within `--load-limit` seconds
@@ -52,19 +57,35 @@ serde_json, which the CLI and the core's tests already have.
   backtraces; the whole error output goes to the parent's standard error,
   which is the run's log).
 - `src/summary.rs`: Markdown from CSV. A problem counts once per
-  configuration (CSV file, family, mode, requested engine, jobs, test
-  period, and in a file from before the portfolio was removed its
-  `portfolio` column, which `run` no longer writes): the first run's
-  verdict, the median of the runs' times.
+  configuration (CSV file, family, and `configuration`: mode, requested
+  engine, jobs, test period, in a file from before the portfolio was
+  removed its `portfolio` column, and every option the row names that is
+  not the default: bias, forward copies, memory limit, pool after; one
+  function, which `compare` uses too): the first run's verdict, the
+  median of the runs' times. A verdict after the time limit is decided
+  (`Runs::decided`) but late (`Runs::late`) and not solved
+  (`Runs::solved`), and has a column of its own; where an undecided run
+  ended is one `Ending` (time, bound, depth, memory, index, wide, killed,
+  crash, error) for both files; a table sums the engines' counters
+  (`COUNTERS`) of the problems decided in time per configuration.
+  `--strict` fails after the tables on a verdict against the known one,
+  an `error` row, a crash or a kill, or no rows (`Runs::failed`), which
+  is the `bench` flake check's test.
   `refused` rows (a forced engine that does not apply) are dropped. The
   CSV file's name is part of the configuration's label, since each file
   of the baseline is one `run` with options of its own (a copy bound, a
   recursion limit, a longer time limit) that the columns alone do not
   tell apart.
 - `src/compare.rs`: `summary --before DIR` (every file against the file
-  of the same name in an earlier baseline) and `summary --against FILE`
-  (every other file against one of the same baseline, keyed without the
-  file's name): the verdicts that differ, what the first decides and the
+  of the same name in an earlier baseline, grouped by file, family and
+  whole configuration) and `summary --against FILE` (every other file
+  against one of the same baseline, keyed without the file's name and by
+  the configuration's `base` alone, mode, engine, jobs and test period,
+  since the files compared differ in an option): the verdicts that
+  differ, how many problems decided alike on one thread differ in their
+  counters (with `--counters` each of them: `summary --against
+  bench/targets/ORACLE.csv bench/targets/LABEL.csv --counters` is the
+  target set's check in one command), what the first decides and the
   second does not (with the outcomes of the files that have no
   counterpart beside it), a row per group (file, family, configuration)
   and the generated problems side by side. A verdict after the time
@@ -96,8 +117,10 @@ serde_json, which the CLI and the core's tests already have.
   so the files are split on commas without quoting.
 - **`verdict` and `reason`**: `proved`, `unprovable`, `unknown` (reasons
   `timeout`, `copy_bound`, `recursion_limit`, `memory_limit`,
-  `index_limit`, `other` for a `Reason` added since, `killed`,
-  `crash …`; `context_too_wide` is gone with its reason and only read in
+  `index_limit`, `work_limit`, `unchecked`, each `Reason::name` but
+  `stopped`, which is the harness's time limit and written `timeout`,
+  `killed`, `killed while loading`, `crash …`; older files have `other`
+  for a reason added since; `context_too_wide` is gone with its reason and only read in
   older files), `refused` (`EngineRefused`, `IntuitionisticMix`: the configuration does
   not apply)
   and `error` (every other `Error`, a parse failure, a missing reading;
@@ -126,7 +149,10 @@ serde_json, which the CLI and the core's tests already have.
   so that a `killed` row of the first two baselines on a file of
   megabytes may be its parse): a `killed` row is a search that did not
   stop, `killed while loading` a load past `--load-limit`. The `bench` flake check runs the
-  harness for its verdicts only (a `MISMATCH` fails it), never for times.
+  harness for its verdicts only, never for times, on every source (the
+  families, the problem file, an LLTP and a `.spec` file), and fails
+  through `summary --strict` on a mismatch, an error, a crash, a kill or
+  no rows (an `error` row once passed it).
 - **A mismatch is a verdict against the known one.** For a generated
   family it is a bug in an engine or in the family's construction; for an
   LLTP problem it may be the header (the intuitionistic headers of
@@ -149,7 +175,7 @@ serde_json, which the CLI and the core's tests already have.
   --user list-timers` before leaving the machine. System timers and
   services need root: the author stops them. The unit waits for an
   idle machine (on mains, a load average of at most 1) until the slot's
-  end minus `estimate` (10 h), then starts regardless and says so in
+  end minus `estimate` (11.5 h), then starts regardless and says so in
   `starts.txt`: a night not used is worse than rows marked as disturbed.
   `--detach` starts the unit at once and never stops it. The unit,
   `linlog-baseline`, runs the script with `--force` (40 GiB and no swap,
@@ -162,15 +188,21 @@ serde_json, which the CLI and the core's tests already have.
   a scheduled job other than the trivial ones is due within the estimate
   (`nix-gc` at midnight, `nix-optimise` before four, `obsidian-snapshot`
   at 23:00, backups), unless given `--force`; `--arm` names the jobs due
-  in the slot instead. The journal gets every stream's last progress
+  in the slot instead. `--reference=DIR` names the baseline whose
+  intuitionistic LLTP pass chooses the later stages' problems (the first,
+  `results/2026-09-30`, by default; `ended` reads its columns by the
+  header's names, since that file has the `portfolio` column today's
+  lack) and `--reruns=FILE` stage 4's list (`bench/reruns.txt`); both
+  are forwarded to the unit and written into `RESULTS.md`. The journal gets every stream's last progress
   line (with the harness's estimate of the time left), the load and the
   other processes using a CPU every ten minutes. Each process is capped
   at 12 GiB of address space (`prlimit`; 16 and 32 GiB in stage 4): the
-  check of a child's proof takes a bitset of the forest's width per proof
-  node (7.6 GB at depth 16 of the `additive` family, about 130 GB at
-  depth 18; the additive search itself stays under 0.1 GB since its memo
-  has a cap), and three such processes at once stay within the unit's
-  limit. Loading is cheap by comparison: the library's largest
+  cap was sized for the checker's first implementation, which kept a
+  bitset of the forest's width per proof node (7.6 GB at depth 16 of the
+  `additive` family, about 130 GB at depth 18; the additive search itself
+  stays under 0.1 GB since its memo has a cap), so that three such
+  processes stayed within the unit's limit; the check now holds what its
+  live states hold, under its own bound of 1 GiB. Loading is cheap by comparison: the library's largest
   file (103 MB, 30 million occurrences) loads in 16 s with 2 GB. The
   classical LLTP pass runs `--reverse` so that it does not load those
   files at the same time as the passes in order. Stage 1 has the
@@ -198,9 +230,10 @@ serde_json, which the CLI and the core's tests already have.
   `lltp-recursion`), which the first baseline ended at the recursion or
   width limit within milliseconds. The search now proves each in 50 ms
   to 2 s within 250 MB (`linlog prove --quiet --stats` on the sequent),
-  and the child's check of the proof (`proofs::check::derive`, which
-  keeps what every node derives, on a sequent of 65 000 `!` clauses a
-  list of that length per node) fills the 12 GiB in a few seconds: the
+  and the child's check of the proof (in the checker's first
+  implementation, `proofs::oracle` now, which kept what every node
+  derives, on a sequent of 65 000 `!` clauses a list of that length per
+  node) filled the 12 GiB in a few seconds: the
   row says `unknown` where the search's answer was `proved`. The others
   are the search's own memory: four Philosophers-10000 nets under the
   recursion limit of 16 384 (the counts of a split, per level of a deep

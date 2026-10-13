@@ -42,8 +42,14 @@ const TAIL: usize = 27;
 /// starts, from which the parent counts the time limit.
 const LOADED: &str = "loaded";
 
-/// The tail's column that says how the check of a proof went.
-const CHECKED: usize = 4;
+/// Returns the index in the tail of the column `name`.
+fn column(name: &str) -> usize {
+    let columns: Vec<&str> = HEADER.split(',').collect();
+    columns[columns.len() - TAIL..]
+        .iter()
+        .position(|c| *c == name)
+        .expect("a column of the tail")
+}
 
 /// Which mode to run a problem in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -80,7 +86,9 @@ impl ModeChoice {
 /// How the focused engines pick the positive literal of every atom.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum BiasChoice {
-    /// By tensor factors without exponentials, the rarer literal with them
+    /// By tensor factors without exponentials, the rarer literal under
+    /// weakening, and in linear mode with exponentials both, each in a
+    /// search of its own
     Auto,
     /// The rarer literal
     Rarer,
@@ -283,7 +291,10 @@ pub fn run(args: &RunArgs) -> Result<()> {
                     for run in 0..args.repeat {
                         let tail = child(&exe, reference, choice, engine, threads, args)?;
                         let fields: Vec<&str> = tail.split(',').collect();
-                        let (verdict, time) = (fields[2], fields[9].parse().unwrap_or(0.0));
+                        let (verdict, time) = (
+                            fields[column("verdict")],
+                            fields[column("time_ms")].parse().unwrap_or(0.0),
+                        );
                         writeln!(
                             out,
                             "{},{},{},{},{},{},{},{threads},{},{},{run},{tail}",
@@ -309,7 +320,7 @@ pub fn run(args: &RunArgs) -> Result<()> {
                                 reference.name,
                                 mode_name(mode),
                                 engine.name().to_owned(),
-                                fields[3],
+                                fields[column("reason")],
                             );
                         }
                         if time >= args.repeat_under * 1000.0 || verdict == "refused" {
@@ -453,7 +464,8 @@ fn child(
     let mut searching = None;
     // Time for the pool's teardown and the proof check.
     let grace = args.grace.unwrap_or(args.timeout * 0.1 + 5.0);
-    let limit = Duration::from_secs_f64(args.timeout + grace);
+    // A limit and grace past what a duration holds never kill.
+    let limit = Duration::try_from_secs_f64(args.timeout + grace).unwrap_or(Duration::MAX);
     let load_limit = Duration::from_secs_f64(args.load_limit);
     let status = loop {
         if searching.is_none() {
@@ -483,19 +495,19 @@ fn child(
         Some(row) => {
             let mut fields: Vec<&str> = row.split(',').collect();
             let checked = format!("failed: {reason}");
-            fields[CHECKED] = &checked;
+            fields[column("checked")] = &checked;
             fields.join(",")
         }
         None => {
             let mut fields = vec![String::new(); TAIL];
-            fields[2] = "unknown".to_owned();
-            fields[3] = reason;
-            fields[19] = name(&args.bias);
-            fields[20] = forward_copies(args.forward_copies).to_string();
-            fields[22] = memory_column(args.memory_limit);
-            fields[24] = pool_column(args.pool_after);
+            fields[column("verdict")] = "unknown".to_owned();
+            fields[column("reason")] = reason;
+            fields[column("bias")] = name(&args.bias);
+            fields[column("forward_copies")] = forward_copies(args.forward_copies).to_string();
+            fields[column("memory_limit")] = memory_column(args.memory_limit);
+            fields[column("pool_after")] = pool_column(args.pool_after);
             let since = searching.unwrap_or(spawned);
-            fields[9] = format!("{:.3}", since.elapsed().as_secs_f64() * 1000.0);
+            fields[column("time_ms")] = format!("{:.3}", since.elapsed().as_secs_f64() * 1000.0);
             fields.join(",")
         }
     };
@@ -560,7 +572,12 @@ fn say(line: &str) {
 fn tail(args: &OneArgs) -> String {
     let problem = match problems::load(&args.problem) {
         Ok(problem) => problem,
-        Err(error) => return row(&[(2, "error"), (3, &clean(&format!("{error:#}")))]),
+        Err(error) => {
+            return row(&[
+                ("verdict", "error"),
+                ("reason", &clean(&format!("{error:#}"))),
+            ]);
+        }
     };
     let mode = args.mode.apply(problem.mode);
     let copies = match args.copies {
@@ -631,17 +648,20 @@ fn tail(args: &OneArgs) -> String {
                 _ => "error",
             };
             return row(&[
-                (0, &bound),
-                (1, expected),
-                (2, verdict),
-                (3, &clean(&error.to_string())),
-                (7, &occurrences.to_string()),
-                (8, &multiplicity.to_string()),
-                (16, &recursion.to_string()),
-                (19, &name(&args.bias)),
-                (20, &forward_copies(args.forward_copies).to_string()),
-                (22, &memory_column(args.memory_limit)),
-                (24, &pool_column(args.pool_after)),
+                ("copies", &bound),
+                ("expected", expected),
+                ("verdict", verdict),
+                ("reason", &clean(&error.to_string())),
+                ("occurrences", &occurrences.to_string()),
+                ("multiplicity", &multiplicity.to_string()),
+                ("recursion_limit", &recursion.to_string()),
+                ("bias", &name(&args.bias)),
+                (
+                    "forward_copies",
+                    &forward_copies(args.forward_copies).to_string(),
+                ),
+                ("memory_limit", &memory_column(args.memory_limit)),
+                ("pool_after", &pool_column(args.pool_after)),
             ]);
         }
     };
@@ -649,13 +669,10 @@ fn tail(args: &OneArgs) -> String {
         Verdict::Proved(_) => ("proved", ""),
         Verdict::Unprovable(_) => ("unprovable", ""),
         Verdict::Unknown(reason) => {
+            // The harness's stop is its time limit.
             let reason = match reason {
                 Reason::Stopped => "timeout",
-                Reason::CopyBound { .. } => "copy_bound",
-                Reason::RecursionLimit { .. } => "recursion_limit",
-                Reason::MemoryLimit { .. } => "memory_limit",
-                Reason::IndexLimit => "index_limit",
-                _ => "other",
+                reason => reason.name(),
             };
             ("unknown", reason)
         }
@@ -742,10 +759,10 @@ fn decide(
 }
 
 /// A tail with the given fields filled in and the others empty.
-fn row(filled: &[(usize, &str)]) -> String {
+fn row(filled: &[(&str, &str)]) -> String {
     let mut fields = vec![""; TAIL];
-    for &(i, value) in filled {
-        fields[i] = value;
+    for &(name, value) in filled {
+        fields[column(name)] = value;
     }
     fields.join(",")
 }

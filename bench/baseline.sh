@@ -80,10 +80,14 @@ results=bench/results
 cores=(1 0 2 3)
 slot=20:00-07:00
 estimate=$((23 * 1800))
-# The first baseline, whose intuitionistic LLTP pass chooses the problems
-# that the later stages run again: chosen from each baseline's own pass,
-# the sets would differ between baselines and no row would compare.
+# The baseline whose intuitionistic LLTP pass chooses the problems that
+# the later stages run again (--reference=DIR; the first by default):
+# chosen from each baseline's own pass, the sets would differ between
+# baselines and no row would compare. And the runs stage 4 repeats with
+# more room (--reruns=FILE), chosen from the first baseline's
+# measurements; a baseline that wants others writes a list of its own.
 reference=$results/2026-09-30
+rerun_list=bench/reruns.txt
 
 # The user slices a detached run keeps off the performance cores, and the
 # file listing the user timers it stopped for its duration.
@@ -119,8 +123,10 @@ for arg; do
   # epoch).
   --start-by=*) start_by=${arg#--start-by=} ;;
   --into=*) into=${arg#--into=} ;;
+  --reference=*) reference=${arg#--reference=} ;;
+  --reruns=*) rerun_list=${arg#--reruns=} ;;
   *)
-    echo "usage: bench/baseline.sh [--arm [--slot=HH:MM-HH:MM] | --detach] [--fresh] [--into=DIR] [--force]" >&2
+    echo "usage: bench/baseline.sh [--arm [--slot=HH:MM-HH:MM] | --detach] [--fresh] [--into=DIR] [--reference=DIR] [--reruns=FILE] [--force]" >&2
     exit 2
     ;;
   esac
@@ -258,7 +264,8 @@ if $arm || $detach; then
     -p ExecStopPost="$self --unshield"
     --setenv=CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/target/baseline}")
   script=(systemd-inhibit --what=sleep:idle:handle-lid-switch --who=linlog-baseline
-    --why="the benchmark baseline" "$self" --force --into="$out")
+    --why="the benchmark baseline" "$self" --force --into="$out"
+    --reference="$reference" --reruns="$rerun_list")
   if $detach; then
     "${unit[@]}" "${script[@]}"
     echo "into $out; follow it with: journalctl --user -fu linlog-baseline"
@@ -448,8 +455,11 @@ wait "${streams[@]}"
 # with the reason given (or, for `slow', timed out, was killed or took
 # 50 ms or more), as a list for --only: the problems a knob can change.
 ended() {
-  awk -F, -v reason="$1" 'NR > 1 && ($16 == reason || (reason == "slow" &&
-    ($16 ~ /^(timeout|killed)$/ || ($15 ~ /proved|unprovable/ && $22 >= 50)))) { print $5 }' \
+  # The columns by their header's names: the first baseline's files have
+  # one more than today's.
+  awk -F, -v reason="$1" 'NR == 1 { for (i = 1; i <= NF; i++) c[$i] = i; next }
+    $c["reason"] == reason || (reason == "slow" && ($c["reason"] ~ /^(timeout|killed)$/ ||
+      ($c["verdict"] ~ /proved|unprovable/ && $c["time_ms"] >= 50))) { print $c["problem"] }' \
     "$reference/lltp-intuitionistic.csv" | sort -u | paste -sd,
 }
 
@@ -497,7 +507,7 @@ run - lltp-all-cores --lltp "$lltp/ILL" --only "$slow" --copies 3 --jobs all --t
 run - lltp-default --lltp "$lltp/ILL" --copies none --jobs all --pool-after 0.1 --timeout 2
 
 # Stage 4: the runs above that were killed or crashed and that more room
-# lets finish, as bench/reruns.txt lists them (lines `FILE FAMILY/NAME`:
+# lets finish, as the rerun list (bench/reruns.txt by default) names them (lines `FILE FAMILY/NAME`:
 # the CSV file of the run, the problem), again into FILE-generous.csv. On
 # one thread, in three streams, ten minutes' grace after the time limit and
 # 16 GiB a process: the library's largest files take up to 16 s to load,
@@ -506,7 +516,7 @@ run - lltp-default --lltp "$lltp/ILL" --copies none --jobs all --pool-after 0.1 
 # GiB: loading again, and a pool's memory. Minutes where every search
 # stops at its limit, up to three hours where none does.
 reruns() {
-  awk -v file="$1" '$1 == file { print $2 }' bench/reruns.txt | paste -sd,
+  awk -v file="$1" '$1 == file { print $2 }' "$rerun_list" | paste -sd,
 }
 # again CPU FILE GRACE ARGS...: the reruns of FILE, if it has any.
 again() {
@@ -543,7 +553,9 @@ The baseline of ${out##*/} on an $(lscpu | sed -n 's/^Model name: *//p')
 \`bench/baseline.sh\`, which writes this file, the CSV files beside it
 (\`$out/\`, one row per run) and a copy of this file as
 \`bench/RESULTS.md\`, the latest baseline's. It started (once more for
-every resumption), with the commit it measured:
+every resumption), with the commit it measured, the LLTP problems of its
+later stages chosen from \`$reference/\` and its reruns from
+\`$rerun_list\`:
 
 $(sed 's/^/- /' "$out/starts.txt")
 

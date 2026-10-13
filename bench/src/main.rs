@@ -2,16 +2,20 @@
 // Licensed under the EUPL
 
 //! `linlog-bench`, the benchmark harness: runs the generated families, the
-//! problems of the LLTP library and problem files of its own through
-//! linlog's engines, one child process per run with a time limit, writes
-//! one CSV row per run, and summarises CSV files as Markdown tables.
+//! problems of the LLTP library, coverability problems in Mist's `.spec`
+//! format and problem files of its own through linlog's engines, one
+//! child process per run with a time limit, writes one CSV row per run,
+//! and summarises or compares CSV files as Markdown tables; and counts the
+//! instructions of the library's hot paths against committed ceilings
+//! (the ratchet).
 
 /// Two sets of rows compared problem by problem.
 mod compare;
 /// Small deterministic runs of the library's hot paths, counted by the
 /// ratchet.
 mod journeys;
-/// Where problems come from: the families, LLTP files, problem files.
+/// Where problems come from: the families, LLTP files, `.spec` files,
+/// problem files.
 mod problems;
 /// The journeys' instruction counts against their ceilings.
 mod ratchet;
@@ -24,8 +28,9 @@ use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-/// Benchmark linlog's engines on generated families, the LLTP library and
-/// problem files
+/// Benchmark linlog's engines on generated families, the LLTP library,
+/// `.spec` coverability problems and problem files, and count the hot
+/// paths' instructions against their ceilings
 #[derive(Parser, Debug)]
 #[command(name = "linlog-bench", version)]
 struct Cli {
@@ -56,6 +61,17 @@ enum Command {
         /// bias against the default)
         #[arg(long, value_name = "FILE")]
         against: Option<PathBuf>,
+        /// With --against, list every problem both decide alike on one
+        /// thread whose engine counters (nodes, splits, memo hits and
+        /// entries, links, tests) differ: a change that must not alter the
+        /// search, checked against the target set's committed file
+        #[arg(long, requires = "against")]
+        counters: bool,
+        /// Fail, after the tables, when a run's verdict contradicts the
+        /// known one, a run ended in an error, a crash or a kill, or the
+        /// files hold no run: what the flake's `bench` check asks
+        #[arg(long, conflicts_with_all = ["before", "against"])]
+        strict: bool,
     },
     /// List the generated families with their default sizes
     Families,
@@ -264,10 +280,12 @@ fn main() -> ExitCode {
             files,
             before,
             against,
+            counters,
+            strict,
         } => match (before, against) {
             (Some(dir), _) => compare::before(&dir, &files),
-            (_, Some(file)) => compare::against(&file, &files),
-            _ => summary::summary(&files),
+            (_, Some(file)) => compare::against(&file, &files, counters),
+            _ => summary::summary(&files, strict),
         },
         Command::Families => {
             for family in linlog::families::FAMILIES {

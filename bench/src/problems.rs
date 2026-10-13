@@ -287,3 +287,33 @@ pub fn load(id: &str) -> Result<Problem> {
         _ => bail!("unknown problem source in `{id}`"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every mode a problem can be in reads back from its name (Mix is
+    /// classical only), and a word that names no mode is an error.
+    #[test]
+    fn mode_names_read_back() {
+        for intuitionistic in [false, true] {
+            for affine in [false, true] {
+                for mix in [false, !intuitionistic] {
+                    let mut mode = if intuitionistic {
+                        Mode::INTUITIONISTIC
+                    } else {
+                        Mode::CLASSICAL
+                    };
+                    if affine {
+                        mode = mode.with_affine();
+                    }
+                    if mix {
+                        mode = mode.with_mix();
+                    }
+                    assert_eq!(parse_mode(mode_name(mode)).unwrap(), mode);
+                }
+            }
+        }
+        assert!(parse_mode("classicl").is_err());
+    }
+}

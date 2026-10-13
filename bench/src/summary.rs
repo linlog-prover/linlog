@@ -33,6 +33,134 @@ pub(crate) struct Runs<'a> {
     pub(crate) disturbed: bool,
 }
 
+/// Where a run without a decided verdict ended, as the tables count it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Ending {
+    /// The time limit, or killed past it.
+    Time,
+    /// The copy bound.
+    Bound,
+    /// The recursion limit.
+    Depth,
+    /// The memory limit.
+    Memory,
+    /// An index past its width.
+    Index,
+    /// A context too wide to split, a reason of older files.
+    Wide,
+    /// Killed past the time limit and its grace, or while loading.
+    Killed,
+    /// The child crashed.
+    Crash,
+    /// An error, or a reason added since.
+    Error,
+}
+
+impl Ending {
+    /// Every ending, in the order the tables list them.
+    pub(crate) const ALL: [Self; 9] = [
+        Self::Time,
+        Self::Bound,
+        Self::Depth,
+        Self::Memory,
+        Self::Index,
+        Self::Wide,
+        Self::Killed,
+        Self::Crash,
+        Self::Error,
+    ];
+
+    /// Returns where the row's run ended, by its `reason` column.
+    pub(crate) fn of(row: &Row) -> Self {
+        match row.get("reason") {
+            "timeout" => Self::Time,
+            "copy_bound" => Self::Bound,
+            "recursion_limit" => Self::Depth,
+            "memory_limit" => Self::Memory,
+            "index_limit" => Self::Index,
+            "context_too_wide" => Self::Wide,
+            "killed" | "killed while loading" => Self::Killed,
+            reason if reason.starts_with("crash") => Self::Crash,
+            _ => Self::Error,
+        }
+    }
+
+    /// The ending in a word, as a table names it.
+    pub(crate) const fn word(self) -> &'static str {
+        match self {
+            Self::Time => "time",
+            Self::Bound => "bound",
+            Self::Depth => "depth",
+            Self::Memory => "memory",
+            Self::Index => "index",
+            Self::Wide => "wide",
+            Self::Killed => "killed",
+            Self::Crash => "crash",
+            Self::Error => "error",
+        }
+    }
+}
+
+/// The counters of the engines, which a decided run on one thread has as
+/// a function of its input.
+pub(crate) const COUNTERS: [&str; 6] = [
+    "nodes",
+    "splits",
+    "memo_hits",
+    "memo_entries",
+    "links",
+    "tests",
+];
+
+/// Returns the part of a row's configuration that a comparison of
+/// passes under other options keeps: its mode, requested engine and
+/// threads, a portfolio and a test period.
+pub(crate) fn base(row: &Row) -> String {
+    let mut label = format!(
+        "{} {} j{}",
+        row.get("mode"),
+        row.get("engine_requested"),
+        row.get("jobs")
+    );
+    if row.get("portfolio") == "true" {
+        label.push_str(" portfolio");
+    }
+    if !row.get("test_period").is_empty() {
+        label.push_str(&format!(" period {}", row.get("test_period")));
+    }
+    label
+}
+
+/// Returns a row's configuration: its mode, requested engine and threads,
+/// and every option its file names that is not the default (a portfolio,
+/// a test period, a bias, a forward copy bound, a memory limit, a pool
+/// started after a while), as a label; `summary` puts the file's name
+/// before it and `--before` the file and family.
+pub(crate) fn configuration(row: &Row) -> String {
+    let mut label = base(row);
+    if !matches!(row.get("bias"), "" | "auto") {
+        label.push_str(&format!(" bias {}", row.get("bias")));
+    }
+    let forward = row.get("forward_copies");
+    if !forward.is_empty() && forward != linlog::search::Options::DEFAULT_FORWARD_COPIES.to_string()
+    {
+        label.push_str(&format!(" forward {forward}"));
+    }
+    // A file from before the bound has no such column, and ran without
+    // one.
+    let memory = row.get("memory_limit");
+    if memory == "0" {
+        label.push_str(" memory none");
+    } else if !memory.is_empty() && memory != linlog::Limits::DEFAULT_MEMORY_BYTES.to_string() {
+        label.push_str(&format!(" memory {memory}"));
+    }
+    // A file from before the column ran every pool from its start.
+    if !row.get("pool_after").is_empty() {
+        label.push_str(&format!(" pool after {}s", row.get("pool_after")));
+    }
+    label
+}
+
 impl Runs<'_> {
     /// The median of the times.
     pub(crate) fn median(&self) -> f64 {
@@ -41,9 +169,21 @@ impl Runs<'_> {
         times[times.len() / 2]
     }
 
-    /// Whether the verdict is decided.
-    pub(crate) fn solved(&self) -> bool {
+    /// Whether the verdict is decided, in time or after it.
+    pub(crate) fn decided(&self) -> bool {
         matches!(self.first.get("verdict"), "proved" | "unprovable")
+    }
+
+    /// Whether a decided verdict came after the time limit, which the
+    /// grace before the kill allows.
+    pub(crate) fn late(&self) -> bool {
+        let limit: f64 = self.first.get("timeout_s").parse().unwrap_or(f64::INFINITY);
+        self.decided() && self.first.get("time_ms").parse::<f64>().unwrap_or(0.0) > limit * 1000.0
+    }
+
+    /// Whether the verdict is decided within the time limit.
+    pub(crate) fn solved(&self) -> bool {
+        self.decided() && !self.late()
     }
 
     /// Whether the verdict contradicts the expected one, or a proof failed
@@ -55,17 +195,29 @@ impl Runs<'_> {
             || (verdict == "unprovable" && expected == "provable")
     }
 
+    /// Whether the run is a finding rather than a configuration's
+    /// result: a verdict against the known one, an error, a crash or a
+    /// kill.
+    pub(crate) fn failed(&self) -> bool {
+        self.wrong()
+            || self.first.get("verdict") == "error"
+            || matches!(Ending::of(self.first), Ending::Crash | Ending::Killed) && !self.decided()
+    }
+
     /// The cell of a scaling table: the median time and a mark for the
     /// verdict.
     pub(crate) fn cell(&self) -> String {
         let row = self.first;
-        let mark = match (row.get("verdict"), row.get("reason")) {
+        let mark = match (row.get("verdict"), Ending::of(row)) {
             ("proved", _) => "✓",
             ("unprovable", _) => "✗",
-            (_, "timeout" | "killed") => return format!("> {}", seconds(row.get("timeout_s"))),
-            (_, "copy_bound") => "? bound",
-            (_, "context_too_wide") => "? wide",
-            (_, "recursion_limit") => "? depth",
+            (_, Ending::Time | Ending::Killed) => {
+                return format!("> {}", seconds(row.get("timeout_s")));
+            }
+            (_, Ending::Bound) => "? bound",
+            (_, Ending::Wide) => "? wide",
+            (_, Ending::Depth) => "? depth",
+            (_, Ending::Memory) => "? memory",
             (verdict, _) => verdict,
         };
         let wrong = if self.wrong() { " MISMATCH" } else { "" };
@@ -84,48 +236,14 @@ struct Group<'a> {
     problems: Vec<(String, Runs<'a>)>,
 }
 
-/// Prints the tables for the CSV files.
-pub fn summary(files: &[PathBuf]) -> Result<()> {
+/// Prints the tables for the CSV files; with `strict`, fails after them
+/// when a verdict contradicts the known one, a run ended in an error, a
+/// crash or a kill, or there is no run.
+pub fn summary(files: &[PathBuf], strict: bool) -> Result<()> {
     let rows = read(files)?;
 
     // Runs grouped by configuration and problem, in the order first seen.
-    let config = |row: &Row| {
-        let mut label = format!(
-            "{}: {} {} j{}",
-            row.get("file"),
-            row.get("mode"),
-            row.get("engine_requested"),
-            row.get("jobs")
-        );
-        if row.get("portfolio") == "true" {
-            label.push_str(" portfolio");
-        }
-        if !row.get("test_period").is_empty() {
-            label.push_str(&format!(" period {}", row.get("test_period")));
-        }
-        if !matches!(row.get("bias"), "" | "auto") {
-            label.push_str(&format!(" bias {}", row.get("bias")));
-        }
-        let forward = row.get("forward_copies");
-        if !forward.is_empty()
-            && forward != linlog::search::Options::DEFAULT_FORWARD_COPIES.to_string()
-        {
-            label.push_str(&format!(" forward {forward}"));
-        }
-        // A file from before the bound has no such column, and ran
-        // without one.
-        let memory = row.get("memory_limit");
-        if memory == "0" {
-            label.push_str(" memory none");
-        } else if !memory.is_empty() && memory != linlog::Limits::DEFAULT_MEMORY_BYTES.to_string() {
-            label.push_str(&format!(" memory {memory}"));
-        }
-        // A file from before the column ran every pool from its start.
-        if !row.get("pool_after").is_empty() {
-            label.push_str(&format!(" pool after {}s", row.get("pool_after")));
-        }
-        label
-    };
+    let config = |row: &Row| format!("{}: {}", row.get("file"), configuration(row));
     let mut groups: Vec<Group> = Vec::new();
     for row in &rows {
         let (family, label, problem) = (row.get("family"), config(row), row.get("problem"));
@@ -171,9 +289,9 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
          (another process slowed them down; `†` in the tables below): {disturbed}.\n"
     );
     println!(
-        "| family | configuration | engines | problems | solved | proved | refuted | timeout | bound | other | mismatch | median solved | total solved |"
+        "| family | configuration | engines | problems | solved | proved | refuted | late | timeout | bound | other | mismatch | median solved | total solved |"
     );
-    println!("|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|");
+    println!("|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|");
     for Group {
         family,
         config: label,
@@ -181,10 +299,13 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
     } in &groups
     {
         let count = |test: &dyn Fn(&Runs) -> bool| problems.iter().filter(|(_, r)| test(r)).count();
-        let verdict = |v: &'static str| move |r: &Runs| r.first.get("verdict") == v;
-        let reason = |v: &'static str| move |r: &Runs| r.first.get("reason") == v;
-        let timeouts = count(&reason("timeout")) + count(&reason("killed"));
-        let bound = count(&reason("copy_bound"));
+        // Decided in time, by its verdict.
+        let verdict = |v: &'static str| move |r: &Runs| r.solved() && r.first.get("verdict") == v;
+        let ended =
+            |e: &'static [Ending]| move |r: &Runs| !r.decided() && e.contains(&Ending::of(r.first));
+        let late = count(&|r: &Runs| r.late());
+        let timeouts = count(&ended(&[Ending::Time, Ending::Killed]));
+        let bound = count(&ended(&[Ending::Bound]));
         let solved: Vec<f64> = problems
             .iter()
             .filter(|(_, r)| r.solved())
@@ -200,13 +321,13 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
         let mut sorted = solved.clone();
         sorted.sort_by(f64::total_cmp);
         println!(
-            "| {family} | {label} | {} | {} | {} | {} | {} | {timeouts} | {bound} | {} | {} | {} | {} |",
+            "| {family} | {label} | {} | {} | {} | {} | {} | {late} | {timeouts} | {bound} | {} | {} | {} | {} |",
             engines.join(", "),
             problems.len(),
             solved.len(),
             count(&verdict("proved")),
             count(&verdict("unprovable")),
-            problems.len() - solved.len() - timeouts - bound,
+            problems.len() - solved.len() - late - timeouts - bound,
             count(&|r: &Runs| r.wrong()),
             sorted
                 .get(sorted.len() / 2)
@@ -216,6 +337,40 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
             } else {
                 time(solved.iter().sum())
             },
+        );
+    }
+
+    // The engines' counters summed over the problems decided in time, the
+    // first run of each, which on one thread are a function of the input.
+    println!("\n## Counters of the decided problems\n");
+    println!(
+        "| family | configuration | decided | {} |",
+        COUNTERS.join(" | ")
+    );
+    println!("|---|---|--:|{}", "--:|".repeat(COUNTERS.len()));
+    for group in &groups {
+        let decided: Vec<&Runs> = group
+            .problems
+            .iter()
+            .map(|(_, r)| r)
+            .filter(|r| r.solved())
+            .collect();
+        let sums: Vec<String> = COUNTERS
+            .iter()
+            .map(|c| {
+                let sum: u64 = decided
+                    .iter()
+                    .map(|r| r.first.get(c).parse::<u64>().unwrap_or(0))
+                    .sum();
+                sum.to_string()
+            })
+            .collect();
+        println!(
+            "| {} | {} | {} | {} |",
+            group.family,
+            group.config,
+            decided.len(),
+            sums.join(" | ")
         );
     }
 
@@ -253,6 +408,27 @@ pub fn summary(files: &[PathBuf]) -> Result<()> {
                 })
                 .collect();
             println!("| {problem} | {} |", cells.join(" | "));
+        }
+    }
+    if strict {
+        let failed: Vec<String> = groups
+            .iter()
+            .flat_map(|g| &g.problems)
+            .filter(|(_, r)| r.failed())
+            .map(|(problem, r)| {
+                format!(
+                    "{problem} ({}: {} {})",
+                    r.first.get("file"),
+                    r.first.get("verdict"),
+                    r.first.get("reason")
+                )
+            })
+            .collect();
+        if rows.is_empty() {
+            bail!("the files hold no run");
+        }
+        if !failed.is_empty() {
+            bail!("{} runs failed: {}", failed.len(), failed.join(", "));
         }
     }
     Ok(())
@@ -306,4 +482,131 @@ pub(crate) fn time(ms: f64) -> String {
 /// Formats a timeout in seconds, as the CSV holds it.
 fn seconds(value: &str) -> String {
     format!("{} s", value.parse::<f64>().unwrap_or(0.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A row of the columns given, the others empty.
+    pub(crate) fn row(columns: &[(&str, &str)]) -> Row {
+        Row(columns
+            .iter()
+            .map(|(c, v)| ((*c).to_owned(), (*v).to_owned()))
+            .collect())
+    }
+
+    /// The runs of rows, the first one's verdict standing for them.
+    fn runs(rows: &[Row]) -> Runs<'_> {
+        Runs {
+            first: &rows[0],
+            times: rows
+                .iter()
+                .map(|r| r.get("time_ms").parse().unwrap())
+                .collect(),
+            disturbed: false,
+        }
+    }
+
+    /// A problem's verdict is its first run's and its time the median of
+    /// its runs'; one decided after its time limit is decided but late,
+    /// not solved; a verdict against the known one, a failed check, an
+    /// error and a crash are failures, a run stopped at its limit is not.
+    #[test]
+    fn runs_verdicts_and_endings() {
+        let timed = |verdict: &str, ms: &str| {
+            row(&[
+                ("verdict", verdict),
+                ("time_ms", ms),
+                ("timeout_s", "1"),
+                ("checked", "ok"),
+            ])
+        };
+        let rows = [
+            timed("proved", "30"),
+            timed("unknown", "10"),
+            timed("proved", "20"),
+        ];
+        let three = runs(&rows);
+        assert!(three.solved() && !three.late());
+        assert!((three.median() - 20.0).abs() < 1e-9);
+        let late = [timed("unprovable", "1500")];
+        assert!(runs(&late).decided() && runs(&late).late() && !runs(&late).solved());
+        let wrong = [row(&[
+            ("verdict", "proved"),
+            ("expected", "unprovable"),
+            ("time_ms", "1"),
+        ])];
+        assert!(runs(&wrong).failed());
+        let unchecked = [row(&[
+            ("verdict", "proved"),
+            ("checked", "failed: killed"),
+            ("time_ms", "1"),
+        ])];
+        assert!(runs(&unchecked).failed());
+        for (reason, ending, failed) in [
+            ("timeout", Ending::Time, false),
+            ("copy_bound", Ending::Bound, false),
+            ("memory_limit", Ending::Memory, false),
+            ("index_limit", Ending::Index, false),
+            ("killed", Ending::Killed, true),
+            ("crash (signal 6): out of memory", Ending::Crash, true),
+        ] {
+            let stopped = [row(&[
+                ("verdict", "unknown"),
+                ("reason", reason),
+                ("time_ms", "1"),
+            ])];
+            assert_eq!(Ending::of(&stopped[0]), ending, "{reason}");
+            assert_eq!(runs(&stopped).failed(), failed, "{reason}");
+        }
+        let error = [row(&[
+            ("verdict", "error"),
+            ("reason", "no such file"),
+            ("time_ms", "1"),
+        ])];
+        assert!(runs(&error).failed());
+    }
+
+    /// A configuration names every option a row's file names that is not
+    /// the default, and the base the options a comparison of passes keeps.
+    #[test]
+    fn configurations() {
+        let plain = row(&[
+            ("mode", "classical"),
+            ("engine_requested", "auto"),
+            ("jobs", "1"),
+        ]);
+        assert_eq!(configuration(&plain), "classical auto j1");
+        let rarer = row(&[
+            ("mode", "classical"),
+            ("engine_requested", "auto"),
+            ("jobs", "4"),
+            ("bias", "rarer"),
+            ("memory_limit", "0"),
+            ("pool_after", "0.1"),
+        ]);
+        assert_eq!(
+            configuration(&rarer),
+            "classical auto j4 bias rarer memory none pool after 0.1s"
+        );
+        assert_eq!(base(&rarer), "classical auto j4");
+    }
+
+    /// A CSV file reads into rows by its header's names, with its name
+    /// in `file` and its refused rows left out; a row of another width is
+    /// an error.
+    #[test]
+    fn files_read_by_their_header() {
+        let dir = std::env::temp_dir().join(format!("linlog-bench-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("pass.csv");
+        std::fs::write(&file, "problem,verdict\na,proved\nb,refused\n").unwrap();
+        let rows = read(std::slice::from_ref(&file)).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!((rows[0].get("problem"), rows[0].get("file")), ("a", "pass"));
+        std::fs::write(&file, "problem,verdict\na\n").unwrap();
+        assert!(read(std::slice::from_ref(&file)).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

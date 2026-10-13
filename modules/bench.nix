@@ -78,12 +78,18 @@
           }
           ''
             families=$(linlog-bench families | sed -E 's/^([^ ]+) \(([0-9]+).*/--family \1=\2/')
+            # Every source of problems: the families, a problem file, an
+            # LLTP file and a .spec file (the command's lock inputs, since
+            # the libraries are not in the tree).
             # shellcheck disable=SC2086
             linlog-bench run $families --problems ${../bench/problems}/slow-tests.txt \
+              --lltp ${../cli/tests/lock/inputs}/double.p \
+              --spec ${../cli/tests/lock/inputs}/mutex.spec \
               --timeout 2 --output runs.csv 2> progress.log
-            linlog-bench summary runs.csv > summary.md
-            if grep -q MISMATCH summary.md; then
-              cat summary.md
+            # A verdict against a known one, an error, a crash or a kill
+            # fails the check, and so do no runs at all.
+            if ! linlog-bench summary --strict runs.csv > summary.md; then
+              cat summary.md progress.log
               exit 1
             fi
             touch $out

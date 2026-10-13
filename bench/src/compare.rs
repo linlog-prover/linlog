@@ -10,7 +10,7 @@
 //! verdict found after the time limit (the grace before the kill allows
 //! it) counts as late and is kept apart.
 
-use crate::summary::{Row, Runs, read};
+use crate::summary::{COUNTERS, Ending, Row, Runs, base, configuration, read};
 use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -41,32 +41,40 @@ pub fn before(dir: &Path, files: &[PathBuf]) -> Result<()> {
         .into_iter()
         .map(|name| {
             let rows: Vec<&Row> = extra.iter().filter(|r| r.get("file") == name).collect();
-            (name, outcomes(&rows, false))
+            (name, outcomes(&rows, Grouping::Configurations))
         })
         .collect();
     let old: Vec<&Row> = old.iter().collect();
     let new: Vec<&Row> = new.iter().collect();
     compare(
-        &outcomes(&old, true),
-        &outcomes(&new, true),
+        &outcomes(&old, Grouping::Files),
+        &outcomes(&new, Grouping::Files),
         ("before", "after"),
         &beside,
+        false,
     );
     Ok(())
 }
 
 /// Prints the comparison of every other file with `reference`, problem by
-/// problem whatever the files' names.
-pub fn against(reference: &Path, files: &[PathBuf]) -> Result<()> {
+/// problem whatever the files' names, with every problem whose counters
+/// differ where `counters` asks.
+pub fn against(reference: &Path, files: &[PathBuf], counters: bool) -> Result<()> {
     let main = read(&[reference.to_path_buf()])?;
     let main: Vec<&Row> = main.iter().collect();
-    let main = outcomes(&main, false);
+    let main = outcomes(&main, Grouping::Problems);
     let name = stem(reference);
     for file in files.iter().filter(|f| f.as_path() != reference) {
         let rows = read(std::slice::from_ref(file))?;
         let rows: Vec<&Row> = rows.iter().collect();
         println!("## {} against {name}\n", stem(file));
-        compare(&outcomes(&rows, false), &main, (&stem(file), &name), &[]);
+        compare(
+            &outcomes(&rows, Grouping::Problems),
+            &main,
+            (&stem(file), &name),
+            &[],
+            counters,
+        );
     }
     Ok(())
 }
@@ -90,30 +98,35 @@ fn files_of(rows: &[Row]) -> Vec<String> {
     names
 }
 
-/// The group of a row: its file (when `by_file`), family and
-/// configuration, as the columns of a table, separated by `|`.
-fn group(row: &Row, by_file: bool) -> String {
-    let mut config = format!(
-        "{} {} j{}",
-        row.get("mode"),
-        row.get("engine_requested"),
-        row.get("jobs")
-    );
-    if row.get("portfolio") == "true" {
-        config.push_str(" portfolio");
-    }
-    if !row.get("test_period").is_empty() {
-        config.push_str(&format!(" period {}", row.get("test_period")));
-    }
-    let file = if by_file { row.get("file") } else { "" };
+/// How rows are grouped for a comparison.
+#[derive(Clone, Copy)]
+enum Grouping {
+    /// By file, family and whole configuration: two baselines, file by
+    /// file.
+    Files,
+    /// By family and whole configuration, whatever the file.
+    Configurations,
+    /// By family, mode, engine and threads alone: files of one baseline
+    /// that differ in an option (a bias, say), problem by problem.
+    Problems,
+}
+
+/// The group of a row: its file, family and configuration as `grouping`
+/// takes them, as the columns of a table, separated by `|`.
+fn group(row: &Row, grouping: Grouping) -> String {
+    let (file, config) = match grouping {
+        Grouping::Files => (row.get("file"), configuration(row)),
+        Grouping::Configurations => ("", configuration(row)),
+        Grouping::Problems => ("", base(row)),
+    };
     format!("{file} | {} | {config}", row.get("family"))
 }
 
 /// The outcome of every problem in every group of the rows.
-fn outcomes<'a>(rows: &[&'a Row], by_file: bool) -> Outcomes<'a> {
+fn outcomes<'a>(rows: &[&'a Row], grouping: Grouping) -> Outcomes<'a> {
     let mut outcomes = Outcomes::new();
     for row in rows {
-        let key = (group(row, by_file), row.get("problem").to_owned());
+        let key = (group(row, grouping), row.get("problem").to_owned());
         let time: f64 = row.get("time_ms").parse().unwrap_or(0.0);
         outcomes
             .entry(key)
@@ -127,36 +140,16 @@ fn outcomes<'a>(rows: &[&'a Row], by_file: bool) -> Outcomes<'a> {
     outcomes
 }
 
-/// Whether a decided verdict came after the time limit.
-fn late(runs: &Runs) -> bool {
-    let limit: f64 = runs.first.get("timeout_s").parse().unwrap_or(f64::INFINITY);
-    runs.solved() && runs.first.get("time_ms").parse::<f64>().unwrap_or(0.0) > limit * 1000.0
-}
-
-/// Where an undecided run ended, in a word.
-fn ending(runs: &Runs) -> &'static str {
-    match (runs.first.get("verdict"), runs.first.get("reason")) {
-        (_, "timeout") => "time",
-        (_, "copy_bound") => "bound",
-        (_, "recursion_limit") => "depth",
-        (_, "context_too_wide") => "wide",
-        (_, "killed") => "killed",
-        (_, reason) if reason.starts_with("crash") => "crash",
-        _ => "error",
-    }
-}
-
 /// The undecided outcomes counted by where they ended, as `12 time, 3
 /// bound`, or `–`.
 fn endings<'a>(outcomes: impl Iterator<Item = &'a Runs<'a>>) -> String {
-    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    for runs in outcomes.filter(|r| !r.solved()) {
-        *counts.entry(ending(runs)).or_default() += 1;
+    let mut counts: BTreeMap<Ending, usize> = BTreeMap::new();
+    for runs in outcomes.filter(|r| !r.decided()) {
+        *counts.entry(Ending::of(runs.first)).or_default() += 1;
     }
-    let order = ["time", "bound", "depth", "wide", "killed", "crash", "error"];
-    let parts: Vec<String> = order
+    let parts: Vec<String> = Ending::ALL
         .iter()
-        .filter_map(|e| counts.get(e).map(|n| format!("{n} {e}")))
+        .filter_map(|e| counts.get(e).map(|n| format!("{n} {}", e.word())))
         .collect();
     if parts.is_empty() {
         "–".to_owned()
@@ -168,9 +161,9 @@ fn endings<'a>(outcomes: impl Iterator<Item = &'a Runs<'a>>) -> String {
 /// A count with the late ones among them in parentheses.
 fn decided<'a>(outcomes: impl Iterator<Item = &'a Runs<'a>>) -> String {
     let (mut all, mut later) = (0, 0);
-    for runs in outcomes.filter(|r| r.solved()) {
+    for runs in outcomes.filter(|r| r.decided()) {
         all += 1;
-        later += usize::from(late(runs));
+        later += usize::from(runs.late());
     }
     if later > 0 {
         format!("{all} ({later} late)")
@@ -201,12 +194,15 @@ fn ratio(value: f64) -> String {
 /// `names`: the verdicts that differ, the problems decided by the first
 /// and not by the second (with the outcomes `beside` of the same problem),
 /// one row per group, and every problem that is not from LLTP side by
-/// side.
+/// side; how many decided runs on one thread differ in their counters,
+/// and with `counters` which (a set of rows that must not change the
+/// search, against the one it is compared with, as the target set is).
 fn compare(
     first: &Outcomes,
     second: &Outcomes,
     names: (&str, &str),
     beside: &[(String, Outcomes)],
+    counters: bool,
 ) {
     let (one, two) = names;
     let both: Vec<(&(String, String), &Runs, &Runs)> = first
@@ -218,7 +214,7 @@ fn compare(
     println!("### Verdicts that differ\n");
     let differ: Vec<_> = both
         .iter()
-        .filter(|(_, a, b)| a.solved() && b.solved() && verdict(a) != verdict(b))
+        .filter(|(_, a, b)| a.decided() && b.decided() && verdict(a) != verdict(b))
         .collect();
     if differ.is_empty() {
         println!("None.\n");
@@ -232,10 +228,49 @@ fn compare(
         println!();
     }
 
+    // On one thread the counters of a run decided alike are a function of
+    // its input: where they differ, the search did.
+    println!("### Counters that differ\n");
+    let counted: Vec<_> = both
+        .iter()
+        .filter(|(_, a, b)| {
+            a.decided()
+                && b.decided()
+                && verdict(a) == verdict(b)
+                && a.first.get("jobs") == "1"
+                && b.first.get("jobs") == "1"
+        })
+        .collect();
+    let differ: Vec<_> = counted
+        .iter()
+        .filter(|(_, a, b)| COUNTERS.iter().any(|c| a.first.get(c) != b.first.get(c)))
+        .collect();
+    println!(
+        "Of the {} problems both decide alike on one thread, {} differ in {}.\n",
+        counted.len(),
+        differ.len(),
+        COUNTERS.join(", ")
+    );
+    if counters && !differ.is_empty() {
+        println!(
+            "| file | family | configuration | problem | counter | {one} | {two} |\n|---|---|---|---|---|--:|--:|"
+        );
+        for ((group, problem), a, b) in differ {
+            for c in COUNTERS.iter().filter(|c| a.first.get(c) != b.first.get(c)) {
+                println!(
+                    "| {group} | {problem} | {c} | {} | {} |",
+                    a.first.get(c),
+                    b.first.get(c)
+                );
+            }
+        }
+        println!();
+    }
+
     println!("### Decided by {one}, not by {two}\n");
     let lost: Vec<_> = both
         .iter()
-        .filter(|(_, a, b)| a.solved() && !b.solved())
+        .filter(|(_, a, b)| a.decided() && !b.decided())
         .collect();
     if lost.is_empty() {
         println!("None.\n");
@@ -275,7 +310,8 @@ fn compare(
         "Problems in both; decided (late: after the time limit); decided by one \
          and not the other; where the undecided ended (`time` the time limit or \
          `killed` past it, `bound` the copy bound, `depth` the recursion limit, \
-         `wide` a context too wide to split, `crash` out of memory); the median \
+         `memory` the memory limit, `index` an index past its width, `wide` a \
+         context too wide to split, `crash` out of memory); the median \
          ratio of {two}'s time to {one}'s on the problems both decide within the \
          limit (how many); and the problems only {two} has.\n"
     );
@@ -299,12 +335,12 @@ fn compare(
         let only = |by_first: bool| {
             pairs
                 .iter()
-                .filter(|(_, a, b)| a.solved() == by_first && b.solved() != by_first)
+                .filter(|(_, a, b)| a.decided() == by_first && b.decided() != by_first)
                 .count()
         };
         let ratios = pairs
             .iter()
-            .filter(|(_, a, b)| a.solved() && b.solved() && !late(a) && !late(b))
+            .filter(|(_, a, b)| a.solved() && b.solved())
             .map(|(_, a, b)| b.median() / a.median().max(1e-6))
             .collect();
         println!(
@@ -342,7 +378,7 @@ fn compare(
     for key in keys {
         let (a, b) = (first.get(key), second.get(key));
         let ratio = match (a, b) {
-            (Some(a), Some(b)) if a.solved() && b.solved() => {
+            (Some(a), Some(b)) if a.decided() && b.decided() => {
                 ratio(b.median() / a.median().max(1e-6))
             }
             _ => String::new(),

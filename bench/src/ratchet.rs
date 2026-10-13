@@ -77,12 +77,10 @@ pub fn ratchet(
         );
         let shown = ceiling.map_or_else(|| "–".to_owned(), |c| c.to_string());
         println!("| {name} | {count} | {shown} | {change} |");
-        match ceiling {
-            Some(c) if count as f64 > c as f64 * (1.0 + TOLERANCE) => failed.push(*name),
-            None if action == Action::Check => failed.push(*name),
-            _ => {}
+        if fails(count, ceiling, action) {
+            failed.push(*name);
         }
-        if action == Action::Lower && ceiling.is_none_or(|c| count < c) {
+        if lowers(count, ceiling, action) {
             table.insert((*name).to_owned(), count);
         }
     }
@@ -158,6 +156,21 @@ fn count(exe: &Path, name: &str, out: &Path) -> Result<u64> {
         .with_context(|| format!("no total in {}", out.display()))
 }
 
+/// Whether a journey's count fails the run: above its ceiling by more
+/// than [`TOLERANCE`], or, for a check, without a ceiling.
+fn fails(count: u64, ceiling: Option<u64>, action: Action) -> bool {
+    match ceiling {
+        Some(c) => count as f64 > c as f64 * (1.0 + TOLERANCE),
+        None => action == Action::Check,
+    }
+}
+
+/// Whether `--lower` writes the count as the journey's new ceiling: below
+/// the ceiling, or where there is none; never above one.
+fn lowers(count: u64, ceiling: Option<u64>, action: Action) -> bool {
+    action == Action::Lower && ceiling.is_none_or(|c| count < c)
+}
+
 /// Reads the ceilings: a header, then `journey,instructions` per line.
 fn read(path: &Path) -> Result<BTreeMap<String, u64>> {
     let text = match std::fs::read_to_string(path) {
@@ -187,4 +200,24 @@ fn write(path: &Path, table: &BTreeMap<String, u64>) -> Result<()> {
         }
     }
     std::fs::write(path, text).context(path.display().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A count fails within its tolerance never, past it always, and
+    /// without a ceiling only under a check; `--lower` writes a count
+    /// below its ceiling or without one, and never raises one.
+    #[test]
+    fn the_ratchet_s_decision() {
+        assert!(!fails(1_020, Some(1_000), Action::Check));
+        assert!(fails(1_021, Some(1_000), Action::Check));
+        assert!(fails(5, None, Action::Check));
+        assert!(!fails(5, None, Action::Lower));
+        assert!(lowers(999, Some(1_000), Action::Lower));
+        assert!(lowers(999, None, Action::Lower));
+        assert!(!lowers(1_001, Some(1_000), Action::Lower));
+        assert!(!lowers(999, Some(1_000), Action::Check));
+    }
 }
