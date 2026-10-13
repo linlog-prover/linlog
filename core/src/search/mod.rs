@@ -2596,6 +2596,31 @@ mod tests {
         }
     }
 
+    /// The caller's stop ends both sides of the race, whether or not the
+    /// other has decided: asked from the pool too, it stops a search that
+    /// would prove the sequent, and the race answers unknown.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn the_caller_s_stop_ends_both_sides_of_the_race() {
+        let s = crate::families::mix(5);
+        let forest = Forest::new(&s).unwrap();
+        let outcome = race(
+            Goal::conclusion(&forest),
+            Mode::CLASSICAL.with_mix(),
+            &Options::default(),
+            &Limits::default(),
+            3,
+            |_| true,
+            |_| true,
+        )
+        .unwrap();
+        assert!(
+            matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)),
+            "{:?}",
+            outcome.verdict
+        );
+    }
+
     /// A panic on one side of the race stops the other side, and then
     /// goes on to the caller: the pool's stop panics here, and the
     /// single search of minutes ends at its next poll.

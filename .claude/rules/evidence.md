@@ -62,6 +62,13 @@ browser or a stranger's file would.
   timeout: after a failure nextest waits for the tests still running.
   Before a timed-out mutant counts as surviving, read its log's `FAIL`
   lines; a test that fails there, and passes unmutated, catches it.
+- **`--re` and `exclude_re` do not filter cargo-mutants' field
+  deletions** (27.1.0: `cargo mutants --list --file
+  core/src/search/mod.rs --re 'zzzz'` still lists the eleven `delete
+  field … in Options::with_*`), so a rerun of a few mutants by `--re`
+  also runs every "delete field" mutant of the file; count only the
+  mutants the regex names. A test helper's field deletions are not
+  excluded either.
 
 ## Fuzzing (`fuzz/`, `modules/fuzz.nix`)
 
