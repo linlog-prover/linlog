@@ -93,9 +93,9 @@ code relies on:
   Bridges come from one iterative Tarjan search per round (`search`,
   which skips the search-tree parent vertex, valid because the graph is
   simple: a literal's tree edge and its link never join the same pair).
-  A search resets nothing: discovery times rise from search to search,
-  and a vertex was reached iff its time is at least the search's
-  `base`, so a new reader of `disc` compares with `base`.
+  Each search fills `disc` over the width: discovery times that rise
+  from search to search instead save the fill's instructions but no
+  measured time, as a memset is cheap per instruction.
 - **The Yeo test is exact on partial structures.** `acyclic` deletes, in
   rounds, every vertex deletable by the round's bridges and stops when a
   round deletes nothing: everything gone means no switching cycle, and
