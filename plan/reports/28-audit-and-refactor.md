@@ -849,8 +849,9 @@ signed-off design or from a finding's proposed fix it says so.
   know; the rest is the library's value.
 - **`--logic` stays a flag of the input, not a key**: the settings'
   `ordinary.translation` applies when `--logic` names a logic and no
-  `--translation` is given; `ordinary.logic` from a file is not read,
-  since the logic is what the input is.
+  `--translation` is given; `ordinary.logic` in a file is refused, as
+  is `batch.mode` (the mode flags'), since the logic and the mode are
+  what the input is: check round 1 found both read and then ignored.
 - **New flags for keys without one**: `--work-limit`, `--test-period`,
   `--schedule` on `prove` and `interact` (the design's table), and
   `--timeout`, `--work-limit` and `--occurrence-limit` on `check`. Not
@@ -920,6 +921,42 @@ signed-off design or from a finding's proposed fix it says so.
 - **`--isolate`'s failure paths have no test** (F214's last part): a
   child that crashes or outlives its limit needs a child that does so on
   purpose, which the command has no way to ask for.
+- **`--jobs` sets two keys** (departs from the design, whose flags each
+  set one key): `search.jobs`, and `clock.pool_after_ms = null` unless
+  `--pool-after` is given, since `--jobs N` has always meant N threads
+  from the start; `--deterministic` sets three (`jobs` 1, `schedule`
+  turns, no pool).
+- **An error record is `"verdict": "error"`** (departs from api.md §7.3
+  and §7.4, where a record holds an outcome or an error and the verdict
+  is closed): a reader of the stream then branches on one key for every
+  line, and a record of an entry the batch stopped unread is `unknown`
+  with a reason in the same way.
+- **`seq json` and `seq fragment` take no `--settings`**: they read one
+  bound, `--occurrence-limit`, and print what they read; a file would
+  set nothing else they use.
+- **Every input text is read within the memory limit** (check round 1,
+  the input lens): a file or standard input longer than it is refused
+  naming `--memory-limit` before it is held (`/dev/zero` took 3 GB
+  before); settings and style files within 16 MiB, never from standard
+  input. The finding proposed a cap from the occurrence limit with a
+  factor for blanks; the memory limit is the bound already stated.
+- **A record's `seconds` and the outcome's `version` stay text surgery**
+  (`record_json`): the outcome's JSON is the library's and is written
+  once; a parse into `Value` and back would sort its keys. Recorded as
+  taste.
+- **F169's residue**: a session's `show --png` and `seq print`'s PNG hold
+  the SVG within the derivation limit, not the memory limit; a render
+  may then take up to twice `--memory-limit` beside the held text.
+  Recorded, not fixed: both are bounded, and the session's drawing is
+  of a partial derivation the user builds by hand.
+- **F182's rerun list is the first baseline's on purpose** (`bench.md`:
+  a later baseline reruns the same list so the two compare), and
+  **F183's resume key** stays `run`'s own (`finished`): it must match
+  the rows a run appends, a file's own columns, which `configuration`
+  reads too; `summary.rs`'s module doc now names both.
+- **`--settings -` and `--style-file -` are refused**: standard input
+  carries the sequent or a session's commands (the input lens found the
+  settings read in their place).
 
 ## From the supervisor
 
