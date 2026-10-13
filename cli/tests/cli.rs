@@ -1660,3 +1660,211 @@ fn ordinary_logic() {
         assert_eq!(decide(refused).0, 2, "{refused:?}");
     }
 }
+
+/// The search's flags change what they say: `--memo-limit 0` switches the
+/// memo off and 1 holds one entry, `--deterministic` wins over `--jobs`,
+/// and `--no-check` is taken with the verdict unchanged.
+#[test]
+fn search_flags() {
+    let sequent = "!(a*a -o b), !(b*b -o c), !(c*c -o d), a,a,a,a,a,a,a,a |- d";
+    let stats = |extra: &[&str]| {
+        let args = [
+            &[
+                "prove",
+                "-q",
+                "--deterministic",
+                "--stats",
+                "--engine",
+                "focus",
+            ],
+            extra,
+            &[sequent],
+        ]
+        .concat();
+        let (status, out, _) = linlog(&args, "");
+        assert_eq!(status, 0, "{out}");
+        timeless(&out)
+    };
+    let memo = |out: &str| -> u64 {
+        let line = out
+            .lines()
+            .find(|l| l.starts_with("memo entries at most: "))
+            .unwrap();
+        line["memo entries at most: ".len()..].parse().unwrap()
+    };
+    let default = stats(&[]);
+    assert!(memo(&default) > 1, "{default}");
+    assert_eq!(memo(&stats(&["--memo-limit", "0"])), 0);
+    assert_eq!(memo(&stats(&["--memo-limit", "1"])), 1);
+    assert_eq!(stats(&["--jobs", "8"]), default);
+    assert_eq!(stats(&["--no-check"]), default);
+}
+
+/// Ctrl-C stops a single call's search with an unknown verdict, exit
+/// status 3, and says so; in a batch it stops the entry searched and ends
+/// the input, an entry read but not begun saying it was not searched.
+#[test]
+fn interrupt() {
+    use std::io::{BufRead, BufReader};
+    let literals: Vec<String> = (0..40).map(|i| format!("x{i}")).collect();
+    let hard = format!(
+        "|- p * q, 0 * (~p par ~p), 0 * (~q par ~q), {}",
+        literals.join(", ")
+    );
+    let interrupt = |child: &std::process::Child| {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let pid = child.id().to_string();
+        assert!(
+            Command::new("kill")
+                .args(["-INT", &pid])
+                .status()
+                .unwrap()
+                .success()
+        );
+    };
+    let child = Command::new(env!("CARGO_BIN_EXE_linlog"))
+        .args(["prove", "-a", "--timeout", "none", "--deterministic", &hard])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    interrupt(&child);
+    let out = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(3), "{stdout}");
+    assert!(
+        stdout.starts_with("unknown (") && stdout.contains("interrupted after"),
+        "{stdout}"
+    );
+    let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
+        .args([
+            "prove",
+            "-a",
+            "--input-format",
+            "lines",
+            "--workers",
+            "1",
+            "--timeout",
+            "none",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin, "hard: {hard}\nnext: A |- A").unwrap();
+    drop(stdin);
+    interrupt(&child);
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let first = lines.next().unwrap().unwrap();
+    assert!(first.starts_with("hard: unknown"), "{first}");
+    assert!(
+        lines.all(|line| line
+            .unwrap()
+            .ends_with("interrupted before it was searched")),
+        "an entry answered after the interrupt"
+    );
+    assert_eq!(child.wait().unwrap().code(), Some(3));
+}
+
+/// An `--output` file holds a whole output or is left as it was: a
+/// derivation the time limit stops while it is built leaves an earlier
+/// run's file alone, and so does a verdict without a derivation.
+#[test]
+fn output_is_whole_or_untouched() {
+    let doublings: Vec<String> = (0..22).map(|i| format!(r#"{{"&":[{i},{i}]}}"#)).collect();
+    let amp = format!(
+        r#"{{"terms":[{{"V":0}},{},{{"D":0}}],"roots":[22,23],"atoms":["A"]}}"#,
+        doublings.join(",")
+    );
+    let keep = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-keep.tex");
+    for (args, stdin, status) in [
+        (
+            [
+                &["prove", "--input-format", "json", "--timeout", "300ms"][..],
+                &["--derivation-limit", "none", "--deterministic"],
+            ]
+            .concat(),
+            amp.as_str(),
+            3,
+        ),
+        (vec!["prove", "A |- B"], "", 1),
+    ] {
+        std::fs::write(&keep, "OLD").unwrap();
+        let args = [&args[..], &["--output", keep.to_str().unwrap()]].concat();
+        let (got, _, err) = linlog(&args, stdin);
+        assert_eq!(got, status, "{err}");
+        assert_eq!(std::fs::read_to_string(&keep).unwrap(), "OLD");
+    }
+}
+
+/// A batch's own flags: an unknown entry outranks an unprovable one in
+/// the exit status; `--batch-timeout` answers the entries not begun as
+/// unknown without searching them; `--cores across` and `within` and
+/// `--batch-memory` give the verdicts single calls give; `--isolate`
+/// answers a hard entry as a single call does.
+#[test]
+fn batch_flags() {
+    let literals: Vec<String> = (0..40).map(|i| format!("x{i}")).collect();
+    let hard = format!(
+        "|- p * q, 0 * (~p par ~p), 0 * (~q par ~q), {}",
+        literals.join(", ")
+    );
+    let lines = format!("hard: {hard}\nno: A |- B\n");
+    let batch = |extra: &[&str], input: &str| {
+        let args = [&["prove", "-a", "--input-format", "lines"], extra].concat();
+        linlog(&args, input)
+    };
+    let (status, out, err) = batch(&["--timeout", "100ms"], &lines);
+    assert_eq!(status, 3, "{out}{err}");
+    assert!(
+        out.starts_with("hard: unknown") && out.contains("\nno: unprovable"),
+        "{out}"
+    );
+    let (status, out, _) = batch(
+        &[
+            "--workers",
+            "1",
+            "--batch-timeout",
+            "300ms",
+            "--timeout",
+            "none",
+        ],
+        &format!("hard1: {hard}\nhard2: {hard}\neasy: A |- A\n"),
+    );
+    assert_eq!(status, 3, "{out}");
+    assert!(
+        out.contains(
+            "hard2: unknown: the batch's time limit of 300ms was reached before it was searched"
+        ) && out.contains("easy: unknown: the batch's time limit"),
+        "{out}"
+    );
+    let easy = "a: A |- A\nb: A |- B\n";
+    for flags in [
+        &["--cores", "across"][..],
+        &["--cores", "within"],
+        &["--batch-memory", "64MiB"],
+    ] {
+        let (status, out, _) = batch(&[flags, &["--timeout", "100ms"]].concat(), easy);
+        assert_eq!(
+            (status, timeless(&out)),
+            (
+                1,
+                "a: provable (MLL, classical affine, focus engine)\nb: unprovable (MLL, classical \
+                 affine, focus engine): the search was exhaustive\n"
+                    .to_owned()
+            ),
+            "{flags:?}"
+        );
+    }
+    let (status, out, _) = batch(
+        &["--isolate", "--timeout", "100ms"],
+        &format!("hard: {hard}\n"),
+    );
+    assert_eq!(status, 3, "{out}");
+    assert!(
+        out.starts_with("hard: unknown") && out.contains("the time limit of 100ms"),
+        "{out}"
+    );
+}
