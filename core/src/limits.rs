@@ -106,10 +106,11 @@ impl Limits {
     };
 
     /// The stack one level of the search's recursion may take: twice the
-    /// most it was measured to take, on a chain of tensors whose splits
-    /// are searched and recursed into (5.6 KiB unoptimized, 1.1 KiB
-    /// optimized, on x86-64).
-    const PER_LEVEL: usize = if cfg!(debug_assertions) { 12288 } else { 2304 };
+    /// most it was measured to take, on a Mix of pairs whose parts are
+    /// recursed into (6.4 KiB unoptimized, 1.4 KiB optimized, on x86-64),
+    /// the deepest beside a chain of tensors whose splits are searched
+    /// (5.8 KiB, 1.2 KiB) and nested `&` (1.4 KiB, 0.4 KiB).
+    const PER_LEVEL: usize = if cfg!(debug_assertions) { 13312 } else { 3072 };
 
     /// What a thread needs below and beside the recursion: the frames of
     /// its caller, the search's set-up and its proof's checks.

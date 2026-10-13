@@ -848,24 +848,24 @@ relies on:
   `wide-m1` at 2 048 literals, which met the recursion limit, is proved
   in 0.35 s; at 4 096 the counts of a split per link (a frame keeps its
   own, as the recursion kept them on the stack) reach the memory bound.
-  Measured stack per level, before the loop, on a chain of tensors whose
-  splits are searched, which was the deepest set of frames (`focus`,
-  `split`, `free_split`, `search_splits`, `premises`; the other cycles
-  take three levels for some ten frames); since the free split's search
-  is inlined into it, a panel measured 5.6 KiB in debug builds and
-  1.1 KiB in release on a right-nested chain (the shape that still
-  recurses), and `PER_LEVEL` allows twice that (12 KiB, 2.25 KiB).
-  Before: 3.6 KiB in debug builds, 0.9 KiB in
-  release, with the split's counts boxed in their pool (1.5 KiB with
-  them in the frame, which overflowed the stack `Limits::stack_bytes`
-  gives at a raised limit; it now allows twice the measured). So the
-  default of 2048 fits an 8 MiB main-thread stack in a release build;
-  in a debug build such a recursion to the limit takes 11 MiB, which
-  the threads `stack_bytes` sizes have and a debug caller's main thread
-  does not (it was already 9.8 MiB before the inlining); the limit
-  stays, since of
-  the 24 sampled problems that ended at the limit only two (ILLTP-SYJ
-  problems whose search is that deep) still do.
+  **The stack per level** (`Limits::PER_LEVEL`, twice the most
+  measured) is measured as the smallest stack on which a search reaches
+  its recursion limit, at limits of 500 and 1 000, on the three shapes
+  that recurse: a right-nested chain of tensors whose splits are
+  searched (`focus`, `split`, `free_split`, `search_splits`,
+  `premises`), nested `&`, and a Mix of `a ⅋ ~a` pairs (`prove`,
+  `decide`, `mix`, `search_splits`, `parts`): 1.2, 0.4 and 1.4 KiB per
+  level in release, 5.8, 1.4 and 6.4 KiB in debug (2026-10-13). The
+  Mix's levels are the deepest; a first measurement of the chain alone
+  had left `PER_LEVEL` at 1.6 times the Mix's. The default of 2048
+  levels fits an 8 MiB main-thread stack in a release build; in a debug
+  build a recursion to the limit takes up to 13 MiB, which the threads
+  `stack_bytes` sizes have and a debug caller's main thread does not.
+  The limit stays: of 24 sampled problems that ended at it only two
+  (ILLTP-SYJ problems whose search is that deep) still do. A
+  change of a frame on these cycles measures again (a scratch program:
+  a thread of a given stack running `prove_within` at a recursion
+  limit, and a binary search over the stack).
 - **No allocation per node once warm**: sets, contexts, keys, member lists,
   tallies, split counts, trails and the links of forced chains come from
   pools on the engine (`take_*`/`give_*`); a leaked buffer on an error

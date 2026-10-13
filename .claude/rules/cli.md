@@ -271,7 +271,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   (`modules/workspace.nix`).
 - **The search runs on its own thread** (`on_large_stack`) with the stack
   core's `Limits::stack_bytes` computes for the recursion depth: twice
-  the engine's measured cost per level (12 KiB unoptimized, 2.25 KiB
+  the engine's measured cost per level (13 KiB unoptimized, 3 KiB
   optimized, with the margin), at least 8 MiB, because the derivation builder and its
   renderer, which also recurse to the proof's height, run on the same
   thread. A 1000-level `⊗` chain renders on it without overflow in a
