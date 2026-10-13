@@ -430,10 +430,10 @@ impl Run<'_> {
             let frame = frames.last_mut().expect("a frame until the first returns");
             match given.take() {
                 Some(Found::Proved(l_node)) => {
-                    let held = self.nodes.hold(l_node);
-                    let r = self.focus(theta, &frame.opened.right, frame.opened.b, budget)?;
-                    let l_node = self.nodes.unhold(held);
-                    match r {
+                    let (l_node, r) = self.holding(l_node, |run| {
+                        run.focus(theta, &frame.opened.right, frame.opened.b, budget)
+                    });
+                    match r? {
                         Found::Proved(r_node) => {
                             let node = self.push(Node::Tensor(
                                 Member::from(frame.opened.f),
@@ -714,23 +714,11 @@ impl Run<'_> {
         b: OccId,
         budget: u32,
     ) -> Step {
-        let mark = self.nodes.mark();
-        let l = self.focus(theta, left, a, budget)?;
-        let Found::Proved(l_node) = l else {
-            return Ok(l);
-        };
-        let held = self.nodes.hold(l_node);
-        let r = self.focus(theta, right, b, budget)?;
-        let l_node = self.nodes.unhold(held);
-        let Found::Proved(r_node) = r else {
-            self.nodes.release(mark);
-            return Ok(r);
-        };
-        Ok(Found::proved(self.push(Node::Tensor(
-            Member::from(f),
-            l_node,
-            r_node,
-        ))))
+        self.two_premises(
+            |run| run.focus(theta, left, a, budget),
+            |run| run.focus(theta, right, b, budget),
+            |l, r| Node::Tensor(Member::from(f), l, r),
+        )
     }
 
     /// The Mix rule on a stable sequent no focus proves: a split into two
@@ -830,19 +818,11 @@ impl Run<'_> {
 
     /// Both parts of a Mix, and the Mix node if both are provable.
     fn parts(&mut self, theta: &OccSet, left: &Context, right: &Context, budget: u32) -> Step {
-        let mark = self.nodes.mark();
-        let l = self.prove(theta, left, budget)?;
-        let Found::Proved(l_node) = l else {
-            return Ok(l);
-        };
-        let held = self.nodes.hold(l_node);
-        let r = self.prove(theta, right, budget)?;
-        let l_node = self.nodes.unhold(held);
-        let Found::Proved(r_node) = r else {
-            self.nodes.release(mark);
-            return Ok(r);
-        };
-        Ok(Found::proved(self.push(Node::Mix(l_node, r_node))))
+        self.two_premises(
+            |run| run.prove(theta, left, budget),
+            |run| run.prove(theta, right, budget),
+            Node::Mix,
+        )
     }
 }
 

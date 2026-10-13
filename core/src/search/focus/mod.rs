@@ -799,10 +799,10 @@ impl<'a> Run<'a> {
         };
         // The right premise on the state itself, which the rule leaves.
         list.push(self.problem.forest.right(o).unwrap());
-        let held = self.nodes.hold(left_node);
-        let right = self.asynchronous(theta, gamma, list, budget)?;
-        let left_node = self.nodes.unhold(held);
-        Ok(self.both(o, left_node, right, mark))
+        let (left_node, right) = self.holding(left_node, |run| {
+            run.asynchronous(theta, gamma, list, budget)
+        });
+        Ok(self.both(o, left_node, right?, mark))
     }
 
     /// A premise of the `&` rule on copies of the state: the context and
@@ -823,6 +823,45 @@ impl<'a> Run<'a> {
         self.give_context(premise_gamma);
         self.give_list(premise_list);
         result
+    }
+
+    /// Runs `second`, the search of a rule's second premise, with the
+    /// proof of its first held ([`Arena::hold`]), since a collection of
+    /// the arena in between may move it, and returns that proof where it
+    /// is now with what `second` returned. Every rule that keeps a proof
+    /// across a call that can reach [`prove_stable`](Self::prove_stable)
+    /// goes through it.
+    #[inline(always)]
+    fn holding<T>(&mut self, first: NodeId, second: impl FnOnce(&mut Self) -> T) -> (NodeId, T) {
+        let held = self.nodes.hold(first);
+        let found = second(self);
+        (self.nodes.unhold(held), found)
+    }
+
+    /// A rule of two premises: `first` searches the first, `second` the
+    /// second once the first is proved, with its proof held across, and
+    /// `join` makes the rule's node from the two proofs. The failure of
+    /// either premise otherwise, with the nodes pushed since the first
+    /// began released when it is the second's.
+    #[inline(always)]
+    fn two_premises(
+        &mut self,
+        first: impl FnOnce(&mut Self) -> Step,
+        second: impl FnOnce(&mut Self) -> Step,
+        join: impl FnOnce(NodeId, NodeId) -> Node,
+    ) -> Step {
+        let mark = self.nodes.mark();
+        let l = first(self)?;
+        let Found::Proved(l_node) = l else {
+            return Ok(l);
+        };
+        let (l_node, r) = self.holding(l_node, second);
+        let r = r?;
+        let Found::Proved(r_node) = r else {
+            self.nodes.release(mark);
+            return Ok(r);
+        };
+        Ok(Found::proved(self.push(join(l_node, r_node))))
     }
 
     /// The `&` node on `o` from the proof of its left premise and what the

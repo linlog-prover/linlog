@@ -524,14 +524,16 @@ relies on:
   when the collection runs), a premise of a pending node, the result a
   call is about to return (the root given), and a local of a rule that
   holds the proof of its first premise while it searches the second.
-  The last are `with` (and `both`), `premises` and `parts`, which put the id on the
-  arena's `held` stack around the second search (`hold`, `unhold`) and
-  read it back, since it may have moved; the forced split's `links`
+  The last are `with` (and `both`), `premises` and `parts` (through
+  `two_premises`) and the chain's frame, which all search the second
+  premise inside `Run::holding`: it puts the id on the arena's `held`
+  stack around the call (`hold`, `unhold`) and reads it back, since it
+  may have moved; the forced split's `links`
   hold pending ids only (a forcing factor's proof ends in a node pushed
   by the chain or by `focus_on`), and `decompose`, `focus_on` and
   `split` wrap a result into a pending node before any other call. **A
   new rule that keeps an id across a call that can reach
-  `prove_stable` must hold it**, or a collection in between leaves it
+  `prove_stable` must hold it** (`holding`), or a collection in between leaves it
   pointing at another node: the proof is then wrong, which the checker
   catches (`Error::Rejected`), never a verdict. `proofs_survive_collections`
   runs generated sequents under memos of one, two and five entries, so
