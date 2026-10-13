@@ -84,6 +84,21 @@ browser or a stranger's file would.
   session and a disproof (written back and read again; the seeds are
   unprovable outcomes, which read as disproofs). `Outcome` has no reader
   of its own: it reads as a proof or a disproof.
+- Three targets drive what a reader hands on, past the readers: a
+  session step by step (`session_steps`: the mode, the sequent, then
+  steps of three bytes that apply a rule, undo or close a goal; a refused
+  step leaves the session as it was, a finished one's proof checks), a
+  proof file's views (`proof_views`: the size estimate, the derivation
+  under a compact or a two-sided view, its text tree), and ordinary
+  logic decided through its translation (`ordinary_decide`: every logic
+  and translation, the read-back and its LK or LJ check, where an error
+  of kind `defect` is a find). Each runs under small limits on
+  occurrences, memory and work, so an input is a few milliseconds.
+- **The command's own readers have no target**: its JSON Lines record
+  (`batch::record`, member by member) and a batch's lines hand the
+  sequent to the library's readers, which the targets above cover, and
+  a target over `linlog_cli` would need its modules public, which they
+  are not (the command's library is its binary's, not an API).
 - Besides "no panic", a target asserts what must hold of what it read:
   a printed sequent parses back, a correct structure sequentializes to a
   proof the checker accepts, a complete session's proof checks, a

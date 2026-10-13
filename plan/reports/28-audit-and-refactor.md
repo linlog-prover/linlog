@@ -817,8 +817,8 @@ findings, and the step's last evidence.
 
 | item | state | evidence |
 |---|---|---|
-| a. F59: `derivation.rs`, `check.rs`, `interactive.rs` split as pure moves | open | |
-| b. a test that kills the race's `||` for `&&`; why the reruns' `--re` took twelve mutants | open | |
+| a. F59: `derivation.rs`, `check.rs`, `interactive.rs` split as pure moves | done | ppsxqlln (`proofs/check/{mod,zones,error,pass}.rs`), zqmrmnwu (`proofs/derivation/{mod,view,build}.rs`), mpuzmwmy (`proofs/interactive/{mod,expand,replay,terms}.rs`): items moved whole, private ones opened to the parent (`pub(super)`) where a sibling or the tests read them, the re-exports and every public path unchanged; the rules' paths (`core.md`, `core-proofs.md`, `core-derivations.md`, `claude-infra.md`, `evidence.md`) and `mutants/run.sh`'s check batch with them; each passed its gate (scratch `gates/`, 07:48 to 08:05) |
+| b. a test that kills the race's `||` for `&&`; why the reruns' `--re` took twelve mutants | done | nltxoozn: `the_caller_s_stop_ends_both_sides_of_the_race` (Mix of five pairs, the caller's stop always true: unknown, where the mutant lets the pool prove it), 30 of 30 runs pass unmutated, the mutant fails it in 0.04 s. The twelve: cargo-mutants 27.1.0 applies neither `--re` nor `exclude_re` to its struct-field deletions (`cargo mutants --list --file core/src/search/mod.rs --re zzzz` lists the eleven `delete field … in Options::with_*`, and the Horn file its `Answer` field), recorded in `evidence.md` |
 | c. the command's shared search flags, `Options`, stop and verdict line (F194, F200), `--settings FILE` (R183), `--stats` and the engines from the library (area 3.2's halves) | open | |
 | d. the command's other findings (F5, F16, F27, H25, F65, F162 to F170, F189 to F208, H14, H15, H20) | open | |
 | e. the command's tests (F192, F209 to F216) | open | |

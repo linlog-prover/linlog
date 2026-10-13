@@ -14,7 +14,8 @@ set -euo pipefail
 cd "$(dirname "$(realpath "$0")")/.."
 linlog=${LINLOG:-target/debug/linlog}
 corpus=fuzz/corpus
-for t in sequent_text ordinary_text tptp lltp spec json_sequent json_proof json_structure json_session json_disproof; do
+for t in sequent_text ordinary_text tptp lltp spec json_sequent json_proof json_structure json_session json_disproof \
+  session_steps proof_views ordinary_decide; do
   mkdir -p "$corpus/$t"
 done
 seed() { # TARGET NAME: standard input into the corpus
@@ -55,6 +56,12 @@ for s in "A |- A" "A * B |- B * A" "!A |- A * !A" "A & B |- A + B" "|- 1" "0 |-"
       printf '%s' "$out"
     } | seed json_proof "small-i-$i"
   fi
+  # A session: the mode's byte, the sequent, then steps of three bytes
+  # (apply the first rule on formula 0 of goal 0, then close goal 0).
+  {
+    printf '\0%s\n' "$s"
+    printf '\0\0\0\3\0\0'
+  } | seed session_steps "small-$i"
   dir=$(mktemp -d)
   printf 'save %s/open.json\nclose\nsave %s/closed.json\n' "$dir" "$dir" |
     "$linlog" interact "$s" >/dev/null 2>&1 || true
@@ -73,7 +80,16 @@ for s in 'a \/ ~a' 'a -> b, a |- b' '~~a |- a' '(a /\ b) -> (b /\ a)' \
   'a <-> a' '|- ((a -> b) -> a) -> a' 'a, b |- a /\ b' 'T' 'F |-'; do
   i=$((i + 1))
   printf '%s' "$s" | seed ordinary_text "small-$i"
+  # The first byte picks the logic and the translation.
+  for b in 0 1 2 3 4; do
+    {
+      printf "\\$b"
+      printf '%s' "$s"
+    } | seed ordinary_decide "small-$i-$b"
+  done
 done
+# A proof's views read the proof files the checker's target starts from.
+cp "$corpus"/json_proof/* "$corpus"/proof_views/
 
 # Problem files up to 16 KiB, the longest input the runs take.
 files() { # TARGET DIR PATTERN COUNT

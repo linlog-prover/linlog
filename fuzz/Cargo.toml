@@ -96,3 +96,24 @@ path = "fuzz_targets/json_disproof.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "session_steps"
+path = "fuzz_targets/session_steps.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "proof_views"
+path = "fuzz_targets/proof_views.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ordinary_decide"
+path = "fuzz_targets/ordinary_decide.rs"
+test = false
+doc = false
+bench = false

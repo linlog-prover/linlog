@@ -25,7 +25,8 @@ cores=(12 13 14 15)
 stall=${STALL:-900}
 cap=${CAP:-5400}
 targets=(json_proof json_session json_structure json_sequent json_disproof
-  sequent_text ordinary_text tptp lltp spec)
+  sequent_text ordinary_text tptp lltp spec session_steps proof_views
+  ordinary_decide)
 bin=fuzz/target/x86_64-unknown-linux-gnu/release
 out=target/fuzz
 
@@ -49,7 +50,7 @@ shift
 one() {
   local t=$1 core=$2 log=$out/$1.log
   local max_len=4096
-  case $t in tptp | lltp | spec | json_*) max_len=16384 ;; esac
+  case $t in tptp | lltp | spec | json_* | proof_views) max_len=16384 ;; esac
   mkdir -p "fuzz/corpus/$t" "fuzz/artifacts/$t"
   systemd-run --user --scope -q --unit="linlog-fuzz-$t" -p MemoryMax=4G -p MemorySwapMax=0 \
     taskset -c "$core" "$bin/$t" -fork=1 -ignore_crashes=1 \
