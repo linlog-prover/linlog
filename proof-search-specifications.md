@@ -18,9 +18,42 @@ This is an implementation brief for a Rust proof-search engine covering proposit
 
 ## Errata found during implementation
 
-Corrections established while implementing the engines, each confirmed by an
-independent reference implementation; the original text below is left as
-written.
+This file is the brief written before the engines; where it and the code
+disagree, these errata and the rules files under `.claude/rules/` (the
+focused engine's in `core-focus.md`, the nets' in `core-nets.md`, the
+Horn engine's in `core-horn.md`) describe what was built. Corrections
+established while implementing the engines, each confirmed by an
+independent reference implementation or by the literature cited; the
+original text below is left as written.
+
+- **The default atom bias** ("make the literal with fewer occurrences
+  positive"): the default, `auto`, makes the literal that is
+  more often a direct factor of a `⊗` positive on a sequent without
+  exponentials, the rarer literal under weakening, and with exponentials
+  in linear mode runs a search under each rule; each choice is what
+  measured best there (`core-focus.md`).
+- **The `⊗` split** (submasks in Gray order over a compacted
+  index, lazy I/O contexts above about 20 formulas, RM3 above 64): the engine searches a split depth-first, a member at a
+  time, with the counts tested at every partial assignment and an
+  explicit trail; there is no mask, so no width limit and no lazy-context
+  switch (`core-focus.md`, the split search).
+- **The two-sided memo key** ("the memo key is `(Θ, Δ, goal)`; do not
+  reuse classical one-sided keys"): the two-sided engine is the
+  one-sided engine on the lowered sequent, whose key `(Θ, Γ)` determines
+  the two-sided sequent, so it reuses that key (agreed with an unfocused
+  prover on about 60 000 sequents).
+- **Forced factors of a `⊗`** (the erratum below on MLL-Seq names three):
+  a `!` factor is forced too (the empty context, as the MELL section says), and so
+  is a tensor of positive literals (one dual per literal), besides a
+  positive literal, `1` and `0`.
+- **MALL1** ("NEXPTIME membership is not established"): first
+  order MALL is NEXPTIME-complete, hard by Lincoln and Scedrov (1994) and
+  in NEXPTIME by Lincoln and Shankar ("Proof search in first-order linear
+  logic and other cut-free sequent calculi", LICS 1994).
+- **Reachability for Horn programs** ("e.g., KReach"):
+  KReach is unmaintained since 2020; linlog decides these programs with
+  an engine of its own (`core/src/search/horn/`, `core-horn.md`):
+  reachability in linear mode, coverability in affine mode.
 
 - **MALL-Seq, immediate failure (a `0` in a stable sequent).** Not fatal
   when some member has a `⊤` below it: `⊢ 0, ⊤ ⊕ b` is provable by focusing

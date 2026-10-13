@@ -32,18 +32,21 @@ Workspace crates:
 - `cli/` is package **`linlog-cli`**, library **`linlog_cli`** and binary
   **`linlog`** (one call into the library; `doc = false` because it shares
   the core crate's name): `prove` (one sequent, or a batch of many),
-  `check`, `interact` and `seq print|json|fragment`. README's usage section shows every command,
-  format and flag with its output, and `cli/tests/readme.rs` runs those
-  examples; `linlog <command> --help` is the doc comments of
-  `cli/src/argument_parsing.rs`. Exit status 0 proved/valid, 1
-  unprovable/invalid, 2 error, 3 unknown.
+  `check`, `interact` and `seq print|json|fragment`. README's usage section shows every command and
+  format and the main flags with their output, and `cli/tests/readme.rs`
+  runs those examples; `linlog <command> --help` is the doc comments of
+  `cli/src/argument_parsing.rs`, every flag with the settings key it
+  sets. Exit status 0 proved/valid, 1 unprovable/invalid, 2 error, 3
+  unknown, 130 at a second Ctrl-C.
 - `bench/` is package **`linlog-bench`** (not published, `doc = false`):
   the benchmark harness, the baselines under `bench/results/DAY/`
   (`bench/RESULTS.md`, `bench/COMPARISON.md`) and the focused engine's
   target set (`bench/targets.sh`, `bench/TARGETS.md`).
 
 `plan/README.md` is the proof-search plan the code follows, `plan/reports/`
-what each step of it did.
+what each step of it did. `proof-search-specifications.md` is the brief
+written before the engines ("the spec" in the rules); its errata and the
+rules files override it where the code departs from it.
 
 ## Where the rules are
 
@@ -96,7 +99,7 @@ gate              # what every commit that touches code passes: clippy, the test
 ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv; ratchet --lower after a count went down
 mutants/run.sh    # mutation testing of the checker, the readers, the front door, the Horn refutations (cores 6-11, detached): mutants/baseline/
 nix develop .#fuzz -c fuzz/run.sh   # every fuzz target until its coverage stops growing (nightly, cores 12-15, detached), after fuzz/seed.sh
-nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck (a hook runs it on each file changed with Write or Edit; a file changed from the shell needs it run by hand before the commit, or the treefmt check fails)
+nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck, ruff-format (a hook runs it on each file changed with Write or Edit; a file changed from the shell needs it run by hand before the commit, or the treefmt check fails)
 nix build         # linlog-cli, whose binary is result/bin/linlog
 nix build .#doc   # the rustdoc site, as the Docs workflow publishes it
 ```

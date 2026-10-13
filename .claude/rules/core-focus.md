@@ -30,7 +30,7 @@ and affine mode as rule switches (`Switches`, from `Fragment` and `Mode`), and
 the spec's two-sided engine for every intuitionistic fragment when given
 the sequent's `Reading` (`Engine::TwoSided` is that configuration). Its
 functions are the spec's rules: `asynchronous` (the phase `⊢ Θ ; Γ ⇑ L`),
-`quest` (`?` into `Θ`), `prove` (a stable sequent), `focus` (`⊢ Θ ; Γ ⇓ F`),
+`decompose` (its `?` arm: `?` into `Θ`), `prove` (a stable sequent), `focus` (`⊢ Θ ; Γ ⇓ F`),
 `initial` (the two initial rules), `split` (the `⊗` rule), `mix`. What it
 relies on:
 
@@ -78,7 +78,7 @@ relies on:
   and 688.
 - **Two-sided is one constraint.** Every rule of the two-sided focused
   calculus is a rule of this engine on the lowered sequent (`⊸R` and `⊗L`
-  are `⅋`, `⊸L` is a `⊗` in input position, `!L` is `quest` plus a copy,
+  are `⅋`, `⊸L` is a `⊗` in input position, `!L` is the `?` step plus a copy,
   and so on), and starting from one output-shaped root every rule keeps
   exactly one output on each premise by itself, except the split of a
   hypothesis `A ⊸ B`, where the goal must go with the consequent `B⊥`.
@@ -487,10 +487,10 @@ relies on:
   `prove_stable` *keeps* the nodes pushed since its `mark` (`keep` moves
   them to the kept arena, premises renamed, and returns the root's kept
   id); a failed step *releases* them (`release`, a truncation). The
-  release points are `prove_stable` on a failure and the four places
+  release points are `prove_stable` on a failure and the five places
   where a first premise is proved and the second fails (`premises`, the
-  forced split, `both` for `with`, `parts`); every other failure pushes
-  nothing. The
+  forced split, `both` for `with`, `parts`, and the free split's chain,
+  `run_chain`'s frames); every other failure pushes nothing. The
   argument that a release is safe: node ids travel only upwards as return
   values, so nothing outside the failed call holds an id pushed after its
   mark, and a memo entry holds kept ids only. The argument for `keep`:
@@ -709,10 +709,10 @@ relies on:
   absorber serving one side (`needy ≤ open_absorbers`); the equation
   likewise with the slack `c − weight − 2` of a side and the open
   members' contributions `1 − weight`. With no member open the bounds
-  are the sides' own sums, so the test at a leaf is the old `sides_pass`
-  exactly; the argument for the cut is that it only removes subtrees
+  are the sides' own sums, so the test at a leaf is the whole split's
+  count test exactly; the argument for the cut is that it only removes subtrees
   whose every leaf fails that test. `Split::bad` counts the excluded
-  atoms incrementally (`update` compares before and after, both sides,
+  atoms incrementally (`shift` and `flip` compare before and after, both sides,
   on the atoms of the member's row), so a step costs the member's row.
   The order (`Run::open`): longer rows first (a compound member
   bears on several atoms; once the compounds are placed the literals of

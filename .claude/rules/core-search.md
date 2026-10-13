@@ -132,11 +132,15 @@ each `Engine` variant documents its unit. A search's `held_bytes` stays
 zero: the default bias's two searches have accounts of their own;
 `Reason`, `Statistics`, `Engine` and `Outcome` are `#[non_exhaustive]` so
 later steps add variants and fields without a breaking change.
-`Statistics` has one set of counters for every engine: `nodes` is stable
-sequents for `focus` and literals chosen for `net`; `memo_hits`,
-`memo_entries` and `splits` are the focused engine's, `links` and `tests`
-the net engine's, `copies` and `forward_copies` the focused engine's
-levels, and the others stay zero; `work` is every engine's, set by
+`Statistics` has one set of counters for every engine, each engine
+filling those its `Engine::counters` lists with the meaning its rustdoc
+gives (`nodes` is stable sequents for the focused engines, literals
+chosen for the net engine, pairs for the additive path and markings for
+the Horn engine; `memo_hits` and `memo_entries` the memo's of the
+focused and additive engines and the markings met again and kept of the
+Horn engine; `splits` the focused engines', `links` and `tests` the net
+engine's, `copies` and `forward_copies` the focused engines' levels);
+the counters an engine does not list stay zero; `work` is every engine's, set by
 `prove_goal` from the search's `Work` (where every search runs on the
 calling thread, the sum of the progress' `work`,
 `the_search_counts_its_work`). `Statistics::add` is

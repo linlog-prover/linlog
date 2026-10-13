@@ -14,8 +14,9 @@ import-tree, one aspect per file); this is what each module holds.
 Modules share values through `_module.args`:
 `rustToolchain` and `craneLib` (`toolchain.nix`), `workspace` (the crane
 arguments, `workspace.nix`, whose source is what crane's
-`commonCargoSources` keeps plus `core/tests/snapshots`, `cli/fonts` and
-`README.md`, which a CLI test runs the examples of). `checks.nix`,
+`commonCargoSources` keeps plus `core/tests/snapshots`, `core/tests/lock`,
+`cli/tests/lock`, `cli/fonts` and `README.md`, which a CLI test runs the
+examples of). `checks.nix`,
 `devshell.nix`, `treefmt.nix` and `systems.nix` are what their names
 say; `checks.nix`'s `test` is crane's, in the release profile, and
 `test-debug-assertions` the same tests with debug assertions and

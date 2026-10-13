@@ -189,7 +189,7 @@ The 356 requirements extracted from the sources became 239 after merging. A comp
 - API item: search::prove_until stop condition and the thread pool (Options jobs, pool).
 - Requirement: After a stop the pool returns promptly. The 15 s spent on queued tasks after a stop on Petri nets (fixed in the step 21 review) must not return with 16 threads, so the stop is polled in every pool task and in the queued ones before they start.
 - Met when: The wait_ms and time_ms columns of the lltp-default stage show stops within a small multiple of the 2 s timeout, and a focused test of prove_until with a pool and an immediate stop returns fast.
-- State now: Unknown. Evidence: core/src/search/mod.rs:151-215 documents prove_until polling at every stable sequent or literal; the parallel runtime is core/src/search/parallel.rs and focus/parallel.rs (rules in .claude/rules/core-parallel.md). Whether queued tasks poll before they start was not checked.
+- State now: Met for the poll, measured part left to step 30. Evidence: core/src/search/focus/parallel.rs polls `if self.stop.fired(0)` before a queued premise starts, with the comment that a premise stopped already must not search; the `wait_ms` measurement of a queued task is step 30's (corrected in step 28's area 3.4, F223).
 
 ### R20. A bounded, deterministic search for a falsifying assignment, in the library
 - Steps: 31 Rocq library (certified refutations, classical reading).
@@ -278,7 +278,7 @@ The 356 requirements extracted from the sources became 239 after merging. A comp
 - API item: the stop closure contract of every engine, including the forward search on one thread.
 - Requirement: Every engine polls stop at a bounded interval of work, also in the forward search on one thread (the GPPP-1000 nets missed a 5 s stop by minutes), so that a wasm caller's deadline holds on one thread. The front-door documentation names what is not polled (forest build, proof check).
 - Met when: A test per engine shows that a stop raised after N polls ends within bounded additional work, and core-search.md lists the poll sites.
-- State now: Partly. Evidence: the prove_until documentation (core/src/search/mod.rs:165-175) lists the unpolled parts (forest build, proof check, single passes). The Horn engine takes the nets now, but the missed stop of the focused forward search, reachable with --engine focus or two-sided, is not stated as fixed.
+- State now: Partly. Evidence: the focused engine polls inside its chains of forced splits and its split searches (`SPLITS_PER_POLL` and `FORCED_PER_POLL`, 4 096, core/src/search/focus/mod.rs; `poll_splits` and `poll_forced` in core-search.md's list of poll sites), so the forward search's missed stop on the large nets is fixed where it was measured; a measurement on the GPPP-1000 nets under `--engine focus` is left to step 32's test (corrected in step 28's area 3.4, F223).
 
 ### R31. A proof with cuts keeps the checker's memory bound
 - Steps: 34 cut (session 1).
@@ -1509,7 +1509,7 @@ The 356 requirements extracted from the sources became 239 after merging. A comp
 - API item: export::typst (tree layout without curryst).
 - Requirement: The Typst export of a proof deeper than about eleven inferences compiles: write the tree with linlog's own layout (explicit widths in a grid or stack, as the SVG layout does) instead of curryst's nested show rules. This also removes the package import.
 - Met when: An export test that compiles a 30-inference proof with typst (core/tests/export.rs) and a snapshot.
-- State now: Not met. Evidence: core/src/export/typst.rs:5,14,19,73 still emit curryst (the CURRYST version constant) and document the show-rule depth limit.
+- State now: Met. Evidence: `export::typst::Layout` (`Auto`, `Curryst`, `Linlog`): `Auto` draws a tree higher than `CURRYST_HEIGHT` (9) inferences with linlog's own layout and no package, `Linlog` always; core/tests/export.rs `typst_layout` and its snapshot pin it. The package import stays for trees within curryst's height under `Auto`; `Layout::Linlog` drops it (corrected in step 28's area 3.4, F224).
 
 ### R242. A writer for first-order certificates
 - Steps: 38 first-order; 31 Rocq library.
@@ -1527,7 +1527,7 @@ The 356 requirements extracted from the sources became 239 after merging. A comp
 - API item: linlog prove: --file with --input-format lltp, exit statuses 0, 1, 2 and 3, --quiet, --format json, the mode flags.
 - Requirement: If BenchExec measures linlog, one `linlog prove` call on one LLTP file is enough: the mode (ILL problems are intuitionistic by their directory, not by the file), the one-thread or default configuration, the limits and a machine-readable verdict (exit status plus a verdict line or JSON) are all flags of the single call, so that a tool-info module can read it without parsing prose.
 - Met when: A documented command line per column; a test or README example that `linlog prove --file X.p --input-format lltp --intuitionistic --deterministic --timeout 60s --memory-limit 4GiB --quiet` exits with 0, 1 or 3 and prints the verdict line the module reads.
-- State now: Partly. Evidence: cli/src/batch.rs Entries and InputFormat::Lltp read .p files; exit statuses at argument_parsing.rs (Prove documentation: 0 provable, 1 unprovable, 3 stopped, 2 error); --quiet at argument_parsing.rs:787; the mode of an LLTP file from its directory is only in bench/src/problems.rs, so whether the command infers it is unknown.
+- State now: Partly. Evidence: cli/src/batch.rs reads a problem file's mode word and `.p` files as LLTP, but no rule takes the mode from an LLTP file's directory (bench/src/problems.rs does, for the harness alone), so a BenchExec module passes `--intuitionistic` itself, which it can (corrected in step 28's area 3.4, F223).
 
 ### R173. `prove --format rocq` on an unprovable sequent writes a refutation certificate when one exists
 - Steps: 31 Rocq library (items 8 and 6, CLI side).
