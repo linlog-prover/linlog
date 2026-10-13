@@ -50,14 +50,13 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             if logic.logic.is_some() && *intuitionistic {
                 bail!("the logic decides how its image is printed: leave out --intuitionistic");
             }
-            let most = settings::most(&settings);
             let (sequent, mode) = match settings::ordinary(&settings, logic) {
                 Some(options) => {
-                    let image = input.image(&options, most)?.1;
+                    let image = input.image(&options, &settings.limits)?.1;
                     let mode = image.mode();
                     (image.sequent().clone(), mode)
                 }
-                None => (input.sequent(most)?, mode_of(*intuitionistic)),
+                None => (input.sequent(&settings.limits)?, mode_of(*intuitionistic)),
             };
             prove::form(
                 *standalone,
@@ -101,7 +100,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             optimize,
             output,
         } => {
-            let mut sequent = input.sequent(input.most())?;
+            let mut sequent = input.sequent(&io::bound(input.most()))?;
             if *optimize {
                 sequent.optimize();
             }
@@ -112,7 +111,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             intuitionistic,
         } => {
             let mode = mode_of(*intuitionistic);
-            let fragment = input.sequent(input.most())?.fragment();
+            let fragment = input.sequent(&io::bound(input.most()))?.fragment();
             io::write(None, fragment.name_in(mode))?;
         }
     }

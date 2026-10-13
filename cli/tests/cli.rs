@@ -852,8 +852,9 @@ fn help_names_every_command() {
     }
 }
 
-/// Returns the path of the file `name` in a directory of this test
-/// process's own, apart from the session test's, which removes its own.
+/// Returns the path of the file `name` in a directory of these tests
+/// under the target's temporary directory, apart from the session test's,
+/// which removes its own.
 fn scratch(name: &str) -> std::path::PathBuf {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-files");
     std::fs::create_dir_all(&dir).unwrap();
@@ -1246,6 +1247,27 @@ fn isolated_entries_with_bundled_flags() {
     assert_eq!((isolated.0, &isolated.1), (status, &out));
     assert_eq!(status, 1);
     assert!(out.contains(&format!("{d}/b.txt: unprovable")), "{out}");
+}
+
+/// An entry whose name starts with `-` gets its verdict under
+/// `--isolate` too: the child reads the name as a value, not a flag.
+#[test]
+fn isolated_entries_named_like_flags() {
+    let common = [
+        "prove",
+        "--deterministic",
+        "--workers",
+        "1",
+        "--input-format",
+        "lines",
+    ];
+    let input = "-x: A |- A\n--y: A |- B\n";
+    let (status, out, _) = linlog(&common, input);
+    let isolated = linlog(&[&common[..], &["--isolate"]].concat(), input);
+    assert_eq!((isolated.0, &isolated.1), (status, &out));
+    assert_eq!(status, 1);
+    assert!(out.starts_with("-x: provable"), "{out}");
+    assert!(out.contains("--y: unprovable"), "{out}");
 }
 
 /// A sequent typed as the argument is refused beside a batch's input,
@@ -1698,6 +1720,15 @@ fn search_flags() {
     assert_eq!(memo(&stats(&["--memo-limit", "1"])), 1);
     assert_eq!(stats(&["--jobs", "8"]), default);
     assert_eq!(stats(&["--no-check"]), default);
+    // The outcome says whether its proof was checked.
+    for (flags, checked) in [
+        (&["--format", "json"][..], true),
+        (&["--format", "json", "--no-check"], false),
+    ] {
+        let (_, json, _) = linlog(&[&["prove"], flags, &["A |- A"]].concat(), "");
+        let outcome: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(outcome["checked"], checked, "{flags:?}");
+    }
 }
 
 /// Ctrl-C stops a single call's search with an unknown verdict, exit
@@ -1758,12 +1789,17 @@ fn interrupt() {
     interrupt(&child);
     let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
     let first = lines.next().unwrap().unwrap();
-    assert!(first.starts_with("hard: unknown"), "{first}");
     assert!(
-        lines.all(|line| line
-            .unwrap()
-            .ends_with("interrupted before it was searched")),
-        "an entry answered after the interrupt"
+        first.starts_with("hard: unknown") && first.contains("interrupted after"),
+        "{first}"
+    );
+    // The interrupt ends the input: an entry never read gets no line, one
+    // read and not begun says it was not searched, none is answered.
+    let rest: Vec<String> = lines.map(Result::unwrap).collect();
+    assert!(
+        rest.iter()
+            .all(|line| line == "next: unknown: interrupted before it was searched"),
+        "{rest:?}"
     );
     assert_eq!(child.wait().unwrap().code(), Some(3));
 }
@@ -1840,6 +1876,13 @@ fn batch_flags() {
         ) && out.contains("easy: unknown: the batch's time limit"),
         "{out}"
     );
+    // The entry the batch's limit stopped in its search names that limit.
+    let hard1 = out.lines().find(|l| l.starts_with("hard1: ")).unwrap();
+    assert!(
+        hard1.contains("the batch's time limit of 300ms was reached")
+            && hard1.contains("--batch-timeout DURATION"),
+        "{out}"
+    );
     let easy = "a: A |- A\nb: A |- B\n";
     for flags in [
         &["--cores", "across"][..],
@@ -1867,4 +1910,28 @@ fn batch_flags() {
         out.starts_with("hard: unknown") && out.contains("the time limit of 100ms"),
         "{out}"
     );
+}
+
+/// An `--output` that is a pipe gets the output once: the check that the
+/// output can be made before the search opens only a file, since a pipe
+/// opened and closed would end its reader before the output comes.
+#[test]
+fn an_output_pipe_gets_the_output() {
+    let fifo = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-fifo");
+    let _ = std::fs::remove_file(&fifo);
+    assert!(
+        Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let reader = {
+        let fifo = fifo.clone();
+        std::thread::spawn(move || std::fs::read_to_string(fifo).unwrap())
+    };
+    let (status, _, err) = linlog(&["prove", "--output", fifo.to_str().unwrap(), "A |- A"], "");
+    assert_eq!(status, 0, "{err}");
+    assert!(reader.join().unwrap().starts_with("provable (MLL"));
+    std::fs::remove_file(&fifo).unwrap();
 }

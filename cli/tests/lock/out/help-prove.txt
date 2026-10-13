@@ -17,7 +17,7 @@ Options:
   -f, --file <PATH>
           Read the sequent from this file, or `-` for standard input
           
-          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (with --logic a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
+          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (under --logic, where a command takes it, a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
 
       --input-format <FORMAT>
           How to read the input, rather than by the file's extension
@@ -38,7 +38,7 @@ Options:
           [default: auto]
 
       --occurrence-limit <N>
-          The most subformula occurrences the sequent may have, or `none`
+          The most subformula occurrences the sequent may have, or `none` (limits.occurrences)
           
           A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
           
@@ -76,7 +76,7 @@ Options:
           With --logic, show the linear proof of the image instead of the proof read back as LK or LJ
 
       --fragment <FRAGMENT>
-          Search in this fragment instead of the detected one
+          Search in this fragment instead of the detected one (search.fragment)
           
           A sequent outside it is an error. A larger fragment than the detected one switches off the prunes that only hold in the smaller one, which is a way to compare them.
 
@@ -99,10 +99,10 @@ Options:
       --bias <BIAS>
           How the focused engines pick the positive literal of every atom (search.bias)
           
-          No choice changes what is provable. `rarer` mostly chains backward from the goal, `factors` forward from the hypotheses, which on Horn clauses under `!`, such as a Petri net, is often much faster but takes one copy per step on a single branch. `auto` takes `factors` on a sequent without exponentials, `rarer` under weakening, and in linear mode with exponentials runs both searches and answers with the first that decides: alternating on one core, side by side on several.
+          No choice changes what is provable. `rarer` mostly chains backward from the goal, `factors` forward from the hypotheses, which on Horn clauses under `!`, such as a Petri net, is often much faster but takes one copy per step on a single branch. `auto` takes `rarer` in affine mode, `factors` in linear mode without exponentials, and in linear mode with exponentials runs both searches and answers with the first that decides: alternating on one core, side by side on several.
 
           Possible values:
-          - auto:    `factors` without exponentials, `rarer` under weakening, and in linear mode with exponentials both, each in a search of its own
+          - auto:    `rarer` in affine mode, `factors` in linear mode without exponentials, and in linear mode with exponentials both, each in a search of its own
           - rarer:   The literal with fewer occurrences is positive
           - factors: The literal that is more often a direct factor of a tensor is positive, so that more splits are forced
           
@@ -189,7 +189,7 @@ Options:
           [default: auto]
 
       --no-check
-          Report the proof the search found without checking it
+          Report the proof the search found without checking it (search.check)
           
           By default every proof passes the proof checker, which shares no code with the search, before anything is reported; a proof it rejects is an error (exit status 2), not a verdict.
 
@@ -198,9 +198,9 @@ Options:
 
           Possible values:
           - text:  The verdict on one line, then the derivation as a text tree
-          - json:  One JSON object: verdict, fragment, mode, engine, statistics, and the proof, which `check` reads
+          - json:  JSON: prove's outcome (verdict, fragment, mode, engine, statistics, and the proof, which `check` reads), one record a line in a batch; check's verdict and error
           - latex: The verdict as a comment, then the derivation as a LaTeX proof tree of the ebproof package, with the connectives of cmll and amssymb
-          - typst: The verdict as a comment, then the derivation as a Typst proof tree of the curryst package
+          - typst: The verdict as a comment, then the derivation as a Typst proof tree: with the curryst package for a low tree, in linlog's own layout for a high one (`--style typst.layout`)
           - svg:   The verdict as an XML comment, then the derivation drawn as an SVG document, set in the Euler Math font unless `--style` names another
           - png:   The derivation drawn as a PNG image, the verdict on standard error; written to a file or a pipe, never to a terminal
           - pdf:   The derivation drawn as a PDF document, its text selectable, the verdict on standard error; written to a file or a pipe, never to a terminal
@@ -244,28 +244,28 @@ Options:
           [default: 200]
 
       --style <KEY=VALUE>
-          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable) (styles.FORMAT.KEY)
           
           KEY is a field of the format's options, dotted into nested ones, as `--style-file` holds them; without a prefix `text.`, `latex.`, `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format `--format` gives. VALUE is JSON, or else a string: `gap=5`, `ids=true`, `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields: text: labels, open, bar, gap; latex: form, labels, open, align, ebproof, preamble; typst: form, labels, open, import, page, layout (auto, curryst or linlog: curryst for a tree up to nine inferences high, linlog's own code above), premise_gap, label_gap, band, stroke (lengths for linlog's own layout: a number and pt, mm, cm, in or em); svg: font (family, advances), labels, open, ids, description, font_size, label_size, line_height, premise_gap, literal_gap, label_gap, margin, stroke_width, link_height, link_cap, node_radius, text, line, par, link, highlight, background; png: scale, pixels; pdf: embed_text, compatible, accessible, title, language, date; rocq: form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is dots, bare, dashed or {"mark":TEXT}
 
       --style-file <PATH>
-          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default
+          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default (styles)
 
       --lemma <NAME>
-          The name of the lemma of a Rocq certificate (rocq.lemma)
+          The name of the lemma of a Rocq certificate (styles.rocq.lemma)
 
       --prelude <TEXT>
-          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (rocq.prelude)
+          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (styles.rocq.prelude)
 
       --derivation-limit <SIZE>
-          The largest derivation to build, by its estimated size: a number of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
+          The largest derivation to build, by its estimated size: a number of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit (limits.derivation_bytes)
           
           A derivation writes out the whole sequent at every inference and repeats every subproof that the proof shares, so it can be larger than the proof by any factor. A derivation estimated above the limit is not built, in any format: the verdict is reported without it, with a line that says how large it is, and the exit status is the verdict's. `--format json` writes the proof itself at any size. The drawing of a proof net (`--net`) is estimated before it is drawn and left out above the same limit.
           
           [default: 64MiB]
 
       --compact <WHEN>
-          When a run of one structural rule, such as the weakenings of every unused `?` formula, is drawn as one inference labelled with a star (`?w*`), in every format but rocq
+          When a run of one structural rule, such as the weakenings of every unused `?` formula, is drawn as one inference labelled with a star (`?w*`), in every format but rocq (view.compact)
 
           Possible values:
           - auto:   Where the whole derivation would pass `--derivation-limit` or, as a text tree on a terminal, not fit it
@@ -277,10 +277,10 @@ Options:
       --stats
           Also print what the search cost: the counters of the engine that ran, a line each, and the time
           
-          The focused engines count stable sequents, memo use, splits and the copy bound reached, the net engine literals chosen, links tried and exact tests run, the additive one pairs of subformulas, the Horn engine markings; every engine its units of work. JSON output always carries the counts; the time is printed only as text.
+          The focused engines count stable sequents, memo use, splits and the copy bound reached, the net engine literals chosen, links tried and exact tests run, the additive one pairs of subformulas, the Horn engine markings; every engine its units of work. JSON output always carries the counts; the time is printed only as text, and in a batch's JSON records as `seconds`.
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error, as are `batch.mode` and `ordinary.logic`, which the flags alone set
 
       --files-from <LIST>
           Read the paths of the inputs from this file, one per line, or `-` for standard input, read as it streams
@@ -289,10 +289,10 @@ Options:
           The paths of --files-from are separated by NUL, as `find -print0` writes them
 
       --workers <N>
-          How many sequents of a batch are decided at once, across the cores; by default as many as the machine runs threads, fewer when --batch-memory does not hold that many searches at --memory-limit each
+          How many sequents of a batch are decided at once, across the cores; by default as many as the machine runs threads, fewer when --batch-memory does not hold that many searches at --memory-limit each (batch.workers)
 
       --cores <WHERE>
-          Where a batch's threads go
+          Where a batch's threads go (batch.cores)
           
           Across the sequents, each gets one thread for its --timeout, as with --deterministic, which answers the most sequents in a given time and gives every answer as a function of its input; a sequent that needs the pool a single call races beside one thread, or more time on one thread, stays unknown there. Within, each sequent gets the race on every thread, as a single call does. To decide what a batch across left unknown, run those sequents again with --cores within or a longer --timeout.
 
@@ -304,12 +304,12 @@ Options:
           [default: auto]
 
       --batch-memory <SIZE>
-          The most memory all the searches of a batch hold together: a size such as 8GiB, or `none`; by default half the memory the process may use (the machine's, or its control group's limit where one is set)
+          The most memory all the searches of a batch hold together: a size such as 8GiB, or `none`; by default half the memory the process may use (the machine's, or its control group's limit where one is set) (batch.total_memory_bytes)
           
           Each search holds at most --memory-limit, and as many run at once as this holds; within one sequent the race of one thread and a pool is two searches, which share it.
 
       --batch-timeout <DURATION>
-          Give up on the rest of a batch after this long, or `none`
+          Give up on the rest of a batch after this long, or `none` (clock.batch_time_limit_ms)
           
           The sequents still searched are stopped and those not begun are unknown; --timeout is each sequent's own limit.
           

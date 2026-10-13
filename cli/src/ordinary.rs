@@ -6,6 +6,7 @@
 //! linear logic, decided there, and its proof read back as LK or LJ.
 
 use crate::argument_parsing::{InputFormat, Tree};
+use crate::io::{bound, refused};
 use crate::prove::{Ended, Show, Shown, not_built, unknown};
 use anyhow::{Result, anyhow, bail};
 use linlog::ordinary::{self, Image};
@@ -16,18 +17,24 @@ use std::fmt::Write;
 
 /// Returns the ordinary sequent `text` holds in `format`: text in the
 /// syntax of ordinary logic (a parse error points into `text`), or a TPTP
-/// problem.
+/// problem, refused at the first subformula past `most` occurrences.
 ///
 /// # Errors
 ///
-/// Text that is no ordinary sequent, with a caret under the place, or no
-/// TPTP problem.
-pub(crate) fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Sequent> {
+/// Text that is no ordinary sequent, with a caret under the place, no
+/// TPTP problem, or one past `most`.
+pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<ordinary::Sequent> {
+    let within = bound(most);
     match format {
         // The library's error says that the text is no TPTP problem.
-        InputFormat::Tptp => Ok(ordinary::read_tptp(text, &Limits::UNBOUNDED)?.sequent),
+        InputFormat::Tptp => Ok(ordinary::read_tptp(text, &within)
+            .map_err(|e| refused(e, most))?
+            .sequent),
         InputFormat::Text | InputFormat::Auto | InputFormat::Lines => {
-            text.parse().map_err(|e| crate::parse_error(text, e))
+            ordinary::Sequent::parse_within(text, &within).map_err(|e| match e {
+                Error::Parse(_) => crate::parse_error(text, e),
+                e => refused(e, most),
+            })
         }
         _ => bail!(
             "--logic reads formulas as text, a line each with --input-format lines, or TPTP problems"
@@ -36,19 +43,20 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat) -> Result<ordinary::Se
 }
 
 /// Returns the image of an ordinary sequent in the logic, under the
-/// translation, that `options` give.
+/// translation, that `options` give, refused past `most` occurrences.
 ///
 /// # Errors
 ///
-/// The translation's error: one that does not decide the logic, or more
-/// than one formula right of `⊢` in intuitionistic or minimal logic.
-pub(crate) fn image(options: &ordinary::Options, sequent: &ordinary::Sequent) -> Result<Image> {
-    Ok(ordinary::translate(
-        sequent,
-        options.logic,
-        options.translation(),
-        &Limits::UNBOUNDED,
-    )?)
+/// The translation's error: one that does not decide the logic, more
+/// than one formula right of `⊢` in intuitionistic or minimal logic, or
+/// an image past `most`.
+pub(crate) fn image(
+    options: &ordinary::Options,
+    sequent: &ordinary::Sequent,
+    most: u64,
+) -> Result<Image> {
+    ordinary::translate(sequent, options.logic, options.translation(), &bound(most))
+        .map_err(|e| refused(e, most))
 }
 
 /// Returns the first line of the text output for an ordinary sequent:

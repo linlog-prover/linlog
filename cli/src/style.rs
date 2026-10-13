@@ -32,7 +32,7 @@ pub(crate) fn read(
 ) -> Result<Styles> {
     let mut value = serde_json::to_value(base)?;
     if let Some(path) = &args.style_file {
-        let text = io::read(Some(path), "style file")?;
+        let text = io::read_configuration(path, "style file")?;
         let file = serde_json::from_str(&text)
             .with_context(|| format!("{} is not JSON", path.display()))?;
         crate::settings::over(&mut value, file);
@@ -52,6 +52,10 @@ pub(crate) fn read(
                      latex.{key} (text, latex, typst, svg, png, pdf or rocq)"
                 ),
             }
+        }
+        // A command without the Rocq format takes none of its options.
+        if path[0] == "rocq" && rocq.is_none() {
+            bail!("--style {setting}: this command writes no Rocq certificate");
         }
         // A value that is no JSON is a string, so that `bar=|` and
         // `family=monospace` need no quotes.

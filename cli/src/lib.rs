@@ -37,7 +37,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// What a command found, which decides the exit status.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status {
+pub(crate) enum Status {
     /// Provable, a valid proof, or a command that has no verdict: 0.
     Yes,
     /// Unprovable, or an invalid proof: 1.
@@ -52,7 +52,7 @@ impl Status {
     /// Returns the worse of two verdicts of a batch: an error before
     /// unknown before unprovable before proved.
     #[must_use]
-    pub fn worse(self, other: Self) -> Self {
+    pub(crate) fn worse(self, other: Self) -> Self {
         let rank = |s| match s {
             Status::Yes => 0,
             Status::No => 1,
@@ -98,12 +98,12 @@ impl From<Status> for ExitCode {
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 /// Whether the user pressed Ctrl-C to stop the search.
-pub fn interrupted() -> bool {
+pub(crate) fn interrupted() -> bool {
     INTERRUPTED.load(Ordering::Relaxed)
 }
 
 /// Forgets a Ctrl-C that stopped a search, so that the next search runs.
-pub fn clear_interrupt() {
+pub(crate) fn clear_interrupt() {
     INTERRUPTED.store(false, Ordering::Relaxed);
 }
 
@@ -111,7 +111,7 @@ pub fn clear_interrupt() {
 /// made after it, so that its verdict is unknown and the statistics still
 /// print, and a second one end the program as Ctrl-C usually does, after
 /// removing the files its outputs were being written to.
-pub fn catch_interrupt() {
+pub(crate) fn catch_interrupt() {
     // The handler runs on a thread of its own, once per signal, so it may
     // exit. Without it Ctrl-C ends the program, which is a fine fallback.
     let _ = ctrlc::set_handler(|| {
@@ -125,7 +125,7 @@ pub fn catch_interrupt() {
 /// Makes Ctrl-C end the program as it usually does, after removing the
 /// files its outputs were being written to: for a command that runs no
 /// search.
-pub fn exit_on_interrupt() {
+pub(crate) fn exit_on_interrupt() {
     let _ = ctrlc::set_handler(|| {
         io::remove_partial_files();
         std::process::exit(130);
@@ -143,7 +143,7 @@ const CONTEXT: usize = 60;
 /// says which character of the line it is, counting from 1; for an input
 /// of several lines it says which line as well. It ends with what could
 /// have stood there, as the parser says.
-pub fn parse_error(input: &str, error: Error) -> anyhow::Error {
+pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
     let Error::Parse(parsed) = &error else {
         return error.into();
     };

@@ -42,20 +42,34 @@ pub(crate) fn remove_partial_files() {
     }
 }
 
-/// Reads all of a file, or of standard input for `None` or `-`. Refuses to
-/// wait on a terminal, where the user most likely forgot the input.
+/// The most bytes a settings or style file may have.
+const CONFIGURATION_BYTES: u64 = 16 << 20;
+
+/// Reads all of a file, or of standard input for `None` or `-`, refusing
+/// one longer than `memory` bytes (the memory limit, which nothing read
+/// from it fits within). Refuses to wait on a terminal, where the user
+/// most likely forgot the input.
 ///
 /// # Errors
 ///
-/// A file that cannot be read, and standard input when it is a
-/// terminal.
-pub(crate) fn read(path: Option<&Path>, what: &str) -> Result<String> {
+/// A file that cannot be read or is longer than `memory`, and standard
+/// input when it is a terminal.
+pub(crate) fn read(path: Option<&Path>, what: &str, memory: Option<u64>) -> Result<String> {
+    let advice = "; raise it with --memory-limit SIZE";
     match path {
         Some(path) if path != Path::new("-") => {
-            fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))
+            let file =
+                fs::File::open(path).with_context(|| format!("cannot read {}", path.display()))?;
+            capped(
+                file,
+                memory,
+                || format!("{} is longer than the memory limit of", path.display()),
+                advice,
+            )
+            .with_context(|| format!("cannot read {}", path.display()))
         }
         _ => {
-            let mut stdin = io::stdin();
+            let stdin = io::stdin();
             if stdin.is_terminal() {
                 let flag = if what == "sequent" {
                     ", with --file,"
@@ -64,13 +78,59 @@ pub(crate) fn read(path: Option<&Path>, what: &str) -> Result<String> {
                 };
                 bail!("no {what} given: pass it as an argument{flag} or on standard input");
             }
-            let mut text = String::new();
-            stdin
-                .read_to_string(&mut text)
-                .context("cannot read standard input")?;
-            Ok(text)
+            capped(
+                stdin,
+                memory,
+                || format!("the {what} on standard input is longer than the memory limit of"),
+                advice,
+            )
+            .context("cannot read standard input")
         }
     }
+}
+
+/// Reads a settings or style file, of at most [`CONFIGURATION_BYTES`];
+/// never standard input, which carries the sequent or a session's
+/// commands.
+///
+/// # Errors
+///
+/// `-`, and a file that cannot be read or is too long.
+pub(crate) fn read_configuration(path: &Path, what: &str) -> Result<String> {
+    if path == Path::new("-") {
+        bail!("the {what} is read from a file: standard input carries the input");
+    }
+    let file = fs::File::open(path).with_context(|| format!("cannot read {}", path.display()))?;
+    capped(
+        file,
+        Some(CONFIGURATION_BYTES),
+        || format!("{} is longer than", path.display()),
+        "",
+    )
+    .with_context(|| format!("cannot read {}", path.display()))
+}
+
+/// Reads `input` whole as text, refusing it past `most` bytes with
+/// `over`'s words, the bound, and `advice`.
+fn capped(
+    input: impl Read,
+    most: Option<u64>,
+    over: impl FnOnce() -> String,
+    advice: &str,
+) -> Result<String> {
+    let mut text = String::new();
+    let Some(most) = most else {
+        let mut input = input;
+        input.read_to_string(&mut text)?;
+        return Ok(text);
+    };
+    input
+        .take(most.saturating_add(1))
+        .read_to_string(&mut text)?;
+    if text.len() as u64 > most {
+        bail!("{} {}{advice}", over(), crate::prove::bytes_text(most));
+    }
+    Ok(text)
 }
 
 /// Returns `mode`, made affine for a sequent in `format` if that is a
@@ -97,13 +157,7 @@ pub(crate) fn affine_for(format: InputFormat, mode: Mode) -> Mode {
 pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
     let unbounded = Limits::default().with_occurrences(None);
     let within = bound(most);
-    let refused = |error: linlog::Error| match error {
-        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => anyhow::anyhow!(
-            "the sequent has more subformula occurrences than the limit of {most}; raise it \
-             with --occurrence-limit"
-        ),
-        error => error.into(),
-    };
+    let refused = |error| refused(error, most);
     match format {
         InputFormat::Json => {
             let mut document = serde_json::Deserializer::from_str(text);
@@ -129,6 +183,18 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<S
             linlog::Error::Parse(_) => crate::parse_error(text, e),
             e => refused(e),
         }),
+    }
+}
+
+/// Returns the library's error, or for an input refused past `most`
+/// occurrences the line that names the flag raising it.
+pub(crate) fn refused(error: linlog::Error, most: u64) -> anyhow::Error {
+    match error {
+        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => anyhow::anyhow!(
+            "the sequent has more subformula occurrences than the limit of {most}; raise it \
+             with --occurrence-limit"
+        ),
+        error => error.into(),
     }
 }
 
@@ -182,7 +248,7 @@ impl SequentInput {
     /// Reads the one input from the argument, the file or standard input,
     /// and returns it with the format the flag or the file's extension
     /// names, a `.p` file being a TPTP problem when `ordinary` is set.
-    fn text(&self, ordinary: bool) -> Result<(String, InputFormat)> {
+    fn text(&self, ordinary: bool, memory: Option<u64>) -> Result<(String, InputFormat)> {
         if self.file.len() > 1 {
             bail!("this command reads one sequent: give --file once");
         }
@@ -197,21 +263,22 @@ impl SequentInput {
         }
         let text = match &self.sequent {
             Some(text) => text.clone(),
-            None => read(file, "sequent")?,
+            None => read(file, "sequent", memory)?,
         };
         Ok((text, format))
     }
 
     /// Reads the one sequent from the argument, the file or standard
-    /// input, in the format the flag or the file's extension names, with
-    /// `most` occurrences at most.
+    /// input, in the format the flag or the file's extension names, within
+    /// `limits.occurrences` and a text within `limits.memory_bytes`.
     ///
     /// # Errors
     ///
     /// An input that cannot be read, or text that is no sequent in its
-    /// format, or one past the occurrence limit.
-    pub(crate) fn sequent(&self, most: u64) -> Result<Sequent> {
-        let (text, format) = self.text(false)?;
+    /// format, or one past the limits.
+    pub(crate) fn sequent(&self, limits: &Limits) -> Result<Sequent> {
+        let most = limits.occurrences.unwrap_or(u64::MAX);
+        let (text, format) = self.text(false, limits.memory_bytes)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
@@ -233,7 +300,7 @@ impl SequentInput {
 
     /// Reads one formula or sequent of ordinary logic and returns its image
     /// under the translation `options` choose, with the image's forest,
-    /// with `most` occurrences at most.
+    /// within the limits as [`sequent`](Self::sequent) reads.
     ///
     /// # Errors
     ///
@@ -242,10 +309,12 @@ impl SequentInput {
     pub(crate) fn image(
         &self,
         options: &linlog::ordinary::Options,
-        most: u64,
+        limits: &Limits,
     ) -> Result<(Forest, Image)> {
-        let (text, format) = self.text(true)?;
-        let image = crate::ordinary::image(options, &crate::ordinary::sequent_in(&text, format)?)?;
+        let most = limits.occurrences.unwrap_or(u64::MAX);
+        let (text, format) = self.text(true, limits.memory_bytes)?;
+        let ordinary = crate::ordinary::sequent_in(&text, format, most)?;
+        let image = crate::ordinary::image(options, &ordinary, most)?;
         let sequent = admit(image.sequent().clone(), most)?;
         Ok((Forest::from_owned(sequent, &bound(most))?, image))
     }
@@ -255,14 +324,15 @@ impl SequentInput {
         self.occurrence_limit.0.unwrap_or(u64::MAX)
     }
 
-    /// Reads the sequent and lays it out as a forest, with `most`
-    /// occurrences at most.
+    /// Reads the sequent and lays it out as a forest, within the limits
+    /// as [`sequent`](Self::sequent) reads.
     ///
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does.
-    pub(crate) fn forest(&self, most: u64) -> Result<Forest> {
-        Ok(Forest::from_owned(self.sequent(most)?, &bound(most))?)
+    pub(crate) fn forest(&self, limits: &Limits) -> Result<Forest> {
+        let most = limits.occurrences.unwrap_or(u64::MAX);
+        Ok(Forest::from_owned(self.sequent(limits)?, &bound(most))?)
     }
 }
 

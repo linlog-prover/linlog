@@ -52,9 +52,9 @@ Options:
 
           Possible values:
           - text:  The verdict on one line, then the derivation as a text tree
-          - json:  One JSON object: verdict, fragment, mode, engine, statistics, and the proof, which `check` reads
+          - json:  JSON: prove's outcome (verdict, fragment, mode, engine, statistics, and the proof, which `check` reads), one record a line in a batch; check's verdict and error
           - latex: The verdict as a comment, then the derivation as a LaTeX proof tree of the ebproof package, with the connectives of cmll and amssymb
-          - typst: The verdict as a comment, then the derivation as a Typst proof tree of the curryst package
+          - typst: The verdict as a comment, then the derivation as a Typst proof tree: with the curryst package for a low tree, in linlog's own layout for a high one (`--style typst.layout`)
           - svg:   The verdict as an XML comment, then the derivation drawn as an SVG document, set in the Euler Math font unless `--style` names another
           - png:   The derivation drawn as a PNG image, the verdict on standard error; written to a file or a pipe, never to a terminal
           - pdf:   The derivation drawn as a PDF document, its text selectable, the verdict on standard error; written to a file or a pipe, never to a terminal
@@ -98,28 +98,28 @@ Options:
           [default: 200]
 
       --style <KEY=VALUE>
-          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable) (styles.FORMAT.KEY)
           
           KEY is a field of the format's options, dotted into nested ones, as `--style-file` holds them; without a prefix `text.`, `latex.`, `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format `--format` gives. VALUE is JSON, or else a string: `gap=5`, `ids=true`, `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields: text: labels, open, bar, gap; latex: form, labels, open, align, ebproof, preamble; typst: form, labels, open, import, page, layout (auto, curryst or linlog: curryst for a tree up to nine inferences high, linlog's own code above), premise_gap, label_gap, band, stroke (lengths for linlog's own layout: a number and pt, mm, cm, in or em); svg: font (family, advances), labels, open, ids, description, font_size, label_size, line_height, premise_gap, literal_gap, label_gap, margin, stroke_width, link_height, link_cap, node_radius, text, line, par, link, highlight, background; png: scale, pixels; pdf: embed_text, compatible, accessible, title, language, date; rocq: form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is dots, bare, dashed or {"mark":TEXT}
 
       --style-file <PATH>
-          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default
+          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default (styles)
 
       --lemma <NAME>
-          The name of the lemma of a Rocq certificate (rocq.lemma)
+          The name of the lemma of a Rocq certificate (styles.rocq.lemma)
 
       --prelude <TEXT>
-          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (rocq.prelude)
+          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (styles.rocq.prelude)
 
       --derivation-limit <SIZE>
-          The largest derivation to build, by its estimated size: a number of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
+          The largest derivation to build, by its estimated size: a number of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit (limits.derivation_bytes)
           
           A derivation writes out the whole sequent at every inference and repeats every subproof that the proof shares, so it can be larger than the proof by any factor. A derivation estimated above the limit is not built, in any format: the verdict is reported without it, with a line that says how large it is, and the exit status is the verdict's. `--format json` writes the proof itself at any size. The drawing of a proof net (`--net`) is estimated before it is drawn and left out above the same limit.
           
           [default: 64MiB]
 
       --compact <WHEN>
-          When a run of one structural rule, such as the weakenings of every unused `?` formula, is drawn as one inference labelled with a star (`?w*`), in every format but rocq
+          When a run of one structural rule, such as the weakenings of every unused `?` formula, is drawn as one inference labelled with a star (`?w*`), in every format but rocq (view.compact)
 
           Possible values:
           - auto:   Where the whole derivation would pass `--derivation-limit` or, as a text tree on a terminal, not fit it
@@ -129,7 +129,7 @@ Options:
           [default: auto]
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error, as are `batch.mode` and `ordinary.logic`, which the flags alone set
 
   -h, --help
           Print help (see a summary with '-h')

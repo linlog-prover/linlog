@@ -191,7 +191,12 @@ impl Runs<'_> {
     /// for an LLTP one.
     fn wrong(&self) -> bool {
         let (verdict, expected) = (self.first.get("verdict"), self.first.get("expected"));
-        (verdict == "proved" && (expected == "unprovable" || self.first.get("checked") != "ok"))
+        // A check its bound gave up (`unchecked: …`) is no verdict on the
+        // proof.
+        let checked = self.first.get("checked");
+        (verdict == "proved"
+            && (expected == "unprovable"
+                || (checked != "ok" && !checked.starts_with("unchecked:"))))
             || (verdict == "unprovable" && expected == "provable")
     }
 
@@ -544,6 +549,12 @@ mod tests {
             ("time_ms", "1"),
         ])];
         assert!(runs(&unchecked).failed());
+        let refused = [row(&[
+            ("verdict", "proved"),
+            ("checked", "unchecked: memory limit"),
+            ("time_ms", "1"),
+        ])];
+        assert!(!runs(&refused).failed());
         for (reason, ending, failed) in [
             ("timeout", Ending::Time, false),
             ("copy_bound", Ending::Bound, false),

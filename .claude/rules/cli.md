@@ -518,7 +518,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--occurrence-limit N|none` (`Count<u64>`, default
   `Limits::DEFAULT_OCCURRENCES`) is on `SequentInput`, so on every command
   that reads a sequent (`limits.occurrences`, so a settings file sets it
-  too): text and LLTP are parsed within it, refused at the first
+  too): text and LLTP are parsed within it, and under `--logic`
+  ordinary text and TPTP are parsed and translated within it
+  (`ordinary::sequent_in`, `ordinary::image`), refused at the first
   occurrence past it before anything of that size is built (a 30 MB
   text refused at a limit of 1 000 took 2.86 GB when the limit came
   after the parse), `.spec` likewise; a JSON sequent, whose arena is as

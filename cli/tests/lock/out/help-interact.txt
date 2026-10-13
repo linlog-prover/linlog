@@ -15,7 +15,7 @@ Options:
   -f, --file <PATH>
           Read the sequent from this file, or `-` for standard input
           
-          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (with --logic a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
+          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (under --logic, where a command takes it, a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
 
       --input-format <FORMAT>
           How to read the input, rather than by the file's extension
@@ -36,7 +36,7 @@ Options:
           [default: auto]
 
       --occurrence-limit <N>
-          The most subformula occurrences the sequent may have, or `none`
+          The most subformula occurrences the sequent may have, or `none` (limits.occurrences)
           
           A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
           
@@ -57,10 +57,10 @@ Options:
       --bias <BIAS>
           How the focused engines pick the positive literal of every atom (search.bias)
           
-          No choice changes what is provable. `rarer` mostly chains backward from the goal, `factors` forward from the hypotheses, which on Horn clauses under `!`, such as a Petri net, is often much faster but takes one copy per step on a single branch. `auto` takes `factors` on a sequent without exponentials, `rarer` under weakening, and in linear mode with exponentials runs both searches and answers with the first that decides: alternating on one core, side by side on several.
+          No choice changes what is provable. `rarer` mostly chains backward from the goal, `factors` forward from the hypotheses, which on Horn clauses under `!`, such as a Petri net, is often much faster but takes one copy per step on a single branch. `auto` takes `rarer` in affine mode, `factors` in linear mode without exponentials, and in linear mode with exponentials runs both searches and answers with the first that decides: alternating on one core, side by side on several.
 
           Possible values:
-          - auto:    `factors` without exponentials, `rarer` under weakening, and in linear mode with exponentials both, each in a search of its own
+          - auto:    `rarer` in affine mode, `factors` in linear mode without exponentials, and in linear mode with exponentials both, each in a search of its own
           - rarer:   The literal with fewer occurrences is positive
           - factors: The literal that is more often a direct factor of a tensor is positive, so that more splits are forced
           
@@ -147,26 +147,26 @@ Options:
           [default: auto]
 
       --derivation-limit <SIZE>
-          The largest derivation `close` grafts, by its estimated size; see `prove --derivation-limit`
+          The largest derivation `close` grafts, by its estimated size; see `prove --derivation-limit` (limits.derivation_bytes)
           
           [default: 64MiB]
 
       --style <KEY=VALUE>
-          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable) (styles.FORMAT.KEY)
           
           KEY is a field of the format's options, dotted into nested ones, as `--style-file` holds them; without a prefix `text.`, `latex.`, `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format `--format` gives. VALUE is JSON, or else a string: `gap=5`, `ids=true`, `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields: text: labels, open, bar, gap; latex: form, labels, open, align, ebproof, preamble; typst: form, labels, open, import, page, layout (auto, curryst or linlog: curryst for a tree up to nine inferences high, linlog's own code above), premise_gap, label_gap, band, stroke (lengths for linlog's own layout: a number and pt, mm, cm, in or em); svg: font (family, advances), labels, open, ids, description, font_size, label_size, line_height, premise_gap, literal_gap, label_gap, margin, stroke_width, link_height, link_cap, node_radius, text, line, par, link, highlight, background; png: scale, pixels; pdf: embed_text, compatible, accessible, title, language, date; rocq: form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is dots, bare, dashed or {"mark":TEXT}
 
       --style-file <PATH>
-          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default
+          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default (styles)
 
       --lemma <NAME>
-          The name of the lemma of a Rocq certificate (rocq.lemma)
+          The name of the lemma of a Rocq certificate (styles.rocq.lemma)
 
       --prelude <TEXT>
-          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (rocq.prelude)
+          The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (styles.rocq.prelude)
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error, as are `batch.mode` and `ordinary.logic`, which the flags alone set
 
   -h, --help
           Print help (see a summary with '-h')

@@ -15,7 +15,7 @@ Options:
   -f, --file <PATH>
           Read the sequent from this file, or `-` for standard input
           
-          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (with --logic a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
+          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (under --logic, where a command takes it, a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
 
       --input-format <FORMAT>
           How to read the input, rather than by the file's extension
@@ -36,7 +36,7 @@ Options:
           [default: auto]
 
       --occurrence-limit <N>
-          The most subformula occurrences the sequent may have, or `none`
+          The most subformula occurrences the sequent may have, or `none` (limits.occurrences)
           
           A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
           
@@ -84,12 +84,12 @@ Options:
           Write to this file instead of standard output
 
       --style <KEY=VALUE>
-          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable) (styles.FORMAT.KEY)
           
           KEY is a field of the format's options, dotted into nested ones, as `--style-file` holds them; without a prefix `text.`, `latex.`, `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format `--format` gives. VALUE is JSON, or else a string: `gap=5`, `ids=true`, `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields: text: labels, open, bar, gap; latex: form, labels, open, align, ebproof, preamble; typst: form, labels, open, import, page, layout (auto, curryst or linlog: curryst for a tree up to nine inferences high, linlog's own code above), premise_gap, label_gap, band, stroke (lengths for linlog's own layout: a number and pt, mm, cm, in or em); svg: font (family, advances), labels, open, ids, description, font_size, label_size, line_height, premise_gap, literal_gap, label_gap, margin, stroke_width, link_height, link_cap, node_radius, text, line, par, link, highlight, background; png: scale, pixels; pdf: embed_text, compatible, accessible, title, language, date; rocq: form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is dots, bare, dashed or {"mark":TEXT}
 
       --style-file <PATH>
-          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default
+          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default (styles)
 
       --memory-limit <SIZE>
           The most memory a png or pdf render may take, by its estimate: a number of bytes with a unit such as 512MiB or 4GiB, or `none` for no limit; see `prove --memory-limit`
@@ -97,7 +97,7 @@ Options:
           [default: 1GiB]
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error, as are `batch.mode` and `ordinary.logic`, which the flags alone set
 
   -h, --help
           Print help (see a summary with '-h')

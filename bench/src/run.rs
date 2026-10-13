@@ -86,9 +86,9 @@ impl ModeChoice {
 /// How the focused engines pick the positive literal of every atom.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum BiasChoice {
-    /// By tensor factors without exponentials, the rarer literal under
-    /// weakening, and in linear mode with exponentials both, each in a
-    /// search of its own
+    /// The rarer literal in affine mode, by tensor factors in linear mode
+    /// without exponentials, and in linear mode with exponentials both,
+    /// each in a search of its own
     Auto,
     /// The rarer literal
     Rarer,

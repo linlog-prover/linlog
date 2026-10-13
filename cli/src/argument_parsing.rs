@@ -112,10 +112,11 @@ pub(crate) enum Command {
     /// ax, 1, bot, top, *, par, &, +1, +2, ?d, ?c, ?w, !, mix, wk (affine
     /// weakening), and in intuitionistic mode the two-sided names (-oL,
     /// -oR, *L, *R, &L1, &L2, &R, +L, +R1, +R2, 1L, 1R, 0L, topR, !L, !R,
-    /// !c, !w); `rules` prints the names it applies. The exit status is 0 when the session
-    /// ends with a finished proof that checks and 1 otherwise; a command's
-    /// error is printed as `error: …` on standard output and the session
-    /// goes on; 2 when the session cannot start or read its input.
+    /// !c, !w); `rules` prints the names it applies. The exit status is 0
+    /// when the session ends with a finished proof that checks and 1
+    /// otherwise; a command's error is printed as `error: …` on standard
+    /// output and the session goes on; 2 when the session cannot start or
+    /// read its input.
     #[command(after_help = SYNTAX)]
     Interact(InteractArgs),
     /// Print a sequent, convert it to JSON, or name its fragment
@@ -142,7 +143,7 @@ pub(crate) struct ProveArgs {
     /// proof read back as LK or LJ
     #[arg(long, requires = "logic")]
     pub(crate) linear: bool,
-    /// Search in this fragment instead of the detected one
+    /// Search in this fragment instead of the detected one (search.fragment)
     ///
     /// A sequent outside it is an error. A larger fragment than the detected
     /// one switches off the prunes that only hold in the smaller one, which
@@ -167,7 +168,7 @@ pub(crate) struct ProveArgs {
     /// The search's options, bounds and threads.
     #[command(flatten)]
     pub(crate) search: SearchArgs,
-    /// Report the proof the search found without checking it
+    /// Report the proof the search found without checking it (search.check)
     ///
     /// By default every proof passes the proof checker, which shares no
     /// code with the search, before anything is reported; a proof it
@@ -184,7 +185,8 @@ pub(crate) struct ProveArgs {
     /// copy bound reached, the net engine literals chosen, links tried and
     /// exact tests run, the additive one pairs of subformulas, the Horn
     /// engine markings; every engine its units of work. JSON output always
-    /// carries the counts; the time is printed only as text.
+    /// carries the counts; the time is printed only as text, and in a
+    /// batch's JSON records as `seconds`.
     #[arg(long)]
     pub(crate) stats: bool,
     /// Read the settings from a JSON file, before the flags, which
@@ -192,7 +194,8 @@ pub(crate) struct ProveArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error
+    /// out keeps the command's default, and a misspelt one is an error, as
+    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
     /// How a batch of many sequents runs.
@@ -210,11 +213,11 @@ pub(crate) struct SearchArgs {
     /// No choice changes what is provable. `rarer` mostly chains backward
     /// from the goal, `factors` forward from the hypotheses, which on Horn
     /// clauses under `!`, such as a Petri net, is often much faster but
-    /// takes one copy per step on a single branch. `auto` takes `factors`
-    /// on a sequent without exponentials, `rarer` under weakening, and in
-    /// linear mode with exponentials runs both searches and answers with
-    /// the first that decides: alternating on one core, side by side on
-    /// several.
+    /// takes one copy per step on a single branch. `auto` takes `rarer`
+    /// in affine mode, `factors` in linear mode without exponentials, and
+    /// in linear mode with exponentials runs both searches and answers
+    /// with the first that decides: alternating on one core, side by side
+    /// on several.
     #[arg(long, value_enum, value_name = "BIAS", default_value_t = BiasArg::Auto)]
     pub(crate) bias: BiasArg,
     /// How often `?` formulas may be copied on one branch of the proof, or
@@ -384,10 +387,10 @@ pub(crate) struct BatchArgs {
     /// How many sequents of a batch are decided at once, across the
     /// cores; by default as many as the machine runs threads, fewer when
     /// --batch-memory does not hold that many searches at
-    /// --memory-limit each
+    /// --memory-limit each (batch.workers)
     #[arg(long, value_name = "N")]
     pub(crate) workers: Option<usize>,
-    /// Where a batch's threads go
+    /// Where a batch's threads go (batch.cores)
     ///
     /// Across the sequents, each gets one thread for its --timeout, as with
     /// --deterministic, which answers the most sequents in a given time and
@@ -402,6 +405,7 @@ pub(crate) struct BatchArgs {
     /// The most memory all the searches of a batch hold together: a size
     /// such as 8GiB, or `none`; by default half the memory the process may
     /// use (the machine's, or its control group's limit where one is set)
+    /// (batch.total_memory_bytes)
     ///
     /// Each search holds at most --memory-limit, and as many run at once
     /// as this holds; within one sequent the race of one thread and a
@@ -409,6 +413,7 @@ pub(crate) struct BatchArgs {
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes)]
     pub(crate) batch_memory: Option<Bytes>,
     /// Give up on the rest of a batch after this long, or `none`
+    /// (clock.batch_time_limit_ms)
     ///
     /// The sequents still searched are stopped and those not begun are
     /// unknown; --timeout is each sequent's own limit.
@@ -419,7 +424,7 @@ pub(crate) struct BatchArgs {
     #[arg(long)]
     pub(crate) isolate: bool,
     /// The name of the one sequent a child of --isolate decides.
-    #[arg(long, hide = true, value_name = "NAME")]
+    #[arg(long, hide = true, value_name = "NAME", allow_hyphen_values = true)]
     pub(crate) entry_name: Option<String>,
     /// The mode of the one sequent a child of --isolate decides.
     #[arg(long, hide = true, value_name = "MODE", requires = "entry_name")]
@@ -435,7 +440,13 @@ pub(crate) struct BatchArgs {
     pub(crate) entry_format: Option<InputFormat>,
     /// The file of the one sequent a child of --isolate decides; standard
     /// input when absent.
-    #[arg(long, hide = true, value_name = "PATH", requires = "entry_name")]
+    #[arg(
+        long,
+        hide = true,
+        value_name = "PATH",
+        requires = "entry_name",
+        allow_hyphen_values = true
+    )]
     pub(crate) entry_file: Option<PathBuf>,
 }
 
@@ -475,7 +486,7 @@ pub(crate) struct InteractArgs {
     #[command(flatten)]
     pub(crate) search: SearchArgs,
     /// The largest derivation `close` grafts, by its estimated size; see
-    /// `prove --derivation-limit`
+    /// `prove --derivation-limit` (limits.derivation_bytes)
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
     pub(crate) derivation_limit: Bytes,
     /// How `show` and `proof` write; a `--style` key names its format
@@ -490,7 +501,8 @@ pub(crate) struct InteractArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error
+    /// out keeps the command's default, and a misspelt one is an error, as
+    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
 }
@@ -548,7 +560,8 @@ pub(crate) struct CheckArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error
+    /// out keeps the command's default, and a misspelt one is an error, as
+    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
 }
@@ -572,8 +585,7 @@ pub(crate) enum SeqCommand {
         /// reads it
         #[arg(short, long)]
         intuitionistic: bool,
-        /// Read ordinary logic and print its image under the translation:
-        /// one-sided in affine MALL, two-sided in ILL
+        /// The ordinary logic the input is in, if any.
         #[command(flatten)]
         logic: LogicArgs,
         /// The output format
@@ -599,7 +611,9 @@ pub(crate) enum SeqCommand {
         /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
         /// of the fields the flags name in parentheses (`{"search":
         /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-        /// out keeps the command's default, and a misspelt one is an error
+        /// out keeps the command's default, and a misspelt one is an error,
+        /// as are `batch.mode` and `ordinary.logic`, which the flags alone
+        /// set
         #[arg(long, value_name = "PATH")]
         settings: Option<PathBuf>,
     },
@@ -641,7 +655,8 @@ pub(crate) struct SequentInput {
     /// Read the sequent from this file, or `-` for standard input
     ///
     /// The file's kind is its extension's unless --input-format says
-    /// otherwise: `.p` an LLTP problem (with --logic a TPTP problem of
+    /// otherwise: `.p` an LLTP problem (under --logic, where a command
+    /// takes it, a TPTP problem of
     /// ordinary logic), `.spec` a coverability problem, `.json` a JSON
     /// sequent, anything else the text syntax, which may span lines.
     /// `prove` takes the flag more than once, and a directory, as a batch.
@@ -654,6 +669,7 @@ pub(crate) struct SequentInput {
     #[arg(long, value_enum, value_name = "FORMAT", default_value_t = InputFormat::Auto)]
     pub(crate) input_format: InputFormat,
     /// The most subformula occurrences the sequent may have, or `none`
+    /// (limits.occurrences)
     ///
     /// A sequent in JSON can share subformulas, so a small file may stand
     /// for a sequent of any size; one beyond the limit is refused before
@@ -888,6 +904,7 @@ pub(crate) struct OutputArgs {
     pub(crate) rocq: RocqArgs,
     /// The largest derivation to build, by its estimated size: a number
     /// of bytes with a unit such as 64MiB or 2GiB, or `none` for no limit
+    /// (limits.derivation_bytes)
     ///
     /// A derivation writes out the whole sequent at every inference and
     /// repeats every subproof that the proof shares, so it can be larger
@@ -901,7 +918,7 @@ pub(crate) struct OutputArgs {
     pub(crate) derivation_limit: Bytes,
     /// When a run of one structural rule, such as the weakenings of every
     /// unused `?` formula, is drawn as one inference labelled with a
-    /// star (`?w*`), in every format but rocq
+    /// star (`?w*`), in every format but rocq (view.compact)
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = CompactArg::Auto)]
     pub(crate) compact: CompactArg,
 }
@@ -954,6 +971,7 @@ pub(crate) const ABBREVIATE: u32 = 200;
 pub(crate) struct StyleArgs {
     /// Set an option of an output format, such as `labels=subscript`,
     /// `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+    /// (styles.FORMAT.KEY)
     ///
     /// KEY is a field of the format's options, dotted into nested ones,
     /// as `--style-file` holds them; without a prefix `text.`, `latex.`,
@@ -980,7 +998,7 @@ pub(crate) struct StyleArgs {
     /// Read the options of the output formats from a JSON file: an object
     /// with a key per format (text, latex, typst, svg, png, pdf, rocq),
     /// each holding the fields `--style` names; a field left out keeps its
-    /// default
+    /// default (styles)
     #[arg(long, value_name = "PATH")]
     pub(crate) style_file: Option<PathBuf>,
 }
@@ -988,11 +1006,11 @@ pub(crate) struct StyleArgs {
 /// The Rocq certificate's two flags, on the commands that write one.
 #[derive(Args, Clone, Debug, Default)]
 pub(crate) struct RocqArgs {
-    /// The name of the lemma of a Rocq certificate (rocq.lemma)
+    /// The name of the lemma of a Rocq certificate (styles.rocq.lemma)
     #[arg(long, value_name = "NAME")]
     pub(crate) lemma: Option<String>,
     /// The lines a standalone Rocq file starts with, before the lemma, in
-    /// place of the certificate's own import (rocq.prelude)
+    /// place of the certificate's own import (styles.rocq.prelude)
     #[arg(long, value_name = "TEXT")]
     pub(crate) prelude: Option<String>,
 }
@@ -1094,14 +1112,16 @@ fn parse_bytes(text: &str) -> Result<Bytes, String> {
 pub(crate) enum Format {
     /// The verdict on one line, then the derivation as a text tree
     Text,
-    /// One JSON object: verdict, fragment, mode, engine, statistics, and the
-    /// proof, which `check` reads
+    /// JSON: prove's outcome (verdict, fragment, mode, engine, statistics,
+    /// and the proof, which `check` reads), one record a line in a batch;
+    /// check's verdict and error
     Json,
     /// The verdict as a comment, then the derivation as a LaTeX proof tree
     /// of the ebproof package, with the connectives of cmll and amssymb
     Latex,
-    /// The verdict as a comment, then the derivation as a Typst proof tree
-    /// of the curryst package
+    /// The verdict as a comment, then the derivation as a Typst proof tree:
+    /// with the curryst package for a low tree, in linlog's own layout for
+    /// a high one (`--style typst.layout`)
     Typst,
     /// The verdict as an XML comment, then the derivation drawn as an SVG
     /// document, set in the Euler Math font unless `--style` names another
@@ -1271,8 +1291,9 @@ fn engine_name() -> impl TypedValueParser<Value = Forced> {
 /// The rules `--bias` names.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BiasArg {
-    /// `factors` without exponentials, `rarer` under weakening, and in
-    /// linear mode with exponentials both, each in a search of its own
+    /// `rarer` in affine mode, `factors` in linear mode without
+    /// exponentials, and in linear mode with exponentials both, each in a
+    /// search of its own
     Auto,
     /// The literal with fewer occurrences is positive
     Rarer,

@@ -9,7 +9,7 @@ use crate::argument_parsing::{
     CheckArgs, CoresArg, InteractArgs, LogicArgs, ProveArgs, SearchArgs,
 };
 use crate::io;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::ArgMatches;
 use clap::parser::ValueSource;
 use linlog::Settings;
@@ -86,9 +86,25 @@ fn read(path: Option<&Path>) -> Result<Settings> {
     let Some(path) = path else {
         return Ok(base);
     };
-    let text = io::read(Some(path), "settings file")?;
+    let text = io::read_configuration(path, "settings file")?;
     let file: Value =
         serde_json::from_str(&text).with_context(|| format!("{} is not JSON", path.display()))?;
+    // The flags alone say these, so a file's value would be ignored.
+    for (key, flags) in [
+        (
+            "/batch/mode",
+            "the mode flags (--intuitionistic, --affine, --mix)",
+        ),
+        ("/ordinary/logic", "--logic"),
+    ] {
+        if file.pointer(key).is_some() {
+            bail!(
+                "{} sets {}, which {flags} alone set: leave it out",
+                path.display(),
+                key[1..].replace('/', ".")
+            );
+        }
+    }
     let mut value = serde_json::to_value(&base)?;
     over(&mut value, file);
     serde_json::from_value(value)
@@ -398,6 +414,98 @@ mod tests {
         assert_eq!(settings.limits.memory_bytes, None);
         assert_eq!(settings.search.memo_limit, Options::DEFAULT_MEMO_LIMIT);
         assert_eq!(settings.batch.workers, defaults().batch.workers);
+    }
+
+    /// A settings file's key stands where no flag is given, and a flag
+    /// given beside the file overrides it; a flag's default never does.
+    #[test]
+    fn flags_given_override_the_file() {
+        use crate::argument_parsing::{Cli, Command};
+        use clap::{CommandFactory, FromArgMatches};
+        let file =
+            std::env::temp_dir().join(format!("linlog-settings-{}.json", std::process::id()));
+        std::fs::write(&file, r#"{"search": {"copies": 0}, "limits": {"work": 7}}"#).unwrap();
+        let settings = |args: &[&str]| {
+            let line = [
+                &["linlog", "prove", "--settings", file.to_str().unwrap()],
+                args,
+                &["A |- A"],
+            ]
+            .concat();
+            let matches = Cli::command().try_get_matches_from(line).unwrap();
+            let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
+                unreachable!("a prove command")
+            };
+            prove.settings(&Given::of(&matches)).unwrap()
+        };
+        let read = settings(&["--memo-limit", "5"]);
+        assert_eq!(
+            (read.search.copies, read.limits.work, read.search.memo_limit),
+            (Some(0), Some(7), 5)
+        );
+        let overridden = settings(&["--copies", "3", "--work-limit", "none"]);
+        assert_eq!(
+            (overridden.search.copies, overridden.limits.work),
+            (Some(3), None)
+        );
+        std::fs::remove_file(&file).unwrap();
+    }
+
+    /// A settings file may not set what the flags alone say, nor be
+    /// standard input, which carries the input.
+    #[test]
+    fn a_file_keeps_to_its_keys() {
+        let file =
+            std::env::temp_dir().join(format!("linlog-settings-keys-{}.json", std::process::id()));
+        for (json, key) in [
+            (r#"{"batch": {"mode": "affine"}}"#, "batch.mode"),
+            (r#"{"ordinary": {"logic": "minimal"}}"#, "ordinary.logic"),
+        ] {
+            std::fs::write(&file, json).unwrap();
+            let error = read(Some(&file)).unwrap_err().to_string();
+            assert!(error.contains(key), "{error}");
+        }
+        std::fs::remove_file(&file).unwrap();
+        let error = read(Some(Path::new("-"))).unwrap_err().to_string();
+        assert!(error.contains("standard input"), "{error}");
+    }
+
+    /// The search flags set their keys: `--deterministic` wins over
+    /// `--jobs` and `--pool-after`, `--jobs` alone starts its threads at
+    /// once, and `--pool-after` beside it makes them wait.
+    #[test]
+    fn search_flags_set_their_keys() {
+        use crate::argument_parsing::{Cli, Command};
+        use clap::Parser;
+        let settings = |args: &[&str]| {
+            let line = [&["linlog", "prove"], args, &["A |- A"]].concat();
+            let Command::Prove(prove) = Cli::try_parse_from(line).unwrap().command else {
+                unreachable!("a prove command")
+            };
+            prove.settings(&Given::default()).unwrap()
+        };
+        let one = settings(&["--deterministic", "--jobs", "8", "--pool-after", "1s"]);
+        assert_eq!(
+            (
+                one.search.jobs,
+                one.search.schedule,
+                one.clock.pool_after_ms
+            ),
+            (Jobs::Count(1), Schedule::Turns, None)
+        );
+        let eight = settings(&["--jobs", "8"]);
+        assert_eq!(
+            (eight.search.jobs, eight.clock.pool_after_ms),
+            (Jobs::Count(8), None)
+        );
+        let later = settings(&["--jobs", "8", "--pool-after", "250ms"]);
+        assert_eq!(later.clock.pool_after_ms, Some(250));
+        let default = settings(&[]);
+        assert_eq!(default.search.jobs, Settings::default().search.jobs);
+        assert_eq!(
+            default.clock.pool_after_ms,
+            Some(linlog::Clock::DEFAULT_POOL_AFTER_MS)
+        );
     }
 
     /// The threads a search gets: one when deterministic, a count from

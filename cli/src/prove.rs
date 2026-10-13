@@ -610,7 +610,12 @@ pub(crate) fn derivation(
     if let Some((columns, most)) = fit {
         let size = match proof.derivation_size(&view, &show.limits, |_| halt()) {
             Ok(size) => size,
-            // No verdict on the proof: the pass was given up.
+            // No verdict on the proof: the pass was stopped or given up.
+            Err(CheckError::Refused(refused))
+                if matches!(refused.refusal, Refusal::Stopped { .. }) =>
+            {
+                return Ok(stopped());
+            }
             Err(CheckError::Refused(_)) => {
                 return Ok(Shown::LeftOut(proof_unread(
                     show.limits.memory_bytes.unwrap_or(0),
@@ -636,6 +641,11 @@ pub(crate) fn derivation(
         Ok(d) => d,
         Err(Error::Check(e @ CheckError::Invalid(_))) => return Err(invalid(e)),
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
+        Err(Error::Check(CheckError::Refused(refused)))
+            if matches!(refused.refusal, Refusal::Stopped { .. }) =>
+        {
+            return Ok(stopped());
+        }
         Err(error) => {
             let size = || {
                 proof
@@ -1149,13 +1159,13 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     ordinary_mode(args)?;
     let deadline = Deadline::start(time_limit(&settings), start)?;
     let input = args.input.clone();
-    let most = crate::settings::most(&settings);
+    let limits = settings.limits;
     let ordinary = crate::settings::ordinary(&settings, &args.logic);
     let loaded = deadline.within(move || match ordinary {
         Some(options) => input
-            .image(&options, most)
+            .image(&options, &limits)
             .map(|(forest, image)| (forest, Some(image))),
-        None => input.forest(most).map(|forest| (forest, None)),
+        None => input.forest(&limits).map(|forest| (forest, None)),
     })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");
@@ -1178,8 +1188,11 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     let show = Show::new(&args.output, &settings)?;
     // An output file that cannot be made is found before the search, which
     // it would lose: an output dropped unfinished leaves no file, and the
-    // file at the path stays as it was.
-    if let Some(path) = &args.output.output {
+    // file at the path stays as it was. Only a file, or a path that does
+    // not exist yet: a pipe opened and closed would send its reader the end.
+    if let Some(path) = &args.output.output
+        && std::fs::metadata(path).map_or(true, |m| m.is_file())
+    {
         drop(io::Output::open(Some(path), format.is_binary())?);
     }
     catch_interrupt();
@@ -1217,7 +1230,8 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
         let prefix = show.open(&mut out, line.as_deref())?;
         // The time limit and Ctrl-C hold for the derivation as for the
         // search.
-        let over = || interrupted() || deadline.passed();
+        // A reader that closed the pipe wants no more of the derivation.
+        let over = || interrupted() || deadline.passed() || io::closed();
         let mut steps = 0u32;
         let halt = || {
             steps = steps.wrapping_add(1);
@@ -1386,7 +1400,7 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
     let start = Instant::now();
     let settings = args.settings(given)?;
     let deadline = Deadline::start(time_limit(&settings), start)?;
-    let text = io::read(args.proof.as_deref(), "proof")?;
+    let text = io::read(args.proof.as_deref(), "proof", settings.limits.memory_bytes)?;
     let proof = read_proof(&text, &settings.limits)?;
     drop(text);
     if proof.goal().is_some() {
@@ -1428,9 +1442,16 @@ fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
         Err(error) => {
             // An outcome without a proof is a file the user may well hand
             // over; say what it is rather than which key it lacks.
-            let verdict = serde_json::from_str::<serde_json::Value>(text)
+            /// The one key of an outcome looked for; serde skips the
+            /// rest without holding it.
+            #[derive(serde::Deserialize)]
+            struct Outcome {
+                /// The outcome's verdict.
+                verdict: Option<String>,
+            }
+            let verdict = serde_json::from_str::<Outcome>(text)
                 .ok()
-                .and_then(|v| v.get("verdict")?.as_str().map(str::to_owned));
+                .and_then(|outcome| outcome.verdict);
             if let Some(verdict) = verdict.filter(|v| v != "proved") {
                 bail!(
                     "the file is the outcome of a sequent the search found {verdict}: it holds no proof to check"
@@ -1443,8 +1464,9 @@ fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
 
 /// Checks the proof, writes the verdict and the derivation into `out`,
 /// and returns the verdict's status and whether the output is to be
-/// finished ([`Show::close`]); the time limit and Ctrl-C stop the check
-/// and the derivation after it.
+/// finished ([`Show::close`]); the time limit and a closed standard
+/// output stop the check and the derivation after it (Ctrl-C ends the
+/// command: `check` installs `exit_on_interrupt`).
 fn check_into(
     proof: &Proof,
     mode: Mode,
@@ -1454,7 +1476,7 @@ fn check_into(
     out: &mut io::Output,
 ) -> Result<(Status, bool)> {
     let format = show.format;
-    let over = || interrupted() || deadline.passed();
+    let over = || interrupted() || deadline.passed() || io::closed();
     let result = proof.check_within(mode, &show.limits, |_| over());
     let status = match &result {
         Ok(()) => Status::Yes,
@@ -1557,7 +1579,50 @@ fn check_into(
 
 #[cfg(test)]
 mod tests {
-    use super::{Format, note};
+    use super::{Format, Show, Shown, derivation, note};
+    use crate::argument_parsing::{Cli, Command};
+    use crate::settings::Given;
+    use clap::Parser;
+    use linlog::{Mode, Options, Sequent};
+
+    /// A derivation the stop ends while it is built is left out with the
+    /// stop's reason, never as a check given up without a verdict.
+    #[test]
+    fn a_stopped_derivation_says_why() {
+        let line = ["linlog", "check", "--format", "latex", "--output", "x.tex"];
+        let Command::Check(check) = Cli::try_parse_from(line).unwrap().command else {
+            unreachable!("a check command")
+        };
+        let settings = check.settings(&Given::default()).unwrap();
+        let show = Show::new(&check.output, &settings).unwrap();
+        // Past the nodes the checker passes between two polls of its stop.
+        let atoms: Vec<String> = (0..1000).map(|i| format!("A{i}")).collect();
+        let duals: Vec<String> = atoms.iter().map(|a| format!("~{a}")).collect();
+        let text = format!("|- {}, {}", atoms.join(" * "), duals.join(", "));
+        let sequent: Sequent = text.parse().unwrap();
+        let outcome = linlog::prove(&sequent, Mode::CLASSICAL, &Options::default()).unwrap();
+        let linlog::search::Verdict::Proved(proof) = outcome.verdict else {
+            panic!("the sequent is provable")
+        };
+        let mut out = String::new();
+        let shown = derivation(
+            &proof,
+            Mode::CLASSICAL,
+            &show,
+            || true,
+            || "the time limit of 1s was reached".to_owned(),
+            None,
+            &mut out,
+        )
+        .unwrap();
+        let Shown::LeftOut(line) = shown else {
+            panic!("the derivation is left out")
+        };
+        assert_eq!(
+            line,
+            "the derivation is not written: the time limit of 1s was reached"
+        );
+    }
 
     /// A Rocq comment stays one comment whatever its text holds: no `(*`
     /// opens a nested one, no `*)` closes it, every `"` is paired.

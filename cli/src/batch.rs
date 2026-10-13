@@ -597,6 +597,7 @@ impl Shared {
         let args = &self.args;
         let deadline = Deadline::start(self.timeout, Instant::now())?;
         let most = self.most;
+        let memory = limits.memory_bytes;
         let format = match &entry.source {
             Source::Text(_, format) | Source::File(_, format) => Some(*format),
             Source::Bad(_) => None,
@@ -607,10 +608,11 @@ impl Shared {
             let (text, format) = match source {
                 Source::Bad(why) => return Err(anyhow!(why)),
                 Source::Text(text, format) => (text, format),
-                Source::File(path, format) => (io::read(Some(&path), "sequent")?, format),
+                Source::File(path, format) => (io::read(Some(&path), "sequent", memory)?, format),
             };
             let (sequent, image) = if let Some(options) = logic {
-                let image = ordinary::image(&options, &ordinary::sequent_in(&text, format)?)?;
+                let sequent = ordinary::sequent_in(&text, format, most)?;
+                let image = ordinary::image(&options, &sequent, most)?;
                 (image.sequent().clone(), Some(image))
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
@@ -708,7 +710,7 @@ impl Shared {
         deadline: &Deadline,
     ) -> Result<Option<String>> {
         let show = &self.show;
-        let over = || interrupted() || deadline.passed() || self.batch.passed();
+        let over = || interrupted() || deadline.passed() || self.batch.passed() || io::closed();
         let path = file_for(directory, name, show.format);
         let open = || -> Result<io::Output> {
             if let Some(parent) = path.parent() {

@@ -586,7 +586,9 @@ A ⊢ A      B ⊢ B
 ```
 
 The exit status is 0 when the session ends with a finished proof that
-checks, 1 otherwise. The same operations are the library's `Interactive`
+checks, 1 otherwise; a command's error is printed as `error: …` and the
+session goes on, and 2 means the session could not start or read its
+input. The same operations are the library's `Interactive`
 type, whose JSON form is what a web client will hold between requests.
 
 `linlog seq` prints a sequent one-sided in negation normal form, or

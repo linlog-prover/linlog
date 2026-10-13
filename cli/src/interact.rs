@@ -64,7 +64,7 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
                     "no sequent given: pass it as an argument or with --file, since standard input carries the commands"
                 );
             }
-            let sequent = args.input.sequent(crate::settings::most(&settings))?;
+            let sequent = args.input.sequent(&settings.limits)?;
             Interactive::new(&sequent, args.input.mode(args.mode.mode()))
                 .map_err(|e| describe(e, &sequent))?
         }
@@ -140,7 +140,7 @@ fn words(line: &str) -> Result<Vec<String>> {
 /// Reads a session from a JSON file, its sequent within
 /// `limits.occurrences`.
 fn load(path: &Path, limits: &Limits) -> Result<Interactive> {
-    let text = io::read(Some(path), "session")?;
+    let text = io::read(Some(path), "session", limits.memory_bytes)?;
     let mut document = serde_json::Deserializer::from_str(&text);
     let not = || format!("{} is not a saved session", path.display());
     match linlog::wire::upgrade::<Interactive, _>(&mut document, limits) {
