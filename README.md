@@ -367,7 +367,7 @@ unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 1
 $ linlog prove -q --deterministic --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 2.55ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q -j 10000 "A |- A"
-note: --jobs 10000 is more than the 16 threads a search uses at most on this machine; it uses 16
+note: --jobs 10000 is more than this machine runs at once; a search uses 16
 provable (MLL, classical, net engine)
 ```
 

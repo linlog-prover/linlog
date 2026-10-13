@@ -296,9 +296,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   does not make is written by `fixtures`. A change of output is a
   README change in the same commit; an example whose output a fast
   machine could change gets `machine`, and a pinned one names
-  `--deterministic`, `--copies` or `--timeout` as it needs. The `-j 4`
-  example adds a note on a machine of fewer than four threads, so the
-  test assumes four. The crane source keeps `README.md` for it
+  `--deterministic`, `--copies` or `--timeout` as it needs. A machine block drops the
+  note a machine of fewer threads than an example's `-j` writes, so the
+  test passes on one of any size. The crane source keeps `README.md` for it
   (`modules/workspace.nix`).
 - **The behaviour lock** (`cli/tests/lock.rs`) pins what the command
   prints and its exit status on a fixed corpus: every command, every

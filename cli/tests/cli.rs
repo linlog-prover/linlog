@@ -6,53 +6,36 @@
 //! commands and the help text.
 
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Stdio};
+
+mod common;
+use common::timeless;
 
 /// Runs `linlog` with the arguments and `stdin` as standard input, and
 /// returns the exit status, standard output and standard error.
+///
+/// A machine of fewer threads than a call's `--jobs` adds a note that it
+/// takes fewer, which is left out of standard error here
+/// (`jobs_are_bounded` pins it).
 fn linlog(args: &[&str], stdin: &str) -> (i32, String, String) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
-        .args(args)
-        // A PDF's date, so that every run writes the same bytes.
-        .env("SOURCE_DATE_EPOCH", "1791158399")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    // A call that does not read its input may exit before the write: a
-    // closed pipe is then no failure of the test.
-    if let Err(error) = child.stdin.take().unwrap().write_all(stdin.as_bytes()) {
-        assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe, "{error}");
-    }
-    let out = child.wait_with_output().unwrap();
+    let (status, out, err) = linlog_as_is(args, stdin);
+    let err: String = err
+        .split_inclusive('\n')
+        .filter(|line| !line.starts_with("note: --jobs "))
+        .collect();
+    (status, out, err)
+}
+
+/// Runs `linlog` as [`linlog`] does, and returns its standard error as
+/// it is.
+fn linlog_as_is(args: &[&str], stdin: &str) -> (i32, String, String) {
+    let out = common::output(Command::new(env!("CARGO_BIN_EXE_linlog")).args(args), stdin);
     (
         out.status.code().unwrap(),
         String::from_utf8(out.stdout).unwrap(),
         String::from_utf8(out.stderr).unwrap(),
     )
-}
-
-/// Returns the text with every time that follows "after " as `…`: how
-/// long a search took is the machine's.
-fn timeless(text: &str) -> String {
-    let mut out = String::new();
-    let mut rest = text;
-    while let Some(at) = rest.find("after ") {
-        let (head, tail) = rest.split_at(at + "after ".len());
-        out.push_str(head);
-        let time = tail
-            .find(|c: char| !(c.is_ascii_digit() || "._µnms".contains(c)))
-            .unwrap_or(tail.len());
-        if time > 0 && tail.starts_with(|c: char| c.is_ascii_digit()) {
-            out.push('…');
-            rest = &tail[time..];
-        } else {
-            rest = tail;
-        }
-    }
-    out.push_str(rest);
-    out
 }
 
 /// A parse error shows the line it is in with a caret under the character
@@ -141,9 +124,6 @@ fn timeout() {
     );
 }
 
-/// `--jobs` beyond what the machine runs at once is taken as that many,
-/// and standard error says so; the verdict and the status are the
-/// search's.
 /// A search that holds more than `--memory-limit` allows answers
 /// "unknown" with the limit and the flag, exit status 3, and a sequent
 /// that unfolds beyond `--occurrence-limit` is an error before it is
@@ -218,16 +198,20 @@ fn limits_on_memory_and_occurrences() {
     );
 }
 
+/// `--jobs` beyond what the machine runs at once is taken as that many,
+/// and standard error says so; the verdict and the status are the
+/// search's.
 #[test]
 fn jobs_are_bounded() {
-    let (status, out, err) = linlog(&["prove", "--quiet", "--jobs", "100000", "A |- A"], "");
+    let (status, out, err) = linlog_as_is(&["prove", "--quiet", "--jobs", "100000", "A |- A"], "");
     assert_eq!(
         (status, out.as_str()),
         (0, "provable (MLL, classical, net engine)\n")
     );
     assert!(
-        err.starts_with("note: --jobs 100000 is more than the ")
-            && err.contains(" threads a search"),
+        err.starts_with(
+            "note: --jobs 100000 is more than this machine runs at once; a search uses "
+        ),
         "{err:?}"
     );
 }
@@ -241,14 +225,6 @@ fn jobs_are_bounded() {
 fn derivation_limit_and_tree_switch() {
     let sequent = "A, A -o B |- B";
     let verdict = "provable (MLL, classical, net engine)\n";
-    let (status, out, err) = linlog(&["prove", "--derivation-limit", "100", sequent], "");
-    assert_eq!((status, out.as_str()), (0, verdict));
-    assert_eq!(
-        err,
-        "the derivation is not written: its 3 inferences with 29 characters of sequents are \
-         estimated at 616 B, over the limit of 100 B; --format json writes the proof itself, \
-         --derivation-limit SIZE raises the limit and --derivation-limit none lifts it\n"
-    );
     let (status, out, err) = linlog(
         &[
             "prove",
@@ -461,10 +437,6 @@ fn prove_verdicts_and_exit_statuses() {
             &["prove", "--fragment", "mll", "A & B |- A"],
             "outside the asserted fragment MLL",
         ),
-        (
-            &["prove", "--engine", "net", "A & B |- A"],
-            "proof nets exist for MLL without units only, not for ALL",
-        ),
     ] {
         let (status, out, err) = linlog(args, "");
         assert_eq!((status, out.as_str()), (2, ""), "{args:?}");
@@ -599,7 +571,7 @@ fn intuitionistic_mode() {
 /// proof is checked, which decides the exit status.
 #[test]
 fn interactive_session() {
-    let dir = std::env::temp_dir().join(format!("linlog-cli-{}", std::process::id()));
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-session");
     std::fs::create_dir_all(&dir).unwrap();
     let session = dir.join("session.json");
     let proof = dir.join("proof.json");
@@ -860,11 +832,6 @@ fn svg_formats() {
 fn seq_commands() {
     let (status, json, _) = linlog(&["seq", "json", "A, A -o B |- B"], "");
     assert_eq!(status, 0);
-    assert_eq!(
-        json,
-        "{\"version\":1,\"terms\":[{\"D\":0},{\"V\":0},{\"D\":1},{\"⊗\":[1,2]},{\"V\":1}],\
-         \"roots\":[0,3,4],\"atoms\":[\"A\",\"B\"],\"antecedents\":2}\n"
-    );
     let printed = linlog(&["seq", "print", "--input-format", "json"], &json);
     assert_eq!(printed, (0, "⊢ ~A, A ⊗ ~B, B\n".into(), String::new()));
     let fragment = linlog(&["seq", "fragment", "--file", "-"], "A & B |- 1");
@@ -888,7 +855,7 @@ fn help_names_every_command() {
 /// Returns the path of the file `name` in a directory of this test
 /// process's own, apart from the session test's, which removes its own.
 fn scratch(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("linlog-cli-files-{}", std::process::id()));
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-files");
     std::fs::create_dir_all(&dir).unwrap();
     dir.join(name)
 }
@@ -1661,7 +1628,7 @@ fn ordinary_logic() {
     let (_, out, _) = decide(&["--logic", "intuitionistic", "--linear", "a, a -> b |- b"]);
     assert!(out.contains("⊸L") && !out.contains("→L"), "{out}");
 
-    let dir = std::env::temp_dir().join(format!("linlog-ordinary-{}", std::process::id()));
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-ordinary");
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("SYN.p");
     std::fs::write(

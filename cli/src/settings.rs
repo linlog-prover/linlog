@@ -337,10 +337,9 @@ impl Threads {
         let jobs = match settings.search.jobs {
             Jobs::Count(asked) => {
                 if asked > most {
-                    let threads = if most == 1 { "thread" } else { "threads" };
                     eprintln!(
-                        "note: --jobs {asked} is more than the {most} {threads} a search uses at \
-                         most on this machine; it uses {most}"
+                        "note: --jobs {asked} is more than this machine runs at once; a search \
+                         uses {most}"
                     );
                 }
                 asked.clamp(1, most)

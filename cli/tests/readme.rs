@@ -25,7 +25,10 @@
 //! date it was made.
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
+
+mod common;
+use common::timeless;
 
 /// The README, read when the test is built.
 const README: &str = include_str!("../../README.md");
@@ -143,50 +146,6 @@ fn blocks(text: &str) -> Vec<Block> {
     blocks
 }
 
-/// Returns the text with every time a search took, a number with its unit
-/// after "after " or "time: ", and the crate's version an outcome names,
-/// as `…`.
-fn timeless(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = ["after ", "time: "]
-        .iter()
-        .filter_map(|prefix| rest.find(prefix).map(|found| found + prefix.len()))
-        .min()
-    {
-        out.push_str(&rest[..at]);
-        rest = &rest[at..];
-        let number = rest
-            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-            .unwrap_or(rest.len());
-        if number > 0 {
-            let unit = rest[number..]
-                .find(|c: char| !"nµms".contains(c))
-                .map_or(rest.len(), |end| number + end);
-            out.push('…');
-            rest = &rest[unit..];
-        }
-    }
-    out.push_str(rest);
-    unversioned(&out)
-}
-
-/// Returns the text with the crate's version that an outcome names, in
-/// `"linlog":"0.1.0"`, as `…`: a release moves it.
-fn unversioned(text: &str) -> String {
-    const KEY: &str = "\"linlog\":\"";
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = rest.find(KEY) {
-        let (head, tail) = rest.split_at(at + KEY.len());
-        out.push_str(head);
-        out.push('…');
-        rest = &tail[tail.find('"').unwrap_or(tail.len())..];
-    }
-    out.push_str(rest);
-    out
-}
-
 /// Returns the text with every run of digits as `#`.
 fn shape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -210,23 +169,14 @@ fn run(directory: &Path, command: &str, input: &str) -> String {
         path.push(":");
         path.push(inherited);
     }
-    let mut child = Command::new("sh")
-        .arg("-c")
-        .arg(format!("{{ {command}\n}} 2>&1"))
-        .current_dir(directory)
-        .env("PATH", path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    // A command that does not read its input may exit before the write: a
-    // closed pipe is then no failure of the test.
-    if let Err(error) =
-        std::io::Write::write_all(&mut child.stdin.take().unwrap(), input.as_bytes())
-    {
-        assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe, "{error}");
-    }
-    let out = child.wait_with_output().unwrap();
+    let out = common::output(
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!("{{ {command}\n}} 2>&1"))
+            .current_dir(directory)
+            .env("PATH", path),
+        input,
+    );
     String::from_utf8(out.stdout).unwrap()
 }
 
@@ -303,7 +253,17 @@ fn readme_examples() {
             let expected = timeless(&example.output.join("\n"));
             let (actual, expected) = match block.check {
                 Check::Exact => (actual, expected),
-                Check::Machine => (shape(&actual), shape(&expected)),
+                // A machine of fewer threads than an example asks for
+                // adds a note that it takes fewer, which only an example
+                // of more threads than any machine shows.
+                Check::Machine => {
+                    let noted = expected.contains("note: --jobs ");
+                    let actual: Vec<&str> = actual
+                        .lines()
+                        .filter(|l| noted || !l.starts_with("note: --jobs "))
+                        .collect();
+                    (shape(&actual.join("\n")), shape(&expected))
+                }
                 Check::Terminal => (
                     actual.lines().next().unwrap_or("").to_owned(),
                     expected.lines().next().unwrap_or("").to_owned(),

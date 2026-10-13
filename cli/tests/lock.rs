@@ -16,9 +16,11 @@
 //! and PDF output is pinned by its length and an FNV-1a hash.
 
 use std::fmt::Write as _;
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
+
+mod common;
+use common::timeless;
 
 /// A call of the command: the name of its file, its arguments and its
 /// standard input.
@@ -343,23 +345,13 @@ const CASES: &[Case] = &[
 /// Runs one call in the inputs directory and returns what the lock pins:
 /// the command line, the exit status, standard output and standard error.
 fn run(case: &Case, inputs: &Path) -> String {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
-        .args(case.args)
-        .current_dir(inputs)
-        // A PDF's date, so that every run writes the same bytes.
-        .env("SOURCE_DATE_EPOCH", "1791158399")
-        .env_remove("NO_COLOR")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    // A call that does not read its input may exit before the write: a
-    // closed pipe is then no failure of the test.
-    if let Err(error) = child.stdin.take().unwrap().write_all(case.stdin.as_bytes()) {
-        assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe, "{error}");
-    }
-    let out = child.wait_with_output().unwrap();
+    let out = common::output(
+        Command::new(env!("CARGO_BIN_EXE_linlog"))
+            .args(case.args)
+            .current_dir(inputs)
+            .env_remove("NO_COLOR"),
+        case.stdin,
+    );
     let mut text = String::from("$ linlog");
     for arg in case.args {
         if arg.is_empty()
@@ -389,49 +381,6 @@ fn run(case: &Case, inputs: &Path) -> String {
     text.push_str("--- stderr\n");
     text.push_str(&timeless(&String::from_utf8(out.stderr).unwrap()));
     text
-}
-
-/// Returns the text with every time that follows "after " or "time: " as
-/// `…`: how long a search took is the machine's; and the crate's version
-/// an outcome names as `…`.
-fn timeless(text: &str) -> String {
-    let mut out = String::new();
-    let mut rest = text;
-    while let Some(at) = ["after ", "time: "]
-        .iter()
-        .filter_map(|word| rest.find(word).map(|at| at + word.len()))
-        .min()
-    {
-        let (head, tail) = rest.split_at(at);
-        out.push_str(head);
-        let time = tail
-            .find(|c: char| !(c.is_ascii_digit() || "._µnms".contains(c)))
-            .unwrap_or(tail.len());
-        if time > 0 && tail.starts_with(|c: char| c.is_ascii_digit()) {
-            out.push('…');
-            rest = &tail[time..];
-        } else {
-            rest = tail;
-        }
-    }
-    out.push_str(rest);
-    unversioned(&out)
-}
-
-/// Returns the text with the crate's version that an outcome names, in
-/// `"linlog":"0.1.0"`, as `…`: a release moves it.
-fn unversioned(text: &str) -> String {
-    const KEY: &str = "\"linlog\":\"";
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = rest.find(KEY) {
-        let (head, tail) = rest.split_at(at + KEY.len());
-        out.push_str(head);
-        out.push('…');
-        rest = &tail[tail.find('"').unwrap_or(tail.len())..];
-    }
-    out.push_str(rest);
-    out
 }
 
 /// The 64-bit FNV-1a hash of the bytes, which pins binary output without a
