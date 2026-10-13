@@ -186,6 +186,23 @@ width; the routing question is whether a loop for chains of free splits
 takes it from the focused engine, after which the net engine is the net
 as a result, not a route to verdicts.
 
+Step 28's audit (F153) measured the engine quadratic on `wide-m2`
+(instructions ×3.96 per doubling, 4.38 G at 1 024 pairs): the exact test
+every `period`-th link searches the whole structure (38 %), `choose`
+recounts every unlinked literal's partners per decision (22 %), and
+sequentializing searches a sub-net per stage (40 %). Area 3.3
+(2026-10-13) took only the reset of the search's arrays per search (5 %
+of `search-wide-m2-256`); left, each to be earned by the harness: a
+test period that grows while tests pass, which changes
+`Statistics::tests` and so the behaviour lock's `--stats` lines (a
+commit of its own); partner counts kept per literal, which keep `tests`
+but must follow `joined` and the common-ancestor rule, which one link
+changes for literals far from it; the bridges a stage
+found kept for its sub-nets (a bridge stays one in a subgraph) with the
+split's sides assigned by searching from both premises in turn and
+stopping at the smaller, which keeps the splitting `⊗` the smallest id
+and so the printed derivation.
+
 ## MELL proof nets with exponential boxes
 
 Extend `nets` (step 5) with `!`-boxes and the `?` nodes (dereliction,
@@ -735,9 +752,25 @@ there:
   stored at the forest's width per stable sequent, now the largest cost
   on the widest nets (hashing and comparison 31 % and 27 % of
   `CloudDeployment_deploy_5_b_100_1`); the zone's range made the rest
-  proportional to the members.
+  proportional to the members. *Step 28's area 3.3 (F148, 2026-10-13)
+  left it:* those nets are now proved by the Horn engine in 4 to 8 ms;
+  on the widest rows of the target set that the focused engines still
+  search the key is 14.5 % (`SYJ207+1.018`, 5 770 occurrences, at its
+  copy bound in 108 ms) and 29 % (`SYJ212+1.010`, 27 105 occurrences,
+  30 ms) of the instructions, and no focused row ends at the memory
+  bound. Γ by its members would halve that; `Θ` spans the forest on a
+  net of transitions, so the rest needs `Θ` interned (an id carried
+  with it, shared by a pool's workers), a rewrite of `memo.rs`, the
+  shared memo and the signatures that pass `Θ`.
+- **`Θ`'s members by class** (`one_of_each_copy`) are kept for one `Θ`
+  only and sorted again when the next stable sequent's differs: 12.9 %
+  of `SYJ207+1.018` (2026-10-13), whose branches alternate between
+  `Θ`s. A small cache of several, or the sort kept with each `Θ` where
+  it grows.
 - **The canonical key** is built for every stable sequent of a forest
   with two equal formulas (38 % of `HypercubeGrid_hc3k4p4b12_5_1`).
+  *Done in step 28's area 3.3 (F150):* only where a member of the zone
+  is renamed.
 - **A focused search that hands over to the net engine at the recursion
   limit**, the feature the dispatch's net rows stand in for (the net
   engine decides chains of thousands of links that the focused engines
