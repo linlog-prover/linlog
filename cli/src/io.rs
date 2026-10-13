@@ -170,13 +170,18 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<S
         InputFormat::Lltp => Ok(linlog::lltp::read(text, &within).map_err(refused)?.sequent),
         InputFormat::Spec => match linlog::mist::read(text, &within) {
             Ok(problem) => Ok(problem.sequent),
-            Err(linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
-                occurrences,
-                ..
-            })) => bail!(
-                "the problem's tokens alone are {occurrences} subformula occurrences, more than \
-                 the limit of {most}; raise it with --occurrence-limit"
-            ),
+            Err(
+                error @ linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
+                    occurrences,
+                    ..
+                }),
+            ) => Err(crate::Explained::error(
+                format!(
+                    "the problem's tokens alone are {occurrences} subformula occurrences, more \
+                     than the limit of {most}; raise it with --occurrence-limit"
+                ),
+                error,
+            )),
             Err(e) => Err(e.into()),
         },
         _ => Sequent::parse_within(text, &within).map_err(|e| match e {
@@ -190,10 +195,15 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<S
 /// occurrences the line that names the flag raising it.
 pub(crate) fn refused(error: linlog::Error, most: u64) -> anyhow::Error {
     match error {
-        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => anyhow::anyhow!(
-            "the sequent has more subformula occurrences than the limit of {most}; raise it \
-             with --occurrence-limit"
-        ),
+        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => {
+            crate::Explained::error(
+                format!(
+                    "the sequent has more subformula occurrences than the limit of {most}; \
+                     raise it with --occurrence-limit"
+                ),
+                error,
+            )
+        }
         error => error.into(),
     }
 }

@@ -11,7 +11,7 @@ use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
-    Ended, STEPS_PER_CLOCK, Show, Shown, Stop, derivation, describe, net_into, nets_exist,
+    Ended, Show, Shown, Stop, derivation, describe, every_steps, net_into, nets_exist,
     on_large_stack, searched, statistics, stopped, verdict_line,
 };
 use crate::settings::{Threads, time_limit};
@@ -522,8 +522,7 @@ impl Shared {
     fn error(&self, name: &str, error: &anyhow::Error) -> String {
         let message = format!("{error:#}");
         if self.json_lines() {
-            let written = error
-                .downcast_ref::<linlog::Error>()
+            let written = crate::Explained::of(error)
                 .and_then(|e| serde_json::to_string(e).ok())
                 .map(|e| format!(r#","error":{e}"#))
                 .unwrap_or_default();
@@ -745,11 +744,7 @@ impl Shared {
                 &mut out,
             )?
         } else {
-            let mut steps = 0u32;
-            let halt = || {
-                steps = steps.wrapping_add(1);
-                steps.is_multiple_of(STEPS_PER_CLOCK) && over()
-            };
+            let halt = every_steps(&over);
             match (image, self.args.linear) {
                 (Some(image), false) => crate::ordinary::derivation(
                     image,

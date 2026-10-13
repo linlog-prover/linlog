@@ -1009,7 +1009,8 @@ json` every answer is a JSON Lines record, the wire level and the name
 first and then what `--format json` writes for one sequent; an entry
 that could not be read or searched is `"verdict": "error"` with a
 `message`, and the library's `error` object (its `code`, `kind` and
-`details`) where the library refused it, and one the batch stopped before
+`details`) where the error is the library's, such as a parse error or a
+bound that refused the input, and one the batch stopped before
 it was decided `"verdict": "unknown"` with a `message`. The mode is the
 flags', a problem file's column or a record's:
 

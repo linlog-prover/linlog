@@ -136,6 +136,42 @@ pub(crate) fn exit_on_interrupt() {
 /// the place where parsing failed.
 const CONTEXT: usize = 60;
 
+/// A library error under the line the command writes for it: the line is
+/// all it prints, and a batch's JSON record finds the library's error
+/// here for its `error` object.
+#[derive(Debug)]
+pub(crate) struct Explained {
+    /// What the command writes.
+    pub(crate) line: String,
+    /// The library's error.
+    pub(crate) error: Error,
+}
+
+impl std::fmt::Display for Explained {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.line)
+    }
+}
+
+impl std::error::Error for Explained {}
+
+impl Explained {
+    /// Returns the library's `error` under `line`.
+    pub(crate) fn error(line: String, error: Error) -> anyhow::Error {
+        anyhow::Error::new(Self { line, error })
+    }
+
+    /// Returns the library's error that `error` holds, as it is or under
+    /// the command's line.
+    pub(crate) fn of(error: &anyhow::Error) -> Option<&Error> {
+        error.chain().find_map(|e| {
+            e.downcast_ref::<Self>()
+                .map(|explained| &explained.error)
+                .or_else(|| e.downcast_ref::<Error>())
+        })
+    }
+}
+
 /// Returns a parse error as a message that points at the place in the input
 /// where parsing failed: the line of the input the place is in, with a
 /// caret under the character there. Of a long line only the part around
@@ -149,7 +185,10 @@ pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
     };
     let errors = std::slice::from_ref(parsed.as_ref());
     if input.trim().is_empty() {
-        return anyhow::Error::msg("the input is empty; the empty sequent is written |-");
+        return Explained::error(
+            "the input is empty; the empty sequent is written |-".to_owned(),
+            error,
+        );
     }
     let mut message = String::from("cannot parse the sequent");
     for e in errors {
@@ -221,7 +260,7 @@ pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
             message.push_str(last);
         }
     }
-    anyhow::Error::msg(message)
+    Explained::error(message, error)
 }
 
 /// Runs the command the arguments name, with the flags given on the

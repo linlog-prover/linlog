@@ -9,7 +9,7 @@ use crate::settings::{self, Given};
 use crate::{Status, exit_on_interrupt, io, prove, style};
 use anyhow::{Result, bail};
 use linlog::Mode;
-use std::io::{IsTerminal, Write as _};
+use std::io::Write as _;
 
 /// Returns the mode of `seq`'s `--intuitionistic` flag.
 const fn mode_of(intuitionistic: bool) -> Mode {
@@ -75,12 +75,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             match binary {
                 None => io::write(output.as_deref(), &text)?,
                 Some(format) => {
-                    if output.is_none() && std::io::stdout().is_terminal() {
-                        bail!(
-                            "a {} is not for a terminal: write it with --output FILE",
-                            format.title()
-                        );
-                    }
+                    prove::for_terminal(format, output.as_deref())?;
                     // The sequent is all the output: a render the bound
                     // refuses is an error.
                     let memory = settings.limits.memory_bytes;

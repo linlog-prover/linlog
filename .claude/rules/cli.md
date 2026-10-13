@@ -239,7 +239,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `Outcome`'s JSON (`seconds` with `--stats`; `record_json`, which drops
   the outcome's own `version`); an entry's error is `"verdict":
   "error"` with its `message` and, where the chain holds the library's
-  error, that `error` as the library writes it (`Shared::error`; the keys
+  error, that `error` as the library writes it (`Shared::error`; a
+  line the command writes in place of the library's own, a parse
+  error with its caret or an occurrence refusal naming the flag, is an
+  `Explained` that keeps the error, `Explained::of` finds it; the keys
   are written in order, verdict first, since `serde_json::Value` would
   sort them), and an entry the
   batch stopped unread is `"verdict": "unknown"` with the reason

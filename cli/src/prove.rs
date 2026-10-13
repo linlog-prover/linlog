@@ -144,6 +144,16 @@ pub(crate) fn unread(limit: Duration) -> String {
 /// looks at the time limit and the Ctrl-C flag while a derivation is made.
 pub(crate) const STEPS_PER_CLOCK: u32 = 256;
 
+/// Returns the stop of a derivation's builder and writers: `over` asked
+/// once in [`STEPS_PER_CLOCK`] calls.
+pub(crate) fn every_steps(mut over: impl FnMut() -> bool) -> impl FnMut() -> bool {
+    let mut steps = 0u32;
+    move || {
+        steps = steps.wrapping_add(1);
+        steps.is_multiple_of(STEPS_PER_CLOCK) && over()
+    }
+}
+
 /// How a derivation is to be shown: what the output arguments ask for and
 /// where the output goes.
 pub(crate) struct Show {
@@ -188,12 +198,7 @@ impl Show {
             bail!("--net writes the formats text, svg, png and pdf");
         }
         let stdout = std::io::stdout();
-        if format.is_binary() && output.output.is_none() && stdout.is_terminal() {
-            bail!(
-                "a {} is not for a terminal: write it with --output FILE",
-                format.title()
-            );
-        }
+        for_terminal(format, output.output.as_deref())?;
         form(
             output.standalone,
             matches!(format, Format::Latex | Format::Typst | Format::Rocq),
@@ -465,6 +470,22 @@ pub(crate) fn abbreviated(value: &impl Display, limit: Option<usize>, formulas: 
         write!(text, "… ({formulas} formulas)").expect("a string takes any text");
     }
     text
+}
+
+/// Refuses a binary format bound for standard output when that is a
+/// terminal.
+///
+/// # Errors
+///
+/// A PNG or PDF without `output` while standard output is a terminal.
+pub(crate) fn for_terminal(format: Format, output: Option<&std::path::Path>) -> Result<()> {
+    if format.is_binary() && output.is_none() && std::io::stdout().is_terminal() {
+        bail!(
+            "a {} is not for a terminal: write it with --output FILE",
+            format.title()
+        );
+    }
+    Ok(())
 }
 
 /// Returns a number of bytes in the largest binary unit that leaves it at
@@ -1232,11 +1253,7 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
         // search.
         // A reader that closed the pipe wants no more of the derivation.
         let over = || interrupted() || deadline.passed() || io::closed();
-        let mut steps = 0u32;
-        let halt = || {
-            steps = steps.wrapping_add(1);
-            steps.is_multiple_of(STEPS_PER_CLOCK) && over()
-        };
+        let halt = every_steps(&over);
         let why = || Stop::why(stopped(&deadline));
         let shown = match (&outcome.verdict, format, quiet) {
             (Verdict::Proved(proof), _, false) if show.net => {
@@ -1568,11 +1585,7 @@ fn check_into(
         let shown = net_into(None, proof, mode, show, &over, &why, prefix.as_deref(), out)?;
         return Ok((status, show.close(out, shown, line.as_deref())?));
     }
-    let mut steps = 0u32;
-    let halt = || {
-        steps = steps.wrapping_add(1);
-        steps.is_multiple_of(STEPS_PER_CLOCK) && over()
-    };
+    let halt = every_steps(&over);
     let shown = derivation(proof, mode, show, halt, why, prefix.as_deref(), out)?;
     Ok((status, show.close(out, shown, line.as_deref())?))
 }

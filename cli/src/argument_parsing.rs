@@ -652,14 +652,15 @@ pub(crate) struct SequentInput {
     /// or from standard input by every command but `interact`
     #[arg(value_name = "SEQUENT", conflicts_with = "file")]
     pub(crate) sequent: Option<String>,
-    /// Read the sequent from this file, or `-` for standard input
+    /// Read the sequent from this file, or `-` for standard input (but in
+    /// `interact`, whose commands come from there)
     ///
     /// The file's kind is its extension's unless --input-format says
     /// otherwise: `.p` an LLTP problem (under --logic, where a command
-    /// takes it, a TPTP problem of
-    /// ordinary logic), `.spec` a coverability problem, `.json` a JSON
-    /// sequent, anything else the text syntax, which may span lines.
-    /// `prove` takes the flag more than once, and a directory, as a batch.
+    /// takes it, a TPTP problem of ordinary logic), `.spec` a
+    /// coverability problem, `.json` a JSON sequent, anything else the
+    /// text syntax, which may span lines. `prove` takes the flag more than
+    /// once, and a directory, as a batch.
     #[arg(short, long, value_name = "PATH", action = clap::ArgAction::Append)]
     pub(crate) file: Vec<PathBuf>,
     /// How to read the input, rather than by the file's extension

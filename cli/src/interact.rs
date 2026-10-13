@@ -303,7 +303,7 @@ impl Session {
                     _ => bail!("show [--FORMAT] [FILE]: one format and one file at most"),
                 };
                 let format = match (word, path) {
-                    (Some(word), _) => proof_format(word)?,
+                    (Some(word), _) => format_of("show", word)?,
                     (None, Some(path)) => Format::of_path(Path::new(path)).unwrap_or(Format::Text),
                     (None, None) => Format::Text,
                 };
@@ -362,10 +362,10 @@ impl Session {
             "proof" => {
                 let (format, path) = match rest {
                     [] => (None, None),
-                    [word] if word.starts_with("--") => (Some(proof_format(word)?), None),
+                    [word] if word.starts_with("--") => (Some(format_of("proof", word)?), None),
                     [path] => (None, Some(*path)),
                     [word, path] if word.starts_with("--") => {
-                        (Some(proof_format(word)?), Some(*path))
+                        (Some(format_of("proof", word)?), Some(*path))
                     }
                     _ => bail!("proof [--FORMAT] [FILE]: one format and one file at most"),
                 };
@@ -583,20 +583,25 @@ impl Session {
     }
 }
 
-/// Returns the format a word of `proof` names, `--latex` and so on.
-fn proof_format(word: &str) -> Result<Format> {
+/// Returns the format a word of `command` (`show` or `proof`) names,
+/// `--latex` and so on.
+fn format_of(command: &str, word: &str) -> Result<Format> {
     Ok(match word {
         "--text" => Format::Text,
-        "--json" => Format::Json,
+        "--json" if command == "proof" => Format::Json,
         "--latex" => Format::Latex,
         "--typst" => Format::Typst,
         "--svg" => Format::Svg,
         "--png" => Format::Png,
         "--pdf" => Format::Pdf,
-        "--rocq" => Format::Rocq,
-        _ => bail!(
+        "--rocq" if command == "proof" => Format::Rocq,
+        _ if command == "proof" => bail!(
             "proof {word}? the formats are --text, --json, --latex, --typst, --svg, --png, \
              --pdf and --rocq"
+        ),
+        _ => bail!(
+            "{command} {word}? the formats are --text, --latex, --typst, --svg, --png and \
+             --pdf; `save` writes the session, `proof --rocq` a finished proof"
         ),
     })
 }

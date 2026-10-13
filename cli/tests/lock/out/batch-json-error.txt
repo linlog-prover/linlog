@@ -4,5 +4,5 @@ $ linlog prove --input-format jsonl --format json
 
 --- status 2
 --- stdout
-{"version":1,"name":"bad","verdict":"error","message":"cannot parse the sequent\n  A |-|- B\n      ^ unexpected \"|\", expected a formula"}
+{"version":1,"name":"bad","verdict":"error","error":{"code":"parse","kind":"malformed","message":"cannot parse the sequent: unexpected \"|\" at line 1, character 5, expected a formula","details":{"span":{"start":4,"end":5},"span_utf16":{"start":4,"end":5},"line":1,"column":5,"found":"|","expected":["a formula"]}},"message":"cannot parse the sequent\n  A |-|- B\n      ^ unexpected \"|\", expected a formula"}
 --- stderr
