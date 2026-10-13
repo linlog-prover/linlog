@@ -52,9 +52,18 @@ struct Apply<'a> {
     given: &'a Given,
 }
 
+#[cfg(test)]
+thread_local! {
+    /// The ids `Apply::set` was asked about, for the test that each is an
+    /// argument of its command: a misspelt id would never be given.
+    static ASKED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 impl Apply<'_> {
     /// Whether the flag of this argument sets its key.
     fn set(&self, id: &str) -> bool {
+        #[cfg(test)]
+        ASKED.with_borrow_mut(|asked| asked.push(id.to_owned()));
         !self.file || self.given.0.contains(id)
     }
 }
@@ -449,6 +458,42 @@ mod tests {
             (Some(3), None)
         );
         std::fs::remove_file(&file).unwrap();
+    }
+
+    /// Every id a command asks `Apply::set` about is an argument of that
+    /// command, so that a flag given on the command line can be found.
+    #[test]
+    fn every_id_asked_is_an_argument() {
+        use crate::argument_parsing::{Cli, Command};
+        use clap::{CommandFactory, Parser};
+        let cli = Cli::command();
+        for line in [
+            &["linlog", "prove", "A |- A"][..],
+            &["linlog", "interact", "A |- A"],
+            &["linlog", "check", "proof.json"],
+            &["linlog", "seq", "print", "A |- A"],
+        ] {
+            ASKED.with_borrow_mut(Vec::clear);
+            let given = Given::default();
+            match Cli::try_parse_from(line).unwrap().command {
+                Command::Prove(args) => drop(args.settings(&given).unwrap()),
+                Command::Interact(args) => drop(args.settings(&given).unwrap()),
+                Command::Check(args) => drop(args.settings(&given).unwrap()),
+                Command::Seq { .. } => drop(of_print(None, None, None, &given).unwrap()),
+            }
+            let mut leaf = &cli;
+            for word in &line[1..] {
+                if let Some(sub) = leaf.find_subcommand(word) {
+                    leaf = sub;
+                }
+            }
+            let ids: HashSet<&str> = leaf.get_arguments().map(|a| a.get_id().as_str()).collect();
+            let asked = ASKED.with_borrow(Clone::clone);
+            assert!(!asked.is_empty(), "{line:?}");
+            for id in asked {
+                assert!(ids.contains(id.as_str()), "{id} is no argument of {line:?}");
+            }
+        }
     }
 
     /// A settings file may not set what the flags alone say, nor be
