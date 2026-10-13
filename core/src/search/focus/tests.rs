@@ -1603,3 +1603,39 @@ fn affine_mode_leaves_mix_out() {
     assert!(matches!(without, Verdict::Unprovable(_)), "{without:?}");
     assert_eq!(with_statistics, without_statistics);
 }
+
+/// Interchangeable members share a memo entry: the three copies of one
+/// `⊕` are chosen in every order, and the refutation of the stable
+/// sequent they reach is looked up under its canonical key, which a
+/// search without it would not find.
+#[test]
+fn interchangeable_members_share_an_entry() {
+    let input = "|- ~a + ~b, ~a + ~b, ~a + ~b, a * b * b, (x par ~x) * (y * ~y)";
+    let (verdict, statistics) = run(input, Mode::CLASSICAL, &Options::default());
+    assert!(matches!(verdict, Verdict::Unprovable(_)));
+    assert_eq!(
+        (
+            statistics.nodes,
+            statistics.memo_hits,
+            statistics.memo_entries
+        ),
+        (43, 16, 27)
+    );
+}
+
+/// A `⊗` of `⊗`s of positive literals whose duals lie in the linear zone
+/// forces its split down the whole tree: one split per `⊗` where weakening
+/// is off (classical, Mix), and a search over the contexts where it is on.
+#[test]
+fn nested_tensors_of_literals_force_their_splits() {
+    let input = "|- (a * b) * (c * d), ~a, ~b, ~c, ~d";
+    let options = Options::default().with_engine(Some(crate::search::Engine::Focus));
+    for mode in [Mode::CLASSICAL, Mode::CLASSICAL.with_mix()] {
+        let (verdict, statistics) = run(input, mode, &options);
+        assert!(verdict.proof().is_some());
+        assert_eq!(statistics.splits, 3, "{mode:?}");
+    }
+    let (verdict, statistics) = run(input, Mode::CLASSICAL.with_affine(), &options);
+    assert!(verdict.proof().is_some());
+    assert!(statistics.splits > 30, "{} splits", statistics.splits);
+}

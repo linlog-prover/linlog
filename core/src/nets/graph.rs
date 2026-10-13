@@ -625,14 +625,25 @@ mod tests {
         );
     }
 
-    /// A scratch whose discovery times reach the top of `u32` starts them
-    /// again from the bottom and answers as before, search after search.
+    /// The discovery times rise from search to search, and a scratch whose
+    /// times reach the top of `u32` starts them again from the bottom and
+    /// answers as before, search after search.
     #[test]
     fn discovery_times_restart_below_the_top() {
         // ⊢ A ⊗ B, ~A ⊗ ~B: 0 ⊗, 1 A, 2 B, 3 ⊗, 4 ~A, 5 ~B.
         let cyclic = net("|- A * B, ~A * ~B", true, &[(1, 4), (2, 5)]);
         let partial = net("|- A * B, ~A * ~B", true, &[(1, 4)]);
         let mut scratch = cyclic.scratch();
+        // From the bottom the times rise from search to search.
+        assert!(!cyclic.is_acyclic(&mut scratch));
+        let once = scratch.next;
+        assert!(partial.is_acyclic(&mut scratch));
+        assert!(1 < once && once < scratch.next, "{once}, {}", scratch.next);
+        // Far below the top too: they restart only where fewer than the
+        // width are left.
+        scratch.next = u32::MAX / 2;
+        assert!(!cyclic.is_acyclic(&mut scratch));
+        assert!(scratch.next > u32::MAX / 2, "the times started again");
         scratch.next = u32::MAX - 8;
         for _ in 0..4 {
             assert!(!cyclic.is_acyclic(&mut scratch));

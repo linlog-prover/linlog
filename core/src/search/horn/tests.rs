@@ -735,3 +735,26 @@ fn the_frontier_takes_the_simplex_memory() {
     );
     assert!(matches!(found, Ok(Some(_))), "{found:?}");
 }
+
+/// A task reads its goal once: every ask answers with the same program,
+/// its dead transitions dropped, and the dispatch's net feature agrees.
+#[test]
+fn a_task_reads_its_program_once() {
+    let sequent: Sequent = "!(a -o b), !(c -o d), a |- b".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let task = Task {
+        forest: &forest,
+        goal: forest.roots(),
+        fragment: sequent.fragment(),
+        mode: Mode::CLASSICAL,
+        reading: None,
+        roots: true,
+        program: std::sync::OnceLock::new(),
+    };
+    let first = Program::of(&task).expect("a Horn program");
+    assert!(std::ptr::eq(first, Program::of(&task).unwrap()));
+    assert!(super::is_net(&task));
+    assert!(std::ptr::eq(first, Program::of(&task).unwrap()));
+    // `c -o d` waits for the never marked `c`, so only one transition lives.
+    assert_eq!(first.transitions.len(), 1);
+}
