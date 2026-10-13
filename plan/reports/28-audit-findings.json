@@ -10483,6 +10483,30 @@
      "evidence": "Reran on linlog-28s0 in exports-check-fable/f3: `prove -j 1 --format rocq --input-format json -f inj.json` exits 1 and writes `(* unprovable (MLL, classical, net engine): *) Lemma injected : True. Proof. exact I. Qed. (* occurs 1 more time than ~*) Lemma injected … (* in the one-sided sequent … *)`; rocqc.sh compiles the first `Lemma injected` and fails with `Error: injected already exists.`, so the comment did end early and the text after it ran as vernacular. Cause confirmed in cli/src/prove.rs:772 (`note`): `Format::Rocq => format!(\"(* {line} *)\")` with no escaping, while the SVG arm does replace `-`. The probe's point about `\"` also holds: Rocq lexes strings inside comments, and a hand-written `(* a\" *)` fails with `Lexer: Unterminated string` (the linlog refutation happened to mention the name twice, so its quotes balanced). Only JSON input or a library caller can carry such a name: the text syntax refuses it (`unexpected \"\\\"\"`), and in a proved certificate the names are hex-escaped (`_2a__29_…`, which Rocq accepts as an identifier, checked) and the comment holds no names. The documented intent (cli.md: the drawing or certificate 'with its verdict comment before it') is an inert comment, so the behaviour is a fault. The audit JSON has nothing on `note` or the verdict comment (H14 is batch entry names in text output): not known. Needs a hostile JSON atom name and makes a refutation's .v file run code: robustness."
     }
    ]
+  },
+  {
+   "fid": "U1",
+   "id": "ultra-1",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S5",
+   "file": "cli/src/batch.rs",
+   "line": 748,
+   "title": "`prove --isolate` gives an entry whose name or file path starts with `-` an error instead of its verdict: the child's hidden flags take the value as a separate argument",
+   "evidence": "Ultra review run of the command's fixes (base kktkswpq 33e74676, end yktqlpqu 294dfd6b, 2026-10-13): `isolated()` passes `.arg(\"--entry-name\").arg(&entry.name)` (cli/src/batch.rs:748-749) and `.arg(\"--entry-file\").arg(path)` (:757-759) to the child, and the hidden args `entry_name` and `entry_file` (cli/src/argument_parsing.rs:298, 314) do not allow hyphen values, so clap reads a value starting with `-` as a flag. The name comes from the input (a `NAME:` prefix, a JSON Lines `name`, a problem file's name, a `--files-from` path). Reproduced by the supervisor on a release build of nnurpvol: a lines file `-x: A |- A` / `ok: A |- A`, `linlog prove --input-format lines -f F` gives `-x: provable`, exit 0; with `--isolate`, `-x: error: cannot write to the child: Broken pipe (os error 32)`, exit 2. Pre-existing (the old `--file <path>` had the same gap); the rewrite for F165 carried it to `--entry-file`.",
+   "fix": "Pass each value in one argument with its flag (`--entry-name=NAME`, an `OsString` of `--entry-file=` and the path), or set `allow_hyphen_values` on both hidden args; a test that runs an entry named `-x` (and a path starting with `-`) under `--isolate`.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [
+    "F165"
+   ],
+   "verdicts": []
   }
  ],
  "refuted": [
