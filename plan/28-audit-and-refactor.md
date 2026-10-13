@@ -461,6 +461,62 @@ supervisor's probes.
 - **Area sessions** need not keep their diffs under the limit; the
   supervisor splits a slice at a commit boundary when one is too large.
 
+## From the review of area 3.3 (2026-10-13)
+
+- **Verified** by the supervisor (the second account's `planning`):
+  - `nix flake check --keep-going` passed at nnurpvol, the area's
+    head with its last records, the ratchet with the lowered ceilings
+    among its checks;
+  - the ceilings only went down (fifteen journeys, from −0.0 to
+    −39.4 %: `search-spec-chain` −39.4 %, `read-text` −29.5 %,
+    `search-qbf-20-2` −20.4 %, `search-chain-128` −19.1 %); none was
+    raised;
+  - `bench/targets/after-efficiency.csv` against `head-lto.csv`,
+    compared by a script of the supervisor's: the same 265 rows and
+    verdicts, every one of the 225 decided rows equal in `nodes`,
+    `splits`, `memo_hits` and `memo_entries`, no verdict against an
+    expected one; `net-after-efficiency.csv` against
+    `net-after-retype.csv` equal in verdict, `links` and `tests`;
+  - on a release build of the head of its own (cores 6 to 11): mix/8
+    and qbf/16's four instances give the committed counters exactly;
+    H18's witness answers unknown at the recursion limit (3 000 and
+    5 000) on two and four threads; the Mix shape that made the area
+    raise `PER_LEVEL` (`a par ~a`, n times, forced onto the focused
+    engine) reaches the recursion limit at 2 048 and 3 000 on one, two
+    and four threads without overflow.
+- **What the area did not keep to**, each recorded in "Area 3.3:
+  decided unattended":
+  - the session compiled and ran stack probes beside its first timed
+    pool run; it reran the overlapped pairs alone, and the result
+    held (the Mix's 1.4 to 3.6 % lay in the sequential search, fixed by
+    wrpvvvmv);
+  - the mutation run ran from the main checkout (no code changed there
+    until it ended);
+  - the target set ran at the head only, not after each commit that
+    touches `search/`.
+- **Departures and decisions for the author at the step's end**:
+  - `Limits::PER_LEVEL` raised to 3 KiB and 13 KiB (the design gave
+    2 304 bytes a level);
+  - F148, the sparse memo key, not done: up to about 1.7 times as fast
+    per stable sequent on the widest two-sided searches, for a rewrite
+    of `memo.rs` and the shared memo, and no verdict the target set
+    shows; `plan/later.md` keeps the numbers;
+  - F153's rest not done (a growing test period changes
+    `Statistics::tests`; the rest is a new sequentialization).
+- **For area 3.4**:
+  - the oracles: `bench/targets/after-efficiency.csv` and
+    `bench/targets/net-after-efficiency.csv`, whose counters equal
+    `head-lto.csv`'s and `net-after-retype.csv`'s with this area's
+    times; F160 and F181 name them;
+  - the race's `||` for `&&` at `search/mod.rs:436` survives a second
+    area, the one mutant of `search` that fails no test: a test that
+    kills it, as the last area takes stage 0's evidence again;
+  - the mutant reruns' `--re` took twelve mutants it does not match
+    (all caught): the evidence scripts are area 3.4's;
+  - the ultra reviews' runs 1 and 2 (bookmarks `review/3.2` and
+    `review/3.3`): their findings are the area's first fixes if they
+    come before it ends, else they wait for run 3's session.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a

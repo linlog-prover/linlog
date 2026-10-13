@@ -2235,3 +2235,20 @@ client follows it (step 32).
   the author's standing instructions. The first conductor's log is in
   `plan/notes/step28-supervision-log.md`. The launcher now keeps the
   account it runs on, so the step's sessions run on the conductor's.
+- 2026-10-13: review of step 28's area 3.3, efficiency (one session,
+  Opus 5.5 at xhigh, 00:26 to 07:35, on the second account):
+  - the pool's speed after area 3.2 measured on a quiet machine: no
+    verdict differs, within 1 % at two and four threads; the Mix's few
+    percent lost since area 3.2 traced to an outlined poll and won back;
+  - six of the eight efficiency findings fixed, and F114 and F121: the
+    journeys 13 to 39 % fewer instructions where a finding was (the
+    Horn program read once, the atoms optimized once, the forced factor
+    once per split, the canonical key only where needed), the target
+    set's CPU time 10 % less with every counter equal;
+  - `PER_LEVEL` raised for the Mix's deeper levels; F148 (a sparse memo
+    key) and F153's rest left for the author;
+  - two check rounds and a fresh-context reviewer.
+
+  The review reran `nix flake check`, compared both target sets with
+  their oracles, and reran H18's witness and the Mix's stack on its own
+  build. Next: area 3.4, the command, harness, flake and documents.

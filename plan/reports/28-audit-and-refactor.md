@@ -56,7 +56,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 |---|---|---|
 | 3.1 the library's API, data model and wire forms | done (session `step-28d`, 2026-10-09 to 10-10; reviewed by the supervisor) | sub-items below; `nix flake check` passed at kktkswpq |
 | 3.2 the search | done (session `step-28e`, 2026-10-10) | sub-items below; every code commit gated; the target sets equal; three check rounds, the fresh-context reviewer (no finding), the mutation run; `nix flake check` passed at vuuroryz |
-| 3.3 efficiency | done (session `step-28f`, 2026-10-13) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
+| 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
 | 3.4 the command, the harness, the flake and the documents | open | |
 | last reader of the rustdoc front page and README | open | |
 
