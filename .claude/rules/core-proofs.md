@@ -1,7 +1,7 @@
 ---
 paths:
   - "core/src/proofs/mod.rs"
-  - "core/src/proofs/check.rs"
+  - "core/src/proofs/check/**"
   - "core/src/proofs/oracle.rs"
 ---
 
@@ -64,7 +64,9 @@ serve intuitionistic mode. Invariants:
 
 ## The checker
 
-`proofs/check.rs` is the reference for what a proof is. It shares no code
+`proofs/check/` is the reference for what a proof is (`zones.rs` the
+zones and `State`, `pass.rs` the pass and its bounds, `error.rs` what a
+check reports, `mod.rs` the tests). It shares no code
 with any engine and must not: an engine's proofs are validated by something
 that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 
@@ -251,7 +253,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
 - The rule interpretation was reviewed against an independent top-down
   reference checker with random proofs, mutants and random terms (step 2's
   report); the intricate cases that review named are pinned in
-  `check.rs`'s `accepts_every_rule`, so keep them when the checker changes.
+  `check/mod.rs`'s `accepts_every_rule`, so keep them when the checker changes.
 - `CheckError` reports ids, not formulas: `node`, its `rule`, the derived
   `premises` as `Dyadic` sequents and a `Fault` (`CheckError::Invalid`'s
   `Invalid`; a refusal has no premises). `Display` prints ids too;

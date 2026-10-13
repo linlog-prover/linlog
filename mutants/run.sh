@@ -35,7 +35,7 @@ jobs=3
 
 # name | files (space-separated globs) | the tests that exercise them
 batches=(
-  "check|core/src/proofs/check.rs core/src/proofs/mod.rs|test(/^proofs::/) | binary_id(linlog::serialize) | binary_id(linlog-cli::cli)"
+  "check|core/src/proofs/check/*.rs core/src/proofs/mod.rs|test(/^proofs::/) | binary_id(linlog::serialize) | binary_id(linlog-cli::cli)"
   "parse|core/src/parse/mod.rs|binary_id(linlog::parse) | binary_id(linlog::depth) | test(/^(parse|sequents|fragment)::/)"
   "serialize|core/src/serialize/*.rs|binary_id(linlog::serialize) | binary_id(linlog::depth)"
   "lltp|core/src/lltp.rs|test(/^lltp::/) | package(linlog-bench)"

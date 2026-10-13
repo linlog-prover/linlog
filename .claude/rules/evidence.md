@@ -15,7 +15,7 @@ browser or a stranger's file would.
 ## Mutation testing (`mutants/run.sh`, `.cargo/mutants.toml`)
 
 - The scope is the code soundness rests on: the checker
-  (`proofs/check.rs`, `proofs/mod.rs`), the readers (`parse/`,
+  (`proofs/check/`, `proofs/mod.rs`), the readers (`parse/`,
   `serialize/`, `lltp.rs`, `mist.rs`, `ordinary/parse.rs`), the search's
   front door (`search/mod.rs`), the Horn engine's refutations
   (`search/horn/{mod,equation,cover,reach}.rs`) and the ordinary layer's

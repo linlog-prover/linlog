@@ -52,7 +52,7 @@ Current contents:
     normal form, terms, fragments and modes, the parser, the JSON forms;
   - `rules/core-forest.md` (`occurrences/`): the occurrence forest,
     `OccSet`, the intuitionistic reading;
-  - `rules/core-proofs.md` (`proofs/mod.rs`, `check.rs`, `oracle.rs`):
+  - `rules/core-proofs.md` (`proofs/mod.rs`, `check/`, `oracle.rs`):
     proof terms and the checker;
   - `rules/core-derivations.md` (`proofs/derivation.rs`, `size.rs`,
     `fmt.rs`, `multiset.rs`, `interactive.rs`): the derivation view, its
