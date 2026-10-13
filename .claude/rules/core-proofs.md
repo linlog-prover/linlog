@@ -150,7 +150,7 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   own state is charged, and the count is compared with the bound at
   every charge; the tables themselves are asked for before they are
   allocated (`check::afford`, which the size estimate calls before it
-  makes its own, 72 bytes a node). Not counted: what one rule needs while it joins two
+  makes its own, 88 bytes a node, `size_of::<Sub>()`, and four an occurrence). Not counted: what one rule needs while it joins two
   states, the one list of shared occurrences, the sequents of an error
   report, each a small multiple of one counted state, and what is
   proportional to the forest (the reading, the weights' scratch
