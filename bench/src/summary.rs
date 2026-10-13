@@ -2,11 +2,14 @@
 // Licensed under the EUPL
 
 //! Markdown tables from the rows `run` wrote. A configuration is a CSV
-//! file's name with the mode, engine, threads, portfolio and test period
-//! of its rows, since every file of a baseline is one run of `run` with
-//! its own options. A problem counts once per configuration: its first run
-//! gives the verdict, the median over its runs the time. Rows of a forced
-//! engine that does not apply (`refused`) are left out.
+//! file's name with its rows' mode, engine, threads and test period
+//! (`base`), the portfolio of a file from before that column was removed,
+//! and every option a row names that is not the default (`configuration`),
+//! since every file of a baseline is one run of `run` with its own
+//! options. A problem counts once per configuration: its first run gives
+//! the verdict, the median over its runs the time. Rows of a forced engine
+//! that does not apply (`refused`) are left out. `--strict` fails on a
+//! row that a check must not pass (`Runs::failed`).
 
 use anyhow::{Context, Result, bail};
 use std::collections::HashMap;
