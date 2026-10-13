@@ -61,8 +61,7 @@ pub struct Scratch {
     removed: Box<[bool]>,
     /// Per vertex, its latest discovery time: the last search reached it
     /// iff that is at least `base`. Times rise from search to search, so
-    /// a search starts without resetting the width, which sequentializing
-    /// paid once per stage.
+    /// a search starts without resetting the width.
     disc: Box<[u32]>,
     /// The first discovery time of the last search.
     base: u32,

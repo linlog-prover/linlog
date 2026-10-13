@@ -67,11 +67,27 @@ impl Run<'_> {
             self.problem.forest.left(f).unwrap(),
             self.problem.forest.right(f).unwrap(),
         );
+        let left = |forced| {
+            Some(Forcing {
+                forced,
+                factor: a,
+                other: b,
+                side: Branch::Left,
+            })
+        };
+        let right = |forced| {
+            Some(Forcing {
+                forced,
+                factor: b,
+                other: a,
+                side: Branch::Right,
+            })
+        };
         match (self.forced_side(a), self.forced_side(b)) {
-            (Some(x), _) if x != Forced::Duals => Some((x, a, b, Branch::Left)),
-            (_, Some(y)) if y != Forced::Duals => Some((y, b, a, Branch::Right)),
-            (Some(x), _) => Some((x, a, b, Branch::Left)),
-            (None, Some(y)) => Some((y, b, a, Branch::Right)),
+            (Some(x), _) if x != Forced::Duals => left(x),
+            (_, Some(y)) if y != Forced::Duals => right(y),
+            (Some(x), _) => left(x),
+            (None, Some(y)) => right(y),
             (None, None) => None,
         }
     }
@@ -121,9 +137,8 @@ impl Run<'_> {
     /// The forced splits of `F`, given with its forcing factor as
     /// [`forced_factor`](Self::forced_factor) found it, and, as long as
     /// the factor they leave is a `⊗` with a forced split again, of that
-    /// factor, in a loop: a tensor
-    /// of a thousand literals costs one level of recursion and one copy of
-    /// the context, not a thousand. `rest` is the context, from which
+    /// factor, in a loop: a tensor of a thousand literals costs one level
+    /// of recursion and one copy of the context, not a thousand. `rest` is the context, from which
     /// every forcing factor takes its own; `links` gets every `⊗` with the
     /// proof of its forcing factor and whether that is the left one, and
     /// `cursors` remembers where the chain's lookups of duals ended.
@@ -143,7 +158,13 @@ impl Run<'_> {
         let mut cuts = Cuts::NONE;
         let mut forcing = Some(first);
         loop {
-            let Some((forced, x, y, x_side)) = forcing else {
+            let Some(Forcing {
+                forced,
+                factor: x,
+                other: y,
+                side: x_side,
+            }) = forcing
+            else {
                 return Ok(self.focus(theta, rest, f, budget)?.after(cuts));
             };
             self.statistics.splits += 1;
@@ -687,7 +708,7 @@ impl Run<'_> {
     /// the split searches: a search whose splits fail in focus visits no
     /// stable sequent, where the condition is polled otherwise, and may
     /// run for minutes. Inlined into the split loop, which calls it per
-    /// step: called, it was 2.3 % of a Mix's instructions.
+    /// step; the poll itself is the cold branch.
     #[inline(always)]
     fn poll_splits(&mut self) -> Result<(), Reason> {
         self.steps += 1;
@@ -712,8 +733,14 @@ impl Run<'_> {
     }
 
     /// Both premises of `F = A ⊗ B` for one split of the context, and the
-    /// `⊗` node if both succeed.
-    #[allow(clippy::too_many_arguments)]
+    /// `⊗` node if both succeed. A function of its own, as
+    /// [`parts`](Self::parts) is: inlined into the split search, both
+    /// rules' locals would sit in its frame in a debug build, half a KiB
+    /// more per level of the recursion.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the split search's state, passed through to the two focuses"
+    )]
     fn premises(
         &mut self,
         theta: &OccSet,
@@ -738,10 +765,11 @@ impl Run<'_> {
     /// equation admits a Mix. First, with a memo, the parts with one
     /// member less: when each of them fails hereditarily and completely,
     /// no part of this sequent's is provable, so no partition is searched
-    /// and the failure is hereditary (the flag beside the result). A sequent of `n` members whose parts all
-    /// fail then costs its `2ⁿ` parts `n` lookups each, where the
-    /// partitions of every part cost `3ⁿ`; without a memo every part is
-    /// searched again at every level, and the partitions are cheaper.
+    /// and the failure is hereditary (the flag beside the result). A
+    /// sequent of `n` members whose parts all fail then costs its `2ⁿ`
+    /// parts `n` lookups each, where the partitions of every part cost
+    /// `3ⁿ`; without a memo every part is searched again at every level,
+    /// and the partitions are cheaper.
     pub(super) fn mix(
         &mut self,
         theta: &OccSet,
@@ -856,9 +884,18 @@ pub(super) enum Join {
 }
 
 /// The factor of a `⊗` that forces its split, as
-/// [`forced_factor`](Run::forced_factor) returns it: what it forces, the
-/// factor, the other factor, and which of the two the forcing one is.
-type Forcing = (Forced, OccId, OccId, Branch);
+/// [`forced_factor`](Run::forced_factor) returns it.
+#[derive(Clone, Copy, Debug)]
+struct Forcing {
+    /// What the factor forces on its side of the split.
+    forced: Forced,
+    /// The forcing factor.
+    factor: OccId,
+    /// The other factor.
+    other: OccId,
+    /// Which of the two the forcing factor is.
+    side: Branch,
+}
 
 /// What a factor of a `⊗` forces on its side of the split.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
