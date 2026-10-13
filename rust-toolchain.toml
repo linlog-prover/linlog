@@ -2,7 +2,9 @@
 # Licensed under the EUPL
 
 # Read by rustup and by modules/toolchain.nix. rust-src lets rust-analyzer
-# see the standard library.
+# see the standard library; the wasm target is what the flake's `wasm`
+# check builds the library for, as a browser will run it.
 [toolchain]
 channel = "stable"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
+targets = ["wasm32-unknown-unknown"]

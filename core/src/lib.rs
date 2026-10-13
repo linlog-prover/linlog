@@ -109,7 +109,9 @@
 //! `parallel` (the search on a pool of [`Options::jobs`] threads, and a
 //! pool kept across searches, `search::Pool`; never for WebAssembly), and
 //! `png` and `pdf` (the SVG drawings rendered). An item that needs a
-//! feature says so.
+//! feature says so. Every feature but `parallel` builds for
+//! `wasm32-unknown-unknown`: the crate reads no clock, starts no thread
+//! without that feature, and takes its time limits as a caller's stop.
 
 /// The error types of this crate.
 mod errors;

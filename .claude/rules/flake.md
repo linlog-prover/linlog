@@ -75,6 +75,11 @@ once failed to evaluate there). The crates inherit `version` and
 `edition` from `[workspace.package]`, so crane's package versions come
 from the root `Cargo.toml` (`crateNameFromCargoToml` on a member's falls
 back to 0.0.1).
+`checks.nix`'s `wasm` builds the core crate for
+`wasm32-unknown-unknown` (the target `rust-toolchain.toml` names) with
+every feature but `parallel`, a `cargo check` without the host's
+artifacts: the rule that the library stays fit for a browser was held by
+convention alone before it.
 `devshell.nix` carries cargo-mutants and cargo-nextest for
 `mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the

@@ -74,6 +74,24 @@
 
         deny = craneLib.cargoDeny { inherit (workspace) src; };
 
+        # The library as a browser will run it: built for wasm32 with every
+        # feature but `parallel', whose thread pool a browser does not give.
+        # The library reads no clock and starts threads only behind that
+        # feature; this check keeps it so.
+        wasm = craneLib.mkCargoDerivation (
+          workspace.commonArgs
+          // {
+            pnameSuffix = "-wasm";
+            cargoArtifacts = null;
+            buildPhaseCargoCommand = ''
+              cargo check --locked --target wasm32-unknown-unknown --package linlog \
+                --no-default-features \
+                --features parse,serialize,interactive,latex,typst,svg,rocq,png,pdf
+            '';
+            doInstallCargoArtifacts = false;
+          }
+        );
+
         # The core crate's features one at a time and in pairs, with all of
         # them and with none; the CLI enables all of them and would never
         # notice one that breaks alone. The full powerset doubles with every
