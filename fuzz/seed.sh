@@ -83,7 +83,7 @@ for s in 'a \/ ~a' 'a -> b, a |- b' '~~a |- a' '(a /\ b) -> (b /\ a)' \
   # The first byte picks the logic and the translation.
   for b in 0 1 2 3 4; do
     {
-      printf "\\$b"
+      printf '%b' "\\00$b"
       printf '%s' "$s"
     } | seed ordinary_decide "small-$i-$b"
   done
