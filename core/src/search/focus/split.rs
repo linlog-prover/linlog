@@ -686,12 +686,22 @@ impl Run<'_> {
     /// Polls the stop condition once every [`SPLITS_PER_POLL`] steps of
     /// the split searches: a search whose splits fail in focus visits no
     /// stable sequent, where the condition is polled otherwise, and may
-    /// run for minutes.
+    /// run for minutes. Inlined into the split loop, which calls it per
+    /// step: called, it was 2.3 % of a Mix's instructions.
+    #[inline(always)]
     fn poll_splits(&mut self) -> Result<(), Reason> {
         self.steps += 1;
         if self.steps < SPLITS_PER_POLL {
             return Ok(());
         }
+        self.poll_splits_now()
+    }
+
+    /// Polls the stop condition, passing the work since the last poll:
+    /// the rare branch of [`Self::poll_splits`], kept out of the split
+    /// loop.
+    #[cold]
+    fn poll_splits_now(&mut self) -> Result<(), Reason> {
         self.steps = 0;
         let work = SPLITS_PER_POLL + std::mem::take(&mut self.work);
         if self.stop.fired(work) {
