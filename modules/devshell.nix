@@ -13,6 +13,7 @@
       lib,
       pkgs,
       rustToolchain,
+      valgrindRuns,
       ...
     }:
     {
@@ -30,10 +31,8 @@
           pkgs.zellij
         ]
         # Instruction counts: the ratchet's journeys and their profiles,
-        # where valgrind runs (not on aarch64-darwin).
-        ++ lib.optional (
-          lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.valgrind && !pkgs.valgrind.meta.broken
-        ) pkgs.valgrind.out;
+        # where valgrind runs (not on aarch64-darwin; `ratchet.nix').
+        ++ lib.optional valgrindRuns pkgs.valgrind.out;
 
         commands = [
           {

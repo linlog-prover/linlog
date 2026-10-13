@@ -75,8 +75,9 @@ names Andreoli's rules D1 and D2.
 CI builds and checks x86_64-linux alone, the other two evaluate and are
 built nowhere. valgrind is broken in nixpkgs on aarch64-darwin, so the
 devshell takes it and `ratchet.nix` defines the `ratchet` check only
-where it runs (`lib.meta.availableOn` and not `meta.broken`; the devshell
-once failed to evaluate there). The crates inherit `version` and
+where it runs (`lib.meta.availableOn` and not `meta.broken`, written once
+as the module argument `valgrindRuns`, which the devshell reads; the
+devshell once failed to evaluate there). The crates inherit `version` and
 `edition` from `[workspace.package]`, so crane's package versions come
 from the root `Cargo.toml` (`crateNameFromCargoToml` on a member's falls
 back to 0.0.1).
