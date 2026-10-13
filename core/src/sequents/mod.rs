@@ -494,6 +494,21 @@ mod tests {
         assert_eq!(s.terms, [var(0), dual_var(0), var(1)]);
     }
 
+    /// The atoms are numbered in the order the terms first name them, not
+    /// in the table's order, and an atom no term names leaves the table.
+    #[test]
+    fn optimize_numbers_atoms_as_the_terms_name_them() {
+        let mut s = raw(
+            vec![var(2), dual_var(0), var(2)],
+            &[0, 1, 2],
+            &["B", "C", "A"],
+        );
+        s.optimize();
+        assert_eq!(s.atoms, ["A", "B"]);
+        assert_eq!(s.terms, [var(0), dual_var(1)]);
+        assert_eq!(s.roots, [TermId::new(0), TermId::new(1), TermId::new(0)]);
+    }
+
     /// References to a duplicate term point to its kept copy, also after
     /// unreachable terms before it are dropped.
     #[test]
