@@ -439,7 +439,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   lifts it) is `Limits::derivation_bytes`, on `prove`, `check` and `interact`.
   A derivation past it is not built: the verdict line stands, the exit
   status is the verdict's, and one line says how large the derivation is
-  and names `--format json` and the flag (`too_large`). That line follows
+  and names `--format json` and the flag (`too_large`; where the compact
+  view was tried and is smaller, its lower bound from the refusal's
+  `least_bytes` too). That line follows
   the verdict when the output is a terminal and goes to standard error
   otherwise (`Show::left_out`), so that a file or a pipe holds what it
   would hold for a small proof minus the tree. In a session the line is

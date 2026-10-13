@@ -522,10 +522,16 @@ pub(crate) fn unfit(inferences: u64, width: &str, lines: u64, columns: u64, most
 }
 
 /// Returns the line for a derivation past the limit.
-pub(crate) fn too_large(size: &Size, limit: u64) -> String {
+pub(crate) fn too_large(size: &Size, limit: u64, least: Option<u64>) -> String {
+    // Drawn compact, the derivation is smaller, but by its lower bound
+    // still over the limit.
+    let compact = least
+        .filter(|&least| least < size.bytes())
+        .map(|least| format!(", and drawn compact at least {}", bytes_text(least)))
+        .unwrap_or_default();
     format!(
         "the derivation is not written: its {} inferences with {} characters of sequents are \
-         estimated at {}, over the limit of {}; --format json writes the proof itself, \
+         estimated at {}{compact}, over the limit of {}; --format json writes the proof itself, \
          --derivation-limit SIZE raises the limit and --derivation-limit none lifts it",
         count_text(size.inferences),
         count_text(size.characters),
@@ -539,9 +545,11 @@ pub(crate) fn too_large(size: &Size, limit: u64) -> String {
 pub(crate) fn not_built(error: &Error, size: impl FnOnce() -> Option<Size>) -> String {
     let own = || format!("the derivation is not written: {error}");
     match error {
-        Error::Refused(Refusal::Output { limit_bytes, .. }) => {
-            size().map_or_else(own, |size| too_large(&size, *limit_bytes))
-        }
+        Error::Refused(Refusal::Output {
+            limit_bytes,
+            least_bytes,
+            ..
+        }) => size().map_or_else(own, |size| too_large(&size, *limit_bytes, *least_bytes)),
         Error::Refused(Refusal::Memory { limit_bytes, .. }) => {
             size().map_or_else(own, |size| over_memory(&size, *limit_bytes))
         }
