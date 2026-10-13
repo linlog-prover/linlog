@@ -175,7 +175,12 @@ time and memory linear in the text. What the code relies on:
   turnstile can stand), report the character after them.
   `error_positions` in `core/tests/parse.rs` pins both and the rest.
 - A text of more terms than a forest can hold (`Forest::MOST`) is
-  `Refusal::Occurrences`: every term of a text is an occurrence.
+  `Refusal::Occurrences`: every term of a text is an occurrence. A
+  pending `!` or `?` counts as the term it will be (`Parser::owed`) and
+  two `~` in a row cancel as they are read, so a run of prefix operators
+  is refused at the bound, not held to its operand (a run of 30 million
+  `!` once took 9 bytes a byte under a limit of 1 000). Parentheses
+  make no term and still wait, linear in the text.
 - The first parser was chumsky's Pratt parser. Before it was removed
   the two were compared on 1.1 million generated inputs (token soup,
   random sequents in every spelling, and those with one character

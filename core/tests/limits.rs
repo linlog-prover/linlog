@@ -60,6 +60,21 @@ fn the_readers_refuse_past_the_occurrences() {
         forest,
         Err(Error::Refused(Refusal::Occurrences { .. }))
     ));
+    // A run of `!` or `?` is counted as it is read: the text is refused
+    // before the parse error after the run, not held until its operand.
+    for prefix in ["!", "?"] {
+        let text = format!("|- {}A B", prefix.repeat(1000));
+        assert!(matches!(
+            Sequent::parse_within(&text, &limits),
+            Err(Error::Refused(Refusal::Occurrences { .. }))
+        ));
+    }
+    // Two `~` cancel as they are read, so a run of them is one at most.
+    let even = format!("|- {}A", "~".repeat(1000));
+    assert_eq!(
+        Sequent::parse_within(&even, &limits).unwrap(),
+        "|- A".parse().unwrap()
+    );
 }
 
 #[test]

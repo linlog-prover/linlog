@@ -161,7 +161,7 @@ impl<'a> Parser<'a> {
                     self.open += 1;
                     self.pending.push(Pending::Open);
                 } else if self.negation() {
-                    self.pending.push(Pending::Not);
+                    self.wait(Pending::Not)?;
                 } else {
                     break self.constant_or_atom()?;
                 };
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
                 };
                 if let Some((_, binary)) = binary {
                     let left = self.reduce(operand, Some(binary))?;
-                    self.pending.push(Pending::Binary(binary, left));
+                    self.wait(Pending::Binary(binary, left))?;
                     break;
                 }
                 if self.open > 0 && self.eat(")") {
@@ -232,6 +232,15 @@ impl<'a> Parser<'a> {
                 return Ok((self.reduce(operand, None)?, end));
             }
         }
+    }
+
+    /// Notes an operator that waits for its right operand, failing once
+    /// more wait than the limit allows: each will be a formula, and they
+    /// lie on one branch of the formula, so no two are the same, which a
+    /// run of `~` or of `->` would otherwise pile up unbounded.
+    fn wait(&mut self, operator: Pending) -> Result<(), Error> {
+        self.pending.push(operator);
+        count_within(self.pending.len() - self.open, self.limit)
     }
 
     /// Fails once the arena holds more formulas than the limit allows.

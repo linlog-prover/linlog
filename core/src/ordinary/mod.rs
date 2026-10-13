@@ -752,6 +752,13 @@ mod tests {
         assert!(refused(
             Sequent::parse_within(&repeated, &bound(5)).map(|_| ())
         ));
+        // What waits for its operand counts too: a run of `~` or of `->`
+        // is refused before the parse error after it.
+        for run in ["~".repeat(100), "a -> ".repeat(100)] {
+            assert!(refused(
+                Sequent::parse_within(&format!("{run}a b"), &bound(10)).map(|_| ())
+            ));
+        }
         let hypotheses = "fof(h, axiom, a).\n".repeat(5) + "fof(c, conjecture, a).";
         assert!(read_tptp(&hypotheses, &bound(6)).is_ok());
         assert!(refused(read_tptp(&hypotheses, &bound(5)).map(|_| ())));

@@ -120,6 +120,10 @@ struct Parser<'a> {
     pending: Vec<Pending>,
     /// How many parentheses are open.
     open: usize,
+    /// How many `!` and `?` wait in `pending`: each is a term to come,
+    /// counted against the bound when it is read, so that a run of them
+    /// is refused before it is reduced.
+    owed: u64,
     /// The most terms the arena may hold: the bound, and never more than
     /// a forest indexes.
     most: u64,
@@ -145,6 +149,7 @@ impl<'a> Parser<'a> {
             names: HashMap::default(),
             pending: Vec::new(),
             open: 0,
+            owed: 0,
             most,
             limit,
         }
@@ -188,20 +193,8 @@ impl<'a> Parser<'a> {
     /// the arena is full.
     fn push(&mut self, term: Term) -> Result<TermId, Error> {
         let index = self.terms.len() as u64;
-        if index >= self.most {
-            // Every term of the text is an occurrence of its own, so the
-            // text is refused at the first term past the bound.
-            return Err(Error::Refused(match self.limit {
-                Some(limit) if limit < Forest::MOST => Refusal::Occurrences {
-                    occurrences: limit.saturating_add(1),
-                    limit,
-                },
-                _ => Refusal::Index {
-                    what: Space::Occurrence,
-                    count: Forest::MOST.saturating_add(1),
-                    most: Forest::MOST,
-                },
-            }));
+        if index.saturating_add(self.owed) >= self.most {
+            return Err(self.past_bound());
         }
         self.terms.push(term);
         self.negated.push(false);
@@ -255,8 +248,15 @@ impl<'a> Parser<'a> {
                     self.pending.pop();
                     continue;
                 }
-                Pending::Bang => Term::Bang(operand),
-                Pending::Quest => Term::Quest(operand),
+                // Each pays the term it owed.
+                Pending::Bang => {
+                    self.owed -= 1;
+                    Term::Bang(operand)
+                }
+                Pending::Quest => {
+                    self.owed -= 1;
+                    Term::Quest(operand)
+                }
                 Pending::Binary(connective, left) => {
                     if next.is_some_and(|next| !connective.takes_before(next)) {
                         break;
@@ -300,12 +300,43 @@ impl<'a> Parser<'a> {
         State::Operand
     }
 
+    /// Returns the refusal of a text with more terms than the bound.
+    /// Every term of the text is an occurrence of its own, so the text is
+    /// refused at the first term past it.
+    fn past_bound(&self) -> Error {
+        Error::Refused(match self.limit {
+            Some(limit) if limit < Forest::MOST => Refusal::Occurrences {
+                occurrences: limit.saturating_add(1),
+                limit,
+            },
+            _ => Refusal::Index {
+                what: Space::Occurrence,
+                count: Forest::MOST.saturating_add(1),
+                most: Forest::MOST,
+            },
+        })
+    }
+
     /// Notes an operator that stands before its operand, or an open
-    /// parenthesis.
-    fn prefix(&mut self, operator: Pending) -> State {
-        self.pending.push(operator);
+    /// parenthesis. Two `~` in a row cancel, so a run of them waits as
+    /// one at most; a `!` or `?` is counted as the term it will be.
+    fn prefix(&mut self, operator: Pending) -> Result<State, Error> {
         self.empty = false;
-        State::Operand
+        match operator {
+            Pending::Dual if matches!(self.pending.last(), Some(Pending::Dual)) => {
+                self.pending.pop();
+                return Ok(State::Operand);
+            }
+            Pending::Bang | Pending::Quest => {
+                self.owed += 1;
+                if (self.terms.len() as u64).saturating_add(self.owed) > self.most {
+                    return Err(self.past_bound());
+                }
+            }
+            Pending::Open | Pending::Dual | Pending::Binary(..) => {}
+        }
+        self.pending.push(operator);
+        Ok(State::Operand)
     }
 
     /// Reads what a formula starts with: a prefix operator, an open
@@ -322,12 +353,12 @@ impl<'a> Parser<'a> {
         };
         self.at += c.len_utf8();
         let term = match c {
-            '~' => return Ok(self.prefix(Pending::Dual)),
-            '!' => return Ok(self.prefix(Pending::Bang)),
-            '?' => return Ok(self.prefix(Pending::Quest)),
+            '~' => return self.prefix(Pending::Dual),
+            '!' => return self.prefix(Pending::Bang),
+            '?' => return self.prefix(Pending::Quest),
             '(' => {
                 self.open += 1;
-                return Ok(self.prefix(Pending::Open));
+                return self.prefix(Pending::Open);
             }
             '0' => Term::Zero,
             '1' => Term::One,
