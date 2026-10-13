@@ -35,8 +35,8 @@ Workspace crates:
   `check`, `interact` and `seq print|json|fragment`. README's usage section shows every command and
   format and the main flags with their output, and `cli/tests/readme.rs`
   runs those examples; `linlog <command> --help` is the doc comments of
-  `cli/src/argument_parsing.rs`, every flag with the settings key it
-  sets. Exit status 0 proved/valid, 1 unprovable/invalid, 2 error, 3
+  `cli/src/argument_parsing.rs`, every flag that sets a key naming
+  it. Exit status 0 proved/valid, 1 unprovable/invalid, 2 error, 3
   unknown, 130 at a second Ctrl-C.
 - `bench/` is package **`linlog-bench`** (not published, `doc = false`):
   the benchmark harness, the baselines under `bench/results/DAY/`
