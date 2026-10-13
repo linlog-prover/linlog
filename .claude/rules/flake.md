@@ -25,15 +25,19 @@ rustdoc's warnings denied, so a link in a private item's doc resolves too
 (a split of a module once left four such links pointing nowhere). `claude-hooks.nix` is the check that pins the
 `.claude/hooks` guards (`claude-infra.md`). `export.nix` is the `export`
 check, which compiles the snapshots (the fragments inside a document of
-its own) and a CLI proof with pdfLaTeX and with Typst and the curryst of
-nixpkgs (the version `export::typst::CURRYST` names), with no font but
+its own), the command's default fragments (LaTeX and Typst, wrapped the
+same way) and a CLI proof with pdfLaTeX and with Typst and the curryst of
+nixpkgs (the version `export::typst::CURRYST` names, read from the source
+at evaluation, so the package and the import line it writes cannot
+drift), with no font but
 Typst's own, renders the SVG snapshots and CLI drawings with resvg with
 only the Euler Math font of nixpkgs' TeX Live, and checks the CLI's PNG
 (pngcheck) and PDF (poppler: the font embedded, the text extractable;
 veraPDF: every profile conforms), offline; `rocq.nix` is the `rocq`
 check, which builds NanoYalla from the non-flake input `nanoyalla`
 (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA` names
-the version) with nixpkgs' Rocq and standard library and compiles the
+the version, which an assertion compares with the kernel's README at
+evaluation) with nixpkgs' Rocq and standard library and compiles the
 `.v` snapshots and six CLI certificates against it (four of them over
 `Prop`, of ordinary logic, classical and intuitionistic, two of `true`,
 which bind nothing), requiring Rocq to print nothing; `bench.nix` is the `linlog-bench` package, the `bench`

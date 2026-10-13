@@ -6,7 +6,8 @@
 # proof in each format as the CLI writes it, with pdfLaTeX from a minimal
 # TeX Live, Typst with curryst from nixpkgs and resvg, offline; the CLI's
 # PNG and PDF are checked with pngcheck, poppler and veraPDF. The curryst here is the version
-# `linlog::export::typst::CURRYST' names; they change together. The LaTeX
+# `linlog::export::typst::CURRYST' names, read from the source, so a change of
+# one without the other fails to evaluate. The LaTeX
 # and Typst output names no font, so Typst sees only the fonts it embeds;
 # resvg sees Euler Math and no system font. Anything either prints fails
 # the check, so a font they cannot find is not hidden by a fallback.
@@ -31,7 +32,16 @@
         ps.standalone
       ]);
 
-      typst = pkgs.typst.withPackages (ps: [ ps.curryst_0_6_0 ]);
+      # The version the Typst export writes into its import line.
+      curryst = builtins.head (
+        builtins.match ''.*pub const CURRYST: &str = "([0-9.]+)";.*'' (
+          builtins.readFile ../core/src/export/typst.rs
+        )
+      );
+
+      typst = pkgs.typst.withPackages (ps: [
+        ps."curryst_${lib.replaceStrings [ "." ] [ "_" ] curryst}"
+      ]);
 
       eulerMath = "${pkgs.texlivePackages.euler-math.tex}/fonts/opentype/public/euler-math";
     in
@@ -52,6 +62,10 @@
           ''
             export HOME=$TMPDIR
             cp ${snapshots}/* .
+            # The command's fragments, the form it writes by default, beside
+            # the library's snapshots.
+            linlog prove -i --format latex '!A, A -o B |- B * !A' >cli-default.frag.tex
+            linlog prove --format typst 'A & B, !C |- (B + A) * !C' >cli-default.frag.typ
             # A fragment goes into a document of the packages it names.
             for file in *.frag.tex; do
               {
@@ -64,7 +78,7 @@
             done
             for file in *.frag.typ; do
               {
-                printf '#import "@preview/curryst:0.6.0": prooftree, rule\n'
+                printf '#import "@preview/curryst:${curryst}": prooftree, rule\n'
                 printf '#set page(width: auto, height: auto, margin: 5pt)\n'
                 cat "$file"
               } >"''${file%.frag.typ}-fragment.typ"

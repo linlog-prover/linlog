@@ -21,9 +21,25 @@
       };
 
       stdlib = pkgs.rocqPackages.stdlib;
+
+      # The version `linlog::export::rocq::NANOYALLA' names must be the
+      # kernel's the input pins, whose README says which it is.
+      named = builtins.head (
+        builtins.match ''.*pub const NANOYALLA: &str = "([0-9.]+)";.*'' (
+          builtins.readFile ../core/src/export/rocq.rs
+        )
+      );
+      pinned = builtins.head (
+        builtins.match "# This is NanoYalla version ([0-9.]+).*" (
+          builtins.readFile "${inputs.nanoyalla}/nanoyalla/README.md"
+        )
+      );
     in
     {
       checks.rocq =
+        assert pkgs.lib.assertMsg (
+          named == pinned
+        ) "export::rocq::NANOYALLA is ${named}, the pinned kernel ${pinned}";
         pkgs.runCommand "check-rocq"
           {
             nativeBuildInputs = [
