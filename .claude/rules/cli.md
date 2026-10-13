@@ -378,8 +378,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the line when the search ends; the notice is dropped, and its thread
   joined, before anything else is written. Nothing is written into a
   pipe or a file.
-- **What "unknown" says** (`unknown`, shared by `verdict_line` and the
-  session's `verdict`, with `Ended`: the command's `Stop` and the time the
+- **What "unknown" says** (`unknown`, in `verdict_line`, which `prove`, a batch's entry and a
+  session's `close` print alike, with `Ended`: the command's `Stop` and the time the
   search took; the recursion limit is the reason's `depth`): for every `Reason` the bound or
   limit with its value, after how long (except at the time limit, which
   says it), at which copy bound where the engine deepened one (the

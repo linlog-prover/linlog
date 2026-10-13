@@ -556,7 +556,7 @@ A ⊢ A      B ⊢ B
 ──────────────── ⊸L
   A, A ⊸ B ⊢ B
 > close
-goal 2: proved (IMLL, intuitionistic, two-sided engine)
+goal 2: provable (IMLL, intuitionistic, two-sided engine)
 no goal is open: `proof` checks the proof
 > proof
 valid proof (intuitionistic)

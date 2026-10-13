@@ -631,7 +631,7 @@ fn interactive_session() {
     assert_eq!(
         out,
         format!(
-            "goal 1: proved (MLL, classical, focus engine)\n\
+            "goal 1: provable (MLL, classical, focus engine)\n\
              closed; no goal is open: `proof` checks the proof\n\
              ─────── ax   ─────── ax\n\
              ⊢ ~A, A      ⊢ ~B, B\n\
@@ -657,8 +657,8 @@ fn interactive_session() {
          error: a premise would have 2 formulas on the right of ⊢ instead of one\n\
          opened goal 1: 0: A ⊢ 1: A\n\
          opened goal 2: 0: B ⊢ 1: B\n\
-         goal 1: proved (IMLL, intuitionistic, two-sided engine)\n\
-         goal 2: proved (IMLL, intuitionistic, two-sided engine)\n\
+         goal 1: provable (IMLL, intuitionistic, two-sided engine)\n\
+         goal 2: provable (IMLL, intuitionistic, two-sided engine)\n\
          no goal is open: `proof` checks the proof\n\
          valid proof (intuitionistic)\n\
          ───── ax   ───── ax\n\

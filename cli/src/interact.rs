@@ -5,7 +5,7 @@ use crate::argument_parsing::{Format, InteractArgs};
 use crate::limit::{Deadline, Notice};
 use crate::prove::{
     Ended, Rendered, Show, Shown, bytes_text, derivation, describe, notice_line, on_large_stack,
-    render, searched, stopped, unknown,
+    render, searched, stopped, verdict_line,
 };
 use crate::settings::{Given, Threads, time_limit};
 use crate::style;
@@ -223,7 +223,12 @@ impl Session {
                 let mut text = String::new();
                 for goal in goals {
                     let (outcome, ended) = self.close(goal)?;
-                    let _ = writeln!(text, "goal {}: {}", goal.get(), verdict(&outcome, &ended));
+                    let _ = writeln!(
+                        text,
+                        "goal {}: {}",
+                        goal.get(),
+                        verdict_line(&outcome, false, &ended)
+                    );
                 }
                 text.pop();
                 if self.state.is_complete() {
@@ -532,21 +537,4 @@ fn proof_format(word: &str) -> Result<Format> {
              --pdf and --rocq"
         ),
     })
-}
-
-/// Returns the verdict of a `close` as one line.
-fn verdict(outcome: &Outcome, ended: &Ended) -> String {
-    let context = format!(
-        "{}, {}, {} engine",
-        outcome.fragment.name_in(outcome.mode),
-        outcome.mode,
-        outcome.engine
-    );
-    match &outcome.verdict {
-        Verdict::Proved(_) => format!("proved ({context})"),
-        Verdict::Unprovable(refutation) => format!("unprovable ({context}): {refutation}"),
-        Verdict::Unknown(reason) => {
-            format!("unknown ({context}): {}", unknown(*reason, outcome, ended))
-        }
-    }
 }
