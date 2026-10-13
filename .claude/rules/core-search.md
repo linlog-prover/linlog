@@ -210,7 +210,10 @@ outcome's `work` is that count. The command's default and the harness's
   `Engine::implementation` maps each public variant to its
   implementation (`focus::ONE_SIDED`, `focus::TWO_SIDED`, `net::Nets`,
   `additive::Additive`, `horn::Horn`); a `Task` is what they are handed (forest, goal,
-  fragment, mode, reading, whether it is the roots). An engine that keeps
+  fragment, mode, reading, whether it is the roots, and the cell of the
+  goal's Horn program: `horn::Program::of` reads it once per task, for
+  the dispatch's feature, `admits` and the search alike, so a new reader
+  of the program goes through it). An engine that keeps
   its proof as nodes of an arena answers through `Answer::of_arena`.
   **`conclude` (through `prove_goal`) is the one place an answer becomes a `Verdict`**: the
   refutation of an exhausted search, the check of a proof of the roots

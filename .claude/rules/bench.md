@@ -404,11 +404,12 @@ serde_json, which the CLI and the core's tests already have.
   opt-level 1, 2 and 3 on one pinned core (its header has the commands),
   and `bench/counts-against-time/DAY*` keeps a run's rows and counts. On
   every run so far, loaded or quiet, a drop of a fifth or more in count
-  was a drop in time on every journey, and a few percent was not on four
-  (the checker's two journeys, whose times move with the build at about
-  the same count, and the renderers and the derivation, whose rounds
-  spread): a change claimed to save a few percent is shown by pinned
-  time beside the count.
+  was a drop in time on every journey; a few percent ordered count and
+  time differently on four (`search-additive-14`, the derivation and the
+  two renderers, whose rounds spread), and the checker's two journeys
+  ran faster at another build with about the same count: a change
+  claimed to save a few percent is shown by pinned time beside the
+  count.
 
 ## Extension points
 
