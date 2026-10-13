@@ -13,8 +13,23 @@ the cases.
 """
 
 import json
-import re
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from command_line import commands  # noqa: E402
+
+# jj's global options that take a value, which come before the subcommand.
+GLOBAL_VALUES = {
+    "-R",
+    "--repository",
+    "--at-op",
+    "--at-operation",
+    "--color",
+    "--config",
+    "--config-toml",
+    "--config-file",
+}
 
 MESSAGE = """\
 Blocked: `jj new -m` describes a new, empty change; the work stays behind in the previous one.
@@ -26,16 +41,28 @@ Blocked: `jj new -m` describes a new, empty change; the work stays behind in the
 
 
 def is_jj_new_with_message(command):
-    """Whether some command in the line is `jj new` carrying -m/--message.
+    """Whether some command the line runs is `jj new` carrying
+    -m/--message, behind any wrapper, shell or global option.
 
-    Splitting on separators keeps a `-m` of another command (`jj new && jj
-    describe -m x`) from counting. A segment has to start with `jj new`, so
-    text that merely mentions it (`grep "jj new -m"`) passes."""
-    return any(
-        re.match(r"\s*jj\s+new(\s|$)", segment)
-        and re.search(r"(^|\s)(--message|-m)(?!-)", segment)
-        for segment in re.split(r"[;&|\n(]", command)
-    )
+    Each command is read on its own, so a `-m` of another command (`jj new
+    && jj describe -m x`) does not count, and quoted text that merely
+    mentions it (`grep "jj new -m"`) is no command."""
+    for program, rest in commands(command):
+        if program != "jj":
+            continue
+        i = 0
+        while i < len(rest) and rest[i].startswith("-"):
+            i += 2 if rest[i] in GLOBAL_VALUES else 1
+        if rest[i : i + 1] != ["new"]:
+            continue
+        if any(
+            word in ("-m", "--message")
+            or word.startswith("--message=")
+            or (word.startswith("-m") and not word.startswith("--"))
+            for word in rest[i + 1 :]
+        ):
+            return True
+    return False
 
 
 def main():

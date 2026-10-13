@@ -99,9 +99,13 @@ Current contents:
   flake input from its pinned version, wiring it in and recording what is not
   obvious.
 - `hooks/block-git.py`, `hooks/block-jj-new-message.py`: `PreToolUse(Bash)`
-  guards, see below.
+  guards, see below; `hooks/command_line.py`, the reading of a command
+  line both import (not executable, not a hook).
 - `hooks/format.sh`: `PostToolUse(Write|Edit)`, runs `nix fmt` on the one
-  file that changed, if `modules/treefmt.nix` formats its type.
+  file that changed, if `modules/treefmt.nix` formats its type, from the
+  nearest directory up from the session's `cwd` that holds `flake.nix`
+  (from `cwd` alone it skipped every file of a session started in a
+  subdirectory).
 - `hooks/session-jj-state.sh`: `SessionStart`, prints `@` and `@-` and any
   bookmark `@` is stacked on that `main` lacks.
 - `settings.json`: allow rules for the build/check commands and jj's read-only
@@ -137,17 +141,28 @@ Current contents:
   is confident blocks, with exit 2.
 - **The guards are plain Python** and catch every exception. Without python3
   the harness reports a non-blocking hook error, which is still open.
-- `block-git.py` blocks every git invocation, read-only ones too, and
-  `--commit-lock-file`. It resolves the program a command line runs (past
-  `VAR=value`, wrappers such as `env`/`timeout`/`run0`/`xargs`, `bash -c`,
-  `nix shell … -c`, `nix run nixpkgs#git`, `jj util exec`), which the
-  `Bash(git *)` deny rule cannot. Quoted text is masked first, so searching
-  for `git push` is not running it. A heredoc line that starts with `git`
-  still reads as a command: write files with Write/Edit.
-- `block-jj-new-message.py` blocks `jj new -m`.
+- **Both guards read a command line one way** (`command_line.py`,
+  `commands`): the commands it runs past separators, `VAR=value`, the
+  wrappers in `WRAPPERS` (`env`, `timeout`, `run0`, `xargs`, `nice`,
+  `systemd-run`, `systemd-inhibit`, `taskset`, `flock`, `ionice`, `chrt`,
+  …, each with its options that take a value and its positionals), `bash
+  -c`, `eval`, `nix shell … -c`, `nix develop -c` and `jj util exec`.
+  Quoted text is masked first, so searching for `git push` is not running
+  it. A wrapper it does not know hides what it runs: add it to
+  `WRAPPERS` with its cases. A heredoc line that starts with `git` still
+  reads as a command: write files with Write/Edit.
+- `block-git.py` blocks git behind the wrappers it knows, read-only
+  invocations too, `nix run nixpkgs#git` and `--commit-lock-file`, which
+  the `Bash(git *)` deny rule cannot (the capped form CLAUDE.md
+  prescribes, `systemd-run … taskset … git`, once ran git unblocked).
+- `block-jj-new-message.py` blocks `jj new` with `-m`/`--message`,
+  past jj's global options (`--ignore-working-copy`, `-R`, `--config`, …)
+  and wherever the shared reading finds the command.
 - **The `claude-hooks` flake check (`modules/claude-hooks.nix`) pins every
-  guard**: the commands it blocks and allows, that malformed payloads pass, and
-  that `settings.json` registers it. A new guard gets its cases there in the
+  guard**: the commands it blocks and allows, that malformed payloads pass,
+  that `settings.json` registers it, and that it runs as the harness runs it,
+  by its path (executable, `#!/usr/bin/env python3`); an executable `.py`
+  there without cases fails it. A new guard gets its cases there in the
   same change.
 - `jq` is not installed on this machine. Parse payloads with python3.
 

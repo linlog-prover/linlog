@@ -45,6 +45,16 @@
             "nix run nixpkgs#git -- status"
             "nix run nixpkgs#gitFull -- log"
             "jj util exec -- git status"
+            "systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0 taskset -c 2-5 git log"
+            "systemd-run --user --unit=x -E A=b git status"
+            "flock /tmp/lock git fetch"
+            "ionice -c 3 git gc"
+            "chrt -f 10 git status"
+            "nice -n 5 git status"
+            "eval git status"
+            ''eval "git push"''
+            "systemd-inhibit --what=sleep git status"
+            "nix develop -c git status"
             "nix flake update --commit-lock-file"
             "nix flake lock --commit-lock-file"
           ];
@@ -55,6 +65,8 @@
             "jj git remote list"
             ''jj commit -m "Fix git-related typo"''
             "jj util exec -- cargo test"
+            "systemd-run --user --scope -p MemoryMax=8G taskset -c 2-5 cargo test"
+            "eval jj st"
             "nix flake update"
             "nix run nixpkgs#gitui"
             "command -v git"
@@ -76,6 +88,11 @@
             "jj new -mmsg"
             ''jj new @- -m "msg"''
             ''echo hi && jj new -m "msg"''
+            "jj --ignore-working-copy new -m x"
+            "jj -R ../other new --message=x"
+            "taskset -c 2 jj new -m x"
+            ''bash -c "jj new -m x"''
+            "nix develop -c jj new -m x"
           ];
           allowed = [
             ''jj commit -m "msg"''
@@ -84,6 +101,8 @@
             "jj new main"
             ''jj new && jj describe -m "msg"''
             ''grep "jj new -m" CLAUDE.md''
+            ''jj describe -m "not jj new -m"''
+            "jj --config signing.behavior=drop commit -m x"
           ];
         };
       };
@@ -124,6 +143,23 @@
           }
           ''
             fail=0
+            # Each guard runs as settings.json runs it, by its path: it must
+            # be executable and say its interpreter; and every executable
+            # script there is a guard with cases (command_line.py is a module
+            # the guards import, not executable).
+            for hook in ${lib.concatStringsSep " " (lib.attrNames cases)}; do
+              if [ ! -x ${hooks}/"$hook" ] || [ "$(head -n 1 ${hooks}/"$hook")" != "#!/usr/bin/env python3" ]; then
+                echo "$hook is not executable with #!/usr/bin/env python3" >&2
+                fail=1
+              fi
+            done
+            for script in ${hooks}/*.py; do
+              name=''${script##*/}
+              if [ -x "$script" ] && ! grep -qxF "$name" <<< "${lib.concatLines (lib.attrNames cases)}"; then
+                echo "$name is an executable guard without cases here" >&2
+                fail=1
+              fi
+            done
             for hook in $unregistered; do
               echo "$hook is not registered under PreToolUse/Bash in .claude/settings.json" >&2
               fail=1

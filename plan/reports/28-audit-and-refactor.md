@@ -1466,3 +1466,20 @@ findings, and the step's last evidence.
   Leftover workspaces `../linlog-pool-base`, `../linlog-round1` (area
   3.3's) and `../linlog-gate` (live, usable) stay; the last message
   lists the ones added.
+
+### Messages from `planning` to `step-28g` (2026-10-13, morning)
+
+- About 08:15: hold the full mutation run until the code it covers is
+  final (this area's library halves F5, F16, F27, H25 and F65, the F59
+  moves and any `U` fixes); before that, run only batches whose files
+  the area will not touch, from a jj workspace of its own; the early fuzz
+  run is fine for finding faults, and a reader that changes is fuzzed
+  again at the end. What was done: the area's library halves landed in
+  the command (no file of the mutation scope changed but by doc links);
+  the full run waits for the ultra reviews' `U` findings or the check
+  rounds, whichever comes first.
+- 08:41: signing works until about 10:40 (the passphrase entered, the
+  warm loop running); test a signature before each commit, unsigned
+  after. What was done: commits from 09:00 test a signature first
+  (scratch `jjc.sh`).
+
