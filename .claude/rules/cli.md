@@ -139,7 +139,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--standalone`. `interact` and every command with several formats need
   the prefix. A new option is a field of the library's value, never a
   flag of its own here.
-- `prove.rs`: `prove` and `check`, and `--net`'s refusal of
+- `prove.rs` is `prove` and what the batch and a session share with
+  it (the search's thread, `searched`, `Stop`, the verdict line, the
+  statistics); `check.rs` is `check` (`read_proof`, `check_into`);
+  `show.rs` is how a derivation, a net or a sequent is shown (`Show`,
+  `Shown`, `derivation`, `shown`, `render`, `net_into`, the lines that
+  say why one is left out). Together they hold `--net`'s refusal of
   sequents outside unit-free MLL and of affine mode (`nets_exist`), before
   the search runs; in intuitionistic mode the net printed is the one of
   the one-sided sequent. The format is `--format`, else the one the
@@ -423,7 +428,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   gives up is unknown, exit 3 (`Reason::Unchecked`, which names
   `--memory-limit`).
 - **A derivation is written by `shown` and nowhere else**: the linear
-  one (`prove::derivation`) and the one read back as LK or LJ
+  one (`show::derivation`) and the one read back as LK or LJ
   (`ordinary::derivation`) are each built and then handed to `shown`
   through the `Written` trait (the exports' `Drawable`, the text tree's
   size and writer), which fits it to the terminal, renders PNG and PDF,
@@ -434,7 +439,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   refused it); past it the drawing is left out with a line naming
   `--memory-limit`.
 - **A derivation is made by `derivation(proof, mode, &show, halt, why,
-  out)` and nowhere else** (`prove.rs`; `Show` is what the output
+  out)` and nowhere else** (`show.rs`; `Show` is what the output
   arguments ask for and where the output goes, `Shown` what became of
   the derivation: `Written` into `out`, `Rendered(bytes)` for a binary
   format, `LeftOut(line)` or `Nothing`). The output is `io::Output`: the

@@ -3,11 +3,9 @@
 
 use crate::argument_parsing::{Format, InteractArgs};
 use crate::limit::{Deadline, Notice};
-use crate::prove::{
-    Ended, Rendered, Show, Shown, bytes_text, derivation, describe, notice_line, on_large_stack,
-    render, searched, stopped, verdict_line,
-};
+use crate::prove::{Ended, describe, notice_line, on_large_stack, searched, stopped, verdict_line};
 use crate::settings::{Given, Threads, time_limit};
+use crate::show::{Rendered, Show, Shown, bytes_text, derivation, render};
 use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};

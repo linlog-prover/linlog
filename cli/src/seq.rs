@@ -6,7 +6,7 @@
 
 use crate::argument_parsing::{Format, SeqCommand, SequentFormat};
 use crate::settings::{self, Given};
-use crate::{Status, exit_on_interrupt, io, prove, style};
+use crate::{Status, exit_on_interrupt, io, show, style};
 use anyhow::{Result, bail};
 use linlog::Mode;
 use std::io::Write as _;
@@ -58,7 +58,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 }
                 None => (input.sequent(&settings.limits)?, mode_of(*intuitionistic)),
             };
-            prove::form(
+            show::form(
                 *standalone,
                 matches!(format, SequentFormat::Latex | SequentFormat::Typst),
             )?;
@@ -71,18 +71,18 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 written.style_key(),
                 *standalone,
             )?;
-            let text = prove::sequent_in(&sequent, mode, *format, &styles, &settings.limits)?;
+            let text = show::sequent_in(&sequent, mode, *format, &styles, &settings.limits)?;
             match binary {
                 None => io::write(output.as_deref(), &text)?,
                 Some(format) => {
-                    prove::for_terminal(format, output.as_deref())?;
+                    show::for_terminal(format, output.as_deref())?;
                     // The sequent is all the output: a render the bound
                     // refuses is an error.
                     let memory = settings.limits.memory_bytes;
-                    let bytes = match prove::render(text, format, &styles, memory, &|| false)? {
-                        prove::Rendered::Bytes(bytes) => bytes,
-                        prove::Rendered::Refused(line) => bail!("{line}"),
-                        prove::Rendered::Stopped => unreachable!("nothing stops it"),
+                    let bytes = match show::render(text, format, &styles, memory, &|| false)? {
+                        show::Rendered::Bytes(bytes) => bytes,
+                        show::Rendered::Refused(line) => bail!("{line}"),
+                        show::Rendered::Stopped => unreachable!("nothing stops it"),
                     };
                     let mut out = io::Output::open(output.as_deref(), true)?;
                     out.stream().write_all(&bytes)?;

@@ -11,10 +11,10 @@ use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
-    Ended, Show, Shown, Stop, derivation, describe, every_steps, net_into, nets_exist,
-    on_large_stack, searched, statistics, stopped, verdict_line,
+    Ended, Stop, describe, on_large_stack, searched, statistics, stopped, verdict_line,
 };
 use crate::settings::{Threads, time_limit};
+use crate::show::{Show, Shown, derivation, every_steps, net_into, nets_exist};
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::ordinary::Image;
@@ -729,7 +729,7 @@ impl Shared {
         };
         let mut out = open()?;
         let prefix = (show.verdict && !show.format.is_binary())
-            .then(|| format!("{}\n", crate::prove::note(show.format, line)));
+            .then(|| format!("{}\n", crate::show::note(show.format, line)));
         let why = || Stop::why(self.stopped(deadline));
         let shown = if show.net {
             let found = outcome.net.as_deref();

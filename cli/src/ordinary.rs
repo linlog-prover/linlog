@@ -7,7 +7,8 @@
 
 use crate::argument_parsing::{InputFormat, Tree};
 use crate::io::{bound, refused};
-use crate::prove::{Ended, Show, Shown, not_built, unknown};
+use crate::prove::{Ended, unknown};
+use crate::show::{Show, Shown, not_built};
 use anyhow::{Result, anyhow, bail};
 use linlog::ordinary::{self, Image};
 use linlog::proofs::Sides;
@@ -83,7 +84,7 @@ pub(crate) fn verdict_line(outcome: &Outcome, image: &Image, ended: &Ended) -> S
 
 /// Makes the derivation of LK or LJ a proof of the image reads back as
 /// and writes it in the format `show` names, as
-/// [`derivation`](crate::prove::derivation) does for a linear one: within
+/// [`derivation`](crate::show::derivation) does for a linear one: within
 /// the view's bounds, the time limit and Ctrl-C, fitted to a terminal.
 /// The read-back is checked before it is written; one that fails the
 /// check is an error, a defect to report.
@@ -124,5 +125,5 @@ pub(crate) fn derivation(
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         checked => checked?,
     }
-    crate::prove::shown(d, show.fit(), show, halt, why, prefix, out)
+    crate::show::shown(d, show.fit(), show, halt, why, prefix, out)
 }

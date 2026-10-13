@@ -128,7 +128,7 @@ fn capped(
         .take(most.saturating_add(1))
         .read_to_string(&mut text)?;
     if text.len() as u64 > most {
-        bail!("{} {}{advice}", over(), crate::prove::bytes_text(most));
+        bail!("{} {}{advice}", over(), crate::show::bytes_text(most));
     }
     Ok(text)
 }

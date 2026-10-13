@@ -9,6 +9,8 @@
 mod argument_parsing;
 /// `prove` over many sequents.
 mod batch;
+/// The `check` command.
+mod check;
 /// The `interact` command.
 mod interact;
 /// Reading input and writing output.
@@ -18,12 +20,16 @@ mod limit;
 /// Ordinary logic: its input, its verdict line and the derivation read
 /// back.
 mod ordinary;
-/// The `prove` and `check` commands.
+/// The `prove` command, and what it shares with the batch and a session:
+/// the search's thread, its verdict line and its statistics.
 mod prove;
 /// The `seq` commands.
 mod seq;
 /// The settings of a command, from its defaults, a file and its flags.
 mod settings;
+/// How a derivation, a net or a sequent is shown: its formats, its
+/// bounds, and the lines that say why one is left out.
+mod show;
 /// The options of every output format, from a file and flags.
 mod style;
 
@@ -268,7 +274,7 @@ pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
 fn run(cli: &Cli, given: &settings::Given) -> Result<Status> {
     match &cli.command {
         Command::Prove(args) => prove::prove(args, given),
-        Command::Check(args) => prove::check(args, given),
+        Command::Check(args) => check::check(args, given),
         Command::Interact(args) => interact::interact(args, given),
         Command::Seq { command } => seq::run(command, given),
     }
