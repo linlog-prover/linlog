@@ -1062,6 +1062,12 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     let format = args.output.format();
     let quiet = args.output.quiet;
     let show = Show::new(&args.output, &settings)?;
+    // An output file that cannot be made is found before the search, which
+    // it would lose: an output dropped unfinished leaves no file, and the
+    // file at the path stays as it was.
+    if let Some(path) = &args.output.output {
+        drop(io::Output::open(Some(path), format.is_binary())?);
+    }
     catch_interrupt();
 
     let status = on_large_stack(limits.stack_bytes(), || {

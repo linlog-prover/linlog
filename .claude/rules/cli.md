@@ -203,7 +203,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   derivation's prefix (`derivation(…, prefix, out)`). A derivation cut
   short by the time limit leaves no file; on standard output it stays
   as far as it came, with the reason after it. An earlier run's file at
-  the path is left as it is. In intuitionistic mode the two-sided derivation
+  the path is left as it is. An `--output` that cannot be made (a missing
+  directory, no permission) fails before the search: `prove` opens it
+  once and drops it unfinished, which leaves the path as it was. In intuitionistic mode the two-sided derivation
   goes to Rocq and is certified one-sided; a proof with Mix or affine
   weakening is exit 2 with the library's `Unsupported` message, after
   the search, and standard output stays empty. `seq print --format`
