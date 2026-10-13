@@ -787,9 +787,10 @@ relies on:
   again at every level and took two more levels of recursion than the
   partitions (`the_parts_of_a_mix_decide_only_as_facts`). The flag
   travels as a value
-  (`prove_stable` returns it, `decide` takes it as an out-parameter that
-  only `mix` and a one-member failure set), never in `Found`, so no
-  other rule's failure can carry it. A hereditary failure is memoized as
+  (`prove_stable`, `decide`, `decide_with`, `last_resort` and `mix`
+  return it beside the `Found`, which only `mix` and a one-member
+  failure set), never in `Found`, so no other rule's failure can carry
+  it. A hereditary failure is memoized as
   a complete one that says so, under the canonical key (a replacement
   maps parts to parts), only when nothing qualifies it; the argument of
   the loop check carries over: of all provable parts of `P` take one

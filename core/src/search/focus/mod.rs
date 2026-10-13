@@ -1001,16 +1001,15 @@ impl<'a> Run<'a> {
             self.stack_len += 1;
         }
         let mark = self.nodes.mark();
-        let mut hereditary = false;
-        let result = self.decide(theta, gamma, budget, &mut hereditary);
+        let result = self.decide(theta, gamma, budget);
         let own_depth = if self.problem.rules.stack {
             self.stack_len -= 1;
             (self.above() + self.stack_len) as u32
         } else {
             NO_DEPENDENCY
         };
-        let found = match result {
-            Ok(found) => found,
+        let (found, hereditary) = match result {
+            Ok(decided) => decided,
             Err(reason) => {
                 self.give_context(canonical);
                 return Err(reason);
@@ -1178,35 +1177,38 @@ impl<'a> Run<'a> {
         self.problem.forest.len().div_ceil(64) * size_of::<u64>()
     }
 
-    /// Decides a stable sequent the memo does not know, and sets
-    /// `hereditary`, under Mix, when it fails and no non-empty part of `Γ`
-    /// is provable either: `Γ` has one member, or Mix found each part with
+    /// Decides a stable sequent the memo does not know, and says whether
+    /// a failure is hereditary: under Mix, no non-empty part of `Γ` is
+    /// provable either, as `Γ` has one member, or Mix found each part with
     /// one member less hereditarily failed.
     fn decide(
         &mut self,
         theta: &OccSet,
         gamma: &Context,
         budget: u32,
-        hereditary: &mut bool,
-    ) -> Step {
+    ) -> Result<(Found, bool), Reason> {
         let mut members = self.take_list();
         gamma.list_into(&mut members);
         let mut tally = self.take_tally();
         let mut candidates = self.take_list();
         let mut copies = self.take_list();
-        let result = self.decide_with(
-            theta,
-            gamma,
-            &members,
-            &mut tally,
-            &mut candidates,
-            &mut copies,
-            budget,
-            hereditary,
-        );
-        if self.problem.rules.mix && members.len() == 1 && matches!(result, Ok(Found::Failed(_))) {
-            *hereditary = true;
-        }
+        let result = self
+            .decide_with(
+                theta,
+                gamma,
+                &members,
+                &mut tally,
+                &mut candidates,
+                &mut copies,
+                budget,
+            )
+            .map(|(found, hereditary)| {
+                // The one part of a single member is itself.
+                let alone = self.problem.rules.mix
+                    && members.len() == 1
+                    && matches!(found, Found::Failed(_));
+                (found, hereditary || alone)
+            });
         self.give_list(members);
         self.give_tally(tally);
         self.give_list(candidates);
@@ -1225,8 +1227,7 @@ impl<'a> Run<'a> {
         candidates: &mut Vec<OccId>,
         copies: &mut Vec<OccId>,
         budget: u32,
-        hereditary: &mut bool,
-    ) -> Step {
+    ) -> Result<(Found, bool), Reason> {
         let affine = self.problem.rules.affine;
         // One pass over the members: the counts, a `0`, and the positive
         // formulas worth focusing on. `1` and `!` only when alone, since
@@ -1255,17 +1256,17 @@ impl<'a> Run<'a> {
             && !tally.absorbs()
             && !theta.iter().any(|a| self.problem.counts.absorbs(a))
         {
-            return Ok(Found::NOTHING);
+            return Ok((Found::NOTHING, false));
         }
         let mut cuts = match self.initial(theta, gamma, members, budget)? {
             Found::Failed(cuts) => cuts,
-            proved => return Ok(proved),
+            proved => return Ok((proved, false)),
         };
         if self.problem.rules.intervals && !tally.balanced() {
-            return Ok(Found::failed(cuts));
+            return Ok((Found::failed(cuts), false));
         }
         if self.problem.rules.equation && !tally.equation(self.problem.rules.mix) {
-            return Ok(Found::failed(cuts));
+            return Ok((Found::failed(cuts), false));
         }
 
         // Of interchangeable candidates one is enough: the focus on either
@@ -1316,11 +1317,10 @@ impl<'a> Run<'a> {
             .chain(copies.iter().map(|&a| Alternative::Copy(a)));
         let cuts = match self.choose(theta, gamma, alternatives, budget)?.after(cuts) {
             Found::Failed(cuts) => cuts,
-            proved => return Ok(proved),
+            proved => return Ok((proved, false)),
         };
-        Ok(self
-            .last_resort(theta, gamma, members, tally, budget, hereditary)?
-            .after(cuts))
+        let (found, hereditary) = self.last_resort(theta, gamma, members, tally, budget)?;
+        Ok((found.after(cuts), hereditary))
     }
 
     /// Decides a choice among alternatives: in their order on this thread,
@@ -1490,7 +1490,7 @@ impl<'a> Run<'a> {
     }
 
     /// What is tried on a stable sequent after every focus failed: Mix,
-    /// when the rules have it, which sets `hereditary` when it fails
+    /// when the rules have it, which says whether it failed hereditarily,
     /// because no part of `Γ` is provable.
     fn last_resort(
         &mut self,
@@ -1499,12 +1499,11 @@ impl<'a> Run<'a> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
-        hereditary: &mut bool,
-    ) -> Step {
+    ) -> Result<(Found, bool), Reason> {
         if self.problem.rules.mix {
-            return self.mix(theta, gamma, members, tally, budget, hereditary);
+            return self.mix(theta, gamma, members, tally, budget);
         }
-        Ok(Found::NOTHING)
+        Ok((Found::NOTHING, false))
     }
 
     /// The initial rules on a stable sequent: a dual pair in `Γ`, or a

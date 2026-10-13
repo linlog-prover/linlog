@@ -728,7 +728,7 @@ impl Run<'_> {
     /// equation admits a Mix. First, with a memo, the parts with one
     /// member less: when each of them fails hereditarily and completely,
     /// no part of this sequent's is provable, so no partition is searched
-    /// and `hereditary` is set. A sequent of `n` members whose parts all
+    /// and the failure is hereditary (the flag beside the result). A sequent of `n` members whose parts all
     /// fail then costs its `2ⁿ` parts `n` lookups each, where the
     /// partitions of every part cost `3ⁿ`; without a memo every part is
     /// searched again at every level, and the partitions are cheaper.
@@ -739,14 +739,12 @@ impl Run<'_> {
         members: &[OccId],
         tally: &Tally,
         budget: u32,
-        hereditary: &mut bool,
-    ) -> Step {
+    ) -> Result<(Found, bool), Reason> {
         if members.len() < 2 || (self.problem.rules.equation && !tally.admits_mix()) {
-            return Ok(Found::NOTHING);
+            return Ok((Found::NOTHING, false));
         }
         if self.problem.memoizes && self.parts_fail(theta, gamma, members, budget)? {
-            *hereditary = true;
-            return Ok(Found::NOTHING);
+            return Ok((Found::NOTHING, true));
         }
         let mut left = self.take_context();
         left.insert(members[0]);
@@ -770,7 +768,7 @@ impl Run<'_> {
         self.give_context(left);
         self.give_context(right);
         self.give_split(split);
-        result
+        result.map(|found| (found, false))
     }
 
     /// Whether every part of `Γ` with one member less fails hereditarily
