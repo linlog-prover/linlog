@@ -201,9 +201,13 @@ fn limits_on_memory_and_occurrences() {
         &["seq", "fragment", "--occurrence-limit", "2", "A |- A * A"],
         "",
     );
-    assert!(
-        status == 2 && err.contains("to 4 subformula occurrences"),
-        "{err}"
+    assert_eq!(
+        (status, err.as_str()),
+        (
+            2,
+            "error: the sequent has more subformula occurrences than the limit of 2; raise it \
+             with --occurrence-limit\n"
+        )
     );
     assert_eq!(
         linlog(

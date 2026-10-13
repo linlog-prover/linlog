@@ -2,4 +2,4 @@ $ linlog prove --occurrence-limit 2 'A * B |- B * A'
 --- status 2
 --- stdout
 --- stderr
-error: the sequent unfolds to 6 subformula occurrences, more than the limit of 2; raise it with --occurrence-limit
+error: the sequent has more subformula occurrences than the limit of 2; raise it with --occurrence-limit

@@ -93,12 +93,10 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
     let unbounded = Limits::default().with_occurrences(None);
     let within = bound(most);
     let refused = |error: linlog::Error| match error {
-        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { occurrences, .. }) => {
-            anyhow::anyhow!(
-                "the sequent has {occurrences} subformula occurrences or more, more than the \
-                 limit of {most}; raise it with --occurrence-limit"
-            )
-        }
+        linlog::Error::Refused(linlog::limits::Refusal::Occurrences { .. }) => anyhow::anyhow!(
+            "the sequent has more subformula occurrences than the limit of {most}; raise it \
+             with --occurrence-limit"
+        ),
         error => error.into(),
     };
     match format {
@@ -110,9 +108,7 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
             sequent.context("not a sequent in JSON")
         }
         // The library's error says that the text is no LLTP problem.
-        InputFormat::Lltp => Ok(linlog::lltp::read(text, &unbounded)
-            .map_err(refused)?
-            .sequent),
+        InputFormat::Lltp => Ok(linlog::lltp::read(text, &within).map_err(refused)?.sequent),
         InputFormat::Spec => match linlog::mist::read(text, &within) {
             Ok(problem) => Ok(problem.sequent),
             Err(linlog::Error::Refused(linlog::limits::Refusal::Occurrences {
@@ -124,7 +120,7 @@ pub fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent>
             ),
             Err(e) => Err(e.into()),
         },
-        _ => Sequent::parse_within(text, &unbounded).map_err(|e| match e {
+        _ => Sequent::parse_within(text, &within).map_err(|e| match e {
             linlog::Error::Parse(_) => crate::parse_error(text, e),
             e => refused(e),
         }),

@@ -480,8 +480,13 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   (`svg::net`'s limits; `net_too_large`'s line names the flag).
   `--occurrence-limit N|none` (`Count<u64>`, default
   `Limits::DEFAULT_OCCURRENCES`) is on `SequentInput`, so on every command
-  that reads a sequent: `SequentInput::sequent` compares
-  `Sequent::occurrences()` with it and refuses with exit status 2
+  that reads a sequent (`limits.occurrences`, so a settings file sets it
+  too): text and LLTP are parsed within it, refused at the first
+  occurrence past it before anything of that size is built (a 30 MB
+  text refused at a limit of 1 000 took 2.86 GB when the limit came
+  after the parse), `.spec` likewise; a JSON sequent, whose arena is as
+  small as its file, is read whole and `admit` compares
+  `Sequent::occurrences()` with the limit, refusing with exit status 2
   before anything unfolds, prints or lays out the sequent (a JSON
   sequent of 438 bytes can stand for 67 million occurrences);
   `SequentInput::forest` then builds the forest within the same limit,
