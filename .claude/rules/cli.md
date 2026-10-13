@@ -414,6 +414,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   status 2: a defect to report, not a verdict; one whose check a bound
   gives up is unknown, exit 3 (`Reason::Unchecked`, which names
   `--memory-limit`).
+- **A derivation is written by `shown` and nowhere else**: the linear
+  one (`prove::derivation`) and the one read back as LK or LJ
+  (`ordinary::derivation`) are each built and then handed to `shown`
+  through the `Written` trait (the exports' `Drawable`, the text tree's
+  size and writer), which fits it to the terminal, renders PNG and PDF,
+  or writes the format; the two once were copies that had drifted. A PNG
+  or PDF's SVG is written into `Bounded`, a string that refuses text past
+  the memory bound, so the drawing is never held whole beyond it (80 MB
+  were held under `--memory-limit 34MiB` before the render's estimate
+  refused it); past it the drawing is left out with a line naming
+  `--memory-limit`.
 - **A derivation is made by `derivation(proof, mode, &show, halt, why,
   out)` and nowhere else** (`prove.rs`; `Show` is what the output
   arguments ask for and where the output goes, `Shown` what became of

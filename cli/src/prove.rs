@@ -9,13 +9,13 @@ use crate::style;
 use crate::{Status, catch_interrupt, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::Styles;
-use linlog::export::{Form, latex, pdf, png, rocq, svg, typst};
+use linlog::export::{Drawable, Form, latex, pdf, png, rocq, svg, typst};
 use linlog::ordinary::Image;
-use linlog::proofs::{Compact, Sides};
+use linlog::proofs::{Compact, Sides, TextOptions};
 use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, prove_goal, race};
 use linlog::{
-    CheckError, Criterion, Error, ErrorKind, Forest, Limits, Mode, Proof, ProofStructure, Reading,
-    Refusal, Sequent, Size, ViewOptions,
+    CheckError, Criterion, Derivation, Error, ErrorKind, Forest, Limits, Mode, Proof,
+    ProofStructure, Reading, Refusal, Sequent, Size, ViewOptions,
 };
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
@@ -652,14 +652,118 @@ pub(crate) fn derivation(
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
     };
+    shown(d, fit, show, halt, why, prefix, out)
+}
+
+/// A derivation the command writes: linear, or read back as LK or LJ.
+pub(crate) trait Written {
+    /// The derivation as the exports take it.
+    fn drawable(&self) -> Drawable<'_>;
+    /// The widest line and the lines of its text tree.
+    fn text_size(&self, options: &TextOptions) -> (usize, usize);
+    /// How many inferences it has.
+    fn inferences(&self) -> usize;
+    /// Writes its text tree.
+    fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        stop: impl FnMut(linlog::Progress) -> bool,
+    ) -> Result<(), Error>;
+}
+
+impl Written for Derivation<'_> {
+    fn drawable(&self) -> Drawable<'_> {
+        self.into()
+    }
+
+    fn text_size(&self, options: &TextOptions) -> (usize, usize) {
+        Derivation::text_size(self, options)
+    }
+
+    fn inferences(&self) -> usize {
+        Derivation::inferences(self).len()
+    }
+
+    fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        stop: impl FnMut(linlog::Progress) -> bool,
+    ) -> Result<(), Error> {
+        Derivation::write_text(self, options, out, stop)
+    }
+}
+
+impl Written for linlog::ordinary::Derivation {
+    fn drawable(&self) -> Drawable<'_> {
+        self.into()
+    }
+
+    fn text_size(&self, options: &TextOptions) -> (usize, usize) {
+        Self::text_size(self, options)
+    }
+
+    fn inferences(&self) -> usize {
+        Self::inferences(self).len()
+    }
+
+    fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        stop: impl FnMut(linlog::Progress) -> bool,
+    ) -> Result<(), Error> {
+        Self::write_text(self, options, out, stop)
+    }
+}
+
+/// A string that takes text up to `most` bytes and refuses the rest: a
+/// drawing too large to render within the memory bound is never held
+/// whole.
+struct Bounded {
+    /// The text taken.
+    text: String,
+    /// The most bytes it takes.
+    most: usize,
+    /// Whether text was refused.
+    over: bool,
+}
+
+impl Write for Bounded {
+    /// Takes the text, or refuses it past the bound.
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        if self.text.len().saturating_add(s.len()) > self.most {
+            self.over = true;
+            return Err(std::fmt::Error);
+        }
+        self.text.push_str(s);
+        Ok(())
+    }
+}
+
+/// Writes a derivation that is built in the format `show` names, and
+/// returns what became of it: left out where it does not fit the terminal
+/// (`fit`), rendered for PNG and PDF from an SVG held within the memory
+/// bound, else written into `out` after `prefix`, under `halt`; `why`
+/// says what stopped it.
+pub(crate) fn shown(
+    d: impl Written,
+    fit: Option<(u64, u64)>,
+    show: &Show,
+    mut halt: impl FnMut() -> bool,
+    why: impl Fn() -> String,
+    prefix: Option<&str>,
+    out: &mut impl Write,
+) -> Result<Shown> {
+    let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
     let styles = &show.styles;
     if let Some((columns, most)) = fit {
         let (width, lines) = d.text_size(&styles.text);
         let (width, lines) = (width as u64, lines as u64);
         if width > columns || lines > most {
-            let inferences = d.inferences().len() as u64;
             return Ok(Shown::LeftOut(unfit(
-                inferences,
+                d.inferences() as u64,
                 &width.to_string(),
                 lines,
                 columns,
@@ -668,8 +772,22 @@ pub(crate) fn derivation(
         }
     }
     if show.format.is_binary() {
-        let mut drawing = String::new();
-        if svg::write(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
+        let memory = show.limits.memory_bytes;
+        let mut drawing = Bounded {
+            text: String::new(),
+            most: memory.map_or(usize::MAX, |m| usize::try_from(m).unwrap_or(usize::MAX)),
+            over: false,
+        };
+        let written = svg::write(d.drawable(), &styles.svg, &mut drawing, |_| halt());
+        if drawing.over {
+            return Ok(Shown::LeftOut(format!(
+                "the drawing is not rendered: its SVG passes the memory limit of {}; \
+                 --memory-limit SIZE raises the limit, and the svg format writes the drawing \
+                 without rendering it",
+                bytes_text(memory.unwrap_or(0))
+            )));
+        }
+        if written.is_err() {
             return Ok(stopped());
         }
         drop(d);
@@ -678,13 +796,7 @@ pub(crate) fn derivation(
         let halt = std::cell::RefCell::new(halt);
         let stop = || (0..STEPS_PER_CLOCK).any(|_| (halt.borrow_mut())());
         return Ok(
-            match render(
-                drawing,
-                show.format,
-                styles,
-                show.limits.memory_bytes,
-                &stop,
-            )? {
+            match render(drawing.text, show.format, styles, memory, &stop)? {
                 Rendered::Bytes(bytes) => Shown::Rendered(bytes),
                 Rendered::Refused(line) => Shown::LeftOut(line),
                 Rendered::Stopped => stopped(),
@@ -693,10 +805,10 @@ pub(crate) fn derivation(
     }
     let mut out = Prefixed { out, prefix };
     let written = match show.format {
-        Format::Latex => latex::write(&d, &styles.latex, &mut out, |_| halt()),
-        Format::Typst => typst::write(&d, &styles.typst, &mut out, |_| halt()),
-        Format::Svg => svg::write(&d, &styles.svg, &mut out, |_| halt()),
-        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, |_| halt()),
+        Format::Latex => latex::write(d.drawable(), &styles.latex, &mut out, |_| halt()),
+        Format::Typst => typst::write(d.drawable(), &styles.typst, &mut out, |_| halt()),
+        Format::Svg => svg::write(d.drawable(), &styles.svg, &mut out, |_| halt()),
+        Format::Rocq => rocq::write(d.drawable(), &styles.rocq, &mut out, |_| halt()),
         Format::Text | Format::Json | Format::Png | Format::Pdf => {
             d.write_text(&styles.text, &mut out, |_| halt())
         }

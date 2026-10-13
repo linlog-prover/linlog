@@ -5,10 +5,9 @@
 //! intuitionistic or minimal logic read under `--logic`, translated into
 //! linear logic, decided there, and its proof read back as LK or LJ.
 
-use crate::argument_parsing::{Format, InputFormat, Tree};
-use crate::prove::{Ended, Prefixed, Show, Shown, not_built, render, unfit, unknown};
+use crate::argument_parsing::{InputFormat, Tree};
+use crate::prove::{Ended, Show, Shown, not_built, unknown};
 use anyhow::{Result, anyhow, bail};
-use linlog::export::{latex, rocq, svg, typst};
 use linlog::ordinary::{self, Image};
 use linlog::proofs::Sides;
 use linlog::search::{Outcome, Verdict};
@@ -117,60 +116,5 @@ pub(crate) fn derivation(
         Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
         checked => checked?,
     }
-    let styles = &show.styles;
-    if let Some((columns, most)) = show.fit() {
-        let (width, lines) = d.text_size(&styles.text);
-        let (width, lines) = (width as u64, lines as u64);
-        if width > columns || lines > most {
-            let inferences = d.inferences().len() as u64;
-            return Ok(Shown::LeftOut(unfit(
-                inferences,
-                &width.to_string(),
-                lines,
-                columns,
-                most,
-            )));
-        }
-    }
-    if show.format.is_binary() {
-        let mut drawing = String::new();
-        if svg::write(&d, &styles.svg, &mut drawing, |_| halt()).is_err() {
-            return Ok(stopped());
-        }
-        drop(d);
-        let halt = std::cell::RefCell::new(halt);
-        let stop = || (0..crate::prove::STEPS_PER_CLOCK).any(|_| (halt.borrow_mut())());
-        return Ok(
-            match render(
-                drawing,
-                show.format,
-                styles,
-                show.limits.memory_bytes,
-                &stop,
-            )? {
-                crate::prove::Rendered::Bytes(bytes) => Shown::Rendered(bytes),
-                crate::prove::Rendered::Refused(line) => Shown::LeftOut(line),
-                crate::prove::Rendered::Stopped => stopped(),
-            },
-        );
-    }
-    let mut out = Prefixed { out, prefix };
-    let written = match show.format {
-        Format::Latex => latex::write(&d, &styles.latex, &mut out, |_| halt()),
-        Format::Typst => typst::write(&d, &styles.typst, &mut out, |_| halt()),
-        Format::Svg => svg::write(&d, &styles.svg, &mut out, |_| halt()),
-        Format::Rocq => rocq::write(&d, &styles.rocq, &mut out, |_| halt()),
-        Format::Text | Format::Json | Format::Png | Format::Pdf => {
-            d.write_text(&styles.text, &mut out, |_| halt())
-        }
-    };
-    match written {
-        Ok(()) => Ok(Shown::Written),
-        Err(Error::Refused(Refusal::Stopped { .. })) => Ok(Shown::Cut(format!(
-            "the derivation is cut short: {}",
-            why()
-        ))),
-        Err(Error::Unsupported(e)) => Err(anyhow!(e).context("no certificate")),
-        Err(_) => Ok(Shown::Written),
-    }
+    crate::prove::shown(d, show.fit(), show, halt, why, prefix, out)
 }

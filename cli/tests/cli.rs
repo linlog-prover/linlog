@@ -1476,6 +1476,34 @@ fn every_entry_file_lies_inside_the_directory() {
     assert!(out.join("-:1.json").is_file() && out.join("-:2.json").is_file());
 }
 
+/// A PNG's drawing is held as SVG text only within the memory bound: past
+/// it the drawing is left out with a line that names the flag, before the
+/// render's estimate is asked.
+#[test]
+fn a_drawing_is_held_within_the_memory_bound() {
+    let atoms: Vec<String> = (0..60).map(|i| format!("a{i}")).collect();
+    let sequent = format!("{} |- {}", atoms.join(", "), atoms.join(" * "));
+    let png = scratch("held").with_extension("png");
+    let (status, _, err) = linlog(
+        &[
+            "prove",
+            "--deterministic",
+            "--memory-limit",
+            "256KiB",
+            "--output",
+            png.to_str().unwrap(),
+            &sequent,
+        ],
+        "",
+    );
+    assert!(
+        status == 0
+            && err.contains("its SVG passes the memory limit of 256.0 KiB")
+            && !png.exists(),
+        "{err}"
+    );
+}
+
 /// A reader that closes standard output keeps the verdict's exit status:
 /// what is written after is dropped, where it once ended in an error, exit
 /// status 2.
