@@ -174,21 +174,6 @@ pub(crate) struct Show {
     abbreviate: Option<usize>,
 }
 
-/// Returns the name a format's options have in the styles, if it has
-/// options.
-fn style_key(format: Format) -> Option<&'static str> {
-    match format {
-        Format::Text => Some("text"),
-        Format::Latex => Some("latex"),
-        Format::Typst => Some("typst"),
-        Format::Svg => Some("svg"),
-        Format::Png => Some("png"),
-        Format::Pdf => Some("pdf"),
-        Format::Rocq => Some("rocq"),
-        Format::Json => None,
-    }
-}
-
 impl Show {
     /// Reads the output arguments over the settings' styles, view and
     /// limits.
@@ -217,7 +202,7 @@ impl Show {
             &settings.styles,
             &output.style,
             Some(&output.rocq),
-            style_key(format),
+            format.style_key(),
             output.standalone,
         )?;
         // The size of the terminal that standard output is, and of no

@@ -1128,16 +1128,38 @@ impl Format {
     /// Returns the format a file's extension names, if it names one.
     pub(crate) fn of_path(path: &std::path::Path) -> Option<Self> {
         let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-        Some(match extension.as_str() {
-            "txt" => Self::Text,
-            "json" => Self::Json,
-            "tex" => Self::Latex,
-            "typ" => Self::Typst,
-            "svg" => Self::Svg,
-            "png" => Self::Png,
-            "pdf" => Self::Pdf,
-            "v" => Self::Rocq,
-            _ => return None,
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|format| format.extension() == extension)
+    }
+
+    /// Returns the extension of a file in the format.
+    pub(crate) fn extension(self) -> &'static str {
+        match self {
+            Self::Text => "txt",
+            Self::Json => "json",
+            Self::Latex => "tex",
+            Self::Typst => "typ",
+            Self::Svg => "svg",
+            Self::Png => "png",
+            Self::Pdf => "pdf",
+            Self::Rocq => "v",
+        }
+    }
+
+    /// Returns the name the format's options have in the styles, if it
+    /// has options.
+    pub(crate) fn style_key(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Text => "text",
+            Self::Json => return None,
+            Self::Latex => "latex",
+            Self::Typst => "typst",
+            Self::Svg => "svg",
+            Self::Png => "png",
+            Self::Pdf => "pdf",
+            Self::Rocq => "rocq",
         })
     }
 
@@ -1187,6 +1209,20 @@ pub(crate) enum SequentFormat {
     Png,
     /// A PDF document of the SVG document's line
     Pdf,
+}
+
+impl From<SequentFormat> for Format {
+    /// Returns the output format of the same name.
+    fn from(format: SequentFormat) -> Self {
+        match format {
+            SequentFormat::Text => Self::Text,
+            SequentFormat::Latex => Self::Latex,
+            SequentFormat::Typst => Self::Typst,
+            SequentFormat::Svg => Self::Svg,
+            SequentFormat::Png => Self::Png,
+            SequentFormat::Pdf => Self::Pdf,
+        }
+    }
 }
 
 /// The fragments `--fragment` names.

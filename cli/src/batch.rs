@@ -431,20 +431,6 @@ struct Shared {
     files: std::sync::Mutex<HashSet<PathBuf>>,
 }
 
-/// The extension of a file a derivation is written to in a format.
-fn extension(format: Format) -> &'static str {
-    match format {
-        Format::Text => "txt",
-        Format::Json => "json",
-        Format::Latex => "tex",
-        Format::Typst => "typ",
-        Format::Svg => "svg",
-        Format::Png => "png",
-        Format::Pdf => "pdf",
-        Format::Rocq => "v",
-    }
-}
-
 /// Returns whether a line's name names a file of `file_for`: whether it
 /// has a component other than a root or `.`, so that its file lies inside
 /// the directory. A name without one (empty, `.`, `/`) is no name.
@@ -471,7 +457,7 @@ fn file_for(directory: &Path, name: &str, format: Format) -> PathBuf {
     }
     let mut file = path.into_os_string();
     file.push(".");
-    file.push(extension(format));
+    file.push(format.extension());
     file.into()
 }
 

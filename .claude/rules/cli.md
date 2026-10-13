@@ -598,8 +598,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `HELP`, and the session test in `cli/tests/cli.rs`, which pins the
   exact output of a scripted session.
 - **An output format** (`lean`, say): a variant of `Format` (its
-  extension in `Format::of_path`, its key in `style_key` and `Styles`),
-  its arm in `derivation`'s `match show.format` calling the library's
+  extension in `Format::extension`, its key in `Format::style_key` and `Styles`),
+  its arm in `shown`'s `match show.format` calling the library's
   `write`, and in `note` for its comment syntax, so that a source file
   still compiles with the verdict in it. A format with a document form
   takes `--standalone` (`form` lists which formats have one); one that

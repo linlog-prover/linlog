@@ -63,15 +63,15 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 *standalone,
                 matches!(format, SequentFormat::Latex | SequentFormat::Typst),
             )?;
-            let (key, binary) = match format {
-                SequentFormat::Text => ("text", None),
-                SequentFormat::Latex => ("latex", None),
-                SequentFormat::Typst => ("typst", None),
-                SequentFormat::Svg => ("svg", None),
-                SequentFormat::Png => ("png", Some(Format::Png)),
-                SequentFormat::Pdf => ("pdf", Some(Format::Pdf)),
-            };
-            let styles = style::read(&settings.styles, style, None, Some(key), *standalone)?;
+            let written = Format::from(*format);
+            let binary = written.is_binary().then_some(written);
+            let styles = style::read(
+                &settings.styles,
+                style,
+                None,
+                written.style_key(),
+                *standalone,
+            )?;
             let text = prove::sequent_in(&sequent, mode, *format, &styles, &settings.limits)?;
             match binary {
                 None => io::write(output.as_deref(), &text)?,
