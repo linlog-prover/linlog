@@ -819,16 +819,107 @@ findings, and the step's last evidence.
 |---|---|---|
 | a. F59: `derivation.rs`, `check.rs`, `interactive.rs` split as pure moves | done | ppsxqlln (`proofs/check/{mod,zones,error,pass}.rs`), zqmrmnwu (`proofs/derivation/{mod,view,build}.rs`), mpuzmwmy (`proofs/interactive/{mod,expand,replay,terms}.rs`): items moved whole, private ones opened to the parent (`pub(super)`) where a sibling or the tests read them, the re-exports and every public path unchanged; the rules' paths (`core.md`, `core-proofs.md`, `core-derivations.md`, `claude-infra.md`, `evidence.md`) and `mutants/run.sh`'s check batch with them; each passed its gate (scratch `gates/`, 07:48 to 08:05) |
 | b. a test that kills the race's `||` for `&&`; why the reruns' `--re` took twelve mutants | done | nltxoozn: `the_caller_s_stop_ends_both_sides_of_the_race` (Mix of five pairs, the caller's stop always true: unknown, where the mutant lets the pool prove it), 30 of 30 runs pass unmutated, the mutant fails it in 0.04 s. The twelve: cargo-mutants 27.1.0 applies neither `--re` nor `exclude_re` to its struct-field deletions (`cargo mutants --list --file core/src/search/mod.rs --re zzzz` lists the eleven `delete field … in Options::with_*`, and the Horn file its `Answer` field), recorded in `evidence.md` |
-| c. the command's shared search flags, `Options`, stop and verdict line (F194, F200), `--settings FILE` (R183), `--stats` and the engines from the library (area 3.2's halves) | open | |
-| d. the command's other findings (F5, F16, F27, H25, F65, F162 to F170, F189 to F208, H14, H15, H20) | open | |
-| e. the command's tests (F192, F209 to F216) | open | |
-| f. the harness (F161, F182 to F188, F219, F220, the reason column, F141's half) | open | |
-| g. the flake, CI and the hooks (F155, F172, F173, F180, F221, F222, F226, the step's flake items) | open | |
-| h. the documents (F156 to F160, F171, F174 to F179, F181, F190, F223 to F225, section 1.1's stale claims) | open | |
-| i. the fuzz targets of the command and the read-back (F217, F218) | open | |
+| c. the command's shared search flags, `Options`, stop and verdict line (F194, F200), `--settings FILE` (R183), `--stats` and the engines from the library (area 3.2's halves) | done | lnnpmpkv (`cli/src/settings.rs`: one `linlog::Settings` per command from the command's defaults, `--settings FILE` read over them key by key, then the flags given on the command line by clap's `value_source`; `SearchArgs` flattened into `prove` and `interact`; new flags `--work-limit`, `--test-period`, `--schedule`; `seq.rs`; `Count<T>` and `Bytes` for the flags' numbers, F197; a deadline past `Instant`'s range no limit, F167; README's `--settings` example run by `readme.rs`, R183's "Met when"), ruyrrlnz (`--deterministic` takes turns too, as the design names; no lock change), zkzltzxt (`Status::from(&Verdict)`, `Stop::why`, `unread`, `Stop::BatchTimeout`, F198, and `--work-limit`'s advice), oovrotos (a session's `close` prints `verdict_line`: "provable" for "proved", the lock's `interact-session` with it), xmqwzzxr (`--stats` from `Engine::counters`, the lock's `format-stats` and README's examples with it), uysvqrto (`--engine` from `Engine::NAMES` in the command and the harness, F141's half) |
+| d. the command's other findings (F5, F16, F27, H25, F65, F162 to F170, F189 to F208, H14, H15, H20) | done | svwxxqkz F16 (text and LLTP read within `--occurrence-limit`; lock `error-occurrence-limit`), lsywsspw (F161, F162, F163, F189, F190, F191, F193, F195, F196 with a test of the style help, F199 with a quote-aware `words`, F201, H20's note; `interact --file -` refused; lock `error-no-command`), xmyntvsq F203, porxkxso (F164, H14, H15), toxvsokk (F27 for proof files and sessions through `wire::upgrade`, H25: `check` under `--timeout`, `--work-limit`, `--occurrence-limit`, unknown exit 3 at a limit; F170's JSON; F208), xloykqkq (F166 `io::Stdout`, F202), pyvvnoyv F207, tzzkmuol (F205 `shown` and `Written`, F169 `Bounded`), pomuuppp F65, okyulpzs F5's command half (seq print's writers under the settings' limits), nyvzvtvp F206, kqmlktwk (records and check's JSON verdict first, the library's error as it writes it). F204 in lnnpmpkv, F200 in zkzltzxt and oovrotos, F168 fixed before the area |
+| e. the command's tests (F192, F209 to F216) | done | yltzorpx (F209 `cli/tests/common/mod.rs`, F212, F213, F216: the `--jobs` note without a plural, left out where no test pins it; the CLI tests and README pass on one core, run under `taskset -c 2`), tnvqonyw (F192 `search_flags`, F210 `interrupt`, F211 `output_is_whole_or_untouched`, F214 `batch_flags`), qqwyskts (F215: the help of four commands, IALL, IMELL, ILL, intuitionistic affine, the batch's JSON and an error record, check as LaTeX, net and JSON valid, invalid and unknown, seq print as SVG; `error-memory-limit` renamed `unknown-memory-limit`). Not done: `--isolate`'s failure paths (a child that crashes or outlives its limit), which need a child that crashes on purpose |
+| f. the harness (F161, F182 to F188, F219, F220, the reason column, F141's half) | done | otvurtuv: `summary::configuration` and `base`, `Ending`, `Runs::{decided, late, solved, failed}`, `COUNTERS` and a counters table, `summary --against … --counters` (the target set's check: `after-efficiency.csv` against `head-lto.csv`, 0 of 135 rows differ), `summary --strict` and the bench check over every source with it (built: `nix build .#checks.x86_64-linux.bench` passed), the tail by column name, `Reason::name`, no panicking duration, `baseline.sh --reference=` and `--reruns=` with columns by name (the same 489 and 1 040 problems as by position), unit tests of the summary, the modes and the ratchet's decision (6 tests); `COMPARISON.md` regenerated: the tables equal, the counter lines and the legend's two new endings added. Not done: a test of `compare.rs`'s printed tables, which print to standard output |
+| g. the flake, CI and the hooks (F155, F172, F173, F180, F221, F222, F226, the step's flake items) | done | qvqulowr (`doc-private`: `cargo doc --document-private-items` with warnings denied, eleven broken or ambiguous links fixed), pkulyoqk (F155, F172, F173, F221: `command_line.py`, both guards on it, `format.sh` from the checkout's root, the claude-hooks check runs each guard by its path; built), omxtnrly (F180, F222: the crates inherit version and edition, crane's versions from the root; valgrind and the ratchet only where valgrind runs, `modules/ratchet.nix`; every declared system evaluates), ursvvqns (F226: the wasm target and the `wasm` check, every feature but `parallel`; built), wyryqwsm (the command's default LaTeX and Typst fragments compiled in `export`; curryst's version read from `CURRYST`, `NANOYALLA` asserted against the kernel's README; both checks built). Not done: CI builds x86_64-linux alone; the other systems are recorded as evaluated, not built |
+| h. the documents (F156 to F160, F171, F174 to F179, F181, F190, F223 to F225, section 1.1's stale claims) | done | uzrwomtu (F160, F181: the oracles named in CLAUDE.md, `bench.md` and `TARGETS.md`), zwzymlvl (F171, F225: the spec's errata, the spec named in CLAUDE.md; F174, F175, F176, F177, F178, F179; F223, F224 in the register), mslrmklq F158, the bench rules in otvurtuv (F156, F157, F174's first items); xzotzuxo README's what exists. Section 1.1 of step 17's report read again: its README claims now hold (a proof is checked, the exit statuses), its CLAUDE.md, rules and help items are fixed by the commits above |
+| i. the fuzz targets of the command and the read-back (F217, F218) | partly | lswsnsqs: `session_steps`, `proof_views`, `ordinary_decide` (seeded by `fuzz/seed.sh`; snzmzmvx its printf); F217 recorded out of scope in `evidence.md` (the command's readers hand the sequent to the library's, and its modules are crate-private). Not done: F218's scaling tests per reader |
 | j. the ultra reviews' findings (`U…`) | open | |
 | k. stage 0's evidence again: every mutation batch, every fuzz target, the ratchet | open | |
 | l. check rounds (at most three), the fresh-context reviewer, `nix flake check` | open | |
+
+#### Area 3.4: decided unattended
+
+Each choice below is the session's; where it departs from the
+signed-off design or from a finding's proposed fix it says so.
+
+- **`--settings FILE` is read over the command's defaults, then the
+  flags given** (R183, the design's 6.6): the file's JSON is written
+  over the serialized defaults key by key and read back as `Settings`
+  (a misspelt key refused by serde), and a flag applies only when the
+  command line gives it, by clap's `value_source`; without a file every
+  flag applies, its default being the command's. Set aside: every flag
+  an `Option` without a default (the help would lose its defaults), and
+  a generic `--set KEY=VALUE` (no front end asks for it).
+- **The command's defaults differ from `Settings::default()` in the
+  batch alone**: its workers are the machine's threads and its memory
+  half the process's (`settings::defaults`), which the library cannot
+  know; the rest is the library's value.
+- **`--logic` stays a flag of the input, not a key**: the settings'
+  `ordinary.translation` applies when `--logic` names a logic and no
+  `--translation` is given; `ordinary.logic` from a file is not read,
+  since the logic is what the input is.
+- **New flags for keys without one**: `--work-limit`, `--test-period`,
+  `--schedule` on `prove` and `interact` (the design's table), and
+  `--timeout`, `--work-limit` and `--occurrence-limit` on `check`. Not
+  added: `--derivation-limit` on `seq print`, whose bound a settings file
+  sets (the refusal says so).
+- **`--deterministic` takes turns** (`search.schedule = turns`, as the
+  design names): every lock file and README example with counters stayed
+  the same.
+- **`check` answers unknown, exit 3, where a limit gives the check up**
+  (H25, F170): it was an error, exit 2; a refusal is no verdict, and the
+  command's unknown is 3 everywhere else. Its default time limit is the
+  command's two seconds, counted from its start.
+- **The session's verdict line is `prove`'s** (F200): "proved" became
+  "provable" in a session, a lock change of its own (oovrotos).
+- **`--stats` prints one line per counter `Engine::counters` lists**,
+  with the library's labels, leaving out the copy bound without
+  exponentials and the forward search's where it did not run: the memo
+  hits get a line of their own (a lock change, xmqwzzxr).
+- **`--engine` takes `Engine::NAMES`** through a possible-values parser,
+  so a new engine reaches the command and the harness without code; the
+  per-engine help moved into `--engine`'s long help.
+- **A JSON Lines record of an error carries the library's error where
+  the chain holds one, and a `message` always** (F164): the record is
+  written by hand, verdict first, since `serde_json::Value` sorts keys
+  and the workspace does not enable `preserve_order`. `check`'s JSON
+  likewise: `{"version", "verdict", "mode", "error", "message"}`.
+- **Two entries of one file are refused at the second** (H15), before
+  it is searched, not before the batch: the entries stream, so the names
+  are not known in advance.
+- **A closed standard output is taken as a reader that has read
+  enough** (F166): `io::Stdout` drops what the pipe refuses and the
+  verdict's status stands; set aside: restoring `SIGPIPE`, which would
+  end the command with 141 and lose the verdict.
+- **An `--output` is probed before the search** (F207) by opening and
+  dropping it (a partial file made and removed), rather than opened once
+  for both: `Output` holds standard output's lock, which cannot cross to
+  the search thread.
+- **A PNG or PDF's SVG is bounded by `--memory-limit`** (F169), not by a
+  constant the library exports: the text past the bound is refused as it
+  is written (`Bounded`), and the drawing left out with a line.
+- **`interact` splits its words as a shell does with a splitter of its
+  own** (F199, the step's item): about thirty lines; set aside: the
+  `shlex` crate, a dependency for that.
+- **The command's library is crate-private** (F203): `main` is its one
+  public item; the flake's `doc-private` check documents the rest.
+- **One command-line reading for both guards** (F155, F172):
+  `command_line.py`, a module the guards import (not executable, so the
+  hooks check does not ask for cases of it).
+- **The ratchet check is a module of its own**, `modules/ratchet.nix`,
+  defined only where valgrind runs, since `lib.mkIf` does not drop a key
+  of the lazy `checks` set (F222). CI keeps building x86_64-linux alone;
+  the other systems are recorded as evaluated, not built (departs from
+  the finding's "add the systems to CI": that is a CI change by the
+  author's leave only).
+- **The comparisons group by what they compare**: `--before` by file,
+  family and whole configuration, `--against` by the base configuration
+  alone, since its files differ in an option (a first attempt grouped
+  `--against` by the whole configuration and paired nothing of the bias
+  passes); the counters' rows print with `--counters` only, so
+  `COMPARISON.md` keeps its tables and gains one line per comparison.
+- **F217's command readers are not fuzzed** (the finding's other
+  option, recorded in `evidence.md`): they hand the sequent to the
+  library's readers, which are, and a target over `linlog_cli` would
+  need its modules public. F218's three targets are added; its scaling
+  tests per reader are not (the readers are linear by construction, and
+  the ratchet's journeys count them).
+- **`--isolate`'s failure paths have no test** (F214's last part): a
+  child that crashes or outlives its limit needs a child that does so on
+  purpose, which the command has no way to ask for.
 
 ## From the supervisor
 
