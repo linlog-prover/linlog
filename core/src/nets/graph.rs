@@ -59,8 +59,15 @@ pub struct Scratch {
     /// Per slot, whether the edge is taken out of the graph, which the
     /// witness searches use.
     removed: Box<[bool]>,
-    /// Per vertex, its discovery time in the last search, or `NONE`.
+    /// Per vertex, its latest discovery time: the last search reached it
+    /// iff that is at least `base`. Times rise from search to search, so
+    /// a search starts without resetting the width, which sequentializing
+    /// paid once per stage.
     disc: Box<[u32]>,
+    /// The first discovery time of the last search.
+    base: u32,
+    /// The discovery time the next search starts from.
+    next: u32,
     /// Per vertex, the least discovery time it reaches through its
     /// search-tree descendants and one back edge.
     low: Box<[u32]>,
@@ -82,7 +89,9 @@ impl Scratch {
             deleted: OccSet::empty(n),
             stuck: OccSet::empty(n),
             removed: vec![false; graph.to.len()].into_boxed_slice(),
-            disc: vec![NONE; n].into_boxed_slice(),
+            disc: vec![0; n].into_boxed_slice(),
+            base: 1,
+            next: 1,
             low: vec![NONE; n].into_boxed_slice(),
             dfs_parent: vec![NONE; n].into_boxed_slice(),
             bridge: vec![false; n].into_boxed_slice(),
@@ -113,7 +122,7 @@ impl Scratch {
 
     /// Returns whether the last search reached the vertex.
     pub(super) fn reached(&self, v: OccId) -> bool {
-        self.disc[v.index()] != NONE
+        self.disc[v.index()] >= self.base
     }
 
     /// Returns the root of the search tree that reached the vertex in the
@@ -231,11 +240,19 @@ impl Graph {
             self.to.len(),
             "a scratch of another graph"
         );
-        scratch.disc.fill(NONE);
-        let mut time = 0;
+        // A search discovers each vertex once at most, so its times stay
+        // below `u32::MAX` once they restart where fewer than the width
+        // are left.
+        let width = scratch.disc.len() as u32;
+        if scratch.next > u32::MAX - width {
+            scratch.disc.fill(0);
+            scratch.next = 1;
+        }
+        scratch.base = scratch.next;
+        let mut time = scratch.next;
         let mut trees = 0;
         for r in roots {
-            if scratch.is_deleted(r) || scratch.disc[r as usize] != NONE {
+            if scratch.is_deleted(r) || scratch.disc[r as usize] >= scratch.base {
                 continue;
             }
             trees += 1;
@@ -251,7 +268,7 @@ impl Graph {
                     {
                         continue;
                     }
-                    if scratch.disc[w as usize] == NONE {
+                    if scratch.disc[w as usize] < scratch.base {
                         self.discover(scratch, w, v, r, &mut time);
                     } else {
                         let (lv, dw) = (scratch.low[v as usize], scratch.disc[w as usize]);
@@ -268,6 +285,7 @@ impl Graph {
                 }
             }
         }
+        scratch.next = time;
         trees
     }
 
@@ -606,6 +624,22 @@ mod tests {
             net("|-", true, &[]).is_correct(|_| false),
             Err(NetError::Empty)
         );
+    }
+
+    /// A scratch whose discovery times reach the top of `u32` starts them
+    /// again from the bottom and answers as before, search after search.
+    #[test]
+    fn discovery_times_restart_below_the_top() {
+        // ⊢ A ⊗ B, ~A ⊗ ~B: 0 ⊗, 1 A, 2 B, 3 ⊗, 4 ~A, 5 ~B.
+        let cyclic = net("|- A * B, ~A * ~B", true, &[(1, 4), (2, 5)]);
+        let partial = net("|- A * B, ~A * ~B", true, &[(1, 4)]);
+        let mut scratch = cyclic.scratch();
+        scratch.next = u32::MAX - 8;
+        for _ in 0..4 {
+            assert!(!cyclic.is_acyclic(&mut scratch));
+            assert!(partial.is_acyclic(&mut scratch));
+        }
+        assert!(scratch.next < 100, "the times started again");
     }
 
     /// The criterion agrees with the brute-force enumeration of switchings
