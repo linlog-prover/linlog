@@ -1476,6 +1476,45 @@ fn every_entry_file_lies_inside_the_directory() {
     assert!(out.join("-:1.json").is_file() && out.join("-:2.json").is_file());
 }
 
+/// `check` gives up at its limits with an unknown verdict, exit status 3,
+/// which its JSON says too; an outcome that holds no proof is refused
+/// with what it is; an invalid proof is `invalid` in JSON with the error.
+#[test]
+fn check_s_verdicts() {
+    let (_, proof, _) = linlog(
+        &[
+            "prove",
+            "--format",
+            "json",
+            "a * b, c * d |- (a * b) * (c * d)",
+        ],
+        "",
+    );
+    let (status, out, _) = linlog(&["check", "--work-limit", "2"], &proof);
+    assert!(
+        status == 3 && out.starts_with("unknown: the proof of") && out.contains("--work-limit"),
+        "{out}"
+    );
+    let (status, out, _) = linlog(&["check", "--work-limit", "2", "--format", "json"], &proof);
+    let checked: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!((status, &checked["verdict"]), (3, &"unknown".into()));
+    assert_eq!(checked["error"]["code"], "work_limit");
+    let (_, classical, _) = linlog(&["prove", "--format", "json", "|- a, ~a"], "");
+    let (status, out, _) = linlog(&["check", "-i", "--format", "json"], &classical);
+    let checked: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!((status, &checked["verdict"]), (1, &"invalid".into()));
+    let (_, outcome, _) = linlog(&["prove", "--format", "json", "a |- b"], "");
+    let (status, _, err) = linlog(&["check"], &outcome);
+    assert_eq!(
+        (status, err.as_str()),
+        (
+            2,
+            "error: the file is the outcome of a sequent the search found unprovable: it holds \
+             no proof to check\n"
+        )
+    );
+}
+
 /// Every JSON Lines record of a batch has a name and a verdict: an entry
 /// that could not be read is `error` with the error's message (and the
 /// library's code where the library refused it), one the batch's time

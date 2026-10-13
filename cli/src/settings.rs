@@ -267,6 +267,15 @@ impl CheckArgs {
         if apply.set("memory_limit") {
             settings.limits.memory_bytes = self.memory_limit.0;
         }
+        if apply.set("timeout") {
+            settings.clock.time_limit_ms = self.timeout.0.map(millis);
+        }
+        if apply.set("work_limit") {
+            settings.limits.work = self.work_limit.0;
+        }
+        if apply.set("occurrence_limit") {
+            settings.limits.occurrences = self.occurrence_limit.0;
+        }
         if apply.set("derivation_limit") {
             settings.limits.derivation_bytes = self.output.derivation_limit.0;
         }

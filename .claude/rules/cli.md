@@ -501,9 +501,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   sequent of 438 bytes can stand for 67 million occurrences);
   `SequentInput::forest` then builds the forest within the same limit,
   and `sequent_in` and `describe`, which see a sequent that was
-  admitted, build theirs without one. A session's state and a proof
-  file are read by serde, which takes no options: their sequents are
-  under the default whatever the flag says.
+  admitted, build theirs without one. A proof file (`check`'s
+  `--occurrence-limit`) and a session's state (`--state`, `load`, under
+  `interact`'s) are read through the library's `wire::upgrade`, their
+  sequents within the limit (a 457-byte proof file once took 1.48 GB
+  under the default whatever the flag said).
 - **Ctrl-C** (`ctrlc`, whose handler runs on a thread of its own once per
   signal): the first sets a flag the search, the derivation and the
   render's wait poll, so the outcome is unknown and `--stats` still
@@ -521,6 +523,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   The time is not in the JSON (core has no clock, and the output stays
   reproducible); `--stats` prints it as text.
 - `check` takes the mode from its flags, never from the file's `mode` key.
+- **`check` has a time limit and a work limit** (`--timeout`, default the
+  command's 2 s, and `--work-limit`, through `Settings`): a proof file
+  can make its check quadratic (a shared subproof read by a chain of `&`
+  nodes: 8.6 MB took 83 s), and the check, the derivation drawn after it
+  and its render poll the deadline. A check a limit gives up is
+  **unknown, exit 3** (`unknown: the proof of … is not checked: …`, the
+  flag that raises the limit named), never an error and never invalid.
+  Its JSON is `{"version", "verdict": "valid"|"invalid"|"unknown",
+  "mode", "error"}`, `error` the library's written error with the
+  message in formulas. A file that is an outcome without a proof is
+  refused as such (`read_proof`), not by the key it lacks.
 - **`load` in a session refuses a file of another sequent or mode**
   (`Interactive::sequent` and `mode` compared), as `--state` refuses a
   file beside a sequent: the exit status answers for the session's own

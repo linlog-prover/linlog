@@ -56,7 +56,7 @@ quit                end the session";
 pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
     let settings = args.settings(given)?;
     let state = match &args.state {
-        Some(path) => load(path)?,
+        Some(path) => load(path, &settings.limits)?,
         None => {
             let stdin = args.input.file.iter().any(|f| f.as_os_str() == "-");
             if stdin || (args.input.sequent.is_none() && args.input.file.is_empty()) {
@@ -137,11 +137,22 @@ fn words(line: &str) -> Result<Vec<String>> {
     Ok(words)
 }
 
-/// Reads a session from a JSON file.
-fn load(path: &Path) -> Result<Interactive> {
+/// Reads a session from a JSON file, its sequent within
+/// `limits.occurrences`.
+fn load(path: &Path, limits: &Limits) -> Result<Interactive> {
     let text = io::read(Some(path), "session")?;
-    serde_json::from_str(&text)
-        .with_context(|| format!("{} is not a saved session", path.display()))
+    let mut document = serde_json::Deserializer::from_str(&text);
+    let not = || format!("{} is not a saved session", path.display());
+    match linlog::wire::upgrade::<Interactive, _>(&mut document, limits) {
+        Ok(session) => {
+            document.end().with_context(not)?;
+            Ok(session)
+        }
+        Err(e) if e.kind() == linlog::ErrorKind::Limit => {
+            bail!("{e}; raise it with --occurrence-limit")
+        }
+        Err(e) => Err(anyhow::Error::from(e).context(not())),
+    }
 }
 
 /// A running session: the state, the search settings and the styles of
@@ -416,7 +427,7 @@ impl Session {
                 let [path] = rest else {
                     bail!("load what? give one file, in quotes if its name has blanks");
                 };
-                let state = load(Path::new(path))?;
+                let state = load(Path::new(path), &self.limits)?;
                 // The exit status answers for the session's sequent and
                 // mode, so a file of another question is refused, as
                 // `--state` beside a sequent is.

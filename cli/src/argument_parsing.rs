@@ -85,7 +85,11 @@ pub(crate) enum Command {
     ///
     /// The mode comes from the flags, not from the file: pass the flags the
     /// proof was found with. The exit status is 0 for a valid proof, 1 for
-    /// an invalid one, and 2 for an error.
+    /// an invalid one, 3 when the check was given up at a limit (neither
+    /// valid nor invalid), and 2 for an error. With `--format json` the
+    /// verdict is `{"version", "verdict", "mode"}`, the verdict `valid`,
+    /// `invalid` or `unknown`, with an `error` object for the last two, as
+    /// the library writes its errors.
     Check(CheckArgs),
     /// Prove a sequent step by step, reading commands from standard input
     ///
@@ -506,11 +510,30 @@ pub(crate) struct CheckArgs {
     /// such as 512MiB or 4GiB, or `none` for no limit
     ///
     /// A proof whose check would pass it is neither valid nor invalid:
-    /// the command ends with an error. A derivation estimated above it
-    /// is left out, as past `--derivation-limit`, and so is a png or pdf
-    /// render; see `prove --memory-limit`.
+    /// the verdict is unknown (exit status 3). A derivation estimated above
+    /// it is left out, as past `--derivation-limit`, and so is a png or pdf
+    /// render; see `prove --memory-limit` (limits.memory_bytes).
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
     pub(crate) memory_limit: Bytes,
+    /// Give up after this long, such as 500ms, 10s, 2m or 1h, or `none`
+    /// (clock.time_limit_ms)
+    ///
+    /// A proof file can make its check quadratic (a large shared subproof
+    /// read by many nodes); the verdict is then unknown (exit status 3).
+    /// The time counts from the start of the command and covers the
+    /// derivation drawn after the check.
+    #[arg(long, value_name = "DURATION", value_parser = parse_time, default_value_t = Time(Some(DEFAULT_TIMEOUT)))]
+    pub(crate) timeout: Time,
+    /// The most units of work the check may do, or `none` (limits.work)
+    ///
+    /// A unit is a node of the proof or an entry of a sequent a node is
+    /// handed; past the limit the verdict is unknown (exit status 3).
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(None))]
+    pub(crate) work_limit: Count<u64>,
+    /// The most subformula occurrences the proof's sequent may have, or
+    /// `none` (limits.occurrences); see `prove --occurrence-limit`
+    #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
+    pub(crate) occurrence_limit: Count<u64>,
     /// The proof file, or standard input when absent or `-`
     #[arg(value_name = "PROOF")]
     pub(crate) proof: Option<PathBuf>,

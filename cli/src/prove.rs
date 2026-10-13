@@ -1253,17 +1253,22 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
     lines
 }
 
-/// Runs `check`: reads a proof, checks it in the mode the flags give, and
-/// prints the verdict and the derivation, or the verdict as JSON.
+/// Runs `check`: reads a proof, checks it in the mode the flags give
+/// under the time limit and the bounds, and prints the verdict and the
+/// derivation, or the verdict as JSON.
 ///
 /// # Errors
 ///
 /// A file that is no proof in JSON, a proof of a goal, or an output that
-/// cannot be made; an invalid proof is a verdict, not an error.
+/// cannot be made; an invalid proof is a verdict, and a check given up at
+/// a limit is unknown, neither an error.
 pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
+    let start = Instant::now();
     let settings = args.settings(given)?;
+    let deadline = Deadline::start(time_limit(&settings), start)?;
     let text = io::read(args.proof.as_deref(), "proof")?;
-    let proof: Proof = serde_json::from_str(&text).context("not a proof in JSON")?;
+    let proof = read_proof(&text, &settings.limits)?;
+    drop(text);
     if proof.goal().is_some() {
         return Err(Error::GoalProof.into());
     }
@@ -1272,45 +1277,110 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
     let show = Show::new(&args.output, &settings)?;
     let path = args.output.output.clone();
     exit_on_interrupt();
-    let valid = on_large_stack(Limits::default().stack_bytes(), move || {
+    on_large_stack(settings.limits.stack_bytes(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
-        let (valid, keep) = check_into(&proof, mode, &show, quiet, &mut out)?;
+        let (status, keep) = check_into(&proof, mode, &show, quiet, &deadline, &mut out)?;
         if keep {
             out.finish()?;
         }
-        anyhow::Ok(valid)
-    })??;
-    Ok(if valid { Status::Yes } else { Status::No })
+        anyhow::Ok(status)
+    })?
+}
+
+/// Reads a proof file, its sequent within `limits.occurrences`; the
+/// outcome of a sequent that was not proved is refused with what it is.
+///
+/// # Errors
+///
+/// A document that is no proof, or past the limit.
+fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
+    let mut document = serde_json::Deserializer::from_str(text);
+    match linlog::wire::upgrade::<Proof, _>(&mut document, limits) {
+        Ok(proof) => {
+            document
+                .end()
+                .context("not a proof in JSON: more follows it")?;
+            Ok(proof)
+        }
+        Err(error) if error.kind() == ErrorKind::Limit => {
+            bail!("{error}; raise it with --occurrence-limit")
+        }
+        Err(error) => {
+            // An outcome without a proof is a file the user may well hand
+            // over; say what it is rather than which key it lacks.
+            let verdict = serde_json::from_str::<serde_json::Value>(text)
+                .ok()
+                .and_then(|v| v.get("verdict")?.as_str().map(str::to_owned));
+            if let Some(verdict) = verdict.filter(|v| v != "proved") {
+                bail!(
+                    "the file is the outcome of a sequent the search found {verdict}: it holds no proof to check"
+                );
+            }
+            Err(error.into())
+        }
+    }
 }
 
 /// Checks the proof, writes the verdict and the derivation into `out`,
-/// and returns whether the proof is valid and whether the output is to
-/// be finished ([`Show::close`]).
+/// and returns the verdict's status and whether the output is to be
+/// finished ([`Show::close`]); the time limit and Ctrl-C stop the check
+/// and the derivation after it.
 fn check_into(
     proof: &Proof,
     mode: Mode,
     show: &Show,
     quiet: bool,
+    deadline: &Deadline,
     out: &mut io::Output,
-) -> Result<(bool, bool)> {
+) -> Result<(Status, bool)> {
     let format = show.format;
-    let result = proof.check_within(mode, &show.limits, |_| false);
-    if let Err(refusal @ CheckError::Refused(_)) = &result {
-        bail!("the proof is not checked: {refusal}; raise the limit with --memory-limit");
-    }
+    let over = || interrupted() || deadline.passed();
+    let result = proof.check_within(mode, &show.limits, |_| over());
+    let status = match &result {
+        Ok(()) => Status::Yes,
+        Err(CheckError::Refused(_)) => Status::Unknown,
+        Err(_) => Status::No,
+    };
     let report = |e: &linlog::CheckError| {
         e.describe(proof.forest())
             .abbreviated(show.abbreviate)
             .to_string()
     };
     if format == Format::Json {
-        let verdict = serde_json::json!({
-            "valid": result.is_ok(),
-            "mode": mode,
-            "error": result.as_ref().err().map(report),
-        });
-        serde_json::to_writer(out.stream(), &verdict)?;
-        return Ok((result.is_ok(), true));
+        /// What `check --format json` writes.
+        #[derive(serde::Serialize)]
+        struct Checked {
+            /// The wire level.
+            version: u32,
+            /// `valid`, `invalid` or `unknown`.
+            verdict: &'static str,
+            /// The mode checked in.
+            mode: Mode,
+            /// Why the proof is not valid, as the library writes its
+            /// errors, with formulas in the message.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            error: Option<serde_json::Value>,
+        }
+        let error = match &result {
+            Ok(()) => None,
+            Err(e) => {
+                let mut error = serde_json::to_value(Error::from(e.clone()))?;
+                error["message"] = report(e).into();
+                Some(error)
+            }
+        };
+        let checked = Checked {
+            version: linlog::wire::LEVEL,
+            verdict: match status {
+                Status::Yes => "valid",
+                Status::Unknown => "unknown",
+                _ => "invalid",
+            },
+            mode,
+            error,
+        };
+        serde_json::to_writer(out.stream(), &checked)?;
+        return Ok((status, true));
     }
     // A sequent with no intuitionistic reading is an invalid proof in
     // intuitionistic mode, printed one-sided.
@@ -1328,32 +1398,41 @@ fn check_into(
     };
     let line = match &result {
         Ok(()) => format!("valid proof of {sequent} ({mode})"),
+        Err(e @ CheckError::Refused(refused)) => {
+            let advice = match refused.refusal.setting() {
+                Some("limits.memory_bytes") => "; raise it with --memory-limit SIZE".to_owned(),
+                Some("limits.work") => "; raise it with --work-limit N".to_owned(),
+                _ => match stopped(deadline) {
+                    Some(Stop::Timeout(t)) => format!(
+                        ": the time limit of {t:?} was reached; --timeout DURATION gives the \
+                         check longer"
+                    ),
+                    _ => String::new(),
+                },
+            };
+            format!("unknown: the proof of {sequent} ({mode}) is not checked: {e}{advice}")
+        }
         Err(e) => format!("invalid proof of {sequent} ({mode}): {}", report(e)),
     };
     let line = (show.verdict || result.is_err()).then_some(line);
     let prefix = show.open(out, line.as_deref())?;
     if result.is_err() || quiet {
         let keep = show.close(out, Shown::Nothing, line.as_deref())?;
-        return Ok((result.is_ok(), keep));
+        return Ok((status, keep));
     }
+    let why = || Stop::why(stopped(deadline));
     if show.net {
         nets_exist(proof.sequent(), mode)?;
-        let stopped = || "stopped".to_owned();
-        let shown = net_into(
-            None,
-            proof,
-            mode,
-            show,
-            &|| false,
-            &stopped,
-            prefix.as_deref(),
-            out,
-        )?;
-        return Ok((true, show.close(out, shown, line.as_deref())?));
+        let shown = net_into(None, proof, mode, show, &over, &why, prefix.as_deref(), out)?;
+        return Ok((status, show.close(out, shown, line.as_deref())?));
     }
-    let stopped = || "stopped".to_owned();
-    let shown = derivation(proof, mode, show, || false, stopped, prefix.as_deref(), out)?;
-    Ok((true, show.close(out, shown, line.as_deref())?))
+    let mut steps = 0u32;
+    let halt = || {
+        steps = steps.wrapping_add(1);
+        steps.is_multiple_of(STEPS_PER_CLOCK) && over()
+    };
+    let shown = derivation(proof, mode, show, halt, why, prefix.as_deref(), out)?;
+    Ok((status, show.close(out, shown, line.as_deref())?))
 }
 
 #[cfg(test)]

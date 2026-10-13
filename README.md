@@ -529,7 +529,14 @@ $ linlog prove --format json "A |- A"
 {"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0,"forward_copies":0,"work":1},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
 $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
+$ linlog prove --format json "A |- A" | linlog check --format json
+{"version":1,"verdict":"valid","mode":"classical"}
 ```
+
+`check` exits with 0 for a valid proof, 1 for an invalid one and 3 when
+it gave up at `--timeout`, `--work-limit` or `--memory-limit` without a
+verdict (a proof file can make its check quadratic); in JSON an invalid
+or unknown verdict carries the library's error object.
 
 `linlog interact` proves a sequent step by step, reading commands from
 standard input: the open goals are listed with the position of every

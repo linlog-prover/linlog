@@ -5,4 +5,4 @@ A |- A
 --- status 2
 --- stdout
 --- stderr
-error: not a proof in JSON: expected value at line 1 column 1
+error: not a proof of linlog's wire form: expected value at line 1 column 1
