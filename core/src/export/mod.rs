@@ -172,7 +172,7 @@ pub enum Form {
 }
 
 /// Returns the title and the description an SVG document of
-/// [`svg`](crate::export::svg) carries, its accessible name and its
+/// [`svg`] carries, its accessible name and its
 /// reading, where it has them.
 #[cfg(any(feature = "png", feature = "pdf"))]
 fn texts(svg: &str) -> (Option<String>, Option<String>) {
@@ -354,7 +354,7 @@ impl Measure {
     ///
     /// # Errors
     ///
-    /// [`Error::NotSvg`] for a document with an element a drawing of
+    /// [`Error::NotSvg`](crate::Error::NotSvg) for a document with an element a drawing of
     /// [`svg`] does not have ([`ELEMENTS`]), a reference (`href`) or a
     /// document type, whose cost the measure cannot see: six levels of
     /// `<use>` in 1 287 bytes took 227 MB and 4.3 s under a bound of
@@ -531,7 +531,7 @@ fn arcs(tag: &str) -> u64 {
 /// Returns the width and height an SVG document's root declares, in
 /// pixels, read off its start tag without parsing the document: plain
 /// numbers or numbers of `px`, as every drawing of
-/// [`svg`](crate::export::svg) has them; `None` for anything else.
+/// [`svg`] has them; `None` for anything else.
 #[cfg(feature = "png")]
 fn declared_size(svg: &str) -> Option<(f64, f64)> {
     let root = &svg[svg.find("<svg")?..];

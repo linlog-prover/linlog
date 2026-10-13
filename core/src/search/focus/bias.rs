@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 //! The atom bias: which literal of every atom the engine takes for
-//! positive, under each rule of [`Bias`]. A function of the sequent alone,
+//! positive, under each rule of [`Bias`](crate::Bias). A function of the sequent alone,
 //! so a run stays deterministic.
 
 use crate::occurrences::{Forest, Sign};

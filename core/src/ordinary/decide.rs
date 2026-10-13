@@ -46,7 +46,7 @@ pub enum Verdict {
 ///
 /// # Errors
 ///
-/// As [`translate`], [`search::prove_within`], [`Image::read_back`] and
+/// As [`translate()`], [`search::prove_within`], [`Image::read_back`] and
 /// [`Derivation::check`]: a proof whose derivation a bound or the stop
 /// refused is that refusal, not a verdict, and a read-back that fails the
 /// check is [`Error::ReadBack`], a defect.

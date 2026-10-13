@@ -538,7 +538,7 @@ impl Derivation {
     ///
     /// # Errors
     ///
-    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Refusal::Stopped`] when `stop` fired, and
     /// [`Error::WriteFailed`] when `out` refused the text.
     pub fn write_text(
         &self,
@@ -562,7 +562,7 @@ impl Derivation {
     ///
     /// # Errors
     ///
-    /// [`Refusal::Stopped`](crate::Refusal::Stopped) when `stop` fired, and
+    /// [`Refusal::Stopped`] when `stop` fired, and
     /// [`Error::WriteFailed`] when `out` refused the text.
     pub fn write_steps(
         &self,

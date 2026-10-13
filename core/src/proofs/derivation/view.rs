@@ -38,7 +38,7 @@ impl InfId {
 /// a derivation takes, whatever it then draws or writes. The bounds that
 /// keep a call from building what the machine cannot hold are the
 /// [`Limits`] beside it: `derivation_bytes`, the most bytes a derivation
-/// may be estimated to take ([`Size::bytes`]) and still be built (a proof
+/// may be estimated to take ([`Size::bytes`](crate::Size::bytes)) and still be built (a proof
 /// stores a shared subproof once and its derivation repeats it, and every
 /// inference carries its whole sequent, so a derivation can be larger than
 /// its proof by any factor), and `memory_bytes`, the most the making of

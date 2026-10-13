@@ -19,7 +19,10 @@ arguments, `workspace.nix`, whose source is what crane's
 `devshell.nix`, `treefmt.nix` and `systems.nix` are what their names
 say; `checks.nix`'s `test` is crane's, in the release profile, and
 `test-debug-assertions` the same tests with debug assertions and
-overflow checks on. `claude-hooks.nix` is the check that pins the
+overflow checks on; `doc` is the published site and `doc-private` the
+docs of every item with `--document-private-items`, both with
+rustdoc's warnings denied, so a link in a private item's doc resolves too
+(a split of a module once left four such links pointing nowhere). `claude-hooks.nix` is the check that pins the
 `.claude/hooks` guards (`claude-infra.md`). `export.nix` is the `export`
 check, which compiles the snapshots (the fragments inside a document of
 its own) and a CLI proof with pdfLaTeX and with Typst and the curryst of

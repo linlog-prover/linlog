@@ -60,6 +60,18 @@
 
         doc = config.packages.doc;
 
+        # The docs of every item, the private ones too, which a maintainer
+        # reads and the published site leaves out: their links must resolve
+        # as the public ones do.
+        doc-private = craneLib.cargoDoc (
+          withArtifacts
+          // {
+            pnameSuffix = "-doc-private";
+            cargoDocExtraArgs = "--no-deps --document-private-items";
+            env.RUSTDOCFLAGS = "--deny warnings";
+          }
+        );
+
         deny = craneLib.cargoDeny { inherit (workspace) src; };
 
         # The core crate's features one at a time and in pairs, with all of

@@ -226,7 +226,7 @@ impl Bag {
 /// what it holds and none for the width of the forest.
 ///
 /// A sequent that a rule or an observer reads has passed
-/// [`Pass::within`], so its linear zone has [`Bag::MOST`] members at
+/// [`Pass::within`](super::pass::Pass::within), so its linear zone has [`Bag::MOST`] members at
 /// most, fewer than 2³² − 1. The sums below are exact for such a sequent;
 /// while a rule builds one they saturate, which only a longer zone can
 /// make them do, and that zone is refused before anything reads them.

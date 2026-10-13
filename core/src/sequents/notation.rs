@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 //! The one printer of formulas and sequents: a table of spellings per
-//! target, [`TEXT`] for `Display` and one per export, and the walks that
+//! target, [`TEXT`](crate::sequents::notation::TEXT) for `Display` and one per export, and the walks that
 //! write a formula, a sequent one-sided or two-sided under a reading, and
 //! a sequent of ordinary logic through it. A new connective is an arm here
 //! and a spelling in each table, never a printer of its own.

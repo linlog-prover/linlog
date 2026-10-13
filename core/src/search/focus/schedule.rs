@@ -5,7 +5,7 @@
 //! which searches decide a goal ([`plan`]), one search on its own
 //! ([`Plan::search`](self::Plan::search)), and the two ways they share one core, in turns
 //! from their start without threads ([`turns`]) and alternating in
-//! slices on two threads ([`alternate`](self::alternate)).
+//! slices on two threads ([`alternate`](crate::search::focus::schedule::alternate)).
 
 use super::arena::{Arena, Kept};
 use super::counts::Counts;

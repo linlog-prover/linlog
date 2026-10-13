@@ -694,7 +694,7 @@ pub fn write<'a>(
     }
 }
 
-/// Writes the NanoYalla certificate of a linear derivation as [`write`]
+/// Writes the NanoYalla certificate of a linear derivation as [`write()`]
 /// does.
 fn linear(
     derivation: &Derivation,

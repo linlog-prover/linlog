@@ -5,14 +5,14 @@
 //! decided through its embeddings into linear logic: a sequent of
 //! ordinary formulas ([`Sequent`]), its image
 //! under a named [`Translation`]
-//! ([`translate`], an
+//! ([`translate()`], an
 //! [`Image`] holding a linear
 //! [`Sequent`](crate::Sequent) and the mode to prove it in), and the
 //! linear proof read back as a derivation of LK or LJ
 //! ([`Image::read_back`], a
 //! [`Derivation`] that
 //! [`Derivation::check`] checks by the
-//! rules of the logic); [`decide`] does all of it
+//! rules of the logic); [`decide()`] does all of it
 //! in one call.
 //!
 //! Classical logic goes into affine MALL without exponentials: the

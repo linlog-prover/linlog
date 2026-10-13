@@ -38,7 +38,7 @@ impl Interactive {
     /// ([`Error::Check`]), which it never does for a derivation built
     /// through this interface, or gives the check up within `limits` or
     /// when `stop` fires ([`Error::Check`] with a
-    /// [`CheckError::Refused`]).
+    /// [`CheckError::Refused`](crate::CheckError::Refused)).
     ///
     /// # Errors
     ///
