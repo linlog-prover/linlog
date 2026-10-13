@@ -12,6 +12,11 @@ name = "linlog-workspace"
 version = "0.1.0"
 edition = "2024"
 
+# The core crate, written once for the members that depend on it; each
+# names the features it uses, the defaults included.
+[workspace.dependencies]
+linlog = { version = "0.1.0", path = "core", default-features = false }
+
 # Every item gets a doc comment (CLAUDE.md, Conventions): rustc checks the
 # public ones, clippy the private ones.
 [workspace.lints.rust]
