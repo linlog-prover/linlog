@@ -49,7 +49,7 @@ impl Classes {
             .collect();
         let mut renamed = OccSet::empty(forest.len());
         renamed.extend(forest.ids().filter(|&o| class[o.index()] != o));
-        let distinct = forest.ids().all(|o| class[o.index()] == o);
+        let distinct = renamed.is_empty();
         Self {
             class,
             renamed,

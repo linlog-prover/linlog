@@ -113,7 +113,6 @@ impl OccSet {
     }
 
     /// Returns whether the set has no member.
-    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)
     }

@@ -185,10 +185,7 @@ impl Context {
     pub(crate) fn canonical_from(&mut self, other: &Self, classes: &Classes) -> bool {
         self.clear();
         let mut replaced = false;
-        // The extra list is in ascending order, like the set.
-        let mut extra = other.extra.iter().peekable();
-        for o in other.set.iter_words(other.lo, other.hi) {
-            let copies = 1 + extra.next_if(|&&(x, _)| x == o).map_or(0, |&(_, n)| n);
+        for (o, copies) in other.with_copies() {
             let class = classes.of(o);
             replaced |= class != o;
             self.add(class, copies);
@@ -241,11 +238,18 @@ impl Context {
     /// Returns the members in ascending order, an occurrence repeated as
     /// often as it is present.
     pub(crate) fn iter(&self) -> impl Iterator<Item = OccId> + '_ {
+        self.with_copies()
+            .flat_map(|(o, copies)| std::iter::repeat_n(o, copies as usize))
+    }
+
+    /// Returns each member once, in ascending order, with the number of
+    /// its copies.
+    fn with_copies(&self) -> impl Iterator<Item = (OccId, u32)> + '_ {
         // The extra list is in ascending order, like the set.
         let mut extra = self.extra.iter().peekable();
-        self.set.iter_words(self.lo, self.hi).flat_map(move |o| {
-            let copies = 1 + extra.next_if(|&&(x, _)| x == o).map_or(0, |&(_, n)| n);
-            std::iter::repeat_n(o, copies as usize)
+        self.set.iter_words(self.lo, self.hi).map(move |o| {
+            let extras = extra.next_if(|&&(x, _)| x == o).map_or(0, |&(_, n)| n);
+            (o, 1 + extras)
         })
     }
 
