@@ -610,18 +610,18 @@ pinned time after, the ceiling lowered.
 
 | item | state | evidence |
 |---|---|---|
-| a. the timed validation of counts against time again (`bench/counts-against-time.py`), in a quiet window | open | |
-| b. the pool's speed after H18 and F92: the target set and the second baseline's parallel pass at `-j 2` and `-j 4`, the head against kktkswpq | open | |
-| c. F152 the Horn program read once per call | open | |
-| d. F154 `optimize_atoms` once and without copies; read-json's names in NFC | open | |
-| e. F151 `forced_factor` once per split, the forced side per occurrence | open | |
-| f. F150 the canonical key only where a member is renamed | open | |
-| g. F147 a stable sequent's member list by a word loop | open | |
-| h. F149 the memo's chunks without the zero fill | open | |
+| a. the timed validation of counts against time again (`bench/counts-against-time.py`), in a quiet window | done | tympzvtu: `bench/counts-against-time/2026-10-13*`, 01:21–01:50 on core 2, the other cores 0 to 2 % busy; a drop of 19 to 65 % in count (opt-level 1 against 3) is a drop in time on all twenty journeys; a few percent (opt-level 2 against 3) orders count and time alike on 16 of 20 (not on `search-additive-14`, `derivation-chain-64`, `render-latex`, `render-typst`, whose rounds spread by up to 9 %); `check-qbf-20-2` and `check-wide-m1-2048` run 8 % faster at opt-level 2 at about the same count, as on 2026-10-09. So a claimed saving of a few percent is shown by pinned time beside the count |
+| b. the pool's speed after H18 and F92: the target set and the second baseline's parallel pass at `-j 2` and `-j 4`, the head against kktkswpq | running | unit `step28-pool` from 01:51: `-j 2` on CPUs 2–3, `-j 4` on 4–7, each harness run taken at both commits back to back, the order alternating (scratch script `pool.sh`), into `target/pool/{base,head}-j{2,4}.csv`. Compiles and callgrind runs of this session on CPUs 12–15 overlapped the first pair (the target set's Mix block at `-j 2`, base 01:51–01:58: two builds, the journeys' counts, the core tests; head 01:58–02:05: the tests' end, the stack probes' builds and runs) and the start of the parallel pass at `-j 2` on the head (02:05:53–02:07:15, the probes' builds); the supervisor's word: nothing but the stack probes until the run ends, and a difference within a few percent in those pairs is rerun alone before it counts |
+| c. F152 the Horn program read once per call | done, gate pending | zrquosrw: the task keeps the program the first reader reads (`Program::of`, a `OnceLock` in `Task`), with `live` applied there; `search-spec-chain` 39.11 M → 23.27 M instructions (−40.5 %) |
+| d. F154 `optimize_atoms` once and without copies; read-json's names in NFC | done (read-json: no change, decided below), gate pending | qwkozsow: `merge_atoms` then one renumbering through an index, names moved; `read-text` 17.39 M → 12.27 M (−29.5 %), `read-lltp` 32.16 M → 27.07 M (−15.8 %), `read-spec` 19.60 M → 17.07 M (−12.9 %) |
+| e. F151 `forced_factor` once per split, the forced side per occurrence | done, gate pending | onxpxzuv: `Counts::forced` (one byte per occurrence, in place of `literal_tensor`), the split hands its forcing factor to the chain, the choice of factor a `match`; with the others below `search-chain-128` 1 198.8 M → 973.7 M (−18.8 %) |
+| f. F150 the canonical key only where a member is renamed | done, gate pending | lxppxszv: `Classes::renames` (the zone's words against the renamed occurrences) |
+| g. F147 a stable sequent's member list by a word loop | done, gate pending | kzszyqqz: `Context::list_into`, `iter` with a cursor over the extra copies; with F150, F151 and F149 `search-qbf-20-2` 628.8 M → 508.8 M (−19.1 %), `search-chain-64-intuitionistic` 151.7 M → 130.6 M (−13.9 %), `search-partition-no-5` 8.22 M → 7.43 M (−9.7 %) |
+| h. F149 the memo's chunks without the zero fill | done, gate pending | zsvqrusy: chunks allocated with capacity and filled record by record; `batch-families` 80.6 M → 70.5 M (−12.5 %, with the others) |
 | i. F148 a sparse memo key | open | |
 | j. F153 the net engine's quadratic parts | open | |
-| k. the printing journeys' one printer through a `dyn` atom writer | open | |
-| l. F114 and F121, with the stack per level measured before and after | open | |
+| k. the printing journeys' one printer through a `dyn` atom writer | done: no change (decided below) | profile of `render-typst` and `render-latex`: the walk (`Notation::term`) 50 to 60 %, the atom writer (an enum since area 3.1, no `dyn`) 15 to 25 %, LaTeX's escapes 22 % |
+| l. F114 and F121, with the stack per level measured before and after | done, gate pending | qmwrzops F121 (`Run::holding`, `two_premises`), mzoyxxpz F114 (the flag returned beside the `Found`); stack per level, release and debug, by a scratch probe (smallest stack reaching the recursion limit at 500 and 1 000): chain of searched splits 1 184/5 521 → 1 200/5 888 bytes, nested `&` 383/1 221 → 383/1 411, Mix of pairs 1 423/6 158 → 1 409/6 576; the Mix's level exceeded half of `PER_LEVEL` before the change too, so kuwluzvm raises it to 3 KiB and 13 KiB |
 | m. the ratchet lowered, the target sets, check rounds (at most three), the fresh-context reviewer, mutants and fuzzing of what changed, `nix flake check` | open | |
 
 ## From the supervisor
