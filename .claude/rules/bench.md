@@ -351,17 +351,21 @@ serde_json, which the CLI and the core's tests already have.
   limit fell. `splits` changed its meaning with the pass: steps of the
   split searches (a member assigned and the counts tested) and forced
   splits, where it was submasks enumerated.
-- **The four labels** of the pass are committed: `before` (the engines
+- **The labels** of the pass are committed, the first four: `before` (the engines
   of the first baseline), `after-search` (after the changes to what the
   engine searches), `after` (after the changes to what a unit of
   search costs, which leave the counters of every decided row as they
   were) and `after-bias` (the default bias running both searches on a
   sequent with exponentials: the rows without exponentials have the
   counters of `after`, those with them the sum over the turns of both
-  searches); `bench/TARGETS.md` has the table. A later change that must
-  not alter the search runs the script under a label of its own and
-  compares with `after-bias.csv` (the script names no `--bias`, so its
-  runs take the default); trial labels `scratch-*` are ignored by jj. `baseline-2026-10-02`
+  searches); `bench/TARGETS.md` has the table. **The oracle now is
+  `after-efficiency.csv`** (`bench/TARGETS.md`, "Since then", says how
+  it descends from these): a later change that must not alter the search
+  runs the script under a label of its own and compares with it, by
+  `linlog-bench summary --against bench/targets/after-efficiency.csv
+  bench/targets/LABEL.csv --counters` (the script names no `--bias`, so
+  its runs take the default); trial labels `scratch-*` are ignored by
+  jj. `baseline-2026-10-02`
   is the set-up check of the second baseline: the engine it measured
   reproduces every decided row of `after-bias.csv`. `after-check` is the
   first label with the column `check_ms` (the rewritten checker, and the
@@ -384,8 +388,9 @@ serde_json, which the CLI and the core's tests already have.
   moved to it (the counters, the unreachable counter, the sampled nets,
   of which 85 are decided where `after-panels` decided 53, in 28 s of
   CPU against 197), and the 154 that kept their engine have every
-  counter of their 116 decided rows equal to `after-panels`. A later
-  change compares with it.
+  counter of their 116 decided rows equal to `after-panels`; the labels
+  after it are in `bench/TARGETS.md`, the last, `after-efficiency`, the
+  oracle.
 - **`bench/net-targets.sh LABEL`** is the net engine's set, which the
   focused engine's nearly leaves out (it forces no engine, and the
   dispatch sends one of its problems, `partition-table/1-1`, to the net
@@ -396,8 +401,9 @@ serde_json, which the CLI and the core's tests already have.
   `bench/targets/net-LABEL.csv` (`net-LABEL.part.csv` while it runs,
   ignored by jj). What compares is `verdict`, `links` and `tests` of the
   decided rows, a function of the input on one thread; a change that
-  must not alter the net search (the retype of `ProofStructure` over
-  vertices) runs it at its parent and at itself. The Partition
+  must not alter the net search runs it and compares with the oracle,
+  `net-after-efficiency.csv` (equal to `net-after-retype.csv`, taken at
+  the retype of `ProofStructure` over vertices). The Partition
   encodings of the problem file are copied out by exact name, since
   `--only` matches substrings and `1-1` is part of `1-1-1-1-1-7`, which
   the net engine does not decide.

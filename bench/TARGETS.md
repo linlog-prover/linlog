@@ -214,3 +214,37 @@ no Horn programs, so the forward search keeps to `--copies` there. The 44
 problems that the default and an explicit run both decide take the
 default 6.5 s together where the better explicit run takes 4.1 s; the
 ratio is 1.7 in the median and 4.5 at most (64 ms against 14 ms).
+
+## Since then
+
+Later labels, each compared with the oracle of its day by the step or
+area that took it (the reports under `plan/reports/` have the tables):
+
+- `after-memory`: the search under a memory bound of one gibibyte, the
+  memo as records in chunks; the 99 decided rows have the counters of
+  `after-limits`.
+- `after-defaults`: the command's defaults (the first label with
+  `copies_reached` and `pool_after`; the LLTP runs name `--copies 3`); the
+  counters of `after-memory`.
+- `after-panels`: the panels' changes to the split search, which changed
+  `mix/8`, `mix/9` and `mix/10` by design.
+- `after-horn`: the Horn engine the default for Horn programs with `!`:
+  109 runs moved to it; the rows that kept their engine have the
+  counters of `after-panels`.
+- `after-coverability`: the Horn engine's coverability in affine mode;
+  135 rows decided against 131.
+- `head-lto`: the release profile with link-time optimization; the
+  counters of `after-coverability` on every decided row.
+- `after-efficiency`: the efficiency fixes of the code-audit step; the 265
+  rows have the verdicts of `head-lto` and every decided row its
+  counters, in 10 % less CPU time.
+
+**The oracle is `after-efficiency.csv`**: a change that must not alter
+the focused engine's search runs `bench/targets.sh LABEL` and compares
+with it, `linlog-bench summary --against bench/targets/after-efficiency.csv
+bench/targets/LABEL.csv --counters`, which lists every row decided alike
+whose counters differ. The net engine's set (`bench/net-targets.sh`) has
+its own oracle, `net-after-efficiency.csv`, equal in verdict, `links`
+and `tests` to `net-after-retype.csv`. The other files of the directory
+are intermediate labels of those steps and the pool's measurements.
+
