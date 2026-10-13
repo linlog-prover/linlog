@@ -9,7 +9,12 @@
   imports = [ inputs.devshell.flakeModule ];
 
   perSystem =
-    { pkgs, rustToolchain, ... }:
+    {
+      lib,
+      pkgs,
+      rustToolchain,
+      ...
+    }:
     {
       devshells.default = {
         devshell.packages = [
@@ -21,11 +26,14 @@
           # Mutation testing (mutants/run.sh), whose tests nextest runs.
           pkgs.cargo-mutants
           pkgs.cargo-nextest
-          # Instruction counts: the ratchet's journeys and their profiles.
-          pkgs.valgrind.out
           pkgs.bacon
           pkgs.zellij
-        ];
+        ]
+        # Instruction counts: the ratchet's journeys and their profiles,
+        # where valgrind runs (not on aarch64-darwin).
+        ++ lib.optional (
+          lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.valgrind && !pkgs.valgrind.meta.broken
+        ) pkgs.valgrind.out;
 
         commands = [
           {

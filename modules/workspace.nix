@@ -51,7 +51,9 @@
           commonArgs
           // {
             inherit cargoArtifacts;
-            inherit (craneLib.crateNameFromCargoToml { cargoToml = ../cli/Cargo.toml; }) pname version;
+            inherit (craneLib.crateNameFromCargoToml { cargoToml = ../cli/Cargo.toml; }) pname;
+            # The crates inherit the workspace's version.
+            inherit (craneLib.crateNameFromCargoToml { cargoToml = ../Cargo.toml; }) version;
             cargoExtraArgs = "--locked --package linlog-cli";
             # The `test' check runs them, once, for the whole workspace.
             doCheck = false;

@@ -4,8 +4,8 @@
 [package]
 name = "linlog-bench"
 description = "The benchmark harness of linlog: problem families, the LLTP library, coverability problems, timings as CSV, and the ratchet of instruction counts."
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 license = "EUPL-1.2"
 publish = false
 

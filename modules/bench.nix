@@ -28,7 +28,9 @@
         workspace.commonArgs
         // {
           inherit (workspace) cargoArtifacts;
-          inherit (craneLib.crateNameFromCargoToml { cargoToml = ../bench/Cargo.toml; }) pname version;
+          inherit (craneLib.crateNameFromCargoToml { cargoToml = ../bench/Cargo.toml; }) pname;
+          # The crates inherit the workspace's version.
+          inherit (craneLib.crateNameFromCargoToml { cargoToml = ../Cargo.toml; }) version;
           cargoExtraArgs = "--locked --package linlog-bench";
           # The `test' check runs them, once, for the whole workspace.
           doCheck = false;
@@ -92,24 +94,6 @@
               cat summary.md progress.log
               exit 1
             fi
-            touch $out
-          '';
-
-      # The ratchet: every journey's instruction count under callgrind
-      # against its ceiling in bench/ceilings.csv. Counts do not depend on
-      # the build machine's load, so this check means something where the
-      # timings of `bench' do not; `valgrind.out', since the package's
-      # first output is its manual.
-      checks.ratchet =
-        pkgs.runCommand "check-ratchet"
-          {
-            nativeBuildInputs = [
-              linlog-bench
-              pkgs.valgrind.out
-            ];
-          }
-          ''
-            linlog-bench ratchet --check --jobs "$NIX_BUILD_CORES" --ceilings ${../bench/ceilings.csv}
             touch $out
           '';
     };

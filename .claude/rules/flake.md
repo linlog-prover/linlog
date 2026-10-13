@@ -66,6 +66,15 @@ domain are TPTP's `fof`, Rocq's `falso` and the like) and `shear`
 (cargo-shear in a crane derivation, which reads the vendored
 dependencies offline). The spec is outside the plan grep because it
 names Andreoli's rules D1 and D2.
+`systems.nix` declares x86_64-linux, aarch64-linux and aarch64-darwin;
+CI builds and checks x86_64-linux alone, the other two evaluate and are
+built nowhere. valgrind is broken in nixpkgs on aarch64-darwin, so the
+devshell takes it and `ratchet.nix` defines the `ratchet` check only
+where it runs (`lib.meta.availableOn` and not `meta.broken`; the devshell
+once failed to evaluate there). The crates inherit `version` and
+`edition` from `[workspace.package]`, so crane's package versions come
+from the root `Cargo.toml` (`crateNameFromCargoToml` on a member's falls
+back to 0.0.1).
 `devshell.nix` carries cargo-mutants and cargo-nextest for
 `mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the
