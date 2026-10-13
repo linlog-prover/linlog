@@ -1,0 +1,15 @@
+$ linlog prove -i '!A |- A * A'
+--- status 0
+--- stdout
+provable (IMELL, intuitionistic, horn engine)
+───── ax   ───── ax
+A ⊢ A      A ⊢ A
+──────────────── ⊗R
+  A, A ⊢ A ⊗ A
+  ───────────── !L
+  !A, A ⊢ A ⊗ A
+  ────────────── !L
+  !A, !A ⊢ A ⊗ A
+  ────────────── !c
+    !A ⊢ A ⊗ A
+--- stderr

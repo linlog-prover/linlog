@@ -1,0 +1,8 @@
+$ linlog prove --input-format jsonl --format json
+--- stdin
+{"name": "bad", "sequent": "A |-|- B"}
+
+--- status 2
+--- stdout
+{"version":1,"name":"bad","verdict":"error","message":"cannot parse the sequent\n  A |-|- B\n      ^ unexpected \"|\", expected a formula"}
+--- stderr

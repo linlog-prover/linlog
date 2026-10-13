@@ -1,0 +1,11 @@
+$ linlog prove -i 'A & !B |- !B + A'
+--- status 0
+--- stdout
+provable (ILL, intuitionistic, two-sided engine)
+    ───── ax
+    A ⊢ A
+  ────────── ⊕R₂
+  A ⊢ !B ⊕ A
+─────────────── &L₁
+A & !B ⊢ !B ⊕ A
+--- stderr

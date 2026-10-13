@@ -1,0 +1,8 @@
+$ linlog check --format json
+--- stdin
+{"version":1,"sequent":{"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":1},{"V":0},{"⊗":[3,4]}],"roots":[2,5],"atoms":["A","B"]},"nodes":[{"ax":[1,4]},{"ax":[2,5]},{"⊗":[3,0,1]},{"⅋":[0,2]}]}
+
+--- status 1
+--- stdout
+{"version":1,"verdict":"invalid","mode":"classical","error":{"code":"invalid_proof","kind":"invalid","message":"invalid proof: node 0 (ax on 1, 4): the literals are not an atom and its negation","details":{"node":0,"rule":{"ax":[1,4]},"fault":{"kind":"not_dual"},"premises":[]}},"message":"node 0 (ax on ~A, B): the literals are not an atom and its negation"}
+--- stderr

@@ -68,6 +68,13 @@ const CASES: &[Case] = &[
         &["prove", "-i", "A -o B |- B -o A"],
     ),
     call("prove-affine", &["prove", "-a", "A, B |- A"]),
+    call("prove-iall", &["prove", "-i", "A & B |- B & A"]),
+    call("prove-imell", &["prove", "-i", "!A |- A * A"]),
+    call("prove-ill", &["prove", "-i", "A & !B |- !B + A"]),
+    call(
+        "prove-intuitionistic-affine",
+        &["prove", "-i", "-a", "A, B |- A"],
+    ),
     call("prove-mix", &["prove", "--mix", "A, B |- A, B"]),
     call("prove-horn", &["prove", "!(a -o a * b), a |- a * b * b"]),
     // Every refutation, as text and as JSON.
@@ -286,10 +293,41 @@ const CASES: &[Case] = &[
         &["prove", "--input-format", "jsonl", "--file", "-"],
         "{\"version\":1,\"terms\":[{\"D\":0},{\"V\":0}],\"roots\":[0,1],\"atoms\":[\"A\"]}\n",
     ),
+    call(
+        "batch-json",
+        &[
+            "prove",
+            "--input-format",
+            "lines",
+            "--format",
+            "json",
+            "--deterministic",
+            "--file",
+            "many.txt",
+        ],
+    ),
+    piped(
+        "batch-json-error",
+        &["prove", "--input-format", "jsonl", "--format", "json"],
+        "{\"name\": \"bad\", \"sequent\": \"A |-|- B\"}\n",
+    ),
     // check.
     piped("check-valid", &["check"], PROOF),
     piped("check-invalid", &["check"], WRONG_PROOF),
     piped("check-not-json", &["check"], "A |- A"),
+    piped("check-format-latex", &["check", "--format", "latex"], PROOF),
+    piped("check-net", &["check", "--net"], PROOF),
+    piped("check-json-valid", &["check", "--format", "json"], PROOF),
+    piped(
+        "check-json-invalid",
+        &["check", "--format", "json"],
+        WRONG_PROOF,
+    ),
+    piped(
+        "check-json-unknown",
+        &["check", "--format", "json", "--work-limit", "1"],
+        PROOF,
+    ),
     // interact.
     piped(
         "interact-session",
@@ -316,6 +354,10 @@ const CASES: &[Case] = &[
         ],
     ),
     call("seq-json", &["seq", "json", "A, A -o B |- B"]),
+    call(
+        "seq-print-svg",
+        &["seq", "print", "--format", "svg", "A -o B |- B"],
+    ),
     call("seq-fragment", &["seq", "fragment", "!A & B |- ?C"]),
     call(
         "seq-fragment-intuitionistic",
@@ -334,12 +376,17 @@ const CASES: &[Case] = &[
         &["prove", "--occurrence-limit", "2", "A * B |- B * A"],
     ),
     call(
-        "error-memory-limit",
+        "unknown-memory-limit",
         &["prove", "--memory-limit", "100", "!(A & B) |- !A * ?B"],
     ),
     call("error-missing-file", &["prove", "--file", "missing.p"]),
     call("error-unknown-flag", &["prove", "--frobnicate", "A |- A"]),
     call("error-no-command", &[]),
+    // Help.
+    call("help-prove", &["prove", "--help"]),
+    call("help-check", &["check", "--help"]),
+    call("help-interact", &["interact", "--help"]),
+    call("help-seq-print", &["seq", "print", "--help"]),
 ];
 
 /// Runs one call in the inputs directory and returns what the lock pins:

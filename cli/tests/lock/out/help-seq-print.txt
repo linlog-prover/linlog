@@ -1,0 +1,120 @@
+$ linlog seq print --help
+--- status 0
+--- stdout
+Print a sequent one-sided, in negation normal form, or two-sided
+
+`A, A -o B |- B` prints as `⊢ ~A, A ⊗ ~B, B`: hypotheses are negated onto the right, implications become pars, and negation is pushed down to the atoms. With --intuitionistic it prints as `A, A ⊸ B ⊢ B` again, which requires an intuitionistic sequent: one formula on the right, and pars only as implications.
+
+Usage: linlog seq print [OPTIONS] [SEQUENT]
+
+Arguments:
+  [SEQUENT]
+          The sequent, such as "A, A -o B |- B"; read from --file when absent, or from standard input by every command but `interact`
+
+Options:
+  -f, --file <PATH>
+          Read the sequent from this file, or `-` for standard input
+          
+          The file's kind is its extension's unless --input-format says otherwise: `.p` an LLTP problem (with --logic a TPTP problem of ordinary logic), `.spec` a coverability problem, `.json` a JSON sequent, anything else the text syntax, which may span lines. `prove` takes the flag more than once, and a directory, as a batch.
+
+      --input-format <FORMAT>
+          How to read the input, rather than by the file's extension
+          
+          `lines`, `jsonl` and `problems` hold many sequents, which `prove` decides as a batch.
+
+          Possible values:
+          - auto:     By the file's extension: `.p` lltp (tptp with --logic), `.spec` spec, `.json` json, else text
+          - text:     One sequent in the text syntax, which may span lines
+          - json:     One sequent in JSON, as `seq json` writes it
+          - lltp:     A problem of the LLTP library: its axioms ⊢ its conjecture; the file does not say whether it is intuitionistic, the flags do
+          - spec:     A coverability problem in the .spec format of the Mist tool: its rules under !, its initial marking ⊢ its target, a question of affine mode, in which it is decided without --affine
+          - lines:    One sequent per line in the text syntax, as `NAME: SEQUENT` or `SEQUENT`; blank lines and everything from `#` on are skipped
+          - jsonl:    One JSON value per line: a sequent as `seq json` writes it, or {"name": …, "mode": …, "sequent": …} with the sequent in JSON or as text and the mode named as in `problems`; blank lines are skipped
+          - tptp:     A problem of ordinary propositional logic in TPTP syntax, as the ILTP library writes them: its axioms ⊢ its conjecture (with --logic, where a `.p` file is one)
+          - problems: The benchmark harness's problem files: `NAME; MODE; EXPECTED; COPIES; SEQUENT` per line, MODE one of classical, mix, affine, intuitionistic or intuitionistic-affine; EXPECTED and COPIES are not read
+          
+          [default: auto]
+
+      --occurrence-limit <N>
+          The most subformula occurrences the sequent may have, or `none`
+          
+          A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
+          
+          [default: 50000000]
+
+  -i, --intuitionistic
+          Print the sequent two-sided, as intuitionistic linear logic reads it
+
+      --logic <LOGIC>
+          Read the input as ordinary logic, through its translation into linear logic
+          
+          The input is a formula or a sequent of propositional logic in the syntax below (a `.p` file a TPTP problem, as the ILTP library writes them). `prove` decides its image and reads a proof back as a derivation of LK (classical) or LJ (intuitionistic, minimal), which is checked by the rules of the logic before it is shown; classical logic is decided in affine MALL, with no copy bound, intuitionistic and minimal logic in ILL, under the time limit, so they may be answered unknown, and the JSON output is the search's outcome on the image. `seq print` prints the image.
+
+          Possible values:
+          - classical:      Classical propositional logic, derivations in LK
+          - intuitionistic: Intuitionistic propositional logic, derivations in LJ
+          - minimal:        Minimal logic: intuitionistic without ex falso, false an atom
+
+      --translation <TRANSLATION>
+          The translation into linear logic: affine for classical logic, cbn (by default), cbv or 01 for intuitionistic and minimal logic
+
+          Possible values:
+          - affine: Classical logic into affine MALL: negation normal form, ∧ as &, ∨ as ⅋
+          - cbn:    Girard's call-by-name translation into ILL: A → B as !A ⊸ B, A ∨ B as !A ⊕ !B, hypotheses under !
+          - cbv:    Girard's call-by-value translation into ILL: atoms as !a, A → B as !(A ⊸ B), ∧ as ⊗
+          - 01:     Liang and Miller's 0/1 translation into ILL, as the LLTP library states it
+
+      --format <FORMAT>
+          The output format
+
+          Possible values:
+          - text:  Unicode text
+          - latex: LaTeX math, with the connectives of cmll and amssymb
+          - typst: Typst math
+          - svg:   An SVG document of one line, set in the Euler Math font
+          - png:   A PNG image of the SVG document's line
+          - pdf:   A PDF document of the SVG document's line
+          
+          [default: text]
+
+      --standalone
+          Write a document that compiles on its own instead of a fragment to paste (latex and typst)
+
+  -o, --output <PATH>
+          Write to this file instead of standard output
+
+      --style <KEY=VALUE>
+          Set an option of an output format, such as `labels=subscript`, `latex.open=bare` or `svg.font.family=monospace` (repeatable)
+          
+          KEY is a field of the format's options, dotted into nested ones, as `--style-file` holds them; without a prefix `text.`, `latex.`, `typst.`, `svg.`, `png.`, `pdf.` or `rocq.` it names the format `--format` gives. VALUE is JSON, or else a string: `gap=5`, `ids=true`, `open={"mark":"?"}`, `labels.table.⊸L=⊸_L`. The fields: text: labels, open, bar, gap; latex: form, labels, open, align, ebproof, preamble; typst: form, labels, open, import, page, layout (auto, curryst or linlog: curryst for a tree up to nine inferences high, linlog's own code above), premise_gap, label_gap, band, stroke (lengths for linlog's own layout: a number and pt, mm, cm, in or em); svg: font (family, advances), labels, open, ids, description, font_size, label_size, line_height, premise_gap, literal_gap, label_gap, margin, stroke_width, link_height, link_cap, node_radius, text, line, par, link, highlight, background; png: scale, pixels; pdf: embed_text, compatible, accessible, title, language, date; rocq: form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal is dots, bare, dashed or {"mark":TEXT}
+
+      --style-file <PATH>
+          Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, rocq), each holding the fields `--style` names; a field left out keeps its default
+
+      --memory-limit <SIZE>
+          The most memory a png or pdf render may take, by its estimate: a number of bytes with a unit such as 512MiB or 4GiB, or `none` for no limit; see `prove --memory-limit`
+          
+          [default: 1GiB]
+
+      --settings <PATH>
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Sequent syntax: `A, B |- C, D` (or `⊢`), either side may be empty.
+  tensor  A * B, A ⊗ B        par   A | B, A par B, A ⅋ B
+  with    A & B               plus  A + B, A ⊕ B
+  linear implication  A -o B, A ⊸ B
+  negation  ~A, A^            exponentials  !A, ?A
+  units  1, bot, ⊥, top, ⊤, 0
+Binding, tightest first: A^, then ~ ! ?, then *, |, &, +, and last -o, which
+groups to the right.
+
+With --logic the input is ordinary logic: `a, a -> b |- b`, or a formula alone.
+  and  a /\ b, a ∧ b         or   a \/ b, a ∨ b
+  implies  a -> b, a → b      iff  a <-> b, a ↔ b
+  not  ~a, ¬a                 constants  true, ⊤, false, ⊥
+Binding, tightest first: ~, /\, \/, ->, and last <->; -> and <-> group to
+the right.
+--- stderr

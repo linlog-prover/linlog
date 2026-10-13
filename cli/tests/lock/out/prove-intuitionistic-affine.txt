@@ -1,0 +1,9 @@
+$ linlog prove -i -a 'A, B |- A'
+--- status 0
+--- stdout
+provable (IMLL, intuitionistic affine, two-sided engine)
+ ───── ax
+ A ⊢ A
+──────── wk
+A, B ⊢ A
+--- stderr

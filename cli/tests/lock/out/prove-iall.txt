@@ -1,0 +1,11 @@
+$ linlog prove -i 'A & B |- B & A'
+--- status 0
+--- stdout
+provable (IALL, intuitionistic, additive engine)
+  ───── ax        ───── ax
+  B ⊢ B           A ⊢ A
+───────── &L₂   ───────── &L₁
+A & B ⊢ B       A & B ⊢ A
+───────────────────────── &R
+      A & B ⊢ B & A
+--- stderr
