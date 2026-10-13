@@ -1574,3 +1574,59 @@ signed-off design or from a finding's proposed fix it says so.
   after. What was done: commits from 09:00 test a signature first
   (scratch `jjc.sh`).
 
+### Messages from `planning` to `step-28g` (2026-10-13, late morning)
+
+- About 09:40: the ultra reviews are done; their one finding is U1
+  (`plan/reports/28-audit-findings.json`): under `--isolate` an entry
+  whose name or path starts with `-` got an error. What was done: the
+  hidden `--entry-name` and `--entry-file` take hyphen values, and
+  `isolated_entries_named_like_flags` pins it (it fails without the
+  fix); in vxwmzrmx. batch.rs's mutation batch had not run, so it runs
+  with the rest.
+- About 09:45: Pause. What was stopped, where, and how each resumes:
+  - The gate batch (`step28-gates3`, cores 2 to 5, `$S/gates.sh` in
+    `../linlog-gate`): lswsnsqs to porxkxso passed; stopped in
+    toxvsokk. Resume: gate toxvsokk through mslrmklq, then rwtxwmxv,
+    wxpuwxvv, vxwmzrmx and whatever follows (ptpppvro and xnturszr are
+    plan-only).
+  - The full mutation run (`linlog-mutants`, cores 6 to 11, from
+    `../linlog-mutants34` at mslrmklq): the check batch's first pass had
+    ended (292 mutants, 19 missed), its survivors' pass was in flight
+    and is lost; nothing was written under `mutants/area-3.4/`. Resume:
+    the code it covers changed since (the parsers in wxpuwxvv), so move
+    the workspace to the head (`jj edit` there onto the last commit) and
+    run `mutants/run.sh --label area-3.4` from the start.
+  - The fuzz run (`linlog-fuzz`, cores 12 to 15): json_sequent,
+    json_session, json_structure and json_proof ended at the cap (an
+    hour each, no finds); json_disproof, ordinary_text, sequent_text
+    and tptp were stopped with their corpora kept; session_steps,
+    proof_views, ordinary_decide and the rest had not started. Resume:
+    `fuzz/run.sh` for every target but the four done; sequent_text,
+    ordinary_text and tptp must run anyway, their readers having
+    changed (wxpuwxvv).
+  - The signing loop `step28-gpg-warm` is stopped too; start it again
+    if a signature succeeds.
+  - Round 1's fixes not yet made (scratch `round1/todo.md`): `prove.rs`
+    split into `show.rs` and `check.rs` (pure moves); a test that every
+    id `Apply::set` asks is an argument of its command; the valgrind
+    predicate written once; one helper for the `STEPS_PER_CLOCK`
+    closure; interact's `proof_format` error for `show` and the terminal
+    refusal written once; the `linlog` path dependency in
+    `[workspace.dependencies]`; `summary.rs`'s module doc; README's
+    "where the library refused it" (most refusals reach a record as
+    prose); the record's `seconds` and `version` by string surgery;
+    `proof_views` through `wire::upgrade`; interact's `--file` doc
+    (`-`); the departures to record in "Area 3.4: decided unattended"
+    (`--jobs` sets two keys, `"verdict":"error"` against api.md §7.3
+    and §7.4); and as declined or recorded: F169's residue (interact's
+    `show --png` and `seq print`'s PNG are bounded by the derivation
+    limit, not the memory limit), F182's rerun list (the first
+    baseline's on purpose), F183's resume key, F214's `--isolate`
+    failure arms, F217, F218's scaling tests, the input lens's taste
+    items. Then check round 2, the reviewer, the last reader, the
+    evidence again and `nix flake check`, as "Where you start" says.
+  - Not yet run on the last three commits: the gate; `cargo test
+    --workspace` passed before the help lock's rebless and the U1,
+    settings and derivation tests, which passed alone with the unit
+    tests and clippy.
+
