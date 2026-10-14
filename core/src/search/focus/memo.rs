@@ -42,8 +42,7 @@ use std::sync::Mutex;
 pub(super) struct Key {
     /// The id of the unrestricted zone ([`Interner::intern`]).
     pub(super) theta: u64,
-    /// The members of the linear zone in ascending order, an occurrence
-    /// repeated as often as it is present.
+    /// The members of the linear zone as [`Zones::members`] lists them.
     pub(super) members: Pooled<OccId>,
 }
 
@@ -73,9 +72,35 @@ impl Key {
 pub(super) struct Zones<'a> {
     /// The id of the unrestricted zone ([`Interner::intern`]).
     pub(super) theta: u64,
-    /// The members of the linear zone in ascending order, an occurrence
-    /// repeated as often as it is present.
+    /// The members of the linear zone in ascending order, each once: one
+    /// present more than once with [`REPEATED`] set, followed by its
+    /// number of copies
+    /// ([`Context::key_into`](super::context::Context::key_into),
+    /// [`decoded`]).
     pub(super) members: &'a [OccId],
+}
+
+/// The bit of a key's word that marks a member present more than once,
+/// whose number of copies is the next word: a marking of a thousand
+/// tokens on one place is then two words, as it was one entry of the
+/// zone's list of extra copies. No occurrence has the bit of its own: a
+/// forest the focused engine searches has fewer than 2³¹ occurrences,
+/// since its counts refuse a larger one.
+pub(super) const REPEATED: u32 = 1 << 31;
+
+/// Returns the members a key's words list, each with its number of
+/// copies, in their order.
+pub(super) fn decoded(members: &[OccId]) -> impl Iterator<Item = (OccId, u32)> + '_ {
+    let mut words = members.iter().map(|o| o.get());
+    std::iter::from_fn(move || {
+        let word = words.next()?;
+        Some(if word & REPEATED == 0 {
+            (OccId::new(word), 1)
+        } else {
+            let copies = words.next().expect("a repeated member's count");
+            (OccId::new(word & !REPEATED), copies)
+        })
+    })
 }
 
 impl Zones<'_> {
@@ -274,10 +299,10 @@ const ENTRY: usize = 2;
 /// Where the id of the unrestricted zone is in a record, in two words.
 const THETA: usize = 4;
 
-/// Where the number of the linear zone's members is in a record.
+/// Where the number of the linear zone's words is in a record.
 const MEMBERS: usize = 6;
 
-/// The words of a record before the linear zone's members.
+/// The words of a record before the linear zone's words.
 const HEADER: usize = 7;
 
 /// The words of a chunk of an engine's own memo: a mebibyte.
@@ -315,8 +340,8 @@ fn place(slots: &mut [u64], at: u64, hash: u64) {
 /// costs time: every entry is a fact the search can find again.
 ///
 /// An entry is a record of 32-bit words: its key's hash, the entry, the
-/// id of the unrestricted zone, the number of the linear zone's members
-/// and the members. Records lie one after another in chunks of a fixed
+/// id of the unrestricted zone, the number of the linear zone's words and
+/// the words ([`Zones::members`]). Records lie one after another in chunks of a fixed
 /// size (a record longer than a chunk has a chunk to itself), so the
 /// memo's memory is the chunks it has asked for, an entry costs no
 /// allocation of its own, emptying the table is resetting a count and
@@ -991,7 +1016,7 @@ mod tests {
                 let long = &long;
                 (0..60u32).map(move |n| match n {
                     0 => key(round, long),
-                    1 => key(round, &[7, 7]),
+                    1 => key(round, &[7 | REPEATED, 2]),
                     2 => key(round, &[]),
                     _ => key(round, &(0..=n % 9).map(|m| m * 3 + n).collect::<Vec<_>>()),
                 })

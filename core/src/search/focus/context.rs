@@ -206,6 +206,27 @@ impl Context {
         })
     }
 
+    /// Returns whether some member is present more than once.
+    pub(crate) fn repeats(&self) -> bool {
+        !self.extra.is_empty()
+    }
+
+    /// Appends the zone's words of a key of the memo to `list`
+    /// ([`Zones::members`](super::memo::Zones::members)): each member
+    /// once, in ascending order, one present more than once marked and
+    /// followed by its number of copies.
+    pub(crate) fn key_into(&self, list: &mut Vec<OccId>) {
+        use super::memo::REPEATED;
+        for (o, copies) in self.with_copies() {
+            debug_assert_eq!(o.get() & REPEATED, 0, "an occurrence below 2³¹");
+            if copies == 1 {
+                list.push(o);
+            } else {
+                list.extend([OccId::new(o.get() | REPEATED), OccId::new(copies)]);
+            }
+        }
+    }
+
     /// Appends the members to `list` as [`iter`](Self::iter) returns
     /// them, without the extra copies' bookkeeping where there are none,
     /// which is the common case.

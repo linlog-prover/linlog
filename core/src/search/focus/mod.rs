@@ -990,23 +990,30 @@ impl<'a> Run<'a> {
         if self.problem.account.over() {
             self.relieve()?;
         }
-        let mut members = self.take_list();
-        gamma.list_into(&mut members);
+        // The key's words: the members, each once, where none repeats.
+        let mut words = self.take_list();
+        let repeats = gamma.repeats();
+        if repeats {
+            gamma.key_into(&mut words);
+        } else {
+            gamma.list_into(&mut words);
+        }
         let mut canonical = self.take_list();
-        let result = self.prove_listed(theta, gamma, &members, &mut canonical, budget);
-        self.give_list(members);
+        let result = self.prove_listed(theta, gamma, (&words, repeats), &mut canonical, budget);
+        self.give_list(words);
         self.give_list(canonical);
         result
     }
 
     /// The memo and the branch stack around the decision of a stable
-    /// sequent whose linear zone has the members given, with a buffer for
-    /// its canonical members.
+    /// sequent whose linear zone has the words of a key given
+    /// ([`Zones::members`]), which are its members where none repeats,
+    /// with a buffer for its canonical key.
     fn prove_listed(
         &mut self,
         theta: &Unrestricted,
         gamma: &Context,
-        members: &[OccId],
+        (words, repeats): (&[OccId], bool),
         canonical: &mut Vec<OccId>,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
@@ -1014,7 +1021,7 @@ impl<'a> Run<'a> {
         // one hash.
         let key = Zones {
             theta: theta.id,
-            members,
+            members: words,
         };
         let hash = if self.problem.memoizes || self.problem.rules.stack {
             key.hash()
@@ -1025,9 +1032,9 @@ impl<'a> Run<'a> {
         // under the canonical key, where it differs from the sequent's own.
         let renamed = self.problem.classes.renames(gamma);
         if renamed {
-            self.problem.classes.canonical(members, canonical);
+            self.problem.classes.canonical(words, repeats, canonical);
             debug_assert!(
-                *canonical != members,
+                *canonical != words,
                 "a member's class is another occurrence"
             );
         }
@@ -1112,7 +1119,17 @@ impl<'a> Run<'a> {
             self.stack_len += 1;
         }
         let mark = self.nodes.mark();
-        let result = self.decide(theta, gamma, members, budget);
+        // The members with their repeats, listed only to be decided: a
+        // marking of a hundred tokens is a hundred members.
+        let result = if repeats {
+            let mut members = self.take_list();
+            gamma.list_into(&mut members);
+            let result = self.decide(theta, gamma, &members, budget);
+            self.give_list(members);
+            result
+        } else {
+            self.decide(theta, gamma, words, budget)
+        };
         let own_depth = if self.problem.rules.stack {
             self.stack_len -= 1;
             (self.above() + self.stack_len) as u32
@@ -1281,7 +1298,10 @@ impl<'a> Run<'a> {
                 .map(|_| ());
         }
         let mut canonical = self.take_list();
-        self.problem.classes.canonical(key.members, &mut canonical);
+        let repeats = key.members.iter().any(|o| o.get() & memo::REPEATED != 0);
+        self.problem
+            .classes
+            .canonical(key.members, repeats, &mut canonical);
         let canonical_key = Zones {
             theta: key.theta,
             members: &canonical,

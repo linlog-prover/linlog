@@ -119,9 +119,18 @@ relies on:
   whole width per split (86 % of its time); with the range it visits ten
   times the stable sequents in its 5 s.
 - **The key of a stable sequent is sparse** (`memo::Key`, `Zones`): `Θ`
-  by an id, `Γ` by its members in ascending order with repeats, listed
-  once per stable sequent in `prove_stable` and handed to `decide`, which
-  listed them anyway. `Θ` travels with its id (`Unrestricted`), which the
+  by an id, `Γ` by its members in ascending order, each once, a member
+  present more than once with `memo::REPEATED` set and followed by its
+  number of copies (`Context::key_into`, `memo::decoded`), as the zone's
+  list of extra copies keeps them: a marking of a hundred tokens on one
+  place is two words, where listing the copies cost a counter of
+  `!(A ⊸ A ⊗ A)` 11 % more instructions than the bitsets' key. No
+  occurrence id has that bit: the counts refuse a forest of 2³¹
+  occurrences or more, and every focused search builds its counts
+  first. Where no member repeats the key's words are the members, listed
+  once per stable sequent in `prove_stable` and handed to `decide`;
+  where one does, `decide`'s list with the repeats is made only for a
+  sequent decided, as before. `Θ` travels with its id (`Unrestricted`), which the
   memo's table of zones (`memo::Interner`, `Table::intern`) gives it where
   it is made: at the root and where a `?` rule grew it, once the
   asynchronous phase is done adding to it (`Run::interned`, before the
@@ -225,8 +234,9 @@ relies on:
   this simple; growing the index walks the records in order. Per entry:
   28 bytes of header, four a member, and 16 to 32 for the index.
 - **Complete failures are keyed up to interchangeable members of `Γ`**
-  (`Classes::canonical`: every member replaced by its class and sorted,
-  the canonical key; `Θ` stays as it is). By the lemma on interchangeable
+  (`Classes::canonical`: every member replaced by its class, the copies
+  of a class added up and sorted, the canonical key; `Θ` stays as it
+  is). By the lemma on interchangeable
   occurrences a `Complete` failure holds for every sequent with that
   canonical key, so it is recorded there and `Memo::refuted` reads it
   for any of them. A proof names occurrences, so `Proved` stays under

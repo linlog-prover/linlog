@@ -10,6 +10,7 @@
 //! same position, and the search need only try one of each kind.
 
 use super::context::Context;
+use super::memo::{REPEATED, decoded};
 use crate::occurrences::{Forest, OccId, OccSet, Reading, Side};
 
 /// The class of every occurrence of a forest: the occurrences of the same
@@ -26,6 +27,20 @@ pub(crate) struct Classes {
     renamed: OccSet,
     /// Whether no two occurrences are interchangeable.
     distinct: bool,
+}
+
+/// Writes a class with its number of copies as a key's words at
+/// `at`: the class alone for one copy, else marked and followed by the
+/// number ([`REPEATED`]). Returns the words written.
+fn mark(words: &mut [OccId], at: usize, class: OccId, copies: u32) -> usize {
+    if copies == 1 {
+        words[at] = class;
+        1
+    } else {
+        words[at] = OccId::new(class.get() | REPEATED);
+        words[at + 1] = OccId::new(copies);
+        2
+    }
 }
 
 impl Classes {
@@ -76,19 +91,62 @@ impl Classes {
         !self.distinct && gamma.meets(&self.renamed)
     }
 
-    /// Returns whether one of the members given is not the first of its
-    /// class, as [`renames`](Self::renames) on a zone of them.
-    pub(crate) fn renames_any(&self, members: &[OccId]) -> bool {
-        !self.distinct && members.iter().any(|&o| self.renamed.contains(o))
+    /// Returns whether a member a key lists ([`decoded`]) is not the first
+    /// of its class, as [`renames`](Self::renames) on a zone of them.
+    pub(crate) fn renames_any(&self, key: &[OccId]) -> bool {
+        !self.distinct && decoded(key).any(|(o, _)| self.renamed.contains(o))
     }
 
-    /// Makes `canonical` the members given with each replaced by the first
-    /// occurrence of its class, in ascending order: the same for two lists
-    /// exactly when one is the other up to interchangeable members.
-    pub(crate) fn canonical(&self, members: &[OccId], canonical: &mut Vec<OccId>) {
+    /// Makes `canonical` the key's words ([`decoded`]) with each member
+    /// replaced by the first occurrence of its class, the copies of a
+    /// class added up: the same for two keys exactly when one is the
+    /// other up to interchangeable members. `repeats` says whether a
+    /// member of the key is marked as present more than once.
+    pub(crate) fn canonical(&self, key: &[OccId], repeats: bool, canonical: &mut Vec<OccId>) {
         canonical.clear();
-        canonical.extend(members.iter().map(|&o| self.of(o)));
-        canonical.sort_unstable();
+        if !repeats {
+            // Each member once: the classes sorted, and a run of one
+            // class written as the class marked and its length.
+            canonical.extend(key.iter().map(|&o| self.of(o)));
+            canonical.sort_unstable();
+            let words = canonical.as_mut_slice();
+            let (mut written, mut at) = (0, 0);
+            while at < words.len() {
+                let class = words[at];
+                let mut end = at + 1;
+                while end < words.len() && words[end] == class {
+                    end += 1;
+                }
+                written += mark(words, written, class, (end - at) as u32);
+                at = end;
+            }
+            canonical.truncate(written);
+            return;
+        }
+        for (o, copies) in decoded(key) {
+            canonical.extend([self.of(o), OccId::new(copies)]);
+        }
+        canonical
+            .as_chunks_mut::<2>()
+            .0
+            .sort_unstable_by_key(|[class, _]| *class);
+        // Merged and written in place, a class in one word or two, never
+        // past the pairs still to read.
+        let pairs = canonical.len() / 2;
+        let words = canonical.as_mut_slice();
+        let (mut written, mut at) = (0, 0);
+        while at < pairs {
+            let class = words[2 * at];
+            let mut copies = 0u32;
+            while at < pairs && words[2 * at] == class {
+                copies = copies
+                    .checked_add(words[2 * at + 1].get())
+                    .expect("fewer than 2³² copies of a class, as of a member");
+                at += 1;
+            }
+            written += mark(words, written, class, copies);
+        }
+        canonical.truncate(written);
     }
 
     /// Returns the class of an occurrence: its first interchangeable
@@ -135,16 +193,21 @@ mod tests {
         for o in [literals[1], literals[1], literals[0], tops[1]] {
             gamma.insert(o);
         }
-        let members: Vec<OccId> = gamma.iter().collect();
-        assert!(classes.renames(&gamma) && classes.renames_any(&members));
+        let mut words = Vec::new();
+        gamma.key_into(&mut words);
+        assert!(classes.renames(&gamma) && classes.renames_any(&words));
         let mut canonical = Vec::new();
-        classes.canonical(&members, &mut canonical);
-        let mut expected = vec![literals[0], literals[0], literals[0], tops[0]];
-        expected.sort_unstable();
+        classes.canonical(&words, true, &mut canonical);
+        let three = [OccId::new(literals[0].get() | REPEATED), OccId::new(3)];
+        let expected = if literals[0] < tops[0] {
+            [three.as_slice(), &[tops[0]]].concat()
+        } else {
+            [[tops[0]].as_slice(), &three].concat()
+        };
         assert_eq!(canonical, expected);
         assert!(!classes.renames_any(&canonical));
         let mut again = Vec::new();
-        classes.canonical(&canonical, &mut again);
+        classes.canonical(&canonical, true, &mut again);
         assert_eq!(again, canonical);
         let reading = Reading::new(&forest).unwrap();
         let classes = Classes::new(&forest, Some(&reading));
