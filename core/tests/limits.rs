@@ -69,14 +69,30 @@ fn the_readers_refuse_past_the_occurrences() {
             Err(Error::Refused(Refusal::Occurrences { .. }))
         ));
     }
-    // A `!` pays its term when it is reduced: `!A, !B` is four terms,
-    // read at a bound of four and refused at three.
-    let four = Limits::default().with_occurrences(Some(4));
-    assert!(Sequent::parse_within("|- !A, !B", &four).is_ok());
-    assert!(matches!(
-        Sequent::parse_within("|- !A, !B", &limits),
-        Err(Error::Refused(Refusal::Occurrences { .. }))
-    ));
+    // A `!` or `?` pays its term when it is reduced: `!A, !B` is four
+    // terms, read at a bound of four and refused at three.
+    let bound = |n| Limits::default().with_occurrences(Some(n));
+    let refused = |text: &str, n| {
+        matches!(
+            Sequent::parse_within(text, &bound(n)),
+            Err(Error::Refused(Refusal::Occurrences { .. }))
+        )
+    };
+    for text in ["|- !A, !B", "|- ?A, ?B"] {
+        assert!(Sequent::parse_within(text, &bound(4)).is_ok(), "{text}");
+        assert!(refused(text, 3), "{text}");
+    }
+    // A `(` or `~` waits as a mark until its `)` or its operand gives it
+    // back: six of them one after another fit a bound of six, and two
+    // open at once fit a bound of two where three do not.
+    for text in [
+        "|- (A), (B), (C), (D), (E), (F)",
+        "|- ~A, ~B, ~C, ~D, ~E, ~F",
+    ] {
+        assert!(Sequent::parse_within(text, &bound(6)).is_ok(), "{text}");
+    }
+    assert!(Sequent::parse_within("|- ((A))", &bound(2)).is_ok());
+    assert!(refused("|- (((A)))", 2));
     // A run of `(`, or of `~(`, makes no term and is refused past the
     // bound all the same.
     for run in ["(", "~("] {
