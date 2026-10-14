@@ -3,7 +3,8 @@
 
 //! The linlog command line interface: `linlog prove`, `linlog check`,
 //! `linlog interact` and `linlog seq`, as a library so that the binary is
-//! one call and this documentation exists.
+//! one call and this documentation exists. It is the binary's and no API:
+//! [`main`] is its one public item, and it makes no semver promise.
 
 /// The command line arguments.
 mod argument_parsing;

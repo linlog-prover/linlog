@@ -25,8 +25,8 @@ impl TermId {
     }
 }
 
-/// An atom (a propositional variable), by its index in a sequent's dictionary
-/// of atom names.
+/// An atomic formula, by its index in a sequent's dictionary of atom names.
+/// An atom takes no arguments: it is propositional.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Atom(u32);
 

@@ -257,7 +257,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   would end the command with 141 and lose the verdict.
 - **A batch's results are those of single calls**, verdict for verdict:
   an entry runs what `prove` runs (the read and parse under its own
-  `Deadline::within`, the same `Options`, `alone_first` within the cores
+  `Deadline::within`, the same `Options`, `searched` (the library's
+  `search::race`) within the cores
   and the sequential engines across them, as `--deterministic` does),
   and its line is `NAME: ` and `verdict_line` (the name's control
   characters escaped, `shown`), or a JSON Lines record
