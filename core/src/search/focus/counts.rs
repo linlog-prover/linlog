@@ -13,8 +13,33 @@ use crate::occurrences::{Forest, OccId, Sign};
 use crate::proofs::Branch;
 use crate::search::Bias;
 use crate::search::memory::{Account, bytes_of};
-use crate::search::{Equation, Reason, Refutation, Unbalanced, set_up_stopped};
+use crate::search::{Equation, OneSided, Reason, Refutation, Unbalanced, set_up_stopped};
 use crate::sequents::{Atom, Kind};
+
+#[cfg(test)]
+thread_local! {
+    /// Whether an atom whose literals below a `!` or `?` all have one sign
+    /// keeps its rows, on this thread: off only where a test compares the
+    /// counts with and without them.
+    static ONE_SIDED: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// Returns what `f` returns, run with the counts of [`Counts::new_until`]
+/// on this thread giving no rows to an atom with any literal below a `!`
+/// or `?`, as if both signs lay there.
+#[cfg(test)]
+pub(crate) fn without_one_sided<T>(f: impl FnOnce() -> T) -> T {
+    /// Turns the rows back on when dropped, after a panic too.
+    struct Restore;
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            ONE_SIDED.set(true);
+        }
+    }
+    ONE_SIDED.set(false);
+    let _restore = Restore;
+    f()
+}
 
 /// What a formula occurrence can contribute to the per-atom balance of a
 /// sequent, and to the `MLL` count equation, precomputed for every
@@ -32,11 +57,22 @@ use crate::sequents::{Atom, Kind};
 /// its row is meaningless and any sequent containing it passes. Rows are
 /// sparse, over the atoms that occur below the occurrence.
 ///
-/// An atom with a literal below a `?` or `!` anywhere in the problem gets no
-/// entry in any row: copies and discards break its balance. A `⊤` below a
-/// `?` or `!` makes the check useless altogether, since a copy of it
-/// absorbs any imbalance; [`absorbs_from_copies`](Self::absorbs_from_copies)
-/// says so.
+/// A literal below a `?` or `!` can be copied any number of times, none
+/// included. An atom with literals of both signs there gets no entry in
+/// any row: copies can balance it either way. An atom whose literals there
+/// all have one sign keeps its entries, each literal's, since a copy in
+/// the linear zone is used once, while the rows of a `!` or `?` stay
+/// empty; its balance can then grow without bound in that sign's
+/// direction only, so a set is ruled out by the other bound alone
+/// ([`excluded`](Self::excluded)): with every `a` below an exponential
+/// positive, a least balance above zero, which copies of `a` only raise.
+/// Over the rules of the calculus: an axiom and the initial rule from `Θ`
+/// pair a literal with its dual, one of them a copy where `Θ` gives it; a
+/// copy adds to `Γ` a member whose entries all have the copied sign; a
+/// promotion's `!A` has an empty row; `⊗`, `⅋` and Mix add rows, `&` and
+/// `⊕` take hulls. A `⊤` below a `?` or `!` makes the check useless
+/// altogether, since a copy of it absorbs any imbalance;
+/// [`absorbs_from_copies`](Self::absorbs_from_copies) says so.
 ///
 /// **Weight.** In the multiplicative fragment with units, every cut-free
 /// proof of a sequent of `c` formulas with `t` tensors, `p` pars, `u` ones
@@ -67,10 +103,20 @@ pub(crate) struct Counts {
     /// connectives in absolute value, fewer than 2³¹.
     weight: Box<[i32]>,
     /// The number of atoms that have rows, the width of a [`Tally`]: those
-    /// with no literal below a `!` or `?`.
+    /// whose literals below a `!` or `?` are all of one sign, if any lie
+    /// there.
     row_atoms: usize,
     /// The atoms that have rows, by their rank.
     ranked: Box<[Atom]>,
+    /// Per rank, the sign of the atom's literals below a `!` or `?`, all
+    /// of which have it: copies can add any number of them, so the
+    /// atom's balance can grow without bound that way, and only the other
+    /// way excludes it. `None` for an atom with no literal there.
+    copied: Box<[Option<Sign>]>,
+    /// Whether some atom has copies of one sign (`copied`): without one,
+    /// the loops over a row test a balance against zero alone and read no
+    /// sign.
+    one_sided: bool,
     /// Whether a `⊤` lies below a `?` or `!` somewhere in the problem, so
     /// that a copy can absorb any imbalance and the intervals prune
     /// nothing.
@@ -212,19 +258,26 @@ impl Counts {
             return Err(Reason::IndexLimit);
         }
         let positive = super::bias::signs(forest, bias);
-        // An atom with a literal below a `?` or `!` anywhere in the problem
-        // can be copied or discarded any number of times, so its balance
-        // says nothing: such atoms get no row entries at all.
+        // A literal below a `?` or `!` anywhere in the problem can be
+        // copied or discarded any number of times: an atom with both signs
+        // there can be balanced whatever its other literals, and gets no
+        // row entries at all, and an atom with one sign there only lets
+        // copies push its balance that way (`copied`).
         let num_atoms = forest.sequent().atom_names().len();
         let fixed = n * (size_of::<u32>() + size_of::<i32>() + 2 * size_of::<bool>())
-            + num_atoms * (2 * size_of::<bool>() + 2 * size_of::<u32>() + size_of::<Sign>());
+            + num_atoms
+                * (2 * size_of::<bool>()
+                    + 2 * size_of::<u32>()
+                    + size_of::<Sign>()
+                    + size_of::<Option<Sign>>());
         account.charge(fixed);
         if account.over() {
             return Err(Reason::MemoryLimit {
                 limit_bytes: account.limit(),
             });
         }
-        let mut exponential = vec![false; num_atoms];
+        // Per atom and sign, whether a literal of it lies below a `!` or `?`.
+        let mut exponential = vec![[false; 2]; num_atoms];
         let mut absorbs_from_copies = false;
         // An occurrence's subtree is the ids that follow it, so one pass
         // that remembers where the outermost `!` or `?` it is inside ends
@@ -233,8 +286,8 @@ impl Counts {
         let mut inside = 0;
         for o in forest.ids() {
             if o.index() < inside {
-                if let Some(atom) = forest.atom(o) {
-                    exponential[atom.index()] = true;
+                if let (Some(atom), Some(sign)) = (forest.atom(o), forest.sign(o)) {
+                    exponential[atom.index()][sign as usize] = true;
                 }
                 absorbs_from_copies |= forest.kind(o) == Kind::Top;
             }
@@ -245,15 +298,31 @@ impl Counts {
                 return Err(Reason::Stopped);
             }
         }
+        #[cfg(test)]
+        if !ONE_SIDED.get() {
+            for signs in &mut exponential {
+                if signs.contains(&true) {
+                    *signs = [true; 2];
+                }
+            }
+        }
         // The atoms that have rows, numbered in their own order: a tally
         // is as wide as they are many, and a Petri net has tens of
-        // thousands of atoms and none with a row.
+        // thousands of atoms, nearly all of both signs below a `!`, which
+        // have none: copies can move their balance either way.
         let mut rank = vec![0u32; num_atoms];
         let mut ranked = Vec::new();
+        let mut copied = Vec::new();
         for (atom, rank) in rank.iter_mut().enumerate() {
             *rank = ranked.len() as u32;
-            if !exponential[atom] {
+            let [positive, negative] = exponential[atom];
+            if !(positive && negative) {
                 ranked.push(Atom::new(atom as u32));
+                copied.push(match (positive, negative) {
+                    (true, _) => Some(Sign::Atom),
+                    (_, true) => Some(Sign::Dual),
+                    _ => None,
+                });
             }
         }
         let row_atoms = ranked.len();
@@ -297,7 +366,10 @@ impl Counts {
                 Atom | DualAtom => {
                     let sign = if kind == Atom { 1 } else { -1 };
                     let atom = forest.atom(o).unwrap();
-                    if !exponential[atom.index()] {
+                    // A literal below an exponential has its entry too: a
+                    // copy of it in the linear zone is used once, and the
+                    // rows of a `!` or `?` itself stay empty.
+                    if !exponential[atom.index()].iter().all(|&below| below) {
                         rows.push(RowEntry {
                             rank: Rank(rank[atom.index()]),
                             lo: sign,
@@ -311,8 +383,8 @@ impl Counts {
                 Top => (true, 0),
                 Zero => (false, 0),
                 Bang | Quest => {
-                    // The subformula's row is empty: its atoms are
-                    // exponential.
+                    // No row: the literals below it are copied any number
+                    // of times, which `copied` accounts for.
                     let c = forest.left(o).unwrap();
                     (absorbs[c.index()], weight[c.index()])
                 }
@@ -381,6 +453,8 @@ impl Counts {
             weight: weight.into_boxed_slice(),
             row_atoms,
             ranked: ranked.into_boxed_slice(),
+            one_sided: copied.iter().any(Option::is_some),
+            copied: copied.into_boxed_slice(),
             absorbs_from_copies,
             forced: forced.into_boxed_slice(),
             positive,
@@ -497,7 +571,33 @@ impl Counts {
     /// zero by itself: only such a member can make a set fail the interval
     /// check.
     pub(crate) fn tight(&self, o: OccId) -> bool {
-        self.row(o).any(|e| e.lo > 0 || e.hi < 0)
+        self.row(o)
+            .any(|e| self.excluded(e.rank.index(), e.lo, e.hi))
+    }
+
+    /// Returns whether the balance of the atom of rank `rank`, between
+    /// `lo` and `hi` over a set's rows, rules a proof of the set out: zero
+    /// lies outside it, and the copies of the atom's literals below an
+    /// exponential, which only add literals of their one sign, cannot
+    /// bring it there.
+    pub(crate) fn excluded(&self, rank: usize, lo: i32, hi: i32) -> bool {
+        match self.copied[rank] {
+            None => lo > 0 || hi < 0,
+            Some(Sign::Atom) => lo > 0,
+            Some(Sign::Dual) => hi < 0,
+        }
+    }
+
+    /// Returns what [`excluded`](Self::excluded) does, `PLAIN` saying that
+    /// no atom has copies of one sign, so that a loop over a row decides
+    /// once whether to read their signs at all.
+    #[inline(always)]
+    fn excluded_as<const PLAIN: bool>(&self, rank: usize, lo: i32, hi: i32) -> bool {
+        if PLAIN {
+            lo > 0 || hi < 0
+        } else {
+            self.excluded(rank, lo, hi)
+        }
     }
 
     /// Returns an empty tally, a column per atom that has rows.
@@ -566,13 +666,24 @@ impl Tally {
     /// Adds (`sign` 1) or removes (`sign` −1) a member's row, weight and
     /// absorption.
     fn apply(&mut self, counts: &Counts, o: OccId, sign: i32) {
+        if counts.one_sided {
+            self.apply_as::<false>(counts, o, sign);
+        } else {
+            self.apply_as::<true>(counts, o, sign);
+        }
+    }
+
+    /// Does what [`apply`](Self::apply) does, `PLAIN` as in
+    /// [`Counts::excluded_as`].
+    #[inline(always)]
+    fn apply_as<const PLAIN: bool>(&mut self, counts: &Counts, o: OccId, sign: i32) {
         for e in counts.row(o) {
             let a = e.rank.index();
             self.touched.push(a as u32);
-            let was_bad = self.lo[a] > 0 || self.hi[a] < 0;
+            let was_bad = counts.excluded_as::<PLAIN>(a, self.lo[a], self.hi[a]);
             self.lo[a] += sign * e.lo;
             self.hi[a] += sign * e.hi;
-            let is_bad = self.lo[a] > 0 || self.hi[a] < 0;
+            let is_bad = counts.excluded_as::<PLAIN>(a, self.lo[a], self.hi[a]);
             if is_bad && !was_bad {
                 self.bad += 1;
             } else if was_bad && !is_bad {
@@ -586,9 +697,10 @@ impl Tally {
         self.weight += sign * counts.weight(o);
     }
 
-    /// Returns an atom whose summed interval excludes zero, the first in the
-    /// sequent's order, with that interval, unless a member absorbs.
-    pub(crate) fn unbalanced(&self, counts: &Counts) -> Option<(Atom, i32, i32)> {
+    /// Returns an atom whose summed interval rules a proof out
+    /// ([`Counts::excluded`]), the first in the sequent's order, with that
+    /// interval and the sign its copies add, unless a member absorbs.
+    pub(crate) fn unbalanced(&self, counts: &Counts) -> Option<(Atom, i32, i32, Option<Sign>)> {
         if self.absorbs() {
             return None;
         }
@@ -596,9 +708,14 @@ impl Tally {
             .touched
             .iter()
             .map(|&a| a as usize)
-            .filter(|&a| self.lo[a] > 0 || self.hi[a] < 0)
+            .filter(|&a| counts.excluded(a, self.lo[a], self.hi[a]))
             .min()?;
-        Some((counts.ranked[rank], self.lo[rank], self.hi[rank]))
+        Some((
+            counts.ranked[rank],
+            self.lo[rank],
+            self.hi[rank],
+            counts.copied[rank],
+        ))
     }
 
     /// Returns whether a member absorbs, that is, has a `⊤` below it.
@@ -715,9 +832,15 @@ impl Split {
     }
 
     /// Whether no assignment of the open members can bring the side's
-    /// interval of the atom to contain zero.
-    fn excludes(&self, side: usize, atom: usize) -> bool {
-        self.lo[side][atom] + self.below[atom] > 0 || self.hi[side][atom] + self.above[atom] < 0
+    /// interval of the atom to contain zero, or the atom's copies to
+    /// balance it ([`Counts::excluded`]).
+    #[inline(always)]
+    fn excludes<const PLAIN: bool>(&self, counts: &Counts, side: usize, atom: usize) -> bool {
+        counts.excluded_as::<PLAIN>(
+            atom,
+            self.lo[side][atom] + self.below[atom],
+            self.hi[side][atom] + self.above[atom],
+        )
     }
 
     /// Moves a member between the open ones and a side, or adds it to
@@ -725,16 +848,37 @@ impl Split {
     /// (1, 0 or −1) and the open members gain it `opened` times, and the
     /// sides' counts of excluded atoms are brought up to date.
     fn shift(&mut self, counts: &Counts, o: OccId, side: Branch, settled: i32, opened: i32) {
+        if counts.one_sided {
+            self.shift_as::<false>(counts, o, side, settled, opened);
+        } else {
+            self.shift_as::<true>(counts, o, side, settled, opened);
+        }
+    }
+
+    /// Does what [`shift`](Self::shift) does, `PLAIN` as in
+    /// [`Counts::excluded_as`].
+    #[inline(always)]
+    fn shift_as<const PLAIN: bool>(
+        &mut self,
+        counts: &Counts,
+        o: OccId,
+        side: Branch,
+        settled: i32,
+        opened: i32,
+    ) {
         let side = side as usize;
         for e in counts.row(o) {
             let a = e.rank.index();
-            let was = [self.excludes(0, a), self.excludes(1, a)];
+            let was = [
+                self.excludes::<PLAIN>(counts, 0, a),
+                self.excludes::<PLAIN>(counts, 1, a),
+            ];
             self.lo[side][a] += settled * e.lo;
             self.hi[side][a] += settled * e.hi;
             self.below[a] += opened * e.lo.min(0);
             self.above[a] += opened * e.hi.max(0);
             for (side, was) in was.into_iter().enumerate() {
-                match (was, self.excludes(side, a)) {
+                match (was, self.excludes::<PLAIN>(counts, side, a)) {
                     (false, true) => self.bad[side] += 1,
                     (true, false) => self.bad[side] -= 1,
                     _ => {}
@@ -776,16 +920,30 @@ impl Split {
         if self.inert {
             return;
         }
+        if counts.one_sided {
+            self.flip_as::<false>(counts, o, side);
+        } else {
+            self.flip_as::<true>(counts, o, side);
+        }
+    }
+
+    /// Does what [`flip`](Self::flip) does, `PLAIN` as in
+    /// [`Counts::excluded_as`].
+    #[inline(always)]
+    fn flip_as<const PLAIN: bool>(&mut self, counts: &Counts, o: OccId, side: Branch) {
         let (to, from) = (side as usize, 1 - side as usize);
         for e in counts.row(o) {
             let a = e.rank.index();
-            let was = [self.excludes(0, a), self.excludes(1, a)];
+            let was = [
+                self.excludes::<PLAIN>(counts, 0, a),
+                self.excludes::<PLAIN>(counts, 1, a),
+            ];
             self.lo[from][a] -= e.lo;
             self.hi[from][a] -= e.hi;
             self.lo[to][a] += e.lo;
             self.hi[to][a] += e.hi;
             for (side, was) in was.into_iter().enumerate() {
-                match (was, self.excludes(side, a)) {
+                match (was, self.excludes::<PLAIN>(counts, side, a)) {
                     (false, true) => self.bad[side] += 1,
                     (true, false) => self.bad[side] -= 1,
                     _ => {}
@@ -858,9 +1016,17 @@ pub(crate) fn refutation(
         tally.add(&counts, o);
     }
     if rules.intervals
-        && let Some((atom, least, most)) = tally.unbalanced(&counts)
+        && let Some((atom, least, most, copied)) = tally.unbalanced(&counts)
     {
-        return Refutation::Unbalanced(Unbalanced { atom, least, most });
+        return match copied {
+            None => Refutation::Unbalanced(Unbalanced { atom, least, most }),
+            Some(copied) => Refutation::OneSided(OneSided {
+                atom,
+                least,
+                most,
+                copied,
+            }),
+        };
     }
     if rules.equation && !tally.equation(rules.mix) {
         let (mut tensors, mut pars, mut ones, mut bottoms) = (0, 0, 0, 0);

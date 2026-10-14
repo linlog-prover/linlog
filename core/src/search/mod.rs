@@ -35,7 +35,7 @@ mod work;
 
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;
-pub use refutation::{Disproof, Equation, Refutation, StateEquation, Unbalanced};
+pub use refutation::{Disproof, Equation, OneSided, Refutation, StateEquation, Unbalanced};
 
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
@@ -2352,6 +2352,12 @@ mod tests {
                 least: 1,
                 most: 1,
             }),
+            Refutation::OneSided(OneSided {
+                atom: Atom::new(0),
+                least: 1,
+                most: 1,
+                copied: crate::occurrences::Sign::Atom,
+            }),
             Refutation::Equation(Equation {
                 formulas: 1,
                 needed: 2,
@@ -2370,8 +2376,9 @@ mod tests {
         let refutation_at = |refutation: &Refutation| match refutation {
             Refutation::Exhausted => 0,
             Refutation::Unbalanced(_) => 1,
-            Refutation::Equation(_) => 2,
-            Refutation::StateEquation(_) => 3,
+            Refutation::OneSided(_) => 2,
+            Refutation::Equation(_) => 3,
+            Refutation::StateEquation(_) => 4,
         };
         assert_eq!(refutations.len(), Refutation::NAMES.len());
         for (i, refutation) in refutations.iter().enumerate() {
@@ -2788,6 +2795,16 @@ mod tests {
                     most: -2,
                 }),
                 "~#0 occurs 2 to 3 more times than #0 in the one-sided sequent, whichever",
+            ),
+            (
+                Refutation::OneSided(OneSided {
+                    atom,
+                    least: 1,
+                    most: 1,
+                    copied: crate::occurrences::Sign::Atom,
+                }),
+                "#0 occurs 1 more time than ~#0 outside the exponentials of the one-sided \
+                 sequent, and every literal of the atom below one, which copies add, is #0, so",
             ),
             (
                 Refutation::Equation(Equation {

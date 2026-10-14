@@ -74,9 +74,13 @@ front door, the dispatch and the memory account it plugs into are in
   applies to every engine's `Unprovable`): a goal with an atom that
   nothing balances, `|- b, ?~c` or `c, !c |- a`, is an infinite net the
   search would run to the memory bound, where the focused engines
-  refute it at once from the same counts. Atoms under a `?` have no rows
-  in the counts, so on a net proper (every atom in a clause under `!`)
-  the test says nothing and costs the counts' set-up, a few passes; an
+  refute it at once from the same counts. Atoms with literals of both
+  signs under a `?` have no rows in the counts, so on a net proper whose
+  every place is a head and a body of clauses under `!` the test says
+  nothing and costs the counts' set-up, a few passes; a place that is
+  only a body's or only a head's there (`!d, !((c * d * d) -o 1) |- c *
+  c`: nothing makes `c`) has its rows, and the test refutes a goal that
+  asks more of it than the clauses can move (`Refutation::OneSided`); an
   atom outside every `!` in nested tensors (a long clause used once, a
   goal of thousands of distinct atoms) has rows quadratic in the nesting,
   the cost the focused engines pay on the same sequent (a goal of 20 000

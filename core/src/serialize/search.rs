@@ -5,9 +5,9 @@ use super::proofs::Proof;
 use super::sequents::Sequent as SequentForm;
 use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Space};
-use crate::occurrences::{Member, OccId};
+use crate::occurrences::{Member, OccId, Sign};
 use crate::search::{
-    Bias, Cadence, Disproof, Engine, Equation, Jobs, Outcome as Out, Reason, Refutation,
+    Bias, Cadence, Disproof, Engine, Equation, Jobs, OneSided, Outcome as Out, Reason, Refutation,
     StateEquation, Statistics, Unbalanced, Verdict,
 };
 use crate::sequents::Atom;
@@ -128,6 +128,37 @@ impl<'a> Deserialize<'a> for Reason {
     }
 }
 
+/// A literal of an atom as a refutation names it: the atom, or its
+/// negation.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Literal {
+    /// The atom `a`.
+    Atom,
+    /// Its negation `~a`.
+    Dual,
+}
+
+impl From<Sign> for Literal {
+    /// The literal of the sign.
+    fn from(sign: Sign) -> Self {
+        match sign {
+            Sign::Atom => Literal::Atom,
+            Sign::Dual => Literal::Dual,
+        }
+    }
+}
+
+impl From<Literal> for Sign {
+    /// The sign of the literal.
+    fn from(literal: Literal) -> Self {
+        match literal {
+            Literal::Atom => Sign::Atom,
+            Literal::Dual => Sign::Dual,
+        }
+    }
+}
+
 /// The serialized form of a refutation: its `kind`, with the counts or
 /// the weights that rule a proof out. A kind it does not know is no
 /// refutation, never one of these.
@@ -144,6 +175,17 @@ enum WhyNot {
         least: i32,
         /// The greatest.
         most: i32,
+    },
+    /// An atom's literals cannot pair up, though copies may add one sign.
+    OneSided {
+        /// The atom's index into the sequent's atoms.
+        atom: u32,
+        /// The least excess outside the exponentials.
+        least: i32,
+        /// The greatest.
+        most: i32,
+        /// The literal every one of the atom below an exponential is.
+        copied: Literal,
     },
     /// The count equation fails.
     Equation {
@@ -182,6 +224,17 @@ impl From<&Refutation> for WhyNot {
                 atom: atom.get(),
                 least,
                 most,
+            },
+            &Refutation::OneSided(OneSided {
+                atom,
+                least,
+                most,
+                copied,
+            }) => WhyNot::OneSided {
+                atom: atom.get(),
+                least,
+                most,
+                copied: copied.into(),
             },
             &Refutation::Equation(Equation {
                 formulas,
@@ -224,6 +277,17 @@ impl From<WhyNot> for Refutation {
                 atom: Atom::new(atom),
                 least,
                 most,
+            }),
+            WhyNot::OneSided {
+                atom,
+                least,
+                most,
+                copied,
+            } => Refutation::OneSided(OneSided {
+                atom: Atom::new(atom),
+                least,
+                most,
+                copied: copied.into(),
             }),
             WhyNot::Equation {
                 formulas,
@@ -324,6 +388,7 @@ impl DisproofForm {
         let refutation = Refutation::from(self.refutation);
         match &refutation {
             Refutation::Unbalanced(unbalanced) => atom(unbalanced.atom)?,
+            Refutation::OneSided(one_sided) => atom(one_sided.atom)?,
             Refutation::StateEquation(equation) => {
                 for &(a, _) in &equation.atoms {
                     atom(a)?;
@@ -620,6 +685,12 @@ mod tests {
                 atom: a(1),
                 least: 1,
                 most: 2,
+            }),
+            Refutation::OneSided(OneSided {
+                atom: a(0),
+                least: -2,
+                most: -1,
+                copied: Sign::Dual,
             }),
             Refutation::Equation(Equation {
                 formulas: 2,

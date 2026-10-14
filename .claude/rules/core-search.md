@@ -56,7 +56,9 @@ their derivation. Where
 `Outcome` carries the `Verdict` (`Proved(Box<Proof>)`, `Unprovable(Box<Disproof>)`,
 the refutation with the sequent, the goal off the roots and the mode it
 means something in (`search/refutation.rs`: `Refutation` with the
-structs `Unbalanced`, `Equation`, `StateEquation`; its `Display` writes
+structs `Unbalanced`, `OneSided` (an atom whose literals below an
+exponential all have one sign, which copies add, outnumbered outside
+them the other way), `Equation`, `StateEquation`; its `Display` writes
 atoms as `#0`, the disproof's by name, which the command prints)
 only after an exhaustive search, which with exponentials means a
 deepening level that never hit the copy bound, `Unknown(Reason)`, with

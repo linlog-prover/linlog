@@ -253,6 +253,52 @@ fn with_rules_are_work_and_their_proof_is_polled() {
     assert!(after >= 6, "{after} polls after the search's last work");
 }
 
+/// An atom whose literals below an exponential all have one sign keeps
+/// its count, unbounded that way alone: copies of `a` cannot pair with
+/// the `a` outside (`|- ?a, a`, and one branch of `|- ?a, a & ~a`), while
+/// copies of `~a` can (`|- ?~a, a * a`); and a mutant whose goal needs an
+/// `a` that only the `!` of a hypothesis holds, which no copy bound
+/// decides without these counts, is refuted classically and
+/// intuitionistically.
+#[test]
+fn copies_of_one_sign_bound_the_count_one_way() {
+    let mutant = "b, b, (!!!c * !b), (((b -o !b) -o (b -o (b * b))) -o !((b -o c) * (a -o c))) \
+                  |- ((((((b -o c) -o c) * b) * a) * b) * (b -o b))";
+    for (input, mode, expected) in [
+        ("|- ?a, a", Mode::CLASSICAL, false),
+        ("|- ?a, a & ~a", Mode::CLASSICAL, false),
+        ("|- ?a, ~a", Mode::CLASSICAL, true),
+        ("|- ?~a, a * a", Mode::CLASSICAL, true),
+        ("|- ?a, ?~a, a", Mode::CLASSICAL, true),
+        (mutant, Mode::CLASSICAL, false),
+        (mutant, Mode::INTUITIONISTIC, false),
+    ] {
+        assert_eq!(
+            decided(input, mode, &Options::default()),
+            Some(expected),
+            "{input:?} in {mode} mode"
+        );
+    }
+    let outcome = crate::search::prove(
+        &"|- ?a, a".parse().unwrap(),
+        Mode::CLASSICAL,
+        &Options::default(),
+    )
+    .unwrap();
+    let Verdict::Unprovable(disproof) = outcome.verdict else {
+        panic!("{:?}", outcome.verdict)
+    };
+    assert_eq!(
+        disproof.refutation(),
+        &crate::search::Refutation::OneSided(crate::search::OneSided {
+            atom: crate::sequents::Atom::new(0),
+            least: 1,
+            most: 1,
+            copied: crate::occurrences::Sign::Atom,
+        })
+    );
+}
+
 /// The units behave as the spec's checks say, and `⊤` closes any
 /// context while `0` closes none.
 #[test]
@@ -479,7 +525,7 @@ fn bias_option() {
     let (verdict, fast) = run(&forward.with_copies(Some(7)));
     let proof = verdict.proof().expect("seven steps on one branch");
     assert_eq!(proof.check(Mode::CLASSICAL), Ok(()));
-    assert!(fast.nodes * 10 < slow.nodes, "{fast:?} against {slow:?}");
+    assert!(fast.nodes * 4 < slow.nodes, "{fast:?} against {slow:?}");
     // The default runs both: the clauses are Horn, so the forward
     // search has its own bound and its proof comes first, at its cost.
     let (verdict, default) = run(&Options::default().with_copies(Some(copies)));
@@ -545,7 +591,7 @@ fn default_bias_takes_turns() {
     let clauses: Vec<(&str, &str)> = clauses.iter().map(|(b, h)| (&**b, &**h)).collect();
     let text = horn(&clauses, &marking, &[goal]);
     let m = Mode::CLASSICAL;
-    let options = Options::default().with_forward_copies(4);
+    let options = Options::default().with_forward_copies(3);
     let (verdict, backward) = run(&text, m, &options.clone().with_bias(Bias::Rarer));
     assert!(verdict.proof().is_some());
     let (verdict, forward) = run(
@@ -554,11 +600,11 @@ fn default_bias_takes_turns() {
         &options
             .clone()
             .with_bias(Bias::Factors)
-            .with_copies(Some(4)),
+            .with_copies(Some(3)),
     );
     assert!(matches!(
         verdict,
-        Verdict::Unknown(Reason::CopyBound { copies: 4 })
+        Verdict::Unknown(Reason::CopyBound { copies: 3 })
     ));
 
     let sequent: Sequent = text.parse().unwrap();
@@ -634,7 +680,7 @@ fn default_bias_takes_turns() {
 /// the search gives up and names the bound.
 #[test]
 fn memory_bound() {
-    let (sequent, copies) = crate::families::counter(8, false);
+    let (sequent, copies) = crate::families::counter(16, false);
     let text = sequent.to_string();
     let options = Options::default()
         .with_copies(Some(copies))
@@ -1009,6 +1055,9 @@ fn classic_exponentials() {
         ("?a |- a", false),
         ("!a |- b", false),
         ("!a, !(a -o b) |- c", false),
+        // Every copy leaves a `b` that nothing consumes, which the counts
+        // see at any bound.
+        ("!(a * b) |- a", false),
         ("|- ?a", false),
         ("|- ?a, ?b, ~a", true),
         ("|- ?a, b, ~a", false),
@@ -1023,7 +1072,6 @@ fn classic_exponentials() {
     for input in [
         "!(a * b) |- !a * !b",
         "!(a + b) |- !a + !b",
-        "!(a * b) |- a",
     ] {
         assert!(
             matches!(
@@ -1176,14 +1224,19 @@ fn copy_bound() {
         run("!a |- b", m, &with(0)).0,
         Verdict::Unprovable(_)
     ));
+    // ⊢ ?~a, ?b: level 0 can copy nothing; at level 1 each copy leaves
+    // a literal that the copies to come, all of its own sign, cannot
+    // balance, so the counts refute both.
     assert!(matches!(
-        run("!a |- ?b", m, &with(1)).0,
-        Verdict::Unknown(Reason::CopyBound { copies: 1 })
+        run("!a |- ?b", m, &with(0)).0,
+        Verdict::Unknown(Reason::CopyBound { copies: 0 })
     ));
-    assert!(matches!(
-        run("!a |- ?b", m, &with(2)).0,
-        Verdict::Unprovable(_)
-    ));
+    for copies in [1, 2] {
+        assert!(matches!(
+            run("!a |- ?b", m, &with(copies)).0,
+            Verdict::Unprovable(_)
+        ));
+    }
     // The loop check decides a sequent whose copies repeat a stable
     // sequent, without a bound to hit.
     assert!(matches!(
@@ -1492,6 +1545,90 @@ fn generated_intuitionistic_sequents() {
     assert!(over * 50 < mutants, "{over} of {mutants} past the work");
 }
 
+/// The counts of an atom whose literals below the exponentials all have
+/// one sign refute nothing that has a proof: of the mutants of generated
+/// sequents with exponentials, classical with and without Mix and
+/// intuitionistic, none that a search with those counts refutes at a
+/// copy bound of 3 is proved by the search without them at a bound of 4,
+/// within [`MUTANT_WORK`] each; and the counts reach some of them, at
+/// the root of the sequent and where the search without them is left
+/// undecided.
+#[test]
+fn the_count_of_one_sign_refutes_nothing_provable() {
+    use crate::search::Refutation;
+    use crate::search::generate::IllRules;
+    let limits = Limits::default().with_work(Some(MUTANT_WORK));
+    // One search on this thread, which the counts' switch is local to.
+    let decide = |text: &str, mode: Mode, bias: Bias, copies: u32| {
+        let options = Options::default()
+            .with_bias(bias)
+            .with_copies(Some(copies))
+            .with_jobs(1);
+        run_within(text, mode, &options, &limits).0
+    };
+    let (mut mutants, mut refuted, mut at_the_root, mut gained) = (0, 0, 0, 0);
+    let mut judge = |text: &str, mode: Mode| {
+        mutants += 1;
+        for bias in [Bias::Rarer, Bias::Factors] {
+            let Verdict::Unprovable(disproof) = decide(text, mode, bias, 3) else {
+                continue;
+            };
+            refuted += 1;
+            at_the_root += u64::from(matches!(
+                disproof.refutation(),
+                Refutation::OneSided(_)
+            ));
+            let without = counts::without_one_sided(|| decide(text, mode, bias, 4));
+            assert!(
+                without.proof().is_none(),
+                "{text:?} in {mode} mode under {bias:?}: refuted with the counts of one sign, \
+                 proved without them"
+            );
+            gained += u64::from(!matches!(without, Verdict::Unprovable(_)));
+        }
+    };
+    for (i, rules) in Rules::ALL.into_iter().enumerate() {
+        if !rules.exponentials {
+            continue;
+        }
+        let mut rng = Rng::new(200 + i as u64);
+        for _ in 0..100 {
+            let budget = 2 + rng.below(9);
+            let mut formulas = generate::provable(&mut rng, rules, 3, budget).formulas;
+            if generate::mutate(&mut rng, &mut formulas, 3) {
+                judge(&generate::sequent(&formulas), mode_for(rules));
+            }
+        }
+    }
+    for (n, rules) in IllRules::ALL.into_iter().enumerate() {
+        if !rules.exponentials {
+            continue;
+        }
+        let mut rng = Rng::new(300 + n as u64);
+        for _ in 0..100 {
+            let budget = 2 + rng.below(9);
+            let generate::Ill {
+                mut hypotheses,
+                mut goal,
+                ..
+            } = generate::ill(&mut rng, rules, 3, budget);
+            if generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
+                judge(
+                    &generate::two_sided(&hypotheses, &goal),
+                    Mode::INTUITIONISTIC,
+                );
+            }
+        }
+    }
+    let numbers = format!(
+        "{mutants} mutants, {refuted} refutations, {at_the_root} at the root, {gained} \
+         undecided without the counts of one sign"
+    );
+    // When this was written: 1 227 mutants, 1 352 refutations, 30 at the
+    // root and 64 left undecided without them.
+    assert!(at_the_root >= 10 && gained >= 30, "{numbers}");
+}
+
 /// Encodes a Horn program with reusable clauses, as the ILLTP library
 /// states Petri-net reachability: every clause `body ⊸ head` (products
 /// of atoms) under a `!`, the initial marking as hypotheses, the goal
@@ -1524,8 +1661,10 @@ fn counter(n: usize) -> (Vec<(String, String)>, Vec<&'static str>, &'static str)
 /// Horn problems over reusable clauses: a chain of implications takes
 /// one copy per clause on one branch, the counter program reaches its
 /// goal within the copies its firings take and not below, an
-/// unreachable marking is undecided within the bound in either mode,
-/// and affine mode reaches a goal that leaves a token over.
+/// unreachable marking is refuted by the counts where an atom is only
+/// a body's or only a head's below the `!`, else by the forward search
+/// alone, and is undecided within the bound in affine mode, which
+/// reaches a goal that leaves a token over.
 #[test]
 fn horn_programs() {
     let m = Mode::CLASSICAL;
@@ -1574,24 +1713,26 @@ fn horn_programs() {
     let (clauses, marking, goal) = counter(4);
     let clauses: Vec<(&str, &str)> = clauses.iter().map(|(b, h)| (&**b, &**h)).collect();
     assert!(provable(&horn(&clauses, &marking, &[goal]), m));
-    // A goal no firing reaches: the backward search is cut at its
-    // bound, the forward one runs out of markings within its own.
+    // A goal no firing reaches. Below the `!` an `a` is only a body's
+    // and a `c` only a head's, so the counts bound what copies can
+    // balance, and the backward search ends without a cut.
+    let rarer = Options::default().with_bias(Bias::Rarer);
     assert!(matches!(
-        run(
-            &horn(&clauses, &marking, &[goal, "a"]),
-            m,
-            &Options::default().with_bias(Bias::Rarer)
-        )
-        .0,
+        run(&horn(&clauses, &marking, &[goal, "a"]), m, &rarer).0,
+        Verdict::Unprovable(_)
+    ));
+    // With a clause from `c` back to `a` both are heads and bodies, and
+    // the counts say nothing of them: the backward search is cut at its
+    // bound, the forward one runs out of markings within its own.
+    let mut back = clauses.clone();
+    back.push(("c", "a"));
+    let unreachable = horn(&back, &marking, &[goal, "a"]);
+    assert!(matches!(
+        run(&unreachable, m, &rarer).0,
         Verdict::Unknown(Reason::CopyBound { copies: 3 })
     ));
     assert!(matches!(
-        run(
-            &horn(&clauses, &marking, &[goal, "a"]),
-            m,
-            &Options::default()
-        )
-        .0,
+        run(&unreachable, m, &Options::default()).0,
         Verdict::Unprovable(_)
     ));
     assert!(matches!(

@@ -321,13 +321,13 @@ units of work: 1297
 time: 136.45µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
-stable sequents visited: 10744
-from the memo: 10478
-memo entries at most: 190
-splits examined: 31917
+stable sequents visited: 230
+from the memo: 178
+memo entries at most: 34
+splits examined: 1036
 copy bound reached: 3
-units of work: 203539
-time: 1.42ms
+units of work: 4256
+time: 181.10µs
 $ linlog prove -q --deterministic --stats --engine focus --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 55.51µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 stable sequents visited: 11
@@ -349,8 +349,8 @@ within a fraction of a second of it, on one thread and on several:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q --engine focus --copies 12 --forward-copies 12 --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
-unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 12; --timeout DURATION gives the search longer
+$ linlog prove -q --engine focus --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
+unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 429; --timeout DURATION gives the search longer
 ```
 
 <!-- readme-check: skip, the file is the LLTP library's -->

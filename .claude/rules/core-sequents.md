@@ -261,7 +261,10 @@ same test file:
   reads as a `Proof` (a data form ignores the other keys) and `linlog
   check` reads the output of `linlog prove --format json`; for
   `unprovable` the `Disproof`'s keys beside `mode`: `refutation` (tagged
-  by `kind`: `exhausted`, `unbalanced {atom, least, most}` with the
+  by `kind`: `exhausted`, `unbalanced {atom, least, most}`, `one_sided
+  {atom, least, most, copied}` (`copied` the literal `"atom"` or
+  `"dual"`: a kind of its own, not a key added to `unbalanced`, since a
+  key never brings a new meaning to an old tag) with the
   atom's index, `equation {…}`, `state_equation {atoms: [[atom,
   weight]], clauses: [[occurrence, weight]], dropped: [occurrence]}`),
   `sequent` after `statistics`, and `goal` for a goal off the roots,

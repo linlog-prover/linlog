@@ -588,10 +588,26 @@ relies on:
   containing the occurrence passes), and a `weight` `t − p − #1 + #⊥`. The
   interval check is sound in every fragment without exponentials (proof by
   induction on the rules, with `⊤` covered by the flag and `0` as `(0, 0)`).
-  With exponentials, an atom with a literal below any `?` or `!` in the
-  problem gets no row entries anywhere (its copies and discards break the
-  balance; `Θ` members are not in the tally, and they contain only such
-  atoms), and a `⊤` below any `?` or `!` switches the check off altogether
+  With exponentials, an atom with literals of both signs below a `?` or
+  `!` in the problem gets no row entries anywhere (copies can balance it
+  either way); one whose literals there all have one sign keeps the
+  entries of every literal of it, and the rows of `!` and `?` stay
+  empty: a copy in `Γ` is used once, `Θ`'s members are not in the tally,
+  and copies yet to come can only push the balance in that sign's
+  direction (`Counts::copied` per rank, `Counts::excluded`: with every
+  `a` below an exponential positive, only a least balance above zero
+  rules a set out). The doc of `Counts` has the argument over the rules;
+  `copies_of_one_sign_bound_the_count_one_way` pins it, F122's mutant
+  among its cases, which no copy bound decides without these counts,
+  and the refutation is `Refutation::OneSided`;
+  `the_count_of_one_sign_refutes_nothing_provable` runs generated
+  mutants with and without them (`counts::without_one_sided`, a
+  test-only switch local to the thread, so the searches it compares
+  name a bias and one job) and asserts that none they refute is proved
+  without them a copy higher. Ranking those atoms widens the
+  tallies and splits by them: a Petri net's places that only its
+  clauses' bodies or only their heads name are such atoms. A `⊤` below
+  any `?` or `!` switches the check off altogether
   (`absorbs_from_copies`: a copy of it absorbs any imbalance). The hull
   for `&` is the spec's choice; the intersection would be sound too and
   stronger, and is a follow-up. The count equation

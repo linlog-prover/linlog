@@ -70,6 +70,12 @@ for s in "A |- A" "A * B |- B * A" "!A |- A * !A" "A & B |- A + B" "|- 1" "0 |-"
   done
   rm -rf "$dir"
 done
+# A disproof of each kind the counts give: unbalanced, one-sided (an atom
+# whose literals below an exponential all have one sign), the equation.
+for s in "A |- A * A" "|- ?A, A" "|- A * ~A"; do
+  i=$((i + 1))
+  { "$linlog" prove --format json "$s" || true; } | seed json_disproof "refuted-$i"
+done
 s=$("$linlog" seq json "A, A -o B |- B")
 printf '{"sequent":%s,"mix":false,"links":[[0,2],[3,4]]}' "$s" | seed json_structure net-1
 printf '{"sequent":%s,"mix":true,"links":[[0,2]]}' "$s" | seed json_structure net-2

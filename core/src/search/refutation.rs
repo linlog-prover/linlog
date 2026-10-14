@@ -6,7 +6,7 @@
 //! sequent, the goal and the mode it means something in.
 
 use crate::fragment::Mode;
-use crate::occurrences::{Member, OccId};
+use crate::occurrences::{Member, OccId, Sign};
 use crate::sequents::{Atom, Sequent};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -22,7 +22,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// In JSON (feature `serialize`) a refutation, as an unprovable outcome's
 /// and a disproof's `refutation`, is tagged by `kind`: `{"kind": "exhausted"}`, `{"kind": "unbalanced",
 /// "atom", "least", "most"}` (the atom by its index into the sequent
-/// beside it), `{"kind": "equation", "formulas", "needed", "tensors",
+/// beside it), `{"kind": "one_sided", "atom", "least", "most", "copied"}`
+/// (`copied` the literal `"atom"` or `"dual"`), `{"kind": "equation", "formulas", "needed", "tensors",
 /// "pars", "ones", "bottoms", "mix"}` or `{"kind": "state_equation",
 /// "atoms": [[atom, weight], …], "clauses": [[occurrence, weight], …],
 /// "dropped": [occurrence, …]}`, and reads back so. A reader refuses a
@@ -35,6 +36,9 @@ pub enum Refutation {
     Exhausted,
     /// The literals of an atom cannot all meet their duals in axioms.
     Unbalanced(Unbalanced),
+    /// Nor can they where copies may add literals of the atom, but only
+    /// of one sign.
+    OneSided(OneSided),
     /// The count equation of the multiplicatives fails.
     Equation(Equation),
     /// The goal is a Horn program whose state equation has no solution.
@@ -54,6 +58,27 @@ pub struct Unbalanced {
     pub least: i32,
     /// The greatest excess.
     pub most: i32,
+}
+
+/// The literals of an atom that cannot all meet their duals in axioms,
+/// although some lie below a `?` or `!`, where copies may add any number
+/// of them: every literal of the atom below one is `copied`, so copies can
+/// only add that literal, and outside the exponentials it already occurs
+/// between `least` and `most` times more than the other one (counted as
+/// [`Unbalanced`] counts, so `least` above zero for the atom and `most`
+/// below zero for its negation).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct OneSided {
+    /// The atom, whose name the sequent has.
+    pub atom: Atom,
+    /// The least excess of positive over negative literals outside the
+    /// exponentials.
+    pub least: i32,
+    /// The greatest excess.
+    pub most: i32,
+    /// The literal of the atom that every one below an exponential is.
+    pub copied: Sign,
 }
 
 /// The count equation of the multiplicatives, which fails: a provable
@@ -104,14 +129,20 @@ pub struct StateEquation {
 impl Refutation {
     /// The words of the refutations, as [`Refutation::name`] gives them and
     /// the JSON form's `kind` writes them.
-    pub const NAMES: &'static [&'static str] =
-        &["exhausted", "unbalanced", "equation", "state_equation"];
+    pub const NAMES: &'static [&'static str] = &[
+        "exhausted",
+        "unbalanced",
+        "one_sided",
+        "equation",
+        "state_equation",
+    ];
 
     /// Returns the refutation's word, its `kind` in the JSON form.
     pub const fn name(&self) -> &'static str {
         match self {
             Refutation::Exhausted => "exhausted",
             Refutation::Unbalanced(_) => "unbalanced",
+            Refutation::OneSided(_) => "one_sided",
             Refutation::Equation(_) => "equation",
             Refutation::StateEquation(_) => "state_equation",
         }
@@ -127,31 +158,14 @@ impl Refutation {
         match self {
             Refutation::Exhausted => f.write_str("the search was exhaustive"),
             Refutation::Unbalanced(Unbalanced { atom, least, most }) => {
-                let name = name(*atom);
-                let (more, fewer) = if *least > 0 {
-                    (name.clone(), format!("~{name}"))
-                } else {
-                    (format!("~{name}"), name)
-                };
-                let (a, b) = (least.unsigned_abs(), most.unsigned_abs());
-                let (a, b) = (a.min(b), a.max(b));
-                let excess = if a == b {
-                    format!("{a}")
-                } else {
-                    format!("{a} to {b}")
-                };
-                write!(
-                    f,
-                    "{more} occurs {excess} more {} than {fewer} in the one-sided sequent{}, so \
-                     they cannot all meet in axioms",
-                    if a == 1 && b == 1 { "time" } else { "times" },
-                    if a == b {
-                        ""
-                    } else {
-                        ", whichever additive alternatives a proof takes"
-                    }
-                )
+                write_unbalanced(f, &name(*atom), *least, *most, None)
             }
+            Refutation::OneSided(OneSided {
+                atom,
+                least,
+                most,
+                copied,
+            }) => write_unbalanced(f, &name(*atom), *least, *most, Some(*copied)),
             Refutation::Equation(Equation {
                 formulas,
                 needed,
@@ -207,6 +221,49 @@ impl Refutation {
             }
         }
     }
+}
+
+/// Writes why the literals of an atom named `name` cannot all meet in
+/// axioms: the one outnumbers the other between `least` and `most` times,
+/// outside the exponentials where some literals, all `copied`, lie below
+/// one.
+fn write_unbalanced(
+    f: &mut Formatter<'_>,
+    name: &str,
+    least: i32,
+    most: i32,
+    copied: Option<Sign>,
+) -> FmtResult {
+    let (more, fewer) = if least > 0 {
+        (name.to_owned(), format!("~{name}"))
+    } else {
+        (format!("~{name}"), name.to_owned())
+    };
+    let (a, b) = (least.unsigned_abs(), most.unsigned_abs());
+    let (a, b) = (a.min(b), a.max(b));
+    let excess = if a == b {
+        format!("{a}")
+    } else {
+        format!("{a} to {b}")
+    };
+    let (place, copies) = match copied {
+        Some(_) => (
+            "outside the exponentials of the one-sided sequent",
+            format!(", and every literal of the atom below one, which copies add, is {more}"),
+        ),
+        None => ("in the one-sided sequent", String::new()),
+    };
+    write!(
+        f,
+        "{more} occurs {excess} more {} than {fewer} {place}{}{copies}, so they cannot all \
+         meet in axioms",
+        if a == 1 && b == 1 { "time" } else { "times" },
+        if a == b {
+            ""
+        } else {
+            ", whichever additive alternatives a proof takes"
+        }
+    )
 }
 
 impl Display for Refutation {

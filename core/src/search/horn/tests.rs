@@ -111,10 +111,11 @@ fn verdict(text: &str, mode: Mode) -> &'static str {
 
 /// The refutation the counts give before any search is handed back with
 /// the answer, which the front door takes as it is rather than count
-/// again.
+/// again: here of `c`, the first atom, whose one `~c` outside the `!`
+/// nothing balances, since the `!` holds a `~c` too.
 #[test]
 fn counted_refutations_are_handed_back() {
-    use crate::search::{Decide, Unbalanced};
+    use crate::search::{Decide, OneSided};
     let sequent: Sequent = "c, !c |- a".parse().unwrap();
     let forest = Forest::new(&sequent).unwrap();
     let task = Task {
@@ -141,7 +142,7 @@ fn counted_refutations_are_handed_back() {
     assert!(
         matches!(
             answer.refutation,
-            Some(Refutation::Unbalanced(Unbalanced { .. }))
+            Some(Refutation::OneSided(OneSided { .. }))
         ),
         "{:?}",
         answer.refutation
@@ -157,9 +158,16 @@ fn counted_refutations_are_handed_back() {
 #[test]
 fn decides_unbounded_nets() {
     for (text, linear, affine) in [
-        // Nothing makes `c`.
+        // Nothing makes `c`, which the counts see: every `c` below the
+        // `!` is a body's.
         (
             "!d, !((c * d * d) -o 1) |- c * c",
+            "unprovable",
+            "unprovable",
+        ),
+        // Nothing makes `c` but a clause that can never fire.
+        (
+            "!d, !((c * d * d) -o 1), !(e -o c) |- c * c",
             "state equation",
             "unprovable",
         ),
@@ -468,10 +476,12 @@ fn the_simplex_gives_its_memory_back() {
 
 /// In intuitionistic mode a marking of several atoms is read whole on the
 /// left of `⊢`, each literal lying within the marking's extent, here
-/// where the marking is the forest's first occurrence.
+/// where the marking is the forest's first occurrence (and a clause
+/// consumes a `c`, so that no atom's literals below the `!` all have
+/// one sign and the counts leave the goal to the engine).
 #[test]
 fn reads_a_marking_of_several_atoms_intuitionistically() {
-    let text = "a * c, !(a -o a * c * c) |- 1";
+    let text = "a * c, !(a -o a * c * c), !(c -o 1) |- 1";
     assert_eq!(verdict(text, Mode::INTUITIONISTIC), "state equation");
     assert_eq!(verdict(text, Mode::INTUITIONISTIC.with_affine()), "proved");
 }
