@@ -187,15 +187,15 @@ fn with_rules_closed_by_top() -> Sequent {
     format!("|- {}, top", withs.join(", ")).parse().unwrap()
 }
 
-/// The `&` rules are work, which `Limits::work` bounds: that proof's
-/// search reaches no stable sequent, which counted the work alone.
+/// That proof is made within the memory bound: its two mebibytes of
+/// nodes pass a bound of one, which the search answers before it has a
+/// proof (it once made the proof and left the bound to the check).
 #[test]
-fn with_rules_are_work() {
+fn a_proof_of_with_rules_keeps_to_the_memory_bound() {
     let options = Options::default()
         .with_engine(Some(crate::search::Engine::Focus))
-        .with_jobs(1)
-        .with_check(false);
-    let limits = Limits::default().with_work(Some(10_000));
+        .with_jobs(1);
+    let limits = Limits::default().with_memory_bytes(Some(1 << 20));
     let outcome = crate::search::prove_within(
         &with_rules_closed_by_top(),
         Mode::CLASSICAL,
@@ -205,10 +205,52 @@ fn with_rules_are_work() {
     )
     .unwrap();
     assert!(
+        matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::MemoryLimit { .. })
+        ),
+        "{:?}",
+        outcome.verdict
+    );
+}
+
+/// The `&` rules are work, which `Limits::work` bounds, and that proof
+/// is kept and built under the stop: after the search's last poll that
+/// tells work come the polls of the root's keep and of the proof's two
+/// passes, one per 2¹⁶ nodes each (a second passed without one on 24
+/// pairs).
+#[test]
+fn with_rules_are_work_and_their_proof_is_polled() {
+    let options = Options::default()
+        .with_engine(Some(crate::search::Engine::Focus))
+        .with_jobs(1)
+        .with_check(false);
+    let sequent = with_rules_closed_by_top();
+    let limits = Limits::default().with_work(Some(10_000));
+    let outcome =
+        crate::search::prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false)
+            .unwrap();
+    assert!(
         matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { .. })),
         "{:?}",
         outcome.verdict
     );
+    let mut after = 0;
+    let outcome = crate::search::prove_within(
+        &sequent,
+        Mode::CLASSICAL,
+        &options,
+        &Limits::default(),
+        |progress| {
+            if progress.phase == crate::limits::Phase::Search {
+                after = if progress.work > 0 { 0 } else { after + 1 };
+            }
+            false
+        },
+    )
+    .unwrap();
+    assert!(outcome.verdict.proof().is_some(), "{:?}", outcome.verdict);
+    assert!(after >= 6, "{after} polls after the search's last work");
 }
 
 /// The units behave as the spec's checks say, and `⊤` closes any

@@ -169,10 +169,10 @@ impl Decide for Focused {
         #[cfg(feature = "parallel")]
         if options.threads() > 1 {
             let found = parallel::search_goal(task, options, limits, account, work, stop)?;
-            return Ok(Answer::of_arena(task.forest, found));
+            return Ok(Answer::of_arena(task.forest, found, stop));
         }
         let found = search_goal(task, options, limits, account, work, stop);
-        Ok(Answer::of_arena(task.forest, found))
+        Ok(Answer::of_arena(task.forest, found, stop))
     }
 }
 
@@ -651,8 +651,11 @@ impl<'a> Run<'a> {
     /// Searches the goal ([`Run::run`]) and keeps the proof found: the
     /// kept node, `None` for an exhaustive search, or why it stopped.
     fn run_kept(&mut self, goal: &[OccId]) -> Result<Option<NodeId>, Reason> {
-        self.run(goal)
-            .and_then(|root| root.map(|root| self.nodes.keep(0, root)).transpose())
+        let Some(root) = self.run(goal)? else {
+            return Ok(None);
+        };
+        let stop = &mut self.stop;
+        self.nodes.keep_all(root, &mut || stop.fired(0)).map(Some)
     }
 
     /// Returns the counters, with the memo's.
@@ -800,8 +803,12 @@ impl<'a> Run<'a> {
         budget: u32,
     ) -> Step {
         // A proof of `&` rules closed by `⊤` reaches no stable sequent,
-        // where the search polls, and can be exponential in the sequent.
+        // where the search polls and asks the memory bound, and can be
+        // exponential in the sequent.
         self.poll_with()?;
+        if self.problem.account.over() {
+            self.relieve()?;
+        }
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return self.with_parallel(theta, gamma, list, o, budget);

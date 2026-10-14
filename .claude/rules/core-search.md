@@ -329,8 +329,11 @@ outcome's `work` is that count. The command's default and the harness's
     (`with_parallel`, below). An `&` rule is work (`poll_with`: a step
     and the copy of a zone of the forest's width, the stable sequent's
     width cost), so `Limits::work` bounds such a proof and the default
-    bias's two searches share it (`with_rules_are_work`). The first two
-    and the `&` rule's poll pass the work
+    bias's two searches share it (`with_rules_are_work_and_their_proof_is_polled`);
+    it asks the memory bound too, as a stable sequent does
+    (`a_proof_of_with_rules_keeps_to_the_memory_bound`: 26 pairs peaked
+    at 4.6 GiB under the default 1 GiB, now end at it in a second). The
+    first two and the `&` rule's poll pass the work
     done since the last poll (`Stop::fired(work)`), which the two
     searches of the default bias slice by (`Stop::Slice`, `Stop::Turn`)
     and the caller's progress reports;
@@ -403,7 +406,13 @@ not by what is in use. `prove_goal` makes one per search.
   per-occurrence arrays) and the `Classes` of the set-up, and the
   additive path's memo and arena. **What does not**: the forest and the
   sequent (the caller's; `Limits::occurrences` bounds them,
-  below), the proof returned, a `Tally`'s and a `Split`'s `touched`
+  below), the proof returned beyond what the arena held (the focused
+  engine keeps its root's proof in place where nothing is kept yet,
+  `Arena::keep_all`, and `Proof::build` compacts the arena's vector in
+  place, both polling every 2¹⁶ nodes, so a proof costs its nodes once
+  plus four bytes a node while it is built; before, the root's keep
+  and the build each copied it, unpolled: a second past the time limit
+  on 24 pairs of `&` rules closed by `⊤`), a `Tally`'s and a `Split`'s `touched`
   lists (bounded by the rows of a sequent's members), a context's
   extra list, the table a collection uses while it runs (four bytes a
   kept node), the stacks of the threads, the net engine (a structure

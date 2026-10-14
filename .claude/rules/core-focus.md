@@ -536,7 +536,12 @@ relies on:
   the node and marks the arena (`overflowed`), after which every `keep`
   fails, so no proof resting on the missing node gets out (every proof
   that leaves an engine passes a `keep`: the memo's, the root's in
-  `Plan::search`, a worker's in `exported`). A proof's node order is
+  `Plan::search`, a worker's in `exported`). The root's is `keep_all`
+  (`Run::run_kept`): where nothing is kept yet (no stable sequent was
+  memoized, as in a proof of `&` rules closed by `⊤`) the pending
+  nodes become the kept ones in place, their premises renamed in one
+  pass that polls the stop, and their charge moves from the engine's
+  pending part to the account; else a `keep` from the mark 0. A proof's node order is
   the order of keeping, which `core/tests/serialize.rs` pins on one
   small proof.
 - **The kept arena is collected when an engine's own memo is emptied**

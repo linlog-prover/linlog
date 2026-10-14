@@ -29,7 +29,11 @@ serve intuitionistic mode. Invariants:
   is the last node, and every node is reachable from the root. `Proof::new`
   verifies the bounds and the order of what the root reaches, drops the
   rest (an engine's arena holds the subproofs of failed branches) and
-  renumbers; it does not check the proof. A proof has at least one node
+  renumbers, in the arena's own vector (`Proof::build`, which an engine
+  calls with its stop and `new` with none: a node moves down to its new
+  index after the premises it names, and one `u32` per node holds first
+  whether the root reaches it and then its new index); it does not check
+  the proof. A proof has at least one node
   and at most 2³² − 1 (`Refusal::Index { what: Space::Node }`; reading a proof file
   refuses the same), which is what makes the number of nodes, and the
   checker's count of a node's readers, a `u32`. A subproof two nodes share (a

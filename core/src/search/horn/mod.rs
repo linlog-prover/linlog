@@ -96,6 +96,7 @@ impl Decide for Horn {
                         nodes: Vec::new(),
                         statistics: Statistics::default(),
                     },
+                    stop,
                 )
             });
         }
@@ -143,6 +144,7 @@ impl Decide for Horn {
                 nodes,
                 statistics,
             },
+            stop,
         );
         answer.refutation = equation
             .certificate()

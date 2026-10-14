@@ -27,6 +27,10 @@ pub(crate) enum Kept<'a> {
 /// The flag in the id of a node that is still pending.
 pub(super) const PENDING: u32 = 1 << 31;
 
+/// How many nodes [`Arena::keep_all`] renames between two polls of its
+/// stop: some tenths of a millisecond.
+const ROOT_POLL: usize = 1 << 16;
+
 /// The proof arena of a run, in two parts. A node is first *pending*: it
 /// belongs to the branch being searched, lives in the engine's own
 /// buffer, a stack, and vanishes when the branch fails
@@ -141,6 +145,39 @@ impl<'a> Arena<'a> {
                 Self::append(&mut kept, &mut self.pending, mark, node, most, account)
             }
         }
+    }
+
+    /// Keeps every pending node, which `node` rests on, as the proof of
+    /// the root is kept once the search ends, and returns the id `node`
+    /// has from then on. Where nothing is kept yet the pending nodes become
+    /// the kept ones in place, their premises renamed in one pass that
+    /// asks `stopped` every [`ROOT_POLL`] nodes, so a proof of hundreds of
+    /// millions of nodes is neither copied nor kept from the stop; else as
+    /// [`keep`](Self::keep). Fails as `keep` does, or with
+    /// [`Reason::Stopped`].
+    pub(super) fn keep_all(
+        &mut self,
+        node: NodeId,
+        stopped: &mut dyn FnMut() -> bool,
+    ) -> Result<NodeId, Reason> {
+        let Kept::Own(kept) = &mut self.kept else {
+            return self.keep(0, node);
+        };
+        if self.overflowed || !kept.is_empty() {
+            return self.keep(0, node);
+        }
+        let pending = bytes_of(&self.pending);
+        std::mem::swap(kept, &mut self.pending);
+        self.own.resize(pending, 0);
+        self.account.resize(0, pending);
+        let renamed = |id: NodeId| NodeId::new(id.get() & !PENDING);
+        for (i, n) in kept.iter_mut().enumerate() {
+            if i % ROOT_POLL == 0 && stopped() {
+                return Err(Reason::Stopped);
+            }
+            *n = n.map_premises(renamed);
+        }
+        Ok(renamed(node))
     }
 
     /// Moves the nodes pending since the mark to the end of the kept ones,

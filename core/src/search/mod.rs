@@ -797,7 +797,9 @@ pub(crate) struct Answer {
 
 impl Answer {
     /// The answer of an engine that keeps its proofs as nodes of an arena:
-    /// the result as a node, the arena and the counters.
+    /// the result as a node, the arena and the counters. The proof is
+    /// built in the arena's own vector, asking `stop` as it goes, which
+    /// ends it as a stop of the search.
     pub(crate) fn of_arena(
         forest: &Forest,
         Finished {
@@ -805,12 +807,16 @@ impl Answer {
             nodes,
             statistics,
         }: Finished,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Self {
-        let result = result.map(|root| {
+        let result = result.and_then(|root| {
             root.map(|root| {
-                Proof::new(forest.clone(), nodes, root)
-                    .expect("the engine pushes premises before conclusions")
+                Proof::build(forest.clone(), nodes, root, &mut || stop(0)).map_err(|e| match e {
+                    Error::Refused(Refusal::Stopped { .. }) => Reason::Stopped,
+                    e => panic!("the engine pushes premises before conclusions: {e}"),
+                })
             })
+            .transpose()
         });
         Self {
             result,

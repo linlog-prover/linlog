@@ -65,7 +65,7 @@ impl Decide for Additive {
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         let found = search_goal(task.forest, task.goal, options, limits, account, stop);
-        Ok(Answer::of_arena(task.forest, found))
+        Ok(Answer::of_arena(task.forest, found, stop))
     }
 }
 

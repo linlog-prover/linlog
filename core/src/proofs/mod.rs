@@ -149,6 +149,10 @@ pub enum Node {
 /// A node is a tag, an occurrence and two node indices at most.
 const _: () = assert!(size_of::<Node>() == 16);
 
+/// How many nodes [`Proof::build`] passes over between two polls of its
+/// stop: some tenths of a millisecond.
+const BUILD_POLL: usize = 1 << 16;
+
 impl Node {
     /// The variants' names, in their order: what a mirror of the type in
     /// another language matches, one constructor each.
@@ -342,6 +346,30 @@ impl Proof {
     /// [`Refusal::Index`](crate::Refusal::Index) for more nodes than a proof
     /// holds.
     pub fn new(forest: Forest, nodes: Vec<Node>, root: NodeId) -> Result<Self, Error> {
+        Self::build(forest, nodes, root, &mut || false)
+    }
+
+    /// Builds a proof as [`new`](Self::new) does, in the nodes' own
+    /// vector, asking `stopped` every [`BUILD_POLL`] nodes of its two
+    /// passes: an engine's proof can have hundreds of millions of nodes.
+    ///
+    /// # Errors
+    ///
+    /// As `new`, and [`Refusal::Stopped`](crate::Refusal::Stopped) in the
+    /// search's phase once `stopped` answers true.
+    pub(crate) fn build(
+        forest: Forest,
+        mut nodes: Vec<Node>,
+        root: NodeId,
+        stopped: &mut dyn FnMut() -> bool,
+    ) -> Result<Self, Error> {
+        /// The index of a node the root does not reach.
+        const UNREACHED: u32 = u32::MAX;
+        let stop = || {
+            Error::Refused(crate::limits::Refusal::Stopped {
+                phase: crate::limits::Phase::Search,
+            })
+        };
         if root.index() >= nodes.len() {
             return Err(Error::IndexOutOfBounds {
                 space: crate::limits::Space::Node,
@@ -350,13 +378,17 @@ impl Proof {
             });
         }
         // A premise precedes its conclusion, so one pass from the root down
-        // visits every reachable node after the node that reaches it. The
-        // root's index is below the length of a vector, so one more is a
-        // `usize`.
-        let mut reachable = vec![false; root.index() + 1];
-        reachable[root.index()] = true;
+        // visits every reachable node after the node that reaches it; a
+        // node reached has index 0 until the second pass gives it its new
+        // one. The root's index is below the length of a vector, so one
+        // more is a `usize`.
+        let mut index = vec![UNREACHED; root.index() + 1];
+        index[root.index()] = 0;
         for i in (0..=root.index()).rev() {
-            if !reachable[i] {
+            if i % BUILD_POLL == 0 && stopped() {
+                return Err(stop());
+            }
+            if index[i] == UNREACHED {
                 continue;
             }
             for o in nodes[i].members() {
@@ -376,13 +408,13 @@ impl Proof {
                         parent: i,
                     });
                 }
-                reachable[p.index()] = true;
+                index[p.index()] = 0;
             }
         }
         // The number of nodes is a `u32` too, which the checker's counts
         // of a node's readers rely on; the root's index alone allows one
         // node more.
-        let reached = reachable.iter().filter(|&&r| r).count();
+        let reached = index.iter().filter(|&&i| i != UNREACHED).count();
         if u32::try_from(reached).is_err() {
             return Err(Error::Refused(crate::limits::Refusal::Index {
                 what: crate::limits::Space::Node,
@@ -390,19 +422,25 @@ impl Proof {
                 most: u64::from(u32::MAX),
             }));
         }
-        let mut new_index = vec![NodeId::new(u32::MAX); root.index() + 1];
-        let mut kept = Vec::with_capacity(reached);
-        for (i, node) in nodes.into_iter().enumerate().take(root.index() + 1) {
-            if !reachable[i] {
+        // The nodes kept move down in their order: a node is written at or
+        // below where it was read, after the premises it names.
+        let mut kept = 0;
+        for i in 0..=root.index() {
+            if i % BUILD_POLL == 0 && stopped() {
+                return Err(stop());
+            }
+            if index[i] == UNREACHED {
                 continue;
             }
             // Fewer than `reached` nodes are kept so far.
-            new_index[i] = NodeId::new(kept.len() as u32);
-            kept.push(node.map_premises(|p| new_index[p.index()]));
+            index[i] = kept as u32;
+            nodes[kept] = nodes[i].map_premises(|p| NodeId::new(index[p.index()]));
+            kept += 1;
         }
+        nodes.truncate(kept);
         Ok(Self {
             forest,
-            nodes: kept.into_boxed_slice(),
+            nodes: nodes.into_boxed_slice(),
             goal: None,
             mode: None,
         })
