@@ -2115,7 +2115,11 @@ R1).
 problem, in input order, exactly one of an outcome and an error, `name`
 second: `{"version": 1, "name": "a.txt", "linlog": "0.1.0", "verdict":
 "proved", …}`, `{"version": 1, "name": "bad.txt", "error": {"code":
-"parse", "kind": "malformed", …}}`.
+"parse", "kind": "malformed", …}}`. As built, an error record also has
+`"verdict": "error"` and a `message`, so a reader branches on one key
+for every line, and an entry the batch stopped unread is `"verdict":
+"unknown"` with a `message` (the audit report's "Area 3.4: decided
+unattended").
 
 **The ordinary forms** (R11, F53). `ordinary::Sequent`: `{"version": 1,
 "formulas": [{"A": 0}, {"A": 1}, {"→": [0, 1]}], "atoms": ["a", "b"],

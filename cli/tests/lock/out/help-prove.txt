@@ -64,7 +64,7 @@ Options:
           - minimal:        Minimal logic: intuitionistic without ex falso, false an atom
 
       --translation <TRANSLATION>
-          The translation into linear logic: affine for classical logic, cbn (by default), cbv or 01 for intuitionistic and minimal logic
+          The translation into linear logic: affine for classical logic, cbn (by default), cbv or 01 for intuitionistic and minimal logic (ordinary.translation)
 
           Possible values:
           - affine: Classical logic into affine MALL: negation normal form, ∧ as &, ∨ as ⅋

@@ -759,6 +759,7 @@ pub(crate) struct LogicArgs {
     pub(crate) logic: Option<LogicArg>,
     /// The translation into linear logic: affine for classical logic, cbn
     /// (by default), cbv or 01 for intuitionistic and minimal logic
+    /// (ordinary.translation)
     #[arg(long, value_enum, value_name = "TRANSLATION", requires = "logic")]
     pub(crate) translation: Option<TranslationArg>,
 }
