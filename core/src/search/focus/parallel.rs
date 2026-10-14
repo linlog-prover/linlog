@@ -596,12 +596,12 @@ mod tests {
                 let budget = 2 + rng.below(9);
                 let generate::Ill {
                     mut hypotheses,
-                    goal,
+                    mut goal,
                     copies,
                     ..
                 } = generate::ill(&mut rng, rules, 3, budget);
                 let mut texts = vec![generate::two_sided(&hypotheses, &goal)];
-                if generate::mutate(&mut rng, &mut hypotheses, 3) {
+                if generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
                     texts.push(generate::two_sided(&hypotheses, &goal));
                 }
                 for text in &texts {

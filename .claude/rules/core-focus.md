@@ -963,8 +963,15 @@ relies on:
   them) for every combination of units, additives, Mix and exponentials,
   and reports the most derelictions on one branch of the proof it read
   the sequent off, which bounds the copies the engine needs; a new rule
-  set extends it rather than writing new positives by hand. The
-  intuitionistic generator contracts a `!` hypothesis `!B` by proving
+  set extends it rather than writing new positives by hand. A mutant
+  (`mutate`, `mutate_two_sided` for an intuitionistic sequent, whose
+  goal's literals count with the opposite sign) is half the time two
+  literals of one sign with their atoms swapped, which keeps every
+  atom's count, and otherwise one literal given another atom, which
+  unbalances two atoms, so that without additives and exponentials the
+  counts refute it before any search (`some_mutants_reach_a_search`: a
+  swap sends 11 to 30 % of those mutants to a search, none went before).
+  The intuitionistic generator contracts a `!` hypothesis `!B` by proving
   `B` beside the goal from a copy of it (`Γ, !B ⊢ C ⊗ B`), so that a `!`
   hypothesis used twice reaches the engines in its samples
   (`intuitionistic_proofs_contract`: about a third of them; its first

@@ -681,7 +681,10 @@ fn default_bias_decides_what_either_rule_does() {
         // compare otherwise.
         let ones = [Bias::Rarer, Bias::Factors]
             .map(|bias| (bias, bounded(text, mode, &options.clone().with_bias(bias))));
-        over += ones.iter().map(|(_, (_, out))| u64::from(*out)).sum::<u64>();
+        over += ones
+            .iter()
+            .map(|(_, (_, out))| u64::from(*out))
+            .sum::<u64>();
         if ones.iter().all(|(_, (one, _))| one.is_none()) {
             return;
         }
@@ -725,16 +728,14 @@ fn default_bias_decides_what_either_rule_does() {
         for _ in 0..30 {
             let generate::Ill {
                 mut hypotheses,
-                goal,
+                mut goal,
                 copies,
                 ..
             } = generate::ill(&mut rng, rules, 3, 8);
             let options = Options::default().with_copies(Some(copies));
             let text = generate::two_sided(&hypotheses, &goal);
             check(&text, Mode::INTUITIONISTIC, &options);
-            hypotheses.push(goal);
-            if generate::mutate(&mut rng, &mut hypotheses, 3) {
-                let goal = hypotheses.pop().unwrap();
+            if generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
                 let text = generate::two_sided(&hypotheses, &goal);
                 check(&text, Mode::INTUITIONISTIC, &Options::default());
             }
@@ -1252,13 +1253,14 @@ fn bounded(input: &str, mode: Mode, options: &Options) -> (Option<bool>, bool) {
 
 /// Proves `samples` generated sequents of up to `budget` rules per rule
 /// set with or without exponentials, each within the derelictions of
-/// its proof, and decides one mutant of each with and without the memo.
-/// Returns how many sequents and mutants were decided, how many mutants
-/// were provable, how many were undecided within the copy bound, and
-/// the most stable sequents one search visited.
-fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64, u64, u64) {
-    let (mut sequents, mut mutants, mut provable_mutants, mut undecided, mut most_nodes) =
-        (0, 0, 0, 0, 0);
+/// its proof, and decides one mutant of each with and without the memo,
+/// within [`MUTANT_WORK`]. Returns how many sequents and mutants were
+/// decided, how many mutants were provable, how many the memo's search
+/// left undecided within the copy bound, how many a search ran past the
+/// work, and the most stable sequents one search visited.
+fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64, u64, u64, u64) {
+    let (mut sequents, mut mutants, mut provable_mutants, mut undecided, mut over, mut most_nodes) =
+        (0, 0, 0, 0, 0, 0);
     for (i, rules) in Rules::ALL.into_iter().enumerate() {
         if rules.exponentials != exponentials {
             continue;
@@ -1291,8 +1293,9 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
             most_nodes = most_nodes.max(statistics.nodes);
             if generate::mutate(&mut rng, &mut formulas, 3) {
                 let text = generate::sequent(&formulas);
-                let with_memo = decided(&text, mode, &Options::default());
-                let without = decided(&text, mode, &Options::default().with_memo_limit(0));
+                let (with_memo, out) = bounded(&text, mode, &Options::default());
+                let (without, too) = bounded(&text, mode, &Options::default().with_memo_limit(0));
+                over += u64::from(out || too);
                 // The memo never contradicts the memo-free search; it
                 // may decide where the other is undecided within the
                 // bound and the other way round, since an entry cut by
@@ -1304,11 +1307,18 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
                 );
                 mutants += 1;
                 provable_mutants += u64::from(with_memo == Some(true));
-                undecided += u64::from(with_memo.is_none());
+                undecided += u64::from(with_memo.is_none() && !out);
             }
         }
     }
-    (sequents, mutants, provable_mutants, undecided, most_nodes)
+    (
+        sequents,
+        mutants,
+        provable_mutants,
+        undecided,
+        over,
+        most_nodes,
+    )
 }
 
 /// Every generated provable sequent is proved with a checked proof
@@ -1317,17 +1327,19 @@ fn generated(samples: u64, budget: usize, exponentials: bool) -> (u64, u64, u64,
 /// without the memo.
 #[test]
 fn generated_sequents() {
-    let (sequents, mutants, _, undecided, _) = generated(40, 10, false);
+    let (sequents, mutants, _, undecided, over, _) = generated(40, 10, false);
     assert_eq!(sequents, 320);
     assert!(mutants > 200, "{mutants} mutants");
     assert_eq!(undecided, 0);
-    let (sequents, mutants, _, undecided, _) = generated(40, 10, true);
+    assert!(over * 50 < mutants, "{over} of {mutants} past the work");
+    let (sequents, mutants, _, undecided, over, _) = generated(40, 10, true);
     assert_eq!(sequents, 320);
     assert!(mutants > 200, "{mutants} mutants");
     assert!(
         undecided < mutants / 4,
         "{undecided} of {mutants} mutants undecided"
     );
+    assert!(over * 50 < mutants, "{over} of {mutants} past the work");
 }
 
 /// Proves `samples` generated intuitionistic sequents of up to `budget`
@@ -1349,7 +1361,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64, u64) {
             let budget = 2 + rng.below(budget - 1);
             let generate::Ill {
                 mut hypotheses,
-                goal,
+                mut goal,
                 copies,
                 ..
             } = generate::ill(&mut rng, rules, 3, budget);
@@ -1371,9 +1383,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64, u64) {
                 "{text:?} is provable in ILL, so classically too, but the engine says \
                  {classical:?}"
             );
-            hypotheses.push(goal);
-            if generate::mutate(&mut rng, &mut hypotheses, 3) {
-                let goal = hypotheses.pop().unwrap();
+            if generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
                 let text = generate::two_sided(&hypotheses, &goal);
                 let (two_sided, out) = bounded(&text, i, &Options::default());
                 let (classical, too) = bounded(&text, Mode::CLASSICAL, &Options::default());

@@ -1049,18 +1049,18 @@ mod tests {
                 let budget = 2 + rng.below(8);
                 let generate::Ill {
                     mut hypotheses,
-                    goal,
+                    mut goal,
                     copies,
                     ..
                 } = generate::ill(&mut rng, rules, 3, budget);
-                let mut cases = vec![hypotheses.clone()];
-                if generate::mutate(&mut rng, &mut hypotheses, 3) {
-                    cases.push(hypotheses);
+                let mut cases = vec![(hypotheses.clone(), goal.clone())];
+                if generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
+                    cases.push((hypotheses, goal));
                 }
-                for hypotheses in &cases {
-                    let text = generate::two_sided(hypotheses, &goal);
+                for (hypotheses, goal) in &cases {
+                    let text = generate::two_sided(hypotheses, goal);
                     for mode in [Mode::INTUITIONISTIC, Mode::INTUITIONISTIC.with_affine()] {
-                        let reference = intuitionistic(hypotheses, &goal, mode, copies);
+                        let reference = intuitionistic(hypotheses, goal, mode, copies);
                         judge(&text, mode, copies, reference, &mut tally);
                     }
                 }

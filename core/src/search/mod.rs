@@ -3275,16 +3275,14 @@ mod tests {
             let budget = 2 + rng.below(8);
             let generate::Ill {
                 mut hypotheses,
-                goal,
+                mut goal,
                 ..
             } = generate::ill(&mut rng, rules, 3, budget);
-            hypotheses.push(goal);
             for mutated in [false, true] {
-                if mutated && !generate::mutate(&mut rng, &mut hypotheses, 3) {
+                if mutated && !generate::mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
                     continue;
                 }
-                let goal = hypotheses.last().unwrap();
-                let text = generate::two_sided(&hypotheses[..hypotheses.len() - 1], goal);
+                let text = generate::two_sided(&hypotheses, &goal);
                 let s = sequent(&text);
                 let by_net = prove(&s, i, &Options::default()).unwrap();
                 if by_net.engine != Engine::Net {

@@ -4,8 +4,9 @@
 //! Random provable sequents for testing the engines: a cut-free proof is
 //! built bottom-up by choosing rules at random, and only its conclusion is
 //! kept, as text for the parser. The engine under test must prove it. A
-//! mutant of such a sequent, with one literal's atom swapped, is usually
-//! unprovable and tests the negative side.
+//! mutant of such a sequent, with one literal's atom changed or the atoms
+//! of two literals of one sign swapped, is often unprovable and tests the
+//! negative side.
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -123,18 +124,27 @@ pub(crate) enum Tree {
 }
 
 impl Tree {
-    /// Returns every literal of the tree, for a mutation to pick from.
-    fn literals(&mut self) -> Vec<&mut u8> {
+    /// Returns every literal of the tree, for a mutation to pick from,
+    /// each with its sign in a context of sign `positive`: an atom has the
+    /// context's sign, a negated atom the other, and the left side of a
+    /// `⊸` flips it.
+    fn literals(&mut self, positive: bool) -> Vec<(&mut u8, bool)> {
         use Tree::*;
         match self {
-            Atom(a) | Dual(a) => vec![a],
+            Atom(a) => vec![(a, positive)],
+            Dual(a) => vec![(a, !positive)],
             One | Bot | Top | Zero => vec![],
-            Tensor(l, r) | Par(l, r) | With(l, r) | Plus(l, r) | Lolli(l, r) => {
-                let mut all = l.literals();
-                all.extend(r.literals());
+            Tensor(l, r) | Par(l, r) | With(l, r) | Plus(l, r) => {
+                let mut all = l.literals(positive);
+                all.extend(r.literals(positive));
                 all
             }
-            Bang(a) | Quest(a) => a.literals(),
+            Lolli(l, r) => {
+                let mut all = l.literals(!positive);
+                all.extend(r.literals(positive));
+                all
+            }
+            Bang(a) | Quest(a) => a.literals(positive),
         }
     }
 
@@ -563,11 +573,53 @@ pub(crate) fn provable(rng: &mut Rng, rules: Rules, atoms: u8, budget: usize) ->
     Provable { formulas, copies }
 }
 
-/// Mutates a sequent by giving one literal another atom name, and returns
-/// whether there was a literal to mutate. The result is a sequent that is
-/// usually unprovable but passes many of the count checks.
+/// Mutates a sequent by [`transpose`] or [`shift`], one or the other at
+/// random (a shift where no two literals admit a transposition), and
+/// returns whether there was a literal to mutate.
 pub(crate) fn mutate(rng: &mut Rng, formulas: &mut [Tree], atoms: u8) -> bool {
-    let mut literals: Vec<&mut u8> = formulas.iter_mut().flat_map(Tree::literals).collect();
+    if rng.one_in(2)
+        && transpose(
+            rng,
+            formulas.iter_mut().flat_map(|f| f.literals(true)).collect(),
+        )
+    {
+        return true;
+    }
+    let literals = formulas.iter_mut().flat_map(|f| f.literals(true));
+    shift(rng, literals.map(|(atom, _)| atom).collect(), atoms)
+}
+
+/// Mutates an intuitionistic sequent as [`mutate`] does a one-sided one,
+/// with the hypotheses' literals of the sign opposite to the goal's.
+pub(crate) fn mutate_two_sided(
+    rng: &mut Rng,
+    hypotheses: &mut [Tree],
+    goal: &mut Tree,
+    atoms: u8,
+) -> bool {
+    let mut literals: Vec<(&mut u8, bool)> = hypotheses
+        .iter_mut()
+        .flat_map(|h| h.literals(false))
+        .collect();
+    literals.extend(goal.literals(true));
+    if rng.one_in(2) && transpose(rng, literals) {
+        return true;
+    }
+    let literals = hypotheses
+        .iter_mut()
+        .flat_map(|h| h.literals(false))
+        .chain(goal.literals(true))
+        .map(|(atom, _)| atom)
+        .collect();
+    shift(rng, literals, atoms)
+}
+
+/// Gives one of the literals another atom name, and returns whether there
+/// was a literal to change. The result is usually unprovable but passes
+/// many of the count checks; it is unbalanced in some atom, so the
+/// interval check refutes it where there are no additives and no
+/// exponentials.
+fn shift(rng: &mut Rng, mut literals: Vec<&mut u8>, atoms: u8) -> bool {
     if literals.is_empty() || atoms < 2 {
         return false;
     }
@@ -575,6 +627,24 @@ pub(crate) fn mutate(rng: &mut Rng, formulas: &mut [Tree], atoms: u8) -> bool {
     let shift = 1 + rng.below(atoms as usize - 1) as u8;
     let atom = &mut *literals[pick];
     *atom = (*atom + shift) % atoms;
+    true
+}
+
+/// Swaps the atom names of two of the signed literals of the same sign
+/// whose atoms differ, picked at random, and returns whether there were
+/// two. The result keeps every atom's count, so the interval check
+/// passes it, and is provable or not.
+fn transpose(rng: &mut Rng, mut literals: Vec<(&mut u8, bool)>) -> bool {
+    let pairs: Vec<(usize, usize)> = (0..literals.len())
+        .flat_map(|j| (0..j).map(move |i| (i, j)))
+        .filter(|&(i, j)| literals[i].1 == literals[j].1 && *literals[i].0 != *literals[j].0)
+        .collect();
+    if pairs.is_empty() {
+        return false;
+    }
+    let (i, j) = pairs[rng.below(pairs.len())];
+    let (left, right) = literals.split_at_mut(j);
+    std::mem::swap(left[i].0, right[0].0);
     true
 }
 
@@ -876,6 +946,68 @@ mod tests {
                 .count();
             // 10 to 17 of 40 when this was written.
             assert!(contracted >= 8, "{rules:?}: {contracted} of 40 contract");
+        }
+    }
+
+    /// Of the mutants of the rule sets without additives and
+    /// exponentials, where every literal meets its dual in an axiom, a
+    /// share passes the counts and reaches a search: a literal given
+    /// another atom unbalances two atoms, which the interval check
+    /// refutes at once, and two literals of one sign swapped keep every
+    /// atom's count.
+    #[test]
+    fn some_mutants_reach_a_search() {
+        use crate::search::{Options, Refutation, Verdict, prove};
+        use crate::{Mode, Sequent};
+        let searched = |text: &str, mode: Mode| {
+            let sequent: Sequent = text.parse().unwrap();
+            match prove(&sequent, mode, &Options::default()).unwrap().verdict {
+                Verdict::Unprovable(disproof) => {
+                    matches!(disproof.refutation(), Refutation::Exhausted)
+                }
+                _ => true,
+            }
+        };
+        for (i, rules) in Rules::ALL.into_iter().enumerate() {
+            if rules.additives || rules.exponentials {
+                continue;
+            }
+            let mode = Mode::CLASSICAL;
+            let mode = if rules.mix { mode.with_mix() } else { mode };
+            let mut rng = Rng::new(i as u64);
+            let (mut mutants, mut reached) = (0, 0);
+            for _ in 0..100 {
+                let budget = 2 + rng.below(9);
+                let mut formulas = provable(&mut rng, rules, 3, budget).formulas;
+                if mutate(&mut rng, &mut formulas, 3) {
+                    mutants += 1;
+                    reached += u32::from(searched(&sequent(&formulas), mode));
+                }
+            }
+            // 11 to 20 % when this was written, none before the swap.
+            assert!(reached * 12 >= mutants, "{rules:?}: {reached} of {mutants}");
+        }
+        for (n, rules) in IllRules::ALL.into_iter().enumerate() {
+            if rules.additives || rules.exponentials {
+                continue;
+            }
+            let mut rng = Rng::new(100 + n as u64);
+            let (mut mutants, mut reached) = (0, 0);
+            for _ in 0..100 {
+                let budget = 2 + rng.below(9);
+                let Ill {
+                    mut hypotheses,
+                    mut goal,
+                    ..
+                } = ill(&mut rng, rules, 3, budget);
+                if mutate_two_sided(&mut rng, &mut hypotheses, &mut goal, 3) {
+                    mutants += 1;
+                    let text = two_sided(&hypotheses, &goal);
+                    reached += u32::from(searched(&text, Mode::INTUITIONISTIC));
+                }
+            }
+            // 25 to 30 % when this was written.
+            assert!(reached * 12 >= mutants, "{rules:?}: {reached} of {mutants}");
         }
     }
 }
