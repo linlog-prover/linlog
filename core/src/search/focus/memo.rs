@@ -1054,6 +1054,14 @@ mod tests {
         memo.insert(&key(0, &long), entry, &account);
         assert_eq!(memo.get(&key(0, &long), 0), Some(entry));
         assert_eq!(memo.chunks.len(), 1);
+        assert_eq!(memo.chunks[0].capacity(), HEADER + long.len());
+        assert_eq!(account.used() as usize, held(&memo));
+        // Records of no member, nine to a chunk and a word over: the
+        // tenth starts a chunk of its own rather than outgrow one.
+        for theta in 0..30 {
+            memo.insert(&key(theta, &[]), entry, &account);
+        }
+        assert_eq!(memo.get(&key(29, &[]), 0), Some(entry));
         assert_eq!(account.used() as usize, held(&memo));
     }
 

@@ -209,6 +209,14 @@ mod tests {
         let mut again = Vec::new();
         classes.canonical(&canonical, true, &mut again);
         assert_eq!(again, canonical);
+        // Members each once that share a class make a run, written as
+        // the class marked and its length.
+        let pair = [literals[0], literals[1]];
+        classes.canonical(&pair, false, &mut again);
+        assert_eq!(
+            again,
+            [OccId::new(literals[0].get() | REPEATED), OccId::new(2)]
+        );
         let reading = Reading::new(&forest).unwrap();
         let classes = Classes::new(&forest, Some(&reading));
         assert!(!classes.same(tops[0], tops[1]));
