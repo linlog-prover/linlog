@@ -591,6 +591,43 @@ supervisor's probes.
   requirement met or recorded with its reason. A closing session writes
   both.
 
+## The author's answers at the step's end (2026-10-14)
+
+To the report's "Open questions for the author", each put to the author
+with what the design said, what was built and the supervisor's
+recommendation:
+
+- **The departures from the design** (question 1), one by one, are all
+  accepted:
+  - area 3.2's: `Decide::decide` taking the units, `held_bytes` 0 in a
+    search, no `Engine::modes()`;
+  - area 3.3's: `PER_LEVEL` 3 KiB and 13 KiB; the target set run at the
+    head only; the mutation run from the main checkout;
+  - area 3.4's: `--jobs` setting two keys; `"verdict": "error"` in a
+    batch's records; CI building x86_64-linux alone until step 30
+    decides.
+
+  `plan/notes/api.md` 14.3 records the design's ones as built.
+- **F148, the sparse memo key** (question 2): done in step 28, by a
+  session of its own after `step-28i`, with the evidence for search
+  changes. That session also takes F188's rest, a test of `compare.rs`'s
+  printed tables.
+- **`Limits::work` and the focused engine's `&` rules** (question 3):
+  counted now, by `step-28i`, with the default bias's slices measured
+  again.
+- **A text nested deeper than `--occurrence-limit`** (question 4):
+  refused as over the bound, accepted as built.
+- **The proof of `&` rules closed by `⊤`** (question 5): its nodes are
+  counted against `--memory-limit`, and its building polls the stop.
+  `step-28i` takes both.
+- **The test gaps left open** (question 6): F188's rest as above.
+  Declined, with their reasons: F214's timeout arm, which needs a child
+  that outlives its limit on purpose, and F218's scaling tests, since
+  the journeys count the readers.
+- **The public walk** (question 7, R245): step 29 does it first, as its
+  prompt says.
+- **F122 and F123** (question 10): `step-28i`, as the question records.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
