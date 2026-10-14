@@ -1,0 +1,4 @@
+core/src/parse/mod.rs:314:28: replace match guard limit < Forest::MOST with true in Parser<'a>::past_bound
+core/src/parse/mod.rs:314:34: replace < with <= in Parser<'a>::past_bound
+core/src/parse/mod.rs:340:72: replace > with == in Parser<'a>::prefix
+core/src/parse/mod.rs:340:72: replace > with >= in Parser<'a>::prefix

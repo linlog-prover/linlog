@@ -1,0 +1,15 @@
+core/src/proofs/check/error.rs:46:37: replace && with || in Dyadic::write
+core/src/proofs/check/pass.rs:253:9: replace Observer::weight -> u32 with 0
+core/src/proofs/check/pass.rs:253:9: replace Observer::weight -> u32 with 1
+core/src/proofs/check/pass.rs:408:39: replace - with + in Pass<'a, 's, O>::run
+core/src/proofs/check/pass.rs:432:41: replace > with >= in Pass<'a, 's, O>::run
+core/src/proofs/check/pass.rs:613:26: replace > with < in Pass<'a, 's, O>::unite
+core/src/proofs/check/pass.rs:613:26: replace > with == in Pass<'a, 's, O>::unite
+core/src/proofs/check/pass.rs:613:26: replace > with >= in Pass<'a, 's, O>::unite
+core/src/proofs/check/zones.rs:174:31: replace > with == in Bag::add
+core/src/proofs/check/zones.rs:174:31: replace > with >= in Bag::add
+core/src/proofs/check/zones.rs:188:31: replace > with < in Bag::unite
+core/src/proofs/check/zones.rs:188:31: replace > with == in Bag::unite
+core/src/proofs/check/zones.rs:188:31: replace > with >= in Bag::unite
+core/src/proofs/check/zones.rs:193:18: replace > with >= in Bag::unite
+core/src/proofs/check/zones.rs:265:19: replace + with - in State::bytes
