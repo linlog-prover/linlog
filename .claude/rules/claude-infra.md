@@ -145,8 +145,8 @@ Current contents:
   `commands`): the commands it runs past separators, `VAR=value`, the
   wrappers in `WRAPPERS` (`env`, `timeout`, `run0`, `xargs`, `nice`,
   `systemd-run`, `systemd-inhibit`, `taskset`, `flock`, `ionice`, `chrt`,
-  …, each with its options that take a value and its positionals), `bash
-  -c`, `eval`, `nix shell … -c`, `nix develop -c` and `jj util exec`.
+  …, each with its options that take a value and its positionals; `env
+  -S STRING` runs STRING split into words, `env_split`), `bash -c`, `eval`, `nix shell … -c`, `nix develop -c` and `jj util exec`.
   Quoted text is masked first, so searching for `git push` is not running
   it. A wrapper it does not know hides what it runs: add it to
   `WRAPPERS` with its cases. A heredoc line that starts with `git` still

@@ -92,6 +92,25 @@ def mask_quoted(line):
     return "".join(out)
 
 
+def env_split(tokens, i):
+    """The command `env -S STRING` (`--split-string`, either spelling)
+    runs when `tokens[i]` is that option: STRING's words, then the rest;
+    None for any other option."""
+    token = tokens[i]
+    if token in ("-S", "--split-string") and i + 1 < len(tokens):
+        value, rest = tokens[i + 1], tokens[i + 2 :]
+    elif token.startswith("--split-string="):
+        value, rest = token.split("=", 1)[1], tokens[i + 1 :]
+    elif token.startswith("-S") and len(token) > 2:
+        value, rest = token[2:], tokens[i + 1 :]
+    else:
+        return None
+    try:
+        return shlex.split(value) + rest
+    except ValueError:
+        return value.split() + rest
+
+
 def resolve(tokens):
     """The program a command runs and its arguments, past assignments and
     wrappers; `(None, [])` if it runs nothing (`command -v git`)."""
@@ -111,6 +130,11 @@ def resolve(tokens):
                 if tokens[i] == "--":
                     i += 1
                     break
+                # `env -S STRING` runs STRING split into words, followed by
+                # the rest: a command line of its own.
+                split = env_split(tokens, i) if program == "env" else None
+                if split is not None:
+                    return resolve(split)
                 i += 2 if tokens[i] in takes_value else 1
             i += positionals
             continue
