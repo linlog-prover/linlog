@@ -644,6 +644,52 @@ recommendation:
   sequents module's doc calling atom names variables. All by F148's
   session, beside F188's rest.
 
+## From the review of `step-28i` (2026-10-14)
+
+- **Verified** by the supervisor:
+  - `nix flake check --keep-going` passed at louzqsun, the session's
+    head with its report (the code's checks the same derivations as at
+    pqnxxtsx, where the session ran it; treefmt ran again);
+  - the target sets: `after-rows` and `after-one-sided` against
+    `after-efficiency` differ in no verdict, and of the 135 problems
+    decided alike only chain/16, /64, /128 and /256 differ, one memo
+    entry fewer and one hit more each; `net-after-one-sided` equals
+    `net-after-efficiency` on all 64;
+  - on a release build of its own at louzqsun (cores 12 and 13, beside
+    the flake check), against the build of qvuvkroz:
+    - F122's sample is refuted at once as `one_sided`, intuitionistic
+      and classical; before, both were unknown after 20 s (copy bounds
+      6 and 3);
+    - F123's Mix mutant finishes copy bound 3 in 18.7 ms (64 818 stable
+      sequents visited, 61 719 of them from the memo) and copy bound 4
+      in 156 ms; before, copy bound 3 was unfinished after 30 s (171
+      million visited). By default it reaches copy bound 8 in 20 s and
+      stays unknown, as an unprovable sequent with both signs below `?`
+      must;
+    - `⊢ a₁ & b₁, …, a₂₂ & b₂₂, ⊤` under 0.6 s ends at 0.65 s (1.13 s
+      before); 24 pairs under `--memory-limit 512MiB` end at the memory
+      limit after 1.09 s at a peak of 263 MiB (before: proved after
+      8.2 s at 1.19 GiB); 24 pairs under the default 1 GiB are proved at
+      a peak of 903 MiB;
+  - pqnxxtsx, the one code commit that no lens or reviewer saw: an atom
+    is listed when its sums are zero before a row comes in, so every
+    atom off zero stays listed until `clear`, and `Split::clear` resets
+    exactly the fields `Split::touch` reads (both sides' `lo` and `hi`,
+    `below`, `above`); spmrupso, uyrrnvwy, lyowmwos and vtypozyz are
+    docs, the lock and tests.
+- **Found by the review**: three commits off the line with no
+  description (pzkyvvqx, xpqolwsn, prtttqzv), snapshots of the
+  workspaces where target sets ran, each file identical to the one
+  committed on the line; abandoned.
+- **For F148's session**, beside its own items: the pool's drop of the
+  failures that wait (a worker drops those that rest on the spawning
+  engine's branch) has no test, as `step-28i` reported; the session
+  works in the shared memo and the pool, so it pins it.
+- **Leftover workspaces** for the author: `../linlog-step28i-probe`,
+  `-old`, `-panel`, `-mutants`, `-mutants2`, `-mutants3`, `-gate` and
+  `-closemut` (uncommitted edits on disk: a sweep test), each to be
+  forgotten with `jj workspace forget` before its directory goes.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
