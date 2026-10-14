@@ -1601,6 +1601,23 @@ fn a_batch_s_records_names_and_files() {
         "{\"name\": \"x\\ny: proved\", \"sequent\": \"A |- A\"}\n",
     );
     assert!(lines.starts_with("x\\ny: proved: provable"), "{lines}");
+    // A line past the memory limit is an error of its own, skipped without
+    // being held, and a line that is no UTF-8 too; the batch goes on.
+    let long = format!("a: A |- A\nb: {}A |- A\nc: A |- A\n", "A * ".repeat(600));
+    let (status, lines, _) = linlog(
+        &["prove", "--input-format", "lines", "--memory-limit", "2KiB"],
+        &long,
+    );
+    assert_eq!(status, 2);
+    assert_eq!(
+        lines.lines().collect::<Vec<_>>(),
+        [
+            "a: provable (MLL, classical, net engine)",
+            "-:2: error: the line is longer than the memory limit of 2.0 KiB; raise it with \
+             --memory-limit SIZE",
+            "c: provable (MLL, classical, net engine)",
+        ]
+    );
     // A mark that reorders the text after it is escaped too.
     let (_, lines, _) = linlog(
         &["prove", "--input-format", "jsonl"],

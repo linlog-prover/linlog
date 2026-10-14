@@ -57,7 +57,9 @@ pub struct Limits {
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub memory_bytes: Option<u64>,
     /// The most subformula occurrences a sequent may unfold to, on every
-    /// reader and wherever a forest is built.
+    /// reader and wherever a forest is built. The text readers also refuse
+    /// a text nested deeper than it (more `(` or `~` waiting at once than
+    /// the bound), as if it had that many occurrences.
     #[cfg_attr(feature = "serialize", serde(with = "crate::serialize::exact"))]
     pub occurrences: Option<u64>,
     /// The most bytes a derivation, or the drawing of a net or a sequent,

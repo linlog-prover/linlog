@@ -40,7 +40,7 @@ Options:
       --occurrence-limit <N>
           The most subformula occurrences the sequent may have, or `none` (limits.occurrences)
           
-          A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
+          A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion. A text nested deeper than the limit (more `(` or `~` open at once) is refused the same way.
           
           [default: 50000000]
 
@@ -280,7 +280,7 @@ Options:
           The focused engines count stable sequents, memo use, splits and the copy bound reached, the net engine literals chosen, links tried and exact tests run, the additive one pairs of subformulas, the Horn engine markings; every engine its units of work. JSON output always carries the counts; the time is printed only as text, and in a batch's JSON records as `seconds`.
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic, and `batch.mode` is a batch's mode unless a mode flag is given (one sequent's mode is the flags')
 
       --files-from <LIST>
           Read the paths of the inputs from this file, one per line, or `-` for standard input, read as it streams

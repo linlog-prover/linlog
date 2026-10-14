@@ -1853,7 +1853,9 @@ its flags, each the spelling of a key:
 | `--recursion-limit`, `--work-limit` (new) | `limits.recursion_depth`, `limits.work` | `--style K=V`, `--lemma`, `--prelude`, `--standalone` | `styles.K` |
 | `--workers`, `--cores`, `--batch-memory` | `batch.workers`, `.cores`, `.total_memory_bytes` | `--deterministic` | `search.jobs = 1`, `search.schedule = turns`, `clock.pool_after_ms = null` |
 
-The mode flags make the request's `Mode` and `batch.mode`. Whether
+The mode flags make the request's `Mode` and `batch.mode` (as built, a
+settings file's `batch.mode` is a batch's alone: one sequent's mode is the
+flags'). Whether
 `--style-file` stays as a styles-only spelling is the command area's
 choice. The harness maps its flags onto the same keys and records its
 settings beside each run (R190); the web client keeps the JSON in its
@@ -2104,7 +2106,7 @@ tree.
  "styles": {"text": {…}, "latex": {…}, "typst": {…}, "svg": {…}, "png": {…}, "pdf": {…},
             "rocq": {"form": "fragment", "lemma": "certificate", "prelude": null}},
  "batch": {"mode": "classical", "cores": "auto", "workers": 1, "total_memory_bytes": 4294967296},
- "ordinary": {"translation": "auto"}}
+ "ordinary": {"logic": "classical", "translation": null}}
 ```
 
 Any subset is a file (`{"limits": {"memory_bytes": 268435456}}`); each

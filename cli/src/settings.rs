@@ -400,6 +400,24 @@ pub(crate) fn time_limit(settings: &Settings) -> Option<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::argument_parsing::{Cli, Command};
+    use clap::{CommandFactory, FromArgMatches};
+
+    /// Returns the settings `prove` runs under with `args` before its
+    /// sequent, and `--settings FILE` first where a file is given.
+    fn prove_settings(file: Option<&Path>, args: &[&str]) -> Settings {
+        let mut line = vec!["linlog", "prove"];
+        if let Some(file) = file {
+            line.extend(["--settings", file.to_str().unwrap()]);
+        }
+        line.extend(args);
+        line.push("A |- A");
+        let matches = Cli::command().try_get_matches_from(line).unwrap();
+        let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
+            unreachable!("a prove command")
+        };
+        prove.settings(&Given::of(&matches)).unwrap()
+    }
 
     /// A settings file is read over the defaults: a key it leaves out
     /// keeps the default, and one it holds replaces it.
@@ -421,24 +439,10 @@ mod tests {
     /// given beside the file overrides it; a flag's default never does.
     #[test]
     fn flags_given_override_the_file() {
-        use crate::argument_parsing::{Cli, Command};
-        use clap::{CommandFactory, FromArgMatches};
         let file =
             std::env::temp_dir().join(format!("linlog-settings-{}.json", std::process::id()));
         std::fs::write(&file, r#"{"search": {"copies": 0}, "limits": {"work": 7}}"#).unwrap();
-        let settings = |args: &[&str]| {
-            let line = [
-                &["linlog", "prove", "--settings", file.to_str().unwrap()],
-                args,
-                &["A |- A"],
-            ]
-            .concat();
-            let matches = Cli::command().try_get_matches_from(line).unwrap();
-            let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
-                unreachable!("a prove command")
-            };
-            prove.settings(&Given::of(&matches)).unwrap()
-        };
+        let settings = |args: &[&str]| prove_settings(Some(&file), args);
         let read = settings(&["--memo-limit", "5"]);
         assert_eq!(
             (read.search.copies, read.limits.work, read.search.memo_limit),
@@ -456,8 +460,7 @@ mod tests {
     /// command, so that a flag given on the command line can be found.
     #[test]
     fn every_id_asked_is_an_argument() {
-        use crate::argument_parsing::{Cli, Command};
-        use clap::{CommandFactory, Parser};
+        use clap::Parser;
         let cli = Cli::command();
         for line in [
             &["linlog", "prove", "A |- A"][..],
@@ -493,26 +496,12 @@ mod tests {
     /// and the file is never standard input, which carries the input.
     #[test]
     fn a_file_is_the_library_s_settings() {
-        use crate::argument_parsing::{Cli, Command};
-        use clap::{CommandFactory, FromArgMatches};
         let file =
             std::env::temp_dir().join(format!("linlog-settings-keys-{}.json", std::process::id()));
         let mut kept = Settings::default();
         kept.batch.mode = linlog::Mode::CLASSICAL.with_affine();
         std::fs::write(&file, serde_json::to_string(&kept).unwrap()).unwrap();
-        let mode = |args: &[&str]| {
-            let line = [
-                &["linlog", "prove", "--settings", file.to_str().unwrap()],
-                args,
-                &["A |- A"],
-            ]
-            .concat();
-            let matches = Cli::command().try_get_matches_from(line).unwrap();
-            let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
-                unreachable!("a prove command")
-            };
-            prove.settings(&Given::of(&matches)).unwrap().batch.mode
-        };
+        let mode = |args: &[&str]| prove_settings(Some(&file), args).batch.mode;
         assert_eq!(mode(&[]), kept.batch.mode);
         assert_eq!(mode(&["--intuitionistic"]), linlog::Mode::INTUITIONISTIC);
         std::fs::remove_file(&file).unwrap();
@@ -525,15 +514,7 @@ mod tests {
     /// once, and `--pool-after` beside it makes them wait.
     #[test]
     fn search_flags_set_their_keys() {
-        use crate::argument_parsing::{Cli, Command};
-        use clap::Parser;
-        let settings = |args: &[&str]| {
-            let line = [&["linlog", "prove"], args, &["A |- A"]].concat();
-            let Command::Prove(prove) = Cli::try_parse_from(line).unwrap().command else {
-                unreachable!("a prove command")
-            };
-            prove.settings(&Given::default()).unwrap()
-        };
+        let settings = |args: &[&str]| prove_settings(None, args);
         let one = settings(&["--deterministic", "--jobs", "8", "--pool-after", "1s"]);
         assert_eq!(
             (
@@ -542,6 +523,24 @@ mod tests {
                 one.clock.pool_after_ms
             ),
             (Jobs::Count(1), Schedule::Turns, None)
+        );
+        // The batch's flags set their keys, so a flag ignored fails here
+        // where a batch's verdicts could not tell.
+        let batch = settings(&[
+            "--cores",
+            "within",
+            "--batch-memory",
+            "1GiB",
+            "--workers",
+            "3",
+        ]);
+        assert_eq!(
+            (
+                batch.batch.cores,
+                batch.batch.total_memory_bytes,
+                batch.batch.workers
+            ),
+            (Cores::Within, Some(1 << 30), 3)
         );
         let eight = settings(&["--jobs", "8"]);
         assert_eq!(

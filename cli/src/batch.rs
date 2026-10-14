@@ -93,6 +93,17 @@ struct Entries {
     /// The directories walked, by their canonical paths, so that a link
     /// back up is walked once.
     walked: HashSet<PathBuf>,
+    /// The most bytes of a line or a list's entry: the memory limit, which
+    /// nothing read from a longer one fits within.
+    most: Option<u64>,
+}
+
+/// Returns why `what` is not read: it is longer than `most` bytes.
+fn too_long(what: &str, most: Option<u64>) -> String {
+    format!(
+        "{what} is longer than the memory limit of {}; raise it with --memory-limit SIZE",
+        crate::show::bytes_text(most.unwrap_or(u64::MAX))
+    )
 }
 
 /// Returns a reader of standard input, or of the file at `path`.
@@ -105,7 +116,7 @@ fn reader(path: &Path) -> std::io::Result<Box<dyn BufRead + Send>> {
 
 impl Entries {
     /// The entries of the arguments: the files given, then the list.
-    fn new(args: &ProveArgs) -> Result<Self> {
+    fn new(args: &ProveArgs, most: Option<u64>) -> Result<Self> {
         let mut pending: VecDeque<Pending> =
             args.input.file.iter().cloned().map(Pending::Path).collect();
         if let Some(list) = &args.batch.files_from {
@@ -126,6 +137,7 @@ impl Entries {
             format: args.input.input_format,
             ordinary: args.logic.logic.is_some(),
             walked: HashSet::new(),
+            most,
         })
     }
 
@@ -212,11 +224,16 @@ impl Iterator for Entries {
                 }
                 Pending::List(reader, separator) => {
                     let mut bytes = Vec::new();
-                    match reader.read_until(*separator, &mut bytes) {
-                        Ok(0) => {
+                    match io::until_within(reader, *separator, self.most, &mut bytes) {
+                        Ok((0, _)) => {
                             self.pending.pop_front();
                             continue;
                         }
+                        Ok((_, false)) => Some(Entry {
+                            name: "--files-from".into(),
+                            mode: None,
+                            source: Source::Bad(too_long("a path of the list", self.most)),
+                        }),
                         Ok(_) => {
                             if bytes.last() == Some(separator) {
                                 bytes.pop();
@@ -245,15 +262,26 @@ impl Iterator for Entries {
                     format,
                     number,
                 } => {
-                    let mut line = String::new();
-                    match reader.read_line(&mut line) {
-                        Ok(0) => {
+                    let mut bytes = Vec::new();
+                    match io::until_within(reader, b'\n', self.most, &mut bytes) {
+                        Ok((0, _)) => {
                             self.pending.pop_front();
                             continue;
                         }
-                        Ok(_) => {
+                        Ok((_, fit)) => {
                             *number += 1;
-                            entry_of(&line, origin, *number, *format)
+                            let bad = |why: String| {
+                                Some(Entry {
+                                    name: format!("{origin}:{number}"),
+                                    mode: None,
+                                    source: Source::Bad(why),
+                                })
+                            };
+                            match String::from_utf8(bytes) {
+                                _ if !fit => bad(too_long("the line", self.most)),
+                                Ok(line) => entry_of(&line, origin, *number, *format),
+                                Err(_) => bad("the line is not UTF-8 text".to_owned()),
+                            }
                         }
                         Err(e) => {
                             *number += 1;
@@ -1045,7 +1073,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         let plan = batch::Plan::alone(search, limits);
         return one(args, settings, show, threads, directory, &plan, entry);
     }
-    let entries = Entries::new(args)?;
+    let entries = Entries::new(args, settings.limits.memory_bytes)?;
     catch_interrupt();
     let shared = Arc::new(Shared {
         args: Arc::new(args.clone()),

@@ -849,8 +849,9 @@ signed-off design or from a finding's proposed fix it says so.
   know; the rest is the library's value.
 - **`--logic` stays a flag of the input, not a key**: the settings'
   `ordinary.translation` applies when `--logic` names a logic and no
-  `--translation` is given, and so does a file's `ordinary.logic`, read
-  only under `--logic` as `ordinary.translation` is; a file's
+  `--translation` is given; a file's `ordinary.logic` is accepted and
+  `--logic`'s value replaces it (every front end's JSON holds the key, so
+  it cannot be the switch); a file's
   `batch.mode` is the batch's mode unless a mode flag is given (check
   round 1 found both read and then ignored; refusing them, round 1's
   first fix, refused the library's own `Settings` JSON, which always

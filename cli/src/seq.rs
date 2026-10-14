@@ -91,8 +91,10 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             input,
             optimize,
             output,
+            memory_limit,
         } => {
-            let mut sequent = input.sequent(&io::bound(input.most()))?;
+            let limits = io::bound(input.most()).with_memory_bytes(memory_limit.0);
+            let mut sequent = input.sequent(&limits)?;
             if *optimize {
                 sequent.optimize();
             }
@@ -101,9 +103,11 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
         SeqCommand::Fragment {
             input,
             intuitionistic,
+            memory_limit,
         } => {
             let mode = mode_of(*intuitionistic);
-            let fragment = input.sequent(&io::bound(input.most()))?.fragment();
+            let limits = io::bound(input.most()).with_memory_bytes(memory_limit.0);
+            let fragment = input.sequent(&limits)?.fragment();
             io::write(None, fragment.name_in(mode))?;
         }
     }

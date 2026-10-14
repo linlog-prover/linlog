@@ -55,7 +55,7 @@ const CONFIGURATION_BYTES: u64 = 16 << 20;
 /// A file that cannot be read or is longer than `memory`, and standard
 /// input when it is a terminal.
 pub(crate) fn read(path: Option<&Path>, what: &str, memory: Option<u64>) -> Result<String> {
-    let advice = "; raise it with --memory-limit SIZE, where the command takes it";
+    let advice = "; raise it with --memory-limit SIZE";
     match path {
         Some(path) if path != Path::new("-") => {
             let file =
@@ -133,6 +133,45 @@ fn capped(
         }
     }
     String::from_utf8(bytes).map_err(|_| anyhow::anyhow!("it is not UTF-8 text"))
+}
+
+/// Reads `input` up to and with the next `separator` into `bytes`,
+/// holding at most `most` of them: the rest of a longer line is skipped
+/// without being held, and the line is answered as too long. Returns the
+/// bytes read, 0 at the end of the input, and whether the line fit.
+///
+/// # Errors
+///
+/// An input that cannot be read.
+pub(crate) fn until_within<R: BufRead + ?Sized>(
+    input: &mut R,
+    separator: u8,
+    most: Option<u64>,
+    bytes: &mut Vec<u8>,
+) -> io::Result<(usize, bool)> {
+    let Some(most) = most else {
+        return Ok((input.read_until(separator, bytes)?, true));
+    };
+    let read = (&mut *input)
+        .take(most.saturating_add(1))
+        .read_until(separator, bytes)?;
+    if bytes.len() as u64 <= most || bytes.last() == Some(&separator) {
+        return Ok((read, true));
+    }
+    bytes.clear();
+    loop {
+        let buffer = input.fill_buf()?;
+        if buffer.is_empty() {
+            break;
+        }
+        if let Some(end) = buffer.iter().position(|&b| b == separator) {
+            input.consume(end + 1);
+            break;
+        }
+        let length = buffer.len();
+        input.consume(length);
+    }
+    Ok((read, false))
 }
 
 /// The most bytes of one command line of a session.

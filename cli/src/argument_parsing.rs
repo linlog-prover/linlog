@@ -195,7 +195,9 @@ pub(crate) struct ProveArgs {
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error;
-    /// `ordinary` applies under --logic, which names the logic
+    /// `ordinary` applies under --logic, which names the logic, and
+    /// `batch.mode` is a batch's mode unless a mode flag is given (one
+    /// sequent's mode is the flags')
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
     /// How a batch of many sequents runs.
@@ -629,6 +631,10 @@ pub(crate) enum SeqCommand {
         /// Write to this file instead of standard output
         #[arg(short, long, value_name = "PATH")]
         output: Option<PathBuf>,
+        /// The most bytes of input read: a number of bytes with a unit such
+        /// as 512MiB or 4GiB, or `none` for no limit
+        #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
+        memory_limit: Bytes,
     },
     /// Print the smallest fragment a sequent lives in: MLL, MLL with units,
     /// ALL, MALL, MELL or LL, or with --intuitionistic IMLL, IMLL with
@@ -641,6 +647,10 @@ pub(crate) enum SeqCommand {
         /// Name the intuitionistic fragment
         #[arg(short, long)]
         intuitionistic: bool,
+        /// The most bytes of input read: a number of bytes with a unit such
+        /// as 512MiB or 4GiB, or `none` for no limit
+        #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_MEMORY_BYTES)))]
+        memory_limit: Bytes,
     },
 }
 
@@ -674,7 +684,9 @@ pub(crate) struct SequentInput {
     /// A sequent in JSON can share subformulas, so a small file may stand
     /// for a sequent of any size; one beyond the limit is refused before
     /// it is unfolded. Occurrences cost some 25 bytes each before any
-    /// search, and no limit lets through more than about four billion.
+    /// search, and no limit lets through more than about four billion. A
+    /// text nested deeper than the limit (more `(` or `~` open at once) is
+    /// refused the same way.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
     pub(crate) occurrence_limit: Count<u64>,
 }

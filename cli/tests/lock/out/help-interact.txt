@@ -38,7 +38,7 @@ Options:
       --occurrence-limit <N>
           The most subformula occurrences the sequent may have, or `none` (limits.occurrences)
           
-          A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion.
+          A sequent in JSON can share subformulas, so a small file may stand for a sequent of any size; one beyond the limit is refused before it is unfolded. Occurrences cost some 25 bytes each before any search, and no limit lets through more than about four billion. A text nested deeper than the limit (more `(` or `~` open at once) is refused the same way.
           
           [default: 50000000]
 

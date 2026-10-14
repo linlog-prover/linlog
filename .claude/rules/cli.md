@@ -122,10 +122,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   it: its `batch.mode` is a batch's mode unless a mode flag is given
   (the three asked together), and `ordinary` applies under `--logic`,
   which names the logic (refusing the two keys, a first fix, refused
-  that JSON). `--settings` and `--style-file` never read standard
+  that JSON). A boolean flag only turns its key one way (`--no-check`,
+  the mode flags: no `--classical`), so a file's value it would undo
+  is changed in the file, not on the command line; that is the
+  settings' design, not a fault. `--settings` and `--style-file` never read standard
   input, which carries the input (`io::read_configuration`, 16 MiB at
-  most). Every other input is read within the memory limit (`io::read`,
-  judged before the text is decoded). The
+  most). Every other input is read within the memory limit: a file or
+  standard input whole (`io::read`, judged before the text is decoded),
+  a batch's line or `--files-from` entry one at a time
+  (`io::until_within`: a longer one is skipped without being held and is
+  that entry's error; 300 MB of one line once held 600 MB), and `seq
+  json` and `seq fragment` take `--memory-limit` for it. The
   search flags are one struct, `SearchArgs`, flattened into `prove` and
   `interact` (`SearchArgs::apply`); `ProveArgs::settings`,
   `InteractArgs::settings`, `CheckArgs::settings` and `of_print` add

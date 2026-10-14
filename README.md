@@ -1016,7 +1016,8 @@ that could not be read or searched is `"verdict": "error"` with a
 `details`) where the error is the library's, such as a parse error or a
 bound that refused the input, and one the batch stopped before
 it was decided `"verdict": "unknown"` with a `message`. The mode is the
-flags', a problem file's column or a record's:
+flags' (else a settings file's `batch.mode`), a problem file's column or
+a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
