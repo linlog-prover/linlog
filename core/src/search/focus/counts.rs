@@ -652,9 +652,11 @@ pub(crate) struct Tally {
     lo: Vec<i32>,
     /// Per atom, the summed greatest balance.
     hi: Vec<i32>,
-    /// The atoms of the rows added or removed since the tally was last
-    /// cleared, some more than once: the only atoms whose sums can be other
-    /// than zero.
+    /// The atoms whose sums a row found at zero since the tally was last
+    /// cleared: the only atoms whose sums can be other than zero, each
+    /// listed again only after a row left its sums at zero. An atom listed
+    /// at every row would make the list grow, uncharged, with the copies
+    /// of a formula in the linear zone, a branch's worth of them.
     touched: Vec<u32>,
     /// The number of atoms whose summed interval excludes zero.
     bad: u32,
@@ -707,7 +709,9 @@ impl Tally {
     fn apply_as<const PLAIN: bool>(&mut self, counts: &Counts, o: OccId, sign: i32) {
         for e in counts.row(o) {
             let a = e.rank.index();
-            self.touched.push(a as u32);
+            if self.lo[a] == 0 && self.hi[a] == 0 {
+                self.touched.push(a as u32);
+            }
             let was_bad = counts.excluded_as::<PLAIN>(a, self.lo[a], self.hi[a]);
             self.lo[a] += sign * e.lo;
             self.hi[a] += sign * e.hi;
@@ -822,9 +826,9 @@ pub(crate) struct Split {
     /// Whether no prune can cut any assignment of these members, so that
     /// the counts need not follow the search.
     inert: bool,
-    /// The atoms of the rows of every member placed or opened since the
-    /// counts were last cleared, some more than once: the only atoms whose
-    /// sums can be other than zero.
+    /// The atoms whose sums the row of a member placed or opened found at
+    /// zero since the counts were last cleared: the only atoms whose sums
+    /// can be other than zero, listed as the tally's are.
     touched: Vec<u32>,
 }
 
@@ -926,14 +930,26 @@ impl Split {
     /// Adds a member to a side for good: a subformula of the `⊗`, or a
     /// member the search does not move.
     pub(crate) fn place(&mut self, counts: &Counts, o: OccId, side: Branch) {
-        self.touched.extend(counts.row(o).map(|e| e.rank.0));
+        self.touch(counts, o);
         self.shift(counts, o, side, 1, 0);
     }
 
     /// Adds a member that a search will assign to a side.
     pub(crate) fn open(&mut self, counts: &Counts, o: OccId) {
-        self.touched.extend(counts.row(o).map(|e| e.rank.0));
+        self.touch(counts, o);
         self.shift(counts, o, Branch::Left, 0, 1);
+    }
+
+    /// Lists the atoms of a member's row whose sums are all zero, before
+    /// the member comes in.
+    fn touch(&mut self, counts: &Counts, o: OccId) {
+        for e in counts.row(o) {
+            let a = e.rank.index();
+            let zero = |sums: &[Vec<i32>; 2]| sums[0][a] == 0 && sums[1][a] == 0;
+            if zero(&self.lo) && zero(&self.hi) && self.below[a] == 0 && self.above[a] == 0 {
+                self.touched.push(e.rank.0);
+            }
+        }
     }
 
     /// Assigns an open member to a side.
@@ -1129,6 +1145,22 @@ mod tests {
             t.add(&c, r);
         }
         (f, c, t)
+    }
+
+    /// A tally and a split list an atom once while its sums are off zero,
+    /// however often a member of its row comes in, as the copies of one
+    /// formula do.
+    #[test]
+    fn copies_list_their_atoms_once() {
+        let (f, c) = counts("|- ?(a & 1), ~a");
+        let copy = f.left(f.roots()[0]).unwrap();
+        let mut tally = c.tally();
+        let mut split = c.split();
+        for _ in 0..100 {
+            tally.add(&c, copy);
+            split.place(&c, copy, Branch::Left);
+        }
+        assert_eq!((tally.touched.len(), split.touched.len()), (1, 1));
     }
 
     /// An atom whose literals below the exponentials all have one sign

@@ -420,7 +420,10 @@ not by what is in use. `prove_goal` makes one per search.
   plus four bytes a node while it is built; before, the root's keep
   and the build each copied it, unpolled: a second past the time limit
   on 24 pairs of `&` rules closed by `⊤`), a `Tally`'s and a `Split`'s `touched`
-  lists (bounded by the rows of a sequent's members), a context's
+  lists (bounded by the atoms with rows: an atom is listed when a row
+  finds its sums at zero; listed at every row, they grew with the
+  copies of a formula once copied members had rows, 142 MiB under a
+  bound of 16 MiB on a panel's witness), a context's
   extra list, the table a collection uses while it runs (four bytes a
   kept node), the stacks of the threads, the net engine (a structure
   and a scratch linear in the forest, per thread), and the allocator's
