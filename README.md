@@ -556,8 +556,10 @@ $ linlog prove --format json "A |- A" | linlog check --format json
 {"version":1,"verdict":"valid","mode":"classical"}
 ```
 
-`check` exits with 0 for a valid proof, 1 for an invalid one and 3 when
-it gave up at `--timeout`, `--work-limit` or `--memory-limit` without a
+`check`'s time limit is that of `prove`: two seconds unless `--timeout`
+says otherwise (`--timeout none` lifts it), counted from the start of the
+command. It exits with 0 for a valid proof, 1 for an invalid one and 3
+when it gave up at `--timeout`, `--work-limit` or `--memory-limit` without a
 verdict (a proof file can make its check quadratic); in JSON an invalid
 or unknown verdict carries the library's error object.
 
