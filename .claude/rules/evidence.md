@@ -98,7 +98,12 @@ browser or a stranger's file would.
   (`batch::record`, member by member) and a batch's lines hand the
   sequent to the library's readers, which the targets above cover, and
   a target over `linlog_cli` would need its modules public, which they
-  are not (the command's library is its binary's, not an API).
+  are not (the command's library is its binary's, not an API). Two do
+  arithmetic of their own: `parse_error`, the caret's place in a line
+  of any characters, which `every_parse_error_has_its_caret` drives
+  with 4 000 generated texts (it once panicked on a width above 65 535),
+  and `style::read`'s `KEY=VALUE` split, which tests pin by case; a
+  session's command lines go through `io::line`, within `LINE_BYTES`.
 - Besides "no panic", a target asserts what must hold of what it read:
   a printed sequent parses back, a correct structure sequentializes to a
   proof the checker accepts, a complete session's proof checks, a

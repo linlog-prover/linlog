@@ -118,6 +118,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   command line, each the spelling of one key (`Given::of` reads clap's
   `value_source`, so a flag's default never overrides the file; without
   a file every flag applies, its default being the command's). The
+  file may be the library's whole `Settings` JSON, as a front end keeps
+  it: its `batch.mode` is a batch's mode unless a mode flag is given
+  (the three asked together), and `ordinary` applies under `--logic`,
+  which names the logic (refusing the two keys, a first fix, refused
+  that JSON). `--settings` and `--style-file` never read standard
+  input, which carries the input (`io::read_configuration`, 16 MiB at
+  most). Every other input is read within the memory limit (`io::read`,
+  judged before the text is decoded). The
   search flags are one struct, `SearchArgs`, flattened into `prove` and
   `interact` (`SearchArgs::apply`); `ProveArgs::settings`,
   `InteractArgs::settings`, `CheckArgs::settings` and `of_print` add
@@ -582,8 +590,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   so is `--file -`. A command line is split into words as a shell splits
   it (`words`: quotes keep blanks in a word, a backslash takes the next
   character), so `save "my file.json"` names one file; `save` and `load`
-  refuse more than one word (`save my file.json` once wrote `my`). Its
-  exit status is 0 only when the session ends with a finished proof that
+  refuse more than one word (`save my file.json` once wrote `my`). A
+  command line is read by `io::line`, within `LINE_BYTES` (1 MiB): a
+  longer one ends the session with an error (half a gigabyte without a
+  line break once took 3 GB). Its exit status is 0 only when the session ends with a finished proof that
   checks (`Interactive::proof`), 1 otherwise; a refused command is not an
   error of the session. Rule names on the command line are what
   `Rule::from_str` accepts: the usual spellings and ASCII ones (`*`,
@@ -614,7 +624,7 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   its arm in `shown`'s `match show.format` calling the library's
   `write`, and in `note` for its comment syntax, so that a source file
   still compiles with the verdict in it. A format with a document form
-  takes `--standalone` (`form` lists which formats have one); one that
+  takes `--standalone` (`Format::has_document` lists which formats have one); one that
   draws nets gets an arm in `net_into` and `--net`'s list in
   `Show::new`; a binary one is `is_binary` and has its arm in `render`;
   one that cannot show a run of a structural rule as one inference is

@@ -9,7 +9,7 @@ use crate::argument_parsing::{
     CheckArgs, CoresArg, InteractArgs, LogicArgs, ProveArgs, SearchArgs,
 };
 use crate::io;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::ArgMatches;
 use clap::parser::ValueSource;
 use linlog::Settings;
@@ -98,22 +98,6 @@ fn read(path: Option<&Path>) -> Result<Settings> {
     let text = io::read_configuration(path, "settings file")?;
     let file: Value =
         serde_json::from_str(&text).with_context(|| format!("{} is not JSON", path.display()))?;
-    // The flags alone say these, so a file's value would be ignored.
-    for (key, flags) in [
-        (
-            "/batch/mode",
-            "the mode flags (--intuitionistic, --affine, --mix)",
-        ),
-        ("/ordinary/logic", "--logic"),
-    ] {
-        if file.pointer(key).is_some() {
-            bail!(
-                "{} sets {}, which {flags} alone set: leave it out",
-                path.display(),
-                key[1..].replace('/', ".")
-            );
-        }
-    }
     let mut value = serde_json::to_value(&base)?;
     over(&mut value, file);
     serde_json::from_value(value)
@@ -221,6 +205,14 @@ impl ProveArgs {
         }
         if apply.set("no_check") {
             settings.search.check = !self.no_check;
+        }
+        // The mode flags together are the batch's mode; each is asked, so
+        // that one given overrides the file's.
+        if ["intuitionistic", "affine", "mix"]
+            .map(|id| apply.set(id))
+            .contains(&true)
+        {
+            settings.batch.mode = self.mode.mode();
         }
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.input.occurrence_limit.0;
@@ -496,20 +488,33 @@ mod tests {
         }
     }
 
-    /// A settings file may not set what the flags alone say, nor be
-    /// standard input, which carries the input.
+    /// The library's own settings, as a front end keeps them, read as a
+    /// file; its `batch.mode` is the batch's unless a mode flag is given;
+    /// and the file is never standard input, which carries the input.
     #[test]
-    fn a_file_keeps_to_its_keys() {
+    fn a_file_is_the_library_s_settings() {
+        use crate::argument_parsing::{Cli, Command};
+        use clap::{CommandFactory, FromArgMatches};
         let file =
             std::env::temp_dir().join(format!("linlog-settings-keys-{}.json", std::process::id()));
-        for (json, key) in [
-            (r#"{"batch": {"mode": "affine"}}"#, "batch.mode"),
-            (r#"{"ordinary": {"logic": "minimal"}}"#, "ordinary.logic"),
-        ] {
-            std::fs::write(&file, json).unwrap();
-            let error = read(Some(&file)).unwrap_err().to_string();
-            assert!(error.contains(key), "{error}");
-        }
+        let mut kept = Settings::default();
+        kept.batch.mode = linlog::Mode::CLASSICAL.with_affine();
+        std::fs::write(&file, serde_json::to_string(&kept).unwrap()).unwrap();
+        let mode = |args: &[&str]| {
+            let line = [
+                &["linlog", "prove", "--settings", file.to_str().unwrap()],
+                args,
+                &["A |- A"],
+            ]
+            .concat();
+            let matches = Cli::command().try_get_matches_from(line).unwrap();
+            let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
+                unreachable!("a prove command")
+            };
+            prove.settings(&Given::of(&matches)).unwrap().batch.mode
+        };
+        assert_eq!(mode(&[]), kept.batch.mode);
+        assert_eq!(mode(&["--intuitionistic"]), linlog::Mode::INTUITIONISTIC);
         std::fs::remove_file(&file).unwrap();
         let error = read(Some(Path::new("-"))).unwrap_err().to_string();
         assert!(error.contains("standard input"), "{error}");

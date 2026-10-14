@@ -13,7 +13,7 @@ use anyhow::{Result, anyhow, bail};
 use linlog::ordinary::{self, Image};
 use linlog::proofs::Sides;
 use linlog::search::{Outcome, Verdict};
-use linlog::{Error, Limits, Proof, Refusal, ViewOptions};
+use linlog::{Error, ErrorKind, Limits, Proof, Refusal, ViewOptions};
 use std::fmt::Write;
 
 /// Returns the ordinary sequent `text` holds in `format`: text in the
@@ -103,7 +103,9 @@ pub(crate) fn derivation(
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
     let d = match image.read_back(proof, &show.limits, |_| halt()) {
         Ok(d) => d,
-        Err(Error::Refused(Refusal::Stopped { .. })) => return Ok(stopped()),
+        // The stop, whether the unfolding or the checker's pass in it
+        // noticed it first.
+        Err(error) if error.kind() == ErrorKind::Stopped => return Ok(stopped()),
         Err(error) if error.is_refusal() => {
             let sides = if image.mode().is_intuitionistic() {
                 Sides::Two
@@ -126,4 +128,60 @@ pub(crate) fn derivation(
         checked => checked?,
     }
     crate::show::shown(d, show.fit(), show, halt, why, prefix, out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::derivation;
+    use crate::argument_parsing::{Cli, Command};
+    use crate::settings::Given;
+    use crate::show::{Show, Shown};
+    use clap::Parser;
+    use linlog::ordinary::{self, Logic, Translation};
+    use linlog::search::{Options, Verdict};
+
+    /// A read-back the stop ends, in the unfolding or in the checker's
+    /// pass inside it, is left out with the stop's reason.
+    #[test]
+    fn a_stopped_read_back_says_why() {
+        let line = ["linlog", "check", "--format", "latex", "--output", "x.tex"];
+        let Command::Check(check) = Cli::try_parse_from(line).unwrap().command else {
+            unreachable!("a check command")
+        };
+        let settings = check.settings(&Given::default()).unwrap();
+        let show = Show::new(&check.output, &settings).unwrap();
+        // Past the nodes the checker passes between two polls of its stop.
+        let atoms: Vec<String> = (0..300).map(|i| format!("a{i}")).collect();
+        let text = format!("{} |- {}", atoms.join(", "), atoms.join(" /\\ "));
+        let sequent: ordinary::Sequent = text.parse().unwrap();
+        let image = ordinary::translate(
+            &sequent,
+            Logic::Classical,
+            Translation::Affine,
+            &linlog::Limits::default(),
+        )
+        .unwrap();
+        let outcome = linlog::prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+        let Verdict::Proved(proof) = outcome.verdict else {
+            panic!("the image is provable")
+        };
+        let mut out = String::new();
+        let shown = derivation(
+            &image,
+            &proof,
+            &show,
+            || true,
+            || "the time limit of 1s was reached".to_owned(),
+            None,
+            &mut out,
+        )
+        .unwrap();
+        let Shown::LeftOut(line) = shown else {
+            panic!("the derivation is left out")
+        };
+        assert_eq!(
+            line,
+            "the derivation is not written: the time limit of 1s was reached"
+        );
+    }
 }

@@ -773,7 +773,9 @@ in the form a front end keeps: an object with any of `clock`, `limits`,
 fields the flags name in their `--help` (`--copies` sets
 `search.copies`, `--timeout` `clock.time_limit_ms`, `--memory-limit`
 `limits.memory_bytes`). A field the file leaves out keeps the command's
-default, and a flag given beside the file overrides it.
+default, and a flag given beside the file overrides it. `batch.mode` is
+the mode of a batch's entries that name none, as the mode flags set it;
+`ordinary` applies under `--logic`, which names the logic.
 
 ```console
 $ echo '{"search": {"copies": 0, "engine": "focus"}}' > settings.json
@@ -1006,7 +1008,9 @@ taken literally, relative to the current directory. On standard input
 the batch is a stream: each line is answered as soon as it is decided,
 so a program can ask, wait for the answer and ask again. With `--format
 json` every answer is a JSON Lines record, the wire level and the name
-first and then what `--format json` writes for one sequent; an entry
+first and then what `--format json` writes for one sequent (with
+`--stats` also `seconds`, the time it took, which a single sequent's JSON
+leaves out to stay reproducible); an entry
 that could not be read or searched is `"verdict": "error"` with a
 `message`, and the library's `error` object (its `code`, `kind` and
 `details`) where the error is the library's, such as a parse error or a

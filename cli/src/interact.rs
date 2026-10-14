@@ -9,6 +9,7 @@ use crate::show::{Rendered, Show, Shown, bytes_text, derivation, render};
 use crate::style;
 use crate::{Status, catch_interrupt, clear_interrupt, interrupted, io};
 use anyhow::{Context, Result, bail};
+use clap::ValueEnum;
 use linlog::export::Styles;
 use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
@@ -17,7 +18,7 @@ use linlog::{
     Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, ViewOptions,
 };
 use std::fmt::Write as _;
-use std::io::{BufRead, IsTerminal, Write};
+use std::io::{IsTerminal, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -181,7 +182,7 @@ impl Session {
         let stdin = std::io::stdin();
         let prompt = stdin.is_terminal();
         let mut stdout = io::Stdout::lock();
-        let mut lines = stdin.lock().lines();
+        let mut input = stdin.lock();
         // A reader that closed the pipe ends the session as the end of
         // its input does.
         while !io::closed() {
@@ -189,10 +190,9 @@ impl Session {
                 write!(stdout, "> ")?;
                 stdout.flush()?;
             }
-            let Some(line) = lines.next() else {
+            let Some(line) = io::line(&mut input).context("cannot read standard input")? else {
                 break;
             };
-            let line = line.context("cannot read standard input")?;
             let text = match words(&line) {
                 Ok(words) if words.first().is_some_and(|w| w == "quit") => break,
                 Ok(words) => {
@@ -301,7 +301,7 @@ impl Session {
                     _ => bail!("show [--FORMAT] [FILE]: one format and one file at most"),
                 };
                 let format = match (word, path) {
-                    (Some(word), _) => format_of("show", word)?,
+                    (Some(word), _) => format_of(false, word)?,
                     (None, Some(path)) => Format::of_path(Path::new(path)).unwrap_or(Format::Text),
                     (None, None) => Format::Text,
                 };
@@ -360,10 +360,10 @@ impl Session {
             "proof" => {
                 let (format, path) = match rest {
                     [] => (None, None),
-                    [word] if word.starts_with("--") => (Some(format_of("proof", word)?), None),
+                    [word] if word.starts_with("--") => (Some(format_of(true, word)?), None),
                     [path] => (None, Some(*path)),
                     [word, path] if word.starts_with("--") => {
-                        (Some(format_of("proof", word)?), Some(*path))
+                        (Some(format_of(true, word)?), Some(*path))
                     }
                     _ => bail!("proof [--FORMAT] [FILE]: one format and one file at most"),
                 };
@@ -581,26 +581,31 @@ impl Session {
     }
 }
 
-/// Returns the format a word of `command` (`show` or `proof`) names,
-/// `--latex` and so on.
-fn format_of(command: &str, word: &str) -> Result<Format> {
-    Ok(match word {
-        "--text" => Format::Text,
-        "--json" if command == "proof" => Format::Json,
-        "--latex" => Format::Latex,
-        "--typst" => Format::Typst,
-        "--svg" => Format::Svg,
-        "--png" => Format::Png,
-        "--pdf" => Format::Pdf,
-        "--rocq" if command == "proof" => Format::Rocq,
-        _ if command == "proof" => bail!(
-            "proof {word}? the formats are --text, --json, --latex, --typst, --svg, --png, \
-             --pdf and --rocq"
-        ),
-        _ => bail!(
-            "{command} {word}? the formats are --text, --latex, --typst, --svg, --png and \
-             --pdf; `save` writes the session, `proof --rocq` a finished proof"
-        ),
+/// Returns the format a word of a session's `show` or `proof` names
+/// (`--latex`, a format's name as `--format` takes it); `show` draws the
+/// derivation so far, so it has no JSON and no Rocq.
+fn format_of(proof: bool, word: &str) -> Result<Format> {
+    let format = word
+        .strip_prefix("--")
+        .and_then(|name| Format::from_str(name, false).ok())
+        .filter(|format| proof || !matches!(format, Format::Json | Format::Rocq));
+    let names = Format::value_variants()
+        .iter()
+        .filter(|format| proof || !matches!(format, Format::Json | Format::Rocq))
+        .filter_map(|format| Some(format!("--{}", format.to_possible_value()?.get_name())))
+        .collect::<Vec<_>>();
+    let (last, rest) = names.split_last().expect("there are formats");
+    format.ok_or_else(|| {
+        let command = if proof { "proof" } else { "show" };
+        let more = if proof {
+            ""
+        } else {
+            "; `save` writes the session, `proof --rocq` a finished proof"
+        };
+        anyhow::anyhow!(
+            "{command} {word}? the formats are {} and {last}{more}",
+            rest.join(", ")
+        )
     })
 }
 

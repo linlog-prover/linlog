@@ -7,7 +7,7 @@ use crate::limit::{Deadline, Notice};
 use crate::settings::{Given, Threads, time_limit};
 use crate::show::{Show, Shown, derivation, every_steps, net_into, nets_exist, note};
 use crate::{Status, catch_interrupt, interrupted};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, prove_goal, race};
 use linlog::{CheckError, Error, Forest, Limits, Sequent};
@@ -136,14 +136,16 @@ pub(crate) fn unread(limit: Duration) -> String {
 /// Returns a search error with formulas where the library's message has
 /// occurrence ids.
 pub(crate) fn describe(error: Error, sequent: &Sequent) -> anyhow::Error {
-    match (&error, Forest::within(sequent, &Limits::UNBOUNDED)) {
-        (Error::NotIntuitionistic(_), Ok(forest)) => anyhow!("{}", error.describe(&forest)),
-        (Error::Check(CheckError::Refused(_)), _) => anyhow!(
+    // The line is the command's; the error stays for a batch's record.
+    let line = match (&error, Forest::within(sequent, &Limits::UNBOUNDED)) {
+        (Error::NotIntuitionistic(_), Ok(forest)) => error.describe(&forest).to_string(),
+        (Error::Check(CheckError::Refused(_)), _) => format!(
             "the search found a proof, but {error}; raise the limit with --memory-limit, or take \
              the proof unchecked with --no-check"
         ),
-        _ => error.into(),
-    }
+        _ => return error.into(),
+    };
+    crate::Explained::error(line, error)
 }
 
 /// What `prove` answers when the time limit passed before the sequent was

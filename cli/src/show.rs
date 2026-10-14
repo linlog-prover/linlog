@@ -75,10 +75,7 @@ impl Show {
         }
         let stdout = std::io::stdout();
         for_terminal(format, output.output.as_deref())?;
-        form(
-            output.standalone,
-            matches!(format, Format::Latex | Format::Typst | Format::Rocq),
-        )?;
+        form(output.standalone, format.has_document())?;
         let styles = style::read(
             &settings.styles,
             &output.style,
@@ -853,7 +850,7 @@ pub(crate) fn render(
                 stop,
             )?
         }
-        _ => {
+        Format::Pdf => {
             let mut options = styles.pdf.clone();
             if options.date.is_none() {
                 options.date = Some(made()?);
@@ -870,6 +867,14 @@ pub(crate) fn render(
                 move || pdf::from_svg(&svg, &[FONT], &options, &limits),
                 stop,
             )?
+        }
+        Format::Text
+        | Format::Json
+        | Format::Latex
+        | Format::Typst
+        | Format::Svg
+        | Format::Rocq => {
+            unreachable!("only a binary format is rendered")
         }
     };
     Ok(match rendered {

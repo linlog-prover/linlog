@@ -293,3 +293,43 @@ pub fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_error;
+    use linlog::{Error, Sequent};
+
+    /// The parse error's message is written for every text the parser
+    /// refuses, without a panic, with its caret: texts drawn from the
+    /// tokens, wide and multi-byte characters, tabs and line breaks, short
+    /// and past the context shown, as no fuzz target reaches the command.
+    #[test]
+    fn every_parse_error_has_its_caret() {
+        const PIECES: &[&str] = &[
+            "A", "b_1", "é", "e\u{301}", "漢", "🦀", "*", "|", "par", "&", "+", "-o", "-", "~",
+            "!", "?", "^", "(", ")", ",", "|-", "⊢", "⊗", "0", "1", "top", " ", "\t", "\n", "\r\n",
+            "\u{200b}", "\u{0}",
+        ];
+        // A fixed generator, so that a failure is the same on every run.
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = |below: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            usize::try_from(state % below as u64).expect("below fits")
+        };
+        for round in 0..4000 {
+            let pieces = 1 + next(if round % 10 == 0 { 400 } else { 12 });
+            let text: String = (0..pieces).map(|_| PIECES[next(PIECES.len())]).collect();
+            if let Err(error @ Error::Parse(_)) =
+                Sequent::parse_within(&text, &linlog::Limits::default())
+            {
+                let message = format!("{:#}", parse_error(&text, error));
+                assert!(
+                    message.contains('^') || message.starts_with("the input is empty"),
+                    "{text:?}: {message}"
+                );
+            }
+        }
+    }
+}

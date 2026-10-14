@@ -97,7 +97,7 @@ Options:
           [default: 1GiB]
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error, as are `batch.mode` and `ordinary.logic`, which the flags alone set
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
 
   -h, --help
           Print help (see a summary with '-h')

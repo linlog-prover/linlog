@@ -1805,10 +1805,14 @@ fn interrupt() {
     );
     // The interrupt ends the input: an entry never read gets no line, one
     // read and not begun says it was not searched, none is answered.
+    // Whether `next` was read when the interrupt came is the reader
+    // thread's race, so its line is there or not, and nothing else is.
     let rest: Vec<String> = lines.map(Result::unwrap).collect();
     assert!(
-        rest.iter()
-            .all(|line| line == "next: unknown: interrupted before it was searched"),
+        rest.len() <= 1
+            && rest
+                .iter()
+                .all(|line| line == "next: unknown: interrupted before it was searched"),
         "{rest:?}"
     );
     assert_eq!(child.wait().unwrap().code(), Some(3));

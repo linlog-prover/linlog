@@ -4,7 +4,7 @@
 //! `seq print`, `seq json` and `seq fragment`: a sequent printed, written
 //! as JSON, or named by its fragment.
 
-use crate::argument_parsing::{Format, SeqCommand, SequentFormat};
+use crate::argument_parsing::{Format, SeqCommand};
 use crate::settings::{self, Given};
 use crate::{Status, exit_on_interrupt, io, show, style};
 use anyhow::{Result, bail};
@@ -58,10 +58,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 }
                 None => (input.sequent(&settings.limits)?, mode_of(*intuitionistic)),
             };
-            show::form(
-                *standalone,
-                matches!(format, SequentFormat::Latex | SequentFormat::Typst),
-            )?;
+            show::form(*standalone, Format::from(*format).has_document())?;
             let written = Format::from(*format);
             let binary = written.is_binary().then_some(written);
             let styles = style::read(

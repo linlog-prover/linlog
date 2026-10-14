@@ -194,8 +194,8 @@ pub(crate) struct ProveArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error, as
-    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
+    /// out keeps the command's default, and a misspelt one is an error;
+    /// `ordinary` applies under --logic, which names the logic
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
     /// How a batch of many sequents runs.
@@ -501,8 +501,8 @@ pub(crate) struct InteractArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error, as
-    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
+    /// out keeps the command's default, and a misspelt one is an error;
+    /// `ordinary` applies under --logic, which names the logic
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
 }
@@ -560,8 +560,8 @@ pub(crate) struct CheckArgs {
     /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
     /// of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error, as
-    /// are `batch.mode` and `ordinary.logic`, which the flags alone set
+    /// out keeps the command's default, and a misspelt one is an error;
+    /// `ordinary` applies under --logic, which names the logic
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
 }
@@ -611,9 +611,8 @@ pub(crate) enum SeqCommand {
         /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
         /// of the fields the flags name in parentheses (`{"search":
         /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-        /// out keeps the command's default, and a misspelt one is an error,
-        /// as are `batch.mode` and `ordinary.logic`, which the flags alone
-        /// set
+        /// out keeps the command's default, and a misspelt one is an error;
+        /// `ordinary` applies under --logic, which names the logic
         #[arg(long, value_name = "PATH")]
         settings: Option<PathBuf>,
     },
@@ -1190,6 +1189,12 @@ impl Format {
     /// and its verdict to standard error.
     pub(crate) fn is_binary(self) -> bool {
         matches!(self, Self::Png | Self::Pdf)
+    }
+
+    /// Whether the format has a document form, which `--standalone` asks
+    /// for (an SVG is always a whole document).
+    pub(crate) fn has_document(self) -> bool {
+        matches!(self, Self::Latex | Self::Typst | Self::Rocq)
     }
 
     /// Returns the format's name as a message writes it.

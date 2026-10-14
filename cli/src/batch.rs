@@ -423,6 +423,9 @@ struct Shared {
     ordinary: Option<linlog::ordinary::Options>,
     /// The most occurrences a sequent may have.
     most: u64,
+    /// The mode of an entry that names none: the mode flags', else the
+    /// settings file's `batch.mode`.
+    mode: Mode,
     /// The threads of a sequent searched within the cores.
     threads: Threads,
     /// The directory the derivations go to.
@@ -645,7 +648,7 @@ impl Shared {
         let mode = match &image {
             Some(image) => image.mode(),
             None => {
-                let mode = entry.mode.unwrap_or(args.mode.mode());
+                let mode = entry.mode.unwrap_or(self.mode);
                 format.map_or(mode, |format| io::affine_for(format, mode))
             }
         };
@@ -862,28 +865,40 @@ impl Shared {
             std::thread::sleep(CHILD_POLL);
         };
         let (text, error) = reading.join().unwrap_or_default();
-        let status = match status.code() {
-            Some(0) => Status::Yes,
-            Some(1) => Status::No,
-            Some(3) => Status::Unknown,
-            Some(_) if !text.trim().is_empty() => Status::Error,
-            code => {
-                let why = error
-                    .lines()
-                    .last()
-                    .unwrap_or("")
-                    .trim_start_matches("error: ");
-                match code {
-                    Some(code) => bail!("the child process ended with status {code}: {why}"),
-                    None => bail!("the child process was killed{}", killed_by(&status)),
-                }
-            }
-        };
-        Ok(Done {
-            text: text.trim_end().to_owned(),
-            status,
-        })
+        relayed(status, &text, &error)
     }
+}
+
+/// Returns what a child of `--isolate` answered for its entry: its line
+/// with the status its exit status names, an error line it wrote with its
+/// status 2, or, for a child that wrote none, why it ended from its
+/// standard error's last line.
+///
+/// # Errors
+///
+/// A child that ended otherwise, by a status of its own or a signal.
+fn relayed(status: std::process::ExitStatus, text: &str, error: &str) -> Result<Done> {
+    let status = match status.code() {
+        Some(0) => Status::Yes,
+        Some(1) => Status::No,
+        Some(3) => Status::Unknown,
+        Some(_) if !text.trim().is_empty() => Status::Error,
+        code => {
+            let why = error
+                .lines()
+                .last()
+                .unwrap_or("")
+                .trim_start_matches("error: ");
+            match code {
+                Some(code) => bail!("the child process ended with status {code}: {why}"),
+                None => bail!("the child process was killed{}", killed_by(&status)),
+            }
+        }
+    };
+    Ok(Done {
+        text: text.trim_end().to_owned(),
+        status,
+    })
 }
 
 /// How long a child may outlive its time limit before it is stopped: what
@@ -1002,7 +1017,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
     let limits = settings.limits;
     let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
     let options = batch::Options::default()
-        .with_mode(args.mode.mode())
+        .with_mode(settings.batch.mode)
         .with_cores(match settings.batch.cores {
             // A program that writes a question and waits for its answer
             // cannot be read ahead of.
@@ -1045,6 +1060,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
         most: crate::settings::most(settings),
+        mode: settings.batch.mode,
         threads,
         directory,
         files: std::sync::Mutex::default(),
@@ -1108,6 +1124,7 @@ fn one(
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
         most: crate::settings::most(settings),
+        mode: settings.batch.mode,
         threads,
         directory,
         files: std::sync::Mutex::default(),
@@ -1115,4 +1132,43 @@ fn one(
     let done = on_large_stack(plan.limits.stack_bytes(), || shared.answer(entry, plan))?;
     writeln!(io::Stdout::lock(), "{}", done.text).context("cannot write to standard output")?;
     Ok(done.status)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::relayed;
+    use crate::Status;
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::ExitStatus;
+
+    /// A child's exit status becomes its entry's: its line for a verdict
+    /// or an error line it wrote, and otherwise why it ended.
+    #[test]
+    fn a_child_s_end_is_relayed() {
+        // A raw wait status holds the exit status in its second byte.
+        let exited = |code: i32| ExitStatus::from_raw(code << 8);
+        for (code, status) in [(0, Status::Yes), (1, Status::No), (3, Status::Unknown)] {
+            let done = relayed(exited(code), "a: line\n", "").unwrap();
+            assert_eq!((done.text.as_str(), done.status), ("a: line", status));
+        }
+        let done = relayed(exited(2), "a: error: no sequent\n", "").unwrap();
+        assert_eq!(done.status, Status::Error);
+        let Err(error) = relayed(exited(101), "", "note: x\nerror: it broke\n") else {
+            panic!("an error")
+        };
+        assert_eq!(
+            error.to_string(),
+            "the child process ended with status 101: it broke"
+        );
+        // Killed by SIGKILL: the signal is the raw status's low bits.
+        let Err(error) = relayed(ExitStatus::from_raw(9), "", "") else {
+            panic!("an error")
+        };
+        assert!(
+            error
+                .to_string()
+                .starts_with("the child process was killed"),
+            "{error}"
+        );
+    }
 }

@@ -8,7 +8,7 @@ use linlog::wire::Within;
 use linlog::{Forest, Limits, Mode, Sequent};
 use serde::de::DeserializeSeed;
 use std::fs;
-use std::io::{self, IsTerminal, Read, Write};
+use std::io::{self, BufRead, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 
@@ -55,7 +55,7 @@ const CONFIGURATION_BYTES: u64 = 16 << 20;
 /// A file that cannot be read or is longer than `memory`, and standard
 /// input when it is a terminal.
 pub(crate) fn read(path: Option<&Path>, what: &str, memory: Option<u64>) -> Result<String> {
-    let advice = "; raise it with --memory-limit SIZE";
+    let advice = "; raise it with --memory-limit SIZE, where the command takes it";
     match path {
         Some(path) if path != Path::new("-") => {
             let file =
@@ -63,7 +63,7 @@ pub(crate) fn read(path: Option<&Path>, what: &str, memory: Option<u64>) -> Resu
             capped(
                 file,
                 memory,
-                || format!("{} is longer than the memory limit of", path.display()),
+                || "it is longer than the memory limit of".to_owned(),
                 advice,
             )
             .with_context(|| format!("cannot read {}", path.display()))
@@ -104,33 +104,68 @@ pub(crate) fn read_configuration(path: &Path, what: &str) -> Result<String> {
     capped(
         file,
         Some(CONFIGURATION_BYTES),
-        || format!("{} is longer than", path.display()),
+        || "it is longer than".to_owned(),
         "",
     )
     .with_context(|| format!("cannot read {}", path.display()))
 }
 
 /// Reads `input` whole as text, refusing it past `most` bytes with
-/// `over`'s words, the bound, and `advice`.
+/// `over`'s words, the bound, and `advice`. The length is judged before
+/// the text is decoded, so that a cut inside a character past the bound
+/// is not taken for text that is no UTF-8.
 fn capped(
-    input: impl Read,
+    mut input: impl Read,
     most: Option<u64>,
     over: impl FnOnce() -> String,
     advice: &str,
 ) -> Result<String> {
-    let mut text = String::new();
-    let Some(most) = most else {
-        let mut input = input;
-        input.read_to_string(&mut text)?;
-        return Ok(text);
-    };
-    input
-        .take(most.saturating_add(1))
-        .read_to_string(&mut text)?;
-    if text.len() as u64 > most {
-        bail!("{} {}{advice}", over(), crate::show::bytes_text(most));
+    let mut bytes = Vec::new();
+    match most {
+        Some(most) => {
+            input.take(most.saturating_add(1)).read_to_end(&mut bytes)?;
+            if bytes.len() as u64 > most {
+                bail!("{} {}{advice}", over(), crate::show::bytes_text(most));
+            }
+        }
+        None => {
+            input.read_to_end(&mut bytes)?;
+        }
     }
-    Ok(text)
+    String::from_utf8(bytes).map_err(|_| anyhow::anyhow!("it is not UTF-8 text"))
+}
+
+/// The most bytes of one command line of a session.
+pub(crate) const LINE_BYTES: u64 = 1 << 20;
+
+/// Reads the next line of `input` without its line break, refusing one of
+/// more than [`LINE_BYTES`]; `None` at the end of the input.
+///
+/// # Errors
+///
+/// An input that cannot be read, a line that is too long or no UTF-8.
+pub(crate) fn line(input: &mut impl BufRead) -> Result<Option<String>> {
+    let mut bytes = Vec::new();
+    input
+        .take(LINE_BYTES.saturating_add(1))
+        .read_until(b'\n', &mut bytes)?;
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+    if bytes.last() == Some(&b'\n') {
+        bytes.pop();
+        if bytes.last() == Some(&b'\r') {
+            bytes.pop();
+        }
+    } else if bytes.len() as u64 > LINE_BYTES {
+        bail!(
+            "a line is longer than {}",
+            crate::show::bytes_text(LINE_BYTES)
+        );
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| anyhow::anyhow!("a line is not UTF-8 text"))
 }
 
 /// Returns `mode`, made affine for a sequent in `format` if that is a
