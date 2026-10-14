@@ -192,9 +192,11 @@ impl Node {
     /// Returns the members the node names: one, or two for an axiom, or
     /// none for Mix.
     pub fn members(self) -> impl Iterator<Item = Member> {
+        use Node::*;
         let second = match self {
-            Node::Ax(_, b) => Some(b),
-            _ => None,
+            Ax(_, b) => Some(b),
+            Tensor(..) | Par(..) | One(_) | Bot(..) | With(..) | Plus(..) | Top(_) | Bang(..)
+            | Quest(..) | Copy(..) | Weaken(..) | Mix(..) => None,
         };
         self.principal().into_iter().chain(second)
     }
