@@ -59,6 +59,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
+| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); the register's 13 kinds with one read-only agent each |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -1692,3 +1693,42 @@ signed-off design or from a finding's proposed fix it says so.
   `mutants/run.sh --label area-3.4` (it skips the batches done), the
   fuzz run with `fuzz/run.sh` (it skips the targets done).
 
+
+### Where you start, `step-28h` (2026-10-14)
+
+- `step-28h` is the eighth and last session of step 28 (Opus 5.5 at
+  `high`): the step's closing write-up. Every area is done and reviewed;
+  the code is not this session's to change, apart from one README
+  sentence. The session ends with all committed, the checklist current
+  (a row "closing: the report's sections and the register" in the Stage
+  3 and 4 table) and the last message sent to `planning`.
+- The register (`plan/notes/requirements.md`, 254 entries): every entry
+  gets a line "State after step 28:", met (a file and line, or a test,
+  that satisfies its "Met when"), partly or not met (what is missing,
+  its reason, and the step or the `plan/later.md` entry that takes it);
+  "State now" stays as stage 0's record; the summary table gets both
+  columns. One read-only agent per kind (13, Sonnet 5.5 at `high`), the
+  results merged and a sample of "met" claims spot-checked.
+- The report's closing sections, before "From the supervisor", as the
+  Deliverables list them, written from what the report, the review
+  sections, `plan/notes/api.md` and the code hold, adding nothing new:
+  the surface before and after; a searchable table of what was renamed
+  or removed, checked against the code; the design and the first-order
+  plan in a page; the journeys' ceilings at stage 0 and now; the check
+  rounds, a few lines per area; the decisions and every area's
+  departures from the design in one list; the open questions; what
+  steps 29 to 31 must know, from their prompts.
+- One README sentence: `check`'s time limit is two seconds unless
+  `--timeout` says otherwise, like `prove`'s; README's test before the
+  commit.
+- The mutants' timeouts: `step28-timeouts` (area 3.4's rerun of the 24
+  timed-out mutants, cores 12 to 15) may still run; when it ends, its
+  outcome goes into area 3.4's row k (the survivor counts it lowers, the
+  mutants that hang alone). Not restarted; waited on with a background
+  watcher.
+- At the end, `nix flake check` once, capped and detached.
+- No benchmarks and no timed runs. Builds on cores 2 to 5, agents'
+  programs on 6 to 11. No departures expected: a finding that would
+  change code goes to `planning` in the last message, not into the tree.
+- Signing has lapsed: commits with `--config signing.behavior=drop`
+  after a failed test signature; the supervisor signs later.
