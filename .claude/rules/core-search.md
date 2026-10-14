@@ -432,9 +432,9 @@ not by what is in use. `prove_goal` makes one per search.
   (`Run::remember`; the same as at `memo_limit`, which stays as the
   finer knob: it is what the pinned counters depend on, and a table
   that fits the cache can beat one that fits the memory); a search
-  that finds itself over the bound at a stable sequent empties the
-  memo, collects, and if that is not enough gives the memo's memory
-  back (`Run::relieve`); `Unknown(Reason::MemoryLimit(bytes))` when
+  that finds itself over the bound at a stable sequent or an `&` rule
+  empties the memo, collects, and if that is not enough gives the
+  memo's memory back (`Run::relieve`); `Unknown(Reason::MemoryLimit(bytes))` when
   what is left, the branch's own buffers and proofs as allocated, is
   still over, or when an empty memo cannot have its first chunk. The
   value in the reason is the option's, whatever share a search had

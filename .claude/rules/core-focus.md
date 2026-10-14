@@ -565,7 +565,9 @@ relies on:
   by the chain or by `focus_on`), and `decompose`, `focus_on` and
   `split` wrap a result into a pending node before any other call. **A
   new rule that keeps an id across a call that can reach
-  `prove_stable` must hold it** (`holding`), or a collection in between leaves it
+  `prove_stable` or an `&` rule (`with`) must hold it** (`holding`):
+  both relieve the memory when the search is over its bound, which
+  collects the arena, and a collection in between leaves it
   pointing at another node: the proof is then wrong, which the checker
   catches (`Error::Rejected`), never a verdict. `proofs_survive_collections`
   runs generated sequents under memos of one, two and five entries, so

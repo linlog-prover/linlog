@@ -876,7 +876,8 @@ impl<'a> Run<'a> {
     /// the arena in between may move it, and returns that proof where it
     /// is now with what `second` returned. Every rule that keeps a proof
     /// across a call that can reach [`prove_stable`](Self::prove_stable)
-    /// goes through it.
+    /// or [`with`](Self::with), both of which may relieve the memory
+    /// and collect the arena, goes through it.
     #[inline(always)]
     fn holding<T>(&mut self, first: NodeId, second: impl FnOnce(&mut Self) -> T) -> (NodeId, T) {
         let held = self.nodes.hold(first);
