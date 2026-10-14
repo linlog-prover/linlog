@@ -39,20 +39,31 @@
 //! - `Y` failed with no dependency: the failures below it whose leader is
 //!   `Y` or deeper go into the memo as facts. Take every failure decided
 //!   below `Y` with a dependency on `Y` or deeper, after the rules above,
-//!   and below no stable sequent that was proved; each of their `W`
-//!   members is `Y`, one of them, or a failure the memo holds as a fact
-//!   (a member below a proved sequent would have dropped them). Of these
-//!   failures take the one with the smallest proof that it denies, if
-//!   any had one: that proof contains a proof of a member within the
-//!   member's budget, which is `Y` (unprovable), a fact, or one of them
-//!   with a smaller proof. So none had one.
+//!   and below no stable sequent that was proved, whether it waits here
+//!   or not (one the cap kept out is among them: the rules above ran on
+//!   the failures below it all the same); each of their `W` members is
+//!   `Y`, one of them, or a failure the memo holds as a fact (a member
+//!   below a proved sequent would have dropped them). Of these failures
+//!   take the one with the smallest proof that it denies, if any had one:
+//!   that proof contains a proof of a member within the member's budget,
+//!   which is `Y` (unprovable), a fact, or one of them with a smaller
+//!   proof. So none had one.
 //!
 //! The leader of every failure here is open, so it is an ancestor of
-//! every sequent the search visits until it closes; a reuse answers with
-//! the leader as its dependency, which the search settles no earlier
-//! than at the leader. Below one leader each sequent is then decided
-//! about once per budget: that sequent's search visited 17 179 stable
-//! sequents at the copy bound of 3 instead of 76.5 million.
+//! every sequent the search visits until it closes, and so is every
+//! member of `W` still open; a member closed since failed, and its own
+//! statement rests on members at the leader's depth or deeper (its
+//! dependency moved the leader up), open or closed with a failure in
+//! turn. So a proof that a reuse in another branch below the leader
+//! denies would contain one of an open ancestor at that depth or deeper,
+//! which the reuse's dependency, the leader's depth, says; the search
+//! settles it no earlier than at the leader. The marks hold this up: a
+//! close settles the failures from its stable sequent's mark on, and
+//! `Run::relieve`, which drops every failure, sets the marks of the
+//! branch to the start, since what waits after it was decided below all
+//! of them. Below one leader each sequent is then decided about once per
+//! budget: that sequent's search visited 17 179 stable sequents at the
+//! copy bound of 3 instead of 76.5 million.
 
 use crate::search::focus::memo::{Key, Zones};
 
@@ -265,5 +276,38 @@ impl Waiting {
         let keys = self.spare.len();
         self.spare = Vec::new();
         keys
+    }
+}
+
+#[cfg(all(test, feature = "parse"))]
+mod tests {
+    use crate::search::{Bias, Options, Verdict, prove_within};
+    use crate::{Limits, Mode, Sequent};
+
+    /// A search that relieves its memory while failures wait keeps the
+    /// marks of the branch true: under a bound of a few kibibytes the memo
+    /// is emptied over and over in this Mix search, where nearly every
+    /// failure waits, and a mark left past the list's end once let a
+    /// failure decided after it outlive its leader (the debug assertion in
+    /// the close).
+    #[test]
+    fn a_relieved_search_settles_what_waits() {
+        let s: Sequent = "|- ?((((!~a par c) + c) par a) par ~c) par ?((~c * ~c) * c)"
+            .parse()
+            .unwrap();
+        let options = Options::default()
+            .with_copies(Some(2))
+            .with_bias(Bias::Rarer)
+            .with_jobs(1);
+        for kibibytes in [8, 12, 16, 24] {
+            let limits = Limits::default().with_memory_bytes(Some(kibibytes << 10));
+            let outcome =
+                prove_within(&s, Mode::CLASSICAL.with_mix(), &options, &limits, |_| false).unwrap();
+            assert!(
+                matches!(outcome.verdict, Verdict::Unknown(_)),
+                "{kibibytes} KiB: {:?}",
+                outcome.verdict
+            );
+        }
     }
 }

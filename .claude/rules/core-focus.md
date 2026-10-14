@@ -254,7 +254,10 @@ relies on:
   in another branch below the same leader sound, and a change of one
   needs the module's argument read again; dropping or not keeping a
   failure is always sound, so the list is capped at the
-  memo's entries, cleared per level and by `relieve`. Why: under Mix a
+  memo's entries, cleared per level and by `relieve`, which sets the
+  marks of the branch to the start (a mark past the list's end once let
+  a failure outlive its leader; the close debug-asserts it,
+  `a_relieved_search_settles_what_waits`). Why: under Mix a
   part of a sequent below a copy is often an ancestor, so nearly every
   failure had a dependency and was searched to its end at every visit
   (a Mix sequent of two `?` formulas took 76.5 million stable sequents

@@ -1073,6 +1073,10 @@ impl<'a> Run<'a> {
         };
         if self.problem.rules.stack && self.problem.memoizes {
             let waited = self.marks[self.stack_len];
+            debug_assert!(
+                waited <= self.waiting.len(),
+                "the failures decided below a stable sequent are gone unsettled"
+            );
             if let Err(reason) = self.close(
                 key,
                 hash,
@@ -1315,6 +1319,10 @@ impl<'a> Run<'a> {
     fn relieve(&mut self) -> Result<(), Reason> {
         let keys = self.waiting.release();
         self.scratch.resize(keys * self.key_bytes(), 0);
+        // Every failure that waits from now on is decided below every
+        // stable sequent of the branch, which must settle it when it
+        // closes.
+        self.marks[..self.stack_len].fill(0);
         self.memo.clear();
         self.nodes.collect(None, false);
         if !self.problem.account.over() {
