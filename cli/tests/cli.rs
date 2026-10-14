@@ -125,7 +125,8 @@ fn timeout() {
 }
 
 /// A search that holds more than `--memory-limit` allows answers
-/// "unknown" with the limit and the flag, exit status 3, and a sequent
+/// "unknown" with the limit and the flag, exit status 3, and so does a
+/// proof whose check would hold more, and a sequent
 /// that unfolds beyond `--occurrence-limit` is an error before it is
 /// unfolded: 25 doublings of one atom are some 430 bytes of JSON and 67 million
 /// occurrences.
@@ -155,6 +156,23 @@ fn limits_on_memory_and_occurrences() {
             )
         );
     }
+
+    // A proof found within the bound whose check would pass it: a Horn
+    // counter of 3 000 tokens, whose firing sequence the search holds in
+    // under 704 KiB and the check of its proof in over 832 KiB.
+    let counter = format!("!(a -o a * b), a |- a * {}", vec!["b"; 3000].join(" * "));
+    let (status, out, err) = linlog(&["prove", "-i", "--memory-limit", "768KiB", &counter], "");
+    assert_eq!(
+        (status, timeless(&out), err),
+        (
+            3,
+            "unknown (IMELL, intuitionistic, horn engine): a proof was found, but its check \
+             would hold more than the memory limit of 768 KiB after …; raise it with \
+             --memory-limit SIZE\n"
+                .to_owned(),
+            String::new()
+        )
+    );
 
     let doublings: Vec<String> = (0..25).map(|i| format!(r#"{{"⊗":[{i},{i}]}}"#)).collect();
     let shared = format!(

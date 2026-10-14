@@ -1932,6 +1932,102 @@ fn nested_tensors_of_literals_force_their_splits() {
     assert!(statistics.splits > 30, "{} splits", statistics.splits);
 }
 
+/// The default bias's two searches answer as one: a verdict of either
+/// (the second's with its arena), else the stop, else the backward
+/// search's reason as the options and limits name it, whatever the
+/// forward search's; the level under the copy bound is the deciding
+/// search's, else the backward one's, and the forward one's apart.
+#[cfg(feature = "parallel")]
+#[test]
+fn the_pair_answers_by_the_backward_search() {
+    use super::schedule::merged;
+    use crate::search::{Finished, Reason, Statistics};
+    let options = Options::default().with_copies(Some(3));
+    let limits = Limits::default().with_memory_bytes(Some(1 << 20));
+    let finished = |result, copies| Finished {
+        result,
+        nodes: Vec::new(),
+        statistics: Statistics {
+            copies,
+            ..Statistics::default()
+        },
+    };
+    let undecided = [
+        (
+            Reason::CopyBound { copies: 30 },
+            Reason::RecursionLimit { depth: 9 },
+        ),
+        (
+            Reason::RecursionLimit { depth: 9 },
+            Reason::CopyBound { copies: 2 },
+        ),
+        (
+            Reason::WorkLimit { limit: 5 },
+            Reason::MemoryLimit {
+                limit_bytes: 1 << 19,
+            },
+        ),
+    ];
+    let reasons = undecided.map(|(forward, backward)| {
+        let pair = merged(
+            finished(Err(forward), 30),
+            finished(Err(backward), 2),
+            &options,
+            &limits,
+        );
+        (
+            pair.result,
+            pair.statistics.copies,
+            pair.statistics.forward_copies,
+        )
+    });
+    assert_eq!(
+        reasons,
+        [
+            (Err(Reason::RecursionLimit { depth: 9 }), 2, 30),
+            (Err(Reason::CopyBound { copies: 3 }), 2, 30),
+            (
+                Err(Reason::MemoryLimit {
+                    limit_bytes: 1 << 20
+                }),
+                2,
+                30
+            ),
+        ]
+    );
+    for (forward, backward) in [
+        (Err(Reason::Stopped), Err(Reason::CopyBound { copies: 2 })),
+        (Err(Reason::CopyBound { copies: 30 }), Err(Reason::Stopped)),
+    ] {
+        let pair = merged(
+            finished(forward, 30),
+            finished(backward, 2),
+            &options,
+            &limits,
+        );
+        assert_eq!(pair.result, Err(Reason::Stopped));
+    }
+    let refuted = merged(
+        finished(Ok(None), 4),
+        finished(Err(Reason::Stopped), 2),
+        &options,
+        &limits,
+    );
+    assert_eq!((refuted.result, refuted.statistics.copies), (Ok(None), 4));
+    let mut proved = finished(Ok(Some(NodeId::new(0))), 2);
+    proved.nodes = vec![Node::One(Member::from(OccId::new(0)))];
+    let pair = merged(
+        finished(Err(Reason::CopyBound { copies: 30 }), 30),
+        proved,
+        &options,
+        &limits,
+    );
+    assert_eq!(
+        (pair.result, pair.nodes.len(), pair.statistics.copies),
+        (Ok(Some(NodeId::new(0))), 1, 2)
+    );
+}
+
 /// A worker of a pool drops a failure that rests on a stable sequent of
 /// the spawning engine's branch, whose close the worker never sees, and
 /// lets nothing wait on it. Here one ancestor stands for that branch:

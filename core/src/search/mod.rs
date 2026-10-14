@@ -2508,6 +2508,44 @@ mod tests {
         assert!(!outcome.checked);
     }
 
+    /// A proof the search finds within the memory bound but whose check
+    /// would pass it is unknown by that bound, neither a proof nor an
+    /// error. The Horn engine holds a counter's firing sequence of 3 000
+    /// tokens in less memory than the check of its proof holds (a state
+    /// per firing, each waiting for its reader), so the first bound,
+    /// upwards from 512 KiB, at which the search no longer ends at the
+    /// bound is one that the check passes.
+    #[test]
+    fn a_check_past_the_memory_bound_is_unknown() {
+        let counter = sequent(&format!(
+            "!(a -o a * b), a |- a * {}",
+            vec!["b"; 3000].join(" * ")
+        ));
+        let first = (16..64u64).map(|k| k << 15).find_map(|bytes| {
+            let limits = Limits::default().with_memory_bytes(Some(bytes));
+            let outcome = prove_within(
+                &counter,
+                Mode::INTUITIONISTIC,
+                &Options::default(),
+                &limits,
+                |_| false,
+            )
+            .unwrap();
+            match outcome.verdict {
+                Verdict::Unknown(Reason::MemoryLimit { .. }) => None,
+                verdict => Some((bytes, verdict, outcome.checked)),
+            }
+        });
+        assert!(
+            matches!(
+                first,
+                Some((bytes, Verdict::Unknown(Reason::Unchecked { limit_bytes }), false))
+                    if limit_bytes == bytes
+            ),
+            "{first:?}"
+        );
+    }
+
     /// Every poll tells the stop the work done since the last and in all,
     /// in the engine's units, and the bound on work ends a search there:
     /// an unknown verdict that names the bound.
