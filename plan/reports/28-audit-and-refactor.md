@@ -60,6 +60,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
 | closing: the report's sections and the register | done (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); `nix flake check --keep-going` passed at szmktwow (unit `step28-flake-check`, cores 2 to 5; its features check logged six unused imports of `proofs/interactive/replay.rs` without `serialize`, open question 8); the supervisor's three fixes: rsvlqous (`replay.rs` gated on `serialize`), krxomqoz (warnings denied in the gate's `cargo hack` runs and the `features` check), txykwztn (the three doc points of open question 7), each with the gate passed; the mutants' timeouts recorded in area 3.4's row k (all 24 hang alone); `nix flake check --keep-going` passed again at txykwztn with the records (unit `step28-flake-check2`, no unused import logged) |
+| follow-up: F122, F123 and the engines on their sequents | running (session `step-28i`, 2026-10-14) | part 1, the engines on the two sequents: started |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -1482,9 +1483,13 @@ The decisions the review sections hand to the author at the step's end:
     finished. Each found a sequent the engines do not decide, and on the
     head's release build (2026-10-14) both are still undecided after
     60 s:
-    - F122's sample is provable by construction, but no proof is found,
-      intuitionistic (two-sided engine, copy bound 7 reached) or
-      classical (focused engine, copy bound 4 reached);
+    - F122's sample is no proof the generator built but the mutant of
+      one (corrected by `step-28i`: the shift of draw 32 of rule set 6 in
+      `generated_ill`, seed 106, whose first hypothesis `a` became `b`).
+      It is unprovable: the goal's tensor factor `a` has no `~a`
+      anywhere in the sequent. Neither engine refutes it, intuitionistic
+      (two-sided engine, copy bound 7 reached) or classical (focused
+      engine, copy bound 4 reached);
     - F123's Mix mutant does not finish copy bound 4: 787 million stable
       sequents visited, 741 million of them from the memo, which holds
       at most 1 731 entries.
@@ -2376,3 +2381,59 @@ reason), which go to the supervisor with this session's last message.
   message once the timeouts' rerun has ended. What was done: (1) rsvlqous,
   the gate passed and both runs passed with `-D warnings`; the rest in the
   commits after it and in the closing row.
+
+### Where you start, `step-28i` (2026-10-14)
+
+- `step-28i` is a follow-up session of step 28 (Opus 5.5 at `xhigh`):
+  F122 and F123, and the two sequents they found. The author answered
+  open question 10 on 2026-10-14: a session looks at the engines on both
+  sequents first, then lands both generators. The session ends with
+  every code commit gated, the target sets after any change of how a
+  search searches, a fresh-context reviewer (Opus 5.5 at `high`) of the
+  whole diff, the mutants of the files it changed run from a jj
+  workspace of its own, a passing `nix flake check`, all committed, a
+  row of its own in the Stage 3 and 4 table ("follow-up: F122, F123 and
+  the engines on their sequents") and its last message sent to
+  `planning`.
+- The work so far is off the line, signed, under the local bookmark
+  `wip/generators`: supyqoln (F122's real contraction, finished) and
+  ukrmvowr (F123's transposition, not finished), both on the tree of
+  2026-10-10. Their content goes onto the head; the bookmark is deleted
+  once both have landed or been replaced, and `plan/later.md`'s entry
+  says so.
+- 1. The engines on the two sequents first, on the head's release build
+  (both undecided after 60 s): F122's sample, said to be provable by
+  construction, `b, b, (!!!c * !b), (((b -o !b) -o (b -o (b * b))) -o
+  !((b -o c) * (a -o c))) |- ((((((b -o c) -o c) * b) * a) * b) * (b -o
+  b))` (two-sided engine to copy bound 7, focused engine to 4 with 3.1
+  billion splits); F123's Mix mutant `|- ?((((!~a par c) + c) par a) par
+  ~c) par ?((~c * ~c) * c)` with `--mix` (copy bound 4 does not finish:
+  787 million stable sequents visited, 741 million from the memo, which
+  holds at most 1 731 entries). For each, a fix of the engine, a change
+  of the copy-bound schedule or of a default, or an argument with
+  measurements that it is inherent at that bound. A fix that changes how
+  a search searches gets the step's evidence for search changes (both
+  target sets against `after-efficiency.csv` and
+  `net-after-efficiency.csv` with `summary --against … --counters`, the
+  families, qcover if `search/horn/` changes, step 26's panel where a
+  verdict could move); a gain that costs more than it is worth goes to
+  `planning` as a decision.
+- 2. Then the generators: F122's contraction landed and F123's
+  transposition finished, each drawn by the callers the findings name;
+  neither may double the debug test suite (a slow sample bounded
+  explicitly, with the reason in a comment); the effect pinned
+  (effective contractions per rule set, the share of mutants that reach
+  a search); each disagreement between engines or with the reference
+  prover recorded as a finding.
+- 3. The third ultra review's findings (`review/3.4a`, `review/3.4b`)
+  reach the session from `planning` as `U…`; each is a fix, a commit of
+  its own, gated.
+- Benchmarks are allowed (a line to `planning` when a run starts and
+  ends); a timed run pinned on core 2 or 3 with nothing heavy beside it;
+  probes of the two sequents capped in memory and time. Cores 0 and 1
+  are the desktop's, builds on 2 to 5, agents' programs and long runs on
+  6 to 15, every scope named `step28-…`. Wait on a run with a background
+  watcher. Mutation runs from a jj workspace of their own; a mutant that
+  timed out is rerun alone before it counts. Departures from the design
+  are marked in a "decided unattended" list. Signing works until about
+  10:45; commit with `--config signing.behavior=drop` once it fails.

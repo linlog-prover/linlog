@@ -1025,11 +1025,12 @@ meets first on a large problem, and come before any new engine:
   derelicts a hypothesis and contracts it beside an identity on it
   (change `supyqoln`, workspace `step28-gen-tests`) gives 65 to 131
   effective contractions per exponential rule set on the tests' seeds,
-  where there were 0 to 3, but one of the new samples takes the
-  classical engine 158 s unoptimized (`b, b, (!!!c * !b), (((b -o !b) -o
-  (b -o (b * b))) -o !((b -o c) * (a -o c))) |- ((((((b -o c) -o c) * b)
-  * a) * b) * (b -o b))`, undecided within the copy bound), which doubles
-  the debug test suite. F123: every generated negative of the rule sets
+  where there were 0 to 3, but the mutant of one of the new samples
+  takes the classical engine 158 s unoptimized (`b, b, (!!!c * !b),
+  (((b -o !b) -o (b -o (b * b))) -o !((b -o c) * (a -o c))) |- ((((((b -o
+  c) -o c) * b) * a) * b) * (b -o b))`, the first hypothesis `a` shifted
+  to `b`, so unprovable: the goal's `a` has no `~a` anywhere; undecided
+  within the copy bound), which doubles the debug test suite. F123: every generated negative of the rule sets
   without additives and exponentials is refuted by the interval check
   before any search; a second mutation that transposes two literals of
   one sign (change `ukrmvowr`, unfinished) sends 10 to 25 % of them to a
