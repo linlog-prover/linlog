@@ -264,13 +264,13 @@ impl Run<'_> {
         Ok(Some(node))
     }
 
-    /// Counts a forced split, or a literal of a tensor closed in place,
-    /// and polls the stop condition once every [`FORCED_PER_POLL`] of
-    /// them. No work is passed: the units two alternating searches count
+    /// Counts a forced split, a literal of a tensor closed in place or an
+    /// `&` rule, and polls the stop condition once every
+    /// [`FORCED_PER_POLL`] of them. No work is passed: the units two alternating searches count
     /// their slices in are what they are without this poll, and so is
     /// where each gives way.
     #[inline]
-    fn poll_forced(&mut self) -> Result<(), Reason> {
+    pub(super) fn poll_forced(&mut self) -> Result<(), Reason> {
         self.forced += 1;
         if self.forced < FORCED_PER_POLL {
             return Ok(());

@@ -150,6 +150,36 @@ fn classic_sequents() {
     }
 }
 
+/// The `&` rule polls the stop: `⊢ a₁ & b₁, …, aₙ & bₙ, ⊤` with `⊤`
+/// taken last has a proof of `2ⁿ` branches that reaches no stable
+/// sequent, where the search polls otherwise.
+#[test]
+fn with_rules_poll_the_stop() {
+    let withs: Vec<String> = (0..24).map(|i| format!("a{i} & b{i}")).collect();
+    let sequent: Sequent = format!("|- {}, top", withs.join(", ")).parse().unwrap();
+    let options = Options::default()
+        .with_engine(Some(crate::search::Engine::Focus))
+        .with_jobs(1);
+    let mut polls = 0_u32;
+    let outcome = crate::search::prove_within(
+        &sequent,
+        Mode::CLASSICAL,
+        &options,
+        &Limits::default(),
+        |progress| {
+            // Only the search's own polls count: the check of a proof
+            // found polls too.
+            polls += u32::from(progress.phase == crate::limits::Phase::Search);
+            polls > 1
+        },
+    )
+    .unwrap();
+    assert!(
+        matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)),
+        "the search was not stopped"
+    );
+}
+
 /// The units behave as the spec's checks say, and `⊤` closes any
 /// context while `0` closes none.
 #[test]

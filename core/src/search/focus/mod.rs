@@ -91,8 +91,8 @@ const NO_DEPENDENCY: u32 = u32::MAX;
 /// engine takes between two polls of the stop condition.
 const SPLITS_PER_POLL: u64 = 4096;
 
-/// How many forced splits, and literals of the tensors they close in
-/// place, a chain of them takes between two polls of the stop condition.
+/// How many forced splits, literals of the tensors they close in place and
+/// `&` rules the engine takes between two polls of the stop condition.
 const FORCED_PER_POLL: u64 = 4096;
 
 /// The work of a stable sequent in steps of a split search, the unit a
@@ -782,6 +782,9 @@ impl<'a> Run<'a> {
         o: OccId,
         budget: u32,
     ) -> Step {
+        // A proof of `&` rules closed by `⊤` reaches no stable sequent,
+        // where the search polls, and can be exponential in the sequent.
+        self.poll_forced()?;
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return self.with_parallel(theta, gamma, list, o, budget);

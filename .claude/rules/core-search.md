@@ -318,8 +318,15 @@ outcome's `work` is that count. The command's default and the harness's
     `FORCED_PER_POLL` (4096) forced splits and literals of tensors
     closed in place (`poll_forced`, counter `Run::forced`: a chain of
     forced splits visits no stable sequent either, and a marking of a
-    Petri net is a tensor of thousands of literals); and on a pool at
-    every `&` (`with_parallel`, below). The first two pass the work
+    Petri net is a tensor of thousands of literals), the `&` rules
+    counted on the same counter (`with`: `⊢ a₁ & b₁, …, aₙ & bₙ, ⊤`
+    with `⊤` taken last has `2ⁿ` branches closed by `⊤` and no stable
+    sequent; the fuzzer's `ordinary_decide` found such images that ran
+    tens of seconds past a time limit of one,
+    `with_rules_poll_the_stop`); and on a pool at every `&`
+    (`with_parallel`, below). The `&` rules pass no work, so the slices
+    of the default bias's two searches are where they were, and
+    `Limits::work` does not bound such a proof: a follow-up. The first two pass the work
     done since the last poll (`Stop::fired(work)`), which the two
     searches of the default bias slice by (`Stop::Slice`, `Stop::Turn`)
     and the caller's progress reports;
