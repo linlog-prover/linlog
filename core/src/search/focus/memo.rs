@@ -161,24 +161,34 @@ impl Interner {
             self.release(account);
         }
         let set = size_of_val(zone.words());
-        if account.spares(set + 2 * size_of::<(OccSet, u64)>()) {
+        // A full table doubles its buckets: asked for before, as the
+        // memo's index is.
+        let capacity = self.ids.capacity();
+        let buckets = if self.ids.len() < capacity {
+            0
+        } else {
+            Self::buckets(capacity + 1) - Self::buckets(capacity)
+        };
+        if account.spares(set + buckets) {
             self.ids.insert(zone.clone(), id);
-            let bytes = self.bytes(set);
+            let bytes = self.ids.len() * set + Self::buckets(self.ids.capacity());
             account.resize(self.charged, bytes);
             self.charged = bytes;
         }
         id
     }
 
-    /// The bytes the table holds with zones of `set` bytes each: their
-    /// words, and the table's buckets (a power of two, eight for every
-    /// seven zones it can hold, of a slot and a control byte each, and a
-    /// group of control bytes after them).
-    fn bytes(&self, set: usize) -> usize {
+    /// The bytes of the table's buckets where it holds `capacity` zones:
+    /// a power of two of them, eight for every seven zones (all but one
+    /// under eight), of a slot and a control byte each, and a group of
+    /// control bytes after them; none for an empty table.
+    fn buckets(capacity: usize) -> usize {
         /// The control bytes a table has after its buckets.
         const GROUP: usize = 16;
-        let buckets = (self.ids.capacity() * 8).div_ceil(7).next_power_of_two();
-        self.ids.len() * set + buckets * (size_of::<(OccSet, u64)>() + 1) + GROUP
+        if capacity == 0 {
+            return 0;
+        }
+        (capacity * 8).div_ceil(7).next_power_of_two() * (size_of::<(OccSet, u64)>() + 1) + GROUP
     }
 
     /// Empties the table and gives its memory back. The ids given stay
@@ -1021,5 +1031,17 @@ mod tests {
         let mut none = Interner::new(0);
         let first = none.intern(&zone(&[1]), &account);
         assert_ne!(none.intern(&zone(&[1]), &account), first);
+        // Under a bound the table asks for its buckets before it doubles
+        // them, as the memo does, and leaves the eighth of the bound free.
+        let bounded = Account::new(Some(4096));
+        let mut zones = Interner::new(1000);
+        let kept = (0..200)
+            .filter(|&o| {
+                zones.intern(&zone(&[o]), &bounded);
+                assert!(bounded.spares(0), "{} bytes held", bounded.used());
+                zones.ids.contains_key(&zone(&[o]))
+            })
+            .count();
+        assert!((8..100).contains(&kept), "{kept} zones kept");
     }
 }

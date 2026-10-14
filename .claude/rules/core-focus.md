@@ -130,10 +130,16 @@ relies on:
   id is never given twice** (a counter, which no search takes to 2⁶⁴),
   so an id names one zone; and equal zones get one id while the table
   holds them. The table holds `memo_entries` zones, is emptied when full
-  and by `relieve`, and keeps no zone the account cannot spare (or any,
-  with the memo off, every zone a new id); a zone met again then gets a
-  new id and the memo finds nothing under it, which costs hits, never a
-  wrong one. **The loop check stays exact whatever the table did**: `Θ`
+  and when `relieve` gives the memo's memory back (`Table::release`, its
+  second stage; `Table::clear` keeps it), asks for its buckets before it
+  doubles them, and keeps no zone the account cannot spare (or any, with
+  the memo off, every zone a new id); a zone met again then gets a new
+  id and the memo finds nothing under it, which costs hits, never a
+  wrong one. So the counters of a search equal those of the bitsets' key
+  while every zone it meets is held: a memo of fewer entries than the
+  zones a search meets empties the table as well (`--memo-limit 1` on a
+  sequent of ten `?` branches took 64 hits where the bitsets found 96;
+  from 3 entries on, the same). **The loop check stays exact whatever the table did**: `Θ`
   only grows along a branch and a grown zone is a new value strictly
   larger, so two stable sequents of one branch with equal `Θ` share the
   one value, and its one id. A pool's workers share the table
