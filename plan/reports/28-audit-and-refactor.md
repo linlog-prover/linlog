@@ -59,7 +59,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
-| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); the register's 13 kinds with one read-only agent each |
+| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); to come: the mutants' timeouts in row k, `nix flake check` |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -968,6 +968,607 @@ signed-off design or from a finding's proposed fix it says so.
 - **`--settings -` and `--style-file -` are refused**: standard input
   carries the sequent or a session's commands (the input lens found the
   settings read in their place).
+
+## The step's outcome
+
+Step 28 is done. The library's public surface was redesigned once, in
+`plan/notes/api.md` (signed off by the author on 2026-10-09), and built
+in four areas of fixes: the API, data model and wire forms (3.1), the
+search (3.2), efficiency (3.3), and the command, the harness, the flake
+and the documents (3.4). Each area passed its check rounds, a
+fresh-context reviewer and `nix flake check`, and the supervisor's own
+review. Every commit that touches code passed the gate (clippy, the
+tests with the behaviour lock among them, both `cargo hack` runs, the
+ratchet). The target sets kept their counters on every decided row
+from stage 0 to the head (`bench/targets/after-efficiency.csv` against
+`head-lto.csv`, `net-after-efficiency.csv` against
+`net-after-retype.csv`). No ceiling of the ratchet is above its stage 0
+value but `read-tptp` (+7.5 %, raised twice with the reason each time)
+and the two check journeys (+1.1 % and +0.3 %, the cost of checks
+added). Of the register's 254 later requirements, the table in "The
+register after step 28" below gives each one's state, with the
+evidence in `plan/notes/requirements.md`.
+
+What is open is listed under "Open questions for the author": the
+departures from the design, the decisions the areas left, the faults
+area 3.4's review found and did not fix, and the third ultra review's
+findings, which a short session after this one takes.
+
+### The surface before and after
+
+At stage 0 (zrvpwtoq, the ratchet's commit) the core crate had 76
+source files and 42 476 lines; at the head it has 96 files and 55 143
+lines (the core, command and harness crates together: 50 458 lines,
+then 65 564). The growth is the new modules, the bounds and stops
+threaded through every long call, the wire forms with their versions,
+and the tests.
+
+- **Before.** The root re-exported `Error` alone of the errors; the
+  occurrence set `OccSet`, `Polarity`, `Position`, `Scratch`, and from
+  `proofs` `Compact`, `DEFAULT_MEMORY_LIMIT`, `Labels`, `OpenGoal`,
+  `Side` (the `⊕` rule's choice), `TextOptions`, `ViewError`,
+  `WriteError`; the session's `Refusal`; and `prove_until`. Errors were
+  35 positional variants beside `ShapeError`, `Unsupported`,
+  `UnknownRule`, `NetError`, `ViewError` and the checker's `Problem`,
+  whose `Memory` was a refusal beside the faults. The bounds of a
+  search, a check and a view were three separate values; the stops took
+  no progress; `search::Options` had setters and no wire form; the
+  readers of proof files and sessions ignored the caller's limits.
+- **After.** The root re-exports one error family (`Error`,
+  `ErrorKind`, `Described`, `Owner`, and `ParseError`), the bounds and
+  stops (`Limits`, `Progress`, `Phase`, `Refusal`), the settings
+  (`Settings`, `Clock`), `Member` and `Side` (the side of `⊢`),
+  `Branch` (the `⊕` choice), `Criterion` and `VertexId` of the nets,
+  `CheckError`, `Named`, the session's `GoalId`, `Step`, `StepError`,
+  and from `search` `Counter`, `Disproof`, `Goal`, `NotTaken`,
+  `Refutation` beside the search's types (`core/src/lib.rs:175-193`).
+  New modules: `limits`, `settings`, `wire` (the forms' level `LEVEL`,
+  the converter `upgrade`, the bounded reader). `proofs::check`,
+  `proofs::derivation` and `proofs::interactive` are directories split
+  along their seams. Every options value is plain data with serde and a
+  default; every long call takes `&Limits` and a stop
+  `FnMut(Progress) -> bool`; every JSON form carries `version` and is
+  documented in `wire`; the engines answer through one interface
+  (`search::Decide`, `Answer`, the dispatch table) and `search::race`
+  is the one race of a thread and a pool. The command's library
+  `linlog_cli` has `main` as its only public item.
+
+Where the code differs from the design's module tree (`api.md` 2.1):
+`Refutation` and `Disproof` live in `search` (`search/refutation.rs`),
+not in a top-level `refutation` module, and `engine_for` and `race` are
+reached as `search::engine_for` and `search::race`, not at the root.
+
+### What was renamed or removed
+
+One row per old name, so that a later session can search for it. The
+table starts from `api.md` 2.4 and was checked against the code at the
+head: "checked" names the new item's place, or "absent" where a grep
+finds the old public name nowhere. "Removed" items have no alias (no
+compatibility aliases before 0.1.0).
+
+| before | after | commit | checked |
+|---|---|---|---|
+| `sequents::Term::Var` | `Term::Atom` | ksnmyzmo | sequents/term.rs:55 |
+| `sequents::Term::DualVar` | `Term::DualAtom` | ksnmyzmo | sequents/term.rs:57 |
+| `sequents::Kind::Var` | `Kind::Atom` | ksnmyzmo | sequents/term.rs:89 |
+| `sequents::Kind::DualVar` | `Kind::DualAtom` | ksnmyzmo | sequents/term.rs:91 |
+| `Atom` documented as "a propositional variable" | `Atom` an atomic formula, nullary | ksnmyzmo | unconfirmed: the doc comment at sequents/term.rs:28 still reads "An atom (a propositional variable)" |
+| `Sequent::optimize` sorting the roots | `Sequent::optimize` keeps the written order | rtlqploq | sequents/mod.rs:344 |
+| `Sequent::optimize` fallible (`Result`) | `Sequent::optimize` infallible | ypwwvlnq | sequents/mod.rs:344 |
+| (new, no old name) | `Sequent::antecedents() -> Option<u32>` | rtlqploq | sequents/mod.rs:144 |
+| `Sequent::verify_integrity` | crate-private `Sequent::check` | ksnmyzmo | sequents/mod.rs:225; `verify_integrity` absent |
+| `FromStr for Sequent` only (no bounded read) | `+ Sequent::parse_within(text, &Limits)` | mwvwsxyk | parse/mod.rs:528 |
+| `sequents::fmt::Walk` crate-private | design: public; code: still crate-private | none | sequents/fmt.rs:53 (`pub(crate) struct Walk`) |
+| `sequents::fmt::Visit` crate-private | design: public; code: still crate-private | none | sequents/fmt.rs:19 (`pub(crate) enum Visit`) |
+| `Visit::Between(T)` binary | design: `Visit::Between(TermId, index)`; code: unchanged `Between(T)` | none | sequents/fmt.rs:26 |
+| `Sign::Var` | `Sign::Atom` | ksnmyzmo | occurrences/mod.rs:101 |
+| `Sign::DualVar` | `Sign::Dual` | ksnmyzmo | occurrences/mod.rs:103 |
+| `occurrences::Position` (input or output) | `occurrences::Side` | ksnmyzmo | occurrences/reading.rs:33; `Position` absent |
+| `Forest::within(&s, u64)` | `Forest::within(&s, &Limits)` | mwvwsxyk | occurrences/mod.rs:277 |
+| (new, no old name) | `Forest::new(&s)`, the defaults of `within` | mwvwsxyk | occurrences/mod.rs:266 |
+| `Forest::from_owned(s, u64)` | `Forest::from_owned(s, &Limits)`, still public | mwvwsxyk | occurrences/mod.rs:289 |
+| `TryFrom<Sequent> for Forest` | removed | ksnmyzmo | absent (the one `TryFrom` left is `serialize/sequents.rs:152`, for the wire form) |
+| `occurrences::OccSet` (public) | crate-private | ksnmyzmo, wyuzsnql | occurrences/set.rs:25; not in lib.rs or `occurrences` re-exports (occurrences/mod.rs:12 `pub(crate) use`) |
+| `Forest::empty_set` | crate-private | ksnmyzmo | occurrences/set.rs:348 |
+| `Forest::root_set` | crate-private | ksnmyzmo | occurrences/set.rs:355 |
+| `OccId` in `Node`'s operands | `Member` | nyxmnuxv | proofs/mod.rs:169 (`principal() -> Option<Member>`); `Member` at occurrences/mod.rs:52 |
+| `OccId` in `Dyadic` | `Member` | nyxmnuxv | proofs/check/error.rs:19 (`theta`, `gamma`: `Vec<Member>`) |
+| `OccId` in `Inference::sequent` | `Inference::sequent() -> &[Member]` | rnnrsvnv | proofs/derivation/view.rs:149 |
+| `OccId` in `Interactive::goal` | `Member` | qmpstuqr | proofs/interactive/mod.rs:511 |
+| `prove_goal(forest, &[OccId], mode, &o, stop)` | `prove_goal(Goal, mode, &o, &Limits, stop)` | mrvtkppt, mwvwsxyk | search/mod.rs:343; `Goal` at search/mod.rs:244 |
+| `engine_for(forest, &[OccId], …)` | `engine_for(Goal, mode, &o)` | mrvtkppt | search/mod.rs:656 (not re-exported at the root, lib.rs:188) |
+| `Node::occurrences()` | `Node::members()` | nyxmnuxv | proofs/mod.rs:190; `occurrences()` absent on `Node` |
+| `Scratch` at the crate root | `nets::Scratch` | ksnmyzmo | nets/mod.rs:30; absent from lib.rs |
+| `Polarity` at the crate root | `occurrences::Polarity` | ksnmyzmo | occurrences/mod.rs:125; absent from lib.rs |
+| `Compact` at the crate root | `proofs::Compact` | ksnmyzmo | proofs/derivation/view.rs:89, re-exported proofs/mod.rs:35; absent from lib.rs |
+| `Labels` at the crate root | `proofs::style::Labels` (also `proofs::Labels`) | ksnmyzmo | proofs/style.rs:35; absent from lib.rs |
+| `OpenGoal` at the crate root | `proofs::style::OpenGoal` (also `proofs::OpenGoal`) | ksnmyzmo | proofs/style.rs:295; absent from lib.rs |
+| `TextOptions` at the crate root | `proofs::TextOptions` | ksnmyzmo | proofs/fmt.rs:33, re-exported proofs/mod.rs:36; absent from lib.rs |
+| `DEFAULT_MEMORY_LIMIT` (root constant, three copies) | `Limits::DEFAULT_MEMORY_BYTES` | mwvwsxyk | limits.rs:89; absent |
+| `Mode.intuitionistic` (public field) | private; `Mode::is_intuitionistic()` | uqwrupzo | fragment.rs:309 |
+| `Mode.affine` (public field) | private; `Mode::is_affine()` | uqwrupzo | fragment.rs:314 |
+| `Mode.mix` (public field) | private; `Mode::has_mix()` | uqwrupzo | fragment.rs:319 |
+| `Mode::affine()` | `Mode::with_affine()` | uqwrupzo | fragment.rs:325 |
+| (new, no old name) | `Mode::with_mix()` | uqwrupzo | fragment.rs:334 |
+| (new, no old name) | `Mode::name()`, `Mode::NAMES`, `FromStr for Mode`, `Mode::check()` | uqwrupzo | fragment.rs:341, 298, 373, 364 |
+| `Fragment::ALL` (the additive class) | `Fragment::ADDITIVE` | uqwrupzo | fragment.rs:39; `Fragment::ALL` absent |
+| `Fragment::NAMED: [Self; 6]` | `Fragment::NAMED: &'static [Self]`; `FromStr for Fragment` | uqwrupzo, vrnnzurm | fragment.rs:49, 155 |
+| `proofs::Side` (the `⊕` rule's choice) | `proofs::Branch` | ksnmyzmo | proofs/mod.rs:92 |
+| `Proof` without a conclusion or mode | `Proof::goal()` | nolqqvoz | proofs/mod.rs:454 |
+| `Proof` without a conclusion or mode | `Proof::mode()` | nolqqvoz | proofs/mod.rs:461 |
+| `Proof` without a conclusion or mode | `Proof::new_of_goal` | nolqqvoz | proofs/mod.rs:421 |
+| `Proof` without a conclusion or mode | `Proof::with_mode` | nolqqvoz | proofs/mod.rs:445 |
+| `Proof::check_within(mode, Option<u64>)` | `Proof::check_within(mode, &Limits, stop)` | mwvwsxyk | proofs/mod.rs:564 |
+| `proofs::check::check` (public free function) | crate-private | ksnmyzmo | proofs/check/mod.rs:40 (`pub(crate) use pass::{…, check, check_within, …}`) |
+| `proofs::check::check_within` (public free function) | crate-private | ksnmyzmo | proofs/check/mod.rs:40 |
+| `CheckError { node, rule, premises, problem }` (struct) | `CheckError::{Invalid(Box<Invalid>), Refused(Refused)}` | yzywpzko | proofs/check/error.rs:76 (`Invalid` at 88, `Refused` at 103) |
+| `CheckError::is_refusal()` | removed from `CheckError`; `Error::is_refusal` and `ErrorKind::is_refusal` | yzywpzko | errors/mod.rs:635 and 427; none on `CheckError` |
+| `check::Problem` | `check::Fault` | yzywpzko | proofs/check/error.rs:113; `Problem` absent |
+| `Problem::Memory` | removed; a bound is `CheckError::Refused` with a `Refusal` | yzywpzko | proofs/check/error.rs:102-113 (no `Memory` in `Fault`) |
+| `Proof::derivation_with(&view, stop)` | `Proof::derivation_within(&view, &Limits, stop)` | mwvwsxyk | proofs/mod.rs:621 |
+| `Proof::two_sided_derivation` | removed; the sides are `view.sides` (`Sides::Two`) | mnkunorl | proofs/derivation/view.rs:71; only a test-only `pub(crate) fn two_sided` at proofs/mod.rs:637 |
+| `Proof::two_sided_derivation_with` | removed (renamed `…_within` in mwvwsxyk); the sides are `view.sides` | mwvwsxyk, mnkunorl | absent |
+| `Proof::derivation_size(bool)` | `Proof::derivation_size(&view, &Limits, stop)` | mnkunorl | proofs/size.rs:102 |
+| `Proof::derivation_size_within(bool, Option<u64>)` | removed; `derivation_size(&view, &Limits, stop)` | mnkunorl | proofs/size.rs:102; `derivation_size_within` absent |
+| `ViewOptions { limit, memory, compact }` | `ViewOptions { compact, sides }`; the bounds in `Limits` | mwvwsxyk, mnkunorl | proofs/derivation/view.rs:58 |
+| `ViewOptions::DEFAULT_LIMIT` | `Limits::DEFAULT_DERIVATION_BYTES` | mwvwsxyk | limits.rs:95 |
+| `ViewOptions::UNBOUNDED` | removed (`Limits::UNBOUNDED` is the unbounded value) | mwvwsxyk | limits.rs:102; `ViewOptions::UNBOUNDED` absent |
+| `ViewError` | `Error::Check(CheckError)` and `Error::Refused(Refusal)` | yzywpzko | errors/mod.rs:221 and 339; `ViewError` absent |
+| `WriteError` | `Error::WriteFailed` | yzywpzko | errors/mod.rs:354; `WriteError` absent |
+| `RenderError` | `Error::RenderFailed` | yzywpzko | errors/mod.rs:372; `RenderError` absent |
+| `svg::TooLarge` | `Error::Refused(Refusal::Output { … })` | yzywpzko | errors/mod.rs:339; `TooLarge` absent |
+| `Rule` (34 variants) | `Rule` (15 one-sided rules and `Open`, 16 variants) | xnszropr | proofs/rule.rs:13 |
+| `Rule::ALL: [Rule; 34]` | `Rule::ALL: [Self; 16]` and `Named::ALL: [Self; 34]` (arrays, not `&'static [Rule]`) | xnszropr | proofs/rule.rs:51 and 156 |
+| `Rule::classical()` | removed; `Named { rule, side }` | xnszropr | proofs/rule.rs:144; `classical` absent |
+| `Rule::intuitionistic(position)` | `Rule::on(side) -> Named` | xnszropr | proofs/rule.rs:127; `intuitionistic` absent |
+| `Inference`'s public fields | `#[non_exhaustive]`, `pub(crate)` fields, accessors | rnnrsvnv | proofs/derivation/view.rs:123-132; accessors at 149 (`sequent`), 154 (`rule`), 161, 166, 174 |
+| `Interactive::apply(goal, position, rule, left)` | `Interactive::apply(GoalId, &Step)` | qmpstuqr | proofs/interactive/expand.rs:89 |
+| `Interactive::goal(InfId) -> &[OccId]` | `Interactive::goal(GoalId) -> Result<&[Member], StepError>` (design: `Option`) | qmpstuqr, yzywpzko | proofs/interactive/mod.rs:511 |
+| `Interactive::rules -> Vec<Rule>` | `Interactive::rules(GoalId, usize) -> Result<Vec<Applicable>, StepError>` | qmpstuqr | proofs/interactive/expand.rs:38; `Applicable` at proofs/interactive/mod.rs:305 |
+| `Interactive::new(&s, mode)` (only entry) | `Interactive::within(&s, mode, &Limits)`; `new` its defaults | mwvwsxyk, qmpstuqr | proofs/interactive/mod.rs:424 and 413 |
+| `Interactive::close_all -> Result<Vec<…>>` | `Interactive::close_all(…) -> Vec<(GoalId, Result<Closed, Error>)>` (design: `Outcome`) | qmpstuqr | proofs/interactive/expand.rs:441; `Closed` at proofs/interactive/mod.rs:318 |
+| `Interactive::inferences()` (public) | crate-private | qmpstuqr | proofs/interactive/mod.rs:493 |
+| `Interactive::close_with` grafting any proof | refuses a proof of another forest, another goal, or a forbidden mode | tszyrrtw | proofs/interactive/expand.rs:412 |
+| `proofs::Refusal` (a step refused) | `interactive::StepError` | yzywpzko | proofs/interactive/mod.rs:52; lib.rs:187 re-exports `StepError` |
+| `ProofStructure::new(forest, mix)` | `new(forest, Criterion)` | kzwvyknq | nets/mod.rs:482 |
+| `ProofStructure::from_links(forest, mix, …)` | `from_links(forest, Criterion, &[(VertexId, VertexId)])` | kzwvyknq | nets/mod.rs:522 |
+| `ProofStructure::from_proof(&p, mix)` | `from_proof(&p, Criterion, &Limits, stop)` | kzwvyknq | nets/mod.rs:554 |
+| `ProofStructure::mix()` | `ProofStructure::criterion()` | kzwvyknq | nets/mod.rs:655; `mix()` absent |
+| `ProofStructure::is_correct()` | `is_correct(stop)` | kzwvyknq | nets/mod.rs:808 |
+| `ProofStructure::sequentialize()` | `sequentialize(&Limits, stop)` | kzwvyknq | nets/sequentialize.rs:41 |
+| links over `OccId` | links over `VertexId` | kzwvyknq | nets/mod.rs:96 (`VertexId`), 691 (`links() -> &[(VertexId, VertexId)]`) |
+| `ProofStructure`'s `mix: bool` argument | `Criterion` | kzwvyknq | nets/mod.rs:129 |
+| `NetError` exhaustive, over `OccId` | `#[non_exhaustive]`, over `VertexId`, `Refused { refusal }` | kzwvyknq, yzywpzko, kmwqxrzt | nets/mod.rs:176 (enum), 253 (`Refused`) |
+| `Verdict::Unprovable(Refutation)` | `Verdict::Unprovable(Box<Disproof>)` | vxmmuxkz | search/mod.rs:1950 (enum), `Disproof` at search/refutation.rs:237 |
+| `Refutation::Unbalanced { atom, name, … }` | `Refutation::Unbalanced(Unbalanced { atom, least, most })` | vxmmuxkz | search/refutation.rs:33, 50 |
+| `Refutation::Equation { … }` | `Refutation::Equation(Equation { … })` | vxmmuxkz | search/refutation.rs:65 |
+| `Refutation::StateEquation { weights, once }` | `Refutation::StateEquation(StateEquation { atoms, clauses, dropped })` | vxmmuxkz | search/refutation.rs:93 |
+| `Reason::RecursionLimit` (unit) | `Reason::RecursionLimit { depth }` | tvvvvluq | search/mod.rs:2000 |
+| `Reason::CopyBound(u32)` | `Reason::CopyBound { copies }` | tvvvvluq | search/mod.rs:2008 |
+| `Reason::MemoryLimit(u64)` | `Reason::MemoryLimit { limit_bytes }` | tvvvvluq | search/mod.rs:2017 |
+| (new, no old name) | `Reason::WorkLimit { limit }` | txuvownw | search/mod.rs:2032 |
+| (new, no old name) | `Reason::Unchecked { limit_bytes }` | onxqtvpq | search/mod.rs:2040 |
+| (new, no old name) | `Reason::setting()` | tvvvvluq | search/mod.rs:2091 |
+| `Error::Unchecked` from a search | `Verdict::Unknown(Reason::Unchecked { limit_bytes })` | yzywpzko (removed), onxqtvpq (replaced) | search/mod.rs:2040; `Error::Unchecked` absent |
+| `prove_until(&s, mode, &o, FnMut() -> bool)` | `prove_within(&s, mode, &o, &Limits, stop)` | mwvwsxyk | search/mod.rs:229; `prove_until` absent |
+| every `impl FnMut() -> bool` stop | `impl FnMut(Progress) -> bool` | mwvwsxyk, txuvownw | limits.rs:197 (`Progress`); `FnMut() -> bool` absent from core/src |
+| `search::Options` private fields and setters | `search::Options` public fields, serde, `with_*` builders | tuooxrol | search/mod.rs:1644 |
+| `Options::memory_limit` | removed; `Limits::memory_bytes` | mwvwsxyk | limits.rs:51; absent |
+| `Options::occurrence_limit` | removed; `Limits::occurrences` | mwvwsxyk | limits.rs:51; absent |
+| `Options::recursion_limit` | removed; `Limits::recursion_depth` | mwvwsxyk | limits.rs:51; absent |
+| `Options::test_period(Option<u32>)` | `Options::test_period: Cadence` | tuooxrol | search/mod.rs:1554 (`Cadence`) |
+| (new, no old name) | `Options::schedule: Schedule` | tuooxrol | search/mod.rs:1597 |
+| `Engine` readable only by the command and harness tables | `Engine::ALL`, `NAMES`, `name`, `FromStr` | kqvuwqmr, tuooxrol | search/mod.rs:1314, 1324, 1450 |
+| `Bias` without serde | `Bias::ALL`, `NAMES`, `FromStr`, serde | kqvuwqmr, tuooxrol | search/mod.rs:1469, 1473, 1492 |
+| `Engine::parallel` a negative match | `Engine::parallel` an exhaustive positive match | ssxwovxw | search/mod.rs:1431 |
+| `Statistics`' hand-listed serde proxy | `derive(Serialize, Deserialize)` | vkppkovl | search/mod.rs:2132-2138 |
+| `Statistics::memo_entries: usize` | `memo_entries: u64` | tpnlumuk | search/mod.rs:2138 |
+| (new, no old name) | `Statistics::forward_copies`, `Statistics::work` | syqnnmno | search/mod.rs:2138 |
+| `alone_first` in `cli/src/prove.rs` and `bench/src/run.rs` | `search::race` (feature `parallel`) | zoywtttw | search/mod.rs:378; `alone_first` absent from core/src, cli/src and bench/src |
+| `Error::NetFragment` | `NetError::Fragment` (the structure's refusal) | ssxwovxw | nets/mod.rs:231; `NetFragment` absent |
+| `Error::NetMode` | `NetError::Mode` | ssxwovxw | nets/mod.rs:237; `NetMode` absent |
+| `Error::NetGoal` | `Error::EngineRefused { engine, because: NotTaken }` | ssxwovxw | errors/mod.rs:324; `NotTaken` at search/mod.rs:1188; `NetGoal` absent |
+| `Error::EngineMode` | `Error::EngineRefused { … }` | ssxwovxw | errors/mod.rs:324; `EngineMode` absent |
+| `Error::NotAdditive` | `Error::EngineRefused { … }` | ssxwovxw | errors/mod.rs:324; `NotAdditive` absent |
+| `Error::NotHorn` | `Error::EngineRefused { … }` | ssxwovxw | errors/mod.rs:324; `NotHorn` absent |
+| `Error::UnknownRule` | `Error::UnknownName { what, name, known }` | xnszropr | errors/mod.rs:102; used proofs/rule.rs:346; `UnknownRule` absent |
+| the command's and the harness's engine name tables | `Engine::NAMES` | uysvqrto | cli/src/argument_parsing.rs:1306; bench/src/run.rs:178 |
+| `Error` (35 positional variants, not marked) | `#[non_exhaustive]`, named fields, `kind()`, `code()`, `setting()` | yzywpzko | errors/mod.rs:48, 505, 558, 621 |
+| `Error` without `describe`, `Serialize` | `Error::describe(&owner) -> Described<'_>`, `impl Serialize for Error` | uvuuwuym | errors/describe.rs:225; serialize/errors.rs:24 |
+| `Error::InvalidVariableIndex` | `Error::IndexOutOfBounds { space, index, len }` | yzywpzko | errors/mod.rs:164; old name absent |
+| `Error::TermIndexOutOfBounds` | `Error::IndexOutOfBounds { … }` | yzywpzko | errors/mod.rs:164; old name absent |
+| `Error::SubtermIndexNotDecreasing` | `Error::NotTopological { space, index, parent }` | yzywpzko | errors/mod.rs:176; old name absent |
+| `Error::NodeIndexOutOfBounds` | `Error::IndexOutOfBounds { … }` | yzywpzko | errors/mod.rs:164; old name absent |
+| `Error::PremiseIndexNotDecreasing` | `Error::NotTopological { … }` | yzywpzko | errors/mod.rs:176; old name absent |
+| `Error::OccurrenceIndexOutOfBounds` | `Error::IndexOutOfBounds { … }` | yzywpzko | errors/mod.rs:164; old name absent |
+| `CheckError::describe` | kept, now returns the shared `Described<'a>` and takes `&impl Owner` | uvuuwuym | proofs/check/error.rs:223 |
+| `NetError::describe` | kept, as above | uvuuwuym | nets/mod.rs:300 |
+| `ShapeError::describe` | kept, as above | uvuuwuym | occurrences/reading.rs:111 |
+| the two `Described` types, `DescribedShape` | one `Described<'a>` (an enum over the four error types) | uvuuwuym | errors/describe.rs:153; `DescribedShape` absent |
+| `ParseError` (`Debug`, byte span) | `+ Clone, PartialEq, Eq, std::error::Error`, `span_utf16`, `line`, `column`, `expected` | ukxwvpnq, yzywpzko, nkwtoxsu | errors/parse.rs:13-20 (derives and fields), 107 |
+| `Options::DEFAULT_OCCURRENCE_LIMIT` | `Limits::DEFAULT_OCCURRENCES` | mwvwsxyk | limits.rs:93; old name absent |
+| `Forest::DEFAULT_LIMIT` | `Limits::DEFAULT_OCCURRENCES` | mwvwsxyk | limits.rs:93; old name absent |
+| `Options::DEFAULT_RECURSION_LIMIT` | `Limits::DEFAULT_RECURSION_DEPTH` | mwvwsxyk | limits.rs:98; old name absent |
+| `Options::stack_size()` | `Limits::stack_bytes()` | mwvwsxyk, yzywpzko | limits.rs:125; `stack_size` absent as a method |
+| (new, no old name) | `Limits::recursion_depth_for_stack()` | yzywpzko | limits.rs:135 |
+| `png::Options::memory` | removed; `png::from_svg(svg, fonts, &options, &Limits)` | xymzlmnl | export/png.rs:89 |
+| `pdf::Options::memory` | removed; `pdf::from_svg(svg, fonts, &options, &Limits)` | xymzlmnl | export/pdf.rs:183 |
+| `{latex, typst, svg}::derivation` | removed; one `write` per target | knkmnqxz | export/latex.rs:404, export/typst.rs:456, export/svg/mod.rs:870 |
+| `{latex, typst, svg}::ordinary` | removed; `write(impl Into<Drawable>, …)` | knkmnqxz | same three lines; `Drawable` at export/mod.rs:134 (a public enum, design: sealed) |
+| `{latex, typst, svg}::write` per type | `write(&impl Into<Drawable>, &options, out, stop)` | knkmnqxz | export/latex.rs:404, export/typst.rs:456, export/svg/mod.rs:870 |
+| `{latex, typst, svg}::sequent` without a bound | `sequent(&s, mode, &options, &Limits)` | pkkmlunw | export/latex.rs:382, export/typst.rs:431, export/svg/mod.rs:787 |
+| `{latex, typst, svg}::two_sided` | removed; `sequent` takes the mode | pkkmlunw | absent |
+| `svg::net(&n, &style, Option<u64>)` | `svg::net(&n, &style, &Limits, stop)` | xymzlmnl | export/svg/mod.rs:910 |
+| `png::from_svg(svg, fonts, &options)` | `from_svg(svg, fonts, &options, &Limits)` | xymzlmnl, yzywpzko | export/png.rs:89 |
+| `pdf::from_svg(svg, fonts, &options)` | `from_svg(svg, fonts, &options, &Limits)` | xymzlmnl, yzywpzko | export/pdf.rs:183 |
+| `rocq::Options.lemma: String` | `lemma: Identifier` (checked) | xnvtspot | export/rocq.rs:90, `Identifier` at 150 |
+| `rocq::Options.prelude: String` | `prelude: Option<String>` | xnvtspot | export/rocq.rs:90 |
+| `rocq::Unsupported` exhaustive | `#[non_exhaustive]` | lszkzunv | export/rocq.rs:226 |
+| the command's `Styles` | `export::Styles` | umntwmyy | export/styles.rs:25; re-export export/mod.rs:63 |
+| (new, no old name) | `settings::Settings`, `settings::Clock` | umntwmyy | settings.rs:112 and 28; lib.rs:193 |
+| `batch::Options` with public fields | `#[non_exhaustive]`, serde, `Cores` | trzpqqmy, lszkzunv | search/batch.rs:74; `Cores` at 43 |
+| `batch::Plan` with public fields | `#[non_exhaustive]` | trzpqqmy, lszkzunv | search/batch.rs:186 |
+| `batch::Problem` with public fields | `#[non_exhaustive]`, `Problem::new` | trzpqqmy, lszkzunv | search/batch.rs:210 |
+| `batch::Answer` with public fields | `#[non_exhaustive]` | trzpqqmy, lszkzunv | search/batch.rs:234 |
+| `batch::Options::plan(within: bool)` (public) | crate-private `plan(&self, within, &SearchOptions, &Limits)`; `Plan::alone`; design `plan(Cores)` not built | trzpqqmy, wnqvqlpx | search/batch.rs:131 and 198 |
+| (new, no old name) | `batch::Cancel`, `Results::cancel` | trzpqqmy | search/batch.rs:334 and 361 |
+| (new in the design) `batch::run_local` | not built (decided: waits for its caller) | none | absent from core/src (grep) |
+| `ordinary::Sequent::new -> Self` | `-> Result<Self, Error>` | zlxzmzlm | ordinary/mod.rs:651 |
+| `ordinary::Formulas::add` unchecked | already `Result<NodeId, Error>` before step 28 (wkookxyw); step 28 added the occurrence bound | luzxwzwl, sllwwuqu | ordinary/mod.rs:435 |
+| `Translation::target() -> &str` | `-> Target` | zlxzmzlm | ordinary/mod.rs:229; `Target` at 247 |
+| `Image::read_back(&Derivation)` | `read_back(&Proof, &Limits, stop)` | zlxzmzlm | ordinary/derivation.rs:749 |
+| `ordinary::Derivation::check()` | `check(&Limits, stop)` | zlxzmzlm | ordinary/derivation.rs:333 |
+| (new, no old name) | `ordinary::decide`, `ordinary::Outcome` | zlxzmzlm | ordinary/decide.rs:76 and 17 |
+| `families::Family::instance` (panics) | `-> Result<Instance, Error>` | rxyloqup | families.rs:85 |
+| JSON key `ids` (sequent) | `roots` | mnsynnuz | serialize/sequents.rs:67; core/tests/serialize.rs:36; old key refused at tests/serialize.rs:820 |
+| JSON key `var_dict` (sequent) | `atoms` | mnsynnuz | serialize/sequents.rs:69; core/tests/serialize.rs:36; refused at tests/serialize.rs:820 |
+| JSON key `proof` (proof form) | `nodes` | mnsynnuz | serialize/proofs.rs:77; core/tests/serialize.rs:218 |
+| JSON key `memory_limit` (reason payload) | `limit_bytes` | mnsynnuz | serialize/search.rs:70 and 82; core/tests/serialize.rs:372 area |
+| JSON key `once` (`StateEquation`) | removed with the new payload (`atoms`, `clauses`, `dropped`) | vxmmuxkz | serialize/search.rs:166-172; `once` absent |
+| the mode as an object (`ModeDef`) | the mode by name (`"affine"`) | mnsynnuz | serialize/search.rs:33; core/tests/serialize.rs:285-314 |
+| `"reason": {"copy_bound": 3}` | tagged `{"kind": "copy_bound", "copies": 3}` | mnsynnuz, tvvvvluq | serialize/search.rs:53; core/tests/serialize.rs:372 |
+| untagged refutations | tagged refutations (`{"kind": "equation", …}`) | mnsynnuz, vxmmuxkz | serialize/search.rs:135; core/tests/serialize.rs:347 |
+| JSON tags `V`, `D` (stay) | unchanged | none | serialize/sequents.rs:16 and 19 |
+| `linlog_cli` modules `argument_parsing`, `batch`, `interact`, `io`, `ordinary`, `prove`, `settings`, `style` (public) | private (`mod`) | xmyntvsq | cli/src/lib.rs:9-34 |
+| `linlog_cli::{interrupted, clear_interrupt, catch_interrupt, exit_on_interrupt, parse_error, Status}` (public) | `pub(crate)` | vxwmzrmx | cli/src/lib.rs:46, 107, 112, 120, 134, 188 |
+| `linlog_cli` public surface | `main` is its one public item (design: `run`) | xmyntvsq | cli/src/lib.rs:285 |
+
+Paths are relative to `core/src/` unless they start with `cli/`; a commit is the jj change of step 28 that made the change, the first named where several did.
+
+Departures from 2.4, where the code differs from the design's table:
+
+- `Atom`'s doc comment: the design says an atomic formula, nullary until step 38. The comment at `sequents/term.rs:28` still says "a propositional variable".
+- `sequents::fmt::{Walk, Visit}` stay crate-private and `Visit::Between` stays `Between(T)` (`sequents/fmt.rs:19`, `26`, `53`); the design made them public with `Between(TermId, index)`. No "decided unattended" section records this.
+- `Forest::from_owned` stays public, now with `&Limits` (`occurrences/mod.rs:289`); 2.3 would have made it private. Area 3.1 decided this and the author answered "kept".
+- `ViewError`, `WriteError`, `RenderError` and `svg::TooLarge` became `Error::Check(CheckError)`, `Error::Refused(Refusal)`, `Error::WriteFailed` and `Error::RenderFailed`; there is no `Error::InvalidProof` (the design's name). Area 3.1 records a refused check as `Error::Check(CheckError::Refused)`.
+- `Rule::ALL` is `[Self; 16]` and `Named::ALL` is `[Self; 34]` (`proofs/rule.rs:51`, `156`), not `&'static [Rule]`.
+- `Interactive::goal` answers `Result<&[Member], StepError>` (`proofs/interactive/mod.rs:511`), not `Option<&[Member]>`; `rules` answers `Result<Vec<Applicable>, StepError>`.
+- `Interactive::close_all` answers `Vec<(GoalId, Result<Closed, Error>)>` with a new `Closed` struct (`proofs/interactive/mod.rs:318`), not `Result<Outcome, Error>`.
+- `Refutation`, `Disproof`, `Equation`, `StateEquation` and `Unbalanced` live in the private module `search::refutation`, re-exported from `search` (`search/mod.rs:38`); only `Refutation` and `Disproof` reach the crate root (`lib.rs:188`). The design's top-level `refutation` module does not exist.
+- `engine_for` is `search::engine_for` only; lib.rs's root re-export (`lib.rs:188-191`) has `prove`, `prove_goal` and `prove_within` but not `engine_for`.
+- `CheckError::describe`, `NetError::describe` and `ShapeError::describe` still exist as methods; they now return the one shared `Described<'a>` and take `&impl Owner`. The design's "one writer per type" is met by sharing the type, and the methods were not removed.
+- `export::Drawable` is a public `#[non_exhaustive]` enum (`export/mod.rs:134`), not a sealed trait; `write` takes `impl Into<Drawable>`.
+- `batch::run_local` does not exist (area 3.1: it waits for the web client). `plan(Cores)` is not built: `Cores` is a field of `batch::Options` and `plan` is crate-private with three arguments.
+- `ordinary::Formulas::add` was already checked (returned `Result<NodeId, Error>`) before step 28 began (commit wkookxyw, 2026-10-04); step 28 only added the occurrence bound. The design's "unchecked" is stale.
+- `linlog_cli`'s one public item is `main`, not `run` (`cli/src/lib.rs:285`). The sentence that it carries no semver promise is not in `cli/src/lib.rs` (its docs say it is a library "so that the binary is one call and this documentation exists"); a grep for "semver" in `cli/` and `.claude/rules/cli.md` found nothing.
+
+### The design and the first-order plan in a page
+
+The design (`plan/notes/api.md`) rests on a few rules, each of which the
+fixes implemented:
+
+- **One options value per concern, plain data with a wire form**
+  (`Settings`: `clock`, `limits`, `search`, `view`, `styles`, `batch`,
+  `ordinary`), which the command, the harness and the web client set
+  alike; the command's behaviour is `Settings::default()` and every flag
+  is the spelling of one key (`--settings FILE` reads the whole value).
+- **One bounds value and one stop** for every call that can run long:
+  `Limits` (memory, work, occurrences, derivation bytes, recursion
+  depth) and `FnMut(Progress) -> bool`, so that a browser tab can bound
+  and cancel each call. A refusal at a bound is never a verdict: the
+  checker's `CheckError::Refused` beside `Invalid`, a search's
+  `Verdict::Unknown` with its `Reason`.
+- **One error family** with a kind, a code, the setting that would lift
+  a bound, and a written form; `#[non_exhaustive]` on every open type,
+  and the closed ones (`Term`, `Kind`, `Node`, `Rule`, `Verdict`, …)
+  listed with the release that adds to them.
+- **The written order of a sequent is canonical** (C1): the roots stay
+  as typed, and `Sequent::antecedents` records the two-sided reading.
+- **An atom is an atomic formula**, nullary until quantifiers: the
+  `Atom` index is the place a predicate symbol with its arguments takes.
+- **Every wire form has a level** (`wire::LEVEL`, 1), the old field names
+  read by `wire::upgrade` only where a converter is needed; a client
+  treats `Engine` and `Reason` as open enumerations.
+- **Engines are rows of a table**: `search::DISPATCH` names each engine,
+  its fragments and modes, and every engine answers through `Decide`;
+  a new calculus or engine is a row, never a new path through the front
+  door.
+
+**The first-order plan** (`api.md` 3.14 and 10.10). The first step of
+adding quantifiers is the data model alone, with its refusal everywhere:
+`Term::{Forall, Exists}` and `Kind::{Forall, Exists}` appended after the
+compound variants (the literal variants stay first and contiguous, so
+the literal test stays one comparison), the first-order tables of the
+sequent (symbols with arities, a hash-consed term arena with de Bruijn
+indices, argument lists, binder names for printing), empty for
+propositional input, a quantifier bit, and in the same commit every
+engine's `admits` refusing the bit and the checker refusing a forest
+with binders until its frame pass exists. Ground first-order input is
+then accepted by every engine as propositional input with structured
+atoms. Later commits add, one layer each: a member past the forest as
+an occurrence with a frame of the terms its binders are bound to
+(`Instances`, hash-consed cons cells); a substitution beside the forest
+in the engines (`Bindings`, a `Trail` with a mark per choice point,
+fresh variables numbered per worker, the eigenvariable condition kept
+by levels); witnesses and eigenvariables in proofs and their JSON;
+`Limits::terms` for the unfolded size of terms. The spike measured what
+the propositional case pays (`api.md` 11.5): the design's data model
+(M1d) cost nothing measurable on the twenty journeys and kept the
+target set's counters exact; making the focused engine generic over a
+zone with a second, first-order instance (M3i) stayed within the gates
+once the shared helpers were inlined. The propositional engine is then
+the ground instance of one generic engine, provisional on a pinned-time
+run at step 37.
+
+### The efficiency journeys, stage 0 to the head
+
+Each journey's ceiling in `bench/ceilings.csv` at stage 0 (zrvpwtoq)
+and at the head. The head's ceilings were re-recorded under link-time
+optimisation (wunyrqsz, area 3.1, the author's T3) and lowered after
+area 3.3's fixes (ukvsppkr); the per-fix measurements, with pinned
+times, are in "Area 3.3: the journeys before and after" above. The
+raises, each a commit of its own with its reason: omsrptkl (the check
+journeys, the written root order), suorpuok and klsnlozv (read-json, the
+occurrence count and the atom names checked in NFC), roxtvnkn (read-tptp,
+the code layout), klmlrxkr (search-additive-14, the layout a dependency
+moves), ryolrmpw (render-svg and read-text, the checked style and the
+escapes), mvwmtwtm (the check journeys, the entries counted), twykwnwo
+(the printing journeys, the one printer), trxxrstp (read-lltp, the
+layout), ypzmzomx (read-tptp, the ordinary parser's bound).
+
+| journey | stage 0 | head | change |
+|---|--:|--:|--:|
+| `search-qbf-20-2` | 661 564 923 | 506 226 963 | −23.5 % |
+| `search-chain-128` | 1 216 594 953 | 972 954 280 | −20.0 % |
+| `search-partition-no-5` | 8 523 805 | 7 121 818 | −16.4 % |
+| `search-wide-m2-256` | 274 070 486 | 260 393 363 | −5.0 % |
+| `search-spec-chain` | 40 115 539 | 23 272 558 | −42.0 % |
+| `search-chain-64-intuitionistic` | 154 301 282 | 123 663 470 | −19.9 % |
+| `search-additive-14` | 608 840 614 | 584 985 652 | −3.9 % |
+| `read-text` | 18 548 925 | 12 269 416 | −33.9 % |
+| `read-json` | 12 515 726 | 12 475 495 | −0.3 % |
+| `read-lltp` | 32 990 483 | 27 079 341 | −17.9 % |
+| `read-tptp` | 30 658 823 | 32 958 815 | +7.5 % |
+| `read-spec` | 22 458 173 | 17 066 792 | −24.0 % |
+| `check-qbf-20-2` | 135 217 544 | 136 738 432 | +1.1 % |
+| `check-wide-m1-2048` | 8 772 182 | 8 794 809 | +0.3 % |
+| `derivation-chain-64` | 17 006 453 | 9 734 603 | −42.8 % |
+| `render-latex` | 6 585 706 | 5 736 242 | −12.9 % |
+| `render-typst` | 5 779 945 | 4 787 017 | −17.2 % |
+| `render-svg` | 86 837 537 | 84 853 287 | −2.3 % |
+| `batch-families` | 81 563 494 | 69 573 241 | −14.7 % |
+| `ordinary-pigeons` | 39 298 004 | 32 574 174 | −17.1 % |
+| all twenty | 3 462 244 597 | 2 933 259 768 | −15.3 % |
+
+### The check rounds
+
+- **Area 3.1** (session `step-28d`): three rounds of the audit's lenses
+  one effort lower and a fresh-context reviewer (Fable 5.1, soundness
+  first, by witness programs). Round 1 over 105 findings: 71 fixed, 28
+  partly, 6 not, and 24 new (two must-fix: a batch that panicked when a
+  worker could not start, a fault's formula written whole in an
+  abbreviated report). Round 2: 44 fixed, 14 partly, 8 new, all fixed.
+  Round 3: 12 fixed, 10 partly (recorded decisions and the command's
+  halves), 5 new with one must-fix (`ALL` as an array on open
+  enumerations), all fixed. The reviewer found one must-fix (minimal
+  logic by call-by-value refuting valid sequents that mention `false`)
+  and four should-fix, all fixed.
+- **The command's wrong answers** (session `step-28e`, before 3.2):
+  F165, H5, H11, H12, H13, H16, H26, H28, H30, H31, each with the test
+  that would have caught it, verified by the supervisor on a release
+  build.
+- **Area 3.2** (session `step-28e`): the panel of step 26's three lenses
+  over the seven changes of the search (95 634 runs over 23
+  configurations, no counterexample; the argument and the integers
+  lenses each refuted one claim, both fixed); three rounds (round 1: 37
+  fixed, 20 partly, 5 not, 18 new; round 2: 28, 10, 5, 11 new with one
+  must-fix, a doc; round 3: 8, 8, 2, 7 new, all fixed); the reviewer
+  (Fable 5.1, an independent unfocused prover over 150 000 runs) with no
+  finding.
+- **Area 3.3** (session `step-28f`): two rounds of eight lenses (round 1:
+  every perf finding fixed but F147 partly and the decisions F148 and
+  F153; round 2: nothing new), the reviewer (Opus 5.5, five should-fix,
+  all taken), the mutants and fuzzers of what changed.
+- **Area 3.4** (session `step-28g`): three rounds of nine lenses (round
+  2's API lens found a must-fix in round 1's own fix, undone; round 3's
+  input lens a batch's lines read without a cap, fixed), the reviewer
+  (Opus 5.5, one must-fix: `--batch-timeout` not stopping an `--isolate`
+  child; eight should-fix, all fixed), the ultra review's U1 fixed, the
+  last reader (Fable 5.1) of README and the rustdoc front page, and
+  stage 0's evidence taken again in full (every mutation batch, every
+  fuzz target, the ratchet, the families, the target set).
+
+### Decisions, and the departures from the design
+
+The decisions of each area are in its "decided unattended" section
+above; the author's answers to the design's questions are `api.md` 14.
+The departures from the signed-off design, in one list:
+
+- **Area 3.1, answered by the author on 2026-10-10.** Kept:
+  `Forest::from_owned` public; errors give no `source()`; an error from
+  `prove_within` carries no formula text; `ProofStructure::occurrence`
+  answers `Option<OccId>`; `ordinary::decide` answers a refused
+  read-back as that refusal; a keyword names no atom in the text
+  either; ordinary names refuse `true` and `false`; `unicode-ident` and
+  `unicode-normalization` in every build; `batch::Options::plan`
+  crate-private; `Progress::item` names a session's goal only. Sealed
+  as the design had them: `Owner` and `wire::Readable` (pysomtmo).
+  Waiting for the web client: the JSON forms of the ordinary sequent and
+  derivation, the linear derivation, `Step`, `Applicable`,
+  `batch::Answer` and `ordinary::Outcome`.
+- **Area 3.2.** `Decide::decide` takes `FnMut(u64) -> bool` and the
+  front door builds the `Progress` (the public calls take
+  `FnMut(Progress)` as designed); a search tells its stop `held_bytes`
+  0; there is no crate-private `Engine::modes()`, each `admits` keeping
+  its own mode test.
+- **Area 3.3.** `Limits::PER_LEVEL` raised to 3 KiB (release) and
+  13 KiB (debug), where the design gave 2 304 bytes a level; F148 (the
+  sparse memo key) not done; F153's rest not done; the target set run
+  at the head only, not after each commit that touches `search/`; the
+  mutation run from the main checkout.
+- **Area 3.4.** `--jobs` sets two keys (`search.jobs`, and
+  `clock.pool_after_ms = null` unless `--pool-after` is given); an error
+  record of the batch is `"verdict": "error"` (api.md 7.3 and 7.4 had a
+  record hold an outcome or an error); CI builds x86_64-linux alone,
+  the other systems evaluated, not built.
+
+### Open questions for the author
+
+The decisions the review sections hand to the author at the step's end:
+
+1. The departures of areas 3.2, 3.3 and 3.4 above (3.1's are answered).
+2. F148, the sparse memo key: up to about 1.7 times as fast per stable
+   sequent on the widest two-sided searches under the command's default,
+   for a rewrite of `memo.rs` and the shared memo, and no verdict the
+   target set shows (`plan/later.md` keeps the numbers).
+3. `Limits::work` does not count the focused engine's `&` rules, so
+   `ordinary_decide`'s 53 fuzz timeouts and 16 slow units stay; counting
+   them moves the default bias's slices and needs measurements.
+4. A text nested deeper than `--occurrence-limit` is refused as over
+   the bound (documented on `Limits::occurrences`).
+5. Found by area 3.4's review and not fixed: after the focused engine
+   finds a proof of `&` rules closed by `⊤`, about a second passes
+   without a poll (24 pairs end at 1.9 s under limits from 0.9 to 1.8 s;
+   26 pairs at 6.4 s under 4 s), bounded by the search's own work; and
+   that proof is not counted against `--memory-limit`, so 26 pairs
+   peaked at 4.6 GiB under the default 1 GiB, while README says a search
+   holds at most `--memory-limit` bytes. A proof of `2ⁿ` branches from
+   `n` pairs is what leaving "the proof returned" outside the account
+   did not foresee. Both are code changes for a session after this one.
+6. Left open by area 3.4, with reasons: F188 (a test of `compare.rs`'s
+   printed tables), F214's timeout arm (an `--isolate` child that
+   outlives its limit on purpose), F218's scaling tests per reader; and
+   the last reader's remaining obstacles, in `plan/later.md`, "a first
+   user's obstacles".
+7. Not done and recorded nowhere until this write-up: the design's
+   public walks (`api.md` 2.4 and 3.6, R245): `sequents::fmt::{Walk,
+   Visit}` stay crate-private and `Reading::walk` does not exist. A
+   code change, for a session after this one or for step 29, which
+   needs it first. Two smaller ones the checked table above found: the
+   doc comment of `Atom` (`core/src/sequents/term.rs:28`) still calls
+   it "a propositional variable", and `cli/src/lib.rs` lacks the
+   sentence that `linlog_cli` carries no semver promise (`api.md` 2.3,
+   R253); and `.claude/rules/cli.md:260` still names `alone_first`,
+   which `search::race` replaced.
+8. The third ultra review (`review/3.4a`, `review/3.4b`): its findings,
+   if any, are fixed in a short session after this one, with the gate
+   and `nix flake check`.
+
+### What steps 29 to 31 must know
+
+- **Step 29 (the comparison).** A driver reads the outcome's JSON
+  (`version`, `verdict`, `engine`, `statistics`, `linlog`): the verdict
+  is a name from `Verdict::NAMES`, and a client treats `engine` and
+  `reason` as open sets. The one-thread column is `--deterministic`
+  (`search.jobs` 1, `Schedule::Turns`, no pool), the default column the
+  library's `search::race`, which the command and the harness share and
+  which draws both searches from one memory account, so a BenchExec
+  memory limit equal to `--memory-limit` holds (below three threads
+  there is no single thread: `--jobs 2` is a pool of two). "Outside the
+  fragment" is `ErrorKind::Unsupported` or an `EngineRefused` error,
+  never unknown. A translator reads LLTP's axioms and conjecture from
+  `Sequent::antecedents`, and the roots keep their written order; the
+  public walk the design gives translators (`sequents::fmt::Walk` and
+  `Visit`, `Reading::walk`, R245) was not made public: `Walk` and
+  `Visit` are still `pub(crate)` (`core/src/sequents/fmt.rs:19`,
+  `:53`), so step 29 makes them public first or walks `Sequent::terms`
+  itself. A
+  `proved` outcome is checked ground truth (`checked`); an `unprovable`
+  one carries a `Disproof` that nothing checks until step 31, so a
+  contradiction against it is listed as unchecked. The counters mean
+  different things per engine (`Engine::counters` lists them; the Horn
+  engine's `nodes` are markings reached). The harness's columns are
+  read by name; `summary --against … --counters` and `--strict` are the
+  checks of a run; the oracles are `bench/targets/after-efficiency.csv`
+  and `net-after-efficiency.csv`.
+- **Step 30 (the release).** The workspace inherits one version and
+  edition from the root manifest, and the flake's crane build reads it
+  there (omxtnrly): 0.1.0 is one line. The wire forms are promised by
+  level (`wire::LEVEL` 1), independently of the crate's version; the
+  closed enums gain variants at 0.2.0 (cut) and 0.3.0 (quantifiers),
+  which the changelog's policy line names. `linlog_cli` is an internal
+  library (`main` alone public); `cargo-semver-checks` would cover
+  `linlog` only. The `wasm` flake check builds the library for wasm32
+  with every feature but `parallel`; `doc-private` builds the private
+  docs with warnings denied. The baseline's `baseline.sh` takes the
+  second baseline's reference and reruns as parameters
+  (`--reference=`, `--reruns=`). The pool's speed on two and four
+  threads after H18 and F92 was measured by area 3.3 on the target set
+  at `-j 2` and `-j 4` against kktkswpq (no verdict differed, the
+  summed times within 1 %), not by a baseline: the third baseline's
+  parallel pass is the first at scale. `check` now has a time limit (2 s by default)
+  and answers unknown, exit 3, at a limit.
+- **Step 31 (the Rocq library).** Its prompt names `core/src/proofs/check.rs`
+  and `Problem::Surplus` and `Problem::Memory`; at the head the checker
+  is `core/src/proofs/check/` (`mod.rs` the entry, `pass.rs` the rule
+  table, `zones.rs` the zones, `error.rs` the errors), the faults are
+  `Fault` (`Fault::Surplus`, `check/error.rs`) and a refusal is
+  `CheckError::Refused`, no `Fault` at all: the memory refusal is no
+  part of the algorithm, as the prompt says. The closer text to
+  translate is still `core/src/proofs/oracle.rs`. `Node::NAMES` and
+  `Node::TAGS` are pinned to the variants (`name_lists_follow_the_variants`)
+  for the test against the Rocq constructors. A `Proof` carries its
+  goal and mode (`Proof::goal`, `Proof::mode`), so a certificate names
+  what it proves. `rocq::Options` has `lemma` checked as an identifier
+  and `prelude: Option<String>`, and `Kernel` and `Unsupported` are
+  non-exhaustive for the second kernel. `Refutation` (`Unbalanced`,
+  `Equation`, `StateEquation`) is non-exhaustive and its payloads are
+  structs, so `Classical` is an addition; `Disproof` exists and has no
+  `check` yet. C2's answer puts the classical refuter in the library,
+  after the search, with `refute_unknown` off by default; none of it
+  exists yet (`api.md` 8.7 and 10.3). No nullary Mix (C3). `Node` and
+  `Rule` are closed on purpose: cut is a new release of the calculus
+  (0.2.0).
+
+### The register after step 28
+
+Each of the register's 254 entries (`plan/notes/requirements.md`) now
+has a line "State after step 28:" beside stage 0's "State now": met,
+with the file and line or the test that satisfies its "Met when"; or
+partly or not met, with what is missing, its reason and the step or the
+`plan/later.md` entry that takes it. One read-only agent per kind
+(Sonnet 5.5 at `high`) wrote them from the code at the head; this
+session spot-checked a sample of the "met" claims (the tests and lines
+cited for R9, R23, R40, R44, R133, R164, R171, R183, R213, every one
+there) and moved R194 from met to partly (its check reads the third
+baseline, which step 30 makes).
+
+| Kind | Requirements | Now: met | Now: partly | Now: not met | Now: unknown | After 28: met | After 28: partly | After 28: not met |
+|---|---|---|---|---|---|---|---|---|
+| Wire forms | 18 | 0 | 5 | 13 | 0 | 1 | 10 | 7 |
+| Bounds and stops | 25 | 1 | 9 | 15 | 0 | 4 | 13 | 8 |
+| Wasm portability | 9 | 3 | 4 | 2 | 0 | 2 | 6 | 1 |
+| Data model | 41 | 1 | 13 | 27 | 0 | 3 | 19 | 19 |
+| Engine interface | 32 | 2 | 7 | 23 | 0 | 4 | 9 | 19 |
+| Proof term and checker | 14 | 0 | 3 | 11 | 0 | 0 | 5 | 9 |
+| Errors | 10 | 0 | 5 | 4 | 1 | 1 | 7 | 2 |
+| Options | 13 | 1 | 5 | 7 | 0 | 1 | 9 | 3 |
+| Export | 21 | 4 | 3 | 14 | 0 | 4 | 4 | 13 |
+| CLI | 12 | 2 | 2 | 8 | 0 | 2 | 2 | 8 |
+| Harness | 34 | 6 | 12 | 15 | 1 | 5 | 14 | 15 |
+| Docs | 16 | 0 | 4 | 12 | 0 | 2 | 6 | 8 |
+| Other | 9 | 0 | 2 | 6 | 1 | 2 | 3 | 4 |
+| Total | 254 | 20 | 74 | 157 | 3 | 31 | 107 | 116 |
+
+Most entries not met are a later step's own work (a calculus, an engine,
+the web client's bindings, the Rocq library, the release's files) for
+which step 28 left the place its line cites; "partly" is most often the
+room built and a test or a document still missing. Three are step 28's
+own and not done: R245 (the public walks, open question 7), R87 (the
+dispatch table's measurements tied to `search::DISPATCH` by a note or a
+test, which `api.md` 8.4 promised), and R138's tests (a check refused
+at the memory bound through `prove`, and the default bias's merged
+reason), which go to the supervisor with this session's last message.
 
 ## From the supervisor
 
