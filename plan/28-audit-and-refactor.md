@@ -690,6 +690,38 @@ recommendation:
   `-closemut` (uncommitted edits on disk: a sweep test), each to be
   forgotten with `jj workspace forget` before its directory goes.
 
+## From the review of `step-28j` (2026-10-15)
+
+- **Verified** by the supervisor:
+  - `nix flake check --keep-going` passed at uozqtmoq, the session's
+    head with its report;
+  - the target sets: `after-sparse-key` and `after-repeats` against
+    `after-efficiency` differ in no verdict and only in the chain
+    family's four rows that the count of one sign moved (`after-rows`
+    has them too); `net-after-sparse-key` equals `net-after-efficiency`
+    on all 64;
+  - on a release build of its own at uozqtmoq against `step-28i`'s head
+    (louzqsun), core 12 and 13 beside the flake check:
+    `SYJ207+1.018` (ILLTP-SYJ-01) and `SYJ212+1.010` (ILLTP-SYJ-cbv) at
+    copy bound 3 on one thread have equal counters (206 994 and 15 572
+    stable sequents, 79 821 and 5 133 memo entries, 148 392 and 10 512
+    splits) in 92 ms against 184 ms and 16 ms against 43 ms; without a
+    copy bound for 10 s they visit 21.5 million stable sequents against
+    14.5 million (×1.49) and 15.9 million against 6.7 million (×2.37),
+    the second reaching copy bound 7 where the old reached 6; on a pool
+    of four both end at copy bound 3 as on one thread.
+- **Decided by the supervisor** during the session: the run-length key
+  and `search-partition-no-5`'s ceiling raised 5.5 % (krwkottn), for
+  19 % and 36 % fewer instructions per stable sequent on the wide rows;
+  the checker's one-succedent mutant (`pass.rs:577`) killed now
+  (zlmotlyp), with the other new survivors of the check batch shown
+  equivalent.
+- **Leftover workspaces** for the author, each to be forgotten with `jj
+  workspace forget` before its directory goes: `../linlog-step28j-old`,
+  `-gate-a`, `-gate-b`, `-mutants`, `-r1` (a scratch change, not
+  committed), `-panel-argument`, `-panel-argument-old`,
+  `-panel-integers`, `-panel-counterexamples` and `-review`.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a
