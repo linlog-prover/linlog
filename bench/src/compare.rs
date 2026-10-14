@@ -52,6 +52,7 @@ pub fn before(dir: &Path, files: &[PathBuf]) -> Result<()> {
         ("before", "after"),
         &beside,
         false,
+        false,
     );
     Ok(())
 }
@@ -74,6 +75,7 @@ pub fn against(reference: &Path, files: &[PathBuf], counters: bool) -> Result<()
             (&stem(file), &name),
             &[],
             counters,
+            true,
         );
     }
     Ok(())
@@ -193,6 +195,7 @@ fn ratio(value: f64) -> String {
 /// Prints the comparison of the outcomes `first` and `second`, named
 /// `names`: the verdicts that differ, the problems decided by the first
 /// and not by the second (with the outcomes `beside` of the same problem),
+/// and with `both_ways` those decided by the second and not the first,
 /// one row per group, and every problem that is not from LLTP side by
 /// side; how many decided runs on one thread differ in their counters,
 /// and with `counters` which (a set of rows that must not change the
@@ -203,6 +206,7 @@ fn compare(
     names: (&str, &str),
     beside: &[(String, Outcomes)],
     counters: bool,
+    both_ways: bool,
 ) {
     let (one, two) = names;
     let both: Vec<(&(String, String), &Runs, &Runs)> = first
@@ -267,42 +271,54 @@ fn compare(
         println!();
     }
 
-    println!("### Decided by {one}, not by {two}\n");
-    let lost: Vec<_> = both
-        .iter()
-        .filter(|(_, a, b)| a.decided() && !b.decided())
-        .collect();
-    if lost.is_empty() {
-        println!("None.\n");
-    } else {
-        let extra: Vec<&str> = beside.iter().map(|(n, _)| n.as_str()).collect();
-        let columns = if extra.is_empty() {
-            String::new()
+    // `--against` names the problems its reference decides and the
+    // other file does not, the losses, as well as the gains.
+    let directions: &[bool] = if both_ways { &[false, true] } else { &[false] };
+    for &reverse in directions {
+        let (decider, other) = if reverse { (two, one) } else { (one, two) };
+        println!("### Decided by {decider}, not by {other}\n");
+        let lost: Vec<_> = both
+            .iter()
+            .filter(|(_, a, b)| {
+                if reverse {
+                    b.decided() && !a.decided()
+                } else {
+                    a.decided() && !b.decided()
+                }
+            })
+            .collect();
+        if lost.is_empty() {
+            println!("None.\n");
         } else {
-            format!(" {} |", extra.join(" | "))
-        };
-        println!(
-            "| file | family | configuration | problem | {one} | {two} |{columns}\n|---|---|---|---|--:|--:|{}",
-            "--:|".repeat(extra.len())
-        );
-        for ((group, problem), a, b) in lost {
-            // The same problem in the files without a counterpart, which
-            // group it without a file.
-            let unfiled = group.split_once(" | ").map_or("", |(_, rest)| rest);
-            let cells: String = beside
-                .iter()
-                .map(|(_, o)| {
-                    let key = (format!(" | {unfiled}"), problem.clone());
-                    format!(" {} |", o.get(&key).map_or(String::new(), Runs::cell))
-                })
-                .collect();
+            let extra: Vec<&str> = beside.iter().map(|(n, _)| n.as_str()).collect();
+            let columns = if extra.is_empty() {
+                String::new()
+            } else {
+                format!(" {} |", extra.join(" | "))
+            };
             println!(
-                "| {group} | {problem} | {} | {} |{cells}",
-                a.cell(),
-                b.cell()
+                "| file | family | configuration | problem | {one} | {two} |{columns}\n|---|---|---|---|--:|--:|{}",
+                "--:|".repeat(extra.len())
             );
+            for ((group, problem), a, b) in lost {
+                // The same problem in the files without a counterpart, which
+                // group it without a file.
+                let unfiled = group.split_once(" | ").map_or("", |(_, rest)| rest);
+                let cells: String = beside
+                    .iter()
+                    .map(|(_, o)| {
+                        let key = (format!(" | {unfiled}"), problem.clone());
+                        format!(" {} |", o.get(&key).map_or(String::new(), Runs::cell))
+                    })
+                    .collect();
+                println!(
+                    "| {group} | {problem} | {} | {} |{cells}",
+                    a.cell(),
+                    b.cell()
+                );
+            }
+            println!();
         }
-        println!();
     }
 
     println!("### By group\n");

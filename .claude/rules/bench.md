@@ -86,7 +86,9 @@ serde_json, which the CLI and the core's tests already have.
   counters (with `--counters` each of them: `summary --against
   bench/targets/ORACLE.csv bench/targets/LABEL.csv --counters` is the
   target set's check in one command), what the first decides and the
-  second does not (with the outcomes of the files that have no
+  second does not (and under `--against` the reverse too, so that a
+  problem the reference decides and a change lost is named, not only
+  counted) (with the outcomes of the files that have no
   counterpart beside it), a row per group (file, family, configuration)
   and the generated problems side by side. A verdict after the time
   limit counts as decided and late. `bench/COMPARISON.md` is its output

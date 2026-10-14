@@ -1019,6 +1019,1093 @@ Of the 967 problems both decide alike on one thread, 452 differ in nodes, splits
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_40x40_100_5_1.p | 4.50 s ✓ | > 5 s |
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-100_5_1.p | 2.71 s ✓ | > 5 s |
 
+#### Decided by lltp-intuitionistic, not by lltp-rarer
+
+| file | family | configuration | problem | lltp-rarer | lltp-intuitionistic |
+|---|---|---|---|--:|--:|
+|  | ILL/ILLTP-LCL-cbn | intuitionistic auto j1 | LCL181+1.p | 23 µs ? bound | 62 µs ✗ |
+|  | ILL/ILLTP-SYJ-cbn | intuitionistic auto j1 | SYJ212+1.002.p | 28 µs ? bound | 65 µs ✗ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0010_1_1.p | > 5 s | 143 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0020_1_1.p | > 5 s | 215 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0050_1_1.p | > 5 s | 399 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0100_1_1.p | > 5 s | 946 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0200_1_1.p | > 5 s | 3.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-0500_1_1.p | > 5 s | 14.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-1000_1_1.p | > 5 s | 48.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AirplaneLD-pt-2000_1_1.p | > 5 s | 179.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-01_100_1.p | 1.42 s ? bound | 549 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-01_10_1.p | 1.42 s ? bound | 542 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-01_20_1.p | 1.42 s ? bound | 534 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-01_50_1.p | 1.41 s ? bound | 543 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-05_10_1.p | > 5 s | 212.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-05_5_1.p | > 5 s | 913 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-10_10_1.p | > 5 s | 373.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-10_5_1.p | > 5 s | 3.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-15_10_1.p | > 5 s | 509.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-15_5_1.p | > 5 s | 4.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-20_10_1.p | > 5 s | 658.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-20_5_1.p | > 5 s | 5.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-25_10_1.p | > 5 s | 702.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-25_5_1.p | > 5 s | 5.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-50_10_1.p | > 5 s | 1.36 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Angiogenesis_angiogenesis-50_5_1.p | > 5 s | 14.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_a_100_1.p | 12.7 ms ? bound | 134 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_a_10_1.p | 25.7 ms ? bound | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_a_20_1.p | 12.7 ms ? bound | 162 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_a_50_1.p | 25.5 ms ? bound | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_a_5_1.p | 22.0 ms ? bound | 185 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_b_10_1.p | 916 µs ? bound | 106.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_01_b_5_1.p | 928 µs ? bound | 733 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_a_100_1.p | > 5 s | 111.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_a_20_1.p | > 5 s | 7.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_a_50_1.p | > 5 s | 63.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_a_5_1.p | > 5 s | 281.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_b_10_1.p | 2.5 ms ? bound | 314.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_02_b_5_1.p | 2.4 ms ? bound | 4.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_03_a_100_1.p | > 5 s | 4.73 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_03_a_20_1.p | > 5 s | 4.72 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_03_a_50_1.p | > 5 s | 140.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_03_b_10_1.p | 6.2 ms ? bound | 847.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_03_b_5_1.p | 5.4 ms ? bound | 9.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_04_a_1_1.p | > 5 s | 141 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_04_b_10_1.p | 10.7 ms ? bound | 1.50 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_04_b_5_1.p | 10.1 ms ? bound | 17.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_05_a_1_1.p | > 5 s | 154 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_05_b_10_1.p | 16.8 ms ? bound | 2.45 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_05_b_5_1.p | 16.4 ms ? bound | 29.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_06_a_1_1.p | > 5 s | 166 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_06_b_10_1.p | 24.2 ms ? bound | 3.45 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_06_b_5_1.p | 23.6 ms ? bound | 39.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_12_a_1_1.p | > 5 s | 212 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_12_b_5_1.p | 105.3 ms ? bound | 180.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_24_a_1_1.p | > 5 s | 311 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_24_b_5_1.p | 686.3 ms ? bound | 1.12 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_48_a_1_1.p | > 5 s | 508 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_48_b_5_1.p | 2.55 s ? bound | 4.29 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | AutoFlight_afcs_96_a_1_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-002-unf_1_1.p | > 5 s | 2.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-002-unf_20_1.p | > 5 s | 171.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-002-unf_5_1.p | > 5 s | 331.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-005-unf_1_1.p | > 5 s | 6.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-010-unf_1_1.p | > 5 s | 13.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-020-unf_1_1.p | > 5 s | 29.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BART-030-unf_1_1.p | > 5 s | 44.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V04-P05-N02-unfolded_10_1.p | > 5 s | 8.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V04-P05-N02-unfolded_1_1.p | > 5 s | 104 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V04-P05-N02-unfolded_20_1.p | > 5 s | 234.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V04-P05-N02-unfolded_5_1.p | > 5 s | 358 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V10-P10-N10-unfolded_10_1.p | > 5 s | 88.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V10-P10-N10-unfolded_1_1.p | > 5 s | 267 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V10-P10-N10-unfolded_5_1.p | > 5 s | 3.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N10-unfolded_10_1.p | > 5 s | 193.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N10-unfolded_1_1.p | > 5 s | 491 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N10-unfolded_5_1.p | > 5 s | 6.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N20-unfolded_10_1.p | > 5 s | 432.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N20-unfolded_1_1.p | > 5 s | 876 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N20-unfolded_5_1.p | > 5 s | 15.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N50-unfolded_10_1.p | > 5 s | 1.30 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N50-unfolded_1_1.p | > 5 s | 2.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P10-N50-unfolded_5_1.p | > 5 s | 44.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N10-unfolded_10_1.p | > 5 s | 211.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N10-unfolded_1_1.p | > 5 s | 514 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N10-unfolded_5_1.p | > 5 s | 7.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N20-unfolded_10_1.p | > 5 s | 484.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N20-unfolded_1_1.p | > 5 s | 827 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N20-unfolded_5_1.p | > 5 s | 16.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N50-unfolded_10_1.p | > 5 s | 1.42 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N50-unfolded_1_1.p | > 5 s | 2.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V20-P20-N50-unfolded_5_1.p | > 5 s | 48.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N10-unfolded_10_1.p | > 5 s | 1.07 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N10-unfolded_1_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N10-unfolded_5_1.p | > 5 s | 36.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N20-unfolded_10_1.p | > 5 s | 2.14 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N20-unfolded_1_1.p | > 5 s | 2.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N20-unfolded_5_1.p | > 5 s | 74.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N50-unfolded_1_1.p | > 5 s | 9.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P20-N50-unfolded_5_1.p | > 5 s | 188.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N10-unfolded_10_1.p | > 5 s | 1.30 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N10-unfolded_1_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N10-unfolded_5_1.p | > 5 s | 44.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N20-unfolded_10_1.p | > 5 s | 2.62 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N20-unfolded_1_1.p | > 5 s | 2.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N20-unfolded_5_1.p | > 5 s | 90.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N50-unfolded_1_1.p | > 5 s | 10.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V50-P50-N50-unfolded_5_1.p | > 5 s | 219.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N10-unfolded_10_1.p | > 5 s | 2.40 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N10-unfolded_1_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N10-unfolded_5_1.p | > 5 s | 64.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N20-unfolded_1_1.p | > 5 s | 4.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N20-unfolded_5_1.p | > 5 s | 177.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N50-unfolded_1_1.p | > 5 s | 20.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P20-N50-unfolded_5_1.p | > 5 s | 436.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N10-unfolded_10_1.p | > 5 s | 2.66 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N10-unfolded_1_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N10-unfolded_5_1.p | > 5 s | 92.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N20-unfolded_1_1.p | > 5 s | 7.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N20-unfolded_5_1.p | > 5 s | 202.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N50-unfolded_1_1.p | > 5 s | 19.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | BridgeAndVehicles-V80-P50-N50-unfolded_5_1.p | > 5 s | 466.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-3-unfolded_20_1.p | > 5 s | 13.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-3-unfolded_50_1.p | > 5 s | 89.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-3-unfolded_5_1.p | > 5 s | 17.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-4-unfolded_20_1.p | > 5 s | 185.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-4-unfolded_50_1.p | > 5 s | 2.07 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-4-unfolded_5_1.p | > 5 s | 184.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-5-unfolded_20_1.p | > 5 s | 1.23 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-5-unfolded_5_1.p | > 5 s | 1.52 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000010_10_1.p | > 5 s | 343.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000010_1_1.p | > 5 s | 83 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000010_20_1.p | > 5 s | 326.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000010_5_1.p | > 5 s | 367 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000100_10_1.p | > 5 s | 928.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000100_1_1.p | > 5 s | 245 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-000100_5_1.p | > 5 s | 4.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-001000_1_1.p | > 5 s | 2.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircadianClock_circadian_clock-001000_5_1.p | > 5 s | 76.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-012_100_1.p | > 5 s | 9.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-012_10_1.p | > 5 s | 951 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-012_20_1.p | > 5 s | 533 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-012_50_1.p | > 5 s | 5.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-012_5_1.p | 113.8 ms ? bound | 219 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-024_10_1.p | > 5 s | 170.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-024_20_1.p | > 5 s | 2.38 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-024_5_1.p | > 5 s | 3.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-048_100_1.p | > 5 s | 28.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-048_1_1.p | > 5 s | 129 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-048_50_1.p | > 5 s | 209 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-048_5_1.p | > 5 s | 50.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-096_100_1.p | > 5 s | 239.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-096_1_1.p | > 5 s | 213 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-096_5_1.p | > 5 s | 906.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-192_1_1.p | > 5 s | 251 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-384_1_1.p | > 5 s | 590 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CircularTrains_CircularTrain-768_1_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0001-0_10_1.p | > 5 s | 630 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0001-0_20_1.p | > 5 s | 15.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0001-0_5_1.p | 721.1 ms ? bound | 146 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-0_10_1.p | > 5 s | 918 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-0_20_1.p | > 5 s | 59.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-0_5_1.p | > 5 s | 202 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-1_10_1.p | > 5 s | 947 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-1_20_1.p | > 5 s | 64.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0002-1_5_1.p | > 5 s | 205 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-0_10_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-0_20_1.p | > 5 s | 228.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-0_5_1.p | > 5 s | 251 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-1_10_1.p | > 5 s | 6.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-1_20_1.p | > 5 s | 229.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0005-1_5_1.p | > 5 s | 283 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-0_10_1.p | > 5 s | 6.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-0_20_1.p | > 5 s | 275.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-0_5_1.p | > 5 s | 359 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-1_10_1.p | > 5 s | 6.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-1_20_1.p | > 5 s | 289.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-1_5_1.p | > 5 s | 374 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-2_10_1.p | > 5 s | 6.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-2_20_1.p | > 5 s | 287.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0010-2_5_1.p | > 5 s | 377 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-0_10_1.p | > 5 s | 15.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-0_20_1.p | > 5 s | 460.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-0_5_1.p | > 5 s | 617 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-1_10_1.p | > 5 s | 15.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-1_20_1.p | > 5 s | 467.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-1_5_1.p | > 5 s | 643 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-2_10_1.p | > 5 s | 16.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-2_20_1.p | > 5 s | 413.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-2_5_1.p | > 5 s | 637 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-3_10_1.p | > 5 s | 13.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-3_20_1.p | > 5 s | 412.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-3_5_1.p | > 5 s | 684 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-4_10_1.p | > 5 s | 14.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-4_20_1.p | > 5 s | 424.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0020-4_5_1.p | > 5 s | 687 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0050-0_10_1.p | > 5 s | 35.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0050-0_20_1.p | > 5 s | 900.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0050-0_5_1.p | > 5 s | 1.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0100-0_10_1.p | > 5 s | 67.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0100-0_20_1.p | > 5 s | 1.75 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0100-0_5_1.p | > 5 s | 7.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0200-0_10_1.p | > 5 s | 168.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0200-0_20_1.p | > 5 s | 3.91 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0200-0_5_1.p | > 5 s | 18.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0500-0_10_1.p | > 5 s | 502.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0500-0_1_1.p | > 5 s | 7.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-0500-0_5_1.p | > 5 s | 69.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-1000-0_10_1.p | > 5 s | 1.69 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-1000-0_1_1.p | > 5 s | 24.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ClientsAndServers-1000-0_5_1.p | > 5 s | 202.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_100_1.p | > 5 s | 166 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_10_1.p | > 5 s | 171 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_1_1.p | > 5 s | 155 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_20_1.p | > 5 s | 161 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_50_1.p | > 5 s | 144 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_a_5_1.p | > 5 s | 145 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_2_b_5_1.p | 483.3 ms ? bound | 279.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_3_a_10_1.p | > 5 s | 329 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_3_a_1_1.p | > 5 s | 251 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_3_a_20_1.p | > 5 s | 303 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_3_a_5_1.p | > 5 s | 313 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_3_b_5_1.p | > 5 s | 868.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_4_a_10_1.p | > 5 s | 366 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_4_a_1_1.p | > 5 s | 345 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_4_a_5_1.p | > 5 s | 342 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_4_b_5_1.p | > 5 s | 2.85 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_5_a_10_1.p | > 5 s | 605 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_5_a_1_1.p | > 5 s | 465 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_5_a_5_1.p | > 5 s | 604 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_6_a_1_1.p | > 5 s | 647 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_6_a_5_1.p | > 5 s | 665 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_7_a_1_1.p | > 5 s | 730 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_7_a_5_1.p | > 5 s | 727 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudDeployment_deploy_7_b_1_1.p | > 5 s | 55.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_01_5_1.p | 3.14 s ? bound | 878.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_02_5_1.p | 3.18 s ? bound | 848.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_03_5_1.p | 3.16 s ? bound | 852.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_04_5_1.p | 3.17 s ? bound | 841.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_05_5_1.p | 3.17 s ? bound | 857.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_06_5_1.p | 3.16 s ? bound | 843.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_07_5_1.p | 3.15 s ? bound | 841.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_08_5_1.p | 3.19 s ? bound | 845.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_09_5_1.p | 3.16 s ? bound | 843.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_10_5_1.p | 3.17 s ? bound | 847.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_11_5_1.p | 3.15 s ? bound | 843.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_12_5_1.p | 3.16 s ? bound | 861.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_13_5_1.p | 3.16 s ? bound | 866.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_14_5_1.p | 3.17 s ? bound | 846.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_15_5_1.p | 3.15 s ? bound | 853.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_16_5_1.p | 3.15 s ? bound | 854.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_17_5_1.p | 3.20 s ? bound | 870.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_18_5_1.p | 3.20 s ? bound | 859.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_19_5_1.p | 3.21 s ? bound | 845.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_3_20_5_1.p | 3.21 s ? bound | 852.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_4_01_5_1.p | > 5 s | 2.09 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CloudReconfiguration_reconf_4_02_5_1.p | > 5 s | 2.12 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_00_a_10_1.p | > 5 s | 38.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_00_a_1_1.p | > 5 s | 120 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_00_a_20_1.p | > 5 s | 3.81 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_00_a_5_1.p | > 5 s | 357 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_00_b_5_1.p | 9.4 ms ? bound | 14.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_01_a_10_1.p | > 5 s | 34.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_01_a_1_1.p | > 5 s | 139 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_01_a_20_1.p | > 5 s | 1.89 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_01_a_5_1.p | > 5 s | 366 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_01_b_5_1.p | 9.2 ms ? bound | 13.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_02_a_10_1.p | > 5 s | 44.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_02_a_1_1.p | > 5 s | 142 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_02_a_20_1.p | > 5 s | 3.69 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_02_a_5_1.p | > 5 s | 386 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_02_b_5_1.p | 11.9 ms ? bound | 14.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_05_a_10_1.p | > 5 s | 52.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_05_a_1_1.p | > 5 s | 134 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_05_a_5_1.p | > 5 s | 449 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_05_b_5_1.p | 13.2 ms ? bound | 14.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_10_a_10_1.p | > 5 s | 56.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_10_a_1_1.p | > 5 s | 148 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_10_a_5_1.p | > 5 s | 538 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_10_b_5_1.p | 15.5 ms ? bound | 15.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_20_a_10_1.p | > 5 s | 65.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_20_a_1_1.p | > 5 s | 177 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_20_a_5_1.p | > 5 s | 646 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_20_b_5_1.p | 17.5 ms ? bound | 16.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_30_a_10_1.p | > 5 s | 93.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_30_a_1_1.p | > 5 s | 184 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_30_a_5_1.p | > 5 s | 833 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_30_b_5_1.p | 22.7 ms ? bound | 18.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_40_a_10_1.p | > 5 s | 112.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_40_a_1_1.p | > 5 s | 234 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_40_a_5_1.p | > 5 s | 937 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_40_b_5_1.p | 24.5 ms ? bound | 19.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_50_a_10_1.p | > 5 s | 131.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_50_a_1_1.p | > 5 s | 213 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_50_a_5_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_50_b_5_1.p | 27.1 ms ? bound | 20.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_60_a_10_1.p | > 5 s | 115.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_60_a_1_1.p | > 5 s | 253 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_60_a_5_1.p | > 5 s | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DES_des_60_b_5_1.p | 31.4 ms ? bound | 21.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_03_a_1_1.p | > 5 s | 302 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_03_a_5_1.p | > 5 s | 382 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_03_b_5_1.p | > 5 s | 3.70 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_04_a_1_1.p | > 5 s | 429 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_04_a_5_1.p | > 5 s | 534 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_05_a_1_1.p | > 5 s | 413 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_05_a_5_1.p | > 5 s | 398 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_06_a_1_1.p | > 5 s | 585 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_06_a_5_1.p | > 5 s | 593 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_07_a_1_1.p | > 5 s | 713 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_07_a_5_1.p | > 5 s | 11.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_08_a_1_1.p | > 5 s | 790 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_09_a_1_1.p | > 5 s | 954 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_09_a_5_1.p | > 5 s | 25.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_10_a_1_1.p | > 5 s | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_10_a_5_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_11_a_1_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_12_a_1_1.p | > 5 s | 1.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_12_a_5_1.p | > 5 s | 3.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCround_dlcro_13_a_1_1.p | > 5 s | 1.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_2_a_5_1.p | > 5 s | 582 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_3_a_1_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_3_a_5_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_4_a_1_1.p | > 5 s | 3.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_4_a_5_1.p | > 5 s | 1.89 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_5_a_1_1.p | > 5 s | 7.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DLCshifumi_dlcsh_6_a_1_1.p | > 5 s | 28.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_100_1.p | > 5 s | 119.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_10_1.p | > 5 s | 116.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_1_1.p | > 5 s | 111 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_20_1.p | > 5 s | 116.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_50_1.p | > 5 s | 115.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-01_5_1.p | > 5 s | 8.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_100_1.p | > 5 s | 205.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_10_1.p | > 5 s | 203.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_1_1.p | > 5 s | 115 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_20_1.p | > 5 s | 203.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_50_1.p | > 5 s | 204.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-02_5_1.p | > 5 s | 4.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_100_1.p | > 5 s | 182.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_10_1.p | > 5 s | 185.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_1_1.p | > 5 s | 114 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_20_1.p | > 5 s | 181.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_50_1.p | > 5 s | 179.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-03_5_1.p | > 5 s | 8.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-04_1_1.p | > 5 s | 180 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-04_5_1.p | > 5 s | 153.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-05_1_1.p | > 5 s | 184 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-05_5_1.p | > 5 s | 163.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-06_1_1.p | > 5 s | 191 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-06_5_1.p | > 5 s | 156.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-07_1_1.p | > 5 s | 178 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-07_5_1.p | > 5 s | 151.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-08_1_1.p | > 5 s | 175 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-08_5_1.p | > 5 s | 273 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-09_1_1.p | > 5 s | 177 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-09_5_1.p | > 5 s | 5.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-10_1_1.p | > 5 s | 168 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-10_5_1.p | > 5 s | 5.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-11_1_1.p | > 5 s | 183 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-11_5_1.p | > 5 s | 5.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-12_1_1.p | > 5 s | 216 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-12_5_1.p | > 5 s | 668.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-13_1_1.p | > 5 s | 231 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-13_5_1.p | > 5 s | 662.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-14_1_1.p | > 5 s | 220 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-14_5_1.p | > 5 s | 659.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-15_1_1.p | > 5 s | 221 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-15_5_1.p | > 5 s | 666.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-16_1_1.p | > 5 s | 292 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-16_5_1.p | > 5 s | 776.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-17_1_1.p | > 5 s | 317 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-17_5_1.p | > 5 s | 770.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DNAwalker_dnawalk-18_1_1.p | > 5 s | 3.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database2UNFOLD_100_1.p | 2.2 ms ? bound | 161 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database2UNFOLD_20_1.p | 2.1 ms ? bound | 148 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database2UNFOLD_5_1.p | 1.4 ms ? bound | 220 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database4UNFOLD_100_1.p | > 5 s | 6.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database4UNFOLD_10_1.p | > 5 s | 3.00 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database4UNFOLD_20_1.p | > 5 s | 7.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DatabaseWithMutex_database4UNFOLD_5_1.p | > 5 s | 37.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-100_1_1.p | > 5 s | 21.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-10_100_1.p | > 5 s | 223 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-10_10_1.p | > 5 s | 203 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-10_20_1.p | > 5 s | 181 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-10_50_1.p | > 5 s | 185 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-10_5_1.p | > 5 s | 432 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-15_10_1.p | > 5 s | 20.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-15_1_1.p | > 5 s | 261 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-15_5_1.p | > 5 s | 4.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-200_1_1.p | > 5 s | 141.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-20_1_1.p | > 5 s | 494 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-20_5_1.p | > 5 s | 616.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-50_100_1.p | > 5 s | 40.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Dekker_dekker-50_1_1.p | > 5 s | 3.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_10x10_100_20_1.p | 1.77 s ? bound | 355.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_10x10_10_20_1.p | 55.7 ms ? bound | 119.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_10x10_150_20_1.p | 4.22 s ? bound | 546.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_10x10_200_20_1.p | > 5 s | 630.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_10x10_50_20_1.p | 487.2 ms ? bound | 254.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_20x20_150_5_1.p | > 5 s | 2.61 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_30x30_150_5_1.p | > 5 s | 4.80 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_100_1.p | > 5 s | 26.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_10_1.p | > 5 s | 26.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_1_1.p | > 5 s | 120 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_20_1.p | > 5 s | 26.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_50_1.p | > 5 s | 27.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | DrinkVendingMachine_distributeur-01-unfolded-02_5_1.p | > 5 s | 26.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000010_100_1.p | > 5 s | 14.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000010_10_1.p | > 5 s | 14.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000010_20_1.p | > 5 s | 14.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000010_50_1.p | > 5 s | 14.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000010_5_1.p | > 5 s | 228 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000100_10_1.p | > 5 s | 105.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-000100_5_1.p | > 5 s | 950 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-001000_10_1.p | > 5 s | 1.07 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ERK_erk-001000_5_1.p | > 5 s | 51.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r11_1_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r11_5_1.p | > 5 s | 24.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r15_1_1.p | > 5 s | 2.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r15_5_1.p | > 5 s | 70.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r19_1_1.p | > 5 s | 14.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r19_5_1.p | > 5 s | 153.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r9_1_1.p | > 5 s | 654 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d2r9_5_1.p | > 5 s | 13.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r3_1_1.p | > 5 s | 249 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r3_5_1.p | > 5 s | 4.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r5_1_1.p | > 5 s | 1.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r5_5_1.p | > 5 s | 77.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r7_1_1.p | > 5 s | 17.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d3r7_5_1.p | > 5 s | 450.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d4r3_1_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d4r3_5_1.p | > 5 s | 92.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d5r3_1_1.p | > 5 s | 7.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Echo_echo-d5r3_5_1.p | > 5 s | 785.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | EnergyBus_1_1.p | > 5 s | 6.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-010_5_1.p | 14.4 ms ? bound | 303 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-020_1_1.p | > 5 s | 95 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-020_5_1.p | > 5 s | 172.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-050_1_1.p | > 5 s | 138 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-100_1_1.p | > 5 s | 243 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-200_1_1.p | > 5 s | 529 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Eratosthenes_eratosthenes-500_1_1.p | > 5 s | 2.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-100_10_1.p | > 5 s | 251.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-100_5_1.p | > 5 s | 4.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-10_10_1.p | > 5 s | 71.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-200_10_1.p | > 5 s | 465.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-200_5_1.p | > 5 s | 9.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-20_10_1.p | > 5 s | 105.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-2_100_1.p | > 5 s | 94.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-2_10_1.p | > 5 s | 21.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-2_20_1.p | > 5 s | 38.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-2_50_1.p | > 5 s | 38.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-500_10_1.p | > 5 s | 1.15 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-500_5_1.p | > 5 s | 26.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-50_10_1.p | > 5 s | 152.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-50_5_1.p | > 5 s | 977 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FMS-5_10_1.p | > 5 s | 47.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_a_100_1.p | 109.9 ms ? bound | 233.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_a_10_1.p | 107.8 ms ? bound | 235.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_a_20_1.p | 101.2 ms ? bound | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_a_50_1.p | 101.4 ms ? bound | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_a_5_1.p | 101.3 ms ? bound | 10.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_04_b_5_1.p | 18.7 ms ? bound | 39.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_06_a_5_1.p | 2.85 s ? bound | 157.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_06_b_5_1.p | 77.7 ms ? bound | 169.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_08_b_5_1.p | 276.4 ms ? bound | 566.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_10_a_1_1.p | > 5 s | 240 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_10_a_5_1.p | > 5 s | 522.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_10_b_5_1.p | 724.4 ms ? bound | 1.47 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_12_a_1_1.p | > 5 s | 307 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_12_b_5_1.p | 1.92 s ? bound | 3.97 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_14_a_1_1.p | > 5 s | 344 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_16_a_1_1.p | > 5 s | 477 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_18_a_1_1.p | > 5 s | 495 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_20_a_1_1.p | > 5 s | 675 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | FlexibleBarrier_flexbar_22_a_1_1.p | > 5 s | 737 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_100_1.p | > 5 s | 427.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_10_1.p | > 5 s | 230.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_1_1.p | > 5 s | 5.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_20_1.p | > 5 s | 430.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_50_1.p | > 5 s | 429.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1000_5_1.p | > 5 s | 31.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_100_1.p | > 5 s | 58.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_10_1.p | > 5 s | 25.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_1_1.p | > 5 s | 372 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_20_1.p | > 5 s | 59.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_50_1.p | > 5 s | 60.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-100_5_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_100_1.p | > 5 s | 16.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_10_1.p | > 5 s | 5.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_1_1.p | > 5 s | 117 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_20_1.p | > 5 s | 16.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_50_1.p | > 5 s | 16.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-10_5_1.p | > 5 s | 301 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_100_1.p | > 5 s | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_10_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_1_1.p | > 5 s | 86 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_20_1.p | > 5 s | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_50_1.p | > 5 s | 10.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1-1_5_1.p | > 5 s | 190 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-100_10_1.p | > 5 s | 65.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-100_1_1.p | > 5 s | 491 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-100_5_1.p | > 5 s | 3.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-10_10_1.p | > 5 s | 23.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-10_1_1.p | > 5 s | 215 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-10_20_1.p | > 5 s | 4.54 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-10-10_5_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-1000_10_1.p | > 5 s | 4.34 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-1000_1_1.p | > 5 s | 7.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-1000_5_1.p | > 5 s | 289.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-100_10_1.p | > 5 s | 1.31 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-100_1_1.p | > 5 s | 2.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-100_5_1.p | > 5 s | 90.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-10_10_1.p | > 5 s | 1.05 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-10_1_1.p | > 5 s | 1.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-100-10_5_1.p | > 5 s | 71.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1000-100_1_1.p | 54.8 ms ? depth | 51.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1000-100_5_1.p | 58.1 ms ? depth | 5.89 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1000-10_1_1.p | 52.3 ms ? depth | 50.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GPPP_G-PPP-1000-10_5_1.p | 54.8 ms ? depth | 5.76 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | GlobalResAllocation_galloc_res-3_1_1.p | > 5 s | 6.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_110_100_1.p | > 5 s | 470.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_110_10_1.p | > 5 s | 461.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_110_5_1.p | > 5 s | 3.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_126_10_1.p | > 5 s | 1.48 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_126_1_1.p | > 5 s | 91 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_126_5_1.p | > 5 s | 4.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_226_1_1.p | > 5 s | 219 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_316_1_1.p | > 5 s | 477 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_410_1_1.p | > 5 s | 2.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_516_1_1.p | > 5 s | 8.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HexagonalGrid_hxg_816_1_1.p | > 5 s | 12.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-002_10_1.p | 36.9 ms ? bound | 381 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-002_20_1.p | 357 µs ? bound | 6.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-005_20_1.p | > 5 s | 68.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-020_20_1.p | > 5 s | 258.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-050_20_1.p | > 5 s | 406.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-100_10_1.p | > 5 s | 5.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-100_20_1.p | > 5 s | 723.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-200_10_1.p | > 5 s | 11.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-200_20_1.p | > 5 s | 1.39 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-500_10_1.p | > 5 s | 36.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HouseConstruction-500_20_1.p | > 5 s | 3.09 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypercubeGrid_hc3k4p4b12_1_1.p | > 5 s | 26.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypercubeGrid_hc4k3p3b12_1_1.p | > 5 s | 56.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypercubeGrid_hc5k3p3b15_1_1.p | > 5 s | 517.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d2k1p8b00_10_1.p | > 5 s | 700.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d2k1p8b00_5_1.p | > 5 s | 690 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d2k2p1b00_5_1.p | > 5 s | 77.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d2k3p2b04_1_1.p | > 5 s | 169 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d2k3p2b04_5_1.p | > 5 s | 3.13 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d3k3p2b06_1_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d4k3p2b08_1_1.p | > 5 s | 38.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | HypertorusGrid_ht_d5k3p2b10_1_1.p | > 5 s | 340.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM319_10_1.p | 74.4 ms ? bound | 260.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM319_20_1.p | 68.3 ms ? bound | 435.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM319_50_1.p | 122.3 ms ? bound | 721.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM319_5_1.p | 72.3 ms ? bound | 54.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM5964_1_1.p | > 5 s | 159 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM5964_5_1.p | > 5 s | 1.00 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM703_10_1.p | 6.9 ms ? bound | 24.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM703_20_1.p | 7.1 ms ? bound | 51.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBM703_5_1.p | 7.2 ms ? bound | 8.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IBMB2S565S3960_1_1.p | > 5 s | 161 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c12m10p15d17_10_1.p | > 5 s | 5.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c12m10p15d17_20_1.p | > 5 s | 176.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c12m10p15d17_5_1.p | > 5 s | 377 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c1m1p1d1_100_1.p | > 5 s | 389 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c1m1p1d1_10_1.p | > 5 s | 381 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c1m1p1d1_20_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c1m1p1d1_50_1.p | > 5 s | 180 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c1m1p1d1_5_1.p | > 5 s | 183 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c3m3p3d3_10_1.p | > 5 s | 987 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c3m3p3d3_20_1.p | > 5 s | 22.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c3m3p3d3_5_1.p | > 5 s | 275 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c5m4p3d2_10_1.p | > 5 s | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c5m4p3d2_20_1.p | > 5 s | 53.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | IOTPpurchase_IOTP_c5m4p3d2_5_1.p | > 5 s | 250 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-100_1_1.p | > 5 s | 30.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-3_100_1.p | > 5 s | 72.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-3_10_1.p | > 5 s | 125.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-3_20_1.p | > 5 s | 839.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-3_50_1.p | > 5 s | 38.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-3_5_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-4_10_1.p | > 5 s | 1.11 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-4_5_1.p | > 5 s | 4.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-50_1_1.p | > 5 s | 5.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-1000_10_1.p | > 5 s | 748.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-1000_5_1.p | > 5 s | 29.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-100_10_1.p | > 5 s | 65.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-100_5_1.p | > 5 s | 590 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-10_10_1.p | > 5 s | 9.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-10_20_1.p | > 5 s | 2.04 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-10_5_1.p | > 5 s | 171 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-200_10_1.p | > 5 s | 134.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-200_5_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-20_10_1.p | > 5 s | 16.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-20_20_1.p | > 5 s | 4.20 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-20_5_1.p | > 5 s | 221 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-500_10_1.p | > 5 s | 348.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-500_5_1.p | > 5 s | 13.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-50_10_1.p | > 5 s | 36.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-50_5_1.p | > 5 s | 362 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-5_10_1.p | > 5 s | 4.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-5_20_1.p | > 5 s | 24.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-5_50_1.p | > 5 s | 4.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Kanban-5_5_1.p | > 5 s | 147 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-2_100_1.p | 1.46 s ? bound | 43.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-2_10_1.p | 1.62 s ? bound | 2.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-2_20_1.p | 1.53 s ? bound | 13.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-2_50_1.p | 1.46 s ? bound | 43.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-2_5_1.p | 1.47 s ? bound | 281 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-3_10_1.p | > 5 s | 16.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-3_20_1.p | > 5 s | 31.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-3_5_1.p | > 5 s | 654 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-4_10_1.p | > 5 s | 103.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-4_5_1.p | > 5 s | 2.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-5_10_1.p | > 5 s | 544 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-5_5_1.p | > 5 s | 4.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-6_10_1.p | > 5 s | 1.31 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-6_5_1.p | > 5 s | 10.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-7_10_1.p | > 5 s | 3.41 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-7_5_1.p | > 5 s | 18.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | LamportFastMutEx_lamport_fmea-8_5_1.p | > 5 s | 32.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-160_10_1.p | > 5 s | 413 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-160_20_1.p | > 5 s | 400 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-160_5_1.p | > 5 s | 589 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-20_100_1.p | > 5 s | 6.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-20_10_1.p | > 5 s | 131 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-20_20_1.p | > 5 s | 127 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-20_50_1.p | > 5 s | 27.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-20_5_1.p | > 5 s | 165 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-320_10_1.p | > 5 s | 833 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-320_20_1.p | > 5 s | 829 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-320_5_1.p | > 5 s | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-40_100_1.p | > 5 s | 395.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-40_10_1.p | > 5 s | 167 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-40_20_1.p | > 5 s | 163 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-40_50_1.p | > 5 s | 343.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-40_5_1.p | > 5 s | 220 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-80_10_1.p | > 5 s | 243 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-80_20_1.p | > 5 s | 241 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-80_5_1.p | > 5 s | 351 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-8_10_1.p | > 5 s | 102 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-8_20_1.p | > 5 s | 102 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MAPK-8_5_1.p | > 5 s | 127 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeighborGrid_z_2d_3n_1m_t_1_2_5_1.p | > 5 s | 3.80 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeighborGrid_z_4d_3n_2m_c_2_3_1_1.p | > 5 s | 470 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-2.unf_1_1.p | > 5 s | 306 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-3.unf_1_1.p | > 5 s | 803 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-4.unf_1_1.p | > 5 s | 2.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-5.unf_1_1.p | > 5 s | 4.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-6.unf_1_1.p | > 5 s | 11.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-7.unf_1_1.p | > 5 s | 21.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | NeoElection_neoelection-8.unf_1_1.p | > 5 s | 38.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PaceMaker_1_1.p | > 5 s | 181.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system1_10_1.p | > 5 s | 1.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system1_20_1.p | > 5 s | 10.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system1_5_1.p | > 5 s | 606 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system2_10_1.p | > 5 s | 7.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system2_20_1.p | > 5 s | 69.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system2_5_1.p | > 5 s | 914 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system3_10_1.p | > 5 s | 13.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system3_20_1.p | > 5 s | 115.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system3_5_1.p | > 5 s | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system4_10_1.p | > 5 s | 42.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system4_20_1.p | > 5 s | 635.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system4_5_1.p | > 5 s | 2.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system5_10_1.p | > 5 s | 69.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system5_20_1.p | > 5 s | 1.16 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_closed_system5_5_1.p | > 5 s | 3.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_open_system_0_10_1.p | > 5 s | 3.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_open_system_0_1_1.p | > 5 s | 189 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_open_system_0_20_1.p | > 5 s | 15.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ParamProductionCell_open_system_0_5_1.p | > 5 s | 595 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_1_4_1_1.p | > 5 s | 105 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_2_8_1_1.p | > 5 s | 134 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_4_16_1_1.p | > 5 s | 213 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_4_32_1_1.p | > 5 s | 340 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_8_32_1_1.p | > 5 s | 459 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Parking_parking_8_64_1_1.p | > 5 s | 746 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-01_10_1.p | > 5 s | 132.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-01_1_1.p | > 5 s | 436 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-01_5_1.p | > 5 s | 3.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-02_1_1.p | > 5 s | 460 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-02_5_1.p | > 5 s | 27.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-05_1_1.p | > 5 s | 546 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-05_5_1.p | > 5 s | 63.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-10_1_1.p | > 5 s | 634 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-10_5_1.p | > 5 s | 102.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-20_1_1.p | > 5 s | 930 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-20_5_1.p | > 5 s | 189.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-50_1_1.p | > 5 s | 1.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PermAdmissibility_unf-8x8-4stageSEN-50_5_1.p | > 5 s | 405.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-2_100_1.p | > 5 s | 368.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-2_10_1.p | > 5 s | 34.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-2_20_1.p | > 5 s | 105.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-2_50_1.p | > 5 s | 251.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-2_5_1.p | > 5 s | 486 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-3_10_1.p | > 5 s | 224.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-3_5_1.p | > 5 s | 3.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-4_10_1.p | > 5 s | 1.14 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-4_5_1.p | > 5 s | 10.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-5_10_1.p | > 5 s | 4.20 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-5_5_1.p | > 5 s | 25.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-6_1_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-6_5_1.p | > 5 s | 70.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Peterson-7_5_1.p | > 5 s | 159.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_10-100_phaseVariation_1_1.p | > 5 s | 2.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_10-10_phaseVariation_1_1.p | > 5 s | 2.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_2-100_phaseVariation_1_1.p | > 5 s | 146 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_2-100_phaseVariation_5_1.p | > 5 s | 440.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_2-10_phaseVariation_1_1.p | > 5 s | 113 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_2-10_phaseVariation_5_1.p | > 5 s | 347.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_20-100_phaseVariation_1_1.p | > 5 s | 17.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_20-10_phaseVariation_1_1.p | > 5 s | 17.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_30-100_phaseVariation_1_1.p | > 5 s | 60.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_30-10_phaseVariation_1_1.p | > 5 s | 62.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_5-100_phaseVariation_1_1.p | > 5 s | 549 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhaseVariation_5-10_phaseVariation_1_1.p | > 5 s | 403 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-1000_1_1.p | > 5 s | 63.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-100_1_1.p | > 5 s | 419 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-10_1_1.p | > 5 s | 106 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-2000_1_1.p | 53.7 ms ? depth | 116.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-200_1_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-20_1_1.p | > 5 s | 122 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5000_1_1.p | 90.8 ms ? depth | 448.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-500_1_1.p | > 5 s | 25.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-50_1_1.p | > 5 s | 213 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_100_1.p | > 5 s | 82 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_10_1.p | > 5 s | 78 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_1_1.p | > 5 s | 70 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_20_1.p | > 5 s | 6.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_50_1.p | > 5 s | 6.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Philosophers-5_5_1.p | > 5 s | 6.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-10-unfolded_1_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-20-unfolded_1_1.p | > 5 s | 23.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-3-unfolded_100_1.p | > 5 s | 721 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-3-unfolded_10_1.p | > 5 s | 10.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-3-unfolded_20_1.p | > 5 s | 720 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-3-unfolded_50_1.p | > 5 s | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PhilosophersDyn_philo_dyn-3-unfolded_5_1.p | > 5 s | 3.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Planning_planning_5_1.p | > 5 s | 1.02 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T06-unfolded_10_1.p | > 5 s | 185.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T06-unfolded_1_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T06-unfolded_5_1.p | > 5 s | 8.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T08-unfolded_10_1.p | > 5 s | 299.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T08-unfolded_1_1.p | > 5 s | 1.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T08-unfolded_5_1.p | > 5 s | 13.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T10-unfolded_10_1.p | > 5 s | 381.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T10-unfolded_1_1.p | > 5 s | 2.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J04-T10-unfolded_5_1.p | > 5 s | 16.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T06-unfolded_10_1.p | > 5 s | 338.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T06-unfolded_1_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T06-unfolded_5_1.p | > 5 s | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T08-unfolded_10_1.p | > 5 s | 531.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T08-unfolded_1_1.p | > 5 s | 1.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T08-unfolded_5_1.p | > 5 s | 15.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T10-unfolded_10_1.p | > 5 s | 669.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T10-unfolded_1_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S02-J06-T10-unfolded_5_1.p | > 5 s | 19.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T06-unfolded_1_1.p | > 5 s | 5.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T06-unfolded_5_1.p | > 5 s | 127.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T08-unfolded_1_1.p | > 5 s | 6.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T08-unfolded_5_1.p | > 5 s | 200.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T10-unfolded_1_1.p | > 5 s | 9.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J04-T10-unfolded_5_1.p | > 5 s | 339.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T06-unfolded_1_1.p | > 5 s | 5.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T06-unfolded_5_1.p | > 5 s | 145.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T08-unfolded_1_1.p | > 5 s | 6.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T08-unfolded_5_1.p | > 5 s | 221.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T10-unfolded_1_1.p | > 5 s | 10.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S04-J06-T10-unfolded_5_1.p | > 5 s | 368.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J04-T04-unfolded_1_1.p | > 5 s | 13.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J04-T04-unfolded_5_1.p | > 5 s | 1.52 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J04-T06-unfolded_1_1.p | > 5 s | 33.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J04-T06-unfolded_5_1.p | > 5 s | 4.08 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J04-T08-unfolded_1_1.p | > 5 s | 42.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J06-T04-unfolded_1_1.p | > 5 s | 15.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J06-T04-unfolded_5_1.p | > 5 s | 1.78 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J06-T06-unfolded_1_1.p | > 5 s | 32.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J06-T06-unfolded_5_1.p | > 5 s | 4.34 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBLF_PolyORB-LF-S06-J06-T08-unfolded_1_1.p | > 5 s | 44.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S05-J20-unfolded_1_1.p | > 5 s | 1.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S05-J30-unfolded_1_1.p | > 5 s | 2.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S05-J40-unfolded_1_1.p | > 5 s | 2.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S05-J60-unfolded_1_1.p | > 5 s | 3.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S05-J80-unfolded_1_1.p | > 5 s | 3.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S10-J20-unfolded_1_1.p | > 5 s | 41.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S10-J30-unfolded_1_1.p | > 5 s | 42.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S10-J40-unfolded_1_1.p | > 5 s | 45.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S10-J60-unfolded_1_1.p | > 5 s | 45.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | PolyORBNT_PolyORB-NT-S10-J80-unfolded_1_1.p | > 5 s | 47.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ProductionCell_1_1.p | > 5 s | 147 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_02-unfold_10_1.p | > 5 s | 436 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_02-unfold_1_1.p | > 5 s | 103 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_02-unfold_20_1.p | > 5 s | 7.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_02-unfold_5_1.p | > 5 s | 188 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_06-unfold_1_1.p | > 5 s | 162 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_06-unfold_5_1.p | > 5 s | 7.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_10-unfold_1_1.p | > 5 s | 241 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_18-unfold_1_1.p | > 5 s | 572 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_22-unfold_1_1.p | > 5 s | 753 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_28-unfold_1_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | QuasiCertifProtocol_QCertifProtocol_32-unfold_1_1.p | > 5 s | 1.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_04_1_1.p | > 5 s | 123 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_04_5_1.p | > 5 s | 149 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_05_5_1.p | > 5 s | 335 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_06_1_1.p | > 5 s | 180 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_07_1_1.p | > 5 s | 232 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_08_1_1.p | > 5 s | 289 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_09_1_1.p | > 5 s | 398 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Raft_raft_10_1_1.p | > 5 s | 380 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_100_1.p | > 5 s | 104 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_10_1.p | > 5 s | 6.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_1_1.p | > 5 s | 103 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_20_1.p | > 5 s | 3.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_50_1.p | > 5 s | 423 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-005-pt_5_1.p | > 5 s | 312 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_100_1.p | > 5 s | 155 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_10_1.p | > 5 s | 65.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_1_1.p | > 5 s | 165 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_20_1.p | > 5 s | 86.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_50_1.p | > 5 s | 4.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-010-pt_5_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-020-pt_10_1.p | > 5 s | 1.06 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-020-pt_1_1.p | > 5 s | 397 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-020-pt_20_1.p | > 5 s | 1.52 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-020-pt_5_1.p | > 5 s | 17.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-050-pt_100_1.p | > 5 s | 67.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-050-pt_1_1.p | > 5 s | 2.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-050-pt_20_1.p | > 5 s | 219.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-050-pt_50_1.p | > 5 s | 1.59 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-050-pt_5_1.p | > 5 s | 427.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Railroad_railroad-100-pt_1_1.p | > 5 s | 10.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-1000_1_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-1000_5_1.p | > 5 s | 167.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-100_1_1.p | > 5 s | 133 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-100_5_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-10_10_1.p | 2.73 s ? bound | 7.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-10_1_1.p | > 5 s | 68 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-10_20_1.p | 2.62 s ? bound | 16.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-10_5_1.p | > 5 s | 142 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-15_10_1.p | > 5 s | 26.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-15_1_1.p | > 5 s | 83 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-15_20_1.p | > 5 s | 1.64 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-15_5_1.p | > 5 s | 183 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-200_1_1.p | > 5 s | 200 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-200_5_1.p | > 5 s | 10.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-20_1_1.p | > 5 s | 80 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-20_5_1.p | > 5 s | 221 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-500_1_1.p | > 5 s | 502 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-500_5_1.p | > 5 s | 47.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-50_1_1.p | > 5 s | 108 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Referendum_referendum-unfolded-50_5_1.p | > 5 s | 511 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-10_10_1.p | > 5 s | 1.17 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-10_5_1.p | > 5 s | 5.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-15_5_1.p | > 5 s | 41.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-3_10_1.p | 18.8 ms ? bound | 258 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-3_50_1.p | 18.5 ms ? bound | 257 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-3_5_1.p | 11.9 ms ? bound | 181 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-5_10_1.p | > 5 s | 817 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-5_50_1.p | > 5 s | 796 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-C-5_5_1.p | > 5 s | 402 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-100_10_1.p | > 5 s | 33.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-100_20_1.p | > 5 s | 1.33 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-100_5_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-10_10_1.p | > 5 s | 1.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-10_20_1.p | > 5 s | 53.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-10_5_1.p | > 5 s | 184 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-15_10_1.p | > 5 s | 2.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-15_20_1.p | > 5 s | 103.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-15_5_1.p | > 5 s | 214 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-20_10_1.p | > 5 s | 5.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-20_20_1.p | > 5 s | 192.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-20_5_1.p | > 5 s | 270 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-50_10_1.p | > 5 s | 14.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-50_20_1.p | > 5 s | 590.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-50_5_1.p | > 5 s | 558 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-5_100_1.p | 68.0 ms ? bound | 557 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-5_10_1.p | 67.8 ms ? bound | 552 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-5_20_1.p | 9.7 ms ? bound | 325 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-5_50_1.p | 9.8 ms ? bound | 319 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | ResAllocation_RAS-R-5_5_1.p | 4.1 ms ? bound | 136 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Ring_ring_10_1.p | > 5 s | 1.84 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Ring_ring_1_1.p | > 5 s | 141 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Ring_ring_5_1.p | > 5 s | 19.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1000_10_1.p | > 5 s | 18.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1000_1_1.p | > 5 s | 4.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1000_20_1.p | > 5 s | 119.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1000_50_1.p | > 5 s | 119.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1000_5_1.p | > 5 s | 38.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-100_10_1.p | > 5 s | 618 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-100_1_1.p | > 5 s | 248 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-100_20_1.p | > 5 s | 5.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-100_50_1.p | > 5 s | 5.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-100_5_1.p | > 5 s | 924 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-10_10_1.p | > 5 s | 144 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-10_20_1.p | > 5 s | 499 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-10_50_1.p | > 5 s | 488 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-10_5_1.p | > 5 s | 176 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1_100_1.p | 1.1 ms ? bound | 93 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1_10_1.p | 1.2 ms ? bound | 99 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1_20_1.p | 1.1 ms ? bound | 235 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1_50_1.p | 1.1 ms ? bound | 233 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-1_5_1.p | 4.6 ms ? bound | 111 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2000_10_1.p | > 5 s | 59.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2000_1_1.p | > 5 s | 13.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2000_20_1.p | > 5 s | 390.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2000_50_1.p | > 5 s | 387.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2000_5_1.p | > 5 s | 110.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-200_10_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-200_1_1.p | > 5 s | 503 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-200_20_1.p | > 5 s | 12.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-200_50_1.p | > 5 s | 12.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-200_5_1.p | > 5 s | 2.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-20_10_1.p | > 5 s | 187 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-20_20_1.p | > 5 s | 739 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-20_50_1.p | > 5 s | 749 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-20_5_1.p | > 5 s | 232 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2_100_1.p | 10.3 ms ? bound | 99 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2_10_1.p | 10.3 ms ? bound | 101 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2_20_1.p | 10.4 ms ? bound | 285 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2_50_1.p | 10.5 ms ? bound | 281 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-2_5_1.p | 120.0 ms ? bound | 139 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-500_10_1.p | > 5 s | 6.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-500_1_1.p | > 5 s | 1.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-500_20_1.p | > 5 s | 40.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-500_50_1.p | > 5 s | 40.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-500_5_1.p | > 5 s | 14.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-50_10_1.p | > 5 s | 336 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-50_20_1.p | > 5 s | 2.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-50_50_1.p | > 5 s | 2.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-50_5_1.p | > 5 s | 463 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-5_100_1.p | 862.0 ms ? bound | 118 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-5_10_1.p | 875.3 ms ? bound | 118 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-5_20_1.p | 850.3 ms ? bound | 368 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-5_50_1.p | 864.7 ms ? bound | 362 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RobotManipulation_robot-manipulation-5_5_1.p | > 5 s | 152 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RwMutex_rwmutex-r20w10_10_1.p | > 5 s | 23.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | RwMutex_rwmutex-r20w10_5_1.p | > 5 s | 3.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-03-unfolded_100_1.p | > 5 s | 313.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-03-unfolded_10_1.p | > 5 s | 41.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-03-unfolded_20_1.p | > 5 s | 1.03 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-03-unfolded_50_1.p | > 5 s | 584.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-03-unfolded_5_1.p | > 5 s | 600 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-06-unfolded_1_1.p | > 5 s | 397 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-06-unfolded_5_1.p | > 5 s | 31.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-10-unfolded_1_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-10-unfolded_5_1.p | > 5 s | 783.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-15-unfolded_1_1.p | > 5 s | 4.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SafeBus-20-unfolded_1_1.p | > 5 s | 13.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SharedMemory_shared_memory-pt-10_5_1.p | > 5 s | 445.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SharedMemory_shared_memory-pt-50_5_1.p | > 5 s | 4.35 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-10_1_1.p | > 5 s | 501 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-10_5_1.p | > 5 s | 75.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-15_1_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-15_5_1.p | > 5 s | 573.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-20_1_1.p | > 5 s | 1.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-20_5_1.p | > 5 s | 2.05 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-2_100_1.p | 2.94 s ? bound | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-2_10_1.p | 2.92 s ? bound | 1.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-2_20_1.p | 2.93 s ? bound | 2.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-2_50_1.p | 2.91 s ? bound | 205 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-2_5_1.p | 2.93 s ? bound | 208 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-5_10_1.p | > 5 s | 103.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-5_1_1.p | > 5 s | 183 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SimpleLoadBal_simple_lbs-5_5_1.p | > 5 s | 2.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0016DC0008_1_1.p | > 5 s | 93 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0016DC0008_20_1.p | > 5 s | 230.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0032DC0008_1_1.p | > 5 s | 105 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0032DC0008_20_1.p | > 5 s | 334.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0032DC0016_1_1.p | > 5 s | 94 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0032DC0016_20_1.p | > 5 s | 450.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0064DC0016_1_1.p | > 5 s | 120 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0064DC0016_20_1.p | > 5 s | 464.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0064DC0032_1_1.p | > 5 s | 129 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0128DC0032_1_1.p | > 5 s | 173 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0128DC0064_1_1.p | > 5 s | 182 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0256DC0064_1_1.p | > 5 s | 286 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0256DC0128_1_1.p | > 5 s | 352 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0512DC0128_1_1.p | > 5 s | 586 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT0512DC0256_1_1.p | > 5 s | 689 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT1024DC0256_1_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT1024DC0512_1_1.p | > 5 s | 1.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT2048DC0512_1_1.p | > 5 s | 3.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT2048DC1024_1_1.p | > 5 s | 4.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT4096DC1024_1_1.p | > 5 s | 12.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT4096DC2048_1_1.p | > 5 s | 14.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SmallOperatingSystem-MT8192DC2048_1_1.p | > 5 s | 41.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli0_counter_square5_1_1.p | > 5 s | 125 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli0_counter_square5_5_1.p | > 5 s | 154.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli0_square5_1_1.p | > 5 s | 117 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli0_square5_5_1.p | > 5 s | 45.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli1_1_1.p | > 5 s | 117 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli1_5_1.p | > 5 s | 3.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli1_counter_1_1.p | > 5 s | 126 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli1_counter_5_1.p | > 5 s | 6.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli2_1_1.p | > 5 s | 127 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli2_5_1.p | > 5 s | 2.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli2_counter_1_1.p | > 5 s | 126 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Solitaire_soli2_counter_5_1.p | > 5 s | 23.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-10-5-10_1_1.p | > 5 s | 26.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-13-6-13_1_1.p | 41.9 ms ? depth | 55.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-2-1-2_1_1.p | > 5 s | 113 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-2-1-2_5_1.p | > 5 s | 135.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-4-2-4_1_1.p | > 5 s | 300 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SquareGrid_sg-8-4-8_1_1.p | > 5 s | 10.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-10_10_1.p | > 5 s | 11.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-10_20_1.p | > 5 s | 320.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-10_5_1.p | > 5 s | 657 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-1_100_1.p | > 5 s | 634.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-1_10_1.p | > 5 s | 564 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-1_20_1.p | > 5 s | 67.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-1_50_1.p | > 5 s | 521.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-1_5_1.p | > 5 s | 147 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-2_10_1.p | > 5 s | 926 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-2_20_1.p | > 5 s | 112.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-2_5_1.p | > 5 s | 183 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-3_10_1.p | > 5 s | 1.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-3_20_1.p | > 5 s | 117.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-3_5_1.p | > 5 s | 235 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-4_10_1.p | > 5 s | 5.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-4_20_1.p | > 5 s | 148.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-4_5_1.p | > 5 s | 282 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-5_10_1.p | > 5 s | 6.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-5_20_1.p | > 5 s | 193.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-5_5_1.p | > 5 s | 331 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-6_10_1.p | > 5 s | 6.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-6_20_1.p | > 5 s | 190.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-6_5_1.p | > 5 s | 416 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-7_10_1.p | > 5 s | 10.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-7_20_1.p | > 5 s | 231.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-7_5_1.p | > 5 s | 465 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-8_10_1.p | > 5 s | 11.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-8_20_1.p | > 5 s | 280.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-8_5_1.p | > 5 s | 542 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-9_10_1.p | > 5 s | 10.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-9_20_1.p | > 5 s | 277.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | SwimmingPool-9_5_1.p | > 5 s | 629 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp10_10_1.p | > 5 s | 157.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp10_5_1.p | > 5 s | 564 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp15_10_1.p | > 5 s | 400.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp15_5_1.p | > 5 s | 652 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp20_10_1.p | > 5 s | 453.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp20_5_1.p | > 5 s | 766 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp25_10_1.p | > 5 s | 505.6 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp25_5_1.p | > 5 s | 901 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp30_10_1.p | > 5 s | 541.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp30_5_1.p | > 5 s | 952 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp35_10_1.p | > 5 s | 444.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp35_5_1.p | > 5 s | 1.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp40_10_1.p | > 5 s | 470.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp40_5_1.p | > 5 s | 1.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp50_10_1.p | > 5 s | 569.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp50_5_1.p | > 5 s | 1.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp5_10_1.p | > 5 s | 137.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TCPcondis_tcp5_5_1.p | 2.12 s ? bound | 473 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-10-unfolded_5_1.p | > 5 s | 82.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-15-unfolded_5_1.p | > 5 s | 938.4 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-5-unfolded_100_1.p | 63.6 ms ? bound | 193.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-5-unfolded_10_1.p | 167.5 ms ? bound | 29.7 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-5-unfolded_20_1.p | 610.5 ms ? bound | 109.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-5-unfolded_50_1.p | 80.2 ms ? bound | 65.0 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TokenRing-5-unfolded_5_1.p | 160.6 ms ? bound | 2.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-20-0_10_1.p | > 5 s | 39.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-20-0_20_1.p | > 5 s | 4.55 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-20-0_5_1.p | > 5 s | 311 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-50-0_10_1.p | > 5 s | 78.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-50-0_1_1.p | > 5 s | 120 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-50-0_5_1.p | > 5 s | 487 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_2-01-1_1_1.p | > 5 s | 98 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_2-01-1_5_1.p | > 5 s | 35.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_3-01-1_1_1.p | > 5 s | 127 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_3-01-1_5_1.p | > 5 s | 696.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_3-02-6_1_1.p | > 5 s | 145 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_3-02-6_5_1.p | > 5 s | 850.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_4-02-2_1_1.p | > 5 s | 192 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_5-02-0_1_1.p | > 5 s | 355 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_5-04-6_1_1.p | > 5 s | 431 µs ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Vasy2003_1_1.p | > 5 s | 450 µs ✓ |
+
 #### By group
 
 Problems in both; decided (late: after the time limit); decided by one and not the other; where the undecided ended (`time` the time limit or `killed` past it, `bound` the copy bound, `depth` the recursion limit, `memory` the memory limit, `index` an index past its width, `wide` a context too wide to split, `crash` out of memory); the median ratio of lltp-intuitionistic's time to lltp-rarer's on the problems both decide within the limit (how many); and the problems only lltp-intuitionistic has.
@@ -1413,6 +2500,22 @@ Of the 2038 problems both decide alike on one thread, 668 differ in nodes, split
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_1-50-0_20_1.p | 1.62 s ✓ | > 5 s |
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_2-01-1_10_1.p | 2.98 s ✓ | > 5 s |
 |  | ILL/petri-nets/MCC | intuitionistic auto j1 | TriangularGrid_trg_4-02-2_5_1.p | 3.00 s ✓ | > 5 s |
+
+#### Decided by lltp-intuitionistic, not by lltp-forward
+
+| file | family | configuration | problem | lltp-forward | lltp-intuitionistic |
+|---|---|---|---|--:|--:|
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | CSRepetitions_cs_repetitions-7-unfolded_5_1.p | > 5 s | 48.2 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_100_10_1.p | > 5 s | 45.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_10_10_1.p | > 5 s | 28.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_150_10_1.p | > 5 s | 60.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_200_10_1.p | > 5 s | 70.9 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_250_10_1.p | > 5 s | 83.8 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_300_10_1.p | > 5 s | 93.3 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_350_10_1.p | > 5 s | 108.1 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | Diffusion2D_2D8_gradient_5x5_50_10_1.p | > 5 s | 37.5 ms ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | JoinFreeModules_joinFree-20_5_1.p | > 5 s | 1.43 s ✓ |
+|  | ILL/petri-nets/MCC | intuitionistic auto j1 | MultiwaySync_1_1.p | > 5 s | 4.98 s ✓ |
 
 #### By group
 
