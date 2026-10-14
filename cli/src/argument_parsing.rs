@@ -683,8 +683,8 @@ pub(crate) struct SequentInput {
 /// How an input is read.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum InputFormat {
-    /// By the file's extension: `.p` lltp (tptp with --logic), `.spec`
-    /// spec, `.json` json, else text
+    /// By the file's extension: `.p` lltp (tptp under --logic, where a
+    /// command takes it), `.spec` spec, `.json` json, else text
     Auto,
     /// One sequent in the text syntax, which may span lines
     Text,
@@ -991,14 +991,15 @@ pub(crate) struct StyleArgs {
     /// margin, stroke_width, link_height, link_cap, node_radius, text,
     /// line, par, link, highlight, background; png: scale, pixels; pdf:
     /// embed_text, compatible, accessible, title, language, date; rocq:
-    /// form, lemma, prelude. `null` lifts a bound (`pixels=null`). Labels
+    /// form, lemma, prelude (where the command writes Rocq). `null` lifts a
+    /// bound (`pixels=null`). Labels
     /// are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal
     /// is dots, bare, dashed or {"mark":TEXT}
     #[arg(long = "style", value_name = "KEY=VALUE")]
     pub(crate) style: Vec<String>,
     /// Read the options of the output formats from a JSON file: an object
-    /// with a key per format (text, latex, typst, svg, png, pdf, rocq),
-    /// each holding the fields `--style` names; a field left out keeps its
+    /// with a key per format (text, latex, typst, svg, png, pdf, and rocq
+    /// where the command writes Rocq), each holding the fields `--style` names; a field left out keeps its
     /// default (styles)
     #[arg(long, value_name = "PATH")]
     pub(crate) style_file: Option<PathBuf>,
