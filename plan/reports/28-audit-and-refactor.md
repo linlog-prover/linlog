@@ -59,7 +59,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
-| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); `nix flake check --keep-going` passed at szmktwow (unit `step28-flake-check`, cores 2 to 5; its features check logs six unused imports of `proofs/interactive/replay.rs` without `serialize`, open question 8); to come: the mutants' timeouts in row k |
+| closing: the report's sections and the register | done (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); `nix flake check --keep-going` passed at szmktwow (unit `step28-flake-check`, cores 2 to 5; its features check logged six unused imports of `proofs/interactive/replay.rs` without `serialize`, open question 8); the supervisor's three fixes: rsvlqous (`replay.rs` gated on `serialize`), krxomqoz (warnings denied in the gate's `cargo hack` runs and the `features` check), txykwztn (the three doc points of open question 7), each with the gate passed; the mutants' timeouts recorded in area 3.4's row k (all 24 hang alone); `nix flake check --keep-going` passed again at txykwztn with the records (unit `step28-flake-check2`, no unused import logged) |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -828,7 +828,7 @@ findings, and the step's last evidence.
 | h. the documents (F156 to F160, F171, F174 to F179, F181, F190, F223 to F225, section 1.1's stale claims) | done | uzrwomtu (F160, F181: the oracles named in CLAUDE.md, `bench.md` and `TARGETS.md`), zwzymlvl (F171, F225: the spec's errata, the spec named in CLAUDE.md; F174, F175, F176, F177, F178, F179; F223, F224 in the register), mslrmklq F158, the bench rules in otvurtuv (F156, F157, F174's first items); xzotzuxo README's what exists. Section 1.1 of step 17's report read again: its README claims now hold (a proof is checked, the exit statuses), its CLAUDE.md, rules and help items are fixed by the commits above |
 | i. the fuzz targets of the command and the read-back (F217, F218) | partly | lswsnsqs: `session_steps`, `proof_views`, `ordinary_decide` (seeded by `fuzz/seed.sh`; snzmzmvx its printf); F217 recorded out of scope in `evidence.md` (the command's readers hand the sequent to the library's, and its modules are crate-private). Not done: F218's scaling tests per reader |
 | j. the ultra reviews' findings (`U…`) | done | U1 (the command fixes' slice; areas 3.2 and 3.3 gave none): an `--isolate` entry named or filed with a leading `-` got an error; vxwmzrmx lets the hidden `--entry-name` and `--entry-file` take hyphen values, `isolated_entries_named_like_flags` pins it (it fails without the fix) |
-| k. stage 0's evidence again: every mutation batch, every fuzz target, the ratchet | done but the timeouts' rerun (below) | **Mutation** (`mutants/area-3.4/`, the full run at rrrkklkp from `../linlog-mutants34`, the parser batches again at the head): survivors per batch against the last label that ran it: check 15 (18), horn-cover 16 (17), horn-equation 52 (54), horn-mod 3 (13), horn-reach 17 (18), lltp 1 (3), mist 15 (18), ordinary-derivation 12 (18), ordinary-parse 0 (4), search 8 (12), serialize 6 (6), parse 4 (3). Parse's four: `past_bound`'s guard and comparison, alive in `push` before the move, and two in `prefix`'s comparison of the terms owed, which is equivalent (the operand's own term reaches the bound anyway; the check refuses earlier, which is memory); the bounds' other survivors were killed by sorxxkoy, moxltnqm and slpvqpvv, tests at exactly the bound. The counts include 24 timed-out mutants; 8 of their logs show a test that fails, and every one is rerun alone (`--jobs 1`, the whole suite, scratch `timeouts.result`): those done so far hang alone too (a counter multiplied from zero, a loop that never ends), which no test can pass. **Fuzzing** (`target/fuzz/summary.tsv`): every target ran to its cap or its stall; no crash and no new artifact but `ordinary_decide`'s 53 timeouts and 16 slow units, which found the focused engine's unpolled `&` rules (fixed in ytpvkvvz; that `Limits::work` does not count them goes to the author, below); the readers that changed after the run (tptp, sequent_text, ordinary_text, lltp) ran again at the head with no artifact. **Ratchet**: the gate's check on every commit; the flake's build put `read-tptp` 2.17 % over its ceiling, raised in ypzmzomx with the reason. **Families**: `linlog-bench run --all-families --timeout 5`, 123 runs, no mismatch, `summary --strict` passes. **Target set** at ytpvkvvz: 135 rows decided alike with the oracle `after-efficiency.csv`, 0 differ in their counters, none decided by the oracle and not by it (its times under load mean nothing; kept out of the tree as `scratch-after-and-poll`). |
+| k. stage 0's evidence again: every mutation batch, every fuzz target, the ratchet | done | **Mutation** (`mutants/area-3.4/`, the full run at rrrkklkp from `../linlog-mutants34`, the parser batches again at the head): survivors per batch against the last label that ran it: check 15 (18), horn-cover 16 (17), horn-equation 52 (54), horn-mod 3 (13), horn-reach 17 (18), lltp 1 (3), mist 15 (18), ordinary-derivation 12 (18), ordinary-parse 0 (4), search 8 (12), serialize 6 (6), parse 4 (3). Parse's four: `past_bound`'s guard and comparison, alive in `push` before the move, and two in `prefix`'s comparison of the terms owed, which is equivalent (the operand's own term reaches the bound anyway; the check refuses earlier, which is memory); the bounds' other survivors were killed by sorxxkoy, moxltnqm and slpvqpvv, tests at exactly the bound. The counts include 24 timed-out mutants; 8 of their logs show a test that fails, and every one is rerun alone (`--jobs 1`, the whole suite, scratch `timeouts.result`): all 24 hang alone too (unit `step28-timeouts`, 2026-10-14, 05:31 to 07:29, cores 12 to 15: `mist` 7, `horn-reach` 7, `horn-cover` 4, `horn-equation` 3, `horn-mod` 2, `search` 1; a counter multiplied from zero, a `+` turned into `*` in a loop's step, a comparison turned so that a loop never ends), so none is caught or missed and the counts above stand: without the 24, the survivors are mist 8, horn-cover 12, horn-equation 49, horn-mod 1, horn-reach 10 and search 7. A mutant that hangs the whole suite is one no test passes; cargo-mutants lists it apart from the missed ones. **Fuzzing** (`target/fuzz/summary.tsv`): every target ran to its cap or its stall; no crash and no new artifact but `ordinary_decide`'s 53 timeouts and 16 slow units, which found the focused engine's unpolled `&` rules (fixed in ytpvkvvz; that `Limits::work` does not count them goes to the author, below); the readers that changed after the run (tptp, sequent_text, ordinary_text, lltp) ran again at the head with no artifact. **Ratchet**: the gate's check on every commit; the flake's build put `read-tptp` 2.17 % over its ceiling, raised in ypzmzomx with the reason. **Families**: `linlog-bench run --all-families --timeout 5`, 123 runs, no mismatch, `summary --strict` passes. **Target set** at ytpvkvvz: 135 rows decided alike with the oracle `after-efficiency.csv`, 0 differ in their counters, none decided by the oracle and not by it (its times under load mean nothing; kept out of the tree as `scratch-after-and-poll`). |
 | l. check rounds (at most three), the fresh-context reviewer, `nix flake check` | done: `nix flake check` passed at ypzmzomx and at nvxqnwxr, the area's head; every code commit of the area passed the gate (scratch `gates/summary`: uzrwomtu, okyulpzs and lyqqkvsm on a second run, their test's race being fixed in tyutxxqo; uknyooml and the three after it once the style-help fix was folded into it) | **Round 1** (nine lenses, one effort level below the audit's; the performance lens alone found nothing open): its fixes are rwtxwmxv, wxpuwxvv, vxwmzrmx, oxvxmwko, zututqnx to trorrowx, kknupyzk (the declines). **Round 2** (the same nine, at trorrowx; the limit stopped all nine at their start and they resumed after it): performance, coherence and readiness found their findings fixed; the API lens found that round 1's refusal of `batch.mode` and `ordinary.logic` refused the library's own `Settings` JSON (must-fix, undone in slznllpo: `batch.mode` applies unless a mode flag is given, `ordinary` under `--logic`); soundness a `--logic` derivation stopped in the read-back's checker pass, and a length cut inside a character read as no UTF-8; input runs of `(` that waited unbounded (ooxonrqk), a session's command lines without a cap, and `seq json`'s advice naming a flag it lacks; tests, docs and idiom the open halves of F188, F189, F195, F206, F210, F214, F217, F219. All fixed in tyutxxqo to slznllpo; F210's "exactly one line" is the reader thread's race, so the test bounds the rest to one line. The gate's three failures at okyulpzs, uzrwomtu and lyqqkvsm were one test racing `--batch-timeout 0ms` (tyutxxqo passes a past limit at once). **Round 3** (eight lenses, at rtsluwlo; performance had nothing open): coherence, docs, readiness and soundness found every item fixed and nothing new; idiom asked for one test helper; tests left F188's `compare.rs` (declined: it prints tables) and F214's timeout arm (a child that outlives its limit on purpose) and took a settings test of the batch's flags; API asked prove's `--settings` help and README to name `batch.mode`; input found a batch's lines and `--files-from` entries read without a cap (must-fix, against cli.md's new sentence), `seq json`'s advice naming a flag it lacked, and the depth refusal undocumented on `Limits::occurrences`. All fixed in oknowqpm; being the third round, its fixes had no round of their own, and the fresh-context reviewer reads them with the rest. **The fresh-context reviewer** (Opus 5.5, `high`, the whole diff pqrmsykr..oknowqpm with witness runs): one must-fix, `--batch-timeout` not stopping an `--isolate` child (a child under `--timeout none` ran on), and eight should-fix: Ctrl-C under `--isolate` read as an error, `--file -` and `--files-from -` read ahead under `--cores auto`, an `--output` directory refused only after the search, `summary --against` naming gains but not losses, a list's unreadable entries losing their error to the file check, `check` reading its file outside its time limit, a test that never reached the derivation it claimed to stop, and `env -S` hiding git from the guard. All fixed in trvlvsyk, pwptootq (COMPARISON.md regenerated: the reverse sections add the problems the default pass decides and a single bias does not) and pokmmrxy, each with a test. **The last reader** (Fable 5.1, `high`, README and the rustdoc's front page against the usability baseline): of the baseline's fifteen points, five resolved, seven partly, three open; its two must-fix obstacles were how to get the library (README and the front page now say) and the advice of an unknown that no limit decides (to `plan/later.md`: it needs measurements); fixed besides in koqypwoq: the syntax and the counters introduced where they are first used, an occurrence defined, `show latex` refused as a file name, `--prelude` without a standalone certificate refused. The rest, with reasons, is the new "Follow-ups: a first user's obstacles" of `plan/later.md`. |
 
 #### Area 3.4: decided unattended
@@ -1452,24 +1452,25 @@ The decisions the review sections hand to the author at the step's end:
    user's obstacles".
 7. Not done and recorded nowhere until this write-up: the design's
    public walks (`api.md` 2.4 and 3.6, R245): `sequents::fmt::{Walk,
-   Visit}` stay crate-private and `Reading::walk` does not exist. A
-   code change, for a session after this one or for step 29, which
-   needs it first. Two smaller ones the checked table above found: the
-   doc comment of `Atom` (`core/src/sequents/term.rs:28`) still calls
-   it "a propositional variable", and `cli/src/lib.rs` lacks the
-   sentence that `linlog_cli` carries no semver promise (`api.md` 2.3,
-   R253); and `.claude/rules/cli.md:260` still names `alone_first`,
-   which `search::race` replaced.
-8. Found by this session's `nix flake check` (which passed): the
-   features check warns, under every feature set with `interactive` and
-   without `serialize` (ten of them, `--features interactive` first),
-   that six imports of `core/src/proofs/interactive/replay.rs` (lines 8
-   to 13) are unused: the file's two items, `Interactive::from_parts` and
-   `replay`, are each `#[cfg(feature = "serialize")]`, and the move that made the file
-   (mpuzmwmy, F59) did not gate the module or its imports. The
-   conventions ask that both `cargo hack` runs stay free of warnings,
-   and neither the gate nor the check denies them. A code change for a
-   session after this one.
+   Visit}` stay crate-private and `Reading::walk` does not exist. Left to
+   step 29 by the supervisor: its prompt now says to do it first. The
+   three smaller points the checked table found are fixed (txykwztn, the
+   gate passed): `Atom`'s doc comment calls it an atomic formula,
+   `cli/src/lib.rs` says that `linlog_cli` is no API and makes no semver
+   promise (`api.md` 2.3, R253), and `.claude/rules/cli.md` names
+   `searched` and `search::race` where it named `alone_first`.
+8. Found by this session's first `nix flake check` (which passed), and
+   fixed: the features check warned, under every feature set with
+   `interactive` and without `serialize` (ten of them), that six imports
+   of `core/src/proofs/interactive/replay.rs` were unused, since its two
+   items were each gated on `serialize` and the move that made the file
+   (mpuzmwmy, F59) did not gate the module. rsvlqous gates the module on
+   `serialize` (the gate passed; both `cargo hack` runs passed with
+   `-D warnings`), and krxomqoz denies warnings in the gate's two
+   `cargo hack` runs (in `target/hack`, since `RUSTFLAGS` are part of
+   every artifact) and in the flake's `features` check (`env.RUSTFLAGS`),
+   so that a move cannot bring one back unseen: the gate passed with
+   them, and `nix build .#checks.x86_64-linux.features` built.
 9. The third ultra review (`review/3.4a`, `review/3.4b`): its findings,
    if any, are fixed in a short session after this one, with the gate
    and `nix flake check`.
@@ -1491,8 +1492,7 @@ The decisions the review sections hand to the author at the step's end:
   public walk the design gives translators (`sequents::fmt::Walk` and
   `Visit`, `Reading::walk`, R245) was not made public: `Walk` and
   `Visit` are still `pub(crate)` (`core/src/sequents/fmt.rs:19`,
-  `:53`), so step 29 makes them public first or walks `Sequent::terms`
-  itself. A
+  `:53`), and step 29's prompt now says to make them public first. A
   `proved` outcome is checked ground truth (`checked`); an `unprovable`
   one carries a `Disproof` that nothing checks until step 31, so a
   contradiction against it is listed as unchecked. The counters mean
@@ -2343,3 +2343,19 @@ reason), which go to the supervisor with this session's last message.
   change code goes to `planning` in the last message, not into the tree.
 - Signing has lapsed: commits with `--config signing.behavior=drop`
   after a failed test signature; the supervisor signs later.
+
+### Message from `planning` to `step-28h` (2026-10-14)
+
+- Fix the `replay.rs` warning in this session, a commit each: (1) gate
+  `replay.rs` on `serialize`, verified by the gate and both `cargo hack`
+  runs without a warning; (2) if both runs then pass with warnings
+  denied, deny them in the gate and in the flake's `features` check, and
+  if anything else warns, leave this item and say what warned; (3) open
+  question 7's three doc points (`Atom`'s doc comment, `cli/src/lib.rs`'s
+  sentence that `linlog_cli` makes no semver promise, `cli.md`'s
+  `alone_first`) in one commit with the gate. R245 stays with step 29,
+  whose prompt now says to do it first. Then `nix flake check` again,
+  this row and open questions 7 and 8 brought up to date, and the last
+  message once the timeouts' rerun has ended. What was done: (1) rsvlqous,
+  the gate passed and both runs passed with `-D warnings`; the rest in the
+  commits after it and in the closing row.
