@@ -532,10 +532,20 @@ struct Marks {
     tried: u64,
 }
 
+/// The unrestricted zone of a sequent: the subformulas of the `?`
+/// formulas decomposed on the branch, and the id the memo interned it
+/// under ([`Table::intern`]), by which keys name it.
+struct Unrestricted {
+    /// The zone.
+    set: OccSet,
+    /// Its id: another for another zone.
+    id: u64,
+}
+
 /// The members of an unrestricted zone in the order of their classes.
 struct ByClass {
-    /// The zone; `None` before the first.
-    zone: Option<OccSet>,
+    /// The id of the zone; `None` before the first.
+    zone: Option<u64>,
     /// Its members with their classes, by class and then by id.
     members: Pooled<(OccId, OccId)>,
 }
@@ -678,7 +688,11 @@ impl<'a> Run<'a> {
         } else {
             0
         };
-        let theta = self.take_set();
+        let set = self.take_set();
+        let theta = Unrestricted {
+            id: self.memo.intern(&set, self.problem.account),
+            set,
+        };
         // Up to `u32::MAX` inclusive without a wrap; that bound stands for
         // none and is never reached (`Options::copy_bound`).
         for budget in 0..=levels {
@@ -694,12 +708,12 @@ impl<'a> Run<'a> {
             match result {
                 Ok(Found::Failed(cuts)) if cuts.exhausted => {}
                 decided => {
-                    self.give_set(theta);
+                    self.give_set(theta.set);
                     return decided.map(Found::node);
                 }
             }
         }
-        self.give_set(theta);
+        self.give_set(theta.set);
         Err(Reason::CopyBound { copies: levels })
     }
 
@@ -710,7 +724,7 @@ impl<'a> Run<'a> {
     /// The list is a stack; the order does not matter for completeness.
     fn asynchronous(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &mut Context,
         list: &mut Vec<OccId>,
         budget: u32,
@@ -727,7 +741,7 @@ impl<'a> Run<'a> {
     /// level of recursion and not one each.
     fn decompose(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &mut Context,
         list: &mut Vec<OccId>,
         budget: u32,
@@ -735,10 +749,12 @@ impl<'a> Run<'a> {
         // The `⅋`, `⊥` and `?` rules applied, to wrap around the proof of
         // what remains; the first applied is the lowest.
         let mut applied = self.take_list();
-        // The unrestricted zone once a `?` added a formula to it.
-        let mut grown: Option<OccSet> = None;
+        // The unrestricted zone once a `?` added a formula to it, interned
+        // once it is complete.
+        let mut grown: Option<Unrestricted> = None;
         let result = loop {
             let Some(o) = list.pop() else {
+                self.intern(&mut grown);
                 break self.prove(grown.as_ref().unwrap_or(theta), gamma, budget);
             };
             match self.problem.forest.kind(o) {
@@ -750,19 +766,23 @@ impl<'a> Run<'a> {
                 Kind::Bot => applied.push(o),
                 Kind::Top => break Ok(Found::proved(self.push(Node::Top(Member::from(o))))),
                 Kind::With => {
+                    self.intern(&mut grown);
                     break self.with(grown.as_ref().unwrap_or(theta), gamma, list, o, budget);
                 }
                 Kind::Quest => {
                     // The subformula joins the unrestricted zone, which is
                     // a set: a formula already there changes nothing.
                     let a = self.problem.forest.left(o).unwrap();
-                    if !grown.as_ref().unwrap_or(theta).contains(a) {
+                    if !grown.as_ref().unwrap_or(theta).set.contains(a) {
                         if grown.is_none() {
                             let mut larger = self.take_set();
-                            larger.clone_from(theta);
-                            grown = Some(larger);
+                            larger.clone_from(&theta.set);
+                            grown = Some(Unrestricted {
+                                set: larger,
+                                id: theta.id,
+                            });
                         }
-                        grown.as_mut().unwrap().insert(a);
+                        grown.as_mut().unwrap().set.insert(a);
                     }
                     applied.push(o);
                 }
@@ -774,7 +794,7 @@ impl<'a> Run<'a> {
             }
         };
         if let Some(larger) = grown {
-            self.give_set(larger);
+            self.give_set(larger.set);
         }
         let result = result.map(|found| {
             found.map(|mut node| {
@@ -792,12 +812,19 @@ impl<'a> Run<'a> {
         result
     }
 
+    /// Gives a zone that grew the id of what it holds now.
+    fn intern(&mut self, grown: &mut Option<Unrestricted>) {
+        if let Some(zone) = grown {
+            zone.id = self.memo.intern(&zone.set, self.problem.account);
+        }
+    }
+
     /// The `&` rule: both premises with the same context, each keeping the
     /// whole copy budget; the right one is searched only once the left one
     /// is proved. On several threads both are searched at once.
     fn with(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &mut Context,
         list: &mut Vec<OccId>,
         o: OccId,
@@ -856,7 +883,7 @@ impl<'a> Run<'a> {
     /// the list with the subformula on top.
     fn premise(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         list: &[OccId],
         sub: OccId,
@@ -926,7 +953,7 @@ impl<'a> Run<'a> {
     /// `prove(Θ ; Γ)` for a stable `Γ`: the memo, the loop check, the
     /// immediate tests, then a focus on each positive
     /// formula in turn, first from `Γ`, then copied from `Θ`, then Mix.
-    fn prove(&mut self, theta: &OccSet, gamma: &Context, budget: u32) -> Step {
+    fn prove(&mut self, theta: &Unrestricted, gamma: &Context, budget: u32) -> Step {
         Ok(self.prove_part(theta, gamma, budget)?.0)
     }
 
@@ -934,7 +961,7 @@ impl<'a> Run<'a> {
     /// sub-multiset of `Γ` is provable either.
     fn prove_part(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
@@ -944,11 +971,12 @@ impl<'a> Run<'a> {
         result
     }
 
-    /// The body of `prove`: the memo and the branch stack around the
-    /// decision. Says whether a failure is hereditary.
+    /// The body of `prove`: the poll, then the memo and the branch stack
+    /// around the decision ([`Self::prove_listed`]), with the members of
+    /// `Γ` listed once. Says whether a failure is hereditary.
     fn prove_stable(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
@@ -962,9 +990,32 @@ impl<'a> Run<'a> {
         if self.problem.account.over() {
             self.relieve()?;
         }
+        let mut members = self.take_list();
+        gamma.list_into(&mut members);
+        let mut canonical = self.take_list();
+        let result = self.prove_listed(theta, gamma, &members, &mut canonical, budget);
+        self.give_list(members);
+        self.give_list(canonical);
+        result
+    }
+
+    /// The memo and the branch stack around the decision of a stable
+    /// sequent whose linear zone has the members given, with a buffer for
+    /// its canonical members.
+    fn prove_listed(
+        &mut self,
+        theta: &Unrestricted,
+        gamma: &Context,
+        members: &[OccId],
+        canonical: &mut Vec<OccId>,
+        budget: u32,
+    ) -> Result<(Found, bool), Reason> {
         // The memo and the loop check read the zones where they are, under
         // one hash.
-        let key = Zones { theta, gamma };
+        let key = Zones {
+            theta: theta.id,
+            members,
+        };
         let hash = if self.problem.memoizes || self.problem.rules.stack {
             key.hash()
         } else {
@@ -972,15 +1023,17 @@ impl<'a> Run<'a> {
         };
         // Complete failures are recorded up to interchangeable members:
         // under the canonical key, where it differs from the sequent's own.
-        let mut canonical = self.take_context_any();
         let renamed = self.problem.classes.renames(gamma);
         if renamed {
-            let replaced = canonical.canonical_from(gamma, self.problem.classes);
-            debug_assert!(replaced, "a member's class is another occurrence");
+            self.problem.classes.canonical(members, canonical);
+            debug_assert!(
+                *canonical != members,
+                "a member's class is another occurrence"
+            );
         }
         let canonical_key = Zones {
-            theta,
-            gamma: &canonical,
+            theta: theta.id,
+            members: canonical,
         };
         let canonical_hash = if renamed && self.problem.memoizes {
             canonical_key.hash()
@@ -1000,12 +1053,8 @@ impl<'a> Run<'a> {
             None => self.memo.get(key, hash, budget),
         };
         match entry {
-            Some(Entry::Proved(node)) => {
-                self.give_context(canonical);
-                return Ok((Found::proved(node), false));
-            }
+            Some(Entry::Proved(node)) => return Ok((Found::proved(node), false)),
             Some(Entry::Failed(failure @ (Failure::Complete | Failure::Hereditary))) => {
-                self.give_context(canonical);
                 return Ok((Found::NOTHING, failure == Failure::Hereditary));
             }
             Some(Entry::Failed(Failure::Exhausted(_))) | None => {}
@@ -1022,7 +1071,6 @@ impl<'a> Run<'a> {
         if self.problem.rules.stack
             && let Some(depth) = self.repeated(key, hash)
         {
-            self.give_context(canonical);
             // A depth of the branch, which is as deep as the recursion
             // limit allows.
             return Ok((Found::failed(Cuts::repeat(depth as u32)), false));
@@ -1036,7 +1084,6 @@ impl<'a> Run<'a> {
             if entry.is_none() {
                 self.memo.count_hit(hash);
             }
-            self.give_context(canonical);
             let cuts = Cuts {
                 exhausted: reused.exhausted,
                 dependency: reused.leader,
@@ -1045,43 +1092,34 @@ impl<'a> Run<'a> {
         }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
-            self.give_context(canonical);
             return Ok((Found::failed(Cuts::BUDGET), false));
         }
         if self.problem.rules.stack {
-            if self.stack_len < self.stack.len() {
-                // Into the entry's own buffers: a derived `clone_from`
-                // would allocate both zones anew.
-                self.stack[self.stack_len].assign(key);
-                self.hashes[self.stack_len] = hash;
-            } else {
+            if self.stack_len == self.stack.len() {
                 self.scratch
-                    .charge(self.key_bytes() + size_of::<u64>() + size_of::<usize>());
-                self.stack.push(Key {
-                    theta: theta.clone(),
-                    gamma: gamma.clone(),
-                });
-                self.hashes.push(hash);
+                    .charge(size_of::<Key>() + size_of::<u64>() + size_of::<usize>());
+                self.stack.push(Key::default());
+                self.hashes.push(0);
                 self.marks.push(0);
             }
+            // Into the entry's own buffer, which grows to the longest
+            // linear zone it held.
+            let pushed = &mut self.stack[self.stack_len];
+            pushed.assign(key);
+            pushed.members.settle(&mut self.scratch);
+            self.hashes[self.stack_len] = hash;
             self.marks[self.stack_len] = self.waiting.len();
             self.stack_len += 1;
         }
         let mark = self.nodes.mark();
-        let result = self.decide(theta, gamma, budget);
+        let result = self.decide(theta, gamma, members, budget);
         let own_depth = if self.problem.rules.stack {
             self.stack_len -= 1;
             (self.above() + self.stack_len) as u32
         } else {
             NO_DEPENDENCY
         };
-        let (found, hereditary) = match result {
-            Ok(decided) => decided,
-            Err(reason) => {
-                self.give_context(canonical);
-                return Err(reason);
-            }
-        };
+        let (found, hereditary) = result?;
         // What a failure rests on, as the steps it ran returned it. A
         // dependency on this very sequent is settled with it: the pruned
         // descendants could only have proved what this sequent proves.
@@ -1114,15 +1152,8 @@ impl<'a> Run<'a> {
                 (node, cuts, hereditary),
             );
             self.scratch.charge(self.waiting.grown());
-            if let Err(reason) = closed {
-                self.give_context(canonical);
-                return Err(reason);
-            }
+            closed?;
         }
-        let canonical_key = Zones {
-            theta,
-            gamma: &canonical,
-        };
         let recorded = match node {
             Some(proof) if self.problem.memoizes => {
                 // The entry outlives the branch, so the proof is kept.
@@ -1157,7 +1188,6 @@ impl<'a> Run<'a> {
             }
             Some(proof) => Ok(Some(proof)),
         };
-        self.give_context(canonical);
         Ok(match recorded? {
             Some(node) => (Found::proved(node), false),
             None => (Found::failed(cuts), hereditary),
@@ -1211,19 +1241,9 @@ impl<'a> Run<'a> {
         }
         self.waiting.lead_from(waited, cuts.dependency);
         if self.waiting.len() < self.problem.waits {
-            let entry = match self.waiting.spare() {
-                Some(mut spare) => {
-                    spare.assign(key);
-                    spare
-                }
-                None => {
-                    self.scratch.charge(self.key_bytes());
-                    Key {
-                        theta: key.theta.clone(),
-                        gamma: key.gamma.clone(),
-                    }
-                }
-            };
+            let mut entry = self.waiting.spare().unwrap_or_default();
+            entry.assign(key);
+            entry.members.settle(&mut self.scratch);
             self.waiting.wait(
                 entry,
                 hash,
@@ -1255,20 +1275,19 @@ impl<'a> Run<'a> {
         } else {
             Failure::Complete
         };
-        if !self.problem.classes.renames(key.gamma) {
+        if !self.problem.classes.renames_any(key.members) {
             return self
                 .remember(key, hash, Entry::Failed(complete))
                 .map(|_| ());
         }
-        let mut canonical = self.take_context_any();
-        let replaced = canonical.canonical_from(key.gamma, self.problem.classes);
-        debug_assert!(replaced, "a member's class is another occurrence");
+        let mut canonical = self.take_list();
+        self.problem.classes.canonical(key.members, &mut canonical);
         let canonical_key = Zones {
             theta: key.theta,
-            gamma: &canonical,
+            members: &canonical,
         };
         let recorded = self.remember(canonical_key, canonical_key.hash(), Entry::Failed(complete));
-        self.give_context(canonical);
+        self.give_list(canonical);
         recorded.map(|_| ())
     }
 
@@ -1347,8 +1366,8 @@ impl<'a> Run<'a> {
     /// allocated, is still over the bound: squeezing those would be undone
     /// by the next node.
     fn relieve(&mut self) -> Result<(), Reason> {
-        let (keys, lists) = self.waiting.release();
-        self.scratch.resize(keys * self.key_bytes() + lists, 0);
+        let charged = self.waiting.release();
+        self.scratch.resize(charged, 0);
         // Every failure that waits from now on is decided below every
         // stable sequent of the branch, which must settle it when it
         // closes.
@@ -1368,11 +1387,6 @@ impl<'a> Run<'a> {
         }
     }
 
-    /// The bytes a memo key of the forest's width allocates.
-    fn key_bytes(&self) -> usize {
-        2 * self.set_bytes()
-    }
-
     /// The bytes a set of the forest's width allocates.
     fn set_bytes(&self) -> usize {
         self.problem.forest.len().div_ceil(64) * size_of::<u64>()
@@ -1384,12 +1398,11 @@ impl<'a> Run<'a> {
     /// one member less hereditarily failed.
     fn decide(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
+        members: &[OccId],
         budget: u32,
     ) -> Result<(Found, bool), Reason> {
-        let mut members = self.take_list();
-        gamma.list_into(&mut members);
         let mut tally = self.take_tally();
         let mut candidates = self.take_list();
         let mut copies = self.take_list();
@@ -1397,7 +1410,7 @@ impl<'a> Run<'a> {
             .decide_with(
                 theta,
                 gamma,
-                &members,
+                members,
                 &mut tally,
                 &mut candidates,
                 &mut copies,
@@ -1410,7 +1423,6 @@ impl<'a> Run<'a> {
                     && matches!(found, Found::Failed(_));
                 (found, hereditary || alone)
             });
-        self.give_list(members);
         self.give_tally(tally);
         self.give_list(candidates);
         self.give_list(copies);
@@ -1421,7 +1433,7 @@ impl<'a> Run<'a> {
     #[allow(clippy::too_many_arguments)]
     fn decide_with(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         members: &[OccId],
         tally: &mut Tally,
@@ -1455,7 +1467,7 @@ impl<'a> Run<'a> {
         if zero
             && !affine
             && !tally.absorbs()
-            && !theta.iter().any(|a| self.problem.counts.absorbs(a))
+            && !theta.set.iter().any(|a| self.problem.counts.absorbs(a))
         {
             return Ok((Found::NOTHING, false));
         }
@@ -1530,7 +1542,7 @@ impl<'a> Run<'a> {
     /// the alternatives searched.
     fn choose<'m>(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         alternatives: impl Iterator<Item = Alternative<'m>>,
         budget: u32,
@@ -1549,7 +1561,7 @@ impl<'a> Run<'a> {
     /// Decides a choice among alternatives on this engine, in their order.
     fn choose_here<'m>(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         alternatives: impl Iterator<Item = Alternative<'m>>,
         budget: u32,
@@ -1578,7 +1590,7 @@ impl<'a> Run<'a> {
     /// first time one needs it.
     fn alternative(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         alternative: Alternative<'_>,
         rest: &mut Option<Context>,
@@ -1647,24 +1659,17 @@ impl<'a> Run<'a> {
     /// of what one cost on a net of thousands of transitions.
     fn one_of_each_copy(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         copies: &mut Vec<OccId>,
     ) -> usize {
         let by_class = &mut self.by_class;
-        if by_class.zone.as_ref() != Some(theta) {
-            match &mut by_class.zone {
-                Some(zone) => zone.clone_from(theta),
-                None => {
-                    self.scratch
-                        .charge(self.problem.forest.len().div_ceil(64) * size_of::<u64>());
-                    by_class.zone = Some(theta.clone());
-                }
-            }
+        if by_class.zone != Some(theta.id) {
+            by_class.zone = Some(theta.id);
             by_class.members.clear();
             by_class
                 .members
-                .extend(theta.iter().map(|a| (self.problem.classes.of(a), a)));
+                .extend(theta.set.iter().map(|a| (self.problem.classes.of(a), a)));
             by_class.members.sort_unstable();
             by_class.members.settle(&mut self.scratch);
         }
@@ -1695,7 +1700,7 @@ impl<'a> Run<'a> {
     /// because no part of `Γ` is provable.
     fn last_resort(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         members: &[OccId],
         tally: &Tally,
@@ -1716,7 +1721,13 @@ impl<'a> Run<'a> {
     /// marks the lists of the members' literals, so that the test is
     /// linear in the members: comparing every pair was quadratic under
     /// weakening, where any number of members may close a sequent.
-    fn initial(&mut self, theta: &OccSet, gamma: &Context, members: &[OccId], budget: u32) -> Step {
+    fn initial(
+        &mut self,
+        theta: &Unrestricted,
+        gamma: &Context,
+        members: &[OccId],
+        budget: u32,
+    ) -> Step {
         let affine = self.problem.rules.affine;
         if !affine && members.len() > 2 {
             return Ok(Found::NOTHING);
@@ -1755,7 +1766,7 @@ impl<'a> Run<'a> {
                 continue;
             }
             self.lists[dual].tried = self.stamp;
-            if let Some(d) = self.dual_in(p, |d| theta.contains(d)) {
+            if let Some(d) = self.dual_in(p, |d| theta.set.contains(d)) {
                 if budget == 0 {
                     // Another pair may still close the sequent without a
                     // copy.
@@ -1851,7 +1862,7 @@ impl<'a> Run<'a> {
     /// `focus(Θ ; Γ ⇓ F)` with `F` taken out of `Γ` (or copied from `Θ`):
     /// the positive rules along `F`, and a release into the asynchronous
     /// phase once `F` is negative.
-    fn focus(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
+    fn focus(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
         self.enter()?;
         let result = self.focus_on(theta, gamma, f, budget);
         self.leave();
@@ -1859,7 +1870,7 @@ impl<'a> Run<'a> {
     }
 
     /// The body of `focus`.
-    fn focus_on(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
+    fn focus_on(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
         match self.problem.forest.kind(f) {
             Kind::Plus => {
                 let sides = [

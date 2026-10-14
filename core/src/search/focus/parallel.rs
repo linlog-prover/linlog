@@ -28,10 +28,10 @@ use super::counts::{Counts, Split};
 use super::memo::{Key, Shared, Table};
 use super::schedule::{Plan, merged};
 use super::split::Join;
-use super::{Alternative, Cuts, Found, Problem, Run, SetUp, Step};
+use super::{Alternative, Cuts, Found, Problem, Run, SetUp, Step, Unrestricted};
 use crate::Error;
 use crate::limits::Limits;
-use crate::occurrences::{OccId, OccSet};
+use crate::occurrences::OccId;
 use crate::proofs::{Node, NodeId};
 use crate::search::memory::Account;
 use crate::search::parallel::{Flags, Lent, RaiseOnPanic, Runtime, record};
@@ -322,7 +322,7 @@ impl<'a> Run<'a> {
     /// returns what leaves it.
     fn run_alternative(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         alternative: Alternative<'_>,
         budget: u32,
@@ -344,7 +344,7 @@ impl<'a> Run<'a> {
     /// pool may decide where one thread gives up.
     pub(super) fn choose_parallel(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         alternatives: &[Alternative<'_>],
         budget: u32,
@@ -402,7 +402,7 @@ impl<'a> Run<'a> {
     /// are the state before any member moved.
     pub(super) fn split_parallel(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         members: &[OccId],
         sides: (&Context, &Context),
         split: &Split,
@@ -444,7 +444,7 @@ impl<'a> Run<'a> {
     /// An engine that is stopped already starts neither.
     pub(super) fn with_parallel(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         list: &[OccId],
         o: OccId,

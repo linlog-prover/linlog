@@ -112,14 +112,45 @@ relies on:
   `is_empty` cost the range and `clone_from` the union of both ranges,
   one copy (the source's words outside its range are empty, so they
   clear the target's); a zone of at most `NARROW` (8) words keeps every
-  word in range, since there the bookkeeping cost more than it saved; equality and the hash are of the members, never
-  of the range, since the memo and the loop check compare zones by
-  them. On a net of tens of thousands of occurrences a stable sequent's
+  word in range, since there the bookkeeping cost more than it saved; equality is of the members, never
+  of the range. On a net of tens of thousands of occurrences a stable sequent's
   members lie in a few words: the free splits of
   `NeoElection_neoelection-7.unf_10_1` listed, copied and cleared the
   whole width per split (86 % of its time); with the range it visits ten
-  times the stable sequents in its 5 s. The memo's key still holds both
-  zones at the forest's width (a sparse key is the follow-up).
+  times the stable sequents in its 5 s.
+- **The key of a stable sequent is sparse** (`memo::Key`, `Zones`): `Θ`
+  by an id, `Γ` by its members in ascending order with repeats, listed
+  once per stable sequent in `prove_stable` and handed to `decide`, which
+  listed them anyway. `Θ` travels with its id (`Unrestricted`), which the
+  memo's table of zones (`memo::Interner`, `Table::intern`) gives it where
+  it is made: at the root and where a `?` rule grew it, once the
+  asynchronous phase is done adding to it (`Run::intern`, before the
+  stable sequent and the `&` rule), so a stable sequent hashes and
+  compares one word for `Θ`. What makes an id as good as the set: **an
+  id is never given twice** (a counter, which no search takes to 2⁶⁴),
+  so an id names one zone; and equal zones get one id while the table
+  holds them. The table holds `memo_entries` zones, is emptied when full
+  and by `relieve`, and keeps no zone the account cannot spare (or any,
+  with the memo off, every zone a new id); a zone met again then gets a
+  new id and the memo finds nothing under it, which costs hits, never a
+  wrong one. **The loop check stays exact whatever the table did**: `Θ`
+  only grows along a branch and a grown zone is a new value strictly
+  larger, so two stable sequents of one branch with equal `Θ` share the
+  one value, and its one id. A pool's workers share the table
+  (`Shared::zones`, behind a lock of its own: a zone is interned at a
+  `?` rule, not per stable sequent), so every worker names a zone alike,
+  which the shared memo and the ancestors' keys need. `ByClass` keys its
+  members by class with the id too. The two searches of the default bias
+  have a table each, as they have a memo each; no key crosses between
+  them. Why: with both zones as bitsets of the forest's width, hashing,
+  comparing and copying a key was up to 43 % of the instructions on the
+  widest two-sided searches (`SYJ212+1.010` in cbv, 27 105 occurrences,
+  without a copy bound); step 28's report has the times. On a narrow
+  forest a list of members is larger than two bitsets of a word or two:
+  the memo's entries are then larger (the counter family's witness of
+  `memory_bound` needs 9 KiB where it needed 8), which matters only
+  under a bound far below the default, since the memo's cap in entries
+  keeps a narrow forest's memo small.
 - **Stable sequents only.** The asynchronous phase runs to completion (`⅋`
   opens, `⊥` drops, `⊤` closes with a `Top` node and the pending `⅋`/`⊥`
   nodes wrapped around it, `&` branches on copies of the state, `?` moves
@@ -168,22 +199,25 @@ relies on:
   replace it. Entries survive across levels; that is where the
   re-exploration of deepening is recovered. Never memoize across forests.
 - **The memo's layout** (`focus/memo.rs`): an entry is a record of
-  words in a chunk (the key's hash, the entry packed into a word, the
-  place of the linear zone's extra copies, both zones' words), found
-  through an index of record numbers with linear probing, at most half
-  full. Chunks have a fixed number of records, a power of two, about a
-  mebibyte, or a sixteenth of the room there is under a small bound.
-  So an entry costs no allocation and is counted with its chunk,
-  `clear` resets a count and zeroes the index, keeping the memory for
-  the entries to come, and `release` or a drop frees some hundreds of
-  blocks. The table is never iterated and never deletes, which is what
-  makes the index this simple. Per entry: 24 bytes of header, eight for
-  the index, and the two zones as bitsets of the forest's width, which
-  dominate on a forest of thousands of occurrences (a sparse form of
-  the zones is the next thing to gain, and a follow-up).
+  32-bit words in a chunk (the key's hash, the entry, the id of `Θ`, each
+  in two words, the number of `Γ`'s members and the members), found
+  through an index of the places where records start (the chunk in the
+  high half of a slot, the word in the low) with linear probing, at most
+  half full. Records lie one after another; a chunk is about a
+  mebibyte, or a sixteenth of the room there is under a small bound,
+  and a record longer than a chunk gets a chunk of its own (an empty
+  one grown, or a new one), so a record is never split. A record's words
+  fit a `u32` (a longer key is never recorded, as if memory were short),
+  so a word's place in its chunk fits a slot's low half. So an entry
+  costs no allocation and is counted with its chunk, `clear` resets a
+  count and zeroes the index, keeping the memory for the entries to
+  come, and `release` or a drop frees some hundreds of blocks. The table
+  is never iterated and never deletes, which is what makes the index
+  this simple; growing the index walks the records in order. Per entry:
+  28 bytes of header, four a member, and 16 to 32 for the index.
 - **Complete failures are keyed up to interchangeable members of `Γ`**
-  (`Context::canonical_from`: every member replaced by its class, the
-  canonical key; `Θ` stays as it is). By the lemma on interchangeable
+  (`Classes::canonical`: every member replaced by its class and sorted,
+  the canonical key; `Θ` stays as it is). By the lemma on interchangeable
   occurrences a `Complete` failure holds for every sequent with that
   canonical key, so it is recorded there and `Memo::refuted` reads it
   for any of them. A proof names occurrences, so `Proved` stays under
@@ -232,10 +266,11 @@ relies on:
   repeated sequent is pruned rather than reported as cut by the budget. Pruned branches are never cut by the
   budget.
   Every stack entry has its hash beside it (`hashes`), compared before
-  the sequents: the ancestors of a branch mostly share `Θ` and the set
-  of `Γ`, so a comparison of sequents ran over both bitsets before it
-  met the difference (the `growing` family at a bound of 1 024 took
-  530 ms of CPU for 392 961 stable sequents, 260 ms with the hashes).
+  the sequents: the ancestors of a branch mostly share `Θ` and most of
+  `Γ`, so a comparison of sequents ran over both zones before it met
+  the difference (the `growing` family at a bound of 1 024 took 530 ms
+  of CPU for 392 961 stable sequents, 260 ms with the hashes, when the
+  zones were bitsets).
 - **A failure with a dependency waits on its leader** (`focus/waiting.rs`,
   whose module doc has the argument; `Run::close`): it is not memoized,
   but kept, with its budget and flags, under the shallowest ancestor it
@@ -392,10 +427,12 @@ relies on:
     are the backward search's).
   - **The unit of work** is the engine's own, since the crate has no
     clock: a step of a split search is one, a stable sequent
-    `NODE_WORK` plus what grows with its size (the forest's width for
-    the zones, the members, the copies and their comparisons with the
-    members in `meets`), a split whose premises are tried the forest's
-    width again. The engine adds these up in `Run::work` and hands
+    `NODE_WORK` plus what grows with its size (the forest's width, the
+    members, the copies and their comparisons with the members in
+    `meets`), a split whose premises are tried the forest's width again.
+    The width per stable sequent was what its key cost when the key was
+    two bitsets; it stays, since a new unit moves the two searches'
+    slices and with them every counter of the default bias. The engine adds these up in `Run::work` and hands
     them to the stop condition at its two polls (`Stop::fired(work)`);
     `Stop::Closure` and `Stop::Flags` ignore them, so nothing changes
     for a search that runs alone. So a run is a function of the input.

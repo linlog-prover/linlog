@@ -9,7 +9,7 @@
 
 use super::arena::{Arena, Kept};
 use super::counts::Counts;
-use super::memo::{Memo, Table};
+use super::memo::Table;
 use super::{Problem, Run, SetUp};
 use crate::fragment::{Fragment, Mode};
 #[cfg(feature = "parallel")]
@@ -149,7 +149,7 @@ impl Plan {
         let mut engine = Run::new(
             Problem::new(set_up, counts, self.copies, account),
             stop,
-            Table::Own(Memo::new(set_up.options.memo_entries())),
+            Table::own(set_up.options.memo_entries()),
             Arena::new(Kept::Own(Vec::new()), account),
         );
         let result = engine.run_kept(set_up.task.goal);

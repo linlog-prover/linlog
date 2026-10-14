@@ -298,13 +298,14 @@ impl Waiting {
     }
 
     /// Drops every entry and every spare key with the lists' memory, and
-    /// returns how many keys went and the bytes [`Waiting::grown`] handed
-    /// out, whose charges the caller releases.
-    pub(super) fn release(&mut self) -> (usize, usize) {
+    /// returns the bytes the keys' buffers were charged and
+    /// [`Waiting::grown`] handed out, whose charges the caller releases.
+    pub(super) fn release(&mut self) -> usize {
         self.clear();
-        let gone = (self.spare.len(), self.charged);
+        let keys: usize = self.spare.iter().map(|key| key.members.charged()).sum();
+        let charged = keys + self.charged;
         *self = Self::default();
-        gone
+        charged
     }
 }
 
@@ -446,20 +447,22 @@ mod tests {
 
     /// The lists' memory is handed out to be charged as it grows, at least
     /// an entry and an index slot for each failure that waited at once and
-    /// a place for each spare key, and given back whole by `release`.
+    /// a place for each spare key, and given back whole by `release`, with
+    /// what the keys' buffers were charged.
     #[test]
     fn the_lists_are_charged_as_they_grow() {
         use super::{Waited, Waiting};
-        use crate::occurrences::OccSet;
-        use crate::search::focus::context::Context;
+        use crate::occurrences::OccId;
         use crate::search::focus::memo::Key;
+        use crate::search::memory::{Account, Charged};
+        let account = Account::new(None);
+        let mut scratch = Charged::new(&account);
         let mut waiting = Waiting::default();
         let mut charged = 0;
         for hash in 0..1000 {
-            let key = Key {
-                theta: OccSet::empty(64),
-                gamma: Context::empty(64),
-            };
+            let mut key = Key::default();
+            key.members.push(OccId::new(hash as u32));
+            key.members.settle(&mut scratch);
             waiting.wait(key, hash, 0, (false, false), 1);
             charged += waiting.grown();
         }
@@ -469,7 +472,9 @@ mod tests {
         waiting.drop_from(0);
         let spares = waiting.grown();
         assert!(spares >= 1000 * size_of::<Key>(), "{spares} bytes");
-        assert_eq!(waiting.release(), (1000, charged + spares));
+        let keys = account.used() as usize;
+        assert!(keys >= 1000 * size_of::<OccId>(), "{keys} bytes");
+        assert_eq!(waiting.release(), keys + charged + spares);
         assert_eq!(waiting.grown(), 0, "released");
     }
 

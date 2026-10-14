@@ -10,12 +10,10 @@
 //! that range and not the forest's width: on a net of a hundred thousand
 //! occurrences a stable sequent's members lie in a few of its words.
 
-use super::classes::Classes;
 use crate::occurrences::{OccId, OccSet};
-use std::hash::{Hash, Hasher};
 
-/// A multiset of occurrence ids over one forest. Two zones are equal, and
-/// hash alike, when they hold the same members, whatever their ranges.
+/// A multiset of occurrence ids over one forest. Two zones are equal when
+/// they hold the same members, whatever their ranges.
 #[derive(Debug)]
 pub(crate) struct Context {
     /// The occurrences present at least once.
@@ -74,15 +72,6 @@ impl PartialEq for Context {
 
 impl Eq for Context {}
 
-impl Hash for Context {
-    /// The members' hash: the set's and the extra copies', as a key of the
-    /// memo hashes them.
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.set.hash(state);
-        self.extra.hash(state);
-    }
-}
-
 impl Context {
     /// Returns the empty zone over `len` occurrence ids.
     pub(crate) fn empty(len: usize) -> Self {
@@ -96,13 +85,9 @@ impl Context {
         zone
     }
 
-    /// Returns the occurrences present, each once.
-    pub(crate) fn set(&self) -> &OccSet {
-        &self.set
-    }
-
     /// Returns the extra copies: per occurrence present more than once, in
     /// ascending id order, how many copies beyond the first it has.
+    #[cfg(test)]
     pub(crate) fn extra(&self) -> &[(OccId, u32)] {
         &self.extra
     }
@@ -178,38 +163,6 @@ impl Context {
         self.extra.clear();
     }
 
-    /// Makes this zone `other` with every member replaced by the first
-    /// occurrence of its class: the same for two zones exactly when one is
-    /// the other up to interchangeable members. Returns whether some
-    /// member was replaced.
-    pub(crate) fn canonical_from(&mut self, other: &Self, classes: &Classes) -> bool {
-        self.clear();
-        let mut replaced = false;
-        for (o, copies) in other.with_copies() {
-            let class = classes.of(o);
-            replaced |= class != o;
-            self.add(class, copies);
-        }
-        replaced
-    }
-
-    /// Adds `copies` copies of `o`, at least one.
-    fn add(&mut self, o: OccId, copies: u32) {
-        let extra = if self.set.insert(o) {
-            self.reach(o);
-            copies - 1
-        } else {
-            copies
-        };
-        if extra == 0 {
-            return;
-        }
-        match self.slot(o) {
-            Ok(i) => self.extra[i].1 += extra,
-            Err(i) => self.extra.insert(i, (o, extra)),
-        }
-    }
-
     /// Returns whether an occurrence of `set`, a set over the same
     /// forest, is a member.
     pub(crate) fn meets(&self, set: &OccSet) -> bool {
@@ -243,9 +196,7 @@ impl Context {
     }
 
     /// Returns each member once, in ascending order, with the number of
-    /// its copies. Always inlined: `canonical_from` walks it per stable
-    /// sequent that renames a member, where a call was measurable.
-    #[inline(always)]
+    /// its copies.
     fn with_copies(&self) -> impl Iterator<Item = (OccId, u32)> + '_ {
         // The extra list is in ascending order, like the set.
         let mut extra = self.extra.iter().peekable();
@@ -304,9 +255,9 @@ mod tests {
         let mut d = Context::empty(70);
         d.clone_from(&c);
         assert_eq!(c, d);
-        d.add(o(65), 2);
-        d.add(o(4), 1);
-        assert_eq!(d.iter().collect::<Vec<_>>(), [o(4), o(65), o(65), o(65)]);
+        d.insert(o(65));
+        d.insert(o(4));
+        assert_eq!(d.iter().collect::<Vec<_>>(), [o(4), o(65), o(65)]);
         c.clear();
         assert!(c.is_empty());
     }

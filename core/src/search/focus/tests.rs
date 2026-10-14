@@ -694,11 +694,11 @@ fn memory_bound() {
     };
     let (verdict, whole) = run(&text, Mode::CLASSICAL, &options);
     assert!(verdict.proof().is_some());
-    let (verdict, tight) = bounded(8 << 10);
+    let (verdict, tight) = bounded(10 << 10);
     assert!(verdict.proof().is_some());
     assert!(
         tight.memo_entries < whole.memo_entries && tight.nodes > whole.nodes,
-        "{tight:?} within 8 KiB, {whole:?} without a bound that binds"
+        "{tight:?} within 10 KiB, {whole:?} without a bound that binds"
     );
     let (verdict, _) = bounded(1 << 10);
     assert!(matches!(

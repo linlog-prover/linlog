@@ -10,8 +10,9 @@ use super::counts::{Split, Tally};
 use super::scratch::Pooled;
 use super::{
     Cuts, FORCED_PER_POLL, Found, OCCURRENCES_PER_LEAF, Run, SPLITS_PER_POLL, Searched, Step,
+    Unrestricted,
 };
-use crate::occurrences::{Forest, Member, OccId, OccSet, Side};
+use crate::occurrences::{Forest, Member, OccId, Side};
 use crate::proofs::{Branch, Node, NodeId};
 use crate::search::Reason;
 use crate::sequents::Kind;
@@ -95,7 +96,13 @@ impl Run<'_> {
     /// The `⊗` rule on `F = A ⊗ B` with context `Γ`: the forced split when
     /// a factor allows only one, else a search over the members of `Γ` for
     /// the splits whose two sides pass the counts.
-    pub(super) fn split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
+    pub(super) fn split(
+        &mut self,
+        theta: &Unrestricted,
+        gamma: &Context,
+        f: OccId,
+        budget: u32,
+    ) -> Step {
         let Some(forcing) = self.forced_factor(f) else {
             return self.free_split(theta, gamma, f, budget);
         };
@@ -148,7 +155,7 @@ impl Run<'_> {
     /// every [`FORCED_PER_POLL`] splits and literals closed.
     fn forced_splits(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         rest: &mut Context,
         (mut f, first): (OccId, Forcing),
         (links, cursors): (&mut Vec<(OccId, NodeId, Branch)>, &mut Cursors),
@@ -194,7 +201,7 @@ impl Run<'_> {
                     if let Some(dual) = self.dual_from(x, rest, cursors) {
                         rest.remove(dual);
                         Some(self.push(Node::Ax(x.into(), dual.into())))
-                    } else if let Some(d) = self.dual_in(x, |d| theta.contains(d)) {
+                    } else if let Some(d) = self.dual_in(x, |d| theta.set.contains(d)) {
                         if budget == 0 {
                             cuts = cuts.and(Cuts::BUDGET);
                             None
@@ -295,7 +302,7 @@ impl Run<'_> {
     /// the counts. A left factor whose split is free again continues the
     /// search as a chain ([`Self::chain`]), in the same order.
     #[inline(always)]
-    fn free_split(&mut self, theta: &OccSet, gamma: &Context, f: OccId, budget: u32) -> Step {
+    fn free_split(&mut self, theta: &Unrestricted, gamma: &Context, f: OccId, budget: u32) -> Step {
         let opened = self.open_split(gamma, f);
         #[cfg(feature = "parallel")]
         if self.cubes() && opened.members.len() >= 2 {
@@ -425,7 +432,7 @@ impl Run<'_> {
     /// only the levels of recursion are not taken, one per link, which a
     /// tensor of thousands of factors whose splits are searched used to
     /// run out of.
-    fn chain(&mut self, theta: &OccSet, first: Opened, budget: u32) -> Step {
+    fn chain(&mut self, theta: &Unrestricted, first: Opened, budget: u32) -> Step {
         let mut frames = self.take_frames();
         let walk = self.walk(first.members.len(), (0, 0));
         frames.push(Frame {
@@ -443,7 +450,7 @@ impl Run<'_> {
     }
 
     /// The loop of [`Self::chain`] over its frames, the last on top.
-    fn run_chain(&mut self, theta: &OccSet, frames: &mut Vec<Frame>, budget: u32) -> Step {
+    fn run_chain(&mut self, theta: &Unrestricted, frames: &mut Vec<Frame>, budget: u32) -> Step {
         // What the left premise of the frame on top was found to be, once
         // the frame has asked for it.
         let mut given: Option<Found> = None;
@@ -567,7 +574,7 @@ impl Run<'_> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn search_splits(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         members: &[OccId],
         (start, prefix): (usize, u64),
         (left, right): (&mut Context, &mut Context),
@@ -743,7 +750,7 @@ impl Run<'_> {
     )]
     fn premises(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         left: &Context,
         right: &Context,
         f: OccId,
@@ -772,7 +779,7 @@ impl Run<'_> {
     /// and the partitions are cheaper.
     pub(super) fn mix(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         members: &[OccId],
         tally: &Tally,
@@ -822,7 +829,7 @@ impl Run<'_> {
     /// repeated one is left out, since the others leave a relative.
     fn parts_fail(
         &mut self,
-        theta: &OccSet,
+        theta: &Unrestricted,
         gamma: &Context,
         members: &[OccId],
         budget: u32,
@@ -853,7 +860,13 @@ impl Run<'_> {
     }
 
     /// Both parts of a Mix, and the Mix node if both are provable.
-    fn parts(&mut self, theta: &OccSet, left: &Context, right: &Context, budget: u32) -> Step {
+    fn parts(
+        &mut self,
+        theta: &Unrestricted,
+        left: &Context,
+        right: &Context,
+        budget: u32,
+    ) -> Step {
         self.two_premises(
             |run| run.prove(theta, left, budget),
             |run| run.prove(theta, right, budget),

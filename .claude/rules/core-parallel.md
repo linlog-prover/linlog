@@ -167,9 +167,9 @@ has no or-choices worth sharing out). What the code relies on:
   `Run::above` counts them into a depth). The keys are not copied: the
   spawning engine waits at the scope while its workers run, so its
   stack cannot change under them; a worker's `ancestors` are one slice
-  pair per spawn above it, at most `LEVELS` + 1. Copying it, two bitsets of the
-  forest's width per stable sequent of the branch, for every task of a
-  choice, was a fifth of the samples of a Petri net on four threads (with
+  pair per spawn above it, at most `LEVELS` + 1. Copying it (then two bitsets of the
+  forest's width per stable sequent of the branch) for every task of a
+  choice was a fifth of the samples of a Petri net on four threads (with
   hashing the keys again, which a copy of the hashes had removed before).
   The ancestors are what keeps the loop check's prunes below the cube.
   **The recursion limit holds for a worker's stack**: a pool thread that
@@ -233,7 +233,11 @@ has no or-choices worth sharing out). What the code relies on:
   facts and nothing half-done.
 - **The shared memo is 64 shards of the sequential `Memo`** behind one
   `Mutex` each (`memo::Shared`, the key's top hash bits choosing the
-  shard, the cap split among them), and `Memo::insert`'s merge under the
+  shard, the cap split among them), with one table of unrestricted
+  zones behind a `Mutex` of its own (`Shared::zones`), so that every
+  worker gives a zone the id the others do (`core-focus.md`, "The key
+  of a stable sequent is sparse"; a worker that relieves its memory
+  empties it with the shards), and `Memo::insert`'s merge under the
   shard's lock is the compare-and-swap the bound needs: a larger
   `Exhausted` budget wins, `Complete` and `Proved` win over `Exhausted`,
   a proof stays, so an entry's validity only grows whatever the

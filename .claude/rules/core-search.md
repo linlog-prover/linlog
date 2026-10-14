@@ -400,8 +400,8 @@ an `Account` (the bound and an atomic count of bytes) that everything
 which grows charges where it allocates, by the capacity allocated and
 not by what is in use. `prove_goal` makes one per search.
 
-- **What counts**: the focused memo (its chunks, its index, the extra
-  copies), the kept arena and every engine's pending stack, the branch
+- **What counts**: the focused memo (its chunks, its index, its table
+  of unrestricted zones), the kept arena and every engine's pending stack, the branch
   stack of keys, the failures that wait (the lists by their capacity,
   `Waiting::grown`, charged after each close, and a key per entry, as
   many as ever waited at once; `relieve` gives both back; charging the

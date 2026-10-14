@@ -70,10 +70,25 @@ impl Classes {
     }
 
     /// Returns whether a member of `gamma` is not the first of its class,
-    /// so that its canonical form (`Context::canonical_from`) differs from
-    /// it: a test of the zone's words alone.
+    /// so that its canonical form ([`canonical`](Self::canonical)) differs
+    /// from it: a test of the zone's words alone.
     pub(crate) fn renames(&self, gamma: &Context) -> bool {
         !self.distinct && gamma.meets(&self.renamed)
+    }
+
+    /// Returns whether one of the members given is not the first of its
+    /// class, as [`renames`](Self::renames) on a zone of them.
+    pub(crate) fn renames_any(&self, members: &[OccId]) -> bool {
+        !self.distinct && members.iter().any(|&o| self.renamed.contains(o))
+    }
+
+    /// Makes `canonical` the members given with each replaced by the first
+    /// occurrence of its class, in ascending order: the same for two lists
+    /// exactly when one is the other up to interchangeable members.
+    pub(crate) fn canonical(&self, members: &[OccId], canonical: &mut Vec<OccId>) {
+        canonical.clear();
+        canonical.extend(members.iter().map(|&o| self.of(o)));
+        canonical.sort_unstable();
     }
 
     /// Returns the class of an occurrence: its first interchangeable
@@ -115,18 +130,22 @@ mod tests {
         assert_eq!(classes.of(literals[1]), literals[0]);
         assert!(!classes.distinct());
         // A zone's canonical form has the first of each class, as often as
-        // the zone has members of the class.
+        // the zone has members of the class, and is its own.
         let mut gamma = Context::empty(forest.len());
         for o in [literals[1], literals[1], literals[0], tops[1]] {
             gamma.insert(o);
         }
-        let mut canonical = Context::empty(forest.len());
-        assert!(canonical.canonical_from(&gamma, &classes));
+        let members: Vec<OccId> = gamma.iter().collect();
+        assert!(classes.renames(&gamma) && classes.renames_any(&members));
+        let mut canonical = Vec::new();
+        classes.canonical(&members, &mut canonical);
         let mut expected = vec![literals[0], literals[0], literals[0], tops[0]];
         expected.sort_unstable();
-        assert_eq!(canonical.iter().collect::<Vec<_>>(), expected);
-        assert!(!gamma.canonical_from(&canonical, &classes));
-        assert_eq!(gamma, canonical);
+        assert_eq!(canonical, expected);
+        assert!(!classes.renames_any(&canonical));
+        let mut again = Vec::new();
+        classes.canonical(&canonical, &mut again);
+        assert_eq!(again, canonical);
         let reading = Reading::new(&forest).unwrap();
         let classes = Classes::new(&forest, Some(&reading));
         assert!(!classes.same(tops[0], tops[1]));

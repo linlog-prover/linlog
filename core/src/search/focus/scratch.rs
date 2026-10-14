@@ -210,6 +210,7 @@ pub(super) struct Pools {
 /// uses it, and the growth is charged when the rule gives it back, so the
 /// lists a branch has taken count as far as they had grown when they
 /// were last returned.
+#[derive(Debug)]
 pub(super) struct Pooled<T> {
     /// The list.
     items: Vec<T>,
@@ -235,6 +236,11 @@ impl<T> Pooled<T> {
             account.resize(self.charged, bytes);
             self.charged = bytes;
         }
+    }
+
+    /// Returns the bytes of its allocation that were charged.
+    pub(super) fn charged(&self) -> usize {
+        self.charged
     }
 }
 
