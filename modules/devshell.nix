@@ -47,8 +47,13 @@
               set -eu
               cargo clippy --workspace --all-targets --locked -- --deny warnings
               cargo test --workspace --locked
-              cargo hack check --each-feature --locked --package linlog
-              cargo hack check --feature-powerset --depth 2 --locked --package linlog
+              # Warnings denied: an import or item left unused in one feature
+              # set fails here. Their own target directory, since RUSTFLAGS
+              # are part of every artifact and would rebuild the tests'.
+              RUSTFLAGS="-D warnings" CARGO_TARGET_DIR=target/hack \
+                cargo hack check --each-feature --locked --package linlog
+              RUSTFLAGS="-D warnings" CARGO_TARGET_DIR=target/hack \
+                cargo hack check --feature-powerset --depth 2 --locked --package linlog
               cargo run --release --locked --package linlog-bench -- ratchet --check --jobs 4
               echo "gate: passed"
             '';

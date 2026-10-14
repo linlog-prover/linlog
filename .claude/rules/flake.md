@@ -86,6 +86,12 @@ back to 0.0.1).
 every feature but `parallel`, a `cargo check` without the host's
 artifacts: the rule that the library stays fit for a browser was held by
 convention alone before it.
+`checks.nix`'s `features` (cargo-hack, each feature and every pair) and
+the gate's two `cargo hack` runs deny warnings (`RUSTFLAGS="-D
+warnings"`; the gate's in `target/hack`, since the flags are part of
+every artifact and would rebuild the tests'): an import that a move left
+unused without `serialize` once warned in ten feature sets while both
+passed.
 `devshell.nix` carries cargo-mutants and cargo-nextest for
 `mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the

@@ -96,10 +96,13 @@
         # them and with none; the CLI enables all of them and would never
         # notice one that breaks alone. The full powerset doubles with every
         # feature, and a breakage needs more than two features rarely.
+        # Warnings are denied, so an item or import that one feature set
+        # leaves unused fails the check.
         features = craneLib.mkCargoDerivation (
           withArtifacts
           // {
             pnameSuffix = "-features";
+            env.RUSTFLAGS = "-D warnings";
             nativeBuildInputs = [ pkgs.cargo-hack ];
             buildPhaseCargoCommand = ''
               cargo hack check --each-feature --locked --package linlog

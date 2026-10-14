@@ -222,7 +222,8 @@ even to read.** Every operation goes through `jj`, including lock updates:
   `cfg`, and a variant or field that only some features build or read
   takes `#[cfg_attr(not(feature = …), expect(dead_code, reason = …))]`.
   Both `cargo hack` runs and the test builds without default features
-  stay free of warnings.
+  stay free of warnings (the gate and the `features` check deny them in
+  the `cargo hack` runs).
 - `scratchpad*.md` are the author's gitignored notes. `scratchpad1.md` is about
   250 KB, so don't read it in full.
 
