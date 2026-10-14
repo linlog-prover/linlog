@@ -1437,3 +1437,47 @@ Each enters as a problem file under `bench/problems/` or as a source in
 `bench/src/problems.rs`. The nets among them are also what the forward
 search's own bound and the unit of work of the default bias should be
 tuned on, beyond the 109 sampled LLTP problems they were set on.
+
+## Follow-ups: a first user's obstacles (step 28's last reader)
+
+The last reader of step 28 (2026-10-14, a fresh context reading README
+and the rustdoc's front page as a newcomer, against
+`plan/notes/research/usability-baseline.md`) met these, which the step
+left for later; the fixes it made are in the step's report.
+
+- **An unknown that more resources will not decide.** On `!(A + B) |-
+  !A + !B` the verdict line sends the reader from `--timeout` to
+  `--recursion-limit` as if a larger limit would decide it. Linear
+  logic with exponentials is undecidable, so no line can say when it
+  will not; what could be said is how far the deepening went without a
+  proof and that a copy bound (`--copies N`) ends the search with a
+  definite answer within that bound. The wording needs measurements on
+  the LLTP library of which unknowns a larger limit ever decided.
+- **Rocq.** A refused certificate (`prove --mix --format rocq`) prints
+  the refusal alone and exits 2, so the verdict is lost; printing the
+  verdict as a comment first and exiting with the verdict's status would
+  change what cli.md pins (a refused certificate leaves standard output
+  empty). A batch's certificate files take the entry's name (`modus
+  ponens.v`, not a module name) and every lemma is `certificate`; README
+  shows how to compile a certificate but not how to apply its lemma to a
+  two-sided goal in another file. All belong with the Rocq library of
+  linlog's own (above).
+- **Nets on the command line.** `check` reads proofs only: a
+  `ProofStructure` in JSON, as `wire` documents it, has no command that
+  reads or writes it (`prove --net --format json` is refused). A `check
+  --net FILE` printing the criterion's verdict, and `--net` in JSON, go
+  with the MALL proof nets above.
+- **The style table.** `--style labels.table.RULE=LABEL` on a table not
+  yet set fails with "labels is not an object", and no help lists the
+  rule keys; a dotted path that makes the table, and the keys on
+  `labels`' line, are the fix.
+- **`check --file`.** Every other command reads its input with `--file`;
+  `check` takes the proof as its argument (or standard input).
+- **The library's front page.** The examples of a stop all read
+  `Instant`, which a browser lacks, though the page says the crate reads
+  no clock; one example whose stop counts `Progress::work` against a
+  budget, and one that builds the command's behaviour from
+  `Settings::default()` (the clock's limit as a stop), would let a web
+  developer and a front end copy rather than derive. The Euler Math
+  font's source and licence are named in the command's tree
+  (`cli/fonts/`), not where a reader of README looks.
