@@ -24,6 +24,7 @@
 #![deny(clippy::wildcard_enum_match_arm)]
 
 mod expand;
+#[cfg(feature = "serialize")]
 mod replay;
 mod terms;
 

@@ -257,7 +257,8 @@ itself.
 
 `proofs/interactive/` (feature `interactive`; `mod.rs` the types, the
 queries and the tests, `expand.rs` the steps, `replay.rs` a session
-rebuilt from its parts, `terms.rs` the proof term) is the state a client
+rebuilt from its parts, behind `serialize`, whose reader is its one
+caller, `terms.rs` the proof term) is the state a client
 holds for step-by-step proving: the forest, the mode, the inferences of a
 derivation of the standard calculus with open goals as leaves, and the
 steps taken. It reuses `Inference` (its arena private, numbered by
