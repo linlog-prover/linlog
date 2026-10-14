@@ -95,6 +95,10 @@ impl Deadline {
         let Some((_, end)) = self.limit else {
             return Ok(Some(load()));
         };
+        // A limit that has passed already leaves nothing to start.
+        if self.passed() {
+            return Ok(None);
+        }
         let (sender, receiver) = channel();
         let thread = thread::Builder::new()
             .name("load".into())

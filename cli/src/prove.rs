@@ -215,10 +215,14 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     // it would lose: an output dropped unfinished leaves no file, and the
     // file at the path stays as it was. Only a file, or a path that does
     // not exist yet: a pipe opened and closed would send its reader the end.
-    if let Some(path) = &args.output.output
-        && std::fs::metadata(path).map_or(true, |m| m.is_file())
-    {
-        drop(io::Output::open(Some(path), format.is_binary())?);
+    if let Some(path) = &args.output.output {
+        match std::fs::metadata(path) {
+            Ok(meta) if meta.is_dir() => {
+                bail!("cannot write {}: it is a directory", path.display())
+            }
+            Ok(meta) if !meta.is_file() => {}
+            _ => drop(io::Output::open(Some(path), format.is_binary())?),
+        }
     }
     catch_interrupt();
 

@@ -72,7 +72,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the batch's and starts no child, so no flag is filtered out by its
   spelling (a filter by name missed `-qf DIR`, bundled short flags, and
   answered every entry with the directory's first). A child that
-  outlives its time limit by `CHILD_GRACE` is killed.
+  outlives its time limit by `CHILD_GRACE` is killed; one still searching
+  when Ctrl-C comes or the batch's limit passes is killed and its entry
+  is unknown, as in this process (the child installs `catch_interrupt`
+  too: it died by the signal, and its entry read as an error).
 - `ordinary.rs`: ordinary logic under `--logic` (`LogicArgs`, flattened
   into `prove` and `seq print`; `--translation`, and `prove`'s `--linear`,
   require it, and `ordinary_mode` refuses `-i`, `-a` and `--mix` beside it, exit 2 (clap's `conflicts_with` cannot name flags `seq print` lacks): the image's
@@ -224,8 +227,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   short by the time limit leaves no file; on standard output it stays
   as far as it came, with the reason after it. An earlier run's file at
   the path is left as it is. An `--output` that cannot be made (a missing
-  directory, no permission) fails before the search: `prove` opens it
-  once and drops it unfinished, which leaves the path as it was. In intuitionistic mode the two-sided derivation
+  directory, no permission, a path that is a directory) fails before
+  the search: `prove` opens a file or a path not there yet once and
+  drops it unfinished, which leaves the path as it was, refuses a
+  directory, and leaves a pipe alone (opened and closed, it would end
+  its reader). In intuitionistic mode the two-sided derivation
   goes to Rocq and is certified one-sided; a proof with Mix or affine
   weakening is exit 2 with the library's `Unsupported` message, after
   the search, and standard output stays empty. `seq print --format`
@@ -280,7 +286,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   named by its place and its file lies inside DIR (a `.` once wrote
   `DIR.json` beside it, over a file the user had there). Defaults: `--workers` the machine's threads,
   `--cores auto` (`Within` on a stream from standard input, which cannot
-  be read ahead of), `--batch-memory` half of `/proc/meminfo`'s
+  be read ahead of, whether standard input is the default or named `-`
+  in `--file` or `--files-from`), `--batch-memory` half of `/proc/meminfo`'s
   `MemTotal` or of the least `memory.max` of the process's control
   groups, whichever is less (`machine_memory`: a batch in an 8 GiB scope
   on a machine of 62 GB was killed for its memory when it read
@@ -579,7 +586,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   command's 2 s, and `--work-limit`, through `Settings`): a proof file
   can make its check quadratic (a shared subproof read by a chain of `&`
   nodes: 8.6 MB took 83 s), and the check, the derivation drawn after it
-  and its render poll the deadline. A check a limit gives up is
+  and its render poll the deadline; the file is read and parsed under
+  `Deadline::within`, as `prove` reads its sequent, and a limit that
+  passes there is `unknown: the time limit of … was reached while the
+  proof was read`, exit 3. A check a limit gives up is
   **unknown, exit 3** (`unknown: the proof of … is not checked: …`, the
   flag that raises the limit named), never an error and never invalid.
   Its JSON is `{"version", "verdict": "valid"|"invalid"|"unknown",

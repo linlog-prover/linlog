@@ -598,7 +598,13 @@ impl Shared {
             text: self.error(&name, &e),
             status: Status::Error,
         };
-        if let Some(directory) = &self.directory {
+        // An entry that cannot be read writes no file, and keeps its own
+        // error; a list's bad entries all share one name.
+        if let Some(directory) = self
+            .directory
+            .as_ref()
+            .filter(|_| !matches!(entry.source, Source::Bad(_)))
+        {
             let file = file_for(directory, &name, self.show.format);
             let mut files = self
                 .files
@@ -829,6 +835,7 @@ impl Shared {
         if let Some(mode) = entry.mode {
             command.arg("--entry-mode").arg(mode.name());
         }
+        let name = entry.name.clone();
         let mut stdin = None;
         match entry.source {
             Source::Bad(why) => bail!(why),
@@ -880,15 +887,25 @@ impl Shared {
             if let Some(status) = child.try_wait()? {
                 break status;
             }
-            if end.is_some_and(|end| Instant::now() > end) || interrupted() {
+            // Ctrl-C and the batch's limit stop the child's search, which
+            // is then unknown, as it is in this process.
+            if interrupted() || self.batch.passed() {
                 let _ = child.kill();
                 let _ = child.wait();
-                let why = if interrupted() {
-                    "interrupted"
-                } else {
-                    "outlived its time limit"
+                let why = match self.batch.limit() {
+                    _ if interrupted() => "interrupted".to_owned(),
+                    Some(t) => format!("the batch's time limit of {t:?} was reached"),
+                    None => unreachable!("only a limit passes"),
                 };
-                bail!("the child process {why} and was stopped");
+                return Ok(Done {
+                    text: self.unknown(&name, &format!("unknown: {why} while it was searched")),
+                    status: Status::Unknown,
+                });
+            }
+            if end.is_some_and(|end| Instant::now() > end) {
+                let _ = child.kill();
+                let _ = child.wait();
+                bail!("the child process outlived its time limit and was stopped");
             }
             std::thread::sleep(CHILD_POLL);
         };
@@ -1043,7 +1060,11 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         .with_jobs(threads.jobs)
         .with_pool(Some(Pool::new()));
     let limits = settings.limits;
-    let stdin_stream = args.input.file.is_empty() && args.batch.files_from.is_none();
+    // Standard input, however it is named, is a stream.
+    let dash = |path: &Path| path == Path::new("-");
+    let stdin_stream = (args.input.file.is_empty() && args.batch.files_from.is_none())
+        || args.input.file.iter().any(|f| dash(f))
+        || args.batch.files_from.as_deref().is_some_and(dash);
     let options = batch::Options::default()
         .with_mode(settings.batch.mode)
         .with_cores(match settings.batch.cores {
@@ -1071,6 +1092,9 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
             ),
         };
         let plan = batch::Plan::alone(search, limits);
+        // Ctrl-C stops the child's search, as it stops the parent's; the
+        // parent answers the entry.
+        catch_interrupt();
         return one(args, settings, show, threads, directory, &plan, entry);
     }
     let entries = Entries::new(args, settings.limits.memory_bytes)?;

@@ -1533,7 +1533,7 @@ fn a_closed_pipe_keeps_the_verdict() {
 }
 
 /// `check` gives up at its limits with an unknown verdict, exit status 3,
-/// which its JSON says too; an outcome that holds no proof is refused
+/// which its JSON says too, its time limit counting the read; an outcome that holds no proof is refused
 /// with what it is; an invalid proof is `invalid` in JSON with the error.
 #[test]
 fn check_s_verdicts() {
@@ -1555,6 +1555,17 @@ fn check_s_verdicts() {
     let checked: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert_eq!((status, &checked["verdict"]), (3, &"unknown".into()));
     assert_eq!(checked["error"]["code"], "work_limit");
+    // The time limit counts from the start: the proof is read within it.
+    let (status, out, _) = linlog(&["check", "--timeout", "0ms", "--format", "json"], &proof);
+    let checked: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!((status, &checked["verdict"]), (3, &"unknown".into()));
+    assert!(
+        checked["message"]
+            .as_str()
+            .unwrap()
+            .contains("was reached while the proof was read"),
+        "{out}"
+    );
     let (_, classical, _) = linlog(&["prove", "--format", "json", "|- a, ~a"], "");
     let (status, out, _) = linlog(&["check", "-i", "--format", "json"], &classical);
     let checked: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -1852,34 +1863,52 @@ fn interrupt() {
 }
 
 /// An `--output` file holds a whole output or is left as it was: a
-/// derivation the time limit stops while it is built leaves an earlier
-/// run's file alone, and so does a verdict without a derivation.
+/// derivation given up while it is built, after the search proved the
+/// sequent, leaves an earlier run's file alone, and so does a verdict
+/// without a derivation. The work limit gives up the derivation's check
+/// where a time limit could not tell the search from the build.
 #[test]
 fn output_is_whole_or_untouched() {
-    let doublings: Vec<String> = (0..22).map(|i| format!(r#"{{"&":[{i},{i}]}}"#)).collect();
+    // 2^12 occurrences of A: the search's 8 191 units of work, the
+    // derivation's check past the 20 000 the limit allows.
+    let doublings: Vec<String> = (0..12).map(|i| format!(r#"{{"&":[{i},{i}]}}"#)).collect();
     let amp = format!(
-        r#"{{"terms":[{{"V":0}},{},{{"D":0}}],"roots":[22,23],"atoms":["A"]}}"#,
+        r#"{{"terms":[{{"V":0}},{},{{"D":0}}],"roots":[12,13],"atoms":["A"]}}"#,
         doublings.join(",")
     );
     let keep = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-keep.tex");
+    let given_up = [
+        "prove",
+        "--input-format",
+        "json",
+        "--deterministic",
+        "--no-check",
+        "--work-limit",
+        "20000",
+        "--derivation-limit",
+        "none",
+    ];
     for (args, stdin, status) in [
-        (
-            [
-                &["prove", "--input-format", "json", "--timeout", "300ms"][..],
-                &["--derivation-limit", "none", "--deterministic"],
-            ]
-            .concat(),
-            amp.as_str(),
-            3,
-        ),
+        (given_up.to_vec(), amp.as_str(), 0),
         (vec!["prove", "A |- B"], "", 1),
     ] {
         std::fs::write(&keep, "OLD").unwrap();
         let args = [&args[..], &["--output", keep.to_str().unwrap()]].concat();
         let (got, _, err) = linlog(&args, stdin);
         assert_eq!(got, status, "{err}");
+        if status == 0 {
+            assert!(err.contains("the derivation is not written"), "{err}");
+        }
         assert_eq!(std::fs::read_to_string(&keep).unwrap(), "OLD");
     }
+    // A directory is refused before the search, which it would lose.
+    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"));
+    let (status, _, err) = linlog(
+        &["prove", "--output", directory.to_str().unwrap(), "A |- A"],
+        "",
+    );
+    assert_eq!(status, 2);
+    assert!(err.ends_with("it is a directory\n"), "{err}");
 }
 
 /// A batch's own flags: an unknown entry outranks an unprovable one in
@@ -1957,6 +1986,58 @@ fn batch_flags() {
         out.starts_with("hard: unknown") && out.contains("the time limit of 100ms"),
         "{out}"
     );
+    // A child of --isolate is stopped by the batch's limit as a search in
+    // this process is, its entry unknown.
+    let (status, out, _) = batch(
+        &[
+            "--isolate",
+            "--workers",
+            "1",
+            "--timeout",
+            "none",
+            "--batch-timeout",
+            "300ms",
+        ],
+        &format!(
+            "hard: {hard}
+"
+        ),
+    );
+    assert_eq!(
+        (status, out.as_str()),
+        (
+            3,
+            "hard: unknown: the batch's time limit of 300ms was reached while it was searched\n"
+        )
+    );
+}
+
+/// A batch on standard input is a stream however the input is named: a
+/// line is answered while the input stays open, so a program can ask and
+/// wait for the answer.
+#[test]
+fn standard_input_is_answered_line_by_line() {
+    use std::io::{BufRead, BufReader, Write};
+    for named in [&[][..], &["--file", "-"]] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
+            .args([&["prove", "--input-format", "lines"][..], named].concat())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut input = child.stdin.take().unwrap();
+        writeln!(input, "a: A |- A").unwrap();
+        input.flush().unwrap();
+        let mut answers = BufReader::new(child.stdout.take().unwrap());
+        let mut line = String::new();
+        answers.read_line(&mut line).unwrap();
+        assert_eq!(
+            line, "a: provable (MLL, classical, net engine)\n",
+            "{named:?}"
+        );
+        drop(input);
+        assert_eq!(child.wait().unwrap().code(), Some(0));
+    }
 }
 
 /// An `--output` that is a pipe gets the output once: the check that the

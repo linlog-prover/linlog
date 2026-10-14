@@ -25,17 +25,50 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
     let start = Instant::now();
     let settings = args.settings(given)?;
     let deadline = Deadline::start(time_limit(&settings), start)?;
-    let text = io::read(args.proof.as_deref(), "proof", settings.limits.memory_bytes)?;
-    let proof = read_proof(&text, &settings.limits)?;
-    drop(text);
-    if proof.goal().is_some() {
-        return Err(Error::GoalProof.into());
-    }
     let mode = args.mode.mode();
     let quiet = args.output.quiet;
     let show = Show::new(&args.output, &settings)?;
     let path = args.output.output.clone();
     exit_on_interrupt();
+    // The file is read and parsed within the time limit, as `prove` reads
+    // its sequent: a large proof file takes seconds to parse.
+    let (source, limits) = (args.proof.clone(), settings.limits);
+    let loaded = deadline.within(move || {
+        let text = io::read(source.as_deref(), "proof", limits.memory_bytes)?;
+        read_proof(&text, &limits)
+    })?;
+    let Some(proof) = loaded else {
+        let limit = deadline.limit().expect("only a limit passes");
+        let line = format!(
+            "unknown: the time limit of {limit:?} was reached while the proof was read; \
+             --timeout DURATION gives the check longer"
+        );
+        let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
+        let keep = if show.format == Format::Json {
+            let checked = Checked {
+                version: linlog::wire::LEVEL,
+                verdict: "unknown",
+                mode,
+                error: None,
+                message: Some(line),
+            };
+            serde_json::to_writer(out.stream(), &checked)?;
+            true
+        } else {
+            // An unknown is written whatever --no-verdict says, as the
+            // check's own is.
+            show.open(&mut out, Some(&line))?;
+            show.close(&mut out, Shown::Nothing, Some(&line))?
+        };
+        if keep {
+            out.finish()?;
+        }
+        return Ok(Status::Unknown);
+    };
+    let proof = proof?;
+    if proof.goal().is_some() {
+        return Err(Error::GoalProof.into());
+    }
     on_large_stack(settings.limits.stack_bytes(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let (status, keep) = check_into(&proof, mode, &show, quiet, &deadline, &mut out)?;
@@ -44,6 +77,24 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
         }
         anyhow::Ok(status)
     })?
+}
+
+/// What `check --format json` writes.
+#[derive(serde::Serialize)]
+struct Checked {
+    /// The wire level.
+    version: u32,
+    /// `valid`, `invalid` or `unknown`.
+    verdict: &'static str,
+    /// The mode checked in.
+    mode: Mode,
+    /// Why the proof is not valid, as the library writes its errors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<Error>,
+    /// The error's message with formulas for its ids, or why the check
+    /// was not made.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
 }
 
 /// Reads a proof file, its sequent within `limits.occurrences`; the
@@ -114,23 +165,6 @@ fn check_into(
             .to_string()
     };
     if format == Format::Json {
-        /// What `check --format json` writes.
-        #[derive(serde::Serialize)]
-        struct Checked {
-            /// The wire level.
-            version: u32,
-            /// `valid`, `invalid` or `unknown`.
-            verdict: &'static str,
-            /// The mode checked in.
-            mode: Mode,
-            /// Why the proof is not valid, as the library writes its
-            /// errors.
-            #[serde(skip_serializing_if = "Option::is_none")]
-            error: Option<Error>,
-            /// The error's message with formulas for its ids.
-            #[serde(skip_serializing_if = "Option::is_none")]
-            message: Option<String>,
-        }
         let (error, message) = match &result {
             Ok(()) => (None, None),
             Err(e) => (Some(Error::from(e.clone())), Some(report(e))),
