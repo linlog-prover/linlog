@@ -124,8 +124,9 @@ relies on:
   listed them anyway. `Θ` travels with its id (`Unrestricted`), which the
   memo's table of zones (`memo::Interner`, `Table::intern`) gives it where
   it is made: at the root and where a `?` rule grew it, once the
-  asynchronous phase is done adding to it (`Run::intern`, before the
-  stable sequent and the `&` rule), so a stable sequent hashes and
+  asynchronous phase is done adding to it (`Run::interned`, before the
+  stable sequent and the `&` rule; until then a grown zone is a set
+  without an id), so a stable sequent hashes and
   compares one word for `Θ`. What makes an id as good as the set: **an
   id is never given twice** (a counter, which no search takes to 2⁶⁴),
   so an id names one zone; and equal zones get one id while the table
@@ -140,8 +141,9 @@ relies on:
   zones a search meets empties the table as well (`⊢ ?a, ?(?~c ⊗ ?~c),
   ?(~c ⊗ !c), !!c, ?(?(b ⊗ a) ⅋ a)` with `--copies 4 --memo-limit 4` is
   refuted at copy level 4 in 148 stable sequents where the bitsets' key
-  refuted it at level 3 in 98; the default memo holds 2²⁰ zones). **The loop check stays exact whatever the table did**: `Θ`
-  only grows along a branch and a grown zone is a new value strictly
+  refuted it at level 3 in 98; the default memo holds 2²⁰ zones).
+  **The loop check stays exact whatever the table did**: `Θ` only grows
+  along a branch and a grown zone is a new value strictly
   larger, so two stable sequents of one branch with equal `Θ` share the
   one value, and its one id. A pool's workers share the table
   (`Shared::zones`, behind a lock of its own: a zone is interned at a
