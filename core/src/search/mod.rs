@@ -1159,17 +1159,40 @@ pub struct Counter {
     pub key: &'static str,
     /// A short label, for a line of statistics.
     pub label: &'static str,
+    /// The label in affine mode, where an engine may count something
+    /// else: the Horn engine searches backward there.
+    pub affine_label: &'static str,
     /// What it counts for the engine.
     pub meaning: &'static str,
 }
 
 impl Counter {
-    /// A counter of the key, the label and the meaning given.
+    /// A counter of the key, the label in every mode and the meaning
+    /// given.
     const fn new(key: &'static str, label: &'static str, meaning: &'static str) -> Self {
         Self {
             key,
             label,
+            affine_label: label,
             meaning,
+        }
+    }
+
+    /// The counter with another label in affine mode.
+    const fn affine(self, affine_label: &'static str) -> Self {
+        Self {
+            affine_label,
+            ..self
+        }
+    }
+
+    /// Returns the label for a search in the mode given.
+    #[must_use]
+    pub const fn label_in(&self, mode: Mode) -> &'static str {
+        if mode.is_affine() {
+            self.affine_label
+        } else {
+            self.label
         }
     }
 }
@@ -1395,12 +1418,14 @@ impl Engine {
                 "nodes",
                 "markings reached",
                 "markings reached from either end, or in affine mode computed backward",
-            ),
+            )
+            .affine("markings computed backward"),
             Counter::new(
                 "memo_hits",
                 "markings met again",
                 "markings kept already, or covered already",
-            ),
+            )
+            .affine("markings covered already"),
             Counter::new("memo_entries", "markings kept", "markings kept"),
             WORK,
         ];

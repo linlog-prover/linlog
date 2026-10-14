@@ -146,7 +146,9 @@ calling thread, the sum of the progress' `work`,
 `the_search_counts_its_work`). `Statistics::add` is
 two searches' merge (the race's), `add_run` a pool's workers'.
 `Engine::counters` lists the counters each engine fills (`Counter`: the
-key in the JSON form, a label, the meaning), which a front end shows
+key in the JSON form, a label, one for affine mode where the engine
+counts something else there, the Horn engine's backward search, and the
+meaning; `Counter::label_in(mode)` picks), which a front end shows
 and `counters_are_fields` ties to the form; a new engine lists its own,
 and a new counter goes into the lists of the engines that fill it.
 

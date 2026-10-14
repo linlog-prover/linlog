@@ -199,7 +199,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   bounds, or names a bias. `--stats` prints, a line each, the counters
   the library lists for the engine that ran (`statistics` reads
   `Engine::counters` and each counter's key in the statistics' JSON
-  form, with the library's labels), leaving out `copy bound reached`
+  form, with the library's label for the mode, `Counter::label_in`: the
+  Horn engine's search runs backward in affine mode), leaving out `copy bound reached`
   where the fragment has no exponentials and the forward search's where
   it did not run; `units of work` (`Statistics::work`) is deterministic
   on one thread. `--net` prints the net the

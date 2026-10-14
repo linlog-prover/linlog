@@ -405,7 +405,8 @@ pub(crate) fn statistics(outcome: &Outcome, elapsed: Duration) -> String {
             _ => false,
         };
         if !idle {
-            writeln!(lines, "{}: {value}", counter.label).expect("a string takes it");
+            writeln!(lines, "{}: {value}", counter.label_in(outcome.mode))
+                .expect("a string takes it");
         }
     }
     write!(lines, "time: {elapsed:.2?}").expect("a string takes it");

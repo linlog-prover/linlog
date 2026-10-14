@@ -209,8 +209,8 @@ $ linlog prove -q "!(a -o a * a), !(b * b -o c), a, b |- c"
 unprovable (MELL, classical, horn engine): the state equation of the Petri net has no solution, so no firing of its clauses yields the goal's atoms: weighting each a by −2, b by 1 and c by 2, no clause that can fire raises the weighted count of the atoms, and the goal asks it raised
 $ linlog prove -q --affine --stats "!(a * a -o b * b * b), a, a, a |- b * b * b"
 provable (MELL, classical affine, horn engine)
-markings reached: 1
-markings met again: 0
+markings computed backward: 1
+markings covered already: 0
 markings kept: 1
 units of work: 2
 time: 268.07µs
