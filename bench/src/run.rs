@@ -803,3 +803,42 @@ fn multiplicity(forest: &Forest) -> usize {
         .max()
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{HEADER, finished};
+
+    /// `--resume` takes no file of other columns, and a run's key from a
+    /// file of its own: what it ran and the options a later column added,
+    /// at their defaults where empty.
+    #[test]
+    fn resume_reads_its_own_files_only() {
+        let dir = std::env::temp_dir().join(format!("linlog-resume-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(finished(&dir.join("absent.csv")).unwrap().is_empty());
+        let foreign = dir.join("foreign.csv");
+        std::fs::write(&foreign, "source,family,problem\nf,a,b\n").unwrap();
+        let error = finished(&foreign).unwrap_err().to_string();
+        assert!(error.contains("other columns"), "{error}");
+        let row: Vec<&str> = HEADER
+            .split(',')
+            .map(|column| match column {
+                "source" => "family",
+                "family" => "chain",
+                "problem" => "chain/3",
+                "mode" => "classical",
+                "engine_requested" => "auto",
+                "jobs" => "1",
+                _ => "",
+            })
+            .collect();
+        let own = dir.join("own.csv");
+        std::fs::write(&own, format!("{HEADER}\n{}\n", row.join(","))).unwrap();
+        let keys = finished(&own).unwrap();
+        assert_eq!(
+            keys.into_iter().collect::<Vec<_>>(),
+            ["family,chain,chain/3,classical,auto,1,,auto,,0,"]
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

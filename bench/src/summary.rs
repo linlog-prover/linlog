@@ -520,6 +520,33 @@ mod tests {
     /// its runs'; one decided after its time limit is decided but late,
     /// not solved; a verdict against the known one, a failed check, an
     /// error and a crash are failures, a run stopped at its limit is not.
+    /// `--strict` fails after the tables on a run against its known
+    /// verdict and on files without a run, and passes the others.
+    #[test]
+    fn strict_fails_on_a_failed_run_or_none() {
+        let dir = std::env::temp_dir().join(format!("linlog-strict-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let header = "family,problem,verdict,expected,reason,time_ms,timeout_s,checked";
+        let file = |name: &str, rows: &str| {
+            let path = dir.join(name);
+            std::fs::write(&path, format!("{header}\n{rows}")).unwrap();
+            path
+        };
+        let right = file("right.csv", "f,p,proved,proved,,1,1,ok\n");
+        let wrong = file("wrong.csv", "f,p,proved,unprovable,,1,1,ok\n");
+        let empty = file("empty.csv", "");
+        assert!(summary(std::slice::from_ref(&right), true).is_ok());
+        let failed = summary(std::slice::from_ref(&wrong), true).unwrap_err();
+        assert!(
+            failed.to_string().starts_with("1 runs failed: p"),
+            "{failed}"
+        );
+        assert!(summary(std::slice::from_ref(&wrong), false).is_ok());
+        let none = summary(&[empty], true).unwrap_err();
+        assert_eq!(none.to_string(), "the files hold no run");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn runs_verdicts_and_endings() {
         let timed = |verdict: &str, ms: &str| {
