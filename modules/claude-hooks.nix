@@ -58,6 +58,10 @@
             ''eval "git push"''
             "systemd-inhibit --what=sleep git status"
             "nix develop -c git status"
+            "nix --option sandbox false develop -c git status"
+            "nix --extra-experimental-features flakes shell nixpkgs#git -c git log"
+            "jj -R ../other util exec -- git status"
+            "jj --config ui.color=never --repository . util exec git log"
             "nix flake update --commit-lock-file"
             "nix flake lock --commit-lock-file"
           ];
@@ -68,6 +72,8 @@
             "jj git remote list"
             ''jj commit -m "Fix git-related typo"''
             "jj util exec -- cargo test"
+            "jj -R ../other util exec -- cargo test"
+            "nix --option sandbox false develop -c cargo test"
             "systemd-run --user --scope -p MemoryMax=8G taskset -c 2-5 cargo test"
             "eval jj st"
             "nix flake update"

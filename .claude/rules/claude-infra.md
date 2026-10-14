@@ -147,6 +147,12 @@ Current contents:
   `systemd-run`, `systemd-inhibit`, `taskset`, `flock`, `ionice`, `chrt`,
   …, each with its options that take a value and its positionals; `env
   -S STRING` runs STRING split into words, `env_split`), `bash -c`, `eval`, `nix shell … -c`, `nix develop -c` and `jj util exec`.
+  A global option's value before the subcommand is no subcommand: jj's
+  options that take one are `JJ_GLOBAL_VALUES` (`jj_subcommand`, which
+  `block-jj-new-message.py` reads too), and since nix takes every
+  setting as `--NAME VALUE` there, which no table lists, `shell` or
+  `develop` anywhere before `-c` is taken for nix's (`nix --option NAME
+  VALUE develop -c git …` once passed the git guard).
   Quoted text is masked first, so searching for `git push` is not running
   it. A wrapper it does not know hides what it runs: add it to
   `WRAPPERS` with its cases. A heredoc line that starts with `git` still

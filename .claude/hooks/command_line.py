@@ -63,6 +63,19 @@ WRAPPERS = {
     "xargs": ({"-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s"}, 0),
 }
 SHELLS = {"bash", "dash", "ksh", "sh", "zsh"}
+
+# jj's global options that take a value, which may come before the
+# subcommand (`jj -R PATH util exec -- ...`).
+JJ_GLOBAL_VALUES = {
+    "-R",
+    "--repository",
+    "--at-op",
+    "--at-operation",
+    "--color",
+    "--config",
+    "--config-toml",
+    "--config-file",
+}
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=\S*\Z")
 
 # `(` separates only where it opens a subshell or `$(`, not inside a word such
@@ -139,16 +152,31 @@ def resolve(tokens):
             i += positionals
             continue
         rest = tokens[i + 1 :]
-        words = [w for w in rest if not w.startswith("-")]
-        if program == "nix" and words[:1] in (["shell"], ["develop"]):
+        if program == "nix":
+            # nix takes every setting as `--NAME VALUE` before its
+            # subcommand (`--option NAME VALUE` too), which no table lists:
+            # `shell` or `develop` anywhere before `-c` is taken for it.
             for flag in ("-c", "--command"):
                 if flag in rest:
-                    return resolve(rest[rest.index(flag) + 1 :])
-        if program == "jj" and words[:2] == ["util", "exec"]:
-            command = rest[rest.index("exec") + 1 :]
-            return resolve(command[1:] if command[:1] == ["--"] else command)
+                    at = rest.index(flag)
+                    if "shell" in rest[:at] or "develop" in rest[:at]:
+                        return resolve(rest[at + 1 :])
+        if program == "jj":
+            command = jj_subcommand(rest)
+            if command[:2] == ["util", "exec"]:
+                command = command[2:]
+                return resolve(command[1:] if command[:1] == ["--"] else command)
         return program, rest
     return None, []
+
+
+def jj_subcommand(rest):
+    """jj's arguments from its subcommand on, past its global options and
+    their values."""
+    i = 0
+    while i < len(rest) and rest[i].startswith("-"):
+        i += 2 if rest[i] in JJ_GLOBAL_VALUES else 1
+    return rest[i:]
 
 
 def shell_script(tokens):

@@ -19,19 +19,7 @@ import sys
 # No bytecode beside the module: it would land in the checkout.
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-from command_line import commands  # noqa: E402
-
-# jj's global options that take a value, which come before the subcommand.
-GLOBAL_VALUES = {
-    "-R",
-    "--repository",
-    "--at-op",
-    "--at-operation",
-    "--color",
-    "--config",
-    "--config-toml",
-    "--config-file",
-}
+from command_line import commands, jj_subcommand  # noqa: E402
 
 MESSAGE = """\
 Blocked: `jj new -m` describes a new, empty change; the work stays behind in the previous one.
@@ -52,16 +40,14 @@ def is_jj_new_with_message(command):
     for program, rest in commands(command):
         if program != "jj":
             continue
-        i = 0
-        while i < len(rest) and rest[i].startswith("-"):
-            i += 2 if rest[i] in GLOBAL_VALUES else 1
-        if rest[i : i + 1] != ["new"]:
+        words = jj_subcommand(rest)
+        if words[:1] != ["new"]:
             continue
         if any(
             word in ("-m", "--message")
             or word.startswith("--message=")
             or (word.startswith("-m") and not word.startswith("--"))
-            for word in rest[i + 1 :]
+            for word in words[1:]
         ):
             return True
     return False
