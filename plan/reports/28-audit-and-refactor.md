@@ -1474,6 +1474,23 @@ The decisions the review sections hand to the author at the step's end:
 9. The third ultra review (`review/3.4a`, `review/3.4b`): its findings,
    if any, are fixed in a short session after this one, with the gate
    and `nix flake check`.
+10. F122 and F123, both should-fix and left open by area 3.2 ("Area 3.2:
+    decided unattended", `plan/later.md`, "The generators' contraction
+    and mutants"). The generators' fixes exist off the line, signed,
+    under the local bookmark `wip/generators`: supyqoln, F122's real
+    contraction, finished, and ukrmvowr, F123's transposition, not
+    finished. Each found a sequent the engines do not decide, and on the
+    head's release build (2026-10-14) both are still undecided after
+    60 s:
+    - F122's sample is provable by construction, but no proof is found,
+      intuitionistic (two-sided engine, copy bound 7 reached) or
+      classical (focused engine, copy bound 4 reached);
+    - F123's Mix mutant does not finish copy bound 4: 787 million stable
+      sequents visited, 741 million of them from the memo, which holds
+      at most 1 731 entries.
+
+    The author's answer (2026-10-14): a session looks at the engines on
+    both sequents first, then lands both generators.
 
 ### What steps 29 to 31 must know
 
