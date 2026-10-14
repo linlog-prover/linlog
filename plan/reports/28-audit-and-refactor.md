@@ -1497,6 +1497,28 @@ The decisions the review sections hand to the author at the step's end:
     The author's answer (2026-10-14): a session looks at the engines on
     both sequents first, then lands both generators.
 
+11. **A count of one sign for the atoms under exponentials** (found by
+    `step-28i`, put to the author through `planning`, not built). The
+    engine's counts give up on every atom that has a literal under `?`
+    or `!`, so they never see that such an atom cannot balance. The
+    check would keep those atoms' counts outside the exponentials and
+    let the count grow without end only in the direction the literals
+    under exponentials can push it: with no `~a` under any exponential,
+    copies can only add `a`s, so the `a`s outside must not already
+    outnumber the `~a`s. F122's sample is the example: its goal needs an
+    `a` that nothing supplies (the only other `a` lies under `!`, and
+    there is no `~a` anywhere), so it is unprovable, yet every copy
+    bound leaves it undecided; the check would refute it at once. The
+    cost is a change to the counts in three places (their rows, the test
+    of a stable sequent and the incremental test of a split), a
+    refutation with a bound on one side only (a change of its JSON
+    form), and the full evidence of a search change. The
+    recommendation: do it as a change of its own in a later session,
+    after measuring on the LLTP library how many problems it would
+    decide that are undecided today, since its reach beyond generated
+    mutants is unknown and the tests already bound such mutants'
+    searches (`plan/later.md`, "A count of one sign").
+
 ### What steps 29 to 31 must know
 
 - **Step 29 (the comparison).** A driver reads the outcome's JSON
