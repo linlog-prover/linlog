@@ -1931,3 +1931,64 @@ fn nested_tensors_of_literals_force_their_splits() {
     assert!(verdict.proof().is_some());
     assert!(statistics.splits > 30, "{} splits", statistics.splits);
 }
+
+/// A worker of a pool drops a failure that rests on a stable sequent of
+/// the spawning engine's branch, whose close the worker never sees, and
+/// lets nothing wait on it. Here one ancestor stands for that branch:
+/// the stable sequent `⊢ e ; c, ~c` that the goal's one way on reaches
+/// again, so the loop check prunes it and the goal's failure rests on
+/// depth 0, above the worker's own stack.
+#[test]
+fn a_worker_drops_what_rests_on_the_spawning_branch() {
+    let sequent: Sequent = "|- (c par ~c) + 0, ?e".parse().unwrap();
+    let forest = Forest::new(&sequent).unwrap();
+    let options = Options::default().with_copies(Some(1));
+    let (first, _) = plan(
+        &forest,
+        forest.roots(),
+        sequent.fragment(),
+        Mode::CLASSICAL,
+        &options,
+    );
+    let counts = Counts::new(&forest, first.bias);
+    let classes = Classes::new(&forest, None);
+    let task = crate::search::Task {
+        forest: &forest,
+        goal: forest.roots(),
+        fragment: sequent.fragment(),
+        mode: Mode::CLASSICAL,
+        reading: None,
+        roots: true,
+        program: std::sync::OnceLock::new(),
+    };
+    let set_up = SetUp {
+        task: &task,
+        classes: &classes,
+        options: &options,
+        limits: &Limits::default(),
+    };
+    // The empty zone of the root is the run's first, `{e}` its second.
+    let mut ancestor = memo::Key {
+        theta: 1,
+        ..memo::Key::default()
+    };
+    let before_e = forest.roots()[1].index();
+    ancestor.members.extend(
+        (0..before_e)
+            .map(|o| OccId::new(o as u32))
+            .filter(|&o| matches!(forest.kind(o), Kind::Atom | Kind::DualAtom)),
+    );
+    let hashes = [ancestor.zones().hash()];
+    let branch = [ancestor];
+    let account = Account::new(None);
+    let mut never = |_| false;
+    let mut worker = Run::new(
+        Problem::new(set_up, &counts, first.copies, &account),
+        Stop::Closure(&mut never),
+        Table::own(options.memo_entries()),
+        Arena::new(arena::Kept::Own(Vec::new()), &account),
+    );
+    worker.ancestors.push((&branch, &hashes));
+    assert!(matches!(worker.run(forest.roots()), Ok(None)));
+    assert!(worker.waiting.is_empty(), "{:?}", worker.waiting.len());
+}
