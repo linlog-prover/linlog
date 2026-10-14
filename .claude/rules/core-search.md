@@ -402,7 +402,12 @@ not by what is in use. `prove_goal` makes one per search.
 
 - **What counts**: the focused memo (its chunks, its index, the extra
   copies), the kept arena and every engine's pending stack, the branch
-  stack of keys, every pool buffer (sets, contexts, keys, tallies,
+  stack of keys, the failures that wait (the lists by their capacity,
+  `Waiting::grown`, charged after each close, and a key per entry, as
+  many as ever waited at once; `relieve` gives both back; charging the
+  keys alone left some 190 bytes an entry uncounted, a panel's and a
+  review's finding: a search under 4 MiB peaked 9.9 MiB above its
+  start), every pool buffer (sets, contexts, keys, tallies,
   split counts, cursors when made; lists, trails and links by what they
   had grown to when last given back), the `Counts` (rows and
   per-occurrence arrays) and the `Classes` of the set-up, and the

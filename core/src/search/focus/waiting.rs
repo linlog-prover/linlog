@@ -115,6 +115,9 @@ pub(super) struct Waiting {
     spare: Vec<Key>,
     /// The entries a close keeps waiting while it records the others.
     held: Vec<Waited>,
+    /// The bytes of the lists' capacity that [`Waiting::grown`] handed
+    /// out to be charged.
+    charged: usize,
 }
 
 impl Waiting {
@@ -269,13 +272,28 @@ impl Waiting {
         self.drop_from(0);
     }
 
-    /// Drops every entry and every spare key, and returns how many keys
-    /// went, whose charges the caller releases.
-    pub(super) fn release(&mut self) -> usize {
+    /// Returns by how many bytes the lists' capacity grew since the last
+    /// call, for the caller to charge: the entries, those a close keeps,
+    /// the index and the places of the spare keys, whose buffers the
+    /// caller charges itself. A list's capacity only grows until
+    /// [`Waiting::release`].
+    pub(super) fn grown(&mut self) -> usize {
+        let bytes = (self.entries.capacity() + self.held.capacity()) * size_of::<Waited>()
+            + self.spare.capacity() * size_of::<Key>()
+            + self.index.capacity() * (size_of::<(u64, u32)>() + 1);
+        let grown = bytes.saturating_sub(self.charged);
+        self.charged = self.charged.max(bytes);
+        grown
+    }
+
+    /// Drops every entry and every spare key with the lists' memory, and
+    /// returns how many keys went and the bytes [`Waiting::grown`] handed
+    /// out, whose charges the caller releases.
+    pub(super) fn release(&mut self) -> (usize, usize) {
         self.clear();
-        let keys = self.spare.len();
-        self.spare = Vec::new();
-        keys
+        let gone = (self.spare.len(), self.charged);
+        *self = Self::default();
+        gone
     }
 }
 

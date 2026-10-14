@@ -1103,14 +1103,16 @@ impl<'a> Run<'a> {
                 waited <= self.waiting.len(),
                 "the failures decided below a stable sequent are gone unsettled"
             );
-            if let Err(reason) = self.close(
+            let closed = self.close(
                 key,
                 hash,
                 budget,
                 waited,
                 own_depth,
                 (node, cuts, hereditary),
-            ) {
+            );
+            self.scratch.charge(self.waiting.grown());
+            if let Err(reason) = closed {
                 self.give_context(canonical);
                 return Err(reason);
             }
@@ -1343,8 +1345,8 @@ impl<'a> Run<'a> {
     /// allocated, is still over the bound: squeezing those would be undone
     /// by the next node.
     fn relieve(&mut self) -> Result<(), Reason> {
-        let keys = self.waiting.release();
-        self.scratch.resize(keys * self.key_bytes(), 0);
+        let (keys, lists) = self.waiting.release();
+        self.scratch.resize(keys * self.key_bytes() + lists, 0);
         // Every failure that waits from now on is decided below every
         // stable sequent of the branch, which must settle it when it
         // closes.
