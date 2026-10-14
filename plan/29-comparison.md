@@ -3,13 +3,18 @@
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step needs the
-machine for a night, which the author gives; this prompt is finished at
-the review of step 28. Read before you start:
+machine for a night, which the author gives; this prompt was finished at
+the review of step 28 (2026-10-14). Read before you start:
 
 - `plan/notes/comparison.md` (the tools, the method, where to run it).
 - `plan/reports/16-baseline.md`, `17-assessment.md` (2.2: linlog against
   the Maude prover on the 1 342 problems its files cover),
-  `21-defaults.md`, `24-batch.md`, `28-audit-and-refactor.md`.
+  `21-defaults.md`, `24-batch.md`, `28-audit-and-refactor.md` (its
+  "What steps 29 to 31 must know" and "Open questions for the author"
+  first).
+- `plan/notes/requirements.md`: the entries whose steps name 29 (R2,
+  R18, R74, R75, R85, R151, R172, R184 to R193, R217, R245), each with
+  its "State after step 28" and what is missing.
 - `.claude/rules/bench.md`, `.claude/rules/ci.md`, `bench/baseline.sh`.
 
 ## Goal
@@ -18,6 +23,40 @@ A comparison a sceptical reader trusts: what each comparable tool can do,
 as a matrix, and what each decides on the same problems under the same
 limits, measured on the author's machine and reproducible by anyone,
 with the numbers where linlog loses as plain as those where it wins.
+
+## What step 28 left you
+
+- **The library's side of a driver** is there:
+  - the outcome's JSON: `version`, `verdict` (a name from
+    `Verdict::NAMES`), `engine`, `reason`, `statistics` and `linlog`;
+    read `engine` and `reason` as open sets;
+  - the one-thread column, `--deterministic`, and the default column,
+    `search::race`, which the command and the harness share;
+  - one memory account for both searches of a race;
+  - "outside the fragment" is an error (`Unsupported`, `EngineRefused`),
+    never unknown;
+  - a `proved` verdict is checked, while an `unprovable` one carries a
+    `Disproof` that nothing checks before step 31: list a contradiction
+    against one as unchecked.
+- **First, the public walk** (R245, `api.md` 2.4 and 3.6), which step
+  28 did not make public: `sequents::fmt::{Walk, Visit}` are still
+  crate-private and `Reading::walk` does not exist. Make them public
+  before the translators, as a commit of its own with the gate and the
+  behaviour lock. The translators print through it, never recursing on
+  a term, as R245 and R74's "Met when" say.
+- **The harness's side is yours**: R185 (a `tool` column and a driver),
+  R186 (peak memory per run), R188 (shards), R191 (the plots), R184 (the
+  time each tool is charged), R189 (the CI job). Keep its columns read
+  by name. `summary --against … --counters` and `summary --strict` check
+  a run. The focused engine's oracle is `bench/targets/after-efficiency.csv`,
+  the net engine's `net-after-efficiency.csv`.
+- **A memory limit equal for every tool** (R18) holds for linlog's
+  search, with one known gap. A proof of `&` rules closed by `⊤` can
+  have `2ⁿ` branches, and the proof is not counted against
+  `--memory-limit`: 26 pairs peaked at 4.6 GiB under 1 GiB. Under
+  BenchExec such a run ends at the cgroup's limit, not as unknown. If
+  the author has not decided the question by then (the step report's
+  open question 5), report any such run as linlog's, out of memory.
 
 ## What is fixed now
 
