@@ -55,12 +55,16 @@ $ linlog prove "|- A par B, ~A, ~B"
 unprovable (MLL, classical, net engine): the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 0 − 1 − 0 + 0 + 2 = 1, and this one has 3
 $ linlog prove "A |- B"
 unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+$ linlog prove "!A, A |- 1"
+unprovable (MELL, classical, horn engine): ~A occurs 1 more time than A outside the exponentials of the one-sided sequent, and every literal of the atom below one, which copies add, is ~A, so they cannot all meet in axioms
 ```
 
 An unprovable verdict says why where the counts of the sequent tell: an
 atom whose literals cannot all meet their duals in axioms (whichever
-additive alternatives a proof takes), or the count equation of the
-multiplicatives; otherwise it says that the search was exhaustive. The
+additive alternatives a proof takes, and however often a formula under
+`!` or `?` is copied where all of the atom's literals there have one
+sign), or the count equation of the multiplicatives; otherwise it says
+that the search was exhaustive. The
 JSON output carries the same as `refutation`.
 
 Four engines serve classical logic: for MLL without units whose literals
