@@ -32,7 +32,7 @@ use crate::hash::HashMap;
 /// with `-o`/`⊸` (to the right), `+`/`⊕`, `&`, `|`/`par`/`⅋`, `*`/`⊗`
 /// (these to the left), the prefix operators `~`, `!` and `?`, and the
 /// postfix `^`, over the constants `0`, `1`, `bot`/`⊥` and `top`/`⊤`,
-/// variables and parentheses. A variable is a Unicode identifier (it
+/// atoms and parentheses. An atom is named by a Unicode identifier (it
 /// starts with `_` or a character of `XID_Start` and goes on with
 /// characters of `XID_Continue`), read in NFC, so that one name is one
 /// atom however its accents are encoded, other than the keywords `bot`, `top` and
@@ -41,7 +41,7 @@ use crate::hash::HashMap;
 /// for the quantifiers of a later version: the syntax grows by new tokens
 /// only, never by a new meaning of text that reads today. Text that is no
 /// sequent is `Error::Parse`, whose `ParseError` says where. Every atom
-/// name of a sequent, however it was read, is such a variable, so that
+/// name of a sequent, however it was read, is such an identifier, so that
 /// the formulas written as text read back as themselves.
 ///
 /// The sequent is kept one-sided in negation normal form: the formulas
@@ -69,8 +69,8 @@ use crate::hash::HashMap;
 /// them, the first, stand left of `⊢`, written whenever the sides are
 /// known, `0` included, and absent where they are not. Reading checks
 /// that every term names only terms before it, that `antecedents` is at
-/// most the number of roots and that every atom name is a variable of the
-/// text syntax (`Error::AtomName` otherwise), takes a name the table
+/// most the number of roots and that every atom name is an identifier of
+/// the text syntax (`Error::AtomName` otherwise), takes a name the table
 /// repeats as one atom, and counts the occurrences against the limits
 /// before anything unfolds. The command's `seq json` writes this form.
 ///
