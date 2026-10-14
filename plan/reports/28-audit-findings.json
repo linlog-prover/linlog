@@ -10507,6 +10507,138 @@
     "F165"
    ],
    "verdicts": []
+  },
+  {
+   "fid": "U2",
+   "id": "ultra-2",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S5",
+   "file": "cli/src/prove.rs",
+   "line": 1182,
+   "title": "`prove --output` opens the target twice, a probe before the search and the real write after it, so a named pipe or device whose reader reads to the end gets the probe's close as its end and the second open blocks for good",
+   "evidence": "Ultra review run 3a of area 3.4 (base mpuzmwmy 3dedc72c, end otvurtuv 619fed76, 2026-10-14): the probe `drop(io::Output::open(Some(path), …)?)` (cli/src/prove.rs:1182-1184, F207's fix, pyvvnoyv) takes `Output::open`'s branch for a target that is no regular file (cli/src/io.rs:373-377, `File::create` on the path), which for a FIFO blocks until a reader connects; dropping it unwritten closes the pipe, `cat` reads nothing and exits, and the open at :1205 waits for a reader that never comes. Before F207 there was one open. Not reproduced by the supervisor: a reader that opened before the probe and a search of milliseconds got the output, which leaves the race. The review rated it normal.",
+   "fix": "Probe only a regular file or a path that does not exist (its directory writable), and open a FIFO or device once, after the search; a test with a FIFO whose reader reads once.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "U3",
+   "id": "ultra-3",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S1",
+   "file": "cli/src/settings.rs",
+   "line": 379,
+   "title": "A settings file's `ordinary.logic` never takes effect: `settings::ordinary` returns `None` unless `--logic` is given and then replaces the file's value with the flag's, while README and `cli.md` say the command reads every key from the settings",
+   "evidence": "Ultra review run 3a of area 3.4 (base mpuzmwmy 3dedc72c, end otvurtuv 619fed76, 2026-10-14): `settings.ordinary.with_logic(logic.logic?.into())` reads the raw `LogicArgs`, not the merged settings. Area 3.4 decided that `--logic` stays the switch, since every front end's JSON holds the key (\"Area 3.4: decided unattended\"), but README's `--settings` section names `ordinary` among the objects a file sets and `.claude/rules/cli.md` says every command reads the settings, never the flags, so a user's `{\"ordinary\": {\"logic\": \"classical\"}}` is read and silently ignored. The review rated it normal.",
+   "fix": "Keep the decision and say it where the promise is made: README's `--settings` section and `cli.md` name `ordinary.logic` as read but switched by `--logic` alone; or apply the file's `ordinary.logic` when `--logic` is given without a value. A test either way.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "U4",
+   "id": "ultra-4",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "T1",
+   "file": "cli/src/settings.rs",
+   "line": 100,
+   "title": "Nothing tests which of `--settings FILE` and a flag wins: `Apply::set` matches some twenty field names as strings against clap's argument ids and answers false for an id that matches none, so a renamed field would silently stop overriding the file",
+   "evidence": "Ultra review run 3a of area 3.4 (base mpuzmwmy 3dedc72c, end otvurtuv 619fed76, 2026-10-14): `Given::of` collects clap's ids (cli/src/settings.rs:31-42) and `Apply::set(\"…\")` (:57-59, call sites :130-313) compares strings; psoxuuqs tests that every id is an argument, but no test in `cli/tests/` runs `--settings` with a flag. The reviewer checked every literal by hand: all match today. The review rated it nit.",
+   "fix": "A test per command that gives a settings file and one flag per key and asserts the flag's value, and one without the flag that asserts the file's; or make the ids constants that both sides use.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "U5",
+   "id": "ultra-5",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "taste",
+   "criterion": "D2",
+   "file": "cli/src/prove.rs",
+   "line": 1372,
+   "title": "`--stats` lost the Horn engine's affine wording: an affine run printed `markings computed backward: N (M of them covered already)`, now every mode prints the generic `markings reached` and `markings met again` of `Engine::counters`",
+   "evidence": "Ultra review run 3a of area 3.4 (base mpuzmwmy 3dedc72c, end otvurtuv 619fed76, 2026-10-14): the old per-engine arms (prove.rs at mpuzmwmy, lines 1244-1253) told a coverability search from a reachability one; `statistics()` (cli/src/prove.rs:1358-1372) prints `counter.label` alone, and the HORN labels in `Engine::counters` take no mode. The lock and README changed with it in xmqwzzxr. The review rated it nit.",
+   "fix": "A label per mode where an engine's counters mean different things by mode (the counters' table taking the mode, or the command relabelling the Horn engine's two in affine mode); README and the lock with it.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "U6",
+   "id": "ultra-6",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S5",
+   "file": ".claude/hooks/command_line.py",
+   "line": 141,
+   "title": "The guards' command-line reading misses the subcommand behind a global option that takes a separate value (`nix --option NAME VALUE develop -c git …`, `jj -R PATH util exec -- git …`), so the git guard can be passed by a wrapped call",
+   "evidence": "Ultra review run 3b of area 3.4 (base otvurtuv 619fed76, end qvuvkroz bfde2cff, 2026-10-14): `resolve()` drops every token starting with `-` and takes the first remaining word as the subcommand (lines 142-149), so an option's value becomes the subcommand and `shell`, `develop` or `util exec` is not seen; `block-jj-new-message.py` lists such options in `GLOBAL_VALUES` (lines 25-34) for this reason. The review calls it older than the slice's diff (pkulyoqk moved the reading into `command_line.py`). The review rated it pre_existing.",
+   "fix": "Skip the value of each global option that takes one, for nix and for jj (one table, shared with `block-jj-new-message.py`), and cases in the claude-hooks check with an option and its value before the subcommand.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
+  },
+  {
+   "fid": "U7",
+   "id": "ultra-7",
+   "status": "ultra",
+   "area": "command-harness-flake-docs",
+   "severity": "should-fix",
+   "criterion": "S3",
+   "file": "cli/src/check.rs",
+   "line": 115,
+   "title": "`check` advises `raise it with --occurrence-limit` for every limit a proof file reaches, `Refusal::Index` included, which no setting lifts",
+   "evidence": "Ultra review run 3b of area 3.4 (base otvurtuv 619fed76, end qvuvkroz bfde2cff, 2026-10-14): `read_proof` matches `ErrorKind::Limit` and appends the advice (cli/src/check.rs:114-116), while `Refusal::setting()` answers `None` for `Index` (core/src/limits.rs, a representation's width); a JSON proof that shares subformulas can stand for more occurrences than `Forest::MOST` and get it. The same area made `io.rs`'s readers match the refusal (`sequent_in`), so the two disagree. Carried over from `prove.rs` by kupqsmml. The review rated it pre_existing.",
+   "fix": "Advise from the refusal (`Refusal::setting()`), as the readers in `io.rs` do, and no advice where none lifts it; a test with a proof past the index width or a unit test of the advice.",
+   "lenses": [
+    "ultra"
+   ],
+   "models": [
+    "ultra"
+   ],
+   "round": 0,
+   "also": [],
+   "verdicts": []
   }
  ],
  "refuted": [
