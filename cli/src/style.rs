@@ -75,6 +75,13 @@ pub(crate) fn read(
         styles.typst.form = Form::Standalone;
         styles.rocq.form = Form::Standalone;
     }
+    // A fragment has no prelude, so the flag would do nothing there.
+    if rocq.is_some_and(|r| r.prelude.is_some()) && !matches!(styles.rocq.form, Form::Standalone) {
+        bail!(
+            "--prelude goes into a standalone certificate: add --standalone, or --style \
+             rocq.form=standalone"
+        );
+    }
     Ok(styles)
 }
 

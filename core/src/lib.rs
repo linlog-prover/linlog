@@ -1,8 +1,15 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! Sequents of linear logic, stored as compact arena DAGs in negation normal
-//! form, with parsing, printing and serialization; the fragment a sequent
+//! Decides sequents of linear logic: parse a sequent, prove it, get a
+//! proof the checker has validated, and print or export it. A caller adds
+//! the crate from its repository (README says how) and, for the examples
+//! below, `serde_json`. An *occurrence* is one place of a subformula in a
+//! sequent, numbered by the sequent's [`Forest`]; proofs, nets and errors
+//! name occurrences by those numbers.
+//!
+//! In more detail: sequents of linear logic, stored as compact arena DAGs
+//! in negation normal form, with parsing, printing and serialization; the fragment a sequent
 //! lives in and the mode proof search runs in; the occurrence forest of a
 //! sequent, the numbering of its subformula occurrences that proof search,
 //! proof checking and proof nets are built on; proofs as terms over those

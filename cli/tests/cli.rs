@@ -1249,6 +1249,22 @@ fn isolated_entries_with_bundled_flags() {
     assert!(out.contains(&format!("{d}/b.txt: unprovable")), "{out}");
 }
 
+/// `--prelude` goes into a standalone certificate, and is refused where
+/// it would do nothing.
+#[test]
+fn a_prelude_needs_a_standalone_certificate() {
+    let prelude = ["prove", "--format", "rocq", "--prelude", "(* mine *)"];
+    let (status, out, err) = linlog(&[&prelude[..], &["A |- A"]].concat(), "");
+    assert_eq!((status, out.as_str()), (2, ""));
+    assert!(
+        err.contains("--prelude goes into a standalone certificate"),
+        "{err}"
+    );
+    let (status, out, _) = linlog(&[&prelude[..], &["--standalone", "A |- A"]].concat(), "");
+    assert_eq!(status, 0);
+    assert!(out.contains("(* mine *)"), "{out}");
+}
+
 /// An entry whose name starts with `-` gets its verdict under
 /// `--isolate` too: the child reads the name as a value, not a flag.
 #[test]

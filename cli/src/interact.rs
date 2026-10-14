@@ -296,7 +296,7 @@ impl Session {
                 let (word, path) = match rest {
                     [] => (None, None),
                     [word] if word.starts_with("--") => (Some(*word), None),
-                    [path] => (None, Some(*path)),
+                    [path] => (None, Some(file_word(path)?)),
                     [word, path] if word.starts_with("--") => (Some(*word), Some(*path)),
                     _ => bail!("show [--FORMAT] [FILE]: one format and one file at most"),
                 };
@@ -361,7 +361,7 @@ impl Session {
                 let (format, path) = match rest {
                     [] => (None, None),
                     [word] if word.starts_with("--") => (Some(format_of(true, word)?), None),
-                    [path] => (None, Some(*path)),
+                    [path] => (None, Some(file_word(path)?)),
                     [word, path] if word.starts_with("--") => {
                         (Some(format_of(true, word)?), Some(*path))
                     }
@@ -581,6 +581,16 @@ impl Session {
     }
 }
 
+/// Returns the word given for `show`'s or `proof`'s FILE, refusing a
+/// format's name alone: `show latex` meant `--latex` far more often than
+/// a file named `latex`, which `./latex` still names.
+fn file_word(word: &str) -> Result<&str> {
+    if Format::from_str(word, false).is_ok() {
+        bail!("{word} is a format's name: --{word} asks for the format, ./{word} names a file");
+    }
+    Ok(word)
+}
+
 /// Returns the format a word of a session's `show` or `proof` names
 /// (`--latex`, a format's name as `--format` takes it); `show` draws the
 /// derivation so far, so it has no JSON and no Rocq.
@@ -612,6 +622,15 @@ fn format_of(proof: bool, word: &str) -> Result<Format> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A format's name alone is no file of `show` or `proof`, whose
+    /// format is a word with dashes; a path that only looks like one is.
+    #[test]
+    fn a_format_s_name_is_no_file() {
+        assert!(file_word("latex").is_err());
+        assert_eq!(file_word("./latex").unwrap(), "./latex");
+        assert_eq!(file_word("proof.tex").unwrap(), "proof.tex");
+    }
 
     /// A command's words are split as a shell splits them: quotes keep
     /// blanks in a word, a backslash takes the next character, and a quote

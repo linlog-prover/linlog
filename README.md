@@ -8,15 +8,31 @@ checkable form and show them as derivation trees or proof nets.
 [API documentation](https://linlog-prover.github.io/linlog/) (rustdoc of `main`,
 rebuilt on every push).
 
+The library is the crate `linlog`, not yet on crates.io: a Cargo project
+takes it from the repository,
+
+```toml
+[dependencies]
+linlog = { git = "https://github.com/linlog-prover/linlog" }
+```
+
+with the default features `parse`, `serialize`, `interactive`, `latex`,
+`typst`, `svg` and `rocq`, and `parallel` (a thread pool, not for wasm),
+`png` and `pdf` to add. The documentation's examples read and write JSON
+with `serde_json`, the caller's own dependency.
+
 ## Usage
 
 The command line program is `linlog` (`nix run github:linlog-prover/linlog -- …`,
 `nix build`, or `cargo run -p linlog-cli -- …` in a checkout). `linlog --help`
 and `linlog <command> --help` document every option.
 
-`linlog prove` decides a sequent. The first line gives the verdict, the
-fragment the sequent was detected to live in and the engine that searched;
-a proof follows as a derivation tree of the one-sided sequent calculus:
+`linlog prove` decides a sequent, written as below (`-o` is ⊸, `*` ⊗,
+`par` ⅋, `~` negation; the whole syntax is under "The syntax" further
+down, and `linlog --help` prints it). The first line gives the verdict,
+the fragment the sequent was detected to live in and the engine that
+searched; a proof follows as a derivation tree of the one-sided sequent
+calculus:
 
 ```console
 $ linlog prove "A, A -o B |- B"
@@ -60,7 +76,12 @@ choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
 and `--stats` what the search cost, in the counters of the engine that
-ran:
+ran (the focused engine's: a stable sequent is one where every rule left
+is a choice, the memo keeps the stable sequents already decided, and a
+split is one way to divide a context between the premises of a ⊗; the
+net engine's: a literal chosen to link, a link tried, a correctness test
+run; units of work are each engine's steps, the same on every machine
+on one thread):
 
 ```console
 $ linlog prove --mix --stats --deterministic "|- A par B, ~A, ~B"
