@@ -241,8 +241,8 @@ $ linlog prove -q --copies 1 "!(A & B) |- A * B"
 unknown (LL, classical, focus engine): the copy bound of 1 was reached after 54.08µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q "A |- !A"
 unprovable (MELL, classical, focus engine): the search was exhaustive
-$ linlog prove -q "!(A -o A * A), !(B * B -o C), A, B |- C * ?D"
-unknown (MELL, classical, focus engine): the time limit of 2s was reached at a copy bound of 512; --timeout DURATION gives the search longer
+$ linlog prove -q "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
+unknown (MELL, classical, focus engine): the time limit of 2s was reached at a copy bound of 97; --timeout DURATION gives the search longer
 ```
 
 The deepening is why a call without flags answers within its time limit
@@ -353,8 +353,8 @@ within a fraction of a second of it, on one thread and on several:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q --engine focus --timeout 1s "!(A -o A * A), !(B * B -o C), A, B |- C"
-unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 429; --timeout DURATION gives the search longer
+$ linlog prove -q --engine focus --timeout 1s "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
+unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 82; --timeout DURATION gives the search longer
 ```
 
 <!-- readme-check: skip, the file is the LLTP library's -->
