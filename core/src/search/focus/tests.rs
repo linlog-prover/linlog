@@ -180,6 +180,37 @@ fn with_rules_poll_the_stop() {
     );
 }
 
+/// `⊢ a₁ & b₁, …, a₁₆ & b₁₆, ⊤`, whose proof of `&` rules closed by `⊤`
+/// has 2¹⁷ nodes and reaches no stable sequent.
+fn with_rules_closed_by_top() -> Sequent {
+    let withs: Vec<String> = (0..16).map(|i| format!("a{i} & b{i}")).collect();
+    format!("|- {}, top", withs.join(", ")).parse().unwrap()
+}
+
+/// The `&` rules are work, which `Limits::work` bounds: that proof's
+/// search reaches no stable sequent, which counted the work alone.
+#[test]
+fn with_rules_are_work() {
+    let options = Options::default()
+        .with_engine(Some(crate::search::Engine::Focus))
+        .with_jobs(1)
+        .with_check(false);
+    let limits = Limits::default().with_work(Some(10_000));
+    let outcome = crate::search::prove_within(
+        &with_rules_closed_by_top(),
+        Mode::CLASSICAL,
+        &options,
+        &limits,
+        |_| false,
+    )
+    .unwrap();
+    assert!(
+        matches!(outcome.verdict, Verdict::Unknown(Reason::WorkLimit { .. })),
+        "{:?}",
+        outcome.verdict
+    );
+}
+
 /// The units behave as the spec's checks say, and `⊤` closes any
 /// context while `0` closes none.
 #[test]

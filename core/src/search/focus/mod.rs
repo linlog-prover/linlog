@@ -801,7 +801,7 @@ impl<'a> Run<'a> {
     ) -> Step {
         // A proof of `&` rules closed by `⊤` reaches no stable sequent,
         // where the search polls, and can be exponential in the sequent.
-        self.poll_forced()?;
+        self.poll_with()?;
         #[cfg(feature = "parallel")]
         if self.cubes() {
             return self.with_parallel(theta, gamma, list, o, budget);
@@ -823,6 +823,25 @@ impl<'a> Run<'a> {
             run.asynchronous(theta, gamma, list, budget)
         });
         Ok(self.both(o, left_node, right?, mark))
+    }
+
+    /// Counts the work of an `&` rule, a step and the copy of a zone of
+    /// the forest's width, and polls the stop every [`FORCED_PER_POLL`]
+    /// of them and of the forced splits, telling it the work done since
+    /// its last poll: an `&` rule is work, which the default bias's two
+    /// searches share and `Limits::work` bounds.
+    fn poll_with(&mut self) -> Result<(), Reason> {
+        self.work += 1 + (self.problem.forest.len() / OCCURRENCES_PER_WORK) as u64;
+        self.forced += 1;
+        if self.forced < FORCED_PER_POLL {
+            return Ok(());
+        }
+        self.forced = 0;
+        if self.stop.fired(std::mem::take(&mut self.work)) {
+            Err(Reason::Stopped)
+        } else {
+            Ok(())
+        }
     }
 
     /// A premise of the `&` rule on copies of the state: the context and

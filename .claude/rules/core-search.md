@@ -326,9 +326,11 @@ outcome's `work` is that count. The command's default and the harness's
     sequent; the fuzzer's `ordinary_decide` found such images that ran
     tens of seconds past a time limit of one,
     `with_rules_poll_the_stop`); and on a pool at every `&`
-    (`with_parallel`, below). The `&` rules pass no work, so the slices
-    of the default bias's two searches are where they were, and
-    `Limits::work` does not bound such a proof: a follow-up. The first two pass the work
+    (`with_parallel`, below). An `&` rule is work (`poll_with`: a step
+    and the copy of a zone of the forest's width, the stable sequent's
+    width cost), so `Limits::work` bounds such a proof and the default
+    bias's two searches share it (`with_rules_are_work`). The first two
+    and the `&` rule's poll pass the work
     done since the last poll (`Stop::fired(work)`), which the two
     searches of the default bias slice by (`Stop::Slice`, `Stop::Turn`)
     and the caller's progress reports;
