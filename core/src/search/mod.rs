@@ -2509,7 +2509,7 @@ mod tests {
     }
 
     /// A proof the search finds within the memory bound but whose check
-    /// would pass it is unknown by that bound, neither a proof nor an
+    /// would need more is unknown by that bound, neither a proof nor an
     /// error. The Horn engine holds a counter's firing sequence of 3 000
     /// tokens in less memory than the check of its proof holds (a state
     /// per firing, each waiting for its reader), so the first bound,

@@ -105,8 +105,9 @@ const FORCED_PER_POLL: u64 = 4096;
 const NODE_WORK: u64 = 16;
 
 /// How many occurrences of the forest make a unit of a stable sequent's
-/// work: both zones are hashed, compared and copied as bitsets of the
-/// forest's width.
+/// work: what a key of both zones as bitsets of the forest's width cost,
+/// kept since the key is sparse so that the default bias's two searches
+/// take the slices, and count what, they did.
 const OCCURRENCES_PER_WORK: usize = 128;
 
 /// How many comparisons of a member of `Γ` with a literal of a formula of
@@ -749,13 +750,14 @@ impl<'a> Run<'a> {
         // The `⅋`, `⊥` and `?` rules applied, to wrap around the proof of
         // what remains; the first applied is the lowest.
         let mut applied = self.take_list();
-        // The unrestricted zone once a `?` added a formula to it, interned
-        // once it is complete.
-        let mut grown: Option<Unrestricted> = None;
+        // The unrestricted zone once a `?` added a formula to it, and,
+        // once it is complete, the zone with the id it was interned under.
+        let mut grown: Option<OccSet> = None;
+        let mut interned: Option<Unrestricted> = None;
         let result = loop {
             let Some(o) = list.pop() else {
-                self.intern(&mut grown);
-                break self.prove(grown.as_ref().unwrap_or(theta), gamma, budget);
+                interned = self.interned(grown.take());
+                break self.prove(interned.as_ref().unwrap_or(theta), gamma, budget);
             };
             match self.problem.forest.kind(o) {
                 Kind::Par => {
@@ -766,23 +768,20 @@ impl<'a> Run<'a> {
                 Kind::Bot => applied.push(o),
                 Kind::Top => break Ok(Found::proved(self.push(Node::Top(Member::from(o))))),
                 Kind::With => {
-                    self.intern(&mut grown);
-                    break self.with(grown.as_ref().unwrap_or(theta), gamma, list, o, budget);
+                    interned = self.interned(grown.take());
+                    break self.with(interned.as_ref().unwrap_or(theta), gamma, list, o, budget);
                 }
                 Kind::Quest => {
                     // The subformula joins the unrestricted zone, which is
                     // a set: a formula already there changes nothing.
                     let a = self.problem.forest.left(o).unwrap();
-                    if !grown.as_ref().unwrap_or(theta).set.contains(a) {
+                    if !grown.as_ref().unwrap_or(&theta.set).contains(a) {
                         if grown.is_none() {
                             let mut larger = self.take_set();
                             larger.clone_from(&theta.set);
-                            grown = Some(Unrestricted {
-                                set: larger,
-                                id: theta.id,
-                            });
+                            grown = Some(larger);
                         }
-                        grown.as_mut().unwrap().set.insert(a);
+                        grown.as_mut().unwrap().insert(a);
                     }
                     applied.push(o);
                 }
@@ -793,8 +792,8 @@ impl<'a> Run<'a> {
                 }
             }
         };
-        if let Some(larger) = grown {
-            self.give_set(larger.set);
+        if let Some(larger) = grown.or(interned.map(|zone| zone.set)) {
+            self.give_set(larger);
         }
         let result = result.map(|found| {
             found.map(|mut node| {
@@ -812,11 +811,12 @@ impl<'a> Run<'a> {
         result
     }
 
-    /// Gives a zone that grew the id of what it holds now.
-    fn intern(&mut self, grown: &mut Option<Unrestricted>) {
-        if let Some(zone) = grown {
-            zone.id = self.memo.intern(&zone.set, self.problem.account);
-        }
+    /// Returns a zone that grew with the id the memo interns it under.
+    fn interned(&mut self, grown: Option<OccSet>) -> Option<Unrestricted> {
+        grown.map(|set| Unrestricted {
+            id: self.memo.intern(&set, self.problem.account),
+            set,
+        })
     }
 
     /// The `&` rule: both premises with the same context, each keeping the

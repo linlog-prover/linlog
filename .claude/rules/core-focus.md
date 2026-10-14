@@ -137,9 +137,10 @@ relies on:
   id and the memo finds nothing under it, which costs hits, never a
   wrong one. So the counters of a search equal those of the bitsets' key
   while every zone it meets is held: a memo of fewer entries than the
-  zones a search meets empties the table as well (`--memo-limit 1` on a
-  sequent of ten `?` branches took 64 hits where the bitsets found 96;
-  from 3 entries on, the same). **The loop check stays exact whatever the table did**: `Θ`
+  zones a search meets empties the table as well (`⊢ ?a, ?(?~c ⊗ ?~c),
+  ?(~c ⊗ !c), !!c, ?(?(b ⊗ a) ⅋ a)` with `--copies 4 --memo-limit 4` is
+  refuted at copy level 4 in 148 stable sequents where the bitsets' key
+  refuted it at level 3 in 98; the default memo holds 2²⁰ zones). **The loop check stays exact whatever the table did**: `Θ`
   only grows along a branch and a grown zone is a new value strictly
   larger, so two stable sequents of one branch with equal `Θ` share the
   one value, and its one id. A pool's workers share the table
@@ -975,7 +976,8 @@ relies on:
   path only costs an allocation later. A memo insertion copies the key
   into the memo's own chunk, and a repeated occurrence grows a
   context's extra list, which is the one allocation left per stable
-  sequent. `OccSet` has a `clone_from` of its own, which every copy of
+  sequent; the table of zones copies a grown `Θ` it does not hold yet,
+  once per such `?` rule, at the forest's width. `OccSet` has a `clone_from` of its own, which every copy of
   a zone goes through, and the branch stack copies with `Key::assign`:
   a derived `Clone` on a type that owns a buffer never reuses it, and
   the two derived ones allocated three million times in five seconds of

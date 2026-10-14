@@ -179,16 +179,20 @@ impl Interner {
     }
 
     /// The bytes of the table's buckets where it holds `capacity` zones:
-    /// a power of two of them, eight for every seven zones (all but one
-    /// under eight), of a slot and a control byte each, and a group of
-    /// control bytes after them; none for an empty table.
+    /// a power of two of them, four for up to three zones, eight for up
+    /// to seven, else eight for every seven, of a slot and a control byte
+    /// each, and a group of control bytes after them; none for an empty
+    /// table.
     fn buckets(capacity: usize) -> usize {
         /// The control bytes a table has after its buckets.
         const GROUP: usize = 16;
-        if capacity == 0 {
-            return 0;
-        }
-        (capacity * 8).div_ceil(7).next_power_of_two() * (size_of::<(OccSet, u64)>() + 1) + GROUP
+        let buckets = match capacity {
+            0 => return 0,
+            1..4 => 4,
+            4..8 => 8,
+            _ => (capacity * 8 / 7).next_power_of_two(),
+        };
+        buckets * (size_of::<(OccSet, u64)>() + 1) + GROUP
     }
 
     /// Empties the table and gives its memory back. The ids given stay
@@ -790,8 +794,9 @@ impl Table<'_> {
     }
 
     /// [`Memo::clear`] on an engine's own memo; a shared memo empties its
-    /// shards itself. The table of zones stays: the branch's zones keep
-    /// their ids, and a zone met again is found under its own.
+    /// shards itself. The table of zones stays: emptied, it would give a
+    /// zone met again a new id, under which neither the failures that
+    /// wait nor the entries recorded after the clear are found.
     pub(super) fn clear(&mut self) {
         if let Self::Own(memo, _) = self {
             memo.clear();

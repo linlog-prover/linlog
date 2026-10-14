@@ -2063,9 +2063,14 @@ fn a_worker_drops_what_rests_on_the_spawning_branch() {
         options: &options,
         limits: &Limits::default(),
     };
-    // The empty zone of the root is the run's first, `{e}` its second.
+    // `{e}` under the id the run's table gives it, as the run's own `?`
+    // rule will find it.
+    let mut table = Table::own(options.memo_entries());
+    let mut with_e = forest.empty_set();
+    with_e.insert(forest.left(forest.roots()[1]).unwrap());
+    let account = Account::new(None);
     let mut ancestor = memo::Key {
-        theta: 1,
+        theta: table.intern(&with_e, &account),
         ..memo::Key::default()
     };
     let before_e = forest.roots()[1].index();
@@ -2076,12 +2081,11 @@ fn a_worker_drops_what_rests_on_the_spawning_branch() {
     );
     let hashes = [ancestor.zones().hash()];
     let branch = [ancestor];
-    let account = Account::new(None);
     let mut never = |_| false;
     let mut worker = Run::new(
         Problem::new(set_up, &counts, first.copies, &account),
         Stop::Closure(&mut never),
-        Table::own(options.memo_entries()),
+        table,
         Arena::new(arena::Kept::Own(Vec::new()), &account),
     );
     worker.ancestors.push((&branch, &hashes));

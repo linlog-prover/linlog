@@ -157,7 +157,7 @@ fn limits_on_memory_and_occurrences() {
         );
     }
 
-    // A proof found within the bound whose check would pass it: a Horn
+    // A proof found within the bound whose check would need more: a Horn
     // counter of 3 000 tokens, whose firing sequence the search holds in
     // under 704 KiB and the check of its proof in over 832 KiB.
     let counter = format!("!(a -o a * b), a |- a * {}", vec!["b"; 3000].join(" * "));
