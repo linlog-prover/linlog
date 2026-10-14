@@ -1039,6 +1039,63 @@ mod tests {
             assert_eq!(memo.get(&keys[1], 0), None);
         }
         assert!(memo.chunks.iter().any(|chunk| chunk.capacity() > 64));
+        assert_eq!(
+            account.used() as usize,
+            held(&memo),
+            "every chunk as charged"
+        );
+        // After a clear an empty chunk too small for a long record grows
+        // to it, and is charged what it then holds.
+        let mut memo = Memo::with_chunk(1000, 64);
+        let account = Account::new(None);
+        memo.insert(&key(0, &[1]), Entry::Failed(Failure::Complete), &account);
+        memo.clear();
+        let entry = Entry::Failed(Failure::Exhausted(2));
+        memo.insert(&key(0, &long), entry, &account);
+        assert_eq!(memo.get(&key(0, &long), 0), Some(entry));
+        assert_eq!(memo.chunks.len(), 1);
+        assert_eq!(account.used() as usize, held(&memo));
+    }
+
+    /// The bytes a memo holds: its index and its chunks.
+    fn held(memo: &Memo) -> usize {
+        bytes_of(&memo.slots) + memo.chunks.iter().map(bytes_of).sum::<usize>()
+    }
+
+    /// A key is found by its words, not by its hash: keys of one hash
+    /// that differ in the unrestricted zone's id or in a member are
+    /// other keys, to the memo as to the branch stack and the failures
+    /// that wait ([`Zones::of`]).
+    #[test]
+    fn a_key_is_its_words() {
+        let account = Account::new(None);
+        let mut memo = Memo::new(10);
+        let (own, member, zone) = (key(1, &[1, 2]), key(1, &[1, 3]), key(2, &[1, 2]));
+        let proved = Entry::Proved(NodeId::new(1));
+        memo.insert_hashed(own.zones(), 7, proved, &account);
+        assert_eq!(memo.get_hashed(own.zones(), 7, 0), Some(proved));
+        assert_eq!(memo.get_hashed(member.zones(), 7, 0), None);
+        assert_eq!(memo.get_hashed(zone.zones(), 7, 0), None);
+        assert!(own.zones().of(&own));
+        assert!(!member.zones().of(&own) && !zone.zones().of(&own));
+    }
+
+    /// A shared memo gives back every shard's memory and its table of
+    /// zones'.
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn a_shared_memo_gives_everything_back() {
+        let account = Account::new(None);
+        let shared = Shared::new(100);
+        for o in 0..50 {
+            let key = key(0, &[o]);
+            let complete = Entry::Failed(Failure::Complete);
+            shared.insert(key.zones(), key.zones().hash(), complete, &account);
+        }
+        Table::Shared(&shared).intern(&OccSet::of(64, [OccId::new(3)]), &account);
+        assert!(account.used() > 0);
+        shared.release(&account);
+        assert_eq!(account.used(), 0);
     }
 
     /// Equal zones get one id, other zones others; ids stay unique when
@@ -1049,10 +1106,15 @@ mod tests {
         let zone = |members: &[u32]| OccSet::of(200, members.iter().map(|&o| OccId::new(o)));
         let mut zones = Interner::new(2);
         let a = zones.intern(&zone(&[1, 150]), &account);
+        // A first table has four buckets, of a slot and a control byte
+        // each, and a group of sixteen control bytes after them.
+        let set = size_of_val(zone(&[1]).words());
+        let first = 4 * (size_of::<(OccSet, u64)>() + 1) + 16;
+        assert_eq!(account.used() as usize, set + first);
         let b = zones.intern(&zone(&[1]), &account);
         assert_ne!(a, b);
         assert_eq!(zones.intern(&zone(&[1, 150]), &account), a);
-        assert!(account.used() > 0);
+        assert_eq!(account.used() as usize, 2 * set + first);
         let c = zones.intern(&zone(&[2]), &account);
         assert!(![a, b].contains(&c), "a full table empties itself");
         assert_ne!(zones.intern(&zone(&[1]), &account), b);
