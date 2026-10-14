@@ -138,6 +138,21 @@ impl Tree {
         }
     }
 
+    /// Returns how many `!` the formula holds: the derelictions of the
+    /// identity proof of it as a hypothesis, which promotes and derelicts
+    /// each.
+    fn bangs(&self) -> u32 {
+        use Tree::*;
+        match self {
+            Atom(_) | Dual(_) | One | Bot | Top | Zero => 0,
+            Tensor(l, r) | Par(l, r) | With(l, r) | Plus(l, r) | Lolli(l, r) => {
+                l.bangs() + r.bangs()
+            }
+            Bang(a) => 1 + a.bangs(),
+            Quest(a) => a.bangs(),
+        }
+    }
+
     /// Whether the formula is a `!` formula.
     fn is_bang(&self) -> bool {
         matches!(self, Tree::Bang(_))
@@ -243,6 +258,8 @@ pub(crate) struct Ill {
     pub(crate) goal: Tree,
     /// The derelictions of the proof, all branches together.
     pub(crate) copies: u32,
+    /// The contractions of the proof.
+    pub(crate) contractions: u32,
 }
 
 /// Builds a random provable intuitionistic sequent: a cut-free two-sided
@@ -250,12 +267,18 @@ pub(crate) struct Ill {
 /// the rules allowed, and returns its conclusion with the derelictions of
 /// the proof.
 pub(crate) fn ill(rng: &mut Rng, rules: IllRules, atoms: u8, budget: usize) -> Ill {
-    let mut generator = IllGenerator { rng, rules, atoms };
+    let mut generator = IllGenerator {
+        rng,
+        rules,
+        atoms,
+        contractions: 0,
+    };
     let (hypotheses, goal, copies) = generator.proof(budget);
     Ill {
         hypotheses,
         goal,
         copies,
+        contractions: generator.contractions,
     }
 }
 
@@ -267,6 +290,8 @@ struct IllGenerator<'a> {
     rules: IllRules,
     /// How many atom names to draw from.
     atoms: u8,
+    /// The contractions made so far.
+    contractions: u32,
 }
 
 impl IllGenerator<'_> {
@@ -287,7 +312,7 @@ impl IllGenerator<'_> {
                 choices.extend(*b"wo");
             }
             if self.rules.exponentials {
-                choices.push(b'd');
+                choices.extend(*b"dc");
             }
         }
         if hypotheses.len() >= 2 {
@@ -300,7 +325,7 @@ impl IllGenerator<'_> {
             choices.extend(*b"&+");
         }
         if self.rules.exponentials {
-            choices.extend(*b"!cW");
+            choices.extend(*b"!W");
         }
         let boxed = |t: Tree| Box::new(t);
         match choices[self.rng.below(choices.len())] {
@@ -394,13 +419,26 @@ impl IllGenerator<'_> {
                 goal = Bang(boxed(goal));
             }
             b'c' => {
-                // Contraction: Γ, !A, !A ⊢ C gives Γ, !A ⊢ C, on two equal
-                // `!` hypotheses if there are any.
-                let repeated = (0..hypotheses.len())
-                    .find(|&j| hypotheses[j].is_bang() && hypotheses[..j].contains(&hypotheses[j]));
-                if let Some(j) = repeated {
-                    hypotheses.remove(j);
+                // Contraction: Γ, !B ⊢ C and !B ⊢ B, by dereliction and
+                // the identity on B, give Γ, !B, !B ⊢ C ⊗ B by `⊗R`, which
+                // contracts to Γ, !B ⊢ C ⊗ B. The hypothesis picked is
+                // derelicted first unless it is a `!` formula.
+                let i = self.rng.below(hypotheses.len());
+                if !hypotheses[i].is_bang() {
+                    hypotheses[i] = Bang(boxed(std::mem::replace(&mut hypotheses[i], One)));
+                    copies += 1;
                 }
+                let Bang(b) = &hypotheses[i] else {
+                    unreachable!()
+                };
+                let b = (**b).clone();
+                copies += 1 + b.bangs();
+                self.contractions += 1;
+                goal = if self.rng.one_in(2) {
+                    Tensor(boxed(goal), boxed(b))
+                } else {
+                    Tensor(boxed(b), boxed(goal))
+                };
             }
             b'W' => {
                 // Weakening: Γ ⊢ C gives Γ, !J ⊢ C.
@@ -812,4 +850,32 @@ pub(crate) fn balanced(rng: &mut Rng, atoms: u8, pairs: usize, mix: bool) -> Vec
         });
     }
     formulas
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The intuitionistic generator contracts a `!` hypothesis in a good
+    /// share of its proofs where `!` is allowed: its contraction once
+    /// needed two equal `!` hypotheses and changed nothing in 98.5 % of
+    /// its draws, so a `!` hypothesis used twice reached the engines in
+    /// hand cases alone.
+    #[test]
+    fn intuitionistic_proofs_contract() {
+        for (n, rules) in IllRules::ALL.into_iter().enumerate() {
+            if !rules.exponentials {
+                continue;
+            }
+            let mut rng = Rng::new(100 + n as u64);
+            let contracted = (0..40)
+                .filter(|_| {
+                    let budget = 2 + rng.below(9);
+                    ill(&mut rng, rules, 3, budget).contractions > 0
+                })
+                .count();
+            // 10 to 17 of 40 when this was written.
+            assert!(contracted >= 8, "{rules:?}: {contracted} of 40 contract");
+        }
+    }
 }

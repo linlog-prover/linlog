@@ -598,6 +598,7 @@ mod tests {
                     mut hypotheses,
                     goal,
                     copies,
+                    ..
                 } = generate::ill(&mut rng, rules, 3, budget);
                 let mut texts = vec![generate::two_sided(&hypotheses, &goal)];
                 if generate::mutate(&mut rng, &mut hypotheses, 3) {

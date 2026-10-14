@@ -657,6 +657,7 @@ fn proofs_survive_collections() {
                 hypotheses,
                 goal,
                 copies,
+                ..
             } = generate::ill(&mut rng, rules, 3, 8);
             let options = Options::default().with_copies(Some(copies));
             let text = generate::two_sided(&hypotheses, &goal);
@@ -672,11 +673,20 @@ fn proofs_survive_collections() {
 /// classically and intuitionistically.
 #[test]
 fn default_bias_decides_what_either_rule_does() {
-    let mut compared = 0;
+    let (mut compared, mut over) = (0, 0);
     let mut check = |text: &str, mode: Mode, options: &Options| {
+        // Each bias alone within the mutants' work; the default bias,
+        // whose contract holds where no stop fires, runs unbounded and
+        // only where one of them decided, since there is nothing to
+        // compare otherwise.
+        let ones = [Bias::Rarer, Bias::Factors]
+            .map(|bias| (bias, bounded(text, mode, &options.clone().with_bias(bias))));
+        over += ones.iter().map(|(_, (_, out))| u64::from(*out)).sum::<u64>();
+        if ones.iter().all(|(_, (one, _))| one.is_none()) {
+            return;
+        }
         let both = decided(text, mode, options);
-        for bias in [Bias::Rarer, Bias::Factors] {
-            let one = decided(text, mode, &options.clone().with_bias(bias));
+        for (bias, (one, _)) in ones {
             assert!(
                 one.is_none() || one == both,
                 "{text:?} in {mode} mode: {one:?} under {bias:?}, {both:?} by default"
@@ -717,6 +727,7 @@ fn default_bias_decides_what_either_rule_does() {
                 mut hypotheses,
                 goal,
                 copies,
+                ..
             } = generate::ill(&mut rng, rules, 3, 8);
             let options = Options::default().with_copies(Some(copies));
             let text = generate::two_sided(&hypotheses, &goal);
@@ -730,6 +741,10 @@ fn default_bias_decides_what_either_rule_does() {
         }
     }
     assert!(compared > 1000, "{compared} verdicts compared");
+    assert!(
+        over * 50 < compared,
+        "{over} searches past the mutants' work"
+    );
 }
 
 /// A split search whose splits all fail in focus visits no stable
@@ -1214,6 +1229,27 @@ fn decided(input: &str, mode: Mode, options: &Options) -> Option<bool> {
     }
 }
 
+/// The work a generated mutant's search gets in the tests that compare
+/// verdicts on mutants: the most a decided one took when this was
+/// written is 3.2 million units, the most nearly all of them 0.4
+/// million, and the few that no copy bound decides took up to 166
+/// million, some seconds each in a debug build, where a comparison of
+/// two undecided verdicts says nothing.
+const MUTANT_WORK: u64 = 5_000_000;
+
+/// Decides `input` as [`decided`] does within [`MUTANT_WORK`], and says
+/// whether the work ran out.
+fn bounded(input: &str, mode: Mode, options: &Options) -> (Option<bool>, bool) {
+    let limits = Limits::default().with_work(Some(MUTANT_WORK));
+    match run_within(input, mode, options, &limits).0 {
+        Verdict::Proved(_) => (Some(true), false),
+        Verdict::Unprovable(_) => (Some(false), false),
+        Verdict::Unknown(Reason::CopyBound { .. }) => (None, false),
+        Verdict::Unknown(Reason::WorkLimit { .. }) => (None, true),
+        Verdict::Unknown(reason) => panic!("{input:?}: {reason}"),
+    }
+}
+
 /// Proves `samples` generated sequents of up to `budget` rules per rule
 /// set with or without exponentials, each within the derelictions of
 /// its proof, and decides one mutant of each with and without the memo.
@@ -1298,13 +1334,15 @@ fn generated_sequents() {
 /// rules per rule set, each within the derelictions of its proof, in
 /// linear and affine mode; compares the two-sided verdict on each with
 /// the classical engine's on the same one-sided sequent, which must
-/// agree without `0`; and on a mutant of each. Returns how many
-/// sequents and mutants were compared and how many mutants the classical
-/// engine proved that the two-sided one refuted, which only `0` allows.
-fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
+/// agree without `0`; and on a mutant of each, within [`MUTANT_WORK`].
+/// Returns how many sequents and mutants were compared, how many mutants
+/// the classical engine proved that the two-sided one refuted, which
+/// only `0` allows, and how many mutants an engine searched past the
+/// work.
+fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64, u64) {
     use crate::search::generate::IllRules;
     let i = Mode::INTUITIONISTIC;
-    let (mut sequents, mut mutants, mut non_conservative) = (0, 0, 0);
+    let (mut sequents, mut mutants, mut non_conservative, mut over) = (0, 0, 0, 0);
     for (n, rules) in IllRules::ALL.into_iter().enumerate() {
         let mut rng = Rng::new(100 + n as u64);
         for _ in 0..samples {
@@ -1313,6 +1351,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
                 mut hypotheses,
                 goal,
                 copies,
+                ..
             } = generate::ill(&mut rng, rules, 3, budget);
             let text = generate::two_sided(&hypotheses, &goal);
             let options = Options::default().with_copies(Some(copies));
@@ -1336,8 +1375,9 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
             if generate::mutate(&mut rng, &mut hypotheses, 3) {
                 let goal = hypotheses.pop().unwrap();
                 let text = generate::two_sided(&hypotheses, &goal);
-                let two_sided = decided(&text, i, &Options::default());
-                let classical = decided(&text, Mode::CLASSICAL, &Options::default());
+                let (two_sided, out) = bounded(&text, i, &Options::default());
+                let (classical, too) = bounded(&text, Mode::CLASSICAL, &Options::default());
+                over += u64::from(out || too);
                 match (two_sided, classical) {
                     (Some(true), Some(false)) => panic!("{text:?}: provable in ILL only"),
                     (Some(false), Some(true)) => {
@@ -1350,7 +1390,7 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
             }
         }
     }
-    (sequents, mutants, non_conservative)
+    (sequents, mutants, non_conservative, over)
 }
 
 /// Every generated intuitionistic sequent is proved two-sided with a
@@ -1359,13 +1399,14 @@ fn generated_ill(samples: u64, budget: usize) -> (u64, u64, u64) {
 /// mutants except where `0` makes classical linear logic prove more.
 #[test]
 fn generated_intuitionistic_sequents() {
-    let (sequents, mutants, non_conservative) = generated_ill(40, 10);
+    let (sequents, mutants, non_conservative, over) = generated_ill(40, 10);
     assert_eq!(sequents, 480);
     assert!(mutants > 300, "{mutants} mutants");
     assert!(
         non_conservative < mutants / 10,
         "{non_conservative} of {mutants}"
     );
+    assert!(over * 50 < mutants, "{over} of {mutants} past the work");
 }
 
 /// Encodes a Horn program with reusable clauses, as the ILLTP library

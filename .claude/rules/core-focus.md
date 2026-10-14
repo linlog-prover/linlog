@@ -960,7 +960,18 @@ relies on:
   them) for every combination of units, additives, Mix and exponentials,
   and reports the most derelictions on one branch of the proof it read
   the sequent off, which bounds the copies the engine needs; a new rule
-  set extends it rather than writing new positives by hand.
+  set extends it rather than writing new positives by hand. The
+  intuitionistic generator contracts a `!` hypothesis `!B` by proving
+  `B` beside the goal from a copy of it (`Γ, !B ⊢ C ⊗ B`), so that a `!`
+  hypothesis used twice reaches the engines in its samples
+  (`intuitionistic_proofs_contract`: about a third of them; its first
+  contraction needed two equal `!` hypotheses and almost never had
+  them). Some of the mutants that makes are undecided at the copy bound
+  of 3 after seconds of a debug build, so the tests that compare
+  verdicts on mutants give each search `MUTANT_WORK` (five million units,
+  a decided one took 3.2 million at most) and assert that few pass it;
+  `default_bias_decides_what_either_rule_does` runs the default bias,
+  whose contract needs no stop, only where a single bias decided.
 
 ## Decisions
 
