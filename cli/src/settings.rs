@@ -456,6 +456,178 @@ mod tests {
         std::fs::remove_file(&file).unwrap();
     }
 
+    /// Returns the settings a whole command line runs under, as `main`
+    /// makes them.
+    fn settings_of(line: &[&str]) -> Settings {
+        let matches = Cli::command().try_get_matches_from(line).unwrap();
+        let given = Given::of(&matches);
+        match Cli::from_arg_matches(&matches).unwrap().command {
+            Command::Prove(args) => args.settings(&given).unwrap(),
+            Command::Interact(args) => args.settings(&given).unwrap(),
+            Command::Check(args) => args.settings(&given).unwrap(),
+            Command::Seq {
+                command:
+                    crate::argument_parsing::SeqCommand::Print {
+                        settings,
+                        memory_limit,
+                        input,
+                        ..
+                    },
+            } => of_print(
+                settings.as_deref(),
+                memory_limit.0,
+                input.occurrence_limit.0,
+                &given,
+            )
+            .unwrap(),
+            Command::Seq { .. } => unreachable!("only `seq print` reads settings"),
+        }
+    }
+
+    /// Every key a flag sets, on every command that reads settings: the
+    /// file's value stands where the flag is not given and the flag's
+    /// where it is, so that an argument's id and the name `Apply::set`
+    /// asks about cannot drift apart unseen.
+    #[test]
+    fn each_flag_overrides_its_key_in_a_file() {
+        // A line per key: the flag with its value, the key's place in the
+        // settings' JSON, then the file's value and the flag's in JSON.
+        const SEARCH: &str = r#"
+            --bias factors          /search/bias               "rarer"           "factors"
+            --copies 4              /search/copies             2                 4
+            --forward-copies 7      /search/forward_copies     5                 7
+            --memo-limit 9          /search/memo_limit         8                 9
+            --test-period 3         /search/test_period        2                 3
+            --schedule auto         /search/schedule           "turns"           "auto"
+            --timeout 3s            /clock/time_limit_ms       5000              3000
+            --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
+            --recursion-limit 99    /limits/recursion_depth    77                99
+            --work-limit 6          /limits/work               5                 6
+            --occurrence-limit 12   /limits/occurrences        11                12
+            --derivation-limit 3KiB /limits/derivation_bytes   1024              3072"#;
+        const PROVE: &str = r#"
+            --engine focus          /search/engine             "two-sided"       "focus"
+            --fragment mall         /search/fragment           "LL"              "MALL"
+            --no-check              /search/check              true              false
+            --affine                /batch/mode                "intuitionistic"  "affine"
+            --compact never         /view/compact              "always"          "never"
+            --cores within          /batch/cores               "across"          "within"
+            --batch-timeout 2s      /clock/batch_time_limit_ms 1000              2000"#;
+        const CHECK: &str = r#"
+            --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
+            --timeout 3s            /clock/time_limit_ms       5000              3000
+            --work-limit 6          /limits/work               5                 6
+            --occurrence-limit 12   /limits/occurrences        11                12
+            --derivation-limit 3KiB /limits/derivation_bytes   1024              3072
+            --compact never         /view/compact              "always"          "never""#;
+        const PRINT: &str = r#"
+            --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
+            --occurrence-limit 12   /limits/occurrences        11                12"#;
+        let file =
+            std::env::temp_dir().join(format!("linlog-settings-flags-{}.json", std::process::id()));
+        let path = file.to_str().unwrap();
+        for (command, operand, table) in [
+            (&["prove"][..], "A |- A", [SEARCH, PROVE].concat()),
+            (&["interact"], "A |- A", SEARCH.to_owned()),
+            (&["check"], "proof.json", CHECK.to_owned()),
+            (&["seq", "print"], "A |- A", PRINT.to_owned()),
+        ] {
+            let cases: Vec<(Vec<&str>, &str, Value, Value)> = table
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(|line| {
+                    let words: Vec<&str> = line.split_whitespace().collect();
+                    let at = words.iter().position(|w| w.starts_with('/')).unwrap();
+                    let json = |w: &str| serde_json::from_str(w).unwrap();
+                    (
+                        words[..at].to_vec(),
+                        words[at],
+                        json(words[at + 1]),
+                        json(words[at + 2]),
+                    )
+                })
+                .collect();
+            let mut written = Value::Object(serde_json::Map::new());
+            for (_, key, value, _) in &cases {
+                let (object, field) = key.rsplit_once('/').unwrap();
+                let mut at = &mut written;
+                for part in object.split('/').skip(1) {
+                    at = at
+                        .as_object_mut()
+                        .unwrap()
+                        .entry(part)
+                        .or_insert(Value::Object(serde_json::Map::new()));
+                }
+                at[field] = value.clone();
+            }
+            std::fs::write(&file, written.to_string()).unwrap();
+            let read = |flag: &[&str]| {
+                let line = [
+                    &["linlog"],
+                    command,
+                    &["--settings", path],
+                    flag,
+                    &[operand],
+                ]
+                .concat();
+                serde_json::to_value(settings_of(&line)).unwrap()
+            };
+            let unflagged = read(&[]);
+            for (flag, key, in_file, by_flag) in &cases {
+                let without = format!("{command:?} without {flag:?}");
+                assert_eq!(unflagged.pointer(key), Some(in_file), "{without}");
+                assert_eq!(
+                    read(flag).pointer(key),
+                    Some(by_flag),
+                    "{command:?} {flag:?}"
+                );
+            }
+        }
+        std::fs::remove_file(&file).unwrap();
+    }
+
+    /// A settings file's `ordinary` applies under `--logic` alone, which
+    /// names the logic: the file's `ordinary.logic` is not read, since the
+    /// whole settings a front end keeps always hold one, and its
+    /// translation is taken unless `--translation` names another.
+    #[test]
+    fn ordinary_applies_under_logic_alone() {
+        use linlog::ordinary::{Logic, Translation};
+        let file = std::env::temp_dir().join(format!(
+            "linlog-settings-ordinary-{}.json",
+            std::process::id()
+        ));
+        std::fs::write(
+            &file,
+            r#"{"ordinary": {"logic": "classical", "translation": "cbv"}}"#,
+        )
+        .unwrap();
+        let ordinary_of = |args: &[&str]| {
+            let line = [
+                &["linlog", "prove", "--settings", file.to_str().unwrap()],
+                args,
+                &["a -> a"],
+            ]
+            .concat();
+            let matches = Cli::command().try_get_matches_from(line).unwrap();
+            let Command::Prove(prove) = Cli::from_arg_matches(&matches).unwrap().command else {
+                unreachable!("a prove command")
+            };
+            let settings = prove.settings(&Given::of(&matches)).unwrap();
+            ordinary(&settings, &prove.logic).map(|o| (o.logic, o.translation))
+        };
+        assert_eq!(ordinary_of(&[]), None);
+        assert_eq!(
+            ordinary_of(&["--logic", "intuitionistic"]),
+            Some((Logic::Intuitionistic, Some(Translation::CallByValue)))
+        );
+        assert_eq!(
+            ordinary_of(&["--logic", "intuitionistic", "--translation", "01"]),
+            Some((Logic::Intuitionistic, Some(Translation::ZeroOne)))
+        );
+        std::fs::remove_file(&file).unwrap();
+    }
+
     /// Every id a command asks `Apply::set` about is an argument of that
     /// command, so that a flag given on the command line can be found.
     #[test]

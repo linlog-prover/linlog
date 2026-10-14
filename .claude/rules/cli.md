@@ -124,8 +124,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   file may be the library's whole `Settings` JSON, as a front end keeps
   it: its `batch.mode` is a batch's mode unless a mode flag is given
   (the three asked together), and `ordinary` applies under `--logic`,
-  which names the logic (refusing the two keys, a first fix, refused
-  that JSON). A boolean flag only turns its key one way (`--no-check`,
+  which names the logic: the file's `ordinary.logic` is never read and
+  its `ordinary.translation` is unless `--translation` is given
+  (`ordinary_applies_under_logic_alone`; refusing the two keys, a first
+  fix, refused that JSON). `each_flag_overrides_its_key_in_a_file` pins
+  every other key against its flag on each command, so a new flag that
+  sets a key adds its case there. A boolean flag only turns its key one way (`--no-check`,
   the mode flags: no `--classical`), so a file's value it would undo
   is changed in the file, not on the command line; that is the
   settings' design, not a fault. `--settings` and `--style-file` never read standard

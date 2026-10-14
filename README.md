@@ -798,7 +798,11 @@ fields the flags name in their `--help` (`--copies` sets
 `limits.memory_bytes`). A field the file leaves out keeps the command's
 default, and a flag given beside the file overrides it. `batch.mode` is
 the mode of a batch's entries that name none, as the mode flags set it;
-`ordinary` applies under `--logic`, which names the logic.
+`ordinary` applies under `--logic`, which names the logic: the file's
+`ordinary.logic` is not read (the whole settings a front end keeps always
+hold one, which would make every input ordinary logic), and its
+`ordinary.translation` is the translation unless `--translation` names
+one.
 
 ```console
 $ echo '{"search": {"copies": 0, "engine": "focus"}}' > settings.json
