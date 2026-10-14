@@ -20,7 +20,8 @@
 //! merge under the shard's lock keeps the same invariant: an entry's
 //! validity only ever grows.
 //!
-//! A key is sparse: the unrestricted zone by the id an [`Interner`] gave
+//! A key is sparse: the unrestricted zone by the id an
+//! [`Interner`](crate::search::focus::memo::Interner) gave
 //! it, and the linear zone by its members. A stable sequent's linear zone
 //! has a few members on a forest of tens of thousands of occurrences, and
 //! its unrestricted zone, which only grows along a branch, is shared by
