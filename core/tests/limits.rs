@@ -69,6 +69,14 @@ fn the_readers_refuse_past_the_occurrences() {
             Err(Error::Refused(Refusal::Occurrences { .. }))
         ));
     }
+    // A `!` pays its term when it is reduced: `!A, !B` is four terms,
+    // read at a bound of four and refused at three.
+    let four = Limits::default().with_occurrences(Some(4));
+    assert!(Sequent::parse_within("|- !A, !B", &four).is_ok());
+    assert!(matches!(
+        Sequent::parse_within("|- !A, !B", &limits),
+        Err(Error::Refused(Refusal::Occurrences { .. }))
+    ));
     // A run of `(`, or of `~(`, makes no term and is refused past the
     // bound all the same.
     for run in ["(", "~("] {

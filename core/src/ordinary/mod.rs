@@ -752,6 +752,9 @@ mod tests {
         assert!(refused(
             Sequent::parse_within(&repeated, &bound(5)).map(|_| ())
         ));
+        // A parenthesis waits but makes no formula: `~(~(a))` is three
+        // formulas and read at a bound of three.
+        assert!(Sequent::parse_within("~(~(a))", &bound(3)).is_ok());
         // What waits for its operand counts too: a run of `~` or of `->`
         // is refused before the parse error after it.
         for run in ["~".repeat(100), "a -> ".repeat(100), "(".repeat(100)] {
