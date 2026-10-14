@@ -499,6 +499,11 @@ mod tests {
             --memo-limit 9          /search/memo_limit         8                 9
             --test-period 3         /search/test_period        2                 3
             --schedule auto         /search/schedule           "turns"           "auto"
+            --jobs 3                /search/jobs               2                 3
+            --jobs 3                /clock/pool_after_ms       250               null
+            --pool-after 1s         /clock/pool_after_ms       250               1000
+            --deterministic         /search/jobs               2                 1
+            --deterministic         /clock/pool_after_ms       250               null
             --timeout 3s            /clock/time_limit_ms       5000              3000
             --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
             --recursion-limit 99    /limits/recursion_depth    77                99
@@ -510,6 +515,10 @@ mod tests {
             --fragment mall         /search/fragment           "LL"              "MALL"
             --no-check              /search/check              true              false
             --affine                /batch/mode                "intuitionistic"  "affine"
+            --mix                   /batch/mode                "intuitionistic"  "mix"
+            -i --affine             /batch/mode                "intuitionistic"  "intuitionistic-affine"
+            --workers 3             /batch/workers             2                 3
+            --batch-memory 2MiB     /batch/total_memory_bytes  1048576           2097152
             --compact never         /view/compact              "always"          "never"
             --cores within          /batch/cores               "across"          "within"
             --batch-timeout 2s      /clock/batch_time_limit_ms 1000              2000"#;
