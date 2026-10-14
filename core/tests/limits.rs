@@ -91,6 +91,11 @@ fn the_readers_refuse_past_the_occurrences() {
     ] {
         assert!(Sequent::parse_within(text, &bound(6)).is_ok(), "{text}");
     }
+    // Marks given back, not merely not added: groups that each open more
+    // marks than they hold terms fit a bound of their terms.
+    for text in ["|- ((A)), ((B)), ((C))", "|- ~(~A), ~(~B), ~(~C)"] {
+        assert!(Sequent::parse_within(text, &bound(3)).is_ok(), "{text}");
+    }
     assert!(Sequent::parse_within("|- ((A))", &bound(2)).is_ok());
     assert!(refused("|- (((A)))", 2));
     // A run of `(`, or of `~(`, makes no term and is refused past the
