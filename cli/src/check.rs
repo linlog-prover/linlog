@@ -112,9 +112,12 @@ fn read_proof(text: &str, limits: &Limits) -> Result<Proof> {
                 .context("not a proof in JSON: more follows it")?;
             Ok(proof)
         }
-        Err(error) if error.kind() == ErrorKind::Limit => {
+        // Only the occurrence bound has a flag: the width of the
+        // representation's indices is no setting.
+        Err(error) if error.setting() == Some("limits.occurrences") => {
             bail!("{error}; raise it with --occurrence-limit")
         }
+        Err(error) if error.kind() == ErrorKind::Limit => Err(error.into()),
         Err(error) => {
             // An outcome without a proof is a file the user may well hand
             // over; say what it is rather than which key it lacks.

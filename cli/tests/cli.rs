@@ -198,6 +198,28 @@ fn limits_on_memory_and_occurrences() {
     );
 }
 
+/// `check` names `--occurrence-limit` only where that limit refused the
+/// proof file: a sequent of more occurrences than a forest can number,
+/// 32 doublings of one atom, is refused with no advice under `none`,
+/// since no setting lifts that.
+#[test]
+fn check_advises_only_the_limit_that_refused() {
+    let doublings: Vec<String> = (0..32).map(|i| format!(r#"{{"⊗":[{i},{i}]}}"#)).collect();
+    let proof = format!(
+        r#"{{"version":1,"sequent":{{"terms":[{{"V":0}},{}],"roots":[32],"atoms":["A"]}},"nodes":[]}}"#,
+        doublings.join(",")
+    );
+    let (status, _, err) = linlog(&["check", "--occurrence-limit", "none"], &proof);
+    assert_eq!(status, 2, "{err}");
+    assert!(!err.contains("--occurrence-limit"), "{err}");
+    let (status, _, err) = linlog(&["check"], &proof);
+    assert_eq!(status, 2, "{err}");
+    assert!(
+        err.ends_with("; raise it with --occurrence-limit\n"),
+        "{err}"
+    );
+}
+
 /// `--jobs` beyond what the machine runs at once is taken as that many,
 /// and standard error says so; the verdict and the status are the
 /// search's.
