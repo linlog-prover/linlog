@@ -1001,6 +1001,32 @@ mod tests {
             "node 3 (⅋ on ~A ⅋ C from 2) with premises ⊢ A ⊗ ⊤, ~A, …: \
              a sequent of the rule has 2 formulas on the right of ⊢ instead of one"
         );
+        // A ⊕ B, (1 ⊗ ⊤) ⊸ X, 0 ⊢ 1 ⊗ ⊤: 0 &, 1 ~A, 2 ~B, 3 ⊗, 4 ⊗, 5 1,
+        // 6 ⊤, 7 ~X, 8 ⊤, 9 ⊗, 10 1, 11 ⊤. Both premises of the `&L` absorb
+        // with a `⊤`, the left holding the antecedent `1 ⊗ ⊤` and the
+        // right the goal, so the `&` joins two succedents, which only the
+        // rule on every node's sequent sees: the `⊸L` below takes the
+        // antecedent away again, and the root's sequent is the goal's.
+        let p = proof(
+            "A + B, (1 * top) -o X, 0 |- 1 * top",
+            vec![
+                One(o(5)),
+                Top(o(6)),
+                Tensor(o(4), n(0), n(1)),
+                One(o(10)),
+                Top(o(11)),
+                Tensor(o(9), n(3), n(4)),
+                With(o(0), n(2), n(5)),
+                Top(o(8)),
+                Tensor(o(3), n(6), n(7)),
+            ],
+        );
+        assert_eq!(p.check(Mode::CLASSICAL), Ok(()));
+        let e = p.check(m).unwrap_err();
+        assert_eq!(
+            (e.node(), e.fault()),
+            (n(6), Some(&Succedents { count: 2 }))
+        );
         // Mix is never intuitionistic. 0 ⊗, 1 A, 2 ~B, 3 ~A, 4 B: A ⊸ B, A
         // ⊢ B with a Mix of the axioms.
         let p = proof(
