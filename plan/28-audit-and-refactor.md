@@ -627,6 +627,22 @@ recommendation:
 - **The public walk** (question 7, R245): step 29 does it first, as its
   prompt says.
 - **F122 and F123** (question 10): `step-28i`, as the question records.
+- **A count of one sign for the atoms under exponentials** (question 11,
+  asked 2026-10-14 afternoon, against the recommendation to measure
+  first and build later): built in step 28, by `step-28i`, after
+  questions 3 and 5 and before its fresh-context reviewer, with the full
+  evidence of a search change (both target sets, the families, qcover,
+  the panel, since a verdict moves from unknown to unprovable) and the
+  LLTP library's reach measured: the problems it decides that the head
+  does not.
+- **The leftovers of the register** (asked with question 11): R87's
+  test that the `Engine` documentation's table and `DISPATCH` list the
+  same rows in the same order; R138's two tests (a memory bound too
+  tight for the check gives `Unknown(Reason::Unchecked)` through
+  `prove` and exit status 3 through the command; the default pair's
+  merged reason pinned); `Node::members` without its `_` arm; the
+  sequents module's doc calling atom names variables. All by F148's
+  session, beside F188's rest.
 
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
