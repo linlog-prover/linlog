@@ -30,7 +30,8 @@ pub(crate) struct Deadline {
 
 impl Deadline {
     /// Starts a limit counted from `start`; `None`, or a limit past what
-    /// the clock can name, is a deadline that never passes, and starts no
+    /// the clock can name, is a deadline that never passes, and one that
+    /// has passed already is passed from the start; neither starts a
     /// thread.
     pub(crate) fn start(limit: Option<Duration>, start: Instant) -> Result<Self> {
         let passed = Arc::new(AtomicBool::new(false));
@@ -42,6 +43,16 @@ impl Deadline {
                 _alive: None,
             });
         };
+        // A limit that has passed already (zero, say) is passed at once,
+        // so that nothing it bounds starts while its thread is spawned.
+        if end <= Instant::now() {
+            passed.store(true, Ordering::Relaxed);
+            return Ok(Self {
+                passed,
+                limit: Some((limit, end)),
+                _alive: None,
+            });
+        }
         let (alive, dropped) = channel::<()>();
         let flag = Arc::clone(&passed);
         thread::Builder::new()
