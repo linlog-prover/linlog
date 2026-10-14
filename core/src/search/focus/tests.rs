@@ -217,8 +217,8 @@ fn a_proof_of_with_rules_keeps_to_the_memory_bound() {
 /// The `&` rules are work, which `Limits::work` bounds, and that proof
 /// is kept and built under the stop: after the search's last poll that
 /// tells work come the polls of the root's keep and of the proof's two
-/// passes, one per 2¹⁶ nodes each (a second passed without one on 24
-/// pairs).
+/// passes, one per 2¹⁶ nodes each and no more (a second passed without
+/// one on 24 pairs).
 #[test]
 fn with_rules_are_work_and_their_proof_is_polled() {
     let options = Options::default()
@@ -250,7 +250,10 @@ fn with_rules_are_work_and_their_proof_is_polled() {
     )
     .unwrap();
     assert!(outcome.verdict.proof().is_some(), "{:?}", outcome.verdict);
-    assert!(after >= 6, "{after} polls after the search's last work");
+    assert!(
+        (6..=8).contains(&after),
+        "{after} polls after the search's last work"
+    );
 }
 
 /// An atom whose literals below an exponential all have one sign keeps
@@ -1069,10 +1072,7 @@ fn classic_exponentials() {
     }
     // Unprovable, but every copy grows the context, so no level of the
     // bound finishes: the honest answer is unknown.
-    for input in [
-        "!(a * b) |- !a * !b",
-        "!(a + b) |- !a + !b",
-    ] {
+    for input in ["!(a * b) |- !a * !b", "!(a + b) |- !a + !b"] {
         assert!(
             matches!(
                 run(input, m, &Options::default()).0,
@@ -1574,10 +1574,7 @@ fn the_count_of_one_sign_refutes_nothing_provable() {
                 continue;
             };
             refuted += 1;
-            at_the_root += u64::from(matches!(
-                disproof.refutation(),
-                Refutation::OneSided(_)
-            ));
+            at_the_root += u64::from(matches!(disproof.refutation(), Refutation::OneSided(_)));
             let without = counts::without_one_sided(|| decide(text, mode, bias, 4));
             assert!(
                 without.proof().is_none(),

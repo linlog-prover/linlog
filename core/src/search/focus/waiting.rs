@@ -311,14 +311,15 @@ mod tests {
     /// within its budget and keeps a cut. Each rule dropped in turn
     /// changed hundreds of counters on 58 000 generated cases and the
     /// verdicts of a few, none of them to a wrong one; so what is pinned
-    /// is the verdict, the stable sequents visited and the memo's most
-    /// entries, as the target sets pin counters, and a change of the
-    /// search that moves them pins them again.
+    /// is the verdict, the stable sequents visited, the memo's hits (a
+    /// reuse of a failure that waits is one) and its most entries, as the
+    /// target sets pin counters, and a change of the search that moves
+    /// them pins them again.
     #[test]
     fn a_close_settles_by_every_rule() {
         let mix = Mode::CLASSICAL.with_mix();
         let (rarer, factors) = (Bias::Rarer, Bias::Factors);
-        for (text, mode, copies, bias, memo, proved, nodes, entries) in [
+        for (text, mode, copies, bias, memo, proved, nodes, hits, entries) in [
             // Lost without the cut a failure below a cut inherits.
             (
                 "|- ~c, ?~c, ?((1 * c) * ?b), (c * !?~c)",
@@ -328,6 +329,7 @@ mod tests {
                 Some(16),
                 false,
                 1552,
+                434,
                 16,
             ),
             (
@@ -338,6 +340,7 @@ mod tests {
                 None,
                 false,
                 28,
+                10,
                 7,
             ),
             // Without the drop at a proof.
@@ -349,6 +352,7 @@ mod tests {
                 None,
                 false,
                 22,
+                7,
                 6,
             ),
             // Without the leaders moved up.
@@ -360,6 +364,7 @@ mod tests {
                 None,
                 true,
                 287,
+                175,
                 69,
             ),
             // With every failure below recorded, whatever its leader.
@@ -371,6 +376,7 @@ mod tests {
                 None,
                 true,
                 166,
+                92,
                 57,
             ),
             // Lost with a reuse past its budget, or of a cut as complete.
@@ -383,6 +389,7 @@ mod tests {
                 None,
                 true,
                 313,
+                202,
                 71,
             ),
             (
@@ -393,6 +400,7 @@ mod tests {
                 None,
                 true,
                 38,
+                17,
                 11,
             ),
         ] {
@@ -411,13 +419,47 @@ mod tests {
                 Verdict::Unprovable(_) => Some(false),
                 Verdict::Unknown(_) => None,
             };
-            let counted = (outcome.statistics.nodes, outcome.statistics.memo_entries);
+            let statistics = &outcome.statistics;
+            let counted = (
+                statistics.nodes,
+                statistics.memo_hits,
+                statistics.memo_entries,
+            );
             assert_eq!(
                 (decided, counted),
-                (Some(proved), (nodes, entries)),
+                (Some(proved), (nodes, hits, entries)),
                 "{text:?} in {mode} mode, copy bound {copies}, {bias:?}, memo {memo:?}"
             );
         }
+    }
+
+    /// The lists' memory is handed out to be charged as it grows, at least
+    /// an entry and an index slot for each failure that waited at once and
+    /// a place for each spare key, and given back whole by `release`.
+    #[test]
+    fn the_lists_are_charged_as_they_grow() {
+        use super::{Waited, Waiting};
+        use crate::occurrences::OccSet;
+        use crate::search::focus::context::Context;
+        use crate::search::focus::memo::Key;
+        let mut waiting = Waiting::default();
+        let mut charged = 0;
+        for hash in 0..1000 {
+            let key = Key {
+                theta: OccSet::empty(64),
+                gamma: Context::empty(64),
+            };
+            waiting.wait(key, hash, 0, (false, false), 1);
+            charged += waiting.grown();
+        }
+        assert_eq!(waiting.grown(), 0, "nothing grew since");
+        let entries = size_of::<Waited>() + size_of::<(u64, u32)>();
+        assert!(charged >= 1000 * entries, "{charged} bytes");
+        waiting.drop_from(0);
+        let spares = waiting.grown();
+        assert!(spares >= 1000 * size_of::<Key>(), "{spares} bytes");
+        assert_eq!(waiting.release(), (1000, charged + spares));
+        assert_eq!(waiting.grown(), 0, "released");
     }
 
     /// A search that relieves its memory while failures wait keeps the
