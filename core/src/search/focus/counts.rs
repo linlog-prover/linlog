@@ -105,8 +105,8 @@ pub(crate) struct Counts {
     /// connectives in absolute value, fewer than 2³¹.
     weight: Box<[i32]>,
     /// The number of atoms that have rows, the width of a [`Tally`]: those
-    /// whose literals below a `!` or `?` are all of one sign, if any lie
-    /// there.
+    /// with no literal below a `!` or `?`, and, where the interval check
+    /// runs, those whose literals there all have one sign.
     row_atoms: usize,
     /// The atoms that have rows, by their rank.
     ranked: Box<[Atom]>,

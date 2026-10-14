@@ -2807,6 +2807,19 @@ mod tests {
                  sequent, and every literal of the atom below one, which copies add, is #0, so",
             ),
             (
+                // The copies' literal as the fields name it, even where a
+                // form read from JSON contradicts the counts.
+                Refutation::OneSided(OneSided {
+                    atom,
+                    least: -2,
+                    most: -1,
+                    copied: crate::occurrences::Sign::Atom,
+                }),
+                "~#0 occurs 1 to 2 more times than #0 outside the exponentials of the one-sided \
+                 sequent, whichever additive alternatives a proof takes, and every literal of the \
+                 atom below one, which copies add, is #0, so",
+            ),
+            (
                 Refutation::Equation(Equation {
                     formulas: 3,
                     needed: -1,

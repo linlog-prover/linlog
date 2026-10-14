@@ -607,7 +607,7 @@ relies on:
   `a` below an exponential positive, only a least balance above zero
   rules a set out). The doc of `Counts` has the argument over the rules;
   `copies_of_one_sign_bound_the_count_one_way` pins it, F122's mutant
-  among its cases, which no copy bound decides without these counts,
+  (a goal that needs an `a` only a `!` hypothesis holds) among its cases, which no copy bound decides without these counts,
   and the refutation is `Refutation::OneSided`;
   `the_count_of_one_sign_refutes_nothing_provable` runs generated
   mutants with and without them (`counts::without_one_sided`, a

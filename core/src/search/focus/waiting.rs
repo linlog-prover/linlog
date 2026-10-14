@@ -274,13 +274,16 @@ impl Waiting {
 
     /// Returns by how many bytes the lists' capacity grew since the last
     /// call, for the caller to charge: the entries, those a close keeps,
-    /// the index and the places of the spare keys, whose buffers the
-    /// caller charges itself. A list's capacity only grows until
-    /// [`Waiting::release`].
+    /// the index's buckets (a slot and a control byte each, about eight
+    /// for seven entries it can hold) and the places of the spare keys,
+    /// whose buffers the caller charges itself. The vectors' capacities
+    /// only grow until [`Waiting::release`]; the index's can shrink by a
+    /// removal, so what was handed out is the most it ever counted.
     pub(super) fn grown(&mut self) -> usize {
+        let buckets = (self.index.capacity() * 8).div_ceil(7);
         let bytes = (self.entries.capacity() + self.held.capacity()) * size_of::<Waited>()
             + self.spare.capacity() * size_of::<Key>()
-            + self.index.capacity() * (size_of::<(u64, u32)>() + 1);
+            + buckets * (size_of::<(u64, u32)>() + 1);
         let grown = bytes.saturating_sub(self.charged);
         self.charged = self.charged.max(bytes);
         grown

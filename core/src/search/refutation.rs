@@ -246,11 +246,22 @@ fn write_unbalanced(
     } else {
         format!("{a} to {b}")
     };
+    // The copied literal is the one `copied` names, which the engine's
+    // refutations make the one that outnumbers; a form read from JSON says
+    // what its fields say.
     let (place, copies) = match copied {
-        Some(_) => (
-            "outside the exponentials of the one-sided sequent",
-            format!(", and every literal of the atom below one, which copies add, is {more}"),
-        ),
+        Some(sign) => {
+            let literal = match sign {
+                Sign::Atom => name.to_owned(),
+                Sign::Dual => format!("~{name}"),
+            };
+            (
+                "outside the exponentials of the one-sided sequent",
+                format!(
+                    ", and every literal of the atom below one, which copies add, is {literal}"
+                ),
+            )
+        }
         None => ("in the one-sided sequent", String::new()),
     };
     write!(
