@@ -1,0 +1,269 @@
+// linlog © Fabian Lukas Grubmüller 2026
+// Licensed under the EUPL
+
+//! The failures that wait on an open ancestor. A stable sequent whose
+//! failure rests on a prune of the loop check is no fact about the
+//! sequent: it holds only while the ancestor it repeated is on the
+//! branch, and the memo never takes it. Searched again, such a sequent
+//! was searched to the end every time; under Mix, where a part of a
+//! sequent below a copy is often an ancestor, that was nearly every
+//! failure (`|- ?((((!~a par c) + c) par a) par ~c) par ?((~c * ~c) * c)`
+//! at a copy bound of 3: 5.8 million decisions of 603 sequents). So such
+//! a failure waits here instead, under its *leader*, the shallowest
+//! ancestor it rests on, which is open: it answers for its sequent while
+//! the leader stays open, and goes into the memo as a fact once the
+//! leader fails without a dependency of its own.
+//!
+//! The argument, which every rule below keeps. A failure of `S` at
+//! budget `b` with dependency `d` says: every proof of `S` (within `b`
+//! where the failure was cut by the budget, at any budget where it was
+//! not) contains, strictly above its root, a proof of a member of a set
+//! `W(S)` of stable sequents, within that member's budget where it is a
+//! failure cut by the budget: an ancestor at depth `d` or deeper whose
+//! repeat was pruned, or a sequent whose failure with a dependency the
+//! search of `S` rested on (a premise searched, or a failure reused from
+//! here). Budgets only shrink along a branch, and a failure cut by the
+//! budget is reused only within its budget, which is why the members'
+//! budgets hold. The close of a stable sequent `Y` keeps the failures
+//! that wait true, in whatever branch they are reused:
+//!
+//! - `Y` proved: every failure decided below `Y` is dropped, since it may
+//!   rest on a prune of `Y`.
+//! - `Y` failed with a cut by the budget: every failure below it becomes
+//!   one cut by the budget at its own budget, since it may rest on a
+//!   prune of `Y`, whose failure says nothing beyond `Y`'s budget.
+//! - `Y` failed with a dependency `d` above it: every failure below it
+//!   that waits on a leader deeper than `d` waits on `d`, since it may
+//!   rest on `Y`, which rests on `d`; on a worker of a pool whose `d`
+//!   lies in the spawning engine's branch, they are dropped instead.
+//! - `Y` failed with no dependency: the failures below it whose leader is
+//!   `Y` or deeper go into the memo as facts. Take every failure decided
+//!   below `Y` with a dependency on `Y` or deeper, after the rules above,
+//!   and below no stable sequent that was proved; each of their `W`
+//!   members is `Y`, one of them, or a failure the memo holds as a fact
+//!   (a member below a proved sequent would have dropped them). Of these
+//!   failures take the one with the smallest proof that it denies, if
+//!   any had one: that proof contains a proof of a member within the
+//!   member's budget, which is `Y` (unprovable), a fact, or one of them
+//!   with a smaller proof. So none had one.
+//!
+//! The leader of every failure here is open, so it is an ancestor of
+//! every sequent the search visits until it closes; a reuse answers with
+//! the leader as its dependency, which the search settles no earlier
+//! than at the leader. Below one leader each sequent is then decided
+//! about once per budget: that sequent's search visited 17 179 stable
+//! sequents at the copy bound of 3 instead of 76.5 million.
+
+use crate::search::focus::memo::{Key, Zones};
+
+/// A position in [`Waiting::entries`] that names no entry.
+const NONE: u32 = u32::MAX;
+
+/// A failure that waits on an open ancestor.
+#[derive(Debug)]
+pub(super) struct Waited {
+    /// The stable sequent.
+    pub(super) key: Key,
+    /// Its hash.
+    pub(super) hash: u64,
+    /// The copies that were left when it failed.
+    pub(super) budget: u32,
+    /// Whether some branch below it was cut by the copy budget.
+    pub(super) exhausted: bool,
+    /// Whether no part of its linear zone is provable either, as
+    /// [`Failure::Hereditary`](super::memo::Failure::Hereditary) says;
+    /// never with `exhausted`.
+    pub(super) hereditary: bool,
+    /// The depth of the shallowest ancestor it rests on, on the branch.
+    pub(super) leader: u32,
+    /// The entry before it of the same hash, or [`NONE`].
+    previous: u32,
+}
+
+/// What a failure that waits answers for its sequent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Reused {
+    /// Whether it was cut by the copy budget.
+    pub(super) exhausted: bool,
+    /// Whether it is hereditary.
+    pub(super) hereditary: bool,
+    /// The depth of its leader.
+    pub(super) leader: u32,
+}
+
+/// The failures that wait on an open ancestor, in the order they failed,
+/// so that those decided below a stable sequent are the entries from the
+/// length the list had when it was pushed on the branch.
+#[derive(Debug, Default)]
+pub(super) struct Waiting {
+    /// The failures.
+    entries: Vec<Waited>,
+    /// Per hash, the last entry of that hash.
+    index: crate::hash::HashMap<u64, u32>,
+    /// Keys of entries gone, whose buffers the next ones reuse.
+    spare: Vec<Key>,
+    /// The entries a close keeps waiting while it records the others.
+    held: Vec<Waited>,
+}
+
+impl Waiting {
+    /// How many failures wait: the mark of a stable sequent pushed now.
+    pub(super) fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Whether no failure waits.
+    pub(super) fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// What a failure of the stable sequent that waits says with `budget`
+    /// copies left: one not cut by the budget whatever the budget, else
+    /// one cut by it within its budget, unless the memo holds such a
+    /// failure (`cut_known`), which rests on no ancestor.
+    pub(super) fn find(
+        &self,
+        key: Zones<'_>,
+        hash: u64,
+        budget: u32,
+        cut_known: bool,
+    ) -> Option<Reused> {
+        let mut found = None;
+        let mut at = self.index.get(&hash).copied().unwrap_or(NONE);
+        while at != NONE {
+            let entry = &self.entries[at as usize];
+            if entry.hash == hash && key.of(&entry.key) {
+                if !entry.exhausted {
+                    return Some(Reused {
+                        exhausted: false,
+                        hereditary: entry.hereditary,
+                        leader: entry.leader,
+                    });
+                }
+                if !cut_known && budget <= entry.budget && found.is_none() {
+                    found = Some(Reused {
+                        exhausted: true,
+                        hereditary: false,
+                        leader: entry.leader,
+                    });
+                }
+            }
+            at = entry.previous;
+        }
+        found
+    }
+
+    /// A spare key of an entry gone, whose buffers a new entry reuses.
+    pub(super) fn spare(&mut self) -> Option<Key> {
+        self.spare.pop()
+    }
+
+    /// Lets the failure of the stable sequent `key`, of hash `hash`, wait
+    /// on the ancestor at depth `leader`.
+    pub(super) fn wait(
+        &mut self,
+        key: Key,
+        hash: u64,
+        budget: u32,
+        cuts: (bool, bool),
+        leader: u32,
+    ) {
+        let (exhausted, hereditary) = cuts;
+        self.push(Waited {
+            key,
+            hash,
+            budget,
+            exhausted,
+            hereditary: hereditary && !exhausted,
+            leader,
+            previous: NONE,
+        });
+    }
+
+    /// Appends an entry, linking it into the index.
+    fn push(&mut self, mut entry: Waited) {
+        let at = u32::try_from(self.entries.len()).expect("fewer entries than the memo holds");
+        entry.previous = self.index.insert(entry.hash, at).unwrap_or(NONE);
+        self.entries.push(entry);
+    }
+
+    /// Removes the last entry, unlinking it from the index.
+    fn pop(&mut self) -> Option<Waited> {
+        let entry = self.entries.pop()?;
+        if entry.previous == NONE {
+            self.index.remove(&entry.hash);
+        } else {
+            self.index.insert(entry.hash, entry.previous);
+        }
+        Some(entry)
+    }
+
+    /// Drops every entry from `mark` on: they were decided below a stable
+    /// sequent that is proved, or that rests on what this engine cannot
+    /// settle.
+    pub(super) fn drop_from(&mut self, mark: usize) {
+        while self.entries.len() > mark {
+            let entry = self.pop().expect("an entry above the mark");
+            self.spare.push(entry.key);
+        }
+    }
+
+    /// Makes every entry from `mark` on a failure cut by the budget at its
+    /// own budget: they may rest on a prune of a stable sequent whose
+    /// failure was cut by the budget.
+    pub(super) fn exhaust_from(&mut self, mark: usize) {
+        for entry in self.entries.iter_mut().skip(mark) {
+            entry.exhausted = true;
+            entry.hereditary = false;
+        }
+    }
+
+    /// Lets every entry from `mark` on whose leader lies deeper than
+    /// `leader` wait on `leader`: they may rest on a stable sequent that
+    /// failed with that dependency.
+    pub(super) fn lead_from(&mut self, mark: usize, leader: u32) {
+        for entry in self.entries.iter_mut().skip(mark) {
+            entry.leader = entry.leader.min(leader);
+        }
+    }
+
+    /// Takes the entries from `mark` on whose leader lies at `depth` or
+    /// deeper, the last first, for the caller to record and give back;
+    /// the others wait on. Call [`Waiting::settled`] once it has.
+    pub(super) fn take_settled(&mut self, mark: usize, depth: u32) -> Option<Waited> {
+        while self.entries.len() > mark {
+            let entry = self.pop().expect("an entry above the mark");
+            if entry.leader >= depth {
+                return Some(entry);
+            }
+            self.held.push(entry);
+        }
+        None
+    }
+
+    /// Gives back the key of an entry taken.
+    pub(super) fn give(&mut self, key: Key) {
+        self.spare.push(key);
+    }
+
+    /// Lets the entries a close kept wait again, in their order.
+    pub(super) fn settled(&mut self) {
+        while let Some(entry) = self.held.pop() {
+            self.push(entry);
+        }
+    }
+
+    /// Drops every entry, keeping the buffers.
+    pub(super) fn clear(&mut self) {
+        self.drop_from(0);
+    }
+
+    /// Drops every entry and every spare key, and returns how many keys
+    /// went, whose charges the caller releases.
+    pub(super) fn release(&mut self) -> usize {
+        self.clear();
+        let keys = self.spare.len();
+        self.spare = Vec::new();
+        keys
+    }
+}

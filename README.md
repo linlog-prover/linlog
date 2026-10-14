@@ -321,13 +321,13 @@ units of work: 1297
 time: 136.45µs
 $ linlog prove -q --deterministic --stats --engine focus --bias rarer "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 provable (MELL, classical, focus engine)
-stable sequents visited: 14228
-from the memo: 13935
+stable sequents visited: 10744
+from the memo: 10478
 memo entries at most: 190
-splits examined: 42105
+splits examined: 31917
 copy bound reached: 3
-units of work: 271889
-time: 1.79ms
+units of work: 203539
+time: 1.42ms
 $ linlog prove -q --deterministic --stats --engine focus --bias factors --copies 3 "!(a * a -o b), !(b * b -o c), !(c * c -o d), a, a, a, a, a, a, a, a |- d"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 55.51µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 stable sequents visited: 11

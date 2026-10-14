@@ -223,18 +223,43 @@ relies on:
   of the ancestor never passes through it. Such a failure is a fact about
   the branch, not the sequent: `Cuts::dependency` carries the shallowest
   ancestor depth a prune below relied on, a failure that carries a
-  dependency on an ancestor is not memoized, and the dependency is
-  discharged at that ancestor, whose own failure is genuine (a proof of
-  the repeat would be a proof of the ancestor). Order in `prove_stable`: a
-  `Proved` or `Complete` memo entry answers first; then the stack; then an
-  `Exhausted` entry, so that a repeated sequent is pruned rather than
-  reported as cut by the budget. Pruned branches are never cut by the
+  dependency on an ancestor is not memoized but waits on it (next
+  bullet), and the dependency is discharged at that ancestor, whose own
+  failure is genuine (a proof of the repeat would be a proof of the
+  ancestor). Order in `prove_stable`: a
+  `Proved` or `Complete` memo entry answers first; then the stack; then a
+  failure that waits (below); then an `Exhausted` entry, so that a
+  repeated sequent is pruned rather than reported as cut by the budget. Pruned branches are never cut by the
   budget.
   Every stack entry has its hash beside it (`hashes`), compared before
   the sequents: the ancestors of a branch mostly share `Θ` and the set
   of `Γ`, so a comparison of sequents ran over both bitsets before it
   met the difference (the `growing` family at a bound of 1 024 took
   530 ms of CPU for 392 961 stable sequents, 260 ms with the hashes).
+- **A failure with a dependency waits on its leader** (`focus/waiting.rs`,
+  whose module doc has the argument; `Run::close`): it is not memoized,
+  but kept, with its budget and flags, under the shallowest ancestor it
+  rests on, which is open, and answers for its sequent while that
+  ancestor stays open (`Waiting::find`, after the loop check and before
+  an `Exhausted` memo entry, which wins over a waiting failure cut by
+  the budget; a reuse counts as a memo hit). The close of every stable
+  sequent settles the failures decided below it (those after its
+  `marks` entry): a proof drops them, a failure cut by the budget makes
+  them cut by it at their own budgets (a failure that rests on a prune
+  of an ancestor says nothing beyond that ancestor's budget), a failure
+  with no dependency records in the memo those it or a deeper ancestor
+  leads, and one with a dependency moves every leader below it up to
+  that dependency, or drops them on a worker of a pool whose dependency
+  lies in the spawning engine's branch. Each rule is what keeps a reuse
+  in another branch below the same leader sound, and a change of one
+  needs the module's argument read again; dropping or not keeping a
+  failure is always sound, so the list is capped at the
+  memo's entries, cleared per level and by `relieve`. Why: under Mix a
+  part of a sequent below a copy is often an ancestor, so nearly every
+  failure had a dependency and was searched to its end at every visit
+  (a Mix sequent of two `?` formulas took 76.5 million stable sequents
+  at a copy bound of 3, 17 179 with the waiting failures; step 28's
+  report has the measurements).
 - **One set-up on one thread and on a pool**: `prepare` makes the
   classes and the plan, polling after each on a large forest; a `SetUp`
   (the task, the classes, the options, the limits) is what `turns`,

@@ -2143,9 +2143,10 @@ pub struct Statistics {
     /// those its backward search reached from the goal (in affine mode the
     /// elements it computed backward).
     pub nodes: u64,
-    /// The visits answered from the memo; of the Horn engine, the markings
-    /// it had kept already, in either direction, and in affine mode the
-    /// elements an element kept already covers.
+    /// The visits answered from the memo (of the focused engines, by a
+    /// failure that waits on an open ancestor too); of the Horn engine,
+    /// the markings it had kept already, in either direction, and in
+    /// affine mode the elements an element kept already covers.
     pub memo_hits: u64,
     /// The most stable sequents the memo held at once; on a pool, whose
     /// memo is shards each emptied by itself, the sum of the shards'

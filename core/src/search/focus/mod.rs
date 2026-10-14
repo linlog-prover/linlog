@@ -63,6 +63,8 @@ mod scratch;
 mod split;
 #[cfg(all(test, feature = "parse"))]
 mod tests;
+/// The failures that wait on an open ancestor.
+mod waiting;
 
 use self::arena::Arena;
 use self::classes::Classes;
@@ -72,6 +74,7 @@ use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{Plan, plan, turns};
 use self::scratch::{Pooled, Pools};
 use self::split::Join;
+use self::waiting::Waiting;
 use super::memory::{Account, Charged};
 use super::{
     Answer, Decide, Finished, Options, Reason, Statistics, Stop, Task, Work, set_up_stopped,
@@ -486,6 +489,9 @@ struct Problem<'a> {
     account: &'a Account,
     /// Whether the memo takes entries: a proof it refers to is kept.
     memoizes: bool,
+    /// The most failures that may wait on an open ancestor at once: the
+    /// memo's own bound in entries.
+    waits: usize,
     /// The deepest nesting allowed.
     recursion_limit: u32,
     /// The most copies a branch may take at the last deepening level.
@@ -505,6 +511,7 @@ impl<'a> Problem<'a> {
             rules: Switches::new(task.fragment, task.mode, counts),
             account,
             memoizes: set_up.options.memo_limit != 0,
+            waits: set_up.options.memo_entries(),
             recursion_limit: set_up.limits.recursion_depth,
             copies,
         }
@@ -580,6 +587,13 @@ struct Run<'a> {
     hashes: Vec<u64>,
     /// How many entries of the stack are live.
     stack_len: usize,
+    /// Per entry of the stack, live or spare: how many failures waited
+    /// when it was pushed, so that those decided below it are the ones
+    /// after.
+    marks: Vec<usize>,
+    /// The failures that rest on a prune of the loop check and wait on an
+    /// open ancestor of the branch.
+    waiting: Waiting,
     /// The stable sequents of the branch above the stack, the root end
     /// first, with their hashes: the parts of the branch stacks of the
     /// engines this worker of a pool was spawned from, read in place. The
@@ -621,6 +635,8 @@ impl<'a> Run<'a> {
             stack: Vec::new(),
             hashes: Vec::new(),
             stack_len: 0,
+            marks: Vec::new(),
+            waiting: Waiting::default(),
             ancestors: Vec::new(),
             pools: Pools::default(),
             lists: Vec::new(),
@@ -663,6 +679,7 @@ impl<'a> Run<'a> {
         // none and is never reached (`Options::copy_bound`).
         for budget in 0..=levels {
             self.statistics.copies = budget;
+            self.waiting.clear();
             let mut gamma = self.take_context();
             let mut list = self.take_list();
             // A stack: the first formula is decomposed first.
@@ -982,6 +999,22 @@ impl<'a> Run<'a> {
             // limit allows.
             return Ok((Found::failed(Cuts::repeat(depth as u32)), false));
         }
+        // A failure that waits on an open ancestor answers for the
+        // sequent while that ancestor is open; one not cut by the budget
+        // before the memo's that is.
+        if !self.waiting.is_empty()
+            && let Some(reused) = self.waiting.find(key, hash, budget, entry.is_some())
+        {
+            if entry.is_none() {
+                self.memo.count_hit(hash);
+            }
+            self.give_context(canonical);
+            let cuts = Cuts {
+                exhausted: reused.exhausted,
+                dependency: reused.leader,
+            };
+            return Ok((Found::failed(cuts), reused.hereditary));
+        }
         if entry.is_some() {
             // Cut by the budget at this or a larger remaining budget.
             self.give_context(canonical);
@@ -994,13 +1027,16 @@ impl<'a> Run<'a> {
                 self.stack[self.stack_len].assign(key);
                 self.hashes[self.stack_len] = hash;
             } else {
-                self.scratch.charge(self.key_bytes() + size_of::<u64>());
+                self.scratch
+                    .charge(self.key_bytes() + size_of::<u64>() + size_of::<usize>());
                 self.stack.push(Key {
                     theta: theta.clone(),
                     gamma: gamma.clone(),
                 });
                 self.hashes.push(hash);
+                self.marks.push(0);
             }
+            self.marks[self.stack_len] = self.waiting.len();
             self.stack_len += 1;
         }
         let mark = self.nodes.mark();
@@ -1035,6 +1071,20 @@ impl<'a> Run<'a> {
                 },
             ),
         };
+        if self.problem.rules.stack && self.problem.memoizes {
+            let waited = self.marks[self.stack_len];
+            if let Err(reason) = self.close(
+                key,
+                hash,
+                budget,
+                waited,
+                own_depth,
+                (node, cuts, hereditary),
+            ) {
+                self.give_context(canonical);
+                return Err(reason);
+            }
+        }
         let canonical_key = Zones {
             theta,
             gamma: &canonical,
@@ -1078,6 +1128,114 @@ impl<'a> Run<'a> {
             Some(node) => (Found::proved(node), false),
             None => (Found::failed(cuts), hereditary),
         })
+    }
+
+    /// Settles the failures that wait on an ancestor and were decided
+    /// below the stable sequent `key` just closed, those from `waited`
+    /// on, by what it closed with (`waiting.rs` has the argument): a proof
+    /// drops them; a failure cut by the budget makes them so; a failure
+    /// with no dependency records those it leads, or that a deeper
+    /// ancestor led, in the memo; one with a dependency hands them on to
+    /// its leader, and waits there itself.
+    fn close(
+        &mut self,
+        key: Zones<'_>,
+        hash: u64,
+        budget: u32,
+        waited: usize,
+        own_depth: u32,
+        (node, cuts, hereditary): (Option<NodeId>, Cuts, bool),
+    ) -> Result<(), Reason> {
+        if node.is_some() {
+            self.waiting.drop_from(waited);
+            return Ok(());
+        }
+        if cuts.exhausted {
+            self.waiting.exhaust_from(waited);
+        }
+        if cuts.dependency == NO_DEPENDENCY {
+            let mut recorded = Ok(());
+            while let Some(entry) = self.waiting.take_settled(waited, own_depth) {
+                if recorded.is_ok() {
+                    recorded = self.record_failure(
+                        entry.key.zones(),
+                        entry.hash,
+                        entry.budget,
+                        (entry.exhausted, entry.hereditary),
+                    );
+                }
+                self.waiting.give(entry.key);
+            }
+            self.waiting.settled();
+            return recorded;
+        }
+        if (cuts.dependency as usize) < self.above() {
+            // A leader in the branch of the engine that spawned this one,
+            // whose close this engine never sees.
+            self.waiting.drop_from(waited);
+            return Ok(());
+        }
+        self.waiting.lead_from(waited, cuts.dependency);
+        if self.waiting.len() < self.problem.waits {
+            let entry = match self.waiting.spare() {
+                Some(mut spare) => {
+                    spare.assign(key);
+                    spare
+                }
+                None => {
+                    self.scratch.charge(self.key_bytes());
+                    Key {
+                        theta: key.theta.clone(),
+                        gamma: key.gamma.clone(),
+                    }
+                }
+            };
+            self.waiting.wait(
+                entry,
+                hash,
+                budget,
+                (cuts.exhausted, hereditary),
+                cuts.dependency,
+            );
+        }
+        Ok(())
+    }
+
+    /// Records a failure in the memo: one cut by the budget under the
+    /// sequent's own key, a complete one under its canonical key, where
+    /// every relative reads it.
+    fn record_failure(
+        &mut self,
+        key: Zones<'_>,
+        hash: u64,
+        budget: u32,
+        (exhausted, hereditary): (bool, bool),
+    ) -> Result<(), Reason> {
+        if exhausted {
+            return self
+                .remember(key, hash, Entry::Failed(Failure::Exhausted(budget)))
+                .map(|_| ());
+        }
+        let complete = if hereditary {
+            Failure::Hereditary
+        } else {
+            Failure::Complete
+        };
+        if !self.problem.classes.renames(key.gamma) {
+            return self
+                .remember(key, hash, Entry::Failed(complete))
+                .map(|_| ());
+        }
+        let mut canonical = self.take_context_any();
+        let replaced = canonical.canonical_from(key.gamma, self.problem.classes);
+        debug_assert!(replaced, "a member's class is another occurrence");
+        let canonical_key = Zones {
+            theta: key.theta,
+            gamma: &canonical,
+        };
+        let recorded = self.remember(canonical_key, canonical_key.hash(), Entry::Failed(complete));
+        self.give_context(canonical);
+        recorded.map(|_| ())
     }
 
     /// The depth of the stable sequent of the branch that `key`, of hash
@@ -1155,6 +1313,8 @@ impl<'a> Run<'a> {
     /// allocated, is still over the bound: squeezing those would be undone
     /// by the next node.
     fn relieve(&mut self) -> Result<(), Reason> {
+        let keys = self.waiting.release();
+        self.scratch.resize(keys * self.key_bytes(), 0);
         self.memo.clear();
         self.nodes.collect(None, false);
         if !self.problem.account.over() {

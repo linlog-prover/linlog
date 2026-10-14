@@ -45,7 +45,6 @@ impl Key {
     }
 
     /// The key's zones.
-    #[cfg(test)]
     pub(crate) fn zones(&self) -> Zones<'_> {
         Zones {
             theta: &self.theta,
@@ -621,6 +620,15 @@ impl Table<'_> {
         match self {
             Self::Own(memo) => memo.peak(),
             Self::Shared(shared) => shared.peak(),
+        }
+    }
+
+    /// Counts a visit that something beside the table answered as a hit
+    /// of the table, in the shard of the key's hash.
+    pub(crate) fn count_hit(&mut self, hash: u64) {
+        match self {
+            Self::Own(memo) => memo.hits += 1,
+            Self::Shared(shared) => shared.shard(hash).hits += 1,
         }
     }
 
