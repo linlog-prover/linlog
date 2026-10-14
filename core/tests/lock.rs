@@ -58,6 +58,7 @@ fn lines() -> String {
         ("outcome-mix", "A, B |- A, B", mix),
         ("outcome-horn", "!(a -o a * b), a |- a * b * b", classical),
         ("outcome-unbalanced", "A |- A * A", classical),
+        ("outcome-one-sided", "|- ?A, A", classical),
         ("outcome-equation", "|- A * ~A", classical),
         ("outcome-exhausted", "A & B |- A * B", classical),
         (
