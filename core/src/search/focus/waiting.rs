@@ -299,8 +299,126 @@ impl Waiting {
 
 #[cfg(all(test, feature = "parse"))]
 mod tests {
-    use crate::search::{Bias, Options, Verdict, prove_within};
+    use crate::search::{Bias, Engine, Options, Verdict, prove_within};
     use crate::{Limits, Mode, Sequent};
+
+    /// Every rule by which a close settles the failures that wait, and
+    /// the reuse of one, pinned by sequents whose verdict or counters
+    /// change when that rule goes: a proof drops what was decided below
+    /// it, a failure cut by the budget makes what is below it cut, one
+    /// with a dependency moves the leaders below it up, one without
+    /// records only what it or a deeper ancestor leads, and a reuse keeps
+    /// within its budget and keeps a cut. Each rule dropped in turn
+    /// changed hundreds of counters on 58 000 generated cases and the
+    /// verdicts of a few, none of them to a wrong one; so what is pinned
+    /// is the verdict, the stable sequents visited and the memo's most
+    /// entries, as the target sets pin counters, and a change of the
+    /// search that moves them pins them again.
+    #[test]
+    fn a_close_settles_by_every_rule() {
+        let mix = Mode::CLASSICAL.with_mix();
+        let (rarer, factors) = (Bias::Rarer, Bias::Factors);
+        for (text, mode, copies, bias, memo, proved, nodes, entries) in [
+            // Lost without the cut a failure below a cut inherits.
+            (
+                "|- ~c, ?~c, ?((1 * c) * ?b), (c * !?~c)",
+                mix,
+                6,
+                rarer,
+                Some(16),
+                false,
+                1552,
+                16,
+            ),
+            (
+                "|- ?!?(~c * 1), !?!b, ?!(!bot par bot)",
+                Mode::CLASSICAL,
+                3,
+                factors,
+                None,
+                false,
+                28,
+                7,
+            ),
+            // Without the drop at a proof.
+            (
+                "|- !(?(bot par (?(1 * ~a) par a)) * ?(bot par (?(1 * ~a) par c))), ?bot",
+                mix,
+                4,
+                factors,
+                None,
+                false,
+                22,
+                6,
+            ),
+            // Without the leaders moved up.
+            (
+                "|- (?~a par ?~c), !~c, (?~a par ?~c), !~c, ?(c * c), ?~a, ?a, (?a * ?a)",
+                mix,
+                12,
+                factors,
+                None,
+                true,
+                287,
+                69,
+            ),
+            // With every failure below recorded, whatever its leader.
+            (
+                "|- ?(~b par ~b), ?b, !(b * ?!~c), ?(?(a par a) par !(a * b))",
+                mix,
+                2,
+                rarer,
+                None,
+                true,
+                166,
+                57,
+            ),
+            // Lost with a reuse past its budget, or of a cut as complete.
+            (
+                "!a, b, (!((c + (a + top)) & b) + !((c + (a + top)) & b)) |- (((!top * b) + (b * \
+                 (top & top))) * (((c + (b + top)) & b) * b))",
+                mix,
+                2,
+                factors,
+                None,
+                true,
+                313,
+                71,
+            ),
+            (
+                "|- ?c, !(c * b), ?~c, (?~a par ?(~b * a))",
+                mix,
+                3,
+                factors,
+                None,
+                true,
+                38,
+                11,
+            ),
+        ] {
+            let s: Sequent = text.parse().unwrap();
+            let mut options = Options::default()
+                .with_engine(Some(Engine::Focus))
+                .with_copies(Some(copies))
+                .with_bias(bias)
+                .with_jobs(1);
+            if let Some(memo) = memo {
+                options = options.with_memo_limit(memo);
+            }
+            let outcome = prove_within(&s, mode, &options, &Limits::default(), |_| false).unwrap();
+            let decided = match outcome.verdict {
+                Verdict::Proved(_) => Some(true),
+                Verdict::Unprovable(_) => Some(false),
+                Verdict::Unknown(_) => None,
+            };
+            let counted = (outcome.statistics.nodes, outcome.statistics.memo_entries);
+            assert_eq!(
+                (decided, counted),
+                (Some(proved), (nodes, entries)),
+                "{text:?} in {mode} mode, copy bound {copies}, {bias:?}, memo {memo:?}"
+            );
+        }
+    }
 
     /// A search that relieves its memory while failures wait keeps the
     /// marks of the branch true: under a bound of a few kibibytes the memo

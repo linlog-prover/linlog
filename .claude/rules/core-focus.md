@@ -257,7 +257,11 @@ relies on:
   memo's entries, cleared per level and by `relieve`, which sets the
   marks of the branch to the start (a mark past the list's end once let
   a failure outlive its leader; the close debug-asserts it,
-  `a_relieved_search_settles_what_waits`). Why: under Mix a
+  `a_relieved_search_settles_what_waits`). `a_close_settles_by_every_rule`
+  pins each rule by a sequent's verdict and counters: dropping any one
+  of them, or the reuse's budget test or its cut, changed hundreds of
+  counters on 58 000 generated cases and no verdict to a wrong one, so
+  only counters show a rule gone (the pool's drop is not pinned). Why: under Mix a
   part of a sequent below a copy is often an ancestor, so nearly every
   failure had a dependency and was searched to its end at every visit
   (a Mix sequent of two `?` formulas took 76.5 million stable sequents
