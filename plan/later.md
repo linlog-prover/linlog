@@ -1046,32 +1046,22 @@ meets first on a large problem, and come before any new engine:
   ancestor); F122's contraction is wzynqlqo and F123's swap ypvxqstw,
   each with its effect pinned (`intuitionistic_proofs_contract`,
   `some_mutants_reach_a_search`) and the slow mutants under the tests'
-  work bound. The bookmark `wip/generators` is deleted.
+  work bound. The bookmark `wip/generators` is deleted. Since kvpyrzuv
+  the count of one sign refutes F122's mutant at once (below).
 
-- **A count of one sign for the atoms under exponentials** (step 28i,
-  2026-10-14; a decision for the author, open question 11 of step 28's
-  report). Today an atom with any literal below `?` or `!` gets no count
-  rows at all, so its imbalance is never seen: F122's sample (`b, b,
-  (!!!c * !b), (((b -o !b) -o (b -o (b * b))) -o !((b -o c) * (a -o c)))
-  |- ((((((b -o c) -o c) * b) * a) * b) * (b -o b))`, a mutant whose goal
-  factor `a` has no `~a` anywhere) stays undecided at every copy bound.
-  The argument: in a proof every axiom pairs `a` with `~a`; a literal
-  outside every exponential is used once a branch (the existing rows,
-  with the hull for `&` and `⊕` and `⊤`'s absorption), one below an
-  exponential any number of times, but only with its own sign. So where
-  no `~a` lies below an exponential, the sum of `a`'s rows must be able
-  to reach zero from above (its least value at most 0), and where no `a`
-  does, from below (its most at least 0); the sample's least value is 1.
-  The cost: rows and ranks in `Counts` for the atoms with exponential
-  literals of one sign (their exponential literals still get no
-  entries); a flag pair per rank in `Tally` and in `Split::feasible`'s
-  incremental count of excluded atoms; `Refutation::Unbalanced` with a
-  bound on one side only, a change of its wire form; the full evidence of
-  a search change (both target sets, the families, qcover, since the
-  Horn engine runs the same counts first, and the panel). First: measure
-  the LLTP library's reach (how many problems the one-sided bound
-  refutes that today's check does not). Until then such mutants are kept
-  out of the debug suite by the tests' work bound (`MUTANT_WORK`).
+- **A count of one sign for the atoms under exponentials**: built in
+  step 28i (kvpyrzuv, 2026-10-14, the author's answer to open question
+  11 of step 28's report). An atom whose literals below the
+  exponentials all have one sign keeps its count rows, and a balance is
+  ruled out only on the side the copies cannot reach
+  (`Refutation::OneSided`); F122's sample is refuted at once. Left: the
+  tests' work bound (`MUTANT_WORK`) stays, since other mutants still run
+  long, and the count's reach on LLTP is small (three problems more).
+  A tightening the panel's argument lens noted: a literal below a `!`
+  that lies below no `?` is used once in linear mode (a `!A` in the
+  linear zone is decomposed by promotion alone), so the test of both
+  signs could look at the literals below a `?` only; the counts treat
+  `!` as `?`, as they did before. Sound either way; to measure first.
 
 ## Follow-ups: the Horn engine
 

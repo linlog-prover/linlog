@@ -60,7 +60,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
 | closing: the report's sections and the register | done (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); `nix flake check --keep-going` passed at szmktwow (unit `step28-flake-check`, cores 2 to 5; its features check logged six unused imports of `proofs/interactive/replay.rs` without `serialize`, open question 8); the supervisor's three fixes: rsvlqous (`replay.rs` gated on `serialize`), krxomqoz (warnings denied in the gate's `cargo hack` runs and the `features` check), txykwztn (the three doc points of open question 7), each with the gate passed; the mutants' timeouts recorded in area 3.4's row k (all 24 hang alone); `nix flake check --keep-going` passed again at txykwztn with the records (unit `step28-flake-check2`, no unused import logged) |
-| follow-up: F122, F123 and the engines on their sequents | running (session `step-28i`, 2026-10-14) | done: part 1, both sequents unprovable; F123's search revisited loop-dependent failures, fixed by qoksszzp (failures wait on their ancestor) and ytvrknnp (the panel's argument lens: `relieve`'s marks); F122's sample a mutant, the sign-aware count a decision for `planning`; target sets `after-waiting` and `net-after-waiting` equal on every decided row; old-against-new differential 3 × 13 568 runs, no verdict changed. Part 2: wzynqlqo (F122), ypvxqstw (F123). Part 3: U2 already fixed (vxwmzrmx, pokmmrxy), U3 and U4 vzxtsvrx, U5 oxlvywnp, U6 mlkkmqmu, U7 xwoononu. Running: open questions 3 and 5 (`&` rules as work; the `⊤` proof under the memory bound and the stop), written and gated except the ratchet's render-svg (+3.07 %, the allocator's heap state, being recorded); the panel's counterexample and integer lenses again (the first runs stopped at the usage limit at 12:06). Open: the target sets for 3 and 5, the families, qcover, the fresh-context reviewer, the mutants, `nix flake check` |
+| follow-up: F122, F123 and the engines on their sequents | done (session `step-28i`, 2026-10-14) | the section "Follow-up: F122, F123 and the engines on their sequents, item by item" and its "decided unattended". Both sequents unprovable; F123's Mix mutant was slow because failures that rest on the loop check were never memoized: they wait on their ancestor (qoksszzp, ytvrknnp), copy bound 3 in 17 179 stable sequents instead of 76.5 million. The generators landed (wzynqlqo, ypvxqstw); U2 to U7 (vzxtsvrx, oxlvywnp, mlkkmqmu, xwoononu); open questions 3 and 5 (yqsorumv, vvwkkuzx, vnkywvnv); open question 11, the count of one sign, built at the author's answer (kvpyrzuv, ymmluvqt, qlnmtlzq, uyrrnvwy, pqnxxtsx, lyowmwos): F122's mutant refuted at once; on LLTP's 1 663 problems with such an atom one more refuted at copy bound 3 (SYN389+1 in 01) and two more proved without a bound (SYJ205+1.009 in cbn 9.56 s to 0.78 s, .010 from over 30 s to 2.22 s, timed alone), none lost, none against the status. Target sets after each search change (pnmsymur, kqtkltmp, snrttxvw, voukzpot): no verdict differs from the oracles, only the chain family's four rows with one memo entry fewer and one hit more; net sets equal; families and qcover `--strict`. Panel on the waiting failures (argument, counterexamples, integers) and on the count (counterexamples: 8 209 built sequents, 2 740 reaching the count, 0 disagreements with the reference prover or head; argument; integers): no wrong verdict; their findings fixed (ytvrknnp, zmqntlyl, qlnmtlzq, uyrrnvwy, pqnxxtsx). Two fresh-context reviewers (pxsxlnrl..vvwkkuzx, kvpyrzuv..qlnmtlzq): no soundness bug; fixed in zmqntlyl, ovolwupp, srtmwmwo, yurnpots, spmrupso, lyowmwos. Every code commit gated. Mutants: check 4, search 3 (two that hang alone), horn-mod 0, serialize 2 survivors, each fewer than area 3.4's; the focused engine's changed lines 224 mutants, the survivors pinned in vtypozyz or explained. `nix flake check` passed at pqnxxtsx |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -970,6 +970,63 @@ signed-off design or from a finding's proposed fix it says so.
   carries the sequent or a session's commands (the input lens found the
   settings read in their place).
 
+#### Follow-up: F122, F123 and the engines on their sequents, item by item (session `step-28i`)
+
+Open question 10's answer: the engines on the two sequents F122 and
+F123 found first, then both generators; the third ultra review's
+findings; open questions 3 and 5 (the author's answers at the step's
+end); open question 11, the count of one sign, which the author asked
+this session to build.
+
+| item | state | evidence |
+|---|---|---|
+| 1. the engines on both sequents | done | Both are unprovable. F122's sample is the mutant of a generated proof (pxsxlnrl corrects question 10): its goal needs an `a` that nothing supplies. F123's Mix mutant (`\|- ?((((!~a par c) + c) par a) par ~c) par ?((~c * ~c) * c)`) has every `~a` inside a `!` box. Its search was slow because a failure that rests on a prune of the loop check was never memoized: at copy bound 3, 5.85 million decisions of 603 sequents. qoksszzp lets such a failure wait on the shallowest ancestor it rests on (`focus/waiting.rs`, whose module doc has the argument): copy bound 3 takes 17 179 stable sequents instead of 76.5 million (21 s), copy bound 5 102 ms, and the default reaches copy bound 8 in 10 s. F122's mutant classically at copy bound 3: 9.28 million stable sequents in 1.82 s instead of 73.8 million in 8.56 s. ytvrknnp: `relieve` sets the branch's marks to the start (the argument lens's finding; `a_relieved_search_settles_what_waits` fails without it). Evidence: target sets `after-waiting` and `net-after-waiting` (pnmsymur): no verdict differs from the oracles, the 135 rows decided alike have equal counters, 11 rows at their copy bound visit fewer stable sequents, the net set's 64 rows equal; an old-against-new differential on 13 568 generated items at copy bounds 2, 3 and 4: no contradiction and the same decided rows; mix/10 timed alone on core 2, old 80.5 and 79.9 s, new 82.0 and 79.1 s; the journeys within 0.6 %; the families and qcover pass `summary --strict` |
+| 2. the generators | done | wzynqlqo (F122: the intuitionistic generator contracts a used `!` hypothesis, `intuitionistic_proofs_contract` pins at least 8 of 40 samples, measured 10 to 17; `MUTANT_WORK` bounds the mutants' searches in the tests that compare verdicts, five million units, with `bounded`), ypvxqstw (F123: half the mutants swap the atoms of two literals of one sign, `mutate_two_sided` for the intuitionistic callers; `some_mutants_reach_a_search` pins at least 1 in 12, measured 11 to 20 % classically and 25 to 30 % intuitionistically). The debug suite stays at about two minutes (`engines_agree_on_horn_programs` dominates); no engine disagreed with another or with the reference prover |
+| 3. the third ultra review's findings | done | U2 fixed before (vxwmzrmx, pokmmrxy); U3 and U4 vzxtsvrx; U5 oxlvywnp; U6 mlkkmqmu (the hooks' check passed); U7 xwoononu |
+| 4. open questions 3 and 5 | done | yqsorumv: an `&` rule is work (`poll_with`: a step and a zone's copy), so `Limits::work` bounds a proof of `&` rules closed by `⊤`; vvwkkuzx: such a proof keeps to the memory bound and the stop (the `&` rule asks the account and relieves; `Arena::keep_all` and `Proof::build` in place, polling every 2¹⁶ nodes). 24 pairs under `--timeout 1s` end after 1.05 s (1.73 s before) at a peak of 662 MB (1.22 GB); 26 pairs end at the memory limit after 0.99 s at 531 MB (6.17 s and 4.86 GB); `--work-limit 1000000` ends 24 pairs in 56 ms. vnkywvnv raises render-svg's ceiling by 3.1 % (the heap a proof's build leaves; the writer's own counts are equal). Target sets `after-and-memory` (kqtkltmp): no verdict differs, counters equal |
+| 5. open question 11: the count of one sign | done | kvpyrzuv: an atom whose literals below the exponentials all have one sign keeps its rows, and a balance is ruled out only on the side the copies cannot reach; `Refutation::OneSided`, `one_sided` in JSON (a kind of its own, since a tag keeps its meaning), the library's lock in ymmluvqt and the command's (text and JSON) in lyowmwos, README's example in qxvmrxzn, the fuzz seed in step. F122's mutant is refuted at once, classically and intuitionistically. Tests: `copies_of_one_sign_bound_the_count_one_way`; `the_count_of_one_sign_refutes_nothing_provable` (a test-only switch turns the rows off): on 1 227 generated mutants with exponentials, 1 352 refutations, 30 by the count at the root and 64 that the search without it leaves undecided, none proved without it a copy higher. The ratchet: the sign read per row entry cost qbf/20#2 3.6 % and batch-families 10.2 % instructions; with the check chosen once per row they are 0.65 % and 12.6 % below their ceilings. LLTP: of the 4 512 problems, 1 663 have such an atom and no `⊤` below an exponential (1 430 Petri nets); head and the count on them, each problem on one core for both, 5 s: at copy bound 3 one gained (SYN389+1 in 01, refuted), none lost, no contradiction, none against the status but the six known headers (head's too); without a copy bound on the 116 rows at the bound, two gained (SYJ205+1.009 and .010 in cbn). Timed alone on core 2 (median of three): SYN389+1 in 01 from the copy bound in 0.113 ms (25 stable sequents) to refuted in 0.087 ms (11); SYJ205+1.009 in cbn proved in 9.56 s (33.8 million) and now in 0.78 s (2.70 million); SYJ205+1.010 in cbn not within 30 s (106.8 million), now proved in 2.22 s (7.11 million). Target sets `after-one-sided` and `net-after-one-sided` (snrttxvw, at srtmwmwo): no verdict differs from the oracles; of the 135 rows decided alike only the chain family's four differ, one memo entry fewer and one hit more at the same stable sequents and splits (the count's own binary shows it); the net set's 64 rows equal. After qlnmtlzq the focused set again (`after-rows`, voukzpot): every decided row's counters equal `after-one-sided`'s. The families pass `summary --strict`; qcover (affine, where the count does not apply) passes it and no verdict differs from `bench/defaults/horn-qcover.csv` |
+| 6. the panel and the fresh-context reviewer | done | **Argument lens** (Fable 5.1, `high`, on qoksszzp): `relieve`'s marks (ytvrknnp) and the doc's gaps, fixed. **Counterexamples lens** (Opus 5.5, `high`, on qoksszzp with ytvrknnp; the first run stopped at the usage limit): no wrong verdict in about 60 000 sequents (7 863 and 6 472 provable by construction, 6 000 shaped like F123's, 1 095 of its mutations, 21 390 enumerated Mix sequents, 30 000 random) over up to 17 configurations each, memory bounds, memo limits and pools included; both reference provers proved none of the new engine's refutations; an instrumented build's check of every reuse found no violation without a memory bound. **Integers lens** (Sonnet 5.5, `high`): no number wraps or passes a bound but the memory one: the waiting list was charged its keys alone. **The count's counterexamples lens** (Opus 5.5, `high`, on kvpyrzuv): 8 209 sequents built for the count (one sign below `!`/`?`, with `&`, `⊕`, `⊤`, `0` beside, nested exponentials, Horn programs, 209 by hand), classical, Mix and intuitionistic, under five configurations each, against the reference prover and head: no disagreement; 2 740 reach the count (994 with a `one_sided` refutation, 424 decided where head is not); its one finding, rows built where the check is off, is qlnmtlzq. **Fresh-context reviewer** (Opus 5.5, `high`, pxsxlnrl..vvwkkuzx): no soundness break; its four findings are zmqntlyl (the waiting lists charged by capacity: a Mix search under 4 MiB peaked 10 MiB above its start, now at it), ovolwupp (`holding`'s doc names the `&` rule), srtmwmwo (the settings test's missing flags) and yurnpots (`a_close_settles_by_every_rule`: six mutants of the close's and the reuse's rules, each swept over 58 000 generated cases, none wrong, each changing hundreds of counters; every one fails the test). On the count, besides its counterexamples lens: **the argument lens** (Fable 5.1, `high`): no gap that a witness shows; the invariant checked rule by rule over the proof terms and the engine's initial rule; its findings, the doc's argument left the invariant and the `?` rule, weakening and the units unstated, and the check's condition was written twice, are uyrrnvwy (with a sentence on what a goal's refutation counts), and it notes that a literal below a `!` under no `?` is used once, so the test of both signs could look at `?` alone (a follow-up, `plan/later.md`); **the integers lens** (Sonnet 5.5, `high`; the limit stopped it once): no sum, rank or charge wraps or underflows (each examined, with the reasons in its report), a `one_sided` form round-trips at `i32::MIN` and `i32::MAX`; its finding, the tallies' and splits' `touched` lists uncharged and growing with the copies of a formula now that copies have rows (142 MiB under a bound of 16 MiB on its witness), is pqnxxtsx (15.5 MiB, the same verdict), with the index's buckets counted exactly; **a second fresh-context reviewer** (Opus 5.5, `high`, kvpyrzuv..qlnmtlzq; the limit stopped it once): no soundness bug and nothing must-fix; its 13 000 random sequents biased to the count, about 1 230 `one_sided` refutations, none proved by head at copy bound 6; should-fix the command's lock without the new kind (lyowmwos) and `row_atoms`' doc (spmrupso, with its notes: the text of a `one_sided` form from JSON printed from its field, `Waiting::grown` counting the index's buckets); its note that zmqntlyl had no test is vtypozyz's `the_lists_are_charged_as_they_grow` |
+| 7. mutants and `nix flake check` | done | **The batches** (`mutants/step-28i/`, from the workspace `../linlog-step28i-mutants` at yurnpots, 15:14 to 16:42): survivors against area 3.4's lists check 4 (15), search 3 (8), horn-mod 0 (3), serialize 2 (6; area 3.1's guard in `DisproofForm::within`, its line moved by the new kind). New among them: `Proof::build`'s poll every 2¹⁶ nodes (`%` for `/`), pinned in vtypozyz (the polls after the search's last work bounded from above), and two in search that hang: `few_equal_literals` always true and `DEFAULT_MEMO_LIMIT` shifted to zero, which hang the whole suite alone too (one job, the whole suite, 254 s each; unit `step28-timeouts`), so neither is caught or missed. **The focused engine's changed lines** (`--in-diff` of pxsxlnrl..qlnmtlzq over `focus/{mod,counts,waiting,arena,memo,parallel}.rs` and `refutation.rs`, from `../linlog-step28i-mutants2`): 224 mutants, 38 unviable, 23 survived both passes: the memory charge's arithmetic (`Waiting::grown`, `release`, `relieve`'s release, `Counts::new_until`'s fixed charge), `count_hit`, the `&` rule's work cadence, and three in `Waiting` (`find`'s `&&`, `pop`'s test, `clear`) that only drop reuses or are equivalent (an index chain holds one hash; the list is empty at a level's end). vtypozyz pins the charge, the hits and the cadence; rerun on those functions at uyrrnvwy, 68 of 80 caught, the rest: three of `grown`'s terms that its test's lower bound does not see, `count_hit`'s pool arm (the pinned searches run on one thread), the node count of a refusal at 2³² nodes, the `&` rule's cadence (two), and the three in `Waiting`. The `touched` fix's functions (`Tally::apply_as`, `Split::touch`) and `grown` at pqnxxtsx: 48 of 53 caught, the five left `grown`'s byte terms of the index and of the held entries. **`nix flake check`** passed at pqnxxtsx, the session's last code commit (2026-10-14, 21:07 to 21:12, every check). |
+
+#### Follow-up: decided unattended
+
+- **A failure that rests on the loop check is truncated, not pruned**
+  (`Waiting::drop_from` at a proved sequent drops every failure decided
+  below it): pruning only those that rested on the proved sequent would
+  keep more, with the same counts on every measured sequent.
+- **A leader moves to the least depth of the failures below it**
+  (`lead_from`), the exhaust rule makes every failure below a cut
+  sequent cut at its own budget, and a worker of a pool drops the
+  failures that rest on the spawning engine's branch.
+- **The list of waiting failures is capped at the memo's entries**, and
+  a reuse counts as a memo hit.
+- **The count of one sign was first sent as a decision** (recommended
+  for a later session); the author asked for it in this one.
+- **render-svg's ceiling was raised** (the allocator's heap state after
+  the proof is built in place), not the copying `Proof::new` restored.
+- **No memory check after the root's keep**: it would lose proofs where
+  the memo filled the bound.
+- **An `&` rule's work is `1 + forest.len() / OCCURRENCES_PER_WORK`**,
+  passed at its own poll; forced chains still pass none.
+- **U3 keeps `--logic` as the switch**, documented; U4 is a table test;
+  U5's label lives in `Counter`.
+- **`OneSided` is a new refutation kind**, not a key on `unbalanced`
+  (a tag keeps its meaning on the wire).
+- **The count's hot loops are monomorphized on whether any atom has
+  copies of one sign** (`excluded_as`), since reading the sign per row
+  entry cost up to 10 % of a journey's instructions.
+- **The waiting lists are charged by their capacity after each close**
+  (`Waiting::grown`), rather than a fixed size per entry.
+- **The rows of one sign are built only where the interval check runs**
+  (qlnmtlzq, the count's lens), rather than everywhere with the check
+  reading them only there: elsewhere they reorder the split search.
+- **A `one_sided` form read from JSON prints what its fields say**, not
+  validated against its counts: no reader checks a refutation's truth,
+  the `unbalanced` kind's included.
+- **The waiting lists' tests pin counters** (`a_close_settles_by_every_rule`):
+  no rule dropped gave a wrong verdict on 58 000 cases, so a verdict
+  alone could not pin them.
+
 ## The step's outcome
 
 Step 28 is done. The library's public surface was redesigned once, in
@@ -1496,6 +1553,13 @@ The decisions the review sections hand to the author at the step's end:
 
     The author's answer (2026-10-14): a session looks at the engines on
     both sequents first, then lands both generators.
+    **Done in step 28i** ("Follow-up: F122, F123 and the engines on
+    their sequents, item by item"): the Mix mutant's failures rested on
+    the loop check and were never memoized; they now wait on their
+    ancestor (qoksszzp, ytvrknnp), and the sequent's copy bound 3 takes
+    17 179 stable sequents where it took 76.5 million. F122's sample is
+    refuted at once by the count of one sign (kvpyrzuv, question 11).
+    Both generators landed (wzynqlqo, ypvxqstw).
 
 11. **A count of one sign for the atoms under exponentials** (found by
     `step-28i`, put to the author through `planning`, not built). The
@@ -1518,6 +1582,15 @@ The decisions the review sections hand to the author at the step's end:
     decide that are undecided today, since its reach beyond generated
     mutants is unknown and the tests already bound such mutants'
     searches (`plan/later.md`, "A count of one sign").
+    **Answered by the author** (2026-10-14, through `planning`): build it
+    in this session. **Built in step 28i** (kvpyrzuv; the lock's
+    fixture ymmluvqt): an atom whose literals below the exponentials all
+    have one sign keeps its rows, a balance is ruled out on the side the
+    copies cannot reach, and the refutation is a kind of its own,
+    `one_sided`. Its reach on LLTP is small: of the 1 663 problems with
+    such an atom it decides 1 more at the harness's copy bound of 3
+    (SYN389+1 in the 01 translation, refuted) and 2 more without a copy
+    bound (SYJ205+1.009 and .010 in cbn, proved); none is lost.
 
 ### What steps 29 to 31 must know
 
@@ -2459,3 +2532,73 @@ reason), which go to the supervisor with this session's last message.
   timed out is rerun alone before it counts. Departures from the design
   are marked in a "decided unattended" list. Signing works until about
   10:45; commit with `--config signing.behavior=drop` once it fails.
+
+### Messages from `planning` to `step-28i` (2026-10-14)
+
+- **About 10:07, the third ultra review's findings**, U2 to U7 in
+  `28-audit-findings.json` (uvlvuuxy): each a fix, a commit of its own,
+  gated. Done: U2 needed none (the head probes only a regular file or a
+  missing path since vxwmzrmx and pokmmrxy, with the test
+  `an_output_pipe_gets_the_output`); U3 and U4 vzxtsvrx (the file's
+  `ordinary.logic` is not read, said in README and `cli.md`, pinned with
+  the translation the file gives; every key a flag sets pinned against
+  the file on each command), U5 oxlvywnp (a counter's label for affine
+  mode), U6 mlkkmqmu (the guards skip a global option's value), U7
+  xwoononu (`--occurrence-limit` advised only where that limit
+  refused).
+- **About 10:20**: correct open question 10 and `plan/later.md`, which
+  called F122's sample provable by construction (done in pxsxlnrl:
+  the shift mutant of draw 32 of rule set 6 in `generated_ill`); make
+  the argument of the waiting failures cover a reuse in another branch
+  under the same open ancestor and the memoization at its failure, and
+  run an old-against-new differential besides the panel (both done:
+  waiting.rs's module doc, and 3 × 13 568 runs with no verdict changed);
+  the sign-aware count only if as clean, else a decision (sent as one).
+- **About 10:35, the author's answers at the step's end**: count the
+  `&` rules in `Limits::work` (open question 3) with the slices measured
+  again, and keep the proof of `&` rules closed by `⊤` to the memory
+  bound and the stop (open question 5), both this session's; F148 and
+  F188's rest are a later session's. Done: yqsorumv and vvwkkuzx.
+- **About 10:50**: time mix/10 old against new with nothing else
+  running, the builds before or after it, the panel and the
+  differential only after the timing (done in that order).
+- **12:50, Resume** after the five-hour limit (the session had stopped at
+  12:06): rerun the two lenses that failed with HTTP 429, split the
+  working copy's work into gated commits with the target sets beside the
+  commit they measure, bring the row up to date. Done: the lenses
+  restarted at 13:13 from their scratch directories, the row in ronwsunq,
+  the target sets in pnmsymur, items 3 and 5 split into yqsorumv and
+  vvwkkuzx with render-svg's ceiling (vnkywvnv) between.
+- **About 13:20**: record the count of one sign as open question 11 and
+  in `plan/later.md`, in a plan commit of its own (done: yqxqsozw).
+- **Afternoon, the author's answer to open question 11** (kqxqrkut):
+  build the count of one sign in this session, after the evidence of
+  questions 3 and 5 and before the panel's rest, the fresh-context
+  reviewer, the mutants and `nix flake check`, which all cover it; the
+  evidence of any search change (both target sets with `--counters`,
+  every differing row explained, the families, qcover, the panel); its
+  reach on LLTP with times before and after; its JSON form by the wire
+  rules, the lock's fixture in a commit of its own and the fuzz seed in
+  step; question 11 and `plan/later.md` marked built; a word to
+  `planning` if it costs more than a few hours or reaches nothing on
+  LLTP. The register's leftovers (R87, R138, `Node::members`' `_` arm)
+  are F148's session's.
+- **Afternoon, the count's soundness evidence**: a counterexamples lens
+  on sequents built for it (one sign below `!`/`?`, with `&`, `⊕` and
+  `⊤` beside), each refutation against the reference prover and the
+  head's binary without it, and how many items reach it; every LLTP
+  refutation against the head and the library's status; in the tests,
+  where it refutes a generated sample, a bounded search without it
+  finds no proof.
+- **About 14:40**: the reach noted (the six refutations against a
+  "provable" status are the known headers, `plan/notes/lltp-headers.md`
+  items 10 to 15); still owed: the lens on the count, the three LLTP
+  rows timed alone, the mutants of `search` and `horn-mod` after the
+  reviewer's four fixes.
+- **18:10, Resume** after the five-hour limit (the session had stopped
+  at about 15:49): compare the mutants with the baseline, rerun the
+  timeouts alone, check the focused engine's `--in-diff` mutants, time
+  the three LLTP rows alone, `nix flake check`, the row, the last
+  message. Done in that order, the timings first while the machine was
+  quiet; the three agents the limit had stopped (the count's second
+  reviewer, its argument and integers lenses) resumed after them.
