@@ -85,6 +85,7 @@ const CASES: &[Case] = &[
         "refute-state-equation",
         &["prove", "!(A -o A * A), !(B * B -o C), A, B |- C"],
     ),
+    call("refute-one-sided", &["prove", "!A, A |- 1"]),
     call(
         "json-unbalanced",
         &["prove", "--deterministic", "--format", "json", "A |- A * A"],
@@ -112,6 +113,10 @@ const CASES: &[Case] = &[
             "json",
             "!(A -o A * A), !(B * B -o C), A, B |- C",
         ],
+    ),
+    call(
+        "json-one-sided",
+        &["prove", "--deterministic", "--format", "json", "!A, A |- 1"],
     ),
     // Every output format of a proof.
     call(

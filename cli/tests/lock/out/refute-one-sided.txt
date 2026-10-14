@@ -1,0 +1,5 @@
+$ linlog prove '!A, A |- 1'
+--- status 1
+--- stdout
+unprovable (MELL, classical, horn engine): ~A occurs 1 more time than A outside the exponentials of the one-sided sequent, and every literal of the atom below one, which copies add, is ~A, so they cannot all meet in axioms
+--- stderr
