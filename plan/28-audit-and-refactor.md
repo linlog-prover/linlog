@@ -517,6 +517,80 @@ supervisor's probes.
     `review/3.3`): their findings are the area's first fixes if they
     come before it ends, else they wait for run 3's session.
 
+## From the review of area 3.4 (2026-10-14)
+
+- **Verified** by the supervisor:
+  - `nix flake check --keep-going` passed at qvuvkroz, the area's head
+    with its records;
+  - one ceiling moved: `read-tptp` raised 2.2 % (32 260 169 to
+    32 958 815, ypzmzomx, the ordinary parser counting what waits
+    against the occurrence bound);
+  - F59's splits (ppsxqlln, zqmrmnwu, mpuzmwmy) are moves, by a
+    multiset of each commit's lines: beyond the lines moved, only
+    licence headers, module docs, `mod` and `use` lines, visibility and
+    the `impl` blocks around moved methods; kupqsmml (`prove.rs` into
+    `prove`, `show` and `check`) likewise, apart from paths qualified
+    with `show::`;
+  - `summary --against … --counters` counts problems: its 135 are the
+    225 decided rows of area 3.3's comparison (45 problems run three
+    times);
+  - on a release build of its own (cores 6 to 11): U1's entries `-x`
+    and `--y` under `--isolate` answer provable and unprovable, exit 1;
+    `⊢ a₁ & b₁, …, a₂₄ & b₂₄, ⊤` on the focused engine ends at 0.55 s
+    under 500 ms, 2.12 s under 2 s and 3.13 s under 3 s; `/dev/zero` is
+    refused by `prove` and `check` in 0.4 s, naming `--memory-limit`; an
+    `--isolate` entry under `--timeout none` ends at `--batch-timeout
+    1s` in 1.09 s; `check --help` shows its default of 2 s.
+- **Found by the review**, not fixed, for the step's end:
+  - after the focused engine finds a proof of `&` rules closed by `⊤`,
+    about a second passes without a poll: with 24 pairs every limit
+    from 0.9 to 1.8 s ends at 1.9 s, with 26 pairs 4 s ends at 6.4 s
+    (the proof found at about 0.85 s, then built, then checked;
+    `--no-check` ends at 1.6 s). The overrun is bounded by the search's
+    own work;
+  - that proof is not counted against `--memory-limit` (`core-search.md`
+    leaves "the proof returned" outside the account): 26 pairs peaked
+    at 4.6 GiB under the default 1 GiB before answering unknown at the
+    check, 24 pairs at 1.2 GiB, proved; 28 pairs would take about
+    19 GiB. README says that a search holds at most `--memory-limit`
+    bytes. A proof of `2ⁿ` branches from an input of `n` pairs is what
+    the exclusion did not foresee;
+  - README does not say that `check`'s time limit is two seconds unless
+    `--timeout` says otherwise; its help does, and the design's one
+    `Settings` gives it.
+- **Departures and decisions for the author** at the step's end, from
+  "Area 3.4: decided unattended" and the session's last message:
+  - `--jobs` sets two keys (`search.jobs`, and `clock.pool_after_ms =
+    null` unless `--pool-after` is given);
+  - an error record is `"verdict": "error"` (api.md §7.3 and §7.4 had a
+    record hold an outcome or an error);
+  - `Limits::work` does not count the focused engine's `&` rules, so
+    `ordinary_decide`'s 53 timeouts and 16 slow units stay; counting
+    them moves the default bias's slices and needs measurements;
+  - a text nested deeper than `--occurrence-limit` is refused as over
+    the bound (documented on `Limits::occurrences`);
+  - the last reader's remaining obstacles, in `plan/later.md`, "a first
+    user's obstacles".
+- **Left open by the area**: F188 (`compare.rs`'s tables) and F214's
+  timeout arm, declined with reasons; F218's scaling tests; CI builds
+  x86_64-linux alone. The rerun of the 24 timed-out mutants
+  (`step28-timeouts`) still ran at the review; it can only lower the
+  survivors.
+- **The ultra review of area 3.4** (run 3, on the first account): the
+  area's diff, pqrmsykr..qvuvkroz, is 23 201 lines. F59's moves
+  (pqrmsykr..mpuzmwmy, 10 990 lines) are checked above instead, and the
+  rest is two slices: `review/3.4a` at otvurtuv from mpuzmwmy (6 155
+  lines) and `review/3.4b` at qvuvkroz from otvurtuv (7 082 lines,
+  kupqsmml's move among them).
+- **For the step's end**: the report lacks the closing sections its
+  Deliverables name (the surface before and after, the table of what was
+  renamed or removed, the design and plan in a page, the efficiency
+  journeys since stage 0, the check rounds, decisions, deviations, open
+  questions, what steps 29 to 31 must know), and the register's
+  "State now" is still stage 0's, where stage 4 asks that it show every
+  requirement met or recorded with its reason. A closing session writes
+  both.
+
 ## Stage 0: requirements, baselines and gates (one session, Opus 5.5 at `high`)
 
 What the audit and the fixes are judged against, and what proves that a

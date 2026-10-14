@@ -2252,3 +2252,25 @@ client follows it (step 32).
   The review reran `nix flake check`, compared both target sets with
   their oracles, and reran H18's witness and the Mix's stack on its own
   build. Next: area 3.4, the command, harness, flake and documents.
+- 2026-10-14: review of step 28's area 3.4, the command, the harness,
+  the flake and the documents (one session, Opus 5.5 at high, 07:41 to
+  09:24 on 2026-10-13 and 00:48 to 06:10 on 2026-10-14, paused between):
+  - the command reads one `Settings` (its defaults, `--settings FILE`,
+    then its flags), `check` answers unknown at a limit, every input is
+    read within the memory and occurrence limits, and a batch's records
+    carry a verdict and the library's error;
+  - the checker, the derivation view, a session and `prove.rs` split
+    into modules as moves; the harness's tables and comparisons through
+    one summary, `summary --against … --counters` the target set's check;
+  - the flake builds the library for wasm, documents the private items
+    and compiles the default LaTeX and Typst fragments;
+  - three check rounds, a fresh-context reviewer, the ultra reviews'
+    one finding and the last reader, every finding fixed or decided;
+    every mutation batch and fuzz target again, which found the focused
+    engine's `&` rules unpolled (fixed).
+
+  The review reran `nix flake check`, checked the splits as moves and
+  the area's fixes on its own build, and found a proof of `2ⁿ` branches
+  outside the memory limit. Next: a closing session for the report and
+  the register, then signing, the push and the last ultra review with
+  the author.

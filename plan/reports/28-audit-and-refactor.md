@@ -57,8 +57,8 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.1 the library's API, data model and wire forms | done (session `step-28d`, 2026-10-09 to 10-10; reviewed by the supervisor) | sub-items below; `nix flake check` passed at kktkswpq |
 | 3.2 the search | done (session `step-28e`, 2026-10-10) | sub-items below; every code commit gated; the target sets equal; three check rounds, the fresh-context reviewer (no finding), the mutation run; `nix flake check` passed at vuuroryz |
 | 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
-| 3.4 the command, the harness, the flake and the documents | open | |
-| last reader of the rustdoc front page and README | open | |
+| 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
+| last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
 
 #### Area 3.1, item by item (session `step-28d`)
 
