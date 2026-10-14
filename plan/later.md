@@ -765,12 +765,33 @@ there:
   second. Γ by its members would halve that; `Θ` spans the forest on a
   net of transitions, so the rest needs `Θ` interned (an id carried
   with it, shared by a pool's workers), a rewrite of `memo.rs`, the
-  shared memo and the signatures that pass `Θ`.
+  shared memo and the signatures that pass `Θ`. *Done in step 28's
+  follow-up `step-28j` (2026-10-14):* `Θ` interned, `Γ` by its members,
+  records of varying length; the target set's counters equal, both rows
+  1.45 and 2.19 times the stable sequents in 10 s on one core, and
+  18 % and 36 % fewer instructions per stable sequent over the same work
+  (step 28's report has the table). What the key left: on a forest of a
+  word or two a member list is larger than the bitsets were (the memo's
+  entries larger, `mix/10` none the slower), and the unit of work still
+  counts the forest's width per stable sequent, which moves the default
+  bias's slices if it goes.
 - **`Θ`'s members by class** (`one_of_each_copy`) are kept for one `Θ`
   only and sorted again when the next stable sequent's differs: 12.9 %
   of `SYJ207+1.018` (2026-10-13), whose branches alternate between
   `Θ`s. A small cache of several, or the sort kept with each `Θ` where
-  it grows.
+  it grows. *Since the sparse key (2026-10-14)* the cache is keyed by
+  `Θ`'s id, so a cache of several costs a compare of a word each, and
+  the sort is the largest cost left on that row: `one_of_each_copy` and
+  its sort 34 % of the instructions (callgrind, 100 million units of
+  work without a copy bound), beside the copies' `meets` walk.
+- **`a_raised_limit_holds_on_the_pool` overflows the test thread's
+  stack in a debug build run with one test thread**
+  (`RUST_TEST_THREADS=1`, or `cargo test -p linlog --features parallel`
+  alone), at the head before step 28's sparse key as after it, and
+  passes with `RUST_MIN_STACK=67108864`; the search runs on the pool's
+  threads, so the depth is in the set-up on the calling thread. Found
+  by `step-28j`'s panel; why the gate's `cargo test --workspace` passes
+  it was not looked into.
 - **The canonical key** is built for every stable sequent of a forest
   with two equal formulas (38 % of `HypercubeGrid_hc3k4p4b12_5_1`).
   *Done in step 28's area 3.3 (F150):* only where a member of the zone
