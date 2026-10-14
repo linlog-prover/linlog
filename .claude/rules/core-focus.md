@@ -597,7 +597,10 @@ relies on:
   With exponentials, an atom with literals of both signs below a `?` or
   `!` in the problem gets no row entries anywhere (copies can balance it
   either way); one whose literals there all have one sign keeps the
-  entries of every literal of it, and the rows of `!` and `?` stay
+  entries of every literal of it where the interval check runs (linear
+  mode, no `⊤` below an exponential; elsewhere the rows would only
+  reorder the split search, a panel found one intuitionistic proof 2.6
+  times as long), and the rows of `!` and `?` stay
   empty: a copy in `Γ` is used once, `Θ`'s members are not in the tally,
   and copies yet to come can only push the balance in that sign's
   direction (`Counts::copied` per rank, `Counts::excluded`: with every

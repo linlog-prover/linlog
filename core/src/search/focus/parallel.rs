@@ -126,10 +126,12 @@ impl Plan {
     ) -> Finished {
         // The longest pass of the set-up reads the flags too.
         let forest = set_up.task.forest;
-        let counts = match Counts::new_until(forest, self.bias, account, &mut |_| flags.raised()) {
-            Ok(counts) => counts,
-            Err(reason) => return Finished::gave_up(reason),
-        };
+        let mode = set_up.task.mode;
+        let counts =
+            match Counts::new_until(forest, self.bias, mode, account, &mut |_| flags.raised()) {
+                Ok(counts) => counts,
+                Err(reason) => return Finished::gave_up(reason),
+            };
         let memo = Shared::new(set_up.options.memo_entries());
         let arena = Mutex::new(Vec::new());
         let (result, statistics) = {

@@ -59,8 +59,10 @@ pub(crate) fn without_one_sided<T>(f: impl FnOnce() -> T) -> T {
 ///
 /// A literal below a `?` or `!` can be copied any number of times, none
 /// included. An atom with literals of both signs there gets no entry in
-/// any row: copies can balance it either way. An atom whose literals there
-/// all have one sign keeps its entries, each literal's, since a copy in
+/// any row: copies can balance it either way. Where the interval check
+/// runs (in linear mode, with no `⊤` below an exponential), an atom whose
+/// literals there all have one sign keeps its entries, each literal's,
+/// since a copy in
 /// the linear zone is used once, while the rows of a `!` or `?` stay
 /// empty; its balance can then grow without bound in that sign's
 /// direction only, so a set is ruled out by the other bound alone
@@ -222,8 +224,14 @@ impl Counts {
     /// the literals that are positive under the bias given.
     #[cfg(any(all(test, feature = "parse"), feature = "interactive"))]
     pub(crate) fn new(forest: &Forest, bias: Bias) -> Self {
-        Self::new_until(forest, bias, &Account::new(None), &mut |_| false)
-            .expect("nothing stops it")
+        Self::new_until(
+            forest,
+            bias,
+            Mode::CLASSICAL,
+            &Account::new(None),
+            &mut |_| false,
+        )
+        .expect("nothing stops it")
     }
 
     /// Computes the rows and weights of every occurrence of a forest, and
@@ -239,6 +247,7 @@ impl Counts {
     pub(crate) fn new_until(
         forest: &Forest,
         bias: Bias,
+        mode: Mode,
         account: &Account,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Self, Reason> {
@@ -298,8 +307,14 @@ impl Counts {
                 return Err(Reason::Stopped);
             }
         }
+        // Copies of one sign bound a balance only where the interval check
+        // runs: not under weakening, and not where a copy of a `⊤` absorbs
+        // any imbalance. There such an atom gets no rows, which would only
+        // reorder the split search, which sorts members by their rows.
+        let one_sided = !mode.affine && !absorbs_from_copies;
         #[cfg(test)]
-        if !ONE_SIDED.get() {
+        let one_sided = one_sided && ONE_SIDED.get();
+        if !one_sided {
             for signs in &mut exponential {
                 if signs.contains(&true) {
                     *signs = [true; 2];
@@ -1007,7 +1022,7 @@ pub(crate) fn refutation(
     account: &Account,
     stop: &mut dyn FnMut(u64) -> bool,
 ) -> Refutation {
-    let Ok(counts) = Counts::new_until(forest, Bias::Rarer, account, stop) else {
+    let Ok(counts) = Counts::new_until(forest, Bias::Rarer, mode, account, stop) else {
         return Refutation::Exhausted;
     };
     let rules = Switches::new(fragment, mode, &counts);
@@ -1101,6 +1116,25 @@ mod tests {
             t.add(&c, r);
         }
         (f, c, t)
+    }
+
+    /// An atom whose literals below the exponentials all have one sign
+    /// gets rows only where the interval check runs: in linear mode and
+    /// with no `⊤` below an exponential.
+    #[test]
+    fn rows_of_one_sign_only_where_the_check_runs() {
+        let ranked = |input: &str, mode: Mode| {
+            let s: Sequent = input.parse().unwrap();
+            let f = Forest::new(&s).unwrap();
+            let c = Counts::new_until(&f, Bias::Auto, mode, &Account::new(None), &mut |_| false)
+                .unwrap();
+            c.ranked.len()
+        };
+        assert_eq!(ranked("|- ?a, a", Mode::CLASSICAL), 1);
+        assert_eq!(ranked("|- ?a, a", Mode::INTUITIONISTIC), 1);
+        assert_eq!(ranked("|- ?a, a", Mode::CLASSICAL.with_affine()), 0);
+        assert_eq!(ranked("|- ?(a & top), a", Mode::CLASSICAL), 0);
+        assert_eq!(ranked("|- ?a, ?~a, a", Mode::CLASSICAL), 0);
     }
 
     /// Rows sum under the multiplicatives, take the hull under the

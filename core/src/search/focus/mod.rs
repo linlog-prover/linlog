@@ -206,7 +206,7 @@ pub(crate) fn search_goal(
     };
     let Some(second) = second else {
         account.charge(classes.bytes());
-        let counts = match Counts::new_until(forest, first.bias, account, stop) {
+        let counts = match Counts::new_until(forest, first.bias, task.mode, account, stop) {
             Ok(counts) => counts,
             Err(reason) => return gave_up(reason),
         };
@@ -221,11 +221,12 @@ pub(crate) fn search_goal(
     for account in &accounts {
         account.charge(classes.bytes());
     }
-    let first_counts = match Counts::new_until(forest, first.bias, &accounts[0], stop) {
+    let first_counts = match Counts::new_until(forest, first.bias, task.mode, &accounts[0], stop) {
         Ok(counts) => counts,
         Err(reason) => return gave_up(reason),
     };
-    let second_counts = match Counts::new_until(forest, second.bias, &accounts[1], stop) {
+    let second_counts = match Counts::new_until(forest, second.bias, task.mode, &accounts[1], stop)
+    {
         Ok(counts) => counts,
         Err(reason) => return gave_up(reason),
     };
