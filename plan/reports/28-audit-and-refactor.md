@@ -59,7 +59,7 @@ its evidence (a commit, a file, a command's result) once it is done.
 | 3.3 efficiency | done (session `step-28f`, 2026-10-13; reviewed by the supervisor) | sub-items below; every code commit gated; the target sets equal; two check rounds and the fresh-context reviewer, every finding fixed or decided; mutants and fuzzing of what changed; F148 a decision for `planning`; `nix flake check` passed at twzoumll |
 | 3.4 the command, the harness, the flake and the documents | done (session `step-28g`, 2026-10-13 to 10-14; reviewed by the supervisor) | sub-items below; every code commit gated; the families and the target set equal; three check rounds, the fresh-context reviewer and the ultra reviews' U1, every finding fixed or decided; every mutation batch and fuzz target again; `nix flake check` passed at nvxqnwxr |
 | last reader of the rustdoc front page and README | done (Fable 5.1 at `high`, in `step-28g`) | area 3.4's row l: two must-fix obstacles answered in koqypwoq and `plan/later.md`, the rest in `plan/later.md`, "a first user's obstacles" |
-| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); to come: the mutants' timeouts in row k, `nix flake check` |
+| closing: the report's sections and the register | running (session `step-28h`, 2026-10-14) | tsuoupvz: README states `check`'s default time limit (README's test passed); qlplwuru: every register entry's "State after step 28" (13 read-only agents, one per kind; 31 met, 107 partly, 116 not met; a sample of the met claims checked here, R194 moved to partly); the closing sections below ("The step's outcome" to "The register after step 28"), the renamed table checked by an agent against the code (184 rows, 183 confirmed); `nix flake check --keep-going` passed at szmktwow (unit `step28-flake-check`, cores 2 to 5; its features check logs six unused imports of `proofs/interactive/replay.rs` without `serialize`, open question 8); to come: the mutants' timeouts in row k |
 
 #### Area 3.1, item by item (session `step-28d`)
 
@@ -1460,7 +1460,17 @@ The decisions the review sections hand to the author at the step's end:
    sentence that `linlog_cli` carries no semver promise (`api.md` 2.3,
    R253); and `.claude/rules/cli.md:260` still names `alone_first`,
    which `search::race` replaced.
-8. The third ultra review (`review/3.4a`, `review/3.4b`): its findings,
+8. Found by this session's `nix flake check` (which passed): the
+   features check warns, under every feature set with `interactive` and
+   without `serialize` (ten of them, `--features interactive` first),
+   that six imports of `core/src/proofs/interactive/replay.rs` (lines 8
+   to 13) are unused: the file's two items, `Interactive::from_parts` and
+   `replay`, are each `#[cfg(feature = "serialize")]`, and the move that made the file
+   (mpuzmwmy, F59) did not gate the module or its imports. The
+   conventions ask that both `cargo hack` runs stay free of warnings,
+   and neither the gate nor the check denies them. A code change for a
+   session after this one.
+9. The third ultra review (`review/3.4a`, `review/3.4b`): its findings,
    if any, are fixed in a short session after this one, with the gate
    and `nix flake check`.
 
