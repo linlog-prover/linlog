@@ -93,6 +93,9 @@ serde_json, which the CLI and the core's tests already have.
   and the generated problems side by side. A verdict after the time
   limit counts as decided and late. `bench/COMPARISON.md` is its output
   for the two baselines, under a summary written by hand.
+  `bench/tests/compare.rs` pins both modes' printed tables on a pair of
+  three-row files (a verdict, a counter and a decision that differ), by
+  running the binary: a change of what `summary` prints changes it.
 - `problems/slow-tests.txt`: problems of the engine reports' timing tables
   that no family generates (the Partition instances of the net engine's
   first table, the chain with a token over, the parallel cancellation
