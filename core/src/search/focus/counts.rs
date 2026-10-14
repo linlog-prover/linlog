@@ -41,6 +41,13 @@ pub(crate) fn without_one_sided<T>(f: impl FnOnce() -> T) -> T {
     f()
 }
 
+/// Returns whether the interval check runs in `mode`, where a `⊤` lies
+/// below an exponential or not (`absorbs_from_copies`): weakening discards
+/// any imbalance, and a copy of a `⊤` absorbs one.
+pub(crate) const fn intervals_run(mode: Mode, absorbs_from_copies: bool) -> bool {
+    !mode.affine && !absorbs_from_copies
+}
+
 /// What a formula occurrence can contribute to the per-atom balance of a
 /// sequent, and to the `MLL` count equation, precomputed for every
 /// occurrence of a forest.
@@ -60,21 +67,26 @@ pub(crate) fn without_one_sided<T>(f: impl FnOnce() -> T) -> T {
 /// A literal below a `?` or `!` can be copied any number of times, none
 /// included. An atom with literals of both signs there gets no entry in
 /// any row: copies can balance it either way. Where the interval check
-/// runs (in linear mode, with no `⊤` below an exponential), an atom whose
-/// literals there all have one sign keeps its entries, each literal's,
-/// since a copy in
-/// the linear zone is used once, while the rows of a `!` or `?` stay
-/// empty; its balance can then grow without bound in that sign's
-/// direction only, so a set is ruled out by the other bound alone
-/// ([`excluded`](Self::excluded)): with every `a` below an exponential
-/// positive, a least balance above zero, which copies of `a` only raise.
-/// Over the rules of the calculus: an axiom and the initial rule from `Θ`
-/// pair a literal with its dual, one of them a copy where `Θ` gives it; a
-/// copy adds to `Γ` a member whose entries all have the copied sign; a
-/// promotion's `!A` has an empty row; `⊗`, `⅋` and Mix add rows, `&` and
-/// `⊕` take hulls. A `⊤` below a `?` or `!` makes the check useless
-/// altogether, since a copy of it absorbs any imbalance;
-/// [`absorbs_from_copies`](Self::absorbs_from_copies) says so.
+/// runs ([`intervals_run`]: in linear mode, with no `⊤` below an
+/// exponential), an atom whose literals there all have one sign keeps its
+/// entries, each literal's, while the rows of a `!` or `?` stay empty, and
+/// a set is ruled out by one bound alone ([`excluded`](Self::excluded)).
+/// The invariant, for every provable dyadic sequent `Θ ; Γ`, whatever `Θ`
+/// holds, unless a member of `Γ` absorbs: for an atom with every literal
+/// below an exponential positive, the least balance of `Γ`'s rows is at
+/// most zero (negative: the greatest at least zero; none below one: zero
+/// lies between them). By induction on the proof: an axiom's `Γ` is a
+/// literal and its dual, and the initial rule from `Θ` leaves a lone
+/// literal whose dual, a copy, has the copied sign; `⊗`, `⅋` and Mix add
+/// their premises' rows, `&` and `⊕` take hulls, which hold the premise's
+/// least; `1`, `⊥`, a promotion's `!A` (with `Γ` empty above it) and a
+/// weakening of a `?` formula count nothing; `?A` moves `A` into `Θ`,
+/// which no row counts, and its own row is empty; a copy from `Θ` adds a
+/// member whose entries all have the copied sign, so its least is at
+/// least zero and `Γ`'s least was at most the premise's. A `⊤` below a `?`
+/// or `!` makes the check useless altogether, since a copy of it absorbs
+/// any imbalance; [`absorbs_from_copies`](Self::absorbs_from_copies) says
+/// so.
 ///
 /// **Weight.** In the multiplicative fragment with units, every cut-free
 /// proof of a sequent of `c` formulas with `t` tensors, `p` pars, `u` ones
@@ -221,7 +233,9 @@ impl Rows {
 
 impl Counts {
     /// Computes the rows and weights of every occurrence of a forest, and
-    /// the literals that are positive under the bias given.
+    /// the literals that are positive under the bias given: those of a
+    /// linear mode, which differ from an affine mode's only in rows the
+    /// interval check does not read there.
     #[cfg(any(all(test, feature = "parse"), feature = "interactive"))]
     pub(crate) fn new(forest: &Forest, bias: Bias) -> Self {
         Self::new_until(
@@ -308,10 +322,9 @@ impl Counts {
             }
         }
         // Copies of one sign bound a balance only where the interval check
-        // runs: not under weakening, and not where a copy of a `⊤` absorbs
-        // any imbalance. There such an atom gets no rows, which would only
+        // runs. Elsewhere such an atom gets no rows, which would only
         // reorder the split search, which sorts members by their rows.
-        let one_sided = !mode.affine && !absorbs_from_copies;
+        let one_sided = intervals_run(mode, absorbs_from_copies);
         #[cfg(test)]
         let one_sided = one_sided && ONE_SIDED.get();
         if !one_sided {

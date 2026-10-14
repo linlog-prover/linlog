@@ -17,7 +17,9 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// may refute a Horn program by its state equation, whatever its search
 /// found. A refutation means something only with its sequent, goal and
 /// mode, which a [`Disproof`] holds; its [`Display`] writes atoms by
-/// number (`#0`), the disproof's by name.
+/// number (`#0`), the disproof's by name. Of a goal off the roots, the
+/// "one-sided sequent" a count speaks of is the goal: its members, which
+/// may lie below an exponential of the sequent, are counted as written.
 ///
 /// In JSON (feature `serialize`) a refutation, as an unprovable outcome's
 /// and a disproof's `refutation`, is tagged by `kind`: `{"kind": "exhausted"}`, `{"kind": "unbalanced",

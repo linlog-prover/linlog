@@ -69,7 +69,7 @@ mod waiting;
 use self::arena::Arena;
 use self::classes::Classes;
 use self::context::Context;
-use self::counts::{Counts, Split, Tally};
+use self::counts::{Counts, Split, Tally, intervals_run};
 use self::memo::{Entry, Failure, Inserted, Key, Table, Zones};
 use self::schedule::{Plan, plan, turns};
 use self::scratch::{Pooled, Pools};
@@ -320,7 +320,7 @@ impl Switches {
                 && !fragment.has_additives()
                 && !fragment.has_additive_units()
                 && !exponentials,
-            intervals: !mode.affine && !counts.absorbs_from_copies(),
+            intervals: intervals_run(mode, counts.absorbs_from_copies()),
             exponentials,
             affine: mode.affine,
             stack: exponentials,
