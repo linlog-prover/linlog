@@ -3140,6 +3140,58 @@ mod tests {
         );
     }
 
+    /// The table "Which engine decides a goal" of `Engine`'s
+    /// documentation lists the rows of `DISPATCH` in their order: each
+    /// row's fragment, its modes by the cell's first word, a feature
+    /// exactly where the row asks one, and its engine.
+    #[test]
+    fn the_documented_dispatch_is_the_dispatch() {
+        let section = include_str!("mod.rs")
+            .split("/// # Which engine decides a goal")
+            .nth(1)
+            .expect("the section");
+        let rows: Vec<Vec<&str>> = section
+            .lines()
+            .skip(1)
+            .map_while(|line| line.strip_prefix("///"))
+            .map(str::trim)
+            .filter(|line| line.starts_with('|'))
+            .skip(2)
+            .map(|line| line.trim_matches('|').split('|').map(str::trim).collect())
+            .collect();
+        assert_eq!(rows.len(), DISPATCH.len(), "{rows:?}");
+        for (cells, row) in rows.iter().zip(&DISPATCH) {
+            let fragment = match cells[0] {
+                "additives only" => Fragment::ADDITIVE,
+                "unit-free MLL" => Fragment::MLL,
+                "MELL" => Fragment::MELL,
+                "any" => Fragment::LL,
+                other => panic!("a fragment the test does not know: {other:?}"),
+            };
+            let modes = match cells[1].split([',', ' ']).next() {
+                Some("any") => Modes::Any,
+                Some("linear") => Modes::Linear,
+                Some("classical") => Modes::Classical,
+                Some("intuitionistic") => Modes::Intuitionistic,
+                other => panic!("modes the test does not know: {other:?}"),
+            };
+            let engine = cells[3]
+                .split_once("(Engine::")
+                .and_then(|(_, rest)| rest.split_once(')'))
+                .map(|(name, _)| name);
+            assert_eq!(
+                (fragment, modes, cells[2].is_empty(), engine),
+                (
+                    row.fragment,
+                    row.modes,
+                    row.feature == Feature::Any,
+                    Some(format!("{:?}", row.engine).as_str())
+                ),
+                "{cells:?}"
+            );
+        }
+    }
+
     /// A Horn program with a clause under `!` goes to the Horn engine in
     /// every mode, with Mix and in affine mode too; the other sequents
     /// with exponentials to the focused engine; and the net engine is
