@@ -124,6 +124,10 @@ struct Parser<'a> {
     /// counted against the bound when it is read, so that a run of them
     /// is refused before it is reduced.
     owed: u64,
+    /// How many `(` and `~` wait in `pending`: they make no term, and are
+    /// refused past the bound all the same, so that a run of them cannot
+    /// pile up.
+    marks: u64,
     /// The most terms the arena may hold: the bound, and never more than
     /// a forest indexes.
     most: u64,
@@ -150,6 +154,7 @@ impl<'a> Parser<'a> {
             pending: Vec::new(),
             open: 0,
             owed: 0,
+            marks: 0,
             most,
             limit,
         }
@@ -246,6 +251,7 @@ impl<'a> Parser<'a> {
                 Pending::Dual => {
                     self.negate(operand);
                     self.pending.pop();
+                    self.marks -= 1;
                     continue;
                 }
                 // Each pays the term it owed.
@@ -319,12 +325,14 @@ impl<'a> Parser<'a> {
 
     /// Notes an operator that stands before its operand, or an open
     /// parenthesis. Two `~` in a row cancel, so a run of them waits as
-    /// one at most; a `!` or `?` is counted as the term it will be.
+    /// one at most; a `!` or `?` is counted as the term it will be, and a
+    /// `(` or `~` as a mark, of which no more than the bound may wait.
     fn prefix(&mut self, operator: Pending) -> Result<State, Error> {
         self.empty = false;
         match operator {
             Pending::Dual if matches!(self.pending.last(), Some(Pending::Dual)) => {
                 self.pending.pop();
+                self.marks -= 1;
                 return Ok(State::Operand);
             }
             Pending::Bang | Pending::Quest => {
@@ -333,7 +341,13 @@ impl<'a> Parser<'a> {
                     return Err(self.past_bound());
                 }
             }
-            Pending::Open | Pending::Dual | Pending::Binary(..) => {}
+            Pending::Open | Pending::Dual => {
+                self.marks += 1;
+                if self.marks > self.most {
+                    return Err(self.past_bound());
+                }
+            }
+            Pending::Binary(..) => {}
         }
         self.pending.push(operator);
         Ok(State::Operand)
@@ -449,6 +463,7 @@ impl<'a> Parser<'a> {
                 // What stopped the reduction is the open parenthesis.
                 self.pending.pop();
                 self.open -= 1;
+                self.marks -= 1;
                 return Ok(State::Operator(inner));
             }
             _ if starts_identifier(c) && self.identifier(start) == "par" => Binary::Par,

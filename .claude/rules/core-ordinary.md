@@ -36,7 +36,8 @@ translating into linear logic, and the linear proof read back as LK or LJ.
   defaults), and at the operator past it of those waiting for their
   operand (`Parser::wait`: they lie on one branch, so each will be a
   formula of its own; a run of `~` or of `->` piled up 100 bytes per
-  byte of text before), and `translate`
+  byte of text before), and at the open parenthesis past it, which
+  makes no formula but would pile up as well, and `translate`
   refuses an image that unfolds past it, before a forest is laid out
   (`names_read_back_and_bounds_hold`). The command reads, parses and
   translates within its `--occurrence-limit`. `Logic` and

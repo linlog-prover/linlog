@@ -754,7 +754,7 @@ mod tests {
         ));
         // What waits for its operand counts too: a run of `~` or of `->`
         // is refused before the parse error after it.
-        for run in ["~".repeat(100), "a -> ".repeat(100)] {
+        for run in ["~".repeat(100), "a -> ".repeat(100), "(".repeat(100)] {
             assert!(refused(
                 Sequent::parse_within(&format!("{run}a b"), &bound(10)).map(|_| ())
             ));

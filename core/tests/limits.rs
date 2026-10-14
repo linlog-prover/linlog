@@ -69,6 +69,15 @@ fn the_readers_refuse_past_the_occurrences() {
             Err(Error::Refused(Refusal::Occurrences { .. }))
         ));
     }
+    // A run of `(`, or of `~(`, makes no term and is refused past the
+    // bound all the same.
+    for run in ["(", "~("] {
+        let text = format!("|- {}A B", run.repeat(1000));
+        assert!(matches!(
+            Sequent::parse_within(&text, &limits),
+            Err(Error::Refused(Refusal::Occurrences { .. }))
+        ));
+    }
     // Two `~` cancel as they are read, so a run of them is one at most.
     let even = format!("|- {}A", "~".repeat(1000));
     assert_eq!(

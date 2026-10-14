@@ -160,6 +160,9 @@ impl<'a> Parser<'a> {
                 if self.eat("(") {
                     self.open += 1;
                     self.pending.push(Pending::Open);
+                    // A parenthesis makes no formula, but no more than the
+                    // bound may wait, so that a run of them cannot pile up.
+                    count_within(self.open, self.limit)?;
                 } else if self.negation() {
                     self.wait(Pending::Not)?;
                 } else {
