@@ -957,6 +957,12 @@ signed-off design or from a finding's proposed fix it says so.
   **F183's resume key** stays `run`'s own (`finished`): it must match
   the rows a run appends, a file's own columns, which `configuration`
   reads too; `summary.rs`'s module doc now names both.
+- **`session_steps` builds its session from text, not from a file read
+  back** (F218's second part, declined): reading a session
+  (`Interactive::from_parts`, through `wire::upgrade`) replays every
+  closed inference through the same steps `apply` takes, so a session
+  read back is one those steps built; `json_session` fuzzes the read
+  itself.
 - **`--settings -` and `--style-file -` are refused**: standard input
   carries the sequent or a session's commands (the input lens found the
   settings read in their place).
