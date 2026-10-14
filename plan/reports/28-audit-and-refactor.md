@@ -2602,3 +2602,61 @@ reason), which go to the supervisor with this session's last message.
   message. Done in that order, the timings first while the machine was
   quiet; the three agents the limit had stopped (the count's second
   reviewer, its argument and integers lenses) resumed after them.
+
+### Where you start, `step-28j` (2026-10-14 evening)
+
+- `step-28j` is the last follow-up session of step 28 (Opus 5.5 at
+  `xhigh`): F148, the sparse memo key, then F188's rest and the
+  register's leftovers, all decided by the author on 2026-10-14 (the
+  step prompt's "The author's answers at the step's end"). The session
+  ends with every code commit gated, the target sets after the change of
+  the memo, a fresh-context reviewer (Opus 5.5 at `high`) of the whole
+  diff, the mutants of the files it changed run from a jj workspace of
+  its own, a passing `nix flake check`, all committed, a row of its own
+  in the Stage 3 and 4 table ("follow-up: F148, F188's rest and the
+  register's leftovers") and its last message sent to `planning`.
+- Read first: the step prompt's "The author's answers at the step's end"
+  and "From the review of `step-28i`"; `plan/later.md`, "A sparse memo
+  key" and the entries after it on `Θ`'s members by class; F148 and F188
+  in `28-audit-findings.json` and what areas 3.3 and 3.4 recorded on
+  them; `core-focus.md` and `core-search.md`; R87 and R138 in
+  `plan/notes/requirements.md` and `plan/notes/api.md` 8.4.
+- 1. F148: Γ by its sorted members with their extra copies; `Θ`, which
+  only grows along a branch, interned (an id carried with it, shared by
+  a pool's workers); hashed and compared over the members; records of
+  varying length in the chunks, with a length word; `memo_limit` counts
+  entries as before. The evidence of a search change in full: both
+  target sets against `after-efficiency.csv` and
+  `net-after-efficiency.csv` with `summary --against … --counters`
+  (every decided row whose counters differ listed and explained), the
+  families, qcover if `search/horn/` changes, step 26's panel of three
+  lenses (the counterexamples lens on a pool too, `--jobs 4`, the shared
+  memo, with the memo under memory pressure, naming the rows whose memo
+  the memory bound empties). The speed, timed alone on core 2 or 3:
+  `SYJ207+1.018` and `SYJ212+1.010` without a copy bound, old and new,
+  three runs each, stable sequents per second; the ratchet's journeys
+  (`ratchet --lower` in a commit of its own, a raise explained in its
+  commit). A gain under 10 % on those rows, or a journey costing more
+  than the gain, goes to `planning` before it lands.
+- 2. Then, each a commit of its own, gated: F188's rest (a test of
+  `compare.rs`'s printed tables, a pair of CSVs with a verdict that
+  differs); R87 (the `Engine` documentation's table and
+  `search::DISPATCH` in the same rows and order); R138's two tests (a
+  memory bound too tight for the check gives `Unknown(Reason::Unchecked)`
+  through `prove` and exit status 3 through the command; the default
+  pair's merged reason pinned); `Node::members` without its `_` arm;
+  `core/src/sequents/mod.rs:72`'s atom name called a variable; the
+  pool's drop of the failures that wait pinned by a test. R87's and
+  R138's "State after step 28" brought up to date.
+- Benchmarks are allowed, a line to `planning` when a run starts and
+  ends; timed runs pinned on core 2 or 3 with nothing heavy beside;
+  probes capped. Cores 0 and 1 the desktop's, builds on 2 to 5, agents'
+  programs and long runs on 6 to 15, every scope or unit `step28-…`, no
+  two of the session's runs on one core. Wait on a run with a background
+  watcher. Mutation runs from a workspace of their own at the head, a
+  timed-out mutant rerun alone before it counts; workspaces named
+  `../linlog-step28j-…` and listed in the last message. Departures from
+  the design marked "(departs from the design)" in the row's "decided
+  unattended" list. Signing has lapsed: test before each commit, commit
+  with `--config signing.behavior=drop` while it fails. Max 5x, no
+  weekly stop; keep the checklist current for a pause.
