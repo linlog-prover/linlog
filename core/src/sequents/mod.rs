@@ -15,7 +15,8 @@ pub(crate) mod notation;
 pub mod term;
 
 pub use fmt::Formula;
-pub(crate) use fmt::{Visit, Walk};
+pub(crate) use fmt::{Stop, Stops};
+pub use fmt::{Visit, Walk};
 pub use term::{Atom, Kind, Term, TermId};
 
 use crate::hash::HashMap;

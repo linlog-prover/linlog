@@ -20,8 +20,8 @@
 use super::{Forest, OccId};
 use crate::errors::describe::{Limit, cut};
 use crate::errors::{Described, Owner, Subject};
-use crate::sequents::Kind;
 use crate::sequents::notation::TEXT;
+use crate::sequents::{Kind, Walk};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -429,6 +429,61 @@ impl<'a> Reading<'a> {
         }
     }
 
+    /// Returns the connective, unit or atom that the occurrence `o` is as
+    /// an intuitionistic formula in its position: an output `⅋` or an input
+    /// `⊗` is an implication, `⊥` is `1`, an input `⊤` is `0`, and so on.
+    pub fn connective(&self, o: OccId) -> IllConnective {
+        use IllConnective as C;
+        match (self.forest.kind(o), self.position(o)) {
+            (Kind::Atom | Kind::DualAtom, _) => C::Atom,
+            (Kind::One | Kind::Bot, _) => C::One,
+            (Kind::Top, Side::Output) | (Kind::Zero, Side::Input) => C::Top,
+            (Kind::Zero, Side::Output) | (Kind::Top, Side::Input) => C::Zero,
+            (Kind::Bang | Kind::Quest, _) => C::Bang,
+            (Kind::Tensor, Side::Output) | (Kind::Par, Side::Input) => C::Tensor,
+            (Kind::Tensor, Side::Input) | (Kind::Par, Side::Output) => C::Lollipop,
+            (Kind::With, Side::Output) | (Kind::Plus, Side::Input) => C::With,
+            (Kind::Plus, Side::Output) | (Kind::With, Side::Input) => C::Plus,
+        }
+    }
+
+    /// Returns the walk over the intuitionistic formula at `o`: the stops
+    /// a printer of it in another syntax follows, each naming an
+    /// occurrence whose [`connective`](Self::connective) says what it is,
+    /// the operands of an implication its antecedent and then its
+    /// consequent.
+    #[cfg_attr(feature = "parse", doc = "```")]
+    #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
+    /// use linlog::occurrences::IllConnective;
+    /// use linlog::sequents::Visit;
+    /// use linlog::{Forest, Reading, Sequent};
+    ///
+    /// let sequent: Sequent = "a |- !b -o a".parse()?;
+    /// let forest = Forest::new(&sequent)?;
+    /// let reading = Reading::new(&forest)?;
+    /// let mut out = String::new();
+    /// for visit in reading.walk(reading.goal()) {
+    ///     match visit {
+    ///         Visit::Enter(o) => match reading.connective(o) {
+    ///             IllConnective::Atom => {
+    ///                 let atom = forest.atom(o).unwrap();
+    ///                 out += sequent.atom_name(atom);
+    ///             }
+    ///             IllConnective::Bang => out += "!",
+    ///             _ => out += "(",
+    ///         },
+    ///         Visit::Between(..) => out += " -> ",
+    ///         Visit::Exit(o) if reading.connective(o) == IllConnective::Bang => {}
+    ///         Visit::Exit(_) => out += ")",
+    ///     }
+    /// }
+    /// assert_eq!(out, "(!b -> a)");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn walk(&self, o: OccId) -> Walk<'_, OccId> {
+        Walk::new(o, |o| self.operands(o))
+    }
+
     /// Returns the first and the second subformula of the intuitionistic
     /// formula at `o`, each if there is one, in the order they are written:
     /// of an implication the antecedent, then the consequent.
@@ -446,6 +501,32 @@ impl Display for Reading<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         TEXT.reading(f, self)
     }
+}
+
+/// What an occurrence is as a formula of intuitionistic linear logic
+/// under its position: the table every printer of a reading follows.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum IllConnective {
+    /// An atom `a`, written `a` in output position and `~a` in input.
+    Atom,
+    /// `1`, an output `1` or an input `⊥`.
+    One,
+    /// `0`, an output `0` or an input `⊤`.
+    Zero,
+    /// `⊤`, an output `⊤` or an input `0`.
+    Top,
+    /// `!A`, an output `!` or an input `?`.
+    Bang,
+    /// `A ⊗ B`, an output `⊗` or an input `⅋`.
+    Tensor,
+    /// `A & B`, an output `&` or an input `⊕`.
+    With,
+    /// `A ⊕ B`, an output `⊕` or an input `&`.
+    Plus,
+    /// `A ⊸ B`, an output `⅋` or an input `⊗`, whose antecedent is its
+    /// first operand.
+    Lollipop,
 }
 
 /// An intuitionistic formula of a read sequent, as a value that prints it.

@@ -70,7 +70,7 @@ use crate::fragment::{Fragment, Mode};
 use crate::hash::HashMap;
 use crate::limits::{Refusal, Space};
 use crate::sequents::notation::TEXT;
-use crate::sequents::{Visit, Walk};
+use crate::sequents::{Stop, Stops};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 /// An ordinary propositional logic.
@@ -517,9 +517,9 @@ impl Formulas {
         symbols: &Symbols,
         atom: impl Fn(&mut W, u32) -> FmtResult,
     ) -> FmtResult {
-        for visit in Walk::new(id, brackets, |k| self.node(k).operands()) {
+        for visit in Stops::new(id, brackets, |k| self.node(k).operands()) {
             match visit {
-                Visit::Enter(k, nested) => match self.node(k) {
+                Stop::Enter(k, nested) => match self.node(k) {
                     Node::Atom(a) => atom(out, a)?,
                     Node::True => out.write_str(symbols.truth)?,
                     Node::False => out.write_str(symbols.falsity)?,
@@ -527,7 +527,7 @@ impl Formulas {
                     _ if nested => out.write_char('(')?,
                     Node::And(..) | Node::Or(..) | Node::Implies(..) | Node::Iff(..) => {}
                 },
-                Visit::Between(k) => {
+                Stop::Between(k) => {
                     out.write_char(' ')?;
                     out.write_str(match self.node(k) {
                         Node::And(..) => symbols.and,
@@ -539,7 +539,7 @@ impl Formulas {
                     })?;
                     out.write_char(' ')?;
                 }
-                Visit::Exit(k, nested) => {
+                Stop::Exit(k, nested) => {
                     if nested && self.node(k).operands().1.is_some() {
                         out.write_char(')')?;
                     }

@@ -180,14 +180,24 @@ as deep as it is long, and a recursion per level ends the process where
 an error is owed. So every walk is a pass over the arena or over the
 forest in index order (`fragment`, `optimize`, `Forest`, `Reading::new`,
 the engines' `Classes` and `Counts`), or, where a formula is written, a
-loop over `sequents::fmt::Walk`: the stops of a formula in the order it is
+loop over `sequents::fmt::Stops` (crate-private): the stops of a formula in the order it is
 written (`Enter` a subformula, `Between` the two subformulas of a binary
-one, `Exit` a compound one), from a stack of its own whose first sixteen
+one, `Exit` a compound one, each with the flag that places brackets), from a stack of its own whose first sixteen
 steps are inline, so that an ordinary formula costs no allocation. The
 printer of every target and of `Display` (`sequents::notation`:
 `Notation::term` and `Notation::ill`, `core-export.md`) and the Rocq
 printer are each one `match` over those stops, and a new printer is
-another: never a function that calls itself. `core/tests/depth.rs` runs every walk the public API
+another: never a function that calls itself. A printer outside the
+crate (the harness's translators into other provers' syntax) follows
+the public `sequents::Walk` instead, which `Sequent::walk(root)` and
+`Reading::walk(o)` return: the same stops as `Visit::{Enter(t),
+Between(t, index), Exit(t)}` without the flag (a leaf is one `Enter`),
+the index that of the operand that follows (1 today), so that a binder
+and n-ary connectives fit later without a change of shape; it boxes its
+operands' closure, one allocation per walk. `Reading::connective(o)`
+(`IllConnective`, non-exhaustive) is the one table of what an
+occurrence is under its position, which `Notation::ill` matches on too.
+`core/tests/depth.rs` runs every walk the public API
 offers on formulas nested 100 000 deep, on a thread with a stack of
 256 KiB.
 

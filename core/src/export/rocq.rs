@@ -72,7 +72,7 @@ use crate::Error;
 use crate::hash::{HashMap, HashSet};
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Derivation, InfId, Rule};
-use crate::sequents::{Sequent, Term, TermId, Visit, Walk};
+use crate::sequents::{Sequent, Stop, Stops, Term, TermId};
 use std::fmt::Write;
 use thiserror::Error;
 
@@ -399,9 +399,9 @@ pub(crate) fn identifiers(atoms: &[String], lemma: &str) -> Vec<String> {
 /// `argument` is set and it is an application.
 fn term(out: &mut String, sequent: &Sequent, names: &[String], id: TermId, argument: bool) {
     use Term::*;
-    for visit in Walk::new(id, argument, |k| sequent.term(k).operands()) {
+    for visit in Stops::new(id, argument, |k| sequent.term(k).operands()) {
         match visit {
-            Visit::Enter(k, argument) => {
+            Stop::Enter(k, argument) => {
                 let t = sequent.term(k);
                 if argument && !matches!(t, Atom(_) | One | Bot | Top | Zero) {
                     out.push('(');
@@ -427,9 +427,9 @@ fn term(out: &mut String, sequent: &Sequent, names: &[String], id: TermId, argum
                     Quest(_) => out.push_str("wn "),
                 }
             }
-            Visit::Between(_) => out.push(' '),
+            Stop::Between(_) => out.push(' '),
             // What has subformulas is an application.
-            Visit::Exit(_, argument) => {
+            Stop::Exit(_, argument) => {
                 if argument {
                     out.push(')');
                 }

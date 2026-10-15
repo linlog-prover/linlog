@@ -7,9 +7,9 @@
 //! a sequent of ordinary logic through it. A new connective is an arm here
 //! and a spelling in each table, never a printer of its own.
 
-use crate::occurrences::{Forest, Member, OccId, Reading, Side};
+use crate::occurrences::{Forest, IllConnective, Member, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
-use crate::sequents::{Kind, Sequent, Term, TermId, Visit, Walk};
+use crate::sequents::{Sequent, Stop, Stops, Term, TermId};
 use std::fmt::{Result as FmtResult, Write};
 
 /// How a target writes formulas and sequents: the spelling of every
@@ -123,9 +123,9 @@ impl Notation {
     ) -> FmtResult {
         use Term::*;
         debug_assert!(id.index() < sequent.terms.len());
-        for visit in Walk::new(id, brackets, |k| sequent.term(k).operands()) {
+        for visit in Stops::new(id, brackets, |k| sequent.term(k).operands()) {
             match visit {
-                Visit::Enter(k, nested) => {
+                Stop::Enter(k, nested) => {
                     let term = sequent.term(k);
                     debug_assert!(term.subterms().all(|sub| sub < k));
                     match term {
@@ -149,7 +149,7 @@ impl Notation {
                         Quest(_) => out.write_str(self.quest)?,
                     }
                 }
-                Visit::Between(k) => {
+                Stop::Between(k) => {
                     out.write_char(' ')?;
                     out.write_str(match sequent.term(k) {
                         Tensor(..) => self.tensor,
@@ -160,7 +160,7 @@ impl Notation {
                     })?;
                     out.write_char(' ')?;
                 }
-                Visit::Exit(k, nested) => {
+                Stop::Exit(k, nested) => {
                     if nested && sequent.term(k).kind().arity() == 2 {
                         out.write_char(')')?;
                     }
@@ -180,33 +180,35 @@ impl Notation {
         o: OccId,
         brackets: bool,
     ) -> FmtResult {
-        use Kind::*;
+        use IllConnective as C;
         let forest = reading.forest();
-        for visit in Walk::new(o, brackets, |o| reading.operands(o)) {
+        for visit in Stops::new(o, brackets, |o| reading.operands(o)) {
             match visit {
-                Visit::Enter(o, nested) => match (forest.kind(o), reading.position(o)) {
-                    (Atom | DualAtom, _) => {
+                Stop::Enter(o, nested) => match reading.connective(o) {
+                    C::Atom => {
                         let atom = forest.atom(o).expect("a literal has an atom");
                         self.atom.write(out, forest.sequent().atom_name(atom))?;
                     }
-                    (One | Bot, _) => out.write_str(self.one)?,
-                    (Top, Side::Output) | (Zero, Side::Input) => out.write_str(self.top)?,
-                    (Zero, Side::Output) | (Top, Side::Input) => out.write_str(self.zero)?,
-                    (Tensor | Par | With | Plus, _) if nested => out.write_char('(')?,
-                    (Tensor | Par | With | Plus, _) => {}
-                    (Bang | Quest, _) => out.write_str(self.bang)?,
+                    C::One => out.write_str(self.one)?,
+                    C::Top => out.write_str(self.top)?,
+                    C::Zero => out.write_str(self.zero)?,
+                    C::Tensor | C::With | C::Plus | C::Lollipop if nested => {
+                        out.write_char('(')?;
+                    }
+                    C::Tensor | C::With | C::Plus | C::Lollipop => {}
+                    C::Bang => out.write_str(self.bang)?,
                 },
-                Visit::Between(o) => {
+                Stop::Between(o) => {
                     out.write_char(' ')?;
-                    out.write_str(match (forest.kind(o), reading.position(o)) {
-                        (Tensor, Side::Output) | (Par, Side::Input) => self.tensor,
-                        (Tensor, Side::Input) | (Par, Side::Output) => self.lollipop,
-                        (With, Side::Output) | (Plus, Side::Input) => self.with,
-                        _ => self.plus,
+                    out.write_str(match reading.connective(o) {
+                        C::Tensor => self.tensor,
+                        C::Lollipop => self.lollipop,
+                        C::With => self.with,
+                        C::Atom | C::One | C::Top | C::Zero | C::Bang | C::Plus => self.plus,
                     })?;
                     out.write_char(' ')?;
                 }
-                Visit::Exit(o, nested) => {
+                Stop::Exit(o, nested) => {
                     if nested && forest.kind(o).arity() == 2 {
                         out.write_char(')')?;
                     }

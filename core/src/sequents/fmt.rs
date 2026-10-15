@@ -14,9 +14,10 @@ pub struct Formula<'a> {
     id: TermId,
 }
 
-/// One stop of a [`Walk`] over a formula.
+/// One stop of the crate's printers' walk over a formula, which carries
+/// what they need to place brackets.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum Visit<T> {
+pub(crate) enum Stop<T> {
     /// A subformula is reached, before anything below it. The flag says
     /// whether it stands inside another formula, where a binary one is
     /// written in brackets; for the formula the walk started on it is the
@@ -50,7 +51,7 @@ const INLINE: usize = 16;
 /// a compound one once more when it is left. The walk keeps the formulas
 /// it is inside of in a stack of its own, so a formula of any depth takes
 /// no more of the caller's stack than a literal does.
-pub(crate) struct Walk<T, F> {
+pub(crate) struct Stops<T, F> {
     /// The first pending steps, the next one last.
     inline: [Step<T>; INLINE],
     /// How many entries of `inline` are pending.
@@ -62,7 +63,7 @@ pub(crate) struct Walk<T, F> {
     operands: F,
 }
 
-impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Walk<T, F> {
+impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Stops<T, F> {
     /// Returns the walk over the formula `root`, whose subformulas are
     /// what `operands` returns; `nested` is the flag `root` is entered
     /// with.
@@ -86,11 +87,11 @@ impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Walk<T, F> {
     }
 }
 
-impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Iterator for Walk<T, F> {
-    type Item = Visit<T>;
+impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Iterator for Stops<T, F> {
+    type Item = Stop<T>;
 
     /// Returns the next stop, or `None` once the formula is left.
-    fn next(&mut self) -> Option<Visit<T>> {
+    fn next(&mut self) -> Option<Stop<T>> {
         let step = match self.spilled.pop() {
             Some(step) => step,
             None => {
@@ -111,21 +112,115 @@ impl<T: Copy, F: Fn(T) -> (Option<T>, Option<T>)> Iterator for Walk<T, F> {
                     }
                     (None, None) => {}
                 }
-                Visit::Enter(formula, nested)
+                Stop::Enter(formula, nested)
             }
             Step::Second(formula, nested) => {
                 self.push(Step::Exit(formula, nested));
                 if let (_, Some(second)) = (self.operands)(formula) {
                     self.push(Step::Enter(second, true));
                 }
-                Visit::Between(formula)
+                Stop::Between(formula)
             }
-            Step::Exit(formula, nested) => Visit::Exit(formula, nested),
+            Step::Exit(formula, nested) => Stop::Exit(formula, nested),
         })
     }
 }
 
+/// One stop of a [`Walk`] over a formula, in the order the formula is
+/// written. A literal or a unit is one `Enter`; a formula with operands is
+/// an `Enter`, its first operand, a `Between` before every further one and
+/// an `Exit` after the last.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Visit<T> {
+    /// A formula is reached, before anything below it.
+    Enter(T),
+    /// The place before the operand of the formula whose index (from 0) is
+    /// the number: 1 for the second operand of a binary formula.
+    Between(T, u32),
+    /// A formula with operands is left, after the last of them.
+    Exit(T),
+}
+
+/// The stops of a formula in the order it is written (see [`Visit`]),
+/// returned by [`Sequent::walk`] and
+/// [`Reading::walk`](crate::Reading::walk). The walk keeps the formulas it
+/// is inside of in a stack of its own, so a printer that follows it takes
+/// no more of its caller's stack for a formula of any depth than for a
+/// literal.
+pub struct Walk<'a, T> {
+    /// The stops with the flags the crate's printers place brackets by.
+    stops: Stops<T, Operands<'a, T>>,
+}
+
+/// Returns the first and the second operand of a formula, each if there is
+/// one.
+type Operands<'a, T> = Box<dyn Fn(T) -> (Option<T>, Option<T>) + 'a>;
+
+impl<'a, T: Copy> Walk<'a, T> {
+    /// Returns the walk over the formula `root`, whose operands are what
+    /// `operands` returns.
+    pub(crate) fn new(root: T, operands: impl Fn(T) -> (Option<T>, Option<T>) + 'a) -> Self {
+        Self {
+            stops: Stops::new(root, false, Box::new(operands)),
+        }
+    }
+}
+
+impl<T: Copy> Iterator for Walk<'_, T> {
+    type Item = Visit<T>;
+
+    /// Returns the next stop, or `None` once the formula is left.
+    fn next(&mut self) -> Option<Visit<T>> {
+        Some(match self.stops.next()? {
+            Stop::Enter(formula, _) => Visit::Enter(formula),
+            Stop::Between(formula) => Visit::Between(formula, 1),
+            Stop::Exit(formula, _) => Visit::Exit(formula),
+        })
+    }
+}
+
+impl<T> std::fmt::Debug for Walk<'_, T> {
+    /// Writes the walk's name alone: its stack is no part of what it is.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("Walk")
+    }
+}
+
 impl Sequent {
+    /// Returns the walk over the formula rooted at `id`, which must belong to
+    /// this sequent: the stops a printer of the formula in another syntax
+    /// follows, each naming a term that [`Sequent::term`] returns.
+    ///
+    /// ```
+    /// use linlog::sequents::Visit;
+    /// use linlog::{Sequent, Term};
+    ///
+    /// let sequent: Sequent = "⊢ a ⊗ !b".parse().unwrap();
+    /// let mut out = String::new();
+    /// for visit in sequent.walk(sequent.roots()[0]) {
+    ///     match visit {
+    ///         Visit::Enter(id) => match sequent.term(id) {
+    ///             Term::Atom(a) => out += sequent.atom_name(a),
+    ///             Term::Tensor(..) => out += "(",
+    ///             Term::Bang(_) => out += "!",
+    ///             _ => unreachable!(),
+    ///         },
+    ///         Visit::Between(..) => out += " * ",
+    ///         Visit::Exit(id) if sequent.term(id).kind().arity() == 2 => out += ")",
+    ///         Visit::Exit(_) => {}
+    ///     }
+    /// }
+    /// assert_eq!(out, "(a * !b)");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// For an id of another one, past its end.
+    pub fn walk(&self, id: TermId) -> Walk<'_, TermId> {
+        debug_assert!(id.index() < self.terms.len());
+        Walk::new(id, |k| self.term(k).operands())
+    }
+
     /// Returns the formula rooted at `id`, which must belong to this sequent,
     /// as a value that prints it.
     ///

@@ -8,6 +8,7 @@
 
 #![cfg(feature = "serialize")]
 
+use linlog::sequents::Visit;
 use linlog::{Forest, Fragment, Member, Mode, Node, NodeId, Proof, Reading, Sequent};
 
 /// How deep the formulas are nested.
@@ -58,6 +59,12 @@ fn tower() -> String {
     json(&terms, &[DEPTH + 2, 2 * DEPTH + 2])
 }
 
+/// Counts the formulas a walk enters.
+fn entered<T>(walk: impl Iterator<Item = Visit<T>>) -> usize {
+    walk.filter(|visit| matches!(visit, Visit::Enter(_)))
+        .count()
+}
+
 /// Runs every walk over the formulas of the sequent that `json` holds,
 /// which lies in `fragment` and whose last formula is the goal.
 fn walk(json: &str, fragment: Fragment) {
@@ -95,6 +102,18 @@ fn walk(json: &str, fragment: Fragment) {
         two_sided,
         format!("{} ⊢ {}", hypotheses.join(", "), reading.formula(goal))
     );
+
+    // The public walks, one-sided and under the reading, enter every
+    // occurrence once.
+    let occurrences = forest.ids().count();
+    let terms: usize = (sequent.roots().iter())
+        .map(|&root| entered(sequent.walk(root)))
+        .sum();
+    assert_eq!(terms, occurrences);
+    let read: usize = (forest.roots().iter())
+        .map(|&root| entered(reading.walk(root)))
+        .sum();
+    assert_eq!(read, occurrences);
 
     #[cfg(feature = "latex")]
     {
@@ -157,8 +176,8 @@ fn walk(json: &str, fragment: Fragment) {
 
 /// A sequent whose formulas are nested 100 000 deep, to the right, to the
 /// left, or as towers of `?` and of `!`, is read, printed, optimized,
-/// numbered, read two-sided, exported and written back on a stack of
-/// 256 KiB.
+/// numbered, read two-sided, walked, exported and written back on a stack
+/// of 256 KiB.
 #[test]
 fn deep_formulas_need_no_stack() {
     let walks = std::thread::Builder::new().stack_size(STACK).spawn(|| {
