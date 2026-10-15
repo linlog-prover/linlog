@@ -43,3 +43,9 @@ CLAUDE.local.md
 /bench/targets/*.part.csv
 # Trial runs of the target set
 /bench/targets/scratch-*
+# The comparison's progress logs, each run's scratch files and its
+# streams' rows, which runs.csv joins
+/bench/comparison/*/*.log
+/bench/comparison/*/work-*
+/bench/comparison/*/seq-*.csv
+/bench/comparison/*/default-*.csv

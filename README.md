@@ -1186,10 +1186,75 @@ again under each atom bias alone; `bench/RESULTS.md` has its tables and
 decided before is undecided after, and the intuitionistic LLTP pass
 decides 2 047 problems within 5 s where it decided 737.
 
+`run --tools` runs the same problems through other provers of linear
+logic beside linlog's command, each built by the flake at a pinned
+version (`nix build .#comparison` has them all, with BenchExec): every
+problem is translated into each tool's syntax, every run is a process
+measured by BenchExec's `runexec` under the same time and memory limit
+(`--timeout`, `--memory-limit`, 4 GiB by default), and a problem outside a
+tool's fragment or mode is a row of its own and not run. `ranking`
+prints the comparison: the problems each tool solves within the limit,
+per group of problems, linlog on one thread against each tool, and every
+problem on which tools contradict each other or the known verdict.
+`--shard K/N` runs every N-th problem from the K-th, so that jobs on
+several machines split a set.
+
+```console
+$ linlog-bench run --tools linlog,maude-ill,sympli --lltp lltp/ILL/ILLTP-SYJ-01 --only SYJ101+1,SYJ105+1.003 --timeout 10 --output tools.csv
+[1/6] ILLTP-SYJ-01/SYJ101+1.p linlog: proved  4.9 ms, about 0 min left
+[2/6] ILLTP-SYJ-01/SYJ101+1.p maude-ill: proved  56.0 ms, about 0 min left
+[3/6] ILLTP-SYJ-01/SYJ101+1.p sympli: proved  3.8 ms, about 0 min left
+[4/6] ILLTP-SYJ-01/SYJ105+1.003.p linlog: unknown timeout 10003.7 ms, about 0 min left
+[5/6] ILLTP-SYJ-01/SYJ105+1.003.p maude-ill: unknown copy_bound 172.6 ms, about 0 min left
+[6/6] ILLTP-SYJ-01/SYJ105+1.003.p sympli: unprovable  3.5 ms, about 0 min left
+
+$ linlog-bench ranking tools.csv
+…
+## Solved within the limit
+
+| tool | solved | proved | unprovable | late | time | memory | gave up | error | outside | wrong |
+|---|---|---|---|---|---|---|---|---|---|---|
+| sympli | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| linlog | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+| maude-ill | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+…
+```
+
+(Sympli's refutation of SYJ105+1.003 counts as wrong against the file's
+header, which says Theorem; the formula has a classical countermodel,
+`a` true and `b` false, so the header is what is wrong.)
+`bench/comparison.sh` runs the whole comparison on any machine with Nix,
+and `bench/TOOLS.md` has the tools, how they were run and the results.
+
+## Beside the other provers
+
+The provers of linear logic we found, as their own sources state them
+(read on 2026-10-15); `bench/TOOLS.md` has every feature with its source
+and the results of running all of them on the same problems.
+
+| prover | fragments | modes | refutes | checked proofs | licence |
+|---|---|---|---|---|---|
+| linlog | MLL to LL, units | classical, intuitionistic, affine, Mix | ✓ | ✓ (and Rocq certificates) | EUPL-1.2 |
+| Maude LL prover | LL, ILL | classical, intuitionistic | without `!` | ✗ | none stated |
+| llprover | first-order LL | classical, intuitionistic | without `!`, `?` | ✗ | none formal |
+| linTAP | MLL with `?` | classical | without `?` | ✗ | GPL |
+| Click & coLLecT | LL | classical | ✓ | Coq certificates | LGPL-2.1 |
+| Sympli | ILL without `⅋ ?` | intuitionistic | ✓ | its own | BSD-2-Clause |
+| LinearOne | first-order MILL | intuitionistic | ✓ | unverified | LGPL-2.1 |
+| lolli | MLL, MALL, MELL | classical | ✗ (a depth limit) | ✗ | MIT |
+| APLL | LL, ILL | classical, intuitionistic | unless its bound is met | Coq certificates | none stated |
+| Proof Net Calculator | unit-free MLL nets | — | no prover | net criteria | none stated |
+
 ## What exists and what is planned
 
 Built:
 
+- A comparison with the other provers of linear logic: each built from
+  its own source at a pinned version, each problem translated into its
+  syntax, every run measured by BenchExec under one time and memory
+  limit, the problems solved, the contradictions and the figures drawn
+  from the rows (`bench/TOOLS.md`, `bench/comparison.sh`, and a CI
+  workflow anyone can start).
 - Parsing and printing of sequents in the syntax above, with the ASCII and
   Unicode spellings of every connective, and a compact JSON form.
 - Detection of the fragment a sequent lives in (MLL, MLL with units, ALL,
