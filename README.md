@@ -1245,6 +1245,17 @@ and the results of running all of them on the same problems.
 | APLL | LL, ILL | classical, intuitionistic | unless its bound is met | Coq certificates | none stated |
 | Proof Net Calculator | unit-free MLL nets | — | no prover | net criteria | none stated |
 
+On the same 4 811 problems (the LLTP library, qcover's coverability
+problems and the generated families), each run under 10 s and 4 GiB on
+one core and measured by BenchExec, linlog on one thread solves 4 181,
+Sympli 1 684, the Maude prover 768 with its intuitionistic system and
+31 with its classical one, APLL 612 and 31, llprover 479 and 11, Click &
+coLLecT 31, LinearOne 69, linTAP 15 and lolli 14, each of the problems
+in its own fragment and modes. Sympli solves 132 intuitionistic problems that linlog does
+not, mostly refutations of the SYJ collections. No tool proves a
+sequent linlog refutes; APLL and Click & coLLecT refute provable
+sequents, 1 308 and 12 of them.
+
 ## What exists and what is planned
 
 Built:

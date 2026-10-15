@@ -8,6 +8,7 @@
 extend-exclude = [
   "plan/",
   "bench/results/",
+  "bench/comparison/",
   "bench/problems/",
   "bench/targets/",
   "bench/counts-against-time/",

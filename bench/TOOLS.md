@@ -134,4 +134,130 @@ ten shards (`workflow_dispatch`) and uploads the rows, tables and figures.
 
 ## Results
 
-The night's run has not been published yet.
+One run on 2026-10-15 on an Intel Core Ultra X9 388H (16 cores, 64 GB,
+Linux 7.2.9): the sequential tools and linlog's one-thread column each
+on one efficiency core (4.0 GHz, cores 6–11, six streams side by side),
+linlog's default on the four low-power cores (12–15, 3.7 GHz), every run
+under 10 s and 4 GiB, measured by BenchExec 3.27. linlog was built from
+commit 60226b2c (signed since as 8a06dd9c, the same tree), every other
+tool at the version the flake pins (`comparison/2026-10-15/*.env.json`
+records each, with the command lines). The rows are
+`comparison/2026-10-15/runs.csv` (62 543 runs), the tables
+`comparison/2026-10-15/ranking.md` (`linlog-bench ranking runs.csv`), the
+figures `comparison/2026-10-15/figures/` (`bench/plots.py`).
+
+### Solved within 10 s
+
+| tool | solved | proved | unprovable | wrong | ended at the limit | out of memory | the tool's bound | error | outside its fragment |
+|---|---|---|---|---|---|---|---|---|---|
+| linlog, default (4 low-power cores) | 4 204 | 3 907 | 297 | 0 | 545 | 3 | 59 | 0 | 0 |
+| **linlog, one thread** | **4 181** | 3 899 | 282 | 0 | 571 | 0 | 59 | 0 | 0 |
+| Sympli | 1 684 | 1 439 | 245 | 0 | 1 935 | 876 | 0 | 0 | 316 |
+| Maude, ILL | 768 | 742 | 26 | 0 | 2 940 | 71 | 700 | 16 | 316 |
+| APLL, ILL | 612 | 544 | 68 | **1 296** | 2 015 | 20 | 412 | 140 | 316 |
+| llprover, ILL | 479 | 453 | 26 | 0 | 3 857 | 0 | 19 | 140 | 316 |
+| LinearOne | 69 | 46 | 23 | 0 | 0 | 0 | 0 | 0 | 4 742 |
+| APLL, LL | 31 | 22 | 9 | **12** | 78 | 0 | 13 | 0 | 4 677 |
+| Click & coLLecT | 31 | 23 | 8 | **12** | 91 | 0 | 0 | 0 | 4 677 |
+| Maude, LL | 31 | 20 | 11 | 0 | 82 | 21 | 0 | 0 | 4 677 |
+| linTAP | 15 | 14 | 1 | 0 | 37 | 21 | 0 | 0 | 4 738 |
+| lolli | 14 | 14 | 0 | 0 | 54 | 35 | 23 | 6 | 4 679 |
+| llprover, LL | 11 | 10 | 1 | 0 | 123 | 0 | 0 | 0 | 4 677 |
+
+4 811 problems. "Ended at the limit" includes the answers that came
+after 10 s and before the kill a second later (late: 38 of the Maude
+prover's, 14 of Sympli's, 5 of llprover's; `ranking.md` lists them).
+An error is mostly a stack overflow on a deep formula (APLL 140,
+llprover 129 of its 140).
+
+| problems | linlog | linlog, default | Maude | llprover | Sympli | APLL | LinearOne | Click & coLLecT | linTAP | lolli |
+|---|---|---|---|---|---|---|---|---|---|---|
+| LLTP intuitionistic, 1 358 | 829 | 852 | 613 | 479 | **873** | 548 | 69 / 69 | – | – | – |
+| LLTP Petri nets, 3 137 | **3 072** | 3 072 | 155 | 0 | 811 | 64 | – | – | – | – |
+| LLTP classical, 17 | **17** | 17 | 12 | 10 | – | 13 | – | 15 | 2 / 6 | 7 |
+| qcover, 176 (intuitionistic affine) | **162** | 162 | – | – | – | – | – | – | – | – |
+| generated families, 123 | **101** | 101 | 19 / 117 | 1 / 117 | – | 18 / 117 | – | 16 / 117 | 13 / 67 | 7 / 115 |
+
+A dash is a set outside the tool's fragment or mode; `n / m` where the
+tool covers only `m` of the set.
+
+### Where linlog loses
+
+- **Sympli solves 132 intuitionistic LLTP problems that linlog on one
+  thread does not**: 122 refutations (unchecked), most of them in the
+  SYJ collections (96), where Sympli's inverse method saturates in
+  milliseconds what linlog's backward search leaves at its time limit or
+  its copy bound, and 10 proofs (SYJ, call-by-name). On the
+  intuitionistic problems other than Petri nets Sympli solves 873
+  against linlog's 829.
+- **linlog's default solves 23 that its one thread does not** (it races
+  a second search on a pool), and ends 3 runs at the 4 GiB cgroup limit
+  (SYJ206+1.020, SYJ212+1.020 in two translations), where linlog's own
+  account of its memory leaves out what a proof of the `&` rules closed
+  by `⊤` costs: these count as linlog's, out of memory.
+- **APLL's ILL search refutes 31 Petri nets that linlog does not
+  decide**, against their headers (Theorem). Since APLL refutes 1 296
+  nets that linlog proves with checked proofs (below), these 31 are
+  most likely wrong too; they count as solved, since nothing here
+  proves them.
+
+### Wrong answers
+
+linlog gave none: every proof it reported passed its checker, and no
+tool proves a sequent linlog refutes. Wrong, and not counted as solved:
+
+- **APLL (ILL)** refutes 1 296 Petri nets that linlog proves with checked
+  proofs; APLL answers the same on the library's own files read by its
+  own LLTP reader (`-lltp`), so the translation is not the cause. Its
+  `N` is meant to come only from a search that never met its bound of 3
+  contractions.
+- **APLL (LL) and Click & coLLecT** each refute the same 12 generated
+  classical MLL sequents (`wide-m*` at 256 literals and more, and
+  `partition-yes` at 24 and 28), provable by construction; 10 of them
+  linlog proves with checked proofs, also from the very file Click &
+  coLLecT was given. Click & coLLecT's `NOT PROVABLE` comes only from a
+  search it calls exhaustive; the two share the structure of their
+  focused search.
+
+### The library's headers
+
+29 LLTP files have a header that linlog's answers contradict (checked
+proofs of 9 marked Non-Theorem, refutations of 20 marked Theorem; most of
+them known from linlog's earlier baselines), and Sympli refutes 18
+more marked Theorem that linlog leaves undecided. 15 of those 18 have a
+classical countermodel once linearity is forgotten (`!` erased, `⊸` as
+implication, `0` as falsity), so their headers are wrong and Sympli is
+right; KLE075 in its three translations has none and stays open. Such
+verdicts count as solved and are listed in `ranking.md`.
+
+### What the 10 s limit costs a slower tool
+
+The Maude prover's own results in the LLTP library, at five minutes on a
+2 GHz virtual CPU (the ILLTP paper, arXiv 1904.06850, Table 1, whose
+counts the status files match), beside its results here at 10 s. The
+library has changed since: the problem counts differ in some sets.
+
+| set | problems then | Maude 2018, 300 s | Maude here, 10 s | linlog here, 10 s |
+|---|---|---|---|---|
+| ILLTP-SYJ-01 | 248 | 39 | 30 of 252 | 56 |
+| ILLTP-SYJ-cbn | 248 | 45 | 30 of 252 | 106 |
+| ILLTP-SYJ-cbv | 248 | 39 | 33 of 252 | 99 |
+| ILLTP-SYN-01, -cbn, -cbv | 20 each | 11 each | 8 of 19 each | 16 each |
+| KLE-01 | 88 | 77 | 74 of 88 | 79 |
+| KLE-cbn | 88 | 76 | 74 of 88 | 83 |
+| KLE-cbv | 88 | 79 | 74 of 88 | 81 |
+| KLE-IMP-CONJ | 271 | 271 (limit not stated) | 222 of 222 | 222 |
+| ILLTP-LCL (three) | 2 each | 0 | 0 | 3 of 6 |
+
+The 10 s limit is what one night allows for every tool on every
+problem; a longer one on the problems no tool solved is open.
+
+### Figures
+
+![Cactus plot, intuitionistic problems](comparison/2026-10-15/figures/cactus-intuitionistic.svg)
+
+![Cactus plot, classical problems](comparison/2026-10-15/figures/cactus-classical.svg)
+
+Scatter plots of linlog on one thread against each tool, one point per
+problem both cover (a run not solved at the limit's line), are in
+`comparison/2026-10-15/figures/scatter-*.svg`.
