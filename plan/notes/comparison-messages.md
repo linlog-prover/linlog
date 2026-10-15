@@ -64,15 +64,22 @@ corrections and for the configuration the authors would choose. Attach
   `/auto_prove_sequent` handler calls it (`Proof.auto_weak`, then
   `Focused_proof.prove_sequent`), by a small OCaml driver in place of
   the web server, on `|- Γ`; its limit of CPU time, fixed at 3 s, read
-  from the environment and set to the run's. Question: is that the use
-  you would choose, and is a proof it reports checked anywhere?
+  from the environment and set to the run's. Finding: it answers `NOT
+  PROVABLE` (its exhaustive answer) within milliseconds on 12 provable
+  MLL sequents, among them the generated `wide-m1` at 256 literals,
+  which linlog proves with a checked proof from the
+  very file Click & coLLecT read. Question: is that the use you would
+  choose, and is a proof it reports checked anywhere?
 - **Sympli** (Kaustuv Chaudhuri; github.com/chaudhuri/sympli at
   `50e76a6d`, MLton 20241230 with a patch adding no-op functions to its
   pretty-printing device for the newer SML/NJ library): `Γ ⊢ A` posed as
   `%prove (⊗Γ) -o A.` with `%log validation : highlevel.`; `certificate
   OK` is a checked proof and `ABORT: Saturated` a refutation. Question:
   is it the prover of your CADE 2005 paper with Pfenning, and is there a
-  better configuration (`%refute`, an engine)?
+  better configuration (`%refute`, an engine)? Its results stand out:
+  132 intuitionistic LLTP problems linlog does not solve, and 15
+  refutations of files the library marks Theorem that have classical
+  countermodels.
 - **LinearOne** (Richard Moot; github.com/RichardMoot/LinearOne at
   `d9379a53`, on SWI-Prolog 10.0.2): `first_proof/3` on `[Γ] => A` for
   the multiplicative intuitionistic problems (its fragment), by a driver
@@ -87,7 +94,12 @@ corrections and for the configuration the authors would choose. Attach
 - **APLL** (Jui-Hsuan Wu; github.com/wujuihsuan2016/LL_prover at
   `c55f59d2`, built native with OCaml 4.14): `prover -t FILE` on `|- Γ`,
   and with `-ill` on `Γ |- A`, the backward search under its default
-  bound of 3; `-` is counted unknown. Questions: would you choose the
+  bound of 3; `-` is counted unknown. Finding: on 1 296 Petri nets of
+  the library that linlog proves with checked proofs, the ILL search
+  answers `N`, also through its own `-lltp` reader (for example
+  `ILL/petri-nets/MCC/SmallOperatingSystem-MT0032DC0008_50_1.p`, `N` in
+  0.09 s), and the LL search refutes 12 generated MLL sequents provable
+  by construction (`wide-m1` at 256 literals). Questions: would you choose the
   inverse method (`-inv`) or another bound for the LLTP problems, and
   under which licence may the source be used?
 - **Proof Net Calculator** (Satoshi Matsuoka): listed in the matrix as a
