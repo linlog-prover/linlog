@@ -24,8 +24,10 @@ of `main`, to GitHub Pages on every push to `main`.
   `linlog-prover` requires it of all actions, GitHub's own included
   (its Actions policy, since 2026-10-03): a `uses:` with a tag or a
   branch fails the run. Resolve a tag with
-  `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`, and read that
-  commit's `action.yml` for its inputs. Dependabot proposes the bumps, weekly,
+  `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`, or without `gh`
+  by `nix flake prefetch --json github:<owner>/<repo>/<tag>` (its
+  `locked.rev`; `flake metadata` fails on a repository without a
+  `flake.nix`), and read that commit's `action.yml` for its inputs. Dependabot proposes the bumps, weekly,
   as one pull request. The pin of `cachix/install-nix-action` also fixes the
   Nix version CI runs.
 - **Least privilege**: `permissions: contents: read` at the top, anything more
@@ -40,3 +42,12 @@ of `main`, to GitHub Pages on every push to `main`.
   `gh run view --log-failed`.
 - **Docs** deploys `result/share/doc` of `nix build .#doc` with GitHub's own
   Pages actions. The repository's Pages source must be "GitHub Actions".
+- **Comparison** (`comparison.yml`, `workflow_dispatch` only, inputs
+  `timeout` and `quick`) runs `bench/comparison.sh` in ten shards, one
+  job each (two sequential streams on cores 0 and 1, linlog's default on
+  2–3), uploads each shard's rows and records, and a last job joins
+  them, writes `ranking.md` and the figures, puts the ranking in the
+  run's summary and uploads it all as the artifact `comparison`; it
+  commits nothing. BenchExec needs a cgroup from the user's systemd, so
+  the job enables lingering for the runner's user first and exports its
+  bus. It has never run: the first run is the author's.

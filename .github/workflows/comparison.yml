@@ -1,0 +1,103 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# The comparison with the other provers (bench/TOOLS.md), run on demand on
+# GitHub's hosted runners with the script the published numbers come from,
+# bench/comparison.sh. The problems are split into shards, one job each,
+# so that every tool runs every problem of a shard on that job's machine;
+# the last job joins the rows, draws the tables and figures and uploads
+# them. Runners land on different processors, so counts of problems solved
+# carry over and close timings do not. It commits nothing.
+name: Comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: Time limit of every run, in seconds
+        default: "10"
+      quick:
+        description: Three problems of each source only, to see that every tool runs
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  shard:
+    name: shard ${{ matrix.shard }} of 10
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      # BenchExec measures each run in a cgroup of its own, which it asks
+      # the user's systemd for: give the runner's user a running manager.
+      - name: Start the user's systemd manager
+        run: |
+          sudo loginctl enable-linger "$USER"
+          uid=$(id -u)
+          until [ -S "/run/user/$uid/bus" ]; do sleep 1; done
+          echo "XDG_RUNTIME_DIR=/run/user/$uid" >>"$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" >>"$GITHUB_ENV"
+      # Two streams of the sequential tools on a core each, linlog's default
+      # on the other two.
+      - name: Run the shard
+        env:
+          TIMEOUT: ${{ inputs.timeout }}
+          QUICK: ${{ inputs.quick && '--quick' || '' }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          # shellcheck disable=SC2086
+          bench/comparison.sh --out comparison --shard "$SHARD/10" \
+            --cores 0,1 --default-cores 2-3 --timeout "$TIMEOUT" $QUICK
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: shard-${{ matrix.shard }}
+          path: |
+            comparison/*.csv
+            comparison/*.env.json
+            comparison/*.log
+
+  tables:
+    name: tables and figures
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: shards
+      - name: Join the rows, write the tables and draw the figures
+        run: |
+          tools=$(nix build --no-link --print-out-paths .#comparison)
+          mkdir -p comparison
+          first=$(find shards -name 'seq-*.csv' | sort | head -n 1)
+          {
+            head -n 1 "$first"
+            find shards -name '*.csv' ! -name runs.csv -print0 | sort -z | xargs -0 tail -q -n +2
+          } >comparison/runs.csv
+          cp shards/*/*.env.json comparison/
+          "$tools/bin/linlog-bench" ranking comparison/runs.csv >comparison/ranking.md
+          "$tools/bin/python3" -I bench/plots.py comparison/runs.csv comparison/figures
+          cat comparison/ranking.md >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: comparison
+          path: comparison
