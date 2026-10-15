@@ -100,3 +100,49 @@ with the numbers where linlog loses as plain as those where it wins.
 
 Thematic jj commits; `bench/TOOLS.md` with its figures; the README
 section; `plan/reports/29-comparison.md`.
+
+## From the review (2026-10-16)
+
+- **Verified** by the supervisor:
+  - `nix flake check --keep-going` passed at szvmwors, the step's head
+    with its report;
+  - the ranking, counted again from `bench/comparison/2026-10-15/runs.csv`
+    by a script of the supervisor's own (62 543 rows, 4 811 problems):
+    the problems solved within 10 s per tool equal `ranking.md`'s for
+    all thirteen columns, once each tool's wrong refutations are taken
+    out (APLL's ILL system 1 908 less 1 296, its LL system and Click &
+    coLLecT 43 less 12);
+  - linlog has no wrong verdict: its nine contradictions of a known
+    verdict are LLTP headers that say Non-Theorem where linlog proves
+    with a checked proof (`KLE065+1`, `SYN001+1` and `SYJ212+1.001` in
+    their three translations), items 1 to 9 of
+    `plan/notes/lltp-headers.md`, whose proofs are recorded there;
+  - APLL's `N` is its own claim of unprovability: in its source
+    (`src/prover.ml`, `src/foc_ill_bwd.ml`, `prove_sequent`) `N` is
+    printed only when the search ends without reaching its copy bound,
+    and `-` when it reaches it. On
+    `ILL/petri-nets/MCC/SmallOperatingSystem-MT0032DC0008_50_1.p` its
+    own LLTP reader (`apll -ill -lltp FILE -t`) answers `N` in 0.097
+    ms, while `linlog prove -i` proves it with a checked proof (the
+    Horn engine), and the run's rows say the same. Counting its 1 296
+    such answers wrong is right;
+  - the public pages say what the limit costs: `bench/TOOLS.md` has the
+    10 s budget and its effect on late tools, the Maude prover's 2018
+    results at 300 s beside its results here, and linlog's default on
+    the slower low-power cores; the author's pause of the run (21:54 to
+    22:07) is in the step report only, as the author asked;
+  - `.github/workflows/comparison.yml` is `workflow_dispatch` only, with
+    `contents: read` and every action pinned by commit.
+- **Not pushed**, on purpose: the comparison stays local until the
+  author has sent the drafts in `plan/notes/comparison-messages.md` to
+  the tools' authors, or decides to publish anyway. `main@origin` is
+  step 28's end (nvwkumls); the step's nine commits are signed.
+- **For the author**: the drafts; the first run of the job
+  `Comparison`; a second night at 60 s on the 452 problems no tool
+  solved (6 to 8 hours), which is their call.
+- **Step 30 starts with the author's requests of 2026-10-15**, before
+  its baseline: the tests pruned to the necessary ones, with mutation
+  and coverage evidence, and CI cached through the public Cachix cache
+  `linlog-prover` (the secret `CACHIX_AUTH_TOKEN` is set) with the test
+  checks split per crate. The work moves to the author's other account
+  with a handoff prompt from this planning session.
