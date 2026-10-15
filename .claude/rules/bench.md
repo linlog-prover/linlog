@@ -13,7 +13,7 @@ serde_json, which the CLI and the core's tests already have.
 
 ## Layout
 
-- `src/main.rs`: the clap tree (`run`, `summary`, `families`,
+- `src/main.rs`: the clap tree (`run`, `summary`, `ranking`, `families`,
   `journeys`, `journey`, `ratchet`, and the hidden `one`); doc comments
   are the `--help` text, as in the CLI. `--engines` and `--engine` take
   the library's names (`EngineChoice::parser`, from `Engine::NAMES`, and
@@ -39,7 +39,7 @@ serde_json, which the CLI and the core's tests already have.
   every 64 polls was seconds late on the large nets, where a poll comes
   many milliseconds after the last)
   and with the library's own check off (`Options::check(false)`), prints
-  the 27-field tail of the CSV row (`TAIL`, whose fields are named by
+  the 32-field tail of the CSV row (`TAIL`, whose fields are named by
   `HEADER` and set through `column(name)`, never by position) with the
   search's verdict, and for a
   proof checks it outside the timed part and prints the tail once more
@@ -412,6 +412,93 @@ serde_json, which the CLI and the core's tests already have.
   encodings of the problem file are copied out by exact name, since
   `--only` matches substrings and `1-1` is part of `1-1-1-1-1-7`, which
   the net engine does not decide.
+
+## The comparison of tools
+
+- **`run --tools NAMES`** (`src/tools.rs`) runs every problem listed with
+  each tool of `DRIVERS` instead of an engine in a child: `linlog` (the
+  command, `--deterministic`), `linlog-default` (the command as a user
+  runs it), and the other provers (`maude-ill`, `maude-cll`,
+  `click-and-collect`, `llprover-cll`, `llprover-ill`, `lintap`,
+  `linearone`, `sympli`, `lolli`, `apll-ll`, `apll-ill`). A `Driver` is the tool's name, its
+  program on the path, `covers(fragment, mode)`, its input (linlog reads
+  an LLTP or `.spec` file itself and the rest as the sequent's JSON;
+  every other tool a file its translator writes), its arguments, its
+  verdict reader, its `jobs` column and whether it checks its proofs. A
+  new prover is an entry there, a translator in `src/translate.rs` and a
+  derivation in `modules/_provers/` (`flake.md`).
+- **Every run is measured by BenchExec's `runexec`** (`--no-container`,
+  a wall-time limit of the time limit and a second, the memory limit as
+  the cgroup's): `time_ms` is its wall time of the whole process (start,
+  parse and, for linlog, the proof's check included), `cpu_ms` its CPU
+  time with children, `peak_bytes` the cgroup's peak, `translate_ms` the
+  harness's translation, outside the measured run. Its cgroup comes from
+  the user's systemd; the cpuset controller is not delegated here, so
+  the streams are pinned with `taskset` and `runexec --cores` is not used.
+  A run past its limit is `unknown`/`timeout`; one the cgroup ended for
+  memory `unknown`/`out_of_memory`, linlog's included (its account leaves
+  out the proof of a `&` search closed by `⊤`, which can be exponential).
+- **Each tool in its own documented configuration**: APLL's backward
+  search under its default bound 3 (`-` is `unknown`/`bound`), the Maude prover's
+  ILL search under the copy bound 5 of its own LLTP script (a `false`
+  with `!` is `unknown`/`copy_bound`), llprover's default threshold 5 (a
+  failure with `!` or `?` is `unknown`/`threshold`), lolli's depth 100 (it
+  never refutes: `unknown`/`depth`), linTAP's exponential limit raised
+  without end, Click & coLLecT's limit of CPU time set to the run's
+  (patched from its fixed 3 s). A problem outside a tool's fragment or
+  mode is a row with verdict `refused`, reason `fragment`, not run; a
+  translation that cannot be written (linTAP and a positive `!`, lolli
+  and a sequent longer than an argument) is `refused` with the reason.
+  SWI-Prolog caps its stacks at 1 GiB unless told otherwise, so the
+  three Prolog provers' commands take the run's memory limit as their
+  `--stack-limit`, and a stack overflow reads as `out_of_memory`, not an
+  error. A translator never panics on what a reader can return (the
+  empty sequent is `0.` for linTAP, `[] --> []` for llprover): it runs
+  in the parent, and a panic there ends the whole run and every resume.
+- **The columns** `tool`, `tool_version` (from the flake's record,
+  `LINLOG_COMPARISON_TOOLS`), `translate_ms`, `peak_bytes` and `raw` (the
+  tool's last line of output) came at the end of `HEADER`; `run` without
+  `--tools` leaves them empty. `--resume` of a tools file keys on source,
+  family, problem, mode and tool. `run --tools` writes `NAME.env.json`
+  beside its CSV: the command line, the limits, every tool's version and
+  source, `LINLOG_COMMIT`, the processor, the CPUs it may use, the
+  memory and the kernel.
+- **`--shard K/N`** takes every N-th problem from the K-th, after
+  `--only`; `shards_partition_the_problems_in_order` pins that the shards
+  partition the list. `bench/comparison.sh` splits a job's shard `k/n`
+  into `count` streams as shards `i·n + k` of `count·n`, which together
+  are the job's shard whatever the count, so the sequential streams and
+  the default's take the same problems.
+- **`linlog-bench ranking FILES`** (`src/ranking.rs`) is the comparison's
+  Markdown: problems solved within the limit per tool, how the rest
+  ended, per group (LLTP intuitionistic, its Petri nets, classical,
+  qcover, families), linlog against each tool on the problems both
+  cover with what the other alone solves, translation and peak memory,
+  every answer that came after the limit and before the kill (a second
+  later, so it shows only what a slightly longer limit would add),
+  and every contradiction (a proof against a refutation, or a verdict
+  against the known one), each verdict marked checked or not.
+  **What counts as wrong** (`judge`): a refutation of a problem some
+  tool proved with a checked proof, or a verdict on a generated problem
+  against its verdict by construction; a wrong verdict is never solved.
+  A verdict that only contradicts an LLTP header counts as solved and in
+  its own column, `against the header`: about thirty of the library's
+  headers are wrong, and the first night's run had Sympli refute 15
+  Theorem-marked files that have classical countermodels. `bench/plots.py`
+  judges the same way, so the figures count what the tables count.
+  `tools_ranked_and_contradictions_listed` pins it on a planted
+  disagreement. `bench/plots.py` draws the cactus and scatter figures
+  from the CSV by column names.
+- **`bench/comparison.sh`** is the one script of the published numbers
+  and of the CI job (`.github/workflows/comparison.yml`): it builds
+  `.#comparison`, `.#lltp` and `.#qcover`, runs the streams (`--cores`,
+  one sequential stream per core; `--default-cores`, CPU lists by `/`),
+  joins `runs.csv`, writes `ranking.md` and `figures/`. Each stream runs
+  two passes, the small sets (CLL, qcover, the families) and then the
+  intuitionistic library, whose Petri nets sort last, so that a night
+  cut short leaves Petri nets for the next. On the author's
+  machine it runs in the night slot as a user unit, the sequential
+  streams on 6–11 and the default on 12–15.
 
 ## The journeys and the ratchet
 

@@ -33,10 +33,11 @@ pub const HEADER: &str = "source,family,size,index,problem,mode,engine_requested
                           test_period,timeout_s,run,copies,expected,verdict,reason,checked,engine,\
                           fragment,occurrences,multiplicity,time_ms,nodes,memo_hits,memo_entries,\
                           splits,links,tests,recursion_limit,cpu_ms,wait_ms,bias,forward_copies,\
-                          check_ms,memory_limit,copies_reached,pool_after,forward_copies_reached,work";
+                          check_ms,memory_limit,copies_reached,pool_after,forward_copies_reached,work,\
+                          tool,tool_version,translate_ms,peak_bytes,raw";
 
 /// The columns the child prints.
-const TAIL: usize = 27;
+const TAIL: usize = 32;
 
 /// The line the child prints when its problem is loaded and its search
 /// starts, from which the parent counts the time limit.
@@ -104,6 +105,39 @@ impl BiasChoice {
             Self::Rarer => Bias::Rarer,
             Self::Factors => Bias::Factors,
         }
+    }
+}
+
+/// One of N shards of the problems: the K-th takes the problems at the
+/// places K − 1, K − 1 + N, K − 1 + 2N, … of the list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Shard {
+    /// Which shard, from 1.
+    k: usize,
+    /// How many.
+    n: usize,
+}
+
+impl std::str::FromStr for Shard {
+    type Err = String;
+
+    /// Reads `K/N` with 1 ≤ K ≤ N.
+    fn from_str(text: &str) -> Result<Self, String> {
+        let (k, n) = text
+            .split_once('/')
+            .and_then(|(k, n)| Some((k.parse().ok()?, n.parse().ok()?)))
+            .ok_or_else(|| format!("{text:?} is not a shard K/N"))?;
+        if k == 0 || k > n {
+            return Err(format!("shard {text}: K must be 1 to N"));
+        }
+        Ok(Self { k, n })
+    }
+}
+
+impl Shard {
+    /// Returns this shard's problems of the list, in their order.
+    pub fn of<T>(self, list: Vec<T>) -> Vec<T> {
+        list.into_iter().skip(self.k - 1).step_by(self.n).collect()
     }
 }
 
@@ -204,6 +238,12 @@ pub fn run(args: &RunArgs) -> Result<()> {
             let path = format!("{}/{}", r.family, r.name);
             args.only.iter().any(|only| path.contains(only.as_str()))
         });
+    }
+    if let Some(shard) = args.shard {
+        references = shard.of(references);
+    }
+    if !args.tools.is_empty() {
+        return crate::tools::main(args, references);
     }
     let jobs = args
         .jobs
@@ -541,7 +581,7 @@ fn cause(stderr: &str) -> &str {
 }
 
 /// Makes text a CSV field: no commas, no line breaks.
-fn clean(text: &str) -> String {
+pub(crate) fn clean(text: &str) -> String {
     text.replace(',', ";").replace(['\n', '\r'], " ")
 }
 
@@ -708,6 +748,11 @@ fn tail(args: &OneArgs) -> String {
             s.forward_copies.to_string(),
             s.work.to_string(),
         ]
+        .into_iter()
+        // The columns of a row of `run --tools`: tool, tool_version,
+        // translate_ms, peak_bytes and raw.
+        .chain(std::iter::repeat_n(String::new(), 5))
+        .collect::<Vec<_>>()
         .join(",")
     };
     let Verdict::Proved(proof) = &outcome.verdict else {
@@ -806,7 +851,37 @@ fn multiplicity(forest: &Forest) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{HEADER, finished};
+    use super::{HEADER, Shard, finished};
+
+    /// Every shard of a list, joined, is the list, each problem once, and
+    /// each keeps the list's order; a shard outside 1 to N is refused.
+    #[test]
+    fn shards_partition_the_problems_in_order() {
+        let problems: Vec<u32> = (0..23).collect();
+        for n in [1, 2, 5, 23, 30] {
+            let mut joined: Vec<u32> = (1..=n)
+                .flat_map(|k| {
+                    format!("{k}/{n}")
+                        .parse::<Shard>()
+                        .unwrap()
+                        .of(problems.clone())
+                })
+                .collect();
+            let first = format!("1/{n}")
+                .parse::<Shard>()
+                .unwrap()
+                .of(problems.clone());
+            assert!(
+                first.windows(2).all(|w| w[0] < w[1]),
+                "a shard keeps the order"
+            );
+            joined.sort_unstable();
+            assert_eq!(joined, problems, "{n} shards take every problem once");
+        }
+        for bad in ["0/3", "4/3", "3", "a/b"] {
+            assert!(bad.parse::<Shard>().is_err(), "{bad}");
+        }
+    }
 
     /// `--resume` takes no file of other columns, and a run's key from a
     /// file of its own: what it ran and the options a later column added,

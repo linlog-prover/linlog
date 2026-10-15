@@ -17,12 +17,20 @@ mod journeys;
 /// Where problems come from: the families, LLTP files, `.spec` files,
 /// problem files.
 mod problems;
+/// The comparison of tools: per tool the problems solved, those outside
+/// its fragment, the translation times, and where tools contradict each
+/// other.
+mod ranking;
 /// The journeys' instruction counts against their ceilings.
 mod ratchet;
 /// Running problems: the parent that spawns a child per run, and the child.
 mod run;
 /// Markdown tables from the CSV rows.
 mod summary;
+/// Other provers beside linlog's command, each run by BenchExec.
+mod tools;
+/// Problems written in other provers' syntax.
+mod translate;
 
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -72,6 +80,16 @@ enum Command {
         /// files hold no run: what the flake's `bench` check asks
         #[arg(long, conflicts_with_all = ["before", "against"])]
         strict: bool,
+    },
+    /// Print the comparison of tools in CSV files of `run --tools` as
+    /// Markdown: per tool the problems solved within the time limit and
+    /// how the others ended, per group of problems, linlog against each
+    /// other tool, the translation times and peak memory, and every
+    /// problem on which tools contradict each other or the known verdict
+    Ranking {
+        /// The CSV files
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
     },
     /// List the generated families with their default sizes
     Families,
@@ -229,6 +247,29 @@ pub struct RunArgs {
     /// row for: finishes an interrupted run
     #[arg(long, requires = "append")]
     resume: bool,
+    /// Run every problem with each of these provers instead of linlog's
+    /// engines in a child: `linlog` (the command on one thread),
+    /// `linlog-default` (the command as a user runs it) and the other
+    /// provers' drivers, each process measured by BenchExec's `runexec`
+    /// under the same --timeout and --memory-limit (by default 4 GiB);
+    /// the options of linlog's engines are refused beside it
+    #[arg(
+        long,
+        value_delimiter = ',',
+        value_name = "TOOL",
+        conflicts_with_all = ["engines", "jobs", "copies", "bias", "forward_copies",
+            "test_period", "recursion_limit", "pool_after", "repeat"]
+    )]
+    tools: Vec<String>,
+    /// Run only the K-th of N shards of the problems (from 1): every N-th
+    /// problem in the order they are listed, so that the N shards
+    /// partition them and each runs every tool of a problem on one machine
+    #[arg(long, value_name = "K/N")]
+    shard: Option<run::Shard>,
+    /// With --tools, where each run's input and log are written and removed
+    /// after it (default: a directory beside the output file)
+    #[arg(long, value_name = "DIR", requires = "tools")]
+    work: Option<PathBuf>,
 }
 
 /// The arguments of `one`.
@@ -287,6 +328,7 @@ fn main() -> ExitCode {
             (_, Some(file)) => compare::against(&file, &files, counters),
             _ => summary::summary(&files, strict),
         },
+        Command::Ranking { files } => ranking::ranking(&files),
         Command::Families => {
             for family in linlog::families::FAMILIES {
                 let sizes: Vec<String> = family.sizes.iter().map(u32::to_string).collect();

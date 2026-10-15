@@ -23,6 +23,11 @@ impl Row {
     pub(crate) fn get(&self, column: &str) -> &str {
         self.0.get(column).map_or("", String::as_str)
     }
+
+    /// Sets a column, one the file has or one derived from the rows.
+    pub(crate) fn set(&mut self, column: &str, value: &str) {
+        self.0.insert(column.to_owned(), value.to_owned());
+    }
 }
 
 /// The runs of one problem in one configuration.
@@ -116,15 +121,19 @@ pub(crate) const COUNTERS: [&str; 6] = [
 ];
 
 /// Returns the part of a row's configuration that a comparison of
-/// passes under other options keeps: its mode, requested engine and
-/// threads, a portfolio and a test period.
+/// passes under other options keeps: its mode, requested engine or tool
+/// and threads, a portfolio and a test period.
 pub(crate) fn base(row: &Row) -> String {
-    let mut label = format!(
-        "{} {} j{}",
-        row.get("mode"),
-        row.get("engine_requested"),
-        row.get("jobs")
-    );
+    // A row of another prover, or of linlog's command, names its tool.
+    let mut label = match row.get("tool") {
+        "" => format!(
+            "{} {} j{}",
+            row.get("mode"),
+            row.get("engine_requested"),
+            row.get("jobs")
+        ),
+        tool => format!("{} {tool} j{}", row.get("mode"), row.get("jobs")),
+    };
     if row.get("portfolio") == "true" {
         label.push_str(" portfolio");
     }
@@ -445,6 +454,14 @@ pub fn summary(files: &[PathBuf], strict: bool) -> Result<()> {
 /// The rows of the CSV files, each with its file's name in the column
 /// `file`, without those of a forced engine that does not apply.
 pub(crate) fn read(files: &[PathBuf]) -> Result<Vec<Row>> {
+    let mut rows = read_all(files)?;
+    rows.retain(|row| row.get("verdict") != "refused");
+    Ok(rows)
+}
+
+/// The rows of the CSV files, each with its file's name in the column
+/// `file`, the refused ones included.
+pub(crate) fn read_all(files: &[PathBuf]) -> Result<Vec<Row>> {
     let mut rows = Vec::new();
     for file in files {
         let text =
@@ -471,7 +488,6 @@ pub(crate) fn read(files: &[PathBuf]) -> Result<Vec<Row>> {
             rows.push(Row(row));
         }
     }
-    rows.retain(|row| row.get("verdict") != "refused");
     Ok(rows)
 }
 
@@ -493,7 +509,7 @@ fn seconds(value: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// A row of the columns given, the others empty.
