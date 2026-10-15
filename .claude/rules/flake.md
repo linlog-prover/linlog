@@ -96,3 +96,18 @@ passed.
 `mutants/run.sh` and valgrind for the ratchet, and its `ratchet` command; `fuzz.nix` is the `fuzz` devshell, a nightly compiler
 pinned by date against the locked rust-overlay and cargo-fuzz, for the
 workspace under `fuzz/` alone (`evidence.md`).
+`comparison.nix` builds the other provers of the comparison from their
+own sources at pinned revisions (never vendored: several state no licence,
+or GPL), each a `prover-NAME` package whose derivation is in
+`modules/_provers/` (a directory import-tree skips): the Maude prover on
+nixpkgs' Maude 3 unchanged, Click & coLLecT's prover with a driver of our
+own in place of its web server and its 3 s limit read from the
+environment, llprover, linTAP and LinearOne on SWI-Prolog with drivers of
+our own for the last two (linTAP's `prove/1` never ends on a formula it
+cannot prove), Sympli on MLton with a patch of no-op functions for the
+newer SML/NJ `PP_DEVICE`, lolli with its `cargoHash`, APLL native with
+OCaml 4.14 (it was written for 4.06). Each carries
+`passthru.source` (url, revision, date, licence), which `comparison`'s
+`share/linlog-comparison/tools.json` records per `--tools` name.
+`comparison` joins linlog's command and harness, BenchExec, the provers
+and Python with matplotlib; no check builds it.

@@ -1,0 +1,22 @@
+--- a/util/pp-string.sml	1970-01-01 01:00:01.000000000 +0100
++++ b/util/pp-string.sml	2026-10-15 14:16:30.398212570 +0200
+@@ -15,9 +15,18 @@
+ 
+     fun defaultStyle d = ()
+ 
+-    fun depth d = NONE
++    fun maxDepth d = NONE
++    fun setMaxDepth (d, _) = ()
++    fun ellipses d = ("", 0)
++    fun setEllipses (d, _) = ()
++    fun setEllipsesWithSz (d, _, _) = ()
+     fun lineWidth d = SOME 80
++    fun setLineWidth (d, _) = ()
++    fun maxIndent d = NONE
++    fun setMaxIndent (d, _) = ()
+     fun textWidth d = SOME 80
++    fun setTextWidth (d, _) = ()
++    fun indent (d, n) = d := String.implode (List.tabulate (n, fn _ => #" ")) :: (!d)
+ 
+     fun space (d, n) = d := String.implode (List.tabulate (n, fn _ => #" ")) :: (!d)
+     fun newline d = d := "\n" :: (!d)
