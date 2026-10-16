@@ -40,6 +40,23 @@ of `main`, to GitHub Pages on every push to `main`.
   syntax, unknown runner labels, bad expressions and shell mistakes, not
   behaviour on GitHub. Read run results with `gh run list` and
   `gh run view --log-failed`.
+- **The cache: Cachix `linlog-prover`** (public,
+  https://linlog-prover.cachix.org, key
+  `linlog-prover.cachix.org-1:6K+DDVwwELnSYtfflwUdsHdYuolC7hprdD/r2/KOQZU=`,
+  signed by Cachix). `cachix/cachix-action` follows `install-nix-action`
+  in every job of the three workflows, with the repository secret
+  `CACHIX_AUTH_TOKEN` (a write token) and `skipPush` unless the ref is
+  `main`: pushes to `main`, the weekly run and a dispatch on `main`
+  upload, a pull request only downloads. A pull request from a fork gets
+  no secret, and the action then only says that pushing is disabled. It
+  pushes in daemon mode, what the job built and nothing it fetched: the
+  dependencies' builds, the packages, the documentation, NanoYalla, the
+  provers of the comparison, and each check's empty result, so a check
+  whose derivation did not change is fetched, not rerun. How narrow those
+  derivations are is the flake's (`flake.md`): a change to `cli/` leaves
+  the core crate's checks as they were. A check's output holds no build
+  tree, so the cache's size is that of the dependencies' builds (about
+  185 MiB each) and the packages.
 - **Docs** deploys `result/share/doc` of `nix build .#doc` with GitHub's own
   Pages actions. The repository's Pages source must be "GitHub Actions".
 - **Comparison** (`comparison.yml`, `workflow_dispatch` only, inputs

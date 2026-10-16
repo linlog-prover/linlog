@@ -131,7 +131,11 @@ every output it needs; no file is ever added to an imports list.
 `ci.yml` runs `nix flake check` and the online `cargo deny check
 advisories` on every push to `main`, every pull request and weekly, with
 nothing installed but Nix; `docs.yml` publishes the rustdoc of `main` to
-GitHub Pages.
+GitHub Pages. Every job pulls from the public Cachix cache
+`linlog-prover`, and the jobs on `main` push what they build, so a check
+whose inputs did not change is fetched, not rerun. Locally, `nix run
+nixpkgs#cachix -- use linlog-prover` (once, as a trusted user) does the
+same for `nix flake check`; the flake sets no `nixConfig`.
 
 ## Version control: jj only
 

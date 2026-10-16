@@ -33,6 +33,13 @@ jobs:
         with:
           # Fetching the `github:` inputs anonymously runs into rate limits.
           github_access_token: ${{ github.token }}
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: linlog-prover
+          # Only what `main` builds is uploaded. A pull request from a fork
+          # gets no secret and only downloads.
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: ${{ github.ref != 'refs/heads/main' }}
       - run: nix flake check --print-build-logs --keep-going
 
   # The one check that needs the network, so `nix flake check` cannot run it.
@@ -46,4 +53,9 @@ jobs:
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
           github_access_token: ${{ github.token }}
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: linlog-prover
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: ${{ github.ref != 'refs/heads/main' }}
       - run: nix develop --command cargo deny check advisories
