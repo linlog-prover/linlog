@@ -4,7 +4,7 @@
 
 | item | state | evidence |
 |---|---|---|
-| Session 30a: the tests pruned and CI cached (session `step-30a`, 2026-10-16) | paused for the author (2026-10-16 10:44): the mutation runs are to resume, see "Where the runs stand" | Per-crate checks (voppnlzq) and the Cachix cache in CI (ptprktol): a change to `cli/` leaves the core crate's six Rust checks' derivations as they were, one to `plan/` every Rust check's. Tests pruned in wtpnsrlo and svrqukoy: four removed, one merged into `detection`, three shrunk; 448 tests to 443; `cargo test --workspace` in the dev profile 111.6 s to 50.3 s, the release tests with debug assertions 24.0 s to 13.4 s (cores 2 to 5). Every code commit gated. The mutation runs and the last `nix flake check` are to resume. |
+| Session 30a: the tests pruned and CI cached (session `step-30a`, 2026-10-16) | paused for the author (2026-10-16 22:38): the mutation runs are to resume, see "Where the runs stand" | Per-crate checks (voppnlzq) and the Cachix cache in CI (ptprktol): a change to `cli/` leaves the core crate's six Rust checks' derivations as they were, one to `plan/` every Rust check's. Tests pruned in wtpnsrlo and svrqukoy: four removed, one merged into `detection`, three shrunk; 448 tests to 443; `cargo test --workspace` in the dev profile 111.6 s to 50.3 s, the release tests with debug assertions 24.0 s to 13.4 s (cores 2 to 5). Every code commit gated. The mutation runs and the last `nix flake check` are to resume. |
 
 ## Session 30a: the tests pruned and CI cached
 
@@ -213,18 +213,27 @@ paused twice for the author (09:16, resumed 10:10; and 10:44); a batch
 cut midway reruns from its start.
 
 - **At `main`** (`W=/home/tux/Projects/own/linlog-step30a-mut-before`,
-  cores 6 to 10). Resume:
-  `systemd-run --user --unit step30-mut-before -p MemoryMax=12G -p MemorySwapMax=0 -p OOMPolicy=continue -p LimitCORE=0 --working-directory=$W taskset -c 6-10 nix develop -c bash -c "$S/mutate.sh $W 6-10 before search horn-mod horn-equation horn-cover horn-reach serialize parse ordinary-parse ordinary-derivation fragment occurrences cli-settings cli-arguments net reference > $S/mut-before.log 2>&1"`
+  cores 2 to 8, three jobs). Resume:
+  `systemd-run --user --unit step30-mut-before -p MemoryMax=12G -p MemorySwapMax=0 -p OOMPolicy=continue -p LimitCORE=0 -E JOBS=3 --working-directory=$W taskset -c 2-8 nix develop -c bash -c "$S/mutate.sh $W 2-8 before search horn-mod horn-equation horn-cover horn-reach serialize parse ordinary-parse ordinary-derivation fragment occurrences cli-settings cli-arguments net reference >> $S/mut-before.log 2>&1"`
 - **After the pruning** (`W=/home/tux/Projects/own/linlog-step30a-mut-after`,
-  at svrqukoy, cores 11 to 15): the same with the unit
-  `step30-mut-after`, cores `11-15` and the label `after`.
-- **Where each stood at the pause (10:44)**: at `main`, `search` done
-  (list `$S/mutants/before/search.txt`) and `horn-mod` cut in its first
-  pass; after the pruning, `search` cut in its second pass, no list yet.
-  The two batches `net` and `reference` (queued as the units
-  `step30-mut-before-2` and `step30-mut-after-2`, which never started)
-  are in the resume commands above. On resume the driver skips `search`
-  at `main` and starts at `horn-mod`.
+  at svrqukoy, cores 9 to 15): the same with the unit
+  `step30-mut-after`, cores `9-15` and the label `after`
+  (`$S/mut-after.log`). The cores are those planning freed for the
+  night; by day they are 6 to 10 and 11 to 15, two jobs.
+- **Where each stood at the pause (22:38)**: at `main`, `search`,
+  `horn-mod`, `horn-equation`, `horn-cover`, `horn-reach` and
+  `serialize` done, `parse` cut in its first pass; after the pruning,
+  `search`, `horn-mod`, `horn-equation` and `horn-cover` done,
+  `horn-reach` cut in its first pass. The lists are under
+  `$S/mutants/before/` and `$S/mutants/after/`; the driver skips them.
+- **So far no batch differs**: `search` 8 survivors at `main` and
+  after, `horn-mod` 1 and 1, `horn-equation` 54 and 54, `horn-cover` 17
+  and 17, the same mutants (`$S/compare.sh`). Some survive that
+  older committed lists lack (against `area-3.4`, the latest of each:
+  one in `search`, two in `horn-equation`, none in `horn-mod` or
+  `horn-cover`); `main` has them too, so they come from code changed
+  since, not the pruning.
+  Timeouts are still to be rerun alone, at the end.
 - **Done and kept**: the gates of all four code commits (passed, logs
   `$S/gate-voppnlzq.log`, `-ptprktol`, `-wtpnsrlo`, `-svrqukoy`), the
   timings, the drvPath proof, the review, and `nix flake check` at
