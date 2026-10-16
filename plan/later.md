@@ -1175,6 +1175,19 @@ more than two roots, and on a `!` of an additive formula, is decided by
 the focused engine today. The canonical choice among identical hypotheses
 (step 15) applies two-sided as well.
 
+- **The memory bound is passed on wide intuitionistic searches by default**
+  (found at the review of step 29, 2026-10-16). `linlog prove -i --file
+  bench/lltp/ILL/ILLTP-SYJ-01/SYJ206+1.020.p --memory-limit 4GiB --timeout
+  10s` on four cores peaked at 4 267 MiB of resident memory and ended at
+  the time limit, not at the memory bound (the two-sided engine at copy
+  bound 4, 55 589 stable sequents, 4 224 memo entries at most, 11.4
+  billion units of work); on one thread it peaked at 2.1 GiB. In step
+  29's run the cgroup ended this file and SYJ212+1.020 (two translations)
+  at 4 GiB. Something the default's race allocates is not charged to the
+  bound: find it (the second search's own structures, the pool's
+  workers, or a proof of `&` rules outside the focused engine's charge),
+  charge it, and pin it with a test under a bound.
+
 ## Follow-ups: ordinary logic
 
 Left by step 25 (`plan/reports/25-ordinary-logic.md`); 1 and 4 of its
