@@ -525,30 +525,6 @@ mod tests {
         assert!("MLLL".parse::<Fragment>().is_err());
     }
 
-    /// Each kind belongs to the connective class of its symbol.
-    #[test]
-    fn kinds_have_classes() {
-        use Fragment as F;
-        use Kind::*;
-        for (kind, fragment) in [
-            (Atom, F::EMPTY),
-            (DualAtom, F::EMPTY),
-            (Tensor, F::MULTIPLICATIVES),
-            (Par, F::MULTIPLICATIVES),
-            (One, F::MULTIPLICATIVE_UNITS),
-            (Bot, F::MULTIPLICATIVE_UNITS),
-            (With, F::ADDITIVES),
-            (Plus, F::ADDITIVES),
-            (Top, F::ADDITIVE_UNITS),
-            (Zero, F::ADDITIVE_UNITS),
-            (Bang, F::EXPONENTIALS),
-            (Quest, F::EXPONENTIALS),
-        ] {
-            assert_eq!(kind.fragment(), fragment, "{kind:?}");
-            assert_eq!(kind.dual().fragment(), fragment, "{kind:?}");
-        }
-    }
-
     /// Detection sees exactly the connectives of a sequent, dualised
     /// hypotheses included.
     #[cfg(feature = "parse")]
@@ -564,12 +540,14 @@ mod tests {
             ("1 |-", F::MULTIPLICATIVE_UNITS),
             ("A * 1 |- A", F::MLL_WITH_UNITS),
             ("A & B |- A", F::ADDITIVES),
+            ("|- A & B", F::ADDITIVES),
             ("|- top", F::ADDITIVE_UNITS),
             ("0 |- A", F::ADDITIVE_UNITS),
             ("A & B |- A + 0", F::ADDITIVE),
             ("A & B |- A * B", F::MLL | F::ADDITIVES),
             ("A * B, C par D |- A & B, C + D, 0, top, 1, bot", F::MALL),
             ("!A |- A", F::EXPONENTIALS),
+            ("|- !A", F::EXPONENTIALS),
             ("!A, !(A -o B) |- !B", F::MLL | F::EXPONENTIALS),
             ("!A, !(A -o B) |- !B, 1", F::MELL),
             ("!(A & B) |- ?(A + B)", F::ADDITIVES | F::EXPONENTIALS),

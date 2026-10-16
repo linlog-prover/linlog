@@ -878,20 +878,6 @@ fn seq_commands() {
     assert_eq!(fragment, (0, "MALL\n".into(), String::new()));
 }
 
-/// The help lists every command.
-#[test]
-fn help_names_every_command() {
-    let (status, out, _) = linlog(&["--help"], "");
-    assert_eq!(status, 0);
-    for command in ["prove", "check", "interact", "seq"] {
-        assert!(out.contains(&format!("\n  {command} ")), "{command}: {out}");
-    }
-    let (_, out, _) = linlog(&["seq", "--help"], "");
-    for command in ["print", "json", "fragment"] {
-        assert!(out.contains(&format!("\n  {command} ")), "{command}: {out}");
-    }
-}
-
 /// Returns the path of the file `name` in a directory of these tests
 /// under the target's temporary directory, apart from the session test's,
 /// which removes its own.

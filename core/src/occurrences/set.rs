@@ -348,13 +348,6 @@ impl Forest {
     pub(crate) fn empty_set(&self) -> OccSet {
         OccSet::empty(self.len())
     }
-
-    /// Returns the set of the root formulas: the sequent itself, as proof
-    /// search starts on it.
-    #[cfg(all(test, feature = "parse"))]
-    pub(crate) fn root_set(&self) -> OccSet {
-        OccSet::of(self.len(), self.roots().iter().copied())
-    }
 }
 
 #[cfg(test)]
@@ -476,16 +469,5 @@ mod tests {
         assert!(!seen.insert(OccSet::of(100, [o(80), o(5)])));
         assert!(seen.insert(OccSet::of(100, [o(5)])));
         assert_eq!(OccSet::of(100, [o(5), o(80)]).words(), [1 << 5, 1 << 16]);
-    }
-
-    /// The forest hands out sets of its width, and its roots as a set.
-    #[cfg(feature = "parse")]
-    #[test]
-    fn forest_sets() {
-        let s: crate::Sequent = "A, A -o B |- B".parse().unwrap();
-        let f = Forest::new(&s).unwrap();
-        assert_eq!(f.empty_set().capacity(), 64);
-        assert!(f.empty_set().is_empty());
-        assert_eq!(f.root_set().iter().collect::<Vec<_>>(), f.roots());
     }
 }

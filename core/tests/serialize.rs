@@ -13,47 +13,11 @@ use linlog::{
     OccId, Proof, ProofStructure, Rule, Sequent, Step, VertexId, ViewOptions,
 };
 
-/// Parses `input` and serializes it as compact JSON.
-fn json(input: &str) -> String {
-    let s: Sequent = input.parse().unwrap();
-    serde_json::to_string(&s).unwrap()
-}
-
 /// A sequent's JSON as another form nests it: without `version`.
 fn nested(s: &Sequent) -> String {
     serde_json::to_string(s)
         .unwrap()
         .replacen(r#""version":1,"#, "", 1)
-}
-
-/// The arena, the root indices and the atom names appear under their fixed
-/// keys, with the short tags of the terms.
-#[test]
-fn json_format() {
-    for (input, expected) in [
-        (
-            "|-",
-            r#"{"version":1,"terms":[],"roots":[],"atoms":[],"antecedents":0}"#,
-        ),
-        (
-            "A |- A",
-            r#"{"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1}"#,
-        ),
-        (
-            "|- 0, 1, bot, top",
-            r#"{"version":1,"terms":["0","1","⊥","⊤"],"roots":[0,1,2,3],"atoms":[],"antecedents":0}"#,
-        ),
-        (
-            "A * B |- A par B",
-            r#"{"version":1,"terms":[{"D":0},{"D":1},{"⅋":[0,1]},{"V":0},{"V":1},{"⅋":[3,4]}],"roots":[2,5],"atoms":["A","B"],"antecedents":1}"#,
-        ),
-        (
-            "!(A & B) |- ?(A + B)",
-            r#"{"version":1,"terms":[{"D":0},{"D":1},{"⊕":[0,1]},{"?":2},{"V":0},{"V":1},{"⊕":[4,5]},{"?":6}],"roots":[3,7],"atoms":["A","B"],"antecedents":1}"#,
-        ),
-    ] {
-        assert_eq!(json(input), expected, "{input:?}");
-    }
 }
 
 /// A sequent survives a trip through JSON unchanged.

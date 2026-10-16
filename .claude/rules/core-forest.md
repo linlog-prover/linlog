@@ -73,9 +73,9 @@ of terms. Invariants the code relies on:
 - `lca` is a parent walk from the first argument and is `None` across roots;
   the net search's cycle rejection is only valid within one root.
 
-`OccSet` (`occurrences/set.rs`, crate-private with `Forest::empty_set` and
-`root_set`: no public call takes a set) is `Box<[u64]>` with the forest's width fixed
-at creation (`Forest::empty_set`, `root_set`, `OccSet::empty(len)`). Its
+`OccSet` (`occurrences/set.rs`, crate-private with `Forest::empty_set`:
+no public call takes a set) is `Box<[u64]>` with the forest's width fixed
+at creation (`Forest::empty_set`, `OccSet::empty(len)`). Its
 binary operations are defined on sets of different widths, in every build,
 as on the sets of ids they are: the words a narrower set lacks count as
 empty (`is_subset` is false when the receiver has a member beyond the

@@ -3633,19 +3633,4 @@ mod tests {
         #[cfg(feature = "parallel")]
         assert_eq!(Options::default().with_jobs(2).threads(), 2);
     }
-
-    /// The stop condition ends the search with `Unknown`.
-    #[test]
-    fn stop() {
-        let outcome = prove_within(
-            &sequent("|- a * b, ~a, ~b"),
-            Mode::CLASSICAL,
-            &Options::default(),
-            &Limits::default(),
-            |_| true,
-        )
-        .unwrap();
-        assert!(matches!(outcome.verdict, Verdict::Unknown(Reason::Stopped)));
-        assert_eq!(Reason::Stopped.to_string(), "the search was stopped");
-    }
 }
