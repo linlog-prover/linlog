@@ -100,7 +100,9 @@ Current contents:
   obvious.
 - `skills/graceful-stop/`: the author's "stop" (2026-10-16): pause this
   session's runs, every session it supervises and their units at
-  resumable points, record how each resumes; `resume` picks them up.
+  resumable points, record how each resumes; `HH:MM` stops by that
+  time, the pause started twelve minutes before by one-shot crons;
+  `resume` picks them up.
 - `hooks/block-git.py`, `hooks/block-jj-new-message.py`: `PreToolUse(Bash)`
   guards, see below; `hooks/command_line.py`, the reading of a command
   line both import (not executable, not a hook).

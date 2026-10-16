@@ -4,11 +4,12 @@ description: >-
   Pause all running work so that it resumes later with as little loss as
   possible: this session's own runs, every session it supervises, their
   sub-agents, workflows and systemd units. Use when the author says
-  "stop" (or "pause", or that they need the machine now), or when a
-  supervising session sends "Pause". With the argument `resume`, picks
-  the paused work up again, which is what the author's "go" or a
-  supervisor's "Resume" asks for.
-argument-hint: "[resume]"
+  "stop" (or "pause", or that they need the machine now, or by a time),
+  or when a supervising session sends "Pause". With a time `HH:MM`,
+  work goes on as long as it can and everything has stopped by then.
+  With the argument `resume`, picks the paused work up again, which is
+  what the author's "go" or a supervisor's "Resume" asks for.
+argument-hint: "[HH:MM | resume]"
 ---
 
 # Graceful stop
@@ -18,7 +19,40 @@ at any moment. "Stop" means: free the machine now, keep everything that
 was done, and leave each piece of work where it can be picked up.
 Nothing is abandoned and nothing is deleted.
 
-`$ARGUMENTS` is empty for a stop and `resume` for a resume.
+`$ARGUMENTS` is empty for a stop now, a time `HH:MM` (24-hour, local)
+for a stop by then, and `resume` for a resume.
+
+## A stop by a time (`HH:MM`)
+
+The author wants the machine free at `HH:MM` and the work going until
+shortly before. The pause itself takes about ten minutes: the goal
+cleared, the worker's message read at its next step, its units stopped,
+its commit and checklist. So:
+
+1. **Read the deadline** `D` as today's `HH:MM`. If `D` is less than
+   fifteen minutes away, or already past, stop now (the sections below)
+   and tell the author why it did not wait.
+2. **Tell each worker now** (`SendMessage`, no reply needed): the
+   machine must be free at `D`; at `D − 12 min` its goal is cleared and
+   it gets "Pause"; by `D − 4 min` every unit of its own but the warm
+   loop must be stopped, or the supervisor stops it by name; until then
+   it carries on, but starts nothing (a batch, a pass, a build) that
+   cannot end or reach a resumable point by `D − 8 min`.
+3. **Schedule the stop** with two one-shot crons (`CronCreate`,
+   `recurring: false`, the minute and hour pinned to today's date):
+   - at `D − 12 min`: the supervisor's steps 2 to 4 below (clear the
+     goals, send "Pause", pause your own work and delete the recurring
+     crons, noting them for the resume);
+   - at `D − 4 min`: step 5 at once (stop every leftover unit by name,
+     tell the worker which, check the load), then step 6 (tell the
+     author).
+
+   A cron fires only while this session is idle, so keep turns short
+   from `D − 15 min` on, and run nothing long in the foreground.
+4. **Tell the author** in two lines: what runs until when, and what the
+   stop will cost (the batch or pass that will be cut).
+5. **If the pause completes early** (every worker reports, no unit
+   left), delete the `D − 4 min` cron and tell the author at once.
 
 ## Rules for every stop
 
@@ -77,6 +111,11 @@ Nothing is abandoned and nothing is deleted.
 
 ## As a worker (you got "Pause", or the author said "stop" to you)
 
+0. **Told of a deadline** `D` ahead of time: carry on, but start
+   nothing that cannot end or reach a resumable point by `D − 8 min`;
+   with no supervisor, pause yourself at `D − 12 min` (`ScheduleWakeup`
+   or a one-shot cron) and ask the author to type `/goal clear` if you
+   have a goal.
 1. **Finish or cut** the current task, by the rule above.
 2. **Stop your sub-agents and workflows** at a resumable point (tell
    them, then `TaskStop`), and **your units** by name. A run that skips
