@@ -192,9 +192,10 @@ tool covers only `m` of the set.
   against linlog's 829.
 - **linlog's default solves 23 that its one thread does not** (it races
   a second search on a pool), and ends 3 runs at the 4 GiB cgroup limit
-  (SYJ206+1.020, SYJ212+1.020 in two translations), where linlog's own
-  account of its memory leaves out what a proof of the `&` rules closed
-  by `⊤` costs: these count as linlog's, out of memory.
+  (SYJ206+1.020, SYJ212+1.020 in two translations): the process grew
+  past the 4 GiB that linlog's own memory bound allows, so something it
+  allocates there is not counted against the bound (not yet found).
+  These count as linlog's, out of memory.
 - **APLL's ILL search refutes 31 Petri nets that linlog does not
   decide**, against their headers (Theorem). Since APLL refutes 1 296
   nets that linlog proves with checked proofs (below), these 31 are

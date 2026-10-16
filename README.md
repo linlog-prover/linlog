@@ -1251,8 +1251,11 @@ one core and measured by BenchExec, linlog on one thread solves 4 181,
 Sympli 1 684, the Maude prover 768 with its intuitionistic system and
 31 with its classical one, APLL 612 and 31, llprover 479 and 11, Click &
 coLLecT 31, LinearOne 69, linTAP 15 and lolli 14, each of the problems
-in its own fragment and modes. Sympli solves 132 intuitionistic problems that linlog does
-not, mostly refutations of the SYJ collections. No tool proves a
+in its own fragment and modes. Most of linlog's lead is the library's
+3 137 Petri nets, which it decides with an engine of its own (3 072,
+against Sympli's 811). On the other 1 358 intuitionistic problems Sympli
+solves the most, 873 against linlog's 829 (852 by its default), and 132
+that linlog does not, mostly refutations of the SYJ collections. No tool proves a
 sequent linlog refutes; APLL and Click & coLLecT refute provable
 sequents, 1 308 and 12 of them.
 
