@@ -883,7 +883,11 @@ mod tests {
                 .collect()
         };
         let mut tally = Tally::default();
-        for case in 0..300 {
+        // 100 programs, every clause shape many times over in each mode.
+        // Those that reach their goal by construction cost nothing; the
+        // others take about a tenth of a second each in the release build,
+        // the reference at 3 copies and the engines up to their polls.
+        for case in 0..100 {
             let (mut hypotheses, mut formulas) = (Vec::new(), Vec::new());
             // Every other program reaches its goal by construction: the
             // marking after a few firings of its clauses under `!`.

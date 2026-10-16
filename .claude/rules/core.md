@@ -198,7 +198,7 @@ operands' closure, one allocation per walk. `Reading::connective(o)`
 (`IllConnective`, non-exhaustive) is the one table of what an
 occurrence is under its position, which `Notation::ill` matches on too.
 `core/tests/depth.rs` runs every walk the public API
-offers on formulas nested 100 000 deep, on a thread with a stack of
+offers on formulas nested 50 000 deep, on a thread with a stack of
 256 KiB.
 
 **No wildcard arm over the calculus's enums** in `sequents`,

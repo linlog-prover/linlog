@@ -41,11 +41,11 @@ browser or a stranger's file would.
 - The baseline of 2026-10-08/09 took 5.1 hours on cores 6 to 11, three
   mutants at a time; `plan/reports/28-baselines.md` has each batch's.
 - The `mutants` cargo profile (opt-level 1, no debug info, the debug
-  assertions and overflow checks of `dev`) runs the whole suite in about
-  25 s where `dev` takes two minutes, because
+  assertions and overflow checks of `dev`) runs the whole suite in
+  seconds where `dev` takes about half a minute, because
   `search::reference::tests::engines_agree_on_horn_programs` alone takes
-  114 s unoptimized; an incremental rebuild of the core crate stays a few
-  seconds.
+  31 s unoptimized (it took 81 s with 300 programs); an incremental
+  rebuild of the core crate stays a few seconds.
 - A mutant that panics on an overflow or a debug assertion counts as
   caught: that is the build the tests run in debug, not the release
   build, where the same mutant may wrap silently.

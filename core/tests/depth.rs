@@ -11,8 +11,10 @@
 use linlog::sequents::Visit;
 use linlog::{Forest, Fragment, Member, Mode, Node, NodeId, Proof, Reading, Sequent};
 
-/// How deep the formulas are nested.
-const DEPTH: usize = 100_000;
+/// How deep the formulas are nested: deep enough that the stack below
+/// holds about five bytes per level, less than a call frame even where
+/// one frame serves two levels, so that a recursion over them overflows.
+const DEPTH: usize = 50_000;
 
 /// The stack of the thread the walks run on.
 const STACK: usize = 256 * 1024;
@@ -174,7 +176,7 @@ fn walk(json: &str, fragment: Fragment) {
     }
 }
 
-/// A sequent whose formulas are nested 100 000 deep, to the right, to the
+/// A sequent whose formulas are nested 50 000 deep, to the right, to the
 /// left, or as towers of `?` and of `!`, is read, printed, optimized,
 /// numbered, read two-sided, walked, exported and written back on a stack
 /// of 256 KiB.
@@ -207,7 +209,7 @@ fn ordinary(text: &str, unicode: &str) {
     }
 }
 
-/// Ordinary formulas nested 100 000 deep, a tower of negations and
+/// Ordinary formulas nested 50 000 deep, a tower of negations and
 /// implications nested to the right in brackets, are parsed, printed and
 /// translated on a stack of 256 KiB.
 #[cfg(feature = "parse")]

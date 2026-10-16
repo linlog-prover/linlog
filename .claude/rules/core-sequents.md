@@ -113,7 +113,7 @@ and `operator`, what follows an operand) with one explicit stack
 binary connectives with their left operands, each waiting for the operand
 to its right). A term goes into the arena the moment it is complete, so
 there is no syntax tree, nothing recurses, and nothing has a drop that
-does: a formula nested 100 000 deep, or a chain that long, parses on a
+does: a formula nested 50 000 deep, or a chain that long, parses on a
 stack of 256 KiB (`depth_costs_no_stack` in `core/tests/parse.rs`), in
 time and memory linear in the text. What the code relies on:
 

@@ -238,12 +238,14 @@ fn error_places_and_expectations() {
 }
 
 /// Neither the nesting of a formula nor the length of a chain costs any
-/// stack: formulas 100 000 deep parse on a thread with a small one, to a
+/// stack: formulas 50 000 deep parse on a thread with a small one, to a
 /// sequent of as many subformula occurrences as the text has.
 #[test]
 fn depth_costs_no_stack() {
-    /// How many connectives each formula has.
-    const N: usize = 100_000;
+    /// How many connectives each formula has: the stack of 256 KiB holds
+    /// about five bytes for each, less than a call frame even where one
+    /// frame serves two of them.
+    const N: usize = 50_000;
     let work = || {
         let chain = |operator: &str| format!("|- {}a", format!("a {operator} ").repeat(N));
         for (shape, input, occurrences) in [
