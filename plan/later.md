@@ -744,6 +744,17 @@ pool's split of threads between the two searches: measured in 30. A
 sound affine prune: step 27 answers it for Horn programs. The rest stays
 as written.
 
+*Found by the comparison's gap study (2026-10-17,
+`plan/notes/research/comparison-gaps.md`, unassigned).* Of the 122
+intuitionistic problems Sympli decides and linlog does not, 94 are
+refutations whose copy levels never close on spaces of about fifteen
+stable sequents, and at least four of them were refuted by the engine
+of 2026-10-04: a likely regression, suspected in the memo's cut entries
+carried from level to level. The note ranks four fixes (R1 the cut
+entries, R2 a classical countermodel, R3 a cap on members only `⊤`
+takes, R4 the inverse method), each with a held-out measurement, and
+lists the probes owed (A1 to A5). The author decides where they go.
+
 *Left by step 26 (2026-10-04, `plan/reports/26-focused-engine.md`).*
 The reference prover, the Horn test on the goal, the Mix prune, the
 chain loop and the profile's hot spots are done. Left, each measured
