@@ -47,12 +47,16 @@ Nothing is abandoned and nothing is deleted.
    be paused, only cleared and set again (code.claude.com/docs/en/goal,
    checked 2026-10-16). Keys typed into a busy session are dropped, and
    an idle one is restarted by the goal within moments, so: interrupt
-   it with Escape (`zellij --session linlog-NAME action write 27`; it
+   it with Escape (`zellij --session linlog-NAME action write --pane-id PANE 27`; it
    cuts only the model's current step, its units run on), type
-   `zellij --session linlog-NAME action write-chars "/goal clear"`,
-   then `… action write 13` for Enter, and look at its screen (`zellij
+   `zellij --session linlog-NAME action write-chars --pane-id PANE
+   "/goal clear"`, then `… action write --pane-id PANE 13` for Enter, and look at its screen (`zellij
    --session linlog-NAME action dump-screen --pane-id PANE`): it must
-   say `Goal cleared`; if not, repeat once. Note which file held the
+   say `Goal cleared`, or its status line lose `◎ /goal active`; if
+   not, repeat once. PANE is the Claude pane (`zellij --session
+   linlog-NAME action list-panes`: the one titled NAME, `terminal_0`
+   from `plan/start-session.sh`); without `--pane-id` the keys go to
+   the focused pane, a shell (`terminal_1`). Note which file held the
    goal's text (the one given to `plan/start-session.sh`) for the
    resume.
 3. **Pause each worker**: `SendMessage` "Pause" with `notify_when_idle`.
@@ -100,8 +104,8 @@ Nothing is abandoned and nothing is deleted.
   once and restart the warm loop. Restart your own units, recreate your
   crons, and send each paused worker "Resume" with `notify_when_idle`.
   For a worker whose goal you cleared, set it again while it is idle:
-  `zellij --session linlog-NAME action write-chars "$(cat GOAL_FILE)"`,
-  then `… action write 13`; its screen shows `◎ /goal active`. The
+  `zellij --session linlog-NAME action write-chars --pane-id PANE
+  "$(cat GOAL_FILE)"`, then `… action write --pane-id PANE 13`; its screen shows `◎ /goal active`. The
   goal's turn count and timer start afresh; the work is kept.
 - **A worker**: read your checklist, rerun the commands it records, and
   carry on from there.
