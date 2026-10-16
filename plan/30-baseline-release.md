@@ -48,7 +48,9 @@ the next starts. All are Opus 5.5 at `high`.
   own that says why. The second night of the comparison is still the
   author's to ask for.
 - **30c: the baseline and the release**, the rest of this prompt.
-  The night or nights need the author's go.
+  The night or nights need the author's go, which they gave
+  (2026-10-17): the baseline starts on the first night after 30b's
+  review, from 20:00, and a stopped one finishes on the next.
 
 ## What step 29 left you
 
