@@ -15,47 +15,164 @@
       ...
     }:
     let
-      # Manifests, the lock, *.rs and *.toml, the export snapshots the
-      # core tests compare with, the behaviour lock's inputs and pinned
-      # outputs, the font the CLI embeds for PNG and PDF, and the README
-      # whose examples a CLI test runs: editing anything else rebuilds
-      # nothing.
-      src = lib.fileset.toSource {
-        root = ../.;
-        fileset = lib.fileset.unions [
-          (craneLib.fileset.commonCargoSources ../.)
-          ../core/tests/snapshots
-          ../core/tests/lock
-          ../cli/tests/lock
+      inherit (lib) fileset;
+
+      # What each crate is built and tested from. A check's source is the
+      # parts it needs, so that a change elsewhere leaves its derivation,
+      # and its cached result, as they were: the core crate's tests do not
+      # see the command's code, and no Rust check sees the prose (README
+      # aside, whose examples the command's tests run), the scripts or the
+      # benchmark data. The core crate's export tests draw with the font the
+      # command embeds.
+      parts = {
+        core = fileset.unions [
+          ../core/Cargo.toml
+          (craneLib.fileset.commonCargoSources ../core/src)
+        ];
+        core-tests = fileset.unions [
+          ../core/tests
           ../cli/fonts
+        ];
+        cli = fileset.unions [
+          ../cli/Cargo.toml
+          (craneLib.fileset.commonCargoSources ../cli/src)
+          ../cli/fonts
+        ];
+        cli-tests = fileset.unions [
+          ../cli/tests
           ../README.md
         ];
+        bench = fileset.unions [
+          ../bench/Cargo.toml
+          (craneLib.fileset.commonCargoSources ../bench/src)
+        ];
+        bench-tests = ../bench/tests;
       };
 
+      # cargo loads every member of the workspace, so every source keeps
+      # every member's manifest, and `stubMembers' gives a member left out
+      # an empty file for each target its manifest names; nothing builds
+      # them.
+      filesetOf =
+        names:
+        fileset.unions (
+          [
+            ../Cargo.toml
+            ../Cargo.lock
+            ../core/Cargo.toml
+            ../cli/Cargo.toml
+            ../bench/Cargo.toml
+          ]
+          ++ map (name: parts.${name}) names
+        );
+      srcOf =
+        names:
+        fileset.toSource {
+          root = ../.;
+          fileset = filesetOf names;
+        };
+      everything = builtins.attrNames parts;
+
+      stubMembers = ''
+        for target in cli/src/lib.rs cli/src/main.rs bench/src/main.rs; do
+          if [ ! -e "$target" ]; then
+            mkdir -p "$(dirname "$target")"
+            touch "$target"
+          fi
+        done
+      '';
+
+      # The crane arguments of a build from the named parts.
+      argsOf =
+        names:
+        commonArgs
+        // {
+          src = srcOf names;
+          postPatch = stubMembers;
+        };
+
+      # Every crate with its tests: the dependencies' build, which reads the
+      # manifests alone, and the checks that read the whole workspace.
       commonArgs = {
-        inherit src;
+        src = srcOf everything;
         strictDeps = true;
 
         buildInputs = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ pkgs.libiconv ];
       };
 
-      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+      # How cargo selects each crate for its checks. cargo resolves the
+      # dependencies' features for the packages it selects, so a crate
+      # alone builds some of them otherwise than the whole workspace does:
+      # the core crate without the command's `serde_json` features, the
+      # harness without `png` and `pdf`.
+      selections = {
+        core = "--package linlog --all-features";
+        cli = "--package linlog-cli";
+        bench = "--package linlog-bench";
+      };
+
+      # The dependencies of every crate as its checks and packages select
+      # it, in one build tree, so that none of them builds a dependency
+      # again.
+      depsOnly =
+        args:
+        craneLib.buildDepsOnly (
+          args
+          // {
+            buildPhaseCargoCommand = lib.concatMapStrings (selection: ''
+              cargoWithProfile check --locked --all-targets ${selection}
+              cargoWithProfile build --locked ${selection}
+            '') (builtins.attrValues selections);
+            checkPhaseCargoCommand = lib.concatMapStrings (selection: ''
+              cargoWithProfile test --locked --no-run ${selection}
+            '') (builtins.attrValues selections);
+          }
+        );
+
+      cargoArtifacts = depsOnly commonArgs;
+
+      # The dependencies once more with the debug assertions and overflow
+      # checks the `test-debug-assertions-*' checks turn on: the flags are
+      # part of every artifact, so each of those checks would rebuild them.
+      debugAssertions = {
+        CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = "true";
+        CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS = "true";
+      };
+      cargoArtifactsDebugAssertions = depsOnly (
+        commonArgs
+        // debugAssertions
+        // {
+          pname = "linlog-workspace-debug-assertions";
+        }
+      );
     in
     {
       _module.args.workspace = {
-        inherit src commonArgs cargoArtifacts;
+        # Every crate with its tests, for the checks that read all of it.
+        fileset = filesetOf everything;
+        inherit
+          argsOf
+          selections
+          commonArgs
+          cargoArtifacts
+          cargoArtifactsDebugAssertions
+          debugAssertions
+          ;
       };
 
       packages = {
         linlog-cli = craneLib.buildPackage (
-          commonArgs
+          argsOf [
+            "core"
+            "cli"
+          ]
           // {
             inherit cargoArtifacts;
             inherit (craneLib.crateNameFromCargoToml { cargoToml = ../cli/Cargo.toml; }) pname;
             # The crates inherit the workspace's version.
             inherit (craneLib.crateNameFromCargoToml { cargoToml = ../Cargo.toml; }) version;
             cargoExtraArgs = "--locked --package linlog-cli";
-            # The `test' check runs them, once, for the whole workspace.
+            # The `test-cli' check runs them.
             doCheck = false;
             # The binary is `linlog', not the package name `nix run' assumes.
             meta.mainProgram = "linlog";
@@ -67,9 +184,13 @@
         # rustdoc writes no top-level index, so one redirects to the core
         # crate.
         doc = craneLib.cargoDoc (
-          commonArgs
+          argsOf [
+            "core"
+            "cli"
+          ]
           // {
             inherit cargoArtifacts;
+            cargoDocExtraArgs = "--no-deps --package linlog --package linlog-cli";
             env.RUSTDOCFLAGS = "--deny warnings";
             postInstall = ''
               cat > $out/share/doc/index.html <<'EOF'

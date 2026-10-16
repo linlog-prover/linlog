@@ -25,14 +25,17 @@
     }:
     let
       linlog-bench = craneLib.buildPackage (
-        workspace.commonArgs
+        workspace.argsOf [
+          "core"
+          "bench"
+        ]
         // {
           inherit (workspace) cargoArtifacts;
           inherit (craneLib.crateNameFromCargoToml { cargoToml = ../bench/Cargo.toml; }) pname;
           # The crates inherit the workspace's version.
           inherit (craneLib.crateNameFromCargoToml { cargoToml = ../Cargo.toml; }) version;
           cargoExtraArgs = "--locked --package linlog-bench";
-          # The `test' check runs them, once, for the whole workspace.
+          # The `test-bench' check runs them.
           doCheck = false;
           meta.mainProgram = "linlog-bench";
         }

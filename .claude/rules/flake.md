@@ -13,14 +13,45 @@ import-tree, one aspect per file); this is what each module holds.
 
 Modules share values through `_module.args`:
 `rustToolchain` and `craneLib` (`toolchain.nix`), `workspace` (the crane
-arguments, `workspace.nix`, whose source is what crane's
-`commonCargoSources` keeps plus `core/tests/snapshots`, `core/tests/lock`,
-`cli/tests/lock`, `cli/fonts` and `README.md`, which a CLI test runs the
-examples of). `checks.nix`,
-`devshell.nix`, `treefmt.nix` and `systems.nix` are what their names
-say; `checks.nix`'s `test` is crane's, in the release profile, and
-`test-debug-assertions` the same tests with debug assertions and
-overflow checks on; `doc` is the published site and `doc-private` the
+arguments, `workspace.nix`). `checks.nix`, `devshell.nix`, `treefmt.nix`
+and `systems.nix` are what their names say.
+
+- **Each check reads only its crate's parts.** `workspace.nix` cuts the
+  workspace into parts (`core`, `core-tests`, `cli`, `cli-tests`,
+  `bench`, `bench-tests`: a crate's `src/` with its manifest, and its
+  `tests/` with what they read: the core crate's export tests the font
+  in `cli/fonts`, the command's README's examples), and `argsOf PARTS`
+  gives the crane arguments of a source of those parts. Every source
+  keeps the four manifests and the lock, since cargo loads every member,
+  and `stubMembers` (the `postPatch`) gives a member left out an empty
+  file for each target its manifest names (`cli/src/lib.rs`,
+  `cli/src/main.rs`, `bench/src/main.rs`): a new explicit target path in
+  a manifest goes into that list. A file no part names is in no Rust
+  check: `plan/`, the benchmark data, the scripts, `fuzz/`.
+- `checks.nix`'s `clippy-CRATE`, `test-CRATE` and
+  `test-debug-assertions-CRATE` (CRATE `core`, `cli`, `bench`) are one
+  check per crate from `perCrate`: the core crate's from `core` and
+  `core-tests` with `--all-features` (the set the command enables, so
+  that `parallel`, `png` and `pdf` are tested; `cargo test --workspace`
+  unifies to the same set), the command's from `core`,
+  `cli`, `cli-tests`, the harness's from `core`, `bench`,
+  `bench-tests`. So a change to `cli/` reruns the command's checks only
+  and one to `core/src/` all three. `test-CRATE` is crane's, in the
+  release profile; `test-debug-assertions-CRATE` the same tests with
+  debug assertions and overflow checks on, from their own dependencies'
+  build (`cargoArtifactsDebugAssertions`), since the flags are in every
+  artifact. Checks install no build tree (`doInstallCargoArtifacts =
+  false`): the cache holds only that they passed. The packages
+  (`linlog-cli` from `core` and `cli`, `linlog-bench` from `core` and
+  `bench`) leave out the tests, so a test's edit reruns neither `export`,
+  `rocq`, `bench` nor `ratchet`; `doc`, `doc-private` read `core` and
+  `cli`, `wasm` and `features` `core` alone, `deny` and `shear` every
+  part.
+- The dependencies' build (`buildDepsOnly`) reads the manifests and the
+  lock alone (crane's dummy source), so it is the same derivation for
+  every change but a manifest's or the lock's.
+
+`doc` is the published site and `doc-private` the
 docs of every item with `--document-private-items`, both with
 rustdoc's warnings denied, so a link in a private item's doc resolves too
 (a split of a module once left four such links pointing nowhere). `claude-hooks.nix` is the check that pins the
