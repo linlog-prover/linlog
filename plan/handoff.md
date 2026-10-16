@@ -388,6 +388,13 @@ in short plain-language reports, and relay the author's corrections
   polling through a night.
 - Prompts are written for the model and effort that will run them, say
   what is wanted and why, and leave the design to the session.
+- "Stop" (the author, 2026-10-16) pauses everything this session
+  started: every worker gets "Pause" (finish a short task if that helps,
+  stop its units at a resumable point, commit what is finished, record
+  each run's state and the command that resumes it, end its turn), its
+  leftover units are stopped by name, and the author hears that the
+  machine is free and how each thing resumes. A worker's brief, or a
+  message at its start, says what "Pause" means. "Go" resumes.
 
 ## Things that bit the earlier session
 
