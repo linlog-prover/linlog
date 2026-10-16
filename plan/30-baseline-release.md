@@ -40,9 +40,13 @@ the next starts. All are Opus 5.5 at `high`.
   search changes, against their oracles. Step 29's published counts
   show linlog's default out of memory on `SYJ206+1.020` and
   `SYJ212+1.020`: the report says whether they now end at the bound or
-  at the time limit, and the rows are rerun only with the author's
-  word, with the second night of the comparison if the author wants
-  one.
+  at the time limit. The author gave their word (2026-10-17): after
+  the fix, rerun linlog's default on those two rows of the comparison,
+  under the comparison's own settings, and update the published counts
+  and every place that cites them (README's "Beside the other provers",
+  `bench/TOOLS.md`, `bench/comparison/2026-10-15/`) in a commit of its
+  own that says why. The second night of the comparison is still the
+  author's to ask for.
 - **30c: the baseline and the release**, the rest of this prompt.
   The night or nights need the author's go.
 
