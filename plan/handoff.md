@@ -393,8 +393,9 @@ in short plain-language reports, and relay the author's corrections
   stop its units at a resumable point, commit what is finished, record
   each run's state and the command that resumes it, end its turn), its
   leftover units are stopped by name, and the author hears that the
-  machine is free and how each thing resumes. A worker's brief, or a
-  message at its start, says what "Pause" means. "Go" resumes.
+  machine is free and how each thing resumes: the `graceful-stop`
+  skill, which also clears a worker's `/goal` and sets it again at
+  "go".
 
 ## Things that bit the earlier session
 

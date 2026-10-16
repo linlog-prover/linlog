@@ -237,7 +237,9 @@ even to read.** Every operation goes through `jj`, including lock updates:
 formatter, a SessionStart note on the jj working copy), permission rules,
 the `crate-source-explorer` agent (use it before guessing at a
 dependency's API), the `update-deps` and `new-tool` skills (the latter
-whenever a crate or tool is added or adopted) and the rules above.
+whenever a crate or tool is added or adopted), the `graceful-stop`
+skill (whenever the author says "stop", or a supervisor sends "Pause")
+and the rules above.
 Claude Code's built-in git instructions and status snapshot are off.
 When the repo changes shape, amend `.claude/` and this file in the same
 change.
