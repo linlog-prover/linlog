@@ -41,30 +41,32 @@ Nothing is abandoned and nothing is deleted.
    list-sessions`), your sub-agents and workflows, your background
    tasks and monitors, your crons, and the units:
    `systemctl --user list-units 'step*' 'linlog-*' --no-pager`.
-2. **Pause each worker**: `SendMessage` "Pause" with `notify_when_idle`.
+2. **Clear each worker's goal first.** A session started with a
+   `/goal` has a fresh model check the goal after every turn and start
+   the next turn while it is unmet, which undoes a pause; a goal cannot
+   be paused, only cleared and set again (code.claude.com/docs/en/goal,
+   checked 2026-10-16). Keys typed into a busy session are dropped, and
+   an idle one is restarted by the goal within moments, so: interrupt
+   it with Escape (`zellij --session linlog-NAME action write 27`; it
+   cuts only the model's current step, its units run on), type
+   `zellij --session linlog-NAME action write-chars "/goal clear"`,
+   then `… action write 13` for Enter, and look at its screen (`zellij
+   --session linlog-NAME action dump-screen --pane-id PANE`): it must
+   say `Goal cleared`; if not, repeat once. Note which file held the
+   goal's text (the one given to `plan/start-session.sh`) for the
+   resume.
+3. **Pause each worker**: `SendMessage` "Pause" with `notify_when_idle`.
    A worker whose brief does not mention this skill gets "Pause: run
    the graceful-stop skill as a worker".
-3. **Pause your own work**: tell your sub-agents to stop at a resumable
+4. **Pause your own work**: tell your sub-agents to stop at a resumable
    point, then `TaskStop` them; stop the background tasks that run
    work, and your units by name. Delete your crons (`CronDelete`): a
    supervision check would nudge a paused worker back to work. Note
    each cron's schedule and prompt so the resume recreates it.
-4. **Clear a worker's goal.** A session started with a `/goal` has a
-   fresh model check the goal after every turn and start the next turn
-   while it is unmet, which undoes a pause; a goal cannot be paused,
-   only cleared and set again (code.claude.com/docs/en/goal, checked
-   2026-10-16). When its idle notice arrives (or at once if its screen,
-   `zellij --session linlog-NAME action dump-screen --pane-id PANE`,
-   shows it idle), type into its prompt: `zellij --session linlog-NAME
-   action write-chars "/goal clear"`, then `zellij --session
-   linlog-NAME action write 13` for Enter; its screen then says `Goal
-   cleared`. Note which file held the goal's text (the one given to
-   `plan/start-session.sh`) for the resume. A turn the evaluator
-   started before the clear ends at once: the worker knows it is
-   paused.
-5. **Wait for the idle notices**, about fifteen minutes at most, then
-   check the units and the load (`uptime`). Stop a worker's leftover
-   unit by its name and note it for the worker's resume.
+5. **Wait for the idle notices**, about fifteen minutes at most (at
+   once if the author says "stop now"), then check the units and the
+   load (`uptime`). Stop a worker's leftover unit by its name and tell
+   the worker which, for its resume.
 6. **Tell the author**, shortly: the machine is free (the load, no
    unit left but the warm loop), what was paused and where, what each
    piece loses (the batch it was in), and that "go" resumes it.
