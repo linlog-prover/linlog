@@ -142,9 +142,17 @@ its commit and checklist. So:
   --sign -o /dev/null`); if it fails, ask the author for the passphrase
   once and restart the warm loop. Restart your own units, recreate your
   crons, and send each paused worker "Resume" with `notify_when_idle`.
-  For a worker whose goal you cleared, set it again while it is idle:
+  For a worker whose goal you cleared, set it again: a long text typed
+  at once is collapsed into a paste, which is no command, so type
+  `/goal ` alone first, then the condition on one line, then Enter:
   `zellij --session linlog-NAME action write-chars --pane-id PANE
-  "$(cat GOAL_FILE)"`, then `… action write --pane-id PANE 13`; its screen shows `◎ /goal active`. The
-  goal's turn count and timer start afresh; the work is kept.
+  "/goal "`, then `… write-chars --pane-id PANE "$(sed 's|^/goal ||'
+  GOAL_FILE | tr '\n' ' ')"`, then `… write --pane-id PANE 13` (while it
+  is busy, this queues). Its screen shows `◎ /goal active`. The goal's
+  turn count and timer start afresh; the work is kept.
+- **After a reboot**, a worker's zellij session has exited: `zellij
+  delete-session linlog-NAME`, then `plan/start-session.sh --resume ID
+  NAME MODEL EFFORT` brings it back with its context, without its goal;
+  set the goal as above and send "Resume".
 - **A worker**: read your checklist, rerun the commands it records, and
   carry on from there.
