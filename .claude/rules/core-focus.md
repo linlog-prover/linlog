@@ -218,11 +218,19 @@ relies on:
   re-exploration of deepening is recovered. Never memoize across forests.
 - **A cut is read only within its generation** (`Memo::begin`, a stamp
   in the record's entry word, `Run::run`). A generation is a run of
-  levels each of which recorded a key new to the table (`Memo::added`),
-  and the first that recorded none: after a level that ended cut
-  without a new key, the next level starts a new generation, which
-  reads the facts (`Proved`, `Complete`) of every level and only its
-  own cuts. Why: an `Exhausted` entry rests on the branch it was found
+  levels each of which recorded a key new to the table (`Memo::added`)
+  and emptied no part of it (`Table::emptied`: the memo, a shard of a
+  pool's, the table of zones, whose ids are then new), and the first
+  that did not: after a level that ended cut without a new key or with
+  an emptying, the next level starts a new generation, which reads the
+  facts (`Proved`, `Complete`) of every level and only its own cuts.
+  Without the emptyings a memo that overflows within every level (a
+  pool's memo of 64 entries, one a shard) re-added its keys at every
+  level, never started a generation, and kept its surviving cuts (the
+  review's witness: input 1 of the test below on `-j 2 --memo-limit
+  64`, level 4 231 at five million units); with them the levels close
+  whether the memo overflows or not, since each level either starts a
+  generation or records a key not recorded since the last emptying. Why: an `Exhausted` entry rests on the branch it was found
   in as much as on the sequent (a search of it below other ancestors
   may prune as a repeat what was cut there), so read at the next level
   it answered "cut" where a search would end in repeats, and the level

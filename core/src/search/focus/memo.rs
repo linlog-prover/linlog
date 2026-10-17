@@ -161,6 +161,10 @@ pub(super) struct Interner {
     limit: usize,
     /// The bytes charged for the table and its zones.
     charged: usize,
+    /// How many times the table was emptied: at most once per zone
+    /// interned and once per release of the memo, which no search does
+    /// `2⁶⁴` times.
+    released: u64,
 }
 
 impl Interner {
@@ -231,6 +235,7 @@ impl Interner {
         account.release(self.charged);
         self.charged = 0;
         self.ids = crate::hash::HashMap::default();
+        self.released += 1;
     }
 }
 
@@ -404,6 +409,9 @@ pub(super) struct Memo {
     /// since it was last emptied: one per stable sequent decided, which
     /// no search makes `2⁶⁴` of.
     added: u64,
+    /// How many times the table was emptied while it held a record: at
+    /// most `added`.
+    emptied: u64,
 }
 
 impl Memo {
@@ -427,6 +435,7 @@ impl Memo {
             hits: 0,
             stamp: 0,
             added: 0,
+            emptied: 0,
         }
     }
 
@@ -442,6 +451,8 @@ impl Memo {
     pub(super) fn begin(&mut self, generation: u64) {
         self.stamp = stamp(generation);
         if self.stamp == 0 && generation != 0 {
+            // Once in 2³⁰ generations: the kept proofs the entries named
+            // wait for the arena's next collection.
             self.clear();
         }
     }
@@ -690,6 +701,7 @@ impl Memo {
     /// Empties the table and keeps its memory for the entries to come: a
     /// count is reset, the index zeroed and the chunks' lengths reset.
     pub(super) fn clear(&mut self) {
+        self.emptied += u64::from(self.len > 0);
         self.len = 0;
         self.current = 0;
         self.slots.fill(0);
@@ -702,6 +714,7 @@ impl Memo {
     pub(super) fn release(&mut self, account: &Account) {
         let held = bytes_of(&self.slots) + self.chunks.iter().map(bytes_of).sum::<usize>();
         account.release(held);
+        self.emptied += u64::from(self.len > 0);
         self.len = 0;
         self.current = 0;
         self.slots = Vec::new();
@@ -716,6 +729,12 @@ impl Memo {
     /// Returns how many records were ever added.
     pub(super) fn added(&self) -> u64 {
         self.added
+    }
+
+    /// Returns how many times the table was emptied while it held a
+    /// record.
+    pub(super) fn emptied(&self) -> u64 {
+        self.emptied
     }
 
     /// Returns how many lookups found an entry that applied.
@@ -790,6 +809,16 @@ impl Shared {
             .iter()
             .map(|s| crate::search::lock(s).added())
             .sum()
+    }
+
+    /// Returns how many times a shard or the table of zones was emptied.
+    pub(super) fn emptied(&self) -> u64 {
+        let shards: u64 = self
+            .shards
+            .iter()
+            .map(|s| crate::search::lock(s).emptied())
+            .sum();
+        shards + crate::search::lock(&self.zones).released
     }
 
     /// [`Memo::insert_hashed`] on the key's shard, which is emptied first
@@ -873,6 +902,16 @@ impl Table<'_> {
         match self {
             Self::Own(memo, _) => memo.added(),
             Self::Shared(shared) => shared.added(),
+        }
+    }
+
+    /// How many times the memo, a shard of it or the table of zones was
+    /// emptied: a key met again after that is added again, and a zone
+    /// gets a new id.
+    pub(super) fn emptied(&self) -> u64 {
+        match self {
+            Self::Own(memo, zones) => memo.emptied() + zones.released,
+            Self::Shared(shared) => shared.emptied(),
         }
     }
 
@@ -1010,8 +1049,10 @@ mod tests {
         assert_eq!(memo.get(&one, 2), None, "a cut of the level before");
         memo.insert(&one, Entry::Failed(Failure::Exhausted(1)), &account);
         assert_eq!(memo.get(&one, 1), cut(1));
+        memo.begin(0);
+        memo.insert(&one, Entry::Failed(Failure::Exhausted(0)), &account);
         memo.begin(1 << 30);
-        assert_eq!(memo.get(&one, 0), None);
+        assert_eq!(memo.get(&one, 0), None, "the stamp is 0 again");
         memo.insert(&one, Entry::Failed(Failure::Complete), &account);
         memo.begin((1 << 30) + 1);
         assert_eq!(memo.get(&one, 0), Some(Entry::Failed(Failure::Complete)));

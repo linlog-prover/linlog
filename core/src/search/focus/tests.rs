@@ -573,11 +573,17 @@ fn an_unbounded_search_deepens() {
 /// dozen) are refuted within thirty thousand units of work at a level
 /// below twenty. A failure cut by the budget, read as a cut in every
 /// later level, carried the cut on from level to level instead, and each
-/// passed a million levels without a verdict.
+/// passed a million levels without a verdict. So on a pool of two whose
+/// memo of 64 entries, one a shard, overflows within every level, where
+/// the keys met again once looked new at every level.
 #[test]
 fn deepening_closes_on_a_finite_space() {
     let limits = Limits::default().with_work(Some(1_000_000));
-    let options = Options::default().with_copies(None);
+    let alone = Options::default().with_copies(None);
+    #[cfg(feature = "parallel")]
+    let pooled = [alone.clone().with_jobs(2).with_memo_limit(64)];
+    #[cfg(not(feature = "parallel"))]
+    let pooled: [Options; 0] = [];
     for input in [
         "!(!(!o11 -o 0) -o 0), !(!(!o21 -o 0) -o 0) |- !o11 + !o21",
         "|- !(!(!(!p -o !q) -o 0) -o !(!(!q -o !p) -o 0)) \
@@ -585,12 +591,15 @@ fn deepening_closes_on_a_finite_space() {
         "!(!(!a -o !b) -o 0) |- !(!(!b -o !(!(!a -o 0) -o 0)) -o 0)",
         "|- !(!(!a + !b) -o !(!(!!(a & !(!b -o 0)) -o !0) -o 0))",
     ] {
-        let (verdict, statistics) = run_within(input, Mode::INTUITIONISTIC, &options, &limits);
-        assert!(
-            matches!(verdict, Verdict::Unprovable(_)),
-            "{input}: {verdict:?} at level {}",
-            statistics.copies
-        );
+        for options in std::iter::once(&alone).chain(&pooled) {
+            let (verdict, statistics) = run_within(input, Mode::INTUITIONISTIC, options, &limits);
+            assert!(
+                matches!(verdict, Verdict::Unprovable(_)),
+                "{input}, {} threads: {verdict:?} at level {}",
+                options.threads(),
+                statistics.copies
+            );
+        }
     }
 }
 

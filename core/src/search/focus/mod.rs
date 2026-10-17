@@ -696,7 +696,8 @@ impl<'a> Run<'a> {
         };
         // The failures cut by the budget that the levels read, a generation
         // being every level since the last that ended cut without a
-        // stable sequent new to the memo ([`Table::begin`]).
+        // stable sequent new to the memo, or with a part of the memo
+        // emptied ([`Table::begin`]).
         let mut generation = 0;
         self.memo.begin(generation);
         // Up to `u32::MAX` inclusive without a wrap; that bound stands for
@@ -704,7 +705,7 @@ impl<'a> Run<'a> {
         for budget in 0..=levels {
             self.statistics.copies = budget;
             self.waiting.clear();
-            let added = self.memo.added();
+            let (added, emptied) = (self.memo.added(), self.memo.emptied());
             let mut gamma = self.take_context();
             let mut list = self.take_list();
             // A stack: the first formula is decomposed first.
@@ -716,8 +717,10 @@ impl<'a> Run<'a> {
                 Ok(Found::Failed(cuts)) if cuts.exhausted => {
                     // The level met no stable sequent it had not met
                     // before, so the next one would read the same cuts
-                    // again; it reads only the facts and its own.
-                    if self.memo.added() == added {
+                    // again; or a part of the memo was emptied, and the
+                    // keys met again count as new for ever. The next
+                    // level reads only the facts and its own cuts.
+                    if self.memo.added() == added || self.memo.emptied() != emptied {
                         generation += 1;
                         self.memo.begin(generation);
                     }
