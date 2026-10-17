@@ -52,7 +52,9 @@ The first release.
 - Level 1: the sequent, the proof, the disproof, the proof structure,
   the interactive session and the outcome (written only), each
   described on its type and in the module `wire`; the options and
-  settings values, which refuse a key they do not know.
+  settings values, which refuse a key they do not know. The repository
+  keeps a document of every form as this release writes it, which every
+  later release must read.
 
 ### Added
 
