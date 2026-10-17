@@ -236,13 +236,17 @@ web front end, so a tag or key change is a format break;
 `core/tests/lock.rs` pins every JSON form on a corpus (sequents, every
 verdict, refutation and reason of an outcome, proofs of every mode,
 proof structures, sessions) in `core/tests/lock/json.txt`, rewritten
-with `BLESS=1` in a commit of its own that says why. Its copy
-`core/tests/wire/level-1.txt` is the lock as 0.1.0 wrote it and is never
-rewritten: `core/tests/stability.rs` reads every line of a form that is
-read back through `wire::upgrade` and writes it again byte for byte (an
-outcome as its proof or disproof), so a release that loses a level-1
-document, or writes a level-1 value otherwise, fails there; a new level
-adds a file `level-N.txt` beside it. A binary format would come
+with `BLESS=1` in a commit of its own that says why.
+`core/tests/wire/level-1.txt` is the lock's 33 lines as 0.1.0 wrote them,
+then the disproof of each of the five refutations and a proof and a
+disproof of a goal off the roots (written once by a scratch test from the
+same code), and is never rewritten: `core/tests/stability.rs` reads
+every line of a form that is read back through `wire::upgrade` and writes
+it again byte for byte (an outcome only as its proof or disproof), so a
+release that loses a level-1 document, or writes a level-1 value
+otherwise, fails there; a new level adds a file `level-N.txt` beside it.
+Until 0.1.0 is tagged its first 33 lines must still equal the lock: a
+change of a written form before the tag rewrites both. A binary format would come
 from the same proxies (postcard encodes the variants by index), in the crate
 that wants it.
 

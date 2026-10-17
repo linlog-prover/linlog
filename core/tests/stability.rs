@@ -2,9 +2,10 @@
 // Licensed under the EUPL
 
 //! The wire forms of the first release, read by this one. `wire/level-1.txt`
-//! is the JSON lock (`lock/json.txt`) as version 0.1.0 wrote it, one
-//! `NAME: JSON` per line, and is never rewritten: where the lock moves on,
-//! this file stays. Every line of a form that is read back reads through
+//! is the JSON lock (`lock/json.txt`) as version 0.1.0 wrote it, followed
+//! by the disproofs of every refutation and a proof and a disproof of a
+//! goal off the roots, as 0.1.0 wrote them, one `NAME: JSON` per line, and
+//! is never rewritten: where the lock moves on, this file stays. Every line of a form that is read back reads through
 //! `wire::upgrade`, and writes the same bytes again; an outcome reads back
 //! as the proof or the disproof it holds. A release that fails here can no
 //! longer read what an earlier one wrote at a level it claims, which its
@@ -42,6 +43,7 @@ fn the_first_release_reads() {
         match name.split('-').next().unwrap() {
             "sequent" => again::<Sequent>(name, json),
             "proof" => again::<Proof>(name, json),
+            "disproof" => again::<Disproof>(name, json),
             "structure" => again::<ProofStructure>(name, json),
             "session" => again::<Interactive>(name, json),
             "outcome" if verdict("proved") => {
@@ -56,5 +58,5 @@ fn the_first_release_reads() {
         }
         read_back += 1;
     }
-    assert_eq!(read_back, 30, "every line but the three unknown outcomes");
+    assert_eq!(read_back, 37, "every line but the three unknown outcomes");
 }
