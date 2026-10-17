@@ -47,6 +47,31 @@ the next starts. All are Opus 5.5 at `high`.
   `bench/TOOLS.md`, `bench/comparison/2026-10-15/`) in a commit of its
   own that says why. The second night of the comparison is still the
   author's to ask for.
+
+  **And the memo's cut entries** (the author, 2026-10-17: fixed in
+  30b, before the baseline). `plan/notes/research/comparison-gaps.md`
+  (2.2, R1, probe A1): with the memo, `SYJ208+1.001` in cbn, `LCL181+1`
+  in cbv, `KLE017+1` in cbv and `KLE069+1` in 01 stay undecided at 10 s
+  at copy levels in the millions; with `--memo-limit 0` each is refuted
+  in milliseconds at levels 6 to 16, and the engine of 2026-10-04
+  refuted two of them. A cut entry, a failure within a budget in the
+  branch and level it was found in, is read as a cut in another branch
+  or at the next level, so a level never closes even on a finite space.
+  Fix it so that iterative deepening closes on a finite space (the note
+  weighs not carrying cut entries across levels against starting a
+  fresh level when one adds no memo entry); find the commit that lost
+  the four (probe A4) if that helps the fix. Pin it with tests on small
+  sequents of these shapes, no copy bound, under a work bound
+  (deterministic), and add a few such rows to the target set without a
+  copy bound. Judge it, against overfitting, on what was not tuned on:
+  tune on `ILLTP-SYJ-01`, and report the rows and the distinct formula
+  stems decided at 10 s on one thread on KLE, SYN/LCL and the cbv
+  translation, before and after; both target sets against their
+  oracles (verdicts must not move to wrong, and every change of
+  counters explained). No verdict may change from decided to wrong,
+  and every proof stays checked. The comparison's published counts
+  change only with the SYJ206/212 rerun above; the rest waits for a
+  second night of the comparison, which is the author's to ask for.
 - **30c: the baseline and the release**, the rest of this prompt.
   The night or nights need the author's go, which they gave
   (2026-10-17): the baseline starts on the first night after 30b's
