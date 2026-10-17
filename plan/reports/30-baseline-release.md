@@ -5,7 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 30a: the tests pruned and CI cached (session `step-30a`, 2026-10-16) | done (2026-10-16 to 10-17) | Per-crate checks (voppnlzq) and the Cachix cache in CI (ptprktol): a change to `cli/` leaves the core crate's six Rust checks' derivations as they were, one to `plan/` every Rust check's. Tests pruned in wtpnsrlo and svrqukoy: four removed, one merged into `detection`, three shrunk; 448 tests to 443; `cargo test --workspace` in the dev profile 111.6 s to 50.3 s, the release tests with debug assertions 24.0 s to 13.4 s (cores 2 to 5). Every code commit gated. Mutation runs of every file whose tests changed (17 batches, 2 831 mutants at `main`, 2 830 after; `check` and `focus-28j` for step 28j's lists), at `main` and after: 235 and 236 surviving, the one more a timeout race that is caught alone on both sides; every timeout rerun alone; no new survivor. `mutants/step-28i/` lost (forgotten with its workspace); `mutants/step-28j/check.txt` short by ten false catches of a README test that failed unmutated at its revision. `nix flake check` passed at the session's last commit. |
-| Session 30b: the memory bound charged and the memo's cut entries fixed (session `step-30b`, 2026-10-17) | done (2026-10-17) | The memo's cut entries are read only within their generation (vpryqrqn, qwwpklrw): probe A1's four rows refuted with the memo on at levels 7, 5, 5 and 12 in 88 to 341 µs; `deepening_closes_on_a_finite_space` fails before and passes after. At 10 s on one thread, rows decided (stems): ILLTP-SYJ-01 (tuned) 57 to 103 (14 to 19), KLE 243 to 264 (83 to 88), SYN and LCL 51 to 63 (18 to 21), every `-cbv` collection 196 to 232 (115 to 128); all 103 gains refutations, none proved by any tool, no decided row changed, every proof checked. The memory bound counts the input, the readings and a race's verdict (ypskkpwl, rutmmotq, xtsvttyy; departs from the design); `the_memory_bound_holds_the_input` ends the default at a bound one byte short of the input. The default's six runs of SYJ206+1.020 and SYJ212+1.020 rerun under the comparison's settings (xovvltrl): one ends at the memory bound, five at the time limit, none killed by the cgroup. Target sets against `after-efficiency` and `net-after-efficiency`: no verdict differs; only the chain family's four rows differ in counters, as before the session; five rows without a copy bound added (ttlytoks). One reviewer, five should-fix, all fixed. Every code commit gated; `nix flake check` passed at the session's last commit. |
+| Session 30b: the memory bound charged and the memo's cut entries fixed (session `step-30b`, 2026-10-17) | done (2026-10-17) | The memo's cut entries are read only within their generation (vpryqrqn, qwwpklrw): probe A1's four rows refuted with the memo on at levels 7, 5, 5 and 12 in 88 to 341 µs; `deepening_closes_on_a_finite_space` fails before and passes after. At 10 s on one thread, rows decided (stems): ILLTP-SYJ-01 (tuned) 57 to 103 (14 to 19), KLE 243 to 264 (83 to 88), SYN and LCL 51 to 63 (18 to 21), every `-cbv` collection 196 to 232 (115 to 128); all 103 gains refutations, none proved by any tool, no decided row changed, every proof checked. The memory bound counts the input, the readings and a race's verdict (ypskkpwl, rutmmotq, xtsvttyy; departs from the design); `the_memory_bound_holds_the_input` ends the default at a bound one byte short of the input. The default's six runs of SYJ206+1.020 and SYJ212+1.020 rerun under the comparison's settings (xovvltrl): one ends at the memory bound, five at the time limit, none killed by the cgroup. Target sets against `after-efficiency` and `net-after-efficiency`: no verdict differs; only the chain family's four rows differ in counters, as before the session; five rows without a copy bound added (ttlytoks). One reviewer, five should-fix, all fixed. Every code commit gated (orzmpoxm a doc link that `nix flake check` found); `nix flake check` passed at the session's last commit. |
 
 ## Session 30a: the tests pruned and CI cached
 
@@ -603,10 +603,17 @@ a restarted turn of the default bias replays the same generations; the
 input is charged once per call on every front door and released with
 it; the race's restructure keeps its order of settling, statistics,
 work and panics. It did not verify the target-set claims, which need
-`bench/*.sh`; those are this session's runs below. Its fixes failed the
+`bench/*.sh`; those are this session's runs above. Its fixes failed the
 gate once (xtsvttyy: `Account::new` and `Account::input` unused in
 `cargo hack`'s builds without `interactive` or `parallel`); fixed in
 the same commit, which then passed.
+
+**`nix flake check`** at the report's commit (kqwmkxkv) failed on
+`doc-private` alone: the memo module's doc linked `[`Memo::begin`]`,
+which the private documentation cannot resolve from a module's own doc
+comment. orzmpoxm spells out the path, as the module's other links do
+(gated); the check then passed at orzmpoxm, and again at the session's
+last commit.
 
 ### Options and front ends
 
