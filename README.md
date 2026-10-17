@@ -14,7 +14,7 @@ The command `linlog` is the package `linlog-cli`, on
 repository:
 
 ```sh
-cargo install linlog-cli                          # a Rust toolchain builds it
+cargo install --locked linlog-cli                 # a Rust toolchain builds it
 nix run github:linlog-prover/linlog -- --help     # or run it with Nix
 nix build github:linlog-prover/linlog             # result/bin/linlog
 ```
@@ -79,7 +79,7 @@ calculus, which the library's independent checker has validated.
 
 ## Usage
 
-The command line program is `linlog` (`cargo install linlog-cli`, `nix run
+The command line program is `linlog` (`cargo install --locked linlog-cli`, `nix run
 github:linlog-prover/linlog -- …`, or `cargo run -p linlog-cli -- …` in a
 checkout). `linlog --help` and `linlog <command> --help` document every
 option.
