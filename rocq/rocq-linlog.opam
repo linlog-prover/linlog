@@ -1,0 +1,36 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# A draft: the Rocq library it describes is not written yet, and the
+# archive's entry needs a release archive with its checksum (`url`).
+opam-version: "2.0"
+version: "0.1.0"
+synopsis: "The Rocq library of linlog, a linear logic suite"
+description: """
+Certificates for the proofs that linlog, a prover of classical and
+intuitionistic linear logic, finds: a sequent calculus of linear logic in
+Rocq, against which the scripts linlog writes check every proof rule by
+rule.
+
+linlog's code, tests and documentation were written with substantial AI
+assistance, by Anthropic's Claude models in Claude Code, in steps the
+author planned, directed and accepted.
+"""
+maintainer: "Fabian Lukas Grubmüller <flgrubm@grubmueller.dev>"
+authors: "Fabian Lukas Grubmüller"
+license: "EUPL-1.2"
+homepage: "https://github.com/linlog-prover/linlog"
+bug-reports: "https://github.com/linlog-prover/linlog/issues"
+dev-repo: "git+https://github.com/linlog-prover/linlog.git"
+tags: [
+  "logpath:Linlog"
+  "category:Mathematics/Logic"
+  "keyword:linear logic"
+  "keyword:sequent calculus"
+]
+depends: [
+  "rocq-core" {>= "9.0" & < "9.2~"}
+  "rocq-stdlib" {>= "9.0" & < "9.2~"}
+]
+build: [make "-C" "rocq" "-j%{jobs}%"]
+install: [make "-C" "rocq" "install"]
