@@ -21,10 +21,10 @@ The first release.
   break. The enums of the calculus are closed on purpose, so that a
   `match` downstream stops compiling when the calculus grows instead of
   falling into a wildcard arm: `Term`, `Kind`, `Node`, `Rule`,
-  `Verdict`, `Branch`, `Sign`, `Polarity`, `Side` and
-  `ordinary::{Node, Rule, Side}`. Cut and, later, the quantifiers will
-  add variants to them, each in a release that raises the second
-  number.
+  `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`,
+  `ordinary::{Node, Rule, Side}` and `sequents::Visit`. Cut and, later,
+  the quantifiers will add variants to them, each in a release that
+  raises the second number.
 - **The cargo features** of `linlog` are `parse`, `serialize`,
   `interactive`, `latex`, `typst`, `svg` and `rocq` (on by default) and
   `parallel`, `png` and `pdf` (off). None is removed within 0.1.

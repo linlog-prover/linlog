@@ -222,8 +222,9 @@ still describes code that a decision changes, the decision holds, and
 the commit that lands it rewrites that bullet.
 
 - **The calculus's enums stay exhaustive** (`Term`, `Kind`, `Node`,
-  `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side` and
-  `ordinary::{Node, Rule, Side}`); every other public enum, every
+  `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`,
+  `ordinary::{Node, Rule, Side}`, and `sequents::Visit`, whose enter,
+  between and exit describe a walk over any tree); every other public enum, every
   options value and every struct with public fields that a later step
   extends is `#[non_exhaustive]`, and so is every struct-like variant of
   a marked enum (`Error`, `Refusal`, `Fault`, `StepError`, `ShapeError`,
@@ -240,6 +241,26 @@ the commit that lands it rewrites that bullet.
   `Interactive::goal`). A public list of an open enum's values (`ALL`,
   `Fragment::NAMED`) is a slice, never an array, whose length is part of
   its type and would change with a new value.
+- **The marked ones at 0.1.0** (every public enum and every struct with
+  a public field, 81, each `#[non_exhaustive]`; the closed are the
+  thirteen above): `Bias`, `CheckError`, `Clock`, `Counter`,
+  `Criterion`, `Engine`, `Error`, `ErrorKind`, `Limits`, `Named`,
+  `NetError`, `NotTaken`, `Options`, `Outcome`, `ParseError`, `Phase`,
+  `Progress`, `Reason`, `Refusal`, `Refutation`, `Settings`,
+  `ShapeError`, `Size`, `Statistics`, `Step`, `StepError`,
+  `ViewOptions`; `export::{Drawable, Form, Styles}`,
+  `export::latex::Options`, `export::pdf::{Date, Options}`,
+  `export::png::Options`, `export::rocq::{Options, Unsupported}`,
+  `export::svg::{Advances, Font, Style}`, `export::typst::{Layout,
+  Options}`; `families::{Family, Instance}`; `limits::Space`;
+  `lltp::{Problem, Status}`; `mist::{Problem, Safety}`;
+  `occurrences::IllConnective`; `ordinary::{Logic, Options, Outcome,
+  Problem, Target, Translation, Verdict}`; `proofs::{Compact, Dyadic,
+  Fault, Invalid, Labels, OpenGoal, Refused, Sides, TextOptions}`;
+  `proofs::interactive::{Applicable, Closed, Needs, Split}`;
+  `search::{Cadence, Equation, Jobs, OneSided, Schedule, StateEquation,
+  Unbalanced}`; `search::batch::{Answer, Cores, Options, Plan,
+  Problem}`. A new public type joins one of the two lists in its commit.
 - **One error family**: every public fallible call returns `Error` or a
   specific type that converts into it without loss. `ErrorKind` has seven
   kinds: malformed, invalid, unsupported, limit, stopped, failed and

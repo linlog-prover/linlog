@@ -127,9 +127,9 @@
 //! break raises the second number. Every public enum and every struct
 //! with public fields that may grow is `#[non_exhaustive]`; the enums of
 //! the calculus (`Term`, `Kind`, `Node`, `Rule`, `Verdict`, `Branch`,
-//! `Sign`, `Polarity`, `Side` and those of [`ordinary`]'s derivations)
-//! are closed on purpose, so that a match over them stops compiling when
-//! the calculus grows. The JSON forms are promised by their wire level
+//! `Sign`, `Polarity`, `Side`, those of [`ordinary`]'s derivations and
+//! `Visit`, a walk's stops) are closed on purpose, so that a match over
+//! them stops compiling when the calculus grows. The JSON forms are promised by their wire level
 //! (the module `wire`, feature `serialize`), not by the crate's version.
 //! Display text, the defaults' numbers and the engines' counters are not
 //! promised. The repository's changelog states each release's surface.
