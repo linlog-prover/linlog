@@ -6,10 +6,17 @@ name = "linlog"
 description = "A linear logic suite: decides, checks, proves step by step and exports sequents of classical and intuitionistic linear logic, and ordinary propositional logic through its embeddings."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "../README.md"
-keywords = ["linear-logic", "theorem-prover", "proof-search", "sequent-calculus", "proof-nets"]
+keywords = [
+  "linear-logic",
+  "theorem-prover",
+  "proof-search",
+  "sequent-calculus",
+  "proof-nets",
+]
 categories = ["science", "mathematics"]
 # The export test reads the command's font from `cli/`, outside this
 # package; the repository runs it.

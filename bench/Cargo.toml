@@ -6,6 +6,7 @@ name = "linlog-bench"
 description = "The benchmark harness of linlog: problem families, the LLTP library, coverability problems, timings as CSV, and the ratchet of instruction counts."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false

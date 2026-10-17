@@ -156,6 +156,52 @@
           }
         );
 
+        # The two published crates packaged as `cargo publish' uploads them,
+        # and each built from its package alone, the command against the
+        # library's: a file a package needs from outside its directory, or
+        # a manifest crates.io would refuse, fails here and not at the tag.
+        # Offline, from the vendored dependencies, where cargo cannot see
+        # the unpublished library as a dependency of the command's package:
+        # the library's package is verified by `cargo package', the
+        # command's built by hand with the library's package patched in.
+        # The upload is the author's.
+        package = craneLib.mkCargoDerivation (
+          workspace.commonArgs
+          // {
+            src = lib.fileset.toSource {
+              root = ../.;
+              fileset = lib.fileset.unions [
+                workspace.fileset
+                ../LICENSE
+                ../core/LICENSE
+                ../cli/LICENSE
+              ];
+            };
+            inherit (workspace) cargoArtifacts;
+            pnameSuffix = "-package";
+            buildPhaseCargoCommand = ''
+              cargo package --locked --offline --registry crates-io --package linlog
+              cargo package --offline --registry crates-io --package linlog-cli \
+                --no-verify --exclude-lockfile
+              # Outside the workspace's directory, whose manifest would claim
+              # the packages.
+              packages=$TMPDIR/packages
+              workspace=$PWD
+              mkdir "$packages"
+              for crate in target/package/*.crate; do
+                tar -xzf "$crate" -C "$packages"
+              done
+              cd "$packages"/linlog-cli-*
+              printf '\n[patch.crates-io]\nlinlog = { path = "../%s" }\n' \
+                "$(basename ../linlog-[0-9]*)" >>Cargo.toml
+              # The workspace's lock, so that every dependency is the one it pins.
+              cp "$workspace/Cargo.lock" .
+              CARGO_TARGET_DIR=$workspace/target cargo build --offline --release
+            '';
+            doInstallCargoArtifacts = false;
+          }
+        );
+
         # The core crate's features one at a time and in pairs, with all of
         # them and with none; the CLI enables all of them and would never
         # notice one that breaks alone. The full powerset doubles with every

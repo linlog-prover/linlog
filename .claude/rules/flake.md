@@ -117,6 +117,30 @@ back to 0.0.1).
 every feature but `parallel`, a `cargo check` without the host's
 artifacts: the rule that the library stays fit for a browser was held by
 convention alone before it.
+`checks.nix`'s `package` packages both crates as `cargo publish`
+uploads them and builds each from its package: `cargo package
+--registry crates-io --package linlog` (which verifies the library's
+package by building it), then the command's package without
+verification and without a lock, both unpacked outside the source tree
+(whose manifest would claim them as members) and the command built in
+release from its package with the library's patched in (`[patch.crates-io]`)
+and the workspace's `Cargo.lock`. Offline, the vendored dependencies
+replace crates.io, so cargo can neither see the unpublished library as
+the command's dependency (its local overlay fails) nor package without
+`--registry crates-io`. A package that needs a file from outside its
+directory, a test that does not travel left out of `exclude`, or a
+manifest field crates.io refuses fails there. Its source is the whole
+workspace with the licence files (`LICENSE` and the links
+`core/LICENSE`, `cli/LICENSE`), which no other check reads. The upload
+needs the network and the author's token; `cargo publish --dry-run
+--workspace` in the shell is the same with the registry asked.
+`msrv.nix` is the `msrv` check: `cargo check --workspace --all-targets
+--all-features` with the stable toolchain of `rust-version` in
+`[workspace.package]` (read at evaluation, `1.92` written as rust-overlay's
+`1.92.0`), its dependencies built with it too, nothing shared with the
+other checks. A `cargo update` that takes a dependency past that
+version, or code that needs a newer compiler, fails it; raising
+`rust-version` is a new 0.y version and a line of the changelog.
 `checks.nix`'s `features` (cargo-hack, each feature and every pair) and
 the gate's two `cargo hack` runs deny warnings (`RUSTFLAGS="-D
 warnings"`; the gate's in `target/hack`, since the flags are part of

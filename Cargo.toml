@@ -13,6 +13,10 @@ name = "linlog-workspace"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+# The oldest toolchain that builds every crate with every feature: krilla,
+# behind `pdf', needs 1.92. The `msrv' check holds it; it rises only with
+# a new 0.y version.
+rust-version = "1.92"
 license = "EUPL-1.2"
 repository = "https://github.com/linlog-prover/linlog"
 

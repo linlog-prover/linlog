@@ -34,6 +34,9 @@ The first release.
   name, and a new level is a line of this file under "Wire forms",
   never by itself a break of the crates. This release writes and reads
   level 1.
+- **The minimum supported Rust version** is 1.92 (`rust-version`), for
+  both crates with every feature; raising it is a new 0.y version and a
+  line of this file.
 - **The command** keeps its subcommands, flags, exit statuses and JSON
   output (`--format json`) within 0.1; its text for people (verdict
   lines, explanations, help) may change in any release. The library

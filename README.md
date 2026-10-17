@@ -19,6 +19,9 @@ nix run github:linlog-prover/linlog -- --help     # or run it with Nix
 nix build github:linlog-prover/linlog             # result/bin/linlog
 ```
 
+Building needs Rust 1.92 or later; a release raises that only with its
+second number (0.1 to 0.2).
+
 The library is the crate [`linlog`](https://crates.io/crates/linlog):
 
 ```toml
