@@ -2274,3 +2274,22 @@ client follows it (step 32).
   outside the memory limit. Next: a closing session for the report and
   the register, then signing, the push and the last ultra review with
   the author.
+- 2026-10-17: review of step 30a, the tests pruned and CI cached (one
+  session, Opus 5.5 at high, 2026-10-16 to 10-17, paused twice):
+  - the Rust checks split per crate, each from its own crate's
+    sources: a change to `cli/` leaves the core's test checks at the
+    same drvPath, a change to `plan/` every Rust check;
+  - the public Cachix cache `linlog-prover` in every workflow, the
+    action pinned by commit (v17), uploads from `main` only;
+  - four tests removed, one merged, three sweeps shrunk (448 to 443
+    tests; the debug suite 111.6 s to 50.3 s), each with its reason in
+    the report; the mutation runs of 17 batches at `main` and after
+    show no new survivor, every timeout rerun alone.
+
+  The review reran `nix flake check` on the head with the planning
+  commits, checked the drvPath proofs, the survivor lists and the
+  action's pin against its tag. The first run's uploads were refused
+  (the secret held another value); with a new token the second run
+  uploaded. The research note `notes/research/comparison-gaps.md`
+  found the memo's cut entries keep refutations from closing; probe A1
+  confirmed it, and the author put the fix into 30b. Next: 30b.
