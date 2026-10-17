@@ -1,0 +1,30 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+cff-version: 1.2.0
+message: "If you use linlog in your work, please cite it as below."
+type: software
+title: linlog
+abstract: >-
+  A linear logic suite: a Rust library and a command line program that
+  decide, check, prove step by step and export sequents of classical and
+  intuitionistic linear logic and their fragments, keep proofs in a form
+  an independent checker validates, show them as derivation trees or
+  proof nets, and decide ordinary propositional logic through its
+  embeddings into linear logic. Its code, tests and documentation were
+  written with substantial AI assistance, by Anthropic's Claude models in
+  Claude Code, in steps the author planned, directed and accepted.
+authors:
+  - given-names: Fabian Lukas
+    family-names: Grubmüller
+version: 0.1.0
+license: EUPL-1.2
+repository-code: "https://github.com/linlog-prover/linlog"
+url: "https://linlog-prover.github.io/linlog/"
+keywords:
+  - linear logic
+  - intuitionistic linear logic
+  - proof search
+  - sequent calculus
+  - proof nets
+  - theorem prover
