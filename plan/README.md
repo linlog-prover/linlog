@@ -2293,3 +2293,26 @@ client follows it (step 32).
   uploaded. The research note `notes/research/comparison-gaps.md`
   found the memo's cut entries keep refutations from closing; probe A1
   confirmed it, and the author put the fix into 30b. Next: 30b.
+- 2026-10-17: review of step 30b, the memory bound charged and the
+  memo's cut entries fixed (one session, Opus 5.5 at high, 08:39 to
+  12:40):
+  - the memo reads a cut entry only within its generation, and a new
+    generation starts after a level that ended cut with no new memo
+    key, or when the memo is emptied: iterative deepening closes on a
+    finite space. Probe A1's four rows are refuted at levels 5 to 12
+    in under a millisecond; at 10 s on one thread ILLTP-SYJ-01 (tuned
+    on) goes from 57 to 103 rows decided, and the held-out KLE 243 to
+    264, SYN/LCL 51 to 63, the cbv collections 196 to 232, every gain
+    a refutation, no decided row changed;
+  - the memory bound counts the input (the forest, about 25 bytes an
+    occurrence), each search's reading, and a race's check after both
+    sides end (marked "departs from the design", for the author);
+    linlog's default rerun on SYJ206+1.020 and SYJ212+1.020 in the
+    comparison (the author's word): none ends at the cgroup now, the
+    solved counts unchanged.
+
+  The review reran probe A1 on its build, decided SYN/LCL before and
+  after on its own (50 to 62, the same twelve gains), compared both
+  target sets with their oracles, read the comparison's changed
+  tables, and reran `nix flake check` on 30b's commits over `main`.
+  Next: 30c, the baseline and the release.
