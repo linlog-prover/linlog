@@ -74,8 +74,11 @@ the next starts. All are Opus 5.5 at `high`.
   second night of the comparison, which is the author's to ask for.
 - **30c: the baseline and the release**, the rest of this prompt.
   The night or nights need the author's go, which they gave
-  (2026-10-17): the baseline starts on the first night after 30b's
-  review, from 20:00, and a stopped one finishes on the next.
+  (2026-10-17), and then changed the timing the same day: no slot and
+  no timer. The baseline starts as soon as 30c has it ready, detached
+  (`bench/baseline.sh --detach`, not `--arm`), at any hour; the author
+  says when the machine is not free, and the graceful-stop skill pauses
+  it. A stopped one resumes from where it stopped.
 
 ## What step 29 left you
 
@@ -103,8 +106,9 @@ publication) are the last and smallest part.
 ## What is fixed now
 
 1. **The baseline**, by `.claude/rules/bench.md` and the lessons of
-   steps 14 and 16: the estimate by arithmetic, a word to the author
-   before the night, no probes by day beyond those named.
+   steps 14 and 16: the estimate by arithmetic, a word to the
+   supervisor with the estimate before the start, no probes beyond
+   those named.
    `bench/COMPARISON.md` gains the third column. The pass under the
    default (`lltp-default`: every core, `--pool-after 0.1 --timeout 2`)
    answers what step 21 left open. On two cores the race of one thread
@@ -114,8 +118,7 @@ publication) are the last and smallest part.
    threads beside the single one. Read its latest stops as well: at
    step 21's review the pool's choices spent up to 15 s on queued tasks
    after a stop on Petri nets, which the review fixed. The script now
-   estimates eleven and a half hours, more than one slot, and finishes
-   a stopped baseline on the next night.
+   estimates eleven and a half hours and resumes a stopped baseline.
 2. **The release, prepared**: version 0.1.0 in the manifests, a
    changelog, `CITATION.cff`, the crates' metadata and what docs.rs
    builds, a dry run of publishing, the release workflow, the Rocq
