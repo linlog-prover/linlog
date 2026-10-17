@@ -15,7 +15,8 @@
 //! One table holds all three: a key that is not canonical holds a proof
 //! or a cut failure, a canonical one may also hold a complete failure,
 //! which is all a relative reads there. A failure cut by the budget is
-//! read only within its generation ([`Memo::begin`]): deepening levels
+//! read only within its generation
+//! ([`Memo::begin`](crate::search::focus::memo::Memo::begin)): deepening levels
 //! that each met a stable sequent new to the table, and the first that
 //! did not; a cut carried on beyond them can keep every later level cut
 //! on a finite space. The table has a cap in entries
