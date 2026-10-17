@@ -12,7 +12,8 @@ every pull request and weekly: `nix flake check`, and the online
 `cargo deny check advisories` in the devshell. A workflow installs nothing
 but Nix, so CI checks with exactly the tools flake.lock pins.
 `.github/workflows/docs.yml` publishes the flake's `doc` package, the rustdoc
-of `main`, to GitHub Pages on every push to `main`.
+of `main`, to GitHub Pages on every push to `main`. `.github/workflows/release.yml`
+releases a version tag `vX.Y.Z` (below).
 
 - **Every tool comes from the flake.** A job installs Nix and runs
   `nix flake check`, `nix build` or `nix develop --command …`. No
@@ -44,9 +45,9 @@ of `main`, to GitHub Pages on every push to `main`.
   https://linlog-prover.cachix.org, key
   `linlog-prover.cachix.org-1:6K+DDVwwELnSYtfflwUdsHdYuolC7hprdD/r2/KOQZU=`,
   signed by Cachix). `cachix/cachix-action` follows `install-nix-action`
-  in every job of the three workflows, with the repository secret
-  `CACHIX_AUTH_TOKEN` (a write token) and `skipPush` unless the ref is
-  `main`: pushes to `main`, the weekly run and a dispatch on `main`
+  in every job of the four workflows that installs Nix, with the
+  repository secret `CACHIX_AUTH_TOKEN` (a write token) and `skipPush`
+  unless the ref is `main` (`release.yml` only reads it): pushes to `main`, the weekly run and a dispatch on `main`
   upload, a pull request only downloads. A pull request from a fork gets
   no secret, and the action then only says that pushing is disabled. It
   pushes in daemon mode what the job realised and no upstream cache
@@ -75,3 +76,22 @@ of `main`, to GitHub Pages on every push to `main`.
   commits nothing. BenchExec needs a cgroup from the user's systemd, so
   the job enables lingering for the runner's user first and exports its
   bus. It has never run: the first run is the author's.
+- **Release** (`release.yml`, on a tag `vX.Y.Z` only), three jobs. `check`:
+  the tag equals `[workspace.package]`'s version, CITATION.cff states it,
+  and CHANGELOG.md has a dated section `## [X.Y.Z] - YYYY-MM-DD` (a
+  section headed `- unreleased` fails it), then `nix flake check`.
+  `publish` (skipped for `v0.1.0`, which the author published by hand,
+  since crates.io's Trusted Publishing works only for a crate that
+  exists): in the environment `crates-io`, which the trusted publisher
+  on crates.io names and whose protection rules may ask for the author's
+  approval, with `id-token: write`; it packages both crates first (the
+  token from `rust-lang/crates-io-auth-action`, pinned by commit, lives
+  briefly), then publishes `linlog` and `linlog-cli` in that order, each
+  unless its version is on crates.io already, so that rerunning the job
+  after a failure between the two finishes it. `release` (`contents:
+  write`, after `publish` succeeded or was skipped, never after it
+  failed): `gh release create` with the changelog's section as the notes
+  and the two `.crate` files downloaded from static.crates.io, the ones
+  published. The cache is only read (`skipPush`): a tag's builds are
+  `main`'s. Nothing of it can run before the author's first publication
+  and tag; actionlint is all that checks it.

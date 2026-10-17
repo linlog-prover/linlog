@@ -26,8 +26,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The tag names the version every manifest inherits, and the
-      # changelog has its section, dated.
+      # The tag names the version every manifest inherits and the citation
+      # file states, and the changelog has its section, dated.
       - name: The tag, the manifests and the changelog agree
         env:
           TAG: ${{ github.ref_name }}
@@ -39,6 +39,10 @@ jobs:
           fi
           if ! grep -Eq "^## \[$version\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
             echo "CHANGELOG.md has no dated section for $version" >&2
+            exit 1
+          fi
+          if ! grep -q "^version: $version$" CITATION.cff; then
+            echo "CITATION.cff does not state version $version" >&2
             exit 1
           fi
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
@@ -73,16 +77,30 @@ jobs:
         with:
           name: linlog-prover
           skipPush: true
+      # The packages built and verified before the token is asked for,
+      # since it lives briefly; the publication reuses the build.
+      - run: nix develop --command cargo package --locked --package linlog --package linlog-cli
       # A token for this job alone, revoked when it ends.
       - uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
         id: auth
-      # `--workspace` publishes `linlog` before `linlog-cli` and leaves the
-      # harness, which is not for publishing. Publishing is not atomic: a
-      # rerun after a failure between the two fails on the published one,
-      # which `cargo publish -p linlog-cli` then finishes.
-      - run: nix develop --command cargo publish --locked --workspace
+      # The library before the command, each unless its version is on
+      # crates.io already: publishing is not atomic, and a run again after
+      # a failure between the two finishes it.
+      - name: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          for crate in linlog linlog-cli; do
+            if curl --silent --fail --output /dev/null \
+              --user-agent "linlog release (github.com/linlog-prover/linlog)" \
+              "https://crates.io/api/v1/crates/$crate/$version"; then
+              echo "$crate $version is on crates.io already"
+            else
+              nix develop --command cargo publish --locked --package "$crate"
+            fi
+          done
 
   release:
     name: GitHub release
@@ -97,15 +115,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-        with:
-          github_access_token: ${{ github.token }}
-      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
-        with:
-          name: linlog-prover
-          skipPush: true
-      # The packages as cargo builds them for crates.io, `.crate` files.
-      - run: nix develop --command cargo package --locked --package linlog --package linlog-cli --no-verify
+      # The notes are the changelog's section; the packages attached are
+      # those crates.io serves, the ones published.
       - name: The release, with the changelog's section as its notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -118,5 +129,10 @@ jobs:
             on && /^\[[^]]*\]: / { exit }
             on { print }
           ' CHANGELOG.md >notes.md
+          for crate in linlog linlog-cli; do
+            curl --silent --fail --location --output "$crate-$version.crate" \
+              --user-agent "linlog release (github.com/linlog-prover/linlog)" \
+              "https://static.crates.io/crates/$crate/$crate-$version.crate"
+          done
           gh release create "$TAG" --title "linlog $version" --notes-file notes.md \
-            --verify-tag target/package/*.crate
+            --verify-tag ./*.crate
