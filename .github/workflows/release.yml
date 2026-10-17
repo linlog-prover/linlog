@@ -1,0 +1,122 @@
+# linlog © Fabian Lukas Grubmüller 2026
+# Licensed under the EUPL
+
+# A tag `vX.Y.Z` releases version X.Y.Z: the flake's checks again, the
+# crates published to crates.io in their order through Trusted
+# Publishing, and a GitHub release with the changelog's section and the
+# packages. The first version was published by hand, since a crate must
+# exist before a workflow may publish it; its tag only makes the release.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  check:
+    name: tag, changelog and nix flake check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The tag names the version every manifest inherits, and the
+      # changelog has its section, dated.
+      - name: The tag, the manifests and the changelog agree
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$TAG" ]; then
+            echo "the tag $TAG is not the manifests' version $version" >&2
+            exit 1
+          fi
+          if ! grep -Eq "^## \[$version\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "CHANGELOG.md has no dated section for $version" >&2
+            exit 1
+          fi
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: linlog-prover
+          # A tag's builds are `main`'s, which uploaded them already.
+          skipPush: true
+      - run: nix flake check --print-build-logs --keep-going
+
+  publish:
+    name: cargo publish
+    needs: check
+    if: github.ref_name != 'v0.1.0'
+    runs-on: ubuntu-latest
+    # crates.io's trusted publisher names this environment, whose
+    # protection rules may ask for the author's approval.
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: linlog-prover
+          skipPush: true
+      # A token for this job alone, revoked when it ends.
+      - uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        id: auth
+      # `--workspace` publishes `linlog` before `linlog-cli` and leaves the
+      # harness, which is not for publishing. Publishing is not atomic: a
+      # rerun after a failure between the two fails on the published one,
+      # which `cargo publish -p linlog-cli` then finishes.
+      - run: nix develop --command cargo publish --locked --workspace
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  release:
+    name: GitHub release
+    needs: [check, publish]
+    # After the publication, or without it for the version published by
+    # hand.
+    if: ${{ !cancelled() && needs.check.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: linlog-prover
+          skipPush: true
+      # The packages as cargo builds them for crates.io, `.crate` files.
+      - run: nix develop --command cargo package --locked --package linlog --package linlog-cli --no-verify
+      - name: The release, with the changelog's section as its notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          awk -v head="## [$version]" '
+            index($0, head) == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]*\]: / { exit }
+            on { print }
+          ' CHANGELOG.md >notes.md
+          gh release create "$TAG" --title "linlog $version" --notes-file notes.md \
+            --verify-tag target/package/*.crate
