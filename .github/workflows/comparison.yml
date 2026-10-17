@@ -47,6 +47,9 @@ jobs:
           # gets no secret and only downloads.
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
+          # The toolchain's download tarballs are only the inputs of the
+          # unpacked toolchain, which is uploaded itself.
+          pushFilter: '\.tar\.xz$'
       # BenchExec measures each run in a cgroup of its own, which it asks
       # the user's systemd for: give the runner's user a running manager.
       - name: Start the user's systemd manager
@@ -93,6 +96,7 @@ jobs:
           name: linlog-prover
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
+          pushFilter: '\.tar\.xz$'
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: shards

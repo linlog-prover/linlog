@@ -49,14 +49,21 @@ of `main`, to GitHub Pages on every push to `main`.
   `main`: pushes to `main`, the weekly run and a dispatch on `main`
   upload, a pull request only downloads. A pull request from a fork gets
   no secret, and the action then only says that pushing is disabled. It
-  pushes in daemon mode, what the job built and nothing it fetched: the
-  dependencies' builds, the packages, the documentation, NanoYalla, the
-  provers of the comparison, and each check's empty result, so a check
-  whose derivation did not change is fetched, not rerun. How narrow those
-  derivations are is the flake's (`flake.md`): a change to `cli/` leaves
-  the core crate's checks as they were. A check's output holds no build
-  tree, so the cache's size is that of the dependencies' builds (about
-  185 MiB each) and the packages.
+  pushes in daemon mode what the job realised and no upstream cache
+  (cache.nixos.org) holds: the toolchain, the dependencies' builds, the
+  packages, the documentation, NanoYalla, the provers of the comparison,
+  and each check's empty result, so a check whose derivation did not
+  change is fetched, not rerun. How narrow those derivations are is the
+  flake's (`flake.md`): a change to `cli/` leaves the core crate's checks
+  as they were. A download is a realised path too: `pushFilter:
+  '\.tar\.xz$'` keeps the toolchain's tarballs out (183 MiB of the first
+  925 MiB upload, 2026-10-17), and the toolchain's `minimal` profile
+  leaves out the manual `rust-docs` (81 MiB). The rest of that upload:
+  the unpacked toolchain about 350 MiB, the dependencies' two builds
+  (plain and with debug assertions) 323 MiB, linlog's own 14 MiB. A
+  push of code adds about the last; a lock or toolchain bump adds a new
+  set of the others, and Cachix evicts the least recently used paths
+  past the plan's storage.
 - **Docs** deploys `result/share/doc` of `nix build .#doc` with GitHub's own
   Pages actions. The repository's Pages source must be "GitHub Actions".
 - **Comparison** (`comparison.yml`, `workflow_dispatch` only, inputs

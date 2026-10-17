@@ -40,6 +40,9 @@ jobs:
           # gets no secret and only downloads.
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
+          # The toolchain's download tarballs are only the inputs of the
+          # unpacked toolchain, which is uploaded itself.
+          pushFilter: '\.tar\.xz$'
       - run: nix flake check --print-build-logs --keep-going
 
   # The one check that needs the network, so `nix flake check` cannot run it.
@@ -58,4 +61,5 @@ jobs:
           name: linlog-prover
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
+          pushFilter: '\.tar\.xz$'
       - run: nix develop --command cargo deny check advisories

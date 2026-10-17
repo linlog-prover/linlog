@@ -35,6 +35,9 @@ jobs:
           # gets no secret and only downloads.
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.ref != 'refs/heads/main' }}
+          # The toolchain's download tarballs are only the inputs of the
+          # unpacked toolchain, which is uploaded itself.
+          pushFilter: '\.tar\.xz$'
       - run: nix build --print-build-logs .#doc
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
