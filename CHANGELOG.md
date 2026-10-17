@@ -21,25 +21,30 @@ The first release.
   break. The enums of the calculus are closed on purpose, so that a
   `match` downstream stops compiling when the calculus grows instead of
   falling into a wildcard arm: `Term`, `Kind`, `Node`, `Rule`,
-  `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`,
+  `search::Verdict`, `Branch`, `Sign`, `occurrences::Polarity`, `Side`,
   `ordinary::{Node, Rule, Side}` and `sequents::Visit`. Cut and, later,
   the quantifiers will add variants to them, each in a release that
   raises the second number.
 - **The cargo features** of `linlog` are `parse`, `serialize`,
   `interactive`, `latex`, `typst`, `svg` and `rocq` (on by default) and
   `parallel`, `png` and `pdf` (off). None is removed within 0.1.
-- **The JSON forms** are promised by their wire level, not by the
-  crate's version: every top-level document carries `"version": n`, a
+- **The JSON forms** of the data (sequents, proofs, disproofs, proof
+  structures, sessions, outcomes) are promised by their wire level, not
+  by the crate's version: every such document carries `"version": n`, a
   reader reads every level up to its own and refuses a later one by
   name, and a new level is a line of this file under "Wire forms",
   never by itself a break of the crates. This release writes and reads
-  level 1.
+  level 1. The options and settings values carry no version and refuse
+  a key they do not know, so a later release reads this one's settings,
+  and a settings file that uses a later key is refused by name here.
 - **The minimum supported Rust version** is 1.92 (`rust-version`), for
   both crates with every feature; raising it is a new 0.y version and a
   line of this file.
-- **The command** keeps its subcommands, flags, exit statuses and JSON
-  output (`--format json`) within 0.1; its text for people (verdict
-  lines, explanations, help) may change in any release. The library
+- **The command**: within 0.1 its subcommands, flags and exit statuses
+  are only added to, and its JSON output (`--format json`) follows the
+  wire levels, so a 0.1.x release may write a new level (a new kind of
+  refutation, say); its text for people (verdict lines, explanations,
+  help) may change in any release. The library
   `linlog_cli` inside the package `linlog-cli` is the binary's and no
   API.
 - **Not promised**: the text of `Display` and of error messages (their
@@ -51,9 +56,8 @@ The first release.
 
 - Level 1: the sequent, the proof, the disproof, the proof structure,
   the interactive session and the outcome (written only), each
-  described on its type and in the module `wire`; the options and
-  settings values, which refuse a key they do not know. The repository
-  keeps a document of every form as this release writes it, which every
+  described on its type and in the module `wire`. The repository keeps
+  documents of these forms as this release writes them, which every
   later release must read.
 
 ### Added
