@@ -69,6 +69,18 @@ browser or a stranger's file would.
   also runs every "delete field" mutant of the file; count only the
   mutants the regex names. A test helper's field deletions are not
   excluded either.
+- A mutant that grows memory without bound ends one of two ways, by
+  load: the unit's memory cap has the OOM killer kill a test (SIGKILL,
+  a failure, so caught) or the timeout comes first (a timeout). So one
+  run lists it and the next does not (`net.rs:466`'s `+` for `*` in
+  session 30a's runs); rerun it alone before calling it new.
+- A rerun with `--baseline skip` does not see a test that fails
+  unmutated: run the failing tests of its logs unmutated before counting
+  a catch. `mutants/step-28j/check.txt` lacks ten survivors that way:
+  at its revision `readme_examples` fails unmutated on this machine
+  (README's example at line 244 reaches the recursion limit before the
+  time limit it shows, fixed in nrpxxsrl), and it was every catch of the
+  ten.
 
 ## Fuzzing (`fuzz/`, `modules/fuzz.nix`)
 
