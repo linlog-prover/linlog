@@ -269,9 +269,10 @@ pub(crate) struct SearchArgs {
     /// The most memory the search may hold: a number of bytes with a unit
     /// such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
     ///
-    /// Counted is what grows with the search: what it remembers, the
-    /// proofs it keeps and what every level of its recursion takes; not
-    /// the sequent itself. A memo that no longer fits is emptied first,
+    /// Counted is the sequent as the search holds it, about 25 bytes for
+    /// each subformula occurrence, and what grows with the search: what
+    /// it remembers, the proofs it keeps and what every level of its
+    /// recursion takes. A memo that no longer fits is emptied first,
     /// as at `--memo-limit`; when that is not enough the verdict is
     /// unknown (exit status 3). The check of the proof and the derivation
     /// built from it are under the same limit: a derivation estimated
