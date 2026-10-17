@@ -3,17 +3,27 @@
 A linear logic suite for all your needs: a command line program and a Rust
 library that parse, print and decide sequents of classical and
 intuitionistic linear logic and their fragments, keep the proofs in a
-checkable form and show them as derivation trees or proof nets.
+checkable form and show them as derivation trees or proof nets, prove
+step by step, export to LaTeX, Typst, SVG and Rocq, and decide ordinary
+propositional logic through its embeddings into linear logic.
 
-[API documentation](https://linlog-prover.github.io/linlog/) (rustdoc of `main`,
-rebuilt on every push).
+## Install
 
-The library is the crate `linlog`, not yet on crates.io: a Cargo project
-takes it from the repository,
+The command `linlog` is the package `linlog-cli`, on
+[crates.io](https://crates.io/crates/linlog-cli), and the flake of this
+repository:
+
+```sh
+cargo install linlog-cli                          # a Rust toolchain builds it
+nix run github:linlog-prover/linlog -- --help     # or run it with Nix
+nix build github:linlog-prover/linlog             # result/bin/linlog
+```
+
+The library is the crate [`linlog`](https://crates.io/crates/linlog):
 
 ```toml
 [dependencies]
-linlog = { git = "https://github.com/linlog-prover/linlog" }
+linlog = "0.1"
 ```
 
 with the default features `parse`, `serialize`, `interactive`, `latex`,
@@ -21,11 +31,55 @@ with the default features `parse`, `serialize`, `interactive`, `latex`,
 `png` and `pdf` to add. The documentation's examples read and write JSON
 with `serde_json`, the caller's own dependency.
 
+The Rocq certificates the command writes (`--format rocq`) are checked
+by the NanoYalla kernel, whose installation "Usage" describes with them.
+
+## A first proof
+
+```console
+$ linlog prove "A, A -o B |- B"
+provable (MLL, classical, net engine)
+─────── ax   ─────── ax
+⊢ ~A, A      ⊢ ~B, B
+──────────────────── ⊗
+  ⊢ ~A, A ⊗ ~B, B
+```
+
+The verdict, the fragment the sequent lives in and the engine that
+searched, then the proof as a derivation tree of the one-sided sequent
+calculus, which the library's independent checker has validated.
+"Usage" below has every command; `linlog --help` and
+`linlog <command> --help` document every option.
+
+## Documentation, results and how linlog was written
+
+- The library's API: [docs.rs/linlog](https://docs.rs/linlog) for the
+  releases, [linlog-prover.github.io/linlog](https://linlog-prover.github.io/linlog/)
+  for `main`, rebuilt on every push.
+- The changes of every release:
+  [CHANGELOG.md](https://github.com/linlog-prover/linlog/blob/main/CHANGELOG.md).
+- The benchmarks: the latest baseline of the engines on the generated
+  families and the LLTP library,
+  [bench/RESULTS.md](https://github.com/linlog-prover/linlog/blob/main/bench/RESULTS.md),
+  the baselines compared,
+  [bench/COMPARISON.md](https://github.com/linlog-prover/linlog/blob/main/bench/COMPARISON.md),
+  and the comparison with the other provers of linear logic,
+  [bench/TOOLS.md](https://github.com/linlog-prover/linlog/blob/main/bench/TOOLS.md)
+  ("Beside the other provers" below).
+- To cite linlog, GitHub's "Cite this repository" reads
+  [CITATION.cff](https://github.com/linlog-prover/linlog/blob/main/CITATION.cff).
+- linlog's code, tests and documentation were written with substantial
+  AI assistance, by Anthropic's Claude models in Claude Code, in steps
+  the author planned, directed and accepted. Every proof the library
+  returns has passed its independent checker, and a Rocq certificate
+  can be checked by Rocq.
+
 ## Usage
 
-The command line program is `linlog` (`nix run github:linlog-prover/linlog -- …`,
-`nix build`, or `cargo run -p linlog-cli -- …` in a checkout). `linlog --help`
-and `linlog <command> --help` document every option.
+The command line program is `linlog` (`cargo install linlog-cli`, `nix run
+github:linlog-prover/linlog -- …`, or `cargo run -p linlog-cli -- …` in a
+checkout). `linlog --help` and `linlog <command> --help` document every
+option.
 
 `linlog prove` decides a sequent, written as below (`-o` is ⊸, `*` ⊗,
 `par` ⅋, `~` negation; the whole syntax is under "The syntax" further
@@ -792,8 +846,8 @@ provable (MLL, classical, net engine)
 
 The first two draw these:
 
-![The derivation of 1, A & B, B ⊸ C ⊢ C](core/tests/snapshots/ill.svg)
-![The proof net of ⊢ A⊥ ⅋ B⊥, B ⊗ A](core/tests/snapshots/net.svg)
+![The derivation of 1, A & B, B ⊸ C ⊢ C](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/ill.svg)
+![The proof net of ⊢ A⊥ ⅋ B⊥, B ⊗ A](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/net.svg)
 
 `--settings FILE` reads every setting the flags set from one JSON file,
 in the form a front end keeps: an object with any of `clock`, `limits`,
@@ -1411,15 +1465,17 @@ Built:
   with a script that takes a whole baseline on an idle machine and one
   that runs the focused engine's target set by day, and a comparison of
   two baselines problem by problem.
-- Performance work on the focused engine, measured by two baselines, one
-  before it and one after.
+- Performance work on the focused engine, measured by three baselines,
+  one before it, one after it and one at the first release.
+- Releases: the crates `linlog` and `linlog-cli` on crates.io, with a
+  changelog that states what each version promises, and a workflow that
+  publishes a version tag.
 
 Planned, in roughly this order:
 
-- A web front end for proving step by step in the browser.
 - A Rocq library of linlog's own with certificates for every mode, next
   to the NanoYalla export.
-- A first release.
+- A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for MLL and intuitionistic MLL (pruned
   net search, essential nets), the Lambek calculus, the inverse method,
