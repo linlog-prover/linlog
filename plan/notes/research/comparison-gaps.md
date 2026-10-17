@@ -567,6 +567,13 @@ no mutation unit or flake check runs. `L=bench/lltp/ILL`.
   --timeout 10s --file $L/ILLTP-SYJ-cbn/SYJ208+1.001.p`, then the same
   with `--memo-limit 0`. Expected if 2.2 is right: the first undecided at
   a level in the millions, the second refuted at a level below 10.
+  **Run 2026-10-17 at 42aee6ee** (core 12, one thread, 10 s), with A2's
+  pair: with the memo, all four undecided at the time limit (SYJ208
+  cbn level 1 775 058, 15 memo entries at most; LCL181 cbv 3 198 506;
+  KLE017 cbv 3 355 320; KLE069 01 470 529); with `--memo-limit 0`,
+  all four refuted, exhaustive, at levels 9, 6, 6 and 16 after 4 008,
+  280, 273 and 36 556 stable sequents. The memo's cut entries keep the
+  levels from closing: R1's mechanism holds.
 - A2, the same pair on `$L/ILLTP-LCL-cbv/LCL181+1.p` and
   `$L/KLE-cbv/KLE017+1.p`, and with `--bias rarer` and `--bias factors`
   each, to see which search fails to close.
