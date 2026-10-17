@@ -1263,28 +1263,29 @@ several machines split a set.
 
 ```console
 $ linlog-bench run --tools linlog,maude-ill,sympli --lltp lltp/ILL/ILLTP-SYJ-01 --only SYJ101+1,SYJ105+1.003 --timeout 10 --output tools.csv
-[1/6] ILLTP-SYJ-01/SYJ101+1.p linlog: proved  4.9 ms, about 0 min left
-[2/6] ILLTP-SYJ-01/SYJ101+1.p maude-ill: proved  56.0 ms, about 0 min left
-[3/6] ILLTP-SYJ-01/SYJ101+1.p sympli: proved  3.8 ms, about 0 min left
-[4/6] ILLTP-SYJ-01/SYJ105+1.003.p linlog: unknown timeout 10003.7 ms, about 0 min left
-[5/6] ILLTP-SYJ-01/SYJ105+1.003.p maude-ill: unknown copy_bound 172.6 ms, about 0 min left
-[6/6] ILLTP-SYJ-01/SYJ105+1.003.p sympli: unprovable  3.5 ms, about 0 min left
+[1/6] ILLTP-SYJ-01/SYJ101+1.p linlog: proved  3.4 ms, about 0 min left
+[2/6] ILLTP-SYJ-01/SYJ101+1.p maude-ill: proved  89.8 ms, about 0 min left
+[3/6] ILLTP-SYJ-01/SYJ101+1.p sympli: proved  11.7 ms, about 0 min left
+[4/6] ILLTP-SYJ-01/SYJ105+1.003.p linlog: unprovable  4.0 ms, about 0 min left
+[5/6] ILLTP-SYJ-01/SYJ105+1.003.p maude-ill: unknown copy_bound 131.5 ms, about 0 min left
+[6/6] ILLTP-SYJ-01/SYJ105+1.003.p sympli: unprovable  3.0 ms, about 0 min left
 
 $ linlog-bench ranking tools.csv
 …
 ## Solved within the limit
 
-| tool | solved | proved | unprovable | late | time | memory | gave up | error | outside | wrong |
-|---|---|---|---|---|---|---|---|---|---|---|
-| sympli | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
-| linlog | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
-| maude-ill | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
+| tool | solved | proved | unprovable | wrong | late | time | memory | gave up | error | outside | against the header |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| linlog | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| sympli | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| maude-ill | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |
 …
 ```
 
-(Sympli's refutation of SYJ105+1.003 counts as wrong against the file's
-header, which says Theorem; the formula has a classical countermodel,
-`a` true and `b` false, so the header is what is wrong.)
+(linlog's and Sympli's refutations of SYJ105+1.003 count as solved and
+against the file's header, which says Theorem; the formula has a
+classical countermodel, `a` and `b` false, so the header is what is
+wrong.)
 `bench/comparison.sh` runs the whole comparison on any machine with Nix,
 and `bench/TOOLS.md` has the tools, how they were run and the results.
 
