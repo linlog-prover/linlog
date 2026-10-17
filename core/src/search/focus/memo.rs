@@ -14,7 +14,11 @@
 //! leads to, level after level, and keep both from ever being complete.
 //! One table holds all three: a key that is not canonical holds a proof
 //! or a cut failure, a canonical one may also hold a complete failure,
-//! which is all a relative reads there. The table has a cap in entries
+//! which is all a relative reads there. A failure cut by the budget is
+//! read only within its generation ([`Memo::begin`]): deepening levels
+//! that each met a stable sequent new to the table, and the first that
+//! did not; a cut carried on beyond them can keep every later level cut
+//! on a finite space. The table has a cap in entries
 //! and takes its memory from the search's account; when the search runs on
 //! several threads it is one shard of a sharded map, [`Shared`](crate::search::focus::memo::Shared), whose
 //! merge under the shard's lock keeps the same invariant: an entry's
@@ -255,26 +259,40 @@ pub(super) enum Failure {
 }
 
 impl Entry {
-    /// The entry as one word of a record: the node of a proof, or a tag
-    /// above the low half with the budget of a cut failure in it.
-    fn code(self) -> u64 {
+    /// The entry as one word of a record, recorded in the generation of
+    /// stamp `stamp`: the node of a proof, or a tag in the two bits above
+    /// the low half with the budget of a cut failure in the low half and
+    /// the stamp above the tag.
+    fn code(self, stamp: u32) -> u64 {
         match self {
             Self::Proved(node) => u64::from(node.get()),
             Self::Failed(Failure::Complete) => 1 << 32,
-            Self::Failed(Failure::Exhausted(left)) => (2 << 32) | u64::from(left),
+            Self::Failed(Failure::Exhausted(left)) => {
+                (u64::from(stamp) << 34) | (2 << 32) | u64::from(left)
+            }
             Self::Failed(Failure::Hereditary) => 3 << 32,
         }
     }
 
     /// The entry a record's word stands for.
     fn of(code: u64) -> Self {
-        match code >> 32 {
+        match (code >> 32) & 3 {
             0 => Self::Proved(NodeId::new(code as u32)),
             1 => Self::Failed(Failure::Complete),
             3 => Self::Failed(Failure::Hereditary),
             _ => Self::Failed(Failure::Exhausted(code as u32)),
         }
     }
+}
+
+/// The stamp of a generation of failures cut by the budget
+/// ([`Memo::begin`]): its number in the bits a record's entry has left
+/// above its tag ([`Entry::code`]). Two generations `2³⁰` apart would
+/// share one, so a memo is emptied when the stamp comes round to zero
+/// again, and a failure cut by the budget is only ever read in the
+/// generation that recorded it.
+fn stamp(generation: u64) -> u32 {
+    (generation & ((1 << 30) - 1)) as u32
 }
 
 /// What became of an insertion.
@@ -378,6 +396,14 @@ pub(super) struct Memo {
     peak: usize,
     /// How many lookups found an entry that applied.
     hits: u64,
+    /// The stamp of the generation of failures cut by the budget that
+    /// applies now ([`stamp`]): a failure cut by the budget with another
+    /// stamp is as if not recorded.
+    stamp: u32,
+    /// How many records were ever added, each a key new to the table
+    /// since it was last emptied: one per stable sequent decided, which
+    /// no search makes `2⁶⁴` of.
+    added: u64,
 }
 
 impl Memo {
@@ -399,6 +425,24 @@ impl Memo {
             limit: limit.min(u32::MAX as usize - 1),
             peak: 0,
             hits: 0,
+            stamp: 0,
+            added: 0,
+        }
+    }
+
+    /// Starts the generation `generation` of failures cut by the budget:
+    /// from now on those recorded in an earlier one no longer apply. A
+    /// cut is a fact about the branch it was met in as much as about the
+    /// sequent, since a search of the same sequent below other ancestors
+    /// may prune as a repeat what was cut there; read at the next
+    /// deepening level it can answer as cut a sequent whose own search
+    /// there ends in repeats, and so carry a cut from level to level for
+    /// ever, even where every branch of the sequents reachable ends in a
+    /// repeat or a fact within the budget.
+    pub(super) fn begin(&mut self, generation: u64) {
+        self.stamp = stamp(generation);
+        if self.stamp == 0 && generation != 0 {
+            self.clear();
         }
     }
 
@@ -458,15 +502,23 @@ impl Memo {
         self.get_hashed(key.zones(), key.zones().hash(), remaining)
     }
 
+    /// Whether the record that starts at `at` holds a failure cut by the
+    /// budget in an earlier generation than the one that applies now.
+    fn stale(&self, at: u64) -> bool {
+        let code = read(self.record(at), ENTRY);
+        (code >> 32) & 3 == 2 && (code >> 34) as u32 != self.stamp
+    }
+
     /// Returns what is known about a stable sequent, whose hash is given,
     /// that applies with `remaining` copies left: a proof or a complete
-    /// failure always, a failure cut by the budget only when at most as
-    /// many copies are left now as were then, since a larger budget could
-    /// prove more.
+    /// failure always, a failure cut by the budget only in the generation
+    /// that recorded it ([`Memo::begin`]) and when at most as many copies
+    /// are left now as were then, since a larger budget could prove more.
     fn get_hashed(&mut self, key: Zones<'_>, hash: u64, remaining: u32) -> Option<Entry> {
-        let entry = self.entry(self.find(key, hash)?);
+        let at = self.find(key, hash)?;
+        let entry = self.entry(at);
         if let Entry::Failed(Failure::Exhausted(then)) = entry
-            && remaining > then
+            && (remaining > then || self.stale(at))
         {
             return None;
         }
@@ -498,7 +550,8 @@ impl Memo {
     /// the table has no room for a new key: then it says so and the caller
     /// empties it ([`clear`](Self::clear)) and inserts again. A proof or a
     /// complete failure replaces anything; a failure cut by the budget
-    /// only raises the budget an earlier such failure recorded. The memory
+    /// only raises the budget an earlier such failure of the same
+    /// generation recorded, and replaces one of an earlier generation. The memory
     /// a new chunk or a larger index takes is charged to `account`, and
     /// only taken while it leaves an eighth of the bound to what the
     /// search cannot empty ([`Account::spares`]). The key's hash is given.
@@ -530,7 +583,7 @@ impl Memo {
                 (
                     Entry::Failed(Failure::Exhausted(then)),
                     Entry::Failed(Failure::Exhausted(now)),
-                ) => now <= then,
+                ) => now <= then && !self.stale(at),
                 (Entry::Proved(_) | Entry::Failed(Failure::Hereditary), Entry::Failed(_)) => true,
                 (
                     Entry::Failed(Failure::Complete),
@@ -539,7 +592,8 @@ impl Memo {
                 _ => false,
             };
             if !keep {
-                write(self.record_mut(at), ENTRY, entry.code());
+                let code = entry.code(self.stamp);
+                write(self.record_mut(at), ENTRY, code);
             }
             return Inserted::Done;
         }
@@ -557,11 +611,12 @@ impl Memo {
         debug_assert!(chunk.capacity() - start >= words, "a chunk with room");
         chunk.resize(start + HEADER, 0);
         write(chunk, start + HASH, hash);
-        write(chunk, start + ENTRY, entry.code());
+        write(chunk, start + ENTRY, entry.code(self.stamp));
         write(chunk, start + THETA, key.theta);
         chunk[start + MEMBERS] = key.members.len() as u32;
         chunk.extend(key.members.iter().map(|o| o.get()));
         self.len += 1;
+        self.added += 1;
         place(
             &mut self.slots,
             ((self.current as u64) << 32) | start as u64,
@@ -658,6 +713,11 @@ impl Memo {
         self.peak
     }
 
+    /// Returns how many records were ever added.
+    pub(super) fn added(&self) -> u64 {
+        self.added
+    }
+
     /// Returns how many lookups found an entry that applied.
     pub(super) fn hits(&self) -> u64 {
         self.hits
@@ -715,6 +775,21 @@ impl Shared {
     /// [`Memo::refuted_hashed`] on the key's shard.
     pub(super) fn refuted(&self, key: Zones<'_>, hash: u64) -> Option<Failure> {
         self.shard(hash).refuted_hashed(key, hash)
+    }
+
+    /// [`Memo::begin`] on every shard.
+    pub(super) fn begin(&self, generation: u64) {
+        for shard in &self.shards {
+            crate::search::lock(shard).begin(generation);
+        }
+    }
+
+    /// Returns how many records the shards ever added.
+    pub(super) fn added(&self) -> u64 {
+        self.shards
+            .iter()
+            .map(|s| crate::search::lock(s).added())
+            .sum()
     }
 
     /// [`Memo::insert_hashed`] on the key's shard, which is emptied first
@@ -782,6 +857,22 @@ impl Table<'_> {
         match self {
             Self::Own(_, zones) => zones.intern(zone, account),
             Self::Shared(shared) => crate::search::lock(&shared.zones).intern(zone, account),
+        }
+    }
+
+    /// [`Memo::begin`].
+    pub(super) fn begin(&mut self, generation: u64) {
+        match self {
+            Self::Own(memo, _) => memo.begin(generation),
+            Self::Shared(shared) => shared.begin(generation),
+        }
+    }
+
+    /// [`Memo::added`], summed over a shared memo's shards.
+    pub(super) fn added(&self) -> u64 {
+        match self {
+            Self::Own(memo, _) => memo.added(),
+            Self::Shared(shared) => shared.added(),
         }
     }
 
@@ -899,6 +990,31 @@ mod tests {
         proved.insert(&key, Entry::Proved(NodeId::new(4)), &account);
         assert!(!proved.refuted(&key));
         assert_eq!((memo.hits(), proved.hits()), (1, 0));
+    }
+
+    /// A failure cut by the budget applies only in the generation that
+    /// recorded it, where a later entry of a lower budget does not weaken
+    /// it; one of an earlier generation is replaced, and a generation
+    /// whose stamp comes round to zero again empties the memo.
+    #[test]
+    fn cuts_hold_in_their_generation() {
+        let account = Account::new(None);
+        let mut memo = Memo::new(10);
+        let one = key(0, &[1]);
+        let cut = |left| Some(Entry::Failed(Failure::Exhausted(left)));
+        memo.begin(4);
+        memo.insert(&one, Entry::Failed(Failure::Exhausted(3)), &account);
+        memo.insert(&one, Entry::Failed(Failure::Exhausted(1)), &account);
+        assert_eq!(memo.get(&one, 2), cut(3));
+        memo.begin(5);
+        assert_eq!(memo.get(&one, 2), None, "a cut of the level before");
+        memo.insert(&one, Entry::Failed(Failure::Exhausted(1)), &account);
+        assert_eq!(memo.get(&one, 1), cut(1));
+        memo.begin(1 << 30);
+        assert_eq!(memo.get(&one, 0), None);
+        memo.insert(&one, Entry::Failed(Failure::Complete), &account);
+        memo.begin((1 << 30) + 1);
+        assert_eq!(memo.get(&one, 0), Some(Entry::Failed(Failure::Complete)));
     }
 
     /// A failure cut by the budget is a hit only with at most as many

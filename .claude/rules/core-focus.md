@@ -216,6 +216,34 @@ relies on:
   `Cuts::BUDGET`; a later entry only raises `r`, and `Complete` or `Proved`
   replace it. Entries survive across levels; that is where the
   re-exploration of deepening is recovered. Never memoize across forests.
+- **A cut is read only within its generation** (`Memo::begin`, a stamp
+  in the record's entry word, `Run::run`). A generation is a run of
+  levels each of which recorded a key new to the table (`Memo::added`),
+  and the first that recorded none: after a level that ended cut
+  without a new key, the next level starts a new generation, which
+  reads the facts (`Proved`, `Complete`) of every level and only its
+  own cuts. Why: an `Exhausted` entry rests on the branch it was found
+  in as much as on the sequent (a search of it below other ancestors
+  may prune as a repeat what was cut there), so read at the next level
+  it answered "cut" where a search would end in repeats, and the level
+  recorded the cut one copy higher, for ever: on a finite space whose
+  every branch ends in a repeat within some budget `L`, no level ever
+  closed (`SYJ208+1.001` in cbn, `LCL181+1` in cbv, `KLE017+1` in cbv,
+  `KLE069+1` in 01: undecided at 10 s at levels 0.5 to 3.3 million,
+  refuted with `--memo-limit 0` at levels 6 to 16). With generations,
+  once the keys the space has are all recorded every other level at
+  least is fresh, and a fresh level above `L` meets no cut, so
+  deepening closes (`deepening_closes_on_a_finite_space`: the four
+  under a work bound of a million, each refuted at level 5 to 12 within
+  29 000 units; before, past level 1 000). Ignoring an entry is what a
+  cleared memo does, so no verdict changes meaning; a cut never
+  refutes. The other fix weighed, reading cuts in their own level only,
+  re-explored every level: `chain/256` took 1.43 million stable
+  sequents for 65 413, `chain/16` 477 for 253, where the generations
+  move no counter of a decided row of the target set nor of
+  `a_close_settles_by_every_rule`'s cases.
+  Two generations `2³⁰` apart share a stamp, so the memo is emptied when
+  the stamp comes round to zero.
 - **The memo's layout** (`focus/memo.rs`): an entry is a record of
   32-bit words in a chunk (the key's hash, the entry, the id of `Θ`, each
   in two words, the number of `Γ`'s members and the members), found

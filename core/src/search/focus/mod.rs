@@ -694,11 +694,17 @@ impl<'a> Run<'a> {
             id: self.memo.intern(&set, self.problem.account),
             set,
         };
+        // The failures cut by the budget that the levels read, a generation
+        // being every level since the last that ended cut without a
+        // stable sequent new to the memo ([`Table::begin`]).
+        let mut generation = 0;
+        self.memo.begin(generation);
         // Up to `u32::MAX` inclusive without a wrap; that bound stands for
         // none and is never reached (`Options::copy_bound`).
         for budget in 0..=levels {
             self.statistics.copies = budget;
             self.waiting.clear();
+            let added = self.memo.added();
             let mut gamma = self.take_context();
             let mut list = self.take_list();
             // A stack: the first formula is decomposed first.
@@ -707,7 +713,15 @@ impl<'a> Run<'a> {
             self.give_context(gamma);
             self.give_list(list);
             match result {
-                Ok(Found::Failed(cuts)) if cuts.exhausted => {}
+                Ok(Found::Failed(cuts)) if cuts.exhausted => {
+                    // The level met no stable sequent it had not met
+                    // before, so the next one would read the same cuts
+                    // again; it reads only the facts and its own.
+                    if self.memo.added() == added {
+                        generation += 1;
+                        self.memo.begin(generation);
+                    }
+                }
                 decided => {
                     self.give_set(theta.set);
                     return decided.map(Found::node);
