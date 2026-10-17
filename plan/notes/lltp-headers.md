@@ -530,10 +530,11 @@ and the conjecture is false.
 ## Twenty-one further files with a wrong header
 
 The same translator fault makes the header of 21 more files certainly
-wrong: each says Theorem, and each has a classical countermodel. linlog
-does not decide them: after its 2 s the command reports `unknown`
-(exit status 3), having deepened the copy bound to between 18 and about
-1.9 million without reaching a level that needs no more copies. The
+wrong: each says Theorem, and each has a classical countermodel. When
+this list was made, linlog did not decide them (after its 2 s the
+command reported `unknown`, having deepened the copy bound to between 18
+and about 1.9 million); the release's command refutes 20 of them within
+its 2 s, at copy bounds of 3 to 35, all but `KLE-01/KLE083+1.p`. The
 Maude result files have `timeout` for all 21. The countermodels are:
 
 | File | Countermodel |
@@ -552,6 +553,15 @@ Maude result files have `timeout` for all 21. The countermodels are:
 For example, `KLE015+1` is `a => b ⊢ ~b => ~a` in ILTP, and the
 translator read its conjecture as `~(b => ~a)`, which is false when a
 and b are.
+
+One more file is probably wrong, without a countermodel:
+`KLE075+1`, headed Theorem in its three translations, is classically
+valid, yet linlog's command refutes all three within its 2 s (at copy
+bounds 44, 8 and 32 in `KLE-01`, `KLE-cbn` and `KLE-cbv`), linlog's
+engine refutes the cbn file with its memo switched off as well, by
+another path, and Sympli refutes them too. Only an intuitionistic
+argument settles it; it is among the 101 problems below whose files
+state another formula than the original.
 
 Beyond these, 101 of the 362 problems under `ILTP+KLE/` are read
 differently by the translator than TPTP means them, in all three

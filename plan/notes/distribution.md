@@ -155,3 +155,41 @@ README and the Zenodo description say how the code was written.
   heartbeat scheduling), not in any prover's default. One thread for a
   short budget and then the pool, which step 21 builds, is linlog's own
   design in that spirit; its budget is an option (D16).
+
+## Publishing 0.1.0 by hand (prepared 2026-10-17)
+
+The release workflow (`.github/workflows/release.yml`) skips publishing
+for `v0.1.0`: Trusted Publishing works only for a crate that exists, so
+the first version is published from the author's machine with a token,
+and every later one by the workflow. In order, all of it the author's:
+
+1. Push `main` and wait for CI to pass (`ci.yml`, `docs.yml`).
+2. Date the release in a commit of its own: CHANGELOG.md's heading
+   `## [0.1.0] - unreleased` becomes `## [0.1.0] - YYYY-MM-DD` (the
+   workflow refuses a tag without the date), and CITATION.cff gains
+   `date-released: YYYY-MM-DD`. Before it, `head -n 33
+   core/tests/wire/level-1.txt | cmp - core/tests/lock/json.txt` must
+   hold (the frozen documents are still what the release writes). Push.
+3. Switch Zenodo's GitHub integration on for `linlog-prover/linlog`
+   before the tag (it archives only releases made after it; the
+   organization's owner approves the Zenodo app).
+4. From a clean working copy at the release commit (`jj new <commit>`:
+   cargo's dirty check reads git, to which a non-empty `@` is
+   uncommitted; never `--allow-dirty`, which records the dirt in the
+   package): `nix develop -c cargo publish --dry-run --locked
+   --workspace`, then, with a token scoped to publishing these two
+   crates (`cargo login`), `nix develop -c cargo publish --locked
+   --workspace`, which publishes `linlog` and then `linlog-cli`;
+   revoke the token afterwards.
+5. Tag `v0.1.0` at the release commit, signed, and push the tag: the
+   workflow checks the tag, the changelog and the citation file, runs
+   `nix flake check` and makes the GitHub release with the changelog's
+   section and the two published `.crate` files.
+6. On crates.io, for both crates, add the trusted publisher: repository
+   `linlog-prover/linlog`, workflow `release.yml`, environment
+   `crates-io`; on GitHub, create the environment `crates-io` with the
+   author as required reviewer.
+7. The repository's description and website: docs.rs/linlog or the
+   Pages site (`linlog-prover.github.io/linlog`, `main`'s rustdoc).
+8. The rule on `main` against force pushes and deletion (the author,
+   2026-10-03), through `gh` on the author's word.
