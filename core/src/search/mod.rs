@@ -349,6 +349,9 @@ pub fn prove_goal(
 ) -> Result<Outcome, Error> {
     let account = memory::Account::new(limits.memory_bytes);
     let work = Work::new(limits.work);
+    // The input is held for the search: the bound is on all of it.
+    let mut input = memory::Charged::new(&account);
+    input.charge(goal.forest.held_bytes());
     decide_goal(goal, mode, options, limits, &account, &work, &mut stop)
 }
 
@@ -388,6 +391,8 @@ pub fn race(
     let threads = threads.clamp(1, Options::MAX_JOBS);
     let whole = std::sync::Arc::new(memory::Account::new(limits.memory_bytes));
     let work = Work::new(limits.work);
+    let mut input = memory::Charged::new(&whole);
+    input.charge(goal.forest.held_bytes());
     if threads < 3 || !engine_for(goal, mode, options)?.parallel() {
         let options = options.clone().with_jobs(threads);
         let account = memory::Account::part_of(&whole);
@@ -396,19 +401,19 @@ pub fn race(
         });
     }
     let decided = AtomicBool::new(false);
-    let settled = |outcome: &Result<Outcome, Error>| matches!(outcome, Ok(o) if !matches!(o.verdict, Verdict::Unknown(_)));
+    let settled = |answered: &Result<Answered<'_>, Error>| matches!(answered, Ok(a) if a.answer.result.is_ok());
     let (single, pooled) = (
         options.clone().with_jobs(1),
         options.clone().with_jobs(threads - 1),
     );
-    std::thread::scope(|scope| {
+    let answered = std::thread::scope(|scope| {
         let (whole, work, stop, decided) = (&whole, &work, &stop, &decided);
         let pooled = &pooled;
         let mut pool = None;
         let account = memory::Account::part_of(whole);
         // A panic on either side stops the other, which the scope waits for.
         let _raise = parallel::RaiseOnPanic(decided);
-        let first = decide_goal(
+        let first = answer_goal(
             goal,
             mode,
             &single,
@@ -426,7 +431,7 @@ pub fn race(
                             .spawn_scoped(scope, move || {
                                 let _raise = parallel::RaiseOnPanic(decided);
                                 let account = memory::Account::part_of(whole);
-                                let outcome = decide_goal(
+                                let answered = answer_goal(
                                     goal,
                                     mode,
                                     pooled,
@@ -435,10 +440,10 @@ pub fn race(
                                     work,
                                     &mut |p| stop(p) || decided.load(Ordering::Relaxed),
                                 );
-                                if settled(&outcome) {
+                                if settled(&answered) {
                                     decided.store(true, Ordering::Relaxed);
                                 }
-                                outcome
+                                answered
                             })
                             .ok(),
                     );
@@ -458,22 +463,25 @@ pub fn race(
         // A decision of either side answers, whatever the other ended
         // with (a pool that could not start its threads, say); else an
         // error of either.
-        let (mut outcome, other) = match (first, second) {
+        let (mut answered, other) = match (first, second) {
             (first, second) if settled(&first) => (first?, second.ok()),
             (first, second) if settled(&second) => (second?, first.ok()),
             (first, second) => (second?, Some(first?)),
         };
         if let Some(other) = other {
-            outcome.statistics.add(&other.statistics);
+            answered.answer.statistics.add(&other.answer.statistics);
         }
-        outcome.statistics.work = work.done();
-        Ok(outcome)
-    })
+        answered.answer.statistics.work = work.done();
+        Ok(answered)
+    })?;
+    // Both sides have ended, so the verdict's check or refutation has
+    // what the bound leaves beside the input.
+    let account = memory::Account::part_of(&whole);
+    answered.concluded(goal, options, limits, &account, &mut |p| stop(p))
 }
 
 /// Decides a goal as [`prove_goal`] does, charging what the search holds
-/// to `account` and counting its work in `work`, which a race's two
-/// searches share.
+/// to `account` and counting its work in `work`.
 fn decide_goal(
     goal: Goal<'_>,
     mode: Mode,
@@ -483,10 +491,90 @@ fn decide_goal(
     work: &Work,
     stop: &mut impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
+    answer_goal(goal, mode, options, limits, account, work, stop)?
+        .concluded(goal, options, limits, account, stop)
+}
+
+/// What a search of a goal answered, before the verdict is made of it:
+/// the engine's answer, and the goal's occurrences, fragment and engine.
+struct Answered<'a> {
+    /// The engine's answer, with the counters.
+    answer: Answer,
+    /// The goal's occurrences, as the engine was handed them.
+    occurrences: std::borrow::Cow<'a, [OccId]>,
+    /// The fragment searched in.
+    fragment: Fragment,
+    /// The mode.
+    mode: Mode,
+    /// The engine that ran.
+    engine: Engine,
+}
+
+impl Answered<'_> {
+    /// Makes the verdict of the answer ([`conclude`]), whose check or
+    /// refutation draws on `account` too, and returns the outcome.
+    fn concluded(
+        self,
+        goal: Goal<'_>,
+        options: &Options,
+        limits: &Limits,
+        account: &memory::Account,
+        stop: &mut dyn FnMut(Progress) -> bool,
+    ) -> Result<Outcome, Error> {
+        let Self {
+            answer,
+            occurrences,
+            fragment,
+            mode,
+            engine,
+        } = self;
+        let verdict = conclude(
+            answer.result,
+            answer.refutation,
+            Concluding {
+                forest: goal.forest,
+                occurrences: &occurrences,
+                fragment,
+                mode,
+                roots: goal.conclusion,
+            },
+            goal.members,
+            options,
+            limits,
+            account,
+            stop,
+        )?;
+        let checked = options.check && matches!(verdict, Verdict::Proved(_));
+        Ok(Outcome {
+            verdict,
+            fragment,
+            mode,
+            engine,
+            statistics: answer.statistics,
+            net: answer.net.map(Box::new),
+            checked,
+        })
+    }
+}
+
+/// Searches a goal as [`decide_goal`] does, and returns what the engine
+/// answered without making the verdict of it: a race makes it once both
+/// of its searches have ended.
+fn answer_goal<'a>(
+    goal: Goal<'a>,
+    mode: Mode,
+    options: &Options,
+    limits: &Limits,
+    account: &memory::Account,
+    work: &Work,
+    stop: &mut impl FnMut(Progress) -> bool,
+) -> Result<Answered<'a>, Error> {
     let forest = goal.forest;
     let occurrences = goal.occurrences();
     let fragment = fragment_of(forest, &occurrences, options)?;
     let reading = read(forest, mode)?;
+    let mut held = memory::Charged::new(account);
+    held.charge(reading.as_ref().map_or(0, Reading::held_bytes));
     let (task, engine) = prepare(
         goal,
         &occurrences,
@@ -519,14 +607,17 @@ fn decide_goal(
         } else {
             Reason::Stopped
         };
-        return Ok(Outcome {
-            verdict: Verdict::Unknown(reason),
+        return Ok(Answered {
+            answer: Answer {
+                result: Err(reason),
+                statistics: Statistics::default(),
+                net: None,
+                refutation: None,
+            },
+            occurrences,
             fragment,
             mode,
             engine,
-            statistics: Statistics::default(),
-            net: None,
-            checked: false,
         });
     }
     // What the search allocates is counted against the bound.
@@ -543,25 +634,28 @@ fn decide_goal(
             limit: work.limit(),
         });
     }
-    let verdict = conclude(
-        answer.result,
-        answer.refutation,
-        &task,
-        goal.members,
-        options,
-        limits,
-        stop,
-    )?;
-    let checked = options.check && matches!(verdict, Verdict::Proved(_));
-    Ok(Outcome {
-        verdict,
+    drop(task);
+    Ok(Answered {
+        answer,
+        occurrences,
         fragment,
         mode,
         engine,
-        statistics: answer.statistics,
-        net: answer.net.map(Box::new),
-        checked,
     })
+}
+
+/// What [`conclude`] reads of the goal an answer is of.
+struct Concluding<'a> {
+    /// The forest.
+    forest: &'a Forest,
+    /// The goal's occurrences, as the engine was handed them.
+    occurrences: &'a [OccId],
+    /// The fragment searched in.
+    fragment: Fragment,
+    /// The mode.
+    mode: Mode,
+    /// Whether the goal is the sequent's roots.
+    roots: bool,
 }
 
 /// Returns the verdict of an engine's answer, the one place it is made:
@@ -572,41 +666,49 @@ fn decide_goal(
 /// of a goal, in every build, and a check that a bound or the stop gave up
 /// is no verdict on the proof, so no proof is returned unchecked, unless
 /// [`Options::check`] is off: the proof is then the engine's word, and
-/// `Outcome::checked` says so.
+/// `Outcome::checked` says so. The check and the refutation hold their
+/// memory on `account`, beside what it holds, within the same bound as
+/// the search.
 ///
 /// # Errors
 ///
 /// [`Error::Rejected`] for a proof the checker rejects, a defect.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the answer, the goal, and the settings of the search it came from"
+)]
 fn conclude(
     result: Result<Option<Proof>, Reason>,
     refutation: Option<Refutation>,
-    task: &Task<'_>,
+    goal: Concluding<'_>,
     members: &[Member],
     options: &Options,
     limits: &Limits,
+    account: &memory::Account,
     stop: &mut dyn FnMut(Progress) -> bool,
 ) -> Result<Verdict, Error> {
-    let (forest, mode) = (task.forest, task.mode);
+    let (forest, mode) = (goal.forest, goal.mode);
     let verdict = match result {
-        Ok(Some(proof)) if task.roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
-        Ok(Some(proof)) => Verdict::Proved(Box::new(proof.concluding(task.goal).with_mode(mode))),
+        Ok(Some(proof)) if goal.roots => Verdict::Proved(Box::new(proof.with_mode(mode))),
+        Ok(Some(proof)) => {
+            Verdict::Proved(Box::new(proof.concluding(goal.occurrences).with_mode(mode)))
+        }
         Ok(None) => {
-            // What the counts of the goal rule out, under the same limits
-            // as the search, where the engine has no refutation of its own.
+            // What the counts of the goal rule out, under the same bound as
+            // the search, where the engine has no refutation of its own.
             let refutation = refutation.unwrap_or_else(|| {
-                let account = memory::Account::new(limits.memory_bytes);
                 let mut polled = |_| stop(Progress::new(Phase::Refute, 0, 0));
                 focus::counts::refutation(
                     forest,
-                    task.goal,
-                    task.fragment,
+                    goal.occurrences,
+                    goal.fragment,
                     mode,
-                    &account,
+                    account,
                     &mut polled,
                 )
             });
             let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
-            Verdict::Unprovable(Box::new(if task.roots {
+            Verdict::Unprovable(Box::new(if goal.roots {
                 disproof
             } else {
                 disproof.of_goal(members.into())
@@ -621,20 +723,26 @@ fn conclude(
         debug_assert_eq!(proof.check(mode), Ok(()), "an engine's proof");
         return Ok(verdict);
     }
-    match proof.check_within(mode, limits, stop) {
+    // What the bound leaves beside the input; a refusal names the bound.
+    let left = (*limits).with_memory_bytes(account.left());
+    match proof.check_within(mode, &left, stop) {
         Ok(()) => Ok(verdict),
         Err(e @ CheckError::Invalid(_)) => Err(Error::Rejected(Box::new(e))),
-        Err(CheckError::Refused(refused)) => Ok(Verdict::Unknown(unchecked(refused.refusal)?)),
+        Err(CheckError::Refused(refused)) => {
+            Ok(Verdict::Unknown(unchecked(refused.refusal, limits)?))
+        }
     }
 }
 
 /// Returns why a search whose proof's check was given up is unknown: the
-/// stop, the work bound, or the memory bound the check would have passed;
-/// a refusal no check makes stays the error it is.
-fn unchecked(refusal: Refusal) -> Result<Reason, Error> {
+/// stop, the work bound, or the memory bound of `limits` the check would
+/// have passed; a refusal no check makes stays the error it is.
+fn unchecked(refusal: Refusal, limits: &Limits) -> Result<Reason, Error> {
     match refusal {
         Refusal::Stopped { .. } => Ok(Reason::Stopped),
-        Refusal::Memory { limit_bytes, .. } => Ok(Reason::Unchecked { limit_bytes }),
+        Refusal::Memory { limit_bytes, .. } => Ok(Reason::Unchecked {
+            limit_bytes: limits.memory_bytes.unwrap_or(limit_bytes),
+        }),
         Refusal::Work { limit } => Ok(Reason::WorkLimit { limit }),
         refusal => Err(Error::Refused(refusal)),
     }
@@ -2441,29 +2549,30 @@ mod tests {
         let (m, n) = (Member::new, NodeId::new);
         let nodes = vec![Node::Ax(m(0), m(2)), Node::Weaken(m(1), n(0))];
         let proof = Proof::new(forest.clone(), nodes, n(1)).unwrap();
-        let task = Task {
+        let goal = Concluding {
             forest: &forest,
-            goal: forest.roots(),
+            occurrences: forest.roots(),
             fragment: s.fragment(),
             mode: Mode::CLASSICAL,
-            reading: None,
             roots: true,
-            program: OnceLock::new(),
         };
         let verdict = conclude(
             Ok(Some(proof)),
             None,
-            &task,
+            goal,
             &[],
             &Options::default(),
             &Limits::default(),
+            &memory::Account::new(None),
             &mut |_| false,
         );
         assert!(matches!(verdict, Err(Error::Rejected(_))), "{verdict:?}");
     }
 
     /// A proof whose check a bound gives up is no proof returned: the
-    /// verdict is unknown, by the bound that refused the check.
+    /// verdict is unknown, by the bound that refused the check, the
+    /// memory bound as the limits set it, of which the check had what the
+    /// input left.
     #[test]
     fn a_refused_check_is_unknown() {
         let refusals = [
@@ -2472,12 +2581,13 @@ mod tests {
             },
             Refusal::Memory {
                 phase: Phase::Check,
-                limit_bytes: 64,
+                limit_bytes: 48,
                 needed_bytes: None,
             },
             Refusal::Work { limit: 1 },
         ];
-        let reasons = refusals.map(|r| unchecked(r).unwrap());
+        let limits = Limits::default().with_memory_bytes(Some(64));
+        let reasons = refusals.map(|r| unchecked(r, &limits).unwrap());
         assert_eq!(
             reasons,
             [
@@ -2544,6 +2654,55 @@ mod tests {
             ),
             "{first:?}"
         );
+    }
+
+    /// The memory bound is on the input too, the forest with its sequent:
+    /// `⊢ a, ~a` with an atom's name of a mebibyte, which the search
+    /// itself never copies, ends at a bound one byte short of the input at
+    /// its first stable sequent, through the front door and through the
+    /// race of the command's default alike, where the input once went
+    /// uncounted beside a search of a few kibibytes; with 64 MiB more it
+    /// proves.
+    #[test]
+    fn the_memory_bound_holds_the_input() {
+        let name = "a".repeat(1 << 20);
+        let s = sequent(&format!("|- {name}, ~{name}"));
+        let forest = Forest::new(&s).unwrap();
+        let goal = Goal::conclusion(&forest);
+        let input = forest.held_bytes() as u64;
+        assert!(input > 1 << 20);
+        let options = Options::default().with_engine(Some(Engine::Focus));
+        for (bytes, proved) in [(input - 1, false), (input + (64 << 20), true)] {
+            let limits = Limits::default().with_memory_bytes(Some(bytes));
+            let alone = prove_goal(goal, Mode::CLASSICAL, &options, &limits, |_| false);
+            #[cfg(feature = "parallel")]
+            let raced = race(
+                goal,
+                Mode::CLASSICAL,
+                &options,
+                &limits,
+                3,
+                |_| true,
+                |_| false,
+            );
+            #[cfg(not(feature = "parallel"))]
+            let raced = prove_goal(goal, Mode::CLASSICAL, &options, &limits, |_| false);
+            for outcome in [alone, raced] {
+                let verdict = outcome.unwrap().verdict;
+                let expected = if proved {
+                    matches!(verdict, Verdict::Proved(_))
+                } else {
+                    matches!(verdict, Verdict::Unknown(Reason::MemoryLimit { limit_bytes })
+                        if limit_bytes == bytes)
+                };
+                let shown = match &verdict {
+                    Verdict::Unknown(reason) => format!("{reason:?}"),
+                    Verdict::Proved(_) => "proved".to_string(),
+                    Verdict::Unprovable(_) => "unprovable".to_string(),
+                };
+                assert!(expected, "under {bytes} bytes: {shown}");
+            }
+        }
     }
 
     /// Every poll tells the stop the work done since the last and in all,

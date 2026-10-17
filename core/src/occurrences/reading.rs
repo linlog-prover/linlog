@@ -359,6 +359,15 @@ impl<'a> Reading<'a> {
         (self.position.into_owned().into_boxed_slice(), self.goal)
     }
 
+    /// Returns the bytes the reading allocated itself: its positions, where
+    /// it does not read a session's.
+    pub(crate) fn held_bytes(&self) -> usize {
+        match &self.position {
+            Cow::Owned(position) => position.capacity() * size_of::<Side>(),
+            Cow::Borrowed(_) => 0,
+        }
+    }
+
     /// Returns the reading of `forest` from the positions and the goal
     /// [`into_parts`](Self::into_parts) gave, in constant time.
     #[cfg(feature = "interactive")]

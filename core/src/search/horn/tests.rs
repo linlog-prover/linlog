@@ -359,9 +359,17 @@ fn refuses_at_its_limits() {
     );
 }
 
-/// A sequent's verdict under the engine within a memory bound.
+/// A sequent's verdict under the engine within a memory bound of `bytes`
+/// beside its input: the forest, and the reading in intuitionistic mode.
 fn bounded(sequent: &Sequent, mode: Mode, bytes: u64) -> Verdict {
-    let limits = crate::Limits::default().with_memory_bytes(Some(bytes));
+    let forest = Forest::new(sequent).unwrap();
+    let reading = if mode.intuitionistic {
+        forest.len() * size_of::<crate::occurrences::Side>()
+    } else {
+        0
+    };
+    let input = (forest.held_bytes() + reading) as u64;
+    let limits = crate::Limits::default().with_memory_bytes(Some(bytes + input));
     crate::search::prove_within(sequent, mode, &horn(), &limits, |_| false)
         .unwrap()
         .verdict

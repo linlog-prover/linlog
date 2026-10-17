@@ -528,9 +528,10 @@ $ linlog prove --memory-limit 100 --format json "|- (a & b) + (a & c), ~a par (~
 {"version":1,"linlog":"…","verdict":"unknown","reason":{"kind":"memory_limit","limit_bytes":100},"fragment":"MALL","mode":"classical","engine":"focus","statistics":{"nodes":0,"memo_hits":0,"memo_entries":0,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":0}}
 ```
 
-The bound counts what grows with the search (what it remembers, the
-proofs it keeps, what each level of its recursion takes), not the sequent
-itself. That has a limit of its own, `--occurrence-limit` (fifty million
+The bound counts the sequent as the search holds it (about 25 bytes for
+each subformula occurrence) and what grows with the search (what it
+remembers, the proofs it keeps, what each level of its recursion takes).
+The sequent has a limit of its own too, `--occurrence-limit` (fifty million
 subformula occurrences by default, or `none`), on every command that
 reads a sequent: a sequent in JSON can share subformulas, so a file of
 438 bytes that doubles one atom 25 times stands for 67 million

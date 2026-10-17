@@ -55,15 +55,16 @@ impl Account {
         }
     }
 
-    /// An account for one of `parts` searches that run side by side: the
-    /// same bound divided evenly, so that neither search's memory decides
-    /// what the other may keep; within a race, a part of its whole too.
+    /// An account for one of `parts` searches that run side by side: what
+    /// the bound leaves beside what this account holds (the input, say)
+    /// divided evenly, so that neither search's memory decides what the
+    /// other may keep; within a race, a part of its whole too.
     pub(crate) fn share(&self, parts: u64) -> Self {
         Self {
             limit: if self.limit == u64::MAX {
                 u64::MAX
             } else {
-                self.limit / parts
+                self.limit.saturating_sub(self.used()) / parts
             },
             used: AtomicU64::new(0),
             whole: self.whole.clone(),
@@ -117,6 +118,16 @@ impl Account {
     /// Returns the bytes held.
     pub(crate) fn used(&self) -> u64 {
         self.used.load(Ordering::Relaxed)
+    }
+
+    /// Returns the bytes left under the bound, and under the whole's,
+    /// or `None` where there is no bound.
+    pub(crate) fn left(&self) -> Option<u64> {
+        let own = (self.limit != u64::MAX).then(|| self.limit.saturating_sub(self.used()));
+        match (own, self.whole.as_ref().and_then(|whole| whole.left())) {
+            (Some(own), Some(whole)) => Some(own.min(whole)),
+            (own, whole) => own.or(whole),
+        }
     }
 
     /// Returns whether `bytes` more would still be within the bound.
@@ -208,7 +219,8 @@ mod tests {
     use super::*;
 
     /// A charge counts, a release takes it back, and the bound is
-    /// inclusive; a share has its part of the bound and a count of its own.
+    /// inclusive; a share has its part of what the bound leaves and a count
+    /// of its own.
     #[test]
     fn accounting() {
         let account = Account::new(Some(100));
@@ -219,8 +231,10 @@ mod tests {
         assert!(account.over());
         account.release(20);
         assert_eq!(account.used(), 90);
+        assert_eq!(account.left(), Some(10));
         let half = account.share(2);
-        assert!(half.fits(50) && !half.fits(51));
+        assert!(half.fits(5) && !half.fits(6), "half of what is left");
+        assert_eq!(Account::new(None).left(), None);
         assert!(Account::new(None).share(2).fits(usize::MAX));
         let before = account.used();
         let mut own = Charged::new(&account);

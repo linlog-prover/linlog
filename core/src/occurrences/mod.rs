@@ -251,6 +251,28 @@ impl Forest {
     /// last one stands for "no occurrence".
     pub(crate) const MOST: u64 = NONE as u64 - 1;
 
+    /// Returns the bytes the forest's allocations take, the sequent's
+    /// included: what a search over it holds besides its own structures.
+    pub(crate) fn held_bytes(&self) -> usize {
+        let sequent = &self.sequent;
+        size_of_val(&*self.roots)
+            + size_of_val(&*self.term)
+            + size_of_val(&*self.kind)
+            + size_of_val(&*self.parent)
+            + size_of_val(&*self.root)
+            + size_of_val(&*self.size)
+            + size_of_val(&*self.depth)
+            + size_of_val(&*self.literals)
+            + size_of_val(&*self.literal_start)
+            + sequent.terms.capacity() * size_of::<crate::sequents::Term>()
+            + sequent.roots.capacity() * size_of::<TermId>()
+            + sequent
+                .atoms
+                .iter()
+                .map(|name| size_of::<String>() + name.capacity())
+                .sum::<usize>()
+    }
+
     /// Builds the forest of a sequent within the default
     /// [`Limits::occurrences`], keeping a copy of the sequent. A forest
     /// takes about 25 bytes per occurrence, and an arena that shares its
