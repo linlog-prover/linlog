@@ -239,6 +239,27 @@ area that took it (the reports under `plan/reports/` have the tables):
   rows have the verdicts of `head-lto` and every decided row its
   counters, in 10 % less CPU time.
 
+- `after-generations`: the memo's cut entries read only within their
+  generation, the input charged to the memory bound, and five rows
+  without a copy bound (below); the other 265 rows have the verdicts
+  of `after-efficiency` and the counters of every decided row but the
+  chain family's four (one memo entry fewer and one hit more since the
+  count of one sign, before this label). The net engine's
+  `net-after-generations` has the verdicts, `links` and `tests` of
+  `net-after-efficiency` on its 64 rows.
+
+**Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
+bound at which none of the five below is refuted, so when cut entries of
+the memo were carried from level to level and kept every level cut on a
+finite space, no row of the set moved, while `SYJ208+1.001` in cbn,
+`LCL181+1` in cbv, `KLE017+1` in cbv, `KLE069+1` in 01 and `SYN393+1` in
+01, three of which the engines of early October refuted at levels 3 to
+13, stayed undecided without a bound at millions of levels. These five
+run with `--copies none` and 5 s, as the command does, and are refuted
+within 4 ms at levels 5 to 16; a row of them at the time limit is the
+regression they are here for. They are not in `after-efficiency.csv`;
+`after-generations.csv` has them.
+
 **The oracle is `after-efficiency.csv`**: a change that must not alter
 the focused engine's search runs `bench/targets.sh LABEL` and compares
 with it, `linlog-bench summary --against bench/targets/after-efficiency.csv

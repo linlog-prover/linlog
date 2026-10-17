@@ -137,6 +137,15 @@ missed_stop=(
   SafeBus-10-unfolded_1_1 TCPcondis_tcp30_50_1 RobotManipulation_robot-manipulation-5_1_1
   Parking_parking_2_8_5_1 ResAllocation_RAS-R-15_10_1
 )
+# Intuitionistic non-theorems whose stable sequents are a few dozen to a
+# few thousand, run without a copy bound: each deepens until a level ends
+# without a cut, which a cut carried from level to level kept from
+# happening for millions of levels (bench/TARGETS.md). None is among the
+# rows at a copy bound above, whose runs `--resume' would take for them.
+unbounded=(
+  ILLTP-SYJ-cbn/SYJ208+1.001 ILLTP-LCL-cbv/LCL181+1 KLE-cbv/KLE017+1 KLE-01/KLE069+1
+  ILLTP-SYN-01/SYN393+1
+)
 # Under a recursion limit of 16 384: two nets proved long after their
 # limit, one whose proof arena outgrew the memory inside a split
 # enumeration and one killed after 605 s.
@@ -167,6 +176,8 @@ names() {
     --only "$(names ILL/petri-nets/MCC/ "${missed_stop[@]}")"
   run 1 --lltp "$lltp/ILL" --copies 3 --timeout 5 --grace 55 --recursion-limit 16384 \
     --only "$(names ILL/petri-nets/MCC/ "${deep[@]}")"
+  run 1 --lltp "$lltp/ILL" --copies none --timeout 5 "${repeat[@]}" \
+    --only "$(names ILL/ "${unbounded[@]}")"
 ) &
 first=$!
 
