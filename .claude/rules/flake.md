@@ -128,12 +128,20 @@ and the workspace's `Cargo.lock`. Offline, the vendored dependencies
 replace crates.io, so cargo can neither see the unpublished library as
 the command's dependency (its local overlay fails) nor package without
 `--registry crates-io`. A package that needs a file from outside its
-directory, a test that does not travel left out of `exclude`, or a
-manifest field crates.io refuses fails there. Its source is the whole
+directory, or a test that does not travel left out of `exclude`, fails
+there; what only crates.io validates at the upload (keywords, at most
+five of at most 20 ASCII characters; categories from its list, an
+unknown one only warned about; the licence's SPDX expression) no local
+command checks, so a change of those fields is checked by hand. Its source is the whole
 workspace with the licence files (`LICENSE` and the links
 `core/LICENSE`, `cli/LICENSE`), which no other check reads. The upload
 needs the network and the author's token; `cargo publish --dry-run
---workspace` in the shell is the same with the registry asked.
+--locked --workspace` in the shell packages and verifies both against
+the registry, the command through cargo's local overlay of the
+unpublished library, and must run on a clean working copy (`jj new` on
+the release commit): cargo's dirty check reads git, to which a non-empty
+`@` is uncommitted, and `--allow-dirty` would record that in the
+package's `.cargo_vcs_info.json`.
 `msrv.nix` is the `msrv` check: `cargo check --workspace --all-targets
 --all-features` with the stable toolchain of `rust-version` in
 `[workspace.package]` (read at evaluation, `1.92` written as rust-overlay's

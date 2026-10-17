@@ -158,8 +158,9 @@
 
         # The two published crates packaged as `cargo publish' uploads them,
         # and each built from its package alone, the command against the
-        # library's: a file a package needs from outside its directory, or
-        # a manifest crates.io would refuse, fails here and not at the tag.
+        # library's: a file a package needs from outside its directory
+        # fails here and not at the tag. What only crates.io checks (the
+        # keywords, the categories, the licence's SPDX) it does not.
         # Offline, from the vendored dependencies, where cargo cannot see
         # the unpublished library as a dependency of the command's package:
         # the library's package is verified by `cargo package', the
