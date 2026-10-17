@@ -3,10 +3,10 @@
 
 //! Decides sequents of linear logic: parse a sequent, prove it, get a
 //! proof the checker has validated, and print or export it. A caller adds
-//! the crate from its repository (README says how) and, for the examples
-//! below, `serde_json`. An *occurrence* is one place of a subformula in a
-//! sequent, numbered by the sequent's [`Forest`]; proofs, nets and errors
-//! name occurrences by those numbers.
+//! the crate from crates.io and, for the examples below, `serde_json`. An
+//! *occurrence* is one place of a subformula in a sequent, numbered by the
+//! sequent's [`Forest`]; proofs, nets and errors name occurrences by those
+//! numbers.
 //!
 //! In more detail: sequents of linear logic, stored as compact arena DAGs
 //! in negation normal form, with parsing, printing and serialization; the fragment a sequent
@@ -119,6 +119,20 @@
 //! feature says so. Every feature but `parallel` builds for
 //! `wasm32-unknown-unknown`: the crate reads no clock, starts no thread
 //! without that feature, and takes its time limits as a caller's stop.
+//! No feature is removed within a 0.y version.
+//!
+//! # Stability
+//!
+//! The API follows semantic versioning as Cargo reads it below 1.0: a
+//! break raises the second number. Every public enum and every struct
+//! with public fields that may grow is `#[non_exhaustive]`; the enums of
+//! the calculus (`Term`, `Kind`, `Node`, `Rule`, `Verdict`, `Branch`,
+//! `Sign`, `Polarity`, `Side` and those of [`ordinary`]'s derivations)
+//! are closed on purpose, so that a match over them stops compiling when
+//! the calculus grows. The JSON forms are promised by their wire level
+//! (the module `wire`, feature `serialize`), not by the crate's version.
+//! Display text, the defaults' numbers and the engines' counters are not
+//! promised. The repository's changelog states each release's surface.
 
 /// The error types of this crate.
 mod errors;
