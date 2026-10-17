@@ -148,7 +148,10 @@ its commit and checklist. So:
   `zellij --session linlog-NAME action write-chars --pane-id PANE
   "/goal "`, then `… write-chars --pane-id PANE "$(sed 's|^/goal ||'
   GOAL_FILE | tr '\n' ' ')"`, then `… write --pane-id PANE 13` (while it
-  is busy, this queues). Its screen shows `◎ /goal active`. The goal's
+  is busy, this queues). Its screen shows `◎ /goal active`; if its
+  input line still holds `/goal [Pasted text …]`, the Enter came before
+  the paste was taken and was lost: send `… write --pane-id PANE 13`
+  again and look once more (2026-10-17). The goal's
   turn count and timer start afresh; the work is kept.
 - **After a reboot**, a worker's zellij session has exited: `zellij
   delete-session linlog-NAME`, then `plan/start-session.sh --resume ID
