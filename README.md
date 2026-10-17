@@ -1218,13 +1218,13 @@ cores in a memory-capped user unit, into `bench/targets/LABEL.csv`;
 after it. On one thread the engine's counters are a function of the
 input, so two such files tell whether a change altered the search at all.
 
-`bench/baseline.sh --arm --fresh` takes the whole baseline, every
-family, engine and thread count and the whole LLTP library, unattended
-in the night: a user timer starts it as a systemd user unit at 20:00 (or
-at once if that has passed), where it waits for an otherwise idle
-machine, runs about eleven and a half hours, and is stopped at 07:00
+`bench/baseline.sh --detach --fresh` takes the whole baseline, every
+family, engine and thread count and the whole LLTP library, at once as
+a systemd user unit on an otherwise idle machine, in about three hours;
+`--arm` instead starts it unattended in the night, at 20:00 (or at once
+if that has passed) once the machine is idle, and stops it at 07:00
 whatever its state (`--slot=HH:MM-HH:MM` for other times; the script run
-again without `--fresh` finishes a stopped baseline on another night).
+again without `--fresh` finishes a stopped baseline).
 Every baseline keeps a directory of its own named by the day it started,
 `bench/results/DAY/`: the CSV files of its runs, `starts.txt` with the
 commit measured, and its tables in `RESULTS.md`, which `bench/RESULTS.md`
@@ -1232,15 +1232,18 @@ copies for the latest baseline; `journalctl --user -fu linlog-baseline`
 follows it. A last stage runs again, with more time before the kill and
 more memory, the runs that `bench/reruns.txt` lists: those of an earlier
 baseline that were killed or crashed and that measurement showed to
-finish with more room. The first baseline, of the night of 2026-09-30, took 9 h 21 min
-on a 16-core Intel Core Ultra X9 388H, and a supplement on the next
-night added that last stage to it in 1 h 28 min. The second, of the
-night of 2026-10-02, after the performance work on the focused engine,
-took 8 h 4 min with every stage and with the intuitionistic library run
-again under each atom bias alone; `bench/RESULTS.md` has its tables and
-`bench/COMPARISON.md` compares the two: no verdict differs, nothing
-decided before is undecided after, and the intuitionistic LLTP pass
-decides 2 047 problems within 5 s where it decided 737.
+finish with more room. The first baseline, of the night of 2026-09-30,
+took 9 h 21 min on a 16-core Intel Core Ultra X9 388H, and a supplement
+on the next night added that last stage to it in 1 h 28 min; the second,
+of 2026-10-02, after the performance work on the focused engine, took
+8 h 4 min; the third, of 2026-10-17, of the engines of the first
+release, 2 h 58 min, with the intuitionistic library under the command's
+default as a pass of its own. `bench/RESULTS.md` has the third's tables
+and `bench/COMPARISON.md` sets the three side by side: no verdict differs
+between them, and the intuitionistic LLTP pass decides 3 610 problems
+within 5 s where the first decided 737 and the second 2 047. Under the
+command's default (no copy bound, every core, 2 s) it decides 4 024 of
+the 4 495.
 
 `run --tools` runs the same problems through other provers of linear
 logic beside linlog's command, each built by the flake at a pinned

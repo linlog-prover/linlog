@@ -189,9 +189,20 @@ serde_json, which the CLI and the core's tests already have.
   --user list-timers` before leaving the machine. System timers and
   services need root: the author stops them. The unit waits for an
   idle machine (on mains, a load average of at most 1) until the slot's
-  end minus `estimate` (11.5 h), then starts regardless and says so in
+  end minus `estimate` (4 h), then starts regardless and says so in
   `starts.txt`: a night not used is worse than rows marked as disturbed.
-  `--detach` starts the unit at once and never stops it. The unit,
+  `--detach` starts the unit at once and never stops it; since
+  2026-10-17 the author has a baseline started detached as soon as it is
+  ready, at any hour, and says when the machine is not free. With
+  `--detach` the script checks neither the load nor the timers (the unit
+  runs it with `--force`): look at `systemctl list-timers` first and have
+  the author stop `nix-gc` and `nix-optimise` if they fall inside, and
+  root the devshell (`nix develop --profile target/devshell-profile`)
+  so that a collection cannot remove the unit's `PATH`. The third
+  baseline took 2 h 58 min (stage 1 49 min, 2 40 min, 3 1 h 28 min, 4 a
+  minute), where the estimate from the second's file times said 8 h 45
+  min: an estimate from an earlier baseline's times is an upper bound
+  once the engines decide what that baseline waited out. The unit,
   `linlog-baseline`, runs the script with `--force` (40 GiB and no swap,
   `OOMPolicy=continue` so the kernel kills a runaway child alone, no core
   dumps, its own target directory `target/baseline`), because a session
@@ -234,7 +245,8 @@ serde_json, which the CLI and the core's tests already have.
   running search, and `wait_ms` counts it. The default LLTP passes of the
   second baseline show 11.5 % of their time as waits (5 191 problems
   `†`), the passes under one bias 0.07 % and 0.14 %. Read a night's
-  disturbance off the rows with one search.
+  disturbance off the rows with one search. The third baseline marks
+  only 75 problems in all; why the default's waits went was not traced.
 - **A `crash` row on a large net is the check of a proof the search
   found.** In the second baseline 76 runs crashed with `memory allocation
   … failed`. 58 of them are 14 Petri nets of tens of thousands of
@@ -611,8 +623,8 @@ serde_json, which the CLI and the core's tests already have.
   keep their own bounds. `baseline.sh`'s stage 3 ends with
   `lltp-default`: the intuitionistic library under the command's
   default (`--copies none --jobs all --pool-after 0.1 --timeout 2`),
-  about an hour and a quarter, since some two thousand problems wait the
-  whole limit.
+  16 minutes in the third baseline, where 389 problems waited the whole
+  limit (the latest stop 2 138 ms).
 - **`defaults/`** holds the rows that chose the command's defaults (the
   report of that work has the tables): the default that restarted the
   search on the pool (`restart-copies-10.csv`, the 1 003 problems of the

@@ -18,11 +18,12 @@
 # those that more room lets finish. Every LLTP pass names its copy bound,
 # so that it stays the pass of the earlier baselines whatever the defaults.
 # The LLTP problems of the later stages are those of the first baseline
-# (`reference'), so that every row of it has its counterpart. About eleven
-# and a half hours on sixteen cores, on an otherwise idle machine (stages 1
-# to 3 of the first baseline took 9 h 21 min on 2026-09-30, the second
-# baseline 10 h 30 min), which is more than one slot: a baseline stopped at
-# the slot's end is finished on the next night.
+# (`reference'), so that every row of it has its counterpart. About three
+# hours on sixteen cores, on an otherwise idle machine: stages 1 to 3 of
+# the first baseline took 9 h 21 min on 2026-09-30, the second 8 h 4 min,
+# and the third 2 h 58 min on 2026-10-17, its engines deciding most of what
+# the earlier ones waited out. A baseline stopped at the slot's end is
+# finished on the next night.
 #
 #   nix build .#lltp -o bench/lltp          # once: the LLTP library
 #   bench/baseline.sh --arm --fresh          # from the devshell
@@ -79,7 +80,7 @@ lltp=bench/lltp
 results=bench/results
 cores=(1 0 2 3)
 slot=20:00-07:00
-estimate=$((23 * 1800))
+estimate=$((4 * 3600))
 # The baseline whose intuitionistic LLTP pass chooses the problems that
 # the later stages run again (--reference=DIR; the first by default):
 # chosen from each baseline's own pass, the sets would differ between
@@ -421,7 +422,8 @@ mll=(--family "partition-yes=4,5,6,12,20" --family "partition-no=3,4,9,12" --fam
 # default, which runs the two on a sequent with exponentials. The two
 # passes under one bias are the longest and have a stream each; the others
 # share theirs, the families after one library pass and the engines after
-# the other. About three and a half hours.
+# the other. About fifty minutes (three and a half hours in the second
+# baseline).
 streams=()
 run "${cores[0]}" lltp-rarer --lltp "$lltp/ILL" --bias rarer --copies 3 --timeout 5 &
 streams+=($!)
@@ -468,7 +470,7 @@ ended() {
 # to beat (the first baseline's, decided in milliseconds since, and the
 # sizes added after it); and the LLTP problems that ended at the copy bound
 # or at the recursion limit, again with a bound of 10 and a limit of 16384.
-# About an hour.
+# About forty minutes.
 streams=()
 run "${cores[0]}" long-1 --family 3-partition-no=5 --family partition-no=5,15 \
   --family partition-yes=7,28 --family counter=16,64 --timeout 1200 &
@@ -490,9 +492,9 @@ wait "${streams[@]}"
 # at once on every core (the command's default until it deepened the copy
 # bound), and the whole intuitionistic library under the command's default:
 # no copy bound, one thread for a tenth of a second and then every core,
-# within the default time limit of two seconds. About four and a half
-# hours, the last pass one of them (about 2 000 problems wait the whole
-# limit).
+# within the default time limit of two seconds. About an hour and a half,
+# the last pass a quarter of an hour of it (about 400 problems wait the
+# whole limit).
 run - parallel --family 3-partition-yes --family 3-partition-no --family partition-yes=5,6,7,20,24 \
   --family partition-no=4,5,12,14 --family qbf=16,20,24,40,44 --family mix=8,9,10,11 --family counter \
   --family counter-over --family wide-m3=24,30,36 --family wide-m4=28,32,36 \
