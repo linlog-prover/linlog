@@ -437,7 +437,9 @@ serde_json, which the CLI and the core's tests already have.
   the streams are pinned with `taskset` and `runexec --cores` is not used.
   A run past its limit is `unknown`/`timeout`; one the cgroup ended for
   memory `unknown`/`out_of_memory`, linlog's included (its account leaves
-  out the proof of a `&` search closed by `⊤`, which can be exponential).
+  out the proof of a `&` search closed by `⊤`, which can be exponential,
+  and until 2026-10-17 left out the input, which gave the night's three
+  such rows; linlog gets the cgroup's bound as its own, which now counts it).
 - **Each tool in its own documented configuration**: APLL's backward
   search under its default bound 3 (`-` is `unknown`/`bound`), the Maude prover's
   ILL search under the copy bound 5 of its own LLTP script (a `false`
@@ -489,6 +491,18 @@ serde_json, which the CLI and the core's tests already have.
   `tools_ranked_and_contradictions_listed` pins it on a planted
   disagreement. `bench/plots.py` draws the cactus and scatter figures
   from the CSV by column names.
+- **Rerunning a few published rows** (done once, on the author's word,
+  for the default's six runs of `SYJ206+1.020` and `SYJ212+1.020`,
+  2026-10-17): `run --tools TOOL --lltp FILE…` with the comparison's
+  limits and cores and `PATH` and `LINLOG_COMPARISON_TOOLS` from
+  `.#comparison`, as `comparison.sh` sets them; a file given alone has
+  an empty `family`, so it is set (`ILL/ILLTP-SYJ-01`) before the rows
+  replace theirs in `runs.csv` by family, problem and tool; then
+  `ranking` again, and the run's `env.json` beside the others
+  (`default-rerun.env.json`). `plots.py`'s SVGs differ in every file at
+  every drawing (matplotlib's ids), and a run not solved is drawn at the
+  limit whatever ended it, so the figures are drawn again only when a
+  solved verdict or its time changed.
 - **`bench/comparison.sh`** is the one script of the published numbers
   and of the CI job (`.github/workflows/comparison.yml`): it builds
   `.#comparison`, `.#lltp` and `.#qcover`, runs the streams (`--cores`,

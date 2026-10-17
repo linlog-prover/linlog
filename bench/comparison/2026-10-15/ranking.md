@@ -6,7 +6,7 @@
 
 | tool | solved | proved | unprovable | wrong | late | time | memory | gave up | error | outside | against the header |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| linlog-default | 4204 | 3907 | 297 | 0 | 0 | 545 | 3 | 59 | 0 | 0 | 29 |
+| linlog-default | 4204 | 3907 | 297 | 0 | 0 | 547 | 1 | 59 | 0 | 0 | 29 |
 | linlog | 4181 | 3899 | 282 | 0 | 0 | 571 | 0 | 59 | 0 | 0 | 25 |
 | sympli | 1684 | 1439 | 245 | 0 | 14 | 1921 | 876 | 0 | 0 | 316 | 47 |
 | maude-ill | 768 | 742 | 26 | 0 | 38 | 2902 | 71 | 700 | 16 | 316 | 10 |

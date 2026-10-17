@@ -139,18 +139,19 @@ Linux 7.2.9): the sequential tools and linlog's one-thread column each
 on one efficiency core (4.0 GHz, cores 6–11, six streams side by side),
 linlog's default on the four low-power cores (12–15, 3.7 GHz), every run
 under 10 s and 4 GiB, measured by BenchExec 3.27. linlog was built from
-commit 60226b2c (signed since as 8a06dd9c, the same tree), every other
-tool at the version the flake pins (`comparison/2026-10-15/*.env.json`
-records each, with the command lines). The rows are
-`comparison/2026-10-15/runs.csv` (62 543 runs), the tables
-`comparison/2026-10-15/ranking.md` (`linlog-bench ranking runs.csv`), the
-figures `comparison/2026-10-15/figures/` (`bench/plots.py`).
+commit 60226b2c (signed since as 8a06dd9c, the same tree; six runs of
+its default at e0215978, below), every other tool at the version the
+flake pins (`comparison/2026-10-15/*.env.json` records each, with the
+command lines). The rows are `comparison/2026-10-15/runs.csv` (62 543
+runs), the tables `comparison/2026-10-15/ranking.md` (`linlog-bench
+ranking runs.csv`), the figures `comparison/2026-10-15/figures/`
+(`bench/plots.py`).
 
 ### Solved within 10 s
 
 | tool | solved | proved | unprovable | wrong | ended at the limit | out of memory | the tool's bound | error | outside its fragment |
 |---|---|---|---|---|---|---|---|---|---|
-| linlog, default (4 low-power cores) | 4 204 | 3 907 | 297 | 0 | 545 | 3 | 59 | 0 | 0 |
+| linlog, default (4 low-power cores) | 4 204 | 3 907 | 297 | 0 | 547 | 1 | 59 | 0 | 0 |
 | **linlog, one thread** | **4 181** | 3 899 | 282 | 0 | 571 | 0 | 59 | 0 | 0 |
 | Sympli | 1 684 | 1 439 | 245 | 0 | 1 935 | 876 | 0 | 0 | 316 |
 | Maude, ILL | 768 | 742 | 26 | 0 | 2 940 | 71 | 700 | 16 | 316 |
@@ -191,11 +192,17 @@ tool covers only `m` of the set.
   intuitionistic problems other than Petri nets Sympli solves 873
   against linlog's 829.
 - **linlog's default solves 23 that its one thread does not** (it races
-  a second search on a pool), and ends 3 runs at the 4 GiB cgroup limit
-  (SYJ206+1.020, SYJ212+1.020 in two translations): the process grew
-  past the 4 GiB that linlog's own memory bound allows, so something it
-  allocates there is not counted against the bound (not yet found).
-  These count as linlog's, out of memory.
+  a second search on a pool). In the night's run it ended 3 runs at the
+  4 GiB cgroup limit (SYJ206+1.020 in 01, SYJ212+1.020 in 01 and cbn):
+  its memory bound left out the input, the forest of 17 to 30 million
+  occurrences (0.6 to 0.8 GiB), so the process held the input beside a
+  search that kept to 4 GiB. The bound counts the input now, and the
+  default's six runs of those two problems (all three translations)
+  were run again at commit e0215978 under the same settings
+  (2026-10-17, `comparison/2026-10-15/default-rerun.env.json`): none
+  is solved, as before; SYJ212+1.020 in 01 ends at linlog's own memory
+  bound after 7.5 s, the other five at the time limit, at peaks of 2.8
+  to 3.5 GiB. The table counts that one as out of memory.
 - **APLL's ILL search refutes 31 Petri nets that linlog does not
   decide**, against their headers (Theorem). Since APLL refutes 1 296
   nets that linlog proves with checked proofs (below), these 31 are
