@@ -159,8 +159,8 @@ fn limits_on_memory_and_occurrences() {
 
     // A proof found within the bound whose check would need more: a Horn
     // counter of 3 000 tokens, whose firing sequence the search holds
-    // beside the sequent under bounds from 928 KiB, and the check of its
-    // proof beside the sequent only from 1 056 KiB.
+    // beside the sequent under bounds from about 920 KiB, and the check of
+    // its proof beside the sequent only from about 1 040 KiB.
     let counter = format!("!(a -o a * b), a |- a * {}", vec!["b"; 3000].join(" * "));
     let (status, out, err) = linlog(&["prove", "-i", "--memory-limit", "960KiB", &counter], "");
     assert_eq!(

@@ -165,12 +165,20 @@ and each search's is `Account::part_of` it, whose charges, shares and
 forks count in the whole and stop at its bound (a part gives the whole
 back what it holds when it drops); an account outside a race has no
 whole, so no other search pays for it. One `Work` counts both, and the
-outcome's `work` is that count. The verdict is made once both sides
-have ended (`answer_goal` on each side, then `Answered::concluded` on a
-part of the whole): before, each side checked its proof or built its
+outcome's `work` is that count. The verdict is made once both sides have
+ended (`answer_goal` on each side, then `Answered::concluded` on a part
+of the whole): before, each side checked its proof or built its
 refutation's counts under a fresh bound of its own while the other side
-still searched, so a race could hold two bounds at once. The command's default and the harness's
-`--pool-after` call it; the copies they had are gone (F103, F104).
+still searched, so a race could hold two bounds at once. Two edge cases
+moved with it, both sound: a side's proof settles the race before its
+check, so a check that a bound refuses answers unknown where the other
+side might once have gone on to a proof that checks (it shares the
+bounds, so its check would rarely fit either); and a proof the checker
+rejects is the race's error, where the other side's verdict could hide
+it. A race's parts leave room for the input the whole holds
+(`Account::holding`, `part_of`), so their shares are of what is left.
+The command's default and the harness's `--pool-after` call it; the
+copies they had are gone (F103, F104).
 
 - **An engine's own refutation** goes in `Answer::refutation`, which
   `prove_goal` takes as it is: the Horn engine's
@@ -404,29 +412,30 @@ an `Account` (the bound and an atomic count of bytes) that everything
 which grows charges where it allocates, by the capacity allocated and
 not by what is in use. `prove_goal` makes one per search.
 
-- **What counts**: the focused memo (its chunks, its index, its table
-  of unrestricted zones), the kept arena and every engine's pending stack, the branch
-  stack of keys, the failures that wait (the lists by their capacity,
-  `Waiting::grown`, charged after each close, and a key per entry, as
-  many as ever waited at once; `relieve` gives both back; charging the
-  keys alone left some 190 bytes an entry uncounted, a panel's and a
-  review's finding: a search under 4 MiB peaked 9.9 MiB above its
-  start), every pool buffer (sets, contexts, keys, tallies,
-  split counts, cursors when made; lists, trails and links by what they
-  had grown to when last given back), the `Counts` (rows and
-  per-occurrence arrays) and the `Classes` of the set-up, and the
-  additive path's memo and arena; **the input**, the forest with its
-  sequent (`Forest::held_bytes`, about 25 bytes an occurrence), charged
-  once by `prove_goal` and by `race` to the whole, and each search's
-  intuitionistic reading (`Reading::held_bytes`, a byte an
-  occurrence), and the check and the refutation after a search, which
-  get what the bound leaves (`Account::left`; a refused check names the
-  option's bound). **Why the input** (departs from the design, which
-  left the forest and the sequent to the caller): the comparison gave
-  linlog a `--memory-limit` equal to its cgroup's, and the default's
-  race on `SYJ206+1.020` and `SYJ212+1.020` was killed there although
-  its account stayed within the bound, since the process held the
-  input beside it, 0.6 to 0.8 GiB on those files (a diagnosis by an
+- **What counts**: the focused memo (its chunks, its index, its table of
+  unrestricted zones), the kept arena and every engine's pending
+  stack, the branch stack of keys, the failures that wait (the lists
+  by their capacity, `Waiting::grown`, charged after each close, and a
+  key per entry, as many as ever waited at once; `relieve` gives both
+  back; charging the keys alone left some 190 bytes an entry
+  uncounted, a panel's and a review's finding: a search under 4 MiB
+  peaked 9.9 MiB above its start), every pool buffer (sets, contexts,
+  keys, tallies, split counts, cursors when made; lists, trails and
+  links by what they had grown to when last given back), the `Counts`
+  (rows and per-occurrence arrays) and the `Classes` of the set-up,
+  and the additive path's memo and arena; **the input**, the forest
+  with its sequent (`Forest::held_bytes`, about 25 bytes an
+  occurrence), charged once by `prove_goal` and by `race` to the
+  whole, and each search's intuitionistic reading
+  (`Reading::held_bytes`, a byte an occurrence), and the check and the
+  refutation after a search, which get what the bound leaves
+  (`Account::left`; a refused check names the option's bound). **Why
+  the input** (departs from the design, which left the forest and the
+  sequent to the caller): the comparison gave linlog a
+  `--memory-limit` equal to its cgroup's, and the default's race on
+  `SYJ206+1.020` and `SYJ212+1.020` was killed there although its
+  account stayed within the bound, since the process held the input
+  beside it, 0.6 to 0.8 GiB on those files (a diagnosis by an
   instrumented copy of the account against the resident memory: the
   resident memory above the input stayed under the account's peak on
   every run). Since a search's set-up and memo are linear in the
@@ -436,24 +445,27 @@ not by what is in use. `prove_goal` makes one per search.
   input is 27 MiB. `Account::share` divides what the bound leaves
   beside what the account holds, so the default bias's two searches
   outside a race (whose shares have no whole) are bounded with the
-  input too. **What does not**: the proof returned beyond what the arena held (the focused
-  engine keeps its root's proof in place where nothing is kept yet,
-  `Arena::keep_all`, and `Proof::build` compacts the arena's vector in
-  place, both polling every 2¹⁶ nodes, so a proof costs its nodes once
-  plus four bytes a node while it is built; before, the root's keep
-  and the build each copied it, unpolled: a second past the time limit
-  on 24 pairs of `&` rules closed by `⊤`), a `Tally`'s and a `Split`'s `touched`
-  lists (bounded by the atoms with rows: an atom is listed when a row
-  finds its sums at zero; listed at every row, they grew with the
-  copies of a formula once copied members had rows, 142 MiB under a
-  bound of 16 MiB on a panel's witness), a context's
-  extra list, the table a collection uses while it runs (four bytes a
-  kept node), the stacks of the threads, the net engine (a structure
-  and a scratch linear in the forest, per thread), and the allocator's
-  own overhead. Measured when the input went uncounted, the process's
-  peak was the count plus what it took to hold the input: R8
-  (`SYJ202+1.008` in cbv) under 256 MiB ended by the bound at a peak of
-  253 MiB, under 16 MiB at 20 MiB.
+  input too. **What does not**: under `--logic` the command's `Image`
+  (`ordinary/translate.rs`, the ordinary sequent and the linear one
+  beside the forest, linear in the input), the goal's occurrences a
+  search keeps for its verdict, the proof returned beyond what the
+  arena held (the focused engine keeps its root's proof in place where
+  nothing is kept yet, `Arena::keep_all`, and `Proof::build` compacts
+  the arena's vector in place, both polling every 2¹⁶ nodes, so a
+  proof costs its nodes once plus four bytes a node while it is built;
+  before, the root's keep and the build each copied it, unpolled: a
+  second past the time limit on 24 pairs of `&` rules closed by `⊤`),
+  a `Tally`'s and a `Split`'s `touched` lists (bounded by the atoms
+  with rows: an atom is listed when a row finds its sums at zero;
+  listed at every row, they grew with the copies of a formula once
+  copied members had rows, 142 MiB under a bound of 16 MiB on a
+  panel's witness), a context's extra list, the table a collection
+  uses while it runs (four bytes a kept node), the stacks of the
+  threads, the net engine (a structure and a scratch linear in the
+  forest, per thread), and the allocator's own overhead. Measured when
+  the input went uncounted, the process's peak was the count plus what
+  it took to hold the input: R8 (`SYJ202+1.008` in cbv) under 256 MiB
+  ended by the bound at a peak of 253 MiB, under 16 MiB at 20 MiB.
 - **The order of answers** when memory runs short: a memo that has no
   room for a new key is emptied and the kept arena collected
   (`Run::remember`; the same as at `memo_limit`, which stays as the

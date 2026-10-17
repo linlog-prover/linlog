@@ -29,36 +29,57 @@ pub(crate) struct Account {
     /// What this account held in the whole when it began: a fork starts
     /// from what its original holds, which the whole counts already.
     base: u64,
+    /// What it holds for its whole life from the start, the input of the
+    /// searches it bounds, which its parts leave room for.
+    #[cfg_attr(
+        not(feature = "parallel"),
+        expect(dead_code, reason = "only a race's parts read it")
+    )]
+    input: u64,
 }
 
 impl Account {
     /// An account with nothing charged and the bound given, or none.
+    #[cfg(any(test, feature = "interactive"))]
     pub(crate) fn new(limit: Option<u64>) -> Self {
+        Self::holding(limit, 0)
+    }
+
+    /// An account with the bound given that holds `input` bytes from the
+    /// start to its end: what the searches it bounds read, which they
+    /// hold as long as they run.
+    pub(crate) fn holding(limit: Option<u64>, input: u64) -> Self {
         Self {
             limit: limit.unwrap_or(u64::MAX),
-            used: AtomicU64::new(0),
+            used: AtomicU64::new(input),
             whole: None,
             base: 0,
+            input,
         }
     }
 
-    /// An account for one search of a race, with the whole's bound, whose
-    /// charges count in the whole: what one search holds the other may
-    /// not.
+    /// An account for one search of a race, with the whole's bound less
+    /// its input, whose charges count in the whole: what one search
+    /// holds the other may not.
     #[cfg(feature = "parallel")]
     pub(crate) fn part_of(whole: &Arc<Account>) -> Self {
         Self {
-            limit: whole.limit,
+            limit: if whole.limit == u64::MAX {
+                u64::MAX
+            } else {
+                whole.limit.saturating_sub(whole.input)
+            },
             used: AtomicU64::new(0),
             whole: Some(whole.clone()),
             base: 0,
+            input: 0,
         }
     }
 
     /// An account for one of `parts` searches that run side by side: what
-    /// the bound leaves beside what this account holds (the input, say)
-    /// divided evenly, so that neither search's memory decides what the
-    /// other may keep; within a race, a part of its whole too.
+    /// the bound leaves beside what this account holds (its input, or a
+    /// reading) divided evenly, so that neither search's memory decides
+    /// what the other may keep; within a race, a part of its whole too.
     pub(crate) fn share(&self, parts: u64) -> Self {
         Self {
             limit: if self.limit == u64::MAX {
@@ -69,6 +90,7 @@ impl Account {
             used: AtomicU64::new(0),
             whole: self.whole.clone(),
             base: 0,
+            input: 0,
         }
     }
 
@@ -81,6 +103,7 @@ impl Account {
             used: AtomicU64::new(self.used()),
             whole: self.whole.clone(),
             base: self.used(),
+            input: 0,
         }
     }
 
@@ -219,8 +242,9 @@ mod tests {
     use super::*;
 
     /// A charge counts, a release takes it back, and the bound is
-    /// inclusive; a share has its part of what the bound leaves and a count
-    /// of its own.
+    /// inclusive; a share has its part of what the bound leaves beside
+    /// what its account holds, a race's input included, and a count of
+    /// its own.
     #[test]
     fn accounting() {
         let account = Account::new(Some(100));
@@ -236,6 +260,13 @@ mod tests {
         assert!(half.fits(5) && !half.fits(6), "half of what is left");
         assert_eq!(Account::new(None).left(), None);
         assert!(Account::new(None).share(2).fits(usize::MAX));
+        // A race's parts leave room for the input the whole holds.
+        #[cfg(feature = "parallel")]
+        {
+            let whole = Arc::new(Account::holding(Some(100), 40));
+            let half = Account::part_of(&whole).share(2);
+            assert!(half.fits(30) && !half.fits(31));
+        }
         let before = account.used();
         let mut own = Charged::new(&account);
         own.charge(7);

@@ -347,11 +347,9 @@ pub fn prove_goal(
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
-    let account = memory::Account::new(limits.memory_bytes);
-    let work = Work::new(limits.work);
     // The input is held for the search: the bound is on all of it.
-    let mut input = memory::Charged::new(&account);
-    input.charge(goal.forest.held_bytes());
+    let account = memory::Account::holding(limits.memory_bytes, goal.forest.held_bytes() as u64);
+    let work = Work::new(limits.work);
     decide_goal(goal, mode, options, limits, &account, &work, &mut stop)
 }
 
@@ -389,10 +387,11 @@ pub fn race(
 ) -> Result<Outcome, Error> {
     use std::sync::atomic::{AtomicBool, Ordering};
     let threads = threads.clamp(1, Options::MAX_JOBS);
-    let whole = std::sync::Arc::new(memory::Account::new(limits.memory_bytes));
+    let whole = std::sync::Arc::new(memory::Account::holding(
+        limits.memory_bytes,
+        goal.forest.held_bytes() as u64,
+    ));
     let work = Work::new(limits.work);
-    let mut input = memory::Charged::new(&whole);
-    input.charge(goal.forest.held_bytes());
     if threads < 3 || !engine_for(goal, mode, options)?.parallel() {
         let options = options.clone().with_jobs(threads);
         let account = memory::Account::part_of(&whole);
@@ -2661,8 +2660,9 @@ mod tests {
     /// itself never copies, ends at a bound one byte short of the input at
     /// its first stable sequent, through the front door and through the
     /// race of the command's default alike, where the input once went
-    /// uncounted beside a search of a few kibibytes; with 64 MiB more it
-    /// proves.
+    /// uncounted beside a search of a few kibibytes; with half the input
+    /// more it proves, so the input is counted once, and the proof's
+    /// check has the room beside it.
     #[test]
     fn the_memory_bound_holds_the_input() {
         let name = "a".repeat(1 << 20);
@@ -2672,7 +2672,7 @@ mod tests {
         let input = forest.held_bytes() as u64;
         assert!(input > 1 << 20);
         let options = Options::default().with_engine(Some(Engine::Focus));
-        for (bytes, proved) in [(input - 1, false), (input + (64 << 20), true)] {
+        for (bytes, proved) in [(input - 1, false), (input + input / 2, true)] {
             let limits = Limits::default().with_memory_bytes(Some(bytes));
             let alone = prove_goal(goal, Mode::CLASSICAL, &options, &limits, |_| false);
             #[cfg(feature = "parallel")]
