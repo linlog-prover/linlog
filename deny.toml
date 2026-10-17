@@ -120,6 +120,9 @@ exceptions = [
   # Each entry is the crate and version constraint, and its specific allow
   # list
   #{ allow = ["Zlib"], crate = "adler32" },
+  # The command embeds the Euler Math font, which is under the OFL; no
+  # dependency may bring it in.
+  { allow = ["OFL-1.1"], crate = "linlog-cli" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,

@@ -6,7 +6,18 @@ name = "linlog-cli"
 description = "The linlog command: decide, check, prove step by step and export sequents of linear logic, and ordinary logic through its translations."
 version.workspace = true
 edition.workspace = true
-license = "EUPL-1.2"
+# The binary embeds the Euler Math font (`fonts/`), under the OFL.
+license = "EUPL-1.2 AND OFL-1.1"
+repository.workspace = true
+readme = "../README.md"
+keywords = ["linear-logic", "theorem-prover", "proof-search", "sequent-calculus", "cli"]
+categories = ["command-line-utilities", "science", "mathematics"]
+# README's examples are run against the repository's README, which this
+# package carries only as its readme.
+exclude = ["tests/readme.rs"]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
 
 # The command is `linlog`; the package keeps its name next to the library's.
 # The code is the library `linlog_cli`, so that rustdoc documents it under a

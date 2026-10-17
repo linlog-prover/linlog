@@ -8,9 +8,13 @@ members = ["bench", "cli", "core"]
 [workspace.metadata.crane]
 name = "linlog-workspace"
 
+# What every package shares; crates.io keeps a published version's
+# metadata as it was, so the addresses are the final ones.
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "EUPL-1.2"
+repository = "https://github.com/linlog-prover/linlog"
 
 # The core crate, written once for the members that depend on it; each
 # names the features it uses, the defaults included.
