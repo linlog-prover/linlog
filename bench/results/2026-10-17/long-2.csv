@@ -1,0 +1,6 @@
+source,family,size,index,problem,mode,engine_requested,jobs,test_period,timeout_s,run,copies,expected,verdict,reason,checked,engine,fragment,occurrences,multiplicity,time_ms,nodes,memo_hits,memo_entries,splits,links,tests,recursion_limit,cpu_ms,wait_ms,bias,forward_copies,check_ms,memory_limit,copies_reached,pool_after,forward_copies_reached,work,tool,tool_version,translate_ms,peak_bytes,raw
+family,mix,11,0,mix/11,mix,auto,1,,1200,0,3,unprovable,unknown,timeout,,focus,MALL,110,1,1200006.395,189748448,170753368,1048576,49294150870,0,0,2048,1197240.000,1314.180,auto,30,,1073741824,0,,0,52429690083,,,,,
+family,wide-m3,36,0,wide-m3/36,classical,auto,1,,1200,0,3,provable,proved,,ok,focus,MLL,251,3,0.154,37,0,37,970,0,0,2048,0.000,0.000,auto,30,0.015,1073741824,0,,0,771,,,,,
+family,wide-m4,36,0,wide-m4/36,classical,auto,1,,1200,0,3,provable,proved,,ok,focus,MLL,251,4,0.135,37,0,37,916,0,0,2048,0.000,0.000,auto,30,0.013,1073741824,0,,0,771,,,,,
+family,qbf,24,0,qbf/24#0,classical,auto,1,,1200,0,3,unprovable,unprovable,,,focus,MALL,599,6,99.592,172882,10646,162236,511289,0,0,2048,90.000,0.194,auto,30,,1073741824,0,,0,9477510,,,,,
+family,qbf,48,0,qbf/48#0,classical,auto,1,,1200,0,3,unprovable,unknown,memory_limit,,focus,MALL,1199,8,83808.199,75945044,4048584,1048576,313407016,0,0,2048,83560.000,118.969,auto,30,,1073741824,0,,0,12057507714,,,,,
