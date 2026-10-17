@@ -6,6 +6,7 @@
 |---|---|---|
 | Session 30a: the tests pruned and CI cached (session `step-30a`, 2026-10-16) | done (2026-10-16 to 10-17) | Per-crate checks (voppnlzq) and the Cachix cache in CI (ptprktol): a change to `cli/` leaves the core crate's six Rust checks' derivations as they were, one to `plan/` every Rust check's. Tests pruned in wtpnsrlo and svrqukoy: four removed, one merged into `detection`, three shrunk; 448 tests to 443; `cargo test --workspace` in the dev profile 111.6 s to 50.3 s, the release tests with debug assertions 24.0 s to 13.4 s (cores 2 to 5). Every code commit gated. Mutation runs of every file whose tests changed (17 batches, 2 831 mutants at `main`, 2 830 after; `check` and `focus-28j` for step 28j's lists), at `main` and after: 235 and 236 surviving, the one more a timeout race that is caught alone on both sides; every timeout rerun alone; no new survivor. `mutants/step-28i/` lost (forgotten with its workspace); `mutants/step-28j/check.txt` short by ten false catches of a README test that failed unmutated at its revision. `nix flake check` passed at the session's last commit. |
 | Session 30b: the memory bound charged and the memo's cut entries fixed (session `step-30b`, 2026-10-17) | done (2026-10-17) | The memo's cut entries are read only within their generation (vpryqrqn, qwwpklrw): probe A1's four rows refuted with the memo on at levels 7, 5, 5 and 12 in 88 to 341 µs; `deepening_closes_on_a_finite_space` fails before and passes after. At 10 s on one thread, rows decided (stems): ILLTP-SYJ-01 (tuned) 57 to 103 (14 to 19), KLE 243 to 264 (83 to 88), SYN and LCL 51 to 63 (18 to 21), every `-cbv` collection 196 to 232 (115 to 128); all 103 gains refutations, none proved by any tool, no decided row changed, every proof checked. The memory bound counts the input, the readings and a race's verdict (ypskkpwl, rutmmotq, xtsvttyy; departs from the design); `the_memory_bound_holds_the_input` ends the default at a bound one byte short of the input. The default's six runs of SYJ206+1.020 and SYJ212+1.020 rerun under the comparison's settings (xovvltrl): one ends at the memory bound, five at the time limit, none killed by the cgroup. Target sets against `after-efficiency` and `net-after-efficiency`: no verdict differs; only the chain family's four rows differ in counters, as before the session; five rows without a copy bound added (ttlytoks). One reviewer, five should-fix, all fixed. Every code commit gated (orzmpoxm a doc link that `nix flake check` found); `nix flake check` passed at the session's last commit. |
+| Session 30c: the baseline and the release (session `step-30c`, 2026-10-17) | done (2026-10-17) | The third baseline (`bench/results/2026-10-17/`, 2b5b52c2): the unit ran 19:32:07 to 22:30:29 (2 h 58 min; estimated 8 h 45 min), no scheduled job, no build of the session meanwhile; no decided verdict differs from the first or second baseline; LLTP intuitionistic at copy bound 3 decides 3 610 (737, 2 047), the default pass 4 024 of 4 495 in 2 s, keeping every problem the old default decides within 2 s, its latest stop 2 138 ms; 21 QBF runs lost to the default memory bound of 1 GiB. `summary --before` repeats (ee76052e), `bench/COMPARISON.md` sets the three side by side (be1b4096). The release prepared: metadata, licences, docs.rs (cde7cf67), changelog and citation (16540f08, 8b73f38c), opam draft (f8268124, `opam lint` passes), release workflow (b415504d, eaad2007), README's face (78339958, 67ddbee4, f67faacb), stability docs and the types' list (04b1c9ce, 9a149b6b), `rust-version` 1.92 with the checks `msrv` and `package` (6e40cb6f, 84aa4bf1), the frozen level-1 documents (823acc2f, cd13a308). Every code commit gated; `nix flake check` passed at f67faacb; `cargo publish --dry-run --locked --workspace` exit 0 from a clean working copy; `cargo deny check` exit 0. One reviewer (Opus), no must-fix, 15 findings each answered. Commits from 2b5b52c2 on unsigned (`signing.behavior=drop`). |
 
 ## Session 30a: the tests pruned and CI cached
 
@@ -649,3 +650,431 @@ with no change of its own (the command's help and README say so).
   expired and the unit that kept it warm had ended): the commits after
   ttlytoks are made with `signing.behavior=drop`, for the supervisor to
   sign.
+
+## Session 30c: the baseline and the release
+
+**Outcome.** The third baseline is taken, complete, and set beside the
+first two: no decided verdict differs from either, the intuitionistic
+LLTP pass decides 3 610 problems within 5 s (737 and 2 047 before), and
+the pass under the command's default decides 4 024 of 4 495 in 2 s,
+losing none of the problems the old default decides within that time.
+The only problems the second baseline decided and the third does not are
+21 QBF runs that now end at the default memory bound of 1 GiB, which the
+second baseline did not have. Everything the release needs is prepared
+and committed: the crates' metadata with the minimum Rust version
+measured and checked, the changelog with what 0.1.0 promises, the
+citation file, the draft opam file, the release workflow and README as
+the face of a released tool; `cargo publish --dry-run` passes for both
+crates in order and `cargo deny check` passes. Nothing is pushed,
+tagged or published.
+
+### The third baseline
+
+**How it was taken.** From this session's workspace `../linlog-step30c`
+at `main` (`ed74387d9bf3`, "Plan: review step 30b"), after `nix build
+.#lltp -o bench/lltp` and with the devshell's closure rooted against
+garbage collection (`nix develop --profile target/devshell-profile`,
+since `--detach` runs the script under `--force`, which checks no timer):
+`nix develop target/devshell-profile -c bench/baseline.sh --detach
+--fresh` at 19:32:07 on 2026-10-17. Before it: load 0.45, on mains, the
+same platform profile, governor, energy preference and turbo as both
+earlier baselines, the toolchain the same as the second's (the locked
+rust-overlay did not move; `Cargo.lock` did). `nix-gc` (00:03) and
+`nix-optimise` (03:50) fell inside the estimate; the author stopped
+both before the start at planning's request, the script paused the user
+timer `obsidian-snapshot`, and `RESULTS.md` records that no scheduled job
+ran. The unit `linlog-baseline` ended with `Result=success` at 22:30:29:
+2 h 58 min of wall time, 10 h 8 min of CPU, 4.1 GB peak.
+
+**The estimate was three times too high.** By arithmetic from the second
+baseline's file times (stage 1 3 h 34 min, stage 2 1 h 03 min, stage 3's
+thread table, net cubes and all-core pass as before, `lltp-portfolio`'s
+42 min replaced by `lltp-default`'s estimated 1 h 15 min from step 21's
+review run, stage 4 8 min): 8 h 45 min, sent to planning before the
+start. Measured: stage 1 49 min, stage 2 40 min, stage 3 1 h 28 min (the
+default pass 16 min of it), stage 4 one minute. The engines now decide
+in microseconds most of what the second baseline's passes waited out at
+the time limit, which a time per ending category of an older baseline
+cannot know. The script's `estimate` is now 4 h and its stage comments
+the measured times (`bench.md` says why).
+
+**Disturbances.** A wait loop of this session spun one core for ten
+minutes (19:44 to 19:54, `bash 99.6 %` in the 19:52 progress line;
+`read -t` on `/dev/zero` returns at once): in the user slice, which the
+unit keeps off the streams' cores 0 to 3, but load beside stage 1 all
+the same, and my mistake. A linter (`hlint`) and a browser ran at 19:42,
+a headless browser and a `MainThread` at 42 % at 22:23 during the
+default pass. Otherwise the progress lines name only the desktop's own
+processes. The summary marks 75 sequential problems with `†` (the
+second baseline 5 191, the default's polling); the session ran no build,
+test, cargo, nix or probe between 19:32:07 and 22:30:29 (its commands
+then were jj, gpg's signing test, curl reads of a pinned action,
+journalctl, systemctl, file edits and Python on text files), nor did its
+one sub-agent (a reader).
+
+**The tables.** `bench/results/2026-10-17/` (24 CSV files,
+`starts.txt`, `RESULTS.md`) and `bench/RESULTS.md`, committed in
+"Record the third baseline". `bench/COMPARISON.md` is new: a summary by
+hand, then `summary --before 2026-09-30 --before 2026-10-02` over the
+third's files (every baseline side by side, then the third against the
+second) and the passes under one bias against the default pass. R195's
+three-way tables needed a change of the harness: `--before` may be
+given again, oldest first ("Set every baseline side by side in the
+summary", with a test).
+
+| file | first | second | third |
+|---|--:|--:|--:|
+| `lltp-intuitionistic` (4 495, copy bound 3, 5 s) | 737 | 2 047 | 3 610 |
+| `lltp-classical` (4 512) | 742 | 2 006 | 3 621 |
+| `lltp-rarer` (the backward search alone) | – | 969 | 3 608 |
+| `lltp-forward` (the forward search alone, 30 copies) | – | 2 391 | 4 026 |
+| `lltp-copies-10` (1 003) | 411 | 458 | 592 |
+| `lltp-recursion` (995) | 56 | 280 | 895 |
+| `lltp-all-cores` (1 102, every core) | 29 | 623 | 993 |
+| `lltp-default` (4 495, the command's default, 2 s) | – | – | 4 024 |
+| `families` (123 runs at 300 s) | 68 of 88 | 109 | 113 |
+| `parallel` (285) | 123 of 205 | 251 | 249 |
+
+Solved within the limit per file, from "Decided by group" summed. No
+decided verdict differs between any two of the three (`summary --before`
+of the third against the first, and against the second). Families: every
+size of `counter-over` and `wide-m3`/`wide-m4` at 2 048 now decided,
+`qbf/48#3` refuted in 222 s, `mix/10` 146 → 62.5 s, `partition-yes/24`
+118 → 74.4 s, `counter/64` 80.7 s → 55 µs; `qbf/44#3` and `qbf/48#0` end
+at the memory bound.
+
+**What step 21 left open.**
+
+1. *Does the race keep every row of the old default on sixteen cores?*
+   Yes. Against the copy-bound-3 pass on one thread, of this baseline and
+   of the second, `lltp-default` loses no problem that the old default
+   decides within the default's 2 s; the three it decides between 2 and
+   5 s (`SYJ202+1.006`, 3.5 s; two nets at 3.2 and 3.7 s) end at the
+   default's time limit. `AutoFlight_afcs_06_b_10_1`, which the race
+   lost on two cores, is proved in 0.74 ms (the copy-bound-3 pass:
+   0.30 ms). The default gains 417 problems over the copy-bound-3 pass,
+   all outside the nets, and decides exactly the 955 others the forward
+   pass at 30 copies decides in 5 s.
+2. *Its latest stops* (R19's measured part): of the 389 runs that ended
+   at the time limit, the latest stopped at 2 138 ms, 26 after 2.05 s, 7
+   after 2.1 s and none after 2.2 s, all SYJ files of the cbv and cbn
+   translations; no run was killed or crashed, no decided verdict was
+   late, and the largest CPU wait of the calling thread was 152 ms. The
+   15 s of queued tasks that step 21's review fixed do not return with
+   fifteen threads.
+
+**What got worse.**
+
+- **QBF at the memory bound** (21 runs): see the outcome. The engine is
+  final for 0.1.0, so this is reported, not changed; a run with
+  `--memory-limit` above 1 GiB decides them as before (the second
+  baseline's runs had no bound; the bound's default came with the
+  limits, and the harness takes the library's default).
+- **A fixed cost per call** on the problems that take microseconds: the
+  copy-bound-3 passes' median time on the SYJ and KLE collections is
+  1.5 to 2.1 times the second's with the same stable sequents (KLE-IMP-
+  CONJ 28 → 48 µs, SYJ-cbn 67 → 146 µs), 20 to 80 µs more of set-up per
+  call; not traced. The nets got faster by more (1.72 ms → 161 µs in the
+  median).
+- **Every core against one thread** on `lltp-all-cores`' 1 102: the same
+  993 decided, 1.57 times slower in the median (2.88 in the second).
+
+**The header contradictions.** All 51 of the default pass are known: the
+nine proofs of `SYJ212+1.001`, `SYN001+1` and `KLE065+1` against a
+Non-Theorem header, and refutations of files headed Theorem that 30b's
+fix decides, 20 of the 21 with a classical countermodel that
+`plan/notes/lltp-headers.md` lists, and `KLE075+1` in its three
+translations, which has no countermodel; the note now has a paragraph on
+`KLE075+1` and says that the release's command refutes 20 of the 21
+within its 2 s. Every proved row of the baseline is `checked` `ok`.
+
+### The release, prepared
+
+Version 0.1.0 was already in `[workspace.package]`, which every crate
+inherits; the path dependency's requirement `version = "0.1.0"` in
+`[workspace.dependencies]` is the one other literal, and cargo itself
+refuses a build where it no longer matches the workspace's version, so it
+needs no check of its own (R235).
+
+- **Manifests** (R218, R219, R220, R223): `license`, `repository`
+  (`https://github.com/linlog-prover/linlog`) and `rust-version` in
+  `[workspace.package]`, inherited; per crate `readme = "../README.md"`
+  (cargo copies it into the package), five keywords, categories
+  (`science`, `mathematics`; the command also `command-line-utilities`)
+  and `[package.metadata.docs.rs]` (`all-features` and one target for
+  the library, one target for the command). No `homepage` and no
+  `documentation`: crates.io then links docs.rs and the repository, and
+  the Pages site is `main`'s, not a release's. The library's description
+  is its own now ("A linear logic suite: decides, checks, …"); the
+  command's was already its own. `linlog-cli`'s licence is `EUPL-1.2 AND
+  OFL-1.1`, for the Euler Math font it embeds, with `cli/fonts/OFL.txt`
+  in its package; `deny.toml` allows OFL-1.1 for `linlog-cli` alone, so
+  no dependency can bring it in. `core/LICENSE` and `cli/LICENSE` are
+  links to the root's `LICENSE`, which cargo packages as the file.
+- **Packaging** (R232): `exclude` keeps out of the packages the two tests
+  that read outside their crate (`core/tests/export.rs`, the font in
+  `cli/fonts`; `cli/tests/readme.rs`, the root README); the repository
+  runs them.
+- **The minimum toolchain** (R252): 1.92, set by krilla (behind `pdf`,
+  which the command enables), the highest `rust-version` among the
+  locked dependencies (resvg and usvg 1.87, clap 1.85); measured by
+  building with 1.92 (below), held by the new check `msrv`.
+- **Changelog** (R221, R6, R50): `CHANGELOG.md` in Keep a Changelog form,
+  with "What is promised" (the Rust API under semver with the closed
+  enums named, the features kept within 0.1, the wire forms by level,
+  the minimum Rust version, the command's subcommands, flags and exit
+  statuses only added to within 0.1 and its JSON output following the
+  wire levels (departs from the design: D18 and the API note's 10.2 left
+  the command out of the promise; a front end needs its flags and
+  statuses to hold, and the wording leaves room for a new wire level in
+  0.1.x, as step 31's classical refutation will need), and what is not
+  promised), "Wire
+  forms" and "Added" (README's built list in brief). The section's
+  heading reads `- unreleased` until the author dates it; the release
+  workflow refuses a tag whose section has no date.
+- **CITATION.cff** (R222): CFF 1.2.0, version 0.1.0, EUPL-1.2, the
+  repository and the documentation's addresses, and the AI-assistance
+  sentence README carries. No `date-released` and no DOI yet: both come
+  with the tag and Zenodo (the author's checklist).
+- **The opam draft** (R162): `rocq/rocq-linlog.opam`, `rocq-linlog`
+  0.1.0, `logpath:Linlog`, the three addresses, `rocq-core` and
+  `rocq-stdlib` bounded on both sides, the AI sentence in its
+  description, and a build through `make -C rocq`, which the library
+  will provide. `opam lint` (opam 2.5.2) passes; the pinned Rocq is
+  9.1.1 and its standard library 9.0.0, inside the bounds.
+- **The release workflow** (R233): `.github/workflows/release.yml`, on a
+  tag `vX.Y.Z`: a job that checks the tag against the manifests' version
+  and that the changelog has a dated section for it, then `nix flake
+  check`; a job that publishes with Trusted Publishing
+  (`rust-lang/crates-io-auth-action` v1.0.5, pinned by commit, a token
+  for the job alone) through `cargo publish --workspace` in the
+  devshell, in the environment `crates-io`, skipped for `v0.1.0`, which
+  the author publishes by hand since a crate must exist before a
+  workflow may publish it; and a job that makes the GitHub release with
+  the changelog's section as its notes and the two `.crate` files
+  that crates.io serves attached. Every action pinned by commit,
+  `contents: read` at the top, `id-token: write` and `contents: write`
+  only in the jobs that need them. After the review: the tag check
+  covers CITATION.cff's version, the packages are built before the
+  short-lived token is minted, each crate is published unless its
+  version is on crates.io already (a rerun finishes a partial
+  publication), and the release attaches the `.crate` files downloaded
+  from static.crates.io, the ones published.
+- **README** (R224): an install section (`cargo install --locked linlog-cli`,
+  `nix run`, `nix build`, the library as `linlog = "0.1"`, the minimum
+  Rust version), a first proof (a tested console block), where the API
+  documentation, the changelog, the benchmarks and the citation are, the
+  AI-assistance sentence, absolute image links, the planned list in the
+  order of the plan (the Rocq library before the web front end) and the
+  release among what is built.
+- **The crate documentation**: crates.io instead of the repository, "No
+  feature is removed within a 0.y version", and a section "Stability"
+  (semver, the closed enums, wire levels, what is not promised).
+  `linlog_cli`'s documentation already said it is the binary's with no
+  semver promise (R253).
+- **The public types' list** (R50): a reader (Sonnet) listed every public
+  enum and every struct with a public field reachable from the API: 94,
+  81 `#[non_exhaustive]`, 13 closed, every struct marked. The closed are
+  the twelve the rules named plus `sequents::Visit` (enter, between,
+  exit: a walk's stops over any tree, which no calculus grows), which
+  the rules, the changelog and the crate documentation now name;
+  `core.md` lists the 81 marked ones.
+- **The level-1 documents** (R6): `core/tests/wire/level-1.txt`, the
+  JSON lock's 33 lines as 0.1.0 writes them, then (after the review) the
+  disproof of each of the five refutations and a proof and a disproof of
+  a goal off the roots, written by a scratch test of the same code and
+  never rewritten; `core/tests/stability.rs` reads every line of a
+  read-back form through `wire::upgrade` and writes it again byte for
+  byte (37 lines; the three unknown outcomes are written only). The
+  options and settings carry no level (they refuse unknown keys), which
+  the changelog now says.
+- **The checks** (R236, R252): `package` and `msrv`. `package` packages
+  the library with `cargo package --offline --registry crates-io`
+  (verified by building it), the command without verification and
+  without a lock, unpacks both outside the source tree and builds the
+  command in release from its package with the library's patched in:
+  offline, the vendored sources replace crates.io, so cargo neither sees
+  the unpublished library as the command's dependency nor packages
+  without naming the registry (both found by running it). `msrv` checks
+  the workspace, every target and feature, with cargo 1.92.0 (its log);
+  1.91 cannot build krilla, whose `rust-version` is 1.92.
+- **README's example of the other provers**, rerun once on planning's
+  word (the command exactly as shown, cores 2 to 5, capped): linlog now
+  refutes SYJ105+1.003 in 4.0 ms where the block showed the time limit,
+  and the ranking's table has had the columns `wrong` and `against the
+  header` since; the block and the sentence under it are the run's
+  ("Rerun README's example of the other provers", a commit of its own).
+  Nothing else in README cites that example's numbers.
+
+### Verification
+
+- **The baseline's unit**: `linlog-baseline`, started 19:32:07, ended
+  22:30:29 with `Result=success`; every file complete (`lltp-default`
+  4 495 rows); `RESULTS.md` written by the script and copied to
+  `bench/RESULTS.md`.
+- **No build while it ran**: this session's commands between those
+  times were jj, a gpg signing test, curl reads of the auth action's
+  tags and `action.yml`, journalctl, systemctl, `ln -s`, file edits and
+  Python on text files; the formatter hook did not run (it formats only
+  files under the session's directory, the main checkout, and every edit
+  was in the workspace). The one sub-agent then was a reader (Sonnet,
+  read-only tools). In the user journal the session's capped scopes are
+  `step30-lltp` and `step30-devshell` before (ended 19:31:44 and
+  19:31:50) and, after, first `step30-fmt` at 22:32:12 and the
+  harness's release build `step30-build` at 22:33:30.
+- **The gate**, capped (8 GiB, no swap, cores 2 to 5), in the workspace
+  `../linlog-step30c-gate`, at every code commit: the eight of the first
+  round (metadata `cde7cf67` 251 s, README `78339958`, crate docs
+  `04b1c9ce`, side by side `ee76052e`, the comparison `be1b4096`, the
+  checks `6e40cb6f`, the wire documents `823acc2f`, the types
+  `9a149b6b`) and the six after the review ((`8b73f38c`, `cd13a308`, `84aa4bf1`, `eaad2007`, `67ddbee4`, `f67faacb`, 99 to 178 s each)); every log
+  ends with `gate: passed`. Not gated, since no build reads them: the
+  changelog and citation file (`16540f08`), the opam draft (`f8268124`),
+  the release workflow (`b415504d`, which `nix flake check`'s actionlint
+  reads) and the baseline's data (`2b5b52c2`).
+- **`nix flake check`**: passed at `f67faacb`, the last code commit, in the gate workspace: 29 checks, "all checks passed!", exit 0, 690 s, with `package` and `msrv` among them. It runs again at the report's commit, which changes `plan/` alone; the message to planning gives that result.
+- **`cargo publish --dry-run --locked --workspace`** in the devshell,
+  online: packages `linlog` (161 files) and `linlog-cli` (120 files),
+  verifies the library and then the command against the library through
+  cargo's local overlay, and aborts both uploads as a dry run, in that
+  order: at the review's revision with `--allow-dirty`, and again without it from the clean gate workspace at `f67faacb` (`jj st`: no changes), exit 0.
+- **`cargo package --list`** of both: `LICENSE` (the file's content,
+  from the link), `README.md`, the command's `fonts/OFL.txt` and
+  `fonts/Euler-Math.otf`; no test that reads outside its package.
+- **`cargo deny check`** (online, advisories included): "advisories ok,
+  bans ok, licenses ok, sources ok", exit 0 at `f67faacb`.
+- **`opam lint`** (opam 2.5.2) on `rocq/rocq-linlog.opam`: Passed.
+- **docs.rs**: `cargo doc --offline --locked --no-deps -p linlog
+  --all-features` with the fuzz shell's nightly rustdoc (1.100.0,
+  2026-09-24) and `RUSTDOCFLAGS="--cfg docsrs -D warnings"`: no warning.
+- **The new tests**: `the_first_release_reads` and
+  `three_baselines_side_by_side` pass, in the gates and alone.
+
+### The review
+
+One fresh-context reviewer (Opus 5.5 at high, read-only, no builds while
+the gates ran) of the release's files. No must-fix: the names
+`linlog`, `linlog-cli` and `linlog_cli` are free on crates.io, the
+categories exist, the keywords fit, `EUPL-1.2 AND OFL-1.1` is valid
+SPDX, no README link is relative, the closed enums named exist without
+the mark and every other public type has it, the exit statuses and
+features match, the action's pin is its v1.0.5, the changelog's check
+and extraction work on a dated copy. Its findings, each answered:
+
+1. *Options and settings documents carry no `version`* (should-fix):
+   the changelog now says that the data's forms are promised by level,
+   and that the options and settings carry none and refuse unknown keys.
+2. *Not every level-1 form frozen* (should-fix): fixed, the five
+   disproofs and a proof and a disproof of a goal added from the 0.1.0
+   code, disproofs written back; the count is 37.
+3. *The command's promise goes beyond D18 and 10.2* (should-fix):
+   reworded (subcommands, flags and statuses only added to within 0.1,
+   the JSON output by level) and marked "(departs from the design)"
+   above. Its note that no semver check stands behind the API promise:
+   left open, below.
+4. *The `package` check is said to catch what only crates.io checks*
+   (should-fix): the comment and `flake.md` now claim the files and the
+   builds only, and say which fields only crates.io validates.
+5. *The hand publication is untested online and unwritten* (should-fix):
+   the online dry run passed (above, at the last commit from a clean
+   working copy); the procedure is in `plan/notes/distribution.md`,
+   "Publishing 0.1.0 by hand", and the checklist below.
+6. *`ci.md` and CLAUDE.md do not mention `release.yml`* (should-fix):
+   both do now.
+7. *The token's life against the build* (minor): the packages are built
+   before the token is asked for.
+8. *A partial publication cannot be finished by a rerun* (minor): each
+   crate is published unless crates.io has its version.
+9. *The attached crates are rebuilt* (minor): the release downloads the
+   published ones.
+10. *The tag check misses CITATION.cff* (minor): it checks its version;
+    `date-released` is in the author's checklist.
+11. *`cargo install` without `--locked`* (minor): README says
+    `--locked`.
+12. *Unqualified `Verdict` and `Polarity`* (minor): qualified in the
+    changelog and the crate documentation.
+13. *The opam file's `version:` field, its place under `rocq/`, the
+    missing `url`* (minor): left for step 31, which completes the file
+    with the library; `opam lint` accepts the draft, and the archive's
+    own lint judges the field when the file is submitted.
+14. *Nothing keeps the level-1 file equal to the lock before the tag*
+    (minor): the comparison is step 2 of the hand publication, and
+    `core-sequents.md` says so.
+15. *The batch and `check` records write `wire::LEVEL` as a constant*
+    (minor, outside the release's files): reported as a follow-up; at
+    level 1 it is right, and it matters once a level 2 exists.
+
+### Decisions
+
+- **The baseline from the release workspace.** The brief's workspace,
+  at `main`; the release's commits came after it on top, and the
+  baseline's binary was built at its start from `ed74387d9bf3`. Between
+  that commit and the release's, `core/` and `cli/` differ in
+  documentation and metadata only (R197: the report names the
+  difference); the engines are the same.
+- **No `homepage` or `documentation` in the manifests**, so that
+  crates.io links docs.rs and the repository; the Pages site is
+  `main`'s and stays the repository's.
+- **`EUPL-1.2`, not `EUPL-1.2-or-later`**, as the manifests had it; the
+  headers' "Licensed under the EUPL" leaves the version open, which is
+  the author's to settle (the research note's question 5).
+- **`parse` not split** (R218): a lean text-only feature for the web
+  client would be a new feature that `parse` implies, additive within
+  0.1, so nothing need be decided before the tag.
+- **The level-1 documents beside the lock, not instead of it**: the lock
+  is re-blessed when a form changes on purpose; the level-1 file never
+  is.
+- **The command's promise** departs from the design, as above.
+
+### Options and front ends
+
+No option was added. `summary --before` repeats (the harness's
+command line); the rest is metadata, documents and checks.
+
+### The author's release checklist
+
+In order (`plan/notes/distribution.md`, "Publishing 0.1.0 by hand",
+has each step in full):
+
+1. Push `main` and wait for CI.
+2. Date the release in a commit: CHANGELOG.md's `## [0.1.0] -
+   YYYY-MM-DD`, CITATION.cff's `date-released`; check that the first 33
+   lines of `core/tests/wire/level-1.txt` equal the lock. Push.
+3. Switch Zenodo's GitHub integration on for the repository, before
+   the tag.
+4. From a clean working copy at the release commit: `cargo publish
+   --dry-run --locked --workspace`, then with a scoped token `cargo
+   publish --locked --workspace` (the library, then the command), and
+   revoke the token.
+5. Tag `v0.1.0` there, signed, and push the tag: the release workflow
+   checks it and makes the GitHub release.
+6. Trusted Publishing on crates.io for both crates (repository,
+   `release.yml`, environment `crates-io`) and the environment on
+   GitHub with the author as reviewer.
+7. Pages and the repository's description and website.
+8. The rule on `main` against force pushes and deletion.
+
+The two reminders: `plan/notes/lltp-headers.md` is ready to send to the
+LLTP library's maintainers (now with the release's verdicts and
+`KLE075+1`), and the rule on `main` was to be added once a release is
+out.
+
+### Left open
+
+- **The semver check** (R215): `cargo-semver-checks` against the
+  published crate can only run once 0.1.0 is on crates.io; it is not in
+  the devshell or CI yet. The first change after the publication should
+  add it (the new-tool skill) as a CI job on `linlog --all-features`,
+  with the rule that the first breaking commit raises the version.
+- **The QBF instances at the memory bound** and **the fixed cost of
+  20 to 80 µs per call**: the engine is final for 0.1.0; both are
+  measurements for the next performance work.
+- **The batch and `check` records' constant `version`** (review 15).
+- **The opam file's completion** (review 13), step 31.
+- **Signing**: the passphrase's cache expired at about 22:30 (the
+  unit that kept it warm had ended); every commit from "Record the third
+  baseline" on is made with `signing.behavior=drop`, for the supervisor
+  to sign.
+- **My wait loop beside stage 1** (Disturbances): ten minutes of one
+  core, off the streams' cores; the timings of stage 1 may be a few
+  percent slower for it, the counters and verdicts not at all.
