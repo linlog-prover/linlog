@@ -754,6 +754,13 @@ carried from level to level. The note ranks four fixes (R1 the cut
 entries, R2 a classical countermodel, R3 a cap on members only `⊤`
 takes, R4 the inverse method), each with a held-out measurement, and
 lists the probes owed (A1 to A5). The author decides where they go.
+*R1 and A5 done in session 30b (2026-10-17,
+`plan/reports/30-baseline-release.md`):* the cut entries are read only
+within their generation, A1's four rows are refuted at levels 5 to 12,
+and five rows without a copy bound are in the target set. R2, R3 and R4
+stay open; KLE075+1, which Sympli refutes against its header and which
+has no classical countermodel, is now refuted by linlog in all three
+translations too.
 
 *Left by step 26 (2026-10-04, `plan/reports/26-focused-engine.md`).*
 The reference prover, the Horn test on the goal, the Mix prune, the
@@ -1187,7 +1194,10 @@ the focused engine today. The canonical choice among identical hypotheses
 (step 15) applies two-sided as well.
 
 - **The memory bound is passed on wide intuitionistic searches by default**
-  (found at the review of step 29, 2026-10-16). `linlog prove -i --file
+  (found at the review of step 29, 2026-10-16; *done in session 30b,
+  2026-10-17*: the search's account held, and what passed the cgroup
+  was the input, which the bound now counts, with each search's reading
+  and the verdict's check after a race; `plan/reports/30-baseline-release.md`). `linlog prove -i --file
   bench/lltp/ILL/ILLTP-SYJ-01/SYJ206+1.020.p --memory-limit 4GiB --timeout
   10s` on four cores peaked at 4 267 MiB of resident memory and ended at
   the time limit, not at the memory bound (the two-sided engine at copy

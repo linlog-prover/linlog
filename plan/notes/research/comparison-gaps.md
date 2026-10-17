@@ -573,7 +573,10 @@ no mutation unit or flake check runs. `L=bench/lltp/ILL`.
   KLE017 cbv 3 355 320; KLE069 01 470 529); with `--memo-limit 0`,
   all four refuted, exhaustive, at levels 9, 6, 6 and 16 after 4 008,
   280, 273 and 36 556 stable sequents. The memo's cut entries keep the
-  levels from closing: R1's mechanism holds.
+  levels from closing: R1's mechanism holds. **Fixed in session 30b**
+  (`plan/reports/30-baseline-release.md`): with the memo on, the four
+  are refuted at levels 7, 5, 5 and 12 after 215, 108, 102 and 1 483
+  stable sequents.
 - A2, the same pair on `$L/ILLTP-LCL-cbv/LCL181+1.p` and
   `$L/KLE-cbv/KLE017+1.p`, and with `--bias rarer` and `--bias factors`
   each, to see which search fails to close.
