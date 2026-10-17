@@ -1184,8 +1184,9 @@ name in `DIR`, an earlier baseline, problem by problem instead: the
 verdicts that differ, the problems decided before and not after, one row
 per family or LLTP collection and configuration (problems decided before
 and after, late verdicts kept apart, where the undecided ended, the
-median ratio of the times), and every generated problem side by side.
-`summary --against FILE` compares every other file with `FILE` in the
+median ratio of the times), and every generated problem side by side;
+given again for each earlier baseline, oldest first, it sets them all
+side by side before it compares with the last. `summary --against FILE` compares every other file with `FILE` in the
 same way whatever the files' names, as the passes under one bias with the
 default:
 

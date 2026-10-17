@@ -91,8 +91,17 @@ serde_json, which the CLI and the core's tests already have.
   counted) (with the outcomes of the files that have no
   counterpart beside it), a row per group (file, family, configuration)
   and the generated problems side by side. A verdict after the time
-  limit counts as decided and late. `bench/COMPARISON.md` is its output
-  for the two baselines, under a summary written by hand.
+  limit counts as decided and late. `--before` given again (oldest
+  first) prints every baseline side by side first ("Every baseline":
+  per group of the last, the problems decided of those run, and every
+  generated or listed problem, a column per baseline named by its
+  directory), then the comparison with the last directory alone;
+  `bench/tests/compare.rs` pins the side-by-side part.
+  `bench/COMPARISON.md` is its output for the three baselines, with the
+  passes under one bias against the default, under a summary written by
+  hand. `--against` keys by mode, engine and threads, so the default
+  pass (sixteen threads) has no counterpart in a one-thread file; its
+  comparison with the copy-bound-3 pass is the summary's, by hand.
   `bench/tests/compare.rs` pins both modes' printed tables on a pair of
   three-row files (a verdict, a counter and a decision that differ), by
   running the binary: a change of what `summary` prints changes it.

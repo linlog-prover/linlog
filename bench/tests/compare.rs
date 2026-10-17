@@ -152,3 +152,48 @@ Problems in both; decided (late: after the time limit); decided by one and not t
 | runs | f | classical auto j1 | f/c | > 5 s | 3.0 ms ✓ |  |
 
 "#;
+
+/// `summary --before` given three times, oldest first, sets every
+/// baseline side by side, a column each named by its directory, before
+/// it compares the files with the last of them.
+#[test]
+fn three_baselines_side_by_side() {
+    let dir = std::env::temp_dir().join(format!("linlog-compare-three-{}", std::process::id()));
+    for (name, rows) in [("first", BEFORE), ("second", AFTER), ("third", BEFORE)] {
+        std::fs::create_dir_all(dir.join(name)).unwrap();
+        write(&dir.join(name).join("runs.csv"), rows);
+    }
+    let all = summary(&[
+        Path::new("--before"),
+        &dir.join("first"),
+        Path::new("--before"),
+        &dir.join("second"),
+        &dir.join("third").join("runs.csv"),
+    ]);
+    std::fs::remove_dir_all(&dir).unwrap();
+    let (side_by_side, against) = all.split_once("## Against second\n\n").unwrap();
+    assert_eq!(side_by_side, THREE);
+    assert!(against.starts_with("### Verdicts that differ\n"));
+}
+
+/// What the three baselines side by side print before the comparison
+/// with the second.
+const THREE: &str = r#"## Every baseline
+
+### Decided by group
+
+Problems decided (late: after the time limit) of the problems run, per group of the last.
+
+| file | family | configuration | first | second | third |
+|---|---|---|--:|--:|--:|
+| runs | f | classical auto j1 | 2 of 3 | 3 of 3 | 2 of 3 |
+
+### Generated and listed problems
+
+| file | family | configuration | problem | first | second | third |
+|---|---|---|---|--:|--:|--:|
+| runs | f | classical auto j1 | f/a | 2.0 ms ✓ | 1.0 ms ✗ | 2.0 ms ✓ |
+| runs | f | classical auto j1 | f/b | 4.0 ms ✗ | 2.0 ms ✗ | 4.0 ms ✗ |
+| runs | f | classical auto j1 | f/c | > 5 s | 3.0 ms ✓ | > 5 s |
+
+"#;

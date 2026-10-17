@@ -20,9 +20,18 @@ use std::path::{Path, PathBuf};
 type Outcomes<'a> = BTreeMap<(String, String), Runs<'a>>;
 
 /// Prints the comparison of every file with the file of the same name in
-/// the directory `before`, followed by the outcomes of the files without
-/// one beside each problem decided before and not after.
-pub fn before(dir: &Path, files: &[PathBuf]) -> Result<()> {
+/// the last of the directories `dirs`, followed by the outcomes of the
+/// files without one beside each problem decided before and not after;
+/// with several directories, oldest first, every baseline side by side
+/// before it.
+pub fn before(dirs: &[PathBuf], files: &[PathBuf]) -> Result<()> {
+    let Some((dir, earlier)) = dirs.split_last() else {
+        bail!("no earlier baseline");
+    };
+    if !earlier.is_empty() {
+        side_by_side(dirs, files)?;
+        println!("## Against {}\n", name(dir));
+    }
     let (mut old, mut new, mut extra) = (Vec::new(), Vec::new(), Vec::new());
     for file in files {
         let counterpart = dir.join(file.file_name().unwrap_or_default());
@@ -79,6 +88,106 @@ pub fn against(reference: &Path, files: &[PathBuf], counters: bool) -> Result<()
         );
     }
     Ok(())
+}
+
+/// Prints every baseline side by side: the files of the same names as
+/// `files` in each of `dirs`, then `files`, a column each named by its
+/// directory. Per group, how many problems each decides of how many it
+/// ran; then every problem that is not from LLTP.
+fn side_by_side(dirs: &[PathBuf], files: &[PathBuf]) -> Result<()> {
+    let mut sets = Vec::new();
+    for dir in dirs {
+        let counterparts: Vec<PathBuf> = files
+            .iter()
+            .map(|file| dir.join(file.file_name().unwrap_or_default()))
+            .filter(|file| file.exists())
+            .collect();
+        sets.push((name(dir), read(&counterparts)?));
+    }
+    let latest = files
+        .first()
+        .and_then(|file| file.parent())
+        .map_or_else(|| "latest".to_owned(), name);
+    sets.push((latest, read(files)?));
+    let all: Vec<(&str, Outcomes)> = sets
+        .iter()
+        .map(|(name, rows)| {
+            let rows: Vec<&Row> = rows.iter().collect();
+            (name.as_str(), outcomes(&rows, Grouping::Files))
+        })
+        .collect();
+    let names: Vec<&str> = all.iter().map(|(name, _)| *name).collect();
+    // The header of a table whose first columns are `first`, then a
+    // column per baseline.
+    let header = |first: &str| {
+        format!(
+            "| {first} | {} |\n|{}{}",
+            names.join(" | "),
+            "---|".repeat(first.split(" | ").count()),
+            "--:|".repeat(names.len())
+        )
+    };
+
+    println!("## Every baseline\n");
+    println!("### Decided by group\n");
+    println!(
+        "Problems decided (late: after the time limit) of the problems run, per group of the last.\n"
+    );
+    println!("{}", header("file | family | configuration"));
+    let mut groups: Vec<&String> = all
+        .last()
+        .map(|(_, newest)| newest.keys().map(|(g, _)| g).collect())
+        .unwrap_or_default();
+    groups.dedup();
+    for group in groups {
+        let cells: Vec<String> = all
+            .iter()
+            .map(|(_, outcomes)| {
+                let runs: Vec<&Runs> = outcomes
+                    .iter()
+                    .filter(|((g, _), _)| g == group)
+                    .map(|(_, runs)| runs)
+                    .collect();
+                if runs.is_empty() {
+                    String::new()
+                } else {
+                    format!("{} of {}", decided(runs.iter().copied()), runs.len())
+                }
+            })
+            .collect();
+        println!("| {group} | {} |", cells.join(" | "));
+    }
+    println!();
+
+    let mut keys: Vec<&(String, String)> = all.iter().flat_map(|(_, o)| o.keys()).collect();
+    keys.sort();
+    keys.dedup();
+    keys.retain(|key| {
+        all.iter()
+            .find_map(|(_, o)| o.get(*key))
+            .is_some_and(|runs| runs.first.get("source") != "lltp")
+    });
+    if !keys.is_empty() {
+        println!("### Generated and listed problems\n");
+        println!("{}", header("file | family | configuration | problem"));
+        for key in keys {
+            let cells: Vec<String> = all
+                .iter()
+                .map(|(_, o)| o.get(key).map_or(String::new(), Runs::cell))
+                .collect();
+            println!("| {} | {} | {} |", key.0, key.1, cells.join(" | "));
+        }
+        println!();
+    }
+    Ok(())
+}
+
+/// A directory's name, or its path where it has none.
+fn name(dir: &Path) -> String {
+    dir.file_name().map_or_else(
+        || dir.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 
 /// A file's name without its extension.

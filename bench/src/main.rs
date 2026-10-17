@@ -61,9 +61,11 @@ enum Command {
         #[arg(required = true)]
         files: Vec<PathBuf>,
         /// Compare every file with the file of the same name in this
-        /// directory, an earlier baseline, problem by problem, instead
+        /// directory, an earlier baseline, problem by problem, instead;
+        /// given again, for each earlier baseline, oldest first, every
+        /// baseline side by side too, and the files against the last
         #[arg(long, value_name = "DIR", conflicts_with = "against")]
-        before: Option<PathBuf>,
+        before: Vec<PathBuf>,
         /// Compare every other file with this one, problem by problem
         /// whatever the files' names, instead (the passes under one atom
         /// bias against the default)
@@ -323,10 +325,10 @@ fn main() -> ExitCode {
             against,
             counters,
             strict,
-        } => match (before, against) {
-            (Some(dir), _) => compare::before(&dir, &files),
-            (_, Some(file)) => compare::against(&file, &files, counters),
-            _ => summary::summary(&files, strict),
+        } => match against {
+            _ if !before.is_empty() => compare::before(&before, &files),
+            Some(file) => compare::against(&file, &files, counters),
+            None => summary::summary(&files, strict),
         },
         Command::Ranking { files } => ranking::ranking(&files),
         Command::Families => {
