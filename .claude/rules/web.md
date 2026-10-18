@@ -15,7 +15,8 @@ as a pinned input and builds nothing of Rust.
 
 `web/src/calls.rs` the calls, plain Rust over JSON text, each reading
 its documents and the settings and writing what the page shows;
-`lib.rs` the `#[wasm_bindgen]` exports, one line each over `calls`;
+`lib.rs` the `#[wasm_bindgen]` exports, one line each over `calls`,
+named as in Rust but `export`, which JavaScript reserves (`export_as`);
 `tab.rs` the tab's defaults and the overlay of the page's settings on
 them; `failure.rs` the error's JSON a call throws; `build.rs` the stack.
 `web/tests/calls.rs` one test per behaviour the page relies on, each

@@ -146,8 +146,9 @@ mod exports {
         calls::draw_net(session, settings).map_err(thrown)
     }
 
-    /// See [`calls::export`].
-    #[wasm_bindgen]
+    /// See [`calls::export`]. `export` is a reserved word of JavaScript,
+    /// which wasm-bindgen would rename `_export`.
+    #[wasm_bindgen(js_name = "export_as")]
     pub fn export(session: &str, format: &str, settings: &str) -> Result<String, JsValue> {
         calls::export(session, format, settings).map_err(thrown)
     }
