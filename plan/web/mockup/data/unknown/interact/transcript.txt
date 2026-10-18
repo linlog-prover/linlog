@@ -1,0 +1,4 @@
+goal 0: ⊢ 0: ?(A ⊗ (~A ⅋ ~A)), 1: ?(A ⊗ ~B), 2: ?((B ⊗ B) ⊗ ~C), 3: ~A, 4: C ⊗ ?D
+goal 0: unprovable (MELL, classical, focus engine): the classical reading is false where A, B and C are true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology
+goal 0: ⊢ 0: ?(A ⊗ (~A ⅋ ~A)), 1: ?(A ⊗ ~B), 2: ?((B ⊗ B) ⊗ ~C), 3: ~A, 4: C ⊗ ?D
+⊢ ?(A ⊗ (~A ⅋ ~A)), ?(A ⊗ ~B), ?((B ⊗ B) ⊗ ~C), ~A, C ⊗ ?D

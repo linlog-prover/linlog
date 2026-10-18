@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="163.008" height="71.84" viewBox="0 0 10188 4490" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥, A ⊗ B⊥, B</title>
+<desc>1. ⊢ ~A, A, open.
+2. ⊢ ~B, B, open.
+3. ⊢ ~A, A ⊗ ~B, B, by ⊗ from 1 and 2.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 2890H9154"/>
+</g>
+<g id="i2">
+<text x="898" y="3980" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2699" y="3580" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3310" y="3980" textLength="3369" lengthAdjust="spacing">, 𝐴 ⊗ 𝐵</text>
+<text x="6679" y="3580" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="7291" y="3980" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="9354" y="3090" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i0">
+<text x="300" y="2480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2101" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2712" y="2480" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
+</g>
+<text x="1812" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+<g id="i1">
+<text x="5592" y="2480" textLength="1686" lengthAdjust="spacing">⊢ 𝐵</text>
+<text x="7278" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="7889" y="2480" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="6989" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+</svg>

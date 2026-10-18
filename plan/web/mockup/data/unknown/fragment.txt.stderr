@@ -1,0 +1,7 @@
+error: unexpected argument '--classical-work' found
+
+  tip: to pass '--classical-work' as a value, use '-- --classical-work'
+
+Usage: linlog seq fragment [OPTIONS] [SEQUENT]
+
+For more information, try '--help'.

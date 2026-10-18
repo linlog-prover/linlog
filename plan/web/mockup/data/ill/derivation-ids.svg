@@ -1,0 +1,85 @@
+<!-- provable (IMALL, intuitionistic, two‐sided engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="181.056" height="110.592" viewBox="0 0 11316 6912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>1, A &amp; B, B ⊸ C ⊢ C</title>
+<desc>1. B ⊢ B, by ax.
+2. C ⊢ C, by ax.
+3. B, B ⊸ C ⊢ C, by ⊸L from 1 and 2.
+4. A &amp; B, B ⊸ C ⊢ C, by &amp;L₂ from 3.
+5. 1, A &amp; B, B ⊸ C ⊢ C, by 1L from 4.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 5312H9970"/>
+<path d="M855 3812H9416"/>
+<path d="M1098 2312H9172"/>
+<path d="M1098 812H3772"/>
+<path d="M6380 812H9172"/>
+</g>
+<g id="i4">
+<g id="i4-0">
+<text x="300" y="6402" textLength="499" lengthAdjust="spacing">1</text>
+</g>
+<text x="799" y="6402" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i4-1">
+<text x="1409" y="6402" textLength="2828" lengthAdjust="spacing">𝐴 &amp; 𝐵</text>
+</g>
+<text x="4237" y="6402" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i4-2">
+<text x="4847" y="6402" textLength="3045" lengthAdjust="spacing">𝐵 ⊸ 𝐶</text>
+</g>
+<text x="8225" y="6402" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i4-3">
+<text x="9256" y="6402" textLength="714" lengthAdjust="spacing">𝐶</text>
+</g>
+</g>
+<text x="10170" y="5512" textLength="846" lengthAdjust="spacing" font-size="800">1L</text>
+<g id="i3">
+<g id="i3-0">
+<text x="855" y="4902" textLength="2828" lengthAdjust="spacing">𝐴 &amp; 𝐵</text>
+</g>
+<text x="3683" y="4902" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i3-1">
+<text x="4293" y="4902" textLength="3045" lengthAdjust="spacing">𝐵 ⊸ 𝐶</text>
+</g>
+<text x="7671" y="4902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i3-2">
+<text x="8702" y="4902" textLength="714" lengthAdjust="spacing">𝐶</text>
+</g>
+</g>
+<g font-size="800">
+<text x="9616" y="4012" textLength="1036" lengthAdjust="spacing">&amp;L</text>
+<text x="10652" y="4132" textLength="280" lengthAdjust="spacing" font-size="560">2</text>
+</g>
+<g id="i2">
+<g id="i2-0">
+<text x="1941" y="3402" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+<text x="2596" y="3402" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i2-1">
+<text x="3206" y="3402" textLength="3045" lengthAdjust="spacing">𝐵 ⊸ 𝐶</text>
+</g>
+<text x="6584" y="3402" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i2-2">
+<text x="7615" y="3402" textLength="714" lengthAdjust="spacing">𝐶</text>
+</g>
+</g>
+<text x="9372" y="2512" textLength="1255" lengthAdjust="spacing" font-size="800">⊸L</text>
+<g id="i0">
+<g id="i0-0">
+<text x="1098" y="1902" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+<text x="2086" y="1902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i0-1">
+<text x="3117" y="1902" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+</g>
+<text x="3972" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i1">
+<g id="i1-0">
+<text x="6380" y="1902" textLength="714" lengthAdjust="spacing">𝐶</text>
+</g>
+<text x="7427" y="1902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i1-1">
+<text x="8458" y="1902" textLength="714" lengthAdjust="spacing">𝐶</text>
+</g>
+</g>
+<text x="9372" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

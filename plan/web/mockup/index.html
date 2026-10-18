@@ -1,0 +1,176 @@
+<!-- linlog © Fabian Lukas Grubmüller 2026
+     Licensed under the EUPL -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>linlog — Instrument</title>
+<meta name="description" content="Prove sequents of linear logic step by step.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0C1222">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Theme and the keys setting before first paint: ?theme=, ?keys=1 or the stored choice.
+  (function () {
+    var q = new URLSearchParams(location.search), t = q.get('theme'), k = q.get('keys');
+    try { if (!t) t = localStorage.getItem('linlog-theme'); if (k === null) k = localStorage.getItem('linlog-keys'); } catch (e) {}
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    if (k === '1') document.documentElement.classList.add('show-keys');
+  })();
+</script>
+</head>
+<body>
+<!-- The pictograms: a 24 px grid, 1.5 px stroke, round ends, drawn for this mockup in the manner of Lucide -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+    <symbol id="i-steps" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
+    <symbol id="i-closeall" viewBox="0 0 24 24"><path d="m2 12 5 5L18 6"/><path d="m13 16 1.5 1.5L22 10"/></symbol>
+    <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 0-4 11.6c.7.6 1 1.4 1 2.4v.5h6v-.5c0-1 .3-1.8 1-2.4A6.5 6.5 0 0 0 12 2.5z"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+    <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+    <symbol id="i-learn" viewBox="0 0 24 24"><path d="M2 9.5 12 4.5l10 5-10 5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5"/><path d="M22 9.5V15"/></symbol>
+    <symbol id="i-tour" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+    <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/></symbol>
+    <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/></symbol>
+    <symbol id="i-zoomin" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5M8 11h6M11 8v6"/></symbol>
+    <symbol id="i-zoomout" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5M8 11h6"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <!-- the subject's own drawings: a derivation (premises over a conclusion) and a net (axiom links over literals) -->
+    <symbol id="i-tree" viewBox="0 0 24 24"><path d="M3 8.5h7.5M13.5 8.5H21M5 15h14M8.5 21h7"/><path d="M21.5 15h.01"/></symbol>
+    <symbol id="i-net" viewBox="0 0 24 24"><path d="M4 17a8 8 0 0 1 16 0M10 17a2 2 0 0 1 4 0"/><circle cx="4" cy="19" r="1"/><circle cx="10" cy="19" r="1"/><circle cx="14" cy="19" r="1"/><circle cx="20" cy="19" r="1"/></symbol>
+  </defs>
+</svg>
+<a class="skip" href="#field">Skip to the sequent field</a>
+
+<div id="app" class="app">
+  <!-- Learn: the frame's own header and rubrics (only with Learn on) -->
+  <aside id="frame" class="frame" aria-label="Learn" hidden>
+    <div class="frame-head">
+      <span class="frame-mark">Learn</span>
+      <div class="frame-tabs" role="tablist" aria-label="Learn">
+        <button type="button" role="tab" class="ftab" data-rub="tutorial" aria-selected="true">Tutorial</button>
+        <button type="button" role="tab" class="ftab" data-rub="practice" aria-selected="false">Practice</button>
+        <button type="button" role="tab" class="ftab" data-rub="reference" aria-selected="false">Reference</button>
+      </div>
+      <button type="button" class="btn btn-s" id="learn-x" data-tip="Turn Learn off" data-key="L">Off</button>
+    </div>
+    <div id="frame-body" class="frame-body"></div>
+  </aside>
+
+  <div class="win">
+    <!-- Top band, one row: the open proofs; each tab is a proof (sequent, calculus mark, verdict dot) -->
+    <header class="band top" aria-label="Open proofs">
+      <span class="wordmark">linlog</span>
+      <nav id="proofs" class="proofs" aria-label="Open proofs"></nav>
+      <button type="button" id="theme-b" class="btn icon-b" aria-label="Dark theme" data-tip="Dark theme"><svg class="ic i-sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="ic i-moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+    </header>
+
+    <!-- The stage: the work -->
+    <main id="stage" class="stage" aria-label="Stage">
+      <div id="world" class="world">
+        <div id="drawing" class="drawing"></div>
+        <div id="hits" class="hits" role="group" aria-label="Formulas of the open goals"></div>
+      </div>
+      <div id="dock" class="dock" hidden></div>
+      <div id="reasons" class="reasons"></div>
+      <div class="cluster stage-ctl" aria-label="View and camera">
+        <div class="tabs" role="tablist" aria-label="View">
+          <button type="button" role="tab" id="tab-tree" aria-selected="true" class="tab" data-key="V"><svg class="ic" aria-hidden="true"><use href="#i-tree"/></svg>Tree</button>
+          <button type="button" role="tab" id="tab-net" aria-selected="false" class="tab" data-key="V"><svg class="ic" aria-hidden="true"><use href="#i-net"/></svg>Net</button>
+        </div>
+        <span class="sep" aria-hidden="true"></span>
+        <button type="button" class="btn icon-b" id="zoom-out" aria-label="Zoom out" data-tip="Zoom out" data-key="−"><svg class="ic" aria-hidden="true"><use href="#i-zoomout"/></svg></button>
+        <span id="zoom-v" class="zoom-v">100%</span>
+        <button type="button" class="btn icon-b" id="zoom-in" aria-label="Zoom in" data-tip="Zoom in" data-key="+"><svg class="ic" aria-hidden="true"><use href="#i-zoomin"/></svg></button>
+        <button type="button" class="btn icon-b" id="fit" aria-label="Fit the tree" data-tip="Fit the tree" data-key="F"><svg class="ic" aria-hidden="true"><use href="#i-fit"/></svg></button>
+        <div id="minimap" class="minimap" aria-hidden="true"><div id="mm-in" class="mm-in"></div><div id="mm-view" class="mm-view"></div></div>
+      </div>
+      <div id="drop" class="drop" hidden><div class="drop-in"><svg class="ic big" aria-hidden="true"><use href="#i-import"/></svg><p>Drop a session or a sequent (.json)</p></div></div>
+    </main>
+
+    <!-- Bottom band: what I can do with the proof -->
+    <footer id="bottom" class="band bottom" aria-label="What I can do with the proof">
+      <button type="button" class="sheet-handle" id="sheet-handle" aria-expanded="false" aria-controls="bottom"><span class="grip" aria-hidden="true"></span><span class="sr-only">More actions</span></button>
+      <div class="group g-proof">
+        <button type="button" class="btn act solo" id="undo" aria-label="Undo" data-tip="Undo on this branch" data-key="U"><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lb">Undo</span><kbd class="k">U</kbd></button>
+        <button type="button" class="btn act solo" id="redo" aria-label="Redo" data-tip="Redo" data-key="⇧U"><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg><span class="lb">Redo</span><kbd class="k">⇧U</kbd></button>
+        <button type="button" class="btn act" id="steps-b" aria-haspopup="dialog" aria-expanded="false" data-tip="Every step; click one to go back" data-key="S"><svg class="ic" aria-hidden="true"><use href="#i-steps"/></svg><span class="lb">Steps</span><kbd class="k">S</kbd></button>
+        <button type="button" class="btn act" id="closeall" data-tip="The search closes every open goal" data-key="⇧C"><svg class="ic" aria-hidden="true"><use href="#i-closeall"/></svg><span class="lb">Close all</span><kbd class="k">⇧C</kbd></button>
+        <button type="button" class="btn act" id="hint" data-tip="The next rung of the hint ladder" data-key="H"><svg class="ic" aria-hidden="true"><use href="#i-hint"/></svg><span class="lb">Hint</span><span id="hint-rung" class="rung" hidden></span><kbd class="k">H</kbd></button>
+      </div>
+      <div class="group g-io">
+        <button type="button" class="btn act" id="export-b" aria-haspopup="menu" aria-expanded="false" data-tip="Every format, and the link" data-key="E"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lb">Export</span><kbd class="k">E</kbd></button>
+        <button type="button" class="btn act" id="import-b" aria-haspopup="dialog" aria-expanded="false" data-tip="A session or a sequent from a file" data-key="I"><svg class="ic" aria-hidden="true"><use href="#i-import"/></svg><span class="lb">Import</span><kbd class="k">I</kbd></button>
+        <button type="button" class="btn act" id="settings-b" aria-haspopup="dialog" aria-expanded="false" data-tip="Theme, budget, labels, keys" data-key=","><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg><span class="lb">Settings</span><kbd class="k">,</kbd></button>
+      </div>
+      <div class="group g-help">
+        <button type="button" class="btn act" id="learn" aria-pressed="false" data-tip="Tutorial, practice and reference around the page" data-key="L"><svg class="ic" aria-hidden="true"><use href="#i-learn"/></svg><span class="lb">Learn</span><kbd class="k">L</kbd></button>
+        <button type="button" class="btn act" id="tour-b" data-tip="A short tour of the page" data-key="T"><svg class="ic" aria-hidden="true"><use href="#i-tour"/></svg><span class="lb">Tour</span><kbd class="k">T</kbd></button>
+        <button type="button" class="btn act" id="keys-b" data-tip="Every key" data-key="?"><svg class="ic" aria-hidden="true"><use href="#i-keys"/></svg><span class="lb">Keys</span><kbd class="k">?</kbd></button>
+        <button type="button" class="btn act" id="about-b" aria-haspopup="dialog" aria-expanded="false" data-tip="What this page is" data-key="A"><svg class="ic" aria-hidden="true"><use href="#i-about"/></svg><span class="lb">About</span><kbd class="k">A</kbd></button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- The sequent field: placed by the script in the tab it edits, or in a new tab -->
+<form id="seq-form" class="field-row" autocomplete="off" hidden>
+  <label for="field" class="sr-only">Sequent to prove</label>
+  <input id="field" class="field" type="text" spellcheck="false" placeholder="A * B |- B * A" aria-describedby="field-msg">
+  <span id="caret-mark" class="caret-mark" hidden aria-hidden="true"></span>
+</form>
+<div id="field-msg" class="field-msg" aria-live="polite" hidden></div>
+
+<!-- The calculus popover of a tab -->
+<div id="calc-pop" class="panel calc-pop" role="dialog" aria-label="Calculus" hidden>
+  <div class="switches" id="switches">
+    <div class="seg" role="radiogroup" aria-label="Logic">
+      <button type="button" role="radio" aria-checked="true" data-part="linear" class="seg-b">Linear</button>
+      <button type="button" role="radio" aria-checked="false" data-part="ordinary" class="seg-b">Ordinary</button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="Calculus" id="calc-seg">
+      <button type="button" role="radio" aria-checked="true" data-mode="classical" class="seg-b">Classical</button>
+      <button type="button" role="radio" aria-checked="false" data-mode="intuitionistic" class="seg-b">Intuitionistic</button>
+    </div>
+    <div class="row" id="sw-row">
+      <label class="sw" id="sw-mix"><input type="checkbox" id="mix"><span class="sw-t" aria-hidden="true"></span>Mix</label>
+      <label class="sw" id="sw-aff"><input type="checkbox" id="affine"><span class="sw-t" aria-hidden="true"></span>Affine</label>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="Ordinary logic" id="ord-seg" hidden>
+      <button type="button" role="radio" aria-checked="true" class="seg-b">Classical</button>
+      <button type="button" role="radio" aria-checked="false" class="seg-b">Intuitionistic</button>
+      <button type="button" role="radio" aria-checked="false" class="seg-b">Minimal</button>
+    </div>
+  </div>
+  <div id="mode-warn" class="mode-warn" hidden role="alert">
+    <p id="mode-warn-t" class="kwline"></p>
+    <div class="row"><button type="button" class="btn btn-primary" id="mode-go">Restart</button><button type="button" class="btn" id="mode-keep">Keep</button></div>
+  </div>
+</div>
+
+<div id="pop" class="panel pop" role="dialog" aria-modal="false" hidden></div>
+<div id="menu" class="panel menu" hidden></div>
+<div id="status-pop" class="panel status-pop" role="dialog" aria-label="Verdict details" hidden></div>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<div id="keys" class="panel keys" role="dialog" aria-labelledby="keys-t" hidden></div>
+<div id="tour" class="tour" hidden><div id="tour-hole" class="tour-hole"></div><div id="tour-cap" class="panel tour-cap" role="dialog" aria-live="polite"></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="live" class="sr-only" aria-live="assertive"></div>
+<input type="file" id="file-in" accept=".json,application/json" hidden>
+
+<nav id="scenes" class="scenes" aria-label="Scenes for the reviewer" hidden></nav>
+<button type="button" id="scenes-b" class="scenes-b" title="Scenes for the reviewer (`)">scenes</button>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

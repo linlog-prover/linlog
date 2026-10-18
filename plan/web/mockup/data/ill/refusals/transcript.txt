@@ -1,0 +1,13 @@
+goal 0: 0: 1, 1: A & B, 2: B ⊸ C ⊢ 3: C
+&L₁  &L₂
+⊸L (with a split)
+error: position 2 of the split is out of range, repeated, or the formula the rule acts on
+error: the rule ⊸R does not act on formula 2
+error: the rule ax does not act on formula 1
+opened goal 1: 0: 1, 1: A, 2: B ⊸ C ⊢ 3: C
+goal 1: 0: 1, 1: A, 2: B ⊸ C ⊢ 3: C
+goal 1: unprovable (IMLL with units, intuitionistic, two-sided engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+goal 1: 0: 1, 1: A, 2: B ⊸ C ⊢ 3: C
+  1, A, B ⊸ C ⊢ C
+─────────────────── &L₁
+1, A & B, B ⊸ C ⊢ C

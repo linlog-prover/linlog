@@ -1,0 +1,7 @@
+provable (MLL, classical, focus engine)
+─────── ax   ─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A

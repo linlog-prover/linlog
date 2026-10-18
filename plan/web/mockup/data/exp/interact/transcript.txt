@@ -1,0 +1,99 @@
+goal 0: ⊢ 0: ?~A, 1: A ⊗ !A
+⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-0.svg
+session written to exp/interact/state-0.json
+opened goal 1: ⊢ 0: ?~A, 1: ?~A, 2: A ⊗ !A
+goal 1: ⊢ 0: ?~A, 1: ?~A, 2: A ⊗ !A
+⊢ ?~A, ?~A, A ⊗ !A
+────────────────── ?c
+  ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-1.svg
+session written to exp/interact/state-1.json
+opened goal 2: ⊢ 0: ?~A, 1: A
+opened goal 3: ⊢ 0: ?~A, 1: !A
+goal 2: ⊢ 0: ?~A, 1: A
+goal 3: ⊢ 0: ?~A, 1: !A
+⊢ ?~A, A   ⊢ ?~A, !A
+──────────────────── ⊗
+ ⊢ ?~A, ?~A, A ⊗ !A
+ ────────────────── ?c
+   ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-2.svg
+session written to exp/interact/state-2.json
+opened goal 4: ⊢ 0: ~A, 1: A
+goal 3: ⊢ 0: ?~A, 1: !A
+goal 4: ⊢ 0: ~A, 1: A
+⊢ ~A, A
+──────── ?d
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-3.svg
+session written to exp/interact/state-3.json
+closed
+goal 3: ⊢ 0: ?~A, 1: !A
+─────── ax
+⊢ ~A, A
+──────── ?d
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-4.svg
+session written to exp/interact/state-4.json
+opened goal 5: ⊢ 0: ?~A, 1: A
+goal 5: ⊢ 0: ?~A, 1: A
+─────── ax
+⊢ ~A, A       ⊢ ?~A, A
+──────── ?d   ───────── !
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-5.svg
+session written to exp/interact/state-5.json
+opened goal 6: ⊢ 0: ~A, 1: A
+goal 6: ⊢ 0: ~A, 1: A
+              ⊢ ~A, A
+─────── ax    ──────── ?d
+⊢ ~A, A       ⊢ ?~A, A
+──────── ?d   ───────── !
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-6.svg
+session written to exp/interact/state-6.json
+closed; no goal is open: `proof` checks the proof
+no goal is open: `proof` checks the proof
+              ─────── ax
+              ⊢ ~A, A
+─────── ax    ──────── ?d
+⊢ ~A, A       ⊢ ?~A, A
+──────── ?d   ───────── !
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+derivation so far written to exp/interact/state-7.svg
+session written to exp/interact/state-7.json
+valid proof (classical)
+              ─────── ax
+              ⊢ ~A, A
+─────── ax    ──────── ?d
+⊢ ~A, A       ⊢ ?~A, A
+──────── ?d   ───────── !
+⊢ ?~A, A      ⊢ ?~A, !A
+─────────────────────── ⊗
+  ⊢ ?~A, ?~A, A ⊗ !A
+  ────────────────── ?c
+    ⊢ ?~A, A ⊗ !A
+valid proof written to exp/interact/proof.svg
+valid proof written to exp/interact/proof.json
+valid proof written to exp/interact/proof.v

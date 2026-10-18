@@ -1,0 +1,17 @@
+opened goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+goal 1: provable (MLL, classical, focus engine)
+no goal is open: `proof` checks the proof
+no goal is open: `proof` checks the proof
+─────── ax   ─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A
+valid proof (classical)
+─────── ax   ─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A

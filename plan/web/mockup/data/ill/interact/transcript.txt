@@ -1,0 +1,69 @@
+goal 0: 0: 1, 1: A & B, 2: B ⊸ C ⊢ 3: C
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-0.svg
+session written to ill/interact/state-0.json
+opened goal 1: 0: A & B, 1: B ⊸ C ⊢ 2: C
+goal 1: 0: A & B, 1: B ⊸ C ⊢ 2: C
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-1.svg
+session written to ill/interact/state-1.json
+opened goal 2: 0: B, 1: B ⊸ C ⊢ 2: C
+goal 2: 0: B, 1: B ⊸ C ⊢ 2: C
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-2.svg
+session written to ill/interact/state-2.json
+opened goal 3: 0: B ⊢ 1: B
+opened goal 4: 0: C ⊢ 1: C
+goal 3: 0: B ⊢ 1: B
+goal 4: 0: C ⊢ 1: C
+   B ⊢ B   C ⊢ C
+   ───────────── ⊸L
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-3.svg
+session written to ill/interact/state-3.json
+closed
+goal 4: 0: C ⊢ 1: C
+ ───── ax
+ B ⊢ B      C ⊢ C
+ ──────────────── ⊸L
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-4.svg
+session written to ill/interact/state-4.json
+closed; no goal is open: `proof` checks the proof
+no goal is open: `proof` checks the proof
+ ───── ax   ───── ax
+ B ⊢ B      C ⊢ C
+ ──────────────── ⊸L
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+derivation so far written to ill/interact/state-5.svg
+session written to ill/interact/state-5.json
+valid proof (intuitionistic)
+ ───── ax   ───── ax
+ B ⊢ B      C ⊢ C
+ ──────────────── ⊸L
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C
+valid proof written to ill/interact/proof.svg
+valid proof written to ill/interact/proof.json
+valid proof written to ill/interact/proof.v

@@ -1,0 +1,12 @@
+goals
+rules 0 1
+rules 0 2
+apply 0 2 -oL 2
+apply 0 2 -oR
+apply 0 1 ax
+apply 0 1 &L1
+goals
+close 1
+goals
+show
+quit

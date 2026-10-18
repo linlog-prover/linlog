@@ -1,0 +1,5 @@
+provable (IMLL, intuitionistic, two-sided engine)
+───── ax   ───── ax
+A ⊢ A      B ⊢ B
+──────────────── ⊸L
+  A, A ⊸ B ⊢ B

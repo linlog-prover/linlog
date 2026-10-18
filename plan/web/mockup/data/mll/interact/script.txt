@@ -1,0 +1,29 @@
+goals
+show
+show --svg mll/interact/state-0.svg
+save mll/interact/state-0.json
+apply 0 0 par
+goals
+show
+show --svg mll/interact/state-1.svg
+save mll/interact/state-1.json
+apply 1 2 * 1
+goals
+show
+show --svg mll/interact/state-2.svg
+save mll/interact/state-2.json
+apply 2 0 ax
+goals
+show
+show --svg mll/interact/state-3.svg
+save mll/interact/state-3.json
+apply 3 0 ax
+goals
+show
+show --svg mll/interact/state-4.svg
+save mll/interact/state-4.json
+proof
+proof --svg mll/interact/proof.svg
+proof mll/interact/proof.json
+proof --rocq mll/interact/proof.v
+quit

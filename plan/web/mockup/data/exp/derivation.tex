@@ -1,0 +1,10 @@
+% provable (MELL, classical, focus engine)
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer1[$\wn\mathrm{d}$]{\vdash \wn A^\bot, A}
+\infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
+\infer1[$\wn\mathrm{d}$]{\vdash \wn A^\bot, A}
+\infer1[$\oc$]{\vdash \wn A^\bot, \oc A}
+\infer2[$\otimes$]{\vdash \wn A^\bot, \wn A^\bot, A \otimes \oc A}
+\infer1[$\wn\mathrm{c}$]{\vdash \wn A^\bot, A \otimes \oc A}
+\end{prooftree}

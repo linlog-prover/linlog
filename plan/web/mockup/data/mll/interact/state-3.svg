@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="180.736" height="95.84" viewBox="0 0 11296 5990" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
+<desc>1. ⊢ ~B, B, by ax.
+2. ⊢ ~A, A, open.
+3. ⊢ ~A, ~B, B ⊗ A, by ⊗ from 1 and 2.
+4. ⊢ ~A ⅋ ~B, B ⊗ A, by ⅋ from 3.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M1056 4390H9507"/>
+<path d="M300 2890H10262"/>
+<path d="M300 1390H3862"/>
+</g>
+<g id="i3">
+<text x="1056" y="5480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2857" y="5080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3801" y="5480" textLength="1725" lengthAdjust="spacing">⅋ 𝐵</text>
+<text x="5526" y="5080" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6138" y="5480" textLength="3369" lengthAdjust="spacing">, 𝐵 ⊗ 𝐴</text>
+</g>
+<text x="9707" y="4590" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<g id="i2">
+<text x="1452" y="3980" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="3253" y="3580" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3864" y="3980" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+<text x="5129" y="3580" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5741" y="3980" textLength="3369" lengthAdjust="spacing">, 𝐵 ⊗ 𝐴</text>
+</g>
+<text x="10462" y="3090" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i0">
+<text x="300" y="2480" textLength="1686" lengthAdjust="spacing">⊢ 𝐵</text>
+<text x="1986" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2597" y="2480" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="4062" y="1590" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i1">
+<text x="6470" y="2480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="8271" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="8882" y="2480" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
+</g>
+<text x="7982" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+</svg>

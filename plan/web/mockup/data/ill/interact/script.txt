@@ -1,0 +1,34 @@
+goals
+show
+show --svg ill/interact/state-0.svg
+save ill/interact/state-0.json
+apply 0 0 1L
+goals
+show
+show --svg ill/interact/state-1.svg
+save ill/interact/state-1.json
+apply 1 0 &L2
+goals
+show
+show --svg ill/interact/state-2.svg
+save ill/interact/state-2.json
+apply 2 1 -oL 0
+goals
+show
+show --svg ill/interact/state-3.svg
+save ill/interact/state-3.json
+apply 3 0 ax
+goals
+show
+show --svg ill/interact/state-4.svg
+save ill/interact/state-4.json
+apply 4 0 ax
+goals
+show
+show --svg ill/interact/state-5.svg
+save ill/interact/state-5.json
+proof
+proof --svg ill/interact/proof.svg
+proof ill/interact/proof.json
+proof --rocq ill/interact/proof.v
+quit

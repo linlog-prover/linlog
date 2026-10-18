@@ -1,0 +1,9 @@
+unknown (MELL, classical, focus engine): the time limit of 2s was reached at a copy bound of 86; --timeout DURATION gives the search longer
+stable sequents visited: 9283452
+from the memo: 7820661
+memo entries at most: 24629
+splits examined: 84129331
+copy bound reached: 86
+forward search's copy bound reached: 106
+units of work: 303469205
+time: 2.00s

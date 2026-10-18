@@ -1,0 +1,3 @@
+error: cannot parse the sequent
+  A ** B |- A
+     ^ unexpected "*", expected a formula

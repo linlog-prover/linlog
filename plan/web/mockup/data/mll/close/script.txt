@@ -1,0 +1,6 @@
+apply 0 0 par
+close
+goals
+show
+proof
+quit

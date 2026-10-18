@@ -1,0 +1,6 @@
+(* unprovable (ALL, classical, additive engine): the classical reading is false where B is true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology *)
+Lemma certificate : ~ ll (atom := string) classical [awith (covar "A") (covar "B"); awith (var "A") (var "B")].
+Proof.
+  apply (classical_refutation _ (fun a => existsb (String.eqb a) ["B"])).
+  vm_compute. reflexivity.
+Qed.

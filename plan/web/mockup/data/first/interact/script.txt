@@ -1,0 +1,24 @@
+goals
+show
+show --svg first/interact/state-0.svg
+save first/interact/state-0.json
+apply 0 1 * 0
+goals
+show
+show --svg first/interact/state-1.svg
+save first/interact/state-1.json
+apply 1 0 ax
+goals
+show
+show --svg first/interact/state-2.svg
+save first/interact/state-2.json
+apply 2 0 ax
+goals
+show
+show --svg first/interact/state-3.svg
+save first/interact/state-3.json
+proof
+proof --svg first/interact/proof.svg
+proof first/interact/proof.json
+proof --rocq first/interact/proof.v
+quit

@@ -1,0 +1,80 @@
+<!-- valid (classical logic by the affine translation into affine MALL, focus engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="203.664" height="134.592" viewBox="0 0 12729 8412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ((a → b) → a) → a</title>
+<desc>1. a ⊢ a, by ax.
+2. a ⊢ b, a, by WR from 1.
+3. ⊢ a → b, a, by →R from 2.
+4. a ⊢ a, by ax.
+5. (a → b) → a ⊢ a, by →L from 3 and 4.
+6. ⊢ ((a → b) → a) → a, by →R from 5.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M763 6812H10519"/>
+<path d="M300 5312H10982"/>
+<path d="M300 3812H5413"/>
+<path d="M966 2312H4746"/>
+<path d="M1565 812H4147"/>
+<path d="M8400 3812H10982"/>
+</g>
+<g id="i5">
+<text x="763" y="7902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i5-0">
+<text x="1794" y="7902" textLength="8725" lengthAdjust="spacing">((𝑎 → 𝑏) → 𝑎) → 𝑎</text>
+</g>
+</g>
+<text x="10719" y="7012" textLength="1287" lengthAdjust="spacing" font-size="800">→R</text>
+<g id="i4">
+<g id="i4-0">
+<text x="1758" y="6402" textLength="5794" lengthAdjust="spacing">(𝑎 → 𝑏) → 𝑎</text>
+</g>
+<text x="7885" y="6402" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i4-1">
+<text x="8916" y="6402" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+</g>
+<text x="11182" y="5512" textLength="1247" lengthAdjust="spacing" font-size="800">→L</text>
+<g id="i2">
+<text x="300" y="4902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i2-0">
+<text x="1331" y="4902" textLength="2863" lengthAdjust="spacing">𝑎 → 𝑏</text>
+</g>
+<text x="4194" y="4902" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i2-1">
+<text x="4804" y="4902" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+</g>
+<text x="5613" y="4012" textLength="1287" lengthAdjust="spacing" font-size="800">→R</text>
+<g id="i1">
+<g id="i1-0">
+<text x="966" y="3402" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+<text x="1908" y="3402" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i1-1">
+<text x="2939" y="3402" textLength="588" lengthAdjust="spacing">𝑏</text>
+</g>
+<text x="3527" y="3402" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i1-2">
+<text x="4137" y="3402" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+</g>
+<text x="4946" y="2512" textLength="1276" lengthAdjust="spacing" font-size="800">WR</text>
+<g id="i0">
+<g id="i0-0">
+<text x="1565" y="1902" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+<text x="2507" y="1902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i0-1">
+<text x="3538" y="1902" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+</g>
+<text x="4347" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i3">
+<g id="i3-0">
+<text x="8400" y="4902" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+<text x="9342" y="4902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i3-1">
+<text x="10373" y="4902" textLength="609" lengthAdjust="spacing">𝑎</text>
+</g>
+</g>
+<text x="11182" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

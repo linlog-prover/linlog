@@ -1,0 +1,3 @@
+goal 0: ⊢ 0: ?(A ⊗ (~A ⅋ ~A)), 1: ?(A ⊗ ~B), 2: ?((B ⊗ B) ⊗ ~C), 3: ~A, 4: C ⊗ ?D
+goal 0: unknown (MELL, classical, focus engine): the time limit of 50ms was reached at a copy bound of 29; --timeout DURATION gives the search longer
+goal 0: ⊢ 0: ?(A ⊗ (~A ⅋ ~A)), 1: ?(A ⊗ ~B), 2: ?((B ⊗ B) ⊗ ~C), 3: ~A, 4: C ⊗ ?D

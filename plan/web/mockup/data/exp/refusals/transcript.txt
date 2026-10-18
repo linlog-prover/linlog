@@ -1,0 +1,11 @@
+goal 0: ⊢ 0: ?~A, 1: A ⊗ !A
+?d  ?c  ?w
+⊗ (with a split)
+error: the rule ! does not act on formula 1
+opened goal 1: ⊢ 0: ~A, 1: A ⊗ !A
+goal 1: ⊢ 0: ~A, 1: A ⊗ !A
+error: the rule ! does not act on formula 1
+goal 1: ⊢ 0: ~A, 1: A ⊗ !A
+⊢ ~A, A ⊗ !A
+───────────── ?d
+⊢ ?~A, A ⊗ !A

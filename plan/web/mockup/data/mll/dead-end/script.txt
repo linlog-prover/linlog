@@ -1,0 +1,13 @@
+apply 0 0 par
+goals
+apply 1 2 * 0
+goals
+show
+rules 2 0
+apply 2 0 ax
+close 2
+goals
+undo
+goals
+show
+quit

@@ -1,0 +1,46 @@
+<!-- provable (IMLL, intuitionistic, two‐sided engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="163.856" height="62.592" viewBox="0 0 10241 3912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>A, A ⊸ B ⊢ B</title>
+<desc>1. A ⊢ A, by ax.
+2. B ⊢ B, by ax.
+3. A, A ⊸ B ⊢ B, by ⊸L from 1 and 2.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 2312H8486"/>
+<path d="M300 812H3204"/>
+<path d="M5812 812H8486"/>
+</g>
+<g id="i2">
+<g id="i2-0">
+<text x="1143" y="3402" textLength="770" lengthAdjust="spacing">𝐴</text>
+</g>
+<text x="1913" y="3402" textLength="277" lengthAdjust="spacing">,</text>
+<g id="i2-1">
+<text x="2523" y="3402" textLength="3101" lengthAdjust="spacing">𝐴 ⊸ 𝐵</text>
+</g>
+<text x="5957" y="3402" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i2-2">
+<text x="6988" y="3402" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+</g>
+<text x="8686" y="2512" textLength="1255" lengthAdjust="spacing" font-size="800">⊸L</text>
+<g id="i0">
+<g id="i0-0">
+<text x="300" y="1902" textLength="770" lengthAdjust="spacing">𝐴</text>
+</g>
+<text x="1403" y="1902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i0-1">
+<text x="2434" y="1902" textLength="770" lengthAdjust="spacing">𝐴</text>
+</g>
+</g>
+<text x="3404" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i1">
+<g id="i1-0">
+<text x="5812" y="1902" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+<text x="6800" y="1902" textLength="698" lengthAdjust="spacing">⊢</text>
+<g id="i1-1">
+<text x="7831" y="1902" textLength="655" lengthAdjust="spacing">𝐵</text>
+</g>
+</g>
+<text x="8686" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

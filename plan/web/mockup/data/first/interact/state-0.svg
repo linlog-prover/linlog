@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="132.128" height="47.84" viewBox="0 0 8258 2990" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥, A ⊗ B⊥, B</title>
+<desc>1. ⊢ ~A, A ⊗ ~B, B, open.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+</g>
+<g id="i0">
+<text x="300" y="2480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2101" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2712" y="2480" textLength="3369" lengthAdjust="spacing">, 𝐴 ⊗ 𝐵</text>
+<text x="6081" y="2080" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6693" y="2480" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="3745" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+</svg>

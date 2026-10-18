@@ -1,0 +1,1 @@
+{"version":1,"linlog":"0.1.0","verdict":"unknown","reason":{"kind":"work_limit","limit":100000},"fragment":"MELL","mode":"classical","engine":"focus","statistics":{"nodes":4812,"memo_hits":3094,"memo_entries":430,"splits":10794,"links":0,"tests":0,"copies":11,"forward_copies":15,"work":103939}}

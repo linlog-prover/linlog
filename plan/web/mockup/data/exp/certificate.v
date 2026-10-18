@@ -1,0 +1,16 @@
+(* provable (MELL, classical, focus engine) *)
+Lemma certificate (A : formula) : ll [wn (dual A); tens A (oc A)].
+Proof.
+apply (co_r_ext []); cbn_sequent.
+apply (ex_perm_r [0; 2; 1] [wn (dual A); tens A (oc A); wn (dual A)]).
+apply (tens_r_ext [wn (dual A)]); cbn_sequent.
+{
+  apply (de_r_ext []); cbn_sequent.
+  ax_expansion.
+}
+{
+  apply (oc_r_ext [] (A) [dual A]); cbn_sequent.
+  apply (de_r_ext [A]); cbn_sequent.
+  ax_expansion.
+}
+Qed.

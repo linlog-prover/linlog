@@ -1,0 +1,5 @@
+goals
+close
+goals
+show
+quit

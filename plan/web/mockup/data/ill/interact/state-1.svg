@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="181.056" height="71.84" viewBox="0 0 11316 4490" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>1, A &amp; B, B ⊸ C ⊢ C</title>
+<desc>1. A &amp; B, B ⊸ C ⊢ C, open.
+2. 1, A &amp; B, B ⊸ C ⊢ C, by 1L from 1.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M300 2890H9970"/>
+</g>
+<text x="300" y="3980" textLength="9670" lengthAdjust="spacing" id="i1">1, 𝐴 &amp; 𝐵, 𝐵 ⊸ 𝐶 ⊢ 𝐶</text>
+<text x="10170" y="3090" textLength="846" lengthAdjust="spacing" font-size="800">1L</text>
+<text x="855" y="2480" textLength="8561" lengthAdjust="spacing" id="i0">𝐴 &amp; 𝐵, 𝐵 ⊸ 𝐶 ⊢ 𝐶</text>
+<text x="4751" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+</svg>

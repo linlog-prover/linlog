@@ -1,0 +1,10 @@
+goals
+rules 0 0
+rules 0 1
+apply 0 1 !
+apply 0 0 ?d
+goals
+apply 1 1 !
+goals
+show
+quit

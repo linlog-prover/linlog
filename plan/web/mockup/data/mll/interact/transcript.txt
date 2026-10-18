@@ -1,0 +1,52 @@
+goal 0: ⊢ 0: ~A ⅋ ~B, 1: B ⊗ A
+⊢ ~A ⅋ ~B, B ⊗ A
+derivation so far written to mll/interact/state-0.svg
+session written to mll/interact/state-0.json
+opened goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+⊢ ~A, ~B, B ⊗ A
+──────────────── ⅋
+⊢ ~A ⅋ ~B, B ⊗ A
+derivation so far written to mll/interact/state-1.svg
+session written to mll/interact/state-1.json
+opened goal 2: ⊢ 0: ~B, 1: B
+opened goal 3: ⊢ 0: ~A, 1: A
+goal 2: ⊢ 0: ~B, 1: B
+goal 3: ⊢ 0: ~A, 1: A
+⊢ ~B, B   ⊢ ~A, A
+───────────────── ⊗
+ ⊢ ~A, ~B, B ⊗ A
+ ──────────────── ⅋
+ ⊢ ~A ⅋ ~B, B ⊗ A
+derivation so far written to mll/interact/state-2.svg
+session written to mll/interact/state-2.json
+closed
+goal 3: ⊢ 0: ~A, 1: A
+─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A
+derivation so far written to mll/interact/state-3.svg
+session written to mll/interact/state-3.json
+closed; no goal is open: `proof` checks the proof
+no goal is open: `proof` checks the proof
+─────── ax   ─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A
+derivation so far written to mll/interact/state-4.svg
+session written to mll/interact/state-4.json
+valid proof (classical)
+─────── ax   ─────── ax
+⊢ ~B, B      ⊢ ~A, A
+──────────────────── ⊗
+  ⊢ ~A, ~B, B ⊗ A
+  ──────────────── ⅋
+  ⊢ ~A ⅋ ~B, B ⊗ A
+valid proof written to mll/interact/proof.svg
+valid proof written to mll/interact/proof.json
+valid proof written to mll/interact/proof.v

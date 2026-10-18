@@ -1,0 +1,9 @@
+% valid (classical logic by the affine translation into affine MALL, focus engine)
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{a &\vdash a}
+\infer1[$\mathrm{WR}$]{a &\vdash b, a}
+\infer1[$\to\mathrm{R}$]{&\vdash a \to b, a}
+\infer0[$\mathrm{ax}$]{a &\vdash a}
+\infer2[$\to\mathrm{L}$]{(a \to b) \to a &\vdash a}
+\infer1[$\to\mathrm{R}$]{&\vdash ((a \to b) \to a) \to a}
+\end{prooftree}

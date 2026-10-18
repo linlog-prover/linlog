@@ -1,0 +1,7 @@
+goals
+rules 0 1
+apply 0 1 ax
+close
+goals
+show
+quit

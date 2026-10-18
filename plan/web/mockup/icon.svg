@@ -1,0 +1,17 @@
+<!-- linlog © Fabian Lukas Grubmüller 2026
+     Licensed under the EUPL -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>linlog</title>
+  <rect width="512" height="512" rx="96" fill="#0C1222"/>
+  <g fill="#2E3858">
+    <circle cx="96" cy="96" r="7"/><circle cx="256" cy="96" r="7"/><circle cx="416" cy="96" r="7"/>
+    <circle cx="96" cy="416" r="7"/><circle cx="256" cy="416" r="7"/><circle cx="416" cy="416" r="7"/>
+  </g>
+  <!-- an inference: two premises over a bar, the turnstile below -->
+  <g fill="none" stroke="#9AA8FF" stroke-width="22" stroke-linecap="round">
+    <path d="M124 196h92M296 196h92"/>
+    <path d="M108 262h296"/>
+    <path d="M196 312v100M196 362h120"/>
+  </g>
+  <circle cx="414" cy="262" r="16" fill="#4CCB8A"/>
+</svg>

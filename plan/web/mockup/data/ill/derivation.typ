@@ -1,0 +1,17 @@
+// provable (IMALL, intuitionistic, two-sided engine)
+#prooftree(
+  rule(
+    name: $bold(1) upright(L)$,
+    rule(
+      name: $\& upright(L)_2$,
+      rule(
+        name: $⊸ upright(L)$,
+        rule(name: $"ax"$, $B ⊢ B$),
+        rule(name: $"ax"$, $C ⊢ C$),
+        $B, B ⊸ C ⊢ C$,
+      ),
+      $A class("binary", \&) B, B ⊸ C ⊢ C$,
+    ),
+    $bold(1), A class("binary", \&) B, B ⊸ C ⊢ C$,
+  ),
+)

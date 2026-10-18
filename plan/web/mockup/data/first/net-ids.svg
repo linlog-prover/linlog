@@ -1,0 +1,33 @@
+<!-- provable (MLL, classical, focus engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="122.752" height="68.544" viewBox="0 0 7672 4284" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥, A ⊗ B⊥, B</title>
+<desc>⊢ ~A, A ⊗ ~B, B
+~A[0] — A[2]
+~B[3] — B[4]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<circle id="o1" cx="3922" cy="3194" r="380"/>
+<path d="M3734 2864L3066 2044"/>
+<path d="M4110 2864L4778 2044"/>
+<path d="M685 2044V3944"/>
+<path d="M3922 3574V3944"/>
+<path d="M7044 2044V3944"/>
+</g>
+<g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l0-2" d="M685 1054A1190 714 0 0 1 3066 1054"/>
+<path id="l3-4" d="M4778 1054A1133 679 0 0 1 7044 1054"/>
+</g>
+<g id="o0">
+<text x="300" y="1944" textLength="770" lengthAdjust="spacing">𝐴</text>
+<text x="1070" y="1544" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="2681" y="1944" textLength="770" lengthAdjust="spacing" id="o2">𝐴</text>
+<g id="o3">
+<text x="4451" y="1944" textLength="655" lengthAdjust="spacing">𝐵</text>
+<text x="5106" y="1544" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="6717" y="1944" textLength="655" lengthAdjust="spacing" id="o4">𝐵</text>
+<text x="3655" y="3394" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+</svg>

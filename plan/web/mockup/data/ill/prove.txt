@@ -1,0 +1,9 @@
+provable (IMALL, intuitionistic, two-sided engine)
+ ───── ax   ───── ax
+ B ⊢ B      C ⊢ C
+ ──────────────── ⊸L
+   B, B ⊸ C ⊢ C
+ ──────────────── &L₂
+ A & B, B ⊸ C ⊢ C
+─────────────────── 1L
+1, A & B, B ⊸ C ⊢ C

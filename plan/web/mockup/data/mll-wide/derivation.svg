@@ -1,0 +1,116 @@
+<!-- provable (MLL, classical, focus engine) -->
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="391.632" height="182.592" viewBox="0 0 24477 11412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ((A⊥ ⅋ B⊥) ⅋ C⊥) ⅋ D⊥, ((D ⊗ C) ⊗ B) ⊗ A</title>
+<desc>1. ⊢ ~D, D, by ax.
+2. ⊢ ~C, C, by ax.
+3. ⊢ ~C, ~D, D ⊗ C, by ⊗ from 1 and 2.
+4. ⊢ ~B, B, by ax.
+5. ⊢ ~B, ~C, ~D, (D ⊗ C) ⊗ B, by ⊗ from 3 and 4.
+6. ⊢ ~A, A, by ax.
+7. ⊢ ~A, ~B, ~C, ~D, ((D ⊗ C) ⊗ B) ⊗ A, by ⊗ from 5 and 6.
+8. ⊢ ~A ⅋ ~B, ~C, ~D, ((D ⊗ C) ⊗ B) ⊗ A, by ⅋ from 7.
+9. ⊢ (~A ⅋ ~B) ⅋ ~C, ~D, ((D ⊗ C) ⊗ B) ⊗ A, by ⅋ from 8.
+10. ⊢ ((~A ⅋ ~B) ⅋ ~C) ⅋ ~D, ((D ⊗ C) ⊗ B) ⊗ A, by ⅋ from 9.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M2531 9812H23388"/>
+<path d="M3255 8312H22663"/>
+<path d="M3980 6812H21939"/>
+<path d="M2852 5312H23066"/>
+<path d="M1452 3812H16666"/>
+<path d="M300 2312H10496"/>
+<path d="M300 812H4208"/>
+<path d="M6816 812H10496"/>
+<path d="M13104 2312H16666"/>
+<path d="M19274 3812H23066"/>
+</g>
+<g id="i9">
+<text x="2531" y="10902" textLength="2457" lengthAdjust="spacing">⊢ ((𝐴</text>
+<text x="4988" y="10502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5932" y="10902" textLength="1725" lengthAdjust="spacing">⅋ 𝐵</text>
+<text x="7657" y="10502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="8269" y="10902" textLength="2445" lengthAdjust="spacing">) ⅋ 𝐶</text>
+<text x="10714" y="10502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="11326" y="10902" textLength="2559" lengthAdjust="spacing">) ⅋ 𝐷</text>
+<text x="13885" y="10502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="14497" y="10902" textLength="8891" lengthAdjust="spacing">, ((𝐷 ⊗ 𝐶) ⊗ 𝐵) ⊗ 𝐴</text>
+</g>
+<text x="23588" y="10012" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<g id="i8">
+<text x="3255" y="9402" textLength="2129" lengthAdjust="spacing">⊢ (𝐴</text>
+<text x="5384" y="9002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6328" y="9402" textLength="1725" lengthAdjust="spacing">⅋ 𝐵</text>
+<text x="8053" y="9002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="8665" y="9402" textLength="2445" lengthAdjust="spacing">) ⅋ 𝐶</text>
+<text x="11110" y="9002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="11722" y="9402" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+<text x="13160" y="9002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="13772" y="9402" textLength="8891" lengthAdjust="spacing">, ((𝐷 ⊗ 𝐶) ⊗ 𝐵) ⊗ 𝐴</text>
+</g>
+<text x="22863" y="8512" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<g id="i7">
+<text x="3980" y="7902" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="5781" y="7502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6725" y="7902" textLength="1725" lengthAdjust="spacing">⅋ 𝐵</text>
+<text x="8450" y="7502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="9062" y="7902" textLength="1324" lengthAdjust="spacing">, 𝐶</text>
+<text x="10386" y="7502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="10998" y="7902" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+<text x="12436" y="7502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="13048" y="7902" textLength="8891" lengthAdjust="spacing">, ((𝐷 ⊗ 𝐶) ⊗ 𝐵) ⊗ 𝐴</text>
+</g>
+<text x="22139" y="7012" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<g id="i6">
+<text x="4376" y="6402" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="6177" y="6002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6788" y="6402" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+<text x="8053" y="6002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="8665" y="6402" textLength="1324" lengthAdjust="spacing">, 𝐶</text>
+<text x="9989" y="6002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="10601" y="6402" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+<text x="12039" y="6002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="12651" y="6402" textLength="8891" lengthAdjust="spacing">, ((𝐷 ⊗ 𝐶) ⊗ 𝐵) ⊗ 𝐴</text>
+</g>
+<text x="23266" y="5512" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i4">
+<text x="2852" y="4902" textLength="1686" lengthAdjust="spacing">⊢ 𝐵</text>
+<text x="4538" y="4502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5149" y="4902" textLength="1324" lengthAdjust="spacing">, 𝐶</text>
+<text x="6473" y="4502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="7085" y="4902" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+<text x="8523" y="4502" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="9135" y="4902" textLength="6131" lengthAdjust="spacing">, (𝐷 ⊗ 𝐶) ⊗ 𝐵</text>
+</g>
+<text x="16866" y="4012" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i2">
+<text x="1452" y="3402" textLength="1745" lengthAdjust="spacing">⊢ 𝐶</text>
+<text x="3197" y="3002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3808" y="3402" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+<text x="5246" y="3002" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5858" y="3402" textLength="3486" lengthAdjust="spacing">, 𝐷 ⊗ 𝐶</text>
+</g>
+<text x="10696" y="2512" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i0">
+<text x="300" y="1902" textLength="1859" lengthAdjust="spacing">⊢ 𝐷</text>
+<text x="2159" y="1502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2770" y="1902" textLength="1438" lengthAdjust="spacing">, 𝐷</text>
+</g>
+<text x="4408" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i1">
+<text x="6816" y="1902" textLength="1745" lengthAdjust="spacing">⊢ 𝐶</text>
+<text x="8561" y="1502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="9172" y="1902" textLength="1324" lengthAdjust="spacing">, 𝐶</text>
+</g>
+<text x="10696" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i3">
+<text x="13104" y="3402" textLength="1686" lengthAdjust="spacing">⊢ 𝐵</text>
+<text x="14790" y="3002" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="15401" y="3402" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="16866" y="2512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<g id="i5">
+<text x="19274" y="4902" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="21075" y="4502" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="21686" y="4902" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
+</g>
+<text x="23266" y="4012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

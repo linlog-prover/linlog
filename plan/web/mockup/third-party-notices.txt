@@ -1,0 +1,10 @@
+Third-party notices for this mockup.
+
+In the real client this file is generated: Vite's build.license collects
+the npm bundle's notices and cargo-about those of the Rust crates inside
+the WebAssembly module (D32). The mockup bundles no library code; it
+ships these fonts, each under the SIL Open Font License 1.1:
+
+- Euler Math, fonts/Euler-Math.otf, licence fonts/Euler-Math-OFL.txt
+- Figtree, fonts/figtree-latin-*.woff2, licence fonts/Figtree-LICENSE.txt
+- Space Mono, fonts/space-mono-latin-*.woff2, licence fonts/SpaceMono-LICENSE.txt

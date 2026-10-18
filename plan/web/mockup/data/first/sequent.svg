@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="132.128" height="27.2" viewBox="0 0 8258 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥, A ⊗ B⊥, B</title>
+<g>
+<text x="300" y="1190" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2101" y="790" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2712" y="1190" textLength="3369" lengthAdjust="spacing">, 𝐴 ⊗ 𝐵</text>
+<text x="6081" y="790" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="6693" y="1190" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+</svg>

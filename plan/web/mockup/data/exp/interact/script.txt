@@ -1,0 +1,44 @@
+goals
+show
+show --svg exp/interact/state-0.svg
+save exp/interact/state-0.json
+apply 0 0 ?c
+goals
+show
+show --svg exp/interact/state-1.svg
+save exp/interact/state-1.json
+apply 1 2 * 0
+goals
+show
+show --svg exp/interact/state-2.svg
+save exp/interact/state-2.json
+apply 2 0 ?d
+goals
+show
+show --svg exp/interact/state-3.svg
+save exp/interact/state-3.json
+apply 4 0 ax
+goals
+show
+show --svg exp/interact/state-4.svg
+save exp/interact/state-4.json
+apply 3 1 !
+goals
+show
+show --svg exp/interact/state-5.svg
+save exp/interact/state-5.json
+apply 5 0 ?d
+goals
+show
+show --svg exp/interact/state-6.svg
+save exp/interact/state-6.json
+apply 6 0 ax
+goals
+show
+show --svg exp/interact/state-7.svg
+save exp/interact/state-7.json
+proof
+proof --svg exp/interact/proof.svg
+proof exp/interact/proof.json
+proof --rocq exp/interact/proof.v
+quit

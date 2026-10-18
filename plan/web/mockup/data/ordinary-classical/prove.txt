@@ -1,0 +1,11 @@
+valid (classical logic by the affine translation into affine MALL, focus engine)
+  ───── ax
+  a ⊢ a
+ ──────── WR
+ a ⊢ b, a
+────────── →R   ───── ax
+⊢ a → b, a      a ⊢ a
+───────────────────── →L
+   (a → b) → a ⊢ a
+ ─────────────────── →R
+ ⊢ ((a → b) → a) → a

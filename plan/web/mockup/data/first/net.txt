@@ -1,0 +1,5 @@
+provable (MLL, classical, focus engine)
+⊢ ~A, A ⊗ ~B, B
+~A[0] — A[2]
+~B[3] — B[4]
+proof net

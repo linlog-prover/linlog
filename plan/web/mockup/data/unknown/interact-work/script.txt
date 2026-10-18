@@ -1,0 +1,4 @@
+goals
+close
+goals
+quit

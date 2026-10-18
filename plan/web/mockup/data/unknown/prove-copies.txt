@@ -1,0 +1,1 @@
+unknown (LL, classical, focus engine): the copy bound of 1 was reached after 124.74µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts

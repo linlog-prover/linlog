@@ -1,0 +1,1 @@
+{"version":1,"sequent":{"terms":[{"D":0},{"V":0},{"D":1},{"⊗":[1,2]},{"V":1}],"roots":[0,3,4],"atoms":["A","B"],"antecedents":2},"mode":"intuitionistic","inferences":[{"sequent":[0,1,4]}],"history":[]}

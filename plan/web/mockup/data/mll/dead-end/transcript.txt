@@ -1,0 +1,21 @@
+opened goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+opened goal 2: ⊢ 0: ~A, 1: B
+opened goal 3: ⊢ 0: ~B, 1: A
+goal 2: ⊢ 0: ~A, 1: B
+goal 3: ⊢ 0: ~B, 1: A
+⊢ ~A, B   ⊢ ~B, A
+───────────────── ⊗
+ ⊢ ~A, ~B, B ⊗ A
+ ──────────────── ⅋
+ ⊢ ~A ⅋ ~B, B ⊗ A
+ax
+error: the axiom needs formula 0 together with its dual literal and nothing else
+goal 2: unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+goal 2: ⊢ 0: ~A, 1: B
+goal 3: ⊢ 0: ~B, 1: A
+reopened goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+goal 1: ⊢ 0: ~A, 1: ~B, 2: B ⊗ A
+⊢ ~A, ~B, B ⊗ A
+──────────────── ⅋
+⊢ ~A ⅋ ~B, B ⊗ A

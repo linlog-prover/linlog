@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="163.008" height="95.84" viewBox="0 0 10188 5990" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
+<desc>1. ⊢ ~A, B, open.
+2. ⊢ ~B, A, open.
+3. ⊢ ~A, ~B, B ⊗ A, by ⊗ from 1 and 2.
+4. ⊢ ~A ⅋ ~B, B ⊗ A, by ⅋ from 3.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M502 4390H8953"/>
+<path d="M300 2890H9154"/>
+</g>
+<g id="i3">
+<text x="502" y="5480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2303" y="5080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3247" y="5480" textLength="1725" lengthAdjust="spacing">⅋ 𝐵</text>
+<text x="4972" y="5080" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5584" y="5480" textLength="3369" lengthAdjust="spacing">, 𝐵 ⊗ 𝐴</text>
+</g>
+<text x="9153" y="4590" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<g id="i2">
+<text x="898" y="3980" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2699" y="3580" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="3310" y="3980" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+<text x="4575" y="3580" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="5187" y="3980" textLength="3369" lengthAdjust="spacing">, 𝐵 ⊗ 𝐴</text>
+</g>
+<text x="9354" y="3090" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="i0">
+<text x="300" y="2480" textLength="1801" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="2101" y="2080" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2712" y="2480" textLength="1265" lengthAdjust="spacing">, 𝐵</text>
+</g>
+<text x="1697" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+<g id="i1">
+<text x="5362" y="2480" textLength="1686" lengthAdjust="spacing">⊢ 𝐵</text>
+<text x="7048" y="2080" textLength="612" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="7660" y="2480" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
+</g>
+<text x="6874" y="1190" textLength="768" lengthAdjust="spacing">⋮</text>
+</svg>
