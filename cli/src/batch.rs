@@ -652,6 +652,7 @@ impl Shared {
             Source::Bad(_) => None,
         };
         let source = entry.source;
+        let order = entry.mode.unwrap_or(self.mode).order();
         let logic = self.ordinary;
         let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
             let (text, format) = match source {
@@ -666,7 +667,7 @@ impl Shared {
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
             } else {
-                (sequent_in(&text, format, most)?, None)
+                (sequent_in(&text, format, most, order)?, None)
             };
             Ok((
                 Forest::from_owned(admit(sequent, most)?, &io::bound(most))?,

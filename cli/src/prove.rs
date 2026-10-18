@@ -202,12 +202,13 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     let deadline = Deadline::start(time_limit(&settings), start)?;
     let input = args.input.clone();
     let limits = settings.limits;
+    let order = args.mode.mode().order();
     let ordinary = crate::settings::ordinary(&settings, &args.logic);
     let loaded = deadline.within(move || match ordinary {
         Some(options) => input
             .image(&options, &limits)
             .map(|(forest, image)| (forest, Some(image))),
-        None => input.forest(&limits).map(|forest| (forest, None)),
+        None => input.forest(&limits, order).map(|forest| (forest, None)),
     })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");

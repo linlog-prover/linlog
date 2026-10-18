@@ -5,7 +5,7 @@ use crate::argument_parsing::{InputFormat, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::wire::Within;
-use linlog::{Forest, Limits, Mode, Sequent};
+use linlog::{Forest, Limits, Mode, Order, Sequent};
 use serde::de::DeserializeSeed;
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Read, Write};
@@ -228,10 +228,18 @@ pub(crate) fn affine_for(format: InputFormat, mode: Mode) -> Mode {
 ///
 /// Text that is no sequent in `format`, with a caret under the place for
 /// the text syntax, and a sequent past `most`.
-pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<Sequent> {
+pub(crate) fn sequent_in(
+    text: &str,
+    format: InputFormat,
+    most: u64,
+    order: Order,
+) -> Result<Sequent> {
     let unbounded = Limits::default().with_occurrences(None);
     let within = bound(most);
     let refused = |error| refused(error, most);
+    if order != Order::Commutative && matches!(format, InputFormat::Lltp | InputFormat::Spec) {
+        bail!("the cyclic mode reads a sequent as text or JSON, not as an LLTP or .spec problem");
+    }
     match format {
         InputFormat::Json => {
             let mut document = serde_json::Deserializer::from_str(text);
@@ -258,7 +266,7 @@ pub(crate) fn sequent_in(text: &str, format: InputFormat, most: u64) -> Result<S
             )),
             Err(e) => Err(e.into()),
         },
-        _ => Sequent::parse_within(text, &within).map_err(|e| match e {
+        _ => Sequent::parse_ordered(text, order, &within).map_err(|e| match e {
             linlog::Error::Parse(_) => crate::parse_error(text, e),
             e => refused(e),
         }),
@@ -360,13 +368,13 @@ impl SequentInput {
     ///
     /// An input that cannot be read, or text that is no sequent in its
     /// format, or one past the limits.
-    pub(crate) fn sequent(&self, limits: &Limits) -> Result<Sequent> {
+    pub(crate) fn sequent(&self, limits: &Limits, order: Order) -> Result<Sequent> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
         let (text, format) = self.text(false, limits.memory_bytes)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        let sequent = admit(sequent_in(&text, format, most)?, most)?;
+        let sequent = admit(sequent_in(&text, format, most, order)?, most)?;
         // A `.p` file is LLTP's unless `--logic` says otherwise, and the
         // ILTP library's problems are `.p` files too: one that reads both
         // ways gets a note, since its verdicts differ.
@@ -414,9 +422,12 @@ impl SequentInput {
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does.
-    pub(crate) fn forest(&self, limits: &Limits) -> Result<Forest> {
+    pub(crate) fn forest(&self, limits: &Limits, order: Order) -> Result<Forest> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
-        Ok(Forest::from_owned(self.sequent(limits)?, &bound(most))?)
+        Ok(Forest::from_owned(
+            self.sequent(limits, order)?,
+            &bound(most),
+        )?)
     }
 }
 

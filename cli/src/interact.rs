@@ -63,7 +63,9 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
                     "no sequent given: pass it as an argument or with --file, since standard input carries the commands"
                 );
             }
-            let sequent = args.input.sequent(&settings.limits)?;
+            let sequent = args
+                .input
+                .sequent(&settings.limits, args.mode.mode().order())?;
             Interactive::new(&sequent, args.input.mode(args.mode.mode()))
                 .map_err(|e| describe(e, &sequent))?
         }

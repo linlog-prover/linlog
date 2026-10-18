@@ -607,6 +607,11 @@ pub(crate) enum SeqCommand {
         /// reads it
         #[arg(short, long)]
         intuitionistic: bool,
+        /// Read the text as cyclic linear logic does: the dual of a
+        /// product reversed, ~(A * B) as ~B par ~A, and the formulas left
+        /// of ⊢ in the reverse order
+        #[arg(long, conflicts_with = "intuitionistic")]
+        cyclic: bool,
         /// The ordinary logic the input is in, if any.
         #[command(flatten)]
         logic: LogicArgs,
@@ -648,6 +653,11 @@ pub(crate) enum SeqCommand {
         /// formulas of a JSON input, as parsing text always does
         #[arg(long)]
         optimize: bool,
+        /// Read the text as cyclic linear logic does: the dual of a
+        /// product reversed, ~(A * B) as ~B par ~A, and the formulas left
+        /// of ⊢ in the reverse order
+        #[arg(long)]
+        cyclic: bool,
         /// Write to this file instead of standard output
         #[arg(short, long, value_name = "PATH")]
         output: Option<PathBuf>,
@@ -741,8 +751,9 @@ pub(crate) enum InputFormat {
     Tptp,
     /// The benchmark harness's problem files: `NAME; MODE; EXPECTED;
     /// COPIES; SEQUENT` per line, MODE one of classical, mix, affine,
-    /// intuitionistic or intuitionistic-affine; EXPECTED and COPIES are
-    /// not read
+    /// affine-mix, intuitionistic, intuitionistic-affine or cyclic (whose
+    /// sequent is read as --cyclic reads it); EXPECTED and COPIES are not
+    /// read
     Problems,
 }
 
@@ -858,6 +869,12 @@ pub(crate) struct ModeArgs {
     /// Allow the Mix rule, which proves ⊢ Γ, Δ from ⊢ Γ and ⊢ Δ
     #[arg(long)]
     pub(crate) mix: bool,
+    /// Cyclic linear logic: the order of the formulas counts, up to
+    /// rotation, with no exchange (unit-free MLL); the sequent's text is
+    /// read with the dual of a product reversed, ~(A * B) as ~B par ~A,
+    /// and the formulas left of ⊢ in the reverse order
+    #[arg(long, conflicts_with = "intuitionistic")]
+    pub(crate) cyclic: bool,
 }
 
 impl ModeArgs {
@@ -865,6 +882,8 @@ impl ModeArgs {
     pub(crate) fn mode(&self) -> Mode {
         let mut mode = if self.intuitionistic {
             Mode::INTUITIONISTIC
+        } else if self.cyclic {
+            Mode::CYCLIC
         } else {
             Mode::CLASSICAL
         };
