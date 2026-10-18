@@ -793,16 +793,18 @@ pub fn write<'a>(
 /// of the refutation's invariant (`classical_refutation`,
 /// `unbalanced_refutation`, `equation_refutation`, or their two-sided
 /// forms) from the assignment's true atoms or the unbalanced atom, which
-/// Rocq's `vm_compute` checks. The refutations [`Disproof::check`]
-/// verifies have one, and the disproof is checked first. Standalone, the
+/// Rocq's `vm_compute` checks. The refutations
+/// [`Disproof::check`](crate::Disproof::check) verifies have one, and the
+/// disproof is checked first. Standalone, the
 /// file starts with `options.prelude`, by default
 /// [`LINLOG_REFUTATION_PRELUDE`].
 ///
 /// # Errors
 ///
 /// [`Error::Refutation`] for a refutation the check does not accept,
-/// among them those that rest on the search ([`RefutationFault::Uncertified`]
-/// (crate::search::RefutationFault::Uncertified)), [`Error::Unsupported`]
+/// among them those that rest on the search
+/// ([`RefutationFault::Uncertified`](crate::search::RefutationFault::Uncertified)),
+/// [`Error::Unsupported`]
 /// with [`Unsupported::Disproof`] where the options name NanoYalla,
 /// [`Error::GoalOutputs`] for an intuitionistic goal without exactly one
 /// conclusion, the errors of [`Forest::new`] and of the intuitionistic
