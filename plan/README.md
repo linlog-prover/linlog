@@ -57,7 +57,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
 | 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
 | 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
-| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37) | `39-top-cap.md` (written at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
+| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37) | `39-top-cap.md` (written at the review of 35, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -2543,3 +2543,37 @@ client follows it (step 32).
   comparison's driver still counts linlog's unprovable as unchecked;
   the one-sided and state-equation refutations have no check and no
   lemma; `linlog check` reads no disproof. Prompt 32 is finished.
+- 2026-10-18: review of step 35b, the end of step 35 (Opus 5.5 at high,
+  the panel): essential nets for IMLL, `ProofStructure::is_essential`
+  (directed acyclicity and the dominator condition, with witnesses),
+  the engine `Engine::Essential` (`--engine essential`) on the net
+  engine's loop made generic over its criterion (`Linker<C:
+  Correctness>`, the classical criterion's counters unchanged), and the
+  drawing `svg::Style::essential`. The essential engine loses to the
+  two-sided engine on every decided row but one by 1.3 to 25 times, so
+  the dispatch is unchanged and it runs only when forced. The panel
+  refuted nothing in the argument or by counterexamples (692 388 and
+  5.8 million linkings against the enumeration) and found one abort
+  (140 TB asked of the allocator without a memory bound), fixed. The
+  review compared both target sets with their oracles itself (no
+  verdict differs; the five known counters on the focused set; the net
+  set equal on all 64 rows), read how the essential engine's proofs
+  reach the checker (the front door's, as every engine's), and asked
+  the session to argue each symmetry break for essential nets, which
+  its report does. Stacked on 31d's chain (the changelog, `TARGETS.md`
+  and the search module's list of modules resolved by hand); the gate
+  and `nix flake check` ran at the combined head.
+
+  The full comparison of 2026-10-18 (the author's run 39110897772,
+  linlog 0.1.0 on GitHub's runners, 10 s, one thread): linlog decides
+  4 307 of 4 811 problems (4 181 on 2026-10-15), the default race
+  4 308; no wrong verdict. "Against the header" rose from 25 to 51:
+  each of the 26 new rows is an LLTP file headed Theorem that linlog
+  refutes, 38 of the 42 such rows now carry a classical countermodel
+  and one an unbalanced atom (31d's command), and the other three are
+  `KLE075+1`'s translations, which `plan/notes/lltp-headers.md` already
+  explains. Sympli's wins over linlog fell from 122 to 17 (ten proofs of
+  class C, seven refutations); class B's rows are all decided, so
+  prompt 39 starts with a measurement that ends the step if the cap can
+  decide nothing. Prompts 36 and 39 are finished, 37's paragraph on the
+  gap study corrected.

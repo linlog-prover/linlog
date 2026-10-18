@@ -38,25 +38,27 @@ none of its memory notes.
   'step*' 'linlog-*'`; `gh run list --limit 6`. Ask the author only
   what none of these answers.
 
-## The steps left (as of 2026-10-18)
+## The steps left (as of the evening of 2026-10-18)
 
-In order, with what each needs before it (the table in `plan/README.md`
-is the authority):
+Steps 31 and 35 are done, reviewed and on `main`. In order, with what
+each needs before it (the table in `plan/README.md` is the authority):
 
-- **31d** (running when this file was written): the classical refuter
-  on by default, `Disproof::check`, the certified refutations; the last
-  session of step 31. **35b** (running): essential nets for IMLL. Their
-  briefs are `/tmp/linlog-handoff/start-31d.md` and `start-35b.md`
-  (volatile: if lost, rebuild them from the prompts).
-- **39**: the `⊤` cap (R3); its prompt `39-top-cap.md` is written at the
-  review of 35, then the step runs before 37.
-- **32**: the web front end, a plan of its own and a second repository
-  (its prompt is finished at the review of 31).
-- **36** after 35; **33** after 32; **34** after 31 and 33; **37** after
-  36 and 39; **38** after 37 (its first session on Fable 5.1).
+- **39**: the `⊤` cap (R3), one session; its prompt `39-top-cap.md` is
+  written and starts with a measurement that ends the step if the cap
+  can decide nothing (class B's rows were decided by R1 meanwhile).
+  It runs before 37.
+- **32**: the web front end, a plan of its own and a second repository;
+  its prompt is finished. Ask the author for the client repository's
+  name and directory at the review of its first session. It can run
+  beside 39 (39 on cores 2 to 7, 32's builds on 8 to 11).
+- **36** (prompt finished): cyclic MLL and the Lambek calculus, after
+  35. **33** after 32; **34** after 31 and 33; **37** after 36 and 39;
+  **38** after 37 (its first session on Fable 5.1).
 
 Two steps may run side by side when they touch different parts of the
-tree (31 and 35 did); give them the split of "The machine" below.
+tree (31 and 35 did); give them the split of "The machine" below. 39
+and 36 both change searches (the focused engine and the net engine):
+not side by side with each other unless their files are disjoint.
 
 ## How a step runs
 
