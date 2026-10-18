@@ -54,8 +54,10 @@ first, with its reason), and go on from what they say. Cover:
   light and dark, how a goal, a clickable formula, an applicable rule
   and a finished proof look, and how each failure looks and reads:
   input that does not parse, an unprovable sequent, a search that gives
-  up, a rule that does not apply (the author asked for these in every
-  mockup).
+  up (the author asked for these in every mockup). Whether a rule that
+  does not apply is shown at all is a question of the design, open: the
+  author leans to showing only the rules that apply, and decides in the
+  conversation.
 - **The interaction**: how one clicks a formula and a rule, how the
   derivation grows (tree, list of goals, both), undo and history, the
   search closing a goal, the net view for MLL, the exports, the keyboard
@@ -96,8 +98,7 @@ Prepare, before any mockup starts:
   author, 2026-10-18): input that does not parse (its error with the
   place in the input), an unprovable sequent (with a checked
   refutation, a classical countermodel, and with an exhausted search
-  only), a search that gives up (unknown at its budget), and a rule
-  clicked where it does not apply, into
+  only), and a search that gives up (unknown at its budget), into
   `/home/tux/Projects/own/linlog-design/data/`, with
   a short `README.md` saying what each file is. Every mockup uses this
   real output, not invented formulas.
@@ -123,9 +124,9 @@ on Opus 5.5 at `high`, each with its brief and told:
   where on the page each appears, what it says (the command's facts, in
   words a student understands, never only an error code), what it
   points at in the input or the proof, and what the student can do
-  next (fix the input, see why it is unprovable, try another rule,
-  give the search more time); the conversation settles their tone and
-  place first;
+  next (fix the input, see why it is unprovable, give the search more
+  time); the conversation settles their tone and place first, and
+  whether inapplicable rules appear at all;
 - to write `mockup-N/README.md`: its design plan (palette, type,
   layout, principles), which learning principles it applies and how,
   and what it would cost to build in the decided stack;
