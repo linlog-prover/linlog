@@ -8,13 +8,16 @@
     one conclusion [C], has a cut-free derivation in intuitionistic
     linear logic, or in its affine variant when [R] adds weakening. The
     formulas and the rules are those of Yalla's standalone kernel
-    [nanoill.v] and of the textbook calculus: the hypotheses are a list
-    read as a multiset, so the exchange rule [ex_ir] admits any
-    permutation, and every left rule acts on the first hypothesis.
-    Nothing is derived here, and nothing is assumed. The derivations live
+    [nanoill.v] and of the textbook calculus over [1], [⊗], [⊸], [⊤],
+    [&], [0], [⊕] and [!], without [⊥]: every sequent has exactly one
+    conclusion, so no rule weakens on the right, the axiom is on atoms
+    (the identity on any formula is derivable), and there is no cut. The
+    hypotheses are a list read as a multiset, so the exchange rule
+    [ex_ir] admits any permutation, and every left rule acts on the first
+    hypothesis. Nothing is derived here, and nothing is assumed. The derivations live
     in [Prop]: [ill R Γ C] says that one exists. *)
 
-From Stdlib Require Import Bool List Permutation.
+From Stdlib Require Import List Permutation.
 Import ListNotations.
 
 Section Formulas.
@@ -33,52 +36,6 @@ Inductive iformula : Type :=
 | iplus : iformula -> iformula -> iformula   (** [A ⊕ B] *)
 | ioc : iformula -> iformula.                (** [!A] *)
 
-Section Equality.
-
-(** A Boolean equality on atoms, which the checker compares atoms
-    with. *)
-Variable atom_eqb : atom -> atom -> bool.
-
-(** Structural equality of intuitionistic formulas, decided through
-    [atom_eqb]. *)
-Fixpoint iformula_eqb (A B : iformula) : bool :=
-  match A, B with
-  | ivar a, ivar b => atom_eqb a b
-  | ione, ione => true
-  | itop, itop => true
-  | izero, izero => true
-  | itens A1 A2, itens B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
-  | ilmap A1 A2, ilmap B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
-  | iwith A1 A2, iwith B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
-  | iplus A1 A2, iplus B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
-  | ioc A, ioc B => iformula_eqb A B
-  | _, _ => false
-  end.
-
-(** [atom_eqb] decides equality, as the soundness theorem assumes. *)
-Hypothesis atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b).
-
-Lemma iformula_eqb_spec : forall A B, reflect (A = B) (iformula_eqb A B).
-Proof.
-  induction A; destruct B; cbn; try (constructor; congruence).
-  all: repeat match goal with
-       | |- reflect _ (atom_eqb ?a ?b) => destruct (atom_eqb_spec a b)
-       | |- reflect _ (iformula_eqb ?A ?B && _) =>
-           match goal with IH : forall B, reflect (A = B) _ |- _ => destruct (IH B) end
-       | |- reflect _ (iformula_eqb ?A ?B) =>
-           match goal with IH : forall B, reflect (A = B) _ |- _ => destruct (IH B) end
-       | |- reflect _ (true && _) => cbn
-       | |- reflect _ (false && _) => cbn
-       end.
-  all: constructor; congruence.
-Qed.
-
-(** Equality of intuitionistic formulas as a decision, for the proofs;
-    the checker computes with [iformula_eqb]. *)
-Definition iformula_eq_dec (A B : iformula) : {A = B} + {A <> B} :=
-  reflect_dec _ _ (iformula_eqb_spec A B).
-
-End Equality.
 
 End Formulas.
 
@@ -86,8 +43,8 @@ Arguments iformula atom : clear implicits.
 
 (** The optional rule of a two-sided calculus: intuitionistic linear
     logic has none, affine logic adds the weakening of any hypothesis
-    ([weakening_ilr] below), while the weakening of a [!] hypothesis,
-    [wk_ilr], belongs to both. *)
+    ([weakening_ilr] below), never of the conclusion, while the weakening
+    of a [!] hypothesis, [wk_ilr], belongs to both. *)
 Record irules : Type := IRules {
   iweakening : bool;  (** weakening of any hypothesis, not only of [!] ones *)
 }.

@@ -13,7 +13,7 @@
     and compares it with the one stated; [soundness_ill] proves that a
     term it accepts yields a derivation in [ill].
 
-    The one-sided terms of [Proofs] cannot carry this statement: a
+    The one-sided terms of [Proofs] do not determine this statement: a
     one-sided formula does not say which side of [⊢] it stands on when it
     is built from [⊤] and [0] alone ([top] is both [⊤] on the right and
     [0] on the left), and a derivation's single conclusion is a property
@@ -24,6 +24,60 @@
 From Stdlib Require Import Bool List Permutation Lia.
 From Linlog Require Export Intuitionistic.
 Import ListNotations.
+
+Section Formulas.
+
+Context {atom : Type}.
+Local Notation iformula := (iformula atom).
+
+Section Equality.
+
+(** A Boolean equality on atoms, which the checker compares atoms
+    with. *)
+Variable atom_eqb : atom -> atom -> bool.
+
+(** Structural equality of intuitionistic formulas, decided through
+    [atom_eqb]. *)
+Fixpoint iformula_eqb (A B : iformula) : bool :=
+  match A, B with
+  | ivar a, ivar b => atom_eqb a b
+  | ione, ione => true
+  | itop, itop => true
+  | izero, izero => true
+  | itens A1 A2, itens B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
+  | ilmap A1 A2, ilmap B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
+  | iwith A1 A2, iwith B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
+  | iplus A1 A2, iplus B1 B2 => iformula_eqb A1 B1 && iformula_eqb A2 B2
+  | ioc A, ioc B => iformula_eqb A B
+  | _, _ => false
+  end.
+
+(** [atom_eqb] decides equality, as the soundness theorem assumes. *)
+Hypothesis atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b).
+
+Lemma iformula_eqb_spec : forall A B, reflect (A = B) (iformula_eqb A B).
+Proof.
+  induction A; destruct B; cbn; try (constructor; congruence).
+  all: repeat match goal with
+       | |- reflect _ (atom_eqb ?a ?b) => destruct (atom_eqb_spec a b)
+       | |- reflect _ (iformula_eqb ?A ?B && _) =>
+           match goal with IH : forall B, reflect (A = B) _ |- _ => destruct (IH B) end
+       | |- reflect _ (iformula_eqb ?A ?B) =>
+           match goal with IH : forall B, reflect (A = B) _ |- _ => destruct (IH B) end
+       | |- reflect _ (true && _) => cbn
+       | |- reflect _ (false && _) => cbn
+       end.
+  all: constructor; congruence.
+Qed.
+
+(** Equality of intuitionistic formulas as a decision, for the proofs;
+    the checker computes with [iformula_eqb]. *)
+Definition iformula_eq_dec (A B : iformula) : {A = B} + {A <> B} :=
+  reflect_dec _ _ (iformula_eqb_spec A B).
+
+End Equality.
+
+End Formulas.
 
 Section Check.
 
