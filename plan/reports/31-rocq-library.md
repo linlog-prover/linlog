@@ -7,6 +7,7 @@
 | Session 31a: the definitions, the checker and its soundness (session `step-31a`, 2026-10-18) | done (2026-10-18) | The library under `rocq/` (eae340fd): `Formulas`, `Calculus` (the one-sided calculus as a plain inductive, Mix and weakening as parameters), `Proofs` (the term, one constructor per `Node` variant), `Check` (the checker as a function), `Soundness` (`soundness` for every `rules` value and `soundness_classical`), no `Admitted`, no axiom, `Print Assumptions` of both theorems "Closed under the global context". The flake (889c1cc5): the package `rocq-linlog` built with `mkRocqDerivation` and the check `rocq-linlog`, which compiles the fourteen hand-written lemmas (nine accepted proofs, five rejections) and seven translated proofs of `rocq/tests/` (the largest 192 nodes, all in under a second) and requires the two assumption lines; both built under the machine lock. Documentation (da2a7e46): `.claude/rules/rocq.md`, CLAUDE.md, README, the changelog. One reviewer (Opus 5.5, `high`) read the inductive against the textbook calculus and NanoYalla's kernel: no must-fix, two should-fix (the `let*` notation made local; `ll` in `Prop` shapes 31c's bridge as `inhabited`), three notes, all answered and the wording fixed in 31f48eff; its probe proved `ll classical` and NanoYalla's `ll` derive the same sequents. Gate: passed at every code commit in the gate workspace `../linlog-step31a-gate` (eae340fd 07:41 to 07:45, 889c1cc5 to 07:47, 31f48eff to 07:53, 2c7e88f6 to 07:54, each `gate: passed`, exit 0), and once before on the working copy they were split from. `nix flake check` at the last commit: passed ("all checks passed!", exit 0) under the lock at 2c7e88f6, the last code commit, and again at the report commit. Every commit unsigned (`signing.behavior=drop`; the passphrase was not cached). |
 | Session 31b: Mix, affine, the two-sided statement and the second kernel (session `step-31b`, 2026-10-18) | done (2026-10-18) | The library (a06b52e0, 18b99bb4, 61d949e1): `soundness_mix` and `soundness_affine` with certificates in `rocq/tests/Modes.v`; the two-sided calculus `ill` (`Intuitionistic.v`, `nanoill.v`'s rules) with its own term, checker and `soundness_ill` (`IntuitionisticCheck.v`), certificates in `rocq/tests/TwoSided.v`; five theorems "Closed under the global context", no `Admitted`, `admit` or axiom. The exporter (c7088b5c): `rocq::Kernel` behind `rocq::Options::kernel` and `--kernel`, chosen by the mode where none is named, the NanoYalla snapshots' diff empty, nine library snapshots in `core/tests/snapshots/linlog/` and six CLI certificates compiled by the `rocq-linlog` check, README and the changelog. One reviewer (Opus 5.5, `high`) of the two-sided inductive and the theorem's statement: no must-fix, one should-fix (the equality out of the trusted file) and four notes, all answered; its probes proved `ill intuitionistic` equivalent to `nanoill.v`'s `ill` and the checker complete. Gate: passed at all four code commits (`gate: passed`, ratchet's largest rise +0.87 % on `batch-families`) in a capped unit on cores 8 to 11, 09:05 to 09:17. `nix flake check` under the lock: passed ("all checks passed!", exit 0) at the documentation commit after a first run's `export` failure was fixed at its cause; the run at the report commit is in the message to `planning`. Every commit signed. |
 | Session 31c: the bridges (session `step-31c`, 2026-10-18) | done (2026-10-18) | The library (27bcc6b2): `Mix.v` with `mix_to_ll` (a derivation in any `ll R` gives one of `?(⊥⊗⊥), Γ` without Mix, weakening kept, no cut) and `mix_to_classical`. The bridges (0bca3835): `rocq/bridges/NanoYallaBridge.v` (`ll_iff_nanoll`, `nanoll_iff_ll`) and `NanoIllBridge.v` (`ill_iff_nanoill`, `nanoill_iff_ill`), importing NanoYalla's `nanoll.v` and Yalla's `microyalla/nanoill.v` unchanged from the flake inputs `nanoyalla` and the new `yalla` (pinned to commit a1384376), never copied; the check `rocq-bridges` compiles them; all six theorems "Closed under the global context", no `Admitted`, `admit` or axiom under `rocq/`. Documentation (e91c361d): `rocq.md`, `flake.md`, CLAUDE.md, README, the changelog. One reviewer (Opus 5.5, `high`) of the statements: no must-fix, no should-fix, six notes, all answered (the headers fixed in 01632049). Gate: passed at all three code commits (10:43 to 10:51, exit 0) in `../linlog-step31c-gate` on cores 8 to 11. `nix flake check` under the lock at the last commit: in the message to `planning`. Every commit signed. |
+| Session 31d: certified refutations (session `step-31d`, 2026-10-18) | done (2026-10-18) | The classical refuter in the library, on by default (uzsqzswr): after every search that does not prove its goal, an assignment falsifying the classical reading makes an unknown verdict unprovable and an exhausted one certified (`Refutation::Classical`), bounded by `Options::classical_work` (`DEFAULT_CLASSICAL_WORK` 2²⁶, `--classical-work`); `Disproof::check` for the classical, unbalanced and equation refutations with `RefutationFault`; wire level 2 for the classical kind alone. The command's default (xpywqoqt, the behaviour lock's and README's verdict changes in a commit of their own). The Rocq library (vyqupqzq): `Refutations.v`, `ll_tautology`, `balance`, `count_equation`, `ill_ll`, `ill_tautology` and six refutation theorems, eighteen theorems of `Assumptions.v` "Closed under the global context", no `Admitted`, `admit` or axiom. The exporter (rrlvvovq): `rocq::write_disproof` and `rocq::write_not_valid`, `--format rocq` on unprovable and not valid verdicts, ten snapshots and six command-written certificates compiled. One reviewer (Opus 5.5, `high`): no must-fix, one should-fix (fixed in qlsnqsyy), four notes answered. Target sets (wkoltnqm): no verdict or counter of a decided row changed, five undecided rows refuted and checked; held-out sets at 10 s: 721 of 850 decided before and after, no verdict changed, certified refutations 15 to 90 of 153; no problem with a checked proof refuted (3 854 probed). Gate passed at every code commit (11:32 to 12:28). The flake's `rocq-linlog`, `rocq` and `rocq-bridges` checks built under the lock (12:23 to 12:24, eighteen assumption lines). `nix flake check` at the last commit: in the message to `planning`. |
 
 ## Session 31a: the definitions, the checker and its soundness
 
@@ -846,3 +847,356 @@ must-fix or should-fix issue was found."
 workspace add ../linlog-step31c -r tumwxxml`, and
 `../linlog-step31c-gate`, the gates', moved from code commit to code
 commit with `jj new`. The main checkout was not touched.
+
+## Session 31d: certified refutations
+
+**Outcome.** An unprovable verdict can now be certified, and a search
+that did not decide is answered where the sequent is false read
+classically.
+
+In the library, after every search that does not prove its goal, a
+classical refuter (`core/src/search/classical.rs`) looks for an
+assignment of the atoms under which the goal's classical reading is
+false. The reading erases `!` and `?`, reads `⊗` and `&` as "and", `⅋`
+and `⊕` as "or", `1` and `⊤` as true and `⊥` and `0` as false. Where it
+finds one:
+
+- an `Unknown` search becomes `Unprovable` with the new refutation
+  `Refutation::Classical { assignment }`;
+- an exhausted search whose counts give no refutation gets the
+  assignment as its certificate.
+
+This is on by default, bounded by work: `search::Options::classical_work`
+(`DEFAULT_CLASSICAL_WORK`, 2²⁶ terms evaluated, zero for none), the
+command's and the harness's `--classical-work N`. No decided verdict and
+no counter of a search changes.
+
+`Disproof::check` verifies the classical, `Unbalanced` and `Equation`
+refutations against the sequent, the goal and the mode without the
+search's code, and rejects one that does not hold
+(`Error::Refutation` with `search::RefutationFault`).
+
+The Rocq library proves the three invariants once in
+`rocq/theories/Refutations.v`:
+
+- every derivable sequent of every `ll R` is a tautology classically;
+- without weakening an atom's excess interval contains zero;
+- without weakening a multiplicative sequent with units meets the count
+  equation (`≥` with Mix);
+- the two-sided calculus embeds in the one-sided one (`ill_ll`).
+
+Each gives `~ ll R Γ` or `~ ill R Γ C` from a Boolean test that
+`vm_compute` decides. The exporter writes such a certificate for every
+refutation `check` accepts (`rocq::write_disproof`), and an ordinary
+sequent that is not valid gets `~ (forall a b : Prop, F)` by
+instantiating its atoms (`rocq::write_not_valid`). The command writes
+both for `--format rocq`.
+
+All eighteen theorems of `rocq/tests/Assumptions.v` are closed under the
+global context, and nothing under `rocq/` is admitted or assumed.
+
+### Decisions
+
+- **The refuter runs in `conclude`, after the search, on every
+  `Unknown` the engine gives and on every `Exhausted`** (C2's place, the
+  author's decision of 2026-10-18 for its default). It is a plain
+  function, not the `Refute` trait of `plan/notes/api.md` 8.7. That kind
+  waits for a second refuter, so that its interface is drawn from two
+  (departs from the design). `refute_unknown` does not exist, since the
+  only switch the author kept is the bound, and `classical_work = 0`
+  turns the refuter off. An `Unknown` that the check made (a proof whose
+  check a bound refused) is not refuted: that sequent has a proof.
+- **The algorithm**: a backtracking over the goal's atoms in index
+  order, false before true. At every step it evaluates in three values
+  the terms of the arena the goal reaches, in arena order (operands
+  first, so no recursion), and backs off where the reading is already
+  true. Its unit of work is one term evaluated, its buffers (a byte per
+  term twice, four per reached term) are charged to the account, and its
+  polls are `Phase::Refute` with its units. The goal is the disjunction
+  of its members' readings, so a goal off the roots is refuted the same
+  way. The atoms outside the goal are false in the assignment.
+- **Where the argument holds**: every rule of `ll R` keeps tautologies
+  for every `R`. Mix joins two tautologies, both weakenings add a
+  disjunct, contraction repeats one, and promotion and dereliction read
+  as the formula. An intuitionistic derivation is a classical one of its
+  one-sided form, whose reading is "the hypotheses imply the
+  conclusion". So the refutation holds in every mode, Mix and affine
+  included, and for goals off the roots. Cut would keep it too (modus
+  ponens). The Rocq library proves it (`ll_tautology`, `ill_tautology`),
+  and `classical::tests::checked_proofs_read_as_tautologies` pins it in
+  Rust: every generated sequent of the 16 rule sets and 12
+  intuitionistic ones that the search proves with a checked proof, in
+  its mode and the affine one, reads as a tautology (at least 400 proved
+  cases asserted), and every mutant it refutes passes `Disproof::check`.
+- **The command lets the refutation run past the time limit.**
+  `halting` (`cli/src/prove.rs`) answers a `Phase::Refute` poll with
+  Ctrl-C alone, and the harness's child does the same. A search that
+  deepens until the clock is otherwise never refuted, since the caller's
+  stop would end the refuter at its first poll. The overrun is bounded
+  by the work bound: on the held-out sets' 129 undecided rows the
+  refutation took at most 136 ms after the limit (median 0.3 ms). A row
+  so refuted can be `late` in the harness's ranking, as `mix/11` of the
+  target set is, by 6 ms. The alternative, a reserve cut from the
+  search's limit, would have moved decided rows near the limit.
+- **`Disproof::check`** recomputes each refutation from a `Forest` of
+  the sequent (default limits), bottom-up over occurrences. Its
+  conditions are those under which the search states the refutation
+  (`Switches`, `intervals_run`):
+  - `Unbalanced` needs no weakening, and the atom's interval, with `⊤`
+    and an exponential over the atom unbounded, must equal `[least,
+    most]` and exclude zero;
+  - `Equation` needs no weakening, the multiplicative fragment with
+    units in the goal, `mix` equal to the mode's, and every count equal;
+  - `Exhausted`, `OneSided` and `StateEquation` answer `Uncertified`
+    (code `uncertified`, kind unsupported); a refutation that does not
+    hold answers `invalid_refutation`.
+
+  The error is a new `Error::Refutation(RefutationFault)`, an addition
+  to non-exhaustive types, as are `Refutation::Classical`,
+  `search::Classical`, `Options::classical_work` and the two
+  `rocq::Unsupported` variants.
+- **Wire level 2.** A 0.1.0 reader refuses a refutation kind it does not
+  know, so the kind `classical` is a new tag and raises the level. The
+  writer computes the level from the content: a disproof or an
+  unprovable outcome with a classical refutation is level 2, and every
+  other document stays level 1 byte for byte. The command's batch
+  records take their body's level, and `check`'s JSON stays at level 1.
+  `core/tests/wire/level-2.txt` holds the two new forms, read by
+  `the_second_level_reads`.
+- **The Rocq lemmas are inductions over `ll R`, and the two-sided
+  statements go through the embedding.** `balance` holds whatever the
+  atom equality is, since both literals of an axiom compare alike.
+  `excess` returns `None` under `⊤` and under an exponential that
+  contains the atom, which is the Rust check's condition, so a
+  certificate exists exactly for a refutation that `check` accepts.
+  `ill_ll` (`one_sided G C = itr C :: map (dual ∘ itr) G`) gives the
+  two-sided theorems and `ill_tautology` without a second induction per
+  invariant.
+- **The certificate is the test, not the search's numbers.** The proof
+  is `apply (THEOREM …). vm_compute. reflexivity.`, with the atom for
+  `Unbalanced`, nothing for `Equation`, and for `Classical` the true
+  atoms as `fun a => existsb (String.eqb a) [...]`. The Rust numbers are
+  not restated: the kernel recomputes them. The statement's calculus is
+  the mode's rules, since a disproof records no rules used.
+- **The ordinary "not valid" certificate** checks the image's
+  assignment against the ordinary sequent itself before writing, by
+  name, with an atom the image lacks false. It then writes `intro H.
+  specialize (H True False …). tauto.`, where `tauto` decides a closed
+  formula over `True` and `False`. It is the same in LK and LJ, since a
+  classical countermodel refutes both.
+- **The command's default came in a commit of its own**
+  (`xpywqoqt`): the library's commit (`uzsqzswr`) kept the command's
+  settings off, so that the behaviour lock's and README's changes of
+  verdict sit in the commit that says why. The lock's help texts and
+  the new calls of `--classical-work` are in the first, as a new flag's
+  calls are.
+
+### The options, per front end (D15, D16)
+
+- `search::Options::classical_work: u64`, default
+  `Options::DEFAULT_CLASSICAL_WORK` (2²⁶), JSON `classical_work`, the
+  command's and the harness's `--classical-work N`, the settings key
+  `search.classical_work`. `Settings::default()` takes the library's.
+  The web front end holds it in the search options' JSON, and a wrapper
+  sets it with `with_classical_work`.
+- `rocq::Options` is unchanged: `write_disproof` and `write_not_valid`
+  read `form`, `lemma` and `prelude` (default
+  `rocq::LINLOG_REFUTATION_PRELUDE` for the first, none for the second)
+  and refuse `kernel: Some(NanoYalla)` for a disproof.
+
+### Quantifiers (D17)
+
+The classical refutation of a quantified goal needs a model, not an
+assignment: `Refutation::Classical` stays the propositional case, and a
+first-order countermodel would be a new variant. The Rocq invariants
+carry over: `ll_tautology` becomes soundness for a first-order
+structure, `balance` and `count_equation` keep their statements over
+formulas with quantifiers counted as their bodies, with the eigenvariable
+rules as two more cases. The refuter's place in `conclude` and
+`Disproof::check` take a new arm each.
+
+### What the library's shape makes easier (later.md, "Certified refutations")
+
+- **Petri-net unreachability by the state equation**: `StateEquation`'s
+  weights are a few numbers, and with a lemma that a Horn program's
+  derivations are firing sequences (an induction over `ll` like
+  `balance`) its certificate would be a test like `unbalanced`.
+- **The `OneSided` count**: `bang` keeping a one-sided interval (`[0,
+  ∞)` where every literal below is positive) gives its lemma with the
+  same induction; the Rust check would add the matching case.
+- **Finite phase models and Kripke countermodels** need a semantics
+  proved sound once over `ll` or `ill`, which `ll_tautology` is the
+  two-valued instance of.
+- **Failure certificates** and proof by reflection are unchanged in
+  difficulty: they need the focused calculus's completeness.
+
+### What is verified
+
+- Rocq: `rocq/theories/Refutations.v` and `rocq/tests/Refutations.v`
+  (nine certificates and seven rejections) compile with Rocq 9.1.1 and
+  the standard library 9.0.0 on cores 8 to 11 in capped scopes;
+  `tests/Assumptions.v` prints `Closed under the global context`
+  eighteen times. The exporter's ten snapshots (`refuted_*.v`,
+  `not_valid_*.v`) and the six certificates the flake's checks now write
+  with the command were compiled by hand and accepted silently. `grep`
+  finds no `Admitted`, `admit` or `Axiom` under `rocq/`. The flake's
+  checks `rocq-linlog`, `rocq` and `rocq-bridges` built under the lock
+  at the exporter's tree (12:23 to 12:24, exit 0, `rocq-linlog`'s log
+  the eighteen assumption lines); the full `nix flake check` at the last
+  commit: in the message to `planning`.
+- Rust: `cargo clippy --workspace --all-targets -- --deny warnings`
+  clean and `cargo test --workspace` passed at every commit. The new
+  tests:
+  - `a_wrong_refutation_is_rejected`: each fault, a satisfying and a
+    short assignment, numbers not the goal's or that allow a proof,
+    affine mode, `⊤`, an exponential, additives, Mix;
+  - `checked_proofs_read_as_tautologies`;
+  - `finds_an_assignment_within_its_bound`;
+  - `disproof_certificates`: the snapshots, the uncertified and the
+    NanoYalla refusals, and the reviewer's goal without a conclusion;
+  - `the_second_level_reads`.
+
+  The behaviour lock gained eight calls.
+- The gate passed at every code commit:
+  - `uzsqzswr`, 11:32 to 11:36, and `xpywqoqt`, 11:36 to 11:39, on the
+    working copy at each state, in capped units on cores 8 to 11;
+  - `vyqupqzq`, 11:40 to 11:44, `rrlvvovq`, 11:48 to 11:50,
+    `qlsnqsyy`, 12:01 to 12:04, and `vsuttpkt` (the documentation fix),
+    12:25 to 12:28, in `../linlog-step31d-gate`.
+
+  Each ended `gate: passed`, exit 0. The ratchet's largest rise was
+  +1.82 % on `batch-families`, within its ceiling: the batch's
+  exhausted families now run the refuter.
+- The families' verdicts (`linlog-bench run --all-families --timeout 5`,
+  cores 8 to 11, 11:55 to 11:57): 123 runs and `summary --strict` passes,
+  no mismatch; 10 unprovable rows carry a checked refutation.
+- No problem with a checked proof is refuted. Over every problem of the
+  comparison's `runs.csv` that some tool proved with a checked proof and
+  that is a file (3 795 LLTP, 59 `.spec`), the command ran with
+  `--work-limit 1`, so that each answer is the refuter's. All 3 854
+  ended `unknown` (the work limit), none `unprovable`; the 62 family
+  rows are covered by the families' run above. This probe ran on cores 8
+  to 11 in four workers and was not timed.
+- The target sets, under the machine lock on cores 2 and 3, 11:52:43 to
+  11:59:54 (`bench/targets/after-classical.csv`, `net-after-classical.csv`):
+  - against `after-routing` (`summary --against … --counters`): no
+    verdict differs, the 140 rows both decide have equal counters, and
+    five undecided rows are refuted, each with its assignment checked
+    (`growing/16` to `/1024`, at the copy bound or the recursion limit
+    before; `mix/11`, at the time limit, refuted 6 ms after it);
+  - against the oracle `after-efficiency`: the same, with the five
+    counter differences `bench/TARGETS.md` records for `after-routing`;
+  - the net set equals `net-after-prunes` on all 64 rows.
+- The held-out sets of the gap study at 10 s on one thread: the ILL
+  collections KLE-01, KLE-cbn, KLE-cbv, KLE-IMP-CONJ, ILLTP-SYN and
+  -LCL in all three translations, and ILLTP-SYJ-cbv (850 problems).
+  The runs were `--copies none`, two shards on cores 2 and 3 under the
+  lock, before with `--classical-work 0` 11:59:54 to 12:10:11 and after
+  with the default 12:10:11 to 12:20:24.
+  - Both passes decide the same 721 rows (568 proved, 153 unprovable,
+    none late); no verdict changed and no row was newly decided.
+  - The rows the gap study found classically refutable there (SYN392 and
+    SYN040 in every translation, LCL181 in cbv) were decided by the
+    search in both passes: the engines decide them since the
+    comparison of 2026-10-15.
+  - What the refuter adds there is certificates: 90 of the 153
+    unprovable rows carry a checked refutation after, 15 before (the
+    counts' alone). None is against a checked proof (the probe above).
+  - The comparison's 26 classically refutable rows outside these sets
+    (`ILLTP-SYJ-01`, the tuning set) were not run.
+
+### The reviewer's findings
+
+One reviewer, Opus 5.5 at `high`, in a fresh context, read the refuter,
+`conclude`, `Disproof::check`, the search's conditions, `Refutations.v`
+against the trusted calculi, and the two exporters. It compiled the
+library and its tests, printed the assumptions of the six refutation
+theorems (all closed), and wrote and compiled 39 certificates with the
+command: one-sided in all four calculi, two-sided in both, every
+refutation kind, an `Unknown` turned classical, and seven "not valid".
+Each statement matched its input. No must-fix. Its findings, each
+answered:
+
+1. *Should-fix*: `write_disproof` took the first output member as the
+   conclusion of an intuitionistic goal and panicked with none. A
+   disproof read from JSON can carry such a goal, though the search
+   never gives one. Answer: the writer now answers `Error::GoalOutputs`
+   unless the goal has exactly one conclusion, pinned with the
+   reviewer's example in `disproof_certificates` (`qlsnqsyy`).
+2. *Note*: `check` does not validate the mode against the reading. The
+   reviewer judged this sound, since the one-sided claim is the stronger
+   one. Answer: nothing to do.
+3. *Note*: the overflow comments ignored repeated goal members. Answer:
+   reworded (`qlsnqsyy`); leaving an `i64` needs 2³¹ members.
+4. *Note*: in minimal logic an image assignment that makes the atom
+   `false` true gives no "not valid" certificate. Answer: correct
+   refusal (`not_valid` re-evaluates `False`), a coverage gap only,
+   recorded here.
+5. *Note*: the refutation overruns the time limit by its bound. Answer:
+   documented (README, `--classical-work`'s help, `cli.md`), and
+   measured above.
+
+Verdicts quoted:
+
+- (A) "Sound in every mode and for goals off the roots … `conclude`
+  touches only Unknown and Exhausted results, never Proved or another
+  refutation";
+- (B) "`check_classical`, `check_unbalanced` and `check_equation`
+  compute exactly the Rocq tests `falsifies`, `unbalanced` and
+  `fails_equation`";
+- (C) "Each conclusion is `~ ll R l` or `~ ill R G C` over the trusted
+  inductives … The only way to get a wrong goal is should-fix 1";
+- (D) "a correct, slightly stronger statement of non-validity … The
+  proof uses no axiom".
+
+### Left open
+
+- The comparison's driver (`bench/src/tools.rs`) still counts linlog's
+  `unprovable` as unchecked: its rows come from the command's JSON. The
+  harness's own runs now write `checked = ok` for a certified
+  refutation, and a pass of the driver over the JSON disproof with
+  `Disproof::check` would let the comparison mark them too.
+- `OneSided` and `StateEquation` have no check and no lemma (above).
+- `linlog check` reads proofs only; a disproof file is checked through
+  the library.
+- The tuning set's 26 classically refutable rows were not measured in
+  this session.
+
+### Workspaces
+
+- `../linlog-step31d`: this session's, every commit above, made with
+  `jj workspace add ../linlog-step31d -r znnkylzu`.
+- `../linlog-step31d-gate`: the gates', moved from commit to commit with
+  `jj new`.
+
+The main checkout was not touched. Commits from the documentation fix
+on are unsigned (`signing.behavior=drop`), since the passphrase's cache
+ran out at 12:21; the six before are signed.
+
+## Step 31: closing summary
+
+The step built linlog's own Rocq library and tied the command's
+certificates to it.
+
+- **31a**: the one-sided calculus, the proof term, the checker and its
+  soundness.
+- **31b**: Mix, affine and the two-sided calculus, and the exporter's
+  second kernel.
+- **31c**: the bridges to NanoYalla's `nanoll.v` and Yalla's
+  `nanoill.v`, and Mix's reduction.
+- **31d**: certified refutations, the classical refuter by default, and
+  `Disproof::check`.
+
+Every mode has a positive certificate over a plain inductive, and an
+unprovable verdict with an unbalanced atom, a failed count equation or a
+classical countermodel has a negative one. Every theorem is closed under
+the global context, and the NanoYalla export is as it was.
+
+The plan's items 1 to 8 are met. What is left is in the four sections
+"Left open":
+
+- the converse of `mix_to_ll`;
+- the bridges at other atom types;
+- the certificates' size on large proofs;
+- `OneSided`, the state equation and the comparison's checked
+  refutations.
