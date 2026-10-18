@@ -31,8 +31,11 @@ MLL stays in NP and first-order MALL is NEXPTIME-complete (Lincoln and
 Shankar, LICS 1994; Lincoln and Scedrov, TCS 1994); with exponentials
 the copy bound and its three-valued answer carry over. No problem
 library exists: the families gain first-order generators, and Moot's
-LinearOne is the prover to compare with. Opus 5.5 at `high`
-throughout; every change of a search, a criterion or the checker is
+LinearOne is the prover to compare with. The first session, which
+writes the step's plan and settles how quantifiers enter the data
+model, the proof term and the checker (decisions every later session
+builds on), on Fable 5.1 at `high`; the rest on Opus 5.5 at `high`
+(the re-evaluation of 2026-10-18 in `plan/README.md`); every change of a search, a criterion or the checker is
 reviewed by the panel step 26's prompt describes, its argument read on
 Fable 5.1 at `high`.
 

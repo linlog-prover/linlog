@@ -56,7 +56,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
 | 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
 | 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
-| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
+| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
 | 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37) | `39-top-cap.md` (written at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
 
 A step has a whole number, one prompt file named after it, one report
@@ -320,6 +320,81 @@ long-horizon Codex runs (2026-02-23). What step 28 takes from them:
   its own (Claude Code 2.1.234 and later); Claude Code at 2.1.293 or
   later, which fixed a compaction that took the last actions before it
   for done.
+
+Re-evaluated on 2026-10-18, at the review of step 31c, at the author's
+request, for the steps left (31d, 35b, 39, 32, 33, 36, 34, 37, 38) and for
+how they are orchestrated. Read that day: Claude Code's pages on `/goal`,
+scheduled tasks and `/loop`, sub-agents, agent teams, workflows, model
+configuration, context and memory, cross-session messaging and its best
+practices (code.claude.com/docs/en/…); the models overview, the effort
+page and the prompting guides for Opus 5.5, Sonnet 5.5 and Fable 5.1
+(platform.claude.com/docs/en/…); Anthropic's "How we built our
+multi-agent research system" (2025-06-13), "Building effective agents"
+(2024-12-19), "Effective context engineering for AI agents" (2025-09-29)
+and "Effective harnesses for long-running agents" (2025-11-26);
+Cognition's "Don't build multi-agents" (2025-06-12); Cemri et al., "Why
+Do Multi-Agent LLM Systems Fail?" (arXiv 2503.13657); and the
+self-preference studies cited above. What they say, and what follows:
+
+- **The lineup now has Haiku 5.5** (from $0.10/$0.50, default effort
+  `medium`, "high-volume, latency-sensitive tasks such as classification,
+  extraction, and routing"). Opus 5.5 at `medium` "matches or exceeds
+  Claude Opus 5 at `high`"; the docs' advice is to start Opus and Sonnet
+  at `medium` and to "reserve `xhigh` and `max` for work where you've
+  measured a quality gain", `xhigh` being for agentic coding of more than
+  half an hour with budgets in the millions of tokens. Fable 5.1 starts
+  at `high`; at `xhigh` it may draft a long deliverable twice. `max`
+  "is prone to overthinking". `/goal`'s judge is the small fast model
+  (Haiku 5.5 here), its cost "typically negligible".
+- **One writer per coupled change, many readers.** Multi-agent systems
+  cost about fifteen times a chat's tokens and pay off on parallel,
+  read-mostly work; coupled edits by several agents carry conflicting
+  implicit decisions (Cognition; the MAST failure modes are mostly
+  specification and verification). So: one step session writes a step's
+  code; sub-agents read, research and review; two step sessions run side
+  by side only when they touch different parts (31 and 35 did, with the
+  cores split and one lock), and the planning session stacks and checks
+  their chains, which caught two semantic conflicts on 2026-10-18 that
+  each chain's checks could not.
+- **Which Claude Code mechanism for what.** Agent teams are experimental,
+  one per session and not restored on resume, and a workflow is one run
+  with no input midway: neither fits a step of hours to days. So the
+  structure stays: the planning session starts each step session as a
+  top-level session (`plan/start-session.sh`) with its goal in the launch
+  prompt (a cross-session message is plain text, so a supervisor cannot
+  set a goal by message), hears of it by `notify_when_idle` and by its
+  messages, and checks it every two hours with a recurring cron (what
+  `/loop 2h …` would schedule; the docs prefer events to polling, and
+  CI is watched by a background task or the Monitor tool, not a loop).
+  `/goal` fits the step sessions: its judge sees only the conversation,
+  so every goal names the command output that proves each item, as
+  ours do; it has no turn cap of its own, so each goal now ends with an
+  impossibility clause that the judge can answer "impossible" to. The
+  Workflow tool is for a bounded fan-out, a panel or an audit, and only
+  when the author asks for one; panels otherwise run as `Agent` calls.
+- **The models by role, from step 31d on.**
+
+  | role | model and effort |
+  |---|---|
+  | the planning session (orchestration, reviews, prompts) | Opus 5.5 at `high` |
+  | a step session that writes code or proofs | Opus 5.5 at `high` (what steps 26 to 35 ran; long horizons, where the docs put `xhigh`, are split into sessions instead) |
+  | a design session whose decisions every later session builds on (38's first: quantifiers in the data model) | Fable 5.1 at `high` |
+  | a mechanised proof of a checker or a calculus | Fable 5.1 at `xhigh` only where Opus has visibly fallen short (31b to 31d ran on Opus) |
+  | a fresh-context reviewer | Opus 5.5 at `high`, briefed to report only what breaks correctness or a stated requirement |
+  | a panel's argument reader | Fable 5.1 at `high` |
+  | a panel's counterexamples and integers | Opus 5.5 and Sonnet 5.5 at `high` (step 26's panel) |
+  | a research or reading sub-agent | Sonnet 5.5 at `medium` |
+  | a mechanical extraction (a grep, a count, a table from files) | Haiku 5.5 at `medium`, or no agent |
+
+  No `max`. `medium` for a step session is the measured experiment
+  still owed: the docs recommend it, and no step here has tried it.
+- **Two habits from the prompting guides.** A session stops when the
+  checks its goal names pass, without rounds of review its brief does not
+  ask for (Sonnet 5.5's guide measured a third less cost at equal
+  quality), and a reviewer prompted to find gaps "will usually report
+  some, even when the work is sound": the brief scopes it to
+  correctness and the stated requirements, and the session answers
+  each finding rather than building for it. `conduct.md` carries both.
 
 ### How the prompts are written
 

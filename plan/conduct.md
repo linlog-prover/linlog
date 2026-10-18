@@ -85,6 +85,17 @@ brief does not name is asked for through you. One sub-agent, told only
 about memory, probed the command with `--jobs 100000` and loaded every
 core for five minutes.
 
+Pick each sub-agent's model for its job: Sonnet 5.5 at `medium` for
+research and reading, Haiku 5.5 or no agent at all for a mechanical
+extraction, Opus 5.5 at `high` for a reviewer, as `plan/README.md` ("Why
+these models and efforts") lists them. Brief a reviewer with the
+criteria it judges against and tell it to report only what breaks
+correctness or a stated requirement: a reviewer asked for gaps reports
+some even when the work is sound. Answer each finding in the report, and
+change the work only for those that hold. When the checks your goal
+names pass, stop: no further rounds of review, probing or polishing that
+the step does not ask for.
+
 Where soundness rests on a number (a counter, a length, an index, a
 bound), say at its declaration why it cannot reach its limit, or make
 reaching it a refusal, and test the refusal with an input that gets
