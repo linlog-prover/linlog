@@ -49,6 +49,9 @@ Workspace crates:
   terms as datatypes, checkers as functions and the theorems that a term
   they accept proves its sequent, which the certificates of the
   exporter's second kernel (`--kernel linlog`) rest on, and the
+  invariants every derivation keeps (the classical reading, an atom's
+  balance, the count equation) that its certificates of
+  non-derivability rest on, and the
   reduction of Mix to `?(⊥⊗⊥)`;
   `modules/rocq-linlog.nix` builds it as nixpkgs builds a Rocq library
   and compiles the certificates under `rocq/tests/` and the exporter's.

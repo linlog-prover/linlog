@@ -2033,9 +2033,9 @@ impl Options {
     pub const DEFAULT_CHECK: bool = true;
 
     /// The classical refuter's bound of the default options: 2²⁶ terms
-    /// evaluated, some tenths of a second at most on one thread, enough to
-    /// try every assignment of a goal of 18 atoms and 250 terms, and far
-    /// more where a partial assignment decides the reading.
+    /// evaluated, enough to try every assignment of a goal of 18 atoms
+    /// and 256 terms, and far more where a partial assignment decides the
+    /// reading.
     pub const DEFAULT_CLASSICAL_WORK: u64 = 1 << 26;
 
     /// The most threads the options name: more are taken as this many.

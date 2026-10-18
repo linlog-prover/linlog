@@ -357,8 +357,8 @@ with the values as its reason, and an exhausted one gets them as a
 certificate (the library's `Disproof::check` and the Rocq export below
 verify it). The search
 for the values runs after the proof search, past the time limit, within
-`--classical-work N` formulas evaluated (2²⁶ by default, a fraction of a
-second; `0` switches it off), and never changes a verdict the proof search
+`--classical-work N` formulas evaluated (2²⁶ by default; `0` switches
+it off), and never changes a verdict the proof search
 gave. The last sequent above is unprovable so, and `A |- !A`, true read
 classically, keeps the search's word:
 
@@ -471,7 +471,9 @@ unknown (MELL, classical, focus engine): the copy bound of 1 was reached after 1
 
 `--timeout` counts from the start of the command, so it covers reading
 and parsing the sequent as well as the search, and the command answers
-within a fraction of a second of it, on one thread and on several:
+within a fraction of a second of it, on one thread and on several; the
+classical refutation after the search runs past it within its own bound
+of work, which the example switches off:
 
 <!-- readme-check: machine -->
 ```console
