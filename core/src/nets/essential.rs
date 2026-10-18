@@ -6,7 +6,8 @@
 //! directed acyclicity and the dominator condition (Lamarche; Murawski
 //! and Ong), independently of the switchings.
 //!
-//! Every occurrence is input or output by the sequent's [`Reading`]. The
+//! Every occurrence is input or output by the sequent's
+//! [`Reading`](crate::occurrences::Reading). The
 //! edges run from an output occurrence to its parent, from an input
 //! connective to each of its input premises, and along every link from its
 //! input literal (`~a`) to its output literal (`a`). The one premise with
