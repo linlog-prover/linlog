@@ -35,6 +35,14 @@ second number (0.1.x to 0.2.0), anything else the third.
   intuitionistic derivation, and proves it from the proof term; Mix and
   affine weakening have one. The flake's `rocq-linlog` check compiles
   the exporter's certificates for it.
+- In the Rocq library, the theorems `mix_to_ll` and `mix_to_classical`
+  (`Mix.v`): a derivation with binary Mix gives one of `?(⊥⊗⊥), Γ`
+  without Mix and without cut. Beside the library, under `rocq/bridges/`,
+  the equivalences of `ll classical` with NanoYalla's `nanoll.ll` and of
+  `ill intuitionistic` with Yalla's `nanoill.ill`, which the flake's new
+  `rocq-bridges` check compiles against the two kernels' files as its
+  inputs pin them (Yalla is a new input), each closed under the global
+  context.
 
 ### Changed
 

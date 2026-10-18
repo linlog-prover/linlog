@@ -93,7 +93,16 @@ linlog`), against the installed library (`ROCQPATH` names both
 requires `Assumptions.v` to print `Closed under the global context` once
 per `Print Assumptions` line it has and nothing else (`rocq.md`); an
 assertion at evaluation compares `export::rocq::LINLOG` with the opam
-file's version; `bench.nix` is the `linlog-bench` package, the `bench`
+file's version; `rocq-bridges.nix` is the check `rocq-bridges`, which
+copies `nanoll.v` from the input `nanoyalla` and `microyalla/nanoill.v`
+from the input `yalla` (Yalla pinned to a commit, since its last
+release tag predates that file; LGPL, so fetched and never copied into
+the tree), compiles them unchanged under their own logical paths
+(`NanoYalla`, `Yalla.MicroYalla`, judged by exit status), then the
+modules of `rocq/bridges/` against them and the installed `rocq-linlog`
+(silence required) and `bridges/Assumptions.v` as `rocq-linlog` does
+its own; the package leaves the bridges out, so no certificate and no
+build of the library needs either input; `bench.nix` is the `linlog-bench` package, the `bench`
 check (the harness on the smallest instance of every family, the
 problem file, and an LLTP and a `.spec` file of the command's lock
 inputs, failing through `summary --strict` on a verdict against a known

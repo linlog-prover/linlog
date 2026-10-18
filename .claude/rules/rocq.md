@@ -18,7 +18,9 @@ was.
   `rocq-linlog.opam` (the archive's name for the library; the flake reads
   its `version:`), `theories/` (the library, logical path `Linlog`) and
   `tests/` (certificates the check compiles against the installed library,
-  not part of it). The build's artifacts (`.vo`, `.vos`, `.vok`, `.glob`,
+  not part of it) and `bridges/` (the equivalences with NanoYalla and
+  `nanoill.v`, not part of the package either, compiled by the check
+  `rocq-bridges`). The build's artifacts (`.vo`, `.vos`, `.vok`, `.glob`,
   `.*.aux`, `RocqMakefile`, `RocqMakefile.conf`, `.lia.cache`) are
   ignored; a `make` in `rocq/` from the devshell needs Rocq, which the
   devshell does not carry (`nix shell --inputs-from . nixpkgs#rocq-core
@@ -87,10 +89,10 @@ was.
   immediate subformulas as intuitionistic formulas, and the context of
   `ITopR` and of `IZeroL` (and the goal of `IZeroL`); `iderive` computes
   every node's sequent exactly, bottom-up, and a sequent has its one
-  conclusion by its type. The review proved, in probes kept outside the
-  repository, that `ill intuitionistic` derives exactly what `nanoill.v`
-  derives and that every derivation of `ill` has a term `icheck`
-  accepts, both closed under the global context.
+  conclusion by its type. `bridges/NanoIllBridge.v` proves that `ill
+  intuitionistic` derives exactly what `nanoill.v` derives; the review
+  proved, in a probe kept outside the repository, that every derivation
+  of `ill` has a term `icheck` accepts.
 - **Cut and quantifiers in the two-sided calculus** plug in as in the
   one-sided one: a constructor of `ill`, one of `iproof`, an arm of
   `iderive` and a case of `iderive_sound`.
@@ -101,8 +103,9 @@ was.
   every `rules` value, so Mix and affine soundness are instances.
 - **Every proof ends in `Qed`**; no `Admitted`, `admit`, `Axiom`,
   `Parameter` or `Conjecture` anywhere under `rocq/`. The check greps for
-  them and requires `Print Assumptions` of both theorems
-  (`tests/Assumptions.v`) to answer `Closed under the global context`, the
+  them and requires `Print Assumptions` of every theorem
+  (`tests/Assumptions.v`, and `bridges/Assumptions.v` in `rocq-bridges`)
+  to answer `Closed under the global context`, the
   only output it accepts, once per `Print Assumptions` line (the check
   counts them).
 - **Certificates** (`tests/Certificates.v`, `tests/Modes.v` and
@@ -120,14 +123,41 @@ was.
   intuitionistic proof states classical derivability of its one-sided
   translation; the exporter writes the two-sided statement for a
   two-sided derivation instead.
+- **`Mix.v`** (in the package, importing `Calculus` alone): `mix_to_ll`,
+  for every `rules` value, gives `⊢ ?(⊥⊗⊥), Γ` in the calculus with
+  `mix := false` and the same `weakening` from `⊢ Γ` in the calculus,
+  and `mix_to_classical` is its instance from Mix to `classical`. The
+  statements write `wn (tens bot bot)` and the record literal rather
+  than definitions of this file, so a reader checks them against
+  `Calculus.v` alone. The proof carries `?(⊥⊗⊥)` up the derivation,
+  turns a Mix into the `⊗` of the two premises under `⊥` and a
+  dereliction, and contracts the copies of two-premise rules. Only this
+  direction is proved: the converse needs cut in Yalla
+  (`ll_to_mix2_cut`), which the calculus has not, and is not proved
+  cut-free here.
+- **The bridges** (`bridges/NanoYallaBridge.v`, `bridges/NanoIllBridge.v`,
+  `bridges/Assumptions.v`) import the upstream files by their logical
+  paths, `From NanoYalla Require nanoll.` and `From Yalla.MicroYalla
+  Require nanoill.` (the paths of their own projects), and qualify every
+  name, since both define `map` and formulas. Each states, with atoms as
+  `nat` (the upstream `Atom`/`IAtom`), `ll classical l <-> inhabited
+  (nanoll.ll (map to_nanoyalla l))` and `ill intuitionistic G C <->
+  inhabited (nanoill.ill (map to_nanoill G) (to_nanoill C))`, and the
+  same over the upstream sequents with `of_…`; the translations map each
+  constructor to its namesake and are proved inverse. The upstream files
+  are LGPL: never copy them into the repository; to compile a bridge by
+  hand, copy `nanoll.v` and `nanoill.v` from the inputs' store paths into
+  a scratch directory and pass `-R nanoyalla NanoYalla -R microyalla
+  Yalla.MicroYalla -R bridges LinlogBridges` as the check does. A bridge
+  to another calculus (the Mix or affine ones) has no upstream kernel to
+  state it against in either file.
 - **`ll` is in `Prop`** ("a derivation exists"), as a textbook reads it,
   and `Permutation` is `Prop` too, while NanoYalla's and Yalla's kernels
   are in `Type`. A bridge therefore states `ll classical l <-> inhabited
   (NanoYalla.ll (map tr l))`, or proves a `Type`-valued soundness from
   `check … = true` directly (the term is data and every case analysis is
   on a Boolean or an option), never a `match` on `ll` into `Type`, which
-  Rocq refuses. The reviewer of 31a proved both directions of the
-  `inhabited` form in a probe, with atoms as `nat`.
+  Rocq refuses. The bridges state the `inhabited` form.
 - **Names.** `Soundness` exports `Check` and `Calculus`, so a certificate
   that imports it sees `take`, `diff`, `remove_one`, `derive`, `check`
   and the rules' constructors unqualified; a development that mixes

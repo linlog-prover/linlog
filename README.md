@@ -1524,7 +1524,12 @@ Built:
   its second kernel (`--kernel linlog`, the default for Mix, affine and
   intuitionistic proofs). The flake builds the library and compiles the
   certificates under `rocq/tests/` and those the command writes against
-  it.
+  it. The library proves that a derivation with Mix gives one of
+  `?(⊥⊗⊥), Γ` without Mix and without cut, and, in modules under
+  `rocq/bridges/` that the flake checks against the kernels' own pinned
+  files, that its classical calculus derives exactly the sequents
+  NanoYalla's derives and its intuitionistic calculus exactly those of
+  Yalla's standalone `nanoill.v`.
 - Parallel search, behind the library's `parallel` feature and on by
   default in the command: the focus engine runs the choices nearest the
   root on a thread pool, cube-and-conquer style, with the `&` premises in
@@ -1589,8 +1594,7 @@ Built:
 
 Planned, in roughly this order:
 
-- The Rocq library's bridges to NanoYalla and Yalla, the reduction of
-  Mix to `?(⊥⊗⊥)`, and certified refutations.
+- Certified refutations in the Rocq library.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for intuitionistic MLL (essential
