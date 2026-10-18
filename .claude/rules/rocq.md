@@ -79,6 +79,24 @@ and is unchanged by this library.
   String.eqb_spec term). vm_compute. reflexivity.` Rocq prints nothing for
   one it accepts, and lemmas `check … = false` pin what is rejected. The
   term of a proof with shared subproofs is the unfolded tree.
+  `vm_compute` leaves a cast the kernel checks with its virtual machine,
+  so the VM stands beside the kernel in what a certificate trusts;
+  `reflexivity` alone avoids that at a cost in time. A certificate of an
+  intuitionistic proof states classical derivability of its one-sided
+  translation until the two-sided statement exists, and says so.
+- **`ll` is in `Prop`** ("a derivation exists"), as a textbook reads it,
+  and `Permutation` is `Prop` too, while NanoYalla's and Yalla's kernels
+  are in `Type`. A bridge therefore states `ll classical l <-> inhabited
+  (NanoYalla.ll (map tr l))`, or proves a `Type`-valued soundness from
+  `check … = true` directly (the term is data and every case analysis is
+  on a Boolean or an option), never a `match` on `ll` into `Type`, which
+  Rocq refuses. The reviewer of 31a proved both directions of the
+  `inhabited` form in a probe, with atoms as `nat`.
+- **Names.** `Soundness` exports `Check` and `Calculus`, so a certificate
+  that imports it sees `take`, `diff`, `remove_one`, `derive`, `check`
+  and the rules' constructors unqualified; a development that mixes
+  libraries can `Require` without `Import` and qualify. The `let*`
+  notation is local to `Check.v`.
 - **Conventions.** The 9.1 reference manual (the Rocq nixpkgs ships) names
   the project file `_CoqProject` and the generated makefile `CoqMakefile`;
   the 9.3 manual names `_RocqProject` and `RocqMakefile`, which this

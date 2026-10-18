@@ -7,15 +7,19 @@
     cut-free derivation in the calculus whose optional rules [R] names.
     A sequent is a list of formulas read as a multiset, so the exchange
     rule [ex_r] admits any permutation. The rules are the textbook ones,
-    each acting on the first formula of its conclusion; nothing is
-    derived here, and nothing is assumed. *)
+    every rule but exchange and Mix acting on the first formula of its
+    conclusion; nothing is derived here, and nothing is assumed. The
+    derivations live in [Prop]: [ll R Γ] says that one exists. *)
 
 From Stdlib Require Import List Permutation.
 From Linlog Require Export Formulas.
 Import ListNotations.
 
 (** The optional rules of a calculus: classical linear logic has neither,
-    Mix adds the first, affine logic the second. *)
+    Mix adds the first, affine logic the second. Mix is the binary rule
+    alone, never the nullary one ([⊢] with nothing); [weakening] is the
+    rule [weakening_r] below, while the weakening of [?] formulas,
+    [wk_r], belongs to every calculus. *)
 Record rules : Type := Rules {
   mix : bool;        (** binary Mix: [⊢ Γ, Δ] from [⊢ Γ] and [⊢ Δ] *)
   weakening : bool;  (** weakening of any formula, not only of [?] ones *)

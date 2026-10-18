@@ -17,8 +17,9 @@ From Linlog Require Export Calculus Proofs.
 Import ListNotations.
 
 (** Sequencing of partial computations: [k] runs on the value of [e], and
-    [None] is failure. *)
-Notation "'let*' x ':=' e 'in' k" :=
+    [None] is failure. Local to this file, so that it clashes with no
+    other library's. *)
+Local Notation "'let*' x ':=' e 'in' k" :=
   (match e with Some x => k | None => None end)
   (at level 200, x pattern, e at level 100, k at level 200, right associativity).
 

@@ -5,7 +5,10 @@
     the sequent over the calculus, proved by the soundness theorem from a
     term the checker accepts by computation. Atoms are strings. Every
     rule of the calculus but Mix is exercised; the last lemmas pin what
-    the checker rejects. *)
+    the checker rejects. [vm_compute] leaves a cast that the kernel
+    checks with its virtual machine, which thereby stands beside the
+    kernel in what a certificate trusts; [reflexivity] alone avoids it at
+    a cost in time. *)
 
 From Stdlib Require Import List String.
 From Linlog Require Import Soundness.
