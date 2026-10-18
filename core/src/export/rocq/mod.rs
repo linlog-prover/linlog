@@ -803,8 +803,10 @@ pub fn write<'a>(
 /// [`Error::Refutation`] for a refutation the check does not accept,
 /// among them those that rest on the search ([`RefutationFault::Uncertified`]
 /// (crate::search::RefutationFault::Uncertified)), [`Error::Unsupported`]
-/// with [`Unsupported::Disproof`] where the options name NanoYalla, the
-/// errors of [`Forest::new`] and of the intuitionistic reading, and
+/// with [`Unsupported::Disproof`] where the options name NanoYalla,
+/// [`Error::GoalOutputs`] for an intuitionistic goal without exactly one
+/// conclusion, the errors of [`Forest::new`] and of the intuitionistic
+/// reading, and
 /// [`Error::WriteFailed`] when `out` refused the text.
 pub fn write_disproof(
     disproof: &crate::Disproof,

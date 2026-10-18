@@ -934,6 +934,19 @@ fn disproof_certificates() {
         write(&exhausted, &options),
         Err(Error::Refutation(_))
     ));
+    // A disproof read from a file whose intuitionistic goal has no
+    // conclusion holds, but has no two-sided statement.
+    let headless: linlog::Disproof = serde_json::from_str(
+        r#"{"version":2,"sequent":{"terms":[{"D":0},{"V":1}],"roots":[0,1],"atoms":["a","b"],
+        "antecedents":1},"mode":"intuitionistic","refutation":{"kind":"classical",
+        "assignment":[true,false]},"goal":[0]}"#,
+    )
+    .unwrap();
+    assert_eq!(headless.check(), Ok(()));
+    assert!(matches!(
+        write(&headless, &options),
+        Err(Error::GoalOutputs { count: 0, .. })
+    ));
     let nanoyalla = options.clone().with_kernel(Some(Kernel::NanoYalla));
     assert!(matches!(
         write(&disproof("A |- B", classical), &nanoyalla),

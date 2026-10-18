@@ -590,7 +590,9 @@ fn check_unbalanced(
     }
     // Per occurrence the least and the greatest excess, `None` where a
     // `⊤` absorbs or copies of the atom's literals can add any number:
-    // sums of at most the forest's 2³² literals, within an `i64`.
+    // sums of ±1 over the goal's members, each a subtree of the forest's
+    // fewer than 2³² occurrences: a goal past 2³¹ members would be needed
+    // to leave an `i64`, which no memory holds.
     let mut span: Vec<Option<(i64, i64)>> = vec![None; forest.len()];
     let (mut least, mut most) = (0, 0);
     for &member in goal {
@@ -665,7 +667,8 @@ fn check_equation(
             }
         }
     }
-    // Counts of at most 2³² occurrences each: the sum is exact.
+    // Counts over the goal's members, each a subtree of fewer than 2³²
+    // occurrences: far within an `i64` for any goal a memory holds.
     let needed = tensors as i64 - pars as i64 - ones as i64 + bottoms as i64 + 2;
     let formulas = goal.len() as u64;
     let stated = Equation {

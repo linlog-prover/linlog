@@ -531,6 +531,17 @@ pub(super) fn disproof(
     } else {
         None
     };
+    // A two-sided statement has one conclusion, which a search's goal has
+    // and a disproof read from a file may lack.
+    if let Some(reading) = &reading {
+        let count = goal
+            .iter()
+            .filter(|&&o| reading.position(o) == Side::Output)
+            .count();
+        if count != 1 {
+            return Err(Error::GoalOutputs { count });
+        }
+    }
     if options.form == Form::Standalone {
         let prelude = options
             .prelude
@@ -563,7 +574,7 @@ pub(super) fn disproof(
             .iter()
             .copied()
             .find(|&o| reading.position(o) == Side::Output)
-            .expect("an intuitionistic goal has its conclusion");
+            .expect("the goal has one conclusion");
         iformula(&forest, reading, &mut text, conclusion, true);
         "i"
     } else {
