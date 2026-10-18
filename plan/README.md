@@ -55,8 +55,9 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 33 |
 | 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
 | 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
-| 37 | The focused inverse method (two sessions) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
+| 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
 | 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
+| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37) | `39-top-cap.md` (written at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -2372,3 +2373,56 @@ client follows it (step 32).
   author: Zenodo yes; linlog was not written in their employment; the
   web front end's code EUPL-1.2 and its content CC BY 4.0
   (`32-web.md`).
+- 2026-10-18: the release of 0.1.0, by the author with the planning
+  session (Zenodo on, both crates published by hand from e6bde788 with
+  a token since revoked, the signed tag `v0.1.0`, whose workflow made the
+  GitHub release; Zenodo archived it as 10.5281/zenodo.23448589, every
+  version 10.5281/zenodo.23448588, now in README and `CITATION.cff`).
+  Trusted Publishing for both crates with "Trusted Publishing Only", the
+  environment `crates-io` (the author as required reviewer, tags `v*`
+  only), the repository's description, topics and website
+  (docs.rs/linlog), and two rulesets: `main` against deletion and force
+  pushes, `release tags` against deleting or moving a `v*` tag.
+- 2026-10-18: review of steps 31a, 31b and 35a (three sessions beside
+  each other from sonqsxku, cores split, the daemon's builds and the
+  timed runs under one lock):
+  - 31a (Fable 5.1 at xhigh): the Rocq library under `rocq/`, the
+    one-sided calculus with Mix and weakening as parameters, the proof
+    term, the checker and `soundness`, closed under the global context;
+    its reviewer proved the calculus equivalent to NanoYalla's.
+  - 31b (Opus 5.5 at high): Mix and affine as instances, the two-sided
+    calculus `ill` (nanoill.v's rules, reviewed and proved equivalent
+    to it) with `soundness_ill`, and the exporter's kernel
+    `rocq::Kernel::Linlog` behind `--kernel`. Two points for the author:
+    the two-sided theorem is over two-sided proof terms that name each
+    rule's side, not "check under the one-succedent condition" (departs
+    from the design: a one-sided `top` does not say whether it is ⊤ or
+    0); and with no kernel named, `-i --format rocq` now writes the
+    two-sided certificate (NanoYalla did certify intuitionistic proofs,
+    as one-sided classical ones; `--kernel nanoyalla` keeps that).
+  - 35a (Opus 5.5 at high, the panel): the net engine's three prunes,
+    each with its argument and a differential test against every
+    linking; the Horn encodings refuted in hundreds of nodes instead of
+    millions. The routing (departs from the design: no static feature):
+    the focused engines were faster on every MLL and IMLL row both
+    decide, so the dispatch has no net row and the net engine takes a
+    goal over only at the focused engines' recursion limit or memory
+    bound with a forced linking. The balance prune never fires on any
+    family (+1 % on one journey); a stronger one (Hall's condition) is
+    a follow-up in the report.
+
+  The review read 31a's and 31b's trusted files against the textbook,
+  rebuilt both Rocq checks (closed under the global context, five
+  theorems), searched `rocq/` for axioms, confirmed the NanoYalla
+  snapshots unchanged, and compared 35a's three target sets with their
+  oracles itself (no verdict changed; the Horn rows' counters fell by
+  design; the routing changed nothing on the net set). The three chains
+  were stacked on the released `main` (31, then 35a; the changelog and
+  CLAUDE.md conflicts resolved by hand), and the gate and `nix flake
+  check` passed at the head after 35a folded in two fixes the stacking
+  showed (31b's README examples named the net engine; 35a's pool stop
+  test ran on an instance its prunes now refute in a millisecond). The
+  author adopted the gap study's R2, R3 and R4 (2026-10-18): R2 goes to
+  31d, answering a search's `Unknown` by default; R3 is step 39; R4
+  stays step 37, its prompt corrected. Next: 31c (the bridges) and 35b
+  (essential nets), side by side again.

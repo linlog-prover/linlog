@@ -31,4 +31,15 @@ Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
 the panel step 26's prompt describes, its argument read on Fable 5.1 at
 `high`.
 
+**Aimed by the comparison's gap study** (R4 of
+`plan/notes/research/comparison-gaps.md`, adopted by the author on
+2026-10-18). The premise above that the library ends at the copy bound
+is out of date: outside the nets it ends at the time limit (the note's
+2.4). Step 30b closed the levels of its class A (R1) and step 39 caps
+class B (R3); this engine's case is class C's long proofs (9 rows, 2
+stems directly) and a second refuter by saturation for what R1 and R3
+leave of A and B. Its first measurement comes after step 39, on the
+held-out sets and the 384 intuitionistic rows no tool decides, at the
+longer limit step 29 proposed, never on the 122 rows Sympli wins alone.
+
 Deliverable: thematic jj commits; `plan/reports/37-inverse.md`.

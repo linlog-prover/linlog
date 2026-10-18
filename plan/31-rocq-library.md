@@ -43,8 +43,18 @@ starts; step 35's sessions run beside them on the same machine (see
   compiling the certificates of both kernels. Opus 5.5 at `high`.
 - **31c: the bridges** (the third stage of 4): NanoYalla's `ll`, Yalla's
   `nanoill.v`, and Mix's reduction to `?(⊥⊗⊥), Γ`. Opus 5.5 at `high`.
-- **31d: the certified refutations** (item 8). Opus 5.5 at `high`;
-  `planning` folds it into 31c if 31c leaves room.
+- **31d: the certified refutations** (item 8), and the classical
+  refuter in the library (R2 of `plan/notes/research/comparison-gaps.md`,
+  adopted by the author on 2026-10-18): after a search that ends
+  `Unknown`, a bounded test of the sequent's classical reading answers
+  `Unprovable` with the falsifying assignment as its `Refutation`, **by
+  default** (the author's word on the note's open question 1: for this
+  refuter alone `refute_unknown`'s default of off, C2, no longer
+  applies; a decided verdict never changes), its certificate item 8's
+  classical reading. The note's "Measure": no row it refutes has a
+  checked proof by any tool, a test of the reading against checked
+  proofs of generated sequents, and the held-out sets. Opus 5.5 at
+  `high`.
 
 ## What step 30 left you
 

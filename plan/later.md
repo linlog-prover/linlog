@@ -758,7 +758,8 @@ lists the probes owed (A1 to A5). The author decides where they go.
 `plan/reports/30-baseline-release.md`):* the cut entries are read only
 within their generation, A1's four rows are refuted at levels 5 to 12,
 and five rows without a copy bound are in the target set. R2, R3 and R4
-stay open; KLE075+1, which Sympli refutes against its header and which
+were adopted by the author on 2026-10-18: R2 in session 31d (on by
+default), R3 as step 39, R4 in step 37; KLE075+1, which Sympli refutes against its header and which
 has no classical countermodel, is now refuted by linlog in all three
 translations too.
 
