@@ -872,3 +872,88 @@ fn render_bounds_come_first() {
         );
     }
 }
+
+/// Returns the disproof the default search gives `input` in `mode`.
+fn disproof(input: &str, mode: Mode) -> linlog::Disproof {
+    let sequent: Sequent = input.parse().unwrap();
+    match prove(&sequent, mode, &Options::default()).unwrap().verdict {
+        Verdict::Unprovable(disproof) => *disproof,
+        other => panic!("{input}: {other:?}"),
+    }
+}
+
+/// Every refutation `Disproof::check` accepts has a certificate for
+/// linlog's library, one-sided and two-sided, pinned as
+/// `linlog/refuted_*.v`, which the `rocq-linlog` check compiles; the
+/// others, and NanoYalla, have none. An ordinary sequent whose image an
+/// assignment refutes has a certificate over `Prop` that it is not
+/// valid, pinned as `not_valid_*.v`, which the `rocq` check compiles.
+#[cfg(feature = "serialize")]
+#[test]
+fn disproof_certificates() {
+    let options = rocq::Options::default().with_form(Form::Standalone);
+    let write = |disproof: &linlog::Disproof, options: &rocq::Options| {
+        let mut out = String::new();
+        rocq::write_disproof(disproof, options, &mut out).map(|()| out)
+    };
+    let classical = Mode::CLASSICAL;
+    let equation: linlog::Disproof = serde_json::from_str(
+        r#"{"version":1,"sequent":{"terms":[{"V":0},{"D":1},{"⊗":[0,1]}],"roots":[2,0],
+        "atoms":["A","B"],"antecedents":1},"mode":"intuitionistic","refutation":{"kind":
+        "equation","formulas":2,"needed":3,"tensors":1,"pars":0,"ones":0,"bottoms":0,
+        "mix":false}}"#,
+    )
+    .unwrap();
+    for (name, disproof) in [
+        ("classical", disproof("A + B |- A", classical)),
+        (
+            "classical_affine",
+            disproof("A + B |- A", classical.with_affine()),
+        ),
+        ("unbalanced", disproof("A |- A * A", classical)),
+        ("equation", disproof("|- A * ~A", classical)),
+        (
+            "equation_mix",
+            disproof("|- (A * ~A) * 1", classical.with_mix()),
+        ),
+        (
+            "ill_classical",
+            disproof("A + B |- A", Mode::INTUITIONISTIC),
+        ),
+        ("ill_unbalanced", disproof("A |- B", Mode::INTUITIONISTIC)),
+        ("ill_equation", equation),
+    ] {
+        assert_eq!(disproof.check(), Ok(()), "{name}");
+        snapshot(
+            &format!("linlog/refuted_{name}.v"),
+            &write(&disproof, &options).unwrap(),
+        );
+    }
+    let exhausted = disproof("A & B |- A * B", classical);
+    assert!(matches!(
+        write(&exhausted, &options),
+        Err(Error::Refutation(_))
+    ));
+    let nanoyalla = options.clone().with_kernel(Some(Kernel::NanoYalla));
+    assert!(matches!(
+        write(&disproof("A |- B", classical), &nanoyalla),
+        Err(Error::Unsupported(Unsupported::Disproof))
+    ));
+
+    use linlog::ordinary::{self, Logic};
+    for (name, input, logic) in [
+        ("lk", "a -> b, b |- a", Logic::Classical),
+        ("lj", "|- a \\/ (b -> a)", Logic::Intuitionistic),
+    ] {
+        let sequent: ordinary::Sequent = input.parse().unwrap();
+        let translation = ordinary::Options::default().with_logic(logic).translation();
+        let image = ordinary::translate(&sequent, logic, translation, &Limits::default()).unwrap();
+        let outcome = prove(image.sequent(), image.mode(), &Options::default()).unwrap();
+        let Verdict::Unprovable(refuted) = outcome.verdict else {
+            panic!("{input} is not valid");
+        };
+        let mut out = String::new();
+        rocq::write_not_valid(&image, &refuted, &options, &mut out).unwrap();
+        snapshot(&format!("not_valid_{name}.v"), &out);
+    }
+}

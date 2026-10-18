@@ -72,6 +72,12 @@
             # Without atoms or hypotheses, a certificate binds nothing.
             linlog prove --logic classical --format rocq --standalone --output cli_lk_true.v 'true'
             linlog prove --logic intuitionistic --format rocq --standalone --output cli_lj_true.v 'true'
+            # Not valid, by an assignment of the image's classical refutation;
+            # the command exits with 1 for a sequent that is not valid.
+            linlog prove --logic classical --format rocq --standalone --output cli_lk_not_valid.v \
+              'a -> b, b |- a' || [ $? -eq 1 ]
+            linlog prove --logic intuitionistic --format rocq --standalone --output cli_lj_not_valid.v \
+              'a \/ (b -> a)' || [ $? -eq 1 ]
             for file in *.v; do
               rocq compile -R nanoyalla NanoYalla "$file" 2>&1 | tee log
               if [ -s log ]; then exit 1; fi

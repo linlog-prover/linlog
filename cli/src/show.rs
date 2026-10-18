@@ -469,6 +469,30 @@ pub(crate) fn over_memory(size: &Size, limit: u64) -> String {
     )
 }
 
+/// Writes the certificate of a disproof into `out` after `prefix`, for
+/// `--format rocq`: that linlog's library does not derive the sequent,
+/// or for an ordinary sequent (`image`) that it is not valid over `Prop`;
+/// or says why there is none, a refutation that rests on the search
+/// among them, which leaves the verdict as it is.
+pub(crate) fn disproof_into(
+    disproof: &linlog::Disproof,
+    image: Option<&linlog::ordinary::Image>,
+    show: &Show,
+    prefix: Option<&str>,
+    out: &mut impl Write,
+) -> Shown {
+    let mut out = Prefixed { out, prefix };
+    let written = match image {
+        Some(image) => rocq::write_not_valid(image, disproof, &show.styles.rocq, &mut out),
+        None => rocq::write_disproof(disproof, &show.styles.rocq, &mut out),
+    };
+    match written {
+        // The output's own error, which finishing it reports.
+        Ok(()) | Err(Error::WriteFailed) => Shown::Written,
+        Err(error) => Shown::LeftOut(format!("no certificate: {error}")),
+    }
+}
+
 /// Writes the derivation of a proof into `out` as `show` asks, two-sided
 /// in intuitionistic mode, after a newline: a text tree, a LaTeX or
 /// Typst proof tree, an SVG document or a Rocq script; or says why it is

@@ -201,6 +201,13 @@ From Linlog Require Import IntuitionisticCheck.
 Import ListNotations.
 Open Scope string_scope.";
 
+/// The prelude of a certificate of non-derivability for linlog's library:
+/// the imports of its refutation theorems, of lists and of strings.
+pub const LINLOG_REFUTATION_PRELUDE: &str = "From Stdlib Require Import List String.
+From Linlog Require Import Refutations.
+Import ListNotations.
+Open Scope string_scope.";
+
 /// The prelude of a linear certificate: the import of NanoYalla's
 /// `macroll`, which brings the kernel's `ll`, its formulas and its derived
 /// rules into scope.
@@ -309,6 +316,18 @@ pub enum Unsupported {
         "a compact derivation names one formula of a run of structural rules, so it has no certificate: build the derivation with every rule"
     )]
     Compact,
+    /// A disproof was to be written for NanoYalla, which states
+    /// derivations only.
+    #[error(
+        "NanoYalla's kernel states derivations only, so a refutation has its certificate in linlog's library"
+    )]
+    Disproof,
+    /// The refutation of an ordinary sequent's image is no assignment that
+    /// falsifies the sequent read classically.
+    #[error(
+        "only a classical assignment that falsifies the sequent certifies that it is not valid, and its image's refutation is none"
+    )]
+    NotValid,
 }
 
 /// Rocq's keywords, which no atom and no lemma may take.
@@ -764,6 +783,62 @@ pub fn write<'a>(
             crate::ordinary::rocq::write(derivation, options, out, stop)
         }
     }
+}
+
+/// Writes the certificate that a disproof's goal has no derivation, for
+/// linlog's library ([`Kernel::Linlog`], whatever the mode): the lemma
+/// `options.lemma` stating that the mode's calculus does not derive the
+/// goal, `~ ll R Γ` one-sided or, in intuitionistic mode, `~ ill R Γ C`
+/// two-sided, with `R` the mode's rules, proved by the library's theorem
+/// of the refutation's invariant (`classical_refutation`,
+/// `unbalanced_refutation`, `equation_refutation`, or their two-sided
+/// forms) from the assignment's true atoms or the unbalanced atom, which
+/// Rocq's `vm_compute` checks. The refutations [`Disproof::check`]
+/// verifies have one, and the disproof is checked first. Standalone, the
+/// file starts with `options.prelude`, by default
+/// [`LINLOG_REFUTATION_PRELUDE`].
+///
+/// # Errors
+///
+/// [`Error::Refutation`] for a refutation the check does not accept,
+/// among them those that rest on the search ([`RefutationFault::Uncertified`]
+/// (crate::search::RefutationFault::Uncertified)), [`Error::Unsupported`]
+/// with [`Unsupported::Disproof`] where the options name NanoYalla, the
+/// errors of [`Forest::new`] and of the intuitionistic reading, and
+/// [`Error::WriteFailed`] when `out` refused the text.
+pub fn write_disproof(
+    disproof: &crate::Disproof,
+    options: &Options,
+    out: &mut impl Write,
+) -> Result<(), Error> {
+    if options.kernel == Some(Kernel::NanoYalla) {
+        return Err(Unsupported::Disproof.into());
+    }
+    linlog::disproof(disproof, options, out)
+}
+
+/// Writes the certificate that an ordinary sequent is not valid, from its
+/// image's disproof: the lemma `options.lemma` stating `~ (forall a b :
+/// Prop, Γ -> Δ)`, the sequent as [`write()`] states it over `Prop`,
+/// proved by instantiating each atom with `True` or `False` as the
+/// image's classical refutation assigns it, which makes the formula
+/// false. It needs no library, in classical and intuitionistic logic
+/// alike; standalone, it starts with `options.prelude` where one is
+/// given.
+///
+/// # Errors
+///
+/// [`Error::Unsupported`] with [`Unsupported::NotValid`] where the image's
+/// refutation is no classical assignment or does not falsify the
+/// sequent, [`Error::Refutation`] where it does not falsify the image,
+/// and [`Error::WriteFailed`] when `out` refused the text.
+pub fn write_not_valid(
+    image: &crate::ordinary::Image,
+    disproof: &crate::Disproof,
+    options: &Options,
+    out: &mut impl Write,
+) -> Result<(), Error> {
+    crate::ordinary::rocq::not_valid(image, disproof, options, out)
 }
 
 /// Writes the certificate of a linear derivation for the kernel the

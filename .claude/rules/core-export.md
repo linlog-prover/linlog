@@ -409,6 +409,40 @@ for NanoYalla. What the code relies on:
   `core/tests/snapshots/linlog/`, which the flake's `rocq-linlog` check
   compiles, and `rocq::LINLOG` is asserted equal to the opam file's
   version.
+- **Certificates of non-derivability** (`rocq::write_disproof`,
+  `linlog::disproof`): for linlog's library whatever the mode
+  (`Unsupported::Disproof` where the options name NanoYalla), the lemma
+  `~ ll (atom := string) R [Γ]`, or `~ ill … R [Γ] C` in intuitionistic
+  mode with the reading's goal as for proofs, `R` the mode's rules alone
+  (a disproof records no rules used), proved by `apply
+  (THEOREM …). vm_compute. reflexivity.` with `classical_refutation _
+  (fun a => existsb (String.eqb a) [true atoms])`,
+  `unbalanced_refutation String.eqb "a" _` or `equation_refutation _`
+  (`i…` two-sided). It runs `Disproof::check` first and returns its
+  error, so a refutation that rests on the search
+  (`RefutationFault::Uncertified`) or that does not hold has no
+  certificate: the library's tests and the Rust check accept the same
+  refutations under the same conditions, and a certificate is written
+  exactly when it compiles. The formula printers (`atom`, `formula`,
+  `iformula`) are free functions over the forest that the proof writer
+  calls too. The goal of a disproof off the roots is its members. The
+  command writes one for `--format rocq` on an unprovable verdict
+  (`disproof_into` in `cli/src/show.rs`), and a line `no certificate:
+  …` on standard error where there is none, the verdict unchanged.
+  Snapshots `core/tests/snapshots/linlog/refuted_*.v`; the
+  `rocq-linlog` check compiles them and four the command writes.
+- **Not valid over `Prop`** (`rocq::write_not_valid`,
+  `ordinary::rocq::not_valid`): from an ordinary sequent's image and its
+  disproof with `Refutation::Classical`, the atoms valued by name in the
+  image (an atom it lacks is false) and the ordinary sequent evaluated
+  over its arena in order (each node after its subformulas): only an
+  assignment that makes every hypothesis true and every formula right of
+  `⊢` false is written, as `~ (forall a b : Prop, Γ -> Δ)` with `Γ` and
+  `Δ` as the positive certificate states them, proved by `intro H.
+  specialize (H True False …). tauto.`, in LK and LJ alike; otherwise
+  `Unsupported::NotValid`. Snapshots `not_valid_lk.v` and
+  `not_valid_lj.v` (compiled by the `rocq` check, beside two the
+  command writes).
 - **NanoYalla** (`export/rocq/mod.rs`): the kernel is NanoYalla `NANOYALLA`
   (Click & coLLecT's `nanoyalla/`: `nanoll.v` is the trusted `ll`
   inductive over list sequents, `macroll.v` the derived rules), and the

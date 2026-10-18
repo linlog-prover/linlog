@@ -1,0 +1,9 @@
+$ linlog prove --logic classical --format rocq 'a -> b, b |- a'
+--- status 1
+--- stdout
+(* not valid (classical logic by the affine translation into affine MALL, focus engine): the image is unprovable: the classical reading is false where b is true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology *)
+Lemma certificate : ~ (forall a b : Prop, (a -> b) -> b -> a).
+Proof.
+  intro H. specialize (H False True). tauto.
+Qed.
+--- stderr

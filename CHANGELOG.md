@@ -75,6 +75,18 @@ second number (0.1.x to 0.2.0), anything else the third.
   harness writes its result in the `checked` column of an unprovable
   row.
 
+- Certificates of non-derivability in the exporter, for linlog's
+  library: `rocq::write_disproof` writes, for a disproof whose refutation
+  `Disproof::check` accepts, the lemma `~ ll R Γ` (or `~ ill R Γ C` in
+  intuitionistic mode) proved by the library's refutation theorem by
+  computation, with the prelude `rocq::LINLOG_REFUTATION_PRELUDE`, and
+  `rocq::write_not_valid` the lemma `~ (forall a b : Prop, F)` for an
+  ordinary sequent whose image an assignment refutes, by instantiating
+  its atoms; `rocq::Unsupported` gains `Disproof` (NanoYalla named) and
+  `NotValid`. The command's `--format rocq` writes them for an
+  unprovable or not valid verdict, and says on standard error where
+  there is none.
+
 ### Wire forms
 
 - Level 2: the refutation kind `classical`, `{"kind": "classical",

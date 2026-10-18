@@ -5,7 +5,9 @@ use crate::argument_parsing::{Format, ProveArgs};
 use crate::io;
 use crate::limit::{Deadline, Notice};
 use crate::settings::{Given, Threads, time_limit};
-use crate::show::{Show, Shown, derivation, every_steps, net_into, nets_exist, note};
+use crate::show::{
+    Show, Shown, derivation, disproof_into, every_steps, net_into, nets_exist, note,
+};
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
@@ -307,6 +309,9 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
                 )?,
                 _ => derivation(proof, mode, &show, halt, why, prefix.as_deref(), &mut out)?,
             },
+            (Verdict::Unprovable(disproof), Format::Rocq, false) => {
+                disproof_into(disproof, image.as_ref(), &show, prefix.as_deref(), &mut out)
+            }
             _ => Shown::Nothing,
         };
         let drawn = matches!(shown, Shown::Written | Shown::Rendered(_));

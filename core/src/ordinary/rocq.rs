@@ -12,12 +12,13 @@
 //! a stack of its own, so a derivation of any height is written.
 
 use super::derivation::Side;
-use super::{Derivation, Formulas, Logic, NodeId, Rule, Symbols};
+use super::{Derivation, Formulas, Image, Logic, Node, NodeId, Rule, Symbols};
 use crate::Error;
 use crate::export::Form;
-use crate::export::rocq::{CLASSICAL_PRELUDE, Options, identifiers};
+use crate::export::rocq::{CLASSICAL_PRELUDE, Options, Unsupported, identifiers};
 use crate::hash::HashMap;
 use crate::proofs::InfId;
+use crate::search::{Classical, Disproof, Refutation};
 use std::fmt::Write;
 
 /// The names the terms use, which an atom never gets.
@@ -486,5 +487,112 @@ pub(crate) fn write(
         }
     }
     write!(out, "{closing}).\nQed.\n")?;
+    Ok(())
+}
+
+/// Writes the certificate that an ordinary sequent is not valid, from the
+/// classical refutation of its image: the lemma `options.lemma` stating
+/// `~ (forall a b : Prop, Γ -> Δ)`, `Γ` and `Δ` as the positive
+/// certificate states them, proved by instantiating every atom with
+/// `True` or `False` as the image's assignment gives it (an atom the
+/// image lacks with `False`) and `tauto`, which decides the closed
+/// formula left. The assignment is first checked to make every
+/// hypothesis true and every formula right of `⊢` false; standalone, the
+/// file starts with `options.prelude` where one is given, since the
+/// certificate needs no library.
+pub(crate) fn not_valid(
+    image: &Image,
+    disproof: &Disproof,
+    options: &Options,
+    out: &mut impl Write,
+) -> Result<(), Error> {
+    let Refutation::Classical(Classical { assignment }) = disproof.refutation() else {
+        return Err(Unsupported::NotValid.into());
+    };
+    disproof.check()?;
+    let sequent = image.ordinary();
+    let formulas = sequent.formulas();
+    let linear = image.sequent();
+    let value = |name: &str| linear.atom(name).is_some_and(|a| assignment[a.index()]);
+    // Every subformula precedes the formulas built from it.
+    let mut truth: Vec<bool> = Vec::with_capacity(formulas.len());
+    for id in 0..formulas.len() {
+        let of = |k: NodeId| truth[k.index()];
+        let node = formulas.node(NodeId(id as u32));
+        let t = match node {
+            Node::Atom(a) => value(&formulas.atom_names()[a as usize]),
+            Node::True => true,
+            Node::False => false,
+            Node::Not(a) => !of(a),
+            Node::And(a, b) => of(a) && of(b),
+            Node::Or(a, b) => of(a) || of(b),
+            Node::Implies(a, b) => !of(a) || of(b),
+            Node::Iff(a, b) => of(a) == of(b),
+        };
+        truth.push(t);
+    }
+    let holds = |id: NodeId| truth[id.index()];
+    if !sequent.left().iter().all(|&h| holds(h)) || sequent.right().iter().any(|&d| holds(d)) {
+        return Err(Unsupported::NotValid.into());
+    }
+    let mut atoms = identifiers(formulas.atom_names(), options.lemma.as_str());
+    for atom in &mut atoms {
+        while USED.contains(&atom.as_str()) {
+            atom.push('\'');
+        }
+    }
+    if options.form == Form::Standalone
+        && let Some(prelude) = &options.prelude
+    {
+        write!(out, "{}\n\n", prelude.trim_end())?;
+    }
+    let shown = |id: NodeId| {
+        let mut text = String::new();
+        let negation = matches!(formulas.node(id), Node::Not(_));
+        if negation {
+            text.push('(');
+        }
+        formulas
+            .write(&mut text, id, true, &ROCQ, |o, a| {
+                o.write_str(&atoms[a as usize])
+            })
+            .expect("a string takes the text");
+        if negation {
+            text.push(')');
+        }
+        text
+    };
+    let mut statement = String::new();
+    if !atoms.is_empty() {
+        write!(statement, "forall {} : Prop, ", atoms.join(" ")).expect("a string");
+    }
+    for &h in sequent.left() {
+        write!(statement, "{} -> ", shown(h)).expect("a string");
+    }
+    let right: Vec<String> = sequent.right().iter().map(|&d| shown(d)).collect();
+    if right.is_empty() {
+        statement.push_str("False");
+    } else {
+        statement.push_str(&right.join(" \\/ "));
+    }
+    let instances: Vec<&str> = (0..atoms.len())
+        .map(|a| {
+            if value(&formulas.atom_names()[a]) {
+                "True"
+            } else {
+                "False"
+            }
+        })
+        .collect();
+    let specialize = if instances.is_empty() {
+        String::new()
+    } else {
+        format!(" specialize (H {}).", instances.join(" "))
+    };
+    write!(
+        out,
+        "Lemma {} : ~ ({statement}).\nProof.\n  intro H.{specialize} tauto.\nQed.",
+        options.lemma
+    )?;
     Ok(())
 }

@@ -207,6 +207,29 @@ const CASES: &[Case] = &[
             "!A |- A * !A",
         ],
     ),
+    call(
+        "format-rocq-refuted",
+        &["prove", "--format", "rocq", "A |- B"],
+    ),
+    call(
+        "format-rocq-refuted-ill",
+        &["prove", "-i", "--format", "rocq", "A + B |- A"],
+    ),
+    call(
+        "format-rocq-uncertified",
+        &["prove", "--format", "rocq", "A & B |- A * B"],
+    ),
+    call(
+        "format-rocq-not-valid",
+        &[
+            "prove",
+            "--logic",
+            "classical",
+            "--format",
+            "rocq",
+            "a -> b, b |- a",
+        ],
+    ),
     call("format-net", &["prove", "--net", "A * B |- B * A"]),
     call(
         "format-net-svg",

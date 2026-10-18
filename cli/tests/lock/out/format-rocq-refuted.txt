@@ -1,0 +1,10 @@
+$ linlog prove --format rocq 'A |- B'
+--- status 1
+--- stdout
+(* unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms *)
+Lemma certificate : ~ ll (atom := string) classical [covar "A"; var "B"].
+Proof.
+  apply (unbalanced_refutation String.eqb "A" _).
+  vm_compute. reflexivity.
+Qed.
+--- stderr

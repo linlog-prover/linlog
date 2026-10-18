@@ -113,6 +113,13 @@
             linlog prove -i --format rocq --standalone --output cli_ill_units.v '0, top |- top'
             linlog prove --kernel linlog --format rocq --standalone --output cli_classical.v \
               '!(A & B) |- !A * !B'
+            # Certificates of non-derivability, one-sided and two-sided; the
+            # command exits with 1 for an unprovable sequent.
+            linlog prove --format rocq --standalone --output cli_refuted.v 'A, A -o B |- B * B' || [ $? -eq 1 ]
+            linlog prove --mix --format rocq --standalone --output cli_refuted_mix.v '|- (A * ~A) * 1' || [ $? -eq 1 ]
+            linlog prove -i --format rocq --standalone --output cli_refuted_ill.v 'A + B |- A & B' || [ $? -eq 1 ]
+            linlog prove --copies 1 --format rocq --standalone --output cli_refuted_unknown.v \
+              '!(A -o A * A), A |- ?B' || [ $? -eq 1 ]
             for file in *.v; do
               rocq compile "$file" 2>&1 | tee log
               if [ -s log ]; then exit 1; fi

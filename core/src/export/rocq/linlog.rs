@@ -20,12 +20,15 @@
 //!
 //! Atoms are Rocq strings, which take any name, so no atom is renamed.
 
-use super::{LINLOG_PRELUDE, LINLOG_TWO_SIDED_PRELUDE, Options, Unsupported};
+use super::{
+    LINLOG_PRELUDE, LINLOG_REFUTATION_PRELUDE, LINLOG_TWO_SIDED_PRELUDE, Options, Unsupported,
+};
 use crate::Error;
 use crate::export::Form;
 use crate::export::notation::{Step, flush, walk};
 use crate::occurrences::{Forest, Member, OccId, Reading, Side};
 use crate::proofs::{Derivation, InfId, Rule};
+use crate::search::{Classical, Disproof, Refutation};
 use crate::sequents::{Stop, Stops, Term};
 use std::fmt::Write;
 
@@ -207,104 +210,17 @@ impl<'a> Writer<'a> {
         }
     }
 
-    /// Writes an atom's name as a Rocq string, `"` doubled.
-    fn atom(&mut self, o: OccId) {
-        let sequent = self.forest.sequent();
-        let (Term::Atom(a) | Term::DualAtom(a)) = sequent.term(self.forest.term(o)) else {
-            unreachable!("a literal")
-        };
-        self.out.push('"');
-        self.out
-            .push_str(&sequent.atom_names()[a.index()].replace('"', "\"\""));
-        self.out.push('"');
-    }
-
-    /// Writes the one-sided formula at `o` in the library's constructors,
-    /// in brackets if `argument` is set and it is an application.
+    /// Writes the one-sided formula at `o`, in brackets if `argument` is
+    /// set and it is an application.
     fn formula(&mut self, o: OccId, argument: bool) {
-        let forest = self.forest;
-        for visit in Stops::new(o, argument, |k| (forest.left(k), forest.right(k))) {
-            match visit {
-                Stop::Enter(k, argument) => {
-                    let t = forest.sequent().term(forest.term(k));
-                    let nullary = matches!(t, Term::One | Term::Bot | Term::Top | Term::Zero);
-                    if argument && !nullary {
-                        self.out.push('(');
-                    }
-                    let name = match t {
-                        Term::Atom(_) => "var ",
-                        Term::DualAtom(_) => "covar ",
-                        Term::One => "one",
-                        Term::Bot => "bot",
-                        Term::Top => "top",
-                        Term::Zero => "zero",
-                        Term::Tensor(..) => "tens ",
-                        Term::Par(..) => "parr ",
-                        Term::With(..) => "awith ",
-                        Term::Plus(..) => "aplus ",
-                        Term::Bang(_) => "oc ",
-                        Term::Quest(_) => "wn ",
-                    };
-                    self.out.push_str(name);
-                    if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {
-                        self.atom(k);
-                        if argument {
-                            self.out.push(')');
-                        }
-                    }
-                }
-                Stop::Between(_) => self.out.push(' '),
-                Stop::Exit(_, argument) => {
-                    if argument {
-                        self.out.push(')');
-                    }
-                }
-            }
-        }
+        formula(self.forest, &mut self.out, o, argument);
     }
 
-    /// Writes the intuitionistic formula at `o`, read on the side of `⊢`
-    /// its position gives, in brackets if `argument` is set and it is an
-    /// application.
+    /// Writes the intuitionistic formula at `o`, in brackets if `argument`
+    /// is set and it is an application.
     fn iformula(&mut self, o: OccId, argument: bool) {
-        let forest = self.forest;
         let reading = self.derivation.reading().expect("a two-sided derivation");
-        for visit in Stops::new(o, argument, |k| (forest.left(k), forest.right(k))) {
-            match visit {
-                Stop::Enter(k, argument) => {
-                    let t = forest.sequent().term(forest.term(k));
-                    let output = reading.position(k) == Side::Output;
-                    let nullary = matches!(t, Term::One | Term::Bot | Term::Top | Term::Zero);
-                    if argument && !nullary {
-                        self.out.push('(');
-                    }
-                    let name = match (t, output) {
-                        (Term::Atom(_) | Term::DualAtom(_), _) => "ivar ",
-                        (Term::One | Term::Bot, _) => "ione",
-                        (Term::Top, true) | (Term::Zero, false) => "itop",
-                        (Term::Zero, true) | (Term::Top, false) => "izero",
-                        (Term::Tensor(..), true) | (Term::Par(..), false) => "itens ",
-                        (Term::Par(..), true) | (Term::Tensor(..), false) => "ilmap ",
-                        (Term::With(..), true) | (Term::Plus(..), false) => "iwith ",
-                        (Term::Plus(..), true) | (Term::With(..), false) => "iplus ",
-                        (Term::Bang(_) | Term::Quest(_), _) => "ioc ",
-                    };
-                    self.out.push_str(name);
-                    if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {
-                        self.atom(k);
-                        if argument {
-                            self.out.push(')');
-                        }
-                    }
-                }
-                Stop::Between(_) => self.out.push(' '),
-                Stop::Exit(_, argument) => {
-                    if argument {
-                        self.out.push(')');
-                    }
-                }
-            }
-        }
+        iformula(self.forest, reading, &mut self.out, o, argument);
     }
 
     /// Writes a node's constructor and the formulas it names, opening a
@@ -361,10 +277,10 @@ impl<'a> Writer<'a> {
         let is_quest = |o: OccId| matches!(forest.sequent().term(forest.term(o)), Term::Quest(_));
         match inference.rule.rule {
             Rule::Ax => {
-                let atom = inference.sequent[0].occ();
+                let literal = inference.sequent[0].occ();
                 self.separate();
                 self.out.push_str("(Ax ");
-                self.atom(atom);
+                atom(self.forest, &mut self.out, literal);
                 self.out.push(')');
                 self.spaced = true;
             }
@@ -421,10 +337,10 @@ impl<'a> Writer<'a> {
         let side = inference.rule.side;
         let constructor = match (inference.rule.rule, side) {
             (Rule::Ax, _) => {
-                let atom = inference.sequent[0].occ();
+                let literal = inference.sequent[0].occ();
                 self.separate();
                 self.out.push_str("(IAx ");
-                self.atom(atom);
+                atom(self.forest, &mut self.out, literal);
                 self.out.push(')');
                 self.spaced = true;
                 return;
@@ -491,4 +407,215 @@ impl<'a> Writer<'a> {
         };
         self.node(id, constructor, children, true);
     }
+}
+
+/// Writes an atom's name as a Rocq string, `"` doubled.
+fn atom(forest: &Forest, out: &mut String, o: OccId) {
+    let sequent = forest.sequent();
+    let (Term::Atom(a) | Term::DualAtom(a)) = sequent.term(forest.term(o)) else {
+        unreachable!("a literal")
+    };
+    out.push_str(&string(&sequent.atom_names()[a.index()]));
+}
+
+/// Writes the one-sided formula at `o` in the library's constructors,
+/// in brackets if `argument` is set and it is an application.
+fn formula(forest: &Forest, out: &mut String, o: OccId, argument: bool) {
+    for visit in Stops::new(o, argument, |k| (forest.left(k), forest.right(k))) {
+        match visit {
+            Stop::Enter(k, argument) => {
+                let t = forest.sequent().term(forest.term(k));
+                let nullary = matches!(t, Term::One | Term::Bot | Term::Top | Term::Zero);
+                if argument && !nullary {
+                    out.push('(');
+                }
+                let name = match t {
+                    Term::Atom(_) => "var ",
+                    Term::DualAtom(_) => "covar ",
+                    Term::One => "one",
+                    Term::Bot => "bot",
+                    Term::Top => "top",
+                    Term::Zero => "zero",
+                    Term::Tensor(..) => "tens ",
+                    Term::Par(..) => "parr ",
+                    Term::With(..) => "awith ",
+                    Term::Plus(..) => "aplus ",
+                    Term::Bang(_) => "oc ",
+                    Term::Quest(_) => "wn ",
+                };
+                out.push_str(name);
+                if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {
+                    atom(forest, out, k);
+                    if argument {
+                        out.push(')');
+                    }
+                }
+            }
+            Stop::Between(_) => out.push(' '),
+            Stop::Exit(_, argument) => {
+                if argument {
+                    out.push(')');
+                }
+            }
+        }
+    }
+}
+
+/// Writes the intuitionistic formula at `o`, read on the side of `⊢`
+/// its position gives, in brackets if `argument` is set and it is an
+/// application.
+fn iformula(forest: &Forest, reading: &Reading, out: &mut String, o: OccId, argument: bool) {
+    for visit in Stops::new(o, argument, |k| (forest.left(k), forest.right(k))) {
+        match visit {
+            Stop::Enter(k, argument) => {
+                let t = forest.sequent().term(forest.term(k));
+                let output = reading.position(k) == Side::Output;
+                let nullary = matches!(t, Term::One | Term::Bot | Term::Top | Term::Zero);
+                if argument && !nullary {
+                    out.push('(');
+                }
+                let name = match (t, output) {
+                    (Term::Atom(_) | Term::DualAtom(_), _) => "ivar ",
+                    (Term::One | Term::Bot, _) => "ione",
+                    (Term::Top, true) | (Term::Zero, false) => "itop",
+                    (Term::Zero, true) | (Term::Top, false) => "izero",
+                    (Term::Tensor(..), true) | (Term::Par(..), false) => "itens ",
+                    (Term::Par(..), true) | (Term::Tensor(..), false) => "ilmap ",
+                    (Term::With(..), true) | (Term::Plus(..), false) => "iwith ",
+                    (Term::Plus(..), true) | (Term::With(..), false) => "iplus ",
+                    (Term::Bang(_) | Term::Quest(_), _) => "ioc ",
+                };
+                out.push_str(name);
+                if matches!(t, Term::Atom(_) | Term::DualAtom(_)) {
+                    atom(forest, out, k);
+                    if argument {
+                        out.push(')');
+                    }
+                }
+            }
+            Stop::Between(_) => out.push(' '),
+            Stop::Exit(_, argument) => {
+                if argument {
+                    out.push(')');
+                }
+            }
+        }
+    }
+}
+
+/// Writes the certificate of a disproof for linlog's library: the lemma
+/// that the calculus of the disproof's mode does not derive its goal,
+/// one-sided over `ll` or, in intuitionistic mode, two-sided over `ill`,
+/// proved by the theorem of the refutation's invariant from the atom or
+/// the assignment, which the library's test of the invariant accepts by
+/// computation. The disproof is checked first, so only a refutation that
+/// holds is written.
+pub(super) fn disproof(
+    disproof: &Disproof,
+    options: &Options,
+    out: &mut impl Write,
+) -> Result<(), Error> {
+    disproof.check()?;
+    let forest = Forest::new(disproof.sequent())?;
+    let goal: Vec<OccId> = match disproof.goal() {
+        None => forest.roots().to_vec(),
+        // The check found every member in the forest.
+        Some(members) => members
+            .iter()
+            .filter_map(|m| m.occurrence(&forest))
+            .collect(),
+    };
+    let mode = disproof.mode();
+    let reading = if mode.is_intuitionistic() {
+        Some(Reading::new(&forest).map_err(Error::NotIntuitionistic)?)
+    } else {
+        None
+    };
+    if options.form == Form::Standalone {
+        let prelude = options
+            .prelude
+            .as_deref()
+            .unwrap_or(LINLOG_REFUTATION_PRELUDE);
+        write!(out, "{}\n\n", prelude.trim_end())?;
+    }
+    let mut text = format!("Lemma {} : ~ ", options.lemma);
+    let side = if let Some(reading) = &reading {
+        let rules = if mode.is_affine() {
+            "affine"
+        } else {
+            "intuitionistic"
+        };
+        text.push_str("ill (atom := string) ");
+        text.push_str(rules);
+        text.push_str(" [");
+        let hypotheses = goal
+            .iter()
+            .copied()
+            .filter(|&o| reading.position(o) == Side::Input);
+        for (i, o) in hypotheses.enumerate() {
+            if i > 0 {
+                text.push_str("; ");
+            }
+            iformula(&forest, reading, &mut text, o, false);
+        }
+        text.push_str("] ");
+        let conclusion = goal
+            .iter()
+            .copied()
+            .find(|&o| reading.position(o) == Side::Output)
+            .expect("an intuitionistic goal has its conclusion");
+        iformula(&forest, reading, &mut text, conclusion, true);
+        "i"
+    } else {
+        let rules = match (mode.has_mix(), mode.is_affine()) {
+            (false, false) => "classical",
+            (true, false) => "{| mix := true; weakening := false |}",
+            (false, true) => "{| mix := false; weakening := true |}",
+            (true, true) => "{| mix := true; weakening := true |}",
+        };
+        text.push_str("ll (atom := string) ");
+        text.push_str(rules);
+        text.push_str(" [");
+        for (i, &o) in goal.iter().enumerate() {
+            if i > 0 {
+                text.push_str("; ");
+            }
+            formula(&forest, &mut text, o, false);
+        }
+        text.push(']');
+        ""
+    };
+    let names = forest.sequent().atom_names();
+    let theorem = match disproof.refutation() {
+        Refutation::Classical(Classical { assignment }) => {
+            let truths: Vec<String> = (0..names.len())
+                .filter(|&a| assignment[a])
+                .map(|a| string(&names[a]))
+                .collect();
+            format!(
+                "{side}classical_refutation _ (fun a => existsb (String.eqb a) [{}])",
+                truths.join("; ")
+            )
+        }
+        Refutation::Unbalanced(unbalanced) => format!(
+            "{side}unbalanced_refutation String.eqb {} _",
+            string(&names[unbalanced.atom.index()])
+        ),
+        Refutation::Equation(_) => format!("{side}equation_refutation _"),
+        Refutation::Exhausted | Refutation::OneSided(_) | Refutation::StateEquation(_) => {
+            unreachable!("the check certifies three refutations alone")
+        }
+    };
+    write!(
+        text,
+        ".\nProof.\n  apply ({theorem}).\n  vm_compute. reflexivity.\nQed."
+    )
+    .expect("a string takes the text");
+    out.write_str(&text)?;
+    Ok(())
+}
+
+/// Returns an atom's name as a Rocq string, `"` doubled.
+fn string(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
 }

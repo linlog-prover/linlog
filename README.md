@@ -354,7 +354,8 @@ as "or", `-o` as implication, `1` and `top` true and `bot` and `0` false,
 and looks for truth values of its atoms that make it false. No provable
 sequent has them, in any mode, so an unknown search becomes unprovable
 with the values as its reason, and an exhausted one gets them as a
-certificate (`check`, and the Rocq export below, verify it). The search
+certificate (the library's `Disproof::check` and the Rocq export below
+verify it). The search
 for the values runs after the proof search, past the time limit, within
 `--classical-work N` formulas evaluated (2²⁶ by default, a fraction of a
 second; `0` switches it off), and never changes a verdict the proof search
@@ -1017,6 +1018,34 @@ Proof.
 Qed.
 ```
 
+An unprovable sequent gets a certificate too where its refutation is one
+of the three that `check` verifies (an unbalanced atom, the count
+equation, a classical assignment): a lemma that the mode's calculus does
+not derive the sequent, proved by the library's theorem of that invariant
+from the atom or the assignment's true atoms, which the library's test
+accepts by computation. A refutation that rests on the search has none,
+which a line on standard error says:
+
+```console
+$ linlog prove --format rocq "A |- B"
+(* unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms *)
+Lemma certificate : ~ ll (atom := string) classical [covar "A"; var "B"].
+Proof.
+  apply (unbalanced_refutation String.eqb "A" _).
+  vm_compute. reflexivity.
+Qed.
+$ linlog prove -i --format rocq "A + B |- A"
+(* unprovable (IALL, intuitionistic, additive engine): the classical reading is false where B is true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology *)
+Lemma certificate : ~ ill (atom := string) intuitionistic [iplus (ivar "A") (ivar "B")] (ivar "A").
+Proof.
+  apply (iclassical_refutation _ (fun a => existsb (String.eqb a) ["B"])).
+  vm_compute. reflexivity.
+Qed.
+$ linlog prove --format rocq "A & B |- A * B"
+no certificate: a refutation of kind `exhausted` rests on the search and has no check
+(* unprovable (MALL, classical, focus engine): the search was exhaustive *)
+```
+
 The library is `rocq/` of this repository, on Rocq 9 and its standard
 library alone (`nix build .#rocq-linlog` builds it, or `make` in `rocq/`
 with Rocq on the path); compile a certificate with its theories on the
@@ -1102,7 +1131,10 @@ library writes them (`nix build .#iltp` fetches its 274 propositional
 problems), and the batch takes a directory of them. `--format latex`,
 `typst`, `svg`, `png` and `pdf` draw the derivation of LK or LJ, and
 `--format rocq` writes a certificate over `Prop` that needs no library
-(a classical one the standard library's excluded middle):
+(a classical one the standard library's excluded middle), and for a
+sequent that is not valid, where its image's refutation is a classical
+assignment, the lemma that the formula does not hold for all
+propositions, proved by instantiating the atoms with `True` and `False`:
 
 ```console
 $ echo 'fof(pel1, conjecture, (p => q) <=> (~ q => ~ p)).' > pel1.p
@@ -1115,6 +1147,12 @@ $ linlog prove --logic classical --format rocq 'a \/ ~a'
 Lemma certificate : forall a : Prop, (a \/ ~ a).
 Proof.
   exact (fun (a : Prop) => NNPP (a \/ ~ a) (fun k'1 : ~ (a \/ ~ a) => (let k'2 : ~ a := fun x' => k'1 (or_introl x') in let k'3 : ~ (~ a) := fun x' => k'1 (or_intror x') in (k'3 (fun h'4 : a => (k'2 h'4)))))).
+Qed.
+$ linlog prove --logic classical --format rocq 'a -> b, b |- a'
+(* not valid (classical logic by the affine translation into affine MALL, focus engine): the image is unprovable: the classical reading is false where b is true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology *)
+Lemma certificate : ~ (forall a b : Prop, (a -> b) -> b -> a).
+Proof.
+  intro H. specialize (H False True). tauto.
 Qed.
 ```
 
@@ -1467,7 +1505,9 @@ Built:
 - Automatic proof search for every fragment, MLL to full LL and IMLL to
   ILL, with or without Mix, returning a checked proof (the checker runs
   on every proof, in every build), "unprovable" after
-  an exhaustive search, or "unknown" with the reason: a focused sequent
+  an exhaustive search or where the sequent is false read classically
+  (a falsifying assignment, looked for within a bound after any search
+  that did not prove it), or "unknown" with the reason: a focused sequent
   engine over dyadic sequents of occurrence bitsets with a memo, counts
   that prune sequents and direct the search for the split of a `⊗`
   (contexts of any width), one representative for formulas that occur
@@ -1549,6 +1589,15 @@ Built:
   files, that its classical calculus derives exactly the sequents
   NanoYalla's derives and its intuitionistic calculus exactly those of
   Yalla's standalone `nanoill.v`.
+- Certified refutations: the library proves that every derivable
+  sequent, in every mode, is a tautology read classically, that without
+  weakening an atom's literals balance and a multiplicative sequent
+  meets the count equation, so that `--format rocq` writes, for an
+  unprovable sequent with such a refutation, the lemma that the calculus
+  does not derive it, checked by computation; the library's
+  `Disproof::check` verifies the same refutations without the search, and
+  an ordinary sequent that is not valid gets the lemma over `Prop` by
+  instantiating its atoms.
 - Parallel search, behind the library's `parallel` feature and on by
   default in the command: the focus engine runs the choices nearest the
   root on a thread pool, cube-and-conquer style, with the `&` premises in
@@ -1572,7 +1621,7 @@ Built:
   says which bound or limit ended the search, after how long and at which
   copy bound, with the flag that changes it, and an "unprovable" says why
   where the counts of the sequent tell (an atom whose literals cannot
-  pair up, the count equation that fails).
+  pair up, the count equation that fails) or an assignment falsifies it.
 - The `linlog` command: `prove`, `check`, `interact` and `seq`, with time
   limits, Ctrl-C, statistics, JSON output, proof nets, LaTeX, Typst,
   SVG and Rocq output, and `--jobs`, `--pool-after` and `--deterministic`
@@ -1613,7 +1662,8 @@ Built:
 
 Planned, in roughly this order:
 
-- Certified refutations in the Rocq library.
+- Certified refutations beyond the cheap ones: countermodels of the
+  other logics, failure certificates of the search.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for intuitionistic MLL (essential
