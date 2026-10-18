@@ -4,7 +4,7 @@ $ linlog prove --input-format json
 
 --- status 0
 --- stdout
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ─────── ax
 ⊢ ~A, A
 --- stderr

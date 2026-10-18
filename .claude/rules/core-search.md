@@ -256,9 +256,7 @@ copies they had are gone (F103, F104).
   goes where it wins and names its feature as a variant of `Feature`
   (step 27's Horn programs, for one); the order of the rows is the
   priority. Rows now: two formulas of the additive fragment with a
-  connective or unit (`TwoFormulas`) to `additive`; unit-free MLL in a
-  linear mode, the roots with no literal more than `NET_MULTIPLICITY`
-  (2) times (`FewEqualLiterals`) to `net`; a Horn program with a
+  connective or unit (`TwoFormulas`) to `additive`; a Horn program with a
   clause under `!` in any mode (`PetriNet`: the fragment has
   exponentials and `horn::is_net` finds a program with a `?` member in
   the goal itself, whatever fragment the options assert) to `horn`; the
@@ -279,28 +277,42 @@ copies they had are gone (F103, F104).
   Horn engine is two to three times faster at the same node counts. The
   row's feature is the fragment's exponentials and the shape, nothing
   finer.
-- **Why the net row is kept** (measured at step 26 on one thread): on
-  unit-free MLL with few equal literals the focused engines are as fast
-  as the net engine or faster (the classical `wide` sequents from 8 to
-  1 024 literals within a factor of three; intuitionistic wide and
-  curried sequents of 1 024 and 4 096 atoms 7 to 18 times faster), but
-  they recurse once per link of a chain of stable sequents, and only the
-  net engine decides `wide-m1` at 2 048 (0.64 s) and the chain
-  `a₀, a₀ ⊸ a₁, … ⊢ aₙ` at 1 024 and 4 096 links (71 ms, 0.54 s) within
-  the default recursion limit. The feature that would pick the faster
-  engine is the depth a derivation needs, which no pass computes; a
-  focused search that hands over to the net engine at the recursion
-  limit is the follow-up. Multiplicity is the proxy for where the net
-  engine loses: equal literals are interchangeable partners, and the
-  linking search pays a permutation's worth of nodes for every wrong
-  choice among them (Horn encodings: Partition and 3-Partition 10 to
-  10⁵ times slower, intuitionistic and classical alike, `bench/RESULTS.md`
-  and the step-26 run).
+- **The net engine has no row; it takes over at a limit**
+  (`handed_over`, in `answer_goal`): where the engine the dispatch
+  picked ends at `RecursionLimit` or `MemoryLimit` on a goal the net
+  engine admits (unit-free MLL, the roots, no weakening) and no engine
+  is forced, the net engine decides the goal with the same options,
+  limits, stop and work count; the outcome names it, its counters
+  replace the first search's, and `work` counts both. Measured on the
+  pruned net engine (session 35a, cores 2 and 3, one thread, 60 s):
+  wherever both decide, the focused engines win, classical, Mix and
+  intuitionistic (`wide` of 8 to 4 096 literals 1.07 to 3.6 times,
+  intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 10
+  to 26 times, the Horn encodings 1.6 to 32 000 times, the net engine
+  out of time at 60 s on Partition with 9 to 20 items); the net engine
+  decides only where they stop: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` at
+  1 024 and 4 096 links (the two-sided engine at the recursion limit
+  after 11 and 46 ms, the net engine 26 ms and 0.43 s) and `wide-m1` at
+  4 096 (the focused engine at the memory bound after 0.75 s, the net
+  engine 2.1 s; 0.79 and 2.2 s with Mix), while `wide-m2` and `wide-m3`
+  at 4 096 the focused engine proves in 0.78 s. No static feature
+  separates those (multiplicity, width and size do not: `wide-m1` and
+  `wide-m2` at 4 096 differ only in multiplicity), so the route is the
+  limit itself. The cost of a handover is the first search's time up to
+  its limit. A goal that is not the roots (an open goal of a session)
+  is never handed over: the net engine refuses it.
+- **Equal literals were the old proxy** (`NET_MULTIPLICITY`, removed):
+  before the prunes the linking search paid a permutation's worth of
+  nodes per wrong choice among interchangeable partners, and the row
+  kept MLL with a literal more than twice off the net engine. The
+  symmetry breaks removed most of that (`core-nets.md`), and the
+  measurement above removed the row.
 - **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
   would have no goal); then the same rows, with `two_sided` in place of
-  `focus`, and `net` on unit-free IMLL by the embedding (below).
+  `focus`, and `net` on unit-free IMLL by the embedding (below) where
+  the two-sided engine stops at a limit.
   `Options::engine` forces an engine; `Engine::Net` on a fragment outside
   unit-free MLL, asserted or detected, or in affine mode, `Focus` in
   intuitionistic mode and `TwoSided` in classical mode, `Additive` on

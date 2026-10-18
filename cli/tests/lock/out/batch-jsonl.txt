@@ -4,5 +4,5 @@ $ linlog prove --input-format jsonl --file -
 
 --- status 0
 --- stdout
--:1: provable (MLL, classical, net engine)
+-:1: provable (MLL, classical, focus engine)
 --- stderr

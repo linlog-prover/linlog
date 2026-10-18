@@ -469,9 +469,9 @@ mod tests {
     use crate::search::{Engine, Options, Verdict, prove};
     use std::sync::atomic::Ordering;
 
-    /// Searches through one pool, on the net engine and on the focused
-    /// one, share the one runtime the first built, and each verdict is
-    /// that of a search on a runtime of its own.
+    /// Searches through one pool, on the net engine (forced) and on the
+    /// focused one, share the one runtime the first built, and each
+    /// verdict is that of a search on a runtime of its own.
     #[test]
     fn searches_share_a_kept_runtime() {
         let pool = Pool::new();
@@ -486,6 +486,11 @@ mod tests {
         ];
         for (text, engine, provable) in cases {
             let sequent = text.parse().unwrap();
+            let forced = Some(engine).filter(|&e| e == Engine::Net);
+            let (alone, pooled) = (
+                alone.clone().with_engine(forced),
+                pooled.clone().with_engine(forced),
+            );
             let fresh = prove(&sequent, Mode::CLASSICAL, &alone).unwrap();
             let kept = prove(&sequent, Mode::CLASSICAL, &pooled).unwrap();
             assert_eq!(kept.engine, engine, "{text}");

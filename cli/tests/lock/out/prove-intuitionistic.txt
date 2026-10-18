@@ -1,7 +1,7 @@
 $ linlog prove -i 'A, A -o B |- B'
 --- status 0
 --- stdout
-provable (IMLL, intuitionistic, net engine)
+provable (IMLL, intuitionistic, two-sided engine)
 ───── ax   ───── ax
 A ⊢ A      B ⊢ B
 ──────────────── ⊸L

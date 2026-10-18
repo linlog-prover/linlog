@@ -14,7 +14,7 @@ use anyhow::{Context, Result, bail};
 use linlog::export::{latex, svg, typst};
 use linlog::ordinary::{self, Logic, Translation};
 use linlog::proofs::TextOptions;
-use linlog::search::{Bias, batch};
+use linlog::search::{Bias, Engine, batch};
 use linlog::{Limits, Mode, Options, Proof, Sequent, Verdict, ViewOptions};
 use std::fmt::Write as _;
 use std::hint::black_box;
@@ -51,7 +51,7 @@ pub static JOURNEYS: &[Journey] = &[
     Journey {
         name: "search-wide-m2-256",
         summary: "wide-m2/256, every literal twice, the net engine",
-        run: || search_family("wide-m2", 256, 0),
+        run: || search_net("wide-m2", 256),
     },
     Journey {
         name: "search-spec-chain",
@@ -96,12 +96,12 @@ pub static JOURNEYS: &[Journey] = &[
     Journey {
         name: "check-qbf-20-2",
         summary: "the checker on the proof of qbf/20#2",
-        run: || check("qbf", 20, 2),
+        run: || check("qbf", 20, 2, None),
     },
     Journey {
         name: "check-wide-m1-2048",
-        summary: "the checker on the proof of wide-m1/2048",
-        run: || check("wide-m1", 2048, 0),
+        summary: "the checker on the net engine's proof of wide-m1/2048",
+        run: || check("wide-m1", 2048, 0, Some(Engine::Net)),
     },
     Journey {
         name: "derivation-chain-64",
@@ -201,6 +201,15 @@ fn search_family(family: &str, size: u32, index: u32) -> Result<()> {
     decided(&outcome.verdict, problem.provable)
 }
 
+/// Decides an instance of a family on the net engine, which the dispatch
+/// gives only what the focused engines stop on.
+fn search_net(family: &str, size: u32) -> Result<()> {
+    let problem = instance(family, size, 0)?;
+    let options = options(&problem.sequent, problem.copies).with_engine(Some(Engine::Net));
+    let outcome = measured(|| linlog::prove(&problem.sequent, problem.mode, &options))?;
+    decided(&outcome.verdict, problem.provable)
+}
+
 /// Decides an instance of a family in intuitionistic mode.
 fn search_intuitionistic(family: &str, size: u32) -> Result<()> {
     let problem = instance(family, size, 0)?;
@@ -231,11 +240,16 @@ fn decided(verdict: &Verdict, provable: bool) -> Result<()> {
 
 /// A proof of a provable instance of a family.
 fn proof(family: &str, size: u32, index: u32) -> Result<Proof> {
+    proof_by(family, size, index, None)
+}
+
+/// The proof of an instance by `engine`, or by the dispatch's engine.
+fn proof_by(family: &str, size: u32, index: u32, engine: Option<Engine>) -> Result<Proof> {
     let problem = instance(family, size, index)?;
     match linlog::prove(
         &problem.sequent,
         problem.mode,
-        &options(&problem.sequent, problem.copies),
+        &options(&problem.sequent, problem.copies).with_engine(engine),
     )?
     .verdict
     {
@@ -336,9 +350,10 @@ fn search_spec() -> Result<()> {
     decided(&outcome.verdict, true)
 }
 
-/// Checks the proof of a provable instance of a family.
-fn check(family: &str, size: u32, index: u32) -> Result<()> {
-    let proof = proof(family, size, index)?;
+/// Checks the proof of a provable instance of a family, found by `engine`
+/// or by the dispatch's engine.
+fn check(family: &str, size: u32, index: u32, engine: Option<Engine>) -> Result<()> {
+    let proof = proof_by(family, size, index, engine)?;
     measured(|| proof.check(Mode::CLASSICAL))?;
     Ok(())
 }

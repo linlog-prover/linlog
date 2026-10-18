@@ -1,7 +1,7 @@
 $ linlog prove --compact always 'A, B, C |- A * (B * C)'
 --- status 0
 --- stdout
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
              ─────── ax   ─────── ax
              ⊢ ~B, B      ⊢ ~C, C
 ─────── ax   ──────────────────── ⊗

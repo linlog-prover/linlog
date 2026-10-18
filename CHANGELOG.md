@@ -43,6 +43,19 @@ second number (0.1.x to 0.2.0), anything else the third.
   classical proof is written for NanoYalla exactly as before, and
   `--kernel nanoyalla` keeps the NanoYalla certificate of an
   intuitionistic proof and the refusal of Mix and affine weakening.
+- Unit-free MLL and IMLL go to the focused engines by default, which
+  measured faster than the net engine on every sequent both decide
+  (`wide` sequents 1.07 to 3.6 times, the Horn encodings of Partition
+  and 3-Partition up to 30 000 times); the net engine takes a sequent
+  over where they stop at their recursion limit or memory bound (a chain
+  of thousands of implications, `wide` with 4 096 literals). Before, MLL
+  with no literal more than twice went to the net engine.
+- The net engine breaks the symmetry of equal literals and equal
+  subformulas that are conclusions or leaves of one tree of `⊗` alone
+  or `⅋` alone, and checks each atom's balance over its skeleton's
+  components: Lincoln's MLL 3-Partition with bins of five is refuted in
+  227 nodes instead of 16 million, Matsuoka's Partition with three
+  items in 391 instead of 269 950.
 
 ## [0.1.0] - 2026-10-18
 

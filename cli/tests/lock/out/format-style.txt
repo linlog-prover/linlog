@@ -1,7 +1,7 @@
 $ linlog prove --format latex --style labels=subscript --style align=false 'A, A -o B |- B'
 --- status 0
 --- stdout
-% provable (MLL, classical, net engine)
+% provable (MLL, classical, focus engine)
 \begin{prooftree}
 \infer0[$\mathrm{ax}$]{\vdash A^\bot, A}
 \infer0[$\mathrm{ax}$]{\vdash B^\bot, B}

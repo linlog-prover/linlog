@@ -247,7 +247,7 @@ fn jobs_are_bounded() {
     let (status, out, err) = linlog_as_is(&["prove", "--quiet", "--jobs", "100000", "A |- A"], "");
     assert_eq!(
         (status, out.as_str()),
-        (0, "provable (MLL, classical, net engine)\n")
+        (0, "provable (MLL, classical, focus engine)\n")
     );
     assert!(
         err.starts_with(
@@ -265,7 +265,7 @@ fn jobs_are_bounded() {
 #[test]
 fn derivation_limit_and_tree_switch() {
     let sequent = "A, A -o B |- B";
-    let verdict = "provable (MLL, classical, net engine)\n";
+    let verdict = "provable (MLL, classical, focus engine)\n";
     let (status, out, err) = linlog(
         &[
             "prove",
@@ -327,7 +327,7 @@ fn bounded_drawings() {
     assert_eq!((status, out.as_str()), (0, ""));
     assert!(
         err.starts_with(
-            "provable (MLL, classical, net engine)\nthe drawing is not rendered: the PDF is \
+            "provable (MLL, classical, focus engine)\nthe drawing is not rendered: the PDF is \
              estimated to take "
         ) && err.contains("over the memory limit of 1000 B; --memory-limit SIZE raises the limit"),
         "{err}"
@@ -376,7 +376,7 @@ fn prove_verdicts_and_exit_statuses() {
     assert_eq!(status, 0);
     assert_eq!(
         out,
-        "provable (MLL, classical, net engine)\n\
+        "provable (MLL, classical, focus engine)\n\
          ─────── ax   ─────── ax\n\
          ⊢ ~A, A      ⊢ ~B, B\n\
          ──────────────────── ⊗\n\
@@ -387,12 +387,12 @@ fn prove_verdicts_and_exit_statuses() {
         (
             &["prove", "-q", "--mix", "|- A par B, ~A, ~B"][..],
             0,
-            "provable (MLL, classical with Mix, net engine)",
+            "provable (MLL, classical with Mix, focus engine)",
         ),
         (
             &["prove", "|- A par B, ~A, ~B"],
             1,
-            "unprovable (MLL, classical, net engine): the count equation fails: a provable \
+            "unprovable (MLL, classical, focus engine): the count equation fails: a provable \
              one-sided sequent of MLL has exactly #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 0 − 1 − 0 \
              + 0 + 2 = 1, and this one has 3",
         ),
@@ -455,6 +455,8 @@ fn prove_verdicts_and_exit_statuses() {
             "-q",
             "--stats",
             "--deterministic",
+            "--engine",
+            "net",
             "|- a * b, ~a par ~b",
         ],
         "",
@@ -495,7 +497,7 @@ fn intuitionistic_mode() {
     assert_eq!(status, 0);
     assert_eq!(
         out,
-        "provable (IMLL, intuitionistic, net engine)\n\
+        "provable (IMLL, intuitionistic, two-sided engine)\n\
          ───── ax   ───── ax\n\
          A ⊢ A      B ⊢ B\n\
          ──────────────── ⊸L\n\
@@ -525,7 +527,7 @@ fn intuitionistic_mode() {
         (
             &["prove", "-i", "-q", "(A -o B) -o A |- A"],
             1,
-            "unprovable (IMLL, intuitionistic, net engine): ~A occurs 1 more time than A in the \
+            "unprovable (IMLL, intuitionistic, two-sided engine): ~A occurs 1 more time than A in the \
              one-sided sequent, so they cannot all meet in axioms",
         ),
         (
@@ -722,7 +724,7 @@ fn net_format() {
     assert_eq!(status, 0);
     assert_eq!(
         out,
-        format!("provable (MLL, classical, net engine)\n{expected}")
+        format!("provable (MLL, classical, focus engine)\n{expected}")
     );
     let (status, out, _) = linlog(
         &["prove", "--net", "--engine", "focus", "A, A -o B |- B"],
@@ -763,7 +765,7 @@ fn latex_and_typst_formats() {
     assert_eq!(status, 0);
     assert_eq!(
         out,
-        "% provable (MLL, classical, net engine)\n\
+        "% provable (MLL, classical, focus engine)\n\
          \\begin{prooftree}\n\
          \\infer0[$\\mathrm{ax}$]{\\vdash A^\\bot, A}\n\
          \\infer0[$\\mathrm{ax}$]{\\vdash B^\\bot, B}\n\
@@ -812,7 +814,7 @@ fn rocq_format() {
     assert_eq!(status, 0);
     assert_eq!(
         out,
-        "(* provable (MLL, classical, net engine) *)\n\
+        "(* provable (MLL, classical, focus engine) *)\n\
          Lemma certificate (A : formula) : ll [dual A; A].\nProof.\nax_expansion.\nQed.\n"
     );
     let (_, json, _) = linlog(&["prove", "--format", "json", "A * B |- B * A"], "");
@@ -849,7 +851,7 @@ fn svg_formats() {
     let (status, out, _) = linlog(&["prove", "--format", "svg", "A |- A"], "");
     assert_eq!(status, 0);
     assert!(
-        out.starts_with("<!-- provable (MLL, classical, net engine) -->\n<svg ")
+        out.starts_with("<!-- provable (MLL, classical, focus engine) -->\n<svg ")
             && out.ends_with("</svg>\n"),
         "{out}"
     );
@@ -1234,9 +1236,9 @@ fn batch_inputs_and_exit_status() {
     assert_eq!(
         out,
         format!(
-            "{d}/a.json: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A \
+            "{d}/a.json: unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A \
              in the one-sided sequent, so they cannot all meet in axioms\n\
-             {d}/b/x.p: provable (MLL, classical, net engine)\n"
+             {d}/b/x.p: provable (MLL, classical, focus engine)\n"
         )
     );
     assert_eq!(status, 1);
@@ -1254,7 +1256,7 @@ fn batch_inputs_and_exit_status() {
         let (status, out, _) = linlog(&args, problems);
         assert_eq!(
             out,
-            "one: provable (IMLL, intuitionistic, net engine)\ntwo: error: unknown mode \
+            "one: provable (IMLL, intuitionistic, two-sided engine)\ntwo: error: unknown mode \
              `nonsense`: classical, affine, mix, affine-mix, intuitionistic or \
              intuitionistic-affine\n"
         );
@@ -1671,10 +1673,10 @@ fn a_batch_s_records_names_and_files() {
     assert_eq!(
         lines.lines().collect::<Vec<_>>(),
         [
-            "a: provable (MLL, classical, net engine)",
+            "a: provable (MLL, classical, focus engine)",
             "-:2: error: the line is longer than the memory limit of 2.0 KiB; raise it with \
              --memory-limit SIZE",
-            "c: provable (MLL, classical, net engine)",
+            "c: provable (MLL, classical, focus engine)",
         ]
     );
     // A mark that reorders the text after it is escaped too.
@@ -2064,7 +2066,7 @@ fn standard_input_is_answered_line_by_line() {
         let mut line = String::new();
         answers.read_line(&mut line).unwrap();
         assert_eq!(
-            line, "a: provable (MLL, classical, net engine)\n",
+            line, "a: provable (MLL, classical, focus engine)\n",
             "{named:?}"
         );
         drop(input);

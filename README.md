@@ -43,7 +43,7 @@ by the NanoYalla kernel, whose installation "Usage" describes with them.
 
 ```console
 $ linlog prove "A, A -o B |- B"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ─────── ax   ─────── ax
 ⊢ ~A, A      ⊢ ~B, B
 ──────────────────── ⊗
@@ -95,7 +95,7 @@ calculus:
 
 ```console
 $ linlog prove "A, A -o B |- B"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ─────── ax   ─────── ax
 ⊢ ~A, A      ⊢ ~B, B
 ──────────────────── ⊗
@@ -111,9 +111,9 @@ provable (ALL, classical, additive engine)
 ⊢ ~A ⊕ ~B, A ⊕ B
 
 $ linlog prove "|- A par B, ~A, ~B"
-unprovable (MLL, classical, net engine): the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 0 − 1 − 0 + 0 + 2 = 1, and this one has 3
+unprovable (MLL, classical, focus engine): the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − #1 + #⊥ + 2 formulas, here 0 − 1 − 0 + 0 + 2 = 1, and this one has 3
 $ linlog prove "A |- B"
-unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
 $ linlog prove "!A, A |- 1"
 unprovable (MELL, classical, horn engine): ~A occurs 1 more time than A outside the exponentials of the one-sided sequent, and every literal of the atom below one, which copies add, is ~A, so they cannot all meet in axioms
 ```
@@ -126,15 +126,16 @@ sign), or the count equation of the multiplicatives; otherwise it says
 that the search was exhaustive. The
 JSON output carries the same as `refutation`.
 
-Four engines serve classical logic: for MLL without units whose literals
-occur at most twice each, the *net engine* searches for an axiom linking
-that makes the sequent's formula trees a proof net; for two additive-only
-formulas the *additive engine* recurses on pairs of subformulas; for a
-Horn program with clauses under `!`, which is a Petri net, the *Horn
-engine* searches its markings (below); and for everything else the
-*focus engine* runs a focused sequent search over
-bitsets (on repeated literals its count-based pruning beats the linking
-search by orders of magnitude). `--mix`, `--affine` and `--intuitionistic`
+Four engines serve classical logic: for two additive-only formulas the
+*additive engine* recurses on pairs of subformulas; for a Horn program
+with clauses under `!`, which is a Petri net, the *Horn engine* searches
+its markings (below); for everything else the *focus engine* runs a
+focused sequent search over bitsets; and for MLL without units the *net
+engine* searches for an axiom linking that makes the sequent's formula
+trees a proof net, by default only where the focus engine stops at its
+recursion limit or memory bound (a chain of thousands of links, a
+sequent of thousands of literals), since everywhere else the focus
+engine decides first. `--mix`, `--affine` and `--intuitionistic`
 choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
@@ -147,7 +148,7 @@ run; units of work are each engine's steps, the same on every machine
 on one thread):
 
 ```console
-$ linlog prove --mix --stats --deterministic "|- A par B, ~A, ~B"
+$ linlog prove --mix --stats --deterministic --engine net "|- A par B, ~A, ~B"
 provable (MLL, classical with Mix, net engine)
 ─────── ax   ─────── ax
 ⊢ A, ~A      ⊢ B, ~B
@@ -179,7 +180,7 @@ units, with or without Mix:
 
 ```console
 $ linlog prove --net "|- A * B, C * (~A par ~B), ~C"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ⊢ A ⊗ B, C ⊗ (~A ⅋ ~B), ~C
 A[1] — ~A[6]
 B[2] — ~B[7]
@@ -452,25 +453,27 @@ $ linlog prove -q --deterministic --copies 3 "!(A -o A * A), !(B * B -o C), A, B
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 2.55ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q -j 10000 "A |- A"
 note: --jobs 10000 is more than this machine runs at once; a search uses 16
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ```
 
 `--intuitionistic` (`-i`) reads the sequent as intuitionistic linear logic,
 as it is written: the hypotheses left of `⊢`, exactly one formula right of
 it, and pars only as implications, which the one-sided form keeps as
 `~A ⅋ B` with the antecedent on the left. The verdict line names the intuitionistic
-fragment, and the derivation is two-sided with the rules of ILL. IMLL
-without units goes to the net engine (the classical net of the one-sided
-sequent is always an intuitionistic proof), a sequent of two additive-only
+fragment, and the derivation is two-sided with the rules of ILL. A
+sequent of two additive-only
 formulas to the *additive engine* (a recursion on pairs of subformulas,
 linear in the product of their sizes, in every mode), a Horn program
 with a clause under `!` to the Horn engine, as classically, and
 everything else to the *two-sided engine*, the focused search keeping one goal on every
-branch, with the same copy bound and affine mode as the classical one:
+branch, with the same copy bound and affine mode as the classical one;
+IMLL without units goes to the net engine where the two-sided engine
+stops at its recursion limit or memory bound (the classical net of the
+one-sided sequent is always an intuitionistic proof):
 
 ```console
 $ linlog prove -i "A -o B -o C, A * B |- C"
-provable (IMLL, intuitionistic, net engine)
+provable (IMLL, intuitionistic, two-sided engine)
            ───── ax   ───── ax
            B ⊢ B      C ⊢ C
 ───── ax   ──────────────── ⊸L
@@ -538,7 +541,7 @@ terminal 30 columns wide:
 <!-- readme-check: terminal -->
 ```console
 $ linlog prove "A, A -o B, B -o C, C -o D |- D"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 the proof tree is not shown: 7 inferences, at least 31 columns by 8 lines, for a terminal of 30 columns and at most 30 lines (3 screens); print it with --tree always, write it with --output FILE, or get the proof with --format json
 ```
 
@@ -551,7 +554,7 @@ terminal:
 $ linlog prove --derivation-limit 100 "A, A -o B |- B" > verdict.txt
 the derivation is not written: its 3 inferences with 29 characters of sequents are estimated at 616 B, over the limit of 100 B; --format json writes the proof itself, --derivation-limit SIZE raises the limit and --derivation-limit none lifts it
 $ cat verdict.txt
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ```
 
 A run of one structural rule, such as the weakenings of every `?`
@@ -613,7 +616,7 @@ logic flags):
 
 ```console
 $ linlog prove --format json "A |- A"
-{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","statistics":{"nodes":1,"memo_hits":0,"memo_entries":0,"splits":0,"links":1,"tests":1,"copies":0,"forward_copies":0,"work":1},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
+{"version":1,"linlog":"…","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"focus","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":16},"sequent":{"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1},"nodes":[{"ax":[0,1]}]}
 $ linlog prove --format json "A |- A" | linlog check --quiet
 valid proof of ⊢ ~A, A (classical)
 $ linlog prove --format json "A |- A" | linlog check --format json
@@ -705,7 +708,7 @@ line becomes a comment. `seq print` takes the same formats for a sequent:
 
 ```console
 $ linlog prove -i --format latex "A, A -o B |- B"
-% provable (IMLL, intuitionistic, net engine)
+% provable (IMLL, intuitionistic, two-sided engine)
 \begin{prooftree}
 \infer0[$\mathrm{ax}$]{A &\vdash A}
 \infer0[$\mathrm{ax}$]{B &\vdash B}
@@ -830,14 +833,14 @@ as JSON, one object per format, which is the form a front end keeps;
 
 ```console
 $ linlog prove -i --format latex --style labels=subscript --style align=false "A, A -o B |- B"
-% provable (IMLL, intuitionistic, net engine)
+% provable (IMLL, intuitionistic, two-sided engine)
 \begin{prooftree}
 \infer0[$\mathrm{ax}$]{A \vdash A}
 \infer0[$\mathrm{ax}$]{B \vdash B}
 \infer2[$\multimap_{\mathrm{L}}$]{A, A \multimap B \vdash B}
 \end{prooftree}
 $ linlog prove --style gap=6 --style bar="=" "A * B |- A * B"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ======= ax      ======= ax
 ⊢ ~A, A         ⊢ ~B, B
 ======================= ⊗
@@ -846,7 +849,7 @@ provable (MLL, classical, net engine)
     ⊢ ~A ⅋ ~B, A ⊗ B
 $ echo '{"svg": {"background": "white"}, "png": {"scale": 3}}' > style.json
 $ linlog prove --net --style-file style.json --output net.png "A * B |- B * A"
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ```
 
 The first two draw these:
@@ -895,7 +898,7 @@ it is.
 
 ```console
 $ linlog prove --format rocq "A * B |- B * A"
-(* provable (MLL, classical, net engine) *)
+(* provable (MLL, classical, focus engine) *)
 Lemma certificate (A B : formula) : ll [parr (dual A) (dual B); tens B A].
 Proof.
 apply (parr_r_ext []); cbn_sequent.
@@ -935,7 +938,7 @@ term; every rule has its term, Mix and weakening included:
 
 ```console
 $ linlog prove -i --format rocq "A, A -o B |- B"
-(* provable (IMLL, intuitionistic, net engine) *)
+(* provable (IMLL, intuitionistic, two-sided engine) *)
 Lemma certificate : ill (atom := string) intuitionistic [ivar "A"; ilmap (ivar "A") (ivar "B")] (ivar "B").
 Proof.
   apply (soundness_ill String.eqb String.eqb_spec intuitionistic
@@ -943,7 +946,7 @@ Proof.
   vm_compute. reflexivity.
 Qed.
 $ linlog prove --format rocq --kernel linlog "A * B |- B * A"
-(* provable (MLL, classical, net engine) *)
+(* provable (MLL, classical, focus engine) *)
 Lemma certificate : ll (atom := string) classical [parr (covar "A") (covar "B"); tens (var "B") (var "A")].
 Proof.
   apply (soundness_classical String.eqb String.eqb_spec
@@ -1074,16 +1077,16 @@ $ cat > sequents.txt
 > A |- B
 > broken: A |- (
 $ linlog prove --input-format lines --file sequents.txt
-identity: provable (MLL, classical, net engine)
-modus ponens: provable (MLL, classical, net engine)
-sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+identity: provable (MLL, classical, focus engine)
+modus ponens: provable (MLL, classical, focus engine)
+sequents.txt:4: unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
 broken: error: cannot parse the sequent
    A |- (
          ^ unexpected end of input, expected a formula
 $ linlog prove --input-format lines --file sequents.txt --format svg --output drawings
-identity: provable (MLL, classical, net engine)
-modus ponens: provable (MLL, classical, net engine)
-sequents.txt:4: unprovable (MLL, classical, net engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
+identity: provable (MLL, classical, focus engine)
+modus ponens: provable (MLL, classical, focus engine)
+sequents.txt:4: unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
 broken: error: cannot parse the sequent
    A |- (
          ^ unexpected end of input, expected a formula
@@ -1156,7 +1159,7 @@ a record's:
 
 ```console
 $ echo '{"name": "pair", "mode": "intuitionistic", "sequent": "A, B |- A * B"}' | linlog prove --input-format jsonl --format json
-{"version":1,"name":"pair","linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"net","statistics":{"nodes":2,"memo_hits":0,"memo_entries":0,"splits":0,"links":2,"tests":2,"copies":0,"forward_copies":0,"work":2},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"roots":[0,1,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[0,3]},{"ax":[1,4]},{"⊗":[2,0,1]}]}
+{"version":1,"name":"pair","linlog":"…","verdict":"proved","checked":true,"fragment":"IMLL","mode":"intuitionistic","engine":"two-sided","statistics":{"nodes":1,"memo_hits":0,"memo_entries":1,"splits":1,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":16},"sequent":{"terms":[{"D":0},{"D":1},{"V":0},{"V":1},{"⊗":[2,3]}],"roots":[0,1,4],"atoms":["A","B"],"antecedents":2},"nodes":[{"ax":[3,0]},{"ax":[4,1]},{"⊗":[2,0,1]}]}
 ```
 
 By default the cores go across the sequents, one sequent per worker on
@@ -1414,10 +1417,13 @@ Built:
   refuted through its parts with one member less, not its partitions;
   a tensor whose splits are searched costs one level of recursion
   however long); for
-  MLL without units a proof-net engine that searches the axiom linkings
-  with count checks, constant-time cycle rejections, the exact acyclicity
-  test and a symmetry break for repeated literal conclusions, then
-  sequentializes the net it finds; for two additive-only formulas a
+  MLL without units, where the focused engines stop at a limit or when
+  asked, a proof-net engine that searches the axiom linkings with count
+  checks, constant-time cycle rejections, the exact acyclicity test, a
+  symmetry break for equal literals and subformulas that are conclusions
+  or leaves of one tree of `⊗` alone or `⅋` alone, and a per-atom balance
+  over the skeleton's components, then sequentializes the net it finds;
+  for two additive-only formulas a
   recursion on subformula pairs; and for Horn programs with clauses under
   `!` (Petri nets) a decision of the net's markings: in linear mode a
   search of the reachable markings, kept sparse and taken nearest the
@@ -1544,8 +1550,8 @@ Planned, in roughly this order:
   Mix to `?(⊥⊗⊥)`, and certified refutations.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, further engines for MLL and intuitionistic MLL (pruned
-  net search, essential nets), the Lambek calculus, the inverse method,
+  and on nets, further engines for intuitionistic MLL (essential
+  nets), the Lambek calculus, the inverse method,
   and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

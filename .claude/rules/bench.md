@@ -551,7 +551,11 @@ serde_json, which the CLI and the core's tests already have.
   literal's search alone where the sequent has exponentials, since the
   default bias runs two searches in turns whose waiting thread wakes on
   a clock. A journey fails when its search stops deciding, so that a
-  count never silently measures something else. Its inputs are
+  count never silently measures something else. The net engine's two
+  journeys (`search-wide-m2-256`, `check-wide-m1-2048`, whose proof it
+  finds) force it, since the dispatch gives it only what the focused
+  engines stop on; with the default they would measure the focused
+  engine. Its inputs are
   generated or in the tree (the LLTP library stays out: it is GPL and
   1.1 GB).
 - **`src/ratchet.rs`** counts each journey under callgrind (`valgrind`

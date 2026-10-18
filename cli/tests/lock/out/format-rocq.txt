@@ -1,7 +1,7 @@
 $ linlog prove --format rocq 'A * B |- B * A'
 --- status 0
 --- stdout
-(* provable (MLL, classical, net engine) *)
+(* provable (MLL, classical, focus engine) *)
 Lemma certificate (A B : formula) : ll [parr (dual A) (dual B); tens B A].
 Proof.
 apply (parr_r_ext []); cbn_sequent.

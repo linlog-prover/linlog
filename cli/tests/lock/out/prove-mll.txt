@@ -1,7 +1,7 @@
 $ linlog prove 'A * B |- B * A'
 --- status 0
 --- stdout
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
 ─────── ax   ─────── ax
 ⊢ ~B, B      ⊢ ~A, A
 ──────────────────── ⊗

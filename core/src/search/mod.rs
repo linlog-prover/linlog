@@ -43,7 +43,7 @@ use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::proofs::{Bytes, CheckError, Node, NodeId, Proof};
-use crate::sequents::{Atom, Sequent};
+use crate::sequents::Sequent;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
@@ -163,8 +163,10 @@ pub(crate) fn set_up_stopped(forest: &Forest, stop: &mut dyn FnMut(u64) -> bool)
 /// let sequent: Sequent = "A, A -o B |- B".parse()?;
 /// let outcome = prove(&sequent, Mode::CLASSICAL, &Options::default())?;
 /// assert_eq!(outcome.fragment, Fragment::MLL);
-/// assert_eq!(outcome.engine, Engine::Net);
-/// assert!(outcome.net.is_some(), "the net engine returns the net it found");
+/// assert_eq!(outcome.engine, Engine::Focus);
+/// let net = Options::default().with_engine(Some(Engine::Net));
+/// let by_net = prove(&sequent, Mode::CLASSICAL, &net)?;
+/// assert!(by_net.net.is_some(), "the net engine returns the net it found");
 /// let Verdict::Proved(proof) = outcome.verdict else {
 ///     panic!("provable");
 /// };
@@ -624,9 +626,21 @@ fn answer_goal<'a>(
     let options = &options
         .clone()
         .with_jobs(parallel::threads(options.threads()));
-    let answer = implementation.decide(&task, options, limits, account, work, &mut polled);
+    let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
+    let engine = if handed_over(options, &task, &answer) {
+        answer = Engine::Net.implementation().decide(
+            &task,
+            options,
+            limits,
+            account,
+            work,
+            &mut polled,
+        )?;
+        Engine::Net
+    } else {
+        engine
+    };
     drop(mine);
-    let mut answer = answer?;
     answer.statistics.work = work.done();
     if work.passed() && matches!(answer.result, Err(Reason::Stopped)) {
         answer.result = Err(Reason::WorkLimit {
@@ -641,6 +655,22 @@ fn answer_goal<'a>(
         mode,
         engine,
     })
+}
+
+/// Whether the net engine takes over a goal the dispatch gave another
+/// engine: one of unit-free MLL, the roots, in a mode without weakening,
+/// on which that engine ended at its recursion limit or memory bound. The
+/// focused engines recurse once per stable sequent and keep a memo, and a
+/// long chain of links or a wide enough sequent reaches one or the other;
+/// the net engine keeps neither. Its answer replaces the first one, whose
+/// counters it drops; the work counted is both searches'.
+fn handed_over(options: &Options, task: &Task<'_>, answer: &Answer) -> bool {
+    options.engine.is_none()
+        && matches!(
+            answer.result,
+            Err(Reason::RecursionLimit { .. } | Reason::MemoryLimit { .. })
+        )
+        && Engine::Net.implementation().admits(task).is_ok()
 }
 
 /// What [`conclude`] reads of the goal an answer is of.
@@ -980,18 +1010,12 @@ fn dispatch(task: &Task<'_>) -> Result<Engine, Error> {
 /// feature of a goal, the engine a measurement shows fastest there, as the
 /// documentation of [`Engine`] tabulates with the measurements. The last
 /// two rows take every goal, each in its own modes.
-const DISPATCH: [Row; 5] = [
+const DISPATCH: [Row; 4] = [
     Row {
         fragment: Fragment::ADDITIVE,
         modes: Modes::Any,
         feature: Feature::TwoFormulas,
         engine: Engine::Additive,
-    },
-    Row {
-        fragment: Fragment::MLL,
-        modes: Modes::Linear,
-        feature: Feature::FewEqualLiterals,
-        engine: Engine::Net,
     },
     Row {
         fragment: Fragment::MELL,
@@ -1039,8 +1063,6 @@ impl Row {
 enum Modes {
     /// Every mode.
     Any,
-    /// Every mode without weakening.
-    Linear,
     /// Classical mode, with or without weakening and Mix.
     Classical,
     /// Intuitionistic mode, with or without weakening.
@@ -1056,12 +1078,11 @@ impl Modes {
         )]
         let Mode {
             intuitionistic,
-            affine,
+            affine: _,
             mix: _,
         } = mode;
         match self {
             Modes::Any => true,
-            Modes::Linear => !affine,
             Modes::Classical => !intuitionistic,
             Modes::Intuitionistic => intuitionistic,
         }
@@ -1076,9 +1097,6 @@ enum Feature {
     /// Exactly two formulas, with an additive connective or unit among
     /// them (two literals are no additive problem).
     TwoFormulas,
-    /// The sequent itself, with no literal occurring more than
-    /// [`NET_MULTIPLICITY`] times.
-    FewEqualLiterals,
     /// A Horn program with a clause under `!`: a Petri net with a marking
     /// to reach.
     PetriNet,
@@ -1090,7 +1108,6 @@ impl Feature {
         match self {
             Feature::Any => true,
             Feature::TwoFormulas => task.goal.len() == 2 && !task.fragment.is_empty(),
-            Feature::FewEqualLiterals => task.roots && few_equal_literals(task.forest),
             // The fragment, which the options may assert larger than the
             // goal's, only spares a non-Horn goal the reading.
             Feature::PetriNet => task.fragment.has_exponentials() && horn::is_net(task),
@@ -1111,26 +1128,6 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
     fragment
 }
 
-/// The most occurrences of one literal, `a` or `~a`, a sequent may have for
-/// the net engine to be the default on it.
-const NET_MULTIPLICITY: usize = 2;
-
-/// Whether no literal of the sequent occurs more than [`NET_MULTIPLICITY`]
-/// times. Equal literals under one connective are interchangeable
-/// partners, so the linking search explores every permutation of a wrong
-/// choice before a cycle shows, and the focused engine, whose count prunes
-/// see the mistake at once, wins by orders of magnitude on such sequents;
-/// with distinct atoms the linking is nearly forced.
-fn few_equal_literals(forest: &Forest) -> bool {
-    use crate::occurrences::Sign;
-    let atoms = forest.sequent().atom_names().len() as u32;
-    (0..atoms).all(|a| {
-        let atom = Atom::new(a);
-        forest.literals(atom, Sign::Atom).len() <= NET_MULTIPLICITY
-            && forest.literals(atom, Sign::Dual).len() <= NET_MULTIPLICITY
-    })
-}
-
 /// The engines, by which an outcome names the one that ran and the options
 /// force one.
 ///
@@ -1145,10 +1142,19 @@ fn few_equal_literals(forest: &Forest) -> bool {
 /// | fragment | mode | feature | engine | measured (one thread) |
 /// |---|---|---|---|---|
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
-/// | unit-free MLL | linear, classical or intuitionistic | the sequent itself, no literal more than twice | [`Net`](Engine::Net) | as fast as the focused engines up to three times slower (`wide` sequents of 8 to 1 024 literals; intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 7 to 18 times slower), but the only engine that decides a long chain within the default recursion limit: `wide` with 2 048 literals in 0.64 s, a chain of 1 024 implications `a₀, a₀ ⊸ a₁, … ⊢ a₁₀₂₄` in 71 ms, where the focused engines recurse once per link |
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
-/// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on equal literals, as in the Horn encodings of Partition, 10 to 10⁵ times faster than the net engine, which is not the default there for that reason |
-/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent |
+/// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 3 to 83 ms against 0.04 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
+/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 30 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
+///
+/// Where the focused engines end at their recursion limit or memory bound
+/// on a unit-free MLL sequent in a mode without weakening, the net engine
+/// takes it over: they recurse once per stable sequent and keep a memo,
+/// and it keeps neither. Measured: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of
+/// 1 024 and 4 096 links, where the two-sided engine meets the recursion
+/// limit, proved by the net engine in 26 ms and 0.43 s, and `wide-m1`
+/// with 4 096 literals, where the focused engine meets the memory bound
+/// after 0.75 s, in 2.1 s (with Mix 0.79 s and 2.2 s). Everywhere else the
+/// focused engines decided first.
 ///
 /// The bias of the focused engines, [`Bias::Auto`], is chosen per goal as
 /// well, by the measurements its documentation names. Engines are ordered
@@ -1174,6 +1180,9 @@ pub enum Engine {
     Focus,
     /// The proof-net engine, for unit-free MLL with or without Mix; in
     /// intuitionistic mode it decides IMLL through the embedding into MLL.
+    /// The dispatch gives it a goal only where the focused engines end at
+    /// their recursion limit or memory bound ("Which engine decides a
+    /// goal", above); forced, it decides any goal it admits.
     /// A cut-free proof of MLL is its axiom linking, so the engine links
     /// dual literals by backtracking over a [`ProofStructure`] and keeps
     /// the first linking the correctness criterion accepts; the count
@@ -1184,8 +1193,9 @@ pub enum Engine {
     /// limit: a unit-free MLL sequent has no copies to bound, and the
     /// engine keeps no memo and no recursion, so the copy bounds, the
     /// bias, the memo limit and the recursion limit have nothing to bound
-    /// here, and its structure and scratch, linear in the forest, are not
-    /// counted under [`Limits::memory_bytes`](crate::Limits::memory_bytes).
+    /// here, and its structure, scratch and tables of interchangeable
+    /// literals, linear in the forest, are not counted under
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes).
     /// Its unit of work is a literal chosen and an exact test that fails.
     Net,
     /// The focused sequent engine two-sided: intuitionistic mode. It is
@@ -2352,6 +2362,7 @@ impl Statistics {
 #[cfg(all(test, feature = "parse"))]
 mod tests {
     use super::*;
+    use crate::sequents::Atom;
 
     /// Parses `input`.
     fn sequent(input: &str) -> Sequent {
@@ -3140,10 +3151,9 @@ mod tests {
     #[test]
     fn dispatch() {
         for (input, fragment, engine) in [
-            ("|- a, ~a", Fragment::EMPTY, Engine::Net),
-            ("a, a -o b |- b", Fragment::MLL, Engine::Net),
-            ("a * a |- a * a", Fragment::MLL, Engine::Net),
-            ("a * a * a |- a * a * a", Fragment::MLL, Engine::Focus),
+            ("|- a, ~a", Fragment::EMPTY, Engine::Focus),
+            ("a, a -o b |- b", Fragment::MLL, Engine::Focus),
+            ("a * a |- a * a", Fragment::MLL, Engine::Focus),
             ("|- 1, bot", Fragment::MULTIPLICATIVE_UNITS, Engine::Focus),
             ("|- a & b, ~a + ~b", Fragment::ADDITIVES, Engine::Additive),
             ("|- top, 0", Fragment::ADDITIVE_UNITS, Engine::Additive),
@@ -3156,6 +3166,35 @@ mod tests {
             assert_eq!(outcome.net.is_some(), engine == Engine::Net, "{input:?}");
             assert!(outcome.verdict.proof().is_some(), "{input:?}");
         }
+    }
+
+    /// Where the focused engine the dispatch picked ends at its recursion
+    /// limit on unit-free MLL, the net engine decides the sequent, in
+    /// classical and intuitionistic mode; not where an engine is forced,
+    /// nor outside unit-free MLL.
+    #[test]
+    fn the_net_engine_takes_over_at_a_limit() {
+        let limits = Limits::default().with_recursion_depth(8);
+        let decide = |input: &str, mode: Mode, options: &Options| {
+            prove_within(&sequent(input), mode, options, &limits, |_| false).unwrap()
+        };
+        let chain = "a0, a0 -o a1, a1 -o a2, a2 -o a3, a3 -o a4, a4 -o a5, a5 -o a6, \
+                     a6 -o a7, a7 -o a8, a8 -o a9, a9 -o a10 |- a10";
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let outcome = decide(chain, mode, &Options::default());
+            assert_eq!(outcome.engine, Engine::Net, "{mode}");
+            assert!(outcome.verdict.proof().is_some(), "{mode}");
+            assert!(outcome.net.is_some(), "{mode}");
+        }
+        let forced = Options::default().with_engine(Some(Engine::TwoSided));
+        let outcome = decide(chain, Mode::INTUITIONISTIC, &forced);
+        assert!(matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::RecursionLimit { .. })
+        ));
+        let with_unit = format!("{chain}, 1");
+        let outcome = decide(&with_unit, Mode::CLASSICAL, &Options::default());
+        assert_eq!(outcome.engine, Engine::Focus);
     }
 
     /// An unprovable sequent says why where its counts tell: an atom whose
@@ -3244,7 +3283,7 @@ mod tests {
             |_| false,
         )
         .unwrap();
-        assert_eq!(outcome.engine, Engine::Net);
+        assert_eq!(outcome.engine, Engine::Focus);
         assert!(outcome.verdict.proof().is_some());
         let net = Options::default().with_engine(Some(Engine::Net));
         let outcome = prove_goal(
@@ -3367,7 +3406,6 @@ mod tests {
             };
             let modes = match cells[1].split([',', ' ']).next() {
                 Some("any") => Modes::Any,
-                Some("linear") => Modes::Linear,
                 Some("classical") => Modes::Classical,
                 Some("intuitionistic") => Modes::Intuitionistic,
                 other => panic!("modes the test does not know: {other:?}"),
@@ -3468,8 +3506,7 @@ mod tests {
     fn dispatch_intuitionistic() {
         let i = Mode::INTUITIONISTIC;
         for (input, fragment, engine) in [
-            ("a, a -o b |- b", Fragment::MLL, Engine::Net),
-            ("a * a * a |- a * a * a", Fragment::MLL, Engine::TwoSided),
+            ("a, a -o b |- b", Fragment::MLL, Engine::TwoSided),
             ("1 |- 1", Fragment::MULTIPLICATIVE_UNITS, Engine::TwoSided),
             ("a & b |- a", Fragment::ADDITIVES, Engine::Additive),
             ("a & b, 0 |- a", Fragment::ADDITIVE, Engine::TwoSided),
@@ -3569,12 +3606,20 @@ mod tests {
                 }
                 let text = generate::two_sided(&hypotheses, &goal);
                 let s = sequent(&text);
-                let by_net = prove(&s, i, &Options::default()).unwrap();
-                if by_net.engine != Engine::Net {
-                    // Repeated literals: the dispatch keeps the net engine
-                    // off them.
+                // No literal more than twice: the sample the embedding was
+                // first compared on, which a debug build decides quickly.
+                let forest = Forest::new(&s).unwrap();
+                if forest
+                    .all_literals()
+                    .chunk_by(|x, y| {
+                        forest.atom(*x) == forest.atom(*y) && forest.sign(*x) == forest.sign(*y)
+                    })
+                    .any(|group| group.len() > 2)
+                {
                     continue;
                 }
+                let net = Options::default().with_engine(Some(Engine::Net));
+                let by_net = prove(&s, i, &net).unwrap();
                 let two_sided = Options::default().with_engine(Some(Engine::TwoSided));
                 let by_two_sided = prove(&s, i, &two_sided).unwrap();
                 assert_eq!(by_two_sided.engine, Engine::TwoSided);

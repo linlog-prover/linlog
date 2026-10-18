@@ -280,7 +280,8 @@ fn fragment_and_mode_json_format() {
 #[test]
 fn outcome_json_format() {
     let s: Sequent = "A, A -o B |- B".parse().unwrap();
-    let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+    let net = Options::default().with_engine(Some(Engine::Net));
+    let outcome = prove(&s, Mode::CLASSICAL, &net).unwrap();
     let json = serde_json::to_string(&outcome).unwrap();
     let sequent = nested(&s);
     let head = r#"{"version":1,"linlog":"0.1.0","verdict":"proved","checked":true,"fragment":"MLL","mode":"classical","engine":"net","#;
@@ -303,7 +304,7 @@ fn outcome_json_format() {
     );
 
     let s: Sequent = "|- A par B, ~A, ~B".parse().unwrap();
-    let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+    let outcome = prove(&s, Mode::CLASSICAL, &net).unwrap();
     let sequent = nested(&s);
     assert_eq!(
         serde_json::to_string(&outcome).unwrap(),
@@ -314,7 +315,7 @@ fn outcome_json_format() {
     let outcome = prove_within(
         &s,
         Mode::CLASSICAL.with_mix(),
-        &Options::default(),
+        &net,
         &linlog::Limits::default(),
         |_| true,
     )

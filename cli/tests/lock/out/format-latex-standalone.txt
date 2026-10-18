@@ -1,7 +1,7 @@
 $ linlog prove -i --format latex --standalone 'A, A -o B |- B'
 --- status 0
 --- stdout
-% provable (IMLL, intuitionistic, net engine)
+% provable (IMLL, intuitionistic, two-sided engine)
 \documentclass[border=5pt]{standalone}
 \usepackage{amssymb}
 \usepackage{cmll}

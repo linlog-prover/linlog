@@ -1,7 +1,7 @@
 $ linlog prove --net --format svg 'A * B |- B * A'
 --- status 0
 --- stdout
-<!-- provable (MLL, classical, net engine) -->
+<!-- provable (MLL, classical, focus engine) -->
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="122.752" height="87.36" viewBox="0 0 7672 5460" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥ ⅋ B⊥, B ⊗ A</title>
 <desc>⊢ ~A ⅋ ~B, B ⊗ A
@@ -21,8 +21,8 @@ proof net</desc>
 <path d="M2079 4070L3008 3220"/>
 </g>
 <g fill="none" stroke="black" stroke-width="40">
-<path id="l1-5" d="M685 2230A3151 1890 0 0 1 6987 2230"/>
 <path id="l2-4" d="M3008 2230A1133 679 0 0 1 5274 2230"/>
+<path id="l1-5" d="M685 2230A3151 1890 0 0 1 6987 2230"/>
 </g>
 <g id="o1">
 <text x="300" y="3120" textLength="770" lengthAdjust="spacing">𝐴</text>

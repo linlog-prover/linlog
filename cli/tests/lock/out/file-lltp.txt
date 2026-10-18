@@ -1,7 +1,7 @@
 $ linlog prove --file double.p
 --- status 0
 --- stdout
-provable (MLL, classical, net engine)
+provable (MLL, classical, focus engine)
              ─────── ax   ─────── ax
              ⊢ ~b, b      ⊢ ~b, b
              ──────────────────── ⊗
