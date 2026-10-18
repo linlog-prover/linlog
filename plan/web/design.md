@@ -465,6 +465,42 @@ the build takes the dotted grid of Canvas (mockup 3) and nothing else.
   and asks for feedback through the repository's issues. The footer's
   line on GitHub's logs (D36) lives there too.
 
+- **D53. The top band is one row** (the author, 2026-10-18: the two
+  rows wasted space): a proof tab is the proof, showing its sequent in
+  Euler Math, its calculus as a small mark whose popover holds the
+  switches, and its verdict as a coloured dot with the details on
+  hover; the sequent field appears for a new proof or when a tab's
+  text is clicked to edit it. The same row serves the phone.
+- **D54. Pictograms** (the author asked for them; the session's rules):
+  the subject's own symbols first (the connectives and rule names are
+  the icons of what acts on a goal, the tree and net tabs tiny
+  drawings of each); for generic actions one consistent set, Lucide
+  (ISC), with its version and Solid binding checked at build time;
+  an icon alone only where the pictogram is conventional (undo, redo,
+  zoom, theme, close, add) and then with a tooltip on hover and on
+  focus and an accessible name (WCAG 2.2: 1.4.13, 4.1.2, 2.5.8); the
+  other actions carry a short label at desktop width, and with Learn
+  on labels are always on (a novice must guess an unlabelled icon,
+  an expert reads the row's shape).
+- **D55. The type and the tells** (the session, from the frontend-design
+  skill; the author agreed): sentence case throughout, no all-caps
+  status words, no small-caps monospace labels, no meta strings joined
+  with middle dots; Space Mono only inside the sequent field, Figtree
+  for the interface and Euler Math for the logic; the keys of the
+  actions in their tooltips and in the Keys pane, printed beside the
+  actions only by a setting; the glowing tree on the dotted field is
+  the one bold element, Learn's frame the second because it is a mode;
+  the empty stage is an invitation (the field focused, a placeholder
+  sequent, one line "type a sequent, or open one from Practice");
+  every action keeps its name through the flow.
+- **D56. Learn's lessons follow the worked-example sequence** (the
+  session, from the education skills; the author agreed): each lesson
+  is a proof played with a reason at each inference and a "predict the
+  next rule" prompt, then the same proof with its last steps left to
+  the student, then a practice problem from the rubric (the fading
+  schedule); the lesson on sequents with no proof is the erroneous
+  example, "find the step that went wrong", then the refutation.
+
 ## Open points for the mockups
 
 What the five mockups vary, each one direction; nothing decided above
