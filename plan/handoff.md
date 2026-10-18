@@ -48,7 +48,10 @@ each needs before it (the table in `plan/README.md` is the authority):
   can decide nothing (class B's rows were decided by R1 meanwhile).
   It runs before 37.
 - **32**: the web front end, a plan of its own and a second repository;
-  its prompt is finished. The repository's architecture (name,
+  its prompt is finished. It starts after its design session
+  (`plan/32-design.md`, the author with Fable 5.1, five mockups), whose
+  outcome is `plan/web/design.md`; if that file does not exist yet, ask
+  the author whether the design session has run. The repository's architecture (name,
   directory, layout) is the session's (the author, 2026-10-18). Once
   its first commits are reviewed you create it yourself with `gh repo
   create linlog-prover/NAME --public …` (the author expects that),

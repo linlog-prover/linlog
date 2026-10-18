@@ -14,6 +14,9 @@ start:
   `17-assessment.md` (3.14, D9, the author's answers), `18`, `22`, `28`.
 - `plan/README.md`: D11, D12, D13, D15, D16, D18.
 - `plan/notes/distribution.md`.
+- `plan/web/design.md` and the mockup it names (`plan/web/mockup/`),
+  written by the design session (`plan/32-design.md`) with the author:
+  its decisions are fixed for this step, as the items below are.
 
 ## Goal
 
