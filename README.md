@@ -330,10 +330,11 @@ proof above is weakened.
 
 Provability in MELL has no known decision procedure, and full linear logic
 is undecidable, so the verdict is three-valued: "unprovable" is reported
-only when a bound was searched exhaustively without ever hitting it, and
-"unknown" when the time limit, the bound of `--copies` or another limit
-ended the search first. The line says which, after how long, at which copy
-bound, and which flag changes it; `--stats` adds the copy bound reached:
+only when a bound was searched exhaustively without ever hitting it, or
+when the sequent is false read classically (below), and "unknown" when the
+time limit, the bound of `--copies` or another limit ended the search
+first. The line says which, after how long, at which copy bound, and which
+flag changes it; `--stats` adds the copy bound reached:
 
 <!-- readme-check: machine -->
 ```console
@@ -343,8 +344,26 @@ $ linlog prove -q --copies 1 "!(A & B) |- A * B"
 unknown (LL, classical, focus engine): the copy bound of 1 was reached after 54.08µs; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q "A |- !A"
 unprovable (MELL, classical, focus engine): the search was exhaustive
-$ linlog prove -q "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
+$ linlog prove -q --classical-work 0 "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
 unknown (MELL, classical, focus engine): the time limit of 2s was reached at a copy bound of 97; --timeout DURATION gives the search longer
+```
+
+After a search that did not prove the sequent, the command reads it
+classically, with `!` and `?` erased, `*` and `&` as "and", `|` and `+`
+as "or", `-o` as implication, `1` and `top` true and `bot` and `0` false,
+and looks for truth values of its atoms that make it false. No provable
+sequent has them, in any mode, so an unknown search becomes unprovable
+with the values as its reason, and an exhausted one gets them as a
+certificate (`check`, and the Rocq export below, verify it). The search
+for the values runs after the proof search, past the time limit, within
+`--classical-work N` formulas evaluated (2²⁶ by default, a fraction of a
+second; `0` switches it off), and never changes a verdict the proof search
+gave. The last sequent above is unprovable so, and `A |- !A`, true read
+classically, keeps the search's word:
+
+```console
+$ linlog prove -q "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
+unprovable (MELL, classical, focus engine): the classical reading is false where A, B and C are true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology
 ```
 
 The deepening is why a call without flags answers within its time limit
@@ -390,7 +409,7 @@ provable (MLL, classical affine, focus engine)
   ⊢ ~A, A
 ─────────── wk
 ⊢ ~A, ~B, A
-$ linlog prove -q -a "!(A -o A * A), A |- ?B"
+$ linlog prove -q -a --classical-work 0 "!(A -o A * A), A |- ?B"
 unknown (MELL, classical affine, focus engine): the time limit of 2s was reached at a copy bound of 18; --timeout DURATION gives the search longer
 ```
 
@@ -455,7 +474,7 @@ within a fraction of a second of it, on one thread and on several:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q --engine focus --timeout 1s "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
+$ linlog prove -q --engine focus --timeout 1s --classical-work 0 "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"
 unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 82; --timeout DURATION gives the search longer
 ```
 
@@ -489,9 +508,9 @@ larger `--jobs` is taken as that many, with a note:
 
 <!-- readme-check: machine -->
 ```console
-$ linlog prove -q -j 4 --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
+$ linlog prove -q -j 4 --copies 3 --classical-work 0 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 1.79ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
-$ linlog prove -q --deterministic --copies 3 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
+$ linlog prove -q --deterministic --copies 3 --classical-work 0 "!(A -o A * A), !(B * B -o C), A, B |- A * A * A * ?D"
 unknown (MELL, classical, focus engine): the copy bound of 3 was reached after 2.55ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
 $ linlog prove -q -j 10000 "A |- A"
 note: --jobs 10000 is more than this machine runs at once; a search uses 16

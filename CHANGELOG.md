@@ -73,6 +73,13 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- The command refutes by the classical reading by default: a sequent
+  whose search ended unknown (at the time limit, a copy bound or another
+  limit) and whose classical reading an assignment falsifies is
+  unprovable (exit status 1); `--classical-work 0` gives the search's
+  word alone. The refutation runs after the search, past the time limit,
+  within its bound of work, and Ctrl-C stops it.
+
 - With no kernel named, `--format rocq` writes a proof of Mix, affine or
   intuitionistic logic for linlog's library, as the mode chooses; a
   classical proof is written for NanoYalla exactly as before, and

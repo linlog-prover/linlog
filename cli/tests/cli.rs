@@ -79,7 +79,8 @@ fn parse_errors() {
 
 /// `--timeout` ends a search that would run for hours (2⁴² splits that no
 /// count cuts) with an unknown verdict, the limit in its line and exit
-/// status 3, on one thread and on a pool; and it counts from the start of
+/// status 3, on one thread and on a pool, which the classical refutation
+/// after it then answers by default; and it counts from the start of
 /// the command, so a sequent that is not read in time is given up on with
 /// a line that says so.
 #[test]
@@ -108,6 +109,18 @@ fn timeout() {
             )
         );
     }
+    // By default the classical refutation answers the search the time
+    // limit ended, after it.
+    let (status, out, _) = linlog(&["prove", "-a", "--timeout", "200ms", &sequent], "");
+    assert_eq!(status, 1, "{out}");
+    assert!(
+        out.starts_with(
+            "unprovable (MALL, classical affine, focus engine): the classical reading is false \
+             where every atom is false"
+        ),
+        "{out}"
+    );
+
     // Standard input stays open and empty until the command has answered.
     let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
         .args(["prove", "--timeout", "100ms"])

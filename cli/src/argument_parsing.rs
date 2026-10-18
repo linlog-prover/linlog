@@ -279,7 +279,7 @@ pub(crate) struct SearchArgs {
     /// its reason. It runs after the search, past the time limit within
     /// this bound (Ctrl-C stops it), and never changes a verdict the
     /// search gave.
-    #[arg(long, value_name = "N", default_value_t = 0)]
+    #[arg(long, value_name = "N", default_value_t = Options::DEFAULT_CLASSICAL_WORK)]
     pub(crate) classical_work: u64,
     /// The most memory the search may hold: a number of bytes with a unit
     /// such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
