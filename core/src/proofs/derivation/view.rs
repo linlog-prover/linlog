@@ -145,7 +145,10 @@ pub struct Inference {
 
 impl Inference {
     /// Returns the sequent concluded, as members in ascending order, one
-    /// repeated as often as the sequent holds it.
+    /// repeated as often as the sequent holds it. In the cyclic mode that
+    /// is the sequent's cyclic order read from its first occurrence,
+    /// every sequent of the derivation a rotation of the order its rule
+    /// reads, so that no exchange stands between two of them.
     pub fn sequent(&self) -> &[Member] {
         &self.sequent
     }

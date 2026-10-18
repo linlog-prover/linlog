@@ -24,8 +24,8 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, Mode, Options, Proof,
-    ProofStructure, Step, VertexId, ViewOptions,
+    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, Mode, Options, Order,
+    Proof, ProofStructure, Step, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Rule, Sequent, Verdict, prove};
@@ -536,6 +536,42 @@ fn sequents() {
         latex::sequent(&classical_only, i, &latex::Options::default(), &unbounded),
         Err(linlog::Error::NotIntuitionistic(_))
     ));
+}
+
+/// A derivation of the cyclic mode is drawn as any other, each sequent
+/// in its cyclic order, and its net with the conclusions in that order
+/// and no link crossing another; Rocq's calculi are commutative, so its
+/// certificate and a disproof's are refused.
+#[test]
+fn cyclic() {
+    let cyclic = |text: &str| {
+        let sequent = Sequent::parse_ordered(text, Order::Cyclic, &Limits::default()).unwrap();
+        prove(&sequent, Mode::CYCLIC, &Options::default()).unwrap()
+    };
+    // ⊢ ~b ⅋ ~a, ~c, c ⊗ (a ⊗ b)
+    let outcome = cyclic("c, a * b |- c * (a * b)");
+    let net = outcome.net.clone().expect("the net engine's net");
+    let Verdict::Proved(proof) = outcome.verdict else {
+        panic!("the sequent is provable in the cyclic mode")
+    };
+    let derivation = proof.derivation().unwrap();
+    pin("cyclic", &derivation);
+    assert_eq!(
+        certificate(|out| rocq::write(&derivation, &rocq::Options::default(), out, |_| false)),
+        Err(Unsupported::Ordered)
+    );
+    snapshot(
+        "planar.svg",
+        &svg::net(&net, &Style::default(), &unbounded(), |_| false).unwrap(),
+    );
+    // ⊢ ~b, ~a, b ⊗ a: provable only with an exchange.
+    let Verdict::Unprovable(disproof) = cyclic("a, b |- b * a").verdict else {
+        panic!("the links cross")
+    };
+    assert_eq!(
+        certificate(|out| rocq::write_disproof(&disproof, &rocq::Options::default(), out)),
+        Err(Unsupported::Ordered)
+    );
 }
 
 /// Proof nets are pinned as SVG: a net whose links cross, a structure

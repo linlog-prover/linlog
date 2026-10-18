@@ -328,6 +328,12 @@ pub enum Unsupported {
         "only a classical assignment that falsifies the sequent certifies that it is not valid, and its image's refutation is none"
     )]
     NotValid,
+    /// The derivation or disproof is of an ordered mode, which neither
+    /// kernel's calculi have: their sequents are commutative.
+    #[error(
+        "the Rocq calculi are commutative, so a derivation or a disproof of the cyclic mode has no certificate"
+    )]
+    Ordered,
 }
 
 /// Rocq's keywords, which no atom and no lemma may take.
@@ -765,8 +771,8 @@ impl Script<'_> {
 /// # Errors
 ///
 /// [`Error::Unsupported`] for a derivation without a certificate (an
-/// open goal, a compact run, and for NanoYalla Mix and affine
-/// weakening), [`Error::GoalProof`]
+/// open goal, a compact run, a proof of the cyclic mode, and for
+/// NanoYalla Mix and affine weakening), [`Error::GoalProof`]
 /// for one of a goal off the roots, [`Refusal::Stopped`](crate::Refusal::Stopped)
 /// when `stop` fired and [`Error::WriteFailed`] when `out` refused the
 /// text.
@@ -805,7 +811,8 @@ pub fn write<'a>(
 /// among them those that rest on the search
 /// ([`RefutationFault::Uncertified`](crate::search::RefutationFault::Uncertified)),
 /// [`Error::Unsupported`]
-/// with [`Unsupported::Disproof`] where the options name NanoYalla,
+/// with [`Unsupported::Disproof`] where the options name NanoYalla and
+/// [`Unsupported::Ordered`] in the cyclic mode,
 /// [`Error::GoalOutputs`] for an intuitionistic goal without exactly one
 /// conclusion, the errors of [`Forest::new`] and of the intuitionistic
 /// reading, and
@@ -817,6 +824,9 @@ pub fn write_disproof(
 ) -> Result<(), Error> {
     if options.kernel == Some(Kernel::NanoYalla) {
         return Err(Unsupported::Disproof.into());
+    }
+    if disproof.mode().is_ordered() {
+        return Err(Unsupported::Ordered.into());
     }
     linlog::disproof(disproof, options, out)
 }
@@ -855,6 +865,9 @@ fn linear(
 ) -> Result<(), Error> {
     if derivation.is_of_goal() {
         return Err(Error::GoalProof);
+    }
+    if derivation.mode().is_some_and(Mode::is_ordered) {
+        return Err(Unsupported::Ordered.into());
     }
     let uses = |rule| derivation.inferences().iter().any(|i| i.rule.rule == rule);
     let (mix, weakening) = (uses(Rule::Mix), uses(Rule::AffineWeakening));

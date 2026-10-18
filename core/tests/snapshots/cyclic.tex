@@ -1,0 +1,14 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{\vdash c^\bot, c}
+\infer0[$\mathrm{ax}$]{\vdash a^\bot, a}
+\infer0[$\mathrm{ax}$]{\vdash b^\bot, b}
+\infer2[$\otimes$]{\vdash b^\bot, a^\bot, a \otimes b}
+\infer2[$\otimes$]{\vdash b^\bot, a^\bot, c^\bot, c \otimes (a \otimes b)}
+\infer1[$\parr$]{\vdash b^\bot \parr a^\bot, c^\bot, c \otimes (a \otimes b)}
+\end{prooftree}
+\end{document}

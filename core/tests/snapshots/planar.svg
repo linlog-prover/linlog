@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="172.784" height="127.248" viewBox="0 0 10799 7953" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ b⊥ ⅋ a⊥, c⊥, c ⊗ (a ⊗ b)</title>
+<desc>⊢ ~b ⅋ ~a, ~c, c ⊗ (a ⊗ b)
+~b[1] — b[8]
+~a[2] — a[7]
+~c[3] — c[5]
+planar proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<circle id="o0" cx="1698" cy="6863" r="380"/>
+<circle id="o4" cx="8232" cy="6863" r="380"/>
+<path d="M8094 6509L7059 4213"/>
+<path d="M8466 6564L9171 5662"/>
+<circle id="o6" cx="9405" cy="5363" r="380"/>
+<path d="M9226 5028L8606 4213"/>
+<path d="M9584 5028L10205 4213"/>
+<path d="M1698 7243V7613"/>
+<path d="M4962 4213V7613"/>
+<path d="M8232 7243V7613"/>
+</g>
+<g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
+<path d="M1567 6506L594 4213"/>
+<path d="M1829 6506L2803 4213"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l3-5" d="M4962 3223A1048 628 0 0 1 7059 3223"/>
+<path id="l2-7" d="M2803 3223A2901 1740 0 0 1 8606 3223"/>
+<path id="l1-8" d="M594 3223A4805 2883 0 0 1 10205 3223"/>
+</g>
+<g id="o1">
+<text x="300" y="4113" textLength="588" lengthAdjust="spacing">𝑏</text>
+<text x="888" y="3713" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="o2">
+<text x="2499" y="4113" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="3108" y="3713" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="o3">
+<text x="4719" y="4113" textLength="486" lengthAdjust="spacing">𝑐</text>
+<text x="5205" y="3713" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="6816" y="4113" textLength="486" lengthAdjust="spacing" id="o5">𝑐</text>
+<text x="8302" y="4113" textLength="609" lengthAdjust="spacing" id="o7">𝑎</text>
+<text x="9911" y="4113" textLength="588" lengthAdjust="spacing" id="o8">𝑏</text>
+<text x="1404" y="7138" textLength="589" lengthAdjust="spacing" font-size="800">⅋</text>
+<text x="7965" y="7063" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="9138" y="5563" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+</svg>
