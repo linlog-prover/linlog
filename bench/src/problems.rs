@@ -273,9 +273,11 @@ pub fn load(id: &str) -> Result<Problem> {
                 .nth(line - 1)
                 .and_then(fields)
                 .ok_or_else(|| anyhow!("no problem on line {line} of {path}"))?;
+            // A cyclic problem's text is read in its order.
+            let mode = parse_mode(mode)?;
             Ok(Problem {
-                sequent: sequent.parse()?,
-                mode: parse_mode(mode)?,
+                sequent: Sequent::parse_ordered(sequent, mode.order(), &Limits::default())?,
+                mode,
                 expected: match expected {
                     "provable" => Some(true),
                     "unprovable" => Some(false),
