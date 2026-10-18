@@ -595,8 +595,8 @@ fn deepening_closes_on_a_finite_space() {
             let (verdict, statistics) = run_within(input, Mode::INTUITIONISTIC, options, &limits);
             assert!(
                 matches!(verdict, Verdict::Unprovable(_)),
-                "{input}, {} threads: {verdict:?} at level {}",
-                options.threads(),
+                "{input}, jobs {:?}: {verdict:?} at level {}",
+                options.jobs,
                 statistics.copies
             );
         }
