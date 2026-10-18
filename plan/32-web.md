@@ -35,11 +35,17 @@ sent to a server.
    the client: the page, its interface code, its assets and its
    deployment, with a flake that takes this repository as a pinned
    input, its own CI, licence headers and CLAUDE.md. The session sets
-   that repository up locally, with jj as this one is, in the directory
-   the author names; creating it on GitHub and pushing are the author's.
-   Named `linlog-prover.github.io` it is served at the organization's
-   root address, with the rustdoc staying at `/linlog`; propose that
-   and let the author decide.
+   that repository up locally, with jj as this one is; creating it on
+   GitHub and pushing are the author's.
+   **The repository's architecture is the session's** (the author,
+   2026-10-18: "I don't mind, just choose whatever is idiomatic and
+   follows current best practices"): its name, its directory, its
+   layout, its build and its CI follow what is idiomatic today for the
+   stack, checked against the stack's current documentation, not from
+   memory; the report says what was chosen and why. A default if
+   nothing argues against it: named `linlog-prover.github.io`, served
+   at the organization's root address with the rustdoc staying at
+   `/linlog`, in `/home/tux/Projects/own/linlog-prover.github.io`.
 2. **What the target lacks** (checked 2026-10-03): `std::thread::spawn`
    and `Instant::now()` panic there; the stack is 1 MiB unless a link
    argument raises it; threads need cross-origin isolation, which GitHub
@@ -89,8 +95,9 @@ over wasm-bindgen with one Rust framework, by size, maintenance and what
 the author would read); the names of steps 22 and 28. One caveat on the
 two repositories: a client written in a Rust framework is a crate that
 depends on `linlog`, which is the case for a workspace. If the
-comparison ends there and the split then costs more than it gives, say
-so with the reasons and ask the author before departing from D22.
+comparison ends there and the split then costs more than it gives,
+depart from D22 by the author's word of 2026-10-18 above, marked
+"(departs from the design)" with the reasons in the report.
 
 ## What steps 30, 31 and 35 left you
 
@@ -156,9 +163,10 @@ prompt: the first writes `plan/web/README.md`, measures item 3 under
 wasm and builds the bindings with their wasm tests and flake check, in
 this repository alone; the second sets up the client's repository and
 its first version (item 4); the third finishes it, its hosting and its
-licence check (items 5 and 6). The client's directory and name are the
-author's: the planning session asks for them at the review of the first
-session, and the second session starts there. Sub-agents as
+licence check (items 5 and 6). The second session creates the
+client's repository locally where item 1 says, and the planning
+session asks the author to create it on GitHub when its first commits
+are reviewed. Sub-agents as
 `plan/conduct.md` says: research on Sonnet 5.5, a fresh-context
 reviewer on Opus 5.5 for the bindings' JSON boundary and for every
 integer argument made for 32 bits.
