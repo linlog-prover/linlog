@@ -34,9 +34,11 @@
         conventions = pkgs.runCommand "check-conventions" { nativeBuildInputs = [ pkgs.ripgrep ]; } ''
           cd ${tree}
           status=0
+          # The exporter's Rocq snapshots are its output, not sources.
           sources=$(rg --files --hidden --glob '!.git' \
             --glob '*.rs' --glob '*.nix' --glob '*.toml' --glob '*.sh' \
-            --glob '*.py' --glob '*.yml' --glob '*.yaml' --glob '*.v')
+            --glob '*.py' --glob '*.yml' --glob '*.yaml' \
+            --glob '*.v' --glob '!core/tests/snapshots/*.v')
           for file in $sources; do
             # A script's header follows its shebang line.
             if ! head -n 3 "$file" | rg --quiet --fixed-strings 'linlog © Fabian Lukas Grubmüller 2026' \
