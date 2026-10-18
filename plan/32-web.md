@@ -78,7 +78,9 @@ sent to a server.
    third-party licences file served with the site (a licence plugin of
    Vite or Rollup), and checks it; a font served for the drawings keeps
    its `OFL.txt` beside it. The stack the author expects: Astro,
-   TypeScript and Solid.
+   TypeScript and Solid. Once the client is served, the repository's
+   website field (docs.rs/linlog since 2026-10-18) points to it, on the
+   author's word.
 
 ## What waits
 
