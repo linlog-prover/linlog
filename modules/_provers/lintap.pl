@@ -27,6 +27,10 @@ main(_) :- format(user_error, "usage: lintap FILE~n", []), halt(2).
 
 has_exp(F) :- sub_term(S, F), nonvar(S), ( S = ?(_) ; S = !(_) ), !.
 
+% The body of the first clause of pp/2 in lintap.pl 1.08e (© 1998 Jens
+% Otten, under the GNU GPL), which this driver loads rather than
+% redistributes: the call of its search and the conditions it puts on
+% the result.
 try(F, I) :-
     prove([(F,0),[0],l], [], [], 0, I, PU, At, Bt, [], C1),
     length(Bt, Nbt), length(C1, Nc1), Nc1 =:= (2*Nbt)+2,

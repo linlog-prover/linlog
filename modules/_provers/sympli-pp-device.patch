@@ -1,3 +1,8 @@
+A patch to Sympli's util/pp-string.sml (Sympli is BSD-2-Clause; the
+context lines below are its own): no-op functions for the PP_DEVICE
+signature of newer SML/NJ releases, so that it builds on MLton. The lines
+it adds are linlog's, under the EUPL.
+
 --- a/util/pp-string.sml	1970-01-01 01:00:01.000000000 +0100
 +++ b/util/pp-string.sml	2026-10-15 14:16:30.398212570 +0200
 @@ -15,9 +15,18 @@
