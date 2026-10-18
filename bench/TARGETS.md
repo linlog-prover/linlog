@@ -281,6 +281,14 @@ area that took it (the reports under `plan/reports/` have the tables):
   but on the five of `after-routing`, whose counters it has on all 140
   rows both decide.
 
+- `after-cyclic` and `net-after-cyclic`: the cyclic mode, its checker,
+  the ordered parse and the planar search, which the commutative modes
+  never run. The net set has the verdicts and the counters of
+  `net-after-prunes` on all 64 rows; the focused set the verdicts of
+  `after-efficiency` on its 135 decided rows and its counters but on the
+  five of `after-routing`, and the five rows `after-classical` decided
+  besides.
+
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
 the memo were carried from level to level and kept every level cut on a
