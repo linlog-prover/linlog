@@ -278,54 +278,33 @@ copies they had are gone (F103, F104).
   row's feature is the fragment's exponentials and the shape, nothing
   finer.
 - **The net engine has no row; it takes over at a limit**
-  (`handed_over`, in `answer_goal`): where the engine the dispatch
-  picked ends at `RecursionLimit` or `MemoryLimit` on a goal the net
-  engine admits (unit-free MLL, the roots, no weakening) whose atoms
-  occur once with each sign (`one_linking`: the linking is forced, so the
-  net search makes one link per pair and never backtracks, quadratic
-  with its scan of the atoms per link) and no engine is forced, the net engine decides the goal with the same options,
-  limits, stop and work count, after `Account::rewind` gives back what
-  the first search left charged (the focused engines' set-up tables,
-  `Classes` and `Counts`, are charged and never released, so without it
-  the net engine's proof was checked under a spent account and came back
-  `Unchecked`: the panel's finding, `wide(8192, 1)` at the default
-  limits); the outcome names it, its counters replace the first search's
-  (in a race the other search's are added, so a `net` outcome may carry
-  memo counters), and `work` counts both, in mixed units. Measured on the
-  pruned net engine (session 35a, cores 2 and 3, one thread, 60 s):
-  wherever both decide, the focused engines win, classical, Mix and
-  intuitionistic (`wide` of 8 to 4 096 literals 1.07 to 3.6 times,
-  intuitionistic wide and curried sequents of 1 024 and 4 096 atoms 10
-  to 26 times, the Horn encodings 1.6 to 32 000 times, the net engine
-  out of time at 60 s on Partition with 9 to 20 items); the net engine
-  decides only where they stop: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` at
-  1 024 and 4 096 links (the two-sided engine at the recursion limit
-  after 11 and 46 ms, the net engine 26 ms and 0.43 s) and `wide-m1` at
-  4 096 (the focused engine at the memory bound after 0.75 s, the net
-  engine 2.1 s; 0.79 and 2.2 s with Mix), while `wide-m2` and `wide-m3`
-  at 4 096 the focused engine proves in 0.78 s. Which goal reaches a
-  limit depends on the limits, which no feature of the dispatch sees;
-  the removed row (no literal more than twice) would have taken both
-  measured cases, but it cost 2.8 times on `wide-m2` at 4 096 and 10 to
-  26 times on intuitionistic wide and curried sequents, more than the
-  handover costs where it happens, so the route is the limit itself.
-  `IndexLimit` (an arena of 2³¹ nodes) is not handed over: no row was
-  measured there. **Why `one_linking`**: the panel's counterexample
-  agent found that without it a long goal with an equal-literal core
-  (a 2 100-link chain beside a sequent of repeated `a` and `b`) went from
-  the focused engine's quick `RecursionLimit` (0.9 s) to a net search
-  that ran to the time limit, and without a stop practically for ever:
-  the net engine is exponential on equal literals. Every measured
-  handover row has its atoms once per sign, and `wide-m2` at 4 096 the
-  focused engine proves. The cost of a handover is the first search's time up to
-  its limit. A goal that is not the roots (an open goal of a session)
-  is never handed over: the net engine refuses it.
-- **Equal literals were the old proxy** (`NET_MULTIPLICITY`, removed):
-  before the prunes the linking search paid a permutation's worth of
-  nodes per wrong choice among interchangeable partners, and the row
-  kept MLL with a literal more than twice off the net engine. The
-  symmetry breaks removed most of that (`core-nets.md`), and the
-  measurement above removed the row.
+  (`handed_over`, in `answer_goal`): no engine forced, the dispatch's
+  engine ended at `RecursionLimit` or `MemoryLimit`, the net engine
+  admits the goal (unit-free MLL, the roots, no weakening), and every
+  atom occurs once with each sign (`one_linking`). Then
+  `Account::rewind` gives back what the first search left charged, and
+  the net engine decides with the same options, limits, stop and work;
+  the outcome names it and carries its counters (in a race the other
+  search's are added), `work` both engines' units. Why each part:
+  - *No row*: wherever both engines decide, the focused ones are faster
+    (measured on the pruned net engine, `plan/reports/35-mll-engines.md`);
+    the net engine decides only where they stop at a limit (long
+    implication chains, some sequents of thousands of distinct atoms),
+    and which goal reaches a limit depends on the limits, which no
+    feature of the dispatch sees. The old row (no literal more than
+    twice, `NET_MULTIPLICITY`) took those cases too but cost 2.8 to 26
+    times elsewhere.
+  - *`rewind`*: the focused engines charge their set-up's tables
+    (`Classes`, `Counts`) and a memo's reserve and never release them,
+    so without it the net engine's proof is checked under a spent
+    account and comes back `Unchecked` (`wide(8192, 1)` at the default
+    limits did).
+  - *`one_linking`*: the net search is exponential on equal literals;
+    without it a goal the focused engine gave up quickly at its limit
+    became a search without end. With every atom once per sign the
+    linking is forced: one link per pair, no backtracking, quadratic.
+  - `IndexLimit` is not handed over (nothing measured there); a forced
+    engine never is.
 - **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
