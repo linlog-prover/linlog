@@ -456,6 +456,15 @@ the build takes the dotted grid of Canvas (mockup 3) and nothing else.
   with their level; the page names which it got and refuses a level
   it does not know, as D20 says.
 
+- **D52. An About pane** (the author): reached from the bottom band
+  by name, it says in a few lines what the page is (linlog's prover in
+  the browser, nothing sent anywhere), links the repository and the
+  documentation, lists the licences (the code EUPL-1.2, the written
+  content CC BY 4.0, the fonts under the OFL, the third-party notices
+  file of the bundle, D32), names the version of the library it runs,
+  and asks for feedback through the repository's issues. The footer's
+  line on GitHub's logs (D36) lives there too.
+
 ## Open points for the mockups
 
 What the five mockups vary, each one direction; nothing decided above
