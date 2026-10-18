@@ -1,0 +1,7 @@
+-R theories Linlog
+
+theories/Formulas.v
+theories/Calculus.v
+theories/Proofs.v
+theories/Check.v
+theories/Soundness.v

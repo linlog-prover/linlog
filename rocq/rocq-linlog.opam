@@ -1,8 +1,6 @@
 # linlog © Fabian Lukas Grubmüller 2026
 # Licensed under the EUPL
 
-# A draft: the Rocq library it describes is not written yet, and the
-# archive's entry needs a release archive with its checksum (`url`).
 opam-version: "2.0"
 version: "0.1.0"
 synopsis: "The Rocq library of linlog, a linear logic suite"

@@ -9,6 +9,17 @@
 # Python's bytecode of the hooks' shared module
 __pycache__/
 
+# Rocq's compiled library and the makefile `rocq makefile' generates (rocq/)
+*.vo
+*.vos
+*.vok
+*.glob
+.*.aux
+/rocq/RocqMakefile
+/rocq/RocqMakefile.conf
+/rocq/.RocqMakefile.d
+/rocq/.lia.cache
+
 # nix
 result*
 # The LLTP library, `nix build .#lltp -o bench/lltp`
