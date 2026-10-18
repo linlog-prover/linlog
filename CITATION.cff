@@ -26,6 +26,8 @@ authors:
     family-names: Grubmüller
 version: 0.1.0
 date-released: "2026-10-18"
+# The DOI of every version, which resolves to the latest.
+doi: 10.5281/zenodo.23448588
 license: EUPL-1.2
 repository-code: "https://github.com/linlog-prover/linlog"
 url: "https://linlog-prover.github.io/linlog/"

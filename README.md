@@ -1,5 +1,7 @@
 # linlog
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23448588.svg)](https://doi.org/10.5281/zenodo.23448588)
+
 A linear logic suite for all your needs: a command line program and a Rust
 library that parse, print and decide sequents of classical and
 intuitionistic linear logic and their fragments, keep the proofs in a
@@ -1549,6 +1551,15 @@ nix run nixpkgs#cachix -- use linlog-prover
 or add `https://linlog-prover.cachix.org` to `extra-substituters` and
 `linlog-prover.cachix.org-1:6K+DDVwwELnSYtfflwUdsHdYuolC7hprdD/r2/KOQZU=`
 to `extra-trusted-public-keys` in `nix.conf`.
+
+## Citing
+
+Each release is archived on Zenodo. To cite linlog, use the DOI
+[10.5281/zenodo.23448588](https://doi.org/10.5281/zenodo.23448588),
+which always resolves to the latest version, or the DOI of the version
+you used, which its Zenodo record gives. [`CITATION.cff`](CITATION.cff)
+holds the entry, and GitHub's "Cite this repository" writes it as BibTeX
+or APA.
 
 ## Licence
 
