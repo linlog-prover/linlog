@@ -762,6 +762,17 @@ stay open; KLE075+1, which Sympli refutes against its header and which
 has no classical countermodel, is now refuted by linlog in all three
 translations too.
 
+*Left by step 30's baseline (2026-10-17, `plan/reports/30-baseline-release.md`,
+session 30c; unassigned, for the next performance work).* A fixed cost
+per call: on the problems that take microseconds the median time is
+1.5 to 2.1 times the second baseline's with the same counters
+(KLE-IMP-CONJ 28 → 48 µs, SYJ-cbn 67 → 146 µs), 20 to 80 µs of set-up
+more per call, not traced; the memory account that now charges the
+input and the race's set-up are where to look first. And 21 QBF runs
+that the second baseline refuted end at the default memory bound of
+1 GiB, which the second baseline did not have; above it they are
+decided as before.
+
 *Left by step 26 (2026-10-04, `plan/reports/26-focused-engine.md`).*
 The reference prover, the Horn test on the goal, the Mix prune, the
 chain loop and the profile's hot spots are done. Left, each measured
@@ -1288,6 +1299,11 @@ row height for trees without a raised `⊥` (`Style::line_height` is the
 knob).
 
 ## Follow-ups: the command's output
+
+*Found by step 30's release review (2026-10-17, finding 15; unassigned).*
+The batch's and `check`'s records write `wire::LEVEL` as a constant,
+which is right at level 1 and wrong once a level 2 exists: they should
+write the level of what they contain.
 
 *Assigned (2026-10-03).* Step 18, as the author decided: on a terminal a
 tree is shown only if it fits; into a file or a pipe it is written

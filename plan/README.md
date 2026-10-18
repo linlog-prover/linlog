@@ -2316,3 +2316,40 @@ client follows it (step 32).
   target sets with their oracles, read the comparison's changed
   tables, and reran `nix flake check` on 30b's commits over `main`.
   Next: 30c, the baseline and the release.
+- 2026-10-17/18: review of step 30c, the third baseline and the first
+  release prepared (one session, Opus 5.5 at high, 17:55 to 23:35):
+  - the baseline ran 19:32 to 22:30 (2 h 58 min, estimated 8 h 45 min:
+    the engines now decide what the second baseline's passes waited
+    out), the nix timers stopped by the author, no scheduled job; no
+    decided verdict differs from either earlier baseline. LLTP
+    intuitionistic at copy bound 3 decides 3 610 (2 047, 737), classical
+    3 621, the forward pass 4 026, the default pass 4 024 of 4 495 in
+    2 s, keeping every problem the old default decides; 21 QBF runs end
+    at the default memory bound, and microsecond problems pay 20 to 80
+    µs more per call (both in `later.md`, the focused engine's
+    follow-ups);
+  - the release prepared and committed, nothing pushed: metadata and
+    licences, changelog and citation, the release workflow (Trusted
+    Publishing from 0.1.1, the first version by hand), README's face,
+    `rust-version` 1.92 with the `msrv` and `package` checks, the frozen
+    level-1 documents, the opam draft; every code commit gated, `nix
+    flake check` passed at the last code commit and at the session's
+    last, `cargo publish --dry-run --locked --workspace` and `cargo deny
+    check` pass; one reviewer, no must-fix. One departure for the
+    author: the changelog promises the command's subcommands, flags and
+    exit statuses within 0.1, which D18 and the API note's 10.2 had
+    left out.
+
+  The review read the release workflow, the manifests and the
+  changelog, checked the baseline's counts against its logs, and read
+  `engines.csv` for step 35: the focused engine is ahead of the net
+  engine on every row both decide, `wide-m1` and `wide-m2` included,
+  which the dispatch still gives the net engine. A tag from jj is
+  lightweight (`jj tag set`); the checklist's signed tag needs git,
+  which is the author's to run. After the publication: add
+  `cargo-semver-checks` as a CI job (R215). The prompts of steps 31
+  and 35 finished; on the author's word ("continue with 31 and 35
+  already"), 31a (Fable 5.1 at xhigh) and 35a (Opus 5.5 at high) start
+  side by side from 30c's head, with the cores split and the daemon's
+  builds and the timed runs under one lock. The release is the
+  author's, in the morning.
