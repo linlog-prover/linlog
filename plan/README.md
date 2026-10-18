@@ -2596,3 +2596,51 @@ client follows it (step 32).
   `/tmp/linlog-handoff/39a-probe/` and vanish with a reboot; the report
   keeps the counts. Prompt 37's paragraph on the gap study now says
   what 39 found. Next: step 36 (cyclic MLL and Lambek) beside 32a.
+- 2026-10-19: review of step 32a, the web front end's plan and the
+  bindings (one session, Opus 5.5 at high, 23:50 to 01:04, beside 39a):
+  - `plan/web/README.md`, the step's own plan: which of the design's
+    D1 to D60 each of 32a, 32b and 32c builds, version 1 and what it
+    leaves out (the net editor, the two-sided classical presentation,
+    ordinary logic, Learn's lessons, a progress display), the bindings'
+    API call by call, and what the library lacks (`Step` and
+    `Applicable` as wire forms, a call for the first steps of a goal's
+    proof, ordinary logic's JSON);
+  - the crate `linlog-web` (`web/`, unpublished): 19 calls of JSON in
+    and JSON, SVG or bytes out that keep nothing between them, the
+    library's error JSON thrown, the tab's defaults (work 2²⁶, memory
+    96 MiB, a million occurrences, derivations of 4 MiB, recursion depth
+    384 under a module stack of 8 MiB, since the host's own stack runs
+    out first, measured in Node); the package by wasm-bindgen's CLI at
+    the lock's version, `wasm-opt` and cargo-about's notices (5.2 MB, 2.0
+    MB gzipped), and the checks `web-package`, `web-wasm-tests` (12
+    tests under Node), `web-core-wasm32` (the checker's, the size
+    estimate's, the memo's and the memory account's 22 tests on
+    wasm32-wasip1 under wasmtime) and `web-bindgen`;
+  - two core commits of their own, touching no search: the unit tests
+    build without `parallel`, and the checker's table tests and integer
+    arguments hold on 32 bits (two tests had named 64-bit byte counts);
+  - item 3: no search that can be suspended is needed. On the 48 rows
+    with exponentials that the better search decides within 2²⁴ units,
+    the default bias's turns decide all, at a median 1.00 and at most
+    4.98 times the better search's work; two rows pass five times in
+    time under wasm (19.4 on a large sequent, from each turn's restart:
+    a follow-up). One departure for the author: the measurement forces
+    the engine (focus, two-sided), since the default dispatch now sends
+    no decided row of the target set to the turns (departs from the
+    design);
+  - a fresh-context reviewer's six findings, each fixed.
+
+  The review read the core commits in full, rebuilt `web-wasm-tests`,
+  `web-core-wasm32` and `web-bindgen` itself (`--rebuild`, all pass),
+  and probed the package in Node beyond the tests: parse errors with
+  their spans, unknown modes, a negative or fractional goal, a settings
+  array, a tampered session, an unknown wire level, a step on the wrong
+  formula, a tiny work and memory bound, a formula nested 5 000 deep,
+  the close, the hint, the drawings, all answered as the plan says. It
+  found the export call named `_export` in JavaScript (`export` is
+  reserved; wasm-bindgen renames it unasked) and named it `export_as`
+  (a commit of its own). The chain was stacked on 39's review; the gate
+  and `nix flake check` passed at the head. The follow-ups are in
+  `later.md` ("Follow-ups: the web bindings"). Next: 32b, the client's
+  repository, beside 36a.
+

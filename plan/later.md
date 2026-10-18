@@ -725,6 +725,33 @@ occurrence `n`) and `l<m>-<n>` (a link) as click targets, and Euler Math
 (OFL) served as a web font under the family name `Euler Math`, the layout
 holding without it through `textLength`.
 
+## Follow-ups: the web bindings
+
+From step 32a (2026-10-19), `plan/reports/32-web.md`, "Left open":
+
+- **A turn's set-up kept across restarts** (unassigned): under wasm the
+  default bias's two searches take turns, and each turn restarts its
+  search; on `PermAdmissibility_unf-8x8-4stageSEN-50_10_1` that costs
+  19.4 times the better search's time for 2.95 times its work. A turn
+  could keep the classes and counts its search set up. It matters only
+  without threads.
+- **Clippy for wasm32** (unassigned): four sites of the core crate that
+  are right on both widths fire there (`absurd_extreme_comparisons` at
+  `core/src/ordinary/mod.rs:452`, three `unnecessary_box_returns` in
+  `core/src/proofs/check/pass.rs`); no check runs clippy for that
+  target.
+- **The library's whole unit suite on 32 bits** (unassigned):
+  `web-core-wasm32` runs the checker's, the size estimate's, the memo's
+  and the memory account's tests on `wasm32-wasip1`; the rest (many use
+  threads, which WASI lacks) would show what else assumes 64 bits.
+- **The first steps of a goal's proof as a library call, and `Step` and
+  `Applicable` as wire forms** (step 32's later sessions, if the page
+  wants them in the library; additive at wire level 1): the bindings
+  define their own JSON for both and read the hint off the goal's proof.
+- **Ordinary logic's JSON forms** (`ordinary::Outcome`, the ordinary
+  sequent and its derivation): with ordinary logic on the page, after
+  version 1 (unassigned).
+
 ## Follow-ups: the focused engine
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,
