@@ -6,6 +6,7 @@
 |---|---|---|
 | Session 31a: the definitions, the checker and its soundness (session `step-31a`, 2026-10-18) | done (2026-10-18) | The library under `rocq/` (eae340fd): `Formulas`, `Calculus` (the one-sided calculus as a plain inductive, Mix and weakening as parameters), `Proofs` (the term, one constructor per `Node` variant), `Check` (the checker as a function), `Soundness` (`soundness` for every `rules` value and `soundness_classical`), no `Admitted`, no axiom, `Print Assumptions` of both theorems "Closed under the global context". The flake (889c1cc5): the package `rocq-linlog` built with `mkRocqDerivation` and the check `rocq-linlog`, which compiles the fourteen hand-written lemmas (nine accepted proofs, five rejections) and seven translated proofs of `rocq/tests/` (the largest 192 nodes, all in under a second) and requires the two assumption lines; both built under the machine lock. Documentation (da2a7e46): `.claude/rules/rocq.md`, CLAUDE.md, README, the changelog. One reviewer (Opus 5.5, `high`) read the inductive against the textbook calculus and NanoYalla's kernel: no must-fix, two should-fix (the `let*` notation made local; `ll` in `Prop` shapes 31c's bridge as `inhabited`), three notes, all answered and the wording fixed in 31f48eff; its probe proved `ll classical` and NanoYalla's `ll` derive the same sequents. Gate: passed at every code commit in the gate workspace `../linlog-step31a-gate` (eae340fd 07:41 to 07:45, 889c1cc5 to 07:47, 31f48eff to 07:53, 2c7e88f6 to 07:54, each `gate: passed`, exit 0), and once before on the working copy they were split from. `nix flake check` at the last commit: passed ("all checks passed!", exit 0) under the lock at 2c7e88f6, the last code commit, and again at the report commit. Every commit unsigned (`signing.behavior=drop`; the passphrase was not cached). |
 | Session 31b: Mix, affine, the two-sided statement and the second kernel (session `step-31b`, 2026-10-18) | done (2026-10-18) | The library (a06b52e0, 18b99bb4, 61d949e1): `soundness_mix` and `soundness_affine` with certificates in `rocq/tests/Modes.v`; the two-sided calculus `ill` (`Intuitionistic.v`, `nanoill.v`'s rules) with its own term, checker and `soundness_ill` (`IntuitionisticCheck.v`), certificates in `rocq/tests/TwoSided.v`; five theorems "Closed under the global context", no `Admitted`, `admit` or axiom. The exporter (c7088b5c): `rocq::Kernel` behind `rocq::Options::kernel` and `--kernel`, chosen by the mode where none is named, the NanoYalla snapshots' diff empty, nine library snapshots in `core/tests/snapshots/linlog/` and six CLI certificates compiled by the `rocq-linlog` check, README and the changelog. One reviewer (Opus 5.5, `high`) of the two-sided inductive and the theorem's statement: no must-fix, one should-fix (the equality out of the trusted file) and four notes, all answered; its probes proved `ill intuitionistic` equivalent to `nanoill.v`'s `ill` and the checker complete. Gate: passed at all four code commits (`gate: passed`, ratchet's largest rise +0.87 % on `batch-families`) in a capped unit on cores 8 to 11, 09:05 to 09:17. `nix flake check` under the lock: passed ("all checks passed!", exit 0) at the documentation commit after a first run's `export` failure was fixed at its cause; the run at the report commit is in the message to `planning`. Every commit signed. |
+| Session 31c: the bridges (session `step-31c`, 2026-10-18) | done (2026-10-18) | The library (27bcc6b2): `Mix.v` with `mix_to_ll` (a derivation in any `ll R` gives one of `?(⊥⊗⊥), Γ` without Mix, weakening kept, no cut) and `mix_to_classical`. The bridges (0bca3835): `rocq/bridges/NanoYallaBridge.v` (`ll_iff_nanoll`, `nanoll_iff_ll`) and `NanoIllBridge.v` (`ill_iff_nanoill`, `nanoill_iff_ill`), importing NanoYalla's `nanoll.v` and Yalla's `microyalla/nanoill.v` unchanged from the flake inputs `nanoyalla` and the new `yalla` (pinned to commit a1384376), never copied; the check `rocq-bridges` compiles them; all six theorems "Closed under the global context", no `Admitted`, `admit` or axiom under `rocq/`. Documentation (e91c361d): `rocq.md`, `flake.md`, CLAUDE.md, README, the changelog. One reviewer (Opus 5.5, `high`) of the statements: no must-fix, no should-fix, six notes, all answered (the headers fixed in 01632049). Gate: passed at all three code commits (10:43 to 10:51, exit 0) in `../linlog-step31c-gate` on cores 8 to 11. `nix flake check` under the lock at the last commit: in the message to `planning`. Every commit signed. |
 
 ## Session 31a: the definitions, the checker and its soundness
 
@@ -639,3 +640,209 @@ failed on a signing timeout and left a half-made directory and its git
 worktree entry, both removed by hand. `../linlog-step31b-gate` holds the
 gates, moved from commit to commit with `jj new`. The main checkout was
 not touched.
+
+## Session 31c: the bridges
+
+**Outcome.** The Rocq library is tied to the two kernels it stands
+beside, and Mix is reduced to a hypothesis. In the library,
+`rocq/theories/Mix.v` (in the package, importing `Calculus` alone)
+proves `mix_to_ll`: for every `rules` value `R`, a derivation of `⊢ Γ`
+in `ll R` gives one of `⊢ ?(⊥⊗⊥), Γ` in `ll {| mix := false; weakening
+:= weakening R |}`, without cut since the calculus has none; its
+instance `mix_to_classical` goes from `ll {| mix := true; weakening :=
+false |} Γ` to `ll classical (wn (tens bot bot) :: Γ)`. Beside the
+library, in `rocq/bridges/` (not part of the package), two modules
+import the upstream kernels unchanged and prove the equivalences:
+`NanoYallaBridge.v` proves `ll_iff_nanoll : ll classical l <->
+inhabited (nanoll.ll (map to_nanoyalla l))` over NanoYalla's `nanoll.v`,
+and `NanoIllBridge.v` proves `ill_iff_nanoill : ill intuitionistic G C
+<-> inhabited (nanoill.ill (map to_nanoill G) (to_nanoill C))` over
+Yalla's `microyalla/nanoill.v`, each with its converse form over the
+upstream sequents (`nanoll_iff_ll`, `nanoill_iff_ill`). The two files
+are fetched by the flake, NanoYalla's from the existing input
+`nanoyalla` and `nanoill.v` from the new input `yalla` (Yalla pinned to
+commit `a1384376`, 2026-04-13), and no copy of either is in the
+repository. The new check `rocq-bridges` (`modules/rocq-bridges.nix`)
+compiles both upstream files unchanged, then the bridges against them
+and the installed library, and requires `Print Assumptions` of the four
+bridge theorems to answer `Closed under the global context`; the
+library's own `tests/Assumptions.v` now asks about seven theorems,
+`mix_to_ll` and `mix_to_classical` among them, all closed. No file under
+`rocq/` has an `Admitted`, an `admit` or an axiom.
+
+### Decisions
+
+- **Mix's reduction is in the library, the bridges beside it.**
+  `Mix.v` needs nothing but `Calculus.v`, so it is installed with the
+  library and checked by `rocq-linlog`. The bridges need the LGPL files,
+  which the brief keeps out of the repository and out of anything a
+  certificate needs, so they live in `rocq/bridges/`, which neither the
+  package nor `rocq-linlog` reads, and have a check of their own. A
+  separate check, rather than more lines in `rocq-linlog`, keeps the
+  library's check independent of the two inputs (one aspect per file).
+- **The statement of `mix_to_ll` is general in `R`, with weakening
+  kept.** One induction covers both Mix calculi, the plain one and Mix
+  with affine weakening, at no extra cost, and the instance the brief
+  names is the corollary. The statements write `wn (tens bot bot)` and
+  the record literal, not definitions of `Mix.v`, so a reader checks
+  them against `Calculus.v` alone. The proof follows the argument of
+  Yalla's `mix_to_ll` for the binary case, read from the pinned source
+  and written afresh for this calculus: `?(⊥⊗⊥)` travels up the
+  derivation, an axiom, `1` or `⊤` weakens it in, a two-premise rule
+  contracts the two copies, a promotion keeps it in its `?` context, and
+  a Mix of `⊢ Γ` and `⊢ Δ` becomes the dereliction of the `⊗` of `⊢ ⊥,
+  ?(⊥⊗⊥), Γ` and `⊢ ⊥, ?(⊥⊗⊥), Δ`, contracted twice. Only this
+  direction is stated, as the brief asks; the converse (from `⊢
+  ?(⊥⊗⊥), Γ` without Mix to `⊢ Γ` with it) is proved in Yalla with cut
+  (`ll_to_mix2_cut`), and a cut-free proof here would need `⊥`'s
+  inversion and a generalisation over the copies of `?(⊥⊗⊥)`; it is not
+  needed by any certificate and is left open.
+- **The bridges state the `inhabited` form and both directions of the
+  translation.** The upstream inductives are in `Type` and `ll` and `ill`
+  in `Prop` (31a's decision), so each equivalence says that an upstream
+  derivation exists. Each bridge proves its translations inverse
+  (`of_to_…`, `to_of_…`) and states the equivalence twice, over the
+  library's sequents and over the upstream ones, so a reader who starts
+  from either calculus finds the statement in its own terms. Atoms are
+  `nat`, the upstream `Atom` and `IAtom`, which instantiates the library's
+  abstract atom type.
+- **The upstream files are imported under their own projects' logical
+  paths**: `NanoYalla` (its `_CoqProject` maps `.` to it, so the module
+  is `NanoYalla.nanoll`) and `Yalla.MicroYalla` (Yalla's `_RocqProject`
+  maps `microyalla` to it). `Require` without `Import`, every upstream
+  name qualified, since both define `map` and their own formulas. The
+  bridges themselves are compiled as `LinlogBridges`.
+- **Yalla is pinned to a commit, not a tag.** Its last tag on GitHub,
+  `v2.0.7`, predates `nanoill.v` (its `microyalla/` holds `ll.v` and
+  `ill.v` only), and the 2.1.0 its release notes describe is not tagged.
+  The input fetches the whole repository (1.1 MB), from which the check
+  takes the one file; `ll_fragments.v` was read from the same store path.
+  `nanoill.v` at that commit is byte-identical to the copy 31b's
+  reviewer pasted (`diff` empty), so the reviewer's proof carried over.
+
+### What is verified
+
+- `rocq compile` of the library with `Mix.v` and of every bridge with
+  the pinned Rocq 9.1.1 and standard library 9.0.0, on cores 8 to 11 in
+  capped scopes, against scratch copies of `nanoll.v` and `nanoill.v`
+  taken from the inputs' store paths (outside the repository).
+  `tests/Assumptions.v` prints `Closed under the global context` seven
+  times, `bridges/Assumptions.v` four times.
+- `grep -rnE 'Admitted|\badmit\b|Axiom' rocq/` finds nothing, and no
+  file named `nanoll*` or `nanoill*` is under `rocq/`.
+- `nix build .#checks.x86_64-linux.rocq-bridges
+  .#checks.x86_64-linux.rocq-linlog` under `flock
+  /tmp/linlog-machine.lock`: both built, their logs the four and the
+  seven assumption lines, the package rebuilt with `Mix.vo` installed.
+- `gate` at every code commit, in the workspace `../linlog-step31c-gate`
+  moved to each with `jj new`, as the transient units `linlog-31c-gates`
+  and `linlog-31c-gates2` (`MemoryMax=8G`, `AllowedCPUs=8-11`,
+  `CARGO_BUILD_JOBS=4`, `RUST_TEST_THREADS=4`; each commit's devshell
+  built under the lock first): 27bcc6b2 10:43:08 to 10:47:49, 0bca3835 to
+  10:49:51, 01632049 10:49:58 to 10:51:44, each `gate: passed` with exit
+  0. No Rust file changed; the ratchet's largest rise was +1.22 % on
+  `read-text` and `read-lltp`, within every ceiling. The documentation
+  commit e91c361d and the report's touch no code.
+- `nix flake check` under the lock at the session's last commit, this
+  report's: in the final message to `planning`.
+
+### The reviewer's findings
+
+One reviewer, Opus 5.5 at `high`, in a fresh context, read the
+statements of `NanoYallaBridge.v`, `NanoIllBridge.v` and `Mix.v` against
+the pinned `nanoll.v`, `nanoill.v` and Yalla's `ll_fragments.v`, and the
+check `rocq-bridges`. It confirmed the inputs: `nix hash path` of both
+store paths equals the `narHash` in `flake.lock`, the compiled copies are
+byte-identical to the pinned files, no `nanoll*` or `nanoill*` file is
+under `rocq/`, and the logical paths the check binds are the ones the
+bridges import, with nothing else in `ROCQPATH` that could shadow them.
+Its probe (outside the repository) checked by `reflexivity` that every
+constructor maps to its namesake with its arguments in order, derived
+`ll classical [top; var 3]` through `ll_iff_nanoll` from `nanoll.top_r`,
+used the affine instance of `mix_to_ll` and derived `⊢ ?(⊥⊗⊥), 1, 1`
+classically through `mix_to_classical` from a Mix of `⊢ 1` and `⊢ 1`;
+`Print Assumptions` of all six theorems printed `Closed under the global
+context`. It answered its four questions yes: the translations are the
+namesake bijections (A); each equivalence says that the same sequents
+are derivable, over the upstream inductives as they stand (B);
+`mix_to_ll` is the standard cut-free reduction, made stronger by keeping
+weakening, and its converse is neither claimed nor implied (C); no
+statement uses a definition a reader cannot check, the four translation
+functions excepted, which are a dozen lines each (D). No must-fix and no
+should-fix; six notes, each answered:
+
+1. *N1, the atom type.* The bridges hold at `nat` only; the result
+   transfers to any atom type by an injective renaming, which is not
+   proved. Answer: both headers now say that the statements are about
+   `formula nat` and `iformula nat`, the upstream atom types
+   (01632049). A bridge at another atom type has no upstream kernel to
+   meet, so the renaming lemma is not added.
+2. *N2, derivability rather than derivations.* Intended, and the headers
+   now say so in those words (the same commit).
+3. *N3, the equivalences do not pin the translations*: swapping `var`
+   and `covar` everywhere, or the arguments of `aplus`, preserves
+   derivability, so a mis-mapped translation would still prove; the
+   reviewer suggested `Example`s. Answer: the translations are read, as
+   the reviewer read them, and its probe checked them; an `Example` per
+   constructor would restate the twelve arms of the definition beside it,
+   so none is added. The report and `rocq.md` say that the translations
+   are part of what a reader checks.
+4. *N4, the converse of `mix_to_ll`*, which needs cut admissibility for
+   LL with Mix or an inversion argument. Answer: not claimed; recorded
+   under "Left open".
+5. *N5, `Type` or `Set`.* The upstream inductives are declared in
+   `Type` and Rocq lowers them to `Set`. Answer: the headers say so now
+   (01632049).
+6. *N6, the check's `rocq compile … | tee log`* loses the exit status;
+   harmless, since a failure prints and `[ -s log ]` catches any output.
+   Answer: the pattern is `rocq-linlog`'s and `rocq`'s; nothing to do.
+
+Verdict quoted: "The four bridge iffs state, over the pinned upstream
+inductives compiled unchanged, that linlog's `ll classical` and `ill
+intuitionistic` derive exactly the sequents NanoYalla's `nanoll.ll` and
+Yalla's `nanoill.ill` derive (as derivability at atom type `nat`),
+through translations that are the obvious namesake bijections.
+`mix_to_ll` is the standard cut-free reduction of binary Mix to
+`?(⊥⊗⊥)`, made stronger, not weaker, by keeping weakening, and no
+must-fix or should-fix issue was found."
+
+### What 31d inherits
+
+- The pattern of an invariant lemma over the calculus: `mix_to_ll` is an
+  induction over `ll R` for every `R` at once, with one case per
+  constructor and the permutation steps written with the standard
+  library's `perm_swap`, `perm_skip` and `Permutation_middle` (atoms are
+  abstract here, so `Soundness.v`'s `perm` tactic, which needs a decided
+  atom equality and is local to its section, is not available). Item 8's
+  refutation lemmas (the balance of an atom's literals, the count
+  equation, the classical reading) are inductions of the same shape,
+  stated as `~ ll R Γ` over the inductive.
+- Refutations carry over to the kernels: `nanoll_iff_ll` turns a proof
+  of `~ ll classical (map of_nanoyalla l)` into one that NanoYalla's
+  kernel derives no `l`, and `nanoill_iff_ill` likewise for `nanoill.v`,
+  if a certificate for those kernels is wanted.
+- With Mix, `mix_to_classical` is the contrapositive route: a classical
+  refutation of `⊢ ?(⊥⊗⊥), Γ` refutes `⊢ Γ` with Mix. The classical
+  reading needs no such detour, since every rule of every `rules` value
+  keeps tautologies; `?(⊥⊗⊥)` reads as false, so the route adds nothing
+  there.
+- The check `rocq-bridges` compiles every `.v` under `rocq/bridges/`, so
+  a module added there is checked without a change to the flake.
+
+### Left open
+
+- The converse of `mix_to_ll`, from `⊢ ?(⊥⊗⊥), Γ` without Mix to `⊢ Γ`
+  with it, cut-free: an inversion of `⊥` and an induction over the copies
+  of `?(⊥⊗⊥)`; not needed by any certificate.
+- Bridges at atom types other than `nat`, by an injective renaming of
+  atoms; no upstream kernel uses another.
+- Bridges for the Mix and affine calculi and for the two-sided affine
+  one: neither upstream file states those calculi (Yalla proper does,
+  over OLlibs, which the brief keeps out).
+
+### Workspaces
+
+`../linlog-step31c` (this session's, every commit above), made with `jj
+workspace add ../linlog-step31c -r tumwxxml`, and
+`../linlog-step31c-gate`, the gates', moved from code commit to code
+commit with `jj new`. The main checkout was not touched.

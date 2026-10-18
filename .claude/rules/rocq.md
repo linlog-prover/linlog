@@ -144,7 +144,10 @@ was.
   (nanoll.ll (map to_nanoyalla l))` and `ill intuitionistic G C <->
   inhabited (nanoill.ill (map to_nanoill G) (to_nanoill C))`, and the
   same over the upstream sequents with `of_…`; the translations map each
-  constructor to its namesake and are proved inverse. The upstream files
+  constructor to its namesake and are proved inverse. They are part of
+  what a reader checks, by reading: an equivalence would still hold for
+  a translation that swaps `var` and `covar` everywhere, or the
+  arguments of `aplus`, so it does not pin the translation down. The upstream files
   are LGPL: never copy them into the repository; to compile a bridge by
   hand, copy `nanoll.v` and `nanoill.v` from the inputs' store paths into
   a scratch directory and pass `-R nanoyalla NanoYalla -R microyalla
