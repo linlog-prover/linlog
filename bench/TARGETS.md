@@ -248,6 +248,15 @@ area that took it (the reports under `plan/reports/` have the tables):
   `net-after-generations` has the verdicts, `links` and `tests` of
   `net-after-efficiency` on its 64 rows.
 
+- `net-after-prunes`: the net engine's symmetry breaks for equal leaves
+  of one tree of `⊗` alone or `⅋` alone and for equal compound
+  subformulas, and its balance over the skeleton's components. Its 64
+  rows have the verdicts of `net-after-efficiency`; the counters of the
+  42 rows of `wide` and `3-partition-mll-yes` are equal, and those of
+  the 22 Horn rows (Partition and 3-Partition) fall, by design, from
+  thousands to millions of nodes to hundreds (`3-partition-mll-no/5`
+  16 202 533 nodes to 227, `partition-no/3` 269 950 to 391).
+
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
 the memo were carried from level to level and kept every level cut on a
@@ -265,7 +274,8 @@ the focused engine's search runs `bench/targets.sh LABEL` and compares
 with it, `linlog-bench summary --against bench/targets/after-efficiency.csv
 bench/targets/LABEL.csv --counters`, which lists every row decided alike
 whose counters differ. The net engine's set (`bench/net-targets.sh`) has
-its own oracle, `net-after-efficiency.csv`, equal in verdict, `links`
-and `tests` to `net-after-retype.csv`. The other files of the directory
+its own oracle, `net-after-prunes.csv`, since the prunes changed the
+search; before them it was `net-after-efficiency.csv`, equal in
+verdict, `links` and `tests` to `net-after-retype.csv`. The other files of the directory
 are intermediate labels of those steps and the pool's measurements.
 

@@ -428,8 +428,10 @@ serde_json, which the CLI and the core's tests already have.
   ignored by jj). What compares is `verdict`, `links` and `tests` of the
   decided rows, a function of the input on one thread; a change that
   must not alter the net search runs it and compares with the oracle,
-  `net-after-efficiency.csv` (equal to `net-after-retype.csv`, taken at
-  the retype of `ProofStructure` over vertices). The Partition
+  `net-after-prunes.csv` (the symmetry breaks and the balance prune;
+  before them `net-after-efficiency.csv`, equal to
+  `net-after-retype.csv`, taken at the retype of `ProofStructure` over
+  vertices). The Partition
   encodings of the problem file are copied out by exact name, since
   `--only` matches substrings and `1-1` is part of `1-1-1-1-1-7`, which
   the net engine does not decide.
