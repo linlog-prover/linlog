@@ -57,7 +57,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
 | 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
 | 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
-| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37) | `39-top-cap.md` (written at the review of 35, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
+| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37; ended by its measurement on 2026-10-19, nothing built) | `39-top-cap.md` (written at the review of 35, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -2577,3 +2577,22 @@ client follows it (step 32).
   prompt 39 starts with a measurement that ends the step if the cap can
   decide nothing. Prompts 36 and 39 are finished, 37's paragraph on the
   gap study corrected.
+- 2026-10-19: review of step 39 (one session, Opus 5.5 at high, 23:50
+  to 00:15, beside 32a): the cap is not built, as the prompt's first
+  item allows. A scratch probe in `prove_stable`, the one function every
+  stable sequent of both focused engines passes, counted the sequents
+  whose linear zone holds two or more copies of a literal whose dual
+  lies at or below no member of either zone: none on the held-out
+  sets' 129 undecided rows (4 516 311 436 stable sequents), on the six
+  of the seven refutations still undecided, or on the families' 18
+  undecided rows; 12 decided rows meet one, at two copies, in small
+  searches. The copy heuristic's own test is looser (a dual inside a
+  compound member escapes it), so it could not serve as the cap's
+  condition. The review read the probe's diff (the zone's iterator
+  repeats copies, so a copied `⊤`-only literal counts), and recomputed
+  from the raw outputs that every undecided row ran the two-sided
+  engine, wrote its counts, and that its stable sequents equal the
+  harness's node total. The raw outputs stay in
+  `/tmp/linlog-handoff/39a-probe/` and vanish with a reboot; the report
+  keeps the counts. Prompt 37's paragraph on the gap study now says
+  what 39 found. Next: step 36 (cyclic MLL and Lambek) beside 32a.
