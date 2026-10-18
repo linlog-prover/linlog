@@ -282,7 +282,8 @@ copies they had are gone (F103, F104).
   picked ends at `RecursionLimit` or `MemoryLimit` on a goal the net
   engine admits (unit-free MLL, the roots, no weakening) whose atoms
   occur once with each sign (`one_linking`: the linking is forced, so the
-  net search is one pass) and no engine is forced, the net engine decides the goal with the same options,
+  net search makes one link per pair and never backtracks, quadratic
+  with its scan of the atoms per link) and no engine is forced, the net engine decides the goal with the same options,
   limits, stop and work count, after `Account::rewind` gives back what
   the first search left charged (the focused engines' set-up tables,
   `Classes` and `Counts`, are charged and never released, so without it

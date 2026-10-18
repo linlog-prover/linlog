@@ -682,8 +682,8 @@ fn handed_over(options: &Options, task: &Task<'_>, answer: &Answer) -> bool {
 
 /// Whether every atom of the forest occurs once with each sign, so that
 /// its axiom linking is the only one: the net engine's search then makes
-/// one link per pair and backtracks over none, and ends within a test of
-/// the criterion per link. On equal literals its search is exponential,
+/// one link per pair and backtracks over none, at the cost of a scan of
+/// the atoms and a test of the criterion per link, quadratic in all. On equal literals its search is exponential,
 /// and taking over a goal on which a focused engine met its limit would
 /// trade a quick "unknown" for a search without end.
 fn one_linking(forest: &Forest) -> bool {

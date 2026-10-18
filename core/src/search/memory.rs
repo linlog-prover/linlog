@@ -129,8 +129,9 @@ impl Account {
     }
 
     /// Gives back everything charged since the account held `held` bytes:
-    /// what a search that has ended left charged (tables of its set-up
-    /// that it never releases), which it no longer holds.
+    /// what a search that has ended left charged (tables of its set-up and
+    /// a memo's reserve, which it never releases), which it no longer
+    /// holds.
     pub(crate) fn rewind(&self, held: u64) {
         let since = self.used().saturating_sub(held);
         self.used.fetch_sub(since, Ordering::Relaxed);

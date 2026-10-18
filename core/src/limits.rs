@@ -69,7 +69,9 @@ pub struct Limits {
     /// The most units of work a call may do: the proof checker counts a
     /// node or an entry of a sequent its rules handle, the ordinary
     /// checker an inference, a search its engine's unit (each
-    /// [`Engine`](crate::search::Engine) variant says which). A search past
+    /// [`Engine`](crate::search::Engine) variant says which; where the net
+    /// engine takes a goal over at another engine's limit, both engines'
+    /// units together). A search past
     /// it is unknown with `Reason::WorkLimit`, as is one whose proof's
     /// check passes it; a check alone refuses with
     /// `Error::Check(CheckError::Refused)`.
