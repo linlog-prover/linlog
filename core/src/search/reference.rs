@@ -676,7 +676,7 @@ mod tests {
     fn configurations(copies: u32) -> Vec<(String, Options)> {
         let base = Options::default().with_copies(Some(copies));
         let mut all = vec![("dispatch".to_owned(), base.clone())];
-        for engine in [Engine::Net, Engine::Additive] {
+        for engine in [Engine::Net, Engine::Essential, Engine::Additive] {
             all.push((format!("{engine}"), base.clone().with_engine(Some(engine))));
         }
         all.push((

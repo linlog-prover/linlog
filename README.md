@@ -178,7 +178,7 @@ trees a proof net, by default only where the focus engine stops at its
 recursion limit or memory bound on a sequent whose atoms occur once with
 each sign (a chain of thousands of links, some sequents of thousands of
 distinct atoms), since everywhere else the focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
-choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
+choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn|essential`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
 and `--stats` what the search cost, in the counters of the engine that
@@ -534,9 +534,23 @@ branch, with the same copy bound and affine mode as the classical one;
 IMLL without units, each atom once with each sign, goes to the net engine
 where the two-sided engine stops at its recursion limit or memory bound
 (the classical net of the one-sided sequent is always an intuitionistic
-proof):
+proof). `--engine essential` searches IMLL without units for an
+*essential net* instead: the reading directs every edge from the
+hypotheses toward the goal, and a linking is a proof net when the
+directed graph has no cycle and every implication `A ⊸ B` of the goal's
+side dominates its antecedent, every path from `A` to the goal passing
+through it; the engine keeps which occurrence reaches which, a matrix
+of bits that `--memory-limit` bounds. It is slower than the two-sided
+engine wherever both decide, so it runs only when asked:
 
 ```console
+$ linlog prove -i --engine essential --net "A -o B, B -o C |- A -o C"
+provable (IMLL, intuitionistic, essential engine)
+⊢ A ⊗ ~B, B ⊗ ~C, ~A ⅋ C
+A[1] — ~A[7]
+~B[2] — B[4]
+~C[5] — C[8]
+proof net
 $ linlog prove -i "A -o B -o C, A * B |- C"
 provable (IMLL, intuitionistic, two-sided engine)
            ───── ax   ───── ax
@@ -1527,6 +1541,9 @@ Built:
   symmetry break for equal literals and subformulas that are conclusions
   or leaves of one tree of `⊗` alone or `⅋` alone, and a per-atom balance
   over the skeleton's components, then sequentializes the net it finds;
+  for IMLL without units, when asked, the same search over essential
+  nets, directed acyclicity and the dominator condition kept by a
+  transitive closure of bits with an undo log;
   for two additive-only formulas a
   recursion on subformula pairs; and for Horn programs with clauses under
   `!` (Petri nets) a decision of the net's markings: in linear mode a
@@ -1668,8 +1685,7 @@ Planned, in roughly this order:
   other logics, failure certificates of the search.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, further engines for intuitionistic MLL (essential
-  nets), the Lambek calculus, the inverse method,
+  and on nets, the Lambek calculus, the inverse method,
   and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

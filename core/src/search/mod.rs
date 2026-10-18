@@ -14,6 +14,8 @@ pub(crate) mod additive;
 pub mod batch;
 /// The classical refuter: an assignment that falsifies the reading.
 mod classical;
+/// Essential-net search for unit-free IMLL.
+mod essential;
 /// The focused sequent engine.
 pub(crate) mod focus;
 /// Random provable sequents for the tests.
@@ -1338,11 +1340,36 @@ pub enum Engine {
     /// frontier or an element from the queue, a marking computed backward,
     /// and a pivot of the state equation.
     Horn,
+    /// The essential-net engine, for unit-free IMLL: intuitionistic mode
+    /// without weakening. The dispatch gives it no goal; forced, it
+    /// decides any goal it admits. It is the net engine's search over
+    /// the sequent's polarized structure, Lamarche's essential net, whose
+    /// edges the [`Reading`] directs from the hypotheses toward the goal:
+    /// a linking is a proof net when the directed graph has no cycle and
+    /// every implication `A ⊸ B` of output position dominates its
+    /// antecedent, every path from `A` to the goal passing through it
+    /// ([`ProofStructure::is_essential`]). It keeps the reflexive
+    /// transitive closure of the graph as a bit matrix, quadratic in the
+    /// sequent's size and counted under
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes) with its undo
+    /// log: a link that would close a cycle, or lead an antecedent's
+    /// literal to the goal around its implication, is rejected at once,
+    /// and the dominator condition is tested where the net engine runs its
+    /// exact test. It counts, breaks symmetries and chooses literals as the
+    /// net engine does, and sequentializes the net found into the proof
+    /// returned. Of the options it reads [`Options::test_period`] and
+    /// [`Options::check`], and runs on the calling thread whatever
+    /// [`Options::jobs`] says. Measured against the two-sided engine on
+    /// the intuitionistic rows of the net engine's measurement, it is the
+    /// slower wherever both decide (`essential` in the measurement's
+    /// table); it is an engine to name, for teaching and comparison.
+    /// Its unit of work is a literal chosen and a test that fails.
+    Essential,
 }
 
 impl Display for Engine {
-    /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive` or
-    /// `horn`.
+    /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive`,
+    /// `horn` or `essential`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
     }
@@ -1450,6 +1477,12 @@ impl Display for Explained {
                     "proof nets exist for MLL without units only, not for {goal}"
                 )
             }
+            (Engine::Essential, NotTaken::Fragment { goal, .. }) => {
+                write!(
+                    f,
+                    "essential nets exist for IMLL without units only, not for {goal}"
+                )
+            }
             (Engine::Net, NotTaken::Mode { mode }) => write!(
                 f,
                 "proof nets exist in linear mode only, with or without Mix, not in {mode} mode"
@@ -1538,11 +1571,13 @@ impl Engine {
         Self::TwoSided,
         Self::Additive,
         Self::Horn,
+        Self::Essential,
     ];
 
     /// The engines' names, as [`name`](Self::name) writes them and
     /// [`FromStr`] reads them.
-    pub const NAMES: &'static [&'static str] = &["focus", "net", "two-sided", "additive", "horn"];
+    pub const NAMES: &'static [&'static str] =
+        &["focus", "net", "two-sided", "additive", "horn", "essential"];
 
     /// Returns the counters of [`Statistics`] the engine fills, each with
     /// its key in the statistics' JSON form, a label and what it counts
@@ -1595,6 +1630,21 @@ impl Engine {
             Counter::new("tests", "exact tests run", "exact acyclicity tests"),
             WORK,
         ];
+        /// The essential-net engine's counters.
+        const ESSENTIAL: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "literals chosen",
+                "literals the search chose a partner for",
+            ),
+            Counter::new("links", "links tried", "axiom links made"),
+            Counter::new(
+                "tests",
+                "dominator tests run",
+                "tests of the dominator condition",
+            ),
+            WORK,
+        ];
         /// The additive path's counters.
         const ADDITIVE: &[Counter] = &[
             Counter::new(
@@ -1630,13 +1680,14 @@ impl Engine {
         match self {
             Self::Focus | Self::TwoSided => FOCUSED,
             Self::Net => NET,
+            Self::Essential => ESSENTIAL,
             Self::Additive => ADDITIVE,
             Self::Horn => HORN,
         }
     }
 
-    /// Returns the engine's name: `focus`, `net`, `two-sided`, `additive`
-    /// or `horn`.
+    /// Returns the engine's name: `focus`, `net`, `two-sided`, `additive`,
+    /// `horn` or `essential`.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Focus => "focus",
@@ -1644,17 +1695,18 @@ impl Engine {
             Self::TwoSided => "two-sided",
             Self::Additive => "additive",
             Self::Horn => "horn",
+            Self::Essential => "essential",
         }
     }
 
     /// Whether the engine searches on several threads when
     /// [`Options::jobs`] asks for them: the focused engines and the net
-    /// engine do; the additive and the Horn engine run on the calling
-    /// thread whatever it says.
+    /// engine do; the additive, the Horn and the essential-net engine run
+    /// on the calling thread whatever it says.
     pub const fn parallel(self) -> bool {
         match self {
             Engine::Focus | Engine::Net | Engine::TwoSided => true,
-            Engine::Additive | Engine::Horn => false,
+            Engine::Additive | Engine::Horn | Engine::Essential => false,
         }
     }
 
@@ -1666,6 +1718,7 @@ impl Engine {
             Engine::Net => &net::Nets,
             Engine::Additive => &additive::Additive,
             Engine::Horn => &horn::Horn,
+            Engine::Essential => &essential::Essentials,
         }
     }
 }
@@ -1770,7 +1823,7 @@ impl Jobs {
     }
 }
 
-/// How often the net engine runs its exact test: written `"auto"` or the
+/// How often the net engines run their test: written `"auto"` or the
 /// number of links between two tests.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -1928,10 +1981,11 @@ pub struct Options {
     /// can be faster than one that fits the memory. The focused engine and
     /// the additive path read it; the net engine keeps no memo.
     pub memo_limit: u32,
-    /// How often the net engine runs its exact acyclicity test: the test
+    /// How often the net engine runs its exact acyclicity test, and the
+    /// essential-net engine its test of the dominator condition: the test
     /// also runs on every complete linking, so the cadence trades time per
-    /// link against how long a doomed branch is followed. Only the net
-    /// engine reads it.
+    /// link against how long a doomed branch is followed. Only those two
+    /// engines read it.
     pub test_period: Cadence,
     /// How many threads the search may use. One, the default, runs the
     /// sequential engines, whose proof is a function of the input. More
@@ -2633,13 +2687,14 @@ mod tests {
             Engine::TwoSided => 2,
             Engine::Additive => 3,
             Engine::Horn => 4,
+            Engine::Essential => 5,
         };
         let bias_at = |bias| match bias {
             Bias::Auto => 0,
             Bias::Rarer => 1,
             Bias::Factors => 2,
         };
-        assert_eq!(Engine::ALL.len(), 5);
+        assert_eq!(Engine::ALL.len(), 6);
         assert_eq!(Bias::ALL.len(), 3);
         for (i, &engine) in Engine::ALL.iter().enumerate() {
             assert_eq!(engine_at(engine), i);
@@ -3079,7 +3134,7 @@ mod tests {
             "{error}"
         );
         let parallel: Vec<bool> = Engine::ALL.iter().map(|e| e.parallel()).collect();
-        assert_eq!(parallel, [true, true, true, false, false]);
+        assert_eq!(parallel, [true, true, true, false, false, false]);
         let defaults = Options::default();
         assert_eq!(
             (

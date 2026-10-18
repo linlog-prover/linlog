@@ -93,6 +93,16 @@ second number (0.1.x to 0.2.0), anything else the third.
   "assignment": [true, false, …]}`. A disproof or an unprovable outcome
   that holds one is written at level 2; every other document stays at
   level 1, byte for byte.
+- The essential-net engine for IMLL without units, `Engine::Essential`
+  (`--engine essential`, JSON `"essential"`): the net engine's linking
+  search over the essential net the intuitionistic reading directs,
+  keeping directed acyclicity by a transitive closure of bits with an
+  undo log, counted under the memory bound, and testing the dominator
+  condition; it runs only when forced. `ProofStructure::is_essential`
+  decides that criterion independently of any search, with the
+  witnesses `NetError::DirectedCycle` and `NetError::NoDominator` (and
+  `NetError::NotIntuitionistic` for a sequent without a reading), and
+  `ProofStructure::reading` gives a structure's reading.
 
 ### Changed
 

@@ -163,7 +163,9 @@ pub(crate) struct ProveArgs {
     /// mode; `horn` the markings of a Petri net, for Horn programs (atoms,
     /// implications between tensors of atoms, such implications under !,
     /// and one goal that is a tensor of atoms): reachability in linear
-    /// mode, coverability in affine mode.
+    /// mode, coverability in affine mode; `essential` proof-net search over
+    /// essential nets, directed by the intuitionistic reading, for IMLL
+    /// without units.
     #[arg(long, value_name = "ENGINE", value_parser = engine_name(), default_value = "auto")]
     pub(crate) engine: Forced,
     /// The search's options, bounds and threads.
@@ -184,7 +186,8 @@ pub(crate) struct ProveArgs {
     ///
     /// The focused engines count stable sequents, memo use, splits and the
     /// copy bound reached, the net engine literals chosen, links tried and
-    /// exact tests run, the additive one pairs of subformulas, the Horn
+    /// exact tests run, the essential-net engine the same with tests of the
+    /// dominator condition, the additive one pairs of subformulas, the Horn
     /// engine markings; every engine its units of work. JSON output always
     /// carries the counts; the time is printed only as text, and in a
     /// batch's JSON records as `seconds`.
@@ -310,7 +313,7 @@ pub(crate) struct SearchArgs {
     ///
     /// A unit is what each engine counts at its polls (a stable sequent
     /// or a split for the focused engine, a literal or a failed test for
-    /// the net engine, a pair for the additive one, a marking for the
+    /// the net engines, a pair for the additive one, a marking for the
     /// Horn engine), so a limit gives the same verdict on every machine
     /// where a time limit does not; past it the verdict is unknown (exit
     /// status 3). `--stats` prints the units a search did.
@@ -337,8 +340,8 @@ pub(crate) struct SearchArgs {
     /// threads, which starts the search afresh, and the first to decide
     /// answers; both together hold at most `--memory-limit`. Below three
     /// threads there is no single thread: two search on a pool from the
-    /// start. The additive and the Horn engine run on one thread and get
-    /// no pool.
+    /// start. The additive, the Horn and the essential-net engine run on
+    /// one thread and get no pool.
     #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
     pub(crate) pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input
@@ -347,7 +350,8 @@ pub(crate) struct SearchArgs {
     /// `--jobs`, `--pool-after` and `--schedule`.
     #[arg(long)]
     pub(crate) deterministic: bool,
-    /// How often the net engine runs its exact test of correctness: after
+    /// How often the net engine runs its exact test of correctness, and
+    /// the essential-net engine its test of the dominator condition: after
     /// this many links, or `auto` (search.test_period)
     ///
     /// `auto` tests after every link on a small structure and every few
