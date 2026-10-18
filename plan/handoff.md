@@ -49,9 +49,12 @@ each needs before it (the table in `plan/README.md` is the authority):
   It runs before 37.
 - **32**: the web front end, a plan of its own and a second repository;
   its prompt is finished. The repository's architecture (name,
-  directory, layout) is the session's (the author, 2026-10-18); ask the
-  author only to create it on GitHub once its first commits are
-  reviewed. It can run
+  directory, layout) is the session's (the author, 2026-10-18). Once
+  its first commits are reviewed you create it yourself with `gh repo
+  create linlog-prover/NAME --public …` (the author expects that),
+  after saying the exact call and getting the author's yes for it, as
+  for every administrative task; ask too whether the standing push
+  permission covers that repository. It can run
   beside 39 (39 on cores 2 to 7, 32's builds on 8 to 11).
 - **36** (prompt finished): cyclic MLL and the Lambek calculus, after
   35. **33** after 32; **34** after 31 and 33; **37** after 36 and 39;

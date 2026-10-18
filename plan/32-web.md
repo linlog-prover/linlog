@@ -164,9 +164,10 @@ wasm and builds the bindings with their wasm tests and flake check, in
 this repository alone; the second sets up the client's repository and
 its first version (item 4); the third finishes it, its hosting and its
 licence check (items 5 and 6). The second session creates the
-client's repository locally where item 1 says, and the planning
-session asks the author to create it on GitHub when its first commits
-are reviewed. Sub-agents as
+client's repository locally where item 1 says; when its first commits
+are reviewed, the planning session creates it on GitHub with `gh repo
+create` (the author, 2026-10-18), after one yes for that call as for
+every administrative task, and pushes it. Sub-agents as
 `plan/conduct.md` says: research on Sonnet 5.5, a fresh-context
 reviewer on Opus 5.5 for the bindings' JSON boundary and for every
 integer argument made for 32 bits.
