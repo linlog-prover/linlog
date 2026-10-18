@@ -13,8 +13,8 @@
 # library (274 problems of intuitionistic logic in TPTP syntax), fetched at
 # a pinned version for the same reason: it states no licence. `qcover' is
 # the coverability suite of the qcover tool at a pinned commit, for
-# `linlog-bench run --spec': 176 problems in Mist's `.spec' format, whose
-# files state no licence of their own beside the repository's.
+# `linlog-bench run --spec': 176 problems in Mist's `.spec' format, under
+# that repository's Apache-2.0.
 {
   perSystem =
     {

@@ -88,7 +88,7 @@ cargo run -p linlog-cli -- <args>
 cargo run --release -p linlog-bench -- run --family partition-no=3,4 --engines focus,net
 nix build .#lltp -o bench/lltp   # the LLTP library (1.1 GB, GPL-3.0, fetched at a pinned commit)
 nix build .#iltp -o bench/iltp   # the ILTP library's 274 propositional problems (no licence stated, fetched at v1.1.2)
-nix build .#qcover -o bench/qcover   # the qcover coverability suite's 176 .spec problems (no licence of their own, fetched at a pinned commit); linlog-bench run --spec
+nix build .#qcover -o bench/qcover   # the qcover coverability suite's 176 .spec problems (Apache-2.0, the licence of its repository, fetched at a pinned commit); linlog-bench run --spec
 bench/targets.sh LABEL            # the focused engine's target set into bench/targets/LABEL.csv (two cores, about 20 min, detached)
 bench/net-targets.sh LABEL        # the net engine's target set into bench/targets/net-LABEL.csv (one core, about 5 min, detached)
 bench/baseline.sh --detach --fresh   # the whole baseline in a user unit, started when the author gives the machine (about 3 h; --arm waits for the night slot): bench/results/DAY/, bench/RESULTS.md
