@@ -37,7 +37,7 @@
         commands = [
           {
             name = "check";
-            help = "Run every flake check: build, clippy, tests (release and debug assertions), rustdoc (public and private items), wasm, cargo-deny, cargo-hack, export, rocq, bench, ratchet, deadnix, actionlint, formatting, claude-hooks, conventions, typos, shear";
+            help = "Run every flake check: build, clippy, tests (release and debug assertions), rustdoc (public and private items), wasm, cargo-deny, cargo-hack, export, rocq, rocq-linlog, bench, ratchet, deadnix, actionlint, formatting, claude-hooks, conventions, typos, shear";
             command = "nix flake check";
           }
           {

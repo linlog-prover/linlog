@@ -36,7 +36,7 @@
           status=0
           sources=$(rg --files --hidden --glob '!.git' \
             --glob '*.rs' --glob '*.nix' --glob '*.toml' --glob '*.sh' \
-            --glob '*.py' --glob '*.yml' --glob '*.yaml')
+            --glob '*.py' --glob '*.yml' --glob '*.yaml' --glob '*.v')
           for file in $sources; do
             # A script's header follows its shebang line.
             if ! head -n 3 "$file" | rg --quiet --fixed-strings 'linlog © Fabian Lukas Grubmüller 2026' \
@@ -51,8 +51,8 @@
           plan='plan/|\b[Ss]teps? [0-9]+\b|\bD[0-9]{1,2}a?\b|conduct\.md'
           if rg --line-number --glob '!.claude/**' \
             --glob '*.rs' --glob '*.nix' --glob '*.toml' --glob '*.sh' \
-            --glob '*.py' --glob '*.yml' --glob '*.yaml' \
-            "(//|#).*($plan)" .; then
+            --glob '*.py' --glob '*.yml' --glob '*.yaml' --glob '*.v' \
+            "(//|#|\(\*).*($plan)" .; then
             echo "a comment names the plan"
             status=1
           fi

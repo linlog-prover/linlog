@@ -72,7 +72,18 @@ the version, which an assertion compares with the kernel's README at
 evaluation) with nixpkgs' Rocq and standard library and compiles the
 `.v` snapshots and six CLI certificates against it (four of them over
 `Prop`, of ordinary logic, classical and intuitionistic, two of `true`,
-which bind nothing), requiring Rocq to print nothing; `bench.nix` is the `linlog-bench` package, the `bench`
+which bind nothing), requiring Rocq to print nothing; `rocq-linlog.nix` is the package
+`rocq-linlog`, the library under `rocq/` built with
+`rocqPackages.mkRocqDerivation` from a release entry whose `src` is the
+tree's `_RocqProject`, `Makefile` and `theories/` (`hash = ""` stands for
+the fake hash nothing fetches), the version read from
+`rocq/rocq-linlog.opam` and the standard library propagated, and the
+check `rocq-linlog`, which greps the sources for `Admitted`, `admit`,
+`Axiom`, `Parameter` and `Conjecture`, compiles every `.v` under
+`rocq/tests/` against the installed library (`ROCQPATH` names both
+`user-contrib` directories), requires silence from each certificate and
+requires `Assumptions.v` to print exactly two lines `Closed under the
+global context` (`rocq.md`); `bench.nix` is the `linlog-bench` package, the `bench`
 check (the harness on the smallest instance of every family, the
 problem file, and an LLTP and a `.spec` file of the command's lock
 inputs, failing through `summary --strict` on a verdict against a known
