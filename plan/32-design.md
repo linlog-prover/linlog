@@ -51,8 +51,11 @@ first, with its reason), and go on from what they say. Cover:
 - **The visual design**, with the `frontend-design:frontend-design`
   skill: the subject's own vernacular (sequents, derivation trees, proof
   nets, the textbook page), the typography beside Euler Math, colour in
-  light and dark, how a goal, a clickable formula, an applicable rule,
-  an error and a finished proof look.
+  light and dark, how a goal, a clickable formula, an applicable rule
+  and a finished proof look, and how each failure looks and reads:
+  input that does not parse, an unprovable sequent, a search that gives
+  up, a rule that does not apply (the author asked for these in every
+  mockup).
 - **The interaction**: how one clicks a formula and a rule, how the
   derivation grows (tree, list of goals, both), undo and history, the
   search closing a goal, the net view for MLL, the exports, the keyboard
@@ -89,7 +92,13 @@ Prepare, before any mockup starts:
   and the JSON of the interactive states for three or four example
   sequents the conversation chose (an MLL one with its net, one with an
   exponential, an intuitionistic one, an unprovable one with its
-  refutation), into `/home/tux/Projects/own/linlog-design/data/`, with
+  refutation), and the command's own answers for what goes wrong (the
+  author, 2026-10-18): input that does not parse (its error with the
+  place in the input), an unprovable sequent (with a checked
+  refutation, a classical countermodel, and with an exhausted search
+  only), a search that gives up (unknown at its budget), and a rule
+  clicked where it does not apply, into
+  `/home/tux/Projects/own/linlog-design/data/`, with
   a short `README.md` saying what each file is. Every mockup uses this
   real output, not invented formulas.
 - **Five briefs**, each the design document's decisions plus one
@@ -109,8 +118,14 @@ on Opus 5.5 at `high`, each with its brief and told:
   its CSS and JavaScript, no build step and no network at view time
   (fonts copied in with their licences; only fonts under the OFL or
   another free licence), that walks through the example proofs by
-  clicking, with scripted states, and shows the drawing, the hints, an
-  error, a finished proof and its export;
+  clicking, with scripted states, and shows the drawing, the hints, a
+  finished proof and its export, and every one of the failures above:
+  where on the page each appears, what it says (the command's facts, in
+  words a student understands, never only an error code), what it
+  points at in the input or the proof, and what the student can do
+  next (fix the input, see why it is unprovable, try another rule,
+  give the search more time); the conversation settles their tone and
+  place first;
 - to write `mockup-N/README.md`: its design plan (palette, type,
   layout, principles), which learning principles it applies and how,
   and what it would cost to build in the decided stack;
