@@ -276,6 +276,30 @@ pub struct Mode {
     pub(crate) affine: bool,
     /// The Mix rule is allowed: `⊢ Γ` and `⊢ Δ` give `⊢ Γ, Δ`.
     pub(crate) mix: bool,
+    /// Whether the order of a sequent's formulas counts.
+    pub(crate) order: Order,
+}
+
+/// Whether a calculus keeps the order of a sequent's formulas.
+///
+/// In the commutative calculi a sequent is a multiset and exchange is
+/// free. In the cyclic one a one-sided sequent is a cyclic sequence of
+/// formulas, read up to rotation, with no other exchange: `⊗` joins the
+/// two arcs `⊢ Γ, A` and `⊢ B, Δ` into `⊢ Γ, A ⊗ B, Δ`, `⅋` joins two
+/// neighbours `A, B` into `A ⅋ B`, and the dual of a product reverses it,
+/// `(A ⊗ B)⊥ = B⊥ ⅋ A⊥`. The order of a sequent is that of its
+/// literals as written, which the occurrence forest numbers in that
+/// order (a formula's left operand before its right one), so that a
+/// cyclic sequent's formulas and every subproof's stand in ascending
+/// occurrence order, up to rotation.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Order {
+    /// A sequent is a multiset of formulas.
+    #[default]
+    Commutative,
+    /// A sequent is a cyclic sequence of formulas: cyclic linear logic.
+    Cyclic,
 }
 
 impl Mode {
@@ -284,6 +308,7 @@ impl Mode {
         intuitionistic: false,
         affine: false,
         mix: false,
+        order: Order::Commutative,
     };
 
     /// Intuitionistic linear logic without Mix.
@@ -291,6 +316,16 @@ impl Mode {
         intuitionistic: true,
         affine: false,
         mix: false,
+        order: Order::Commutative,
+    };
+
+    /// Cyclic linear logic without Mix: classical, one-sided, with the
+    /// order of the formulas kept up to rotation ([`Order::Cyclic`]).
+    pub const CYCLIC: Self = Self {
+        intuitionistic: false,
+        affine: false,
+        mix: false,
+        order: Order::Cyclic,
     };
 
     /// The names of the modes a calculus has, as [`name`](Self::name)
@@ -302,6 +337,7 @@ impl Mode {
         "affine-mix",
         "intuitionistic",
         "intuitionistic-affine",
+        "cyclic",
     ];
 
     /// Returns whether sequents are intuitionistic, with one formula on
@@ -320,6 +356,18 @@ impl Mode {
         self.mix
     }
 
+    /// Returns whether the calculus keeps the order of a sequent's
+    /// formulas, and which.
+    pub const fn order(self) -> Order {
+        self.order
+    }
+
+    /// Returns whether the order of a sequent's formulas counts: whether
+    /// the calculus is not [`Order::Commutative`].
+    pub const fn is_ordered(self) -> bool {
+        !matches!(self.order, Order::Commutative)
+    }
+
     /// Returns the mode with weakening allowed.
     #[must_use]
     pub const fn with_affine(self) -> Self {
@@ -335,34 +383,49 @@ impl Mode {
         Self { mix: true, ..self }
     }
 
-    /// Returns the mode's name: one of [`NAMES`](Self::NAMES), or
-    /// `intuitionistic-mix` and `intuitionistic-affine-mix` for the modes
-    /// [`check`](Self::check) refuses.
+    /// Returns the mode's name: one of [`NAMES`](Self::NAMES), or for a
+    /// mode [`check`](Self::check) refuses, the words of what it combines
+    /// (`intuitionistic-mix`, `cyclic-affine`, …).
     pub const fn name(self) -> &'static str {
         let Self {
             intuitionistic,
             affine,
             mix,
+            order,
         } = self;
-        match (intuitionistic, affine, mix) {
-            (false, false, false) => "classical",
-            (false, true, false) => "affine",
-            (false, false, true) => "mix",
-            (false, true, true) => "affine-mix",
-            (true, false, false) => "intuitionistic",
-            (true, true, false) => "intuitionistic-affine",
-            (true, false, true) => "intuitionistic-mix",
-            (true, true, true) => "intuitionistic-affine-mix",
+        match (order, intuitionistic, affine, mix) {
+            (Order::Commutative, false, false, false) => "classical",
+            (Order::Commutative, false, true, false) => "affine",
+            (Order::Commutative, false, false, true) => "mix",
+            (Order::Commutative, false, true, true) => "affine-mix",
+            (Order::Commutative, true, false, false) => "intuitionistic",
+            (Order::Commutative, true, true, false) => "intuitionistic-affine",
+            (Order::Commutative, true, false, true) => "intuitionistic-mix",
+            (Order::Commutative, true, true, true) => "intuitionistic-affine-mix",
+            (Order::Cyclic, false, false, false) => "cyclic",
+            (Order::Cyclic, false, true, false) => "cyclic-affine",
+            (Order::Cyclic, false, false, true) => "cyclic-mix",
+            (Order::Cyclic, false, true, true) => "cyclic-affine-mix",
+            (Order::Cyclic, true, false, false) => "cyclic-intuitionistic",
+            (Order::Cyclic, true, true, false) => "cyclic-intuitionistic-affine",
+            (Order::Cyclic, true, false, true) => "cyclic-intuitionistic-mix",
+            (Order::Cyclic, true, true, true) => "cyclic-intuitionistic-affine-mix",
         }
     }
 
-    /// Refuses a combination no calculus has: intuitionistic with Mix.
+    /// Refuses a combination no calculus has: intuitionistic with Mix,
+    /// and an ordered mode with weakening, Mix or the intuitionistic
+    /// reading.
     ///
     /// # Errors
     ///
-    /// [`Error::IntuitionisticMix`] for an intuitionistic mode with Mix.
+    /// [`Error::IntuitionisticMix`] for an intuitionistic mode with Mix,
+    /// [`Error::OrderedMode`] for an ordered mode with weakening, Mix or
+    /// the intuitionistic reading.
     pub const fn check(self) -> Result<(), Error> {
-        if self.intuitionistic && self.mix {
+        if self.is_ordered() && (self.intuitionistic || self.affine || self.mix) {
+            Err(Error::OrderedMode { mode: self })
+        } else if self.intuitionistic && self.mix {
             Err(Error::IntuitionisticMix)
         } else {
             Ok(())
@@ -383,6 +446,7 @@ impl FromStr for Mode {
             "affine-mix" => Self::CLASSICAL.with_affine().with_mix(),
             "intuitionistic" => Self::INTUITIONISTIC,
             "intuitionistic-affine" => Self::INTUITIONISTIC.with_affine(),
+            "cyclic" => Self::CYCLIC,
             _ => {
                 return Err(Error::UnknownName {
                     what: "mode",
@@ -396,13 +460,15 @@ impl FromStr for Mode {
 }
 
 impl Display for Mode {
-    /// Writes the mode in words: `classical` or `intuitionistic`, then
-    /// `affine` and `with Mix` where they apply.
+    /// Writes the mode in words: `classical`, `intuitionistic` or, where
+    /// the order counts, `cyclic`, then `affine` and `with Mix` where they
+    /// apply.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(if self.intuitionistic {
-            "intuitionistic"
-        } else {
-            "classical"
+        f.write_str(match (self.is_ordered(), self.intuitionistic) {
+            (false, false) => "classical",
+            (false, true) => "intuitionistic",
+            (true, false) => "cyclic",
+            (true, true) => "cyclic intuitionistic",
         })?;
         if self.affine {
             f.write_str(" affine")?;
@@ -502,6 +568,7 @@ mod tests {
             Mode::CLASSICAL.with_affine().with_mix(),
             Mode::INTUITIONISTIC,
             Mode::INTUITIONISTIC.with_affine(),
+            Mode::CYCLIC,
         ];
         assert_eq!(modes.map(Mode::name), Mode::NAMES);
         for mode in modes {
@@ -509,6 +576,9 @@ mod tests {
             assert!(mode.check().is_ok(), "{mode}");
         }
         assert!(Mode::INTUITIONISTIC.with_mix().check().is_err());
+        for refused in [Mode::CYCLIC.with_affine(), Mode::CYCLIC.with_mix()] {
+            assert!(matches!(refused.check(), Err(Error::OrderedMode { mode }) if mode == refused));
+        }
         assert!(matches!(
             "lambek".parse::<Mode>(),
             Err(Error::UnknownName {
@@ -591,5 +661,6 @@ mod tests {
             Mode::INTUITIONISTIC.with_mix().to_string(),
             "intuitionistic with Mix"
         );
+        assert_eq!(Mode::CYCLIC.to_string(), "cyclic");
     }
 }

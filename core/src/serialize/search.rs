@@ -428,7 +428,7 @@ impl Serialize for Disproof {
     /// Serializes the disproof as a document.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         DisproofForm {
-            version: Some(wire::level_of(self.refutation())),
+            version: Some(wire::level_of(self.refutation(), self.mode())),
             sequent: SequentForm::from(self.sequent()),
             mode: self.mode(),
             refutation: WhyNot::from(self.refutation()),
@@ -529,8 +529,8 @@ impl Serialize for Out {
             Verdict::Unknown(r) => (Some(Why::from(*r)), None, None, None),
         };
         let version = match &self.verdict {
-            Verdict::Unprovable(d) => wire::level_of(d.refutation()),
-            Verdict::Proved(_) | Verdict::Unknown(_) => wire::BASE,
+            Verdict::Unprovable(d) => wire::level_of(d.refutation(), self.mode),
+            Verdict::Proved(_) | Verdict::Unknown(_) => wire::level_in(Some(self.mode)),
         };
         Outcome {
             version,

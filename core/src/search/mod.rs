@@ -44,7 +44,7 @@ pub use refutation::{
 };
 
 use crate::Error;
-use crate::fragment::{Fragment, Mode};
+use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Phase, Progress, Refusal};
 use crate::nets::ProofStructure;
 use crate::occurrences::{Forest, Member, OccId, Reading};
@@ -634,7 +634,7 @@ fn answer_goal<'a>(
         .with_jobs(parallel::threads(options.threads()));
     let held = account.used();
     let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
-    let engine = if handed_over(options, &task, &answer) {
+    let engine = if engine != Engine::Net && handed_over(options, &task, &answer) {
         account.rewind(held);
         answer = Engine::Net.implementation().decide(
             &task,
@@ -890,13 +890,10 @@ fn fragment_of(forest: &Forest, goal: &[OccId], options: &Options) -> Result<Fra
     }
 }
 
-/// The forest's intuitionistic reading in intuitionistic mode, which has
-/// no Mix.
+/// The forest's intuitionistic reading in intuitionistic mode, of a mode
+/// that [`Mode::check`] lets through.
 fn read(forest: &Forest, mode: Mode) -> Result<Option<Reading<'_>>, Error> {
-    // Mix has no intuitionistic form.
-    if mode.intuitionistic && mode.mix {
-        return Err(Error::IntuitionisticMix);
-    }
+    mode.check()?;
     if !mode.intuitionistic {
         return Ok(None);
     }
@@ -933,10 +930,20 @@ fn prepare<'a>(
         roots: goal.conclusion,
         program: OnceLock::new(),
     };
+    if mode.is_ordered() && !Fragment::MLL.contains(fragment) {
+        return Err(Error::OrderedFragment { fragment, mode });
+    }
     let engine = match options.engine {
         Some(engine) => engine,
         None => dispatch(&task)?,
     };
+    // Only the net engine keeps the order of the formulas.
+    if mode.is_ordered() && engine != Engine::Net {
+        return Err(Error::EngineRefused {
+            engine,
+            because: NotTaken::Mode { mode },
+        });
+    }
     engine.implementation().admits(&task)?;
     Ok((task, engine))
 }
@@ -1134,7 +1141,7 @@ impl Row {
 /// The modes a row of the dispatch takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Modes {
-    /// Every mode.
+    /// Every commutative mode.
     Any,
     /// Classical mode, with or without weakening and Mix.
     Classical,
@@ -1153,11 +1160,13 @@ impl Modes {
             intuitionistic,
             affine: _,
             mix: _,
+            order,
         } = mode;
+        let commutative = order == Order::Commutative;
         match self {
-            Modes::Any => true,
-            Modes::Classical => !intuitionistic,
-            Modes::Intuitionistic => intuitionistic,
+            Modes::Any => commutative,
+            Modes::Classical => commutative && !intuitionistic,
+            Modes::Intuitionistic => commutative && intuitionistic,
         }
     }
 }

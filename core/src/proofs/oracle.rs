@@ -265,10 +265,29 @@ impl<'a> Step<'a> {
         self.one_succedent(d)
     }
 
+    /// Whether the conclusion of a `⊗` at `o` over the contexts `left` and
+    /// `right`, listed in occurrence order and turned to start after `o`,
+    /// is the right context followed by the left one.
+    fn arcs(&self, o: OccId, left: &Multiset, right: &Multiset) -> bool {
+        let mut members: Vec<(OccId, bool)> = left
+            .as_slice()
+            .iter()
+            .map(|&x| (x, true))
+            .chain(right.as_slice().iter().map(|&x| (x, false)))
+            .collect();
+        members.sort_unstable();
+        let turn = members.partition_point(|&(x, _)| x < o);
+        members.rotate_left(turn);
+        members.windows(2).all(|w| !(w[0].1 && !w[1].1))
+    }
+
     /// Applies the node's rule to what its premises derived.
     fn rule(&self) -> Result<Derived, CheckError> {
         use Node::*;
         let f = self.forest;
+        if self.mode.is_ordered() && !matches!(self.node, Ax(..) | Par(..) | Tensor(..)) {
+            return Err(self.fail(Fault::Forbidden));
+        }
         match self.node {
             Ax(a, b) => {
                 let (a, b) = (a.occ(), b.occ());
@@ -318,6 +337,9 @@ impl<'a> Step<'a> {
                 let (mut dl, mut dr) = (self.premise(l), self.premise(r));
                 self.take(&mut dl, self.left(o), 0)?;
                 self.take(&mut dr, self.right(o), 1)?;
+                if self.mode.is_ordered() && !self.arcs(o, &dl.gamma, &dr.gamma) {
+                    return Err(self.fail(Fault::Order));
+                }
                 let mut d = self.join(dl, dr);
                 d.gamma.insert(o);
                 Ok(d)

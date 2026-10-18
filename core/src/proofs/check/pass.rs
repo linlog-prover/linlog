@@ -203,6 +203,36 @@ pub(crate) fn examine<O: Observer>(
     Err(CheckError::invalid(node, rule, premises, fault))
 }
 
+/// Returns whether the contexts `left` and `right` that a `⊗` at `o`
+/// joins are the two arcs of the cyclic order of its conclusion on
+/// either side of it: going round from `o` in occurrence order, every
+/// member of `right` before every member of `left`.
+///
+/// A cyclic sequent's formulas stand in ascending occurrence order up to
+/// rotation, and so do every subproof's: the conclusion `Γ, A ⊗ B, Δ`
+/// read from the `⊗` is `Δ` then `Γ`, and `A` and `B` take the `⊗`'s
+/// place in that order, since its subtree holds no other member. So the
+/// premises `⊢ Γ, A` and `⊢ B, Δ` are each in the order the forest gives
+/// them, and checking this at every `⊗` of a proof the commutative rules
+/// accept makes it a proof of cyclic MLL; the axiom and `⅋` need nothing,
+/// a link's two literals being neighbours in any order and the two
+/// operands of a `⅋` neighbours in the forest's.
+pub(super) fn arcs(forest: &Forest, o: OccId, left: &Bag, right: &Bag) -> bool {
+    // An occurrence's distance from `o` going round: below the forest's
+    // length, which fits a `u32`, so no sum wraps in a `u64`.
+    let n = forest.len() as u64;
+    let from = |x: OccId| (u64::from(x.get()) + n - u64::from(o.get())) % n;
+    let last_right = right.counts().map(|(x, _)| from(x)).max();
+    let first_left = left.counts().map(|(x, _)| from(x)).min();
+    // A member in both contexts belongs to no proof the commutative rules
+    // accept, which concludes every occurrence once; it passes here as in
+    // the oracle, which lists the right context first.
+    match (last_right, first_left) {
+        (Some(r), Some(l)) => r <= l,
+        _ => true,
+    }
+}
+
 /// The refusal of a pass at `node` that would hold more than `limit`
 /// bytes.
 pub(super) fn memory_refused(node: NodeId, limit: u64, phase: Phase) -> CheckError {
@@ -646,6 +676,10 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
         use Node::*;
         let f = self.forest;
         self.shared.clear();
+        // The ordered calculus is unit-free MLL.
+        if self.mode.is_ordered() && !matches!(node, Ax(..) | Par(..) | Tensor(..)) {
+            return Err(Halt::Fault(Fault::Forbidden));
+        }
         match node {
             Ax(a, b) => {
                 let (a, b) = (a.occ(), b.occ());
@@ -694,6 +728,9 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 facts.needs = [dl.theta.len(), dr.theta.len()];
                 facts.absent[0] = self.take(&mut dl, self.left(o), 0)?;
                 facts.absent[1] = self.take(&mut dr, self.right(o), 1)?;
+                if self.mode.is_ordered() && !arcs(self.forest, o, &dl.gamma, &dr.gamma) {
+                    return Err(Halt::Fault(Fault::Order));
+                }
                 let mut d = self.join(dl, dr);
                 self.put(&mut d, o);
                 Ok(d)

@@ -149,7 +149,7 @@ impl Proof {
     /// The proof as a document: its level, its keys and its mode.
     fn document(p: &Prf) -> Proof {
         Proof {
-            version: wire::level(),
+            version: Some(wire::level_in(p.mode())),
             mode: p.mode(),
             ..Proof::keys(p)
         }

@@ -147,6 +147,7 @@ mod tests {
             classical.with_affine().with_mix(),
             Mode::INTUITIONISTIC,
             Mode::INTUITIONISTIC.with_affine(),
+            Mode::CYCLIC,
         ];
         let mut rng = Rng::new(7);
         let (mut mutants, mut rejected) = (0, 0);
@@ -165,7 +166,7 @@ mod tests {
                     continue;
                 };
                 mutants += 1;
-                for mode in [*mode, classical.with_affine().with_mix()] {
+                for mode in [*mode, classical.with_affine().with_mix(), Mode::CYCLIC] {
                     let result = check(&mutant, mode);
                     rejected += u32::from(result.is_err());
                     assert_eq!(
@@ -1034,6 +1035,40 @@ mod tests {
             vec![Ax(o(1), o(3)), Ax(o(2), o(4)), Mix(n(0), n(1))],
         );
         assert_eq!(p.check(m.with_mix()).unwrap_err().fault(), Some(&Forbidden));
+    }
+
+    /// In the cyclic mode a `⊗` joins the two arcs on either side of it,
+    /// and only the rules of unit-free MLL apply.
+    #[test]
+    fn cyclic() {
+        use Node::*;
+        let cyclic = Mode::CYCLIC;
+        // 0 ⊗, 1 a, 2 b, 3 ~b, 4 ~a: the links nest.
+        let planar = proof(
+            "|- a * b, ~b, ~a",
+            vec![Ax(o(1), o(4)), Ax(o(2), o(3)), Tensor(o(0), n(0), n(1))],
+        );
+        assert_eq!(planar.check(cyclic), Ok(()));
+        // 0 ⊗, 1 a, 2 b, 3 ~a, 4 ~b: the links cross, so the contexts
+        // are not the arcs.
+        let crossing = proof(
+            "|- a * b, ~a, ~b",
+            vec![Ax(o(1), o(3)), Ax(o(2), o(4)), Tensor(o(0), n(0), n(1))],
+        );
+        assert_eq!(crossing.check(Mode::CLASSICAL), Ok(()));
+        let error = crossing.check(cyclic).unwrap_err();
+        assert_eq!((error.node(), error.fault()), (n(2), Some(&Fault::Order)));
+        // Turning the sequent changes nothing: 0 ~a, 1 ⊗, 2 a, 3 b, 4 ~b.
+        let turned = proof(
+            "|- ~a, a * b, ~b",
+            vec![Ax(o(2), o(0)), Ax(o(3), o(4)), Tensor(o(1), n(0), n(1))],
+        );
+        assert_eq!(turned.check(cyclic), Ok(()));
+        let one = proof("|- 1", vec![One(o(0))]);
+        assert_eq!(
+            one.check(cyclic).unwrap_err().fault(),
+            Some(&Fault::Forbidden)
+        );
     }
 
     /// The error names the node, its premises and the problem.

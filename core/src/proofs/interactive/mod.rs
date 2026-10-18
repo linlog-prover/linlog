@@ -429,10 +429,8 @@ impl Interactive {
 
     /// Starts a proof over a forest built already.
     fn from_forest(forest: Forest, mode: Mode) -> Result<Self, Error> {
+        mode.check()?;
         let reading = if mode.intuitionistic {
-            if mode.mix {
-                return Err(Error::IntuitionisticMix);
-            }
             let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
             Some(reading.into_parts())
         } else {

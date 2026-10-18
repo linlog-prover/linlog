@@ -55,7 +55,7 @@ impl From<&State> for Interactive {
     /// Converts a state into its serialized form.
     fn from(state: &State) -> Self {
         Self {
-            version: wire::level(),
+            version: Some(wire::level_in(Some(state.mode()))),
             sequent: Sequent::from(state.sequent()),
             mode: state.mode(),
             inferences: state

@@ -13,9 +13,11 @@
 //! this build reads and writes. The writer computes the level from the
 //! content, so a value that a later release represents as this one does
 //! keeps its bytes. Level 1 is that of 0.1.0; level 2 adds the classical
-//! refutation (`{"kind": "classical", "assignment": […]}`), so a disproof
-//! or an unprovable outcome that holds one is written at level 2, and
-//! every other document at level 1. A reader refuses a
+//! refutation (`{"kind": "classical", "assignment": […]}`) and the cyclic
+//! mode (`"mode": "cyclic"`, and `"order": "cyclic"` in a proof
+//! structure), so a disproof or an unprovable outcome that holds the
+//! refutation and a document of the cyclic mode are written at level 2,
+//! and every other document at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -32,7 +34,7 @@
 //! [`upgrade`] is the one reader of every form: it reads a document of any
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
-//! only adds a kind of refutation), and
+//! only adds a kind of refutation and a mode), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -218,16 +220,25 @@ pub(crate) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Opti
 }
 
 /// The level a written document of a form that level 1 holds whole
-/// carries: every form but a disproof's.
+/// carries: a sequent's.
 pub(crate) const fn level() -> Option<u32> {
     Some(BASE)
 }
 
-/// The level of a disproof with `refutation`: 2 for the classical
-/// refutation, which level 2 added, else 1.
-pub(crate) const fn level_of(refutation: &crate::search::Refutation) -> u32 {
+/// The level of a document of `mode`, or of no mode: 2 for an ordered
+/// mode, which level 2 added, else 1.
+pub(crate) const fn level_in(mode: Option<crate::Mode>) -> u32 {
+    match mode {
+        Some(mode) if mode.is_ordered() => 2,
+        _ => BASE,
+    }
+}
+
+/// The level of a disproof with `refutation` in `mode`: 2 for the
+/// classical refutation and an ordered mode, which level 2 added, else 1.
+pub(crate) const fn level_of(refutation: &crate::search::Refutation, mode: crate::Mode) -> u32 {
     match refutation {
         crate::search::Refutation::Classical(_) => 2,
-        _ => BASE,
+        _ => level_in(Some(mode)),
     }
 }

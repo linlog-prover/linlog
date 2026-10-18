@@ -112,7 +112,8 @@ pub struct Refused {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fault {
     /// The mode forbids the rule: weakening of a formula that is not a `?`
-    /// outside affine mode, Mix without Mix or in intuitionistic mode.
+    /// outside affine mode, Mix without Mix or in intuitionistic mode, and
+    /// in an ordered mode every rule but the axiom, `⊗` and `⅋`.
     Forbidden,
     /// The mode is intuitionistic and the sequent has no intuitionistic
     /// reading, so no proof of it is checked.
@@ -148,6 +149,12 @@ pub enum Fault {
     NotEmpty,
     /// The premises of `&` do not share their linear zone.
     Differ,
+    /// In an ordered mode, the contexts of a `⊗`'s premises are not the
+    /// two arcs of its conclusion's cyclic order on either side of the
+    /// `⊗`: going round from it, the right premise's context must come
+    /// first and the left one's after it, and joining them otherwise
+    /// needs an exchange.
+    Order,
     /// A copy of a member that is not the subformula of a `?`.
     #[non_exhaustive]
     NotUnderQuest {
@@ -293,6 +300,7 @@ impl Invalid {
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
+            Order => f.write_str("the premises' contexts are not the arcs on either side of the ⊗"),
             NotUnderQuest { member: o } => {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;

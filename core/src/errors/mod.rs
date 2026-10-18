@@ -275,6 +275,28 @@ pub enum Error {
     /// premise of a Mix would have no goal.
     #[error("Mix has no intuitionistic form: a premise of a Mix would have no goal")]
     IntuitionisticMix,
+    /// An ordered mode was asked for with weakening, Mix or the
+    /// intuitionistic reading, which no calculus here combines with the
+    /// order: weakening and Mix would let a formula, or a whole premise,
+    /// stand anywhere in the order.
+    #[error(
+        "{mode} mode has no calculus: an ordered mode takes neither weakening, Mix nor the intuitionistic reading"
+    )]
+    #[non_exhaustive]
+    OrderedMode {
+        /// The mode asked for.
+        mode: Mode,
+    },
+    /// A sequent searched in an ordered mode lies beyond unit-free MLL,
+    /// the fragment the ordered calculus is decided in.
+    #[error("{mode} mode decides unit-free MLL, and the sequent lies in {fragment}")]
+    #[non_exhaustive]
+    OrderedFragment {
+        /// The sequent's fragment.
+        fragment: Fragment,
+        /// The ordered mode.
+        mode: Mode,
+    },
     /// An intuitionistic goal has this many formulas on the right of `⊢`,
     /// where a sequent of intuitionistic linear logic has exactly one.
     #[error("an intuitionistic goal has {count} formulas on the right of ⊢ instead of one")]
@@ -483,6 +505,8 @@ impl Error {
         "goal_proof",
         "not_intuitionistic",
         "intuitionistic_mix",
+        "ordered_mode",
+        "ordered_fragment",
         "goal_outputs",
         "succedents",
         "fragment_mismatch",
@@ -539,6 +563,8 @@ impl Error {
             Self::GoalProof => Unsupported,
             Self::NotIntuitionistic(_)
             | Self::IntuitionisticMix
+            | Self::OrderedMode { .. }
+            | Self::OrderedFragment { .. }
             | Self::GoalOutputs { .. }
             | Self::Succedents { .. }
             | Self::FragmentMismatch { .. }
@@ -603,6 +629,8 @@ impl Error {
             Self::GoalProof => "goal_proof",
             Self::NotIntuitionistic(_) => "not_intuitionistic",
             Self::IntuitionisticMix => "intuitionistic_mix",
+            Self::OrderedMode { .. } => "ordered_mode",
+            Self::OrderedFragment { .. } => "ordered_fragment",
             Self::GoalOutputs { .. } => "goal_outputs",
             Self::Succedents { .. } => "succedents",
             Self::FragmentMismatch { .. } => "fragment_mismatch",
@@ -875,6 +903,13 @@ mod tests {
             Error::GoalProof,
             Error::NotIntuitionistic(ShapeError::NoGoal),
             Error::IntuitionisticMix,
+            Error::OrderedMode {
+                mode: Mode::CYCLIC.with_mix(),
+            },
+            Error::OrderedFragment {
+                fragment: Fragment::MALL,
+                mode: Mode::CYCLIC,
+            },
             Error::GoalOutputs { count: 2 },
             Error::Succedents { count: 2 },
             Error::FragmentMismatch {
@@ -1044,6 +1079,8 @@ mod tests {
             | Error::GoalProof
             | Error::NotIntuitionistic(_)
             | Error::IntuitionisticMix
+            | Error::OrderedMode { .. }
+            | Error::OrderedFragment { .. }
             | Error::GoalOutputs { .. }
             | Error::Succedents { .. }
             | Error::FragmentMismatch { .. }

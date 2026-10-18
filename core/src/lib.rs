@@ -190,7 +190,7 @@ pub mod wire;
 pub use errors::ParseError;
 
 pub use errors::{Described, Error, ErrorKind, Owner};
-pub use fragment::{Fragment, Mode};
+pub use fragment::{Fragment, Mode, Order};
 pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{Criterion, NetError, ProofStructure, VertexId};
 pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};

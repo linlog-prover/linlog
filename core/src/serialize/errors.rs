@@ -111,7 +111,10 @@ impl Serialize for Details<'_> {
             Translation { translation, logic } => {
                 entries!(s; "translation" => translation; "logic" => logic)
             }
-            NoEngine { fragment, mode } => entries!(s; "fragment" => fragment; "mode" => mode),
+            NoEngine { fragment, mode } | OrderedFragment { fragment, mode } => {
+                entries!(s; "fragment" => fragment; "mode" => mode)
+            }
+            OrderedMode { mode } => entries!(s; "mode" => mode),
             EngineRefused { engine, because } => {
                 entries!(s; "engine" => engine; "because" => because)
             }
@@ -190,6 +193,7 @@ impl Serialize for Fault {
                 "kind" => "missing"; "premise" => premise; "member" => &member.get()),
             Self::NotEmpty => entries!(s; "kind" => "not_empty"),
             Self::Differ => entries!(s; "kind" => "differ"),
+            Self::Order => entries!(s; "kind" => "order"),
             Self::NotUnderQuest { member } => {
                 entries!(s; "kind" => "not_under_quest"; "member" => &member.get())
             }
