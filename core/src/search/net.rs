@@ -113,7 +113,7 @@ pub(crate) fn search(
     let (result, statistics, net) = {
         let mut engine = Linker::new(forest, mode, options, Stop::Closure(stop));
         let result = engine.run();
-        let net = matches!(result, Ok(true)).then_some(engine.net);
+        let net = matches!(result, Ok(true)).then_some(engine.criterion.net);
         (result, engine.statistics, net)
     };
     answer(result, statistics, net, limits, stop)
@@ -123,7 +123,7 @@ pub(crate) fn search(
 /// found), found that no linking is a proof net (`Ok(false)`), or stopped:
 /// the net sequentialized into the proof it is, within `limits` and until
 /// `stop` fires, either of which makes the answer unknown.
-fn answer(
+pub(super) fn answer(
     result: Result<bool, Reason>,
     statistics: Statistics,
     net: Option<ProofStructure>,
@@ -163,7 +163,7 @@ fn answer(
 /// Mix), and as many `a` as `~a` for every atom. Both are necessary for a
 /// proof net to exist, and the first is the connectedness equation of a
 /// complete acyclic linking.
-fn counts_admit(forest: &Forest, mix: bool) -> bool {
+pub(super) fn counts_admit(forest: &Forest, mix: bool) -> bool {
     let (mut tensors, mut pars) = (0i64, 0i64);
     for o in forest.ids() {
         match forest.kind(o) {
@@ -194,7 +194,7 @@ fn atoms(forest: &Forest) -> impl Iterator<Item = Atom> {
 /// a search applies all of them, and the tests switch each off to show
 /// what it cuts.
 #[derive(Clone, Copy, Debug)]
-struct Prunes {
+pub(super) struct Prunes {
     /// Break the symmetry of equal literals under one tree.
     leaves: bool,
     /// Break the symmetry of equal compound subformulas.
@@ -206,7 +206,7 @@ struct Prunes {
 
 impl Prunes {
     /// Every prune.
-    const ALL: Self = Self {
+    pub(super) const ALL: Self = Self {
         leaves: true,
         compounds: true,
         balance: true,
@@ -418,6 +418,143 @@ impl Symmetry {
     }
 }
 
+/// A correctness criterion that the linking search keeps current as it
+/// links and unlinks: its constant-time rejections of a candidate link,
+/// and the test it runs at the search's cadence and on every complete
+/// linking.
+pub(super) trait Correctness {
+    /// The forest whose literals are linked.
+    fn forest(&self) -> &Forest;
+
+    /// The literal a literal is linked to, or `None`.
+    fn mate(&self, x: OccId) -> Option<OccId>;
+
+    /// The links made, in the order they were made.
+    fn links(&self) -> &[(VertexId, VertexId)];
+
+    /// Whether every literal is linked.
+    fn is_complete(&self) -> bool;
+
+    /// Whether linking the unlinked dual literals `x` and `y` passes the
+    /// criterion's constant-time rejections, each sound for every
+    /// partial linking: a link it rejects is in no correct completion.
+    fn admits(&self, x: OccId, y: OccId) -> bool;
+
+    /// Links two unlinked dual literals, or says why the search must stop
+    /// (a bound on what the criterion holds), the structure then as it
+    /// was.
+    fn link(&mut self, x: OccId, y: OccId) -> Result<(), Reason>;
+
+    /// Takes back the last link and returns the literal it was made from.
+    fn unlink(&mut self) -> OccId;
+
+    /// The test of the search's cadence: false when no completion of the
+    /// links is correct; on a complete linking, whether it is correct.
+    fn test(&mut self) -> bool;
+
+    /// Whether no component of the `⅋`-free skeleton holds more unlinked
+    /// literals of `atom` than its `remaining` pairs, counting in
+    /// `tally` (zero per vertex between two calls); true where the
+    /// criterion keeps no skeleton.
+    fn balanced(&self, atom: Atom, remaining: u32, tally: &mut [u32]) -> bool;
+}
+
+/// The Danos–Regnier criterion: a [`ProofStructure`] and its exact
+/// acyclicity test, with or without Mix.
+pub(super) struct Switching {
+    /// The proof structure being linked.
+    net: ProofStructure,
+    /// Working memory for the exact test.
+    scratch: Scratch,
+}
+
+impl Switching {
+    /// The structure of a forest of unit-free MLL without a link.
+    fn new(forest: &Forest, mode: Mode) -> Self {
+        let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
+            .expect("the dispatch routes unit-free MLL only");
+        let scratch = net.scratch();
+        Self { net, scratch }
+    }
+}
+
+impl Correctness for Switching {
+    fn forest(&self) -> &Forest {
+        self.net.forest()
+    }
+
+    fn mate(&self, x: OccId) -> Option<OccId> {
+        self.net.mate(VertexId::of(x)).map(VertexId::occ)
+    }
+
+    fn links(&self) -> &[(VertexId, VertexId)] {
+        self.net.links()
+    }
+
+    fn is_complete(&self) -> bool {
+        self.net.is_complete()
+    }
+
+    /// Rejects two literals that hang under a common `⊗` of one
+    /// conclusion (the tree path and the link would be a cycle that the
+    /// switchings keeping the path's `⅋` premises keep, and it stays one
+    /// whatever is linked later), and two that the `⅋`-free skeleton joins
+    /// already (the path and the link would be a cycle every switching
+    /// keeps).
+    fn admits(&self, x: OccId, y: OccId) -> bool {
+        let forest = self.net.forest();
+        if let Some(a) = forest.lca(x, y)
+            && forest.kind(a) == Kind::Tensor
+        {
+            return false;
+        }
+        !self.net.joined(VertexId::of(x), VertexId::of(y))
+    }
+
+    fn link(&mut self, x: OccId, y: OccId) -> Result<(), Reason> {
+        self.net.link_unchecked(VertexId::of(x), VertexId::of(y));
+        Ok(())
+    }
+
+    fn unlink(&mut self) -> OccId {
+        let (x, _) = self.net.unlink().expect("a link to take back");
+        x.occ()
+    }
+
+    /// The exact acyclicity test; on a complete linking the count
+    /// equation, checked before the search, makes an acyclic one a net.
+    fn test(&mut self) -> bool {
+        self.net.is_acyclic(&mut self.scratch)
+    }
+
+    /// No literal links into its own component (that closes a cycle
+    /// every switching keeps), so each `a` of a component needs a `~a` of
+    /// its own outside the component, and each `~a` an `a`: the
+    /// component's `a` are at most the atom's unlinked `~a` less the
+    /// component's, which is the bound. A count is at most the atom's
+    /// literals, below the forest's length.
+    fn balanced(&self, atom: Atom, remaining: u32, tally: &mut [u32]) -> bool {
+        let net = &self.net;
+        let forest = net.forest();
+        let unlinked = || {
+            [Sign::Atom, Sign::Dual]
+                .into_iter()
+                .flat_map(move |sign| forest.literals(atom, sign))
+                .filter(|&&x| net.mate(VertexId::of(x)).is_none())
+                .map(|&x| net.component(VertexId::of(x)) as usize)
+        };
+        let mut balanced = true;
+        for c in unlinked() {
+            tally[c] += 1;
+            balanced &= tally[c] <= remaining;
+        }
+        for c in unlinked() {
+            tally[c] = 0;
+        }
+        balanced
+    }
+}
+
 /// A decision of the search: the literal chosen, and how far along the
 /// literals of the other sign of its atom the search for a partner is.
 #[derive(Clone, Copy, Debug)]
@@ -444,15 +581,13 @@ enum Choice {
     Literal(OccId, bool),
 }
 
-/// The state of one run: the structure being linked, the working memory
-/// of the exact test, the counts the choice of the next literal reads, the
-/// stack of decisions and the counters. Nothing allocates once the run has
-/// started.
-struct Linker<'a> {
-    /// The proof structure being linked.
-    net: ProofStructure,
-    /// Working memory for the exact test.
-    scratch: Scratch,
+/// The state of one run: the criterion that keeps the links, the counts
+/// the choice of the next literal reads, the stack of decisions and the
+/// counters. Nothing allocates once the run has started but what the
+/// criterion grows.
+pub(super) struct Linker<'a, C> {
+    /// The links made and the criterion's state.
+    pub(super) criterion: C,
     /// Per atom, the pairs of its literals still to link: as many `a` as
     /// `~a` are unlinked at every moment.
     remaining: Box<[u32]>,
@@ -471,12 +606,12 @@ struct Linker<'a> {
     /// How many links go between two exact tests.
     period: u32,
     /// The counters.
-    statistics: Statistics,
+    pub(super) statistics: Statistics,
     /// The stop condition.
     stop: Stop<'a>,
 }
 
-impl<'a> Linker<'a> {
+impl<'a> Linker<'a, Switching> {
     /// Prepares a run on the forest, which must be one of unit-free MLL.
     fn new(forest: &Forest, mode: Mode, options: &Options, stop: Stop<'a>) -> Self {
         Self::with_prunes(forest, mode, options, stop, Prunes::ALL)
@@ -490,9 +625,15 @@ impl<'a> Linker<'a> {
         stop: Stop<'a>,
         prunes: Prunes,
     ) -> Self {
-        let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
-            .expect("the dispatch routes unit-free MLL only");
-        let scratch = net.scratch();
+        Linker::with(Switching::new(forest, mode), options, stop, prunes)
+    }
+}
+
+impl<'a, C: Correctness> Linker<'a, C> {
+    /// Prepares a run that links under the criterion, which has no link
+    /// yet, and applies the given prunes.
+    pub(super) fn with(criterion: C, options: &Options, stop: Stop<'a>, prunes: Prunes) -> Self {
+        let forest = criterion.forest();
         let remaining = atoms(forest)
             .map(|a| forest.literals(a, Sign::Atom).len() as u32)
             .collect();
@@ -503,7 +644,6 @@ impl<'a> Linker<'a> {
             Cadence::Auto => Cadence::AUTO_PERIOD,
         };
         Self {
-            scratch,
             remaining,
             symmetry: Symmetry::new(forest, prunes),
             balance: prunes.balance,
@@ -513,14 +653,14 @@ impl<'a> Linker<'a> {
             period,
             statistics: Statistics::default(),
             stop,
-            net,
+            criterion,
         }
     }
 
     /// Runs the search and returns whether a proof net was found, or the
     /// reason the search stopped. With links seeded, the search is the
     /// branch below them and ends when it backtracks up to them.
-    fn run(&mut self) -> Result<bool, Reason> {
+    pub(super) fn run(&mut self) -> Result<bool, Reason> {
         self.explore(None, &mut Vec::new())
     }
 
@@ -555,11 +695,11 @@ impl<'a> Linker<'a> {
                 continue;
             };
             let x = self.stack.last().unwrap().literal;
-            self.link(x, y);
-            let complete = self.net.is_complete();
-            if complete || (self.net.links().len() as u32).is_multiple_of(self.period) {
+            self.link(x, y)?;
+            let complete = self.criterion.is_complete();
+            if complete || (self.criterion.links().len() as u32).is_multiple_of(self.period) {
                 self.statistics.tests += 1;
-                if !self.net.is_acyclic(&mut self.scratch) {
+                if !self.criterion.test() {
                     self.unlink();
                     if self.stop.fired(1) {
                         return Err(Reason::Stopped);
@@ -571,7 +711,7 @@ impl<'a> Linker<'a> {
                 return Ok(true);
             }
             if limit == Some(self.choices) {
-                cubes.push(self.net.links().to_vec());
+                cubes.push(self.criterion.links().to_vec());
                 self.unlink();
                 continue;
             }
@@ -614,11 +754,12 @@ impl<'a> Linker<'a> {
     #[cfg(feature = "parallel")]
     fn seed(&mut self, links: &[(VertexId, VertexId)]) {
         debug_assert!(
-            self.net.links().is_empty(),
+            self.criterion.links().is_empty(),
             "a seed goes on an empty structure"
         );
         for &(x, y) in links {
-            self.link(x.occ(), y.occ());
+            self.link(x.occ(), y.occ())
+                .expect("the classical criterion links without a bound");
         }
     }
 
@@ -628,7 +769,7 @@ impl<'a> Linker<'a> {
     fn reset(&mut self) {
         self.stack.clear();
         self.choices = 0;
-        while !self.net.links().is_empty() {
+        while !self.criterion.links().is_empty() {
             self.unlink();
         }
     }
@@ -641,7 +782,8 @@ impl<'a> Linker<'a> {
     /// atom unbalanced over the skeleton's components, where the exact
     /// test runs.
     fn choose(&mut self) -> Choice {
-        let balance = self.balance && (self.net.links().len() as u32).is_multiple_of(self.period);
+        let balance =
+            self.balance && (self.criterion.links().len() as u32).is_multiple_of(self.period);
         let mut best: Option<(usize, OccId)> = None;
         for a in 0..self.remaining.len() {
             let remaining = self.remaining[a];
@@ -655,21 +797,24 @@ impl<'a> Linker<'a> {
             // fewer, the count of partners below finds the literal left
             // without one. The check runs where the exact test does,
             // which finds every such branch dead some links later.
-            if balance && remaining > 2 && !self.balanced(atom, remaining) {
+            if balance
+                && remaining > 2
+                && !self.criterion.balanced(atom, remaining, &mut self.tally)
+            {
                 return Choice::DeadEnd;
             }
-            let forest = self.net.forest();
+            let forest = self.criterion.forest();
             for sign in [Sign::Atom, Sign::Dual] {
                 let partners = forest.literals(atom, !sign);
                 for &x in forest.literals(atom, sign) {
-                    if self.net.mate(VertexId::of(x)).is_some() {
+                    if self.criterion.mate(x).is_some() {
                         continue;
                     }
                     // Counting stops once the literal cannot beat the best.
                     let bound = best.map_or(usize::MAX, |(count, _)| count);
                     let mut count = 0;
                     for &y in partners {
-                        if self.net.mate(VertexId::of(y)).is_none() && self.admissible(x, y) {
+                        if self.criterion.mate(y).is_none() && self.admissible(x, y) {
                             count += 1;
                             if count >= bound {
                                 break;
@@ -691,45 +836,16 @@ impl<'a> Linker<'a> {
         }
     }
 
-    /// Returns whether no component of the `⅋`-free skeleton holds more
-    /// unlinked literals of `atom` than its `remaining` pairs. No literal
-    /// links into its own component (that closes a cycle every switching
-    /// keeps), so each `a` of a component needs a `~a` of its own outside
-    /// the component, and each `~a` an `a`: the component's `a` are at
-    /// most the atom's unlinked `~a` less the component's, which is the
-    /// bound. A count is at most the atom's literals, below the forest's
-    /// length.
-    fn balanced(&mut self, atom: Atom, remaining: u32) -> bool {
-        let (net, tally) = (&self.net, &mut self.tally);
-        let forest = net.forest();
-        let unlinked = || {
-            [Sign::Atom, Sign::Dual]
-                .into_iter()
-                .flat_map(move |sign| forest.literals(atom, sign))
-                .filter(|&&x| net.mate(VertexId::of(x)).is_none())
-                .map(|&x| net.component(VertexId::of(x)) as usize)
-        };
-        let mut balanced = true;
-        for c in unlinked() {
-            tally[c] += 1;
-            balanced &= tally[c] <= remaining;
-        }
-        for c in unlinked() {
-            tally[c] = 0;
-        }
-        balanced
-    }
-
     /// Finds the next admissible partner of the top frame's literal, moves
     /// the frame past it and returns it, or `None` when none is left.
     fn next_partner(&mut self) -> Option<OccId> {
         let Frame {
             literal: x, next, ..
         } = *self.stack.last().unwrap();
-        let forest = self.net.forest();
+        let forest = self.criterion.forest();
         let partners = forest.literals(forest.atom(x).unwrap(), !forest.sign(x).unwrap());
         for (i, &y) in partners.iter().enumerate().skip(next as usize) {
-            if self.net.mate(VertexId::of(y)).is_none() && self.admissible(x, y) {
+            if self.criterion.mate(y).is_none() && self.admissible(x, y) {
                 self.stack.last_mut().unwrap().next = i as u32 + 1;
                 return Some(y);
             }
@@ -738,21 +854,11 @@ impl<'a> Linker<'a> {
     }
 
     /// Returns whether linking two unlinked dual literals passes the
-    /// constant-time rejections: they do not hang under a common `⊗` of
-    /// one conclusion (the tree path and the link would be a cycle that
-    /// the switchings keeping the path's `⅋` premises keep, and it stays
-    /// one whatever is linked later), the `⅋`-free skeleton does not join
-    /// them already (the path and the link would be a cycle every
-    /// switching keeps), and the link keeps the order the symmetry break
-    /// asks along the literal and compound classes of both.
+    /// criterion's constant-time rejections and keeps the order the
+    /// symmetry break asks along the literal and compound classes of
+    /// both.
     fn admissible(&self, x: OccId, y: OccId) -> bool {
-        let forest = self.net.forest();
-        if let Some(a) = forest.lca(x, y)
-            && forest.kind(a) == Kind::Tensor
-        {
-            return false;
-        }
-        if self.net.joined(VertexId::of(x), VertexId::of(y)) {
+        if !self.criterion.admits(x, y) {
             return false;
         }
         let chains = &self.symmetry.chains;
@@ -767,12 +873,12 @@ impl<'a> Linker<'a> {
     fn ordered(&self, chains: Chains, y: OccId) -> bool {
         let partner = |l: u32| {
             (l != NONE)
-                .then(|| self.net.mate(VertexId::new(l)))
+                .then(|| self.criterion.mate(OccId::new(l)))
                 .flatten()
         };
         let key = &self.symmetry.key;
-        if partner(chains.before).is_some_and(|p| p.occ() > y)
-            || partner(chains.after).is_some_and(|q| q.occ() < y)
+        if partner(chains.before).is_some_and(|p| p > y)
+            || partner(chains.after).is_some_and(|q| q < y)
         {
             return false;
         }
@@ -781,18 +887,19 @@ impl<'a> Linker<'a> {
     }
 
     /// Makes a link between two unlinked dual literals and keeps the counts
-    /// current.
-    fn link(&mut self, x: OccId, y: OccId) {
-        self.net.link_unchecked(VertexId::of(x), VertexId::of(y));
-        let atom = self.net.forest().atom(x).unwrap();
+    /// current, or says why the criterion cannot hold it.
+    fn link(&mut self, x: OccId, y: OccId) -> Result<(), Reason> {
+        self.criterion.link(x, y)?;
+        let atom = self.criterion.forest().atom(x).unwrap();
         self.remaining[atom.index()] -= 1;
         self.statistics.links += 1;
+        Ok(())
     }
 
     /// Takes back the last link and keeps the counts current.
     fn unlink(&mut self) {
-        let (x, _) = self.net.unlink().expect("a link to take back");
-        let atom = self.net.forest().atom(x.occ()).unwrap();
+        let x = self.criterion.unlink();
+        let atom = self.criterion.forest().atom(x).unwrap();
         self.remaining[atom.index()] += 1;
     }
 }
@@ -1353,7 +1460,7 @@ pub(crate) mod parallel {
                     root.reset();
                     root.seed(cube);
                     match root.explore(Some(1), &mut split) {
-                        Ok(true) => return (Ok(true), root.statistics, Some(root.net)),
+                        Ok(true) => return (Ok(true), root.statistics, Some(root.criterion.net)),
                         Ok(false) => {}
                         Err(reason) => return (Err(reason), root.statistics, None),
                     }
@@ -1391,7 +1498,7 @@ pub(crate) mod parallel {
                                 Ok(true) => {
                                     let mut collected = lock(collected);
                                     if collected.net.is_none() {
-                                        collected.net = Some(engine.net.clone());
+                                        collected.net = Some(engine.criterion.net.clone());
                                     }
                                     found.store(true, Ordering::Relaxed);
                                 }
