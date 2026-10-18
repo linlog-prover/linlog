@@ -15,11 +15,15 @@
 //! sequentializes into a proof term that the checker accepts, and a proof
 //! term of MLL desequentializes into the net of its axiom links; two
 //! derivations that differ only by the order of their rules give the same
-//! net.
+//! net. The structure of an intuitionistic sequent is also an essential
+//! net or not, which [`is_essential`](ProofStructure::is_essential)
+//! decides by a directed criterion with the same verdict.
 
 // A variant a later step adds must not fall into an existing arm.
 #![deny(clippy::wildcard_enum_match_arm)]
 
+/// Essential nets: the directed criterion of intuitionistic structures.
+pub(crate) mod essential;
 /// The coloured structure graph and the criterion's tests on it.
 mod graph;
 /// From a proof net to a proof term.
@@ -34,7 +38,7 @@ use crate::errors::describe::{Budget, Limit, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, OccId, ShapeError};
 use crate::proofs::{Node, NodeId, Proof};
 use crate::sequents::{Kind, Sequent, Term};
 use graph::Graph;
@@ -225,6 +229,30 @@ pub enum NetError {
         /// edge there: the roots and the right premises of `⅋` nodes.
         parts: Vec<Vec<VertexId>>,
     },
+    /// A directed cycle of the essential net.
+    #[non_exhaustive]
+    DirectedCycle {
+        /// The vertices the cycle runs through, each followed by the one
+        /// its edge leads to, the last by the first.
+        cycle: Vec<VertexId>,
+    },
+    /// An implication in output position does not dominate its
+    /// antecedent in the essential net: a path from the antecedent
+    /// reaches the goal around it.
+    #[non_exhaustive]
+    NoDominator {
+        /// The implication, `A ⊸ B` stored as `A⊥ ⅋ B`.
+        implication: VertexId,
+        /// The path, from the antecedent `A⊥` to the goal.
+        path: Vec<VertexId>,
+    },
+    /// The structure's sequent has no intuitionistic reading, so it has
+    /// no essential net.
+    #[non_exhaustive]
+    NotIntuitionistic {
+        /// Why the sequent has no reading.
+        shape: ShapeError,
+    },
     /// Proof nets exist for unit-free MLL only, and the sequent lies in a
     /// larger fragment.
     #[non_exhaustive]
@@ -271,17 +299,24 @@ impl NetError {
             Self::Unlinked { .. }
             | Self::Empty
             | Self::SwitchingCycle { .. }
-            | Self::Disconnected { .. } => Invalid,
-            Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => Unsupported,
+            | Self::Disconnected { .. }
+            | Self::DirectedCycle { .. }
+            | Self::NoDominator { .. } => Invalid,
+            Self::Fragment { .. }
+            | Self::Mode { .. }
+            | Self::Rule { .. }
+            | Self::NotIntuitionistic { .. } => Unsupported,
             Self::Refused { refusal } => crate::errors::refusal_kind(refusal),
         }
     }
 
     /// Returns the stable code of the error: `no_nets` where no structure
-    /// exists, the refusal's, or `invalid_net`.
+    /// exists, `not_intuitionistic` where no essential net does, the
+    /// refusal's, or `invalid_net`.
     pub fn code(&self) -> &'static str {
         match self {
             Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => "no_nets",
+            Self::NotIntuitionistic { .. } => "not_intuitionistic",
             Self::Refused { refusal } => refusal.code(),
             Self::NoVertex { .. }
             | Self::NotLiteral { .. }
@@ -290,7 +325,9 @@ impl NetError {
             | Self::Unlinked { .. }
             | Self::Empty
             | Self::SwitchingCycle { .. }
-            | Self::Disconnected { .. } => "invalid_net",
+            | Self::Disconnected { .. }
+            | Self::DirectedCycle { .. }
+            | Self::NoDominator { .. } => "invalid_net",
         }
     }
 
@@ -362,6 +399,22 @@ impl NetError {
                     parts.len(),
                     parts.join(" and ")
                 )
+            }
+            DirectedCycle { cycle } => write!(
+                f,
+                "a directed cycle of the essential net runs through {}",
+                list(cycle)
+            ),
+            NoDominator { implication, path } => write!(
+                f,
+                "the implication {} does not dominate its antecedent: the path {} reaches the \
+                 goal around it",
+                vertex(implication),
+                list(path)
+            ),
+            NotIntuitionistic { shape } => {
+                f.write_str("essential nets exist for intuitionistic sequents only: ")?;
+                shape.write(f, forest, limit)
             }
             Fragment { fragment } => write!(
                 f,

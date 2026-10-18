@@ -920,6 +920,16 @@ mod tests {
             NetError::Disconnected {
                 parts: vec![vec![vertex]],
             },
+            NetError::DirectedCycle {
+                cycle: vec![vertex],
+            },
+            NetError::NoDominator {
+                implication: vertex,
+                path: vec![vertex],
+            },
+            NetError::NotIntuitionistic {
+                shape: ShapeError::NoGoal,
+            },
             NetError::Fragment {
                 fragment: Fragment::LL,
             },
@@ -992,6 +1002,9 @@ mod tests {
                 | NetError::Empty
                 | NetError::SwitchingCycle { .. }
                 | NetError::Disconnected { .. }
+                | NetError::DirectedCycle { .. }
+                | NetError::NoDominator { .. }
+                | NetError::NotIntuitionistic { .. }
                 | NetError::Fragment { .. }
                 | NetError::Mode { .. }
                 | NetError::Rule { .. } => {}

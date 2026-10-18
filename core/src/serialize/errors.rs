@@ -245,6 +245,15 @@ impl Serialize for NetError {
                 let parts: Vec<Vec<u32>> = parts.iter().map(|p| vertices(p)).collect();
                 entries!(s; "kind" => "disconnected"; "parts" => &parts)
             }
+            Self::DirectedCycle { cycle } => {
+                entries!(s; "kind" => "directed_cycle"; "cycle" => &vertices(cycle))
+            }
+            Self::NoDominator { implication, path } => entries!(s;
+                "kind" => "no_dominator"; "implication" => &implication.get();
+                "path" => &vertices(path)),
+            Self::NotIntuitionistic { shape } => {
+                entries!(s; "kind" => "not_intuitionistic"; "shape" => shape)
+            }
             Self::Fragment { fragment } => {
                 entries!(s; "kind" => "fragment"; "fragment" => fragment)
             }
