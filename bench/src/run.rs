@@ -461,6 +461,9 @@ fn child(
     if let Some(copies) = args.forward_copies {
         command.args(["--forward-copies", &copies.to_string()]);
     }
+    if let Some(work) = args.classical_work {
+        command.args(["--classical-work", &work.to_string()]);
+    }
     if let Some(bytes) = args.memory_limit {
         command.args(["--memory-limit", &bytes.to_string()]);
     }
@@ -646,6 +649,10 @@ fn tail(args: &OneArgs) -> String {
         .with_bias(args.bias.bias())
         .with_forward_copies(forward_copies(args.forward_copies))
         .with_test_period(args.test_period)
+        .with_classical_work(
+            args.classical_work
+                .unwrap_or(Options::DEFAULT_CLASSICAL_WORK),
+        )
         // The check is the child's own, outside the time measured.
         .with_check(false);
     let limits = Limits::default()
@@ -755,8 +762,18 @@ fn tail(args: &OneArgs) -> String {
         .collect::<Vec<_>>()
         .join(",")
     };
-    let Verdict::Proved(proof) = &outcome.verdict else {
-        return tail("", "");
+    let proof = match &outcome.verdict {
+        Verdict::Proved(proof) => proof,
+        // A refutation with a certificate is checked as a proof is; one
+        // that rests on the search has nothing to check.
+        Verdict::Unprovable(disproof) => {
+            return match disproof.check() {
+                Ok(()) => tail("ok", ""),
+                Err(error) if error.kind() == linlog::ErrorKind::Unsupported => tail("", ""),
+                Err(error) => tail(&clean(&format!("failed: {error}")), ""),
+            };
+        }
+        Verdict::Unknown(_) => return tail("", ""),
     };
     // The verdict is out before the check, which a proof can outgrow.
     say(&tail("", ""));
@@ -785,9 +802,13 @@ fn decide(
     args: &OneArgs,
     expired: &AtomicBool,
 ) -> Result<linlog::search::Outcome, Error> {
-    let stop = || expired.load(Ordering::Relaxed);
+    // The refutation after the search is bounded by its own work and
+    // answers a search the time limit ended, as the command's does.
+    let stop = |progress: linlog::Progress| {
+        progress.phase != linlog::Phase::Refute && expired.load(Ordering::Relaxed)
+    };
     let Some(alone) = args.pool_after.filter(|_| args.jobs > 1) else {
-        return prove_within(sequent, mode, options, limits, |_| stop());
+        return prove_within(sequent, mode, options, limits, stop);
     };
     let forest = Forest::within(sequent, limits)?;
     let alone = Duration::from_secs_f64(alone);
@@ -799,7 +820,7 @@ fn decide(
         limits,
         args.jobs,
         |_| start.elapsed() >= alone,
-        |_| stop(),
+        stop,
     )
 }
 

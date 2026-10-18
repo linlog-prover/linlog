@@ -43,6 +43,33 @@ second number (0.1.x to 0.2.0), anything else the third.
   `rocq-bridges` check compiles against the two kernels' files as its
   inputs pin them (Yalla is a new input), each closed under the global
   context.
+- A classical refuter after the search: where a search did not prove its
+  goal, an assignment of truth values to the atoms under which the goal
+  read classically is false (`!` and `?` erased, `⊗` and `&` as "and",
+  `⅋` and `⊕` as "or", `1` and `⊤` true, `⊥` and `0` false), which no
+  provable sequent has in any mode, makes an unknown verdict unprovable
+  and gives an exhausted search a certificate: the refutation
+  `Refutation::Classical` (`search::Classical`, its `assignment` a value
+  per atom), bounded by `search::Options::classical_work` (JSON
+  `classical_work`, default `Options::DEFAULT_CLASSICAL_WORK`, 2²⁶ terms
+  evaluated, zero for none) and the memory bound, and the command's
+  `--classical-work N`, which the harness takes too. No verdict a search
+  gave changes, nor its counters.
+- `Disproof::check`, which verifies a classical assignment, an
+  unbalanced atom and the count equation against the sequent, the goal
+  and the mode, sharing no code with the search, and its error
+  `Error::Refutation` with `search::RefutationFault` (codes
+  `invalid_refutation`, kind invalid, and `uncertified`, kind
+  unsupported, for the refutations that rest on the search). The
+  harness writes its result in the `checked` column of an unprovable
+  row.
+
+### Wire forms
+
+- Level 2: the refutation kind `classical`, `{"kind": "classical",
+  "assignment": [true, false, …]}`. A disproof or an unprovable outcome
+  that holds one is written at level 2; every other document stays at
+  level 1, byte for byte.
 
 ### Changed
 

@@ -10,9 +10,12 @@
 //!
 //! Every top-level document starts with `"version": n`, the lowest wire
 //! level whose reader understands all of it; [`LEVEL`] is the highest
-//! this build reads and writes, and level 1 is this release's. The writer
-//! computes the level from the content, so a value that a later release
-//! represents as this one does keeps its bytes. A reader refuses a
+//! this build reads and writes. The writer computes the level from the
+//! content, so a value that a later release represents as this one does
+//! keeps its bytes. Level 1 is that of 0.1.0; level 2 adds the classical
+//! refutation (`{"kind": "classical", "assignment": […]}`), so a disproof
+//! or an unprovable outcome that holds one is written at level 2, and
+//! every other document at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -28,7 +31,8 @@
 //!
 //! [`upgrade`] is the one reader of every form: it reads a document of any
 //! level up to [`LEVEL`] as a value of this release, every older level
-//! through one step per level that changed a form (at level 1, none), and
+//! through one step per level that changed a form (none so far: level 2
+//! only adds a kind of refutation), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -77,7 +81,11 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 1;
+pub const LEVEL: u32 = 2;
+
+/// The level of every document but a disproof (or an unprovable
+/// outcome) with a classical refutation, which is level 2.
+pub(crate) const BASE: u32 = 1;
 
 /// A form [`upgrade`] and [`Within`] read: one whose reading counts a
 /// sequent against the caller's limits. Sealed: the crate's data forms
@@ -128,7 +136,7 @@ impl<'de, T: Readable> DeserializeSeed<'de> for Within<'_, T> {
 
 /// Reads a document of any released level up to [`LEVEL`] and returns it
 /// as a value of this release, an older level through each level's step
-/// in turn (at level 1 there is none), every sequent within
+/// in turn (there is none so far), every sequent within
 /// `limits.occurrences`. It reads one value and leaves the deserializer
 /// there: a caller whose input is that one document ends the
 /// deserializer (`end()` in serde_json), which refuses what follows it.
@@ -209,7 +217,17 @@ pub(crate) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Opti
     }
 }
 
-/// The level a written document carries: this release's.
+/// The level a written document of a form that level 1 holds whole
+/// carries: every form but a disproof's.
 pub(crate) const fn level() -> Option<u32> {
-    Some(LEVEL)
+    Some(BASE)
+}
+
+/// The level of a disproof with `refutation`: 2 for the classical
+/// refutation, which level 2 added, else 1.
+pub(crate) const fn level_of(refutation: &crate::search::Refutation) -> u32 {
+    match refutation {
+        crate::search::Refutation::Classical(_) => 2,
+        _ => BASE,
+    }
 }

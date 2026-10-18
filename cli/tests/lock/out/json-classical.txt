@@ -1,0 +1,5 @@
+$ linlog prove --deterministic --format json 'A + B |- A'
+--- status 1
+--- stdout
+{"version":1,"linlog":"…","verdict":"unprovable","refutation":{"kind":"exhausted"},"fragment":"ALL","mode":"classical","engine":"additive","statistics":{"nodes":3,"memo_hits":0,"memo_entries":3,"splits":0,"links":0,"tests":0,"copies":0,"forward_copies":0,"work":3},"sequent":{"terms":[{"D":0},{"D":1},{"&":[0,1]},{"V":0}],"roots":[2,3],"atoms":["A","B"],"antecedents":1}}
+--- stderr

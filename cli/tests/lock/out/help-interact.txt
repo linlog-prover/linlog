@@ -94,6 +94,13 @@ Options:
           
           [default: 1048576]
 
+      --classical-work <N>
+          The most work the classical refutation may do after a search that did not prove the sequent, in formulas evaluated, or 0 for none (search.classical_work)
+          
+          It looks for truth values of the atoms that make the sequent false read classically (`!` and `?` erased, `*` and `&` as "and", `|` and `+` as "or", `1` and `top` true, `bot` and `0` false), which no provable sequent allows: a search that was unknown is then unprovable (exit status 1), and an exhausted one gets the values as its reason. It runs after the search, past the time limit within this bound (Ctrl-C stops it), and never changes a verdict the search gave.
+          
+          [default: 0]
+
       --memory-limit <SIZE>
           The most memory the search may hold: a number of bytes with a unit such as 512MiB or 4GiB, or `none` for no limit (limits.memory_bytes)
           

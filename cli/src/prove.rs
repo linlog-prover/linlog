@@ -10,7 +10,7 @@ use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::search::{Engine, Goal, Options, Outcome, Reason, Verdict, prove_goal, race};
-use linlog::{CheckError, Error, Forest, Limits, Sequent};
+use linlog::{CheckError, Error, Forest, Limits, Phase, Progress, Sequent};
 use std::fmt::Write;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -40,8 +40,9 @@ pub(crate) fn on_large_stack<T: Send>(size: usize, f: impl FnOnce() -> T + Send)
 /// the start, or the library's race, one thread first and, once
 /// `threads.alone` has passed, a pool of the others beside it, the first
 /// of the two to decide answering, both within one memory bound
-/// (`search::race`). `halt` is the command's stop condition. The single
-/// search runs on the calling thread, whose stack the caller sized.
+/// (`search::race`). `halt` is the command's stop condition, but for the
+/// refutation after the search ([`halting`]). The single search runs on
+/// the calling thread, whose stack the caller sized.
 pub(crate) fn searched(
     goal: Goal<'_>,
     mode: linlog::Mode,
@@ -50,13 +51,14 @@ pub(crate) fn searched(
     threads: Threads,
     halt: &(dyn Fn() -> bool + Sync),
 ) -> Result<Outcome, linlog::Error> {
+    let halt = halting(halt);
     match threads.alone {
         None => prove_goal(
             goal,
             mode,
             &options.clone().with_jobs(threads.jobs),
             limits,
-            |_| halt(),
+            halt,
         ),
         Some(alone) => {
             let start = Instant::now();
@@ -67,9 +69,22 @@ pub(crate) fn searched(
                 limits,
                 threads.jobs,
                 |_| start.elapsed() >= alone,
-                |_| halt(),
+                halt,
             )
         }
+    }
+}
+
+/// Returns the stop condition of a search from the command's, `halt`:
+/// asked by the refutation after the search, Ctrl-C alone, since that
+/// refutation is bounded by its work and answers a search that ran to the
+/// time limit.
+pub(crate) fn halting(
+    halt: &(dyn Fn() -> bool + Sync),
+) -> impl Fn(Progress) -> bool + Sync + Copy + '_ {
+    move |progress: Progress| match progress.phase {
+        Phase::Refute => interrupted(),
+        _ => halt(),
     }
 }
 

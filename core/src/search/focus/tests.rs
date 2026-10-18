@@ -1146,7 +1146,8 @@ fn full_ll() {
         run(
             "!a, !(a -o b + c) |- b * c",
             Mode::CLASSICAL,
-            &Options::default()
+            // The classical refuter would find b true and c false.
+            &Options::default().with_classical_work(0)
         )
         .0,
         Verdict::Unknown(Reason::CopyBound { copies: 3 })
@@ -1196,7 +1197,8 @@ fn affine() {
     let growing = "!(a -o a * a), a |- ?b";
     for mode in [Mode::CLASSICAL, affine] {
         assert!(matches!(
-            run(growing, mode, &Options::default()).0,
+            // The classical refuter would find b false.
+            run(growing, mode, &Options::default().with_classical_work(0)).0,
             Verdict::Unknown(Reason::CopyBound { copies: 3 })
         ));
     }
@@ -1225,10 +1227,13 @@ fn affine() {
 #[test]
 fn copy_bound() {
     let m = Mode::CLASSICAL;
+    // The search alone: the classical refuter would decide what the
+    // bound leaves undecided.
     let with = |copies| {
         Options::default()
             .with_bias(Bias::Rarer)
             .with_copies(Some(copies))
+            .with_classical_work(0)
     };
     // ⊢ ?~a, a needs one copy: bound 0 is hit, bound 1 proves.
     assert!(matches!(

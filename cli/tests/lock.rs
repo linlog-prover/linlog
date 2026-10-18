@@ -86,6 +86,26 @@ const CASES: &[Case] = &[
         &["prove", "!(A -o A * A), !(B * B -o C), A, B |- C"],
     ),
     call("refute-one-sided", &["prove", "!A, A |- 1"]),
+    call("refute-classical", &["prove", "A + B |- A"]),
+    call(
+        "refute-classical-unknown",
+        &["prove", "--copies", "1", "!(A -o A * A), A |- ?B"],
+    ),
+    call(
+        "refute-classical-off",
+        &[
+            "prove",
+            "--copies",
+            "1",
+            "--classical-work",
+            "0",
+            "!(A -o A * A), A |- ?B",
+        ],
+    ),
+    call(
+        "json-classical",
+        &["prove", "--deterministic", "--format", "json", "A + B |- A"],
+    ),
     call(
         "json-unbalanced",
         &["prove", "--deterministic", "--format", "json", "A |- A * A"],

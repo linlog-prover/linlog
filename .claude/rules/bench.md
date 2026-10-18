@@ -140,7 +140,11 @@ serde_json, which the CLI and the core's tests already have.
   and `error` (every other `Error`, a parse failure, a missing reading;
   these are findings, not configurations). `checked` is `ok` or the
   checker's message for a proof of the roots, or `failed: …` with how the
-  child died in the check; `check_ms` is the wall-clock time of the check
+  child died in the check; for an unprovable row it is `Disproof::check`'s
+  answer, `ok` for a classical assignment, an unbalanced atom or the count
+  equation verified, `failed: …` for one that does not hold, empty for a
+  refutation that rests on the search (`exhausted`, `one_sided`,
+  `state_equation`), so the ranking's "(checked)" covers refutations too; `check_ms` is the wall-clock time of the check
   alone.
 - **`time_ms` is wall-clock time of the search alone** (`Instant` around
   `prove_within`): forest construction and pool start-up included, parsing,
@@ -775,3 +779,9 @@ the commit that lands it rewrites that bullet.
   of the profile moves every count: it re-records the ratchet's ceilings
   in a commit of its own that says why. The renderers gain much from it,
   and the gate's release build takes longer.
+- **The classical refutation runs in the child as in the command**
+  (`decide`): the stop answers a `Phase::Refute` poll with `false`, so a
+  run its time limit ended is still refuted within
+  `--classical-work N` (the library's default when not given, `0` for
+  none, on `run` and `one`); `time_ms` includes it, so such a row may
+  be `late` by the refutation's time.

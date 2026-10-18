@@ -205,7 +205,54 @@ copies they had are gone (F103, F104).
   a refutation, after the search, so no counter of a run moves; its
   time is one more `Counts` pass on a refuted sequent. Without a
   refutation from the counts (a `⊤` absorbs, weakening, exponential
-  atoms) the answer is `Exhausted`, never a guess.
+  atoms) the classical refuter below may give one, else the answer is
+  `Exhausted`, never a guess.
+- **The classical refuter** (`search/classical.rs`, `refute`, called by
+  `conclude` through `classical`): after an `Unprovable` whose refutation
+  is `Exhausted`, and after every `Unknown` of the engine (not one the
+  check made: that sequent has a proof), it looks for an assignment
+  under which the goal's classical reading is false (`!` and `?` erased,
+  `⊗`/`&` and, `⅋`/`⊕` or, `1`/`⊤` true, `⊥`/`0` false, the goal the
+  disjunction of its members) and answers `Unprovable` with
+  `Refutation::Classical { assignment }`, a value per atom of the
+  sequent, the atoms outside the goal false. The argument: every rule of
+  `ll R`, for every `R`, derives a tautology from tautologies (Mix joins
+  two, weakening adds a disjunct, contraction repeats one, promotion and
+  dereliction read as the formula), and an intuitionistic derivation is
+  a classical one of its one-sided form, which reads as the implication;
+  the Rocq library proves both (`Refutations.v`, `ll_tautology`,
+  `ill_ll`, `ill_tautology`), and `classical::tests::checked_proofs_read_as_tautologies`
+  pins it against checked proofs of generated sequents in every mode. It
+  is a backtracking over the goal's atoms by index, false before true,
+  with a three-valued evaluation of the terms the goal reaches (in
+  arena order, operands first, so no recursion) at each step, backing
+  off where the reading is already true; one unit of work per term
+  evaluated, bounded by `Options::classical_work`
+  (`DEFAULT_CLASSICAL_WORK`, 2²⁶; zero switches it off; `--classical-work`
+  in the command and the harness), its buffers charged to the account
+  and refused where they do not fit, its polls `Phase::Refute` to the
+  caller's stop. No counter of the search moves (its work is not in
+  `Statistics::work`), and a decided verdict never changes; only an
+  exhausted search's refutation and an undecided search's verdict do.
+- **`Disproof::check`** (`refutation.rs`) verifies `Classical`,
+  `Unbalanced` and `Equation` against the sequent, sharing no code with
+  the search: it builds a `Forest` (default limits) and evaluates over
+  occurrences bottom-up (preorder, so a subtree reversed is operands
+  first). `Unbalanced` is recomputed as the hull interval of the atom's
+  excess with `⊤` and an exponential over the atom unbounded (`None`),
+  and must equal `[least, most]` and exclude zero, outside affine mode
+  (Mix keeps it); `Equation` needs the multiplicative fragment with
+  units in the goal and outside affine mode, `mix` equal to the mode's,
+  and every count equal. Those are the conditions under which the search
+  states them (`Switches`, `intervals_run`), and the ones the Rocq
+  lemmas prove. `Exhausted`, `OneSided` and `StateEquation` answer
+  `RefutationFault::Uncertified` (code `uncertified`, kind unsupported);
+  a refutation that does not hold answers code `invalid_refutation`.
+  Sums are of at most a forest's 2³² occurrences, within `i64`.
+- **The command lets the refutation run past its deadline**
+  (`cli/src/prove.rs`, `halting`): its stop answers a `Phase::Refute`
+  poll with Ctrl-C alone, so a search the time limit ended is still
+  refuted, within the work bound; the harness's child does the same.
 - **One interface every engine implements** (`Decide`, crate-private):
   `admits(&task)` refuses a goal with the error a forced engine answers,
   `Error::EngineRefused { engine, because: NotTaken }`, checking in this
@@ -601,9 +648,14 @@ the commit that lands it rewrites that bullet.
   the mode and the refutation. `Verdict` is closed, and a refutation's
   checker and certificate need its sequent and mode.
 - **Refuters run after the search, never during it**: after an
-  `Unprovable` that has no certificate, and after an `Unknown` only with
-  `refute_unknown`, which is off by default. A refuter never changes a
-  verdict the search gave, so every baseline keeps its verdicts.
+  `Unprovable` that has no certificate, and after an `Unknown`. A
+  refuter never changes a verdict the search gave. The design had
+  refuters after an `Unknown` only behind `refute_unknown`, off by
+  default; the author decided on 2026-10-18 that the classical refuter
+  answers an `Unknown` by default (R2 of
+  `plan/notes/research/comparison-gaps.md`), its bound `classical_work`
+  the only switch, so `refute_unknown` does not exist. Baselines keep
+  every decided verdict; rows that were unknown may become unprovable.
 - **`search::Options::default()` keeps the copy bound of 3, and
   `Settings::default()` is the command's behaviour** (no copy bound, a
   clock). A library call without a stop must end; a front end with a

@@ -705,7 +705,8 @@ mod tests {
         let withs = vec!["bot & bot"; 16].join(", ");
         let sequent: Sequent = format!("|- {withs}, {chain}").parse().unwrap();
         for jobs in [2, 4] {
-            let options = Options::default().with_jobs(jobs);
+            // The search alone: every assignment falsifies the sequent.
+            let options = Options::default().with_jobs(jobs).with_classical_work(0);
             let limits = crate::Limits::default().with_recursion_depth(36);
             let outcome =
                 prove_within(&sequent, Mode::CLASSICAL, &options, &limits, |_| false).unwrap();
@@ -756,7 +757,8 @@ mod tests {
             .parse()
             .unwrap();
         let limits = crate::Limits::default().with_recursion_depth(3_000);
-        let options = Options::default().with_jobs(2);
+        // The search alone: the classical refuter would find b false.
+        let options = Options::default().with_jobs(2).with_classical_work(0);
         let outcome = prove_within(
             &sequent,
             Mode::CLASSICAL.with_affine(),

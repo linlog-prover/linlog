@@ -148,6 +148,9 @@ impl SearchArgs {
         if apply.set("memo_limit") {
             search.memo_limit = self.memo_limit;
         }
+        if apply.set("classical_work") {
+            search.classical_work = self.classical_work;
+        }
         if apply.set("test_period") {
             search.test_period = self.test_period;
         }
@@ -497,6 +500,7 @@ mod tests {
             --copies 4              /search/copies             2                 4
             --forward-copies 7      /search/forward_copies     5                 7
             --memo-limit 9          /search/memo_limit         8                 9
+            --classical-work 4      /search/classical_work     3                 4
             --test-period 3         /search/test_period        2                 3
             --schedule auto         /search/schedule           "turns"           "auto"
             --jobs 3                /search/jobs               2                 3

@@ -148,6 +148,12 @@ fn lines() -> String {
     );
     pin("session-intuitionistic", json(&session));
 
+    // Level 2: the classical refutation.
+    pin(
+        "outcome-classical",
+        json(&linlog::prove(&sequent("A + B |- A"), classical, &options).unwrap()),
+    );
+
     out
 }
 

@@ -132,7 +132,10 @@ impl Default for Settings {
         Self {
             clock: Clock::default(),
             limits: Limits::default(),
-            search: Options::default().with_copies(None).with_jobs(Jobs::Auto),
+            search: Options::default()
+                .with_copies(None)
+                .with_jobs(Jobs::Auto)
+                .with_classical_work(0),
             view: ViewOptions::default(),
             styles: Styles::default(),
             batch: batch::Options::default(),

@@ -90,7 +90,13 @@ fn timeout() {
         literals.join(", ")
     );
     for threads in [["--deterministic"].as_slice(), &["--jobs", "2"]] {
-        let args = [&["prove", "-a", "--timeout", "200ms"], threads, &[&sequent]].concat();
+        // The search alone: every assignment falsifies the sequent.
+        let args = [
+            &["prove", "-a", "--timeout", "200ms", "--classical-work", "0"],
+            threads,
+            &[&sequent],
+        ]
+        .concat();
         let (status, out, err) = linlog(&args, "");
         assert_eq!(
             (status, out.as_str(), err.as_str()),
@@ -102,7 +108,6 @@ fn timeout() {
             )
         );
     }
-
     // Standard input stays open and empty until the command has answered.
     let mut child = Command::new(env!("CARGO_BIN_EXE_linlog"))
         .args(["prove", "--timeout", "100ms"])
@@ -859,7 +864,14 @@ fn svg_formats() {
     let (status, out, _) = linlog(&["check", "--net", "--format", "svg"], &json);
     assert_eq!(status, 0);
     assert!(out.contains("<circle id=\"o0\""), "{out}");
-    let bounds = ["--copies", "0", "--forward-copies", "0"];
+    let bounds = [
+        "--copies",
+        "0",
+        "--forward-copies",
+        "0",
+        "--classical-work",
+        "0",
+    ];
     let args = [&["prove", "--format", "svg"], &bounds[..], &["|- ?A"]].concat();
     // Without a drawing an SVG output is nothing, never a comment alone;
     // the verdict goes to standard error.
@@ -1958,8 +1970,20 @@ fn batch_flags() {
         literals.join(", ")
     );
     let lines = format!("hard: {hard}\nno: A |- B\n");
+    // The search alone: every assignment falsifies the hard entry.
     let batch = |extra: &[&str], input: &str| {
-        let args = [&["prove", "-a", "--input-format", "lines"], extra].concat();
+        let args = [
+            &[
+                "prove",
+                "-a",
+                "--input-format",
+                "lines",
+                "--classical-work",
+                "0",
+            ],
+            extra,
+        ]
+        .concat();
         linlog(&args, input)
     };
     let (status, out, err) = batch(&["--timeout", "100ms"], &lines);

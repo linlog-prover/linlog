@@ -1,0 +1,5 @@
+$ linlog prove --copies 1 --classical-work 0 '!(A -o A * A), A |- ?B'
+--- status 3
+--- stdout
+unknown (MELL, classical, focus engine): the copy bound of 1 was reached after …; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
+--- stderr

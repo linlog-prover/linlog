@@ -1,0 +1,5 @@
+$ linlog prove 'A + B |- A'
+--- status 1
+--- stdout
+unprovable (ALL, classical, additive engine): the search was exhaustive
+--- stderr

@@ -97,6 +97,7 @@ impl Serialize for Details<'_> {
             #[cfg(feature = "interactive")]
             InconsistentSession { reason } => entries!(s; "reason" => reason),
             Check(e) => e.serialize(s),
+            Refutation(fault) => entries!(s; "fault" => fault.name()),
             Net(e) => e.serialize(s),
             #[cfg(feature = "interactive")]
             Step(e) => e.serialize(s),

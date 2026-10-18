@@ -7,8 +7,8 @@ use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Space};
 use crate::occurrences::{Member, OccId, Sign};
 use crate::search::{
-    Bias, Cadence, Disproof, Engine, Equation, Jobs, OneSided, Outcome as Out, Reason, Refutation,
-    StateEquation, Statistics, Unbalanced, Verdict,
+    Bias, Cadence, Classical, Disproof, Engine, Equation, Jobs, OneSided, Outcome as Out, Reason,
+    Refutation, StateEquation, Statistics, Unbalanced, Verdict,
 };
 use crate::sequents::Atom;
 use crate::wire::{self, Readable};
@@ -214,6 +214,11 @@ enum WhyNot {
         /// The clauses that can never fire, by occurrence.
         dropped: Vec<u32>,
     },
+    /// The classical reading is false under an assignment.
+    Classical {
+        /// The value of each atom, by index.
+        assignment: Vec<bool>,
+    },
 }
 
 impl From<&Refutation> for WhyNot {
@@ -261,6 +266,9 @@ impl From<&Refutation> for WhyNot {
                 atoms: atoms.iter().map(|&(a, w)| (a.get(), w)).collect(),
                 clauses: clauses.iter().map(|&(o, w)| (o.get(), w)).collect(),
                 dropped: dropped.iter().map(|o| o.get()).collect(),
+            },
+            Refutation::Classical(Classical { assignment }) => WhyNot::Classical {
+                assignment: assignment.clone(),
             },
             Refutation::Exhausted => WhyNot::Exhausted,
         }
@@ -318,6 +326,7 @@ impl From<WhyNot> for Refutation {
                     .collect(),
                 dropped: dropped.into_iter().map(OccId::new).collect(),
             }),
+            WhyNot::Classical { assignment } => Refutation::Classical(Classical { assignment }),
         }
     }
 }
@@ -400,7 +409,7 @@ impl DisproofForm {
                     occurrence(o.index())?;
                 }
             }
-            Refutation::Exhausted | Refutation::Equation(_) => {}
+            Refutation::Exhausted | Refutation::Equation(_) | Refutation::Classical(_) => {}
         }
         let disproof = Disproof::new(sequent, self.mode, refutation);
         Ok(match self.goal {
@@ -419,7 +428,7 @@ impl Serialize for Disproof {
     /// Serializes the disproof as a document.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         DisproofForm {
-            version: wire::level(),
+            version: Some(wire::level_of(self.refutation())),
             sequent: SequentForm::from(self.sequent()),
             mode: self.mode(),
             refutation: WhyNot::from(self.refutation()),
@@ -519,8 +528,12 @@ impl Serialize for Out {
             }
             Verdict::Unknown(r) => (Some(Why::from(*r)), None, None, None),
         };
+        let version = match &self.verdict {
+            Verdict::Unprovable(d) => wire::level_of(d.refutation()),
+            Verdict::Proved(_) | Verdict::Unknown(_) => wire::BASE,
+        };
         Outcome {
-            version: crate::wire::LEVEL,
+            version,
             linlog: env!("CARGO_PKG_VERSION"),
             verdict,
             checked: proof.as_ref().map(|_| self.checked),

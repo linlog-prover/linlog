@@ -11,7 +11,7 @@ use crate::io::{self, admit, sequent_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
-    Ended, Stop, describe, on_large_stack, searched, statistics, stopped, verdict_line,
+    Ended, Stop, describe, halting, on_large_stack, searched, statistics, stopped, verdict_line,
 };
 use crate::settings::{Threads, time_limit};
 use crate::show::{Show, Shown, derivation, every_steps, net_into, nets_exist};
@@ -521,16 +521,20 @@ fn shown(name: &str) -> std::borrow::Cow<'_, str> {
     }
 }
 
-/// Returns the JSON of a record: the wire level, the entry's name, then
-/// the fields of `body`, a JSON object, but its own `version`.
+/// Returns the JSON of a record: the wire level of `body`, a JSON object,
+/// or level 1 where it names none, the entry's name, then the other
+/// fields of `body`.
 fn record_json(name: &str, body: &str) -> String {
     let name = serde_json::to_string(name).expect("a string is JSON");
-    let head = format!("{{\"version\":{},\"name\":{name}", linlog::wire::LEVEL);
     let rest = body.strip_prefix('{').expect("the body is an object");
-    let rest = match rest.strip_prefix("\"version\":") {
-        Some(versioned) => versioned.trim_start_matches(|c: char| c.is_ascii_digit()),
-        None => rest,
+    let (level, rest) = match rest.strip_prefix("\"version\":") {
+        Some(versioned) => {
+            let fields = versioned.trim_start_matches(|c: char| c.is_ascii_digit());
+            (&versioned[..versioned.len() - fields.len()], fields)
+        }
+        None => ("1", rest),
     };
+    let head = format!("{{\"version\":{level},\"name\":{name}");
     match rest.strip_prefix(',') {
         Some(fields) => format!("{head},{fields}"),
         None if rest == "}" => format!("{head}}}"),
@@ -701,7 +705,13 @@ impl Shared {
                 &halt,
             )
         } else {
-            prove_goal(Goal::conclusion(&forest), mode, search, limits, |_| halt())
+            prove_goal(
+                Goal::conclusion(&forest),
+                mode,
+                search,
+                limits,
+                halting(&halt),
+            )
         }
         .map_err(|e| describe(e, sequent))?;
         let elapsed = start.elapsed();

@@ -609,7 +609,7 @@ fn options_json_format() {
         defaults,
         "{\"engine\":\"auto\",\"fragment\":\"auto\",\"bias\":\"auto\",\"copies\":3,\
          \"forward_copies\":30,\"memo_limit\":1048576,\"test_period\":\"auto\",\"jobs\":1,\
-         \"schedule\":\"auto\",\"check\":true}"
+         \"schedule\":\"auto\",\"check\":true,\"classical_work\":67108864}"
     );
     let read: Options = serde_json::from_str("{}").unwrap();
     assert_eq!(read, Options::default());
@@ -770,13 +770,13 @@ fn wire_levels() {
     let read = |json: &str, limits: &Limits| {
         wire::upgrade::<Sequent, _>(&mut serde_json::Deserializer::from_str(json), limits)
     };
-    let newer = sequent.replacen(r#""version":1"#, r#""version":2"#, 1);
+    let newer = sequent.replacen(r#""version":1"#, r#""version":3"#, 1);
     let error = read(&newer, &Limits::default()).unwrap_err();
     assert!(matches!(
         error,
         Error::Version {
             form: "sequent",
-            found: 2,
+            found: 3,
             supported: wire::LEVEL,
             ..
         }

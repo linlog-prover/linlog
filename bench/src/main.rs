@@ -200,6 +200,10 @@ pub struct RunArgs {
     /// a Horn program (default: the library's)
     #[arg(long)]
     forward_copies: Option<u32>,
+    /// The most work the classical refutation may do after a search that
+    /// did not prove a problem, 0 for none (default: the library's)
+    #[arg(long, value_name = "N")]
+    classical_work: Option<u64>,
     /// The most bytes a search may hold at once, 0 for no bound (default:
     /// the library's)
     #[arg(long, value_name = "BYTES")]
@@ -260,7 +264,7 @@ pub struct RunArgs {
         value_delimiter = ',',
         value_name = "TOOL",
         conflicts_with_all = ["engines", "jobs", "copies", "bias", "forward_copies",
-            "test_period", "recursion_limit", "pool_after", "repeat"]
+            "classical_work", "test_period", "recursion_limit", "pool_after", "repeat"]
     )]
     tools: Vec<String>,
     /// Run only the K-th of N shards of the problems (from 1): every N-th
@@ -299,6 +303,9 @@ pub struct OneArgs {
     /// The forward search's copy bound
     #[arg(long)]
     forward_copies: Option<u32>,
+    /// The classical refutation's bound on work
+    #[arg(long)]
+    classical_work: Option<u64>,
     /// The memory bound in bytes, 0 for none
     #[arg(long)]
     memory_limit: Option<u64>,

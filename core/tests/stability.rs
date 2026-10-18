@@ -1,11 +1,13 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! The wire forms of the first release, read by this one. `wire/level-1.txt`
-//! is the JSON lock (`lock/json.txt`) as version 0.1.0 wrote it, followed
-//! by the disproofs of every refutation and a proof and a disproof of a
-//! goal off the roots, as 0.1.0 wrote them, one `NAME: JSON` per line, and
-//! is never rewritten: where the lock moves on, this file stays. Every line of a form that is read back reads through
+//! The wire forms of earlier releases and levels, read by this one.
+//! `wire/level-1.txt` is the JSON lock (`lock/json.txt`) as version 0.1.0
+//! wrote it, followed by the disproofs of every refutation and a proof and
+//! a disproof of a goal off the roots, as 0.1.0 wrote them, one `NAME:
+//! JSON` per line, and `wire/level-2.txt` the forms level 2 added; neither
+//! is ever rewritten: where the lock moves on, these files stay. Every
+//! line of a form that is read back reads through
 //! `wire::upgrade`, and writes the same bytes again; an outcome reads back
 //! as the proof or the disproof it holds. A release that fails here can no
 //! longer read what an earlier one wrote at a level it claims, which its
@@ -59,4 +61,23 @@ fn the_first_release_reads() {
         read_back += 1;
     }
     assert_eq!(read_back, 37, "every line but the three unknown outcomes");
+}
+
+/// The forms level 2 added, as the release that made it wrote them: the
+/// classical refutation of a disproof and of an unprovable outcome. Never
+/// rewritten, as `wire/level-1.txt` is not.
+#[test]
+fn the_second_level_reads() {
+    let lines = include_str!("wire/level-2.txt");
+    for line in lines.lines() {
+        let (name, json) = line.split_once(": ").unwrap();
+        match name.split('-').next().unwrap() {
+            "disproof" => again::<Disproof>(name, json),
+            "outcome" => {
+                let _: Disproof = read(name, json);
+            }
+            other => panic!("{name}: no form {other}"),
+        }
+    }
+    assert_eq!(lines.lines().count(), 2);
 }

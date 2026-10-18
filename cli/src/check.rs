@@ -46,7 +46,7 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let keep = if show.format == Format::Json {
             let checked = Checked {
-                version: linlog::wire::LEVEL,
+                version: CHECKED_LEVEL,
                 verdict: "unknown",
                 mode,
                 error: None,
@@ -78,6 +78,10 @@ pub(crate) fn check(args: &CheckArgs, given: &Given) -> Result<Status> {
         anyhow::Ok(status)
     })?
 }
+
+/// The wire level of `check`'s JSON: level 1 holds a verdict, a mode and
+/// an error whole.
+const CHECKED_LEVEL: u32 = 1;
 
 /// What `check --format json` writes.
 #[derive(serde::Serialize)]
@@ -173,7 +177,7 @@ fn check_into(
             Err(e) => (Some(Error::from(e.clone())), Some(report(e))),
         };
         let checked = Checked {
-            version: linlog::wire::LEVEL,
+            version: CHECKED_LEVEL,
             verdict: match status {
                 Status::Yes => "valid",
                 Status::Unknown => "unknown",

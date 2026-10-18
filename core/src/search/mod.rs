@@ -12,6 +12,8 @@
 /// The additive fast path.
 pub(crate) mod additive;
 pub mod batch;
+/// The classical refuter: an assignment that falsifies the reading.
+mod classical;
 /// The focused sequent engine.
 pub(crate) mod focus;
 /// Random provable sequents for the tests.
@@ -35,7 +37,9 @@ mod work;
 
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;
-pub use refutation::{Disproof, Equation, OneSided, Refutation, StateEquation, Unbalanced};
+pub use refutation::{
+    Classical, Disproof, Equation, OneSided, Refutation, RefutationFault, StateEquation, Unbalanced,
+};
 
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
@@ -745,7 +749,8 @@ fn conclude(
         }
         Ok(None) => {
             // What the counts of the goal rule out, under the same bound as
-            // the search, where the engine has no refutation of its own.
+            // the search, where the engine has no refutation of its own,
+            // and else a classical assignment where one is found.
             let refutation = refutation.unwrap_or_else(|| {
                 let mut polled = |_| stop(Progress::new(Phase::Refute, 0, 0));
                 focus::counts::refutation(
@@ -757,14 +762,25 @@ fn conclude(
                     &mut polled,
                 )
             });
-            let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
-            Verdict::Unprovable(Box::new(if goal.roots {
-                disproof
-            } else {
-                disproof.of_goal(members.into())
-            }))
+            let refutation = match refutation {
+                Refutation::Exhausted => classical(&goal, options, account, stop)
+                    .map_or(Refutation::Exhausted, Refutation::Classical),
+                refutation => refutation,
+            };
+            unprovable(forest, mode, refutation, &goal, members)
         }
-        Err(reason) => Verdict::Unknown(reason),
+        // A search that did not decide is unprovable where the classical
+        // reading is falsified, and stays as it ended otherwise.
+        Err(reason) => match classical(&goal, options, account, stop) {
+            Some(assignment) => unprovable(
+                forest,
+                mode,
+                Refutation::Classical(assignment),
+                &goal,
+                members,
+            ),
+            None => Verdict::Unknown(reason),
+        },
     };
     let Verdict::Proved(proof) = &verdict else {
         return Ok(verdict);
@@ -782,6 +798,40 @@ fn conclude(
             Ok(Verdict::Unknown(unchecked(refused.refusal, limits)?))
         }
     }
+}
+
+/// Returns the verdict that the goal is unprovable for `refutation`.
+fn unprovable(
+    forest: &Forest,
+    mode: Mode,
+    refutation: Refutation,
+    goal: &Concluding<'_>,
+    members: &[Member],
+) -> Verdict {
+    let disproof = Disproof::new(forest.sequent().clone(), mode, refutation);
+    Verdict::Unprovable(Box::new(if goal.roots {
+        disproof
+    } else {
+        disproof.of_goal(members.into())
+    }))
+}
+
+/// Returns an assignment that falsifies the classical reading of the goal,
+/// found within [`Options::classical_work`] and what the memory bound
+/// leaves, its polls asking `stop`; `None` where none is found.
+fn classical(
+    goal: &Concluding<'_>,
+    options: &Options,
+    account: &memory::Account,
+    stop: &mut dyn FnMut(Progress) -> bool,
+) -> Option<Classical> {
+    classical::refute(
+        goal.forest,
+        goal.occurrences,
+        options.classical_work,
+        account,
+        stop,
+    )
 }
 
 /// Returns why a search whose proof's check was given up is unknown: the
@@ -1793,9 +1843,9 @@ pub enum Schedule {
 /// below, a missing one taking its default and a misspelt one refused:
 /// `"engine"` and `"fragment"` a name or `"auto"`, `"bias"` and
 /// `"schedule"` a name, `"copies"` a number or `null` for no bound,
-/// `"forward_copies"` and `"memo_limit"` numbers, `"test_period"` and
-/// `"jobs"` a number or `"auto"`, `"check"` a boolean. The pool is never
-/// written.
+/// `"forward_copies"`, `"memo_limit"` and `"classical_work"` numbers,
+/// `"test_period"` and `"jobs"` a number or `"auto"`, `"check"` a
+/// boolean. The pool is never written.
 ///
 /// # Examples
 ///
@@ -1905,6 +1955,18 @@ pub struct Options {
     /// which a caller that checks it itself, or times the search alone,
     /// may prefer. A proof of a goal is checked against the goal.
     pub check: bool,
+    /// The most work the classical refuter may do after a search that did
+    /// not prove the goal, in terms evaluated, zero for none. It looks for
+    /// an assignment of truth values to the atoms under which the goal's
+    /// classical reading is false (`!` and `?` erased, `⊗` and `&` as
+    /// "and", `⅋` and `⊕` as "or", `1` and `⊤` true, `⊥` and `0` false),
+    /// which no provable sequent has in any mode: it makes an undecided
+    /// search [`Verdict::Unprovable`] with [`Refutation::Classical`], and
+    /// gives an exhausted search that certificate where the counts give
+    /// none. It never changes a verdict the search gave, nor its counters.
+    /// It runs under the caller's stop and the memory bound, on the
+    /// calling thread, whatever engine searched.
+    pub classical_work: u64,
     /// The thread pools a parallel search borrows instead of starting
     /// threads of its own, or `None`, the default, for a pool built for
     /// the search and dropped with it. A pool changes nothing a search
@@ -1939,6 +2001,7 @@ impl Default for Options {
             jobs: Jobs::Count(1),
             schedule: Schedule::Auto,
             check: Self::DEFAULT_CHECK,
+            classical_work: Self::DEFAULT_CLASSICAL_WORK,
             #[cfg(feature = "parallel")]
             pool: None,
         }
@@ -1969,11 +2032,27 @@ impl Options {
     /// it.
     pub const DEFAULT_CHECK: bool = true;
 
+    /// The classical refuter's bound of the default options: 2²⁶ terms
+    /// evaluated, some tenths of a second at most on one thread, enough to
+    /// try every assignment of a goal of 18 atoms and 250 terms, and far
+    /// more where a partial assignment decides the reading.
+    pub const DEFAULT_CLASSICAL_WORK: u64 = 1 << 26;
+
     /// The most threads the options name: more are taken as this many.
     /// A pool beyond it has found no use, and a count without a bound
     /// starts whatever it is given (ten thousand threads on `A ⊢ A` cost
     /// three minutes of processor time).
     pub const MAX_JOBS: usize = 256;
+
+    /// Returns the options with another bound on the classical refuter's
+    /// work ([`classical_work`](Self::classical_work)), zero for none.
+    #[must_use]
+    pub fn with_classical_work(self, classical_work: u64) -> Self {
+        Self {
+            classical_work,
+            ..self
+        }
+    }
 
     /// Returns the options with another [`engine`](Self::engine).
     #[must_use]
@@ -2517,6 +2596,9 @@ mod tests {
                 clauses: Vec::new(),
                 dropped: Vec::new(),
             }),
+            Refutation::Classical(Classical {
+                assignment: Vec::new(),
+            }),
         ];
         let refutation_at = |refutation: &Refutation| match refutation {
             Refutation::Exhausted => 0,
@@ -2524,6 +2606,7 @@ mod tests {
             Refutation::OneSided(_) => 2,
             Refutation::Equation(_) => 3,
             Refutation::StateEquation(_) => 4,
+            Refutation::Classical(_) => 5,
         };
         assert_eq!(refutations.len(), Refutation::NAMES.len());
         for (i, refutation) in refutations.iter().enumerate() {
@@ -2760,7 +2843,10 @@ mod tests {
             (&partition.sequent, partition.mode, Engine::Focus),
             (&tensor, Mode::CLASSICAL, Engine::Net),
         ] {
-            let options = Options::default().with_engine(Some(engine));
+            // The search's work alone, without the classical refuter's.
+            let options = Options::default()
+                .with_engine(Some(engine))
+                .with_classical_work(0);
             let (mut sum, mut last, mut polls) = (0, 0, 0);
             let outcome = prove_within(sequent, mode, &options, &Limits::default(), |progress| {
                 assert_eq!(progress.phase, Phase::Search);
@@ -3300,13 +3386,25 @@ mod tests {
             "the count equation fails: a provable one-sided sequent of MLL has exactly #⊗ − #⅋ − \
              #1 + #⊥ + 2 formulas, here 0 − 1 − 0 + 0 + 2 = 1, and this one has 3"
         );
-        for input in ["|- a par ~a, b * ~b", "|- a & b, ~a"] {
-            assert_eq!(
-                refuted(input, classical).refutation(),
-                &Refutation::Exhausted,
-                "{input:?}"
-            );
-        }
+        // Where the counts rule out nothing, a falsifying assignment
+        // certifies, and a tautology leaves the search's word.
+        assert_eq!(
+            refuted("|- a par ~a, b * ~b", classical).refutation(),
+            &Refutation::Exhausted
+        );
+        let assigned = refuted("|- a & b, ~a", classical);
+        assert_eq!(
+            assigned.refutation(),
+            &Refutation::Classical(Classical {
+                assignment: vec![true, false]
+            })
+        );
+        assert_eq!(
+            assigned.to_string(),
+            "the classical reading is false where a is true and every other atom false (! and ? \
+             erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every \
+             provable sequent reads as a tautology"
+        );
     }
 
     /// A goal is a multiset: the roots in another order are the sequent

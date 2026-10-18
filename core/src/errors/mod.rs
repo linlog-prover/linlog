@@ -219,6 +219,10 @@ pub enum Error {
     /// A proof does not prove its conclusion, or its check was refused.
     #[error("{}", check_message(.0))]
     Check(CheckError),
+    /// A disproof's refutation does not hold, or rests on the search and
+    /// has no check ([`Disproof::check`](crate::Disproof::check)).
+    #[error("{0}")]
+    Refutation(crate::search::RefutationFault),
     /// A list of links is not a proof structure, or a structure is not a
     /// proof net.
     #[error("not a proof net: {0}")]
@@ -468,6 +472,8 @@ impl Error {
         "atom_name",
         "inconsistent_session",
         "invalid_proof",
+        "invalid_refutation",
+        "uncertified",
         "invalid_net",
         "no_nets",
         "step",
@@ -523,6 +529,8 @@ impl Error {
             Self::InconsistentSession { .. } => Malformed,
             Self::Check(CheckError::Invalid(_)) => Invalid,
             Self::Check(CheckError::Refused(refused)) => refusal_kind(&refused.refusal),
+            Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => Unsupported,
+            Self::Refutation(_) => Invalid,
             Self::Net(error) => error.kind(),
             #[cfg(feature = "interactive")]
             Self::Step(_) | Self::OpenGoals { .. } | Self::ForeignProof | Self::GoalMismatch => {
@@ -581,6 +589,8 @@ impl Error {
             Self::InconsistentSession { .. } => "inconsistent_session",
             Self::Check(CheckError::Invalid(_)) => "invalid_proof",
             Self::Check(CheckError::Refused(refused)) => refused.refusal.code(),
+            Self::Refutation(crate::search::RefutationFault::Uncertified { .. }) => "uncertified",
+            Self::Refutation(_) => "invalid_refutation",
             Self::Net(error) => error.code(),
             #[cfg(feature = "interactive")]
             Self::Step(_) => "step",
@@ -860,6 +870,8 @@ mod tests {
                 node: NodeId::new(0),
                 refusal: refusals[0].clone(),
             })),
+            Error::Refutation(crate::search::RefutationFault::Satisfied),
+            Error::Refutation(crate::search::RefutationFault::Uncertified { kind: "exhausted" }),
             Error::GoalProof,
             Error::NotIntuitionistic(ShapeError::NoGoal),
             Error::IntuitionisticMix,
@@ -1015,6 +1027,7 @@ mod tests {
             | Error::Antecedents { .. }
             | Error::AtomName { .. }
             | Error::Check(_)
+            | Error::Refutation(_)
             | Error::GoalProof
             | Error::NotIntuitionistic(_)
             | Error::IntuitionisticMix

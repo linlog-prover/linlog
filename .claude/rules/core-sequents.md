@@ -201,8 +201,12 @@ Every operator has ASCII and Unicode spellings: `* ⊗`, `| par ⅋`, `&`,
 ## Serialization
 
 **The wire level** (`core/src/wire.rs`, public, behind `serialize`):
-every top-level document starts with `"version": 1` (`wire::LEVEL`),
-nested values carry none; a reader refuses a higher one by name
+every top-level document starts with `"version": n`, the lowest level
+that holds it: 1 for everything 0.1.0 wrote, 2 for a disproof or an
+unprovable outcome with the classical refutation (`wire::level_of`;
+`wire::BASE` is 1, `wire::LEVEL`, the highest read, 2; the command's own
+records write their body's level, `check`'s JSON level 1), nested
+values carry none; a reader refuses a higher one by name
 (`Error::Version`, code `unsupported_version`) through `wire::version`,
 the `deserialize_with` of every proxy's `version` key, and reads a
 document without one as level 1. Every reader goes through
@@ -244,7 +248,9 @@ same code), and is never rewritten: `core/tests/stability.rs` reads
 every line of a form that is read back through `wire::upgrade` and writes
 it again byte for byte (an outcome only as its proof or disproof), so a
 release that loses a level-1 document, or writes a level-1 value
-otherwise, fails there; a new level adds a file `level-N.txt` beside it.
+otherwise, fails there; a new level adds a file `level-N.txt` beside it
+(`level-2.txt`: the classical disproof and outcome, read by
+`the_second_level_reads`).
 Until 0.1.0 is tagged its first 33 lines must still equal the lock: a
 change of a written form before the tag rewrites both. A binary format would come
 from the same proxies (postcard encodes the variants by index), in the crate
