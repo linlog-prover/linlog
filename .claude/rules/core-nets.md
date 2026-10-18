@@ -2,9 +2,10 @@
 paths:
   - "core/src/nets/**"
   - "core/src/search/net.rs"
+  - "core/src/search/essential.rs"
 ---
 
-# linlog core: proof nets and the net engine
+# linlog core: proof nets, essential nets and the net engines
 
 Loaded, beside `core.md`, when a file of the proof nets or the net
 engine is read or changed. The net engine's cubes on a pool are in
@@ -170,12 +171,63 @@ code relies on:
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
   ` with the reason in formulas) and the JSON form are pinned in tests.
 
+## Essential nets
+
+`nets/essential.rs` reads the structure of an intuitionistic sequent as
+Lamarche's polarized structure and decides it by a directed criterion,
+`ProofStructure::is_essential`; `ProofStructure::reading` gives the
+reading (recomputed per call, linear). What the code relies on:
+
+- **The edges** (`fixed_successors` plus the links): an output
+  occurrence that is no root to its parent, an input connective to each
+  input child, a link from its input literal (`~a`, always input) to its
+  output literal (`a`, always output). The antecedent of an output `⅋`
+  (`A ⊸ B` stored as `A⊥ ⅋ B`, left child input) has no edge in. Only an
+  input `⅋` (a hypothesis `A ⊗ B`) has two edges out; in a complete
+  linking every occurrence but the goal has one, so in an acyclic one
+  every occurrence reaches the goal, which is why no connectedness or
+  count condition is needed. The reading fixes which child is which
+  (`Reading::new`: a `⊗` in input position has its output child left).
+- **The criterion**: no directed cycle (an iterative depth-first search,
+  the stack's places in `state`), and every output `⅋` but the goal
+  dominates its antecedent: a breadth-first search from the antecedent
+  that never enters the implication must not reach the goal (one round
+  stamp per implication). Witnesses: `NetError::DirectedCycle` (each
+  vertex followed by its successor), `NetError::NoDominator` (the
+  implication and a path from its antecedent to the goal);
+  `NetError::NotIntuitionistic` for a sequent without a reading. Linear
+  memory, time linear per implication, `stop` asked per implication.
+- **It is the Danos–Regnier verdict without Mix** on every complete
+  linking of an intuitionistic sequent (Lamarche's theorem, with the
+  fact that every sequentialization of a classical net of an IMLL
+  sequent is intuitionistic): `agrees_with_the_switchings` checks it on
+  every linking of generated IMLL sequents and their mutants, the
+  dominator condition against an enumeration of every simple path, and
+  every witness. Keep that test when either criterion changes. The
+  essential engine and the drawing rest on this equality; the structure
+  keeps the classical `Criterion` and sequentializes classically.
+
 ## The net engine
 
 `search/net.rs` is the spec's MLL-Net: axiom-linking search over a
 `ProofStructure`, for unit-free MLL with or without Mix. A cut-free proof
 of MLL is its linking, so the only choices are which dual literals to pair.
 What the code relies on:
+
+- **The loop is generic over a criterion** (`Linker<'a, C: Correctness>`):
+  the choice, the frames, the cadence, the stop, the counters and the
+  cubes are the loop's; the criterion holds the links and answers `mate`,
+  `admits` (its constant-time rejections), `link` (fallible: a bound on
+  what it holds stops the search), `unlink`, `test` (at the cadence and
+  on every complete linking) and `balanced`. `Switching` is the
+  Danos–Regnier criterion: the `ProofStructure`, its `Scratch`, the
+  lowest-common-ancestor and skeleton rejections in that order, the
+  exact test, the balance; `Essential` (`search/essential.rs`, below) the
+  directed one. Monomorphized, the generic loop left the classical
+  search's instructions as they were (`search-wide-m2-256` at the
+  ratchet, every counter of the net target set). The cubes
+  (`net::parallel`) are written against `Linker<Switching>`: the
+  essential engine runs on one thread.
 
 - **Preprocessing** (`counts_admit`): `c = t − p + 2` (`≥` with Mix) and
   as many `a` as `~a` per atom, else `Unprovable` at once. Both are
@@ -303,6 +355,67 @@ What the code relies on:
   where the focused engine's counts of each `⊗` split refute at once.
   The dispatch decides where the engine is the default
   (`core-search.md`, the dispatch).
+- **The essential-net engine** (`search/essential.rs`,
+  `Engine::Essential`, only when forced: intuitionistic mode, unit-free
+  IMLL, the roots) is the loop under `Essential`, the reflexive
+  transitive closure of the directed graph as rows of bits
+  (`n·⌈n/64⌉` words), charged with the linear tables to the search's
+  account before it is allocated, in checked arithmetic, and allocated
+  fallibly (`try_reserve_exact`): without a bound the charge always
+  fits, and a 33.5-million-occurrence sequent once asked for 140 TB and
+  aborted; now the allocator's refusal is `MemoryLimit { limit_bytes:
+  u64::MAX }`, which reads as such and names no flag. The set-up polls
+  the stop every `SETUP_ROWS` rows. A link `i → o` ORs row `o` into every row
+  that reaches `i`, logging each changed word (row, word, old value)
+  after a mark per link; `unlink` restores them in reverse, which the
+  loop's stack order requires. The log grows by chunks charged before
+  they are reserved; a refusal in the middle of a link restores the
+  words it changed and stops the search.
+  - *`admits`*: reject when `o` reaches `i` (a directed cycle, kept by
+    every completion; so the graph stays acyclic and the closure exact),
+    and when `i` lies in the antecedent of an implication `l ≠ goal` by
+    input premises alone (`binder`) while `o` reaches the goal and not
+    `l` (a path from the antecedent around `l` in every completion).
+  - *`test`* (the dominator condition, at the cadence): for each
+    implication `l ≠ goal` with antecedent `s`, fail when `s` reaches no
+    `l` but `escapes` (reaches the goal or something `l` reaches), or
+    when an input `⅋` `p` with `s ⇝ p ⇝ l` has a premise that reaches no
+    `l` but escapes. Sound on partial linkings: a vertex `l` reaches (or
+    the goal) never reaches `l` in an acyclic completion, so the path
+    goes around `l` to the goal; exact on complete linkings, where every
+    vertex reaches the goal, by the lemma that every path from `s` to the
+    goal passes `l` iff `s` reaches `l` and every successor of a vertex
+    between them reaches `l` (only input `⅋` has two successors).
+  - The symmetry breaks are the net engine's: they preserve the
+    Danos–Regnier verdict on complete linkings, which is the essential
+    one, and every rejection is sound, so the canonical net of an orbit
+    survives. They are no automorphisms of the directed graph (in
+    `a ⊸ a ⊸ b` the two `~a` sit at different implications), and need
+    not be. The balance prune is not used (no skeleton).
+  - Measured (one thread): slower than the two-sided engine on every
+    intuitionistic row but the 64-link chain, and slower than the net
+    engine at the two-sided engine's recursion limit, so no dispatch row
+    and no handover (`plan/reports/35-mll-engines.md`, session 35b). It
+    beats the net engine on Partition by orders of magnitude: the
+    directed rejections cut where the switchings see a cycle only later.
+  - What it takes from the front door and the count check: the reading
+    (`task.reading`, which `read` computes before any engine runs in
+    intuitionistic mode, so the `expect` holds); the balance of every
+    atom, on which `is_complete` (twice the links is the literals)
+    relies. The count equation `c = t − p + 2` never rejects there:
+    counting each occurrence through its parent gives
+    `c = t − p + 2g` for `g` output roots, and an intuitionistic
+    sequent has one. `oriented` makes the `~a` of a link its input end,
+    which `admits`' binder (defined on input occurrences) reads.
+  - The shared `choose` counts the admissible partners of every
+    unlinked literal before a node's poll: quadratic in one atom's
+    literals, so a sequent of 65 000 `a` and `~a` overshot a 1 s stop by
+    5 s here and by 23 s in the net engine (a follow-up of the loop's).
+  - A linking search is exponential in a literal's copies: on a
+    generated sequent with each of three atoms some fifteen times both
+    net engines ran 20 s without an answer where the two-sided engine
+    proves at once. The tests bound the copies (three for this engine,
+    two for the net engine).
 - **Every proof passes the checker** (in `prove_goal`, in every build;
   `debug_assert!` in `search` besides; every test), and every net is the
   net of its proof (`from_proof` in the tests' `run`). The differential test against the focused engine

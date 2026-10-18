@@ -347,6 +347,23 @@ for NanoYalla. What the code relies on:
   in the start's distance capped at 35 ms plus 1.4 ms for a wide arc. A
   link drawn in coordinates of its own (a `translate` on each arc) would
   avoid the fault; the drawing does not do it yet.
+- **An essential net is the proof net's layout with the reading drawn
+  in** (`Style::essential`, off by default so every drawing before it is
+  byte for byte the same; `input` and `dominator` its colours): every
+  edge an arrowhead halfway along it (half the node radius long, in the
+  edge's group), the input occurrences and their edges in `input`, the
+  nodes `⊸` (an output `⅋`, an input `⊗`) or `⊗`, literals as their
+  atoms, the antecedent's edge dotted in `dominator` (no edge of the
+  net: the implication must dominate it), each link's arrowhead at the
+  top of its arc toward its output literal, the hypotheses' hanging
+  edges pointing up and the goal's down. The verdict drawn is
+  `is_essential`'s (a directed cycle, or the path around an implication
+  plus that implication's dotted line, highlighted); the description is
+  the net's text form as before. A sequent without an intuitionistic
+  reading is drawn as without the option, so one settings file serves
+  classical and intuitionistic nets. The estimate adds an arrowhead's
+  bytes per edge, root and link and a document's for the two extra
+  groups.
 - **A net's drawing has a size bound like a derivation's**: `svg::net`
   estimates its bytes from the structure (`net::estimate`: fixed bytes
   per literal plus its name, per connective, conclusion and link, and

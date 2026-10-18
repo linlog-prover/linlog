@@ -5,6 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 35a: the net engine's pruning and the routing (session `step-35a`, 2026-10-18) | done (2026-10-18) | The three prunes in `search/net.rs` (vzslkryp, nstkrpsr), each with its argument (below) and `agrees_with_every_linking` against the enumeration of every linking, with each prune off and requiring each to cut nodes: passes; deliberate faults fail it. Horn encodings: `3-partition-mll-no/5` 16 202 533 nodes to 227, `partition-no/3` 269 950 to 391; the balance prune never fires on a family. Net target set: no decided verdict changed (64 rows), the 22 Horn rows' counters fell by design; new oracle `net-after-prunes` (oopzxvzv); `net-after-routing` equal to it. Routing measured on cores 2 and 3 (4 min 32 s): the focused engines faster on every MLL and IMLL row both decide (1.07 to 32 000 times); the net engine decides only at their limits (the chain of 1 024 and 4 096 links, `wide-m1` at 4 096); so no dispatch row, a handover at `RecursionLimit` or `MemoryLimit` where the linking is forced (punyzkxx, rmpwpwsu, qoszqxns; departs from the design). Focused target set `after-routing`: no verdict changed, five rows' counters explained. Panels (Opus 5.5 counterexamples, Fable 5.1 argument, Sonnet 5.5 integers) on the prunes: not refuted, unstated steps written down (nzvlkoxp); on the routing: two defects found (memory left charged, a search without end on equal literals), both fixed and re-reviewed, not refuted. Every code commit gated; `nix flake check` at the session's last commit (below). |
+| Session 35b: essential nets for IMLL (session `step-35b`, 2026-10-18) | done (2026-10-18) | `ProofStructure::is_essential` (directed acyclicity, the dominator condition, witnesses) equal to `is_correct` on every linking of generated IMLL sequents (`kvnxpwko`); the net engine's loop generic over its criterion, its search unchanged (net target set: every counter of `net-after-prunes`, its journey −0.06 %; `lrymttrx`); `Engine::Essential` with a closure of bits and an undo log charged to the memory bound, agreeing with the two-sided engine and the embedding on 442 generated sequents, every proof checked (`tqovoyop`). Measured by 35a's method on cores 2 and 3: wins only the 64-link chain (0.18 against 0.22 ms), loses every other decided row by 1.3 to 25 times, and the net engine is 2.2 and 6 times faster at the recursion limit: dispatch unchanged; it beats the net engine on Partition by 16 to 660 times. The essential drawing in the SVG export (`svg::Style::essential`, snapshots `essential.svg`, `essential-around.svg`; `tkmxmrkn`). Both target sets: no decided verdict changed. Panel: argument (Fable 5.1) and counterexamples not refuted; integers refuted once (an abort without a memory bound), fixed and the witness rerun (`uyztqwzl`). Every code commit gated; `nix flake check` run at the last commit, its exit status in the last message to `planning`. |
 
 ## Session 35a: the net engine's pruning and the routing
 
@@ -429,3 +430,402 @@ session committed them with signing off).
   problem files of this measurement (`imll.txt` and `mix.txt`) are made
   by a short script recorded in the session's scratchpad; the chains,
   wide and curried sequents are those of step 26's report.
+
+## Session 35b: essential nets for IMLL
+
+**Outcome.** linlog decides essential nets: `ProofStructure::is_essential`
+reads the structure of an intuitionistic sequent as Lamarche's polarized
+structure (the reading directs every edge from the hypotheses toward the
+goal) and decides it by directed acyclicity and the dominator condition,
+with witnesses; on every linking of generated IMLL sequents it gives the
+Danos–Regnier verdict. The essential-net engine (`Engine::Essential`,
+`--engine essential`) is the net engine's linking search under that
+criterion, kept incrementally by a transitive closure of bits with an
+undo log, charged to the memory bound. It agrees with the two-sided
+engine and with the embedding on generated sequents, every proof through
+the checker and every net the net of its proof. Measured by 35a's method
+it wins one row against the two-sided engine (the 64-link chain, 0.18 ms
+against 0.22 ms) and loses every other, and at the two-sided engine's
+recursion limit the net engine, which takes those goals over, is 2.2 and
+6 times faster than it; so the dispatch is unchanged and the engine is
+one a user names. It is far better than the net engine on the Horn
+encodings (Partition 16 to 660 times faster), where its directed
+rejections cut what the switchings see only after the links. The drawing
+of an essential net is in the SVG export (`svg::Style::essential`,
+`--style svg.essential=true`), with two snapshots. To make room for the
+engine without a second copy of the search, the net engine's loop became
+generic over a correctness criterion; the classical search is unchanged
+(every counter of its target set, its journey's instructions).
+
+The panel of step 26 reviewed the criterion, the generic loop and the
+engine: the argument (Fable 5.1) and the counterexamples (Opus 5.5)
+refuted nothing; the integers and limits (Sonnet 5.5) found an abort
+without a memory bound, now fixed (`uyztqwzl`).
+
+### The criterion
+
+`nets/essential.rs`. The edges: an output occurrence that is no root to
+its parent, an input connective to each of its input premises, and every
+link from its input literal (`~a`, always input under the reading) to its
+output literal (`a`); the antecedent of an output `⅋` (`A ⊸ B`, stored
+`A⊥ ⅋ B`) has none. Only an input `⅋` (a hypothesis `A ⊗ B`) has two
+edges out, and in a complete linking only the goal has none, so in an
+acyclic one every occurrence reaches the goal and no connectedness or
+count condition is needed. A complete linking is an essential net when
+no directed cycle exists (an iterative depth-first search) and every
+output `⅋` but the goal dominates its antecedent (a breadth-first search
+from the antecedent that never enters the implication must not reach the
+goal); the goal's own implication is exempt, every path to the goal
+ending there. The witnesses are `NetError::DirectedCycle` (each vertex
+followed by its successor) and `NetError::NoDominator` (the implication
+and the path around it), with `NetError::NotIntuitionistic` for a
+sequent without a reading; all three describe themselves with formulas
+and have a JSON form (`directed_cycle`, `no_dominator`,
+`not_intuitionistic`). The memory is linear, `stop` asked once per
+implication. `ProofStructure::reading` is the structure's reading (R81:
+recomputed per call, since a structure owns its forest and a reading
+borrows one).
+
+*Why it is the Danos–Regnier verdict*: Lamarche's theorem (an IMLL
+structure sequentializes as an IMLL proof iff its essential net is
+acyclic and dominated), with the fact the embedding already rests on
+(every sequentialization of a classical net of an IMLL sequent is
+intuitionistic). The test `agrees_with_the_switchings` checks the
+equality on every linking (up to 120 per sequent) of 400 generated IMLL
+sequents and their mutants, the dominator condition against an
+enumeration of every simple path from the antecedent, and every witness
+(a cycle follows edges and closes; a path starts at the antecedent,
+follows edges, avoids the implication and ends at the goal); its
+thresholds require more than 300 nets, 300 cycles and 100 failures of
+the dominator condition among the structures. `witnesses` pins one of
+each kind and the description of a path.
+
+### The search
+
+*The loop.* The net engine's `Linker` became `Linker<'a, C: Correctness>`
+(R105): the loop keeps the choice, the frames, the cadence, the stop,
+the counters and the cubes, and the criterion answers `mate`, `admits`
+(its constant-time rejections), `link` (fallible, for a bound), `unlink`,
+`test` and `balanced`. `Switching` holds the classical structure and its
+exact test, its methods the code the loop had inline, in the same order.
+The ratchet's net journey stood at 260 221 535 instructions against its
+ceiling of 260 393 363 (-0.07 %) at that commit, and the net target set
+kept every counter. The cubes stay `Linker<Switching>`'s: the essential
+engine runs on one thread (`Engine::parallel` false), since it measured
+no row worth a pool.
+
+*The criterion of the search.* `Essential` keeps the reflexive transitive
+closure of the directed graph as rows of bits (`n·⌈n/64⌉` words, row `u`
+what `u` reaches). A link from `i` to `o` ORs row `o` into every row that
+reaches `i` (exact for one new edge; row `o` is never written, since `o`
+does not reach `i`), logging every changed word with its old value after
+a mark; an unlink restores them in reverse. Rejected at once: a link
+whose output literal reaches its input literal (a directed cycle, kept
+by every completion; so the graph stays acyclic), and a link whose input
+literal lies in the antecedent of an implication `l` by input premises
+alone while its output literal reaches the goal and not `l` (a path from
+the antecedent around `l`, kept by every completion). At the cadence of
+the net engine's exact test and on every complete linking, the dominator
+test: for each implication `l` but the goal, with antecedent `s`, it
+fails when `s` reaches no `l` but reaches the goal or something `l`
+reaches, or when some input `⅋` between `s` and `l` has a premise that
+reaches no `l` but reaches the goal or something `l` reaches. Sound on
+partial linkings, since what `l` reaches (and the goal) can never reach
+`l` again in an acyclic completion, where it reaches the goal; exact on
+complete ones, by the lemma that every path from `s` to the goal passes
+`l` iff `s` reaches `l` and every successor of a vertex between them
+reaches `l` (only an input `⅋` has two successors). The complete linking
+that passes is sequentialized through the classical structure, as the
+net engine's is; a `debug_assert!` checks it with `is_essential`.
+
+*The symmetry breaks* are the net engine's, unchanged, which the API
+notes (10.7, "the symmetry groups are the criterion's") warned against:
+an exchange of two equal leaves of one `⅋` tree is no automorphism of
+the directed graph (in `a ⊸ a ⊸ b` the two `~a` sit at different
+implications, one bound by each). Why each still holds for essential
+nets: the orbit argument of 35a needs of the criterion only that every
+exchange maps correct complete linkings to correct ones and incorrect to
+incorrect, and that the canonical net's partial linkings pass every
+rejection. *Leaf classes* (equal literals that are conclusions or leaves
+of one pure tree) and *compound classes* (equal subformulas there) are
+built from the forest alone; an exchange keeps the sequent, so it keeps
+its reading, its one output root and every polarity (equal literals
+have one sign, hence one side), and maps a complete linking to a
+complete linking of the same intuitionistic sequent; there the
+essential verdict is the Danos–Regnier one (the criterion's section),
+which the exchange preserves, so it maps essential nets to essential
+nets. The canonical linking of an essential net's orbit is therefore an
+essential net, and its partial linkings pass the cycle and binder
+rejections and the dominator test, since each rejects only partial
+linkings with no correct completion. Which implication binds which
+literal changes under an exchange, but no rejection is asked to be
+invariant, only sound. *The balance prune* is not used: the criterion
+keeps no skeleton (`balanced` is true). Checked beyond the argument: the
+argument reviewer re-derived it and ran the engine with every prune
+against the enumeration of every linking of 42 872 small sequents (no
+net lost), and the counterexamples reviewer compared the engine's
+verdict with "some linking is a net" on 5.8 million linkings.
+
+*Memory* (R35): the closure and the criterion's linear tables are
+charged to the search's account before the matrix is allocated, in
+checked arithmetic (a matrix past a 32-bit `usize` or past the bound is
+`Reason::MemoryLimit`); the log grows by chunks, each charged before it
+is reserved, and a refusal in the middle of a link restores the words it
+changed and stops the search. `the_closure_is_charged` pins the unknown
+at 2 000 bytes and the proof at 1 MiB; `unlinking_restores_the_closure`
+compares the closure after every unlink with a copy taken before the
+link.
+
+*The tests* (`search/essential.rs`): `agrees_with_the_two_sided_engine`
+decides generated IMLL sequents and their mutants with no literal more
+than three times (a linking search is exponential in a literal's copies:
+on one generated sequent with three atoms some fifteen times each, both
+net engines ran 20 s in release without an answer where the two-sided
+engine proved it at once) with the essential, the two-sided and, where
+no literal is there more than twice, the net engine; every proof
+checked, the net of every essential proof read back from the proof
+(`from_proof` gives its links, R128) and accepted by `is_essential`.
+On the committed seed it compares 442 sequents (253 provable), 337 of them with the net engine too. `refusals` pins the refusals (classical and affine mode, units).
+The reference prover's comparison (`search/reference.rs`) runs the
+engine forced among its configurations.
+
+### The measurement
+
+By 35a's method: the harness at the drawing's commit (release), one
+thread, cores 2 and 3 under the machine lock, 60 s per run, runs under
+2 s three times (median), 35a's problem file of chains, wide and curried
+sequents of 64 to 4 096 atoms, and Partition in intuitionistic mode;
+11:28:44 to 11:33:14, one unit, peak 425 MB.
+
+| row | two-sided | net | essential | essential / two-sided | essential / net |
+|---|--:|--:|--:|--:|--:|
+| chain 64 | 0.219 ms | 0.255 ms | **0.182 ms** | 0.83 | 0.71 |
+| wide 64 | 0.108 ms | 0.556 ms | 0.398 ms | 3.7 | 0.72 |
+| curried 64 | 0.090 ms | 0.256 ms | 0.204 ms | 2.3 | 0.80 |
+| chain 256 | 1.74 ms | 1.74 ms | 2.38 ms | 1.4 | 1.4 |
+| wide 256 | 0.792 ms | 7.47 ms | 5.17 ms | 6.5 | 0.69 |
+| curried 256 | 0.768 ms | 2.83 ms | 2.31 ms | 3.0 | 0.82 |
+| chain 1 024 | recursion limit after 11.6 ms | 25.3 ms | 54.4 ms | | 2.2 |
+| wide 1 024 | 6.18 ms | 125 ms | 90.2 ms | 15 | 0.72 |
+| curried 1 024 | 5.71 ms | 46.1 ms | 41.8 ms | 7.3 | 0.91 |
+| chain 4 096 | recursion limit after 45.9 ms | 0.41 s | 2.47 s | | 6.0 |
+| wide 4 096 | 81.6 ms | 2.10 s | 2.06 s | 25 | 0.98 |
+| curried 4 096 | 83.1 ms | 0.79 s | 1.43 s | 17 | 1.8 |
+| `partition-yes/4` | 0.083 ms | 1.70 ms | 0.105 ms | 1.3 | 0.06 |
+| `partition-yes/5` | 0.104 ms | 27.1 ms | 0.185 ms | 1.8 | 0.007 |
+| `partition-yes/6` | 0.150 ms | 451 ms | 0.681 ms | 4.5 | 0.0015 |
+| `partition-yes/12` | 12.8 ms | out of time | out of time | | |
+| `partition-no/3` | 0.072 ms | 1.33 ms | 0.072 ms | 1.0 | 0.05 |
+| `partition-no/4` | 0.141 ms | 8.88 ms | 0.192 ms | 1.4 | 0.02 |
+| `partition-no/9` | 75.4 ms | out of time | out of time | | |
+
+*The decision* (item 3 of the plan): the dispatch is unchanged. The one
+row the essential engine wins is the smallest chain, by 37 µs; the chain
+of 256 links, the wide and curried sequents of the same 64 atoms and
+everything larger it loses, so no feature of the dispatch (fragment,
+mode, a size, the forced linking) singles the row out without taking
+rows it loses. The handover at the two-sided engine's limits stays the
+net engine's, which is 2.2 and 6 times faster there. *Why it loses*: on a
+forced linking the closure costs a column scan of `n` rows and an OR of
+`n/64` words into every row that reaches the input literal, per link,
+which is quadratic per link on a long chain, where the net engine's
+Yeo test runs every fourth link; the two-sided engine needs no linking
+at all on these shapes. *Why it beats the net engine on Partition*: a
+directed cycle or a path around an implication shows on the closure as
+soon as the link that makes it is tried (`partition-yes/6`: 0.68 ms
+against 0.45 s), where a switching cycle needs the exact test and often
+more links.
+
+### The drawing
+
+`svg::Style::essential` (off by default, so every drawing before it is
+byte for byte the same; the snapshots `net.svg`, `cycle.svg` and
+`disconnected.svg` did not change) draws a structure whose sequent has
+an intuitionistic reading as its essential net, on the proof net's
+layout: every edge an arrowhead halfway along it, from the hypotheses
+toward the goal (the hypotheses' edges below enter upward, the goal's
+leaves downward, each link's arrowhead at the top of its arc toward its
+output literal), the input occurrences, their edges and their literals
+in the colour `Style::input` (`#009e73`), the nodes as the reading's
+connectives (`⊸` for an output `⅋` and an input `⊗`, `⊗` for the
+others), every literal as its atom, and each implication joined to its
+antecedent by a dotted line in `Style::dominator` (`#cc79a7`): the edge
+the essential net lacks, which the implication must dominate. A
+structure that is no essential net has `is_essential`'s witness in the
+highlight colour (the cycle, or the path and the implication's dotted
+line). A sequent without a reading is drawn as without the option, so
+one settings file serves both kinds of nets. Snapshots:
+`essential.svg` (`a ⊸ b, b ⊸ c ⊢ a ⊸ c`) and `essential-around.svg`
+(`⊢ (a ⊸ b) ⊗ (b ⊸ a)` linked across, its path highlighted).
+
+### Options (D15, D16, D17)
+
+- `Engine::Essential` is a value of `Options::engine`: `--engine
+  essential` in the command, `"essential"` in a settings file, in the web
+  front end's JSON and in the harness's `--engines`. Its default is not
+  to run (the dispatch gives it nothing), which is the safe one.
+- `Options::test_period` now sets the cadence of the essential engine's
+  dominator test too (`--test-period`); its default is the net engine's.
+- The bound on its closure is `Limits::memory_bytes` (`--memory-limit`),
+  whose default (1 GiB) holds the closure of about 90 000 occurrences;
+  past it the verdict is unknown, before anything is allocated.
+- `svg::Style::essential`, `input` and `dominator` (`--style
+  svg.essential=true`, `svg.input`, `svg.dominator`; `styles.svg.…` in a
+  settings file and the web front end's JSON), with `with_*` builders;
+  defaults off, `#009e73`, `#cc79a7`, the same in `Style::dark()`.
+- Quantifiers (D17): nothing here fixes an interface for them; the
+  essential net is propositional like the proof net.
+
+### The target sets
+
+Both under the machine lock, on cores 2 and 3, the LLTP library linked
+into the workspace from the main checkout's store path. *Net set*
+(`net-after-essential`, 11:34:07 to 11:34:42) against
+`net-after-prunes`: no verdict differs, and 0 of the 64 rows both decide
+differ in `nodes`, `links` or `tests`. *Focused set* (`after-essential`,
+11:35:14 to 11:43:02) against `after-efficiency`: no verdict differs;
+counters differ on 5 of 135 rows, exactly the five 35a's report explains
+(`partition-table/1-1` and the chain family's four); against
+`after-routing`, 0 of 140. Committed in `ynuokwvo` with their entry in
+`bench/TARGETS.md`; neither is a new oracle.
+
+### The reviews
+
+The panel of step 26, each member in a fresh context with the diffs, the
+claims and a frozen copy of the tree but not this session's reasoning,
+under the machine rules (cores 4 to 7, capped scopes, bounded runs), on
+`kvnxpwko`, `lrymttrx` and `tqovoyop` (the criterion, the generic loop,
+the engine).
+
+**The argument** (Fable 5.1, `high`): wrote the invariants from the code
+before reading the argument, then checked it at every site: not refuted.
+It confirmed that the criterion is Lamarche's for this polarization (an
+edge from an antecedent to its implication would change nothing: either
+it closes a cycle or the path around it is a dominator failure), that a
+balanced intuitionistic sequent always meets the count equation
+(`c = t − p + 2g` for `g` output roots), the soundness of both
+rejections and the dominator test and its exactness, the closure's
+update and undo (also when the log's reservation fails mid-link, which
+it drove), the transfer of the symmetry breaks, and that the generic
+loop is the classical search line for line. Experiments: on every
+complete linking (692 388) of every balanced sequent of 42 872 small
+ones `is_essential` equals `is_correct`, and the engine at three
+cadences, the net engine and the two-sided engine each give the
+enumeration's verdict. *Answered*: its four unsaid steps (the reading's
+`expect`, `is_complete` resting on the balance, the count equation
+never rejecting in intuitionistic mode, `oriented` feeding the binder)
+are in `core-nets.md`; its wording nit was in the argument file only.
+
+**Counterexamples** (Opus 5.5, `high`): wrote its own two-sided IMLL
+prover from the calculus (24 sequents decided by hand first) beside the
+committed reference, and compared 160 819 small sequents with both and
+6 559 larger ones with the two-sided engine, the essential engine at
+cadences 1, 2, 4 and auto; checked `is_essential` against `is_correct`
+on 5 816 139 complete linkings; checked every rejection of the
+incremental parts on 8.9 million partial linkings (6.3 million
+constant-time rejections and 1.7 million dominator rejections, each
+sound), the closure against a recomputation at every state, memory
+bounds on 1 500 sequents at 16 bounds, 5 335 stops and 2 800 work
+bounds: not refuted. Of three planted faults its comparison caught two;
+the committed tests caught one of them, not the other (the dominator
+test without the input `⅋`s). The third (escapes into what the
+implication reaches dropped) only weakens pruning and no verdict test
+can see it. *Answered* in `uyztqwzl`: both witnesses it gave are now
+`the_review_s_witnesses` (`a -o (a * a) |- (a -o a) * a` unprovable,
+`|- b -o (a -o (b * a))` provable); the pruning-only fault stands on the
+argument, which two reviewers confirmed (a follow-up below).
+
+**Integers and limits** (Sonnet 5.5, `high`): every index, cast and
+charge bounded and driven: 470 400 memory-bound runs with the log
+growing mid-search, 396 refusals mid-link rolled back exactly, 1.9
+million runs with the stop firing at every poll, 960 000 decided runs at
+eight cadences against the two-sided engine, the drawing's arithmetic
+over 37 500 styles: refuted once. Without a memory bound
+(`--memory-limit none`, or `Limits::memory_bytes: None`) a 987-byte JSON
+sequent of 33.5 million occurrences made the closure ask for 140 TB and
+the process abort (`memory allocation of 140737484161024 bytes failed`),
+reproduced here. *Answered* in `uyztqwzl`: the closure and the log are
+reserved fallibly, a refusal is `MemoryLimit`, which without a bound now
+reads "the memory the allocator would give was used up" with no flag to
+raise (the witness ends so after 0.33 s). Its notes: the set-up did not
+poll the stop (now every 1 024 rows); `is_essential` reported 25 bytes
+per vertex where it can hold about 60 (`ESSENTIAL_BYTES` now counts the
+doubling stack and queue); `limit_bytes` in the command's output was the
+account's remainder (the library's `prove_within` reports the bound
+given, `the_closure_is_charged`; the command's path is the other
+engines' too, a follow-up); and a 1 s stop overshot by 5 s on a sequent
+of 65 000 `a` and `~a`, which is the shared loop's `choose`, quadratic
+in an atom's literals before the node's poll, the net engine
+overshooting the same input by 23 s (a follow-up, the loop's).
+
+The fix itself is not a change of the search or the criterion (the
+allocation, a poll, a constant, a message), so it was not reviewed
+again; its witness was rerun.
+
+### Commits
+
+| change | subject |
+|---|---|
+| `kvnxpwko` | Decide essential nets independently of any search |
+| `lrymttrx` | Let the net engine's linking search take its criterion as a parameter |
+| `zkxmklzx` | Raise render-svg's ceiling by 2.5 %: the heap layout the essential-net engine's code leaves |
+| `tqovoyop` | Add the essential-net engine for IMLL |
+| `tkmxmrkn` | Draw essential nets in the SVG export |
+| `owsqvswo` | Say what the essential-net engine measured |
+| `ynuokwvo` | Add both target sets after the essential-net engine |
+| `uyztqwzl` | Answer the panel on the essential-net engine |
+| `zxywzsvo` | Restore render-svg's ceiling |
+| `qrmxzuqp` | Link the essential-net module's documentation to the reading by its path |
+| the last | the rules and this report |
+
+Every code commit passed the gate (`gate: passed`, in the workspace
+`../linlog-step35b-gate`, on cores 4 to 7 in a capped scope):
+`kvnxpwko`, `lrymttrx`, `tqovoyop` (first refused by the ratchet on
+`render-svg`, +2.53 %, which `zkxmklzx` answers: per function under
+callgrind every count of the SVG writer equal to the instruction, the
+difference glibc's allocator, 460 calls of `malloc_consolidate` against
+156; then passed), `tkmxmrkn`, `owsqvswo`, `uyztqwzl` and `qrmxzuqp`
+(the first `nix flake check` at the report's commit failed in the
+private documentation, an intra-doc link of the essential-net module
+that rustdoc did not resolve; the gate builds no documentation). The ceiling
+commits and the target sets are no code. Signed up to `ynuokwvo`; the
+passphrase's cache ran out after it, so `uyztqwzl`, `zxywzsvo`,
+`qrmxzuqp` and the last were committed with signing off, for `planning` to sign. `nix flake
+check` runs at the last commit, which this report is in; its exit status
+is in the last message to `planning`.
+
+### What is left open
+
+- **A row for the essential engine**, if one is wanted: it would need a
+  cheaper closure. The matrix over every occurrence is what costs on
+  long chains; the paths that matter run between literals, so a closure
+  over the input literals alone (about a quarter of the occurrences, a
+  sixteenth of the bits) with the fixed parts precomputed would cut the
+  per-link work by about that factor, and a column index (the ancestors
+  of each literal) would replace the scan of every row. Not done: no row
+  asked for it, and the two-sided engine leads by 2 to 25 times.
+- **The essential engine on a pool**: the cubes are the classical
+  criterion's (`net::parallel` on `Linker<Switching>`); with a closure
+  per worker (the spec's plan) it would run there unchanged in form.
+- **Repeated literals**: both linking searches are exponential in a
+  literal's copies where the two-sided engine's counts decide at once; a
+  balance over the essential net (what one input literal's chain can
+  reach) might prune there, unexplored.
+- **R123's comparison on the libraries**: `is_essential` and the engine
+  were not run over the ILTP and LLTP problems that are unit-free IMLL;
+  that run was not named in this step and was not asked for.
+- **The shared loop's poll latency**: `choose` counts every unlinked
+  literal's admissible partners before a node's poll, quadratic in one
+  atom's literals (the net engine overshot a 1 s stop by 23 s on a
+  sequent of 65 000 `a` and `~a`, the essential engine by 5 s). Bounding
+  the count by the stop, or polling inside it, is the loop's follow-up.
+- **The pruning-only part of the dominator test** (escapes into what the
+  implication reaches) has no test that would fail without it; a test of
+  `dominated` on a partial linking whose only escape is such a vertex
+  would pin it.
+- **The command's `limit_bytes`** after a memory limit reached is the
+  account's remainder where the library reports the bound given; it is
+  the other engines' path too.
+- **The drawing's description** is the net's text form, which states the
+  Danos–Regnier verdict (the same one); a wording in the essential
+  criterion's terms would need a text form per criterion.

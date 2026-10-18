@@ -12,8 +12,8 @@ paths:
 
 Loaded, beside `core.md`, when the search's front door, its memory
 account, the additive path or the reference prover is read or changed. The engines have files of their
-own: `core-focus.md`, `core-nets.md` (the net engine) and
-`core-parallel.md` (the pool).
+own: `core-focus.md`, `core-nets.md` (the net engines, classical and
+essential) and `core-parallel.md` (the pool).
 
 ## Proof search: the front door
 
@@ -352,6 +352,19 @@ copies they had are gone (F103, F104).
     linking is forced: one link per pair, no backtracking, quadratic.
   - `IndexLimit` is not handed over (nothing measured there); a forced
     engine never is.
+- **The essential-net engine has no row and takes no handover**
+  (`Engine::Essential`, `essential::Essentials`): measured on the
+  intuitionistic rows that placed the net engine, it beat the two-sided
+  engine only on the 64-link chain (0.18 ms against 0.22 ms), which no
+  feature of the dispatch singles out, and at the recursion limit the
+  net engine is 2.2 to 6 times faster than it. It admits intuitionistic
+  mode without weakening, unit-free IMLL and the roots
+  (`NotTaken::Mode`, `Fragment`, `Goal`), is not `Engine::parallel`
+  (the cubes are the classical criterion's), reads
+  `Options::test_period` as the net engine does, and counts `nodes`,
+  `links` and `tests` (dominator tests) with the net engine's units. It
+  is last in `Engine::ALL`, since `Engine`'s order is its declaration
+  order.
 - **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
@@ -359,7 +372,9 @@ copies they had are gone (F103, F104).
   `focus`, and `net` on unit-free IMLL by the embedding (below) where
   the two-sided engine stops at a limit.
   `Options::engine` forces an engine; `Engine::Net` on a fragment outside
-  unit-free MLL, asserted or detected, or in affine mode, `Focus` in
+  unit-free MLL, asserted or detected, or in affine mode,
+  `Engine::Essential` outside unit-free IMLL or in classical or affine
+  mode, `Focus` in
   intuitionistic mode and `TwoSided` in classical mode, `Additive` on
   anything but two additive-only formulas and `Horn` on a goal that is no
   Horn program are `Error::EngineRefused` (each engine's
