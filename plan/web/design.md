@@ -305,15 +305,27 @@ point it covers. In particular:
   check), all CSS from files (`inlineStylesheets: 'never'`), inline
   scripts and styles allowed by generated hashes, `'wasm-unsafe-eval'`
   only. See D31 on where the policy can live.
-- **D20. The link** (the author: the Unicode sequent, readable): the
-  URL fragment, never the query, so nothing reaches a server, holding a
-  version mark, the sequent in the parser's own Unicode syntax, the
-  mode and the steps as a short list (goal, position, rule, the left
-  positions of a split), replayed by the library on load, so a link
-  stays valid across versions of the library. Plain text while it is
-  short, deflate-raw through `CompressionStream` with base64url when
-  the fragment would pass about 2000 characters; written with a
-  debounced `replaceState`.
+- **D20. The link** (the author: the Unicode sequent, readable; amended
+  2026-10-18 after a reviewer's note): the URL fragment, never the
+  query, so nothing reaches a server. It holds a version mark, the
+  sequent in the parser's own Unicode syntax, the mode, and, when a
+  proof is under way or finished, the session itself: the library's
+  session document (`Interactive`'s JSON, what `save` writes), which is
+  a promised wire form at a level and carries its own sequent terms,
+  so that no goal number and no formula position of one library
+  version is ever stored. The first design had stored the steps
+  (goal, position, rule, split) for replay; those numbers are the
+  library's, nothing promises them, and a later version that opens
+  premises in another order would silently replay a teacher's link
+  wrong. The document is deflate-raw through `CompressionStream`,
+  base64url, after the readable part; a link whose document the
+  library refuses (an unknown level, or a document it cannot read)
+  loads the sequent and the mode alone and says that the proof could
+  not be restored. Past about 2000 characters the link holds the
+  sequent and the mode alone and the page says to export the session
+  file instead. Written with a debounced `replaceState`. Within one
+  version, undo per branch (D13) still replays steps from the client's
+  own step tree, which never leaves the page.
 - **D29. Autosave** of the current session in the browser's storage,
   with a restore bar on the next visit; the precedents' most reported
   loss is work gone on a reload.
