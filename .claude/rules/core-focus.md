@@ -268,7 +268,10 @@ relies on:
   come, and `release` or a drop frees some hundreds of blocks. The table
   is never iterated and never deletes, which is what makes the index
   this simple; growing the index walks the records in order. Per entry:
-  28 bytes of header, four a member, and 16 to 32 for the index.
+  28 bytes of header, four a member, and 16 to 32 for the index. On a
+  32-bit target `reserve`'s and the interner's products are bounded by
+  the address space (their docs say how), not by a check; `limit`'s
+  clamp to `u32::MAX − 1` is then `usize::MAX − 1`.
 - **Complete failures are keyed up to interchangeable members of `Γ`**
   (`Classes::canonical`: every member replaced by its class, the copies
   of a class added up and sorted, the canonical key; `Θ` stays as it

@@ -685,23 +685,22 @@ mod tests {
     fn refuses_its_tables_before_it_judges() {
         let (o, mode) = (|i| Member::new(i), Mode::CLASSICAL);
         let crossed = proof("|- a, a", vec![Node::Ax(o(0), o(1))]);
-        assert_eq!(tables(&crossed), 12);
+        // A count of four bytes and a pointer for the one node.
+        let bytes = tables(&crossed);
+        assert_eq!(bytes, 4 + size_of::<usize>() as u64);
         let within = |bytes| {
             let limits = crate::Limits::default().with_memory_bytes(Some(bytes));
             crossed.check_within(mode, &limits, |_| false)
         };
-        match within(12) {
+        match within(bytes) {
             Err(CheckError::Invalid(invalid)) => assert_eq!(invalid.fault, Fault::NotDual),
             other => panic!("{other:?}"),
         }
-        match within(11) {
+        match within(bytes - 1) {
             Err(CheckError::Refused(refused)) => assert!(
                 matches!(
                     refused.refusal,
-                    Refusal::Memory {
-                        limit_bytes: 11,
-                        ..
-                    }
+                    Refusal::Memory { limit_bytes, .. } if limit_bytes == bytes - 1
                 ),
                 "{refused:?}"
             ),
@@ -827,12 +826,13 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(e, CheckError::Refused(_)), "{e}");
-        // The pass's own tables, twelve bytes for each of 328 nodes, are
-        // refused before the first node.
+        // The pass's own tables, a count and a pointer for each of 328
+        // nodes, are refused before the first node a byte short of them.
+        let short = tables(&small) - 1;
         let e = small
             .check_within(
                 mode,
-                &crate::Limits::default().with_memory_bytes(Some(3900)),
+                &crate::Limits::default().with_memory_bytes(Some(short)),
                 |_| false,
             )
             .unwrap_err();

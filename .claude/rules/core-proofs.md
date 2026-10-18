@@ -135,7 +135,9 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   no verdict**, and a front end must never print it as "invalid"; its
   `ErrorKind` is `Limit`, its code `memory_limit`. Inside the pass a
   fault and the bound are `Halt`, which `examine` splits. What is counted
-  (`Pass::held`): twelve bytes per node for the pass's two tables and
+  (`Pass::held`): a count and a pointer per node for the pass's two
+  tables (twelve bytes on 64 bits, eight on 32; tests read `tables`, never
+  the number) and
   every state in `live` or in the hands of the current rule at
   `State::bytes`, which is the value plus its two tables; and, added at
   every comparison with the bound, what the observer says it holds by
@@ -204,6 +206,17 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   allocated, and saturates all the same. The second pass no longer adds
   a reader to pin the premises (the one `+= 1` that could have passed
   `u32::MAX`).
+- **On a 32-bit target (wasm32) the four facts hold as they are**: every
+  count they bound is a `u32` or a `u64`, a `usize` length is widened
+  before it is summed (`State::entries`), and a saturating `usize`
+  saturates at `u32::MAX` there, over `Bag::MOST` still. What differs is
+  layout: a pointer is four bytes, so the pass's tables are eight bytes
+  a node, and hashbrown's control group is eight bytes, so `table_bytes`
+  counts eight above a table; a test reads `tables` and `table_bytes`,
+  never a number. The flake check `web-core-wasm32` runs this module's,
+  the size estimate's, the memo's and the memory account's tests on
+  wasm32-wasip1 under wasmtime, where a failing test aborts the run (a
+  panic aborts on WASI): run each test alone to find which.
 - **A zone the rest of the proof cannot consume is refused where it
   arises** (`Pass::within`, `Fault::Surplus`): a rule takes two members
   of a premise's zone at most and passes the others on, and the root's

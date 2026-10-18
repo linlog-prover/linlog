@@ -12,13 +12,16 @@ use crate::occurrences::{Member, OccId};
 /// which held `most` of them when it was fullest. The standard library's
 /// table has a power of two of slots, four at least and seven in eight
 /// taken at most, each with a byte beside its entry, and sixteen bytes at
-/// the end; it never gives slots back, and a copy has as many as its
-/// original. A table that entries came and went from can have twice or
-/// four times the slots, so this is the least the table takes and within
-/// that factor of what it does.
+/// the end, the width of its SSE2 group; it never gives slots back, and a
+/// copy has as many as its original. A table that entries came and went
+/// from can have twice or four times the slots, so this is the least the
+/// table takes and within that factor of what it does. Where the group is
+/// eight bytes (wasm32, and aarch64's NEON) the table takes eight bytes
+/// fewer than counted, which only makes a bound stricter.
 ///
 /// Nothing overflows: `most` counts distinct occurrence ids, 2³² at most,
-/// so there are 2³³ slots at most and fewer than 2³⁸ bytes.
+/// so there are 2³³ slots at most and fewer than 2³⁸ bytes, counted in
+/// `u64` on every target; on a 32-bit one `most` is below 2³² anyway.
 pub(super) fn table_bytes(most: usize, entry: usize) -> u64 {
     if most == 0 {
         return 0;
@@ -33,7 +36,8 @@ pub(super) struct Zone {
     /// The members.
     pub(super) members: HashSet<OccId>,
     /// The most members the table has held, which its memory follows:
-    /// distinct occurrence ids, so 2³² at most.
+    /// distinct occurrence ids, so 2³² at most, and a table's length on a
+    /// 32-bit target, so below 2³² there.
     pub(super) most: usize,
 }
 
@@ -95,7 +99,8 @@ pub(super) struct Bag {
     /// saturates at `u32::MAX`, which is over the bound as well.
     pub(super) len: usize,
     /// The most distinct members the table has held, which its memory
-    /// follows: distinct occurrence ids, so 2³² at most.
+    /// follows: distinct occurrence ids, so 2³² at most, and a table's
+    /// length on a 32-bit target, so below 2³² there.
     pub(super) most: usize,
 }
 
@@ -237,7 +242,9 @@ pub(crate) struct State {
     /// The linear zone.
     pub(super) gamma: Bag,
     /// The members of the linear zone in output position, under a reading:
-    /// no more than the zone has members, and saturating with its length.
+    /// no more than the zone has members, and saturating with its length,
+    /// at `usize::MAX` as it does, which on a 32-bit target is `u32::MAX`
+    /// and over [`Bag::MOST`] as well.
     pub(super) outputs: usize,
     /// The weights of the linear zone's members, added up: fewer than
     /// 2³² − 1 members of a weight below 2³² each, so below 2⁶⁴.
@@ -267,9 +274,11 @@ impl State {
 
     /// Returns the entries of the sequent's two tables, which a rule that
     /// copies, pours or compares it handles: distinct occurrence ids, so
-    /// fewer than 2³³.
+    /// fewer than 2³³, which a `u64` holds; each table's length is taken
+    /// to `u64` before the sum, which on a 32-bit target a `usize` might
+    /// not hold.
     pub(super) fn entries(&self) -> u64 {
-        (self.theta.len() + self.gamma.counts.len()) as u64
+        self.theta.len() as u64 + self.gamma.counts.len() as u64
     }
 
     /// Returns the sequent as ids for an error report.

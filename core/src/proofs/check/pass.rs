@@ -102,7 +102,8 @@ pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
 /// proof.
 ///
 /// What is counted is what the pass allocates beyond the proof and the
-/// forest it is given: twelve bytes for every node, and every sequent it
+/// forest it is given: a count and a pointer for every node (twelve
+/// bytes on a 64-bit target, eight on a 32-bit one), and every sequent it
 /// holds at the size of its two tables of members, which is the least
 /// they take and at least a quarter of what they do (a table that
 /// members came and went from can have up to four times the slots of one
@@ -221,8 +222,8 @@ pub(super) fn refused(node: NodeId, refusal: Refusal) -> CheckError {
 }
 
 /// Returns the bytes of the two tables a pass over `proof` keeps: a count
-/// of readers and a place for a sequent, twelve bytes, for each of fewer
-/// than 2³² nodes.
+/// of readers and a place for a sequent, a `u32` and a pointer, for each
+/// of fewer than 2³² nodes: below 2³⁶ on any target.
 pub(super) fn tables(proof: &Proof) -> u64 {
     proof.nodes().len() as u64 * (size_of::<u32>() + size_of::<Option<Box<State>>>()) as u64
 }
@@ -293,7 +294,8 @@ pub(super) struct Pass<'a, 's, O> {
     /// Its forest.
     forest: &'a Forest,
     /// How many formulas the proof is to conclude: the length of a slice,
-    /// only ever added to with saturation.
+    /// only ever added to with saturation, and then taken to
+    /// [`Bag::MOST`], below `usize::MAX` on a 32-bit target too.
     goal: usize,
     /// The rules in force.
     mode: Mode,
@@ -303,7 +305,8 @@ pub(super) struct Pass<'a, 's, O> {
     /// nodes has `n` references to one node at most: every node after it
     /// has two premises at most, and every one of them but the root is
     /// itself the premise of a later node, or the proof would not hold
-    /// it. And `n` fits a `u32`, as [`Proof::new`] sees to.
+    /// it. And `n` fits a `u32`, as [`Proof::new`] sees to, whatever the
+    /// width of a `usize`.
     readers: Vec<u32>,
     /// The sequents of the nodes that a later node still reads.
     live: Vec<Option<Box<State>>>,
@@ -318,7 +321,8 @@ pub(super) struct Pass<'a, 's, O> {
     /// The units of work done: nodes visited and the entries of the
     /// premises handed to their rules, each premise's fewer than 2³³ and
     /// at most two premises a node, of fewer than 2³² nodes: below 2⁶⁶,
-    /// so the count saturates.
+    /// so the count saturates. It is a `u64` on every target, and each
+    /// premise's entries are summed in `u64` ([`State::entries`]).
     done: u64,
     /// The work done when the stop was last asked.
     polled: u64,

@@ -197,7 +197,9 @@ impl Interner {
         }
         let set = size_of_val(zone.words());
         // A full table doubles its buckets: asked for before, as the
-        // memo's index is.
+        // memo's index is. The products and sums count bytes of zones and
+        // buckets that are in memory or about to be, so on a 32-bit
+        // target too they stay below the address space, and `usize::MAX`.
         let capacity = self.ids.capacity();
         let buckets = if self.ids.len() < capacity {
             0
@@ -219,7 +221,9 @@ impl Interner {
     /// each, and a group of control bytes after them; none for an empty
     /// table.
     fn buckets(capacity: usize) -> usize {
-        /// The control bytes a table has after its buckets.
+        /// The control bytes a table has after its buckets: SSE2's group,
+        /// eight more than wasm32's and aarch64's, where the count is that
+        /// much above what the table takes.
         const GROUP: usize = 16;
         let buckets = match capacity {
             0 => return 0,
@@ -393,7 +397,8 @@ pub(super) struct Memo {
     chunk: usize,
     /// The words a chunk is to have at most.
     most: usize,
-    /// The number of records. Below `u32::MAX`, which bounds the index.
+    /// The number of records. Below `u32::MAX`, which bounds the index;
+    /// on a 32-bit target `limit` keeps it below `usize::MAX` alike.
     len: usize,
     /// The number of entries the table holds at most; zero switches the memo
     /// off.
@@ -642,6 +647,12 @@ impl Memo {
     /// the size when half its slots are taken, and a chunk with the room,
     /// the current one or the next, made or grown where it has not, each
     /// only if the account has the memory. Returns whether there is room.
+    ///
+    /// No product here passes `usize::MAX` on a 32-bit target: an index
+    /// whose doubling counts 2³² bytes has 2²⁸ slots, so at least 2²⁷
+    /// records of seven words and more, which with the index are more than
+    /// the 4 GiB such a target addresses; and a record of `words` words is
+    /// a key already in memory, so its bytes are below the address space.
     fn reserve(&mut self, words: usize, account: &Account) -> bool {
         if self.chunk == 0 {
             // Under a small bound the chunks are small: a sixteenth of

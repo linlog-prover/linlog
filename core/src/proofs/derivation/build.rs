@@ -93,7 +93,8 @@ pub(super) fn unfold(
         record: &record,
         reading,
         // As many as the size says, which fit a `usize` since they fit a
-        // `u32`; a compact view has fewer.
+        // `u32` (`Derivation::MOST`), on a 32-bit target too; a compact
+        // view has fewer.
         inferences: match compact {
             None => Vec::with_capacity(size.inferences as usize),
             Some(_) => Vec::new(),

@@ -10,7 +10,8 @@
 //!
 //! All of them are `u64` and saturate: every sum and product here is a
 //! saturating one, and every difference too, so nothing wraps in any
-//! build. A number that reached `u64::MAX` stays there through every
+//! build, and on a 32-bit target as on a 64-bit one: a `usize` that
+//! enters a count (a length, a position) is widened to `u64` first. A number that reached `u64::MAX` stays there through every
 //! later sum, since nothing is ever taken away from a count of
 //! inferences, of characters or of a height on its way to the root; so a
 //! saturated count shows in the size returned, whose estimate in bytes is

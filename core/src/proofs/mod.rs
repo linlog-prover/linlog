@@ -593,7 +593,8 @@ impl Proof {
     /// make quadratic in its length. A check that a bound or
     /// the stop ends answers [`CheckError::Refused`]: the proof is then
     /// neither valid nor invalid. What is counted is what the pass holds
-    /// beyond the proof and its forest: twelve bytes for every node, and
+    /// beyond the proof and its forest: a count and a pointer for every node
+    /// (twelve bytes on a 64-bit target, eight on a 32-bit one), and
     /// every sequent it keeps for a later node at the size of its tables
     /// of members, a sequent that several nodes read once for each.
     ///
