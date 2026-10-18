@@ -5,11 +5,14 @@
 
     [ill intuitionistic] derives exactly the sequents that Yalla's
     [nanoill.ill] derives, over [nanoill.v]'s own definitions, imported
-    unchanged (its atoms are [nat]). The two formula types have the same
-    constructors and the translations below map each to its namesake, so
-    they are inverse bijections. [nanoill.v]'s derivations are in [Type]
-    and [ill] is in [Prop], so the statements say that a derivation of
-    [nanoill.ill] exists, with [inhabited]. Exchange is one [Permutation]
+    unchanged. Its atoms are [nat], so the statements are about
+    [iformula nat]; the library's calculus is the same at every atom
+    type. The two formula types have the same constructors and the
+    translations below map each to its namesake, so they are inverse
+    bijections. [nanoill.v]'s derivations are data (an inductive declared
+    in [Type], which Rocq lowers to [Set]) and [ill] is in [Prop], so the
+    statements say that a derivation of [nanoill.ill] exists, with
+    [inhabited]: they equate derivability, not derivations. Exchange is one [Permutation]
     rule here and a transposition of neighbours there, which is the only
     difference between the two calculi. *)
 

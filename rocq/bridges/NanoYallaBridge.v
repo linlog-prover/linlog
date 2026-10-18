@@ -5,11 +5,14 @@
 
     [ll classical] derives exactly the sequents that NanoYalla's kernel
     [nanoll.ll] derives, over NanoYalla's own definitions, imported
-    unchanged (its atoms are [nat]). The two formula types have the same
-    constructors and the translations below map each to its namesake, so
-    they are inverse bijections. NanoYalla's derivations are in [Type]
-    and [ll] is in [Prop], so the statements say that a NanoYalla
-    derivation exists, with [inhabited]. Exchange is one [Permutation]
+    unchanged. Its atoms are [nat], so the statements are about
+    [formula nat]; the library's calculus is the same at every atom type.
+    The two formula types have the same constructors and the
+    translations below map each to its namesake, so they are inverse
+    bijections. NanoYalla's derivations are data (an inductive declared
+    in [Type], which Rocq lowers to [Set]) and [ll] is in [Prop], so the
+    statements say that a NanoYalla derivation exists, with
+    [inhabited]: they equate derivability, not derivations. Exchange is one [Permutation]
     rule here and a transposition of neighbours there, which is the only
     difference between the two calculi. *)
 
