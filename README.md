@@ -133,9 +133,9 @@ its markings (below); for everything else the *focus engine* runs a
 focused sequent search over bitsets; and for MLL without units the *net
 engine* searches for an axiom linking that makes the sequent's formula
 trees a proof net, by default only where the focus engine stops at its
-recursion limit or memory bound (a chain of thousands of links, some
-sequents of thousands of distinct atoms), since everywhere else the
-focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
+recursion limit or memory bound on a sequent whose atoms occur once with
+each sign (a chain of thousands of links, some sequents of thousands of
+distinct atoms), since everywhere else the focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
 choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
@@ -467,9 +467,10 @@ linear in the product of their sizes, in every mode), a Horn program
 with a clause under `!` to the Horn engine, as classically, and
 everything else to the *two-sided engine*, the focused search keeping one goal on every
 branch, with the same copy bound and affine mode as the classical one;
-IMLL without units goes to the net engine where the two-sided engine
-stops at its recursion limit or memory bound (the classical net of the
-one-sided sequent is always an intuitionistic proof):
+IMLL without units, each atom once with each sign, goes to the net engine
+where the two-sided engine stops at its recursion limit or memory bound
+(the classical net of the one-sided sequent is always an intuitionistic
+proof):
 
 ```console
 $ linlog prove -i "A -o B -o C, A * B |- C"

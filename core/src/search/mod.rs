@@ -661,7 +661,8 @@ fn answer_goal<'a>(
 
 /// Whether the net engine takes over a goal the dispatch gave another
 /// engine: one of unit-free MLL, the roots, in a mode without weakening,
-/// on which that engine ended at its recursion limit or memory bound. The
+/// whose linking is forced ([`one_linking`]), on which that engine ended
+/// at its recursion limit or memory bound. The
 /// focused engines recurse once per stable sequent and keep a memo, and a
 /// long chain of links or a wide enough sequent reaches one or the other;
 /// the net engine keeps neither. What the first search left charged goes
@@ -676,6 +677,21 @@ fn handed_over(options: &Options, task: &Task<'_>, answer: &Answer) -> bool {
             Err(Reason::RecursionLimit { .. } | Reason::MemoryLimit { .. })
         )
         && Engine::Net.implementation().admits(task).is_ok()
+        && one_linking(task.forest)
+}
+
+/// Whether every atom of the forest occurs once with each sign, so that
+/// its axiom linking is the only one: the net engine's search then makes
+/// one link per pair and backtracks over none, and ends within a test of
+/// the criterion per link. On equal literals its search is exponential,
+/// and taking over a goal on which a focused engine met its limit would
+/// trade a quick "unknown" for a search without end.
+fn one_linking(forest: &Forest) -> bool {
+    use crate::occurrences::Sign;
+    (0..forest.sequent().atom_names().len() as u32).all(|a| {
+        let atom = crate::sequents::Atom::new(a);
+        forest.literals(atom, Sign::Atom).len() <= 1 && forest.literals(atom, Sign::Dual).len() <= 1
+    })
 }
 
 /// What [`conclude`] reads of the goal an answer is of.
@@ -1152,9 +1168,10 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 32 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
 ///
 /// Where the focused engines end at their recursion limit or memory bound
-/// on a unit-free MLL sequent in a mode without weakening, the net engine
-/// takes it over: they recurse once per stable sequent and keep a memo,
-/// and it keeps neither. Measured: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of
+/// on a unit-free MLL sequent in a mode without weakening whose atoms occur
+/// once with each sign, the net engine takes it over: they recurse once
+/// per stable sequent and keep a memo, and it keeps neither, and on such a
+/// sequent its linking is forced, so its search ends within one pass. Measured: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of
 /// 1 024 and 4 096 links, where the two-sided engine meets the recursion
 /// limit after 11 and 46 ms, proved by the net engine in 26 ms and
 /// 0.43 s more, and `wide-m1` with 4 096 literals, where the focused
@@ -3179,9 +3196,10 @@ mod tests {
     }
 
     /// Where the focused engine the dispatch picked ends at its recursion
-    /// limit on unit-free MLL, the net engine decides the sequent, in
-    /// classical and intuitionistic mode; not where an engine is forced,
-    /// nor outside unit-free MLL.
+    /// limit or memory bound on unit-free MLL whose linking is forced, the
+    /// net engine decides the sequent, in classical and intuitionistic
+    /// mode; not where an engine is forced, not on equal literals, nor
+    /// outside unit-free MLL.
     #[test]
     fn the_net_engine_takes_over_at_a_limit() {
         let limits = Limits::default().with_recursion_depth(8);
@@ -3213,6 +3231,16 @@ mod tests {
         .unwrap();
         assert_eq!(outcome.engine, Engine::Net);
         assert!(outcome.verdict.proof().is_some(), "{:?}", outcome.verdict);
+        // Equal literals: the net engine's search could take without end
+        // what the focused engine gave up quickly, so it stays given up.
+        let equal = "a, a, a -o (a -o b0), b0 -o b1, b1 -o b2, b2 -o b3, b3 -o b4, \
+                     b4 -o b5, b5 -o b6, b6 -o b7, b7 -o b8, b8 -o b9 |- b9";
+        let outcome = decide(equal, Mode::INTUITIONISTIC, &Options::default());
+        assert_eq!(outcome.engine, Engine::TwoSided);
+        assert!(matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::RecursionLimit { .. })
+        ));
         let with_unit = format!("{chain}, 1");
         let outcome = decide(&with_unit, Mode::CLASSICAL, &Options::default());
         assert_eq!(outcome.engine, Engine::Focus);

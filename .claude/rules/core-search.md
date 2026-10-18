@@ -280,8 +280,9 @@ copies they had are gone (F103, F104).
 - **The net engine has no row; it takes over at a limit**
   (`handed_over`, in `answer_goal`): where the engine the dispatch
   picked ends at `RecursionLimit` or `MemoryLimit` on a goal the net
-  engine admits (unit-free MLL, the roots, no weakening) and no engine
-  is forced, the net engine decides the goal with the same options,
+  engine admits (unit-free MLL, the roots, no weakening) whose atoms
+  occur once with each sign (`one_linking`: the linking is forced, so the
+  net search is one pass) and no engine is forced, the net engine decides the goal with the same options,
   limits, stop and work count, after `Account::rewind` gives back what
   the first search left charged (the focused engines' set-up tables,
   `Classes` and `Counts`, are charged and never released, so without it
@@ -308,7 +309,14 @@ copies they had are gone (F103, F104).
   26 times on intuitionistic wide and curried sequents, more than the
   handover costs where it happens, so the route is the limit itself.
   `IndexLimit` (an arena of 2³¹ nodes) is not handed over: no row was
-  measured there. The cost of a handover is the first search's time up to
+  measured there. **Why `one_linking`**: the panel's counterexample
+  agent found that without it a long goal with an equal-literal core
+  (a 2 100-link chain beside a sequent of repeated `a` and `b`) went from
+  the focused engine's quick `RecursionLimit` (0.9 s) to a net search
+  that ran to the time limit, and without a stop practically for ever:
+  the net engine is exponential on equal literals. Every measured
+  handover row has its atoms once per sign, and `wide-m2` at 4 096 the
+  focused engine proves. The cost of a handover is the first search's time up to
   its limit. A goal that is not the roots (an open goal of a session)
   is never handed over: the net engine refuses it.
 - **Equal literals were the old proxy** (`NET_MULTIPLICITY`, removed):

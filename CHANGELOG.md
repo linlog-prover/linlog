@@ -46,8 +46,9 @@ second number (0.1.x to 0.2.0), anything else the third.
 - Unit-free MLL and IMLL go to the focused engines by default, which
   measured faster than the net engine on every sequent both decide
   (`wide` sequents 1.07 to 3.6 times, the Horn encodings of Partition
-  and 3-Partition up to 30 000 times); the net engine takes a sequent
-  over where they stop at their recursion limit or memory bound (a chain
+  and 3-Partition up to 32 000 times); the net engine takes a sequent
+  whose atoms occur once with each sign over where they stop at their
+  recursion limit or memory bound (a chain
   of thousands of implications, `wide` with 4 096 literals). Before, MLL
   with no literal more than twice went to the net engine.
 - The net engine breaks the symmetry of equal literals and equal
