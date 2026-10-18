@@ -13,7 +13,14 @@ abstract: >-
   proof nets, and decide ordinary propositional logic through its
   embeddings into linear logic. Its code, tests and documentation were
   written with substantial AI assistance, by Anthropic's Claude models in
-  Claude Code, in steps the author planned, directed and accepted.
+  Claude Code, in steps the author planned, directed and accepted, and
+  the author is responsible for them. Its results do not rest on the
+  model that wrote it: every proof it returns is validated by an
+  independent proof checker, classical proofs can be exported as
+  certificates that the Rocq proof assistant checks, the tests are
+  measured by mutation testing and fuzzing, and its verdicts on
+  published problem libraries are compared with their known status and
+  with those of eight other provers.
 authors:
   - given-names: Fabian Lukas
     family-names: Grubmüller
