@@ -87,8 +87,10 @@ impl Interactive {
     /// formula at the position, a rule that acts on it in the mode, a split
     /// that fits, the dual of an axiom, an empty context for `1` and `!`.
     pub fn apply(&mut self, goal: GoalId, step: &Step) -> Result<Vec<GoalId>, StepError> {
-        let (position, rule, left) = (step.position, step.rule, step.left_positions());
         let sequent = self.open(goal)?;
+        let (position, rule) = (step.position, step.rule);
+        let left = step.left_positions(sequent.len())?;
+        let left = &left[..];
         let reading = self.reading();
         let (rule, premises) = {
             let o = formula_at(&sequent, position)?;
@@ -170,8 +172,10 @@ impl Interactive {
         let allowed = match classical {
             AffineWeakening => self.mode.affine,
             Mix => self.mode.mix,
-            Ax | Tensor | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
-            | Dereliction | Contraction | Weakening | Open => true,
+            // The ordered calculus is unit-free MLL.
+            One | Bot | With | PlusLeft | PlusRight | Top | Promotion | Dereliction
+            | Contraction | Weakening => !self.mode.is_ordered(),
+            Ax | Tensor | Par | Open => true,
         };
         if !allowed {
             return Err(StepError::Mode {
@@ -196,6 +200,21 @@ impl Interactive {
                 }
                 used[p] = true;
                 going_left.insert(sequent[p]);
+            }
+            // Going round from the formula, the right premise's context
+            // first, then the left one's: an arc on either side.
+            if self.mode.is_ordered() {
+                let round = (position + 1..sequent.len()).chain(0..position);
+                let mut left_seen = None;
+                for p in round {
+                    match (used[p], left_seen) {
+                        (true, None) => left_seen = Some(p),
+                        (false, Some(first)) => {
+                            return Err(StepError::Exchange { position: first });
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
         let child = |side: Branch| match side {
@@ -290,8 +309,10 @@ impl Interactive {
     ///
     /// As [`rules`](Self::rules) does for the goal and the position.
     pub fn split_passes(&self, goal: GoalId, step: &Step) -> Result<bool, StepError> {
-        let (position, left) = (step.position, step.left_positions());
         let sequent = self.open(goal)?;
+        let position = step.position;
+        let left = step.left_positions(sequent.len())?;
+        let left = &left[..];
         let o = formula_at(&sequent, position)?;
         let rule = if self.forest.kind(o) == Kind::Tensor {
             Rule::Tensor

@@ -137,6 +137,16 @@ pub enum StepError {
     /// A Mix whose split leaves a premise without a formula: no rule
     /// concludes the empty sequent, so nothing could close it.
     EmptyPremise,
+    /// In an ordered mode, the split is not the two arcs on either side of
+    /// the `⊗`: going round from it, the formulas going right must come
+    /// first and those going left after them, and any other split needs
+    /// an exchange.
+    #[non_exhaustive]
+    Exchange {
+        /// The position of a formula going left that comes before one
+        /// going right.
+        position: usize,
+    },
 }
 
 impl Display for StepError {
@@ -185,6 +195,11 @@ impl Display for StepError {
             StepError::EmptyPremise => {
                 f.write_str("the split leaves a premise without a formula, which no rule concludes")
             }
+            StepError::Exchange { position } => write!(
+                f,
+                "formula {position} goes left before a formula going right, which needs an \
+                 exchange: the left premise takes the formulas just before the ⊗, going round"
+            ),
         }
     }
 }
@@ -270,11 +285,33 @@ impl Step {
         }
     }
 
-    /// Returns the positions going left, empty without a split.
-    fn left_positions(&self) -> &[usize] {
+    /// Returns the step with the context split at a cut point of the
+    /// goal's cyclic order, as an ordered mode reads it: going round from
+    /// the formula the step names, the formulas before `position` go to
+    /// the right premise and those from `position` on to the left one, so
+    /// that `position` is the first formula going left, and the step's own
+    /// position sends none left. In the cyclic mode these are the splits
+    /// of a `⊗`; in a commutative one it is a split as any other.
+    #[must_use]
+    pub fn at(self, position: usize) -> Self {
+        Self {
+            split: Split::At { position },
+            ..self
+        }
+    }
+
+    /// Returns the positions going left in a goal of `len` formulas, none
+    /// without a split, or the refusal of a cut point outside the goal.
+    fn left_positions(&self, len: usize) -> Result<Vec<usize>, StepError> {
         match &self.split {
-            Split::None => &[],
-            Split::Left { positions } => positions,
+            Split::None => Ok(Vec::new()),
+            Split::Left { positions } => Ok(positions.clone()),
+            &Split::At { position } if position >= len => Err(StepError::Split { position }),
+            // From the cut point round to the step's formula.
+            &Split::At { position } => Ok((position..len)
+                .chain(0..position)
+                .take_while(|&p| p != self.position)
+                .collect()),
         }
     }
 }
@@ -294,6 +331,13 @@ pub enum Split {
     Left {
         /// The positions in the goal's sequent.
         positions: Vec<usize>,
+    },
+    /// The goal's formulas from this position round to the step's formula
+    /// go to the left premise, the others to the right ([`Step::at`]).
+    #[non_exhaustive]
+    At {
+        /// The position of the first formula going left.
+        position: usize,
     },
 }
 
@@ -408,7 +452,9 @@ impl Interactive {
     ///
     /// [`Error::NotIntuitionistic`] in intuitionistic mode for a sequent
     /// without an intuitionistic reading, [`Error::IntuitionisticMix`] for
-    /// intuitionistic mode with Mix, and
+    /// intuitionistic mode with Mix, [`Error::OrderedMode`] for a mode
+    /// [`Mode::check`] refuses otherwise, [`Error::OrderedFragment`] in an
+    /// ordered mode for a sequent beyond unit-free MLL, and
     /// [`Refusal::Occurrences`] past the default
     /// bound.
     pub fn new(sequent: &Sequent, mode: Mode) -> Result<Self, Error> {
@@ -430,6 +476,10 @@ impl Interactive {
     /// Starts a proof over a forest built already.
     fn from_forest(forest: Forest, mode: Mode) -> Result<Self, Error> {
         mode.check()?;
+        let fragment = forest.sequent().fragment();
+        if mode.is_ordered() && !crate::Fragment::MLL.contains(fragment) {
+            return Err(Error::OrderedFragment { fragment, mode });
+        }
         let reading = if mode.intuitionistic {
             let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
             Some(reading.into_parts())
@@ -1208,6 +1258,57 @@ mod tests {
                 .check(Mode::INTUITIONISTIC),
             Ok(())
         );
+    }
+
+    /// In the cyclic mode a `⊗` splits its goal into the two arcs on
+    /// either side of it, at a cut point or by positions that make arcs,
+    /// any other split needing an exchange; the search closes a goal off
+    /// the roots; and a sequent beyond unit-free MLL has no session.
+    #[test]
+    fn cyclic() {
+        let cyclic = Mode::CYCLIC;
+        // 0 ⊗, 1 a ⊗ b, 2 a, 3 b, 4 c, 5 ~c, 6 ~b, 7 ~a.
+        let (mut s, g) = start("|- (a * b) * c, ~c, ~b, ~a", cyclic);
+        assert_eq!(
+            s.apply(g, &Step::new(0, Rule::Tensor).left(&[1])),
+            Err(StepError::Exchange { position: 1 })
+        );
+        let goals = s.apply(g, &Step::new(0, Rule::Tensor).at(2)).unwrap();
+        let (left, right) = (goals[0], goals[1]);
+        let members = |s: &Interactive, g| {
+            s.goal(g)
+                .unwrap()
+                .iter()
+                .map(|m| m.get())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            (members(&s, left), members(&s, right)),
+            (vec![1, 6, 7], vec![4, 5])
+        );
+        s.apply(right, &Step::new(0, Rule::Ax)).unwrap();
+        let options = Options::default();
+        let closed = s
+            .close(
+                left,
+                &options,
+                &ViewOptions::default(),
+                &Limits::default(),
+                |_| false,
+            )
+            .unwrap();
+        assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)) && closed.grafted.is_ok());
+        assert_eq!(s.goals().count(), 0);
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
+        assert_eq!(proof.check(cyclic), Ok(()));
+        // The step's own position as the cut point sends nothing left.
+        let (mut s, g) = start("|- a * (~a par b), ~b", cyclic);
+        let goals = s.apply(g, &Step::new(0, Rule::Tensor).at(0)).unwrap();
+        assert_eq!(members(&s, goals[0]), [1]);
+        assert!(matches!(
+            Interactive::new(&sequent("|- a & b, ~a"), cyclic),
+            Err(Error::OrderedFragment { .. })
+        ));
     }
 
     /// A goal is closed only by a proof over the session's sequent that

@@ -32,6 +32,7 @@ use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal};
 use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
 use crate::occurrences::{Forest, OccId, Sign};
+use crate::proofs::{Node, Proof};
 use crate::sequents::{Atom, Kind};
 
 /// The raw index that stands for "no occurrence".
@@ -41,9 +42,11 @@ const NONE: u32 = u32::MAX;
 pub(crate) struct Nets;
 
 impl Decide for Nets {
-    /// Refuses a fragment beyond unit-free MLL, affine mode and a goal
-    /// other than the roots: a structure's conclusions are the forest's
-    /// roots.
+    /// Refuses a fragment beyond unit-free MLL, affine mode and, in a
+    /// commutative mode, a goal other than the roots: a structure's
+    /// conclusions are the forest's roots. In an ordered mode a goal of
+    /// distinct formulas none of which lies inside another is searched as
+    /// a sequent of its own ([`goal`]).
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
         let refused = |because| Error::EngineRefused {
             engine: Engine::Net,
@@ -57,7 +60,7 @@ impl Decide for Nets {
             NetError::Mode { mode } => refused(NotTaken::Mode { mode }),
             other => other.into(),
         })?;
-        if !task.roots {
+        if !task.roots && !(task.mode.is_ordered() && apart(task.forest, task.goal)) {
             return Err(refused(NotTaken::Goal));
         }
         Ok(())
@@ -93,8 +96,75 @@ impl Decide for Nets {
         }
         #[cfg(not(feature = "parallel"))]
         let _ = work;
+        if !task.roots {
+            return goal(task, options, limits, stop);
+        }
         Ok(search(task.forest, task.mode, options, limits, stop))
     }
+}
+
+/// Whether the occurrences are distinct and none lies inside another's
+/// subtree: the formulas of a sequent.
+fn apart(forest: &Forest, goal: &[OccId]) -> bool {
+    let mut sorted = goal.to_vec();
+    sorted.sort_unstable();
+    // A subtree is `o .. o + size(o)`, below the forest's length.
+    sorted
+        .windows(2)
+        .all(|w| u64::from(w[0].get()) + u64::from(forest.size(w[0])) <= u64::from(w[1].get()))
+}
+
+/// Decides a goal off the roots, in an ordered mode: its formulas, in
+/// the forest's order, which is the goal's cyclic order, as the roots of
+/// a sequent of their own, whose forest numbers each formula's
+/// occurrences as the goal's forest does, shifted; the proof found is
+/// carried back by the shift, and the answer has no net, its structure
+/// being over the other forest.
+fn goal(
+    task: &Task<'_>,
+    options: &Options,
+    limits: &Limits,
+    stop: &mut dyn FnMut(u64) -> bool,
+) -> Result<Answer, Error> {
+    let forest = task.forest;
+    let mut members = task.goal.to_vec();
+    members.sort_unstable();
+    let sequent = forest.sequent();
+    let own = crate::Sequent {
+        terms: sequent.terms().to_vec(),
+        roots: members.iter().map(|&o| forest.term(o)).collect(),
+        atoms: sequent.atom_names().to_vec(),
+        antecedents: None,
+    };
+    let own = Forest::within(&own, limits)?;
+    let mut answer = search(&own, task.mode, options, limits, stop);
+    // The occurrence of the goal's forest that one of the own forest's is:
+    // its formula's member, plus how far into the formula it lies.
+    let lift = |m: crate::Member| {
+        let o = m.occ();
+        let root = own.root(o);
+        let i = own.roots().partition_point(|&r| r < root);
+        crate::Member::from(OccId::new(members[i].get() + (o.get() - root.get())))
+    };
+    answer.result = answer.result.map(|proof| {
+        proof.map(|proof| {
+            let nodes = proof
+                .nodes()
+                .iter()
+                .map(|&node| match node {
+                    Node::Ax(x, y) => Node::Ax(lift(x), lift(y)),
+                    Node::Par(o, p) => Node::Par(lift(o), p),
+                    Node::Tensor(o, l, r) => Node::Tensor(lift(o), l, r),
+                    other => unreachable!("a net sequentializes into {} nodes", other.name()),
+                })
+                .collect();
+            Proof::new(forest.clone(), nodes, proof.root())
+                .expect("the shift keeps every node's order and occurrence in the forest")
+                .with_mode(task.mode)
+        })
+    });
+    answer.net = None;
+    Ok(answer)
 }
 
 /// Runs the proof-net engine on the forest of a sequent of unit-free MLL
