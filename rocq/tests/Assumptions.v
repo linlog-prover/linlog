@@ -5,9 +5,10 @@
     Rocq answers "Closed under the global context" for each, which the
     flake's check requires. *)
 
-From Linlog Require Import Soundness.
+From Linlog Require Import Soundness IntuitionisticCheck.
 
 Print Assumptions soundness.
 Print Assumptions soundness_classical.
 Print Assumptions soundness_mix.
 Print Assumptions soundness_affine.
+Print Assumptions soundness_ill.

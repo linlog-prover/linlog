@@ -5,3 +5,5 @@ theories/Calculus.v
 theories/Proofs.v
 theories/Check.v
 theories/Soundness.v
+theories/Intuitionistic.v
+theories/IntuitionisticCheck.v
