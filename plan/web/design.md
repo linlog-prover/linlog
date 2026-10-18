@@ -62,8 +62,8 @@ which is a hint the student asks for.
   it exists. Version 1 shows the net of a finished proof; a net editor
   (the student links literals pair by pair, the switching cycle drawn
   when one closes) has no precedent and is a later step, which the
-  mockups may sketch (the session's recommendation, open to the
-  author).
+  mockups may sketch (the session's recommendation; the author took
+  it for now, unsure, so the sketches inform a later decision).
 - **D5. One goal at a time** (the author): the whole tree stays on the
   stage, the active goal is brought into view and the other open goals
   are dimmed; the next and previous open goal are reached from the HUD
@@ -152,11 +152,11 @@ which is a hint the student asks for.
   the page works well at every size; on a phone the HUD becomes a
   bottom sheet and the stage keeps the zoom and pan. Targets are 24
   pixels at least (WCAG 2.2's 2.5.8) and nothing needs a drag (2.5.7).
-- **D19. A second means of action: the console** (the session, from
-  UDL; open to the author): the command language of `linlog interact`
-  in the drawer, where `apply 0 1 -oL 0` does what the click does, and
-  the derivation as text beside the drawing. It costs nothing, since
-  the library's session is the command's.
+- **D19. No console** (the author): the session had proposed the
+  command language of `linlog interact` in the drawer as a second
+  means of action; the author finds it unnecessary. The derivation as
+  text stays available as an export, and the keyboard path (D17) is
+  the second means of action.
 
 ## The learning design
 
@@ -326,7 +326,6 @@ moves.
 10. The net view (D4): the finished proof's net, the tab's greyed
     state, and a sketch of the editor.
 11. The phone layout (D18).
-12. The console (D19): in the drawer or not at all.
 
 ## Sources
 
