@@ -369,7 +369,47 @@ for NanoYalla. What the code relies on:
   `font::DEPTH` (a comma) below every baseline; the layouts reserve
   them for every line, and the structural test in `core/tests/export.rs`
   checks every element against the view box with the same bounds.
-- **Rocq** (`export/rocq.rs`): the kernel is NanoYalla `NANOYALLA`
+- **Rocq's two kernels** (`export/rocq/mod.rs`, `rocq::Kernel`):
+  `Options::kernel` names one, `None` (the default) lets the mode
+  choose in `linear`: a recorded mode that is intuitionistic, affine or
+  Mix goes to linlog's library (`Linlog`), a classical one to NanoYalla
+  unless the derivation uses Mix or affine `wk` (a proof checked in
+  another mode than it claims), and a proof that records no mode
+  (`Derivation::mode`, set from `Proof::mode` and by `Interactive`) goes
+  to linlog's library when its derivation is two-sided or uses those
+  rules. So a classical proof with no kernel named is written for
+  NanoYalla exactly as before, which the NanoYalla snapshots pin (they
+  name the kernel, since by default `ill.v` and `labels_ill.v` would go
+  to the library), and an explicit `NanoYalla` keeps every refusal.
+- **linlog's kernel** (`export/rocq/linlog.rs`, the library `rocq/`,
+  `rocq.md`): a one-sided derivation is written as the library's dyadic
+  `proof`, a two-sided one as its `iproof`, under a lemma over `ll` or
+  `ill` with `(atom := string)` and the atoms as Rocq strings (`"`
+  doubled), so no atom is renamed. The one-sided term moves every `?`
+  formula into the unrestricted zone with a `Quest` where it first
+  appears (the root's members, and a premise's members that are children
+  of the rule's principal formula): then a dereliction is `Copy`, a
+  contraction and a `?` weakening write nothing, a promotion's `?`
+  context is in the zone as `Bang` requires, and an affine `wk` of a `?`
+  formula writes nothing either. The checker accepts that term although
+  it is not the Rust proof's own term (the Rocq checker accepts every
+  term that keeps its zones consistent, `rocq.md`). The statement's
+  calculus is what the mode allows and what the derivation uses together
+  (`linlog::Calculus`), so a certificate never claims less than the
+  proof needs; `soundness_classical`, `soundness_mix`, `soundness_affine`
+  or `soundness` with the record for Mix and weakening together. The
+  two-sided term writes each formula by its occurrence's position under
+  the reading (`Reading::position`): a `top` in output position is `⊤`
+  (`itop`), in input position `0` (`izero`), and so on; `⊤R` names its
+  context and `0L` its context and goal from the inference's sequent,
+  which the derivation view has instantiated. The lemma's goal is the
+  reading's goal (by id for roots built from `⊤` and `0` alone). Open
+  goals and compact runs are refused as for NanoYalla; nothing else is.
+  The core tests pin this kernel's certificates in
+  `core/tests/snapshots/linlog/`, which the flake's `rocq-linlog` check
+  compiles, and `rocq::LINLOG` is asserted equal to the opam file's
+  version.
+- **NanoYalla** (`export/rocq/mod.rs`): the kernel is NanoYalla `NANOYALLA`
   (Click & coLLecT's `nanoyalla/`: `nanoll.v` is the trusted `ll`
   inductive over list sequents, `macroll.v` the derived rules), and the
   script relies on its `_ext` lemmas exactly as stated there: every rule

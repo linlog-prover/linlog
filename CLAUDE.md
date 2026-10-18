@@ -43,12 +43,14 @@ Workspace crates:
   (`bench/RESULTS.md`, `bench/COMPARISON.md`) and the focused engine's
   target set (`bench/targets.sh`, `bench/TARGETS.md`).
 - `rocq/` is the Rocq library **`rocq-linlog`** (logical path `Linlog`,
-  not a crate): the one-sided calculus of classical linear logic as an
-  inductive, linlog's proof term as a datatype, a checker as a function
-  and the theorem that a term it accepts proves its sequent, which the
-  certificates of the library's own kernel rest on;
+  not a crate): the one-sided calculus of linear logic with Mix and
+  weakening as parameters and the two-sided calculus of intuitionistic
+  linear logic and its affine variant as inductives, linlog's proof
+  terms as datatypes, checkers as functions and the theorems that a term
+  they accept proves its sequent, which the certificates of the
+  exporter's second kernel (`--kernel linlog`) rest on;
   `modules/rocq-linlog.nix` builds it as nixpkgs builds a Rocq library
-  and compiles the certificates under `rocq/tests/`.
+  and compiles the certificates under `rocq/tests/` and the exporter's.
 
 `plan/README.md` is the proof-search plan the code follows, `plan/reports/`
 what each step of it did. `proof-search-specifications.md` is the brief

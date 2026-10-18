@@ -158,6 +158,8 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   them, then changed by `--style KEY=VALUE` (a key is dotted; a format's name is a prefix only before a
   dot, so `--style text=navy` is SVG's colour under `--format svg`; a
   value that is no JSON is a string), then `--lemma`, `--prelude`,
+  `--kernel` (`KernelArg`, mapped onto `rocq::Kernel`; absent leaves
+  `styles.rocq.kernel`, by default `None`, the mode's choice) and
   `--standalone`. `interact` and every command with several formats need
   the prefix. A new option is a field of the library's value, never a
   flag of its own here.
