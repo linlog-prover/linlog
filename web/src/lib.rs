@@ -33,6 +33,12 @@ mod exports {
         JsValue::from_str(&failure.0)
     }
 
+    /// Returns a goal or a position the page gives as a number, or the
+    /// failure thrown: see [`calls::index`].
+    fn index(number: f64, what: &str) -> Result<u32, JsValue> {
+        calls::index(number, what).map_err(thrown)
+    }
+
     /// See [`calls::about`].
     #[wasm_bindgen]
     pub fn about() -> String {
@@ -67,10 +73,11 @@ mod exports {
     #[wasm_bindgen]
     pub fn rules(
         session: &str,
-        goal: u32,
-        position: u32,
+        goal: f64,
+        position: f64,
         settings: &str,
     ) -> Result<String, JsValue> {
+        let (goal, position) = (index(goal, "a goal")?, index(position, "a position")?);
         calls::rules(session, goal, position, settings).map_err(thrown)
     }
 
@@ -78,17 +85,17 @@ mod exports {
     #[wasm_bindgen]
     pub fn split_passes(
         session: &str,
-        goal: u32,
+        goal: f64,
         step: &str,
         settings: &str,
     ) -> Result<bool, JsValue> {
-        calls::split_passes(session, goal, step, settings).map_err(thrown)
+        calls::split_passes(session, index(goal, "a goal")?, step, settings).map_err(thrown)
     }
 
     /// See [`calls::apply`].
     #[wasm_bindgen]
-    pub fn apply(session: &str, goal: u32, step: &str, settings: &str) -> Result<String, JsValue> {
-        calls::apply(session, goal, step, settings).map_err(thrown)
+    pub fn apply(session: &str, goal: f64, step: &str, settings: &str) -> Result<String, JsValue> {
+        calls::apply(session, index(goal, "a goal")?, step, settings).map_err(thrown)
     }
 
     /// See [`calls::undo`].
@@ -99,8 +106,8 @@ mod exports {
 
     /// See [`calls::close`].
     #[wasm_bindgen]
-    pub fn close(session: &str, goal: u32, settings: &str) -> Result<String, JsValue> {
-        calls::close(session, goal, settings).map_err(thrown)
+    pub fn close(session: &str, goal: f64, settings: &str) -> Result<String, JsValue> {
+        calls::close(session, index(goal, "a goal")?, settings).map_err(thrown)
     }
 
     /// See [`calls::close_all`].
@@ -111,8 +118,8 @@ mod exports {
 
     /// See [`calls::hint`].
     #[wasm_bindgen]
-    pub fn hint(session: &str, goal: u32, settings: &str) -> Result<String, JsValue> {
-        calls::hint(session, goal, settings).map_err(thrown)
+    pub fn hint(session: &str, goal: f64, settings: &str) -> Result<String, JsValue> {
+        calls::hint(session, index(goal, "a goal")?, settings).map_err(thrown)
     }
 
     /// See [`calls::proof`].

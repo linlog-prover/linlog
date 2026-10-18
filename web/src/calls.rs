@@ -10,8 +10,8 @@
 use crate::failure::Failure;
 use crate::tab;
 use linlog::export::{latex, pdf, png, rocq, svg, typst};
+use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Needs, Split};
-use linlog::proofs::{Compact, InfId};
 use linlog::{
     Criterion, Disproof, Error, GoalId, Interactive, Member, Mode, Named, Outcome, Progress,
     ProofStructure, Rule, Sequent, Settings, Side, Step, Verdict, nets, wire,
@@ -462,6 +462,9 @@ struct Each {
     /// The error of a goal whose search failed.
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<serde_json::Value>,
+    /// The work its search did (`statistics.work`), which the budget
+    /// counts.
+    work: u64,
 }
 
 /// What closing every goal did.
@@ -472,8 +475,14 @@ struct All {
 }
 
 /// Runs the search on every open goal in turn within one work budget,
-/// `limits.work`, for all of them together and for each search, and
-/// grafts every proof found; a goal not proved stays open.
+/// `limits.work`, for all their searches together: each goal's search
+/// has what the searches before it left of the budget as its
+/// `limits.work`, so a goal the budget runs out on is unknown with
+/// `work_limit`, as after [`close`]. What a search spends is its
+/// `statistics.work`; its proof's check is bounded by the same remainder,
+/// and the classical refuter keeps its own bound
+/// (`search.classical_work`). Every proof found is grafted; a goal not
+/// proved stays open.
 ///
 /// # Errors
 ///
@@ -481,30 +490,33 @@ struct All {
 pub fn close_all(session: &str, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
     let mut state = session_of(session, &settings)?;
-    let budget = settings.limits.work;
-    let mut spent = 0_u64;
-    let stop = |progress: Progress| {
-        spent = spent.saturating_add(progress.work);
-        budget.is_some_and(|budget| spent > budget)
-    };
-    let results = state
-        .close_all(&settings.search, &settings.view, &settings.limits, stop)
-        .into_iter()
-        .map(|(goal, closed)| match closed {
+    let goals: Vec<GoalId> = state.goals().collect();
+    let mut left = settings.limits.work;
+    let mut results = Vec::with_capacity(goals.len());
+    for goal in goals {
+        let limits = settings.limits.with_work(left);
+        let closed = state.close(goal, &settings.search, &settings.view, &limits, never);
+        let work = closed
+            .as_ref()
+            .map_or(0, |closed| closed.outcome.statistics.work);
+        left = left.map(|left| left.saturating_sub(work));
+        results.push(match closed {
             Ok(closed) => Each {
                 goal,
                 refused: closed.grafted.err().map(refusal),
                 outcome: Some(closed.outcome),
                 error: None,
+                work,
             },
             Err(error) => Each {
                 goal,
                 outcome: None,
                 refused: None,
-                error: serde_json::to_value(&error).ok(),
+                error: serde_json::to_value(error.describe(&state)).ok(),
+                work,
             },
-        })
-        .collect();
+        });
+    }
     changed(&state, All { results })
 }
 
@@ -513,87 +525,97 @@ pub fn close_all(session: &str, settings: &str) -> Result<String, Failure> {
 struct Hint {
     /// The search's outcome on the goal.
     outcome: Outcome,
-    /// The first step of the proof found, `null` when none was found or
-    /// its derivation was refused.
-    step: Option<StepForm>,
+    /// The first steps of the proof found, each on the goal the one
+    /// before it opened, the first on the goal asked for: the structural
+    /// rules at its root, and the first rule that is not one, which ends
+    /// the list. `null` when no proof was found or its derivation was
+    /// refused.
+    steps: Option<Vec<StepForm>>,
 }
 
-/// Runs the search on a copy of a goal and returns its outcome with the
-/// first step of the proof it found, which the page reveals rung by
-/// rung; the session is left as it was.
+/// Runs the search on a goal, the session left as it was, and returns
+/// its outcome with the first steps of the proof it found, which the page
+/// reveals rung by rung and, at the last rung, applies in turn. A
+/// contraction at the root comes with the rule that uses both copies, so
+/// that following the hints proves the goal: a search on the contracted
+/// goal alone may weaken the copy again.
 ///
 /// # Errors
 ///
-/// As [`close`].
+/// A goal that is not open, and the search's errors.
 pub fn hint(session: &str, goal: u32, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
-    let original = session_of(session, &settings)?;
-    let goal = GoalId::new(goal);
-    let mut copy = original.clone();
-    let closed = copy
-        .close(
-            goal,
-            &settings.search,
-            &settings.view,
-            &settings.limits,
-            never,
-        )
-        .map_err(|e| Failure::described(&e, &original))?;
-    let step = match (&closed.outcome.verdict, closed.grafted) {
-        (Verdict::Proved(_), Ok(())) => first_step(&original, &copy, goal, &settings)?,
+    let state = session_of(session, &settings)?;
+    let members = state
+        .goal(GoalId::new(goal))
+        .map_err(|e| Failure::described(&Error::from(e), &state))?;
+    let target = linlog::Goal::new(state.forest(), members).map_err(Failure::from)?;
+    let outcome = linlog::prove_goal(
+        target,
+        state.mode(),
+        &settings.search,
+        &settings.limits,
+        never,
+    )
+    .map_err(|e| Failure::described(&e, &state))?;
+    let steps = match &outcome.verdict {
+        Verdict::Proved(proof) => first_steps(proof, &settings)?,
         _ => None,
     };
-    written(&Hint {
-        outcome: closed.outcome,
-        step,
-    })
+    written(&Hint { outcome, steps })
 }
 
-/// Returns the step that a closed goal of `closed` begins with, as a step
-/// on the same goal of `open`, where it is open.
-fn first_step(
-    open: &Interactive,
-    closed: &Interactive,
-    goal: GoalId,
+/// Returns the steps a proof of a goal begins with, as [`Hint::steps`]
+/// says, or `None` when the bounds refuse its derivation.
+fn first_steps(
+    proof: &linlog::Proof,
     settings: &Settings,
-) -> Result<Option<StepForm>, Failure> {
-    let derivation = closed
-        .derivation_within(&settings.view, &settings.limits, never)
-        .map_err(Failure::from)?;
-    let Some(at) = closed.derivation_ids().iter().position(|&id| id == goal) else {
-        return Ok(None);
+) -> Result<Option<Vec<StepForm>>, Failure> {
+    let view = settings.view.with_compact(Compact::Never);
+    let derivation = match proof.derivation_within(&view, &settings.limits, never) {
+        Ok(derivation) => derivation,
+        Err(error) if error.is_refusal() => return Ok(None),
+        Err(error) => return Err(Failure::from(error)),
     };
-    let inference = derivation.inference(InfId::new(u32::try_from(at).unwrap_or(u32::MAX)));
-    let members = open.goal(goal).map_err(|e| Failure::from(Error::from(e)))?;
-    let rule = inference.rule();
-    let premise = |i: usize| derivation.inference(inference.premises()[i]).sequent();
-    let step = match (rule.rule, inference.principal()) {
-        (Rule::Mix, _) => {
-            let left = premise(0);
-            let mut taken = vec![false; members.len()];
-            let positions = positions_of(left, members, &mut taken);
-            let Some((&first, rest)) = positions.split_first() else {
-                return Ok(None);
-            };
-            Step::new(first, rule).left(rest)
-        }
-        (Rule::Tensor, Some(position)) => {
-            let child = closed.forest().left(closed.occurrence(members[position]));
-            let mut left = premise(0).to_vec();
-            if let Some(i) = left
-                .iter()
-                .position(|&m| Some(closed.occurrence(m)) == child)
-            {
-                left.remove(i);
+    let mut steps = Vec::new();
+    let mut at = derivation.root();
+    loop {
+        let inference = derivation.inference(at);
+        let members = inference.sequent();
+        let rule = inference.rule();
+        let premise = |i: usize| derivation.inference(inference.premises()[i]).sequent();
+        let step = match (rule.rule, inference.principal()) {
+            (Rule::Mix, _) => {
+                let mut taken = vec![false; members.len()];
+                let positions = positions_of(premise(0), members, &mut taken);
+                let Some((&first, rest)) = positions.split_first() else {
+                    return Ok(None);
+                };
+                Step::new(first, rule).left(rest)
             }
-            let mut taken = vec![false; members.len()];
-            taken[position] = true;
-            Step::new(position, rule).left(&positions_of(&left, members, &mut taken))
+            (Rule::Tensor, Some(position)) => {
+                let forest = derivation.forest();
+                let child = forest.left(derivation.occurrence(members[position]));
+                let mut left = premise(0).to_vec();
+                if let Some(i) = left
+                    .iter()
+                    .position(|&m| Some(derivation.occurrence(m)) == child)
+                {
+                    left.remove(i);
+                }
+                let mut taken = vec![false; members.len()];
+                taken[position] = true;
+                Step::new(position, rule).left(&positions_of(&left, members, &mut taken))
+            }
+            (_, Some(position)) => Step::new(position, rule),
+            (_, None) => Step::new(0, rule),
+        };
+        steps.push(StepForm::of(&step));
+        match inference.premises() {
+            [premise] if rule.is_structural() => at = *premise,
+            _ => return Ok(Some(steps)),
         }
-        (_, Some(position)) => Step::new(position, rule),
-        (_, None) => Step::new(0, rule),
-    };
-    Ok(Some(StepForm::of(&step)))
+    }
 }
 
 /// Returns, for each member of `part`, a position of the goal `members`
@@ -800,6 +822,34 @@ fn session_of(input: &str, settings: &Settings) -> Result<Interactive, Failure> 
 /// `usize` on every target the crate builds for, 32 bits included.
 fn position_of(position: u32) -> usize {
     position as usize
+}
+
+/// Returns a goal or a position the page gives as a JavaScript number,
+/// which must be an integer from 0 to `u32::MAX`; the exports take it as a
+/// number, since wasm-bindgen would convert any number to a `u32` modulo
+/// 2³², so that `2 ** 32 + 3` would be 3 and `1.5` would be 1.
+///
+/// # Errors
+///
+/// A number that is not such an integer (`NaN` included), named as `what`.
+pub fn index(number: f64, what: &str) -> Result<u32, Failure> {
+    if number.fract() == 0.0 && (0.0..=f64::from(u32::MAX)).contains(&number) {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "an integer from 0 to u32::MAX, as just checked"
+        )]
+        Ok(number as u32)
+    } else {
+        Err(Failure::refused(
+            "json",
+            "malformed",
+            &format!(
+                "{what} must be an integer from 0 to {}, not {number}",
+                u32::MAX
+            ),
+        ))
+    }
 }
 
 /// Returns, for an unprovable outcome, whether its refutation passes its

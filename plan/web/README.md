@@ -119,8 +119,10 @@ written as text where a session has them); the page branches on `code`,
 
 `settings` is always the JSON of `linlog::Settings` read over the tab's
 defaults: an empty text is the defaults, and a key the page gives
-replaces the default there, an object key by key. The calls (exported
-under these names; `goal` and `position` are numbers):
+replaces the default there, an object key by key; a value that is not
+an object where the defaults have one is refused. The calls (exported
+under these names; `goal` and `position` are numbers, integers from 0
+to 2³² − 1, anything else refused):
 
 | call | answers |
 |---|---|
@@ -134,8 +136,8 @@ under these names; `goal` and `position` are numbers):
 | `apply(session, goal, step, settings)` | `{"session", "view", "opened"}`, or the refusal with its reason; a step is `{"position", "rule", "left"}`, `left` the positions going to the left premise of a `⊗` or Mix |
 | `undo(session, settings)` | `{"session", "view", "reopened"}` |
 | `close(session, goal, settings)` | `{"session", "view", "outcome", "refused", "refutation_checked"}`: the search within `limits.work`, its proof grafted; `refused` the graft's refusal |
-| `close_all(session, settings)` | `{"session", "view", "results": [{"goal", "outcome", "refused", "error"}]}`, every goal within one budget of `limits.work` |
-| `hint(session, goal, settings)` | `{"outcome", "step"}`: the search on a copy of the goal and the first step of its proof, which `apply` takes as it stands |
+| `close_all(session, settings)` | `{"session", "view", "results": [{"goal", "outcome", "refused", "error", "work"}]}`: every goal's search within one budget of `limits.work` for all of them, a goal it runs out on `work_limit` |
+| `hint(session, goal, settings)` | `{"outcome", "steps"}`: the search on the goal, the session unchanged, and the first steps of its proof (the structural rules at its root and the first rule that is not one), each for `apply` on the goal the one before opened; following the hints proves the goal |
 | `proof(session, settings)` | the checked proof of a finished session |
 | `prove(sequent, mode, settings)` | `{"outcome", "refutation_checked"}`: the verdict for the status light, `refutation_checked` what `Disproof::check` said |
 | `draw(session, settings)` | the session's derivation as SVG, open goals as leaves, `i<n>` and `i<n>-<p>` on every conclusion and formula |
@@ -172,7 +174,7 @@ checked against the library on 2026-10-19:
 |---|---|---|
 | the rules a formula takes, `split_passes` | `rules`, `split_passes` (`Interactive::rules`, `split_passes`) | nothing |
 | each refusal's reason as a value | `apply`'s thrown error: `StepError`'s JSON in `details`, by `kind` with its positions | nothing |
-| a search on a copy of the goal for the hint ladder | `hint` | the library has no "first step of a proof of a goal"; the bindings read it off the graft of a copy (`calls::first_step`); a library call would serve other front ends, a later addition to `Interactive` |
+| a search on a copy of the goal for the hint ladder | `hint` | the library has no "first steps of a proof of a goal"; the bindings read them off the derivation of the goal's proof (`calls::first_steps`); a library call would serve other front ends, a later addition to `Interactive` |
 | a goal's close and all goals' within a work budget | `close`, `close_all` (`limits.work`, one budget for all) | nothing |
 | the verdicts as `Outcome` and `Refutation` with `Disproof::check` | `prove`, `close` (`refutation_checked`) | nothing |
 | every export: SVG, PNG and PDF from the page's font, LaTeX, Typst, Rocq, the certificates of non-derivability, the session as JSON | `draw`, `draw_net`, `export`, `render`, `certificate`, the session document | the certificate of non-validity of ordinary logic (`rocq::write_not_valid`) waits for ordinary logic on the page |

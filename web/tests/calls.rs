@@ -126,25 +126,43 @@ fn a_position_past_32_bits_is_refused() {
     assert!(calls::apply(&state, goal, &step(0, "ax", None), "").is_ok());
 }
 
-/// A hint is the first step of a proof the search found on a copy of the
-/// goal, a step the page can apply as it stands.
+/// Following the hints alone proves a sequent: each hint is the first
+/// steps of a proof the search found for the goal, which the page applies
+/// in turn, each on the goal the one before opened. A contraction comes
+/// with the rule that uses both copies, so the hints do not contract and
+/// weaken a formula in turn.
 #[wasm_bindgen_test(unsupported = test)]
-fn a_hint_is_a_step_that_applies() {
-    let started = calls::start("A, A -o B |- B", "classical", "").unwrap();
-    let state = session(&started);
-    let goal = value(&started)["view"]["goals"][0]["goal"]
-        .as_u64()
-        .unwrap() as u32;
-    let hint = value(&calls::hint(&state, goal, "").unwrap());
-    assert_eq!(hint["outcome"]["verdict"], "proved");
-    let found = hint["step"].to_string();
-    let applied = value(&calls::apply(&state, goal, &found, "").unwrap());
-    assert_eq!(applied["opened"].as_array().unwrap().len(), 2);
+fn following_the_hints_proves_a_sequent() {
+    for (sequent, mode) in [
+        ("A, A -o B |- B", "classical"),
+        ("!A |- A * A", "intuitionistic"),
+        ("!(A -o B), A, A |- B * B", "classical"),
+        ("|- A, ~A, B, ~B", "mix"),
+    ] {
+        let mut state = session(&calls::start(sequent, mode, "").unwrap());
+        for _ in 0..20 {
+            let view = value(&calls::view(&state, "").unwrap());
+            let Some(goal) = view["goals"][0]["goal"].as_u64() else {
+                break;
+            };
+            let hint = value(&calls::hint(&state, goal as u32, "").unwrap());
+            let mut goal = goal as u32;
+            for step in hint["steps"].as_array().unwrap() {
+                let applied = value(&calls::apply(&state, goal, &step.to_string(), "").unwrap());
+                state = applied["session"].to_string();
+                goal = applied["opened"][0].as_u64().map_or(goal, |g| g as u32);
+            }
+        }
+        assert_eq!(
+            value(&calls::view(&state, "").unwrap())["complete"],
+            true,
+            "{sequent}"
+        );
+    }
 }
 
 /// Closing a goal stops at the work budget with an honest unknown, and
-/// proves it within the tab's; closing all goals does so within one
-/// budget.
+/// proves it within the tab's.
 #[wasm_bindgen_test(unsupported = test)]
 fn closing_stops_at_the_work_budget() {
     let started = calls::start("!(a -o a * a), a |- a * a * a * a", "classical", "").unwrap();
@@ -163,12 +181,58 @@ fn closing_stops_at_the_work_budget() {
     let closed = value(&calls::close(&state, goal, "").unwrap());
     assert_eq!(closed["outcome"]["verdict"], "proved");
     assert_eq!(closed["view"]["complete"], true);
-    let all = value(&calls::close_all(&state, "").unwrap());
-    assert_eq!(all["results"][0]["outcome"]["verdict"], "proved");
+}
+
+/// Closing every goal keeps to one budget for all their searches: with
+/// what the first goal's search takes and half of what the second's
+/// does, the first is proved and the second is unknown at the work limit.
+/// The focused engine searches here, whose work, unlike the Horn engine's
+/// few units, outweighs the check of the proof it finds.
+#[wasm_bindgen_test(unsupported = test)]
+fn closing_all_goals_shares_one_budget() {
+    let sequent = "!(a -o a * a), a, !(b -o b * b), b |- (a * a * a * a) * (b * b * b * b)";
+    let started = calls::start(sequent, "classical", "").unwrap();
+    let view = &value(&started)["view"];
+    let root = view["goals"][0]["goal"].as_u64().unwrap() as u32;
+    let formulas = view["goals"][0]["formulas"].as_array().unwrap();
+    let text = |i: usize| formulas[i]["text"].as_str().unwrap().to_string();
+    let tensor = (0..formulas.len())
+        .find(|&i| text(i).contains('a') && text(i).contains('b'))
+        .unwrap();
+    let left = (0..formulas.len())
+        .filter(|&i| i != tensor && !text(i).contains('b'))
+        .collect();
+    let split = calls::apply(&session(&started), root, &step(tensor, "⊗", Some(left)), "").unwrap();
+    let state = session(&split);
+    let focus = settings(&json!({"search": {"engine": "focus"}}));
+    let all = value(&calls::close_all(&state, &focus).unwrap());
+    let work = |i: usize| all["results"][i]["work"].as_u64().unwrap();
+    assert_eq!(all["view"]["complete"], true);
+    let budget = settings(&json!({
+        "search": {"engine": "focus"},
+        "limits": {"work": work(0) + work(1) / 2},
+    }));
+    let shared = value(&calls::close_all(&state, &budget).unwrap());
     assert_eq!(
-        value(&calls::close_all(&state, &tight).unwrap())["view"]["complete"],
-        false
+        shared["results"][0]["outcome"]["verdict"], "proved",
+        "{shared}"
     );
+    let second = &shared["results"][1]["outcome"];
+    assert_eq!(
+        (second["verdict"].clone(), second["reason"]["kind"].clone()),
+        (json!("unknown"), json!("work_limit"))
+    );
+}
+
+/// A goal or a position the page gives as a number is an integer from 0
+/// to `u32::MAX`, refused otherwise rather than taken modulo 2³².
+#[wasm_bindgen_test(unsupported = test)]
+fn a_number_from_the_page_is_an_index_or_refused() {
+    assert_eq!(calls::index(3.0, "a goal"), Ok(3));
+    assert_eq!(calls::index(f64::from(u32::MAX), "a goal"), Ok(u32::MAX));
+    for number in [2_f64.powi(32) + 3.0, 1.5, -1.0, f64::NAN, f64::INFINITY] {
+        assert!(calls::index(number, "a goal").is_err(), "{number}");
+    }
 }
 
 /// An unprovable sequent is refuted, its refutation checked by its own

@@ -48,18 +48,41 @@ for `THIRD-PARTY-NOTICES.txt`.
   (`{"position", "rule", "left"}`) and `Offered` (`{"rule", "split"}`)
   are the bindings', the rule by its `Named` name. When the library
   gives them one (at level 1), the bindings take it.
-- **A hint is read off a graft**: `hint` closes a copy of the goal and
-  turns the grafted inference at that goal into a step (`first_step`):
-  the principal's position, and for `⊗` the left premise's members less
-  the left subformula, for Mix the left premise's members, matched to
-  positions of the goal. `a_hint_is_a_step_that_applies` pins that the
-  step applies to the original.
+- **A hint is the first steps of the goal's proof**: `hint` runs
+  `prove_goal` on the goal (the session untouched) and reads the
+  derivation of that proof alone (never the session's, which a large tree
+  would have refused), from its root up to and including the first
+  inference that is not structural (`first_steps`): a contraction at the
+  root comes with the rule that uses both copies, since a search on the
+  contracted goal may weaken the copy again, and hints that stop at the
+  contraction contract and weaken in turn forever (a reviewer's finding).
+  Each step is the principal's position, and for `⊗` the left premise's
+  members less the left subformula, for Mix the left premise's members,
+  matched to positions of its goal; the goal of a later step is the one
+  the step before opened, whose members are the premise's in the same
+  order. `following_the_hints_proves_a_sequent` pins it.
+- **`close_all`'s budget is the searches' work**: each goal is closed
+  with what the searches before it left of `limits.work` as its own, so
+  the library itself says `work_limit` where the budget ran out (a stop
+  that fires would say `stopped`, which the page cannot tell from a
+  cancel). What a search spent is its `statistics.work`; the polls are
+  no measure, since work between the last poll and the end is not
+  reported. The check of each proof has the same remainder as its own
+  bound, and the refuter its `classical_work`.
 - **The integers at the boundary**: a goal and a position come from
-  JavaScript as `u32`, which widens to `usize` on every target; a
-  position inside a step's JSON is a `usize` read by serde_json, which
-  refuses a number past `usize::MAX` on wasm32 rather than wrapping it
-  (`a_position_past_32_bits_is_refused`). Every count the library
-  writes is a `u64`, exact in JavaScript to 2⁵³ (`wire`'s rule).
+  JavaScript as numbers (`f64`), which `calls::index` takes only as an
+  integer from 0 to `u32::MAX`: as a `u32` parameter wasm-bindgen would
+  take any number modulo 2³² (`2 ** 32 + 3` as 3, `1.5` as 1, `NaN` as
+  0). A `u32` widens to `usize` on every target. A position inside a
+  step's JSON is a `usize` read by serde_json, which refuses a number past
+  `usize::MAX` on wasm32 rather than wrapping it
+  (`a_position_past_32_bits_is_refused`). Every count the library writes
+  is a `u64`, exact in JavaScript to 2⁵³ (`wire`'s rule).
+- **The settings' overlay refuses a non-object where the tab has an
+  object**: serde reads an array as a struct's fields in order and
+  fills the rest from `Default`, the command's values, so `[]` would
+  have been the command's settings, a gibibyte of memory and a recursion
+  depth the host's stack does not hold.
 - **The stack**: `build.rs` links the module with an 8 MiB stack
   (`-zstack-size`, read back as `tab::STACK_BYTES`), but the host's own
   stack, which no page can set (about 1 MiB in Node and in a browser),

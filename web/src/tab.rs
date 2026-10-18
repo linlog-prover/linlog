@@ -86,25 +86,36 @@ pub fn read(json: &str) -> Result<Settings, Failure> {
     }
     let given: Value = serde_json::from_str(json).map_err(Failure::json)?;
     let mut merged = serde_json::to_value(defaults()).map_err(Failure::json)?;
-    overlay(&mut merged, given);
+    overlay(&mut merged, given, "the settings")?;
     serde_json::from_value(merged).map_err(Failure::json)
 }
 
 /// Writes `given` over `base`: objects key by key, every other value
-/// whole.
-fn overlay(base: &mut Value, given: Value) {
+/// whole. Where `base` is an object, `given` must be one: the settings'
+/// reader would take an array for the fields in order and the command's
+/// defaults for the rest.
+fn overlay(base: &mut Value, given: Value, at: &str) -> Result<(), Failure> {
     match (base, given) {
         (Value::Object(base), Value::Object(given)) => {
             for (key, value) in given {
                 match base.get_mut(&key) {
-                    Some(slot) => overlay(slot, value),
+                    Some(slot) => overlay(slot, value, &format!("`{key}`"))?,
                     None => {
                         base.insert(key, value);
                     }
                 }
             }
+            Ok(())
         }
-        (base, given) => *base = given,
+        (Value::Object(_), _) => Err(Failure::refused(
+            "json",
+            "malformed",
+            &format!("{at} must be a JSON object"),
+        )),
+        (base, given) => {
+            *base = given;
+            Ok(())
+        }
     }
 }
 
@@ -125,13 +136,18 @@ mod tests {
     use super::*;
 
     /// A page's key replaces the tab's value and leaves its siblings, and
-    /// a misspelt key is refused.
+    /// a misspelt key, or a value that is no object where one belongs, is
+    /// refused.
     #[test]
     fn a_page_s_key_is_read_over_the_tab_s() {
         let settings = read(r#"{"limits": {"work": 5}}"#).unwrap();
         assert_eq!(settings.limits.work, Some(5));
         assert_eq!(settings.limits.memory_bytes, Some(MEMORY_BYTES));
         assert_eq!(read("").unwrap(), defaults());
-        assert!(read(r#"{"limits": {"wrok": 5}}"#).is_err());
+        assert!(read(r#"{"limits": {"budget": 5}}"#).is_err());
+        // An array is no object, though serde would read one as a struct.
+        for array in ["[]", r#"{"limits": []}"#, r#"{"limits": [null]}"#] {
+            assert!(read(array).is_err(), "{array}");
+        }
     }
 }
