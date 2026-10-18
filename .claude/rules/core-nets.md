@@ -222,7 +222,18 @@ What the code relies on:
   or more and inside no copy of a smaller broken class, so neither step
   moves it, and (2) a partner's key to be the same for every partner the
   exchanges move it to: the first literal of its literal class, or
-  `NONE` (above every key) inside a copy of a broken class. The step-6
+  `NONE` (above every key) inside a copy of a broken class. What the
+  argument also rests on (the panel's reading, session 35a): an
+  exchange of partners is the original linking on the tree reshaped,
+  which is why reshaping arguments apply; sorting one class moves only
+  literals inside its copies (all keyed `NONE`) and carries inner
+  classes along with their copy, so it leaves every other class's key
+  order as it was and outer classes go first; copies have one shape, so
+  the key literal's offset in the first copy is valid in every copy; and
+  the search prunes *partial* linkings without loss because every link
+  of the canonical net passes the orders, the balance and the partner
+  count at every stage. A vacuous chain is dropped because a comparison
+  of two `NONE` keys never rejects. The step-6
   counterexample to the spec's first-literal key (two groups whose first
   literals link into each other's copies) is exactly a key that moves;
   (2) makes it `NONE`. A class without a key literal is not broken (its

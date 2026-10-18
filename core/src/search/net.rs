@@ -235,7 +235,17 @@ impl Prunes {
 /// literal class of two or more and inside no copy of a smaller broken
 /// class, so neither later step moves it, and a partner's key, the
 /// first literal of its class or none inside a broken copy, is the
-/// same for every partner those exchanges move it to.
+/// same for every partner those exchanges move it to. Sorting one class
+/// leaves every other class's keys in their order: it moves only
+/// literals inside its own copies, all keyed none, and carries the
+/// classes inside a copy along with the copy, which is why the outer
+/// classes go first. An exchange of linkings is the original linking on
+/// the tree reshaped, and copies have one shape, so the key literal's
+/// offset in the first copy is its offset in every copy. Every link of
+/// the canonical net passes these orders and the balance at every stage
+/// of the search, so pruning partial linkings by them loses no net; a
+/// chain whose comparisons can only be between keys of none is dropped,
+/// since none of them rejects.
 #[derive(Clone, Debug)]
 struct Symmetry {
     /// Per occurrence, its neighbours along the chains.
@@ -274,7 +284,11 @@ impl Chains {
 impl Symmetry {
     /// Finds the classes of a forest of unit-free MLL: the literal
     /// classes of leaves only with `prunes.leaves`, and the compound
-    /// classes only with `prunes.compounds`.
+    /// classes only with `prunes.compounds`. The forest is one a
+    /// [`ProofStructure`] holds, of fewer than `u32::MAX / 3` occurrences,
+    /// so its ids, the roots' anchor `n`, the shapes (one per occurrence
+    /// at most) and a copy's id plus an offset inside it all stay below
+    /// `NONE`.
     fn new(forest: &Forest, prunes: Prunes) -> Self {
         let n = forest.len();
         // The anchor of an occurrence: the top of the maximal tree of its
