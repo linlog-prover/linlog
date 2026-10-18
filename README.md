@@ -1491,8 +1491,8 @@ Planned, in roughly this order:
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.
-Feature requests and contributions are welcome. All code is licensed
-under the EUPL.
+Feature requests and contributions are welcome. linlog is licensed
+under the EUPL; see [Licence](#licence).
 
 ## Architecture
 
@@ -1549,3 +1549,25 @@ nix run nixpkgs#cachix -- use linlog-prover
 or add `https://linlog-prover.cachix.org` to `extra-substituters` and
 `linlog-prover.cachix.org-1:6K+DDVwwELnSYtfflwUdsHdYuolC7hprdD/r2/KOQZU=`
 to `extra-trusted-public-keys` in `nix.conf`.
+
+## Licence
+
+linlog is © Fabian Lukas Grubmüller and licensed under the European
+Union Public Licence, version 1.2 (EUPL-1.2), whose text is in
+[`LICENSE`](LICENSE).
+
+One part of the repository is someone else's work under its own licence:
+the Euler Math font in [`cli/fonts/`](cli/fonts), which the `linlog`
+command embeds to draw proofs, is © the American Mathematical Society,
+Khaled Hosny and Daniel Flipo, under the SIL Open Font License 1.1
+([`cli/fonts/OFL.txt`](cli/fonts/OFL.txt)). The package `linlog-cli`
+is therefore `EUPL-1.2 AND OFL-1.1`; the library `linlog` contains no
+font. Drawings and documents made with the font are not covered by its
+licence.
+
+The problem libraries and the other provers that the benchmarks and the
+comparison use are not part of this repository: the flake fetches each
+at a pinned version when it is needed, under its own licence. The LLTP
+library is GPL-3.0, the ILTP library states no licence, qcover's
+problems are Apache-2.0, and "Beside the other provers" gives the
+provers' licences.
