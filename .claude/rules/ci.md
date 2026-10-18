@@ -52,9 +52,12 @@ releases a version tag `vX.Y.Z` (below).
   no secret, and the action then only says that pushing is disabled. It
   pushes in daemon mode what the job realised and no upstream cache
   (cache.nixos.org) holds: the toolchain, the dependencies' builds, the
-  packages, the documentation, NanoYalla, the provers of the comparison,
-  and each check's empty result, so a check whose derivation did not
-  change is fetched, not rerun. How narrow those derivations are is the
+  packages, the documentation and each check's empty result (the
+  flake inputs' sources, NanoYalla's among them, are fetched, not
+  uploaded: none is in the cache, checked 2026-10-18), so a check whose
+  derivation did not change is fetched, not rerun. Whatever a job builds
+  goes into the public cache, which is redistribution: a check must not
+  build the other provers or the problem libraries. How narrow those derivations are is the
   flake's (`flake.md`): a change to `cli/` leaves the core crate's checks
   as they were. A download is a realised path too: `pushFilter:
   '\.tar\.xz$'` keeps the toolchain's tarballs out (183 MiB of the first
@@ -75,7 +78,11 @@ releases a version tag `vX.Y.Z` (below).
   run's summary and uploads it all as the artifact `comparison`; it
   commits nothing. BenchExec needs a cgroup from the user's systemd, so
   the job enables lingering for the runner's user first and exports its
-  bus. It has never run: the first run is the author's.
+  bus. It only downloads from the cache (`skipPush: true`, no token):
+  it builds the other provers and the LLTP library, and their licences
+  do not all let this project redistribute them (APLL and the Maude LL
+  prover state none; LLTP is GPL-3.0, and `bench.nix` repairs one of
+  its files). It has never run: the first run is the author's.
 - **Release** (`release.yml`, on a tag `vX.Y.Z` only), three jobs. `check`:
   the tag equals `[workspace.package]`'s version, CITATION.cff states it,
   and CHANGELOG.md has a dated section `## [X.Y.Z] - YYYY-MM-DD` (a
