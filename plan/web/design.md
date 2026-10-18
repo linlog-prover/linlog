@@ -233,27 +233,78 @@ which is a hint the student asks for.
 
 ## The architecture
 
-Settled by the stack survey (`web-stack.md`, 2026-10-18), the author
-not objecting.
+**D37. The client follows the author's two sites** (the author,
+2026-10-18): `~/Projects/own/website` (grubmueller.dev, Hakyll, on its
+way to the same stack) and `~/Projects/own/website-learn`
+(learn.grubmueller.dev, the learning sites), whose stack
+`~/Projects/own/website/docs/stack-spec.md` decides and explains, with
+sources. The client takes every part that applies, so that components,
+design tokens and Claude guidance can be shared, and the step 32
+session that sets the repository up reads that specification and
+`website-learn`'s `CLAUDE.md`, `.claude/rules/` (`web.md`,
+`islands.md`, `design.md`, `nix.md`, `ci.md`) and `modules/` before it
+writes a line, copying what applies rather than reinventing it. The
+stack survey (`web-stack.md`) agrees with the specification on every
+point it covers. In particular:
 
-- **D27. Astro 7 with TypeScript and Solid 1.9**, the app as one
-  `client:only` Solid island and the written content in content
-  collections; plain Vite with Solid is the fallback, Svelte 5 would
-  be as sound, and a Rust framework would put a second wasm module on
-  the main thread for nothing. Solid 2.0 is a release candidate and
-  the Astro integration pins 1.9. Astro 7 needs Node 22.22 or later.
-- **D28. The bindings in a module Worker**: compiled with the
-  `wasm-bindgen` CLI at the version `Cargo.lock` pins (nixpkgs ships
-  one per version), `wasm-opt` after it, loaded as `--target web`
+- **D27. Astro 7, TypeScript 6, Solid 1.9** (stack-spec §3.1, §3.4,
+  §3.7): the app as one Solid island (`client:only`), the written
+  content (D23) in content collections as MDX on the unified pipeline
+  with remark-math and rehype-katex (`strict`, errors fail the build,
+  §3.2) where it sets mathematics; no framework for small things (a
+  toggle, the URL sync: plain TypeScript); the Web Animations API for
+  motion; Solid 2.0 only when the sites move, by the specification's
+  procedure ("Moving to Solid 2.0"); the sites' Solid idioms rule
+  (`islands.md`) copied. `tsconfig` extends `astro/tsconfigs/strictest`
+  with `verbatimModuleSyntax` and `erasableSyntaxOnly`.
+- **D38. Tailwind v4 through the Vite plugin, tokens in CSS** (§3.6):
+  Tailwind's own palette, fonts and scale switched off (`--color-*:
+  initial`), every colour role a `light-dark()` pair under `@theme
+  static` so that one definition serves both schemes and `<html
+  data-theme>` pins one, nothing anywhere naming a raw colour or size
+  (`website-learn/src/styles/tokens.css` and `docs/design-system.md`
+  are the model); the mockup's token system becomes this file.
+- **D39. Biome 2, Vitest with fast-check, Playwright** (§3.7, §6.6):
+  Biome formats and lints TypeScript, JSON and CSS from one
+  `biome.json`, `.astro` files as the sites do; `astro check` for
+  types; Vitest for the client's logic (the URL codec, the step tree,
+  the worker protocol); Playwright against the built site in nixpkgs'
+  Chromium, one test per interaction of the island and one per page
+  for the rules every page meets, each test at the cheapest level that
+  sees what it guards; under CI 60 s and one retry.
+- **D40. npm under Nix** (§3.8): `importNpmLock` from
+  `package-lock.json` (no hash to keep in step), foreign platforms'
+  packages filtered before fetching, `.npmrc` with
+  `package-lock-only`, `save-exact`, `min-release-age=14`,
+  `ignore-scripts`, `allow-git=none`, `engine-strict`; the devshell
+  links `node_modules` from the store (`modules/node-modules.nix` and
+  `devshell.nix` of `website-learn`, taken over). Not pnpm, which the
+  survey had suggested: the specification weighed it and chose npm's
+  settings.
+- **D41. The flake** in the dendritic pattern as this repository's and
+  the sites': flake-parts, import-tree, devshell, treefmt-nix, nixpkgs
+  from the channel tarball; one check per concern, each reading only
+  its own files through `lib.fileset`; a `ci-cache` derivation that
+  roots everything CI must find in the store.
+- **D28. The bindings in a module Worker** (§3.5 and the survey): the
+  crate `linlog-web` of this workspace compiled to
+  `wasm32-unknown-unknown` with the `wasm-bindgen` CLI at the version
+  `Cargo.lock` pins (a flake check compares the two), never wasm-pack,
+  `wasm-opt` after it, built by this repository's flake as a package
+  the client's flake takes through its pinned input, so the client
+  carries no Rust toolchain of its own; loaded as `--target web`
   through Vite's `?url` import, the worker created as `new Worker(new
   URL(…, import.meta.url), {type: "module"})`, a hand-rolled request-id
-  protocol, and cancellation by `terminate()` and a fresh worker, since
-  GitHub Pages cannot set the cross-origin isolation headers that
-  `SharedArrayBuffer` needs. The stack is raised with `-zstack-size`
-  from the 1 MiB default; a tab on iOS gets about 256 MiB of wasm
-  memory, which sets the memory bound's default. Whether Vite's
-  worker format needs `'es'` for the glue is checked in the first
-  scaffold.
+  protocol, cancellation by `terminate()` and a fresh worker. The
+  stack is raised with `-zstack-size` from the 1 MiB default; a tab on
+  iOS gets about 256 MiB of wasm memory, which sets the memory bound's
+  default. `'wasm-unsafe-eval'` in `script-src`.
+- **D42. The security baseline of the sites** (§4) as far as the host
+  allows: no `style` attribute in the built site (the sites'
+  styles-to-classes plugin, `inline-styles.ts`, taken over, with a
+  check), all CSS from files (`inlineStylesheets: 'never'`), inline
+  scripts and styles allowed by generated hashes, `'wasm-unsafe-eval'`
+  only. See D31 on where the policy can live.
 - **D20. The link** (the author: the Unicode sequent, readable): the
   URL fragment, never the query, so nothing reaches a server, holding a
   version mark, the sequent in the parser's own Unicode syntax, the
@@ -266,19 +317,31 @@ not objecting.
 - **D29. Autosave** of the current session in the browser's storage,
   with a restore bar on the next visit; the precedents' most reported
   loss is work gone on a reload.
-- **D30. No offline support in version 1**; later `vite-plugin-pwa`
-  with a navigation denylist for `/linlog/`, since every Pages site
-  of the organization shares one origin and a root-scoped service
-  worker would also control the rustdoc.
-- **D31. Build, CI, hosting**: pnpm built through nixpkgs's
-  `fetchPnpmDeps` and its hooks on Node 24, the Pages deployment with
-  `upload-pages-artifact` and `deploy-pages` (both v5), the repository
-  `linlog-prover.github.io` served at the organization's root with
-  `/linlog` staying the rustdoc, a `404.html`, no `.nojekyll` needed.
-  Pages serves `.wasm` gzip only with `max-age=600`.
+- **D30. No offline support in version 1**, as the sites (installable,
+  no service worker); later `vite-plugin-pwa` with a navigation
+  denylist for `/linlog/`, since every Pages site of the organization
+  shares one origin and a root-scoped service worker would also
+  control the rustdoc.
+- **D31. Hosting, build, CI**: `plan/32-web.md` fixes hosting from the
+  client's repository and names GitHub Pages at
+  `linlog-prover.github.io`, with `/linlog` staying the rustdoc, a
+  `404.html`, no `.nojekyll` needed, `upload-pages-artifact` and
+  `deploy-pages` (both v5). The sites are on Cloudflare Workers with
+  Wrangler, which sets headers: a CSP as an HTTP header, HSTS, COOP,
+  CORP, the `Permissions-Policy`, and Brotli. GitHub Pages sets no
+  header, so the CSP there is a `<meta>` tag, which cannot carry
+  `frame-ancestors`, and the other headers are lost; it serves `.wasm`
+  gzip only with `max-age=600`. *Open to the author: Pages as planned,
+  or a Cloudflare Worker as the sites.* CI as the sites': every push
+  to `main` checked and deployed, a pull request only checked, actions
+  pinned by SHA, `cachix/install-nix-action`, `cache-nix-action`
+  restoring the newest store and saving under `ci-cache`'s hash; with
+  Pages the public Cachix cache `linlog-prover` is available too, and
+  the client pushes only its own outputs to it.
 - **D32. Licence notices**: Vite's own `build.license` collects the
   npm bundle's; the Rust crates inside the wasm module need
-  `cargo-about` or the like, checked in CI; the OFL as D25 says.
+  `cargo-about` or the like, run in this repository's flake beside the
+  bindings' package and served with them; the OFL as D25 says.
 
 ## The quality floors
 
