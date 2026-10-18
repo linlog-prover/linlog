@@ -256,6 +256,13 @@ area that took it (the reports under `plan/reports/` have the tables):
   the 22 Horn rows (Partition and 3-Partition) fall, by design, from
   thousands to millions of nodes to hundreds (`3-partition-mll-no/5`
   16 202 533 nodes to 227, `partition-no/3` 269 950 to 391).
+- `after-routing` and `net-after-routing`: unit-free MLL to the focused
+  engines, the net engine only at their limits. The focused set has the
+  verdicts of `after-efficiency` on its 135 decided rows and its
+  counters but on five: `partition-table/1-1`, which the dispatch now
+  gives the focused engine, and the chain family's four (the memo entry
+  and hit of `after-generations`). The net set has the counters of
+  `net-after-prunes` on all 64 rows.
 
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
