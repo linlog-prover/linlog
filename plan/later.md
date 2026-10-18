@@ -1533,6 +1533,21 @@ Each enters as a problem file under `bench/problems/` or as a source in
 search's own bound and the unit of work of the default bias should be
 tuned on, beyond the 109 sampled LLTP problems they were set on.
 
+## Follow-ups: certified refutations
+
+*From step 31d (`plan/reports/31-rocq-library.md`, "Session 31d:
+certified refutations"; unassigned).*
+
+- **The comparison counts linlog's unprovable as unchecked.** Its
+  driver gives a checked mark to a proof only; a disproof whose
+  refutation `Disproof::check` accepts is as checked. The next
+  comparison's driver reads the outcome's refutation and checks it.
+- **The one-sided and state-equation refutations** have neither a
+  check nor a Rocq lemma, so they stay uncertified; each needs its
+  invariant stated, checked without the search, and proved.
+- **`linlog check` reads proofs only.** A disproof's JSON could be
+  read and checked the same way, with the exit statuses of a proof.
+
 ## Follow-ups: the release's licences
 
 *Found by the licence audit before 0.1.0 (2026-10-18, unassigned; the

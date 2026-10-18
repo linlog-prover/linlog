@@ -2501,3 +2501,45 @@ client follows it (step 32).
   31d, answering a search's `Unknown` by default; R3 is step 39; R4
   stays step 37, its prompt corrected. Next: 31c (the bridges) and 35b
   (essential nets), side by side again.
+- 2026-10-18: review of steps 31c and 31d, the end of step 31:
+  - 31c (Opus 5.5 at high): `Mix.v` reduces Mix to `?(⊥⊗⊥)`
+    (`mix_to_ll`, `mix_to_classical`), and `rocq/bridges/` proves the
+    library's calculi equivalent to NanoYalla's `nanoll.v` and Yalla's
+    `nanoill.v`, compiled by the check `rocq-bridges` against the
+    files the flake inputs `nanoyalla` and `yalla` pin, never copied
+    (LGPL); the check's output is an empty marker, so nothing of Yalla
+    reaches the public cache (its narinfo answered 404).
+  - 31d (Opus 5.5 at high): R2, on by default. After every search that
+    does not prove its goal, the classical refuter looks for an
+    assignment that falsifies the goal's classical reading, bounded by
+    work (`Options::classical_work`, 2²⁶, `--classical-work`); it
+    turns an `Unknown` into `Unprovable` (`Refutation::Classical`) and
+    gives an exhausted search a certificate. `Disproof::check`
+    verifies the classical, unbalanced and count-equation refutations
+    without the search's code; `Refutations.v` proves the three
+    invariants and the embedding of ILL, and `rocq::write_disproof`
+    and `write_not_valid` write certificates of non-derivability. Wire
+    level 2 only for a classical refutation. Held-out sets at 10 s: no
+    verdict changed; 90 of the 153 unprovable rows carry a checked
+    refutation, against 15 before. Three points for the author: the
+    refuter is a plain function, not api.md's `Refute` trait, which
+    waits for a second refuter (departs from the design); there is no
+    `refute_unknown`, the bound is the switch (departs from the
+    design); the command lets the refutation run past `--timeout`
+    within its bound (at most 136 ms on the held-out sets' 129
+    undecided rows), since a search ended by the clock would otherwise
+    never be refuted (departs from the design).
+
+  The review read the refuter, the three checks and `Refutations.v`'s
+  statements (Mix binary only, as `Calculus.v` says, so the empty
+  sequent is no counterexample), rebuilt `rocq-linlog` (18 theorems
+  closed under the global context), compared 31d's target sets with
+  the oracles itself (no verdict differs; five undecided rows, four of
+  `growing` and `mix/11`, now refuted; the counters as `TARGETS.md`
+  records; the net set equal on all 64 rows), and probed the command on
+  sequents a refuter could get wrong (`!a ⊢ a⊗a`, `⊢ ?a, ?~a`, the
+  empty sequent with Mix). The chain was stacked on `main`, and the
+  gate and `nix flake check` ran at the head. Left open (later.md): the
+  comparison's driver still counts linlog's unprovable as unchecked;
+  the one-sided and state-equation refutations have no check and no
+  lemma; `linlog check` reads no disproof. Prompt 32 is finished.
