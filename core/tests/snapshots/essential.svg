@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="143.456" height="87.216" viewBox="0 0 8966 5451" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ a ⊗ b⊥, b ⊗ c⊥, a⊥ ⅋ c</title>
+<desc>⊢ a ⊗ ~b, b ⊗ ~c, ~a ⅋ c
+a[1] — ~a[7]
+~b[2] — b[4]
+~c[5] — c[8]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M1224 4026L604 3211"/>
+<path d="M766 3612L972 3694L948 3474"/>
+<path d="M4386 4023L3791 3211"/>
+<path d="M3940 3608L4144 3694L4124 3473"/>
+<circle id="o6" cx="7649" cy="4361" r="380"/>
+<path d="M7823 4023L8423 3211"/>
+<path d="M8088 3472L8067 3693L8272 3608"/>
+<path d="M7649 4741V5111"/>
+<path d="M7535 4831L7649 5021L7763 4831"/>
+</g>
+<g fill="none" stroke="#009e73" stroke-width="40">
+<circle id="o0" cx="1403" cy="4361" r="380"/>
+<path d="M1582 4026L2203 3211"/>
+<path d="M1926 3762L1950 3542L1744 3624"/>
+<circle id="o3" cx="4559" cy="4361" r="380"/>
+<path d="M4732 4023L5328 3211"/>
+<path d="M5065 3761L5086 3540L4882 3626"/>
+<path d="M1403 4741V5111"/>
+<path d="M1517 5021L1403 4831L1289 5021"/>
+<path d="M4559 4741V5111"/>
+<path d="M4673 5021L4559 4831L4445 5021"/>
+</g>
+<g fill="none" stroke="#cc79a7" stroke-width="40">
+<path d="M7475 4023L6875 3211" stroke-dasharray="40 80"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l2-4" d="M2203 2221A794 476 0 0 1 3791 2221"/>
+<path d="M2902 1859L3092 1745L2902 1631"/>
+<path id="l5-8" d="M5328 2221A1547 928 0 0 1 8423 2221"/>
+<path d="M6780 1407L6970 1293L6780 1179"/>
+<path id="l1-7" d="M604 2221A3135 1881 0 0 1 6875 2221"/>
+<path d="M3834 226L3644 340L3834 454"/>
+</g>
+<text x="300" y="3111" textLength="609" lengthAdjust="spacing" id="o1">𝑎</text>
+<text x="1909" y="3111" textLength="588" lengthAdjust="spacing" id="o2" fill="#009e73">𝑏</text>
+<text x="3497" y="3111" textLength="588" lengthAdjust="spacing" id="o4">𝑏</text>
+<text x="5085" y="3111" textLength="486" lengthAdjust="spacing" id="o5" fill="#009e73">𝑐</text>
+<text x="6571" y="3111" textLength="609" lengthAdjust="spacing" id="o7" fill="#009e73">𝑎</text>
+<text x="8180" y="3111" textLength="486" lengthAdjust="spacing" id="o8">𝑐</text>
+<text x="999" y="4561" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="4155" y="4561" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="7245" y="4561" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+</svg>

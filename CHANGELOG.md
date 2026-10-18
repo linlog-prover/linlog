@@ -103,6 +103,13 @@ second number (0.1.x to 0.2.0), anything else the third.
   witnesses `NetError::DirectedCycle` and `NetError::NoDominator` (and
   `NetError::NotIntuitionistic` for a sequent without a reading), and
   `ProofStructure::reading` gives a structure's reading.
+- The drawing of an essential net in the SVG export: `svg::Style`'s
+  `essential` (`--style svg.essential=true`, off by default) draws the
+  net of an intuitionistic sequent with every edge an arrow from the
+  hypotheses toward the goal, the input side in the colour `input`, the
+  nodes as `⊸` and `⊗`, each implication joined to its antecedent by a
+  dotted line in the colour `dominator`, and the essential criterion's
+  witness highlighted.
 
 ### Changed
 

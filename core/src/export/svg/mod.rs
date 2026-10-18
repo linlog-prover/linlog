@@ -124,6 +124,24 @@ pub struct Style {
     /// The colour the drawing is filled with, or none for a transparent
     /// background.
     pub background: Option<String>,
+    /// Whether a proof structure of a sequent with an intuitionistic
+    /// reading is drawn as its essential net: every edge an arrow in the
+    /// direction of the net, from the hypotheses toward the goal, the
+    /// input occurrences in the [`input`](Self::input) colour, the nodes
+    /// as the connectives of the reading (`⊸` and `⊗`), every literal as
+    /// its atom, each implication of output position joined to its
+    /// antecedent by a dotted line in the [`dominator`](Self::dominator)
+    /// colour, and a directed cycle or a path around an implication in
+    /// the highlight colour. A structure without the reading is drawn as
+    /// without this.
+    pub essential: bool,
+    /// The colour of the input occurrences of an essential net, their
+    /// edges and the edges below the hypotheses.
+    pub input: String,
+    /// The colour of the dotted line of an essential net from an
+    /// implication to its antecedent, which no edge joins: the
+    /// implication must dominate it.
+    pub dominator: String,
 }
 
 impl Default for Style {
@@ -155,6 +173,9 @@ impl Default for Style {
             link: "black".into(),
             highlight: "#d55e00".into(),
             background: None,
+            essential: false,
+            input: "#009e73".into(),
+            dominator: "#cc79a7".into(),
         }
     }
 }
@@ -312,6 +333,24 @@ impl Style {
     pub fn with_background(self, background: Option<String>) -> Self {
         Self { background, ..self }
     }
+
+    /// Returns the style with another [`essential`](Self::essential).
+    #[must_use]
+    pub fn with_essential(self, essential: bool) -> Self {
+        Self { essential, ..self }
+    }
+
+    /// Returns the style with another [`input`](Self::input).
+    #[must_use]
+    pub fn with_input(self, input: String) -> Self {
+        Self { input, ..self }
+    }
+
+    /// Returns the style with another [`dominator`](Self::dominator).
+    #[must_use]
+    pub fn with_dominator(self, dominator: String) -> Self {
+        Self { dominator, ..self }
+    }
 }
 
 impl Style {
@@ -324,6 +363,8 @@ impl Style {
             link: "#e6e6e6".into(),
             highlight: "#e69f00".into(),
             background: Some("#1e1e1e".into()),
+            input: "#009e73".into(),
+            dominator: "#cc79a7".into(),
             ..Self::default()
         }
     }
@@ -895,6 +936,9 @@ pub fn write<'a>(
 /// has the edges, conclusions and links of every part but the first in
 /// it. Literals and connectives are the
 /// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
+/// With [`Style::essential`], a structure of an intuitionistic sequent is
+/// drawn as its essential net instead, which the field describes, its
+/// highlights those of [`ProofStructure::is_essential`].
 ///
 /// A drawing estimated past `limits.derivation_bytes` is not drawn, as a
 /// derivation past it is not built: the estimate counts every literal,
@@ -925,11 +969,16 @@ pub fn net(
             }));
         }
     }
-    let verdict = net.is_correct(stop);
+    let mut stop = stop;
+    let reading = net.reading().ok().filter(|_| style.essential);
+    let verdict = match &reading {
+        Some(_) => net.is_essential(&mut stop),
+        None => net.is_correct(&mut stop),
+    };
     if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
         return Err(refused.into());
     }
-    Ok(net::draw(net, style, &verdict))
+    Ok(net::draw(net, style, &verdict, reading.as_ref()))
 }
 
 #[cfg(test)]

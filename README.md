@@ -857,7 +857,12 @@ derivation so far, an open goal as its sequent under vertical dots.
 `--net` the proof net of the proof, for the sequents `--net` takes: the conclusions at the bottom, every `⊗` and `⅋` a circle (the
 premise edges of a `⅋` dashed and blue, since a switching keeps one of
 them), and every axiom link an arc over the literals it joins. The
-verdict becomes an XML comment. `seq print --format svg` and `show --svg`
+verdict becomes an XML comment. `--style svg.essential=true` draws the net
+of an intuitionistic sequent as its essential net: every edge an arrow
+from the hypotheses toward the goal, the input side in green
+(`svg.input`), the nodes as `⊸` and `⊗`, each implication of the goal's
+side joined to its antecedent by a dotted line (`svg.dominator`), and a
+directed cycle or a path around an implication highlighted. `seq print --format svg` and `show --svg`
 in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
@@ -867,6 +872,7 @@ always a document.
 ```console
 $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
 $ linlog prove --net --output net.svg "A * B |- B * A"
+$ linlog prove -i --net --style svg.essential=true --output essential.svg "A -o B, B -o C |- A -o C"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥, A</title>
@@ -1577,7 +1583,9 @@ Built:
   documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG, laid out with the character widths
   of the Euler Math font (or another font's), a switching cycle or the
-  parts of a disconnected structure highlighted, with a reading for
+  parts of a disconnected structure highlighted, intuitionistic ones
+  also as essential nets (directed edges, polarities, the dominator
+  condition), with a reading for
   screen readers, and
   rendered as PNG and as archival (PDF/A-4, PDF/A-2u) or accessible
   (PDF/UA-1) PDF.

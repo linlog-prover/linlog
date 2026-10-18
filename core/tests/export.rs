@@ -575,6 +575,61 @@ fn nets() {
     snapshot("disconnected.svg", &drawing);
 }
 
+/// Essential nets are pinned as SVG: the net of `a ⊸ b, b ⊸ c ⊢ a ⊸ c`
+/// with its arrows, polarities and the dotted line from the implication
+/// to its antecedent, and a structure whose antecedent reaches the goal
+/// around its implication, the path highlighted. Without the option, or
+/// for a sequent without an intuitionistic reading, the proof net is
+/// drawn as before.
+#[test]
+fn essential_nets() {
+    let style = Style::default().with_essential(true);
+    let net = ProofStructure::from_proof(
+        &proof("a -o b, b -o c |- a -o c", Mode::INTUITIONISTIC),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    )
+    .unwrap();
+    let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
+    snapshot("essential.svg", &drawing);
+    assert_ne!(
+        drawing,
+        svg::net(&net, &Style::default(), &unbounded(), |_| false).unwrap()
+    );
+
+    // `⊢ (a ⊸ b) ⊗ (b ⊸ a)`, each antecedent linked into the other
+    // factor: a proof net of neither kind.
+    let forest = Forest::new(&"|- (a -o b) * (b -o a)".parse().unwrap()).unwrap();
+    let links = [
+        (VertexId::new(2), VertexId::new(6)),
+        (VertexId::new(5), VertexId::new(3)),
+    ];
+    let around = ProofStructure::from_links(forest, Criterion::MLL, &links).unwrap();
+    let drawing = svg::net(&around, &style, &unbounded(), |_| false).unwrap();
+    let highlight = format!(r#"stroke="{}""#, style.highlight);
+    assert!(drawing.contains(&highlight), "{drawing}");
+    snapshot("essential-around.svg", &drawing);
+
+    let forest = Forest::new(&"|- A par B, ~A * ~B".parse().unwrap()).unwrap();
+    let links = [
+        (VertexId::new(1), VertexId::new(4)),
+        (VertexId::new(2), VertexId::new(5)),
+    ];
+    let unread = ProofStructure::from_links(forest, Criterion::MLL, &links).unwrap();
+    assert!(unread.reading().is_err());
+    assert_eq!(
+        svg::net(&unread, &style, &unbounded(), |_| false),
+        svg::net(&unread, &Style::default(), &unbounded(), |_| false)
+    );
+    // The estimate holds the arrows.
+    let bytes = svg::net(&around, &style, &unbounded(), |_| false)
+        .unwrap()
+        .len() as u64;
+    assert!(svg::net(&around, &style, &bounded(bytes), |_| false).is_err());
+    assert!(svg::net(&around, &style, &bounded(4 * bytes), |_| false).is_ok());
+}
+
 /// A net's drawing estimated past its limit is not drawn; the estimate is
 /// at least the drawing's bytes and within a few times of them.
 #[test]

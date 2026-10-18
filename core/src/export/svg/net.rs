@@ -13,12 +13,14 @@
 //! nested pairs of literals still never cross; links over interleaved
 //! pairs cross. A structure that is no proof net has its switching
 //! cycle, or every part but the first that it falls into, in the
-//! highlight colour.
+//! highlight colour. Drawn as an essential net, the same layout carries
+//! the reading's direction on every edge, as an arrowhead halfway along
+//! it, and its polarity in the colours.
 
 use super::font::{AXIS, HEIGHT};
 use super::{NOTATION, PLAIN, RAISED_BOT, Style, document, escaped, run, text};
 use crate::nets::{NetError, ProofStructure};
-use crate::occurrences::OccId;
+use crate::occurrences::{OccId, Reading, Side};
 use crate::sequents::Kind;
 use std::fmt::Write;
 
@@ -28,6 +30,49 @@ const FOOT: i64 = 100;
 /// The height of the middle of `⅋` above the baseline: unlike `⊗`, it
 /// stands on the baseline instead of being centred on the math axis.
 const PAR_MIDDLE: i64 = 344;
+
+/// Writes an arrowhead with its tip at `tip`, pointing along `towards`,
+/// its wings `size` back from the tip.
+fn arrowhead(out: &mut String, tip: (i64, i64), towards: (f64, f64), size: i64) {
+    let length = towards.0.hypot(towards.1);
+    let (dx, dy) = (towards.0 / length, towards.1 / length);
+    let back = (
+        tip.0 as f64 - dx * size as f64,
+        tip.1 as f64 - dy * size as f64,
+    );
+    let side = 0.6 * size as f64;
+    let wing = |sign: f64| {
+        (
+            (back.0 - sign * dy * side).round() as i64,
+            (back.1 + sign * dx * side).round() as i64,
+        )
+    };
+    let (a, b) = (wing(1.0), wing(-1.0));
+    writeln!(
+        out,
+        r#"<path d="M{} {}L{} {}L{} {}"/>"#,
+        a.0, a.1, tip.0, tip.1, b.0, b.1
+    )
+    .unwrap();
+}
+
+/// Writes an arrowhead halfway along the segment from `from` to `to`,
+/// pointing at `to`.
+fn arrow_along(out: &mut String, from: (i64, i64), to: (i64, i64), size: i64) {
+    let towards = ((to.0 - from.0) as f64, (to.1 - from.1) as f64);
+    let middle = ((from.0 + to.0) / 2, (from.1 + to.1) / 2);
+    let tip = towards_by(middle, towards, size / 2);
+    arrowhead(out, tip, towards, size);
+}
+
+/// Returns the point `by` from `from` in the direction `towards`.
+fn towards_by(from: (i64, i64), towards: (f64, f64), by: i64) -> (i64, i64) {
+    let scale = by as f64 / towards.0.hypot(towards.1);
+    (
+        from.0 + (towards.0 * scale).round() as i64,
+        from.1 + (towards.1 * scale).round() as i64,
+    )
+}
 
 /// Returns the point `by` along the segment from `from` towards `to`.
 fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
@@ -109,6 +154,11 @@ const ROOT: u64 = 60;
 /// The bytes of a link's arc.
 const LINK: u64 = 120;
 
+/// The bytes an essential net's drawing adds per edge, conclusion and
+/// link: an arrowhead of three points with coordinates of up to twelve
+/// digits; per literal, its colour; and per drawing, its groups.
+const ARROW: u64 = 100;
+
 /// A writer that counts the bytes of what it is given escaped for XML,
 /// and fails once they pass `most`.
 struct Count {
@@ -164,6 +214,17 @@ pub(super) fn estimate(net: &ProofStructure, style: &Style, most: u64) -> u64 {
     bytes = bytes
         .saturating_add(roots.saturating_mul(ROOT + 2))
         .saturating_add(links.saturating_mul(LINK));
+    if style.essential {
+        // An arrowhead per edge (two per connective), conclusion and link,
+        // a colour per literal and the drawing's two more groups.
+        let edges = (forest.len() as u64)
+            .saturating_mul(2)
+            .saturating_add(roots)
+            .saturating_add(links);
+        bytes = bytes
+            .saturating_add(edges.saturating_mul(ARROW))
+            .saturating_add(DOCUMENT);
+    }
     if style.description && bytes <= most {
         // The text form, as the drawing writes it: its sequent, its links
         // and the verdict, which names the occurrences of a switching
@@ -179,14 +240,23 @@ pub(super) fn estimate(net: &ProofStructure, style: &Style, most: u64) -> u64 {
 }
 
 /// Returns a proof structure as an SVG document, titled with its sequent
-/// in plain text; `verdict` is its [`ProofStructure::is_correct`].
-pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), NetError>) -> String {
+/// in plain text; `verdict` is its [`ProofStructure::is_correct`], or with
+/// the `reading` of its sequent, which draws it as its essential net, its
+/// [`ProofStructure::is_essential`].
+pub(super) fn draw(
+    net: &ProofStructure,
+    style: &Style,
+    verdict: &Result<(), NetError>,
+    reading: Option<&Reading<'_>>,
+) -> String {
     let forest = net.forest();
     let n = forest.len();
     let line_height = i64::from(style.line_height);
     let (gap, radius) = (i64::from(style.literal_gap), i64::from(style.node_radius));
     let (margin, stroke) = (i64::from(style.margin), i64::from(style.stroke_width));
     let label_size = i64::from(style.label_size);
+    let input = |o: OccId| reading.is_some_and(|r| r.position(o) == Side::Input);
+    let arrow = radius / 2;
 
     // The literals from left to right, each with its edges at the middle
     // of its atom, so a raised `⊥` leaves them where the atom is; every
@@ -201,6 +271,10 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
         NOTATION
             .term(&mut formula, forest.sequent(), forest.term(o), false)
             .unwrap();
+        // An essential net's literal is its atom, its polarity a colour.
+        if reading.is_some() {
+            formula.truncate(formula.trim_end_matches(RAISED_BOT).len());
+        }
         let label = run(&formula, 1000, &style.font);
         let atom = match forest.kind(o) {
             Kind::DualAtom => run(formula.trim_end_matches(RAISED_BOT), 1000, &style.font).width,
@@ -258,7 +332,10 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
     // each left premise, and the first part's, which stays unmarked.
     let (mut cycle, mut parts) = (Vec::new(), None);
     match verdict {
-        Err(NetError::SwitchingCycle { cycle: vertices }) => {
+        Err(
+            NetError::SwitchingCycle { cycle: vertices }
+            | NetError::DirectedCycle { cycle: vertices },
+        ) => {
             let next = vertices.iter().cycle().skip(1);
             cycle = vertices
                 .iter()
@@ -271,6 +348,18 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
             let component = components(net);
             let first = component[tops[0][0].index()];
             parts = Some((component, first));
+        }
+        // The path, and the missing edge from the implication to its
+        // antecedent that it goes around.
+        Err(NetError::NoDominator { implication, path }) => {
+            cycle = path
+                .windows(2)
+                .map(|w| (w[0].min(w[1]).occ(), w[0].max(w[1]).occ()))
+                .collect();
+            if let Some(antecedent) = forest.left(implication.occ()) {
+                cycle.push((implication.occ(), antecedent));
+            }
+            cycle.sort_unstable();
         }
         _ => {}
     }
@@ -288,22 +377,31 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
 
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
     let (mut marked, mut texts) = (String::new(), String::new());
+    let (mut inputs, mut dominators) = (String::new(), String::new());
     let dash = format!("{} {}", 3 * stroke, 3 * stroke);
     for (o, left, label) in &literals {
-        let id = format!(r#" id="o{}""#, o.get());
+        let mut id = format!(r#" id="o{}""#, o.get());
+        if input(*o) {
+            write!(id, r#" fill="{}""#, escaped(&style.input)).unwrap();
+        }
         text(&mut texts, *left, baseline, label, &id, None);
     }
     for o in forest.ids().filter(|&o| !forest.is_literal(o)) {
         let centre = (x[o.index()], y(o));
         writeln!(
-            lines,
+            if input(o) { &mut inputs } else { &mut lines },
             r#"<circle id="o{}" cx="{}" cy="{}" r="{radius}"/>"#,
             o.get(),
             centre.0,
             centre.1
         )
         .unwrap();
+        // An essential net's nodes are the reading's connectives: `A⊥ ⅋ B`
+        // in output position and `A ⊗ B⊥` in input position are `A ⊸ B`.
+        let implication = reading.is_some() && (forest.kind(o) == Kind::Par) != input(o);
         let (symbol, middle) = match forest.kind(o) {
+            _ if implication => ("⊸", AXIS),
+            Kind::Par if reading.is_some() => ("⊗", AXIS),
             Kind::Par => ("⅋", PAR_MIDDLE),
             Kind::Atom
             | Kind::DualAtom
@@ -335,6 +433,28 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
                 true => (target.0, baseline + FOOT),
                 false => towards(target, centre, radius),
             };
+            if reading.is_some() {
+                // Output premises lead down into their connective, input
+                // connectives up into their input premises, and nothing
+                // into the antecedent of an output implication.
+                let (upward, antecedent) = (input(child), input(child) && !input(o));
+                let out = match (marks(o, child), antecedent, upward) {
+                    (true, _, _) => &mut marked,
+                    (false, true, _) => &mut dominators,
+                    (false, false, true) => &mut inputs,
+                    (false, false, false) => &mut lines,
+                };
+                write!(out, r#"<path d="M{} {}L{} {}""#, from.0, from.1, to.0, to.1).unwrap();
+                if antecedent {
+                    write!(out, r#" stroke-dasharray="{stroke} {}""#, 2 * stroke).unwrap();
+                    out.push_str("/>\n");
+                } else {
+                    out.push_str("/>\n");
+                    let (start, end) = if upward { (from, to) } else { (to, from) };
+                    arrow_along(out, start, end, arrow);
+                }
+                continue;
+            }
             let par = forest.kind(o) == Kind::Par;
             let out = match (marks(o, child), par) {
                 (true, _) => &mut marked,
@@ -354,8 +474,18 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
             false => y(r) + radius,
         };
         let column = x[r.index()];
-        let out = if apart(r) { &mut marked } else { &mut lines };
+        let out = match (apart(r), input(r)) {
+            (true, _) => &mut marked,
+            (false, true) => &mut inputs,
+            (false, false) => &mut lines,
+        };
         writeln!(out, r#"<path d="M{column} {start}V{end}"/>"#).unwrap();
+        // The hypotheses come in from below, the goal goes out.
+        if reading.is_some() {
+            let (from, to) = ((column, start), (column, end));
+            let (from, to) = if input(r) { (to, from) } else { (from, to) };
+            arrow_along(out, from, to, arrow);
+        }
     }
     let top = baseline - HEIGHT;
     for (p, q) in joined(net) {
@@ -368,6 +498,14 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
             p.max(q).get()
         )
         .unwrap();
+        // From the input literal to the output one, at the arc's top.
+        if reading.is_some() {
+            let leftwards =
+                x[p.index()].min(x[q.index()]) == x[if input(p) { q } else { p }.index()];
+            let towards = (if leftwards { -1.0 } else { 1.0 }, 0.0);
+            let tip = towards_by((a + rx, top - ry), towards, arrow / 2);
+            arrowhead(out, tip, towards, arrow);
+        }
     }
 
     let group = |out: &mut String, colour: &str, extra: &str, content: &str| {
@@ -382,12 +520,17 @@ pub(super) fn draw(net: &ProofStructure, style: &Style, verdict: &Result<(), Net
     };
     let body = |out: &mut String| {
         group(out, &style.line, "", &lines);
-        group(
-            out,
-            &style.par,
-            &format!(r#" stroke-dasharray="{dash}""#),
-            &pars,
-        );
+        if reading.is_some() {
+            group(out, &style.input, "", &inputs);
+            group(out, &style.dominator, "", &dominators);
+        } else {
+            group(
+                out,
+                &style.par,
+                &format!(r#" stroke-dasharray="{dash}""#),
+                &pars,
+            );
+        }
         group(out, &style.link, "", &links);
         if !marked.is_empty() {
             group(out, &style.highlight, "", &marked);
