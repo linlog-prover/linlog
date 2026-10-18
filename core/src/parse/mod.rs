@@ -17,6 +17,7 @@
 
 use crate::Error;
 use crate::errors::ParseError;
+use crate::fragment::Order;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
@@ -133,12 +134,25 @@ struct Parser<'a> {
     most: u64,
     /// The bound on occurrences the caller set, if any.
     limit: Option<u64>,
+    /// The order of the calculus the sequent is read for, which decides
+    /// what a negation does to a product and to the antecedents.
+    order: Order,
+}
+
+/// Reads `text` as a sequent for a calculus of `order`, refused past
+/// `limit` terms. The one place a parser is made and run: both readers
+/// call it, so the parser is a local of this function and its loop, with
+/// what the loop calls, has one caller (a loop each reader inlined cost
+/// the commutative one 1.5 % to 7 % of its instructions, as a shared
+/// callee lost its inlining).
+fn read(text: &str, limit: Option<u64>, order: Order) -> Result<Sequent, Error> {
+    Parser::new(text, limit, order).sequent()
 }
 
 impl<'a> Parser<'a> {
     /// Returns a parser at the start of `input`, for a sequent of at most
     /// `limit` terms and as many as a forest indexes.
-    fn new(input: &'a str, limit: Option<u64>) -> Self {
+    fn new(input: &'a str, limit: Option<u64>, order: Order) -> Self {
         let most = limit.unwrap_or(Forest::MOST).min(Forest::MOST);
         Self {
             input,
@@ -157,6 +171,7 @@ impl<'a> Parser<'a> {
             marks: 0,
             most,
             limit,
+            order,
         }
     }
 
@@ -488,18 +503,39 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Applies the negations noted and returns the sequent, optimized.
-    fn finish(mut self) -> Result<Sequent, Error> {
+    /// Dualises every term that stands under an odd number of negations,
+    /// reversing the operands of a product when `ORDERED`.
+    fn dualise<const ORDERED: bool>(&mut self) {
         // A term comes after its subterms, so one pass from the last term
         // sees every negation of a term before it reaches the term.
         for n in (0..self.terms.len()).rev() {
             if self.negated[n] {
-                let term = self.terms[n].dual();
+                let mut term = self.terms[n].dual();
+                if ORDERED {
+                    term = match term {
+                        Term::Tensor(l, r) => Term::Tensor(r, l),
+                        Term::Par(l, r) => Term::Par(r, l),
+                        other => other,
+                    };
+                }
                 self.terms[n] = term;
                 for k in term.subterms() {
                     self.negated[k.index()] ^= true;
                 }
             }
+        }
+    }
+
+    /// Applies the negations noted and returns the sequent, optimized. In
+    /// the cyclic order the dual of a product reverses it, `(A ⊗ B)⊥ =
+    /// B⊥ ⅋ A⊥`, and the antecedents `A₁, …, Aₙ ⊢` become `Aₙ⊥, …, A₁⊥`,
+    /// the dual of their product.
+    fn finish(mut self) -> Result<Sequent, Error> {
+        if self.order == Order::Commutative {
+            self.dualise::<false>();
+        } else {
+            self.dualise::<true>();
+            self.roots[..self.antecedents as usize].reverse();
         }
         let mut sequent = Sequent {
             terms: self.terms,
@@ -526,7 +562,38 @@ impl Sequent {
     /// past the bound, and [`Refusal::Index`] for more terms than a forest
     /// indexes, whatever the bound.
     pub fn parse_within(text: &str, limits: &Limits) -> Result<Self, Error> {
-        Parser::new(text, limits.occurrences).sequent()
+        read(text, limits.occurrences, Order::Commutative)
+    }
+
+    /// Parses a sequent as [`parse_within`](Self::parse_within) does, for
+    /// a calculus that keeps `order`: in [`Order::Cyclic`] the dual of a
+    /// product reverses it, `~(A * B)` reading as `~B par ~A`, and the
+    /// formulas left of the turnstile come in the reverse order, each
+    /// negated, so that `A, B |- C` is `|- ~B, ~A, C`, the cyclic sequent
+    /// whose proofs are those of the two-sided one. The formulas then
+    /// stand in the order the cyclic calculus reads, which is the
+    /// occurrence forest's. In [`Order::Commutative`] it is
+    /// [`parse_within`](Self::parse_within).
+    ///
+    /// Needs the cargo feature `parse` (on by default).
+    ///
+    /// # Errors
+    ///
+    /// Those of [`parse_within`](Self::parse_within).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use linlog::{Limits, Order, Sequent};
+    ///
+    /// let cyclic = Sequent::parse_ordered("a * b |- a * b", Order::Cyclic, &Limits::default())?;
+    /// assert_eq!(cyclic.to_string(), "⊢ ~b ⅋ ~a, a ⊗ b");
+    /// let commutative: Sequent = "a * b |- a * b".parse()?;
+    /// assert_eq!(commutative.to_string(), "⊢ ~a ⅋ ~b, a ⊗ b");
+    /// # Ok::<(), linlog::Error>(())
+    /// ```
+    pub fn parse_ordered(text: &str, order: Order, limits: &Limits) -> Result<Self, Error> {
+        read(text, limits.occurrences, order)
     }
 }
 
@@ -550,11 +617,15 @@ mod tests {
     fn refuses_more_terms_than_the_arena_holds() {
         let input = "A |- !A * B";
         assert_eq!(
-            Parser::new(input, Some(5)).sequent().unwrap().terms().len(),
+            Parser::new(input, Some(5), Order::Commutative)
+                .sequent()
+                .unwrap()
+                .terms()
+                .len(),
             5
         );
         assert!(matches!(
-            Parser::new(input, Some(4)).sequent(),
+            Parser::new(input, Some(4), Order::Commutative).sequent(),
             Err(Error::Refused(Refusal::Occurrences {
                 occurrences: 5,
                 limit: 4

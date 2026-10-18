@@ -5,7 +5,7 @@
 
 #![cfg(feature = "parse")]
 
-use linlog::{Error, Sequent};
+use linlog::{Error, Limits, Order, Sequent};
 
 /// Parses `input` as a sequent of classical linear logic and prints it back.
 fn pretty(input: &str) -> String {
@@ -159,6 +159,36 @@ fn printed_sequents_parse_back() {
 /// An error names the first character that cannot go on a sequent, by its
 /// byte offset, or the end of the input; of `|-` and `-o` cut short that
 /// is the character after the first.
+/// The cyclic order's parse reverses what a negation dualises, products
+/// and the antecedents, and leaves every other formula as the commutative
+/// parse reads it; its sequents print back as themselves.
+#[test]
+fn cyclic_duals_reverse() {
+    let cyclic = |input: &str| {
+        Sequent::parse_ordered(input, Order::Cyclic, &Limits::default())
+            .unwrap_or_else(|e| panic!("{input:?}: {e}"))
+    };
+    for (input, printed) in [
+        ("|- ~(a * b), a, b", "⊢ ~b ⅋ ~a, a, b"),
+        ("|- (a par b)^, b, a", "⊢ ~b ⊗ ~a, b, a"),
+        ("a, a -o b |- b", "⊢ ~b ⊗ a, ~a, b"),
+        ("a -o b, a |- b", "⊢ ~a, ~b ⊗ a, b"),
+        ("a, b, c |- (a * b) * c", "⊢ ~c, ~b, ~a, (a ⊗ b) ⊗ c"),
+        ("|- a * (b par c), ~c", "⊢ a ⊗ (b ⅋ c), ~c"),
+    ] {
+        let sequent = cyclic(input);
+        assert_eq!(sequent.to_string(), printed, "{input}");
+        assert_eq!(sequent.antecedents(), cyclic(input).antecedents());
+        assert_eq!(cyclic(printed).to_string(), printed);
+    }
+    assert_eq!(cyclic("a, b |- c").antecedents(), Some(2));
+    assert_eq!(pretty("a, b |- (a * b) * c"), "⊢ ~a, ~b, (a ⊗ b) ⊗ c");
+    assert_eq!(
+        Sequent::parse_ordered("a * b |- c", Order::Commutative, &Limits::default()).unwrap(),
+        "a * b |- c".parse::<Sequent>().unwrap()
+    );
+}
+
 #[test]
 fn error_positions() {
     for (input, at, found) in [
