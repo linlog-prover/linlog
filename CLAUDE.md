@@ -42,6 +42,13 @@ Workspace crates:
   the benchmark harness, the baselines under `bench/results/DAY/`
   (`bench/RESULTS.md`, `bench/COMPARISON.md`) and the focused engine's
   target set (`bench/targets.sh`, `bench/TARGETS.md`).
+- `web/` is package **`linlog-web`** (not published): the WebAssembly
+  bindings of a web page, the library for `wasm32-unknown-unknown`
+  without `parallel` behind calls of JSON in and JSON, SVG or bytes out,
+  with a browser tab's defaults; `modules/web.nix` builds the package
+  `linlog-web` (wasm-bindgen's CLI at the lock's version, `wasm-opt`,
+  cargo-about's notices) that the client's repository takes, and runs
+  the tests under Node. `plan/web/README.md` is the web front end's plan.
 - `rocq/` is the Rocq library **`rocq-linlog`** (logical path `Linlog`,
   not a crate): the one-sided calculus of linear logic with Mix and
   weakening as parameters and the two-sided calculus of intuitionistic
@@ -79,6 +86,7 @@ per bullet, what a later session must know and cannot see in the code.
 | `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `rocq.md` | `rocq/**` | the Rocq library's layout, its trusted base, the modules, how the checker reads the Rust algorithm, the certificates, extension points |
+| `web.md` | `web/**`, `modules/web.nix` | the bindings' layout, why nothing is kept between calls, the tab's settings, the errors, the stack measured, the build and its checks, extension points |
 | `flake.md` | `flake.nix`, `flake.lock`, `modules/**` | what each flake module holds and checks |
 | `evidence.md` | `mutants/**`, `fuzz/**`, `.cargo/mutants.toml` | the mutation run's scope and passes, the fuzz targets, their seeds and runs |
 | `ci.md` | `.github/**` | how the workflows are written and pinned |
@@ -114,7 +122,7 @@ bench/targets.sh LABEL            # the focused engine's target set into bench/t
 bench/net-targets.sh LABEL        # the net engine's target set into bench/targets/net-LABEL.csv (one core, about 5 min, detached)
 bench/baseline.sh --detach --fresh   # the whole baseline in a user unit, started when the author gives the machine (about 3 h; --arm waits for the night slot): bench/results/DAY/, bench/RESULTS.md
 
-nix flake check   # build, clippy-CRATE, test-CRATE, test-debug-assertions-CRATE (the tests with debug_assert! on, which the release profile drops; CRATE is core, cli or bench, each from its own crate's sources), doc, doc-private (the docs of private items, whose links must resolve), wasm (the library built for wasm32 with every feature but parallel), deny, features (cargo-hack), package (both crates packaged and built as crates.io gets them), msrv (the workspace on the `rust-version` toolchain), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), rocq-linlog (the Rocq library built and its certificates compiled, the soundness theorems closed under the global context), rocq-bridges (the library's equivalences with NanoYalla and nanoill.v, closed under the global context), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks, conventions (licence headers, no comment naming the plan), typos (spelling, typos.toml), shear (no unused dependency)
+nix flake check   # build, clippy-CRATE, test-CRATE, test-debug-assertions-CRATE (the tests with debug_assert! on, which the release profile drops; CRATE is core, cli, bench or web, each from its own crate's sources), doc, doc-private (the docs of private items, whose links must resolve), wasm (the library built for wasm32 with every feature but parallel), web-package, web-wasm-tests (the bindings' tests under Node), web-core-wasm32 (the checker's, size estimate's, memo's and memory account's tests on wasm32-wasip1), web-bindgen (the CLI's version against Cargo.lock's), deny, features (cargo-hack), package (both crates packaged and built as crates.io gets them), msrv (the workspace on the `rust-version` toolchain), export (the LaTeX and Typst output compiles, the SVG renders), rocq (NanoYalla checks the certificates), rocq-linlog (the Rocq library built and its certificates compiled, the soundness theorems closed under the global context), rocq-bridges (the library's equivalences with NanoYalla and nanoill.v, closed under the global context), bench (the harness on the smallest problems), ratchet (the journeys' instruction counts against their ceilings), deadnix, actionlint, treefmt, claude-hooks, conventions (licence headers, no comment naming the plan), typos (spelling, typos.toml), shear (no unused dependency)
 nix build .#checks.x86_64-linux.rocq   # the certificates alone: Rocq is a 1.2 GB closure from the binary cache
 gate              # what every commit that touches code passes: clippy, the tests (the behaviour lock among them), both cargo hack runs, the ratchet (about 4 min on four cores)
 ratchet           # the journeys' instruction counts under callgrind against bench/ceilings.csv; ratchet --lower after a count went down
@@ -122,6 +130,8 @@ mutants/run.sh    # mutation testing of the checker, the readers, the front door
 nix develop .#fuzz -c fuzz/run.sh   # every fuzz target until its coverage stops growing (nightly, cores 12-15, detached), after fuzz/seed.sh
 nix fmt           # nixfmt, rustfmt, taplo, shfmt, shellcheck, ruff-format (a hook runs it on each file changed with Write or Edit; a file changed from the shell needs it run by hand before the commit, or the treefmt check fails)
 nix build         # linlog-cli, whose binary is result/bin/linlog
+nix build .#linlog-web   # the web bindings: linlog_web.js, linlog_web_bg.wasm, LICENSE, THIRD-PARTY-NOTICES.txt
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p linlog-web --target wasm32-unknown-unknown   # the bindings' tests under Node
 nix build .#doc   # the rustdoc site, as the Docs workflow publishes it
 ```
 
@@ -139,6 +149,8 @@ Verify as much as the change needs:
 | touches `search/parallel.rs`, `focus/parallel.rs` or `net::parallel` | `cargo test --workspace` covers them (the CLI depends on `parallel`, and cargo unifies features across a workspace run); `cargo test -p linlog` alone needs `--features parallel` |
 | touches `rocq/` | `nix build .#checks.x86_64-linux.rocq-linlog .#checks.x86_64-linux.rocq-bridges` (the library, every certificate under `rocq/tests/`, the bridges, the theorems' assumptions), under the machine lock while a timed run may hold it |
 | adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0, Zlib, BSD-2-Clause or BSD-3-Clause |
+| touches `web/` | add the bindings' tests under Node (`nix build .#checks.x86_64-linux.web-wasm-tests`, or the command above in the devshell) |
+| touches the checker's, the size estimate's or the memo's integers | add `nix build .#checks.x86_64-linux.web-core-wasm32` (their tests on a 32-bit target) |
 | `flake.nix`, `modules/`, `.github/`, the toolchain, a lock bump, or before a push | `nix flake check`, which runs all of the above |
 
 ## The flake

@@ -1687,12 +1687,20 @@ Built:
 - Releases: the crates `linlog` and `linlog-cli` on crates.io, with a
   changelog that states what each version promises, and a workflow that
   publishes a version tag.
+- WebAssembly bindings for a web page, the unpublished crate
+  `linlog-web` in `web/`: the library compiled for
+  `wasm32-unknown-unknown` behind calls of JSON in and JSON or SVG out
+  (a sequent read, an interactive proof step by step, a goal closed by
+  the search within a budget of work, a hint, every export), with
+  defaults that fit a browser tab, built by the flake as a package of
+  the module and its JavaScript, and tested under Node; the library's
+  checker and memo are tested on a 32-bit target there too.
 
 Planned, in roughly this order:
 
 - Certified refutations beyond the cheap ones: countermodels of the
   other logics, failure certificates of the search.
-- A web front end for proving step by step in the browser.
+- A web page for proving step by step in the browser, on those bindings.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, the Lambek calculus, the inverse method,
   and first-order linear logic.
@@ -1704,14 +1712,14 @@ under the EUPL; see [Licence](#licence).
 
 ## Architecture
 
-Three crates, with a fourth to come: the library `linlog` in `core/` holds
-all the logic; the command line program `linlog` (package `linlog-cli`) in
-`cli/` is a thin front end; the benchmark harness `linlog-bench` in
-`bench/` runs the library's engines on problem sets; a web front end will
-compile the library to
-WebAssembly, so the library uses no clock, and threads only behind its
-`parallel` feature, which the web front end leaves off (the flake builds
-it for `wasm32-unknown-unknown` with every other feature).
+Four crates: the library `linlog` in `core/` holds all the logic; the
+command line program `linlog` (package `linlog-cli`) in `cli/` is a thin
+front end; the benchmark harness `linlog-bench` in `bench/` runs the
+library's engines on problem sets; and the bindings `linlog-web` in
+`web/` compile the library to WebAssembly for a web page, so the library
+uses no clock, and threads only behind its `parallel` feature, which the
+bindings leave off (the flake builds them for `wasm32-unknown-unknown`
+with every other feature).
 
 The library keeps a sequent as a compact arena of subformulas in negation
 normal form, one-sided (`Γ ⊢ Δ` becomes `⊢ Γ^⊥, Δ`); an intuitionistic

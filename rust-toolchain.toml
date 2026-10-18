@@ -2,12 +2,13 @@
 # Licensed under the EUPL
 
 # Read by rustup and by modules/toolchain.nix. rust-src lets rust-analyzer
-# see the standard library; the wasm target is what the flake's `wasm`
-# check builds the library for, as a browser will run it. The minimal
+# see the standard library; wasm32-unknown-unknown is what a browser runs
+# (the `wasm' check and the web bindings), and wasm32-wasip1 runs the
+# library's own tests on a 32-bit target under wasmtime. The minimal
 # profile leaves out the standard library's HTML manual (rust-docs), which
 # nothing here reads and which CI would otherwise upload to the cache.
 [toolchain]
 channel = "stable"
 profile = "minimal"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
-targets = ["wasm32-unknown-unknown"]
+targets = ["wasm32-unknown-unknown", "wasm32-wasip1"]

@@ -18,18 +18,20 @@ and `systems.nix` are what their names say.
 
 - **Each check reads only its crate's parts.** `workspace.nix` cuts the
   workspace into parts (`core`, `core-tests`, `cli`, `cli-tests`,
-  `bench`, `bench-tests`: a crate's `src/` with its manifest, and its
+  `bench`, `bench-tests`, `web`, `web-tests`: a crate's `src/` with its
+  manifest (the bindings' `build.rs` and cargo-about files too), and its
   `tests/` with what they read: the core crate's export tests the font
   in `cli/fonts`, the command's README's examples), and `argsOf PARTS`
   gives the crane arguments of a source of those parts. Every source
   keeps the four manifests and the lock, since cargo loads every member,
   and `stubMembers` (the `postPatch`) gives a member left out an empty
   file for each target its manifest names (`cli/src/lib.rs`,
-  `cli/src/main.rs`, `bench/src/main.rs`): a new explicit target path in
+  `cli/src/main.rs`, `bench/src/main.rs`, `web/src/lib.rs`): a new explicit target path in
   a manifest goes into that list. A file no part names is in no Rust
   check: `plan/`, the benchmark data, the scripts, `fuzz/`.
 - `checks.nix`'s `clippy-CRATE`, `test-CRATE` and
-  `test-debug-assertions-CRATE` (CRATE `core`, `cli`, `bench`) are one
+  `test-debug-assertions-CRATE` (CRATE `core`, `cli`, `bench`, `web`;
+  the bindings' natively, from `core`, `web`, `web-tests`) are one
   check per crate from `perCrate`: the core crate's from `core` and
   `core-tests` with `--all-features` (the set the command enables, so
   that `parallel`, `png` and `pdf` are tested; `cargo test --workspace`
@@ -208,3 +210,13 @@ OCaml 4.14 (it was written for 4.06). Each carries
 `share/linlog-comparison/tools.json` records per `--tools` name.
 `comparison` joins linlog's command and harness, BenchExec, the provers
 and Python with matplotlib; no check builds it.
+- `web.nix` is the bindings for a browser (`web.md` has the details):
+  the package `linlog-web` (the module built for wasm32 by the
+  `wasm-bindgen` CLI that nixpkgs has for the crate's version in
+  `Cargo.lock`, `wasm-opt`, and cargo-about's notices), with its own
+  dependencies' build for wasm32 (`wasmArtifacts`); the checks
+  `web-package`, `web-wasm-tests` (the bindings' tests under Node),
+  `web-core-wasm32` (the library's tests of its integers on
+  wasm32-wasip1 under wasmtime, from `core` and `core-tests` alone) and
+  `web-bindgen` (the CLI's version against the lock's); and the
+  devshell's CLI, `wasm-opt`, Node and wasmtime, added from this module.

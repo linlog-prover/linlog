@@ -86,6 +86,17 @@ second number (0.1.x to 0.2.0), anything else the third.
   `NotValid`. The command's `--format rocq` writes them for an
   unprovable or not valid verdict, and says on standard error where
   there is none.
+- The WebAssembly bindings `linlog-web` (`web/`, not published): the
+  library for a web page, compiled for `wasm32-unknown-unknown` without
+  `parallel`, behind calls of JSON in and JSON, SVG or bytes out over a
+  session, the settings (read over a browser tab's defaults:
+  `linlog_web::tab`) and a search's outcome. The flake builds the module
+  with the `wasm-bindgen` CLI of the version `Cargo.lock` pins and
+  `wasm-opt`, with the notices of the crates inside it, as the package
+  `linlog-web`, and runs its tests under Node (`web-wasm-tests`).
+- The flake check `web-core-wasm32` runs the library's tests of the
+  proof checker, the size estimate, the memo and the memory account on a
+  32-bit target, `wasm32-wasip1` under wasmtime.
 
 ### Wire forms
 

@@ -48,6 +48,19 @@
           (craneLib.fileset.commonCargoSources ../bench/src)
         ];
         bench-tests = ../bench/tests;
+        web = fileset.unions [
+          ../web/Cargo.toml
+          ../web/build.rs
+          ../web/about.toml
+          ../web/about.hbs
+          (craneLib.fileset.commonCargoSources ../web/src)
+          ../LICENSE
+        ];
+        # The bindings' tests render with the font the command embeds.
+        web-tests = fileset.unions [
+          ../web/tests
+          ../cli/fonts
+        ];
       };
 
       # cargo loads every member of the workspace, so every source keeps
@@ -63,6 +76,7 @@
             ../core/Cargo.toml
             ../cli/Cargo.toml
             ../bench/Cargo.toml
+            ../web/Cargo.toml
           ]
           ++ map (name: parts.${name}) names
         );
@@ -75,7 +89,7 @@
       everything = builtins.attrNames parts;
 
       stubMembers = ''
-        for target in cli/src/lib.rs cli/src/main.rs bench/src/main.rs; do
+        for target in cli/src/lib.rs cli/src/main.rs bench/src/main.rs web/src/lib.rs; do
           if [ ! -e "$target" ]; then
             mkdir -p "$(dirname "$target")"
             touch "$target"
@@ -110,6 +124,7 @@
         core = "--package linlog --all-features";
         cli = "--package linlog-cli";
         bench = "--package linlog-bench";
+        web = "--package linlog-web";
       };
 
       # The dependencies of every crate as its checks and packages select

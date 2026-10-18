@@ -1,0 +1,12 @@
+The WebAssembly module of linlog contains code of the following crates,
+under the licences below.
+{{#each licenses}}
+
+================================================================================
+{{name}} ({{id}}), used by:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+{{/each}}
+
+{{text}}
+{{/each}}

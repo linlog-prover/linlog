@@ -3,7 +3,7 @@
 
 [workspace]
 resolver = "3"
-members = ["bench", "cli", "core"]
+members = ["bench", "cli", "core", "web"]
 
 [workspace.metadata.crane]
 name = "linlog-workspace"

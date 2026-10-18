@@ -44,6 +44,14 @@
           ];
           selection = workspace.selections.bench;
         };
+        web = {
+          parts = [
+            "core"
+            "web"
+            "web-tests"
+          ];
+          selection = workspace.selections.web;
+        };
       };
 
       # The checks of every crate, `NAME-CRATE' for each of the checks given.

@@ -1,0 +1,291 @@
+// linlog © Fabian Lukas Grubmüller 2026
+// Licensed under the EUPL
+
+//! The calls as the page makes them, under WebAssembly in Node and as
+//! ordinary tests elsewhere.
+
+use linlog_web::calls::{self, StepForm};
+use linlog_web::{Failure, tab};
+use serde_json::{Value, json};
+use wasm_bindgen_test::wasm_bindgen_test;
+
+/// The tab's settings with some keys replaced.
+fn settings(over: &Value) -> String {
+    over.to_string()
+}
+
+/// Reads a call's JSON.
+fn value(text: &str) -> Value {
+    serde_json::from_str(text).unwrap()
+}
+
+/// Reads a failure's JSON.
+fn failure(failure: &Failure) -> Value {
+    value(&failure.0)
+}
+
+/// A step's JSON.
+fn step(position: usize, rule: &str, left: Option<Vec<usize>>) -> String {
+    serde_json::to_string(&StepForm {
+        position,
+        rule: rule.into(),
+        left,
+    })
+    .unwrap()
+}
+
+/// The session of a call's answer, as the page keeps it.
+fn session(answer: &str) -> String {
+    value(answer)["session"].to_string()
+}
+
+/// A proof by clicking: the rules a formula takes, a split, the axioms,
+/// the finished proof checked and every export of it; the view says
+/// which goals are open and what each drawn inference is.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_proof_by_steps_is_checked_and_exported() {
+    // ⊢ ~A, A ⊗ ~B, B: the goal's formulas are 0: ~A, 1: A ⊗ ~B, 2: B.
+    let started = calls::start("A, A -o B |- B", "classical", "").unwrap();
+    let view = &value(&started)["view"];
+    assert_eq!(view["fragment"], "MLL");
+    assert_eq!(view["goals"][0]["formulas"][1]["text"], "A ⊗ ~B");
+    assert_eq!(view["net"], Value::Null);
+    let root = view["goals"][0]["goal"].as_u64().unwrap() as u32;
+    let state = session(&started);
+    let rules = value(&calls::rules(&state, root, 1, "").unwrap());
+    assert_eq!(rules, json!([{"rule": "⊗", "split": true}]));
+    let split = calls::apply(&state, root, &step(1, "⊗", Some(vec![0])), "").unwrap();
+    let opened = value(&split)["opened"].clone();
+    let mut state = session(&split);
+    for goal in opened.as_array().unwrap() {
+        let goal = goal.as_u64().unwrap() as u32;
+        state = session(&calls::apply(&state, goal, &step(0, "ax", None), "").unwrap());
+    }
+    let view = value(&calls::view(&state, "").unwrap());
+    assert_eq!(
+        (view["complete"].clone(), view["steps"].clone()),
+        (json!(true), json!(3))
+    );
+    assert_eq!(
+        value(&calls::proof(&state, "").unwrap())["nodes"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    let drawing = calls::draw(&state, "").unwrap();
+    assert!(drawing.contains("id=\"i0\"") && drawing.contains("id=\"i0-0\""));
+    assert!(calls::draw_net(&state, "").unwrap().contains("id=\"l"));
+    for (format, mark) in [
+        ("text", "⊗"),
+        ("latex", "\\otimes"),
+        ("typst", "#prooftree"),
+        ("rocq", "Proof."),
+    ] {
+        let text = calls::export(&state, format, "").unwrap();
+        assert!(text.contains(mark), "{format}: {text}");
+    }
+}
+
+/// A refusal says why as values, and leaves the session unchanged;
+/// `split_passes` greys a split that cannot pass.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_refused_step_says_why() {
+    let started = calls::start("A * B |- B * A", "classical", "").unwrap();
+    let state = session(&started);
+    let goal = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let refused = calls::apply(&state, goal, &step(0, "ax", None), "").unwrap_err();
+    let refused = failure(&refused);
+    assert_eq!(
+        (refused["code"].clone(), refused["kind"].clone()),
+        (json!("step"), json!("invalid"))
+    );
+    assert!(refused["details"]["kind"].is_string(), "{refused}");
+    // ⊢ A⊥ ⅋ B⊥, B ⊗ A: the ⊗ with nothing on its left cannot close.
+    let passes = |left| calls::split_passes(&state, goal, &step(1, "⊗", Some(left)), "").unwrap();
+    assert!(!passes(vec![]));
+}
+
+/// A position past what 32 bits hold is refused, never read as a smaller
+/// one.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_position_past_32_bits_is_refused() {
+    let started = calls::start("A |- A", "classical", "").unwrap();
+    let state = session(&started);
+    let goal = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let wide = json!({"position": 1_u64 << 32, "rule": "ax"}).to_string();
+    let refused = failure(&calls::apply(&state, goal, &wide, "").unwrap_err());
+    assert!(
+        matches!(refused["code"].as_str(), Some("json" | "step")),
+        "{refused}"
+    );
+    assert!(calls::apply(&state, goal, &step(0, "ax", None), "").is_ok());
+}
+
+/// A hint is the first step of a proof the search found on a copy of the
+/// goal, a step the page can apply as it stands.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_hint_is_a_step_that_applies() {
+    let started = calls::start("A, A -o B |- B", "classical", "").unwrap();
+    let state = session(&started);
+    let goal = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let hint = value(&calls::hint(&state, goal, "").unwrap());
+    assert_eq!(hint["outcome"]["verdict"], "proved");
+    let found = hint["step"].to_string();
+    let applied = value(&calls::apply(&state, goal, &found, "").unwrap());
+    assert_eq!(applied["opened"].as_array().unwrap().len(), 2);
+}
+
+/// Closing a goal stops at the work budget with an honest unknown, and
+/// proves it within the tab's; closing all goals does so within one
+/// budget.
+#[wasm_bindgen_test(unsupported = test)]
+fn closing_stops_at_the_work_budget() {
+    let started = calls::start("!(a -o a * a), a |- a * a * a * a", "classical", "").unwrap();
+    let state = session(&started);
+    let goal = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let tight = settings(&json!({"limits": {"work": 1}}));
+    let stopped = value(&calls::close(&state, goal, &tight).unwrap());
+    assert_eq!(stopped["outcome"]["verdict"], "unknown");
+    assert_eq!(
+        stopped["outcome"]["reason"]["kind"], "work_limit",
+        "{stopped}"
+    );
+    assert_eq!(stopped["view"]["complete"], false);
+    let closed = value(&calls::close(&state, goal, "").unwrap());
+    assert_eq!(closed["outcome"]["verdict"], "proved");
+    assert_eq!(closed["view"]["complete"], true);
+    let all = value(&calls::close_all(&state, "").unwrap());
+    assert_eq!(all["results"][0]["outcome"]["verdict"], "proved");
+    assert_eq!(
+        value(&calls::close_all(&state, &tight).unwrap())["view"]["complete"],
+        false
+    );
+}
+
+/// An unprovable sequent is refuted, its refutation checked by its own
+/// checker and certified for Rocq.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_refutation_is_checked_and_certified() {
+    let decided = calls::prove("A * A |- A", "classical", "").unwrap();
+    let decided = value(&decided);
+    assert_eq!(decided["outcome"]["verdict"], "unprovable");
+    assert_eq!(decided["refutation_checked"], true);
+    let certificate = calls::certificate(&decided["outcome"].to_string(), "").unwrap();
+    assert!(certificate.contains("Qed."), "{certificate}");
+}
+
+/// The reader tells a typed sequent, a sequent's JSON and a session apart,
+/// and refuses a level it does not know by name.
+#[wasm_bindgen_test(unsupported = test)]
+fn documents_are_read_by_kind() {
+    let typed = value(&calls::read("A, A -o B |- B", "").unwrap());
+    assert_eq!(
+        (
+            typed["kind"].clone(),
+            typed["fragment"]["intuitionistic"].clone()
+        ),
+        (json!("sequent"), json!("IMLL"))
+    );
+    let json = value(&calls::read(&typed["sequent"].to_string(), "").unwrap());
+    assert_eq!(
+        (json["kind"].clone(), json["text"].clone()),
+        (json!("sequent"), typed["text"].clone())
+    );
+    let started = calls::start("A |- A", "intuitionistic", "").unwrap();
+    let session = value(&calls::read(&session(&started), "").unwrap());
+    assert_eq!(
+        (session["kind"].clone(), session["mode"].clone()),
+        (json!("session"), json!("intuitionistic"))
+    );
+    let mut later = typed["sequent"].clone();
+    later["version"] = json!(99);
+    let refused = failure(&calls::read(&later.to_string(), "").unwrap_err());
+    assert_eq!(refused["code"], "unsupported_version");
+    let parse = failure(&calls::read("A *", "").unwrap_err());
+    assert_eq!(parse["code"], "parse", "{parse}");
+}
+
+/// The drawings render to PNG and PDF from the font the page passes.
+#[wasm_bindgen_test(unsupported = test)]
+fn drawings_render_with_the_page_s_font() {
+    let font = include_bytes!("../../cli/fonts/Euler-Math.otf");
+    let started = calls::start("A |- A", "classical", "").unwrap();
+    let drawing = calls::draw(&session(&started), "").unwrap();
+    let png = calls::render(&drawing, "png", font, "").unwrap();
+    assert_eq!(&png[1..4], b"PNG");
+    let dated = settings(
+        &json!({"styles": {"pdf": {"date": {"year": 2026, "month": 10, "day": 19, "hour": 12, "minute": 0, "second": 0}}}}),
+    );
+    let pdf = calls::render(&drawing, "pdf", font, &dated).unwrap();
+    assert_eq!(&pdf[..5], b"%PDF-");
+}
+
+/// A search that recurses to the tab's recursion limit stops there with
+/// that reason, on each of the paths whose levels take the most stack:
+/// copies of a `!` formula (a focus level each), nested `&` (the additive
+/// path's level a pair) and a Mix of pairs (a level a part). The module's
+/// stack and the host's hold the deepest recursion the limit allows.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_search_at_the_recursion_limit_stops_there() {
+    let depth = tab::RECURSION_DEPTH as usize;
+    let nested = (0..2 * depth).fold("a".to_string(), |f, _| format!("(a & {f})"));
+    let pairs = vec!["a, ~a"; 2 * depth].join(", ");
+    for (sequent, mode) in [
+        ("!(a -o a * a), a |- ?b".to_string(), "classical"),
+        (format!("|- {nested}, ~a"), "classical"),
+        (format!("|- {pairs}"), "mix"),
+    ] {
+        // The classical refuter, which refutes the first, is off.
+        let deep = settings(&json!({
+            "search": {"copies": 4 * depth, "classical_work": 0},
+            "limits": {"work": null},
+        }));
+        let decided = value(&on_a_search_stack(move || {
+            calls::prove(&sequent, mode, &deep).unwrap()
+        }));
+        let reason = &decided["outcome"]["reason"];
+        assert_eq!(reason["kind"], "recursion_limit", "{decided}");
+        assert_eq!(reason["depth"], tab::RECURSION_DEPTH);
+    }
+}
+
+/// Runs `f` where a search to the tab's recursion limit runs: on the
+/// module's own stack under WebAssembly, and elsewhere on a thread with
+/// the stack the library asks for that depth, as the command gives its
+/// search one (a test thread's is smaller).
+fn on_a_search_stack(f: impl FnOnce() -> String + Send + 'static) -> String {
+    if cfg!(target_family = "wasm") {
+        return f();
+    }
+    let limits = linlog::Limits::default().with_recursion_depth(tab::RECURSION_DEPTH);
+    std::thread::Builder::new()
+        .stack_size(limits.stack_bytes())
+        .spawn(f)
+        .unwrap()
+        .join()
+        .unwrap()
+}
+
+/// A memory bound smaller than a search needs is a refusal or an unknown,
+/// never a crash.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_small_memory_bound_refuses() {
+    let small = settings(&json!({
+        "limits": {"memory_bytes": 4096, "work": null},
+        "search": {"copies": 64, "classical_work": 0},
+    }));
+    let answer = calls::prove("!(a -o a * a), a |- ?b", "classical", &small);
+    match answer {
+        Ok(decided) => assert_eq!(value(&decided)["outcome"]["verdict"], "unknown"),
+        Err(refused) => assert_eq!(failure(&refused)["kind"], "limit"),
+    }
+}
