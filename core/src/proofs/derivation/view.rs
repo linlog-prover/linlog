@@ -200,6 +200,12 @@ pub struct Derivation<'a> {
         expect(dead_code, reason = "only a certificate asks")
     )]
     of_goal: bool,
+    /// The mode the proof is meant for, where it records one.
+    #[cfg_attr(
+        not(feature = "rocq"),
+        expect(dead_code, reason = "only a certificate asks")
+    )]
+    mode: Option<Mode>,
 }
 
 impl<'a> Derivation<'a> {
@@ -269,6 +275,7 @@ impl<'a> Derivation<'a> {
             reading,
             inferences,
             of_goal: proof.goal().is_some(),
+            mode: proof.mode(),
         })
     }
 
@@ -279,6 +286,7 @@ impl<'a> Derivation<'a> {
         forest: &'a Forest,
         reading: Option<Reading<'a>>,
         inferences: Vec<Inference>,
+        mode: Mode,
     ) -> Self {
         debug_assert!(!inferences.is_empty());
         Self {
@@ -286,6 +294,7 @@ impl<'a> Derivation<'a> {
             reading,
             inferences,
             of_goal: false,
+            mode: Some(mode),
         }
     }
 
@@ -294,6 +303,12 @@ impl<'a> Derivation<'a> {
     #[cfg(feature = "rocq")]
     pub(crate) const fn is_of_goal(&self) -> bool {
         self.of_goal
+    }
+
+    /// Returns the mode the proof is meant for, where it records one.
+    #[cfg(feature = "rocq")]
+    pub(crate) const fn mode(&self) -> Option<Mode> {
+        self.mode
     }
 
     /// Unfolds a proof whose root concludes `goal` rather than the roots,

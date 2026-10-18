@@ -613,6 +613,7 @@ impl Interactive {
             &self.forest,
             self.reading(),
             inferences,
+            self.mode,
         ))
     }
 

@@ -804,7 +804,8 @@ fn latex_and_typst_formats() {
 
 /// `--format rocq` prints the verdict as a Rocq comment and the
 /// derivation as a lemma with its proof script for `prove` and `check`;
-/// `--standalone` adds the import; a proof with Mix has no certificate.
+/// `--standalone` adds the import; a proof with Mix has a certificate for
+/// linlog's library, which the mode chooses, and none for NanoYalla.
 #[test]
 fn rocq_format() {
     let (status, out, _) = linlog(&["prove", "--format", "rocq", "A |- A"], "");
@@ -825,7 +826,16 @@ fn rocq_format() {
         "{out}"
     );
     assert!(out.contains("apply (ex_perm_r [2; 0; 1] [dual B; tens B A; dual A]).\n"));
-    let (status, out, err) = linlog(&["prove", "--mix", "--format", "rocq", "A, B |- A, B"], "");
+    let mix = ["prove", "--mix", "--format", "rocq", "A, B |- A, B"];
+    let (status, out, _) = linlog(&mix, "");
+    assert_eq!(status, 0);
+    assert!(
+        out.contains(
+            "Lemma certificate : ll (atom := string) {| mix := true; weakening := false |}"
+        ),
+        "{out}"
+    );
+    let (status, out, err) = linlog(&[&mix[..], &["--kernel", "nanoyalla"]].concat(), "");
     assert_eq!((status, out.as_str()), (2, ""));
     assert!(err.contains("NanoYalla has no Mix rule"), "{err}");
 }
@@ -1096,6 +1106,7 @@ fn every_style_option() {
         (&ill, "svg", "description", "false", true),
         (&["A |- A"], "rocq", "form", "\"standalone\"", true),
         (&["A |- A"], "rocq", "lemma", "\"identity\"", true),
+        (&["A |- A"], "rocq", "kernel", "\"linlog\"", true),
         (
             &["--standalone", "A |- A"],
             "rocq",
@@ -1180,7 +1191,7 @@ fn verdict_lines() {
 }
 
 /// `--compact` draws a run of weakenings as one starred inference, and
-/// never in a certificate.
+/// never in a certificate of either kernel.
 #[test]
 fn compact_runs() {
     let input = "!A, !B, !C |- 1";
@@ -1189,20 +1200,14 @@ fn compact_runs() {
     assert!(out.contains("!w*"), "{out}");
     let (_, out, _) = linlog(&["prove", "-i", "--compact", "never", input], "");
     assert!(!out.contains('*'), "{out}");
-    let (status, out, _) = linlog(
-        &[
-            "prove",
-            "-i",
-            "--compact",
-            "always",
-            "--format",
-            "rocq",
-            input,
-        ],
-        "",
-    );
+    let rocq = ["prove", "-i", "--compact", "always", "--format", "rocq"];
+    let (status, out, _) = linlog(&[&rocq[..], &["--kernel", "nanoyalla", input]].concat(), "");
     assert_eq!(status, 0);
     assert!(out.contains("wk_r_ext"), "{out}");
+    // linlog's library, the mode's kernel, has a term per weakening.
+    let (status, out, _) = linlog(&[&rocq[..], &[input]].concat(), "");
+    assert_eq!(status, 0);
+    assert_eq!(out.matches("(IWk ").count(), 3, "{out}");
 }
 
 /// A batch walks a directory in sorted order, links followed without

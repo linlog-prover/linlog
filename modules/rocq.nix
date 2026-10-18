@@ -26,7 +26,7 @@
       # kernel's the input pins, whose README says which it is.
       named = builtins.head (
         builtins.match ''.*pub const NANOYALLA: &str = "([0-9.]+)";.*'' (
-          builtins.readFile ../core/src/export/rocq.rs
+          builtins.readFile ../core/src/export/rocq/mod.rs
         )
       );
       pinned = builtins.head (
@@ -59,7 +59,10 @@
             done
             cp ${snapshots}/*.v .
             linlog prove --format rocq --standalone --output cli.v 'A * top |- A * (B + top)'
-            linlog prove -i --format rocq --standalone --output cli_ill.v '!A, A -o B |- B * !A'
+            # An intuitionistic proof goes to linlog's library unless the
+            # kernel is named.
+            linlog prove -i --kernel nanoyalla --format rocq --standalone --output cli_ill.v \
+              '!A, A -o B |- B * !A'
             # Certificates over Prop of ordinary logic: classical through the
             # excluded middle, intuitionistic with no axiom.
             linlog prove --logic classical --format rocq --standalone --output cli_lk.v \

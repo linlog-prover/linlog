@@ -20,9 +20,11 @@
       ...
     }:
     let
+      # The certificates for linlog's Rocq library are the rocq-linlog
+      # check's.
       snapshots = lib.fileset.toSource {
         root = ../core/tests/snapshots;
-        fileset = ../core/tests/snapshots;
+        fileset = lib.fileset.difference ../core/tests/snapshots ../core/tests/snapshots/linlog;
       };
 
       latex = pkgs.texliveBasic.withPackages (ps: [

@@ -4,8 +4,10 @@
 //! The LaTeX, Typst, SVG and Rocq exports through the public API.
 //! Derivations are pinned as standalone documents in `tests/snapshots/`,
 //! which the flake's `export` check compiles and renders and its `rocq`
-//! check runs through Rocq; run with `BLESS=1` to rewrite them after an
-//! intended change, and review the diff.
+//! check runs through Rocq against NanoYalla, and the certificates for
+//! linlog's own Rocq library in `tests/snapshots/linlog/`, which its
+//! `rocq-linlog` check compiles; run with `BLESS=1` to rewrite them after
+//! an intended change, and review the diff.
 
 #![cfg(all(
     feature = "parse",
@@ -16,7 +18,7 @@
     feature = "typst"
 ))]
 
-use linlog::export::rocq::{self, Unsupported};
+use linlog::export::rocq::{self, Kernel, Unsupported};
 use linlog::export::svg::{self, Style};
 use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
@@ -76,11 +78,25 @@ fn proof(input: &str, mode: Mode) -> Proof {
     *proof
 }
 
-/// Pins a derivation's certificate as the snapshot `name.v`.
+/// Pins a derivation's certificates as the snapshots `name.v`, for
+/// NanoYalla, and `linlog/name.v`, for linlog's library.
 fn pin_certificate(name: &str, derivation: &Derivation) {
-    let options = rocq::Options::default().with_form(Form::Standalone);
+    let options = rocq::Options::default()
+        .with_form(Form::Standalone)
+        .with_kernel(Some(Kernel::NanoYalla));
     let script = certificate(|out| rocq::write(derivation, &options, out, |_| false));
     snapshot(&format!("{name}.v"), &script.unwrap());
+    pin_linlog(name, derivation);
+}
+
+/// Pins a derivation's certificate for linlog's library as the snapshot
+/// `linlog/name.v`.
+fn pin_linlog(name: &str, derivation: &Derivation) {
+    let options = rocq::Options::default()
+        .with_form(Form::Standalone)
+        .with_kernel(Some(Kernel::Linlog));
+    let script = certificate(|out| rocq::write(derivation, &options, out, |_| false));
+    snapshot(&format!("linlog/{name}.v"), &script.unwrap());
 }
 
 /// Proves `input` in `mode` and pins its derivation, two-sided in
@@ -342,6 +358,8 @@ fn every_label() {
         pin(name, &derivation);
         if name.starts_with("labels") {
             pin_certificate(name, &derivation);
+        } else {
+            pin_linlog(name, &derivation);
         }
         if name == "labels_ill" {
             pin_fragments(name, &derivation, Labels::Subscript, OpenGoal::Dots);
@@ -404,7 +422,9 @@ fn a_font_of_the_callers_sets_the_widths() {
 
 /// A proof of full linear logic with a contraction is pinned as a
 /// certificate; the lemma's name and the prelude are options; a proof
-/// with Mix or with the weakening of affine mode has no certificate.
+/// with Mix or with the weakening of affine mode has no certificate for
+/// NanoYalla. With no kernel named, the mode chooses: NanoYalla for
+/// classical linear logic, linlog's library for the others.
 #[test]
 fn certificates() {
     let ll = proof("!(A & B) |- !A * !B", Mode::CLASSICAL);
@@ -433,7 +453,7 @@ fn certificates() {
     assert!(script.contains("apply (co_r_ext []); cbn_sequent.\n"));
     assert!(script.ends_with("\nQed."));
 
-    let options = rocq::Options::default();
+    let options = rocq::Options::default().with_kernel(Some(Kernel::NanoYalla));
     let mix = proof("A, B |- A, B", Mode::CLASSICAL.with_mix());
     assert_eq!(
         certificate(|out| rocq::write(&mix.derivation().unwrap(), &options, out, |_| false)),
@@ -444,6 +464,24 @@ fn certificates() {
         certificate(|out| rocq::write(&affine.derivation().unwrap(), &options, out, |_| false)),
         Err(Unsupported::AffineWeakening)
     );
+
+    let by_mode = |proof: &Proof, sides: Sides| {
+        let view = ViewOptions::default().with_sides(sides);
+        let derivation = proof
+            .derivation_within(&view, &Limits::default(), |_| false)
+            .unwrap();
+        certificate(|out| rocq::write(&derivation, &rocq::Options::default(), out, |_| false))
+            .unwrap()
+    };
+    assert!(by_mode(&ll, Sides::One).starts_with("Lemma certificate (A B : formula) : ll ["));
+    let mixed = "Lemma certificate : ll (atom := string) {| mix := true; weakening := false |} [";
+    assert!(by_mode(&mix, Sides::One).starts_with(mixed));
+    let weakened =
+        "Lemma certificate : ll (atom := string) {| mix := false; weakening := true |} [";
+    assert!(by_mode(&affine, Sides::One).starts_with(weakened));
+    let ill = proof("A, A -o B |- B", Mode::INTUITIONISTIC);
+    let two_sided = "Lemma certificate : ill (atom := string) intuitionistic [";
+    assert!(by_mode(&ill, Sides::Two).starts_with(two_sided));
 }
 
 /// Sequents print as math, one-sided or two-sided, with longer names in

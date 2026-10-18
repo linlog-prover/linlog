@@ -1,8 +1,15 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! Rocq: a derivation as a proof script that the NanoYalla kernel checks,
-//! version [`NANOYALLA`], the kernel of Click & coLLecT. The script is a
+//! Rocq: a derivation as a certificate for one of two kernels
+//! ([`Kernel`]): a proof script that the NanoYalla kernel checks, version
+//! [`NANOYALLA`], the kernel of Click & coLLecT, or a proof term that
+//! linlog's own Rocq library checks ([`LINLOG`]). Where the options name
+//! no kernel, the derivation's mode chooses: classical linear logic goes
+//! to NanoYalla, Mix, affine and intuitionistic logic to linlog's
+//! library, which states each in its own calculus.
+//!
+//! For NanoYalla the script is a
 //! `Lemma` whose statement is the sequent as a list of the kernel's
 //! formulas, `ll [dual A; tens A (dual B); B]`, over the atoms as
 //! variables of type `formula`, and whose proof applies one derived rule
@@ -19,14 +26,21 @@
 //! gets an exchange `ex_perm_r` before it when the goal is not already in
 //! that order.
 //!
-//! The certificate is one of classical linear logic: a two-sided
-//! derivation is exported as the one-sided derivation behind it
+//! The NanoYalla certificate is one of classical linear logic: a
+//! two-sided derivation is exported as the one-sided derivation behind it
 //! (the one-sided [`Rule`] of every [`Named`](crate::proofs::Named) rule), which proves the same
 //! sequent read one-sided.
 //! Mix, the weakening of affine mode and an open goal have no rule in the
 //! kernel, and a derivation with one is refused ([`Unsupported`]). A
 //! fragment is the lemma alone, for a file that imports `macroll`; a
 //! standalone file starts with [`Options::prelude`].
+//!
+//! For linlog's library the certificate is a lemma stating the sequent
+//! over the library's own calculus, `ll` one-sided with the rules the
+//! mode allows or `ill` two-sided for a two-sided derivation, proved by
+//! the library's soundness theorem applied to the derivation as a proof
+//! term, which Rocq's `vm_compute` checks: atoms are strings, every rule
+//! has a term, and nothing is refused but an open goal and a compact run.
 //!
 //! An atom's name becomes a Rocq identifier: letters, digits, `_` and `'`
 //! stay, any other character becomes its code point in hexadecimal between
@@ -68,13 +82,15 @@
 
 use super::notation::{Step, flush, walk};
 use super::{Drawable, Form};
-use crate::Error;
 use crate::hash::{HashMap, HashSet};
 use crate::occurrences::{Forest, OccId};
 use crate::proofs::{Derivation, InfId, Rule};
 use crate::sequents::{Sequent, Stop, Stops, Term, TermId};
+use crate::{Error, Mode};
 use std::fmt::Write;
 use thiserror::Error;
+
+mod linlog;
 
 /// The version of NanoYalla the scripts are written for: the `nanoyalla`
 /// directory of Click & coLLecT, whose `macroll` module defines the
@@ -94,10 +110,17 @@ pub struct Options {
     pub lemma: Identifier,
     /// The lines a standalone file starts with, before the lemma, or
     /// `None` for the target's own: the import of NanoYalla's `macroll`
-    /// for a linear certificate ([`NANOYALLA_PRELUDE`]), of the standard
-    /// library's excluded middle for a classical one over `Prop`
-    /// ([`CLASSICAL_PRELUDE`]), nothing for one of LJ.
+    /// for a linear certificate ([`NANOYALLA_PRELUDE`]), of linlog's
+    /// library for one of its kernel ([`LINLOG_PRELUDE`],
+    /// [`LINLOG_TWO_SIDED_PRELUDE`]), of the standard library's excluded
+    /// middle for a classical one over `Prop` ([`CLASSICAL_PRELUDE`]),
+    /// nothing for one of LJ.
     pub prelude: Option<String>,
+    /// The kernel a linear certificate is written for, or `None` for the
+    /// one the derivation's mode chooses: NanoYalla for classical linear
+    /// logic, linlog's library for Mix, affine and intuitionistic logic.
+    /// A certificate of ordinary logic needs no kernel and ignores it.
+    pub kernel: Option<Kernel>,
 }
 
 impl Default for Options {
@@ -108,6 +131,7 @@ impl Default for Options {
             form: Form::Fragment,
             lemma: Identifier::new("certificate").expect("an identifier"),
             prelude: None,
+            kernel: None,
         }
     }
 }
@@ -131,7 +155,51 @@ impl Options {
     pub fn with_prelude(self, prelude: Option<String>) -> Self {
         Self { prelude, ..self }
     }
+
+    /// Returns the options with the kernel given, `None` for the one the
+    /// mode chooses.
+    #[must_use]
+    pub fn with_kernel(self, kernel: Option<Kernel>) -> Self {
+        Self { kernel, ..self }
+    }
 }
+
+/// The Rocq kernel a certificate of linear logic is written for.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Kernel {
+    /// NanoYalla [`NANOYALLA`], the kernel of Click & coLLecT: classical
+    /// linear logic one-sided, without Mix or the weakening of affine
+    /// mode, checked rule by rule by a proof script.
+    NanoYalla,
+    /// linlog's own Rocq library [`LINLOG`]: one-sided linear logic with
+    /// Mix and weakening where the mode allows them, and two-sided
+    /// intuitionistic linear logic and its affine variant, checked by the
+    /// library's checker on a proof term.
+    Linlog,
+}
+
+/// The version of linlog's Rocq library the certificates of its kernel are
+/// written for: the library under `rocq/` of linlog's repository, logical
+/// path `Linlog`, built with Rocq 9 and its standard library.
+pub const LINLOG: &str = "0.1.0";
+
+/// The prelude of a one-sided certificate for linlog's library: the
+/// imports of its soundness theorems, of lists and of strings, whose
+/// notations the lemma uses.
+pub const LINLOG_PRELUDE: &str = "From Stdlib Require Import List String.
+From Linlog Require Import Soundness.
+Import ListNotations.
+Open Scope string_scope.";
+
+/// The prelude of a two-sided certificate for linlog's library: as
+/// [`LINLOG_PRELUDE`], with the two-sided calculus and its theorem.
+pub const LINLOG_TWO_SIDED_PRELUDE: &str = "From Stdlib Require Import List String.
+From Linlog Require Import IntuitionisticCheck.
+Import ListNotations.
+Open Scope string_scope.";
 
 /// The prelude of a linear certificate: the import of NanoYalla's
 /// `macroll`, which brings the kernel's `ll`, its formulas and its derived
@@ -661,8 +729,11 @@ impl Script<'_> {
 /// Writes the certificate of a derivation into `out`, in the options'
 /// form, one inference at a time, and asks `stop` after each; a
 /// derivation without a certificate is refused before anything is
-/// written. A linear derivation is a lemma with its proof script for
-/// NanoYalla, checked one-sided. One of LK or LJ, which must have passed
+/// written. A linear derivation is a lemma for the kernel the options
+/// name or the mode chooses ([`Options::kernel`]): with its proof script
+/// for NanoYalla, checked one-sided, or proved from its proof term by
+/// linlog's library, one-sided or, for a two-sided derivation, two-sided.
+/// One of LK or LJ, which must have passed
 /// [`check`](crate::ordinary::Derivation::check), is the lemma
 /// `options.lemma` stating the ordinary sequent over `Prop`, every atom a
 /// proposition bound by `forall`, the hypotheses as premises and the
@@ -675,7 +746,8 @@ impl Script<'_> {
 /// # Errors
 ///
 /// [`Error::Unsupported`] for a derivation without a certificate (an
-/// open goal, Mix, affine weakening, a compact run), [`Error::GoalProof`]
+/// open goal, a compact run, and for NanoYalla Mix and affine
+/// weakening), [`Error::GoalProof`]
 /// for one of a goal off the roots, [`Refusal::Stopped`](crate::Refusal::Stopped)
 /// when `stop` fired and [`Error::WriteFailed`] when `out` refused the
 /// text.
@@ -694,17 +766,53 @@ pub fn write<'a>(
     }
 }
 
+/// Writes the certificate of a linear derivation for the kernel the
+/// options name or the mode chooses, as [`write()`] does.
+fn linear(
+    derivation: &Derivation,
+    options: &Options,
+    out: &mut impl Write,
+    stop: impl FnMut() -> bool,
+) -> Result<(), Error> {
+    if derivation.is_of_goal() {
+        return Err(Error::GoalProof);
+    }
+    let uses = |rule| derivation.inferences().iter().any(|i| i.rule.rule == rule);
+    let (mix, weakening) = (uses(Rule::Mix), uses(Rule::AffineWeakening));
+    let mode = derivation.mode();
+    let kernel = options.kernel.unwrap_or(match mode {
+        Some(mode) if mode.is_intuitionistic() || mode.is_affine() || mode.has_mix() => {
+            Kernel::Linlog
+        }
+        // Classical linear logic, or a proof that records no mode and
+        // shows its own: NanoYalla, unless it needs what the kernel lacks.
+        _ if mix || weakening || (mode.is_none() && derivation.reading().is_some()) => {
+            Kernel::Linlog
+        }
+        _ => Kernel::NanoYalla,
+    });
+    match kernel {
+        Kernel::NanoYalla => nanoyalla(derivation, options, out, stop),
+        Kernel::Linlog => {
+            // The calculus states what the mode allows and what the proof
+            // uses, which a proof checked in another mode may exceed.
+            let calculus = linlog::Calculus {
+                mix: mix || mode.is_some_and(Mode::has_mix),
+                weakening: weakening || mode.is_some_and(Mode::is_affine),
+            };
+            linlog::write(derivation, options, calculus, out, stop)
+        }
+    }
+}
+
 /// Writes the NanoYalla certificate of a linear derivation as [`write()`]
 /// does.
-fn linear(
+fn nanoyalla(
     derivation: &Derivation,
     options: &Options,
     out: &mut impl Write,
     mut stop: impl FnMut() -> bool,
 ) -> Result<(), Error> {
-    if derivation.is_of_goal() {
-        return Err(Error::GoalProof);
-    }
     for inference in derivation.inferences() {
         if inference.times > 1 {
             return Err(Unsupported::Compact.into());

@@ -876,16 +876,22 @@ $ linlog prove --settings settings.json --copies 3 "|- ?(~a * ~a), a * a * a * a
 unprovable (MELL, classical, focus engine): the search was exhaustive
 ```
 
-`--format rocq` writes the derivation as a proof script that the Rocq
-kernel [NanoYalla](https://github.com/ComputerAidedLL/click-and-collect/tree/master/nanoyalla)
+`--format rocq` writes the derivation as a Rocq certificate for one of
+two kernels, which `--kernel` names: `nanoyalla`, the default for
+classical linear logic, or `linlog`, linlog's own Rocq library, the
+default for Mix, affine and intuitionistic logic. The verdict becomes a
+comment, and `--standalone` adds the import lines.
+
+For `nanoyalla` it is a proof script that the Rocq kernel
+[NanoYalla](https://github.com/ComputerAidedLL/click-and-collect/tree/master/nanoyalla)
 checks, the kernel of Click & coLLecT: a lemma stating the one-sided
 sequent over the atoms as `formula` variables, proved by one derived rule
 of the kernel per inference, with an exchange before a `⊗` where the
 kernel's list sequents need one, and closed by `Qed`, so Rocq accepts the
-file only if the kernel accepts the proof. The verdict becomes a comment,
-and `--standalone` adds the import line. A proof with Mix or with the
-weakening of affine mode has no certificate, since the kernel has no such
-rule; an intuitionistic proof is certified as the classical proof it is.
+file only if the kernel accepts the proof. A proof with Mix or with the
+weakening of affine mode has no certificate there, since the kernel has
+no such rule; an intuitionistic proof is certified as the classical proof
+it is.
 
 ```console
 $ linlog prove --format rocq "A * B |- B * A"
@@ -917,6 +923,44 @@ $ rocq compile -R path/to/nanoyalla NanoYalla proof.v
 
 Rocq prints nothing for a certificate it accepts. The kernel needs no
 Yalla installation, and the certificate uses no cut and no axiom.
+
+For `linlog` it is a lemma stating the sequent over the library's own
+calculus, with the atoms as strings: one-sided in the calculus of the
+mode (`ll classical`, or with Mix or weakening), and two-sided for an
+intuitionistic proof (`ill intuitionistic` or `ill affine`, hypotheses
+and one goal). It is proved by the library's soundness theorem from the
+derivation written as a proof term, which the library's checker accepts
+by computation, so Rocq accepts the file only if the checker accepts the
+term; every rule has its term, Mix and weakening included:
+
+```console
+$ linlog prove -i --format rocq "A, A -o B |- B"
+(* provable (IMLL, intuitionistic, net engine) *)
+Lemma certificate : ill (atom := string) intuitionistic [ivar "A"; ilmap (ivar "A") (ivar "B")] (ivar "B").
+Proof.
+  apply (soundness_ill String.eqb String.eqb_spec intuitionistic
+    (ILmapL (ivar "A") (ivar "B") (IAx "A") (IAx "B"))).
+  vm_compute. reflexivity.
+Qed.
+$ linlog prove --format rocq --kernel linlog "A * B |- B * A"
+(* provable (MLL, classical, net engine) *)
+Lemma certificate : ll (atom := string) classical [parr (covar "A") (covar "B"); tens (var "B") (var "A")].
+Proof.
+  apply (soundness_classical String.eqb String.eqb_spec
+    (Par (covar "A") (covar "B") (Tensor (var "B") (var "A") (Ax "B") (Ax "A")))).
+  vm_compute. reflexivity.
+Qed.
+```
+
+The library is `rocq/` of this repository, on Rocq 9 and its standard
+library alone (`nix build .#rocq-linlog` builds it, or `make` in `rocq/`
+with Rocq on the path); compile a certificate with its theories on the
+load path:
+
+```console
+$ linlog prove --mix --format rocq --standalone --output mix.v "A, B |- A, B"
+$ rocq compile -R path/to/rocq/theories Linlog mix.v
+```
 
 The syntax: `*`/`⊗` tensor, `|`/`par`/`⅋` par, `&` with, `+`/`⊕` plus,
 `-o`/`⊸` linear implication, `~A` or `A^` negation, `!` and `?`, and the
@@ -1422,11 +1466,16 @@ Built:
 - A Rocq library of linlog's own (`rocq/`, the package `rocq-linlog`,
   on Rocq 9 and its standard library alone): the one-sided calculus of
   classical linear logic as a plain inductive, with Mix and general
-  weakening as parameters, linlog's proof term as a datatype, a checker
-  as a function, and the theorem that a term the checker accepts proves
-  its sequent, closed under the global context; a certificate is the
-  sequent, the term and one computation. The flake builds the library
-  and compiles the certificates under `rocq/tests/` against it.
+  weakening as parameters, and the two-sided calculus of intuitionistic
+  linear logic and its affine variant; linlog's proof terms as
+  datatypes, one-sided and two-sided, checkers as functions, and for
+  every mode the theorem that a term the checker accepts proves its
+  sequent, closed under the global context; a certificate is the
+  sequent, the term and one computation. `--format rocq` writes them as
+  its second kernel (`--kernel linlog`, the default for Mix, affine and
+  intuitionistic proofs). The flake builds the library and compiles the
+  certificates under `rocq/tests/` and those the command writes against
+  it.
 - Parallel search, behind the library's `parallel` feature and on by
   default in the command: the focus engine runs the choices nearest the
   root on a thread pool, cube-and-conquer style, with the `&` premises in
@@ -1491,10 +1540,8 @@ Built:
 
 Planned, in roughly this order:
 
-- The Rocq library's certificates for every mode (Mix, affine and
-  two-sided intuitionistic), the exporter writing for it as a second
-  kernel next to the NanoYalla export, and the bridges to NanoYalla and
-  Yalla.
+- The Rocq library's bridges to NanoYalla and Yalla, the reduction of
+  Mix to `?(⊥⊗⊥)`, and certified refutations.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for MLL and intuitionistic MLL (pruned

@@ -3,6 +3,7 @@
 
 use clap::builder::TypedValueParser;
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use linlog::export::rocq::Kernel;
 use linlog::proofs::Compact;
 use linlog::search::{Cadence, Engine, Options, Schedule};
 use linlog::{Bias, Clock, Fragment, Limits, Mode};
@@ -1004,7 +1005,7 @@ pub(crate) struct StyleArgs {
     /// margin, stroke_width, link_height, link_cap, node_radius, text,
     /// line, par, link, highlight, background; png: scale, pixels; pdf:
     /// embed_text, compatible, accessible, title, language, date; rocq:
-    /// form, lemma, prelude (where the command writes Rocq). `null` lifts a
+    /// form, lemma, prelude, kernel (where the command writes Rocq). `null` lifts a
     /// bound (`pixels=null`). Labels
     /// are upright, subscript, off or {"table":{RULE:LABEL}}; an open goal
     /// is dots, bare, dashed or {"mark":TEXT}
@@ -1018,9 +1019,14 @@ pub(crate) struct StyleArgs {
     pub(crate) style_file: Option<PathBuf>,
 }
 
-/// The Rocq certificate's two flags, on the commands that write one.
+/// The Rocq certificate's flags, on the commands that write one.
 #[derive(Args, Clone, Debug, Default)]
 pub(crate) struct RocqArgs {
+    /// The Rocq kernel a certificate of linear logic is written for; by
+    /// default the mode's: nanoyalla for classical linear logic, linlog
+    /// for Mix, affine and intuitionistic logic (styles.rocq.kernel)
+    #[arg(long, value_enum, value_name = "KERNEL")]
+    pub(crate) kernel: Option<KernelArg>,
     /// The name of the lemma of a Rocq certificate (styles.rocq.lemma)
     #[arg(long, value_name = "NAME")]
     pub(crate) lemma: Option<String>,
@@ -1028,6 +1034,28 @@ pub(crate) struct RocqArgs {
     /// place of the certificate's own import (styles.rocq.prelude)
     #[arg(long, value_name = "TEXT")]
     pub(crate) prelude: Option<String>,
+}
+
+/// The Rocq kernel a certificate is written for.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KernelArg {
+    /// NanoYalla 1.1.3, the kernel of Click & coLLecT: classical linear
+    /// logic one-sided, a proof script checked rule by rule
+    Nanoyalla,
+    /// linlog's own Rocq library (rocq/ of the repository, the package
+    /// rocq-linlog): every mode in its own calculus, intuitionistic
+    /// logic two-sided, a proof term checked by the library's checker
+    Linlog,
+}
+
+impl From<KernelArg> for Kernel {
+    /// Returns the library's kernel.
+    fn from(kernel: KernelArg) -> Self {
+        match kernel {
+            KernelArg::Nanoyalla => Self::NanoYalla,
+            KernelArg::Linlog => Self::Linlog,
+        }
+    }
 }
 
 /// A number of bytes, or none for no limit.
@@ -1148,14 +1176,17 @@ pub(crate) enum Format {
     /// verdict on standard error; written to a file or a pipe, never to a
     /// terminal
     Pdf,
-    /// The verdict as a comment, then the derivation as a Rocq proof
-    /// script for NanoYalla 1.1.3, the kernel of Click & coLLecT (the
-    /// nanoyalla directory of github.com/ComputerAidedLL/click-and-collect,
-    /// built with Rocq 9 and its standard library, no Yalla needed): a
-    /// lemma stating the sequent one-sided, proved rule by rule and closed
-    /// by Qed; `--standalone` adds the import line (`--prelude`), and
-    /// `--lemma` names the lemma; a proof with Mix or with the weakening
-    /// of affine mode is refused
+    /// The verdict as a comment, then the derivation as a Rocq
+    /// certificate for the kernel `--kernel` names or the mode chooses:
+    /// for NanoYalla 1.1.3, the kernel of Click & coLLecT (the nanoyalla
+    /// directory of github.com/ComputerAidedLL/click-and-collect, built
+    /// with Rocq 9 and its standard library, no Yalla needed), a lemma
+    /// stating the sequent one-sided, proved rule by rule, which refuses
+    /// Mix and the weakening of affine mode; for linlog's own library, a
+    /// lemma stating the sequent in the mode's calculus, two-sided for
+    /// intuitionistic logic, proved from the proof term by the library's
+    /// checker; closed by Qed, `--standalone` adds the imports
+    /// (`--prelude`), and `--lemma` names the lemma
     Rocq,
 }
 

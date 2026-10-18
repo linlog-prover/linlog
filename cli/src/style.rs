@@ -3,7 +3,7 @@
 
 //! The options of every output format in one value, read from the JSON of
 //! `--style-file` and changed by `--style KEY=VALUE`, `--lemma`,
-//! `--prelude` and `--standalone`.
+//! `--prelude`, `--kernel` and `--standalone`.
 
 use crate::argument_parsing::{RocqArgs, StyleArgs};
 use crate::io;
@@ -69,6 +69,9 @@ pub(crate) fn read(
     }
     if let Some(prelude) = rocq.and_then(|r| r.prelude.as_ref()) {
         styles.rocq.prelude = Some(prelude.clone());
+    }
+    if let Some(kernel) = rocq.and_then(|r| r.kernel) {
+        styles.rocq.kernel = Some(kernel.into());
     }
     if standalone {
         styles.latex.form = Form::Standalone;

@@ -19,7 +19,30 @@ second number (0.1.x to 0.2.0), anything else the third.
   a checker as a function and the theorem that a term the checker accepts
   proves its sequent, closed under the global context. The flake builds
   it as a package and compiles the certificates under `rocq/tests/`
-  against it; the exporter does not write for this kernel yet.
+  against it.
+- In the Rocq library, the theorems for Mix and for affine logic
+  (`soundness_mix`, `soundness_affine`), and the two-sided calculus of
+  intuitionistic linear logic and its affine variant (`ill`, over
+  `iformula` named as in Yalla's `nanoill.v`), with two-sided proof terms,
+  their checker and the theorem `soundness_ill`, each closed under the
+  global context.
+- A second Rocq kernel in the exporter, linlog's own library:
+  `rocq::Kernel` (`NanoYalla`, `Linlog`), `rocq::Options::kernel` (JSON
+  `styles.rocq.kernel`, `"nanoyalla"` or `"linlog"`) and the command's
+  `--kernel`, with the version `rocq::LINLOG` and the preludes
+  `LINLOG_PRELUDE` and `LINLOG_TWO_SIDED_PRELUDE`. A certificate for it
+  states the sequent in the mode's calculus, two-sided for an
+  intuitionistic derivation, and proves it from the proof term; Mix and
+  affine weakening have one. The flake's `rocq-linlog` check compiles
+  the exporter's certificates for it.
+
+### Changed
+
+- With no kernel named, `--format rocq` writes a proof of Mix, affine or
+  intuitionistic logic for linlog's library, as the mode chooses; a
+  classical proof is written for NanoYalla exactly as before, and
+  `--kernel nanoyalla` keeps the NanoYalla certificate of an
+  intuitionistic proof and the refusal of Mix and affine weakening.
 
 ## [0.1.0] - 2026-10-18
 
