@@ -199,22 +199,59 @@ What the code relies on:
   skeleton already joins them (`joined`: a cycle with no `⅋`
   premise edge, kept by every switching). `Forest::lca` is `None` across
   roots, and the rule is only valid within one root.
-- **Symmetry breaking for equal literal conclusions only.** Conclusions
-  that are the same literal (same atom and sign, both roots) are chained
-  in id order (`copy_before`, `copy_after`), and a link is admissible only
-  if the partners of the chain ascend with the conclusions. Sound because
-  swapping two such conclusions is an automorphism of the structure, so it
-  maps nets to nets, and the lexicographically least member of an orbit
-  (partners listed by literal id) has ascending partners: if consecutive
-  copies `x_i < x_{i+1}` had partners `p > q`, the swap differs at
-  `{x_i, x_{i+1}, p, q}` and is smaller at `min(x_i, q)`. The argument
-  covers every group at once, however the partners lie. It does **not**
-  extend to equal compound conclusions with a first-literal key: two
-  copies of `F` and two of `G` whose first literals link into each other's
-  copies at non-first positions have an orbit in which no member sorts
-  both groups; a compound extension needs keys under roots that no
-  symmetry moves, and is a follow-up. The spec forbids symmetry breaking
-  inside formulas, which is the loss on Horn encodings (below).
+- **Symmetry breaking** (`Symmetry`, built once per run): two kinds of
+  exchange map nets to nets and non-nets to non-nets. *Literal classes*:
+  equal literals (atom and sign) that are conclusions, or leaves of one
+  maximal tree of `⊗` alone or of `⅋` alone (the tree named by its top,
+  the "anchor"); exchanging two of them keeps every switching's
+  cyclomatic number and components (a `⊗` tree contracts to one vertex
+  the leaves hang from; every switching of a `⅋` tree joins its root to
+  one leaf and leaves the others as paths, so the switchings join the
+  root to each leaf in turn). *Compound classes*: equal compound
+  subformulas (`shape`, a structural id computed bottom-up, not the
+  arena's `TermId`) that are conclusions or leaves of one such tree, by
+  the same argument for whole subtrees. A link is admissible only if the
+  partners ascend by id along each literal class (chained in id order),
+  and, for a compound class whose copies have a *key literal*, the keys
+  of the key literals' partners do not descend along the copies. Why one
+  linking of every orbit survives: sort the copies of each compound
+  class by key, outer classes first, then take the lexicographically
+  least linking that exchanges within literal classes reach (consecutive
+  `x < x'` with partners `p > q`: the exchange is smaller at
+  `min(x, q)`). That needs (1) the key literal in no literal class of two
+  or more and inside no copy of a smaller broken class, so neither step
+  moves it, and (2) a partner's key to be the same for every partner the
+  exchanges move it to: the first literal of its literal class, or
+  `NONE` (above every key) inside a copy of a broken class. The step-6
+  counterexample to the spec's first-literal key (two groups whose first
+  literals link into each other's copies) is exactly a key that moves;
+  (2) makes it `NONE`. A class without a key literal is not broken (its
+  copies stay unmoved, so their literals keep finite keys: the bins of
+  `three_partition_mll` are such a class, the items keyed by the bin's
+  `~k` class), and a class whose key literals can only take `NONE`-keyed
+  partners gets no chain (vacuous; `wide-m2`'s pairs, whose check cost
+  5 % of `search-wide-m2-256`). The brute-force test
+  (`agrees_with_every_linking`) failed when a literal class spanned
+  trees, when keys were taken inside broken copies, or with the balance
+  bound one too low; a key literal allowed inside a literal class passed
+  it and 40 000 more rounds, so that restriction stands on the argument
+  alone. The spec forbade breaking symmetry inside formulas; the
+  argument above is why it is sound here.
+- **The balance prune** (`balanced`, in `choose`, per atom with three
+  pairs or more left): no `⅋`-free skeleton component may hold more
+  unlinked literals of an atom than the atom's unlinked pairs. A literal
+  never links into its own component, so each `a` of a component needs
+  its own `~a` outside it. With two pairs or fewer, a component that
+  breaks it leaves a literal with no admissible partner, which the
+  partner count finds, so the check skips those atoms (it cost 30 % of
+  `search-wide-m2-256` when it ran on every atom). It rarely fires: the
+  count equation and the `⅋` boundaries keep a component to one sign
+  of an atom on the families; it is the net engine's analogue of the
+  focused engine's split counts only in its form, and a stronger one
+  needs sets joined in some switching, which no cheap structure keeps.
+- **`Prunes`** switches the leaf break, the compound break and the
+  balance prune off one at a time for the tests only (`with_prunes`);
+  a search applies all three, as the conclusion classes always were.
 - **Choice order** (`choose`): the unlinked literal with the fewest
   admissible partners, ties to the first in atom order, `a` before `~a`,
   then id; every unlinked literal is inspected, so a literal without an
@@ -245,18 +282,14 @@ What the code relies on:
   Neither changes the search on one thread.
 - **Where it loses.** Horn encodings (Matsuoka's Partition and Lincoln's
   two-literal 3-Partition, `families::partition` and
-  `families::three_partition_mll`) have few atoms
-  with many occurrences, and the equal literals inside `b ⊗ b ⊗ b` and
-  `~b ⅋ ~b` are interchangeable, so a wrong early choice costs a whole
-  symmetric subtree before a cycle appears; the focused engine refutes the
-  same sequents through the counts of each `⊗` split in milliseconds
-  where the net engine needs seconds or does not finish. Distinct atoms
-  and wide contexts are where the net engine wins. Symmetry breaking for
-  the leaves of a pure `⊗` or `⅋` tree of equal literals (sound: the
-  leaves of a `⊗` tree share every switching's component, and a `⅋` tree
-  opens to interchangeable conclusions) is a follow-up (`plan/later.md`,
-  "Net-engine pruning and routing"); until then the dispatch routes MLL with a literal of
-  multiplicity above 2 to the focused engine (`Feature::FewEqualLiterals`, a row of `search::DISPATCH`).
+  `families::three_partition_mll`): the symmetry breaks took the
+  interchangeable leaves of `b ⊗ b ⊗ b` and `~b ⅋ ~b` and the equal items
+  out of the search (`partition-no/3` 269 950 nodes to 391,
+  `3-partition-mll-no/6` from over 60 s to 352 nodes), but what is left
+  is the subset choice itself, which a cycle shows only after the links,
+  where the focused engine's counts of each `⊗` split refute at once.
+  The dispatch decides where the engine is the default
+  (`core-search.md`, the dispatch).
 - **Every proof passes the checker** (in `prove_goal`, in every build;
   `debug_assert!` in `search` besides; every test), and every net is the
   net of its proof (`from_proof` in the tests' `run`). The differential test against the focused engine

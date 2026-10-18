@@ -767,6 +767,13 @@ impl ProofStructure {
         self.skeleton.same(x.get(), y.get())
     }
 
+    /// Returns the component of a vertex of the structure in the
+    /// `⅋`-free skeleton, as the vertex that names it until the next link
+    /// or unlink.
+    pub(crate) fn component(&self, v: VertexId) -> u32 {
+        self.skeleton.find(v.get())
+    }
+
     /// Returns working memory for the tests of the criterion, sized for
     /// this structure; one serves any number of calls.
     pub fn scratch(&self) -> Scratch {

@@ -13,8 +13,9 @@
 //! tries them in order. A partner is admissible when it is unlinked and
 //! dual, when the two literals do not hang under a common `⊗` of one
 //! conclusion, when the `⅋`-free skeleton does not join them already, and
-//! when the partners of equal literal conclusions stay in the order of the
-//! conclusions, which breaks that symmetry. The exact acyclicity test runs
+//! when the partners of interchangeable literals and subformulas (equal
+//! conclusions, equal leaves of one tree of `⊗` alone or of `⅋` alone)
+//! stay in the order of their ids, which breaks those symmetries. The exact acyclicity test runs
 //! after every link on a small structure and after every fourth link on a
 //! large one, and on every complete linking, which is then a proof net: the
 //! count equation is the connectedness equation of a complete acyclic
@@ -26,6 +27,7 @@ use super::{
 };
 use crate::Error;
 use crate::fragment::{Fragment, Mode};
+use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal};
 use crate::nets::{Criterion, NetError, ProofStructure, Scratch, VertexId};
 use crate::occurrences::{Forest, OccId, Sign};
@@ -188,6 +190,220 @@ fn atoms(forest: &Forest) -> impl Iterator<Item = Atom> {
     (0..forest.sequent().atom_names().len()).map(|a| Atom::new(a as u32))
 }
 
+/// The prunes of the search beyond the rejections every link passes;
+/// a search applies all of them, and the tests switch each off to show
+/// what it cuts.
+#[derive(Clone, Copy, Debug)]
+struct Prunes {
+    /// Break the symmetry of equal literals under one tree.
+    leaves: bool,
+    /// Break the symmetry of equal compound subformulas.
+    compounds: bool,
+    /// Refuse a skeleton component that holds more literals of an atom
+    /// than the atom has pairs left.
+    balance: bool,
+}
+
+impl Prunes {
+    /// Every prune.
+    const ALL: Self = Self {
+        leaves: true,
+        compounds: true,
+        balance: true,
+    };
+}
+
+/// The symmetries of a sequent that the search breaks, as chains in id
+/// order along which the partners must not descend.
+///
+/// Two kinds of exchange map proof nets to proof nets, and to linkings
+/// that are not nets the linkings that are not. Exchanging the partners
+/// of two equal literals that are conclusions, or leaves of one maximal
+/// tree of `⊗` alone or of `⅋` alone (a literal class): the leaves of a
+/// `⊗` tree hang from one vertex once the tree is contracted, which
+/// keeps the cyclomatic number and the components of every switching,
+/// and every switching of a `⅋` tree joins its root to one leaf and
+/// leaves the others as paths, so its switchings join the root to each
+/// leaf in turn. And exchanging two equal compound subformulas that are
+/// conclusions or leaves of one such tree (a compound class), by the
+/// same argument for whole subtrees. Among the linkings that differ by
+/// such exchanges, one has ascending partners along every literal class
+/// and keys that do not descend along every compound class whose copies
+/// have a key literal: sort the copies of each compound class by key,
+/// outer classes first, then take the lexicographically least linking
+/// that exchanges within literal classes reach. A key literal is in no
+/// literal class of two or more and inside no copy of a smaller broken
+/// class, so neither later step moves it, and a partner's key, the
+/// first literal of its class or none inside a broken copy, is the
+/// same for every partner those exchanges move it to.
+#[derive(Clone, Debug)]
+struct Symmetry {
+    /// Per occurrence, its neighbours along the chains.
+    chains: Box<[Chains]>,
+    /// Per literal, its key as a partner: the first literal of its class,
+    /// or `NONE`, above every key, inside a copy of a broken class.
+    key: Box<[u32]>,
+}
+
+/// The neighbours of a literal along the chains of [`Symmetry`], side by
+/// side, since a candidate link reads all four.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Chains {
+    /// The previous literal of its class, or `NONE`.
+    before: u32,
+    /// The next literal of its class, or `NONE`.
+    after: u32,
+    /// For the key literal of a copy of a broken compound class, the key
+    /// literal of the previous copy, or `NONE`.
+    key_before: u32,
+    /// For the key literal of a copy of a broken compound class, the key
+    /// literal of the next copy, or `NONE`.
+    key_after: u32,
+}
+
+impl Chains {
+    /// A literal on no chain.
+    const NONE: Self = Self {
+        before: NONE,
+        after: NONE,
+        key_before: NONE,
+        key_after: NONE,
+    };
+}
+
+impl Symmetry {
+    /// Finds the classes of a forest of unit-free MLL: the literal
+    /// classes of leaves only with `prunes.leaves`, and the compound
+    /// classes only with `prunes.compounds`.
+    fn new(forest: &Forest, prunes: Prunes) -> Self {
+        let n = forest.len();
+        // The anchor of an occurrence: the top of the maximal tree of its
+        // parent's connective that holds the parent, or `n` for a root.
+        let mut top = vec![NONE; n];
+        let mut anchor = vec![n as u32; n];
+        for o in forest.ids() {
+            if let Some(p) = forest.parent(o) {
+                anchor[o.index()] = top[p.index()];
+            }
+            if !forest.is_literal(o) {
+                top[o.index()] = match forest.parent(o) {
+                    Some(p) if forest.kind(p) == forest.kind(o) => top[p.index()],
+                    _ => o.get(),
+                };
+            }
+        }
+        // Literal classes: one atom, sign and anchor, chained in id order.
+        let chained = |l: &&OccId| prunes.leaves || anchor[l.index()] == n as u32;
+        let (mut before, mut after) = (vec![NONE; n], vec![NONE; n]);
+        let mut last = vec![NONE; n + 1];
+        for a in atoms(forest) {
+            for sign in [Sign::Atom, Sign::Dual] {
+                let literals = forest.literals(a, sign);
+                for &l in literals.iter().filter(chained) {
+                    let previous = &mut last[anchor[l.index()] as usize];
+                    if *previous != NONE {
+                        after[*previous as usize] = l.get();
+                        before[l.index()] = *previous;
+                    }
+                    *previous = l.get();
+                }
+                for &l in literals.iter().filter(chained) {
+                    last[anchor[l.index()] as usize] = NONE;
+                }
+            }
+        }
+        // Compound classes: equal formulas with one anchor, of which no
+        // ancestor below the anchor has the anchor's connective.
+        let mut shape = vec![0u32; n];
+        let mut shapes = HashMap::<(Kind, u32, u32), u32>::default();
+        let mut compounds = Vec::new();
+        for o in forest.ids().rev() {
+            let key = match (forest.left(o), forest.right(o)) {
+                (Some(l), Some(r)) => (forest.kind(o), shape[l.index()], shape[r.index()]),
+                _ => (forest.kind(o), forest.atom(o).map_or(0, Atom::get), 0),
+            };
+            let next = shapes.len() as u32;
+            shape[o.index()] = *shapes.entry(key).or_insert(next);
+            let leaf = forest
+                .parent(o)
+                .is_none_or(|p| forest.kind(p) != forest.kind(o));
+            if prunes.compounds && !forest.is_literal(o) && leaf {
+                compounds.push((anchor[o.index()], shape[o.index()], o));
+            }
+        }
+        compounds.sort_unstable();
+        let mut classes: Vec<&[(u32, u32, OccId)]> = compounds
+            .chunk_by(|x, y| (x.0, x.1) == (y.0, y.1))
+            .filter(|class| class.len() > 1)
+            .collect();
+        // Inner classes first, so that a key literal avoids their copies.
+        classes.sort_unstable_by_key(|class| std::cmp::Reverse(class[0].2));
+        let (mut key_before, mut key_after) = (vec![NONE; n], vec![NONE; n]);
+        let mut broken = vec![false; n];
+        let mut keyed = Vec::new();
+        for class in classes {
+            let first = class[0].2;
+            let Some(offset) = forest.subtree(first).position(|x| {
+                forest.is_literal(x)
+                    && before[x.index()] == NONE
+                    && after[x.index()] == NONE
+                    && !broken[x.index()]
+            }) else {
+                continue;
+            };
+            keyed.push((class, offset as u32));
+            for &(_, _, copy) in class {
+                for x in forest.subtree(copy) {
+                    broken[x.index()] = true;
+                }
+            }
+        }
+        let mut key = vec![NONE; n];
+        for o in forest.ids() {
+            if forest.is_literal(o) && !broken[o.index()] {
+                key[o.index()] = match before[o.index()] {
+                    NONE => o.get(),
+                    b => key[b as usize],
+                };
+            }
+        }
+        // A class whose key literals can only take partners keyed `NONE`
+        // gets no chain: its order would hold whatever the partners.
+        for (class, offset) in keyed {
+            let l = OccId::new(class[0].2.get() + offset);
+            let (atom, sign) = (forest.atom(l).unwrap(), forest.sign(l).unwrap());
+            if forest
+                .literals(atom, !sign)
+                .iter()
+                .all(|y| key[y.index()] == NONE)
+            {
+                continue;
+            }
+            let mut previous = NONE;
+            for &(_, _, copy) in class {
+                let l = copy.get() + offset;
+                if previous != NONE {
+                    key_after[previous as usize] = l;
+                    key_before[l as usize] = previous;
+                }
+                previous = l;
+            }
+        }
+        let chains = (0..n)
+            .map(|i| Chains {
+                before: before[i],
+                after: after[i],
+                key_before: key_before[i],
+                key_after: key_after[i],
+            })
+            .collect();
+        Self {
+            chains,
+            key: key.into_boxed_slice(),
+        }
+    }
+}
+
 /// A decision of the search: the literal chosen, and how far along the
 /// literals of the other sign of its atom the search for a partner is.
 #[derive(Clone, Copy, Debug)]
@@ -226,12 +442,13 @@ struct Linker<'a> {
     /// Per atom, the pairs of its literals still to link: as many `a` as
     /// `~a` are unlinked at every moment.
     remaining: Box<[u32]>,
-    /// Per literal that is a conclusion, the previous conclusion that is
-    /// the same literal, or `NONE`.
-    copy_before: Box<[u32]>,
-    /// Per literal that is a conclusion, the next conclusion that is the
-    /// same literal, or `NONE`.
-    copy_after: Box<[u32]>,
+    /// The symmetries the search breaks.
+    symmetry: Symmetry,
+    /// Whether the search refuses unbalanced skeleton components.
+    balance: bool,
+    /// Per vertex, a count the balance prune keeps for the component the
+    /// vertex names, zero between two uses.
+    tally: Box<[u32]>,
     /// The decisions made so far. Every frame but the top has its current
     /// link made; the top frame is looking for one.
     stack: Vec<Frame>,
@@ -248,31 +465,24 @@ struct Linker<'a> {
 impl<'a> Linker<'a> {
     /// Prepares a run on the forest, which must be one of unit-free MLL.
     fn new(forest: &Forest, mode: Mode, options: &Options, stop: Stop<'a>) -> Self {
+        Self::with_prunes(forest, mode, options, stop, Prunes::ALL)
+    }
+
+    /// Prepares a run that applies only the given prunes.
+    fn with_prunes(
+        forest: &Forest,
+        mode: Mode,
+        options: &Options,
+        stop: Stop<'a>,
+        prunes: Prunes,
+    ) -> Self {
         let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
             .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         let remaining = atoms(forest)
             .map(|a| forest.literals(a, Sign::Atom).len() as u32)
             .collect();
-        // Equal literal conclusions, chained in id order.
         let n = forest.len();
-        let mut copy_before = vec![NONE; n];
-        let mut copy_after = vec![NONE; n];
-        for a in atoms(forest) {
-            for sign in [Sign::Atom, Sign::Dual] {
-                let mut previous = NONE;
-                for &l in forest.literals(a, sign) {
-                    if forest.parent(l).is_some() {
-                        continue;
-                    }
-                    if previous != NONE {
-                        copy_after[previous as usize] = l.get();
-                        copy_before[l.index()] = previous;
-                    }
-                    previous = l.get();
-                }
-            }
-        }
         let period = match options.test_period {
             Cadence::Every(period) => period.max(1),
             Cadence::Auto if n <= Cadence::AUTO_SMALL => 1,
@@ -281,8 +491,9 @@ impl<'a> Linker<'a> {
         Self {
             scratch,
             remaining,
-            copy_before: copy_before.into_boxed_slice(),
-            copy_after: copy_after.into_boxed_slice(),
+            symmetry: Symmetry::new(forest, prunes),
+            balance: prunes.balance,
+            tally: vec![0; n].into_boxed_slice(),
             stack: Vec::with_capacity(forest.all_literals().len() / 2 + 1),
             choices: 0,
             period,
@@ -412,15 +623,25 @@ impl<'a> Linker<'a> {
     /// the first in atom order, `a` before `~a`, then id order among
     /// equals; or reports that some literal has none, or that every
     /// literal is linked. Every unlinked literal is looked at, so a dead
-    /// end anywhere is found now rather than after more links.
-    fn choose(&self) -> Choice {
-        let forest = self.net.forest();
+    /// end anywhere is found now rather than after more links, and so is
+    /// every atom's balance over the skeleton's components.
+    fn choose(&mut self) -> Choice {
         let mut best: Option<(usize, OccId)> = None;
-        for (a, &remaining) in self.remaining.iter().enumerate() {
+        for a in 0..self.remaining.len() {
+            let remaining = self.remaining[a];
             if remaining == 0 {
                 continue;
             }
             let atom = Atom::new(a as u32);
+            // A component that breaks the balance while each of its
+            // literals keeps an admissible partner holds two of each sign
+            // and leaves one of each outside: three pairs at least. With
+            // fewer, the count of partners below finds the literal left
+            // without one.
+            if self.balance && remaining > 2 && !self.balanced(atom, remaining) {
+                return Choice::DeadEnd;
+            }
+            let forest = self.net.forest();
             for sign in [Sign::Atom, Sign::Dual] {
                 let partners = forest.literals(atom, !sign);
                 for &x in forest.literals(atom, sign) {
@@ -453,6 +674,35 @@ impl<'a> Linker<'a> {
         }
     }
 
+    /// Returns whether no component of the `⅋`-free skeleton holds more
+    /// unlinked literals of `atom` than its `remaining` pairs. No literal
+    /// links into its own component (that closes a cycle every switching
+    /// keeps), so each `a` of a component needs a `~a` of its own outside
+    /// the component, and each `~a` an `a`: the component's `a` are at
+    /// most the atom's unlinked `~a` less the component's, which is the
+    /// bound. A count is at most the atom's literals, below the forest's
+    /// length.
+    fn balanced(&mut self, atom: Atom, remaining: u32) -> bool {
+        let (net, tally) = (&self.net, &mut self.tally);
+        let forest = net.forest();
+        let unlinked = || {
+            [Sign::Atom, Sign::Dual]
+                .into_iter()
+                .flat_map(move |sign| forest.literals(atom, sign))
+                .filter(|&&x| net.mate(VertexId::of(x)).is_none())
+                .map(|&x| net.component(VertexId::of(x)) as usize)
+        };
+        let mut balanced = true;
+        for c in unlinked() {
+            tally[c] += 1;
+            balanced &= tally[c] <= remaining;
+        }
+        for c in unlinked() {
+            tally[c] = 0;
+        }
+        balanced
+    }
+
     /// Finds the next admissible partner of the top frame's literal, moves
     /// the frame past it and returns it, or `None` when none is left.
     fn next_partner(&mut self) -> Option<OccId> {
@@ -476,8 +726,8 @@ impl<'a> Linker<'a> {
     /// the switchings keeping the path's `⅋` premises keep, and it stays
     /// one whatever is linked later), the `⅋`-free skeleton does not join
     /// them already (the path and the link would be a cycle every
-    /// switching keeps), and the partners of equal literal conclusions
-    /// stay in the order of the conclusions.
+    /// switching keeps), and the link keeps the order the symmetry break
+    /// asks along the literal and compound classes of both.
     fn admissible(&self, x: OccId, y: OccId) -> bool {
         let forest = self.net.forest();
         if let Some(a) = forest.lca(x, y)
@@ -488,30 +738,29 @@ impl<'a> Linker<'a> {
         if self.net.joined(VertexId::of(x), VertexId::of(y)) {
             return false;
         }
-        self.ordered(x, y) && self.ordered(y, x)
+        let chains = &self.symmetry.chains;
+        let (cx, cy) = (chains[x.index()], chains[y.index()]);
+        (cx == Chains::NONE || self.ordered(cx, y)) && (cy == Chains::NONE || self.ordered(cy, x))
     }
 
-    /// Returns whether linking `x` to `y` keeps the partners of the
-    /// conclusions that are the same literal as `x` in the order of those
-    /// conclusions. Swapping two such conclusions maps proof nets to proof
-    /// nets, so among the linkings that differ only by such swaps the one
-    /// with ascending partners is enough to look for.
-    fn ordered(&self, x: OccId, y: OccId) -> bool {
-        let before = self.copy_before[x.index()];
-        if before != NONE
-            && let Some(p) = self.net.mate(VertexId::new(before))
-            && p.occ() > y
+    /// Returns whether linking `y` to the literal whose chains are given
+    /// keeps the partners ascending along its literal class and, for the
+    /// key literal of a copy of a broken compound class, the keys of the
+    /// partners from descending along the copies ([`Symmetry`]).
+    fn ordered(&self, chains: Chains, y: OccId) -> bool {
+        let partner = |l: u32| {
+            (l != NONE)
+                .then(|| self.net.mate(VertexId::new(l)))
+                .flatten()
+        };
+        let key = &self.symmetry.key;
+        if partner(chains.before).is_some_and(|p| p.occ() > y)
+            || partner(chains.after).is_some_and(|q| q.occ() < y)
         {
             return false;
         }
-        let after = self.copy_after[x.index()];
-        if after != NONE
-            && let Some(q) = self.net.mate(VertexId::new(after))
-            && q.occ() < y
-        {
-            return false;
-        }
-        true
+        !(partner(chains.key_before).is_some_and(|p| key[p.index()] > key[y.index()])
+            || partner(chains.key_after).is_some_and(|q| key[y.index()] > key[q.index()]))
     }
 
     /// Makes a link between two unlinked dual literals and keeps the counts
@@ -534,7 +783,7 @@ impl<'a> Linker<'a> {
 #[cfg(all(test, feature = "parse"))]
 pub(super) mod tests {
     use super::*;
-    use crate::search::generate::{self, Rng, Rules};
+    use crate::search::generate::{self, Rng, Rules, Tree};
     use crate::search::{Engine, Verdict, prove};
     use crate::sequents::Sequent;
 
@@ -813,10 +1062,172 @@ pub(super) mod tests {
         compare(&sample, Some(3));
     }
 
+    /// Whether some linking of the literals of `text` is a proof net, with
+    /// or without Mix, by trying every pairing of each atom's `a` with its
+    /// `~a` and the criterion on each complete linking; `None` when there
+    /// are more than `limit` pairings.
+    fn every_linking(text: &str, mix: bool, limit: u64) -> Option<bool> {
+        let sequent: Sequent = text.parse().unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        let mut pairings = 1u64;
+        let mut positives = Vec::new();
+        for a in atoms(&forest) {
+            let (p, q) = (
+                forest.literals(a, Sign::Atom),
+                forest.literals(a, Sign::Dual),
+            );
+            if p.len() != q.len() {
+                return Some(false);
+            }
+            pairings = pairings.saturating_mul((1..=p.len() as u64).product());
+            if pairings > limit {
+                return None;
+            }
+            positives.extend_from_slice(p);
+        }
+        let mut net = ProofStructure::new(forest, Criterion { mix }).unwrap();
+        Some(some_net(&mut net, &positives))
+    }
+
+    /// Whether linking the literals of `positives` to unlinked partners,
+    /// in every way, completes `net` into a proof net.
+    fn some_net(net: &mut ProofStructure, positives: &[OccId]) -> bool {
+        let Some((&x, rest)) = positives.split_first() else {
+            return net.is_correct(|_| false).is_ok();
+        };
+        let forest = net.forest().clone();
+        for &y in forest.literals(forest.atom(x).unwrap(), Sign::Dual) {
+            if net.partner(VertexId::of(y)).is_none() {
+                net.link(VertexId::of(x), VertexId::of(y)).unwrap();
+                let found = some_net(net, rest);
+                net.unlink();
+                if found {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// The dual of a formula of literals, `⊗` and `⅋`.
+    fn dual(formula: &Tree) -> Tree {
+        match formula {
+            Tree::Atom(a) => Tree::Dual(*a),
+            Tree::Dual(a) => Tree::Atom(*a),
+            Tree::Tensor(l, r) => Tree::Par(Box::new(dual(l)), Box::new(dual(r))),
+            Tree::Par(l, r) => Tree::Tensor(Box::new(dual(l)), Box::new(dual(r))),
+            other => unreachable!("{other:?} is not unit-free MLL"),
+        }
+    }
+
+    /// Decides `text` on one thread with only the given prunes and returns
+    /// the verdict and the literals chosen.
+    fn decide_with(text: &str, mode: Mode, prunes: Prunes) -> (bool, u64) {
+        let sequent: Sequent = text.parse().unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        if !counts_admit(&forest, mode.mix) {
+            return (false, 0);
+        }
+        let options = Options::default();
+        let mut never = |_| false;
+        let mut linker =
+            Linker::with_prunes(&forest, mode, &options, Stop::Closure(&mut never), prunes);
+        (linker.run().unwrap(), linker.statistics.nodes)
+    }
+
+    /// The prunes switched off one at a time, and all of them.
+    const WITHOUT_ONE: [Prunes; 4] = [
+        Prunes {
+            leaves: false,
+            ..Prunes::ALL
+        },
+        Prunes {
+            compounds: false,
+            ..Prunes::ALL
+        },
+        Prunes {
+            balance: false,
+            ..Prunes::ALL
+        },
+        Prunes {
+            leaves: false,
+            compounds: false,
+            balance: false,
+        },
+    ];
+
+    /// The engine decides as the enumeration of every linking does, with
+    /// every prune and with each switched off, and each prune cuts nodes:
+    /// on random balanced sequents over one or two atoms, which put equal
+    /// literals under one tree, on `F₁ ⊗ F₁, F₂, F₂, …` made of them, which
+    /// keeps the counts and has equal compound conclusions and equal
+    /// compound leaves of one `⊗`, and on `F, F, ~F ⊗ y, ~y ⊗ ~F` and
+    /// `F ⊗ F, ~F ⊗ y, ~F, ~y` and their mutants, whose copies of `F` link
+    /// into subformulas no exchange moves; with and without Mix.
+    #[test]
+    fn agrees_with_every_linking() {
+        let mut rng = Rng::new(35);
+        let (mut decided, mut proved) = (0, 0);
+        let (mut nodes, mut without) = (0, [0; 4]);
+        for round in 0..800 {
+            let mix = round % 2 == 1;
+            let atoms = 1 + rng.below(2) as u8;
+            let pairs = 1 + rng.below(5);
+            let formulas = generate::balanced(&mut rng, atoms, pairs, mix);
+            let mut texts = vec![generate::sequent(&formulas)];
+            let first = formulas[0].clone();
+            let mut doubled = vec![Tree::Tensor(Box::new(first.clone()), Box::new(first))];
+            for f in &formulas[1..] {
+                doubled.extend([f.clone(), f.clone()]);
+            }
+            texts.push(generate::sequent(&doubled));
+            // Two copies of a compound formula, consumed in different
+            // trees, so that their keys are partners no exchange moves.
+            let f = &formulas[0];
+            if matches!(f, Tree::Tensor(..) | Tree::Par(..)) {
+                let (y, not_y) = (Tree::Atom(7), Tree::Dual(7));
+                let tensor =
+                    |l: &Tree, r: &Tree| Tree::Tensor(Box::new(l.clone()), Box::new(r.clone()));
+                let g = dual(f);
+                for mut copies in [
+                    vec![f.clone(), f.clone(), tensor(&g, &y), tensor(&not_y, &g)],
+                    vec![tensor(f, f), tensor(&g, &y), g.clone(), not_y.clone()],
+                ] {
+                    texts.push(generate::sequent(&copies));
+                    if generate::mutate(&mut rng, &mut copies, atoms) {
+                        texts.push(generate::sequent(&copies));
+                    }
+                }
+            }
+            for text in texts {
+                let Some(expected) = every_linking(&text, mix, 5_040) else {
+                    continue;
+                };
+                let mode = mode_for(mix);
+                let found = net_verdict(&text, mode, &Options::default());
+                assert_eq!(found, expected, "{text:?} in {mode} mode");
+                nodes += decide_with(&text, mode, Prunes::ALL).1;
+                for (prunes, sum) in WITHOUT_ONE.iter().zip(&mut without) {
+                    let (found, n) = decide_with(&text, mode, *prunes);
+                    assert_eq!(found, expected, "{text:?} in {mode} mode, {prunes:?}");
+                    *sum += n;
+                }
+                decided += 1;
+                proved += usize::from(expected);
+            }
+        }
+        assert!(
+            decided > 1_000 && proved > 100 && decided - proved > 100,
+            "{proved} of {decided}"
+        );
+        assert!(without.iter().all(|&n| n > nodes), "{nodes} {without:?}");
+    }
+
     /// Small Partition instances are decided as the instance says, by both
     /// engines. The equal literals inside `b ⊗ b ⊗ …` and `~b ⅋ ~b` are
-    /// interchangeable, so the net engine visits a symmetric subtree for
-    /// every wrong choice and falls far behind the focused engine here.
+    /// interchangeable, which the symmetry breaks take out of the search,
+    /// but which items go where is still found by cycles after the links,
+    /// where the focused engine's counts see it at once.
     #[test]
     fn partition_instances() {
         for (sizes, expected) in [
@@ -1051,11 +1462,12 @@ mod parallel_tests {
 
     /// A stop condition that fires at once stops the pool: the driver
     /// raises the flag at its first poll, a millisecond in, long before
-    /// the refutation of this Partition instance ends (seconds on one
-    /// thread, half a second on eight).
+    /// the refutation of this Partition instance of nine items ends (more
+    /// than a minute on one thread).
     #[test]
     fn stops() {
-        let sequent = crate::families::partition(&[1, 2, 5]);
+        let family = crate::families::find("partition-no").unwrap();
+        let sequent = family.instance(9, 0).unwrap().sequent;
         let options = Options::default()
             .with_engine(Some(Engine::Net))
             .with_jobs(2);
