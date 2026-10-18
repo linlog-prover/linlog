@@ -554,6 +554,7 @@ impl Forest {
     /// # Panics
     ///
     /// For an id of another forest, past this one's end.
+    #[inline]
     pub fn lca(&self, x: OccId, y: OccId) -> Option<OccId> {
         if !self.same_root(x, y) {
             return None;

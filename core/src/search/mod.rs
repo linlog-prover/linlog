@@ -29,6 +29,8 @@ pub(crate) mod memory;
 pub(crate) mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
+/// The planar criterion of the net engine's search, for cyclic MLL.
+mod planar;
 /// A reference prover for the tests: the plain unfocused calculus.
 #[cfg(all(test, feature = "parse"))]
 pub(crate) mod reference;
@@ -369,7 +371,8 @@ pub fn prove_goal(
 /// and one bound on work. The single search goes on beside the pool, since
 /// a pool may search worse than one thread. With two threads a pool of two
 /// from the start, with one the calling thread alone, and so on an engine
-/// that searches on one thread ([`Engine::parallel`]); `add_pool` is then
+/// that searches on one thread ([`Engine::parallel`]) and in an ordered
+/// mode; `add_pool` is then
 /// never asked. The single search runs on the calling thread, whose stack
 /// must hold the recursion ([`Limits::stack_bytes`]). `add_pool` is asked
 /// with the single search's progress, so a front end decides with its own
@@ -400,7 +403,7 @@ pub fn race(
         goal.forest.held_bytes() as u64,
     ));
     let work = Work::new(limits.work);
-    if threads < 3 || !engine_for(goal, mode, options)?.parallel() {
+    if threads < 3 || mode.is_ordered() || !engine_for(goal, mode, options)?.parallel() {
         let options = options.clone().with_jobs(threads);
         let account = memory::Account::part_of(&whole);
         return decide_goal(goal, mode, &options, limits, &account, &work, &mut |p| {
@@ -1090,7 +1093,13 @@ fn dispatch(task: &Task<'_>) -> Result<Engine, Error> {
 /// feature of a goal, the engine a measurement shows fastest there, as the
 /// documentation of [`Engine`] tabulates with the measurements. The last
 /// two rows take every goal, each in its own modes.
-const DISPATCH: [Row; 4] = [
+const DISPATCH: [Row; 5] = [
+    Row {
+        fragment: Fragment::MLL,
+        modes: Modes::Ordered,
+        feature: Feature::Any,
+        engine: Engine::Net,
+    },
     Row {
         fragment: Fragment::ADDITIVE,
         modes: Modes::Any,
@@ -1147,6 +1156,8 @@ enum Modes {
     Classical,
     /// Intuitionistic mode, with or without weakening.
     Intuitionistic,
+    /// A mode that keeps the order of the formulas.
+    Ordered,
 }
 
 impl Modes {
@@ -1167,6 +1178,7 @@ impl Modes {
             Modes::Any => commutative,
             Modes::Classical => commutative && !intuitionistic,
             Modes::Intuitionistic => commutative && intuitionistic,
+            Modes::Ordered => !commutative,
         }
     }
 }
@@ -1223,6 +1235,7 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 ///
 /// | fragment | mode | feature | engine | measured (one thread) |
 /// |---|---|---|---|---|
+/// | unit-free MLL | cyclic | | [`Net`](Engine::Net) | the one engine that keeps the order, by planar linkings; MEASUREMENT |
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
 /// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 5 to 83 ms against 0.05 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
@@ -1265,10 +1278,16 @@ pub enum Engine {
     /// a step of a split search; forced splits count none.
     Focus,
     /// The proof-net engine, for unit-free MLL with or without Mix; in
-    /// intuitionistic mode it decides IMLL through the embedding into MLL.
-    /// The dispatch gives it a goal only where the focused engines end at
-    /// their recursion limit or memory bound ("Which engine decides a
-    /// goal", above); forced, it decides any goal it admits.
+    /// intuitionistic mode it decides IMLL through the embedding into MLL,
+    /// and in the cyclic mode cyclic MLL, the one engine that does.
+    /// In the commutative modes the dispatch gives it a goal only where
+    /// the focused engines end at their recursion limit or memory bound
+    /// ("Which engine decides a goal", above); forced, it decides any goal
+    /// it admits. In the cyclic mode it keeps the linking planar: a link
+    /// is admitted only when it crosses no link made and the literals
+    /// between its ends are balanced in every atom, and the symmetry
+    /// breaks are off, since an exchange of equal literals can make two
+    /// links cross; it runs on one thread there.
     /// A cut-free proof of MLL is its axiom linking, so the engine links
     /// dual literals by backtracking over a [`ProofStructure`] and keeps
     /// the first linking the correctness criterion accepts; the count
@@ -1717,8 +1736,9 @@ impl Engine {
 
     /// Whether the engine searches on several threads when
     /// [`Options::jobs`] asks for them: the focused engines and the net
-    /// engine do; the additive, the Horn and the essential-net engine run
-    /// on the calling thread whatever it says.
+    /// engine do, the latter in a commutative mode only; the additive, the
+    /// Horn and the essential-net engine run on the calling thread
+    /// whatever it says.
     pub const fn parallel(self) -> bool {
         match self {
             Engine::Focus | Engine::Net | Engine::TwoSided => true,
@@ -3642,6 +3662,7 @@ mod tests {
                 Some("any") => Modes::Any,
                 Some("classical") => Modes::Classical,
                 Some("intuitionistic") => Modes::Intuitionistic,
+                Some("cyclic") => Modes::Ordered,
                 other => panic!("modes the test does not know: {other:?}"),
             };
             let engine = cells[3]

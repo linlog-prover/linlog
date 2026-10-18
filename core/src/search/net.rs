@@ -22,6 +22,7 @@
 //! linking. The net is sequentialized into the proof term returned.
 
 use super::memory::Account;
+use super::planar::Planar;
 use super::{
     Answer, Cadence, Decide, Engine, NotTaken, Options, Reason, Statistics, Stop, Task, Work,
 };
@@ -59,14 +60,11 @@ impl Decide for Nets {
         if !task.roots {
             return Err(refused(NotTaken::Goal));
         }
-        if task.mode.is_ordered() {
-            return Err(refused(NotTaken::Mode { mode: task.mode }));
-        }
         Ok(())
     }
 
     /// Links the roots on one thread, or with the feature `parallel` on
-    /// [`Options::jobs`] threads.
+    /// [`Options::jobs`] threads in a commutative mode.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -77,7 +75,7 @@ impl Decide for Nets {
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
         #[cfg(feature = "parallel")]
-        if options.threads() > 1 {
+        if options.threads() > 1 && !task.mode.is_ordered() {
             let runtime = super::parallel::Lent::take(
                 options.pool.as_ref(),
                 options.threads(),
@@ -113,7 +111,13 @@ pub(crate) fn search(
     if !counts_admit(forest, mode.mix) {
         return answer(Ok(false), Statistics::default(), None, limits, stop);
     }
-    let (result, statistics, net) = {
+    let (result, statistics, net) = if mode.is_ordered() {
+        let criterion = Planar::new(forest, mode);
+        let mut engine = Linker::with(criterion, options, Stop::Closure(stop), Prunes::PLANAR);
+        let result = engine.run();
+        let net = matches!(result, Ok(true)).then_some(engine.criterion.switching().net);
+        (result, engine.statistics, net)
+    } else {
         let mut engine = Linker::new(forest, mode, options, Stop::Closure(stop));
         let result = engine.run();
         let net = matches!(result, Ok(true)).then_some(engine.criterion.net);
@@ -198,6 +202,8 @@ fn atoms(forest: &Forest) -> impl Iterator<Item = Atom> {
 /// what it cuts.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Prunes {
+    /// Break the symmetry of equal literals that are conclusions.
+    conclusions: bool,
     /// Break the symmetry of equal literals under one tree.
     leaves: bool,
     /// Break the symmetry of equal compound subformulas.
@@ -210,8 +216,22 @@ pub(super) struct Prunes {
 impl Prunes {
     /// Every prune.
     pub(super) const ALL: Self = Self {
+        conclusions: true,
         leaves: true,
         compounds: true,
+        balance: true,
+    };
+
+    /// The prunes of the planar search: the balance, which a planar proof
+    /// net keeps as every proof net does. The symmetry breaks rest on
+    /// exchanging the partners of equal literals or subformulas,
+    /// conclusions or under one tree, which moves a link to another place
+    /// in the cyclic order and can make two links cross, so the one
+    /// linking of an orbit they keep may be the one that is not planar.
+    pub(super) const PLANAR: Self = Self {
+        conclusions: false,
+        leaves: false,
+        compounds: false,
         balance: true,
     };
 }
@@ -310,7 +330,13 @@ impl Symmetry {
             }
         }
         // Literal classes: one atom, sign and anchor, chained in id order.
-        let chained = |l: &&OccId| prunes.leaves || anchor[l.index()] == n as u32;
+        let chained = |l: &&OccId| {
+            if anchor[l.index()] == n as u32 {
+                prunes.conclusions
+            } else {
+                prunes.leaves
+            }
+        };
         let (mut before, mut after) = (vec![NONE; n], vec![NONE; n]);
         let mut last = vec![NONE; n + 1];
         for a in atoms(forest) {
@@ -472,8 +498,9 @@ pub(super) struct Switching {
 }
 
 impl Switching {
-    /// The structure of a forest of unit-free MLL without a link.
-    fn new(forest: &Forest, mode: Mode) -> Self {
+    /// The structure of a forest of unit-free MLL without a link, under
+    /// the criterion of `mode`.
+    pub(super) fn new(forest: &Forest, mode: Mode) -> Self {
         let net = ProofStructure::new(
             forest.clone(),
             Criterion {
@@ -484,6 +511,11 @@ impl Switching {
         .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         Self { net, scratch }
+    }
+
+    /// The structure that holds the links.
+    pub(super) const fn structure(&self) -> &ProofStructure {
+        &self.net
     }
 }
 
@@ -1296,6 +1328,7 @@ pub(super) mod tests {
             leaves: false,
             compounds: false,
             balance: false,
+            ..Prunes::ALL
         },
     ];
 
