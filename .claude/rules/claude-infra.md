@@ -92,6 +92,9 @@ Current contents:
 - `rules/evidence.md` (`mutants/**`, `fuzz/**`, `.cargo/mutants.toml`):
   the mutation run's scope and two passes, the fuzz targets, their seeds
   and how they run.
+- `rules/rocq.md` (`rocq/**`): the Rocq library's layout and trusted
+  base, its modules, how its checker reads the Rust algorithm, the
+  certificates and where a rule, a calculus or quantifiers plug in.
 - `agents/crate-source-explorer.md`: read-only, answers dependency-API questions
   against the Cargo.lock-pinned sources in `~/.cargo/registry`, never the web.
 - `skills/update-deps/`: the lock-file bump procedure (verify, then commit).

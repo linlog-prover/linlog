@@ -9,6 +9,18 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ## [Unreleased]
 
+### Added
+
+- The Rocq library `rocq-linlog` under `rocq/` (logical path `Linlog`,
+  Rocq 9 with its standard library and nothing else): formulas in
+  negation normal form over an abstract atom type, the one-sided cut-free
+  calculus of classical linear logic as a plain inductive with binary Mix
+  and general weakening as parameters, linlog's proof term as a datatype,
+  a checker as a function and the theorem that a term the checker accepts
+  proves its sequent, closed under the global context. The flake builds
+  it as a package and compiles the certificates under `rocq/tests/`
+  against it; the exporter does not write for this kernel yet.
+
 ## [0.1.0] - 2026-10-18
 
 The first release.

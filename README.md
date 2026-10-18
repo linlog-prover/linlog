@@ -1419,6 +1419,14 @@ Built:
   kernel, a lemma proved rule by rule and closed by `Qed`, for every
   classical fragment and for intuitionistic proofs as the classical
   proofs they are, with a flake check that runs Rocq on them.
+- A Rocq library of linlog's own (`rocq/`, the package `rocq-linlog`,
+  on Rocq 9 and its standard library alone): the one-sided calculus of
+  classical linear logic as a plain inductive, with Mix and general
+  weakening as parameters, linlog's proof term as a datatype, a checker
+  as a function, and the theorem that a term the checker accepts proves
+  its sequent, closed under the global context; a certificate is the
+  sequent, the term and one computation. The flake builds the library
+  and compiles the certificates under `rocq/tests/` against it.
 - Parallel search, behind the library's `parallel` feature and on by
   default in the command: the focus engine runs the choices nearest the
   root on a thread pool, cube-and-conquer style, with the `&` premises in
@@ -1483,8 +1491,10 @@ Built:
 
 Planned, in roughly this order:
 
-- A Rocq library of linlog's own with certificates for every mode, next
-  to the NanoYalla export.
+- The Rocq library's certificates for every mode (Mix, affine and
+  two-sided intuitionistic), the exporter writing for it as a second
+  kernel next to the NanoYalla export, and the bridges to NanoYalla and
+  Yalla.
 - A web front end for proving step by step in the browser.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, further engines for MLL and intuitionistic MLL (pruned
