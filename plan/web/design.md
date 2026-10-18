@@ -389,9 +389,11 @@ point it covers. In particular:
 
 ## The choice (Phase 3, 2026-10-18)
 
-The author chose **mockup 2, "Instrument"** (`plan/web/mockup/`, copied
-from `/home/tux/Projects/own/linlog-design/mockup-2/`), with the changes
-below, which are decisions. The five mockups and their READMEs stay in
+The author chose **mockup 2, "Instrument"**, revised in three passes to
+the decisions D44 to D56 and accepted on 2026-10-18 ("Looks good");
+`plan/web/mockup/` is its copy, the visual reference of step 32 (its
+README says what it shows, its scenes, its fonts and where they came
+from, and what it would cost). The changes below are decisions. The five mockups and their READMEs stay in
 `/home/tux/Projects/own/linlog-design/`, uncommitted; from the others
 the build takes the dotted grid of Canvas (mockup 3) and nothing else.
 
@@ -500,6 +502,73 @@ the build takes the dotted grid of Canvas (mockup 3) and nothing else.
   the student, then a practice problem from the rubric (the fading
   schedule); the lesson on sequents with no proof is the erroneous
   example, "find the step that went wrong", then the refutation.
+
+- **D57. Linear or ordinary is chosen on the tab** (the author,
+  2026-10-18, after the third pass): a proof's tab carries the choice
+  between linear logic and ordinary propositional logic (the name
+  "ordinary" stays until a better one is found), since it decides what
+  the sequent field parses and what the stage draws.
+- **D58. The other switches are floating toggles on the stage** (the
+  author; step 32 reworks them freely): classical or intuitionistic,
+  Mix, affine weakening, and for classical linear logic a one-sided or
+  two-sided presentation. The frontend-design rule for them: one
+  floating cluster in one grammar, at the stage's top left under the
+  tab, a segmented control for the calculus and plain switches for the
+  rest, each with its label, the restart warning (D2) when a change
+  would restart the proof, and the cluster folds into the phone's
+  sheet. The two-sided presentation of a classical derivation is not
+  something the library draws today (it draws classical derivations
+  one-sided and intuitionistic ones two-sided), so it is a library
+  feature for a later step (`plan/later.md`), and the toggle is greyed
+  with that reason until then.
+- **D59. The smallest fragment is shown** (the author): the fragment
+  the library detects for the sequent (MLL, MALL, MELL, LL, IMLL, …,
+  what `seq fragment` prints) sits on the tab beside the calculus
+  mark, updated as the sequent is edited, with its reading on hover
+  inside Learn.
+- **D60. Learn's content is a learning progression** (the author: the
+  section must be fleshed out and its order fixed; the session built
+  the progression with the education skills, and the author confirms
+  or amends it when the content is written). The lessons, in this
+  order, each a stage a student can be located at, each with its
+  worked example, its faded example and its practice (D56), a
+  self-explanation prompt at its point of highest density, and one
+  hinge question at its end whose wrong answers each name a
+  misconception:
+  1. *Reading a sequent*: formulas, `⊢`, the one-sided form and
+     negation, the axiom. Prompt: why `⊢ A⊥, A` is an axiom and `⊢ A,
+     A` is not. Hinge: which of three sequents the axiom closes.
+  2. *The multiplicatives*: `⅋` first because it is invertible, then
+     `⊗` and its split. The stuck point of the whole progression is
+     the split; the erroneous example is the legal split that leads
+     nowhere. Prompt: where the left premise's formulas come from.
+     Hinge: which of three splits can pass (the library's
+     `split_passes` is the key).
+  3. *The additives*: `&` gives both premises the same context, `⊕`
+     chooses a side. Stuck point: a context copied, not split. Hinge:
+     after `&`, what the two premises hold.
+  4. *The units*: `1` needs an empty context, `⊥` disappears, `⊤`
+     closes anything, nothing acts on `0`. Prompt: why `1` alone.
+  5. *The exponentials*: `?d`, `?c`, `?w`, and `!` with its context
+     condition. Stuck point: promotion's context. Prompt: why `!` needs
+     every other formula under `?`.
+  6. *Two sides*: intuitionistic mode, one formula on the right, the
+     two-sided rule names, `⊸L` and its split. Prompt: what the
+     one-sided rule behind `⊸L` is (`Rule::classical`).
+  7. *When there is no proof*: the three verdicts, an atom's balance,
+     the classical countermodel, the exhausted search, and "unknown"
+     as an honest answer; "find the step that went wrong".
+  8. *Proof nets*: the net of a finished MLL proof, the switching
+     condition, the essential net of an IMLL proof; a view in version
+     1, an editor later (D4).
+  9. *Ordinary logic through the translations*: last and optional.
+  Each lesson's practice problems come from the practice rubric,
+  ordered by difficulty; the hint ladder (D12) is the lesson's help;
+  the hinge question's answer pattern decides whether the page offers
+  the next lesson or the lesson's faded example again. The content is
+  written by step 32's third session or a content session after it,
+  in Markdown under CC BY 4.0 (D23), from the library's own output
+  (every sequent proved or refuted by the command before it is used).
 
 ## Open points for the mockups
 

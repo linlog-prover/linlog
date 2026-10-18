@@ -1239,6 +1239,17 @@ stop for `Image::read_back` and `Derivation::check`, went to step 28.
   could not be checked within 6 GiB. A read-back on the proof term (a
   DAG), with a checker on terms, would avoid it.
 
+## The web front end: a two-sided presentation of classical derivations
+
+*From the design session (2026-10-18, `plan/web/design.md`, D58).* The
+author wants a toggle between the one-sided and a two-sided
+presentation of a classical linear-logic derivation on the page. The
+library draws classical derivations one-sided only (`svg::two_sided`
+serves intuitionistic mode); a two-sided reading of a one-sided
+derivation (the antecedents moved left of `⊢` by their polarity, the
+rules renamed) is a presentation pass over `Derivation`, a feature of
+its own, after step 32.
+
 ## Follow-ups: interactive proving
 
 *Assigned (2026-10-03).* The empty goal a one-sided Mix opens, and
