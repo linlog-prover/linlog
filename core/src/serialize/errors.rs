@@ -255,6 +255,10 @@ impl Serialize for NetError {
             Self::NoDominator { implication, path } => entries!(s;
                 "kind" => "no_dominator"; "implication" => &implication.get();
                 "path" => &vertices(path)),
+            Self::Crossing { links } => {
+                let links = links.map(|(x, y)| [x.get(), y.get()]);
+                entries!(s; "kind" => "crossing"; "links" => &links)
+            }
             Self::NotIntuitionistic { shape } => {
                 entries!(s; "kind" => "not_intuitionistic"; "shape" => shape)
             }

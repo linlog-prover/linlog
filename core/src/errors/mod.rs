@@ -962,6 +962,9 @@ mod tests {
                 implication: vertex,
                 path: vec![vertex],
             },
+            NetError::Crossing {
+                links: [(vertex, vertex), (vertex, vertex)],
+            },
             NetError::NotIntuitionistic {
                 shape: ShapeError::NoGoal,
             },
@@ -1039,6 +1042,7 @@ mod tests {
                 | NetError::Disconnected { .. }
                 | NetError::DirectedCycle { .. }
                 | NetError::NoDominator { .. }
+                | NetError::Crossing { .. }
                 | NetError::NotIntuitionistic { .. }
                 | NetError::Fragment { .. }
                 | NetError::Mode { .. }

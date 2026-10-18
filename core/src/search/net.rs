@@ -59,6 +59,9 @@ impl Decide for Nets {
         if !task.roots {
             return Err(refused(NotTaken::Goal));
         }
+        if task.mode.is_ordered() {
+            return Err(refused(NotTaken::Mode { mode: task.mode }));
+        }
         Ok(())
     }
 
@@ -471,8 +474,14 @@ pub(super) struct Switching {
 impl Switching {
     /// The structure of a forest of unit-free MLL without a link.
     fn new(forest: &Forest, mode: Mode) -> Self {
-        let net = ProofStructure::new(forest.clone(), Criterion { mix: mode.mix })
-            .expect("the dispatch routes unit-free MLL only");
+        let net = ProofStructure::new(
+            forest.clone(),
+            Criterion {
+                mix: mode.mix,
+                order: mode.order,
+            },
+        )
+        .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         Self { net, scratch }
     }
@@ -926,7 +935,10 @@ pub(super) mod tests {
                     .check(mode)
                     .unwrap_or_else(|e| panic!("{input:?}: the proof is wrong: {e}"));
                 assert_eq!(net.is_correct(|_| false), Ok(()), "{input:?}");
-                let criterion = Criterion { mix: mode.mix };
+                let criterion = Criterion {
+                    mix: mode.mix,
+                    ..Criterion::MLL
+                };
                 let again =
                     ProofStructure::from_proof(proof, criterion, &Limits::default(), |_| false)
                         .unwrap();
@@ -1209,7 +1221,14 @@ pub(super) mod tests {
             }
             positives.extend_from_slice(p);
         }
-        let mut net = ProofStructure::new(forest, Criterion { mix }).unwrap();
+        let mut net = ProofStructure::new(
+            forest,
+            Criterion {
+                mix,
+                ..Criterion::MLL
+            },
+        )
+        .unwrap();
         Some(some_net(&mut net, &positives))
     }
 

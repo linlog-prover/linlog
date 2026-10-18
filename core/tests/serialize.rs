@@ -9,8 +9,9 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Criterion, Forest, Fragment, GoalId, Interactive, Member, Mode, Named, Node, NodeId,
-    OccId, Proof, ProofStructure, Rule, Sequent, Step, VertexId, ViewOptions,
+    Branch, Criterion, Forest, Fragment, GoalId, Interactive, Limits, Member, Mode, Named,
+    NetError, Node, NodeId, OccId, Order, Proof, ProofStructure, Rule, Sequent, Step, VertexId,
+    ViewOptions,
 };
 
 /// A sequent's JSON as another form nests it: without `version`.
@@ -373,6 +374,31 @@ fn net_json_format_and_round_trip() {
     let json = format!(r#"{{"sequent":{sequent},"mix":true,"links":[[0,2]]}}"#);
     let partial: ProofStructure = serde_json::from_str(&json).unwrap();
     assert!(!partial.is_complete() && partial.criterion().mix);
+
+    // The cyclic order is written at level 2, and its links read back
+    // under it: these two cross, ~A[0] — A[3] and ~B[2] — B[4] of
+    // ⊢ ~A, ~B ⊗ A, B.
+    let s = Sequent::parse_ordered("A -o B, A |- B", Order::Cyclic, &Limits::default()).unwrap();
+    let sequent = nested(&s);
+    let cyclic = ProofStructure::from_links(
+        Forest::new(&s).unwrap(),
+        Criterion::CYCLIC,
+        &[(v(0), v(3)), (v(2), v(4))],
+    )
+    .unwrap();
+    let json = serde_json::to_string(&cyclic).unwrap();
+    assert_eq!(
+        json,
+        format!(
+            r#"{{"version":2,"sequent":{sequent},"mix":false,"order":"cyclic","links":[[0,3],[2,4]]}}"#
+        )
+    );
+    let back: ProofStructure = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.criterion(), Criterion::CYCLIC);
+    assert!(matches!(
+        back.is_correct(|_| false),
+        Err(NetError::Crossing { links: [(x, y), (u, w)], .. }) if [x, y, u, w] == [v(0), v(3), v(2), v(4)]
+    ));
 }
 
 /// A proof in progress serializes as its sequent, mode, inferences (the

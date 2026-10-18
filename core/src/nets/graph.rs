@@ -456,7 +456,15 @@ mod tests {
     fn net(input: &str, mix: bool, links: &[(u32, u32)]) -> ProofStructure {
         let s: Sequent = input.parse().unwrap_or_else(|e| panic!("{input:?}: {e}"));
         let links: Vec<(VertexId, VertexId)> = links.iter().map(|&(x, y)| (v(x), v(y))).collect();
-        ProofStructure::from_links(Forest::new(&s).unwrap(), Criterion { mix }, &links).unwrap()
+        ProofStructure::from_links(
+            Forest::new(&s).unwrap(),
+            Criterion {
+                mix,
+                ..Criterion::MLL
+            },
+            &links,
+        )
+        .unwrap()
     }
 
     /// The Danos–Regnier criterion by brute force: every switching is
@@ -649,7 +657,14 @@ mod tests {
                 for k in (1..pairs.len()).rev() {
                     pairs.swap(k, rng.below(k + 1));
                 }
-                let mut net = ProofStructure::new(forest, Criterion { mix }).unwrap();
+                let mut net = ProofStructure::new(
+                    forest,
+                    Criterion {
+                        mix,
+                        ..Criterion::MLL
+                    },
+                )
+                .unwrap();
                 let mut scratch = net.scratch();
                 for &(x, y) in &pairs {
                     net.link(VertexId::of(x), VertexId::of(y)).unwrap();

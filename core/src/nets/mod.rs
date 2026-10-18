@@ -36,7 +36,7 @@ pub use graph::Scratch;
 use crate::Error;
 use crate::errors::describe::{Budget, Limit, cut};
 use crate::errors::{Described, Owner, Subject};
-use crate::fragment::{Fragment, Mode};
+use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
 use crate::occurrences::{Forest, OccId, ShapeError};
 use crate::proofs::{Node, NodeId, Proof};
@@ -127,47 +127,64 @@ impl VertexId {
 }
 
 /// The rules a proof structure is checked under: whether Mix is allowed,
-/// in which case a proof net need not be connected.
+/// in which case a proof net need not be connected, and the order the
+/// calculus keeps, in which no two links of a proof net of the cyclic
+/// order cross ([`ProofStructure::is_planar`]).
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Criterion {
     /// Whether the Mix rule is allowed.
     pub mix: bool,
+    /// The order of the sequent's formulas the calculus keeps.
+    pub order: Order,
 }
 
 impl Criterion {
     /// Multiplicative linear logic without Mix.
-    pub const MLL: Self = Self { mix: false };
+    pub const MLL: Self = Self {
+        mix: false,
+        order: Order::Commutative,
+    };
+
+    /// Cyclic multiplicative linear logic, without Mix: a proof net is
+    /// planar.
+    pub const CYCLIC: Self = Self {
+        mix: false,
+        order: Order::Cyclic,
+    };
 
     /// Returns the criterion with Mix allowed.
     #[must_use]
     pub const fn with_mix(self) -> Self {
-        Self { mix: true }
+        Self { mix: true, ..self }
     }
 
-    /// Returns the criterion of a mode: Mix as the mode has it. Fails
-    /// with [`NetError::Mode`] in affine mode, which has no proof nets; in
+    /// Returns the criterion of a mode: Mix and the order as the mode has
+    /// them. Fails with [`NetError::Mode`] in affine mode, which has no
+    /// proof nets, and in an ordered mode that [`Mode::check`] refuses; in
     /// intuitionistic mode the net is the one of the one-sided sequent.
     ///
     /// # Errors
     ///
-    /// [`NetError::Mode`] in affine mode.
+    /// [`NetError::Mode`] in affine mode and in an ordered mode with Mix
+    /// or the intuitionistic reading.
     pub fn of(mode: Mode) -> Result<Self, NetError> {
-        if mode.is_affine() {
+        if mode.is_affine() || (mode.is_ordered() && mode.check().is_err()) {
             return Err(NetError::Mode { mode });
         }
         Ok(Self {
             mix: mode.has_mix(),
+            order: mode.order(),
         })
     }
 
     /// The mode a sequentialized proof holds in: classical, with Mix if
-    /// the criterion allows it.
+    /// the criterion allows it, or the cyclic mode.
     const fn mode(self) -> Mode {
-        if self.mix {
-            Mode::CLASSICAL.with_mix()
-        } else {
-            Mode::CLASSICAL
+        match (self.order, self.mix) {
+            (Order::Cyclic, _) => Mode::CYCLIC,
+            (Order::Commutative, true) => Mode::CLASSICAL.with_mix(),
+            (Order::Commutative, false) => Mode::CLASSICAL,
         }
     }
 }
@@ -246,6 +263,15 @@ pub enum NetError {
         /// The path, from the antecedent `A⊥` to the goal.
         path: Vec<VertexId>,
     },
+    /// Two links cross in the cyclic order of the literals, so the
+    /// structure is no proof net of the cyclic order: going round, the
+    /// four literals alternate between the two links.
+    #[non_exhaustive]
+    Crossing {
+        /// The two links, each from its smaller vertex to its larger one,
+        /// the first one's smaller vertex the smallest of the four.
+        links: [(VertexId, VertexId); 2],
+    },
     /// The structure's sequent has no intuitionistic reading, so it has
     /// no essential net.
     #[non_exhaustive]
@@ -301,7 +327,8 @@ impl NetError {
             | Self::SwitchingCycle { .. }
             | Self::Disconnected { .. }
             | Self::DirectedCycle { .. }
-            | Self::NoDominator { .. } => Invalid,
+            | Self::NoDominator { .. }
+            | Self::Crossing { .. } => Invalid,
             Self::Fragment { .. }
             | Self::Mode { .. }
             | Self::Rule { .. }
@@ -327,7 +354,8 @@ impl NetError {
             | Self::SwitchingCycle { .. }
             | Self::Disconnected { .. }
             | Self::DirectedCycle { .. }
-            | Self::NoDominator { .. } => "invalid_net",
+            | Self::NoDominator { .. }
+            | Self::Crossing { .. } => "invalid_net",
         }
     }
 
@@ -411,6 +439,16 @@ impl NetError {
                  goal around it",
                 vertex(implication),
                 list(path)
+            ),
+            Crossing {
+                links: [(x, y), (u, v)],
+            } => write!(
+                f,
+                "the links {} — {} and {} — {} cross in the cyclic order",
+                vertex(x),
+                vertex(y),
+                vertex(u),
+                vertex(v)
             ),
             NotIntuitionistic { shape } => {
                 f.write_str("essential nets exist for intuitionistic sequents only: ")?;
@@ -500,7 +538,8 @@ const STOPPED: NetError = NetError::Refused {
 /// With the feature `serialize` a structure is `{"version": 1, "sequent":
 /// …, "mix": …, "links": [[x, y], …]}` ([`wire`](crate::wire)): its
 /// sequent in [`Sequent`]'s form, the
-/// criterion's fields (whether Mix is allowed), and its axiom links as
+/// criterion's fields (whether Mix is allowed, and `"order": "cyclic"`
+/// at level 2 for the cyclic order), and its axiom links as
 /// pairs of vertex ids in the order they were made. Reading validates the
 /// links as [`from_links`](Self::from_links) does and takes a partial or
 /// incorrect structure, since whether it is a net is
@@ -530,10 +569,19 @@ impl ProofStructure {
     ///
     /// # Errors
     ///
-    /// [`NetError::Fragment`] for a sequent outside unit-free MLL, and
-    /// [`Refusal::Index`] for a forest past the vertices a structure holds.
+    /// [`NetError::Fragment`] for a sequent outside unit-free MLL,
+    /// [`NetError::Mode`] for a criterion of the cyclic order with Mix,
+    /// which no calculus has, and [`Refusal::Index`] for a forest past the
+    /// vertices a structure holds.
     pub fn new(forest: Forest, criterion: Criterion) -> Result<Self, Error> {
         has_nets(forest.sequent().fragment())?;
+        // No calculus keeps the order with Mix.
+        if criterion.order != Order::Commutative && criterion.mix {
+            return Err(NetError::Mode {
+                mode: Mode::CYCLIC.with_mix(),
+            }
+            .into());
+        }
         let n = forest.len();
         if n as u64 > MOST {
             return Err(Error::Refused(Refusal::Index {
@@ -899,6 +947,61 @@ impl ProofStructure {
                 parts: self.graph.parts(&self.forest, &mut scratch),
             });
         }
+        if self.criterion.order != Order::Commutative {
+            self.is_planar()?;
+        }
+        Ok(())
+    }
+
+    /// Decides whether the links are planar, independently of any search
+    /// and of the criterion's other conditions: no two of them cross in
+    /// the cyclic order of the literals, which is the order of their
+    /// occurrence ids (the order the formulas are written in, a formula's
+    /// left operand before its right one). Two links cross when their
+    /// four literals alternate between them going round, which is the
+    /// same in the cyclic order as in the linear one, whatever the
+    /// rotation; a partial structure is planar when the links it has are.
+    /// One pass over the vertices with a stack of the links whose first
+    /// literal has been passed and whose second has not: in a planar
+    /// structure the second literal reached always closes the link on top.
+    ///
+    /// A structure of unit-free MLL is a proof net of cyclic MLL exactly
+    /// when it is a proof net and planar: every derivation of the cyclic
+    /// calculus joins its premises' planar nets side by side at a `⊗`,
+    /// and every sequentialization of a planar net splits each `⊗` into
+    /// the two arcs on either side of it, since the parts that removing
+    /// it leaves are connected and drawn without crossing.
+    ///
+    /// # Errors
+    ///
+    /// [`NetError::Crossing`] with two links that cross.
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "the expect and the unreachable state that a link's two literals name each other, which linking keeps"
+    )]
+    pub fn is_planar(&self) -> Result<(), NetError> {
+        let mut open: Vec<VertexId> = Vec::new();
+        for o in self.forest.ids() {
+            let v = VertexId::of(o);
+            let Some(partner) = self.partner(v) else {
+                continue;
+            };
+            if partner > v {
+                open.push(v);
+                continue;
+            }
+            // The link closes here: its first literal must be on top.
+            match open.pop() {
+                Some(top) if top == partner => {}
+                Some(top) => {
+                    let inner = self.partner(top).expect("an open literal is linked");
+                    return Err(NetError::Crossing {
+                        links: [(partner, v), (top, inner)],
+                    });
+                }
+                None => unreachable!("the partner of a later literal was passed and is open"),
+            }
+        }
         Ok(())
     }
 }
@@ -907,8 +1010,8 @@ impl Display for ProofStructure {
     /// Writes the sequent, then one line per link as `~A[0] — A[2]`, each
     /// literal with its vertex id, the links ordered by their first id,
     /// then the verdict of the criterion: `proof net`, `proof net with
-    /// Mix`, or `not a proof net: ` and the reason with formulas. No
-    /// trailing newline.
+    /// Mix`, `planar proof net` in the cyclic order, or `not a proof net:
+    /// ` and the reason with formulas. No trailing newline.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         writeln!(f, "{}", self.sequent())?;
         let mut links: Vec<(VertexId, VertexId)> = self
@@ -923,6 +1026,7 @@ impl Display for ProofStructure {
         }
         match self.is_correct(|_| false) {
             Ok(()) if self.criterion.mix => f.write_str("proof net with Mix"),
+            Ok(()) if self.criterion.order != Order::Commutative => f.write_str("planar proof net"),
             Ok(()) => f.write_str("proof net"),
             Err(e) => write!(f, "not a proof net: {}", e.describe(&self.forest)),
         }
@@ -951,7 +1055,10 @@ mod tests {
 
     /// The criterion with Mix allowed or not.
     const fn criterion(mix: bool) -> Criterion {
-        Criterion { mix }
+        Criterion {
+            mix,
+            ..Criterion::MLL
+        }
     }
 
     /// Builds the forest of `input`, or panics with the parse error.
@@ -1140,6 +1247,114 @@ mod tests {
                 assert_eq!(links(&again), links(&net), "{text:?}");
             }
         }
+    }
+
+    /// Planarity agrees with a comparison of every two links on every
+    /// complete linking of small sequents, its witness crosses, a
+    /// structure is a proof net of the cyclic order exactly when it is a
+    /// planar proof net, and every such net sequentializes into a proof
+    /// the checker accepts in the cyclic mode, whose net it is.
+    #[test]
+    fn planarity() {
+        use crate::occurrences::Sign;
+        use crate::search::generate::{self, Rng, Rules};
+        use crate::sequents::Atom;
+        /// Whether the links `(x, y)` and `(u, v)` cross: their ends
+        /// alternate, in the linear order as in the cyclic one.
+        fn cross((x, y): (VertexId, VertexId), (u, v): (VertexId, VertexId)) -> bool {
+            let (x, y) = (x.min(y), x.max(y));
+            let (u, v) = (u.min(v), u.max(v));
+            (x < u && u < y && y < v) || (u < x && x < v && v < y)
+        }
+        /// Tries every linking of the literals of `positives` to unlinked
+        /// partners, and compares the criteria on each complete one;
+        /// returns the planar nets seen.
+        fn every(net: &mut ProofStructure, positives: &[OccId], mll: &mut ProofStructure) -> u32 {
+            let Some((&x, rest)) = positives.split_first() else {
+                let pairwise = net
+                    .links()
+                    .iter()
+                    .all(|&l| net.links().iter().all(|&m| !cross(l, m)));
+                match net.is_planar() {
+                    Ok(()) => assert!(pairwise, "{net}"),
+                    Err(NetError::Crossing { links: [l, m] }) => {
+                        assert!(!pairwise && cross(l, m), "{net}");
+                        assert!(l.0 < l.1 && m.0 < m.1 && l.0 < m.0, "{l:?} {m:?}");
+                    }
+                    Err(e) => panic!("{e}"),
+                }
+                let cyclic = net.is_correct(|_| false).is_ok();
+                assert_eq!(
+                    cyclic,
+                    pairwise && mll.is_correct(|_| false).is_ok(),
+                    "{net}"
+                );
+                if cyclic {
+                    let proof = net.sequentialize(&Limits::default(), |_| false).unwrap();
+                    assert_eq!(proof.check(Mode::CYCLIC), Ok(()), "{net}");
+                    let back = ProofStructure::from_proof(
+                        &proof,
+                        Criterion::CYCLIC,
+                        &Limits::default(),
+                        |_| false,
+                    )
+                    .unwrap();
+                    assert_eq!(links(&back), links(net), "{net}");
+                }
+                return u32::from(cyclic);
+            };
+            let forest = net.forest().clone();
+            let mut nets = 0;
+            for &y in forest.literals(forest.atom(x).unwrap(), Sign::Dual) {
+                if net.partner(VertexId::of(y)).is_none() {
+                    net.link(VertexId::of(x), VertexId::of(y)).unwrap();
+                    mll.link(VertexId::of(x), VertexId::of(y)).unwrap();
+                    nets += every(net, rest, mll);
+                    net.unlink();
+                    mll.unlink();
+                }
+            }
+            nets
+        }
+        let rules = Rules {
+            units: false,
+            additives: false,
+            mix: false,
+            exponentials: false,
+        };
+        let mut rng = Rng::new(36);
+        let (mut sequents, mut nets) = (0, 0);
+        for round in 0..300 {
+            let formulas = if round % 2 == 0 {
+                let budget = 2 + rng.below(8);
+                generate::provable(&mut rng, rules, 2, budget).formulas
+            } else {
+                let (atoms, pairs) = (1 + rng.below(2) as u8, 1 + rng.below(5));
+                generate::balanced(&mut rng, atoms, pairs, false)
+            };
+            let s: Sequent = generate::sequent(&formulas).parse().unwrap();
+            let forest = Forest::new(&s).unwrap();
+            // At most 5! pairings of one atom's literals.
+            let positives: Vec<OccId> = (0..s.atom_names().len() as u32)
+                .flat_map(|a| forest.literals(Atom::new(a), Sign::Atom).to_vec())
+                .collect();
+            let balanced = (0..s.atom_names().len() as u32).all(|a| {
+                let a = Atom::new(a);
+                let n = forest.literals(a, Sign::Atom).len();
+                n == forest.literals(a, Sign::Dual).len() && n <= 5
+            });
+            if !balanced {
+                continue;
+            }
+            let mut net = ProofStructure::new(forest.clone(), Criterion::CYCLIC).unwrap();
+            let mut mll = ProofStructure::new(forest, Criterion::MLL).unwrap();
+            sequents += 1;
+            nets += every(&mut net, &positives, &mut mll);
+        }
+        assert!(
+            sequents > 150 && nets > 100,
+            "{sequents} sequents, {nets} planar nets"
+        );
     }
 
     /// The text form lists the sequent, the links with their positions and

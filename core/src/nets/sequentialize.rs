@@ -283,7 +283,15 @@ mod tests {
             .iter()
             .map(|&(x, y)| (VertexId::new(x), VertexId::new(y)))
             .collect();
-        ProofStructure::from_links(Forest::new(&s).unwrap(), Criterion { mix }, &links).unwrap()
+        ProofStructure::from_links(
+            Forest::new(&s).unwrap(),
+            Criterion {
+                mix,
+                ..Criterion::MLL
+            },
+            &links,
+        )
+        .unwrap()
     }
 
     /// A net whose derivation is thousands of inferences high is
