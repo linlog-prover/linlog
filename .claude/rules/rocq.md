@@ -123,6 +123,37 @@ was.
   intuitionistic proof states classical derivability of its one-sided
   translation; the exporter writes the two-sided statement for a
   two-sided derivation instead.
+- **`Refutations.v`** (in the package, importing `Calculus` and
+  `Intuitionistic`): the three invariants every derivation keeps and the
+  theorems `~ ll R Γ` they give, each from a Boolean test that
+  `vm_compute` decides. `eval v` is the classical reading (`!`/`?`
+  erased) and `ll_tautology` holds for every `R`, so `falsifies v Γ =
+  true` refutes in every calculus (`classical_refutation`); `excess
+  atom_eqb a` is the hull interval of the atom's excess, `None` under
+  `⊤` and under an exponential that contains the atom (`bang` keeps
+  `(0, 0)` alone), `balance` needs `weakening R = false` and holds with
+  Mix, and `unbalanced` tests both (`unbalanced_refutation`); `weights`
+  sums `#⊗ − #⅋ − #1 + #⊥` and `count_equation` needs `weakening R =
+  false` and `forallb mll Γ`, with `≥` under Mix (`fails_equation`,
+  `equation_refutation`). The invariant of `balance` holds whatever
+  `atom_eqb` is, since both literals of an axiom compare alike; the
+  certificates pass `String.eqb`. These are the conditions under which
+  the Rust search states its refutations and `Disproof::check` accepts
+  them, so a certificate exists exactly for a refutation that check
+  accepts. `ill_ll` embeds the two-sided calculus in `ll (lrules R)`
+  (`one_sided G C` is `itr C :: map (dual ∘ itr) G`, `⊸` as `A⊥ ⅋ B`),
+  which gives `ill_tautology` and the two-sided forms
+  `iclassical_refutation`, `iunbalanced_refutation`,
+  `iequation_refutation`. `excesses` and `weights` are fixpoints, not
+  `fold_right`s, so that `cbn` refolds them; the proofs unfold only
+  `excesses`, `excess`, `weights` and the like (`cbn [...]`), since a
+  full `cbn` turns `add (Some (0, 0)) x` and `1 + x` into matches no
+  lemma rewrites. Certificates of non-derivability are in
+  `tests/Refutations.v` and, from the exporter, in
+  `core/tests/snapshots/linlog/`; a OneSided count (copies of one sign)
+  or a state equation has no lemma yet: `bang` would keep a one-sided
+  interval for the first, and the second needs Horn programs' proofs as
+  firing sequences.
 - **`Mix.v`** (in the package, importing `Calculus` alone): `mix_to_ll`,
   for every `rules` value, gives `⊢ ?(⊥⊗⊥), Γ` in the calculus with
   `mix := false` and the same `weakening` from `⊢ Γ` in the calculus,

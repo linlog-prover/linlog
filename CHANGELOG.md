@@ -43,6 +43,17 @@ second number (0.1.x to 0.2.0), anything else the third.
   `rocq-bridges` check compiles against the two kernels' files as its
   inputs pin them (Yalla is a new input), each closed under the global
   context.
+- In the Rocq library, the refutations (`Refutations.v`): every
+  derivable sequent of `ll R`, for every `R`, reads as a tautology
+  classically (`ll_tautology`); without weakening an atom's excess over
+  the additive alternatives contains zero (`balance`) and a
+  multiplicative sequent with units has the formulas the count equation
+  asks for, at least that many with Mix (`count_equation`); and the
+  two-sided calculus embeds in the one-sided one (`ill_ll`), so that
+  each gives `~ ll R Γ` or `~ ill R Γ C` from an assignment, an atom or
+  nothing, tested by computation (`classical_refutation`,
+  `unbalanced_refutation`, `equation_refutation` and their two-sided
+  forms), all closed under the global context.
 - A classical refuter after the search: where a search did not prove its
   goal, an assignment of truth values to the atoms under which the goal
   read classically is false (`!` and `?` erased, `⊗` and `&` as "and",
