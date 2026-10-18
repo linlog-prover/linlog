@@ -35,9 +35,11 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
 `plan/notes/research/comparison-gaps.md`, adopted by the author on
 2026-10-18). The premise above that the library ends at the copy bound
 is out of date: outside the nets it ends at the time limit (the note's
-2.4). Step 30b closed the levels of its class A (R1) and step 39 caps
-class B (R3); this engine's case is class C's long proofs (9 rows, 2
-stems directly) and a second refuter by saturation for what R1 and R3
+2.4). Step 30b closed the levels of its class A (R1), which decided
+class B's rows too (the comparison of 2026-10-18), and step 39 measures
+whether R3's cap still gains anything; this engine's case is class C's
+long proofs (in that comparison Sympli's ten proofs that linlog lacks,
+`ILLTP-SYJ-cbn/SYJ203+1.011` and `SYJ205+1.012` to `.020`) and a second refuter by saturation for what R1 and R3
 leave of A and B. Its first measurement comes after step 39, on the
 held-out sets and the 384 intuitionistic rows no tool decides, at the
 longer limit step 29 proposed, never on the 122 rows Sympli wins alone.
