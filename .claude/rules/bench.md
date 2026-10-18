@@ -105,6 +105,13 @@ serde_json, which the CLI and the core's tests already have.
   `bench/tests/compare.rs` pins both modes' printed tables on a pair of
   three-row files (a verdict, a counter and a decision that differ), by
   running the binary: a change of what `summary` prints changes it.
+- `problems/cyclic.txt`: sequents of cyclic MLL (chains, wide products,
+  their exchanged and reversed forms, products of one or two atoms,
+  random derivations of the cyclic calculus and their exchanged
+  mutants), made by a script kept in the step's report; a file
+  problem's sequent is parsed with its mode's order
+  (`Sequent::parse_ordered`), so `--modes classical` runs the commutative
+  engines on the same one-sided sequent.
 - `problems/slow-tests.txt`: problems of the engine reports' timing tables
   that no family generates (the Partition instances of the net engine's
   first table, the chain with a token over, the parallel cancellation

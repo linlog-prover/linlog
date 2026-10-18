@@ -98,12 +98,45 @@ second number (0.1.x to 0.2.0), anything else the third.
   proof checker, the size estimate, the memo and the memory account on a
   32-bit target, `wasm32-wasip1` under wasmtime.
 
+- The cyclic mode: cyclic linear logic, multiplicative and without
+  units, where a one-sided sequent is a sequence of formulas read up to
+  rotation and nothing else is exchanged. `Order` (`Commutative`,
+  `Cyclic`), `Mode::CYCLIC` with `Mode::order` and `Mode::is_ordered`,
+  the mode word `cyclic`; `Mode::check` refuses an ordered mode with
+  weakening, Mix or the intuitionistic reading (`Error::OrderedMode`,
+  code `ordered_mode`), and the search a sequent beyond unit-free MLL in
+  it (`Error::OrderedFragment`, `ordered_fragment`). The command's
+  `--cyclic` (on `prove`, `check`, `interact`, `seq print` and `seq
+  json`), and `cyclic` as a batch entry's mode.
+- `Sequent::parse_ordered`, which reads a sequent for an order: in the
+  cyclic one the dual of a product reverses it (`~(A * B)` is `~B par
+  ~A`) and the formulas left of `|-` come reversed, each negated.
+- The cyclic checker: `Proof::check(Mode::CYCLIC)` accepts the axiom,
+  `⊗` and `⅋` only (`Fault::Forbidden` otherwise) and a `⊗` only when its
+  premises' contexts are the two arcs on either side of it
+  (`Fault::Order`).
+- Planar proof nets: `Criterion::order` and `Criterion::CYCLIC`, under
+  which `is_correct` asks besides that no two links cross in the cyclic
+  order of the literals; `ProofStructure::is_planar` decides that alone,
+  with the witness `NetError::Crossing`. The net engine decides the
+  cyclic mode, its default there, by a linking search that admits a
+  link only when it crosses no link made and the literals between its
+  ends are balanced; it decides goals off the roots in that mode.
+- Step-by-step proving in the cyclic mode: a `⊗` splits its goal into
+  the two arcs on either side of it, at a cut point (`Step::at`,
+  `Split::At`) or by positions that make them, any other split being
+  `StepError::Exchange`.
+- `rocq::Unsupported::Ordered`: the Rocq exporter refuses a derivation
+  or a disproof of the cyclic mode, whose calculi are commutative.
+
 ### Wire forms
 
 - Level 2: the refutation kind `classical`, `{"kind": "classical",
-  "assignment": [true, false, …]}`. A disproof or an unprovable outcome
-  that holds one is written at level 2; every other document stays at
-  level 1, byte for byte.
+  "assignment": [true, false, …]}`, the mode `"cyclic"`, and a proof
+  structure's `"order": "cyclic"`. A disproof or an unprovable outcome
+  that holds the refutation, and a document of the cyclic mode or
+  order, are written at level 2; every other document stays at level 1,
+  byte for byte.
 - The essential-net engine for IMLL without units, `Engine::Essential`
   (`--engine essential`, JSON `"essential"`): the net engine's linking
   search over the essential net the intuitionistic reading directs,

@@ -66,7 +66,8 @@ Current contents:
   - `rules/core-horn.md` (`search/horn/`): the Horn engine, Horn
     programs decided as Petri nets, by reachability and in affine mode
     by coverability, with the state equation beside;
-  - `rules/core-nets.md` (`nets/`, `search/net.rs`, `search/essential.rs`): proof nets, their
+  - `rules/core-nets.md` (`nets/`, `search/net.rs`, `search/essential.rs`,
+    `search/planar.rs`): proof nets, their
     criterion and the net engine;
   - `rules/core-parallel.md` (`search/parallel.rs`,
     `search/focus/parallel.rs`, `search/net.rs`): the pool, the stop

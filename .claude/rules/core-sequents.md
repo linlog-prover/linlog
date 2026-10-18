@@ -103,6 +103,19 @@ read back by `Reading` (below); there is no second data model.
   and the harness use it. `Display` is the prose the command prints.
   The dispatch's `Modes::take` destructures the whole mode, so a new
   field is a compile error there.
+- **The order** (`Order`, `Mode::order`, `is_ordered`; `Mode::CYCLIC`, the
+  word `cyclic`): every earlier mode is `Order::Commutative`, so its
+  value, name and wire form are as before. `Mode::check` refuses an
+  ordered mode with weakening, Mix or the intuitionistic reading
+  (`Error::OrderedMode`); no builder makes the last (the Lambek calculus
+  will be that combination, with its own words), but `name` is total
+  over the fields (`cyclic-mix`, …) for the refused ones. The front door
+  and `Interactive` call `Mode::check` (before, they tested
+  intuitionistic Mix alone, which it still answers first among the
+  commutative modes). A sequent beyond unit-free MLL in an ordered mode
+  is `Error::OrderedFragment`. A sequent's order needs no change of the
+  arena: the written order was canonical already, and the forest's
+  preorder (left operand first) is the cyclic order of the literals.
 
 ## Parsing
 
@@ -125,6 +138,23 @@ time and memory linear in the text. What the code relies on:
   recursive descent that built a tree and lowered it), and with it the
   occurrence ids that every stored proof and snapshot names. A change to
   the order of the pushes is a format break.
+- **The ordered parse** (`Sequent::parse_ordered(text, order, limits)`):
+  in `Order::Cyclic` the dual of a product reverses its operands and the
+  antecedents are reversed (`A, B |- C` is `|- ~B, ~A, C`), so that the
+  cyclic calculus's reading of a two-sided sequent is the one-sided one
+  in forest order; `A -o B` stays `~A par B` (Lambek's left division).
+  `FromStr` and `parse_within` stay the commutative reader. Both readers
+  go through one function, `parse::read`, which makes the parser as its
+  own local and runs the loop, so that the loop and all it calls have one
+  caller and inline as before (`read-text` at its count before the
+  order). Not so: the loop taken out of line with the parser passed in
+  cost 1.5 %, and a copy of the loop per reader (inlined, or the parser
+  generic over the order) 2 to 7 %, as a callee both copies call
+  (`Parser::atom`, `HashMap::insert`) lost the inlining LLVM gives a
+  single caller. `dualise` is generic over the order, chosen once in
+  `finish`. A cyclic sequent prints one-sided as any other and
+  reads back as itself under the ordered parse. The JSON form has no
+  order: a JSON sequent is already lowered.
 - **Negation is applied at the end.** A term is pushed as it is written;
   a `~`, a `^`, being the antecedent of a `⊸` (which is pushed as `⅋`)
   and standing left of the turnstile each flip the term's flag in
@@ -366,7 +396,9 @@ the commit that lands it rewrites that bullet.
   `u64::MAX` and means "at least"; every integer read back is below 2⁵³,
   and a larger bound is written `null`. JavaScript reads `u64::MAX` as
   2⁶⁴, which no exact count takes.
-- **Ordered modes**: classical cyclic MLL is read by an ordered parse
+- **Ordered modes** (built: `Mode::CYCLIC`, `parse_ordered`; written at
+  wire level 2 wherever a document names the mode or a structure the
+  order, `wire::level_in`): classical cyclic MLL is read by an ordered parse
   beside `parse_within` whose dual reverses products, and `FromStr` stays
   the commutative reader; the Lambek calculus's planar order is decided
   with the ordered calculi. Without the reversing dual, `|- ~(a * b), a,

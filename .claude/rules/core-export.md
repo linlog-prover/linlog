@@ -482,7 +482,16 @@ for NanoYalla. What the code relies on:
   one-sided `Rule` of every `Named` rule, and the checked sequent is the
   one-sided one. Mix,
   affine `wk` and `Rule::Open` are refused before anything is written
-  (`Unsupported`), since the kernel has no such rule; atom names are
+  (`Unsupported`), since the kernel has no such rule; a derivation or a
+  disproof of an ordered mode is refused by both kernels
+  (`Unsupported::Ordered`): their calculi are commutative, and a
+  commutative certificate would state another sequent's derivability
+  (a cyclic proof is a commutative one, but the certificate would not say
+  the order was kept). The cyclic snapshots (`cyclic.tex`, `.typ`,
+  `.svg`, the planar net `planar.svg`) are drawn as any other: the view
+  has the cyclic order, and the net SVG puts the conclusions in their
+  order with links above, so a planar net is drawn without a crossing;
+  atom names are
   escaped to identifiers and made distinct from `RESERVED` (keywords and
   every kernel name a script mentions), the lemma's name and each other,
   in one pass: the first clash of an identifier gets `'`, the later ones

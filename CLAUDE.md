@@ -13,7 +13,8 @@ rules, conventions and pointers. Guidance for one area of the tree goes in
 ## Project
 
 linlog is a linear logic suite: it decides, checks, proves step by step
-and exports sequents of classical and intuitionistic linear logic, and
+and exports sequents of classical and intuitionistic linear logic and
+of cyclic MLL (the order of the formulas kept), and
 decides ordinary propositional logic through its embeddings (README's
 "What exists and what is planned"). It is written in Rust with
 WebAssembly in mind for a planned `linlog-web` crate: the library reads

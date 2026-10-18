@@ -637,6 +637,14 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   intuitionistic reading is exit 2 with core's `ShapeError` described with
   formulas (`describe` in `prove.rs`, which rebuilds the forest for that);
   a classical proof file checked with `-i` is an invalid proof, exit 1.
+- **The cyclic mode is a matter of reading in the CLI** (`--cyclic` in
+  `ModeArgs`, conflicting with `--intuitionistic`; `seq print --cyclic`,
+  `seq json --cyclic`): the order of a mode decides how text is parsed
+  (`io::sequent_in` takes it, `Sequent::parse_ordered`), for one sequent
+  and for a batch entry whose mode is `cyclic`; an LLTP or `.spec`
+  problem is refused in the mode (their readers are commutative). Mix
+  and `--affine` with it reach the library, which refuses them by name
+  (`OrderedMode`). The derivation prints one-sided as ever.
 
 ## Extension points
 

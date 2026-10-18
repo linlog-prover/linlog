@@ -267,6 +267,22 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   absorb, which R1 guarantees. The derivation view builds that
   instantiation. A review compared the checker with an independent
   two-sided prover on 8 000 classical proofs of ILL-shaped sequents.
+- **The cyclic mode is the classical check plus the arcs** (`arcs` in
+  `pass.rs`, its own sort-based version in `oracle.rs`): every node but
+  `Ax`, `Par` and `Tensor` is `Fault::Forbidden`, and at a `Tensor(o, l,
+  r)` the contexts left after taking `o`'s operands must be the arcs on
+  either side of `o`: going round from `o` in id order, every member of
+  the right one before every member of the left one, else
+  `Fault::Order`. Why that is cyclic MLL: in a proof the commutative
+  rules accept every zone is an antichain of the forest holding each
+  occurrence once, so its id order is the induced cyclic order, `Par`'s
+  operands are neighbours in it and `o`'s operands take `o`'s place;
+  `Tensor` is then exactly the cyclic rule. A member in both contexts
+  (`<=`, as the oracle has it) belongs to no accepted proof. A goal off
+  the roots is read in its ascending order, which is the right one. The
+  argument was reviewed (Fable 5.1); `cyclic` in `check/mod.rs` pins it,
+  and `agrees_with_the_first_implementation` runs every proof and mutant
+  in the cyclic mode against the oracle.
 - The rule interpretation was reviewed against an independent top-down
   reference checker with random proofs, mutants and random terms (step 2's
   report); the intricate cases that review named are pinned in

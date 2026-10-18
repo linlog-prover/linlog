@@ -253,6 +253,13 @@ open goal and no run (`times` is 1), and writes `Γ ⊢ Δ` with both sides
 in their stored order through `TEXT.ordinary`, into the formatter
 itself.
 
+- **The cyclic mode needs nothing of the view**: a derivation is built
+  in the most liberal one-sided mode whatever the proof records, and
+  ascending order is a cyclic sequent's order read from its first
+  occurrence, so every sequent of a cyclic proof is a rotation of the
+  order its rule reads and no exchange appears (documented on
+  `Inference::sequent`). Rocq refuses the mode (`core-export.md`).
+
 ## Interactive proving
 
 `proofs/interactive/` (feature `interactive`; `mod.rs` the types, the
@@ -367,6 +374,19 @@ code relies on:
   every Mix and every graft (`graft` now appends a found derivation in
   reverse so that premises keep larger indices); keep the round trip of
   such states in `core/tests/serialize.rs`.
+- **The cyclic mode** (`expand`): only `ax`, `⊗` and `⅋` apply
+  (`StepError::Mode` for the others) and a session of a sequent beyond
+  unit-free MLL is refused at the start (`Error::OrderedFragment`). A
+  `⊗`'s split must be the two arcs: going round from the `⊗`, the
+  formulas going right first, then those going left, else
+  `StepError::Exchange` naming the first left one before a right one.
+  `Step::at(position)` (`Split::At`) gives the cut point directly, the
+  formulas from `position` round to the `⊗` going left, the step's own
+  position sending none; `left_positions` turns it into positions, so
+  `expand`, `split_passes` and the replay of a stored session read one
+  list. `⅋` needs no check (its operands are neighbours in id order).
+  `close` works on any goal through the net engine's goals off the roots
+  (`core-nets.md`).
 - **The reading is kept** (`Interactive::reading`, O(1)): the state
   stores the positions and the goal `Reading::new` computed when it was
   made (`Reading::into_parts`), and lends a reading over them

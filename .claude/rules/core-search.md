@@ -307,7 +307,20 @@ copies they had are gone (F103, F104).
   clause under `!` in any mode (`PetriNet`: the fragment has
   exponentials and `horn::is_net` finds a program with a `?` member in
   the goal itself, whatever fragment the options assert) to `horn`; the
-  rest by mode.
+  rest by mode. The first row is the cyclic mode's: unit-free MLL in an
+  ordered mode (`Modes::Ordered`) to `net`, the planar search; every
+  other row's `Modes` takes commutative modes only (`Any` is every
+  commutative mode).
+- **An ordered mode at the front door** (`prepare`, `read`): `Mode::check`
+  first (`OrderedMode`), then a fragment beyond unit-free MLL is
+  `OrderedFragment` (before the dispatch, so that it is named and not
+  `NoEngine`), and an engine other than `net`, forced, is
+  `EngineRefused` with `NotTaken::Mode`, since only the net engine keeps
+  the order. No handover from the net engine to itself (`answer_goal`
+  asks `engine != Engine::Net`), and a race runs one search in an
+  ordered mode. The classical refuter and the counts' refutations stay
+  sound there (cyclic provability implies the commutative one); the
+  planar search's own unprovable answer is `Exhausted`.
 - **Why the Horn row takes affine mode too** (measured at step 27's
   second session): on qcover's 176 coverability problems at 5 s it
   decides 162 where the two-sided engine, the default before, decides 8

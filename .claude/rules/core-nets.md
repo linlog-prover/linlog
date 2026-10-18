@@ -3,6 +3,7 @@ paths:
   - "core/src/nets/**"
   - "core/src/search/net.rs"
   - "core/src/search/essential.rs"
+  - "core/src/search/planar.rs"
 ---
 
 # linlog core: proof nets, essential nets and the net engines
@@ -171,6 +172,69 @@ code relies on:
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
   ` with the reason in formulas) and the JSON form are pinned in tests.
 
+## Planar nets: cyclic MLL
+
+- **The criterion** (`Criterion::order`, `Criterion::CYCLIC`): a
+  structure is a proof net of cyclic MLL exactly when it is a
+  Danos–Regnier net without Mix and planar, no two links crossing in the
+  cyclic order of the literals, which is their id order
+  (`ProofStructure::is_planar`, a stack scan, `NetError::Crossing` with
+  the two links). `is_correct` asks it last, after the commutative
+  conditions, so a commutative structure's verdict and witness are as
+  before. Both directions and the sequentializer were reviewed: every
+  sequentialization of a planar net is a cyclic proof, since the two
+  parts a splitting `⊗` leaves are joined by chains of links that would
+  cross if a conclusion of one stood between two of the other; the
+  `debug_assert` in `sequentialize` checks it in `Mode::CYCLIC`.
+- **No order with Mix**: `ProofStructure::new` refuses a cyclic criterion
+  with Mix (`NetError::Mode`), since `Criterion` is public with public
+  fields; such a structure would sequentialize into Mix nodes recorded as
+  cyclic, which the checker refuses. `Criterion::of` refuses the ordered
+  modes `Mode::check` refuses.
+- **The planar search** (`search/planar.rs`, `Planar`): the classical
+  criterion (`Switching`, whose structure carries the cyclic criterion so
+  that the net found is one) wrapped with two rejections in `admits`:
+  the two ends must lie in one region (the innermost made link around a
+  place in the linear order, kept per literal place, rewritten inside a
+  link's span at `link` and restored at `unlink`, which the loop calls
+  last in first out), which is exactly "crosses no made link"; and the
+  literals strictly between the ends must be balanced in every atom,
+  compared by prefix sums of a hash (wrapping on purpose: equal counts
+  give equal sums, a collision only lets a link through). `test` and
+  `balanced` are the classical ones: a planar net is a net. Planarity of
+  the complete linking holds by construction (a `debug_assert` in
+  `test`).
+- **35a's prunes under the order**: the three symmetry breaks are off
+  (`Prunes::PLANAR`): exchanging equal literals or subformulas moves a
+  link and can make two cross, so the canonical linking of an orbit may
+  be the non-planar one (`|- a * a, ~a, ~a` is provable only by the
+  descending linking 1–4, 2–3; `|- (a * b) * (a * b), ~b, ~a, ~b, ~a`
+  only by the nested one). A conditional break (reject the descending
+  linking only when its exchange crosses nothing) would be sound and is
+  not built. The skeleton balance and the count equation are kept: each
+  rejects only partial linkings without a Danos–Regnier completion.
+- **One thread, and goals**: `Nets::decide` runs the planar search on
+  the calling thread whatever `jobs` says (the cubes are
+  `Linker<Switching>`'s), and `race` runs one search in an ordered mode.
+  A goal off the roots is admitted in an ordered mode when its formulas
+  are distinct and none lies in another's subtree (`apart`); `goal`
+  searches the sequent of those formulas as roots (the same arena), whose
+  forest numbers each formula's occurrences as the goal's forest does,
+  shifted, and carries the proof back by the shift; the answer has no
+  net. That is how a session closes a cyclic goal.
+- **What it costs the commutative search**: nothing in its counters (the
+  net target set equal to `net-after-prunes` on every row); the planar
+  criterion's call of `Switching::admits` made LLVM outline
+  `Forest::lca` from the classical loop, +2.4 % of
+  `search-wide-m2-256`'s instructions, which `#[inline]` on `lca` takes
+  back to +0.24 %. The tests: `planarity` in `nets/mod.rs` (every
+  linking of small sequents against a pairwise crossing test, every
+  sequentialization checked in the cyclic mode) and
+  `agrees_with_every_planar_linking` in `search/planar.rs` (the engine
+  against an enumeration of every planar linking on random derivations
+  of the cyclic calculus, their mutants and balanced sequents; it caught
+  the conclusions' break, first left on).
+
 ## Essential nets
 
 `nets/essential.rs` reads the structure of an intuitionistic sequent as
@@ -314,9 +378,13 @@ What the code relies on:
   `wide-m4` time at every node, hence the cadence; it is the net engine's analogue of the
   focused engine's split counts only in its form, and a stronger one
   needs sets joined in some switching, which no cheap structure keeps.
-- **`Prunes`** switches the leaf break, the compound break and the
-  balance prune off one at a time for the tests only (`with_prunes`);
-  a search applies all three, as the conclusion classes always were.
+- **`Prunes`** switches the conclusions' break, the leaf break, the
+  compound break and the balance prune off one at a time for the tests
+  only (`with_prunes`); a commutative search applies all four
+  (`Prunes::ALL`), the planar search the balance alone
+  (`Prunes::PLANAR`, below). The conclusions' break was always on before
+  the field existed: `Symmetry::new`'s `chained` reads it for a literal
+  whose anchor is the root, the leaf break for the others.
 - **Choice order** (`choose`): the unlinked literal with the fewest
   admissible partners, ties to the first in atom order, `a` before `~a`,
   then id; every unlinked literal is inspected, so a literal without an
