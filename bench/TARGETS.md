@@ -263,6 +263,16 @@ area that took it (the reports under `plan/reports/` have the tables):
   gives the focused engine, and the chain family's four (the memo entry
   and hit of `after-generations`). The net set has the counters of
   `net-after-prunes` on all 64 rows.
+- `after-classical` and `net-after-classical`: the classical refutation
+  after every search that did not prove its goal. Against
+  `after-routing` the focused set has the same verdicts and counters on
+  all 140 rows both decide, and five more rows decided, each unprovable
+  with its assignment checked (`checked` is `ok`): `growing/16`, `/64`,
+  `/256` and `/1024`, which ended at the copy bound or the recursion
+  limit, and `mix/11`, which ended at the time limit and is refuted
+  6 ms after it (late). Against `after-efficiency` the same five
+  counters differ as at `after-routing`. The net set has the counters of
+  `net-after-prunes` on all 64 rows, and no new row decided.
 
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
