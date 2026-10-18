@@ -238,15 +238,19 @@ What the code relies on:
   alone. The spec forbade breaking symmetry inside formulas; the
   argument above is why it is sound here.
 - **The balance prune** (`balanced`, in `choose`, per atom with three
-  pairs or more left): no `⅋`-free skeleton component may hold more
+  pairs or more left, at the nodes where the exact test runs: its
+  cadence, so on a large structure every fourth link): no `⅋`-free
+  skeleton component may hold more
   unlinked literals of an atom than the atom's unlinked pairs. A literal
   never links into its own component, so each `a` of a component needs
   its own `~a` outside it. With two pairs or fewer, a component that
   breaks it leaves a literal with no admissible partner, which the
   partner count finds, so the check skips those atoms (it cost 30 % of
-  `search-wide-m2-256` when it ran on every atom). It rarely fires: the
-  count equation and the `⅋` boundaries keep a component to one sign
-  of an atom on the families; it is the net engine's analogue of the
+  `search-wide-m2-256` when it ran on every atom). It never fired on
+  the families (Partition, 3-Partition, `wide`: equal node counts with
+  and without it), where the count equation and the `⅋` boundaries keep
+  a component to one sign of an atom, and it cost `wide-m3` and
+  `wide-m4` time at every node, hence the cadence; it is the net engine's analogue of the
   focused engine's split counts only in its form, and a stronger one
   needs sets joined in some switching, which no cheap structure keeps.
 - **`Prunes`** switches the leaf break, the compound break and the

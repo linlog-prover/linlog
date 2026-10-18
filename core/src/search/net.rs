@@ -623,9 +623,11 @@ impl<'a> Linker<'a> {
     /// the first in atom order, `a` before `~a`, then id order among
     /// equals; or reports that some literal has none, or that every
     /// literal is linked. Every unlinked literal is looked at, so a dead
-    /// end anywhere is found now rather than after more links, and so is
-    /// every atom's balance over the skeleton's components.
+    /// end anywhere is found now rather than after more links; so is an
+    /// atom unbalanced over the skeleton's components, where the exact
+    /// test runs.
     fn choose(&mut self) -> Choice {
+        let balance = self.balance && (self.net.links().len() as u32).is_multiple_of(self.period);
         let mut best: Option<(usize, OccId)> = None;
         for a in 0..self.remaining.len() {
             let remaining = self.remaining[a];
@@ -637,8 +639,9 @@ impl<'a> Linker<'a> {
             // literals keeps an admissible partner holds two of each sign
             // and leaves one of each outside: three pairs at least. With
             // fewer, the count of partners below finds the literal left
-            // without one.
-            if self.balance && remaining > 2 && !self.balanced(atom, remaining) {
+            // without one. The check runs where the exact test does,
+            // which finds every such branch dead some links later.
+            if balance && remaining > 2 && !self.balanced(atom, remaining) {
                 return Choice::DeadEnd;
             }
             let forest = self.net.forest();
