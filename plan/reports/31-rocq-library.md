@@ -5,6 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 31a: the definitions, the checker and its soundness (session `step-31a`, 2026-10-18) | done (2026-10-18) | The library under `rocq/` (eae340fd): `Formulas`, `Calculus` (the one-sided calculus as a plain inductive, Mix and weakening as parameters), `Proofs` (the term, one constructor per `Node` variant), `Check` (the checker as a function), `Soundness` (`soundness` for every `rules` value and `soundness_classical`), no `Admitted`, no axiom, `Print Assumptions` of both theorems "Closed under the global context". The flake (889c1cc5): the package `rocq-linlog` built with `mkRocqDerivation` and the check `rocq-linlog`, which compiles the fourteen hand-written lemmas (nine accepted proofs, five rejections) and seven translated proofs of `rocq/tests/` (the largest 192 nodes, all in under a second) and requires the two assumption lines; both built under the machine lock. Documentation (da2a7e46): `.claude/rules/rocq.md`, CLAUDE.md, README, the changelog. One reviewer (Opus 5.5, `high`) read the inductive against the textbook calculus and NanoYalla's kernel: no must-fix, two should-fix (the `let*` notation made local; `ll` in `Prop` shapes 31c's bridge as `inhabited`), three notes, all answered and the wording fixed in 31f48eff; its probe proved `ll classical` and NanoYalla's `ll` derive the same sequents. Gate: passed at every code commit in the gate workspace `../linlog-step31a-gate` (eae340fd 07:41 to 07:45, 889c1cc5 to 07:47, 31f48eff to 07:53, 2c7e88f6 to 07:54, each `gate: passed`, exit 0), and once before on the working copy they were split from. `nix flake check` at the last commit: passed ("all checks passed!", exit 0) under the lock at 2c7e88f6, the last code commit, and again at the report commit. Every commit unsigned (`signing.behavior=drop`; the passphrase was not cached). |
+| Session 31b: Mix, affine, the two-sided statement and the second kernel (session `step-31b`, 2026-10-18) | done (2026-10-18) | The library (a06b52e0, 18b99bb4, 61d949e1): `soundness_mix` and `soundness_affine` with certificates in `rocq/tests/Modes.v`; the two-sided calculus `ill` (`Intuitionistic.v`, `nanoill.v`'s rules) with its own term, checker and `soundness_ill` (`IntuitionisticCheck.v`), certificates in `rocq/tests/TwoSided.v`; five theorems "Closed under the global context", no `Admitted`, `admit` or axiom. The exporter (c7088b5c): `rocq::Kernel` behind `rocq::Options::kernel` and `--kernel`, chosen by the mode where none is named, the NanoYalla snapshots' diff empty, nine library snapshots in `core/tests/snapshots/linlog/` and six CLI certificates compiled by the `rocq-linlog` check, README and the changelog. One reviewer (Opus 5.5, `high`) of the two-sided inductive and the theorem's statement: no must-fix, one should-fix (the equality out of the trusted file) and four notes, all answered; its probes proved `ill intuitionistic` equivalent to `nanoill.v`'s `ill` and the checker complete. Gate: passed at all four code commits (`gate: passed`, ratchet's largest rise +0.87 % on `batch-families`) in a capped unit on cores 8 to 11, 09:05 to 09:17. `nix flake check` under the lock: passed ("all checks passed!", exit 0) at the documentation commit after a first run's `export` failure was fixed at its cause; the run at the report commit is in the message to `planning`. Every commit signed. |
 
 ## Session 31a: the definitions, the checker and its soundness
 
@@ -347,3 +348,294 @@ workspace add ../linlog-step31a -r sonqsxku` after a first attempt hung
 on the signing prompt and left a stale git worktree entry, removed by
 hand; and `../linlog-step31a-gate`, the gate's, moved from code commit to
 code commit with `jj new`. The main checkout was not touched.
+
+## Session 31b: Mix, affine, the two-sided statement and the second kernel
+
+**Outcome.** Every mode now has a statement and a certificate. In the
+library, `soundness_mix` and `soundness_affine` are the instances of
+`soundness` for `{| mix := true; weakening := false |}` and `{| mix :=
+false; weakening := true |}`, each with certificates in `rocq/tests/Modes.v`
+(the module of hand-written Mix and affine certificates). The two-sided
+calculus of intuitionistic linear logic and its affine variant is the
+plain inductive `ill R Γ C` of `rocq/theories/Intuitionistic.v` (the new
+trusted file), over `iformula` with the constructors of Yalla's
+`nanoill.v`. The theorem `soundness_ill` proves `ill R Γ C` from `icheck
+atom_eqb R p Γ C = true`, for a two-sided term `p` of
+`rocq/theories/IntuitionisticCheck.v` (the term, its checker and the
+proof). Every theorem's `Print Assumptions` answers `Closed under the
+global context` (five of them, `rocq/tests/Assumptions.v`), and no file
+under `rocq/` has an `Admitted`, an `admit` or an axiom. The exporter
+has a second kernel, linlog's library, behind `rocq::Options::kernel`
+(`rocq::Kernel`, the JSON key `styles.rocq.kernel`, the command's
+`--kernel`). Where none is named, the mode chooses: a classical proof is
+written for NanoYalla byte for byte as before, and a proof of Mix,
+affine or intuitionistic logic for the library, one-sided in the mode's
+calculus or, for an intuitionistic derivation, as the two-sided
+statement `ill intuitionistic Γ C` or `ill affine Γ C`. The NanoYalla
+snapshots are unchanged; the library's are new under
+`core/tests/snapshots/linlog/`, and the flake's `rocq-linlog` check
+compiles them with six certificates the command writes. README's usage
+shows `--kernel` with real output, and the changelog's `[Unreleased]`
+names the additions and the changed default.
+
+### Decisions
+
+- **The two-sided statement has a term and a checker of its own
+  (departs from the design).** The brief asked for a theorem from the
+  one-sided `check` under the one-succedent condition over the checker's
+  states. That condition counts goals, and a goal is a property of a
+  formula's side of `⊢`. A one-sided formula built from `⊤` and `0` alone
+  does not determine that side: `top` is `⊤` on the right and `0` on the
+  left, so `⊢ ⊤, ⊤` reads as `0 ⊢ ⊤` or as `⊤ ⊢ 0`. The Rocq term names
+  formulas, not occurrences (31a's decision), and the one-sided `Top`
+  names no context, so a bottom-up pass over formula states cannot tell
+  which formula is the goal where one stems from a `⊤` leaf. The Rust
+  checker can, because its occurrences carry the reading's positions.
+  Three ways out were weighed:
+  - carrying a pending sign through the pass, which grows with every
+    `⊤` and makes the proof combinatorial;
+  - a top-down pass with backtracking at each ambiguous choice;
+  - the one taken: a two-sided term, `iproof`, whose nodes name the rule
+    with its side, the principal formula's immediate subformulas as
+    intuitionistic formulas, and the context of `ITopR` and `IZeroL` (and
+    the goal of `IZeroL`).
+
+  `iderive` then computes every node's sequent exactly, and a sequent has
+  its one conclusion by its type. That is the one-succedent condition
+  made structural: R1 (one goal, or none under `⊤`) is the type, R2 is
+  that a premise's goal slot is either filled or absorbed, and R3 is that
+  `IWeaken` weakens a hypothesis. The soundness proof is 60 lines,
+  because each node is one rule up to a permutation. The reviewer judged
+  the argument right and the design the more auditable one. Its probe
+  proved that every derivation of `ill` has a term the checker accepts,
+  so nothing is lost. The cost is a certificate somewhat larger than the
+  one-sided term (`⊤R` and `0L` write their contexts, contraction is
+  explicit).
+- **The two-sided calculus follows `nanoill.v`** rule for rule, with
+  exchange as one `Permutation` rule as in the one-sided calculus, in
+  `Prop`, and `weakening_ilr` (any hypothesis, never the conclusion)
+  under `iweakening R = true` for affine logic. `irules` is a record of
+  its own with `intuitionistic` and `affine` as named values, so that a
+  statement reads `ill intuitionistic [...] C`. The one-sided `rules`
+  record would have carried a meaningless `mix` and the name `classical`.
+- **The Mix and affine statements name the calculus as a record
+  literal**, `ll {| mix := true; weakening := false |} Γ`, rather than
+  new named values, so the trusted `Calculus.v` is unchanged. A proof
+  with both rules uses `soundness` with `{| mix := true; weakening := true
+  |}`.
+- **Which kernel the mode chooses, and where the brief's reading did not
+  fit the code.** The brief read item 6 as "Mix, affine and
+  intuitionistic proofs, which NanoYalla refuses, go to linlog's
+  kernel". The code shows that NanoYalla does not refuse intuitionistic
+  proofs: it certifies them as the one-sided classical proof behind them
+  (the snapshots `ill.v` and `labels_ill.v`, and the `rocq` check's
+  `cli_ill.v`). The mode still decides, as item 6 says, so an
+  intuitionistic proof with no kernel named now gets the two-sided
+  statement, the stronger one. That changes the command's default output
+  for `-i --format rocq`, which the changelog lists under "Changed". The
+  NanoYalla export is otherwise exactly as it was:
+  - `--kernel nanoyalla` gives the old certificate;
+  - the NanoYalla snapshots, the `rocq` check's `cli_ill.v` and the CLI
+    tests that pin NanoYalla's refusals and scripts name that kernel;
+  - a classical proof is written for it by default, byte for byte (the
+    snapshots' diff is empty).
+
+  A recorded mode that is classical but whose derivation uses Mix or
+  affine weakening (a proof file checked in another mode than it claims)
+  goes to the library, and a proof that records no mode goes there when
+  its derivation is two-sided or uses those rules.
+- **The exporter writes from the derivation, not the proof term.**
+  `rocq::write` takes a `Derivation`, which keeps the API, the stop
+  callback and the compact-run refusal as they are. A standard
+  derivation has explicit contractions and promotions over `?`
+  contexts, while the library's checker is dyadic, so the one-sided
+  writer moves each `?` formula into the unrestricted zone with a
+  `Quest` where it first appears (the root's members, and a premise's
+  members that are children of the rule's principal formula). Then a
+  dereliction is `Copy`, a contraction or `?` weakening writes nothing,
+  and a promotion finds its context in the zone. The term is not the
+  Rust proof's own, which the checker does not need: 31a's review showed
+  that the Rocq checker accepts every term that keeps its zones
+  consistent. Every snapshot and CLI certificate compiled, among them
+  `labels.v`, which uses every one-sided rule. The derivation now records
+  the proof's mode (`Derivation::mode`, crate-private), which is what
+  "chosen by the mode" reads.
+- **The statement's calculus is what the mode allows and what the
+  derivation uses**, so a certificate never claims a calculus the proof
+  exceeds.
+- **Atoms are Rocq strings** with `"` doubled and `(atom := string)`
+  always written, so no atom is renamed and a sequent without atoms needs
+  nothing special. The preludes are `rocq::LINLOG_PRELUDE` (one-sided)
+  and `rocq::LINLOG_TWO_SIDED_PRELUDE`; `rocq::LINLOG` is the library's
+  version, asserted equal to the opam file's at evaluation.
+- **Layout.** The exporter moved to `core/src/export/rocq/mod.rs` with the
+  new `linlog.rs` beside it, since the workspace's lints require
+  `mod.rs` files. The library's snapshots are a directory of their own so
+  that the `rocq` check's `*.v` glob keeps to NanoYalla's. The
+  conventions check's exclusion became `core/tests/snapshots/**/*.v`,
+  because a ripgrep `*` does not cross `/`. The `rocq-linlog` check
+  requires one `Closed under the global context` per `Print Assumptions`
+  line of `Assumptions.v` instead of a fixed two.
+
+### Which goal a certificate states
+
+The two-sided lemma states the reading's goal, the root the reading
+calls the goal: the one that can only be a goal, else the last root by
+id (`plan/later.md`, "Follow-ups: intuitionistic mode"). Its hypotheses
+are the other roots, each written by its position, so a `top` in input
+position is `izero` and in output position `itop`. For `0, top |- top`,
+`top, 0 |- top`, `0 |- top` and `0, top |- 0` the stated sequents were
+the written ones (`[izero; itop] itop`, `[itop; izero] itop`, `[izero]
+itop`, `[izero; itop] izero`), and the flake's check compiles the first.
+Whatever goal the reading picks, the lemma states a sequent that `ill`
+derives. Where the reading's goal differs from the written one, the
+lemma says which sequent was proved: every reading of a provable
+sequent is provable, as step 8's brute force found.
+
+### The options, per front end (D15, D16)
+
+`rocq::Options` gains `kernel: Option<Kernel>`, default `None` (the
+mode's choice), `with_kernel`, and serde as `"nanoyalla"` or `"linlog"`.
+The command sets it with `--kernel nanoyalla|linlog` or `--style
+rocq.kernel=linlog`. The web front end and any wrapper hold it as the
+JSON key `styles.rocq.kernel`. `prelude: None` picks each kernel's own
+prelude, and `lemma` is unchanged. A certificate of ordinary logic needs
+no kernel and ignores the field.
+
+### Quantifiers (D17)
+
+The two-sided development adds no binder either. A first-order ILL is a
+second development beside it, as item 5 has it for the one-sided one:
+its own `iformula` with quantifiers over terms, `ill` with the two rules
+on each side and their eigenvariable conditions, and `iproof` with the
+witness and the eigenvariable named. Because `iproof` writes the
+contexts of `⊤R` and `0L`, the eigenvariable check of `∀R` and `∃L`
+sees every formula of the sequent, which avoids the difficulty that the
+absorbing flag poses for the one-sided checker (31a's item 5).
+
+### What is verified
+
+- The library and every certificate under `rocq/tests/` (`Certificates`,
+  `FromLinlog`, `Modes`, `TwoSided`) compile with the pinned Rocq 9.1.1
+  and standard library 9.0.0 on cores 8 to 11 in capped scopes.
+  `Assumptions.v` prints `Closed under the global context` five times
+  (`soundness`, `soundness_classical`, `soundness_mix`,
+  `soundness_affine`, `soundness_ill`).
+- The nine snapshots of `core/tests/snapshots/linlog/` and the six
+  certificates the `rocq-linlog` check writes with the command, compiled
+  by hand against the library, were all accepted silently.
+- `cargo clippy --workspace --all-targets -- --deny warnings`: clean.
+  `cargo test --workspace`: every test passed after the behaviour lock's
+  four help outputs were blessed. The diff of the NanoYalla snapshots
+  under `core/tests/snapshots/*.v` is empty.
+- `gate` at every code commit, in the workspace `../linlog-step31b-gate`,
+  as the transient unit `linlog-31b-gates` (`MemoryMax=8G`,
+  `AllowedCPUs=8-11`, `CARGO_BUILD_JOBS=4`, `RUST_TEST_THREADS=4`). Each
+  log ends `gate: passed`: clippy, every test with the behaviour lock,
+  both `cargo hack` runs, and the ratchet, whose largest rise is +0.87 %
+  on `batch-families`, as at 31a, within every ceiling. The runs were at
+  a06b52e0, 18b99bb4 and 61d949e1 (09:05 to 09:17), and at the kernel
+  commit as f284e3c1 (09:05) and again at its final id c7088b5c (09:22
+  to 09:25), after the export check's fix below was folded into it.
+  - A first run, at the kernel commit before its test fix, failed in
+    `compact_runs`. That test pinned the NanoYalla script of an
+    intuitionistic proof, which by default now goes to the library, and
+    the behaviour lock's help outputs needed blessing. I had committed
+    without running the CLI's tests, and the gate caught it. The test
+    now pins the same script with `--kernel nanoyalla` and the library's
+    three `IWk` by default. It and the lock's four help outputs are in
+    the kernel commit, which says why.
+- `nix flake check` under `flock /tmp/linlog-machine.lock`:
+  - A first run, at the documentation commit, failed in `export`: that
+    check copies `core/tests/snapshots/*` and refused the new `linlog/`
+    directory. Its fileset now leaves the directory out, which belongs
+    to `rocq-linlog` (folded into the kernel commit, which says so).
+  - The rerun passed ("all checks passed!", exit 0, finished by 09:25) with
+    `check-rocq`, `check-rocq-linlog` (its log the five assumption
+    lines), `check-export`, `check-conventions` and `check-typos`
+    rebuilt.
+  - The run at the session's last commit, this report's, is in the
+    final message to `planning`.
+
+### The reviewer's findings
+
+One reviewer, Opus 5.5 at `high`, in a fresh context, read
+`Intuitionistic.v`, `IntuitionisticCheck.v` and `TwoSided.v` against
+Girard's and Troelstra's calculi, Yalla's `nanoill.v` and linlog's
+reading. It compiled two probes in a capped scope, both closed under the
+global context:
+- `equiv_nanoill`: `ill intuitionistic G C <-> inhabited (nanoill.ill
+  (map tr G) (tr C))`, with atoms as `nat`, so the calculus derives
+  exactly what `nanoill.v` derives;
+- `icheck_complete`: every derivation of `ill R` has a term `icheck`
+  accepts, in both calculi.
+
+The probes are kept outside the repository, in
+`/tmp/linlog-handoff/31b-review/` (`Equiv.v`, `Complete.v`), for 31c,
+whose bridge to `nanoill.v` the first one already is. Its findings, each
+answered:
+
+1. *Should-fix.* The trusted file defined and proved the formula
+   equality (`iformula_eqb`, its spec, `iformula_eq_dec`), which no
+   statement uses, against its own sentence "nothing is derived here".
+   Answer: moved to `IntuitionisticCheck.v` (61d949e1). `Intuitionistic.v`
+   now holds `iformula`, `irules` and `ill` alone.
+2. *Note.* The calculus has no `⊥` and no empty succedent, unlike
+   Troelstra's ILL, and leaves unsaid that the axiom is on atoms and
+   that there is no cut. Answer: the file's header says all three now
+   (the same commit).
+3. *Note.* The affine variant weakens hypotheses only, which is standard
+   for one conclusion and is linlog's R3, worth a sentence. Answer: the
+   `irules` doc says "never of the conclusion" (the same commit).
+4. *Note.* "The one-sided terms cannot carry this statement" said more
+   than the argument shows. With sides annotated and a translation proof
+   they could. Answer: the header now says they "do not determine" it.
+5. *Note.* The calculus is a parameter of the theorem, so a reader must
+   check that a linear claim says `ill intuitionistic`, not `ill
+   affine`. Answer: the exporter writes the calculus from the mode and
+   the rules used, and the rules file says so. Nothing else to do.
+
+Verdict quoted: "`ill intuitionistic` is the cut-free single-conclusion
+sequent calculus of propositional ILL with 1, ⊗, ⊸, ⊤, &, 0, ⊕ and !,
+without ⊥ … No rule is missing and none is too strong." On the
+statement: "The conclusion of `soundness_ill` mentions only `ill`,
+`iformula` and `irules` … `vm_compute; reflexivity` establishes exactly
+`ill R Γ C`, with Γ read as a multiset and C exact." On the departure:
+"The argument is right … The separate two-sided term avoids that and is
+the more auditable choice. Nothing is lost."
+
+### What 31c inherits
+
+- The bridge to `nanoill.v` is half done: the reviewer's `Equiv.v`
+  (`/tmp/linlog-handoff/31b-review/`) proves `ill intuitionistic G C <->
+  inhabited (nanoill.ill (map tr G) (tr C))` with a pasted copy of the
+  kernel and atoms as `nat`; 31c's module imports the pinned file
+  instead. The one-sided bridge to NanoYalla's `ll` is 31a's reviewer's
+  probe, in the same form.
+- Mix's reduction to `?(⊥⊗⊥), Γ` is untouched; `soundness_mix` gives the
+  Mix derivation it starts from.
+- The exporter's library certificates are in `core/tests/snapshots/linlog/`
+  and the `rocq-linlog` check compiles them; a bridge module that the
+  check should compile goes into `rocq/` with the pinned kernels as
+  inputs, which the check does not have yet.
+
+### Left open
+
+- The size of a library certificate on a large real proof is not
+  measured. Formulas repeat at every node, and the two-sided `⊤R`/`0L`
+  write their contexts; binding shared subformulas with `let` is the
+  remedy if it matters.
+- `vm_compute` puts Rocq's virtual machine beside the kernel in what a
+  certificate trusts (31a's note); `reflexivity` alone avoids it at a
+  cost in time, and the exporter has no option for it.
+- The prompt's "What step 30 left you" names a `Kernel` type that did not
+  exist; it is new here.
+
+### Workspaces
+
+`../linlog-step31b` (this session's, every commit above), made with `jj
+workspace add ../linlog-step31b -r znksttkk`, after a first attempt
+failed on a signing timeout and left a half-made directory and its git
+worktree entry, both removed by hand. `../linlog-step31b-gate` holds the
+gates, moved from commit to commit with `jj new`. The main checkout was
+not touched.
