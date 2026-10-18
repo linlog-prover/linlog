@@ -9,3 +9,5 @@ From Linlog Require Import Soundness.
 
 Print Assumptions soundness.
 Print Assumptions soundness_classical.
+Print Assumptions soundness_mix.
+Print Assumptions soundness_affine.

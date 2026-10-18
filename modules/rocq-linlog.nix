@@ -84,7 +84,10 @@
             done
             rocq compile Assumptions.v >assumptions 2>&1 || { cat assumptions; exit 1; }
             cat assumptions
-            printf 'Closed under the global context\nClosed under the global context\n' | diff - assumptions
+            # One line per theorem the file asks about, and nothing else.
+            theorems=$(grep -c '^Print Assumptions' Assumptions.v)
+            for _ in $(seq "$theorems"); do echo 'Closed under the global context'; done |
+              diff - assumptions
             touch $out
           '';
     };
