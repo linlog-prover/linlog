@@ -9,7 +9,7 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ## [Unreleased]
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-10-18
 
 The first release.
 

@@ -18,6 +18,7 @@ authors:
   - given-names: Fabian Lukas
     family-names: Grubmüller
 version: 0.1.0
+date-released: "2026-10-18"
 license: EUPL-1.2
 repository-code: "https://github.com/linlog-prover/linlog"
 url: "https://linlog-prover.github.io/linlog/"
