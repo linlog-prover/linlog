@@ -3,9 +3,9 @@
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
-to four sessions, each leaving something usable; this prompt is finished
-at the review of step 30 (the checker's part was added at the review of
-step 18). Read before you start:
+to four sessions, each leaving something usable; this prompt was finished
+at the review of step 30 (2026-10-18; the checker's part was added at
+the review of step 18). Read before you start:
 
 - `plan/later.md`: "Second certificate kernels: a Rocq library of
   linlog's own, NanoYalla kept for compatibility" (the shape is the
@@ -13,8 +13,91 @@ step 18). Read before you start:
 - `plan/reports/12-certificates.md`, `17-assessment.md` (3.10 with its
   three corrections, the author's answers 4 and 6), `18-bounded-proofs.md`.
 - `plan/README.md`: D6, D15, D17, D20; `plan/notes/distribution.md`.
-- `core/src/proofs/check.rs` as step 18 left it: the Rocq checker
-  verifies this algorithm, once.
+- `core/src/proofs/check/` (the checker, see "What step 30 left you")
+  and `core/src/proofs/oracle.rs`: the Rocq checker verifies this
+  algorithm, once.
+- `plan/reports/28-audit-and-refactor.md` ("What steps 29 to 31 must
+  know", the bullet on step 31), `29-comparison.md` ("What later steps
+  must know"), `30-baseline-release.md` (session 30c), and
+  `plan/notes/api.md` 8.7 and 10.3 (the classical refuter).
+- `.claude/rules/core-proofs.md` ("The checker"), `core-export.md` (the
+  Rocq export) and `flake.md` (the `rocq` check).
+
+## How the step runs (2026-10-18)
+
+Sessions one after another, each reviewed by `planning` before the next
+starts; step 35's sessions run beside them on the same machine (see
+"The machine" below).
+
+- **31a: the library's definitions, the checker and its soundness for
+  classical LL** (items 1 to 3, 5 and 7, the first stage of 4): the
+  library under `rocq/` with its `_RocqProject` and the opam file 30c
+  drafted, the flake's package and check, the proof term as data, the
+  checker as a function, and the soundness theorem for one-sided LL,
+  with Mix and weakening as parameters of the calculus from the start.
+  Fable 5.1 at `xhigh`: the checker's proof is the step's hardest
+  reasoning (the row in `plan/README.md`).
+- **31b: Mix, affine and the two-sided statement, and the exporter's
+  second kernel** (the second stage of 4, item 6): soundness for each
+  mode, the kernel behind `rocq::Options`, and the flake's check
+  compiling the certificates of both kernels. Opus 5.5 at `high`.
+- **31c: the bridges** (the third stage of 4): NanoYalla's `ll`, Yalla's
+  `nanoill.v`, and Mix's reduction to `?(⊥⊗⊥), Γ`. Opus 5.5 at `high`.
+- **31d: the certified refutations** (item 8). Opus 5.5 at `high`;
+  `planning` folds it into 31c if 31c leaves room.
+
+## What step 30 left you
+
+- **The names of item 7 at the head** (report 28): the checker is
+  `core/src/proofs/check/` (`mod.rs` the entry, `pass.rs` the rule
+  table, `zones.rs` the zones, `error.rs` the errors); item 7's
+  `Problem::Surplus` is `Fault::Surplus` (`check/error.rs`), and its
+  `Problem::Memory` is `CheckError::Refused`, no `Fault` at all. The
+  closer text to translate is still `core/src/proofs/oracle.rs`.
+- **What the Rust side offers**: `Node::NAMES` and `Node::TAGS` are
+  pinned to the variants (`name_lists_follow_the_variants`) for a test
+  against the Rocq constructors; a `Proof` carries its goal and mode
+  (`Proof::goal`, `Proof::mode`); `rocq::Options` has `lemma`, checked
+  as an identifier, and `prelude: Option<String>`; `Kernel` and
+  `Unsupported` are non-exhaustive for the second kernel. `Refutation`
+  (`Unbalanced`, `Equation`, `StateEquation`) is non-exhaustive with
+  struct payloads, so a classical refutation is an addition;
+  `Disproof` has no `check` yet, and the classical refuter (C2: in the
+  library, after the search, `refute_unknown` off by default) does not
+  exist. No nullary Mix (C3). `Node` and `Rule` are closed on purpose:
+  cut is 0.2.0.
+- **The release** (0.1.0, prepared by session 30c, published by the
+  author): `rocq/rocq-linlog.opam` is 30c's draft, which `opam lint`
+  passes and this step completes. A change of a public Rust item is an
+  addition or waits for 0.2.0, as `CHANGELOG.md` ("What is promised")
+  says, and each session adds its lines under `## [Unreleased]`. The
+  NanoYalla export's output is unchanged by this step.
+- **The comparison** (report 29) counts linlog's `unprovable` as
+  unchecked; a `Disproof` certified by item 8 is what would let it mark
+  them checked, which the report of 31d says.
+
+## The machine (two steps at once)
+
+Step 35 runs beside this step, and its timed runs need cores 2 and 3
+quiet. So:
+
+- **Builds, tests, the gate, clippy and Rocq compilations you run
+  yourself** (`rocq compile`, `make` in `rocq/`) on cores 8 to 11, in
+  capped scopes (`systemd-run --user --scope -p MemoryMax=8G -p
+  MemorySwapMax=0 taskset -c 8-11 …`, `CARGO_BUILD_JOBS=4`).
+- **Everything the Nix daemon builds** (`nix flake check`, `nix build
+  .#checks.x86_64-linux.rocq`, the library's package) runs on any core,
+  so under the lock that step 35's timed runs hold:
+  `flock /tmp/linlog-machine.lock nix flake check`. A wait for it is
+  expected; do not run the daemon's builds outside it.
+- **Mutation runs** only on `planning`'s word. No probe or benchmark
+  this prompt does not name without asking `planning`.
+- **Signing**: the passphrase's cache lasts two hours at most. Test a
+  signature before each commit; while it fails, commit with
+  `--config signing.behavior=drop`, and `planning` signs later. When
+  `planning` signs, it rewrites the commits under your workspace: if a
+  jj command then says the working copy is stale, run `jj workspace
+  update-stale` and go on.
 
 ## Goal
 
@@ -48,17 +131,17 @@ proof term. The NanoYalla export stays exactly as it is.
 6. **In the exporter** a second kernel behind `rocq::Options`, chosen by
    the mode where the user did not choose.
 
-7. **The algorithm to verify** is `core/src/proofs/check.rs` as steps
-   18 and 20 leave it, whose rules `.claude/rules/core-proofs.md` states
+7. **The algorithm to verify** is `core/src/proofs/check/` as steps
+   18, 20 and 28 leave it, whose rules `.claude/rules/core-proofs.md` states
    under "The checker": per node a state `⊢ Θ ; Γ` with the absorbing flag,
    `Θ` the least unrestricted zone, the rule table of `Pass::rule`, the
    one-succedent condition as three clauses, and the conclusion at the
    root. The Rust pass is one of several ways to run that algorithm
    (states moved between nodes, tables for the zones); the Rocq function
    is another and need not mirror its memory discipline. The refusal of
-   a zone too large to conclude (`Problem::Surplus`) exists because
+   a zone too large to conclude (`Fault::Surplus`) exists because
    Rust's counters are finite; over `nat` it is a lemma or nothing, and
-   the report says which. `Problem::Memory` is a refusal for lack of
+   the report says which. `CheckError::Refused` is a refusal for lack of
    memory, no verdict, and no part of the algorithm. The first implementation
    (`core/src/proofs/oracle.rs`, lists and no tables) is the closer text
    to translate.
@@ -103,4 +186,8 @@ nothing is redone. No `Admitted`, no axiom.
 
 ## Deliverables
 
-Thematic jj commits per stage; `plan/reports/31-rocq-library.md`.
+Thematic jj commits per stage, each session in its own workspace
+(`../linlog-step31a` and so on, from the head `planning` names);
+`plan/reports/31-rocq-library.md`, one section and a checklist row per
+session; README's "What exists and what is planned" and the changelog's
+`[Unreleased]` kept true. Nothing is pushed.
