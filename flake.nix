@@ -44,6 +44,14 @@
       url = "github:ComputerAidedLL/click-and-collect/6b1c25ff30a1c1dbfccdc0c1cebc272a67ab0137";
       flake = false;
     };
+
+    # Yalla, whose standalone kernel `microyalla/nanoill.v' the Rocq
+    # library's bridges import (LGPL-3.0, so fetched and never copied),
+    # pinned to a commit: the last release tag predates that file.
+    yalla = {
+      url = "github:olaure01/yalla/a138437625f5bb39221cd6171b7dc464e15bbf8b";
+      flake = false;
+    };
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
