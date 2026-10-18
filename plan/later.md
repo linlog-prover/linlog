@@ -1532,6 +1532,19 @@ Each enters as a problem file under `bench/problems/` or as a source in
 search's own bound and the unit of work of the default bias should be
 tuned on, beyond the 109 sampled LLTP problems they were set on.
 
+## Follow-ups: the release's licences
+
+*Found by the licence audit before 0.1.0 (2026-10-18, unassigned; the
+first change after the release).* The `linlog-cli` binary that the
+public cache holds links some 140 crates under MIT, Apache-2.0, BSD,
+Zlib and Unicode-3.0 statically, and several ask for their copyright
+notice and licence text in every copy, binaries included; the package
+installs the EUPL's text and the font's OFL only. A notices file
+generated from the lock (cargo-about, through the new-tool skill),
+installed beside them under `share/doc/linlog-cli/` and checked by the
+flake so that it follows every `cargo update`, closes it. The crates on
+crates.io and the release's `.crate` files are sources and need none.
+
 ## Follow-ups: a first user's obstacles (step 28's last reader)
 
 The last reader of step 28 (2026-10-14, a fresh context reading README
