@@ -91,16 +91,66 @@ sent to a server.
    website field (docs.rs/linlog since 2026-10-18) points to it, on the
    author's word.
 
+## What the design session left you
+
+The design session ran on 2026-10-18 with the author (`plan/32-design.md`):
+`plan/web/design.md` holds D1 to D60, each with who decided it and why,
+and `plan/web/mockup/` is the chosen mockup ("Instrument"), the visual
+reference, with a README of its scenes and fonts. Its decisions are as
+fixed as the items above, and where they say more than an item, they
+win, since the author made them later:
+
+- **The stack is decided** (D27, D37 to D43): Astro 7, TypeScript 6 and
+  Solid 1.9, the app as one Solid island, Tailwind v4 with tokens in
+  CSS, Biome, Vitest with fast-check, Playwright, npm under Nix, the
+  dendritic flake; the client follows the author's two sites, and the
+  session that sets the repository up reads
+  `~/Projects/own/website/docs/stack-spec.md` and `website-learn`'s
+  `CLAUDE.md`, `.claude/rules/` and `modules/` first and copies what
+  applies. The comparison with a Rust framework that this prompt once
+  left open is not made; the two repositories of D22 stand.
+- **The bindings' build is decided** (D28, D32): the `wasm-bindgen` CLI
+  at the version `Cargo.lock` pins (a flake check compares the two),
+  never wasm-pack, `wasm-opt` after it, built by this repository's flake
+  as a package the client's flake takes through its pinned input, so
+  the client carries no Rust toolchain; loaded in a module Worker with
+  a request-id protocol and cancellation by `terminate()`; the stack
+  raised with `-zstack-size`; the memory bound's default set by the
+  256 MiB of wasm memory a tab on iOS gets; the notices of the Rust
+  crates inside the module collected by `cargo-about` or the like in
+  this repository's flake, beside the bindings' package. Each new tool
+  or crate through the `new-tool` skill.
+- **What the bindings must offer the page** (D9, D11 to D16, D20, D51,
+  D59): the rules a formula takes (`Interactive::rules`) and
+  `split_passes`; each refusal's reason as a value the page words
+  itself; a search on a copy of the active goal for the hint ladder;
+  the close of one goal or of all within a work budget; the verdicts
+  as the library's `Outcome` and `Refutation` values with
+  `Disproof::check`; every export (SVG, PNG and PDF from the font bytes
+  the page passes, LaTeX, Typst, Rocq and the certificates of
+  non-derivability, the session as JSON); the session document
+  (`Interactive`'s JSON, what `interact`'s `save` writes) read back at
+  its level, and a sequent as `seq json` writes
+  it; the detected fragment; the drawing's `Style` with the theme's
+  colours. The first session checks each against the library and says
+  in `plan/web/README.md` what is missing; a missing library feature is
+  a commit of its own (see "The machine").
+- **Version 1 is wider than item 4 says**: the design adds several
+  proofs at once (D50), import (D51), the About pane (D52), offline and
+  installable (D49, which replaces D30), the examples list (D7), the
+  tour (D8) and Learn's frame (D47) with the place for its content.
+  `plan/web/README.md` says which session builds which; Learn's lessons
+  (D60) are written by the third session or a content session after
+  it, every sequent in them proved or refuted by the command first.
+  The two-sided presentation of classical derivations (D58) is a later
+  library feature (`plan/later.md`), its toggle greyed until then.
+- **Hosting** (D31): GitHub Pages at `linlog-prover.github.io`, the
+  rustdoc staying at `/linlog`, the CSP as a `<meta>` tag; no header
+  can be set there, and the author accepted that.
+
 ## What waits
 
-The choice of client technology (the first session compares a plain page
-over wasm-bindgen with one Rust framework, by size, maintenance and what
-the author would read); the names of steps 22 and 28. One caveat on the
-two repositories: a client written in a Rust framework is a crate that
-depends on `linlog`, which is the case for a workspace. If the
-comparison ends there and the split then costs more than it gives,
-depart from D22 by the author's word of 2026-10-18 above, marked
-"(departs from the design)" with the reasons in the report.
+The names of steps 22 and 28.
 
 ## What steps 30, 31 and 35 left you
 
