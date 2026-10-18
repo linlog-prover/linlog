@@ -331,13 +331,24 @@ point it covers. In particular:
   CORP, the `Permissions-Policy`, and Brotli. GitHub Pages sets no
   header, so the CSP there is a `<meta>` tag, which cannot carry
   `frame-ancestors`, and the other headers are lost; it serves `.wasm`
-  gzip only with `max-age=600`. *Open to the author: Pages as planned,
-  or a Cloudflare Worker as the sites.* CI as the sites': every push
+  gzip only with `max-age=600`. **GitHub Pages it stays** (the author,
+  2026-10-18): the organization's, free, with no account behind the
+  site, and nothing on the page handles data that would want those
+  headers. CI as the sites': every push
   to `main` checked and deployed, a pull request only checked, actions
   pinned by SHA, `cachix/install-nix-action`, `cache-nix-action`
   restoring the newest store and saving under `ci-cache`'s hash; with
   Pages the public Cachix cache `linlog-prover` is available too, and
   the client pushes only its own outputs to it.
+- **D43. Updates** (the author, 2026-10-18): whenever the author asks
+  for an update, every tool and dependency moves to its latest release
+  that is at least fourteen days old (the `.npmrc` cooldown applied to
+  every ecosystem the client uses: npm, the flake inputs, the actions,
+  the toolchain), and the update is verified by the flake's checks
+  before it is committed, as this repository's `/update-deps` does.
+  Solid 2.0 is the one exception: it waits for the specification's
+  two conditions (a stable release and Astro's integration accepting
+  it), and then gets a session of its own.
 - **D32. Licence notices**: Vite's own `build.license` collects the
   npm bundle's; the Rust crates inside the wasm module need
   `cargo-about` or the like, run in this repository's flake beside the
