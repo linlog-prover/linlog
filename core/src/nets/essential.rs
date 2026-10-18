@@ -31,10 +31,11 @@ use crate::sequents::Kind;
 /// The raw index that stands for "no occurrence".
 const NONE: u32 = u32::MAX;
 
-/// The bytes per vertex `is_essential` holds: two successors, the
-/// marks of the search for a cycle and of the searches around each
-/// implication, and the stack and predecessor of each.
-const ESSENTIAL_BYTES: u64 = 8 + 4 + 1 + 8 + 4;
+/// The bytes per vertex `is_essential` holds at most: two successors, the
+/// state of the search for a cycle, the stamp and the predecessor of the
+/// searches around each implication, and their stack and queue, whose
+/// growth by doubling may hold twice their entries.
+const ESSENTIAL_BYTES: u64 = 8 + 4 + 4 + 4 + 2 * 16 + 2 * 4;
 
 /// Returns the edges of the essential net that leave `o` whatever is
 /// linked: to its parent for an output occurrence that is no root, to

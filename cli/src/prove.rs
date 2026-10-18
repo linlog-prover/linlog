@@ -398,6 +398,14 @@ pub(crate) fn unknown(reason: Reason, outcome: &Outcome, ended: &Ended) -> Strin
             "the recursion limit of {depth} was reached {after}{at}; raise it with \
              --recursion-limit N"
         ),
+        // No bound was set, and the allocator refused: no flag gives more.
+        (
+            Reason::MemoryLimit {
+                limit_bytes: u64::MAX,
+                ..
+            },
+            _,
+        ) => format!("{reason} {after}{at}"),
         (Reason::MemoryLimit { .. } | Reason::Unchecked { .. }, _) => {
             format!("{reason} {after}{at}; raise it with --memory-limit SIZE")
         }

@@ -2328,7 +2328,8 @@ pub enum Reason {
     /// Horn engine's markings or a proof's nodes.
     #[non_exhaustive]
     MemoryLimit {
-        /// The memory bound, in bytes.
+        /// The memory bound, in bytes; `u64::MAX` where there was none and
+        /// the allocator refused what the search asked for.
         limit_bytes: u64,
     },
     /// A structure of the search outgrew what its indices address: the
@@ -2399,11 +2400,16 @@ impl Reason {
     }
 
     /// Returns the settings key whose bound the search reached, which a
-    /// caller raises to search further; `None` for the stop and the
-    /// indices, which no setting lifts.
+    /// caller raises to search further; `None` for the stop, the indices
+    /// and the allocator's refusal where there was no memory bound, which
+    /// no setting lifts.
     pub const fn setting(&self) -> Option<&'static str> {
         match self {
-            Self::Stopped | Self::IndexLimit => None,
+            Self::Stopped
+            | Self::IndexLimit
+            | Self::MemoryLimit {
+                limit_bytes: u64::MAX,
+            } => None,
             Self::RecursionLimit { .. } => Some("limits.recursion_depth"),
             Self::CopyBound { .. } => Some("search.copies"),
             Self::MemoryLimit { .. } | Self::Unchecked { .. } => Some("limits.memory_bytes"),
@@ -2424,6 +2430,9 @@ impl Display for Reason {
             Reason::CopyBound { copies } => {
                 write!(f, "the copy bound of {copies} was reached")
             }
+            Reason::MemoryLimit {
+                limit_bytes: u64::MAX,
+            } => f.write_str("the memory the allocator would give was used up"),
             Reason::MemoryLimit { limit_bytes } => {
                 write!(f, "the memory limit of {} was reached", Bytes(*limit_bytes))
             }
@@ -3252,6 +3261,13 @@ mod tests {
                 },
                 Some("limits.memory_bytes"),
                 "the memory limit of 1 MiB was reached",
+            ),
+            (
+                Reason::MemoryLimit {
+                    limit_bytes: u64::MAX,
+                },
+                None,
+                "the memory the allocator would give was used up",
             ),
             (
                 Reason::IndexLimit,

@@ -51,6 +51,11 @@ const NONE: u32 = u32::MAX;
 /// connectives come on top, a word per 64 occurrences.
 const LINEAR_BYTES: usize = 24;
 
+/// The rows of the closure's set-up between two polls of the stop: a row
+/// costs a word per 64 occurrences, so a sequent of a hundred thousand
+/// occurrences is polled every few milliseconds.
+const SETUP_ROWS: usize = 1024;
+
 /// The essential-net engine as the front door calls it.
 pub(crate) struct Essentials;
 
@@ -114,7 +119,7 @@ pub(crate) fn search(
     if !net::counts_admit(forest, false) {
         return net::answer(Ok(false), Statistics::default(), None, limits, stop);
     }
-    let (result, statistics, structure) = match Essential::new(forest, reading, account) {
+    let (result, statistics, structure) = match Essential::new(forest, reading, account, stop) {
         Err(reason) => (Err(reason), Statistics::default(), None),
         Ok(criterion) => {
             let mut engine = Linker::with(criterion, options, Stop::Closure(stop), Prunes::ALL);
@@ -183,11 +188,14 @@ impl<'a> Essential<'a> {
     /// The criterion over a forest of unit-free IMLL without a link, its
     /// closure that of the edges every structure has, or
     /// [`Reason::MemoryLimit`] when the account cannot hold the closure,
-    /// which is charged before it is allocated.
+    /// which is charged before it is allocated, or the allocator cannot
+    /// give it; [`Reason::Stopped`] when `stop`, polled every
+    /// [`SETUP_ROWS`] rows of the closure's set-up, fires.
     fn new(
         forest: &'a Forest,
         reading: &Reading<'_>,
         account: &'a Account,
+        stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Self, Reason> {
         let n = forest.len();
         let words = n.div_ceil(64);
@@ -197,19 +205,30 @@ impl<'a> Essential<'a> {
         // every row index `u · words + w` below it. Every step is checked,
         // and a charge that does not fit is the memory limit.
         let cells = n as u64 * words as u64;
+        let limit = Reason::MemoryLimit {
+            limit_bytes: account.limit(),
+        };
         let held = usize::try_from(cells)
             .ok()
             .and_then(|cells| cells.checked_mul(size_of::<u64>()))
             .and_then(|matrix| matrix.checked_add(n.checked_mul(LINEAR_BYTES)?))
             .and_then(|bytes| bytes.checked_add(words * size_of::<u64>()))
             .filter(|&bytes| bytes <= isize::MAX as usize && account.fits(bytes))
-            .ok_or(Reason::MemoryLimit {
-                limit_bytes: account.limit(),
-            })?;
+            .ok_or(limit)?;
         let mut charged = Charged::new(account);
         charged.charge(held);
-        // `cells` fits `usize`, since `held` does.
-        let mut reach = vec![0u64; cells as usize].into_boxed_slice();
+        // `cells` fits `usize`, since `held` does. Without a bound the
+        // charge always fits, and a matrix the allocator cannot give is
+        // the memory limit too, never an abort.
+        let mut reach = Vec::new();
+        reach.try_reserve_exact(cells as usize).map_err(|_| limit)?;
+        reach.resize(cells as usize, 0u64);
+        let mut reach = reach.into_boxed_slice();
+        let mut rows = 0usize;
+        let mut poll = |stop: &mut dyn FnMut(u64) -> bool| {
+            rows += 1;
+            rows.is_multiple_of(SETUP_ROWS) && stop(0)
+        };
 
         let position = |o: OccId| reading.position(o);
         let set = |row: &mut [u64], v: usize| row[v / 64] |= 1 << (v % 64);
@@ -218,6 +237,9 @@ impl<'a> Essential<'a> {
         // its parent, which comes before it: the inputs from the last
         // up, then the outputs from the first down.
         for o in forest.ids().rev().filter(|&o| position(o) == Side::Input) {
+            if poll(stop) {
+                return Err(Reason::Stopped);
+            }
             let (u, row) = (o.index(), o.index() * words);
             set(&mut reach[row..row + words], u);
             for s in fixed_successors(forest, reading, o) {
@@ -228,6 +250,9 @@ impl<'a> Essential<'a> {
             }
         }
         for o in forest.ids().filter(|&o| position(o) == Side::Output) {
+            if poll(stop) {
+                return Err(Reason::Stopped);
+            }
             let (u, row) = (o.index(), o.index() * words);
             set(&mut reach[row..row + words], u);
             for s in fixed_successors(forest, reading, o) {
@@ -345,7 +370,11 @@ impl<'a> Essential<'a> {
                 limit_bytes: self.charged.account().limit(),
             });
         }
-        self.log.reserve_exact(more);
+        self.log
+            .try_reserve_exact(more)
+            .map_err(|_| Reason::MemoryLimit {
+                limit_bytes: self.charged.account().limit(),
+            })?;
         self.charged.resize(before, bytes_of(&self.log));
         Ok(())
     }
@@ -610,7 +639,7 @@ mod tests {
         let forest = Forest::new(&s).unwrap();
         let reading = Reading::new(&forest).unwrap();
         let account = Account::new(None);
-        let mut criterion = Essential::new(&forest, &reading, &account).unwrap();
+        let mut criterion = Essential::new(&forest, &reading, &account, &mut |_| false).unwrap();
         let mut snapshots = vec![criterion.reach.clone()];
         let mut linked = 0;
         loop {
@@ -675,6 +704,20 @@ mod tests {
         );
         assert_eq!(outcome.statistics, Statistics::default());
         assert!(matches!(within(1 << 20).verdict, Verdict::Proved(_)));
+    }
+
+    /// The review's witnesses: a sequent whose only linking takes a
+    /// hypothesis's tensor apart around an implication, which a dominator
+    /// test without the input `⅋`s would call a net, is unprovable; and a
+    /// sequent whose links run into an implication's body from inside its
+    /// antecedent, which a binder rejection without its last condition
+    /// would refute, is provable.
+    #[test]
+    fn the_review_s_witnesses() {
+        let i = Mode::INTUITIONISTIC;
+        let decided = |text: &str| verdict(text, prove(&sequent(text), i, &essential()).unwrap());
+        assert!(!decided("a -o (a * a) |- (a -o a) * a"));
+        assert!(decided("|- b -o (a -o (b * a))"));
     }
 
     /// The engine refuses what has no essential net: classical and affine
