@@ -282,8 +282,14 @@ copies they had are gone (F103, F104).
   picked ends at `RecursionLimit` or `MemoryLimit` on a goal the net
   engine admits (unit-free MLL, the roots, no weakening) and no engine
   is forced, the net engine decides the goal with the same options,
-  limits, stop and work count; the outcome names it, its counters
-  replace the first search's, and `work` counts both. Measured on the
+  limits, stop and work count, after `Account::rewind` gives back what
+  the first search left charged (the focused engines' set-up tables,
+  `Classes` and `Counts`, are charged and never released, so without it
+  the net engine's proof was checked under a spent account and came back
+  `Unchecked`: the panel's finding, `wide(8192, 1)` at the default
+  limits); the outcome names it, its counters replace the first search's
+  (in a race the other search's are added, so a `net` outcome may carry
+  memo counters), and `work` counts both, in mixed units. Measured on the
   pruned net engine (session 35a, cores 2 and 3, one thread, 60 s):
   wherever both decide, the focused engines win, classical, Mix and
   intuitionistic (`wide` of 8 to 4 096 literals 1.07 to 3.6 times,
@@ -295,10 +301,14 @@ copies they had are gone (F103, F104).
   after 11 and 46 ms, the net engine 26 ms and 0.43 s) and `wide-m1` at
   4 096 (the focused engine at the memory bound after 0.75 s, the net
   engine 2.1 s; 0.79 and 2.2 s with Mix), while `wide-m2` and `wide-m3`
-  at 4 096 the focused engine proves in 0.78 s. No static feature
-  separates those (multiplicity, width and size do not: `wide-m1` and
-  `wide-m2` at 4 096 differ only in multiplicity), so the route is the
-  limit itself. The cost of a handover is the first search's time up to
+  at 4 096 the focused engine proves in 0.78 s. Which goal reaches a
+  limit depends on the limits, which no feature of the dispatch sees;
+  the removed row (no literal more than twice) would have taken both
+  measured cases, but it cost 2.8 times on `wide-m2` at 4 096 and 10 to
+  26 times on intuitionistic wide and curried sequents, more than the
+  handover costs where it happens, so the route is the limit itself.
+  `IndexLimit` (an arena of 2³¹ nodes) is not handed over: no row was
+  measured there. The cost of a handover is the first search's time up to
   its limit. A goal that is not the roots (an open goal of a session)
   is never handed over: the net engine refuses it.
 - **Equal literals were the old proxy** (`NET_MULTIPLICITY`, removed):

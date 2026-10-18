@@ -626,8 +626,10 @@ fn answer_goal<'a>(
     let options = &options
         .clone()
         .with_jobs(parallel::threads(options.threads()));
+    let held = account.used();
     let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
     let engine = if handed_over(options, &task, &answer) {
+        account.rewind(held);
         answer = Engine::Net.implementation().decide(
             &task,
             options,
@@ -662,8 +664,11 @@ fn answer_goal<'a>(
 /// on which that engine ended at its recursion limit or memory bound. The
 /// focused engines recurse once per stable sequent and keep a memo, and a
 /// long chain of links or a wide enough sequent reaches one or the other;
-/// the net engine keeps neither. Its answer replaces the first one, whose
-/// counters it drops; the work counted is both searches'.
+/// the net engine keeps neither. What the first search left charged goes
+/// first, so that the net engine's proof is checked under the bound as if
+/// it had run alone. Its answer replaces the first one, whose counters it
+/// drops (in a race the other search's are added, as ever); the work
+/// counted is both searches', each in its engine's unit.
 fn handed_over(options: &Options, task: &Task<'_>, answer: &Answer) -> bool {
     options.engine.is_none()
         && matches!(
@@ -1143,18 +1148,21 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// |---|---|---|---|---|
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
-/// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 3 to 83 ms against 0.04 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
-/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 30 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
+/// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 5 to 83 ms against 0.05 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
+/// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 32 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
 ///
 /// Where the focused engines end at their recursion limit or memory bound
 /// on a unit-free MLL sequent in a mode without weakening, the net engine
 /// takes it over: they recurse once per stable sequent and keep a memo,
 /// and it keeps neither. Measured: the chain `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of
 /// 1 024 and 4 096 links, where the two-sided engine meets the recursion
-/// limit, proved by the net engine in 26 ms and 0.43 s, and `wide-m1`
-/// with 4 096 literals, where the focused engine meets the memory bound
-/// after 0.75 s, in 2.1 s (with Mix 0.79 s and 2.2 s). Everywhere else the
-/// focused engines decided first.
+/// limit after 11 and 46 ms, proved by the net engine in 26 ms and
+/// 0.43 s more, and `wide-m1` with 4 096 literals, where the focused
+/// engine meets the memory bound after 0.75 s, in 2.1 s more (with Mix
+/// 0.79 s and 2.2 s). Everywhere else the focused engines decided first.
+/// Which goals reach a limit depends on the limits, which the dispatch's
+/// features (fragment, mode, the roots, the shape of a Horn program) do
+/// not see.
 ///
 /// The bias of the focused engines, [`Bias::Auto`], is chosen per goal as
 /// well, by the measurements its documentation names. Engines are ordered
@@ -2325,7 +2333,9 @@ pub struct Statistics {
     /// [`Options::forward_copies`] on a Horn program; zero where it did
     /// not run.
     pub forward_copies: u32,
-    /// The units of work the search did, in its engine's unit (each
+    /// The units of work the search did, in its engine's unit, and where
+    /// the net engine took a goal over at a limit, the first engine's
+    /// units and its own together (each
     /// [`Engine`] variant says which): where every search runs on the
     /// calling thread (one thread, and the default bias's two searches
     /// in [`Schedule::Turns`]), what the [`Progress::work`] of its polls
@@ -3192,6 +3202,17 @@ mod tests {
             outcome.verdict,
             Verdict::Unknown(Reason::RecursionLimit { .. })
         ));
+        // The focused engine's set-up meets a bound of 1 MiB on `wide`
+        // with 256 pairs; what it charged goes before the net engine's
+        // proof is checked under the same bound.
+        let tight = Limits::default().with_memory_bytes(Some(1 << 20));
+        let wide = crate::families::wide(256, 1);
+        let outcome = prove_within(&wide, Mode::CLASSICAL, &Options::default(), &tight, |_| {
+            false
+        })
+        .unwrap();
+        assert_eq!(outcome.engine, Engine::Net);
+        assert!(outcome.verdict.proof().is_some(), "{:?}", outcome.verdict);
         let with_unit = format!("{chain}, 1");
         let outcome = decide(&with_unit, Mode::CLASSICAL, &Options::default());
         assert_eq!(outcome.engine, Engine::Focus);

@@ -133,9 +133,9 @@ its markings (below); for everything else the *focus engine* runs a
 focused sequent search over bitsets; and for MLL without units the *net
 engine* searches for an axiom linking that makes the sequent's formula
 trees a proof net, by default only where the focus engine stops at its
-recursion limit or memory bound (a chain of thousands of links, a
-sequent of thousands of literals), since everywhere else the focus
-engine decides first. `--mix`, `--affine` and `--intuitionistic`
+recursion limit or memory bound (a chain of thousands of links, some
+sequents of thousands of distinct atoms), since everywhere else the
+focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
 choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn`
 override what detection picks, `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only

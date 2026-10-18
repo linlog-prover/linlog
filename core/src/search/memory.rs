@@ -128,6 +128,19 @@ impl Account {
         }
     }
 
+    /// Gives back everything charged since the account held `held` bytes:
+    /// what a search that has ended left charged (tables of its set-up
+    /// that it never releases), which it no longer holds.
+    pub(crate) fn rewind(&self, held: u64) {
+        let since = self.used().saturating_sub(held);
+        self.used.fetch_sub(since, Ordering::Relaxed);
+        if let Some(whole) = &self.whole {
+            whole
+                .used
+                .fetch_sub(since.min(whole.used()), Ordering::Relaxed);
+        }
+    }
+
     /// Counts a buffer whose allocation went from `before` to `after`
     /// bytes.
     pub(crate) fn resize(&self, before: usize, after: usize) {
