@@ -170,7 +170,10 @@ and every later one by the workflow. In order, all of it the author's:
    `date-released: YYYY-MM-DD`. Before it, `head -n 33
    core/tests/wire/level-1.txt | cmp - core/tests/lock/json.txt` must
    hold (the frozen documents are still what the release writes). Push.
-3. Switch Zenodo's GitHub integration on for `linlog-prover/linlog`
+3. (The author, 2026-10-18: yes, with the disclosure of `CITATION.cff`'s
+   abstract as the record's description, as Zenodo's policy on generative
+   AI asks; the licence audit of that day is in the Status log.) Switch
+   Zenodo's GitHub integration on for `linlog-prover/linlog`
    before the tag (it archives only releases made after it; the
    organization's owner approves the Zenodo app).
 4. From a clean working copy at the release commit (`jj new <commit>`:

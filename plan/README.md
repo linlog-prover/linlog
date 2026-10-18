@@ -2353,3 +2353,22 @@ client follows it (step 32).
   side by side from 30c's head, with the cores split and the daemon's
   builds and the timed runs under one lock. The release is the
   author's, in the morning.
+- 2026-10-18: the release's licences audited before anything is
+  published (the author's request), by a fresh reader of the tracked
+  tree and by queries of the public cache: nothing third-party is in
+  either crate but the Euler Math font with its `OFL.txt`; no other
+  prover, problem library or flake input's source is in the cache (each
+  path's narinfo answered 404). Fixed and pushed with the release:
+  README's licence section (the font's exception, the libraries'
+  licences), the package's `LICENSE` and `OFL.txt` under `share/doc`,
+  the `Comparison` workflow download-only (it would have uploaded
+  provers without a licence and a repaired LLTP), linTAP's and Sympli's
+  lines attributed, qcover's licence corrected; the binary's
+  third-party notices are a follow-up in `later.md`. `CITATION.cff`'s
+  licence stays EUPL-1.2 (a citation carries none; the font's licence
+  is stated where the font is), and its abstract says how the results
+  are verified, for Zenodo's policy on generative AI (2026-04-27: AI as
+  a tool, disclosed, never an author, the depositor responsible). The
+  author: Zenodo yes; linlog was not written in their employment; the
+  web front end's code EUPL-1.2 and its content CC BY 4.0
+  (`32-web.md`).

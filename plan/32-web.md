@@ -69,6 +69,16 @@ sent to a server.
    Its plan says what is left out.
 5. **Hosting** from the client's repository, built by its flake; this
    repository's Pages keep the rustdoc.
+6. **Licences** (the author, 2026-10-18): the client's code under
+   EUPL-1.2, as linlog's, with the same headers; its written content
+   (explanations, tutorials, worked examples, exercises) under CC BY 4.0,
+   said so in its README and on the pages that carry it. The bundle sent
+   to a browser contains Astro's, Solid's and their dependencies' code,
+   whose licences ask for their notices: the build collects them into a
+   third-party licences file served with the site (a licence plugin of
+   Vite or Rollup), and checks it; a font served for the drawings keeps
+   its `OFL.txt` beside it. The stack the author expects: Astro,
+   TypeScript and Solid.
 
 ## What waits
 
