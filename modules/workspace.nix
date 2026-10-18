@@ -37,6 +37,7 @@
           ../cli/Cargo.toml
           (craneLib.fileset.commonCargoSources ../cli/src)
           ../cli/fonts
+          ../LICENSE
         ];
         cli-tests = fileset.unions [
           ../cli/tests
@@ -174,6 +175,12 @@
             cargoExtraArgs = "--locked --package linlog-cli";
             # The `test-cli' check runs them.
             doCheck = false;
+            # A copy of the binary carries the licences of what it contains:
+            # the EUPL's text, and the embedded font's OFL with its notice.
+            postInstall = ''
+              install -Dm644 LICENSE $out/share/doc/linlog-cli/LICENSE
+              install -Dm644 cli/fonts/OFL.txt $out/share/doc/linlog-cli/OFL.txt
+            '';
             # The binary is `linlog', not the package name `nix run' assumes.
             meta.mainProgram = "linlog";
           }

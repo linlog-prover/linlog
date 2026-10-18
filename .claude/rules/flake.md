@@ -134,7 +134,11 @@ five of at most 20 ASCII characters; categories from its list, an
 unknown one only warned about; the licence's SPDX expression) no local
 command checks, so a change of those fields is checked by hand. Its source is the whole
 workspace with the licence files (`LICENSE` and the links
-`core/LICENSE`, `cli/LICENSE`), which no other check reads. The upload
+`core/LICENSE`, `cli/LICENSE`). The `linlog-cli` package installs
+`LICENSE` and the font's `OFL.txt` under `share/doc/linlog-cli/`, since
+a copy of the binary (the public cache holds one) must carry the EUPL's
+text and the embedded font's licence; the `cli` part carries `LICENSE`
+for that. The upload
 needs the network and the author's token; `cargo publish --dry-run
 --locked --workspace` in the shell packages and verifies both against
 the registry, the command through cargo's local overlay of the
