@@ -387,6 +387,75 @@ point it covers. In particular:
 - **D36. No tracking**, and a footer line that GitHub logs visitors'
   addresses, since GitHub's privacy statement says so for Pages.
 
+## The choice (Phase 3, 2026-10-18)
+
+The author chose **mockup 2, "Instrument"** (`plan/web/mockup/`, copied
+from `/home/tux/Projects/own/linlog-design/mockup-2/`), with the changes
+below, which are decisions. The five mockups and their READMEs stay in
+`/home/tux/Projects/own/linlog-design/`, uncommitted; from the others
+the build takes the dotted grid of Canvas (mockup 3) and nothing else.
+
+- **D44. The default view is concise** (the author): keywords, colour
+  and position carry a fact; a sentence appears on hover or on an
+  expand, never by default. No fact is shown twice: the status light
+  in the top right is the one place for the verdict (proved, checked,
+  fragment, engine; the reason of a refutation), and the callout that
+  repeated it is gone. A refusal at the goal is a keyword line with
+  the full reason on hover. The feedback research holds as long as the
+  elaborated reason stays one gesture away.
+- **D45. Every top-level control is named by the intent** (the author:
+  the drawer was not intuitive): Export (a menu of the formats and
+  "copy link"), Import (a file, a JSON paste, or a drop of a `.json`
+  session or sequent file onto the stage, the page saying which it
+  received), Settings (budget, labels, theme as system, light or
+  dark), Learn, Tour, Keys. Nothing is two levels deep but a format
+  under Export. "Drawer" names nothing.
+- **D46. A dark and light toggle in the bar** (the author), with the
+  system state as the third option under Settings; a faint dotted
+  grid on the stage, as Canvas drew it.
+- **D47. Learn is a frame around the window** (the author): with Learn
+  on, a visually distinct harness surrounds the stage and the HUD,
+  which stay as they are, and holds three rubrics: a **tutorial** that
+  is interactive (it performs real steps on the stage, as the tour
+  does, and teaches the logic, not the interface; the tour of the
+  interface, D8, stays a button in the normal view and the tutorial's
+  first lesson may call it); **practice**, the examples and exercises
+  as a rubric of their own with a difficulty each, one click loading
+  one onto the stage (D7), which the tutorial reuses; and a
+  **reference** of the connectives and the rules, each rule drawn as
+  a schema in Euler Math, in the one-sided and the two-sided names.
+  Inside the frame, hover explanations are on everywhere: a rule in
+  the popover shows its schema, a connective its reading, a verdict
+  its reason. With Learn off none of this is on the page (the
+  expertise-reversal rule).
+- **D48. One mental model, made visible** (the author: visual
+  consistency, the HUD reordered, removed or restyled as needed). The
+  page is one proof on a stage. The top band says *what I am working
+  on*: the open proofs as a row (D50), the sequent, the calculus
+  switches, the status light. The stage is *the work*, and everything
+  that acts on one goal appears at that goal: the rule popover, the
+  split chooser, the refusal, the hint, the goal's own close. The
+  bottom band is *what I can do with the proof*: undo, redo, close
+  all, hint, export, import, settings, learn, tour, keys, each by
+  name with its key. One visual grammar for all of it: the same
+  cluster style, the same label style, the same hover rule.
+- **D49. Offline and installable** (the author; this replaces D30): a
+  service worker caches the client's own files so the page works
+  with no network after one visit, and a web app manifest makes it
+  installable. The worker's scope is the client's own paths and never
+  `/linlog/`, the rustdoc on the same origin (`vite-plugin-pwa` with
+  a navigation denylist; its Astro integration's support for Astro 7
+  is unverified, so the first session checks it or writes the worker
+  by hand).
+- **D50. Several proofs at once** (the author): a row of open proofs
+  in the top band, each a session document in the browser's storage
+  with a name, switched by a click and closed by one; each has its
+  own link, exports and step tree. Nothing syncs anywhere.
+- **D51. Import from JSON** (the author): a sequent as `seq json`
+  writes it or a session as `save` writes it, both promised wire forms
+  with their level; the page names which it got and refuses a level
+  it does not know, as D20 says.
+
 ## Open points for the mockups
 
 What the five mockups vary, each one direction; nothing decided above
