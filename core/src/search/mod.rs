@@ -1359,11 +1359,18 @@ pub enum Engine {
     /// net engine does, and sequentializes the net found into the proof
     /// returned. Of the options it reads [`Options::test_period`] and
     /// [`Options::check`], and runs on the calling thread whatever
-    /// [`Options::jobs`] says. Measured against the two-sided engine on
-    /// the intuitionistic rows of the net engine's measurement, it is the
-    /// slower wherever both decide (`essential` in the measurement's
-    /// table); it is an engine to name, for teaching and comparison.
-    /// Its unit of work is a literal chosen and a test that fails.
+    /// [`Options::jobs`] says. Measured on one thread on the
+    /// intuitionistic rows that placed the net engine, it is slower than
+    /// the two-sided engine on all of them but the chain of 64 links
+    /// (0.18 ms against 0.22 ms): wide and curried sequents of 64 to 4 096
+    /// atoms 2.3 to 25 times, the Horn encodings of Partition 1.3 to 4.5
+    /// times and out of time at 60 s where the two-sided engine takes 13
+    /// and 75 ms; and on the chains of 1 024 and 4 096 links, where the
+    /// two-sided engine meets its recursion limit, 2.2 and 6 times slower
+    /// than the net engine, which takes those over. It is faster than the
+    /// net engine on the Partition encodings (16 to 660 times) and on wide
+    /// and curried sequents up to 1 024 atoms. So the dispatch gives it no
+    /// goal. Its unit of work is a literal chosen and a test that fails.
     Essential,
 }
 

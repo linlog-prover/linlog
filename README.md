@@ -541,7 +541,8 @@ directed graph has no cycle and every implication `A ⊸ B` of the goal's
 side dominates its antecedent, every path from `A` to the goal passing
 through it; the engine keeps which occurrence reaches which, a matrix
 of bits that `--memory-limit` bounds. It is slower than the two-sided
-engine wherever both decide, so it runs only when asked:
+engine on all but the smallest sequents it was measured on, so it runs
+only when asked:
 
 ```console
 $ linlog prove -i --engine essential --net "A -o B, B -o C |- A -o C"
