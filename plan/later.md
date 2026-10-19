@@ -800,6 +800,30 @@ steps (it becomes step 38). What it fixes:
   2026-10-19): intuitionistic derivations are two-sided already, so the
   toggle (D58) is shown for classical logic alone and hidden, not
   greyed, in intuitionistic mode.
+- **Which engine ran, and its reference** (the author, 2026-10-19): the
+  page shows the engine of every search it ran (a goal's close, all
+  goals', a hint, the verdict), beside the work it did, and each engine
+  names its source in the literature, one gesture away (a hover or
+  Learn's reference): the focused search (Andreoli's focusing), proof-
+  net search (Girard; Danos and Regnier's criterion), essential nets
+  (Lamarche; Murawski and Ong), the planar nets of the ordered modes
+  (Lambek; Retoré), the Horn engine (Petri-net reachability and
+  coverability), the inverse method (Chaudhuri and Pfenning's focused
+  inverse method), the additive path, and the classical refuter; every
+  reference checked against its source, not written from memory, with
+  a link where one is stable.
+- **Choosing the engine by hand, without crowding the page** (the
+  author, 2026-10-19, unsure it is worth the clutter; the planning
+  session's proposal): one choice in Settings, "Engine", default
+  "Automatic", listing only the engines that take the current proof's
+  sequent and the others greyed with their one-line reason (as the net
+  tab is, D4); a forced engine's refusal said at the goal; nothing on
+  the stage or in the bands. If it still adds clutter, the session says
+  so and leaves it out, for the author.
+- **Both plugins throughout** (the author, 2026-10-19):
+  `frontend-design` for the look, the consistency and the controls, and
+  `education-agent-skills` for the practice set, the progression, the
+  engine references' place in Learn, and ease of use for a student.
 - **Other nitpicks of the same kind** (the author, 2026-10-19: look
   for them): a sweep of every control, label and text for what does not
   apply where it is shown, says the same thing two ways, or surprises.
