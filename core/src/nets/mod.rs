@@ -162,12 +162,14 @@ impl Criterion {
     /// Returns the criterion of a mode: Mix and the order as the mode has
     /// them. Fails with [`NetError::Mode`] in affine mode, which has no
     /// proof nets, and in an ordered mode that [`Mode::check`] refuses; in
-    /// intuitionistic mode the net is the one of the one-sided sequent.
+    /// intuitionistic mode the net is the one of the one-sided sequent, in
+    /// the Lambek calculus a planar one (a proof net of the calculus
+    /// without empty antecedents asks more of it, which the essential
+    /// engine's search tests).
     ///
     /// # Errors
     ///
-    /// [`NetError::Mode`] in affine mode and in an ordered mode with Mix
-    /// or the intuitionistic reading.
+    /// [`NetError::Mode`] in affine mode and in an ordered mode with Mix.
     pub fn of(mode: Mode) -> Result<Self, NetError> {
         if mode.is_affine() || (mode.is_ordered() && mode.check().is_err()) {
             return Err(NetError::Mode { mode });

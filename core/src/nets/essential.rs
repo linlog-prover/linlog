@@ -25,6 +25,7 @@
 //! this is the same verdict as the Danos–Regnier criterion without Mix.
 
 use super::{NetError, ProofStructure, STOPPED, VertexId};
+use crate::fragment::{Mode, Order};
 use crate::limits::{Phase, Progress};
 use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side};
 use crate::sequents::Kind;
@@ -56,7 +57,8 @@ pub(crate) fn fixed_successors(
 }
 
 /// Returns whether `o` is an implication in output position, `A ⊸ B`
-/// stored as `A⊥ ⅋ B`, whose left premise is the antecedent.
+/// stored as `A⊥ ⅋ B`, whose left premise is the antecedent, or in the
+/// Lambek calculus's ordered reading either division.
 pub(crate) fn is_implication(forest: &Forest, reading: &Reading<'_>, o: OccId) -> bool {
     forest.kind(o) == Kind::Par && reading.position(o) == Side::Output
 }
@@ -64,13 +66,19 @@ pub(crate) fn is_implication(forest: &Forest, reading: &Reading<'_>, o: OccId) -
 impl ProofStructure {
     /// Returns the intuitionistic reading of the structure's sequent: the
     /// side of `⊢` every vertex stands on, which orients its essential
-    /// net. It is recomputed on each call, in time linear in the forest.
+    /// net; under a criterion of the cyclic order, the ordered reading of
+    /// the Lambek calculus ([`Reading::of_mode`]), with empty antecedents
+    /// allowed. It is recomputed on each call, in time linear in the
+    /// forest.
     ///
     /// # Errors
     ///
     /// The [`ShapeError`] of a sequent with no intuitionistic reading.
     pub fn reading(&self) -> Result<Reading<'_>, ShapeError> {
-        Reading::new(&self.forest)
+        match self.criterion.order {
+            Order::Commutative => Reading::new(&self.forest),
+            Order::Cyclic => Reading::of_mode(&self.forest, Mode::LAMBEK.with_empty_antecedents()),
+        }
     }
 
     /// Decides whether the structure is an essential net of its
@@ -173,12 +181,12 @@ impl ProofStructure {
         let mut round = 0u32;
         let mut queue = Vec::new();
         for l in forest.ids() {
-            let Some(antecedent) = forest.left(l).filter(|_| l != goal) else {
+            let Some((antecedent, _)) = reading
+                .implication(l)
+                .filter(|_| l != goal && is_implication(forest, &reading, l))
+            else {
                 continue;
             };
-            if !is_implication(forest, &reading, l) {
-                continue;
-            }
             if poll(&mut stop) {
                 return Err(STOPPED);
             }

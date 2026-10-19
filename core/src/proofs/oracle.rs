@@ -529,5 +529,23 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             proofs.push((*proof, instance.mode));
         }
     }
+    let mut rng = Rng::new(36);
+    for k in 0..60 {
+        let mode = if k % 2 == 0 {
+            Mode::LAMBEK
+        } else {
+            Mode::LAMBEK.with_empty_antecedents()
+        };
+        let budget = 2 + rng.below(8);
+        let (hypotheses, goal) = generate::lambek(&mut rng, 3, budget, k % 2 == 1);
+        let text = generate::lambek_text(&hypotheses, &goal);
+        let sequent =
+            Sequent::parse_ordered(&text, crate::Order::Cyclic, &crate::Limits::default()).unwrap();
+        if let Ok(Verdict::Proved(proof)) =
+            crate::search::prove(&sequent, mode, &Options::default()).map(|o| o.verdict)
+        {
+            proofs.push((*proof, mode));
+        }
+    }
     proofs
 }

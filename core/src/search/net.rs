@@ -42,8 +42,8 @@ const NONE: u32 = u32::MAX;
 pub(crate) struct Nets;
 
 impl Decide for Nets {
-    /// Refuses a fragment beyond unit-free MLL, affine mode and, in a
-    /// commutative mode, a goal other than the roots: a structure's
+    /// Refuses a fragment beyond unit-free MLL, affine mode, the Lambek
+    /// calculus and, in a commutative mode, a goal other than the roots: a structure's
     /// conclusions are the forest's roots. In an ordered mode a goal of
     /// distinct formulas none of which lies inside another is searched as
     /// a sequent of its own ([`goal`]).
@@ -60,6 +60,11 @@ impl Decide for Nets {
             NetError::Mode { mode } => refused(NotTaken::Mode { mode }),
             other => other.into(),
         })?;
+        // The Lambek calculus's nets are the essential engine's: a planar
+        // net of the switchings may need an empty antecedent.
+        if task.mode.is_ordered() && task.mode.is_intuitionistic() {
+            return Err(refused(NotTaken::Mode { mode: task.mode }));
+        }
         if !task.roots && !(task.mode.is_ordered() && apart(task.forest, task.goal)) {
             return Err(refused(NotTaken::Goal));
         }
@@ -97,7 +102,9 @@ impl Decide for Nets {
         #[cfg(not(feature = "parallel"))]
         let _ = work;
         if !task.roots {
-            return goal(task, options, limits, stop);
+            return goal(task, limits, |own| {
+                Ok(search(own, task.mode, options, limits, stop))
+            });
         }
         Ok(search(task.forest, task.mode, options, limits, stop))
     }
@@ -105,7 +112,7 @@ impl Decide for Nets {
 
 /// Whether the occurrences are distinct and none lies inside another's
 /// subtree: the formulas of a sequent.
-fn apart(forest: &Forest, goal: &[OccId]) -> bool {
+pub(super) fn apart(forest: &Forest, goal: &[OccId]) -> bool {
     let mut sorted = goal.to_vec();
     sorted.sort_unstable();
     // A subtree is `o .. o + size(o)`, below the forest's length.
@@ -114,17 +121,16 @@ fn apart(forest: &Forest, goal: &[OccId]) -> bool {
         .all(|w| u64::from(w[0].get()) + u64::from(forest.size(w[0])) <= u64::from(w[1].get()))
 }
 
-/// Decides a goal off the roots, in an ordered mode: its formulas, in
-/// the forest's order, which is the goal's cyclic order, as the roots of
-/// a sequent of their own, whose forest numbers each formula's
-/// occurrences as the goal's forest does, shifted; the proof found is
-/// carried back by the shift, and the answer has no net, its structure
-/// being over the other forest.
-fn goal(
+/// Decides a goal off the roots, in an ordered mode, by `run` on a
+/// forest of its own: the goal's formulas, in the forest's order, which
+/// is the goal's cyclic order, as the roots of a sequent of their own,
+/// whose forest numbers each formula's occurrences as the goal's forest
+/// does, shifted; the proof found is carried back by the shift, and the
+/// answer has no net, its structure being over the other forest.
+pub(super) fn goal(
     task: &Task<'_>,
-    options: &Options,
     limits: &Limits,
-    stop: &mut dyn FnMut(u64) -> bool,
+    run: impl FnOnce(&Forest) -> Result<Answer, Error>,
 ) -> Result<Answer, Error> {
     let forest = task.forest;
     let mut members = task.goal.to_vec();
@@ -137,7 +143,7 @@ fn goal(
         antecedents: None,
     };
     let own = Forest::within(&own, limits)?;
-    let mut answer = search(&own, task.mode, options, limits, stop);
+    let mut answer = run(&own)?;
     // The occurrence of the goal's forest that one of the own forest's is:
     // its formula's member, plus how far into the formula it lies.
     let lift = |m: crate::Member| {
@@ -182,10 +188,10 @@ pub(crate) fn search(
         return answer(Ok(false), Statistics::default(), None, limits, stop);
     }
     let (result, statistics, net) = if mode.is_ordered() {
-        let criterion = Planar::new(forest, mode);
+        let criterion = Planar::new(Switching::new(forest, mode));
         let mut engine = Linker::with(criterion, options, Stop::Closure(stop), Prunes::PLANAR);
         let result = engine.run();
-        let net = matches!(result, Ok(true)).then_some(engine.criterion.switching().net);
+        let net = matches!(result, Ok(true)).then_some(engine.criterion.into_inner().net);
         (result, engine.statistics, net)
     } else {
         let mut engine = Linker::new(forest, mode, options, Stop::Closure(stop));
@@ -581,11 +587,6 @@ impl Switching {
         .expect("the dispatch routes unit-free MLL only");
         let scratch = net.scratch();
         Self { net, scratch }
-    }
-
-    /// The structure that holds the links.
-    pub(super) const fn structure(&self) -> &ProofStructure {
-        &self.net
     }
 }
 

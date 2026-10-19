@@ -32,13 +32,14 @@
 
 use super::memory::{Account, Charged, bytes_of};
 use super::net::{self, Correctness, Linker, Prunes};
+use super::planar::Planar;
 use super::{Answer, Decide, Engine, NotTaken, Options, Reason, Statistics, Stop, Task, Work};
 use crate::Error;
-use crate::fragment::Fragment;
+use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::Limits;
 use crate::nets::essential::{fixed_successors, is_implication};
 use crate::nets::{Criterion, ProofStructure, VertexId};
-use crate::occurrences::{Forest, OccId, Reading, Side, Sign};
+use crate::occurrences::{Forest, OccId, Reading, ShapeError, Side, Sign};
 use crate::sequents::{Atom, Kind};
 
 /// The raw index that stands for "no occurrence".
@@ -51,6 +52,11 @@ const NONE: u32 = u32::MAX;
 /// connectives come on top, a word per 64 occurrences.
 const LINEAR_BYTES: usize = 24;
 
+/// The bytes per occurrence of the test against empty antecedents, in the
+/// Lambek calculus without them: an implication's body and antecedent,
+/// and a source with its binder, four bytes each.
+const NONEMPTY_BYTES: usize = 16;
+
 /// The rows of the closure's set-up between two polls of the stop: a row
 /// costs a word per 64 occurrences, so a sequent of a hundred thousand
 /// occurrences is polled every few milliseconds.
@@ -61,9 +67,11 @@ pub(crate) struct Essentials;
 
 impl Decide for Essentials {
     /// Refuses classical and affine mode, a fragment beyond unit-free
-    /// MLL, which in intuitionistic mode is unit-free IMLL, and a goal
-    /// other than the roots: an essential net's conclusions are the
-    /// forest's roots.
+    /// MLL, which in intuitionistic mode is unit-free IMLL, and in a
+    /// commutative mode a goal other than the roots: an essential net's
+    /// conclusions are the forest's roots. In the Lambek calculus a goal
+    /// of distinct formulas none of which lies inside another is searched
+    /// as a sequent of its own, as the net engine does in the cyclic mode.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
         let refused = |because| Error::EngineRefused {
             engine: Engine::Essential,
@@ -79,14 +87,14 @@ impl Decide for Essentials {
                 goal: task.fragment,
             }));
         }
-        if !task.roots {
+        if !task.roots && !(mode.is_ordered() && net::apart(task.forest, task.goal)) {
             return Err(refused(NotTaken::Goal));
         }
         Ok(())
     }
 
     /// Links the roots on the calling thread, whatever
-    /// [`Options::jobs`] says.
+    /// [`Options::jobs`] says, planar in the Lambek calculus.
     fn decide(
         &self,
         task: &Task<'_>,
@@ -96,20 +104,49 @@ impl Decide for Essentials {
         _work: &Work,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
+        let mode = task.mode;
+        if !task.roots {
+            return net::goal(task, limits, |own| {
+                // A goal without a hypothesis has no proof without empty
+                // antecedents; any other has the reading the goal had.
+                match Reading::of_mode(own, mode) {
+                    Ok(reading) => Ok(search(own, &reading, mode, options, limits, account, stop)),
+                    Err(ShapeError::EmptyAntecedent) => Ok(net::answer(
+                        Ok(false),
+                        Statistics::default(),
+                        None,
+                        limits,
+                        stop,
+                    )),
+                    Err(shape) => Err(Error::NotIntuitionistic(shape)),
+                }
+            });
+        }
         let reading = task
             .reading
             .expect("intuitionistic mode reads the sequent first");
-        Ok(search(task.forest, reading, options, limits, account, stop))
+        Ok(search(
+            task.forest,
+            reading,
+            mode,
+            options,
+            limits,
+            account,
+            stop,
+        ))
     }
 }
 
 /// Runs the essential-net engine on the forest of a sequent of unit-free
-/// IMLL read by `reading`, charging its closure to `account` and polling
-/// `stop` once per literal chosen, and returns its answer, with the
-/// proof net the proof was read off for a proved sequent.
+/// IMLL read by `reading` in `mode`, charging its closure to `account`
+/// and polling `stop` once per literal chosen, and returns its answer,
+/// with the proof net the proof was read off for a proved sequent. In
+/// the Lambek calculus the links are planar ([`Planar`]), under the
+/// prunes of a planar search.
 pub(crate) fn search(
     forest: &Forest,
     reading: &Reading<'_>,
+    mode: Mode,
     options: &Options,
     limits: &Limits,
     account: &Account,
@@ -119,8 +156,17 @@ pub(crate) fn search(
     if !net::counts_admit(forest, false) {
         return net::answer(Ok(false), Statistics::default(), None, limits, stop);
     }
-    let (result, statistics, structure) = match Essential::new(forest, reading, account, stop) {
+    let (result, statistics, structure) = match Essential::new(forest, reading, mode, account, stop)
+    {
         Err(reason) => (Err(reason), Statistics::default(), None),
+        Ok(criterion) if mode.is_ordered() => {
+            let criterion = Planar::new(criterion);
+            let mut engine = Linker::with(criterion, options, Stop::Closure(stop), Prunes::PLANAR);
+            let result = engine.run();
+            let structure =
+                matches!(result, Ok(true)).then(|| engine.criterion.inner().structure());
+            (result, engine.statistics, structure)
+        }
         Ok(criterion) => {
             let mut engine = Linker::with(criterion, options, Stop::Closure(stop), Prunes::ALL);
             let result = engine.run();
@@ -180,8 +226,35 @@ pub(super) struct Essential<'a> {
     binder: Box<[u32]>,
     /// The goal.
     goal: u32,
+    /// In the Lambek calculus without empty antecedents, what its test
+    /// of a complete linking reads; `None` in every other mode.
+    nonempty: Option<Nonempty>,
+    /// The order of the structure the links make.
+    order: Order,
     /// What the closure and the log charge to the search's account.
     charged: Charged<'a>,
+}
+
+/// What the test against empty antecedents reads: every implication but
+/// the goal with its consequent, and every occurrence a hypothesis enters
+/// at, with the implication that binds it.
+///
+/// In an essential net the term at an output occurrence is what reaches
+/// it, and its free hypotheses are the sources that reach it (the
+/// hypotheses of the sequent, and the antecedents of its implications,
+/// none of which has an edge in) but those bound inside, whose
+/// implication reaches it too. A proof of the Lambek calculus keeps a
+/// hypothesis in every sequent exactly when every subterm has a free
+/// one, which holds exactly when the body of every implication but the
+/// goal has a free hypothesis besides the one its implication binds; the
+/// goal's body has the sequent's hypotheses, of which the reading asks
+/// one.
+struct Nonempty {
+    /// Each implication but the goal, its consequent and its antecedent.
+    bodies: Box<[(u32, u32)]>,
+    /// Each source, with the implication whose antecedent it is, or
+    /// `NONE` for a hypothesis.
+    sources: Box<[(u32, u32)]>,
 }
 
 impl<'a> Essential<'a> {
@@ -194,6 +267,7 @@ impl<'a> Essential<'a> {
     fn new(
         forest: &'a Forest,
         reading: &Reading<'_>,
+        mode: Mode,
         account: &'a Account,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Self, Reason> {
@@ -208,10 +282,15 @@ impl<'a> Essential<'a> {
         let limit = Reason::MemoryLimit {
             limit_bytes: account.limit(),
         };
+        let linear = if mode.allows_empty_antecedents() {
+            LINEAR_BYTES
+        } else {
+            LINEAR_BYTES + NONEMPTY_BYTES
+        };
         let held = usize::try_from(cells)
             .ok()
             .and_then(|cells| cells.checked_mul(size_of::<u64>()))
-            .and_then(|matrix| matrix.checked_add(n.checked_mul(LINEAR_BYTES)?))
+            .and_then(|matrix| matrix.checked_add(n.checked_mul(linear)?))
             .and_then(|bytes| bytes.checked_add(words * size_of::<u64>()))
             .filter(|&bytes| bytes <= isize::MAX as usize && account.fits(bytes))
             .ok_or(limit)?;
@@ -280,9 +359,36 @@ impl<'a> Essential<'a> {
                     _ => NONE,
                 };
             } else if is_implication(forest, reading, o) && o != goal {
-                implications.push((o.get(), forest.left(o).unwrap().get()));
+                let (antecedent, _) = reading.implication(o).expect("an implication");
+                implications.push((o.get(), antecedent.get()));
             }
         }
+        let nonempty = (!mode.allows_empty_antecedents()).then(|| {
+            let bodies = forest
+                .ids()
+                .filter(|&o| o != goal)
+                .filter_map(|o| {
+                    reading
+                        .implication(o)
+                        .filter(|_| is_implication(forest, reading, o))
+                })
+                .map(|(antecedent, consequent)| (consequent.get(), antecedent.get()))
+                .collect();
+            let hypotheses = reading.hypotheses().map(|h| (h.get(), NONE));
+            let antecedents = forest
+                .ids()
+                .filter(|&o| is_implication(forest, reading, o))
+                .map(|o| {
+                    (
+                        reading.implication(o).expect("an implication").0.get(),
+                        o.get(),
+                    )
+                });
+            Nonempty {
+                bodies,
+                sources: hypotheses.chain(antecedents).collect(),
+            }
+        });
         Ok(Self {
             forest,
             partner: vec![NONE; n].into_boxed_slice(),
@@ -295,7 +401,22 @@ impl<'a> Essential<'a> {
             implications: implications.into_boxed_slice(),
             binder,
             goal: goal.get(),
+            nonempty,
+            order: mode.order(),
             charged,
+        })
+    }
+
+    /// Returns whether the body of every implication but the goal has a
+    /// free hypothesis besides the one it binds ([`Nonempty`]): exact on
+    /// a complete linking, which is the only one it is asked of.
+    fn keeps_antecedents(&self, nonempty: &Nonempty) -> bool {
+        nonempty.bodies.iter().all(|&(body, bound)| {
+            nonempty.sources.iter().any(|&(source, binder)| {
+                source != bound
+                    && self.reaches(source, body)
+                    && (binder == NONE || !self.reaches(binder, body))
+            })
         })
     }
 
@@ -379,9 +500,14 @@ impl<'a> Essential<'a> {
         Ok(())
     }
 
-    /// Returns the proof structure of the links made.
+    /// Returns the proof structure of the links made, in the mode's
+    /// order.
     pub(super) fn structure(&self) -> ProofStructure {
-        let mut net = ProofStructure::new(self.forest.clone(), Criterion::MLL)
+        let criterion = Criterion {
+            order: self.order,
+            ..Criterion::MLL
+        };
+        let mut net = ProofStructure::new(self.forest.clone(), criterion)
             .expect("the engine admits unit-free IMLL only");
         for &(x, y) in &self.links {
             net.link_unchecked(x, y);
@@ -483,9 +609,15 @@ impl Correctness for Essential<'_> {
     }
 
     /// The dominator condition of every implication but the goal; the
-    /// closure keeps the graph acyclic by itself.
+    /// closure keeps the graph acyclic by itself. In the Lambek calculus
+    /// without empty antecedents, on a complete linking, a free hypothesis
+    /// in the body of each implication besides.
     fn test(&mut self) -> bool {
         self.implications.iter().all(|&(l, s)| self.dominated(l, s))
+            && (self.nonempty.is_none() || !self.is_complete() || {
+                let nonempty = self.nonempty.as_ref().expect("asked");
+                self.keeps_antecedents(nonempty)
+            })
     }
 
     /// The criterion keeps no skeleton.
@@ -639,7 +771,14 @@ mod tests {
         let forest = Forest::new(&s).unwrap();
         let reading = Reading::new(&forest).unwrap();
         let account = Account::new(None);
-        let mut criterion = Essential::new(&forest, &reading, &account, &mut |_| false).unwrap();
+        let mut criterion = Essential::new(
+            &forest,
+            &reading,
+            Mode::INTUITIONISTIC,
+            &account,
+            &mut |_| false,
+        )
+        .unwrap();
         let mut snapshots = vec![criterion.reach.clone()];
         let mut linked = 0;
         loop {
@@ -704,6 +843,39 @@ mod tests {
         );
         assert_eq!(outcome.statistics, Statistics::default());
         assert!(matches!(within(1 << 20).verdict, Verdict::Proved(_)));
+    }
+
+    /// In the Lambek calculus the essential engine is the only one: at its
+    /// memory bound the net engine, whose planar nets may need an empty
+    /// antecedent, does not take the goal over, and forced it is refused.
+    #[test]
+    fn lambek_has_no_handover() {
+        let text = format!(
+            "a0{} |- a40",
+            (0..40)
+                .map(|k| format!(", a{k} \\ a{}", k + 1))
+                .collect::<String>()
+        );
+        let s = Sequent::parse_ordered(&text, crate::Order::Cyclic, &Limits::default()).unwrap();
+        let limits = Limits {
+            memory_bytes: Some(2_000),
+            ..Limits::default()
+        };
+        let outcome =
+            prove_within(&s, Mode::LAMBEK, &Options::default(), &limits, |_| false).unwrap();
+        assert_eq!(outcome.engine, Engine::Essential);
+        assert!(matches!(
+            outcome.verdict,
+            Verdict::Unknown(Reason::MemoryLimit { .. })
+        ));
+        let net = Options::default().with_engine(Some(Engine::Net));
+        assert!(matches!(
+            prove(&s, Mode::LAMBEK, &net),
+            Err(Error::EngineRefused {
+                engine: Engine::Net,
+                ..
+            })
+        ));
     }
 
     /// The review's witnesses: a sequent whose only linking takes a

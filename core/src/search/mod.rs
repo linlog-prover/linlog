@@ -29,7 +29,7 @@ pub(crate) mod memory;
 pub(crate) mod net;
 #[cfg(feature = "parallel")]
 mod parallel;
-/// The planar criterion of the net engine's search, for cyclic MLL.
+/// The planar criterion of the linking searches, for the ordered modes.
 mod planar;
 /// A reference prover for the tests: the plain unfocused calculus.
 #[cfg(all(test, feature = "parse"))]
@@ -940,8 +940,15 @@ fn prepare<'a>(
         Some(engine) => engine,
         None => dispatch(&task)?,
     };
-    // Only the net engine keeps the order of the formulas.
-    if mode.is_ordered() && engine != Engine::Net {
+    // Only the planar searches keep the order of the formulas: the net
+    // engine's in the cyclic mode, the essential one's in the Lambek
+    // calculus.
+    let planar = if mode.intuitionistic {
+        Engine::Essential
+    } else {
+        Engine::Net
+    };
+    if mode.is_ordered() && engine != planar {
         return Err(Error::EngineRefused {
             engine,
             because: NotTaken::Mode { mode },
@@ -1093,10 +1100,16 @@ fn dispatch(task: &Task<'_>) -> Result<Engine, Error> {
 /// feature of a goal, the engine a measurement shows fastest there, as the
 /// documentation of [`Engine`] tabulates with the measurements. The last
 /// two rows take every goal, each in its own modes.
-const DISPATCH: [Row; 5] = [
+const DISPATCH: [Row; 6] = [
     Row {
         fragment: Fragment::MLL,
-        modes: Modes::Ordered,
+        modes: Modes::Lambek,
+        feature: Feature::Any,
+        engine: Engine::Essential,
+    },
+    Row {
+        fragment: Fragment::MLL,
+        modes: Modes::Cyclic,
         feature: Feature::Any,
         engine: Engine::Net,
     },
@@ -1156,8 +1169,11 @@ enum Modes {
     Classical,
     /// Intuitionistic mode, with or without weakening.
     Intuitionistic,
-    /// A mode that keeps the order of the formulas.
-    Ordered,
+    /// The classical mode that keeps the order of the formulas.
+    Cyclic,
+    /// The intuitionistic modes that keep it: the Lambek calculus, with
+    /// or without empty antecedents.
+    Lambek,
 }
 
 impl Modes {
@@ -1179,7 +1195,8 @@ impl Modes {
             Modes::Any => commutative,
             Modes::Classical => commutative && !intuitionistic,
             Modes::Intuitionistic => commutative && intuitionistic,
-            Modes::Ordered => !commutative,
+            Modes::Cyclic => !commutative && !intuitionistic,
+            Modes::Lambek => !commutative && intuitionistic,
         }
     }
 }
@@ -1236,6 +1253,7 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 ///
 /// | fragment | mode | feature | engine | measured (one thread) |
 /// |---|---|---|---|---|
+/// | unit-free MLL | Lambek, with or without empty antecedents | | [`Essential`](Engine::Essential) | the one engine of the Lambek calculus, by planar essential nets: MEASURED |
 /// | unit-free MLL | cyclic | | [`Net`](Engine::Net) | the one engine that keeps the order, by planar linkings: chains `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of 4 096 links in 0.46 s and products of 4 096 atoms entailing themselves in 0.89 s, as fast as the classical net search on the same sequents, which links them alike; their exchanged forms refuted in 0.08 and 0.16 s; random derivations of the cyclic calculus over two atoms decided in 23 µs to 0.4 ms, where the classical net search on the same sequents ran past 60 s on 2 of 20 (`bench/problems/cyclic.txt`) |
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
@@ -1370,8 +1388,17 @@ pub enum Engine {
     /// and a pivot of the state equation.
     Horn,
     /// The essential-net engine, for unit-free IMLL: intuitionistic mode
-    /// without weakening. The dispatch gives it no goal; forced, it
-    /// decides any goal it admits. It is the net engine's search over
+    /// without weakening, and the Lambek calculus. In the commutative
+    /// modes the dispatch gives it no goal; forced, it decides any goal
+    /// it admits. In the Lambek calculus it is the default and the one
+    /// engine: the criterion is that of planar essential nets (Lamarche
+    /// and Retoré), a link admitted only when it crosses no link made and
+    /// the literals between its ends are balanced, the symmetry breaks
+    /// off, as the net engine keeps a cyclic linking; without empty
+    /// antecedents a complete linking is a proof besides only when the
+    /// body of every implication but the goal has a free hypothesis other
+    /// than the one it binds, so that no sequent of the proof is without
+    /// one; and a goal off the roots is searched as a sequent of its own. It is the net engine's search over
     /// the sequent's polarized structure, Lamarche's essential net, whose
     /// edges the [`Reading`] directs from the hypotheses toward the goal:
     /// a linking is a proof net when the directed graph has no cycle and
@@ -1519,6 +1546,11 @@ impl Display for Explained {
                     "essential nets exist for IMLL without units only, not for {goal}"
                 )
             }
+            (Engine::Net, NotTaken::Mode { mode }) if mode.is_ordered() => write!(
+                f,
+                "the net engine does not search in {mode} mode, whose planar essential nets the \
+                 essential engine searches"
+            ),
             (Engine::Net, NotTaken::Mode { mode }) => write!(
                 f,
                 "proof nets exist in linear mode only, with or without Mix, not in {mode} mode"
@@ -3663,7 +3695,8 @@ mod tests {
                 Some("any") => Modes::Any,
                 Some("classical") => Modes::Classical,
                 Some("intuitionistic") => Modes::Intuitionistic,
-                Some("cyclic") => Modes::Ordered,
+                Some("cyclic") => Modes::Cyclic,
+                Some("Lambek") => Modes::Lambek,
                 other => panic!("modes the test does not know: {other:?}"),
             };
             let engine = cells[3]

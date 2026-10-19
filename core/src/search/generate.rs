@@ -922,6 +922,101 @@ pub(crate) fn balanced(rng: &mut Rng, atoms: u8, pairs: usize, mix: bool) -> Vec
     formulas
 }
 
+/// A formula of the Lambek calculus, for the tests: an atom, `A ⊗ B`,
+/// `A \ B` (antecedent, then consequent) and `B / A` (consequent,
+/// then antecedent).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Lambek {
+    /// An atom by its index.
+    Atom(u8),
+    /// `A ⊗ B`
+    Tensor(Box<Self>, Box<Self>),
+    /// `A \ B`
+    Under(Box<Self>, Box<Self>),
+    /// `B / A`
+    Over(Box<Self>, Box<Self>),
+}
+
+impl Display for Lambek {
+    /// Writes the formula as the ordered parse reads it, bracketed.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Atom(a) => write!(f, "{}", char::from(b'a' + a)),
+            Self::Tensor(a, b) => write!(f, "({a} * {b})"),
+            Self::Under(a, b) => write!(f, "({a} \\ {b})"),
+            Self::Over(b, a) => write!(f, "({b} / {a})"),
+        }
+    }
+}
+
+/// The text of the sequent `hypotheses ⊢ goal`.
+pub(crate) fn lambek_text(hypotheses: &[Lambek], goal: &Lambek) -> String {
+    let hypotheses: Vec<String> = hypotheses.iter().map(ToString::to_string).collect();
+    format!("{} |- {goal}", hypotheses.join(", "))
+}
+
+/// A random derivation of the Lambek calculus, with empty antecedents
+/// where `star` is set, of up to `budget` rules over `atoms` atoms:
+/// its hypotheses in order and its goal.
+pub(crate) fn lambek(rng: &mut Rng, atoms: u8, budget: usize, star: bool) -> (Vec<Lambek>, Lambek) {
+    use Lambek::*;
+    let b = Box::new;
+    if budget <= 1 || rng.below(5) == 0 {
+        let a = Atom(rng.below(usize::from(atoms)) as u8);
+        return (vec![a.clone()], a);
+    }
+    let least = if star { 1 } else { 2 };
+    match rng.below(5) {
+        0 => {
+            let (mut g, a) = lambek(rng, atoms, budget / 2, star);
+            let (d, c) = lambek(rng, atoms, budget - budget / 2, star);
+            g.extend(d);
+            (g, Tensor(b(a), b(c)))
+        }
+        1 => {
+            let (mut g, c) = lambek(rng, atoms, budget - 1, star);
+            if g.len() >= 2 {
+                let i = rng.below(g.len() - 1);
+                let (x, y) = (g.remove(i), g.remove(i));
+                g.insert(i, Tensor(b(x), b(y)));
+            }
+            (g, c)
+        }
+        2 => {
+            let (mut g, c) = lambek(rng, atoms, budget - 1, star);
+            if g.len() < least {
+                return (g, c);
+            }
+            if rng.below(2) == 0 {
+                let a = g.remove(0);
+                (g, Under(b(a), b(c)))
+            } else {
+                let a = g.pop().unwrap();
+                (g, Over(b(c), b(a)))
+            }
+        }
+        _ => {
+            let (g, a) = lambek(rng, atoms, budget / 2, star);
+            let (mut d, c) = lambek(rng, atoms, budget - budget / 2, star);
+            let k = rng.below(d.len().max(1));
+            if d.is_empty() || (g.is_empty() && !star) {
+                return (d, c);
+            }
+            let consequent = d.remove(k);
+            let mut middle = g;
+            if rng.below(2) == 0 {
+                middle.push(Under(b(a), b(consequent)));
+            } else {
+                middle.insert(0, Over(b(consequent), b(a)));
+            }
+            let rest = d.split_off(k);
+            d.extend(middle);
+            d.extend(rest);
+            (d, c)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

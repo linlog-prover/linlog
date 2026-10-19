@@ -508,8 +508,8 @@ mod tests {
                 // which decides whether `Auto` tries one, is no more than
                 // the compact view built holds, by the builder's own count.
                 let (view_mode, reading) = if two_sided {
-                    let reading = check::reading(&proof, Derivation::TWO_SIDED).unwrap();
-                    (Derivation::TWO_SIDED, reading)
+                    let view_mode = Derivation::two_sided_mode(&proof);
+                    (view_mode, check::reading(&proof, view_mode).unwrap())
                 } else {
                     (Derivation::ONE_SIDED, None)
                 };
