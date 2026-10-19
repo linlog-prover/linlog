@@ -50,7 +50,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The tests pruned and CI cached, the memory bound charged, the third baseline (a night), and the first release prepared (three sessions) | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
-| 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
+| 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own; done 2026-10-19, at https://linlog-prover.github.io/) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
 | 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 32 |
 | 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 33 |
 | 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
@@ -2736,4 +2736,41 @@ client follows it (step 32).
   build of `main` of its own, which failed and published nothing); its
   CI passed. Next: 32c, the hosting, the licence check and the rest of
   version 1.
+- 2026-10-19: review of step 32c, the end of step 32 (one session, Opus
+  5.5 at high, 09:07 to 10:20, beside 36b):
+  - the deployment: `main` of the client goes to GitHub Pages after its
+    checks (upload-pages-artifact and deploy-pages pinned by SHA, a job
+    of its own with the only rights to deploy), a `404.html`, a check
+    that nothing is written under `/linlog`;
+  - the CSP as a meta element (`default-src 'none'`,
+    `'wasm-unsafe-eval'`, every inline script and style by hash), with a
+    check that recomputes the hashes and reads the policy as a browser
+    does, and every Playwright test failing on a violation;
+  - the licences served and checked: the bundle's (Vite's
+    `build.license`), the module's crates' (cargo-about), the code's, and
+    each font's OFL beside it; CC BY 4.0 on the written content;
+  - the rest of version 1: offline and installable (a service worker by
+    hand, since `@vite-pwa/astro` stops at Astro 5), About with the line
+    on GitHub's logs, Practice with nine examples decided by the command
+    (seven with saved sessions to watch), the tour of eight real steps,
+    Learn's frame with the places for its lessons, Lucide checked at
+    build time, and the three follow-ups of 32b's review;
+  - a reviewer's two findings fixed (the worker's install read the HTTP
+    cache; the CSP check took the last of a repeated directive).
+  Three departures for the author, each marked: the service worker's
+  scope is `/`, since a scope is a path prefix and the page is at the
+  root, so it returns before anything under `/linlog` and routes it to
+  the network where the browser can (D49); an example opens as a proof
+  of its own and never replaces work, so it needs no warning (D7); the
+  hover explanations inside Learn are not built (D47).
+
+  The review read the service worker and the deployment job, rebuilt
+  the client's checks itself (`--rebuild`: 42 Vitest and 39 Playwright
+  tests, the CSP, licence and path checks), and drove the built site in
+  Chromium: no policy violation, the worker active at `/`, Learn's frame
+  with Practice, an example opened as a proof. The planning session
+  pushed the client's `main`, which deployed the site at
+  https://linlog-prover.github.io/. Step 32 is done; Learn's lessons
+  (D56, D60) wait for a content session, and the follow-ups are in
+  `later.md`. Next: step 33 (MELL nets) after 36b.
 
