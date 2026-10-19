@@ -772,6 +772,44 @@ open":
 - **The inherited quadratic `choose`** (35b's open item) holds for the
   planar search too; it never dominated a measured row.
 
+## The web client's polish: the next step after the break
+
+The author, 2026-10-19, after step 32 went live: one session in the
+client's repository, with both plugins vetted for the design session
+(`frontend-design` and `education-agent-skills`), run as the next step
+when work resumes; its prompt is written with the renumbering of the
+steps (it becomes step 38). What it fixes:
+
+- **Touch targets**: some buttons are too small or hard to press,
+  especially on a phone; every control measured at phone and desktop
+  widths, 44 by 44 pixels on a phone, never below WCAG 2.2's 24, with a
+  test that fails below the floor.
+- **Spacing**: wrong or ugly in places; one spacing scale in the tokens,
+  used everywhere.
+- **Practice**: many more examples, along the learning progression
+  (D60), graded by difficulty, provable and unprovable mixed, every one
+  decided by the command first.
+- **Visual polish**: a more modern look and feel, within the chosen
+  "Instrument" direction and the design's decisions.
+- **Visual consistency**: one visual grammar (D48): the same component
+  looks and behaves alike everywhere (sizes, states, radii, type,
+  spacing), checked against one-off values.
+- **Ease of use**: the common tasks in as few steps as possible, with
+  clear affordances, walked through at both widths.
+- **The two-sided toggle only in classical mode** (the author,
+  2026-10-19): intuitionistic derivations are two-sided already, so the
+  toggle (D58) is shown for classical logic alone and hidden, not
+  greyed, in intuitionistic mode.
+- **Other nitpicks of the same kind** (the author, 2026-10-19: look
+  for them): a sweep of every control, label and text for what does not
+  apply where it is shown, says the same thing two ways, or surprises.
+  The session fixes what is clearly wrong and collects the judgement
+  calls for the author. Known already: the practice cards write
+  negation as `~A` while the drawings write `A⊥`; the essential net's
+  green input side beside D26's "green only for a checked proof" (step
+  40b's open point); Enter in the sequent field dropped silently while
+  another action runs (step 32c's follow-up).
+
 ## Follow-ups: the web client
 
 From the review of step 32b (2026-10-19):
