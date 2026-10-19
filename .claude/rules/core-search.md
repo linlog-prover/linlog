@@ -321,7 +321,11 @@ copies they had are gone (F103, F104).
   an ordered intuitionistic mode (`Modes::Lambek`) to `essential`, the
   planar essential search; the second the cyclic mode's (`Modes::Cyclic`)
   to `net`, the planar search; every other row's `Modes` takes
-  commutative modes only (`Any` is every commutative mode).
+  commutative modes only (`Any` is every commutative mode). Two rows
+  give the inverse method a turn (`Row::probe`, below): intuitionistic
+  with an exponential in the goal (`Feature::Exponentials`) before the
+  general intuitionistic row, and classical Mix without weakening
+  (`Modes::Mix`) before the general classical row.
 - **An ordered mode at the front door** (`prepare`, `read`): `Mode::check`
   first (`OrderedMode`), then a fragment beyond unit-free MLL is
   `OrderedFragment` (before the dispatch, so that it is named and not
@@ -392,12 +396,39 @@ copies they had are gone (F103, F104).
   `links` and `tests` (dominator tests) with the net engine's units. It
   was last in `Engine::ALL` until the inverse method, since `Engine`'s
   order is its declaration order.
-- **The inverse method has no row and takes no handover**
-  (`Engine::Inverse`, `inverse::Inverse`, `core-inverse.md`): a forward
-  saturation in every commutative mode (`NotTaken::Mode` in the ordered
-  ones, `NotTaken::Fragment` beyond `LL`), not `Engine::parallel`,
-  reading `bias` and `check`; it counts `nodes` (sequents taken up),
-  `memo_hits` (sequents subsumed) and `memo_entries` (sequents kept).
+- **The inverse method takes a turn beside the engine of two rows**
+  (`Engine::Inverse`, `inverse::Inverse`, `core-inverse.md`; `probes`,
+  `answer_goal`): a forward saturation in every commutative mode
+  (`NotTaken::Mode` in the ordered ones, `NotTaken::Fragment` beyond
+  `LL`), not `Engine::parallel`, reading `bias` and `check`; it counts
+  `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
+  `memo_entries` (sequents kept). *The turn*: on a search of one thread
+  (`Options::threads() == 1`; a race's single side, not its pool) with
+  no engine forced and a goal the inverse method admits, once the
+  engine's work (`done`, every thread's) reaches `PROBE_AFTER` (2²⁶) at a
+  poll with units on the calling thread, the inverse method runs inside
+  that poll, on the same task, options, account and `Work`, its stop
+  the caller's and the work bound plus its own `PROBE_WORK` (2²⁶ of its
+  units); a decision (proof, saturation, or an error) is stored and the
+  poll answers true, so the engine ends `Stopped` and `answer_goal`
+  answers the turn's `Answer` with `Engine::Inverse` (its counters, as
+  a handover's; `work` both); otherwise the turn's answer drops (its
+  memory given back) and the engine goes on, its counters as alone
+  (`the_inverse_method_takes_its_turn`). *Why a poll with units*: in
+  `Schedule::Auto` the default bias's second search has its own thread,
+  during whose slices the calling thread polls with 0 units; a turn
+  then would run beside it. So where the first search ended and the
+  second runs on alone, no turn comes. *Why these constants*: on the
+  rows measured, every goal the engine decided within 2²⁶ of its units
+  took at most 1.1 s, every one past them at least 0.53 s (no row under
+  half a second pays the turn); 101 of the 110 intuitionistic rows only
+  the inverse method decided need at most 2²⁶ of its units (the six
+  refutations 48 million), which take 0.5 to 3.8 s at its slowest rate
+  there. *Why a turn and no feature*: wins and losses share every static
+  feature looked at (`SYJ205` won, `SYJ206` and `SYJ212`, alike in shape,
+  lost; `SYJ208` won at size 4 and lost at size 7), as at step 35's
+  routing; the turn costs nothing where the engine is fast. A test
+  thread may lower both bounds (`TURN`, `turn_bounds`).
   Its `Unprovable` comes from a saturation that ended and carries the
   counts' or the classical refutation where they find one, and else the
   set it saturated with, checked (`Refutation::Saturated`). It is last

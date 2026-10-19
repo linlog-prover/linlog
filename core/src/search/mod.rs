@@ -599,6 +599,12 @@ fn answer_goal<'a>(
         reading.as_ref(),
     )?;
     let implementation = engine.implementation();
+    // What the inverse method's turn beside the engine answered, where it
+    // decided, and whether the turn was taken.
+    let probing = probes(&task, options);
+    let (head_start, turn_work) = turn_bounds();
+    let probed: std::cell::RefCell<(bool, Option<Result<Answer, Error>>)> =
+        std::cell::RefCell::new((false, None));
     // Every poll on this thread counts its units of work, and tells the
     // caller's stop those and the units of every thread of the search;
     // past the bound on work the search ends. With other threads, which
@@ -608,7 +614,39 @@ fn answer_goal<'a>(
         let done = mine.add(units);
         // The caller is told the poll that passes the bound too.
         let stopped = stop(Progress::new(Phase::Search, units, done));
-        mine.passed() || stopped
+        if stopped || mine.passed() {
+            return true;
+        }
+        // The turn comes at a poll of the engine's own work on this
+        // thread: where a second thread of the default bias has its turn,
+        // this one polls without units and waits.
+        if !probing || units == 0 || done < head_start || probed.borrow().0 {
+            return false;
+        }
+        probed.borrow_mut().0 = true;
+        let mut turn = 0u64;
+        let mut ended = false;
+        let answer = Engine::Inverse.implementation().decide(
+            &task,
+            options,
+            limits,
+            account,
+            work,
+            &mut |units| {
+                turn = turn.saturating_add(units);
+                let done = mine.add(units);
+                ended = stop(Progress::new(Phase::Search, units, done)) || mine.passed();
+                ended || turn >= turn_work
+            },
+        );
+        // A decision answers; so does an error, and the caller's stop or
+        // the bound on work ends the engine too. Else what the turn kept
+        // goes, and the engine goes on.
+        let decided = !matches!(answer, Ok(Answer { result: Err(_), .. }));
+        if decided {
+            probed.borrow_mut().1 = Some(answer);
+        }
+        decided || ended
     };
     // The fragment, the reading and the dispatch were passes over the
     // forest: the caller's condition is asked before the engine's own.
@@ -642,7 +680,14 @@ fn answer_goal<'a>(
         .with_jobs(parallel::threads(options.threads()));
     let held = account.used();
     let mut answer = implementation.decide(&task, options, limits, account, work, &mut polled)?;
-    let engine = if engine != Engine::Net && handed_over(options, &task, &answer) {
+    let probe = probed.borrow_mut().1.take();
+    let engine = if let Some(probe) = probe {
+        // The engine stopped at the poll at which the inverse method
+        // decided; its counters go with it, as at a handover.
+        drop(answer);
+        answer = probe?;
+        Engine::Inverse
+    } else if engine != Engine::Net && handed_over(options, &task, &answer) {
         account.rewind(held);
         answer = Engine::Net.implementation().decide(
             &task,
@@ -1131,48 +1176,120 @@ fn dispatch(task: &Task<'_>) -> Result<Engine, Error> {
         })
 }
 
+/// Whether the inverse method takes a turn beside the engine of a search:
+/// the dispatch's row says so ([`Row::probe`]), no engine is forced, the
+/// search runs on one thread (a race's pool searches without one), and the
+/// inverse method admits the goal.
+fn probes(task: &Task<'_>, options: &Options) -> bool {
+    #[cfg(feature = "parallel")]
+    let alone = options.threads() == 1;
+    #[cfg(not(feature = "parallel"))]
+    let alone = true;
+    alone
+        && options.engine.is_none()
+        && DISPATCH
+            .iter()
+            .find(|row| row.takes(task))
+            .is_some_and(|row| row.probe)
+        && Engine::Inverse.implementation().admits(task).is_ok()
+}
+
 /// The dispatch, read from the first row down: for each fragment, mode and
 /// feature of a goal, the engine a measurement shows fastest there, as the
 /// documentation of [`Engine`] tabulates with the measurements. The last
 /// two rows take every goal, each in its own modes.
-const DISPATCH: [Row; 6] = [
+const DISPATCH: [Row; 8] = [
     Row {
         fragment: Fragment::MLL,
         modes: Modes::Lambek,
         feature: Feature::Any,
         engine: Engine::Essential,
+        probe: false,
     },
     Row {
         fragment: Fragment::MLL,
         modes: Modes::Cyclic,
         feature: Feature::Any,
         engine: Engine::Net,
+        probe: false,
     },
     Row {
         fragment: Fragment::ADDITIVE,
         modes: Modes::Any,
         feature: Feature::TwoFormulas,
         engine: Engine::Additive,
+        probe: false,
     },
     Row {
         fragment: Fragment::MELL,
         modes: Modes::Any,
         feature: Feature::PetriNet,
         engine: Engine::Horn,
+        probe: false,
+    },
+    Row {
+        fragment: Fragment::LL,
+        modes: Modes::Intuitionistic,
+        feature: Feature::Exponentials,
+        engine: Engine::TwoSided,
+        probe: true,
     },
     Row {
         fragment: Fragment::LL,
         modes: Modes::Intuitionistic,
         feature: Feature::Any,
         engine: Engine::TwoSided,
+        probe: false,
+    },
+    Row {
+        fragment: Fragment::LL,
+        modes: Modes::Mix,
+        feature: Feature::Any,
+        engine: Engine::Focus,
+        probe: true,
     },
     Row {
         fragment: Fragment::LL,
         modes: Modes::Classical,
         feature: Feature::Any,
         engine: Engine::Focus,
+        probe: false,
     },
 ];
+
+/// The work a row's engine does alone before the inverse method takes its
+/// turn beside it, where the row has one ([`Row::probe`]): in the dispatched
+/// engine's units, every thread of the search counted, which on the
+/// intuitionistic rows measured is a few tenths of a second. A goal
+/// decided within it is decided as without the turn.
+const PROBE_AFTER: u64 = 1 << 26;
+
+/// The work the inverse method's turn may do, in its own units: on the
+/// intuitionistic rows measured some tenths of a second, a few seconds at
+/// most.
+const PROBE_WORK: u64 = 1 << 26;
+
+#[cfg(test)]
+thread_local! {
+    /// The head start and the turn's work on a test's thread, which a test
+    /// may set lower than [`PROBE_AFTER`] and [`PROBE_WORK`] to see turns
+    /// on small goals.
+    static TURN: std::cell::Cell<(u64, u64)> = const { std::cell::Cell::new((PROBE_AFTER, PROBE_WORK)) };
+}
+
+/// Returns the head start before the inverse method's turn and the work
+/// the turn may do: [`PROBE_AFTER`] and [`PROBE_WORK`], or in a test what
+/// its thread set.
+fn turn_bounds() -> (u64, u64) {
+    #[cfg(test)]
+    {
+        TURN.with(std::cell::Cell::get)
+    }
+    #[cfg(not(test))]
+    {
+        (PROBE_AFTER, PROBE_WORK)
+    }
+}
 
 /// A row of the dispatch: a goal whose fragment lies within `fragment`,
 /// searched in one of `modes`, with `feature`, goes to `engine`.
@@ -1186,6 +1303,12 @@ struct Row {
     feature: Feature,
     /// The engine its goals go to.
     engine: Engine,
+    /// Whether the inverse method takes a turn beside the engine, once the
+    /// engine has done [`PROBE_AFTER`] units of work without deciding: up
+    /// to [`PROBE_WORK`] units of its own, on the thread that polls, after
+    /// which the engine goes on where it stopped. Where it decides first,
+    /// its answer is the search's.
+    probe: bool,
 }
 
 impl Row {
@@ -1204,6 +1327,8 @@ enum Modes {
     Classical,
     /// Intuitionistic mode, with or without weakening.
     Intuitionistic,
+    /// Classical mode with Mix, without weakening.
+    Mix,
     /// The classical mode that keeps the order of the formulas.
     Cyclic,
     /// The intuitionistic modes that keep it: the Lambek calculus, with
@@ -1220,8 +1345,8 @@ impl Modes {
         )]
         let Mode {
             intuitionistic,
-            affine: _,
-            mix: _,
+            affine,
+            mix,
             order,
             empty_antecedents: _,
         } = mode;
@@ -1229,6 +1354,7 @@ impl Modes {
         match self {
             Modes::Any => commutative,
             Modes::Classical => commutative && !intuitionistic,
+            Modes::Mix => commutative && !intuitionistic && mix && !affine,
             Modes::Intuitionistic => commutative && intuitionistic,
             Modes::Cyclic => !commutative && !intuitionistic,
             Modes::Lambek => !commutative && intuitionistic,
@@ -1247,6 +1373,8 @@ enum Feature {
     /// A Horn program with a clause under `!`: a Petri net with a marking
     /// to reach.
     PetriNet,
+    /// An exponential in the goal.
+    Exponentials,
 }
 
 impl Feature {
@@ -1258,6 +1386,7 @@ impl Feature {
             // The fragment, which the options may assert larger than the
             // goal's, only spares a non-Horn goal the reading.
             Feature::PetriNet => task.fragment.has_exponentials() && horn::is_net(task),
+            Feature::Exponentials => task.fragment.has_exponentials(),
         }
     }
 }
@@ -1292,7 +1421,9 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// | unit-free MLL | cyclic | | [`Net`](Engine::Net) | the one engine that keeps the order, by planar linkings: chains `a₀, a₀ ⊸ a₁, … ⊢ aₙ` of 4 096 links in 0.46 s and products of 4 096 atoms entailing themselves in 0.89 s, as fast as the classical net search on the same sequents, which links them alike; their exchanged forms refuted in 0.08 and 0.16 s; random derivations of the cyclic calculus over two atoms decided in 23 µs to 0.4 ms, where the classical net search on the same sequents ran past 60 s on 2 of 20 (`bench/problems/cyclic.txt`) |
 /// | additives only | any | two formulas, an additive connective or unit among them | [`Additive`](Engine::Additive) | `A ⊢ A` for `A` a complete tree of `&` and `⊕`: depth 8 in 0.5 ms against 1.4 ms on the focused engine, depth 14 in 0.1 to 0.2 s against 2.7 s, depth 16 in 0.3 s against over 20 s, in either mode |
 /// | MELL | any, classical or intuitionistic, with or without Mix | a Horn program with a clause under `!`: a Petri net | [`Horn`](Engine::Horn) | in affine mode, the 176 coverability problems of the qcover suite at 5 s, intuitionistic: decides 162 (59 provable, 103 not, 155 within a second) where the default before it, the two-sided engine, decides 8, no verdict against another and every proof checked; 10 464 random affine Horn programs of one to four atoms and clauses, classical and intuitionistic: decides all, at most 0.2 ms each, where the focused engines leave 886 undecided at 1 s and are slower by more than a millisecond on 467. In linear mode, the library's 3 137 Petri nets at 5 s, intuitionistic, against the forward focused search (the factor bias within 30 copies, the better of the focused engine's two searches there): decides 3 026 nets against 1 628 (1 400 only by the Horn engine, 2 only by the forward search, no verdict against the other), in 0.23 ms against 1.2 ms in the median of the 1 626 both decide, faster on 1 013 of them; 2 670 within 10 ms against 1 103; the counter with 64 tokens proved in 0.07 ms and with the unreachable goal refuted in 0.6 ms, where the focused engine reaches its limit after 10 s; with the state equation, the dead transitions dropped and the backward search beside it, 3 071 of the nets; and of 7 000 random programs near the Horn shape it decides 4 303 of the 4 318 each linear mode sends it at 1 s, every one the focused engines decide and 548 to 580 more. Horn programs without `!` stay with the focused engines, whose counts decide the Partition encodings up to a hundred times faster (12 items: 15 ms against 2.0 s) |
+/// | any | intuitionistic | an exponential | [`TwoSided`](Engine::TwoSided), and a turn of [`Inverse`](Engine::Inverse) beside it | where the two-sided engine alone ends at the time limit: on the library's intuitionistic problems with exponentials at 60 s, one thread (the held-out sets, the rows no tool decided at 10 s, Sympli's ten proofs and six refutations), the inverse method alone decided 110 rows the two-sided engine did not, the ten proofs in at most 0.3 ms and the six refutations in at most 0.64 s, 101 of them within the turn's 2²⁶ units, and lost 20 that it decides (the pigeonhole formulas `SYJ201` and `SYJ206`, `SYJ207`, `SYJ212`); every row the two-sided engine decided within the head start's 2²⁶ units took it at most 1.1 s, and every row it decided past them at least 0.53 s |
 /// | any | intuitionistic | | [`TwoSided`](Engine::TwoSided) | the general engine; on unit-free IMLL faster than the net engine wherever both decide: wide (`a₀ ⊗ b₀, … ⊢ (bₙ ⊗ aₙ) ⊗ …`) and curried (`(a₀ ⊗ … ⊗ aₙ) ⊸ c ⊢ a₀ ⊸ (… ⊸ c)`) sequents of 1 024 and 4 096 atoms in 5 to 83 ms against 0.05 to 2.2 s, the Horn encodings of Partition 10 to 10⁴ times faster |
+/// | any | Mix, classical without weakening | | [`Focus`](Engine::Focus), and a turn of [`Inverse`](Engine::Inverse) beside it | on the family `mix` the inverse method alone refutes every size measured (4 to 11) in at most 0.06 ms, where the focused engine takes 0.46 ms to 9.5 s and leaves sizes 10 and 11 to the classical refuter after 60 s; no other Mix sequent was measured, and some that the inverse method leaves undecided for seconds the focused engine decides in milliseconds, within the head start |
 /// | any | classical | | [`Focus`](Engine::Focus) | the general engine, the same on the one-sided sequent; on unit-free MLL, with or without Mix, faster than the net engine wherever both decide: `wide` sequents of 8 to 4 096 literals, each once to four times, 1.07 to 3.6 times faster (`wide-m4` with 2 048: 166 ms against 594 ms), the Horn encodings of Partition and 3-Partition 1.6 to 32 000 times faster (`3-partition-mll-no/8` 37 µs against 2.8 ms) |
 ///
 /// Where the focused engines end at their recursion limit or memory bound
@@ -1308,6 +1439,26 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// Which goals reach a limit depends on the limits, which the dispatch's
 /// features (fragment, mode, the roots, the shape of a Horn program) do
 /// not see.
+///
+/// Where a row names the inverse method beside its engine, the engine
+/// searches alone until it has done some tenths of a second's work (its
+/// own units, every thread counted), which a goal it decides within never
+/// sees; then the inverse method takes one turn of a few seconds' work at
+/// most on the same thread, and the engine goes on where it stopped. A
+/// decision of the turn answers, its proof checked and its refutation
+/// checked too ([`Refutation::Saturated`]), and the outcome names
+/// [`Inverse`](Engine::Inverse) and carries its counters; else the turn's
+/// sequents go and the engine's answer is the search's, the turn's work
+/// counted in [`Statistics::work`] beside the engine's. The turn comes
+/// only to a search on one thread with no engine forced (a race's pool
+/// searches beside the thread that takes it), at a poll of the engine's
+/// own work: where the default bias's second search runs alone after the
+/// first ended, no turn comes. Measured where the dispatch lacks it, the
+/// inverse method decides in milliseconds what the engines leave
+/// undecided or decide in seconds, and loses on every other goal: on
+/// intuitionistic sequents without exponentials and on classical ones
+/// without Mix it decided none the engines did not, in the inverse
+/// method's measurement and on the generated families.
 ///
 /// The bias of the focused engines, [`Bias::Auto`], is chosen per goal as
 /// well, by the measurements its documentation names. Engines are ordered
@@ -3201,6 +3352,47 @@ mod tests {
         }
     }
 
+    /// Where the engine of a row with a turn runs past its head start, the
+    /// inverse method takes its turn and its decision answers; where the
+    /// turn does not decide, the engine answers as it does alone, with its
+    /// own counters, the turn's work added. The head start and the turn
+    /// are set low on this thread, so that small goals reach them: under
+    /// Mix the focused engine searches the partitions of `mix(8)`'s context
+    /// for a second, and the two-sided engine takes some hundred units on
+    /// the intuitionistic goal; the inverse method refutes both at once.
+    #[test]
+    fn the_inverse_method_takes_its_turn() {
+        let options = Options::default().with_jobs(1);
+        let intuitionistic = sequent("!(a -o b & c), a |- b * c");
+        let alone = prove(&intuitionistic, Mode::INTUITIONISTIC, &options).unwrap();
+        assert_eq!(alone.engine, Engine::TwoSided);
+        TURN.with(|t| t.set((16, PROBE_WORK)));
+        for (s, mode) in [
+            (crate::families::mix(8), Mode::CLASSICAL.with_mix()),
+            (intuitionistic.clone(), Mode::INTUITIONISTIC),
+        ] {
+            let outcome = prove(&s, mode, &options).unwrap();
+            assert_eq!(outcome.engine, Engine::Inverse, "{mode}");
+            assert!(
+                matches!(outcome.verdict, Verdict::Unprovable(_)),
+                "{:?}",
+                outcome.verdict
+            );
+        }
+        // A turn that ends before it decides.
+        TURN.with(|t| t.set((16, 1)));
+        let turned = prove(&intuitionistic, Mode::INTUITIONISTIC, &options).unwrap();
+        TURN.with(|t| t.set((PROBE_AFTER, PROBE_WORK)));
+        assert_eq!(turned.engine, Engine::TwoSided);
+        assert_eq!(
+            format!("{:?}", turned.verdict),
+            format!("{:?}", alone.verdict)
+        );
+        let counters = |s: &Statistics| (s.nodes, s.splits, s.memo_hits, s.memo_entries);
+        assert_eq!(counters(&turned.statistics), counters(&alone.statistics));
+        assert!(turned.statistics.work > alone.statistics.work);
+    }
+
     /// The caller's stop ends both sides of the race, whether or not the
     /// other has decided: asked from the pool too, it stops a search that
     /// would prove the sequent, and the race answers unknown.
@@ -3778,7 +3970,8 @@ mod tests {
     /// The table "Which engine decides a goal" of `Engine`'s
     /// documentation lists the rows of `DISPATCH` in their order: each
     /// row's fragment, its modes by the cell's first word, a feature
-    /// exactly where the row asks one, and its engine.
+    /// exactly where the row asks one, its engine, and the inverse method
+    /// beside it exactly where the row gives it a turn.
     #[test]
     fn the_documented_dispatch_is_the_dispatch() {
         let section = include_str!("mod.rs")
@@ -3809,19 +4002,22 @@ mod tests {
                 Some("intuitionistic") => Modes::Intuitionistic,
                 Some("cyclic") => Modes::Cyclic,
                 Some("Lambek") => Modes::Lambek,
+                Some("Mix") => Modes::Mix,
                 other => panic!("modes the test does not know: {other:?}"),
             };
             let engine = cells[3]
                 .split_once("(Engine::")
                 .and_then(|(_, rest)| rest.split_once(')'))
                 .map(|(name, _)| name);
+            let probe = cells[3].contains("(Engine::Inverse)");
             assert_eq!(
-                (fragment, modes, cells[2].is_empty(), engine),
+                (fragment, modes, cells[2].is_empty(), engine, probe),
                 (
                     row.fragment,
                     row.modes,
                     row.feature == Feature::Any,
-                    Some(format!("{:?}", row.engine).as_str())
+                    Some(format!("{:?}", row.engine).as_str()),
+                    row.probe
                 ),
                 "{cells:?}"
             );

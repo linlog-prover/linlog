@@ -21,7 +21,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   ends, with the set it saturated with as the refutation (below); its
   rules, sequents and indices count under the memory bound. Its counters
   are `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
-  `memo_entries` (sequents kept). The dispatch gives it no goal.
+  `memo_entries` (sequents kept). The dispatch gives it a turn (under
+  "Changed").
 - The refutation by a saturated set, `Refutation::Saturated` with
   `search::Saturated` (the atoms' polarity and the sequents) and
   `search::Stable` (a sequent's linear and unrestricted zones and whether
@@ -195,6 +196,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   that holds the refutation, and a document of the cyclic mode or
   order, are written at level 2; every other document stays at level 1,
   byte for byte.
+- Level 3: the refutation kind `saturated`, `{"kind": "saturated",
+  "positive": ["atom" | "dual", …], "sequents": [{"linear": […],
+  "unrestricted": […], "absorbs": …}, …]}`; a disproof or an unprovable
+  outcome that holds it is written at level 3.
 - The essential-net engine for IMLL without units, `Engine::Essential`
   (`--engine essential`, JSON `"essential"`): the net engine's linking
   search over the essential net the intuitionistic reading directs,
@@ -215,6 +220,16 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- Two rows of the dispatch give the inverse method a turn beside the
+  default engine: on an intuitionistic goal with an exponential (beside
+  the two-sided engine) and on a goal under Mix without weakening
+  (beside the focused engine), the engine searches alone for 2²⁶ of its
+  units of work, then the inverse method takes one turn of at most 2²⁶
+  of its own on the same thread, inside a poll of the engine, which goes
+  on where it stopped unless the turn decided. Only on a search of one
+  thread with no engine forced (a race's single side takes it); the
+  outcome names the engine that answered, and `Statistics::work` counts
+  both.
 - A proof net is drawn as the literature draws one: every subformula
   occurrence of its conclusions written as its formula, where it stands
   in its conclusion, each `⊗` or `⅋` link joining its two premises to

@@ -183,8 +183,10 @@ a scratch copy; the report lists them).
   place is the zone's members (`Zone::gamma`, the trie's keys), with
   unification at the axioms' partners and at a hole's members, and
   subsumption as matching. The rules' terms keep their shape.
-- **A dispatch row**: the engine has none; a row needs the measurement
-  of the step report, and its feature in `Feature`.
+- **The dispatch**: the engine takes a turn beside the default engine on
+  two rows (`core-search.md`, `Row::probe`); a row of its own would
+  need a measurement where it wins every row the default decides, which
+  no static feature gave (`plan/reports/37-inverse.md`).
 - **A new filter or rule** in the engine needs its twin in the check
   (`saturated.rs`), or the engine's sets fail it (`NotClosed`, an error
   of the search): a filter that drops sequents the check keeps leaves

@@ -181,8 +181,8 @@ recursion limit or memory bound on a sequent whose atoms occur once with
 each sign (a chain of thousands of links, some sequents of thousands of
 distinct atoms), since everywhere else the focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
 choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn|essential|inverse`
-override what detection picks (`inverse`, the inverse method, runs only when
-asked; below), `--timeout`, `--copies N` and
+override what detection picks (`inverse`, the inverse method, runs alone only
+when asked, and takes a turn beside the engine on some goals; below), `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
 and `--stats` what the search cost, in the counters of the engine that
 ran (the focused engine's: a stable sequent is one where every rule left
@@ -615,7 +615,16 @@ refutes, the refutation is the set of sequents it saturated with, which
 a check of its own (the rules read off the sequent again and applied to
 every choice of the set's sequents) verifies before the verdict. Its
 counters are the sequents taken up, subsumed and kept, and it runs in
-every commutative mode, only when asked:
+every commutative mode. Without `--engine`, on an intuitionistic goal
+with an exponential and on a goal under Mix (not affine), the engine
+that detection picks searches alone for some tenths of a second, then
+the inverse method takes one turn of a few seconds at most on the same
+thread, and the engine goes on where it stopped: a goal decided within
+the head start sees no turn, and one the inverse method decides in its
+turn is answered by it, which the verdict line names (`inverse engine`).
+On the intuitionistic problems of the LLTP library that is where it
+decides in milliseconds what the backward search leaves undecided after
+a minute. Alone it runs only when asked:
 
 ```console
 $ linlog prove -i --engine inverse --stats "!(a -o b), !(b -o c), a |- c"
@@ -1703,8 +1712,10 @@ Built:
   nets, directed acyclicity and the dominator condition kept by a
   transitive closure of bits with an undo log;
   for two additive-only formulas a
-  recursion on subformula pairs; when asked, in every commutative mode,
-  the focused inverse method, a forward saturation from the axioms by
+  recursion on subformula pairs; in every commutative mode, when asked
+  or for one turn beside the default engine on intuitionistic goals with
+  an exponential and under Mix, the focused inverse method, a forward
+  saturation from the axioms by
   rules that are whole focusing phases, with subsumption over tries of
   the sequents kept, which decides without exponentials and with them
   proves without a copy bound and refutes where its saturation ends;
@@ -1870,8 +1881,7 @@ Planned, in roughly this order:
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, the inverse method as the default where it is fastest,
-  and first-order linear logic.
+  and on nets, and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.
