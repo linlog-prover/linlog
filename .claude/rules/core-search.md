@@ -454,7 +454,16 @@ copies they had are gone (F103, F104).
   inlined. With the comparison in every poll a focused search did a
   quarter of a percent more instructions (`search-qbf-20-2` of the
   ratchet, about seven a poll), which took `batch-families` past its
-  ceiling.
+  ceiling. *In a race* the single side's `done` counts the pool's work
+  too, so with `p` threads in the pool its turns can take up to
+  `2(p + 1)/TURN_SHARE` of that thread's time, while the pool searches
+  on at full width: the time to the verdict is the pool's (the second
+  argument review's note). *Memory*: a turn's charges are given back
+  when it ends, but the allocator keeps the pages, and the engine does
+  not reuse them: on `SYJ208+1.010` in cbv under a bound of 400 MiB the
+  process's resident memory peaked at 660 to 740 MB with turns against
+  517 MB without (the account is right in both; the second integers
+  review), left open.
   Its `Unprovable` comes from a saturation that ended and carries the
   counts' or the classical refutation where they find one, and else the
   set it saturated with, checked (`Refutation::Saturated`). It is last

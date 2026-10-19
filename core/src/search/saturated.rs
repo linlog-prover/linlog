@@ -1189,9 +1189,9 @@ mod tests {
     }
 
     /// A goal off the roots: a literal of the atom outside the goal's
-    /// subtrees is no partner, and the engine's set passes (the panel's
-    /// witness, refused as not closed while the check took every literal
-    /// of the forest).
+    /// subtrees is no partner, and the engine's set passes; with every
+    /// literal of the forest as a partner the check refused it as not
+    /// closed.
     #[test]
     fn a_goal_off_the_roots_is_refuted() {
         let sequent: Sequent = "|- ((?a par ?~a) par (b * ~b)) * (a * ~a)".parse().unwrap();
