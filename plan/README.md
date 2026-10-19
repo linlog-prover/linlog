@@ -2824,4 +2824,27 @@ client follows it (step 32).
   at the time limit, so its counters say how fast the search ran. The
   gate and `nix flake check` passed at the head. Step 36 is done. Next:
   step 40, the net drawings, then 37 and 33.
+- 2026-10-19: review of step 40, proof nets drawn with their formulas
+  (one session, Opus 5.5 at high, 10:32 to 11:20, beside 37a): every
+  subformula occurrence of the conclusions written as its formula at its
+  place in the conclusion's text, the literals along the top under the
+  axiom links' arcs, each `⊗` and `⅋` link joining its premises to its
+  conclusion below them with the connective small at the joint, the
+  sequent's formulas along the bottom in order; the essential net writes
+  formulas as the reading reads them and keeps its arrows, input side,
+  dominator line and witness; the planar cyclic and Lambek nets drawn
+  the same way without crossings. The old drawing is `svg.net=compact`
+  (`svg::Style::net`, `NetDrawing::Compact`), with the conclusions now
+  written under it. Ids kept (`o<n>` on each formula, `l<m>-<n>`). The
+  snapshots and the behaviour lock reblessed in commits of their own; a
+  reviewer read the 14 rendered drawings and found nothing that breaks a
+  requirement. The review looked at the rendered nets itself (the
+  classical net, a four-deep one with every intermediate formula, the
+  essential and the Lambek nets), stacked the chain on `main`, and ran
+  the gate and `nix flake check` at the head. For the web client
+  (step 40b): its pinned linlog input moved, a "formulas / compact"
+  choice in Settings, and the page's CSS, which repaints every stroke
+  and text of a drawing in ink and so removes the essential net's
+  green input side, exempting the drawing's input, dominator and
+  highlight colours.
 
