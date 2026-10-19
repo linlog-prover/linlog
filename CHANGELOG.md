@@ -11,6 +11,17 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Added
 
+- The focused inverse method, `Engine::Inverse` (`--engine inverse`, JSON
+  `"inverse"`), in every commutative mode: a forward search that derives
+  stable sequents from the axioms upward by rules compiled from the
+  sequent's focusing phases, keeps a derived sequent unless a kept one
+  subsumes it, and proves the goal once every stable sequent of its
+  asynchronous phase is derived. It decides without exponentials, needs
+  no copy bound with them, and answers `Unprovable` where its saturation
+  ends, with the refutation `Exhausted` (no certificate yet); its rules,
+  sequents and indices count under the memory bound. Its counters are
+  `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
+  `memo_entries` (sequents kept). The dispatch gives it no goal.
 - The Rocq library `rocq-linlog` under `rocq/` (logical path `Linlog`,
   Rocq 9 with its standard library and nothing else): formulas in
   negation normal form over an abstract atom type, the one-sided cut-free

@@ -683,6 +683,10 @@ mod tests {
             "horn".to_owned(),
             base.clone().with_engine(Some(Engine::Horn)),
         ));
+        all.push((
+            "inverse".to_owned(),
+            base.clone().with_engine(Some(Engine::Inverse)),
+        ));
         for engine in [Engine::Focus, Engine::TwoSided] {
             for bias in [Bias::Auto, Bias::Rarer, Bias::Factors] {
                 all.push((
@@ -698,6 +702,13 @@ mod tests {
         ));
         all
     }
+
+    /// The polls of its stop the inverse method gets on a sequent: each is
+    /// a sequent taken up or some thousand rule applications. Its own
+    /// differential test gives it more and asserts that it decides every
+    /// sequent without exponentials; here a saturation that does not end
+    /// costs the comparison no more than the other engines do.
+    const INVERSE_POLLS: u64 = 1 << 8;
 
     /// What the cases of one comparison came to.
     #[derive(Default)]
@@ -734,10 +745,13 @@ mod tests {
             tally.decided += 1;
         }
         for (name, options) in configurations(copies) {
-            // The bound is for the Horn engine, forced or by the dispatch;
-            // the focused engines end within their copies.
+            // The bound is for the Horn engine, forced or by the dispatch,
+            // and for the inverse method, whose saturation need not end
+            // with exponentials; the focused engines end within their
+            // copies.
             let mut left = match options.engine {
                 None | Some(Engine::Horn) => polls,
+                Some(Engine::Inverse) => polls.min(INVERSE_POLLS),
                 Some(_) => u64::MAX,
             };
             let stop = |_| {

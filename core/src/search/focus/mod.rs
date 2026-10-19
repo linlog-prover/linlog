@@ -44,7 +44,7 @@
 /// The proof arena: pending and kept nodes.
 mod arena;
 /// The atom bias.
-mod bias;
+pub(crate) mod bias;
 /// Interchangeable occurrences.
 mod classes;
 /// The linear zone as a multiset.

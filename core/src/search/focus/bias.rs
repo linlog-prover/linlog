@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 /// Returns, per atom, the sign of its positive literal under the rule
 /// given. Under [`Bias::Auto`] that is the factor rule without an
 /// exponential in the sequent and the rarer literal with one.
-pub(super) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
+pub(crate) fn signs(forest: &Forest, rule: Bias) -> Box<[Sign]> {
     let num_atoms = forest.sequent().atom_names().len();
     // A `⊗` with a positive literal for a factor has its split forced, so
     // the literal that is more often such a factor is the positive one; an

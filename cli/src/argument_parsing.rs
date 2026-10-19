@@ -165,7 +165,10 @@ pub(crate) struct ProveArgs {
     /// and one goal that is a tensor of atoms): reachability in linear
     /// mode, coverability in affine mode; `essential` proof-net search over
     /// essential nets, directed by the intuitionistic reading, for IMLL
-    /// without units.
+    /// without units; `inverse` the focused inverse method, a forward
+    /// search from the axioms in every mode but the ordered ones, which
+    /// decides without exponentials and with them needs no copy bound, and
+    /// runs only when named here.
     #[arg(long, value_name = "ENGINE", value_parser = engine_name(), default_value = "auto")]
     pub(crate) engine: Forced,
     /// The search's options, bounds and threads.
@@ -188,7 +191,8 @@ pub(crate) struct ProveArgs {
     /// copy bound reached, the net engine literals chosen, links tried and
     /// exact tests run, the essential-net engine the same with tests of the
     /// dominator condition, the additive one pairs of subformulas, the Horn
-    /// engine markings; every engine its units of work. JSON output always
+    /// engine markings, the inverse method the derived sequents taken up,
+    /// subsumed and kept; every engine its units of work. JSON output always
     /// carries the counts; the time is printed only as text, and in a
     /// batch's JSON records as `seconds`.
     #[arg(long)]
@@ -340,8 +344,8 @@ pub(crate) struct SearchArgs {
     /// threads, which starts the search afresh, and the first to decide
     /// answers; both together hold at most `--memory-limit`. Below three
     /// threads there is no single thread: two search on a pool from the
-    /// start. The additive, the Horn and the essential-net engine run on
-    /// one thread and get no pool.
+    /// start. The additive, the Horn, the essential-net and the inverse
+    /// engine run on one thread and get no pool.
     #[arg(long, value_name = "DURATION", value_parser = parse_duration)]
     pub(crate) pool_after: Option<Duration>,
     /// Run the sequential engines, whose proof is a function of the input

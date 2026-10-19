@@ -21,6 +21,7 @@ it; only what holds for the whole crate goes here.
 | `core-derivations.md` | `proofs/derivation/`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive/` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
 | `core-search.md` | `search/mod.rs`, `memory.rs`, `work.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the work count, the additive path, the test-only reference prover |
 | `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: the atom bias, dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
+| `core-inverse.md` | `search/inverse/` | the inverse method: rules as terms with holes, what a derived sequent stands for, the evaluation that mirrors the checker, every filter that removes a sequent and why it removes none a proof needs, the tries, its limits and work |
 | `core-horn.md` | `search/horn/` | the Horn engine: the shape it reads as a Petri net and why its refutations are sound in every mode, places, classes and dead transitions, the sparse markings, the frontier and the backward search beside it, coverability in affine mode and its trie, the state equation and its exact check, sharing memory and time, its limits, the proof read off a firing sequence |
 | `core-nets.md` | `nets/`, `search/net.rs`, `search/essential.rs`, `search/planar.rs` | proof structures, the correctness criteria (switchings, essential nets, planarity), sequentialization, the net engines |
 | `core-parallel.md` | `search/parallel.rs`, `search/focus/parallel.rs`, `search/net.rs` | the pool, stops, cube-and-conquer, the shared memo and arena, the net engine's cubes, what a pool promises |
@@ -46,7 +47,7 @@ memory account in `memory`, the work count and the helpers for what
 threads share in `work`, the focused engine in `focus/` with
 `arena`, `bias`, `classes`, `context`, `counts`, `memo`, `schedule`, `scratch`,
 `split`, `tests` and `parallel`, the net engine in
-`net`, the Horn engine in `horn/` with `reach`, `cover`, `equation`, `proof` and `tests`, the runtime of the pool in `parallel` behind the feature of that
+`net`, the Horn engine in `horn/` with `reach`, `cover`, `equation`, `proof` and `tests`, the inverse method in `inverse/` with `rules`, `eval`, `index` and `tests`, the runtime of the pool in `parallel` behind the feature of that
 name, the additive path in `additive`, the test-only `generate` with its
 classical and intuitionistic proof generators and the test-only
 `reference` prover), `nets` (structures and

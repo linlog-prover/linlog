@@ -178,8 +178,9 @@ trees a proof net, by default only where the focus engine stops at its
 recursion limit or memory bound on a sequent whose atoms occur once with
 each sign (a chain of thousands of links, some sequents of thousands of
 distinct atoms), since everywhere else the focus engine decides first. `--mix`, `--affine` and `--intuitionistic`
-choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn|essential`
-override what detection picks, `--timeout`, `--copies N` and
+choose the logic, `--fragment` and `--engine focus|net|two-sided|additive|horn|essential|inverse`
+override what detection picks (`inverse`, the inverse method, runs only when
+asked; below), `--timeout`, `--copies N` and
 `--forward-copies N` bound the search (below), `--quiet` prints the verdict line only
 and `--stats` what the search cost, in the counters of the engine that
 ran (the focused engine's: a stable sequent is one where every rule left
@@ -597,6 +598,40 @@ $ linlog prove -q "((A * top) & (B * top)) -o 0 |- (A -o C) + (B -o C)"
 provable (MALL, classical, focus engine)
 $ linlog prove -i -q "((A * top) & (B * top)) -o 0 |- (A -o C) + (B -o C)"
 unprovable (IMALL, intuitionistic, two-sided engine): the search was exhaustive
+```
+
+`--engine inverse` searches forward instead, by the *focused inverse
+method*: it derives stable sequents from the axioms upward, each
+focusing phase of the sequent's formulas one rule, keeps a derived
+sequent unless one kept already stands for every sequent it stands for,
+and proves the goal once every stable sequent the goal decomposes into
+is derived. Without exponentials the sequents it can derive are finitely
+many and it decides; with them it needs no copy bound, proving what is
+provable given time and refuting where nothing new comes, which suits a
+small goal under many hypotheses that `!` makes reusable. Its counters
+are the sequents taken up, subsumed and kept, and it runs in every
+commutative mode, only when asked:
+
+```console
+$ linlog prove -i --engine inverse --stats "!(a -o b), !(b -o c), a |- c"
+provable (IMELL, intuitionistic, inverse engine)
+           ───── ax   ───── ax
+           b ⊢ b      c ⊢ c
+           ──────────────── ⊸L
+             b, b ⊸ c ⊢ c
+───── ax    ─────────────── !L
+a ⊢ a       b, !(b ⊸ c) ⊢ c
+─────────────────────────── ⊸L
+  a ⊸ b, !(b ⊸ c), a ⊢ c
+ ───────────────────────── !L
+ !(a ⊸ b), !(b ⊸ c), a ⊢ c
+sequents taken up: 2
+sequents subsumed: 0
+sequents kept: 3
+units of work: 4
+time: 102.44µs
+$ linlog prove -i --engine inverse -q "!(a -o b), a |- b * b"
+unprovable (IMELL, intuitionistic, inverse engine): the search was exhaustive
 ```
 
 The exit status tells scripts the verdict: 0 provable, 1 unprovable, 3
@@ -1661,7 +1696,12 @@ Built:
   nets, directed acyclicity and the dominator condition kept by a
   transitive closure of bits with an undo log;
   for two additive-only formulas a
-  recursion on subformula pairs; and for Horn programs with clauses under
+  recursion on subformula pairs; when asked, in every commutative mode,
+  the focused inverse method, a forward saturation from the axioms by
+  rules that are whole focusing phases, with subsumption over tries of
+  the sequents kept, which decides without exponentials and with them
+  proves without a copy bound and refutes where its saturation ends;
+  and for Horn programs with clauses under
   `!` (Petri nets) a decision of the net's markings: in linear mode a
   search of the reachable markings, kept sparse and taken nearest the
   goal first, with a search backward from the goal beside it, whose
@@ -1822,7 +1862,7 @@ Planned, in roughly this order:
   other logics, failure certificates of the search.
 - A web page for proving step by step in the browser, on those bindings.
 - Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, the inverse method,
+  and on nets, the inverse method as the default where it is fastest,
   and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

@@ -83,7 +83,7 @@ per bullet, what a later session must know and cannot see in the code.
 
 | rules file | loads for | holds |
 |---|---|---|
-| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the thirteen module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the Horn engine, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs, ordinary logic), each loaded for its own module |
+| `core.md` | `core/**` | the crate's layout and API in brief, its crate-wide rules, and the table of the fourteen module files `core-*.md` (sequents and parsing, the forest, proofs and the checker, derivations and interactive proving, the search's front door, the focused engine, the Horn engine, the inverse method, the parallel runtime, proof nets and the net engine, the exports, the batch, the benchmark inputs, ordinary logic), each loaded for its own module |
 | `cli.md` | `cli/**` | the command's layout, exit statuses, defaults, time limit, outputs, README's examples as a test, extension points |
 | `bench.md` | `bench/**` | the harness, the CSV columns as its interface, the baselines, the target set, extension points |
 | `rocq.md` | `rocq/**` | the Rocq library's layout, its trusted base, the modules, how the checker reads the Rust algorithm, the certificates, extension points |

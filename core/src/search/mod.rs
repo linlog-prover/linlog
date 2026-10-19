@@ -23,6 +23,8 @@ pub(crate) mod focus;
 pub(crate) mod generate;
 /// The Horn engine: reachability of markings.
 pub(crate) mod horn;
+/// The focused inverse method, a forward search.
+mod inverse;
 /// The count of the bytes a search holds.
 pub(crate) mod memory;
 /// The proof-net engine.
@@ -1428,11 +1430,45 @@ pub enum Engine {
     /// and curried sequents up to 1 024 atoms. So the dispatch gives it no
     /// goal. Its unit of work is a literal chosen and a test that fails.
     Essential,
+    /// The focused inverse method, in every commutative mode and fragment:
+    /// a forward search, which derives stable sequents from the axioms
+    /// upward instead of decomposing the goal. Its rules are whole focusing
+    /// phases, compiled from the sequent before the search: a focus on a
+    /// positive formula, or on a copy of a `?` formula's subformula, with
+    /// the asynchronous phases of what it releases, one rule for each
+    /// choice of `⊕` sides, whose premises are stable sequents derived
+    /// before and whose axioms take a negative literal for each positive
+    /// one. A derived sequent stands for itself, or with a `⊤` above it or
+    /// in affine mode for every larger one, and is kept unless one kept
+    /// already stands for all it does (subsumption, found through an index
+    /// of the kept sequents by their members), or it cannot stand in a
+    /// proof of the goal: a member twice, or two members a `⊗`, `&` or
+    /// `⊕` separates, outside the subformulas of a `?`; or, under the
+    /// intuitionistic reading, other than one goal. The smallest sequent
+    /// is taken up first, applied to every rule beside those taken up
+    /// before it, and with Mix joined to each; the goal is proved once
+    /// every stable sequent of its own asynchronous phase is, and the
+    /// proof is written from the record each sequent keeps of its rule
+    /// and premises. Without exponentials the sequents are finitely many
+    /// and the search decides; with them it proves every provable goal
+    /// given time, needs no copy bound, and answers `Unprovable` only
+    /// where nothing new comes. It reads [`Options::bias`], which atoms'
+    /// literals are positive, and [`Options::check`], and runs on the
+    /// calling thread whatever [`Options::jobs`] says; the copy bounds,
+    /// the memo limit and the recursion limit have nothing to bound here.
+    /// Its rules, the sequents kept, their indices and records and the
+    /// queue are counted under
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes), and over it
+    /// the search answers `Unknown`, since the sequents kept cannot be
+    /// given back without losing what was derived. Its unit of work is a
+    /// step of a rule written, a sequent taken up and an application of a
+    /// rule or Mix to a choice of premises.
+    Inverse,
 }
 
 impl Display for Engine {
     /// Writes the engine's name: `focus`, `net`, `two-sided`, `additive`,
-    /// `horn` or `essential`.
+    /// `horn`, `essential` or `inverse`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.name())
     }
@@ -1640,12 +1676,20 @@ impl Engine {
         Self::Additive,
         Self::Horn,
         Self::Essential,
+        Self::Inverse,
     ];
 
     /// The engines' names, as [`name`](Self::name) writes them and
     /// [`FromStr`] reads them.
-    pub const NAMES: &'static [&'static str] =
-        &["focus", "net", "two-sided", "additive", "horn", "essential"];
+    pub const NAMES: &'static [&'static str] = &[
+        "focus",
+        "net",
+        "two-sided",
+        "additive",
+        "horn",
+        "essential",
+        "inverse",
+    ];
 
     /// Returns the counters of [`Statistics`] the engine fills, each with
     /// its key in the statistics' JSON form, a label and what it counts
@@ -1745,17 +1789,33 @@ impl Engine {
             Counter::new("memo_entries", "markings kept", "markings kept"),
             WORK,
         ];
+        /// The inverse method's counters.
+        const INVERSE: &[Counter] = &[
+            Counter::new(
+                "nodes",
+                "sequents taken up",
+                "derived sequents taken up and applied to the rules",
+            ),
+            Counter::new(
+                "memo_hits",
+                "sequents subsumed",
+                "derived sequents a kept one subsumed",
+            ),
+            Counter::new("memo_entries", "sequents kept", "derived sequents kept"),
+            WORK,
+        ];
         match self {
             Self::Focus | Self::TwoSided => FOCUSED,
             Self::Net => NET,
             Self::Essential => ESSENTIAL,
             Self::Additive => ADDITIVE,
             Self::Horn => HORN,
+            Self::Inverse => INVERSE,
         }
     }
 
     /// Returns the engine's name: `focus`, `net`, `two-sided`, `additive`,
-    /// `horn` or `essential`.
+    /// `horn`, `essential` or `inverse`.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Focus => "focus",
@@ -1764,18 +1824,19 @@ impl Engine {
             Self::Additive => "additive",
             Self::Horn => "horn",
             Self::Essential => "essential",
+            Self::Inverse => "inverse",
         }
     }
 
     /// Whether the engine searches on several threads when
     /// [`Options::jobs`] asks for them: the focused engines and the net
     /// engine do, the latter in a commutative mode only; the additive, the
-    /// Horn and the essential-net engine run on the calling thread
-    /// whatever it says.
+    /// Horn, the essential-net and the inverse engine run on the calling
+    /// thread whatever it says.
     pub const fn parallel(self) -> bool {
         match self {
             Engine::Focus | Engine::Net | Engine::TwoSided => true,
-            Engine::Additive | Engine::Horn | Engine::Essential => false,
+            Engine::Additive | Engine::Horn | Engine::Essential | Engine::Inverse => false,
         }
     }
 
@@ -1788,6 +1849,7 @@ impl Engine {
             Engine::Additive => &additive::Additive,
             Engine::Horn => &horn::Horn,
             Engine::Essential => &essential::Essentials,
+            Engine::Inverse => &inverse::Inverse,
         }
     }
 }
@@ -2766,13 +2828,14 @@ mod tests {
             Engine::Additive => 3,
             Engine::Horn => 4,
             Engine::Essential => 5,
+            Engine::Inverse => 6,
         };
         let bias_at = |bias| match bias {
             Bias::Auto => 0,
             Bias::Rarer => 1,
             Bias::Factors => 2,
         };
-        assert_eq!(Engine::ALL.len(), 6);
+        assert_eq!(Engine::ALL.len(), 7);
         assert_eq!(Bias::ALL.len(), 3);
         for (i, &engine) in Engine::ALL.iter().enumerate() {
             assert_eq!(engine_at(engine), i);
@@ -3212,7 +3275,7 @@ mod tests {
             "{error}"
         );
         let parallel: Vec<bool> = Engine::ALL.iter().map(|e| e.parallel()).collect();
-        assert_eq!(parallel, [true, true, true, false, false, false]);
+        assert_eq!(parallel, [true, true, true, false, false, false, false]);
         let defaults = Options::default();
         assert_eq!(
             (

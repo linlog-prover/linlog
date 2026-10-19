@@ -257,7 +257,7 @@ copies they had are gone (F103, F104).
   `admits(&task)` refuses a goal with the error a forced engine answers,
   `Error::EngineRefused { engine, because: NotTaken }`, checking in this
   order its largest fragment (`NotTaken::Fragment { decides, goal }`:
-  focused `LL`, net `MLL`, additive `ADDITIVE`, Horn `MELL`), its modes
+  focused `LL`, net `MLL`, additive `ADDITIVE`, Horn `MELL`, inverse `LL`), its modes
   (`Mode`), whether the goal is the roots (`Goal`, the net engine) and
   the goal's shape (`Shape`: not two formulas, no Horn program);
   `NotTaken::explained(engine)` is the message, in each engine's words
@@ -276,7 +276,7 @@ copies they had are gone (F103, F104).
   `prepare`, in the order of the errors a call answers.
   `Engine::implementation` maps each public variant to its
   implementation (`focus::ONE_SIDED`, `focus::TWO_SIDED`, `net::Nets`,
-  `additive::Additive`, `horn::Horn`); a `Task` is what they are handed (forest, goal,
+  `additive::Additive`, `horn::Horn`, `essential::Essentials`, `inverse::Inverse`); a `Task` is what they are handed (forest, goal,
   fragment, mode, reading, whether it is the roots, and the cell of the
   goal's Horn program: `horn::Program::of` reads it once per task, for
   the dispatch's feature, `admits` and the search alike, so a new reader
@@ -380,8 +380,19 @@ copies they had are gone (F103, F104).
   (the cubes are the classical criterion's), reads
   `Options::test_period` as the net engine does, and counts `nodes`,
   `links` and `tests` (dominator tests) with the net engine's units. It
-  is last in `Engine::ALL`, since `Engine`'s order is its declaration
-  order.
+  was last in `Engine::ALL` until the inverse method, since `Engine`'s
+  order is its declaration order.
+- **The inverse method has no row and takes no handover**
+  (`Engine::Inverse`, `inverse::Inverse`, `core-inverse.md`): a forward
+  saturation in every commutative mode (`NotTaken::Mode` in the ordered
+  ones, `NotTaken::Fragment` beyond `LL`), not `Engine::parallel`,
+  reading `bias` and `check`; it counts `nodes` (sequents taken up),
+  `memo_hits` (sequents subsumed) and `memo_entries` (sequents kept).
+  Its `Unprovable` comes from a saturation that ended and carries
+  `Exhausted` unless the counts or the classical refuter find more;
+  nothing checks the saturation. It is last in `Engine::ALL`. Its first
+  measurement (`plan/reports/37-inverse.md`) is what a row would rest
+  on.
 - **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise
@@ -661,7 +672,10 @@ allows: never a proof against a refutation, either way.
   contractions, which the generators make seldom: hence
   `engines_agree_where_contractions_are_needed`, and the deepening, which
   asks the reference at every budget below the one given.
-- A new engine joins `configurations` in its tests.
+- A new engine joins `configurations` in its tests. The inverse method
+  runs there within `INVERSE_POLLS` polls (its saturation need not end
+  with exponentials); its own differential test gives it more and
+  asserts it decides every sequent without exponentials.
 - **A change of the search is judged against a second reference too**,
   kept outside the repository and written by a fresh agent from the
   calculus alone (its own parser of the text syntax, every rule on every
