@@ -297,6 +297,18 @@ area that took it (the reports under `plan/reports/` have the tables):
   300 s, which is no function of the input: 41 450 894 nodes in
   `after-classical`, 48 748 043 in `after-cyclic`, 49 947 692 here.
   Compare it by its verdict alone.
+- Step 37b, the inverse method's turns beside the default engine on
+  intuitionistic goals with an exponential and under Mix
+  (`bench/targets/37b.csv`, `net-37b.csv`; no new oracle): the net set
+  has the verdicts and the counters of `net-after-cyclic` on all 64
+  rows; the focused set the verdicts of `after-cyclic` on its 145
+  decided rows and its counters on 141 of them. The other four,
+  `mix/8` to `mix/11`, are answered by the inverse method's first turn
+  in under half a second, unprovable as before, with its counters (no
+  rule survives there: every `⊕` has a `0` side) in place of the
+  focused engine's; `mix/10` and `/11` now end long before the limit.
+  The intuitionistic rows are decided within the head start or by the
+  engine with its own counters.
 
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
