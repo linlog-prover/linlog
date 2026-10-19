@@ -10,7 +10,7 @@
 | 4. Snapshots, README, changelog | done | Snapshots in a commit of their own ("Redraw the net snapshots with their formulas"), each rendered with resvg and Euler Math and read (paths below); the behaviour lock's net SVG and help texts reblessed in a commit of their own; README's net paragraph and examples, the "what exists" lines and the changelog's `[Unreleased]` (Added and Changed) say what the drawing shows. |
 | 5. The web client | named | What its net view and Settings take is below; the client is not changed. |
 | Review | done | A fresh-context reviewer (Opus 5.5, `high`) read all fourteen rendered drawings and their SVGs against items 1–3: one finding, answered below; nothing changed for it. |
-| Verification | done | `gate` passed at the last code commit (exit 0, with the ratchet); `nix flake check` at the session's last commit (its exit status in the message to `planning`). |
+| Verification | done, one commit red by construction | `gate` on every code commit: the pinned outputs' commit (`mzstxyrl`) and the docs' (`popstnvp`) pass (exit 0, ratchet included); the drawing's commit (`wuvqoxlq`) passes clippy and fails exactly the comparisons with the pinned outputs that the next commit holds (below); `nix flake check` at the session's last commit (its exit status in the message to `planning`). |
 
 ## Outcome
 
@@ -103,10 +103,22 @@ its PNG):
   each drawing. A first version counted the raised `⊥` in the essential
   net too, which is 4.15 times the drawing on the small net: fixed by
   telling the estimate whether the reading draws it.
-- **Commits**: the code with its tests; the snapshots on their own; the
-  docs; the behaviour lock on its own. The code commit alone mismatches
-  the snapshots, which the next commit updates (the snapshots in a commit
-  of their own, as asked); the gate ran at the head, where both stand.
+- **Commits**: the code with its tests (`wuvqoxlq`); the pinned outputs
+  on their own, the snapshots and the behaviour lock's files, which the
+  drawing changes together (`mzstxyrl`; a first run had the lock in a
+  commit of its own after the docs, which left two red commits, so it
+  was folded into the snapshots' commit); the docs (`popstnvp`); the
+  report. The supervisor moved the stack onto `main`'s head
+  `trppoyyspmku`, which adds plan files only. **Every code commit green
+  is impossible here**: the step asks for the snapshots in a commit of
+  their own, and the drawing changes them, so the commit of the drawing
+  alone fails their comparison. Gated at `wuvqoxlq`, clippy passes and
+  `cargo test --workspace --no-fail-fast` fails exactly the four
+  snapshot tests of `core/tests/export.rs` (`nets`, `cyclic`, `lambek`,
+  `essential_nets`, at the snapshot comparison) and `behaviour_lock`
+  (`format-net-svg` and four help texts), every file of which
+  `mzstxyrl` holds; the gate passes at `mzstxyrl` and at `popstnvp`, and
+  the code of the three is the same.
 - **Two tests changed where their pinned behaviour was meant to
   change**: `svg_structure` counts 13 texts, 6 paths and no circle for
   `⊢ A⊥ ⅋ B⊥, B ⊗ A` by default and 13, 8, 2 compact (was 8, 8, 2), and
