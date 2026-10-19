@@ -429,7 +429,8 @@ report alone.
   so the module and the font get hashed names like every asset.
 - **The step tree is the session document's**: undo per branch, redo and
   the Steps list read the tree off `inferences` and `history` and name
-  goals by path, never by number; a graft replays by `close` again. So a
+  goals by path, never by number; a graft replays by `close` again, or
+  from its own inferences where the search no longer closes it. So a
   session from a link, a file or storage undoes per branch too, and no
   separate record can drift from the document.
 - **The page's settings are the tab's defaults with the work budget**:
@@ -437,7 +438,7 @@ report alone.
   the drawing asks `styles.svg.font_size` 30 so that a formula is a
   24-pixel target.
 - **Tests**: Playwright against the built site served by
-  `tests/serve.ts` as Pages serves it (no header), 23 tests, one per
+  `tests/serve.ts` as Pages serves it (no header), 24 tests, one per
   interaction; Vitest beside the code, the step tree's tests loading the
   real module in Node.
 
