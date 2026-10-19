@@ -209,8 +209,10 @@ even to read.** Every operation goes through `jj`, including lock updates:
   `/update-deps` does both, verifying before it commits; the shell's `up` is
   the unverified shortcut.
 - Work lands on `main` directly or through a GitHub pull request. Pushing is
-  outward-facing, so only when asked: `jj bookmark set main -r @-`, then
-  `jj git push --bookmark main`.
+  outward-facing, so only when asked: `plan/push-main.sh @-`, which moves
+  `main` and pushes it, failing at once rather than waiting on a
+  passphrase prompt when the SSH key is locked, and checks
+  `main@origin` after.
 - The GitHub CLI (`gh`) is logged in with the author's own rights, over the
   organization `linlog-prover` and everything else the account reaches.
   Ask before every administrative task through it (a setting of the

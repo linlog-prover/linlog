@@ -122,11 +122,12 @@ not side by side with each other unless their files are disjoint.
    the next prompts amended. Commit as "Plan: review step NNx".
 7. **Push** (the author's standing permission of 2026-10-18): once every
    commit is reviewed and signed and the gate and `nix flake check`
-   passed at the head, `jj bookmark set main -r REV` and `jj git push
-   --bookmark main`, then `jj log -r main@origin` (a push once failed
-   silently) and watch CI with a background task. If the SSH agent
-   refuses ("agent refused operation"), ask the author once for
-   `! ssh -T git@github.com`.
+   passed at the head, `plan/push-main.sh REV`, which fails within a
+   minute when the SSH key is locked instead of waiting on a prompt and
+   checks `main@origin` after (a push once failed silently); then watch
+   CI with a background task. Never push any other way, and never make
+   a step's start or a review wait on a push: when the key is locked,
+   go on and push when the author is back.
 8. **Report** to the author: the outcome first, then what you checked,
    then what needs them, in short plain sentences. When you give the
    next step, say what it does and every model and effort it will start.
@@ -176,13 +177,14 @@ not side by side with each other unless their files are disjoint.
 ## What the author has asked for, standing
 
 - **jj only, never git**, every commit signed as
-  `flgrubm@grubmueller.dev`. Keep the gpg agent warm with
-  `systemd-run --user --unit=step-gpg-warm --collect bash -c 'while
-  echo x | gpg --batch --pinentry-mode error --local-user
-  flgrubm@grubmueller.dev --sign -o /dev/null; do sleep 240; done'`;
-  the cache's two-hour maximum ends it, and then the author enters the
-  passphrase (`! echo x | gpg --local-user flgrubm@grubmueller.dev
-  --sign -o /dev/null`). Never touch `~/.gnupg`. Never sign or rewrite
+  `flgrubm@grubmueller.dev`. Keep both keys warm with
+  `plan/keys-warm.sh` (the unit `step-gpg-warm` uses the signing key
+  and the SSH key every four minutes; `--check` says which is
+  unlocked); the caches' maximum ends it, and then the author enters
+  both passphrases (`! echo x | gpg --local-user
+  flgrubm@grubmueller.dev --sign -o /dev/null; ssh -T
+  git@github.com`) and you run the script again. Never touch
+  `~/.gnupg`. Never sign or rewrite
   commits while a session works on them; when you must, tell it to run
   `jj workspace update-stale`.
 - **Pushing** `main` without asking, as in step 7 above. Tags, releases,
@@ -219,7 +221,13 @@ not side by side with each other unless their files are disjoint.
   that write then fail. Sessions commit with `--config
   signing.behavior=drop` and you sign later (`jj sign -r
   'main@origin..REV & ~signed()'`).
-- **The SSH key's cache lapses** separately from the signing key's.
+- **The SSH key's cache lapses** separately from the signing key's,
+  30 minutes after its last use (gpg-agent's `default-cache-ttl-ssh`),
+  however warm the signing key is kept: on 2026-10-19 a loop that only
+  signed let it lapse, the push failed, and a retry without SSH's
+  `BatchMode` waited six hours on a passphrase prompt with the planning
+  session stalled behind it. `plan/keys-warm.sh` uses both keys, and
+  `plan/push-main.sh` never waits on a prompt.
 - **`nix flake check` is unpinned**: never beside a timed run; the lock
   serialises them.
 - **A report can say more than was done**: check that what it cites
