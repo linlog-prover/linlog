@@ -955,7 +955,15 @@ kept as files: they equal the oracles, as `bench/TARGETS.md` now records.
   19 354 846 nodes, 17 397 466 memo hits, 1 048 576 entries and
   4 680 221 742 splits in both, every counter equal (two scratch
   programs, `mix11/` in the session's scratchpad), each then refuted by
-  the classical refutation.
+  the classical refutation. **So "every counter kept" cannot hold for
+  this row, at any code**: its counters at the time limit differ between
+  two runs of one binary. Run twice at the session's code with the
+  target set's settings (the harness's `run --family mix=11 --jobs 1
+  --timeout 300`, cores 2 and 3 at once, under the machine lock) it gave
+  49 971 253 and 48 978 201 nodes, 44 945 783 and 44 047 410 memo hits,
+  12 796 647 197 and 12 484 886 143 splits. The requirement holds for
+  every row whose search ends within its limit, and for this one at
+  equal work.
 - **The ratchet** (the gate's journeys under callgrind; the base counted
   at `xmqspvzu` in this session): the divisions in the parser cost the
   commutative reader `read-text` 12 418 964 → 12 468 102 instructions
