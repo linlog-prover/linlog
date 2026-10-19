@@ -5,7 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 32a: the plan and the bindings (session `step-32a`, 2026-10-19) | done (2026-10-19) | `plan/web/README.md`; the crate `linlog-web` and its flake checks (`zvxnzksq`, `ovuwwmtm`); the 32-bit arguments (`quznwnno`); item 3: no suspendable search needed; the reviewer's six findings answered; every code commit gated; `nix flake check` at the last commit |
-| Session 32b: the client's repository and version 1's core (session `step-32b`, 2026-10-19) | done (2026-10-19) | the repository `linlog-prover.github.io` (`mvuvktkp` to `vzqxtknr`); version 1's core with 27 Vitest and 23 Playwright tests in its `nix flake check`; the reviewer's five findings answered; no change of linlog |
+| Session 32b: the client's repository and version 1's core (session `step-32b`, 2026-10-19) | done (2026-10-19) | the repository `linlog-prover.github.io` (`mvuvktkp` to `uymkopks`); version 1's core with 27 Vitest and 24 Playwright tests in its `nix flake check`; the reviewer's five findings answered; no change of linlog |
 | Session 32c: hosting, licences and the rest of version 1 | not started | |
 
 ## Session 32a: the plan and the bindings
@@ -331,9 +331,9 @@ report alone.
 | the module in a module Worker, request ids, cancellation by `terminate()` and a fresh worker | done | `zxmmnkol`: `src/lib/protocol.ts`, `src/worker/linlog.worker.ts`, `src/lib/api.ts` |
 | version 1's core (the 32b list) | done | `smkwwtyy`, `pzptystz`, `vllkpqqv`, `vzqxtknr`; below, item by item |
 | Vitest of the client's logic (the link's codec, the step tree, the worker protocol) | done | 27 tests in six files, the step tree's against linlog's real module, fast-check properties for the codec, the protocol's ordering and random proof attempts' replay |
-| one Playwright test per interaction, inside the client's `nix flake check` | done | 23 tests (`tests/prover.spec.ts`, `page.spec.ts`, `phone.spec.ts`), the check `e2e` |
-| the fresh-context reviewer on the worker protocol and the client's state | done, five findings, each answered | below; `vzqxtknr` |
-| `nix flake check` at the client's last commit | done | exit 0 at `vzqxtknr` (the session's last client commit), under the machine lock |
+| one Playwright test per interaction, inside the client's `nix flake check` | done | 24 tests (`tests/prover.spec.ts`, `page.spec.ts`, `phone.spec.ts`), the check `e2e` |
+| the fresh-context reviewer on the worker protocol and the client's state | done, five findings, each answered | below; `vzqxtknr`, `uymkopks` |
+| `nix flake check` at the client's last commit | done | exit 0 at `uymkopks` (the session's last client commit), under the machine lock, `e2e` run afresh there (24 passed) |
 | any change of linlog gated | nothing to gate | no change of linlog was needed |
 | this section, committed in `../linlog-step32b` | done | this commit |
 
@@ -474,10 +474,15 @@ report alone.
 
 ### What is verified
 
+- `uymkopks` reads what each export holds (the PNG and PDF by their
+  magic, LaTeX, Typst, the text, the session, both Rocq certificates by
+  their contents) and checks that the hint ladder's last rung applied the
+  step (the Steps list holds it).
 - `nix flake check` of the client, under the machine lock on cores 8 to
   15: passed at the skeleton (`mvuvktkp`), at the CI change
   (`ynkuklvx`), before `zxmmnkol` and `smkwwtyy` were committed, at
-  `vllkpqqv` and at `vzqxtknr`, the last; one run before `vllkpqqv`
+  `vllkpqqv`, at `vzqxtknr`, and at `uymkopks`, the last (its `e2e` run
+  afresh, 24 passed); one run before `vllkpqqv`
   failed in `e2e` (the keyboard test, twice with its retry), which found
   the dropped digit fixed there.
 - The checks: `site`, `unit` (Vitest), `typecheck` (`astro check`),
@@ -522,8 +527,10 @@ answered in `vzqxtknr`:
    running while a step was applied lost the graft; two undos during a
    replay undid one step and pushed redo twice). Holds. One action that
    changes a proof runs at a time (`guard` in `state.tsx`); its buttons
-   wait, and the dock offers "Stop the search". Not covered by a test:
-   no search in the e2e check runs long enough to race reliably.
+   wait, and the dock offers "Stop the search". `uymkopks` tests it:
+   undo pressed during a half-second search does nothing, and the
+   search's verdict and the step before it stay; the test fails with the
+   guard turned off (the verdict was lost).
 4. **Autosave kept an older copy and piled up copies**: a proof set
    aside by one tab and worked on in another came back at its older
    state; a reload of a link's page offered the proof it had just
@@ -571,7 +578,7 @@ of a session, a sequent and an unknown level.
 
 - The client: `/home/tux/Projects/own/linlog-prover.github.io`, `main`
   on GitHub at `ynkuklvx`; the commits above it (`zxmmnkol`, `smkwwtyy`,
-  `pzptystz`, `vllkpqqv`, `vzqxtknr`) are local, for planning to review
-  and push. Planning's review workspace
+  `pzptystz`, `vllkpqqv`, `vzqxtknr`, `uymkopks`) are local, for planning
+  to review and push. Planning's review workspace
   (`planning-review`, its empty change `wwpzpvnx`) is planning's.
 - linlog: `../linlog-step32b`, this report's commit on `nqsytyrq`.
