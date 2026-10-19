@@ -654,6 +654,12 @@ equal), and so do the rows past it that the engine still decides.
   lists each), and `KLE075` of `KLE-01` faster; `mix/8` to `/11` of the
   families answered by the turns in 0.43 to 0.47 s (before 1.2 s, 9.6 s,
   and for `mix/10` and `/11` the classical refuter after the limit).
+- **The rows no tool decided at 10 s**: 37a's 384 lie within the two
+  sets (135 among the held-out sets, the rest are the other rows), and
+  its list was not kept; rebuilt from the comparison's `runs.csv` (no
+  tool's verdict but a refutation of a proved problem, which by this
+  reading gives 487 problems, 416 of them in the measurement), the
+  default decides 56 of the 416 before and 144 after, and loses none.
 - **Against the comparison's runs** (`bench/comparison/2026-10-15/runs.csv`,
   every tool): 3 916 problems have a checked proof by some tool; the
   after run answers `unprovable` on none of them.
