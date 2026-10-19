@@ -2847,4 +2847,43 @@ client follows it (step 32).
   and text of a drawing in ink and so removes the essential net's
   green input side, exempting the drawing's input, dominator and
   highlight colours.
+- 2026-10-19: review of step 37a, the focused inverse method (one
+  session, Opus 5.5 at high, the panel, 11:00 to 15:50, paused 13:08 to
+  13:27 for the author):
+  - `Engine::Inverse` (`--engine inverse`), forward saturation in every
+    commutative mode, deciding without exponentials and proving with
+    them without a copy bound; its refutations reported as exhausted,
+    without a certificate; each of its eight filters argued in the
+    report, put to the panel by name, and caught by the committed tests
+    in a deliberate fault each (16 faults); no dispatch row yet;
+  - the measurement (60 s, one thread, default against inverse): all
+    ten of Sympli's class C proofs in at most 0.3 ms (the default one),
+    all six refutations in at most 0.64 s (the default two), 113 of the
+    384 rows no tool decided at 10 s (the default 26); on the held-out
+    sets 38 won, 16 lost, 0.93 of the default's time where both decide;
+    the families 66 lost and none won; no contradiction between the
+    engines;
+  - the panel: the argument (Fable 5.1) found an incoherent goal off
+    the roots refuted, and then that the refusal turned away goals
+    after a contraction, both fixed; the limits found three unpolled or
+    uncharged stretches, fixed; the counterexamples none in 18 500
+    cases.
+  Five departures for the author, each marked: tries over the sorted
+  zones as the index rather than feature vectors; no partially applied
+  rules or percolation, premise choices pruned instead; no irredundancy
+  conditions for weak premises; `Context` and `Classes` kept in the
+  focused engine's module, sorted lists rather than bitsets; a rule
+  application's transient candidate lists not charged to the memory
+  account.
+
+  The review checked every refutation of the inverse engine in the
+  measurement (233) against the comparison's runs of 2026-10-15: none is
+  a problem another tool proved (apll left out, whose refutations are
+  known unreliable); of the 37 against an LLTP header that says
+  provable, the default refutes every one, so they are the known wrong
+  headers. It read how the engine's proofs reach the checker (the front
+  door's, as every engine's), stacked the chain on `main` after step 40
+  (the render-svg ceiling holds with both), and ran the gate and `nix
+  flake check` at the head. Next: 37b, the dispatch rows and the
+  saturation refuter's certificate.
 
