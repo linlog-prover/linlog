@@ -51,13 +51,14 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 30 | The tests pruned and CI cached, the memory bound charged, the third baseline (a night), and the first release prepared (three sessions) | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
 | 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own; done 2026-10-19, at https://linlog-prover.github.io/) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
-| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 32 |
+| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 32, 40 |
 | 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 33 |
 | 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
 | 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
 | 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
 | 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
 | 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37; ended by its measurement on 2026-10-19, nothing built) | `39-top-cap.md` (written at the review of 35, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
+| 40 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, after 36) | `40-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 36 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -732,7 +733,10 @@ document system sets the text (LaTeX, Typst), linlog's output never
 chooses a font, not even in a standalone document: the user pastes the
 output into a document and wants it to look like the rest of that
 document (the author, 2026-09-29; step 11 had set `eulervm` and Euler
-Math there, which the configurable-output candidate removes). No graphviz, no browser-side layout. The same layouts feed the LaTeX and Typst exports where
+Math there, which the configurable-output candidate removes). No graphviz, no browser-side layout. A net is drawn with every
+formula occurrence written, its conclusions at the bottom, as the
+literature draws nets, the compact drawing of circled connectives an
+option (the author, 2026-10-19, step 40). The same layouts feed the LaTeX and Typst exports where
 a package needs coordinates (it does not for ebproof and curryst trees).
 
 **D13. Interactive proving is a partial derivation.** The state a client
@@ -2773,4 +2777,13 @@ client follows it (step 32).
   https://linlog-prover.github.io/. Step 32 is done; Learn's lessons
   (D56, D60) wait for a content session, and the follow-ups are in
   `later.md`. Next: step 33 (MELL nets) after 36b.
+- 2026-10-19: the author found the net drawings incomplete: no formula
+  of the sequent, and no compound subformula, is written in a drawn net
+  (the conclusion edges end blank), in the command's SVG, the essential,
+  planar and Lambek drawings and the web page alike. Asked for the
+  literature's idiom, the planning session recommended Girard's
+  presentation (every formula occurrence a node written as its formula,
+  links between them, the conclusions at the bottom) by default and the
+  compact drawing as an option; the author agreed. Step 40 does it, one
+  session after 36 (`40-net-drawings.md`); D12 says so.
 

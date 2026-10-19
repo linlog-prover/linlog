@@ -18,7 +18,9 @@ over the occurrence forest, a correctness criterion independent of any
 engine (Danos–Regnier at each box depth with boxes contracted; Guerrini
 and Masini, TCS 254, 2001, for the parsing view), sequentialization
 through boxes, desequentialization of a proof, a JSON form, and the
-drawing with boxes as rectangles, in the command and the web front end.
+drawing with boxes as rectangles, in the command and the web front end. The drawing is step 40's: every formula occurrence written, the
+conclusions at the bottom, the compact drawing an option; a box
+encloses the nodes of its contents and its `!` and `?` doors.
 Search stays with the focused engine.
 
 ## Fixed now
