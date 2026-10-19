@@ -6,7 +6,7 @@
 |---|---|---|
 | Session 32a: the plan and the bindings (session `step-32a`, 2026-10-19) | done (2026-10-19) | `plan/web/README.md`; the crate `linlog-web` and its flake checks (`zvxnzksq`, `ovuwwmtm`); the 32-bit arguments (`quznwnno`); item 3: no suspendable search needed; the reviewer's six findings answered; every code commit gated; `nix flake check` at the last commit |
 | Session 32b: the client's repository and version 1's core (session `step-32b`, 2026-10-19) | done (2026-10-19) | the repository `linlog-prover.github.io` (`mvuvktkp` to `uymkopks`); version 1's core with 27 Vitest and 24 Playwright tests in its `nix flake check`; the reviewer's five findings answered; no change of linlog |
-| Session 32c: hosting, licences and the rest of version 1 | not started | |
+| Session 32c: the hosting, the licences and the rest of version 1 (session `step-32c`, 2026-10-19) | done (2026-10-19) | the client's commits `tlsoutzz` to `tmpzrkvn`: the Pages deployment, the CSP and its check, the licences and their check, offline and installable, About, the examples, the tour, Learn's frame, Lucide's check, the three follow-ups; 39 Playwright and 42 Vitest tests in its `nix flake check`, exit 0 at `tmpzrkvn`; the reviewer's two findings answered; no change of linlog's code |
 
 ## Session 32a: the plan and the bindings
 
@@ -592,3 +592,244 @@ of a session, a sequent and an unknown level.
   to review and push. Planning's review workspace
   (`planning-review`, its empty change `wwpzpvnx`) is planning's.
 - linlog: `../linlog-step32b`, this report's commit on `nqsytyrq`.
+
+## Session 32c: the hosting, the licences and the rest of version 1
+
+**Outcome.** The web client is ready to be published: its CI deploys
+`main` to GitHub Pages once `nix flake check` passed, with a `404.html`
+and nothing at `/linlog`; every page carries the Content-Security-Policy
+as a `<meta>` element with `'wasm-unsafe-eval'` and the hash of every
+inline script and style, which a flake check recomputes; the site serves
+the licence of everything it sends (the npm bundle's notices by Vite's
+`build.license`, linlog-web's `THIRD-PARTY-NOTICES.txt`, the EUPL, each
+font's OFL beside it, CC BY 4.0 on the page that carries written
+content), which another flake check reads; and the rest of version 1 is
+built: offline and installable, About, the examples to practise on and
+to watch, the tour, Learn's frame with the places of the tutorial,
+practice and reference, D54's check of Lucide, and the three client
+follow-ups of the review of 32b. Each has a Playwright test, 39 in all,
+every one of them failing on a violation of the policy. Nothing of
+linlog needed to change: `../linlog-step32c` holds this report alone.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| D31: the Pages deployment from `main` after the checks, a `404.html`, nothing at `/linlog` | done | `tlsoutzz`: `upload-pages-artifact` v5.0.0 and `deploy-pages` v5.0.1 pinned by SHA, the upload in the check job after `nix flake check`, a `deploy` job with `pages: write`, `id-token: write`; `src/pages/404.astro`; the `pages-paths` check; a Playwright test of the 404 |
+| D42: the CSP as a `<meta>` element with `'wasm-unsafe-eval'` and every inline hash, with a check | done | `trqzxxqp`: Astro's `security.csp`, the pre-paint script after the policy with its hash added; the `csp` check (`modules/_checks/csp.py`), shown failing on a build with one hash removed; `tests/fixtures.ts` fails any test on a violation; a test shows the policy refusing inline code the build did not hash |
+| D36: the line on GitHub's logs | done | in About (D52), `lqrzqtmy`, its Playwright test |
+| D32 and item 6: the licences served and checked | done | `pwsnmrot`, `lqrzqtmy`: `/licenses/bundle.txt` (Vite's `build.license`, and Astro's notice for its inline runtime), `/licenses/THIRD-PARTY-NOTICES.txt`, `/licenses/LICENSE.txt`, `/fonts/<Family>-OFL.txt` beside each font, the CC BY line with the written content; the `licences` check; About's test fetches each |
+| D49: offline and installable, the worker never on `/linlog/` | done | `ztnoqqzq`: `src/offline/sw.js` by hand, the manifest and its icons; three Playwright tests (a proof with no network, `/linlog/` untouched and uncached, Chromium's installability) |
+| D52: About | done | `lqrzqtmy`; its test |
+| D7, D21, D23: the examples list, their sessions, the content in the repository | done | `lqrzqtmy`: nine examples in `src/content/examples/`, seven sessions written by `linlog interact`; `src/content/examples.test.ts`; Prove and Watch tested |
+| D8: the tour | done | `lqrzqtmy`: eight stops proving `A ⊗ B ⊢ B ⊗ A`; tested by keyboard under reduced motion |
+| D6, D47: Learn and its frame with the tutorial's, practice's and reference's places | done | `lqrzqtmy`; tested on the desktop and at a phone's width (`nnxwqzxw`) |
+| D54: Lucide checked at build time | done | `xrumwtlk`: `src/integrations/lucide.ts`, its Vitest test, a Playwright test of the pictograms |
+| The review's follow-ups: a link's parse error, a cap on what `d` unpacks to, the tab's sequent in Euler Math | done | `pumurovn` (the tab's text settled in `lqrzqtmy`); a Vitest test of the cap and three Playwright tests |
+| The fresh-context reviewer on the CSP and the worker's scope | done, two findings, each answered | below; `tmpzrkvn` |
+| `nix flake check` at the client's last commit | done | exit 0 at `tmpzrkvn` (`aea6fcf98c92`), the session's last client commit, under the machine lock: every check, `e2e` 39 passed, `unit` 42 |
+| Any change of linlog gated | done | only `plan/` changed here (this report, `plan/later.md`'s follow-ups); `nix flake check` passed at this commit (the session's output) |
+| README true | done | `nnxwqzxw` |
+| This section, committed in `../linlog-step32c` | done | this commit |
+
+### What was built, item by item
+
+- **The deployment** (D31). The check job, on `main` alone and only
+  once every step before passed, builds `packages.default` into `site/`
+  and uploads it; the `deploy` job, the only one given `pages: write`
+  and `id-token: write`, publishes it in the `github-pages` environment,
+  one deployment at a time and never cancelled midway. The upload drops
+  dot-files, so nothing the site serves starts with a dot (Vite's
+  default `.vite/license.md` would have been lost). The `pages-paths`
+  check holds a `404.html` at the root and nothing at `/linlog`.
+- **The policy** (D42, D28). Astro 7's own `security.csp` writes the
+  `<meta>` element with the hashes of the inline code Astro makes; it
+  writes it at the end of `<head>`, and a `<meta>` policy covers only
+  what follows it, so the pre-paint theme script moved to the start of
+  `<body>`, its text a constant whose hash the config adds (Astro hashes
+  no `is:inline` script). `default-src 'none'`, `script-src 'self'
+  'wasm-unsafe-eval'` and the hashes, `style-src 'self'` and its hash,
+  `img-src`, `font-src`, `connect-src`, `worker-src` and `manifest-src`
+  `'self'`, `base-uri` and `form-action` `'none'`. The worker that runs
+  linlog's module gets no policy (a worker's comes from its own
+  response's headers, and Pages sends none).
+- **The licences** (D32, item 6). Vite's `build.license` names the npm
+  packages in the bundle with their licence texts; Astro's own notice is
+  added, since its island runtime is inline in the pages where no bundle
+  sees it. The fonts are put under `/fonts/` by `assetFileNames` beside
+  their OFL texts; Euler Math's URL is imported by the page and passed to
+  the island, since Astro's client build names its own assets. The
+  `licences` check reads all of it apart from the build: every run-time
+  dependency at its locked version with its licence text, the crates'
+  notices and the EUPL byte for byte, every font beside an OFL, Euler
+  Math's that of linlog, and the CC BY link on every page marked as
+  carrying written content.
+- **Offline and installable** (D49). `@vite-pwa/astro` 1.2.0 supports
+  Astro up to 5, so the worker is written by hand (D49's other choice):
+  the build fills in the list of the site's files and a hash of their
+  contents; it caches them all when it installs, answers only for them
+  and for navigations to `/`, and a new deployment waits until no page
+  of the old one is open, so a page never mixes two deployments' files.
+  The manifest's icons are drawn from the site's icon by linlog's own
+  renderer in Node, so no image library was added.
+- **The written content** (D21, D23, CC BY 4.0) is Markdown in Astro's
+  content collections under `src/content/`: the examples, the tour's
+  stops, About and Learn's three openings. The page renders each into an
+  inert template marked `data-written`, which the island clones; so the
+  content is in the built HTML, where the style, policy and licence
+  checks read it.
+- **Practice** (D7, D21): nine examples, easiest first, two of them
+  without a proof (an atom left over, and `A & B ⊢ A ⊗ B`, which only an
+  exhaustive search refutes). Each was decided by linlog's command
+  first, and each provable one's session was written by `linlog
+  interact` with `save` and checked with `proof`; a Vitest test holds
+  every example to linlog's verdict in its mode and every session to its
+  sequent and a finished proof. Prove opens the sequent; Watch opens its
+  proof taken back to the sequent with each step alone on the redo
+  stack, so that Redo plays it one step at a time.
+- **The tour** (D8): eight stops, each pointing at a part of the page
+  and performing a real step on `A ⊗ B ⊢ B ⊗ A` once, on the way
+  forward, so it ends on a checked proof; the caption takes the focus,
+  each stop is said in the live region, and it has no motion of its own.
+- **Learn** (D6, D47, D54): a frame of its own colour around the window,
+  the panel beside it (below it on a phone), with Tutorial (its opening,
+  the nine lessons of D60 as places, and the tour), Practice and
+  Reference (the connectives as typed and printed, with their readings);
+  with Learn on every action shows its label; off, none of it is on the
+  page.
+- **About** (D52, D36): what the page is, links to the repository, the
+  documentation and the issues, linlog's version from the module, every
+  licence served (each linked, and fetched by its test), and that GitHub
+  logs every visitor's IP address.
+- **Lucide** (D54): the build fails unless `lucide-solid` is the pinned
+  version, ISC, with a `solid` export condition and a peer range the
+  installed Solid meets.
+- **The follow-ups**: a link whose sequent does not parse opens it in
+  the field with the parse error marked, as typed; a link's session is
+  inflated through a reader that stops at 512 KiB (`UNPACKED_LIMIT`),
+  and one past it loads the sequent alone with "Proof not restored" and
+  why; a tab shows its sequent as typed, in signs and in Euler Math
+  (`a^ par b` as `a⊥ ⅋ b`), as the visual reference draws the tab. An
+  intermediate version named the tab by linlog's one-sided printing; the
+  typed form replaced it, since the mockup shows `A ⊗ B ⊢ B ⊗ A` there.
+
+### Decisions
+
+- **The deployment is a job of the CI workflow**, as the author's sites
+  have it, and the artifact is built by the check job after the checks,
+  so a deployment is always of what was checked.
+- **Astro's `security.csp` over the sites' own hashing integration**:
+  the author's sites fill a header file, which Pages does not have;
+  Astro writes the `<meta>` element itself. The check recomputes
+  everything in Python, as the sites' does.
+- **The tab's sequent as typed**: what the visual reference shows; the
+  link keeps the parseable text, since the parser does not read `a⊥`.
+- **The examples are Markdown with linlog's session files beside them**,
+  and the page replays them with the redo stack, so that "watch" needs
+  no machinery of its own.
+- **The reference holds the connectives only**: the rules' schemas in
+  Euler Math (D47) come with the lessons.
+
+### Departures from the design
+
+- **The service worker is registered with the scope `/`** (departs from
+  the design, D49's "the worker's scope is the client's own paths and
+  never `/linlog/`"): the page is at `/`, and a worker's scope is a path
+  prefix, so no registration includes `/` and leaves out `/linlog/`.
+  What D49 asks is held by what the worker does instead: it answers only
+  the site's own files and `/`, returns before anything else under
+  `/linlog`, never caches a path there, and where the browser has the
+  Static Routing API those requests go to the network without waking it.
+  `tests/offline.spec.ts` shows the rustdoc's stand-in served from the
+  network, never from the worker, and unreachable offline.
+- **An example opens as a proof of its own** (departs from the design,
+  D7's "replacing the current work after a warning if that work is
+  unsaved"): with several proofs at once (D50) nothing needs replacing;
+  an example takes the place of the page's empty proof only.
+- **Learn's hover explanations are not built** (departs from the design,
+  D47's "inside the frame, hover explanations are on everywhere"): the
+  rule's schema, the connective's reading and the verdict's reason on
+  hover belong with the lessons and the reference's schemas, a content
+  session's.
+
+### What is verified
+
+- `nix flake check` of the client, under the machine lock: exit 0 at
+  `tmpzrkvn`, the last commit. Two runs before it failed in `e2e` alone
+  (at `nnxwqzxw`: the tour's, the offline test's and the several
+  proofs' synchronisation, fixed in the tests at `kynzlrlk`, where the
+  next run passed).
+- Each check alone, in the sandbox, at `pwsnmrot`: `csp`, `licences`
+  and `pages-paths` built and passed.
+- Playwright, 39 tests against the built site, all passing at
+  `tmpzrkvn` twice over without retries in CI's settings (78 runs), and
+  114 runs of the 38 before it at `kynzlrlk`; Vitest, 42 tests.
+- The `csp` check fails on a build with one hash removed from the
+  policy ("index.html: inline code script-src does not allow: …").
+- The bundle: 55 KB compressed on the critical path (the page, its
+  stylesheet and the island's JavaScript), the fonts beside (D35).
+- Signing tested before every commit; every commit is signed.
+
+### The reviewer's findings
+
+One fresh-context reviewer (Opus 5.5, `high`, briefed with conduct.md's
+rules on cores and memory, cores 12 to 15, no nix builds, told to report
+only what breaks correctness, the design's decisions or a stated
+requirement) read the policy, its check and the service worker, and
+probed them with two builds, a server that sends Pages' `max-age=600`,
+and mutated policies loaded in Chromium. It found two things, each
+answered in `tmpzrkvn`:
+
+1. **An update could cache the old page with the new files.** The
+   worker's install fetched through the browser's HTTP cache, which
+   Pages lets keep a file ten minutes: a new worker installed right
+   after a deployment cached the old `index.html` beside the new hashed
+   files, and once active served a page whose stylesheet and island
+   were gone (404, no hydration) until a later deployment. Holds: the
+   probe reproduced it with two builds. Every file is now fetched with
+   `cache: "reload"`. The test server sends Pages' `max-age=600` and a
+   fresh `x-github-request-id` per response (as Pages does), and
+   `tests/offline.spec.ts` checks that the page the worker cached is not
+   the one the browser kept; the test fails on the old worker.
+2. **The check passed policies Chromium enforces differently**: it kept
+   the last copy of a repeated directive where browsers obey the first,
+   and read `script-src` and `style-src` where `script-src-elem` or
+   `style-src-elem` govern elements. Holds, though the built site wrote
+   none of those forms. The check now reads a policy as a browser does;
+   the reviewer's five mutated policies (a hash missing, moved to
+   `style-src`, a stricter `script-src` first, a `script-src-elem`, a
+   `style-src-elem`) all fail it.
+
+Sound by the reviewer's reading and probes: one policy per page, first
+in the head before any script or stylesheet, the pre-paint script first
+in the body with its hash; nothing the page does blocked (the module
+worker, the wasm, the font, the drawings by `innerHTML`, every download,
+the worker's registration); the worker never answers or caches `/linlog`
+or anything under it, with or without a query, nor `/%6Cinlog/`,
+`/linlog.html` or `/linlogx` by mistake, and every subresource of a
+rustdoc page passes it by. It noted that an open rustdoc tab, being the
+worker's client, delays an update, which breaks nothing; and that the
+worker's comment gave the wrong reason for its scope, corrected in
+`tmpzrkvn`. Its first build left `.astro/.prerender/` in the client's
+directory (ignored, never committed).
+
+### Left open
+
+- Learn's lessons (D56, D60) and its hover explanations (D47), the
+  reference's rule schemas: a content session's, each sequent proved or
+  refuted by the command first.
+- The repository's website field pointing to the client, on the
+  author's word, after the first deployment.
+- The first push publishes the site; the supervisor pushes after
+  review. The Cachix token is the author's to add.
+- `linlog interact` prints a goal whose first hypothesis is not at
+  position 0 with a stray comma (`goal 2:, 1: A ⊢ 0: A`), seen while
+  writing the examples' sessions: a follow-up for linlog
+  (`plan/later.md`).
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io`, `main`
+  at `uymkopks`; this session's commits `tlsoutzz` to `tmpzrkvn` above
+  it, local, for planning to review and push.
+- linlog: `../linlog-step32c`, this report's commit on `kzmmlszx`.

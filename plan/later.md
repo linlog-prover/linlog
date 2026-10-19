@@ -790,6 +790,27 @@ From the review of step 32b (2026-10-19):
 - **The tab shows the sequent as typed** (`a^`, `par`), where D53 asks
   for it in Euler Math (step 32c).
 
+*Done in session 32c (2026-10-19, `plan/reports/32-web.md`):* a link's
+parse error is shown under the field, a link's session unpacks to at most
+512 KiB, and the tab shows the sequent in signs and Euler Math. The
+parser's `a⊥` stays unassigned.
+
+Left by session 32c (2026-10-19):
+
+- **Learn's content** (a content session): the lessons of D60 in the
+  order of D56, the rules' schemas in the reference, and the hover
+  explanations inside the frame (D47); every sequent proved or refuted
+  by the command first, as the examples' were.
+- **Enter in the sequent field while another action runs does nothing**
+  (the client, unassigned): one action that changes a proof runs at a
+  time (32b's answer to its review), and a sequent submitted meanwhile,
+  while the module still loads on a slow machine for one, is dropped
+  without a word; it could wait for the running action instead.
+- **`linlog interact` prints a stray comma** (the command, unassigned):
+  a two-sided goal whose first hypothesis is not at position 0 prints as
+  `goal 2:, 1: A ⊢ 0: A` (`A -o B, B -o C |- A -o C` in `-i` after
+  `apply 0 2 ⊸R`, `apply 1 0 ⊸L 2`).
+
 ## Follow-ups: the focused engine
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,
