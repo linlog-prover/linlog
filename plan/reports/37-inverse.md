@@ -654,14 +654,13 @@ equal), and so do the rows past it that the engine still decides.
   lists each), and `KLE075` of `KLE-01` faster; `mix/8` to `/11` of the
   families answered by the turns in 0.43 to 0.47 s (before 1.2 s, 9.6 s,
   and for `mix/10` and `/11` the classical refuter after the limit).
-- **The rows no tool decided at 10 s** (37a's 384): its list was not
-  kept. Rebuilt from the comparison's `runs.csv` (no tool's verdict but a
-  refutation of a proved problem), its 249 rows among the other rows
-  come out exactly: before 10 decided, after 61, none lost, no
-  contradiction. Among the held-out sets the same reading gives 167 rows
-  where 37a counted 135 (no reading tried, with or without linlog's own
-  columns, gives 135): before 46 decided, after 83, none lost, no
-  contradiction (`out/the-384.txt`).
+- **The 384 rows no tool decided at 10 s**: 37a's list, kept in its
+  session's scratch directory (`neither.txt`, copied to
+  `/tmp/linlog-handoff/37b-measure/the-384.txt`), 135 of them among the
+  held-out sets and 249 among the other rows, all measured before and
+  after: the default decides 24 before and 112 after, 88 won, none lost,
+  no contradiction (after: 92 by the turns, 56 refutations and 36 proofs,
+  and 20 by the two-sided engine; `out/the-384.txt`).
 - **The binary measured is the last commit's**: the commits after
   `ykntmzxo` change comments, documentation and `plan/` only, and the
   release `linlog-bench` built at the last code commit is byte for byte
@@ -715,7 +714,10 @@ the check runs on every inverse refutation.
 **The 58.** The inverse method forced on the 58 rows that it alone
 refutes (37a's list: `SYJ208+1.004`, `.005`, `SYJ209`, `SYJ210` in the
 three translations): all 58 `unprovable`, each set checked `ok` by the
-harness's own `Disproof::check`. With the default, 56 within 60 s (the two
+harness's own `Disproof::check`; through the command (`linlog prove -i
+--engine inverse --format json`, which checks the set before it
+answers), all 58 `unprovable` with a refutation of kind `saturated`, at
+wire level 3. With the default, 56 within 60 s (the two
 `SYJ208+1.005`, whose saturation needs some 700 million units, would need
 a minute and more of the engine first). On every refuted row of 37a's
 measurement (213 rows, the inverse method forced, before the last fixes)
@@ -883,7 +885,7 @@ an entry in `bench/TARGETS.md`; the oracles stay.
 | The dispatch: the inverse method where a measurement shows it winning, a row of `DISPATCH` with its measurement, no row the default decides lost, a few percent at most where the default is fast | done | `mtwmloox`, `ssmwxkoq`, `unywztnt`, `ykntmzxo`; `Engine`'s table and paragraph; "The measurement": 102 won, 0 lost, medians 1.00 at every speed |
 | The saturation's certificate, checked without the engine's code, a wrong certificate refused for each condition, the 58 answered `Unprovable` with it | done | `ysqzqtvv`, `zplymslu`; `saturated::tests`; the 58 forced: 58 `unprovable`, checked `ok` |
 | The panel on frozen trees (the argument on Fable 5.1, `high`), each finding answered | done | "The panel": two rounds, F1, F2, (c) to (f), the scan, A and B |
-| The measurement before and after (held-out sets, the 384, class C, the six, the families), no verdict against a checked proof of any tool | done | "The measurement"; `analysis.txt` |
+| The measurement before and after (held-out sets, the 384, class C, the six, the families), no verdict against a checked proof of any tool | done | "The measurement"; `analysis.txt`; the 384: 24 decided before, 112 after, none lost |
 | The target sets against `after-cyclic.csv` and `net-after-cyclic.csv` | done: every row the dispatch does not move unchanged | "The target sets" |
 | Every code commit gated | done | `gate: passed` before each of `ozwvpkoy`, `ysqzqtvv`, `mtwmloox`, `ssmwxkoq` (in `../linlog-step37b-gate`), `zplymslu`, `unywztnt`, `ykntmzxo`, `tozoztmp` and the last commit |
 | `nix flake check` at the last commit | passed | exit 0 at `mqoxzmnk` and at `kuylznmt` (20:06 and 20:11, "all checks passed!"), run again under the machine lock after this report's commit; that exit status is in the message to `planning` |
