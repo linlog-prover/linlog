@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="230.112" height="86.592" viewBox="0 0 14382 5412" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>c / b, a, a \ b ⊢ c</title>
+<desc>1. b ⊢ b, by ax.
+2. c ⊢ c, by ax.
+3. c / b, b ⊢ c, by /L from 1 and 2.
+4. a ⊢ a, by ax.
+5. c / b, a, a \ b ⊢ c, by \L from 3 and 4.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M1398 3812H12974"/>
+<path d="M300 2312H7784"/>
+<path d="M300 812H2840"/>
+<path d="M5448 812H7784"/>
+<path d="M10392 2312H12974"/>
+</g>
+<text x="3044" y="4902" textLength="8284" lengthAdjust="spacing" id="i4">𝑐 / 𝑏, 𝑎, 𝑎 \ 𝑏 ⊢ 𝑐</text>
+<text x="13174" y="4012" textLength="848" lengthAdjust="spacing" font-size="800">\L</text>
+<text x="1398" y="3402" textLength="5289" lengthAdjust="spacing" id="i2">𝑐 / 𝑏, 𝑏 ⊢ 𝑐</text>
+<text x="7984" y="2512" textLength="848" lengthAdjust="spacing" font-size="800">/L</text>
+<text x="300" y="1902" textLength="2540" lengthAdjust="spacing" id="i0">𝑏 ⊢ 𝑏</text>
+<text x="3040" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="5448" y="1902" textLength="2336" lengthAdjust="spacing" id="i1">𝑐 ⊢ 𝑐</text>
+<text x="7984" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="10392" y="3402" textLength="2582" lengthAdjust="spacing" id="i3">𝑎 ⊢ 𝑎</text>
+<text x="13174" y="2512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

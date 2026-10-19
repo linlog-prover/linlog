@@ -1,0 +1,13 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{b &\vdash b}
+\infer0[$\mathrm{ax}$]{c &\vdash c}
+\infer2[$/\mathrm{L}$]{c \mathbin{/} b, b &\vdash c}
+\infer0[$\mathrm{ax}$]{a &\vdash a}
+\infer2[$\backslash\mathrm{L}$]{c \mathbin{/} b, a, a \mathbin{\backslash} b &\vdash c}
+\end{prooftree}
+\end{document}

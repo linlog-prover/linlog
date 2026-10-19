@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="143.456" height="80.176" viewBox="0 0 8966 5011" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ b⊥ ⊗ a, a⊥, b ⊗ c⊥, c</title>
+<desc>⊢ ~b ⊗ a, ~a, b ⊗ ~c, c
+~b[1] — b[5]
+a[2] — ~a[3]
+~c[6] — c[7]
+planar proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M1572 3586L2192 2771"/>
+<path d="M1848 3034L1824 3254L2030 3172"/>
+<path d="M5995 3583L5400 2771"/>
+<path d="M5549 3168L5753 3254L5733 3033"/>
+<path d="M8423 2771V4671"/>
+<path d="M8309 3626L8423 3816L8537 3626"/>
+</g>
+<g fill="none" stroke="#009e73" stroke-width="40">
+<circle id="o0" cx="1393" cy="3921" r="380"/>
+<path d="M1214 3586L594 2771"/>
+<path d="M1052 3184L846 3102L870 3322"/>
+<circle id="o4" cx="6168" cy="3921" r="380"/>
+<path d="M6341 3583L6937 2771"/>
+<path d="M6674 3321L6695 3100L6491 3186"/>
+<path d="M1393 4301V4671"/>
+<path d="M1507 4581L1393 4391L1279 4581"/>
+<path d="M3801 2771V4671"/>
+<path d="M3915 3816L3801 3626L3687 3816"/>
+<path d="M6168 4301V4671"/>
+<path d="M6282 4581L6168 4391L6054 4581"/>
+</g>
+<g fill="none" stroke="#cc79a7" stroke-width="40">
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l6-7" d="M6937 1781A743 445 0 0 1 8423 1781"/>
+<path d="M7585 1450L7775 1336L7585 1222"/>
+<path id="l1-5" d="M594 1781A2403 1441 0 0 1 5400 1781"/>
+<path d="M2902 454L3092 340L2902 226"/>
+<path id="l2-3" d="M2192 1781A804 482 0 0 1 3801 1781"/>
+<path d="M3091 1185L2901 1299L3091 1413"/>
+</g>
+<text x="300" y="2671" textLength="588" lengthAdjust="spacing" id="o1" fill="#009e73">𝑏</text>
+<text x="1888" y="2671" textLength="609" lengthAdjust="spacing" id="o2">𝑎</text>
+<text x="3497" y="2671" textLength="609" lengthAdjust="spacing" id="o3" fill="#009e73">𝑎</text>
+<text x="5106" y="2671" textLength="588" lengthAdjust="spacing" id="o5">𝑏</text>
+<text x="6694" y="2671" textLength="486" lengthAdjust="spacing" id="o6" fill="#009e73">𝑐</text>
+<text x="8180" y="2671" textLength="486" lengthAdjust="spacing" id="o7">𝑐</text>
+<text x="989" y="4121" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="5764" y="4121" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+</svg>

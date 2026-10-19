@@ -574,6 +574,36 @@ fn cyclic() {
     );
 }
 
+/// A derivation of the Lambek calculus is drawn two-sided with its
+/// divisions and their rules, each sequent's hypotheses in their order,
+/// and its net as a planar essential net; Rocq's certificate is refused,
+/// as in the cyclic mode.
+#[test]
+fn lambek() {
+    let text = "c / b, a, a \\ b |- c";
+    let sequent = Sequent::parse_ordered(text, Order::Cyclic, &Limits::default()).unwrap();
+    let outcome = prove(&sequent, Mode::LAMBEK, &Options::default()).unwrap();
+    let net = outcome.net.clone().expect("the essential engine's net");
+    let Verdict::Proved(proof) = outcome.verdict else {
+        panic!("the sequent is provable in the Lambek calculus")
+    };
+    let derivation = proof.derivation().unwrap();
+    assert!(
+        derivation.to_string().ends_with("c / b, a, a \\ b ⊢ c"),
+        "{derivation}"
+    );
+    pin("lambek", &derivation);
+    assert_eq!(
+        certificate(|out| rocq::write(&derivation, &rocq::Options::default(), out, |_| false)),
+        Err(Unsupported::Ordered)
+    );
+    let style = Style::default().with_essential(true);
+    snapshot(
+        "lambek-net.svg",
+        &svg::net(&net, &style, &unbounded(), |_| false).unwrap(),
+    );
+}
+
 /// Proof nets are pinned as SVG: a net whose links cross, a structure
 /// whose switching cycle is highlighted, and one whose second part is.
 #[test]
