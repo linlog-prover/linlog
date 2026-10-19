@@ -2886,4 +2886,47 @@ client follows it (step 32).
   (the render-svg ceiling holds with both), and ran the gate and `nix
   flake check` at the head. Next: 37b, the dispatch rows and the
   saturation refuter's certificate.
+- 2026-10-19: review of step 37b, the end of step 37 (one session, Opus
+  5.5 at high, the panel, 16:05 to 20:15):
+  - no static feature of a sequent separates the inverse method's wins
+    from its losses (every feature's range overlaps), so it takes turns
+    beside the default engine on two dispatch rows (intuitionistic
+    goals with an exponential, two-sided; Mix without weakening,
+    focused): after a head start of 2²⁴ of the engine's units, a turn
+    each time that work doubles, with 1/32 of it as its budget, the
+    turns together at most 1/16 of the engine's work. The review's note
+    that a one-shot probe could slow medium-speed rows changed it twice
+    (growing turns, then 1/32 when 1/16 lost a row proved at 54 s);
+  - `Refutation::Saturated` (wire level 3): the saturated set as a
+    certificate, checked in `search/saturated.rs` without the engine's
+    code (the rules read off the forest again, the set closed under them
+    and Mix, a hole of the goal's phase that no member fills), the
+    argument resting on focusing's completeness; a wrong set refused by
+    a test for each condition; the Rocq export refuses the kind;
+  - measured before and after (60 s, one thread, the same cores): the
+    held-out sets 727 to 766 decided, the other 263 rows 12 to 75, the
+    families 111 to 111, nothing lost; Sympli's ten proofs and the six
+    refutations all decided; after over before by the default's time,
+    the median 1.000, 1.003, 0.988 and 0.013 under 10 ms, to 1 s, to
+    10 s and above, the worst 1.42 (a row of 36 to 51 s);
+  - the panel, two rounds: no break of soundness (71.3 million
+    exhaustive sets on small provable goals, none accepted), four
+    defects fixed (a valid set refused, uncounted work in three places,
+    `Limits::work` ignored by the check).
+  Four departures for the author, each marked: turns rather than a row
+  of the inverse method's own, growing and restarting since it cannot
+  be suspended; a row decided close to the limit can be lost to the
+  turns (none was); the check's memory uncharged and
+  `Disproof::check` without a stop; two of the 58 new refutations
+  (`SYJ208+1.005`) not answered by the default within 60 s, by the
+  forced engine in 12 s.
+
+  The review checked every unprovable answer of the after-run (506)
+  against the comparison's runs: none is a problem another tool proved.
+  It read the certificate check's argument, stacked the chain on
+  `main`, and ran the gate and `nix flake check` at the head. Step 37
+  is done. 37a's last commit was checked by planning's `nix flake
+  check` at the head that holds it (its own goal was cleared). The web
+  client reads wire level 2; the polish step moves its linlog input,
+  after which a saturation refutation reads at level 3.
 
