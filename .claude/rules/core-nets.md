@@ -172,7 +172,7 @@ code relies on:
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
   ` with the reason in formulas) and the JSON form are pinned in tests.
 
-## Planar nets: cyclic MLL
+## Planar nets: cyclic MLL and the Lambek calculus
 
 - **The criterion** (`Criterion::order`, `Criterion::CYCLIC`): a
   structure is a proof net of cyclic MLL exactly when it is a
@@ -191,9 +191,11 @@ code relies on:
   fields; such a structure would sequentialize into Mix nodes recorded as
   cyclic, which the checker refuses. `Criterion::of` refuses the ordered
   modes `Mode::check` refuses.
-- **The planar search** (`search/planar.rs`, `Planar`): the classical
-  criterion (`Switching`, whose structure carries the cyclic criterion so
-  that the net found is one) wrapped with two rejections in `admits`:
+- **The planar search** (`search/planar.rs`, `Planar<C>`, generic over
+  the criterion it wraps: `Switching` in the cyclic mode, `Essential` in
+  the Lambek calculus): the wrapped criterion (whose structure carries the
+  cyclic criterion so that the net found is planar) with two rejections
+  in `admits`:
   the two ends must lie in one region (the innermost made link around a
   place in the linear order, kept per literal place, rewritten inside a
   link's span at `link` and restored at `unlink`, which the loop calls
@@ -201,9 +203,51 @@ code relies on:
   literals strictly between the ends must be balanced in every atom,
   compared by prefix sums of a hash (wrapping on purpose: equal counts
   give equal sums, a collision only lets a link through). `test` and
-  `balanced` are the classical ones: a planar net is a net. Planarity of
-  the complete linking holds by construction (a `debug_assert` in
-  `test`).
+  `balanced` are the wrapped criterion's: a planar net is a net. `link`
+  asks the wrapped criterion first, so a refusal there (the essential
+  closure's memory) leaves the regions as they were. Planarity of the
+  complete linking holds by construction (a `debug_assert` in `test`, a
+  stack scan of the wrapped criterion's links).
+- **The Lambek calculus's search** (`search/essential.rs` under
+  `Planar`, `Prunes::PLANAR`): the essential criterion of the ordered
+  reading (an implication's antecedent from `Reading::implication`, the
+  structure in the mode's order), whose rejections are sound for every
+  completion and so for every planar one; Lamarche's equality of the
+  essential and the Danos–Regnier verdicts holds under the ordered
+  reading too (the differential test asserts it on every complete planar
+  linking). Without empty antecedents a complete linking is a proof net
+  of `L` only when `keeps_antecedents` holds: the body (consequent) of
+  every implication but the goal is reached by a source other than its
+  own antecedent whose binder does not reach the body (a source is a
+  hypothesis or an implication's antecedent, the occurrences with no
+  edge in; its binder that implication). That is "every subterm has a
+  free hypothesis", and for a planar essential net it holds exactly when
+  some, and then every, sequentialization keeps a hypothesis in every
+  sequent: a sequent without one is a sub-net whose only conclusion is
+  its output, into which no edge leads, so its sources are all bound
+  inside, and an innermost-free implication of it (one reaching no
+  other of it) breaks the condition; conversely the context of a
+  breaking implication's `⅋` rule is empty in every sequentialization.
+  Asked of complete linkings only, the test prunes nothing; it costs
+  implications × sources bit tests per complete linking, unpolled, and
+  its tables are charged (`NONEMPTY_BYTES`). The public `Criterion`
+  stays without the condition (`Criterion::of(Mode::LAMBEK)` is
+  `CYCLIC`, `L*`'s planar criterion, documented): every path that answers
+  for `L` goes through this search or the checker, and the command and
+  the bindings draw only nets of proofs that passed the checker in the
+  mode (`check_keeps_the_lambek_calculus_s_antecedents` in
+  `cli/tests/cli.rs`). The net engine refuses the Lambek calculus
+  (`Nets::admits`), so neither a forced run nor the handover after the
+  essential engine's memory bound searches its nets without the
+  condition (`lambek_has_no_handover`). The test:
+  `lambek_agrees_with_every_planar_essential_linking` in `planar.rs`, the
+  engine in `L` and `L*` against an enumeration of every planar linking
+  that is essential and whose sequentialization the checker accepts in
+  the mode, and against a cut-free brute-force sequent calculus of `L`
+  and `L*`, on random derivations of either calculus (the generator
+  `generate::lambek`), mutants, random sequents and four fixed cases of
+  bodies whose other hypothesis is bound outside or inside; a run with
+  the binder condition dropped fails it.
 - **35a's prunes under the order**: the three symmetry breaks are off
   (`Prunes::PLANAR`): exchanging equal literals or subformulas moves a
   link and can make two cross, so the canonical linking of an orbit may

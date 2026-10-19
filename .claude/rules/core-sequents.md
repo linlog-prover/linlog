@@ -106,10 +106,20 @@ read back by `Reading` (below); there is no second data model.
 - **The order** (`Order`, `Mode::order`, `is_ordered`; `Mode::CYCLIC`, the
   word `cyclic`): every earlier mode is `Order::Commutative`, so its
   value, name and wire form are as before. `Mode::check` refuses an
-  ordered mode with weakening, Mix or the intuitionistic reading
-  (`Error::OrderedMode`); no builder makes the last (the Lambek calculus
-  will be that combination, with its own words), but `name` is total
-  over the fields (`cyclic-mix`, …) for the refused ones. The front door
+  ordered mode with weakening or Mix (`Error::OrderedMode`), but `name`
+  is total over the fields (`cyclic-mix`, `lambek-affine`, …) for the
+  refused ones.
+- **The Lambek calculus is the ordered intuitionistic mode**
+  (`Mode::LAMBEK`, the word `lambek`; `with_empty_antecedents()`, the word
+  `lambek-star`, `Display` "Lambek with empty antecedents"): `L*` is the
+  intuitionistic part of cyclic MLL (Abrusci's embedding, which the
+  ordered parse is), and `L` is `L*` with a hypothesis in every sequent.
+  The field `empty_antecedents` means something only there:
+  `with_empty_antecedents` sets it only in an ordered intuitionistic mode
+  and returns every other mode unchanged, so no two values name one
+  calculus; `allows_empty_antecedents()` is the one question code asks
+  (true in every mode but `L`). The default is `L` (D16), the calculus
+  the literature means by "the Lambek calculus". The front door
   and `Interactive` call `Mode::check` (before, they tested
   intuitionistic Mix alone, which it still answers first among the
   commutative modes). A sequent beyond unit-free MLL in an ordered mode
@@ -143,6 +153,13 @@ time and memory linear in the text. What the code relies on:
   antecedents are reversed (`A, B |- C` is `|- ~B, ~A, C`), so that the
   cyclic calculus's reading of a two-sided sequent is the one-sided one
   in forest order; `A -o B` stays `~A par B` (Lambek's left division).
+  The ordered parse alone reads the divisions `A \ B` (as `-o`, to the
+  right) and `B / A` (`B par ~A`, to the left, the right operand
+  negated in `reduce`), as loose as `-o`; mixed, `A \ B / C` is `A \ (B
+  / C)`. The two arms sit behind an order guard in `operator`'s match,
+  so the commutative reader refuses `\` and `/` as before and pays a
+  compare only on those characters; `read-text` counted 12 468 102
+  instructions after them.
   `FromStr` and `parse_within` stay the commutative reader. Both readers
   go through one function, `parse::read`, which makes the parser as its
   own local and runs the loop, so that the loop and all it calls have one
@@ -396,10 +413,12 @@ the commit that lands it rewrites that bullet.
   `u64::MAX` and means "at least"; every integer read back is below 2⁵³,
   and a larger bound is written `null`. JavaScript reads `u64::MAX` as
   2⁶⁴, which no exact count takes.
-- **Ordered modes** (built: `Mode::CYCLIC`, `parse_ordered`; written at
+- **Ordered modes** (built: `Mode::CYCLIC`, `Mode::LAMBEK`, `parse_ordered`; written at
   wire level 2 wherever a document names the mode or a structure the
   order, `wire::level_in`): classical cyclic MLL is read by an ordered parse
   beside `parse_within` whose dual reverses products, and `FromStr` stays
-  the commutative reader; the Lambek calculus's planar order is decided
-  with the ordered calculi. Without the reversing dual, `|- ~(a * b), a,
-  b` would be unprovable in cyclic mode.
+  the commutative reader; the Lambek calculus is read by the same
+  reversing parse (not by an order derived from the commutative lowering
+  through the reading), so one order, the forest's, serves both ordered
+  modes, and its two-sided reading is `Reading::of_mode`. Without the
+  reversing dual, `|- ~(a * b), a, b` would be unprovable in cyclic mode.

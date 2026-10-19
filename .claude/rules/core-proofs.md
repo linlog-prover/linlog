@@ -283,6 +283,19 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   argument was reviewed (Fable 5.1); `cyclic` in `check/mod.rs` pins it,
   and `agrees_with_the_first_implementation` runs every proof and mutant
   in the cyclic mode against the oracle.
+- **The Lambek calculus is the cyclic check, the intuitionistic one under
+  the ordered reading, and R4** (`check::reading` builds the reading with
+  `Reading::of_mode`): without empty antecedents every derived sequent
+  must hold an input besides its output, else `Fault::EmptyAntecedent`
+  (in `one_succedent`, as `d.gamma.len <= d.outputs`, exact there since
+  `within` has held the zone to its bound; the oracle's `antecedent`
+  looks for a member in input position instead), and a root sequent
+  without a hypothesis is `Fault::Shape(ShapeError::EmptyAntecedent)`.
+  With R1 a sequent of the calculus has one output, so R4 is "two
+  members at least". `lambek` in `check/mod.rs` pins a `⊗R` whose
+  premise `⊢ b \ b` has none; `oracle::proofs` holds proofs the Lambek
+  search found of generated L and L* sequents, so the differential test
+  runs both checkers on them and their mutants in both modes.
 - The rule interpretation was reviewed against an independent top-down
   reference checker with random proofs, mutants and random terms (step 2's
   report); the intricate cases that review named are pinned in

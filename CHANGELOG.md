@@ -103,8 +103,7 @@ second number (0.1.x to 0.2.0), anything else the third.
   rotation and nothing else is exchanged. `Order` (`Commutative`,
   `Cyclic`), `Mode::CYCLIC` with `Mode::order` and `Mode::is_ordered`,
   the mode word `cyclic`; `Mode::check` refuses an ordered mode with
-  weakening, Mix or the intuitionistic reading (`Error::OrderedMode`,
-  code `ordered_mode`), and the search a sequent beyond unit-free MLL in
+  weakening or Mix (`Error::OrderedMode`, code `ordered_mode`), and the search a sequent beyond unit-free MLL in
   it (`Error::OrderedFragment`, `ordered_fragment`). The command's
   `--cyclic` (on `prove`, `check`, `interact`, `seq print` and `seq
   json`), and `cyclic` as a batch entry's mode.
@@ -128,11 +127,37 @@ second number (0.1.x to 0.2.0), anything else the third.
   `StepError::Exchange`.
 - `rocq::Unsupported::Ordered`: the Rocq exporter refuses a derivation
   or a disproof of the cyclic mode, whose calculi are commutative.
+- The Lambek calculus, intuitionistic and in the cyclic order, without
+  empty antecedents (`Mode::LAMBEK`, the mode word `lambek`) or with them
+  (`Mode::with_empty_antecedents`, `lambek-star`), and
+  `Mode::allows_empty_antecedents`. The command's `--lambek` and
+  `--empty-antecedents` (on `prove`, `check` and `interact`) and `seq
+  print --lambek`.
+- The divisions `A \ B` and `B / A` in the ordered parse, as `A -o B` and
+  `B par ~A`.
+- The ordered reading of the Lambek calculus: `Reading::of_mode`,
+  `Reading::is_ordered`, `IllConnective::Under` and `Over`, and
+  `ShapeError::EmptyAntecedent` for a sequent without a hypothesis where
+  the mode needs one; derivations, LaTeX, Typst and SVG print its
+  sequents two-sided in their order with the divisions.
+- The Lambek checker: `Proof::check(Mode::LAMBEK)` is the cyclic check
+  under the ordered reading with one output and, without empty
+  antecedents, an input in every sequent (`Fault::EmptyAntecedent`).
+- The rules of the divisions, `\L`, `\R`, `/L` and `/R`: `Named::division`
+  and the closed enum `Division` (`Under`, `Over`); a step that would
+  leave a premise without a hypothesis is `StepError::EmptyAntecedent`.
+- The essential engine decides the Lambek calculus, its default and only
+  engine there, by a search for planar essential nets that, without
+  empty antecedents, asks the body of every implication but the goal
+  for a hypothesis of its own; it decides goals off the roots in the
+  mode. The net engine refuses the mode.
 
 ### Wire forms
 
 - Level 2: the refutation kind `classical`, `{"kind": "classical",
-  "assignment": [true, false, …]}`, the mode `"cyclic"`, and a proof
+  "assignment": [true, false, …]}`, the modes `"cyclic"`, `"lambek"`
+  and `"lambek-star"`, the rule names `"\\L"`, `"\\R"`, `"/L"` and
+  `"/R"`, the faults and shape errors `"empty_antecedent"`, and a proof
   structure's `"order": "cyclic"`. A disproof or an unprovable outcome
   that holds the refutation, and a document of the cyclic mode or
   order, are written at level 2; every other document stays at level 1,
@@ -156,6 +181,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   witness highlighted.
 
 ### Changed
+
+- In a label table of the exports, `\` and `/` are symbols, set as the
+  divisions are: LaTeX `\backslash` and `/`, Typst `backslash` and
+  `slash`.
 
 - The command refutes by the classical reading by default: a sequent
   whose search ended unknown (at the time limit, a copy bound or another

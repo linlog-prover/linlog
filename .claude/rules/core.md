@@ -222,7 +222,8 @@ still describes code that a decision changes, the decision holds, and
 the commit that lands it rewrites that bullet.
 
 - **The calculus's enums stay exhaustive** (`Term`, `Kind`, `Node`,
-  `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`,
+  `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`, `Division`
+  (the Lambek calculus's two, added at step 36),
   `ordinary::{Node, Rule, Side}`, and `sequents::Visit`, whose enter,
   between and exit describe a walk over any tree); every other public enum, every
   options value and every struct with public fields that a later step
@@ -243,7 +244,7 @@ the commit that lands it rewrites that bullet.
   its type and would change with a new value.
 - **The marked ones at 0.1.0** (every public enum and every struct with
   a public field, 81, each `#[non_exhaustive]`; the closed are the
-  thirteen above): `Bias`, `CheckError`, `Clock`, `Counter`,
+  fourteen above): `Bias`, `CheckError`, `Clock`, `Counter`,
   `Criterion`, `Engine`, `Error`, `ErrorKind`, `Limits`, `Named`,
   `NetError`, `NotTaken`, `Options`, `Outcome`, `ParseError`, `Phase`,
   `Progress`, `Reason`, `Refusal`, `Refutation`, `Settings`,

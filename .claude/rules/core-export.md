@@ -490,7 +490,15 @@ for NanoYalla. What the code relies on:
   the order was kept). The cyclic snapshots (`cyclic.tex`, `.typ`,
   `.svg`, the planar net `planar.svg`) are drawn as any other: the view
   has the cyclic order, and the net SVG puts the conclusions in their
-  order with links above, so a planar net is drawn without a crossing;
+  order with links above, so a planar net is drawn without a crossing.
+  The Lambek snapshots (`lambek.tex`, `.typ`, `.svg`, and the planar
+  essential net `lambek-net.svg`) are two-sided with the divisions:
+  every notation has `under` and `over` (LaTeX `\mathbin{\backslash}`
+  and `\mathbin{/}`, Typst `class("binary", backslash)` and `slash`,
+  since a bare `/` is a fraction there, text and SVG `\` and `/`), and
+  `\` and `/` are label symbols (`\L`, `/R`), set `\backslash` and `/`
+  in LaTeX, `backslash` and `slash` in Typst; a user's label with either
+  character sets it as a symbol now;
   atom names are
   escaped to identifiers and made distinct from `RESERVED` (keywords and
   every kernel name a script mentions), the lemma's name and each other,

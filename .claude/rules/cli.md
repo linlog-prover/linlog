@@ -645,6 +645,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   problem is refused in the mode (their readers are commutative). Mix
   and `--affine` with it reach the library, which refuses them by name
   (`OrderedMode`). The derivation prints one-sided as ever.
+- **The Lambek calculus** (`--lambek`, conflicting with `--intuitionistic`
+  and `--cyclic`; `--empty-antecedents` requires it and gives `L*`; `seq
+  print --lambek` prints two-sided under the ordered reading with empty
+  antecedents allowed): read in the cyclic order as `--cyclic` reads it,
+  and printed two-sided with the divisions. `check` draws a net (`--net`)
+  only after the checker passed the proof in the mode, so no net of a
+  proof needing an empty antecedent is called correct in `L`
+  (`check_keeps_the_lambek_calculus_s_antecedents`). The fragment on the
+  verdict line is `IMLL` (`Fragment::name_in`).
 
 ## Extension points
 

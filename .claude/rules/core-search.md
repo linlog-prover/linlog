@@ -307,18 +307,22 @@ copies they had are gone (F103, F104).
   clause under `!` in any mode (`PetriNet`: the fragment has
   exponentials and `horn::is_net` finds a program with a `?` member in
   the goal itself, whatever fragment the options assert) to `horn`; the
-  rest by mode. The first row is the cyclic mode's: unit-free MLL in an
-  ordered mode (`Modes::Ordered`) to `net`, the planar search; every
-  other row's `Modes` takes commutative modes only (`Any` is every
-  commutative mode).
+  rest by mode. The first row is the Lambek calculus's: unit-free MLL in
+  an ordered intuitionistic mode (`Modes::Lambek`) to `essential`, the
+  planar essential search; the second the cyclic mode's (`Modes::Cyclic`)
+  to `net`, the planar search; every other row's `Modes` takes
+  commutative modes only (`Any` is every commutative mode).
 - **An ordered mode at the front door** (`prepare`, `read`): `Mode::check`
   first (`OrderedMode`), then a fragment beyond unit-free MLL is
   `OrderedFragment` (before the dispatch, so that it is named and not
-  `NoEngine`), and an engine other than `net`, forced, is
-  `EngineRefused` with `NotTaken::Mode`, since only the net engine keeps
-  the order. No handover from the net engine to itself (`answer_goal`
-  asks `engine != Engine::Net`), and a race runs one search in an
-  ordered mode. The classical refuter and the counts' refutations stay
+  `NoEngine`), and an engine other than the mode's planar one (`net` in
+  the cyclic mode, `essential` in the Lambek calculus), forced, is
+  `EngineRefused` with `NotTaken::Mode`. The reading is
+  `Reading::of_mode`, which refuses a Lambek sequent without a
+  hypothesis (`NotIntuitionistic`, `ShapeError::EmptyAntecedent`). No
+  handover from the net engine to itself (`answer_goal` asks `engine !=
+  Engine::Net`), none in the Lambek calculus (`Nets::admits` refuses
+  it), and a race runs one search in an ordered mode. The classical refuter and the counts' refutations stay
   sound there (cyclic provability implies the commutative one); the
   planar search's own unprovable answer is `Exhausted`.
 - **Why the Horn row takes affine mode too** (measured at step 27's

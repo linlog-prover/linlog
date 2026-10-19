@@ -112,6 +112,14 @@ serde_json, which the CLI and the core's tests already have.
   problem's sequent is parsed with its mode's order
   (`Sequent::parse_ordered`), so `--modes classical` runs the commutative
   engines on the same one-sided sequent.
+- `problems/lambek.txt`: sequents of the Lambek calculus (chains of `\`
+  and of `/`, products and their reversals, noun phrases with
+  adjectives, products of `a \ a` beside a hypothesis in `lambek` and
+  `lambek-star`, random derivations of `L` over two atoms and their
+  exchanged mutants), made by a script kept in step 36's report, read in
+  the cyclic order like `cyclic.txt`; `--modes classical` runs the
+  commutative engines on the same one-sided sequent, and `--modes
+  intuitionistic` cannot (the commutative reading has no `/`).
 - `problems/slow-tests.txt`: problems of the engine reports' timing tables
   that no family generates (the Partition instances of the net engine's
   first table, the chain with a token over, the parallel cancellation

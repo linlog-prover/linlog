@@ -130,6 +130,27 @@ the checker, the two-sided derivation and the future essential nets read.
   view all call `Reading::new` on the same forest, which is what keeps
   them consistent; never hand one of them a reading of a different
   forest.
+- **The ordered reading of the Lambek calculus** (`Reading::of_mode(forest,
+  mode)`, `is_ordered`; `new` is the commutative one, `of_mode` in a
+  commutative mode is `new`): read on a sequent of the reversing parse,
+  an implication's antecedent is the factor in the other position,
+  either one (`A⊥ ⅋ B` is `A \ B`, `B ⅋ A⊥` is `B / A`; in input position
+  `B⊥ ⊗ A` the hypothesis `A \ B` and `A ⊗ B⊥` the hypothesis `B / A`);
+  in input position the operands of `⊗` and `⅋` are written right one
+  first (`operands`), since the dual turned them round; `connective` is
+  `IllConnective::Under` or `Over` by which written operand is the
+  antecedent; `hypotheses` and the crate-private `written` (the order a
+  two-sided sequent prints its members in, which `Notation::sequent` and
+  the SVG's positions follow) go round from the goal backwards. In
+  unit-free MLL every occurrence has one position, so taking either
+  factor guesses nothing there; with units it could (H9's `(A -o bot) -o
+  bot |- A`), which no Lambek path decides: the front door, the session
+  and the checker refuse units in an ordered mode. Without empty
+  antecedents a root sequent with no hypothesis is
+  `ShapeError::EmptyAntecedent`. `ProofStructure::reading` gives a
+  cyclic structure the ordered reading with empty antecedents allowed.
+  A session keeps its positions and rebuilds the reading with
+  `of_parts(…, ordered)`.
 - **`Fragment::name_in(mode)`** is the mode-aware name (`IMLL`, `IMLL with
   units`, `IALL`, `IMALL`, `IMELL`, `ILL`; the classical `Display` is
   unchanged), and the JSON of an `Outcome` uses it; a `Fragment` reads

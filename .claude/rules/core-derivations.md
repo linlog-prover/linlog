@@ -259,6 +259,22 @@ itself.
   occurrence, so every sequent of a cyclic proof is a rotation of the
   order its rule reads and no exchange appears (documented on
   `Inference::sequent`). Rocq refuses the mode (`core-export.md`).
+- **The Lambek calculus's two-sided view** (`Derivation::two_sided_mode`):
+  a proof meant for an ordered mode unfolds under `L*`'s rules and the
+  ordered reading, and every printer writes a sequent's hypotheses in the
+  reading's order (`Reading::written`: round from the goal backwards),
+  so no exchange appears. The rules of an implication are named by its
+  division (`Named::division`, a public field with the closed enum
+  `Division`; `Named::applied` is the one place a rule gets its
+  two-sided name, used by the builder and the session): `\L`, `\R`,
+  `/L`, `/R`. `Named::ALL` is a public array of 34 and stays so (its
+  length is in its type); the divisions follow it in the label tables
+  (`Named::DIVISIONS`, `Named::at`, the tables of `LABELLED` entries),
+  and `\` and `/` are label symbols that LaTeX and Typst set as their
+  own. A term's premises keep their order, the left operand's premise
+  first, as every view draws `⊗` and as `terms.rs` maps premises to
+  children by position: so `\L` draws its consequent's premise first and
+  `/L` its argument's (the stored operands of `B⊥ ⊗ A` and `A ⊗ B⊥`).
 
 ## Interactive proving
 
@@ -387,6 +403,12 @@ code relies on:
   list. `⅋` needs no check (its operands are neighbours in id order).
   `close` works on any goal through the net engine's goals off the roots
   (`core-nets.md`).
+- **The Lambek calculus** (`expand`): the cyclic mode's rules and splits
+  under the ordered reading, a rule given by its two-sided name only when
+  it is the division's (`⊸L` is refused on a `/`), and without empty
+  antecedents a premise without an input is `StepError::EmptyAntecedent`
+  (beside the one-output check). `close` goes through the essential
+  engine's goals off the roots.
 - **The reading is kept** (`Interactive::reading`, O(1)): the state
   stores the positions and the goal `Reading::new` computed when it was
   made (`Reading::into_parts`), and lends a reading over them
