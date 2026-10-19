@@ -802,7 +802,8 @@ units (`ykntmzxo`, checked against the counterexample's witness).
 | `unywztnt` | the turns halved, a thirty-second each |
 | `ykntmzxo` | the scan of the posting lists counted (the counterexample review) |
 | `tozoztmp` | the turns' share of a race and the resident memory recorded; a test's comment reworded |
-| the report's commit | this section, `bench/targets/37b.csv`, `net-37b.csv`, `bench/TARGETS.md` |
+| `yzyklvot` | this section, `bench/targets/37b.csv`, `net-37b.csv`, `bench/TARGETS.md` |
+| the last commit | the turns' measurement in `Engine`'s table, beside the inverse method's alone |
 
 ### Options, front ends and quantifiers (D15, D16, D17)
 
@@ -872,7 +873,7 @@ an entry in `bench/TARGETS.md`; the oracles stay.
 | The panel on frozen trees (the argument on Fable 5.1, `high`), each finding answered | done | "The panel": two rounds, F1, F2, (c) to (f), the scan, A and B |
 | The measurement before and after (held-out sets, the 384, class C, the six, the families), no verdict against a checked proof of any tool | done | "The measurement"; `analysis.txt` |
 | The target sets against `after-cyclic.csv` and `net-after-cyclic.csv` | done: every row the dispatch does not move unchanged | "The target sets" |
-| Every code commit gated | done | `gate: passed` before each of `ozwvpkoy`, `ysqzqtvv`, `mtwmloox`, `ssmwxkoq` (in `../linlog-step37b-gate`), `zplymslu`, `unywztnt`, `ykntmzxo`, `tozoztmp` |
+| Every code commit gated | done | `gate: passed` before each of `ozwvpkoy`, `ysqzqtvv`, `mtwmloox`, `ssmwxkoq` (in `../linlog-step37b-gate`), `zplymslu`, `unywztnt`, `ykntmzxo`, `tozoztmp` and the last commit |
 | `nix flake check` at the last commit | see the message to `planning` | run under the machine lock after this report's commit, in `../linlog-step37b` |
 | `.claude/rules/` (`core-inverse.md`, `core-search.md`, `core.md`, `core-sequents.md`, `core-export.md`, `bench.md`, `rocq.md`), README, the changelog | done | the commits above |
 
