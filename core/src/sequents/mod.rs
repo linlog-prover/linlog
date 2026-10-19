@@ -43,7 +43,11 @@ use crate::hash::HashMap;
 /// only, never by a new meaning of text that reads today. Text that is no
 /// sequent is `Error::Parse`, whose `ParseError` says where. Every atom
 /// name of a sequent, however it was read, is such an identifier, so that
-/// the formulas written as text read back as themselves.
+/// the formulas written as text read back as themselves. The ordered
+/// parse ([`parse_ordered`](Self::parse_ordered)) reads the divisions of
+/// the Lambek calculus besides, `\` (to the right) and `/` (to the left),
+/// as loose as `-o`; mixed, a division takes all to its right, `A \ B / C`
+/// being `A \ (B / C)` and `A / B \ C` being `A / (B \ C)`.
 ///
 /// The sequent is kept one-sided in negation normal form: the formulas
 /// left of the turnstile are negated, `A ⊸ B` is `A^⊥ ⅋ B`, and a negation

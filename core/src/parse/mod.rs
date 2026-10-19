@@ -38,6 +38,11 @@ enum Binary {
     Plus,
     /// `-o` or `⊸`
     Lollipop,
+    /// `\`, the left division of an ordered parse: `A \ B` is `A⊥ ⅋ B`,
+    /// as `A ⊸ B` is.
+    Under,
+    /// `/`, the right division of an ordered parse: `B / A` is `B ⅋ A⊥`.
+    Over,
 }
 
 impl Binary {
@@ -49,16 +54,17 @@ impl Binary {
             Binary::Par => 4,
             Binary::With => 3,
             Binary::Plus => 2,
-            Binary::Lollipop => 1,
+            Binary::Lollipop | Binary::Under | Binary::Over => 1,
         }
     }
 
     /// Returns whether an operand between this connective on its left and
     /// `next` on its right is this one's: it binds tighter, or the two are
     /// the same connective and it associates to the left, as every one but
-    /// `⊸` does.
+    /// `⊸` and `\` does.
     fn takes_before(self, next: Binary) -> bool {
-        self.strength() > next.strength() || (self == next && self != Binary::Lollipop)
+        self.strength() > next.strength()
+            || (self == next && !matches!(self, Binary::Lollipop | Binary::Under))
     }
 }
 
@@ -287,8 +293,12 @@ impl<'a> Parser<'a> {
                         Binary::Par => Term::Par(left, operand),
                         Binary::With => Term::With(left, operand),
                         Binary::Plus => Term::Plus(left, operand),
-                        Binary::Lollipop => {
+                        Binary::Lollipop | Binary::Under => {
                             self.negate(left);
+                            Term::Par(left, operand)
+                        }
+                        Binary::Over => {
+                            self.negate(operand);
                             Term::Par(left, operand)
                         }
                     }
@@ -457,6 +467,9 @@ impl<'a> Parser<'a> {
                 self.at += 1;
                 Binary::Lollipop
             }
+            // The divisions of the Lambek calculus, in an ordered parse.
+            '\\' if self.order != Order::Commutative => Binary::Under,
+            '/' if self.order != Order::Commutative => Binary::Over,
             '|' if self.left && outermost && self.peek() == Some('-') => {
                 self.at += 1;
                 self.root(operand)?;
@@ -572,7 +585,10 @@ impl Sequent {
     /// negated, so that `A, B |- C` is `|- ~B, ~A, C`, the cyclic sequent
     /// whose proofs are those of the two-sided one. The formulas then
     /// stand in the order the cyclic calculus reads, which is the
-    /// occurrence forest's. In [`Order::Commutative`] it is
+    /// occurrence forest's. An ordered parse also reads the two divisions
+    /// of the Lambek calculus, `A \ B` as `A -o B` (associating to the
+    /// right) and `B / A` as `B par ~A` (to the left), both binding as
+    /// loosely as `-o`. In [`Order::Commutative`] it is
     /// [`parse_within`](Self::parse_within).
     ///
     /// Needs the cargo feature `parse` (on by default).

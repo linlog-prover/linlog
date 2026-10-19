@@ -189,6 +189,31 @@ fn cyclic_duals_reverse() {
     );
 }
 
+/// The ordered parse reads the Lambek calculus's two divisions: `A \ B`
+/// as `A -o B` and `B / A` as `B par ~A`, `\` to the right and `/` to
+/// the left; the commutative parse has neither.
+#[test]
+fn divisions() {
+    let cyclic = |input: &str| {
+        Sequent::parse_ordered(input, Order::Cyclic, &Limits::default())
+            .unwrap_or_else(|e| panic!("{input:?}: {e}"))
+            .to_string()
+    };
+    for (input, printed) in [
+        ("a, a \\ b |- b", "⊢ ~b ⊗ a, ~a, b"),
+        ("b / a, a |- b", "⊢ ~a, a ⊗ ~b, b"),
+        ("|- a \\ b \\ c", "⊢ ~a ⅋ (~b ⅋ c)"),
+        ("|- c / b / a", "⊢ (c ⅋ ~b) ⅋ ~a"),
+        ("|- a \\ b / c", "⊢ ~a ⅋ (b ⅋ ~c)"),
+    ] {
+        assert_eq!(cyclic(input), printed, "{input}");
+    }
+    assert_eq!(cyclic("a \\ b |- c"), cyclic("a -o b |- c"));
+    for input in ["b / a |- b", "a \\ b |- b"] {
+        assert!(input.parse::<Sequent>().is_err(), "{input}");
+    }
+}
+
 #[test]
 fn error_positions() {
     for (input, at, found) in [
