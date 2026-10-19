@@ -33,6 +33,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             input,
             intuitionistic,
             cyclic,
+            lambek,
             logic,
             format,
             standalone,
@@ -48,9 +49,9 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 input.occurrence_limit.0,
                 given,
             )?;
-            if logic.logic.is_some() && (*intuitionistic || *cyclic) {
+            if logic.logic.is_some() && (*intuitionistic || *cyclic || *lambek) {
                 bail!(
-                    "the logic decides how its image is printed: leave out --intuitionistic and --cyclic"
+                    "the logic decides how its image is printed: leave out --intuitionistic, --cyclic and --lambek"
                 );
             }
             let (sequent, mode) = match settings::ordinary(&settings, logic) {
@@ -62,6 +63,8 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 None => {
                     let mode = if *cyclic {
                         Mode::CYCLIC
+                    } else if *lambek {
+                        Mode::LAMBEK.with_empty_antecedents()
                     } else {
                         mode_of(*intuitionistic)
                     };

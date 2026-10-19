@@ -33,7 +33,7 @@ Options:
           - lines:    One sequent per line in the text syntax, as `NAME: SEQUENT` or `SEQUENT`; blank lines and everything from `#` on are skipped
           - jsonl:    One JSON value per line: a sequent as `seq json` writes it, or {"name": …, "mode": …, "sequent": …} with the sequent in JSON or as text and the mode named as in `problems`; blank lines are skipped
           - tptp:     A problem of ordinary propositional logic in TPTP syntax, as the ILTP library writes them: its axioms ⊢ its conjecture (with --logic, where a `.p` file is one)
-          - problems: The benchmark harness's problem files: `NAME; MODE; EXPECTED; COPIES; SEQUENT` per line, MODE one of classical, mix, affine, affine-mix, intuitionistic, intuitionistic-affine or cyclic (whose sequent is read as --cyclic reads it); EXPECTED and COPIES are not read
+          - problems: The benchmark harness's problem files: `NAME; MODE; EXPECTED; COPIES; SEQUENT` per line, MODE one of classical, mix, affine, affine-mix, intuitionistic, intuitionistic-affine, cyclic, lambek or lambek-star (whose sequents are read as --cyclic reads them); EXPECTED and COPIES are not read
           
           [default: auto]
 
@@ -55,6 +55,12 @@ Options:
 
       --cyclic
           Cyclic linear logic: the order of the formulas counts, up to rotation, with no exchange (unit-free MLL); the sequent's text is read with the dual of a product reversed, ~(A * B) as ~B par ~A, and the formulas left of ⊢ in the reverse order
+
+      --lambek
+          The Lambek calculus: intuitionistic and in the order written, with the divisions A \ B and B / A beside A * B (unit-free), every sequent with a formula left of ⊢; the text is read as --cyclic reads it
+
+      --empty-antecedents
+          With --lambek, allow sequents with no formula left of ⊢ (the calculus L*)
 
       --logic <LOGIC>
           Read the input as ordinary logic, through its translation into linear logic

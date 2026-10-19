@@ -729,6 +729,48 @@ fn check_reads_what_prove_writes() {
     );
 }
 
+/// A proof of the Lambek calculus with an empty antecedent passes `check`
+/// only where empty antecedents are allowed, and without them no net of
+/// it is drawn as correct: the verdict is the checker's, with its rule.
+#[test]
+fn check_keeps_the_lambek_calculus_s_antecedents() {
+    let sequent = "e |- e * (a \\ a)";
+    let (status, json, _) = linlog(
+        &[
+            "prove",
+            "--lambek",
+            "--empty-antecedents",
+            "--format",
+            "json",
+            sequent,
+        ],
+        "",
+    );
+    assert_eq!(status, 0);
+    let (status, out, _) = linlog(&["check", "--lambek", "--empty-antecedents", "-q"], &json);
+    assert_eq!(
+        (status, out.as_str()),
+        (
+            0,
+            "valid proof of e ⊢ e ⊗ (a \\ a) (Lambek with empty antecedents)\n"
+        )
+    );
+    for flags in [&["check", "--lambek"][..], &["check", "--lambek", "--net"]] {
+        let (status, out, _) = linlog(flags, &json);
+        assert_eq!(status, 1, "{flags:?}");
+        assert!(
+            out.starts_with("invalid proof of e ⊢ e ⊗ (a \\ a) (Lambek): ")
+                && out.ends_with(
+                    "the sequent has no formula left of ⊢, which the Lambek calculus without \
+                     empty antecedents forbids\n"
+                ),
+            "{out}"
+        );
+    }
+    let (status, _, _) = linlog(&["prove", "--lambek", sequent], "");
+    assert_eq!(status, 1);
+}
+
 /// `--format net` prints the proof net of a proof after the verdict line,
 /// for `prove` and for `check`, and is refused outside unit-free MLL and
 /// classical mode.

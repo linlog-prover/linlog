@@ -773,7 +773,7 @@ pub(crate) fn sequent_in(
     let limits = &limits.with_occurrences(None);
     let text = if mode.is_intuitionistic() {
         let forest = Forest::within(sequent, limits)?;
-        let reading = Reading::new(&forest)
+        let reading = Reading::of_mode(&forest, mode)
             .map_err(|e| anyhow!("not an intuitionistic sequent: {}", e.describe(&forest)))?;
         reading.to_string()
     } else {

@@ -50,6 +50,12 @@ Options:
       --cyclic
           Cyclic linear logic: the order of the formulas counts, up to rotation, with no exchange (unit-free MLL); the sequent's text is read with the dual of a product reversed, ~(A * B) as ~B par ~A, and the formulas left of ⊢ in the reverse order
 
+      --lambek
+          The Lambek calculus: intuitionistic and in the order written, with the divisions A \ B and B / A beside A * B (unit-free), every sequent with a formula left of ⊢; the text is read as --cyclic reads it
+
+      --empty-antecedents
+          With --lambek, allow sequents with no formula left of ⊢ (the calculus L*)
+
       --format <FORMAT>
           The output format; by default the one the extension of the `--output` file names (.txt, .json, .tex, .typ, .svg, .png, .pdf, .v), and text otherwise
 

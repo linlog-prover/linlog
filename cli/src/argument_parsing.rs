@@ -612,6 +612,11 @@ pub(crate) enum SeqCommand {
         /// of ⊢ in the reverse order
         #[arg(long, conflicts_with = "intuitionistic")]
         cyclic: bool,
+        /// Read the text as --cyclic does and print the sequent two-sided,
+        /// as the Lambek calculus reads it: with its divisions A \ B and
+        /// B / A and its hypotheses in their order
+        #[arg(long, conflicts_with_all = ["intuitionistic", "cyclic"])]
+        lambek: bool,
         /// The ordinary logic the input is in, if any.
         #[command(flatten)]
         logic: LogicArgs,
@@ -751,9 +756,9 @@ pub(crate) enum InputFormat {
     Tptp,
     /// The benchmark harness's problem files: `NAME; MODE; EXPECTED;
     /// COPIES; SEQUENT` per line, MODE one of classical, mix, affine,
-    /// affine-mix, intuitionistic, intuitionistic-affine or cyclic (whose
-    /// sequent is read as --cyclic reads it); EXPECTED and COPIES are not
-    /// read
+    /// affine-mix, intuitionistic, intuitionistic-affine, cyclic, lambek
+    /// or lambek-star (whose sequents are read as --cyclic reads them);
+    /// EXPECTED and COPIES are not read
     Problems,
 }
 
@@ -875,6 +880,15 @@ pub(crate) struct ModeArgs {
     /// and the formulas left of ⊢ in the reverse order
     #[arg(long, conflicts_with = "intuitionistic")]
     pub(crate) cyclic: bool,
+    /// The Lambek calculus: intuitionistic and in the order written, with
+    /// the divisions A \ B and B / A beside A * B (unit-free), every sequent
+    /// with a formula left of ⊢; the text is read as --cyclic reads it
+    #[arg(long, conflicts_with_all = ["intuitionistic", "cyclic"])]
+    pub(crate) lambek: bool,
+    /// With --lambek, allow sequents with no formula left of ⊢ (the
+    /// calculus L*)
+    #[arg(long, requires = "lambek")]
+    pub(crate) empty_antecedents: bool,
 }
 
 impl ModeArgs {
@@ -884,9 +898,14 @@ impl ModeArgs {
             Mode::INTUITIONISTIC
         } else if self.cyclic {
             Mode::CYCLIC
+        } else if self.lambek {
+            Mode::LAMBEK
         } else {
             Mode::CLASSICAL
         };
+        if self.empty_antecedents {
+            mode = mode.with_empty_antecedents();
+        }
         if self.affine {
             mode = mode.with_affine();
         }

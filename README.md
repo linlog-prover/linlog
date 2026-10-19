@@ -1135,6 +1135,53 @@ $ linlog prove --cyclic --format rocq "a |- a"
 error: no certificate: the Rocq calculi are commutative, so a derivation or a disproof of the cyclic mode has no certificate
 ```
 
+### The Lambek calculus
+
+`--lambek` decides the Lambek calculus: intuitionistic sequents
+`A₁, …, Aₙ ⊢ B` whose hypotheses keep the order they are written in,
+built from atoms with `*` and the two divisions, `A \ B` (from `A` on
+its left it gives `B`, as `A -o B` does) and `B / A` (from `A` on its
+right), and every sequent of a proof with a hypothesis.
+`--empty-antecedents` allows sequents without one (the calculus L*). The
+text is read as `--cyclic` reads it, of which the calculus is the
+intuitionistic part; `seq print --lambek` shows the sequent as the
+calculus reads it, and derivations are two-sided with the divisions'
+rules:
+
+```console
+$ linlog seq print --lambek "b / a, a |- b"
+b / a, a ⊢ b
+$ linlog prove --lambek "c / b, a, a \ b |- c"
+provable (IMLL, Lambek, essential engine)
+───── ax   ───── ax
+b ⊢ b      c ⊢ c
+──────────────── /L   ───── ax
+  c / b, b ⊢ c        a ⊢ a
+  ───────────────────────── \L
+     c / b, a, a \ b ⊢ c
+$ linlog prove --lambek "a, b |- b * a"
+unprovable (IMLL, Lambek, essential engine): the search was exhaustive
+$ linlog prove --lambek "e |- e * (a \ a)"
+unprovable (IMLL, Lambek, essential engine): the search was exhaustive
+$ linlog prove --lambek --empty-antecedents "e |- e * (a \ a)"
+provable (IMLL, Lambek with empty antecedents, essential engine)
+            ───── ax
+            a ⊢ a
+───── ax   ─────── \R
+e ⊢ e      ⊢ a \ a
+────────────────── ⊗R
+ e ⊢ e ⊗ (a \ a)
+$ linlog prove --lambek "|- a \ a"
+error: not an intuitionistic sequent: the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents needs
+```
+
+The essential engine decides the calculus: it searches for an axiom
+linking that is a planar essential net, its links crossing none in the
+cyclic order and its implications dominating their antecedents, and
+without empty antecedents the body of every division with a hypothesis
+of its own. Batches and problem files name the modes `lambek` and
+`lambek-star`.
+
 ### Ordinary logic
 
 `--logic classical`, `intuitionistic` or `minimal` reads a formula or a
@@ -1521,7 +1568,7 @@ and the results of running all of them on the same problems.
 
 | prover | fragments | modes | refutes | checked proofs | licence |
 |---|---|---|---|---|---|
-| linlog | MLL to LL, units | classical, intuitionistic, affine, Mix, cyclic (MLL) | ✓ | ✓ (and Rocq certificates) | EUPL-1.2 |
+| linlog | MLL to LL, units | classical, intuitionistic, affine, Mix, cyclic and Lambek (MLL) | ✓ | ✓ (and Rocq certificates) | EUPL-1.2 |
 | Maude LL prover | LL, ILL | classical, intuitionistic | without `!` | ✗ | none stated |
 | llprover | first-order LL | classical, intuitionistic | without `!`, `?` | ✗ | none formal |
 | linTAP | MLL with `?` | classical | without `?` | ✗ | GPL |
@@ -1622,6 +1669,11 @@ Built:
   reverses products, decided by the net engine's search for planar
   proof nets (a planarity test beside the correctness criterion), and
   checked, proved step by step and drawn with no exchange.
+- The Lambek calculus, with or without empty antecedents: the
+  intuitionistic part of cyclic linear logic, with its two divisions,
+  read two-sided in the order written, decided by a search for planar
+  essential nets, and checked, proved step by step and drawn two-sided
+  with the divisions' rules.
 - Proof nets for MLL, with or without Mix, as a representation of their
   own: proof structures over the subformula occurrences, an independent
   correctness criterion (Danos–Regnier, decided by Yeo's deletion test on
@@ -1759,8 +1811,7 @@ Planned, in roughly this order:
   other logics, failure certificates of the search.
 - A web page for proving step by step in the browser, on those bindings.
 - Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, the Lambek calculus (on cyclic linear logic's planar
-  nets), the inverse method,
+  and on nets, the inverse method,
   and first-order linear logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).

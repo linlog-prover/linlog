@@ -197,7 +197,7 @@ fn check_into(
         .ok()
         .filter(|_| mode.is_intuitionistic())
         .and_then(|forest| {
-            Reading::new(&forest)
+            Reading::of_mode(&forest, mode)
                 .ok()
                 .map(|reading| abbreviated(&reading, show.abbreviate, formulas))
         }) {
