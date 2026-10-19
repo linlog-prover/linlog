@@ -5,7 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 32a: the plan and the bindings (session `step-32a`, 2026-10-19) | done (2026-10-19) | `plan/web/README.md`; the crate `linlog-web` and its flake checks (`zvxnzksq`, `ovuwwmtm`); the 32-bit arguments (`quznwnno`); item 3: no suspendable search needed; the reviewer's six findings answered; every code commit gated; `nix flake check` at the last commit |
-| Session 32b: the client's repository and version 1's core | not started | |
+| Session 32b: the client's repository and version 1's core (session `step-32b`, 2026-10-19) | done (2026-10-19) | the repository `linlog-prover.github.io` (`mvuvktkp` to `vzqxtknr`); version 1's core with 27 Vitest and 23 Playwright tests in its `nix flake check`; the reviewer's five findings answered; no change of linlog |
 | Session 32c: hosting, licences and the rest of version 1 | not started | |
 
 ## Session 32a: the plan and the bindings
@@ -306,3 +306,272 @@ settings, and the view's `inferences` against the drawing's ids.
 `../linlog-step32a-gate` (where each code commit was gated). Both can be
 removed once the commits are on `main`: nothing in them is untracked
 but the build trees.
+
+## Session 32b: the client's repository and version 1's core
+
+**Outcome.** The web client has its repository,
+`/home/tux/Projects/own/linlog-prover.github.io` (a jj repository
+colocated with git, now `linlog-prover/linlog-prover.github.io` on
+GitHub, pushed by the planning session), set up as the author's sites
+are, and version 1's core runs in it: a sequent typed in the field is
+proved by clicking on the stage, with linlog's module in a module
+worker, every action plan/web/README.md's 32b list names, and one
+Playwright test per interaction at desktop and phone widths. The
+client's `nix flake check` passes at its last commit; GitHub's CI passed
+on the skeleton. linlog itself needed no change: the bindings of 32a
+answered every call the page makes, so `../linlog-step32b` holds this
+report alone.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| the repository as the author's sites (stack-spec and website-learn read first, what applies copied) | done | `mvuvktkp`: the dendritic flake with linlog as a pinned input, npm under Nix (website-learn's `node-modules.nix` and `.npmrc`), Astro 7.3.5, TypeScript 6.0.3, Solid 1.9.17 as one island, Tailwind 4.3.3 with the mockup's tokens, Biome, Vitest 5 with fast-check, Playwright 1.63 in nixpkgs' Chromium, CI pinned by SHA, the licence and headers, CLAUDE.md and `.claude/` |
+| the message to planning once the skeleton's check passed | done | sent with `mvuvktkp`; planning reviewed, asked for the CI cache change (`ynkuklvx`), created the GitHub repository and pushed `main` at `ynkuklvx`; CI run 39209753641 passed |
+| the module in a module Worker, request ids, cancellation by `terminate()` and a fresh worker | done | `zxmmnkol`: `src/lib/protocol.ts`, `src/worker/linlog.worker.ts`, `src/lib/api.ts` |
+| version 1's core (the 32b list) | done | `smkwwtyy`, `pzptystz`, `vllkpqqv`, `vzqxtknr`; below, item by item |
+| Vitest of the client's logic (the link's codec, the step tree, the worker protocol) | done | 27 tests in six files, the step tree's against linlog's real module, fast-check properties for the codec, the protocol's ordering and random proof attempts' replay |
+| one Playwright test per interaction, inside the client's `nix flake check` | done | 23 tests (`tests/prover.spec.ts`, `page.spec.ts`, `phone.spec.ts`), the check `e2e` |
+| the fresh-context reviewer on the worker protocol and the client's state | done, five findings, each answered | below; `vzqxtknr` |
+| `nix flake check` at the client's last commit | done | exit 0 at `vzqxtknr` (the session's last client commit), under the machine lock |
+| any change of linlog gated | nothing to gate | no change of linlog was needed |
+| this section, committed in `../linlog-step32b` | done | this commit |
+
+### Version 1's core, item by item
+
+- **The sequent field** (D1, D53, D55): a new proof is a tab with the
+  field focused and the placeholder `A * B |- B * A`; Enter starts it,
+  Esc gives up an edit; a parse error marks its place in the text and
+  says its keywords ("Unexpected * at column 5"), the full sentence on
+  hover; a sequent that is not intuitionistic in that mode says "2
+  formulas right of ⊢". The fragment linlog detects stands beside the
+  calculus's mark, updated as the text is typed (D59).
+- **The calculus's switches** (D2, D58): one cluster at the stage's top
+  left, Classical or Intuitionistic, Mix, Affine, and Two-sided greyed
+  with its reason; a change restarts the proof, after a warning when
+  it has steps. Linear or Ordinary sits on the tab's mark (D57), Ordinary
+  greyed.
+- **The goals with clickable formulas** (D3, D5, D33): linlog's SVG on
+  the dotted stage under a camera (zoom by buttons, keys and ctrl with
+  the wheel, pan by dragging or the wheel, fit), an HTML button over
+  every formula of an open goal (the drawing stays a picture), the
+  active goal in the accent, the others dimmed, brought into view after
+  every step; the dock above the active goal holds the navigator ("Goal
+  3 (1 of 2 open)"), its close, its note and the hint.
+- **The rule popover** (D9): the rules `rules` gives for the formula,
+  nothing else, each with its digit; never applied on the click alone.
+- **The split chooser** (D9): the formulas of the goal are clicked to
+  go left, the premises listed, `split_passes` saying "Passes" or
+  "Cannot close" before Apply.
+- **Refusals with the library's reason** (D11, D15, D44): the step's
+  error JSON worded by the page by its `details.kind` ("ax refused: no
+  dual partner"), at the goal, its sentence on hover and in the live
+  region; the formula's button shakes (not under reduced motion).
+- **Undo per branch and redo** (D13): the step tree is read off the
+  session document; undo retracts the step that opened the active goal
+  and every step since in its premises, replaying the rest in the
+  worker; redo puts it back until a new step; the Steps list goes back
+  to any step.
+- **A goal's close and all goals'** (D10, D14, D15): the search's proof
+  grafted with its rule labels faint and italic; an unprovable goal says
+  why with "checked" when `Disproof::check` held ("Unprovable, checked:
+  atom balance"); a search that gave up says so, its reason and engine
+  on hover, with a button for twice the budget; a running search shows
+  "Stop the search", which terminates the worker.
+- **The hint ladder** (D12): four rungs on the active goal from `hint`:
+  the kind of rule next, the formula (marked), the rule and its split,
+  then the page applies the steps and asks why.
+- **The derivation and the finished proof's net** (D4): the Tree and Net
+  tabs, Net greyed with linlog's reason or until the proof is finished;
+  an intuitionistic proof's net is its essential net.
+- **Every export** (D16): SVG, PNG and PDF (rendered by the module from
+  Euler Math's bytes, a PDF dated by the page's clock), LaTeX, Typst,
+  text, the session as JSON, the Rocq certificate of a finished proof,
+  the certificate of non-derivability of a refuted goal, and the link.
+- **The link** (D20): `#v=1&m=<mode>&s=<sequent>&d=<session>`, the session
+  deflate-raw and base64url, written with `replaceState` as the proof
+  changes, dropped past 2000 characters (the copy says to export the
+  session instead); a link whose session does not read loads the
+  sequent and mode with "Proof not restored".
+- **Autosave** (D29) and **several proofs** (D50): every open proof in
+  local storage; on a visit the last one's are set aside and offered by
+  the restore bar, so nothing is overwritten before the visitor answers;
+  tabs switch, close and keep each its own state, link and redo.
+- **Import** (D51): a file, a paste, or a drop onto the stage, of a
+  session or a sequent as linlog writes them; the panel says which it
+  got, and a level it does not know is refused ("Level 9 unknown: not
+  imported").
+- **The keyboard path** (D17): every formula a button, Enter opens its
+  rules, a digit picks one (queued if typed before the rules arrive),
+  U, ⇧U, C, ⇧C, H, S, [ ], V, + − F, N, E, I, `,` and `?` for the Keys
+  pane.
+- **The light and dark toggle** (D26, D46): the bar's toggle pins a
+  scheme, Settings offers System, Light and Dark, the choice applied
+  before the first paint; every colour a `light-dark()` token.
+- **Desktop and phone** (D18): at 390 pixels the bands keep one row, the
+  actions by icon with their names kept for a screen reader, and the
+  rule popover and split chooser become a sheet at the stage's bottom;
+  `tests/phone.spec.ts` proves a sequent there and finds no sideways
+  scroll.
+
+### Decisions
+
+- **The repository**: the default name and place of `plan/32-web.md`
+  item 1. Its flake is the author's sites' scheme (flake-parts,
+  import-tree, website-learn's `node-modules.nix` and `playwright.nix`,
+  a `ci-cache` derivation), the Claude Code setup linlog's (its git and
+  `jj new -m` guards with their `claude-hooks` check, the formatter
+  hook) with website-learn's island rule adapted.
+- **linlog through its input, the font too**: the package `linlog-web`
+  and `cli/fonts/Euler-Math.otf` with its `OFL.txt` come from the input
+  `github:linlog-prover/linlog` locked at `b509f719d767`; the dev shell
+  and the sandbox link them at `.cache/`, where Vite's aliases read them,
+  so the module and the font get hashed names like every asset.
+- **The step tree is the session document's**: undo per branch, redo and
+  the Steps list read the tree off `inferences` and `history` and name
+  goals by path, never by number; a graft replays by `close` again. So a
+  session from a link, a file or storage undoes per branch too, and no
+  separate record can drift from the document.
+- **The page's settings are the tab's defaults with the work budget**:
+  `{"limits": {"work": …}}`, 2²⁶ units by default, changed in Settings;
+  the drawing asks `styles.svg.font_size` 30 so that a formula is a
+  24-pixel target.
+- **Tests**: Playwright against the built site served by
+  `tests/serve.ts` as Pages serves it (no header), 23 tests, one per
+  interaction; Vitest beside the code, the step tree's tests loading the
+  real module in Node.
+
+### Departures from the design
+
+- **nixpkgs and the flake machinery follow linlog's inputs** (departs
+  from the design, D41's "nixpkgs from the channel tarball"): one
+  package set for the bindings and the site, every input past the
+  fourteen days D43 asks, and an update of linlog moves both.
+- **Solid 1.9.17 past the age gate**: the seroval fix, the version the
+  author's sites run; the author accepted it on 2026-10-19 (departs from
+  the design, D40's `min-release-age=14`).
+- **The drawing takes the theme's colours from CSS**, not from `Style`
+  (departs from the design, D26's "the drawing's Style takes the theme's
+  colours"): the page overrides the SVG's paint with the tokens, so a
+  theme switch needs no redraw; the exports keep linlog's own colours,
+  which print.
+- **Goals by `[` and `]`**, as the mockup has them, not the arrows
+  (departs from the design, D17's "arrows between goals"): the arrows
+  scroll and move within the page's controls.
+- **The hint ladder starts on the active goal** (departs from the
+  design, D12's first rung "which goal and which kind of connective"):
+  the rung names the kind of rule next on the goal the student is on;
+  choosing among goals is left to them.
+- **The phone's bottom band stays a band** of icons, not a sheet; the
+  popovers become the sheet (departs from the design, D18's "the HUD
+  becomes a bottom sheet").
+- **The Steps action in the bottom band**, the mockup's own departure,
+  kept: D13's step list needs a home.
+- **Euler Math comes from linlog's `cli/fonts/`**, the copy of CTAN's
+  package the prover measures its drawings with, at the input's pinned
+  commit (departs from the brief's "fetched from their upstream"):
+  Figtree and Space Mono come from npm through the lock.
+
+### What is verified
+
+- `nix flake check` of the client, under the machine lock on cores 8 to
+  15: passed at the skeleton (`mvuvktkp`), at the CI change
+  (`ynkuklvx`), before `zxmmnkol` and `smkwwtyy` were committed, at
+  `vllkpqqv` and at `vzqxtknr`, the last; one run before `vllkpqqv`
+  failed in `e2e` (the keyboard test, twice with its retry), which found
+  the dropped digit fixed there.
+- The checks: `site`, `unit` (Vitest), `typecheck` (`astro check`),
+  `lint` (Biome), `e2e` (Playwright), `no-style-attributes`,
+  `licence-headers`, `actionlint`, `deadnix`, `treefmt`,
+  `claude-hooks`, `playwright-version`.
+- GitHub's CI on the pushed skeleton: run 39209753641 passed (planning's
+  report).
+- The bundle: the page's JavaScript and CSS 43 KB compressed on the
+  critical path, the fonts beside; the module, 2.0 MB compressed, loads
+  in the worker after the first paint (D35).
+- Signing tested before every commit; every commit is signed.
+
+### The reviewer's findings
+
+One fresh-context reviewer (Opus 5.5, `high`, briefed with conduct.md's
+rules on cores and memory, cores 8 to 15, told to report only what
+breaks correctness, the design's decisions or a stated requirement) read
+the worker protocol, the step tree, the link's codec and autosave, and
+probed them against linlog's module in Node. It found five things, each
+answered in `vzqxtknr`:
+
+1. **A split read wrongly once a contraction had copied occurrences**
+   (`|- ?(A * B), C * D`: contract, derelict twice, split, then split
+   the goal `A ⊗ B, A` with `A` left, whose left premise is `[2, 2]`):
+   `stepOf` counted occurrences, and a context formula with the
+   subformula's occurrence made it read a split as a copy; replay then
+   built another proof without a word, and an undo on one branch changed
+   the other. Holds. The left side is now found by aligning the goal
+   with both premises (`leftOf`), and every replayed step must make the
+   premises it made, or it is taken back and its goal reported. The
+   scenario is a test, failing on the old step tree, and the replay
+   property now runs 150 random attempts over seven sequents, two of
+   them contracting.
+2. **Undo lost a graft made with twice the budget**: the replay closed
+   the goal again within the settings' budget, failed, and reopened a
+   branch the undo was not on. Holds. A graft the search no longer
+   closes replays from its own inferences (kept in the action), so it
+   stays closed, set apart as the search's no longer; a test, failing on
+   the old step tree, has it.
+3. **Actions overlapping a running call overwrote each other** (a close
+   running while a step was applied lost the graft; two undos during a
+   replay undid one step and pushed redo twice). Holds. One action that
+   changes a proof runs at a time (`guard` in `state.tsx`); its buttons
+   wait, and the dock offers "Stop the search". Not covered by a test:
+   no search in the e2e check runs long enough to race reliably.
+4. **Autosave kept an older copy and piled up copies**: a proof set
+   aside by one tab and worked on in another came back at its older
+   state; a reload of a link's page offered the proof it had just
+   opened, once more per reload. Holds. Every visit saves under a key of
+   its own with the time, the copy saved last wins when visits are
+   gathered, and a proof open already is taken out of the bar; the
+   shelf's tests have both cases, and the link's Playwright test reloads
+   and finds no bar.
+5. **A worker that failed as it loaded was restarted forever** (185
+   workers in 200 ms in the reviewer's probe). Holds. A worker starts
+   with a call, never by itself; the protocol's tests pin that a failing
+   worker is not restarted without a call, and that the next call starts
+   the fresh one (the cancel test changed with the behaviour, as the
+   commit says).
+
+Sound by the reviewer's reading: ids never reused, so a late answer of a
+stopped worker is ignored; a replay is one request; paths, not goal
+numbers; undo past a split and on a finished proof; single-inference
+grafts and `close_all`'s history replay alike; the link's round trip,
+its 2000-character fallback, a bad document or an unknown level; import
+of a session, a sequent and an unknown level.
+
+### Left open, for 32c
+
+- D31's hosting: the Pages deployment (`upload-pages-artifact`,
+  `deploy-pages`) in the CI workflow, a `404.html`, the rustdoc staying
+  at `/linlog`; GitHub's own Jekyll build of `main` failed and published
+  nothing (planning), so the workflow will be the only publisher.
+- D42's security baseline: the CSP as a `<meta>` tag with
+  `'wasm-unsafe-eval'` and the hashes of Astro's inline scripts (the
+  pre-paint theme script, the island's loader).
+- D32's other half: Vite's `build.license` for the npm bundle, served
+  with the package's `THIRD-PARTY-NOTICES.txt` and the font's `OFL.txt`
+  (the font is served under `/_astro/` today, its licence not yet
+  beside it), item 6's CC BY 4.0 on the pages that carry written
+  content.
+- D49 (offline and installable), D52 (About, with the footer's line on
+  GitHub's logs, D36), D7 (the examples list), D8 (the tour), D6 and
+  D47 (Learn and its frame), D21 and D23, and the repository's website
+  field.
+- Lucide's version and Solid binding checked at build time (D54): the
+  package is pinned by the lock, nothing checks it further.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io`, `main`
+  on GitHub at `ynkuklvx`; the commits above it (`zxmmnkol`, `smkwwtyy`,
+  `pzptystz`, `vllkpqqv`, `vzqxtknr`) are local, for planning to review
+  and push. Planning's review workspace
+  (`planning-review`, its empty change `wwpzpvnx`) is planning's.
+- linlog: `../linlog-step32b`, this report's commit on `nqsytyrq`.
