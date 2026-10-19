@@ -278,6 +278,11 @@ pub struct Mode {
     pub(crate) mix: bool,
     /// Whether the order of a sequent's formulas counts.
     pub(crate) order: Order,
+    /// In an ordered intuitionistic mode, whether a sequent may have no
+    /// formula left of `⊢`: the Lambek calculus with empty antecedents
+    /// (`L*`) rather than without (`L`). False in every other mode, which
+    /// has no such restriction to lift.
+    pub(crate) empty_antecedents: bool,
 }
 
 /// Whether a calculus keeps the order of a sequent's formulas.
@@ -309,6 +314,7 @@ impl Mode {
         affine: false,
         mix: false,
         order: Order::Commutative,
+        empty_antecedents: false,
     };
 
     /// Intuitionistic linear logic without Mix.
@@ -317,6 +323,7 @@ impl Mode {
         affine: false,
         mix: false,
         order: Order::Commutative,
+        empty_antecedents: false,
     };
 
     /// Cyclic linear logic without Mix: classical, one-sided, with the
@@ -326,6 +333,22 @@ impl Mode {
         affine: false,
         mix: false,
         order: Order::Cyclic,
+        empty_antecedents: false,
+    };
+
+    /// The Lambek calculus `L`: intuitionistic and in the cyclic order,
+    /// a sequent `A₁, …, Aₙ ⊢ B` with its hypotheses in the order written
+    /// and at least one of them, with the two divisions `A \ B` and
+    /// `B / A` and the product `A ⊗ B`. It is the fragment of cyclic MLL
+    /// whose sequents and every subproof's have one output and at least
+    /// one input; [`with_empty_antecedents`](Self::with_empty_antecedents)
+    /// lifts the last condition (`L*`).
+    pub const LAMBEK: Self = Self {
+        intuitionistic: true,
+        affine: false,
+        mix: false,
+        order: Order::Cyclic,
+        empty_antecedents: false,
     };
 
     /// The names of the modes a calculus has, as [`name`](Self::name)
@@ -338,6 +361,8 @@ impl Mode {
         "intuitionistic",
         "intuitionistic-affine",
         "cyclic",
+        "lambek",
+        "lambek-star",
     ];
 
     /// Returns whether sequents are intuitionistic, with one formula on
@@ -383,15 +408,34 @@ impl Mode {
         Self { mix: true, ..self }
     }
 
+    /// Returns the mode with sequents allowed that have no formula left
+    /// of `⊢`: the Lambek calculus `L*` from [`LAMBEK`](Self::LAMBEK).
+    /// Every other mode allows them already and comes back as it is.
+    #[must_use]
+    pub const fn with_empty_antecedents(self) -> Self {
+        Self {
+            empty_antecedents: self.intuitionistic && self.is_ordered(),
+            ..self
+        }
+    }
+
+    /// Returns whether a sequent may have no formula left of `⊢`: true in
+    /// every mode but the Lambek calculus without empty antecedents,
+    /// where every sequent of a proof keeps a hypothesis.
+    pub const fn allows_empty_antecedents(self) -> bool {
+        !(self.intuitionistic && self.is_ordered()) || self.empty_antecedents
+    }
+
     /// Returns the mode's name: one of [`NAMES`](Self::NAMES), or for a
     /// mode [`check`](Self::check) refuses, the words of what it combines
-    /// (`intuitionistic-mix`, `cyclic-affine`, …).
+    /// (`intuitionistic-mix`, `cyclic-affine`, `lambek-mix`, …).
     pub const fn name(self) -> &'static str {
         let Self {
             intuitionistic,
             affine,
             mix,
             order,
+            empty_antecedents: star,
         } = self;
         match (order, intuitionistic, affine, mix) {
             (Order::Commutative, false, false, false) => "classical",
@@ -406,24 +450,26 @@ impl Mode {
             (Order::Cyclic, false, true, false) => "cyclic-affine",
             (Order::Cyclic, false, false, true) => "cyclic-mix",
             (Order::Cyclic, false, true, true) => "cyclic-affine-mix",
-            (Order::Cyclic, true, false, false) => "cyclic-intuitionistic",
-            (Order::Cyclic, true, true, false) => "cyclic-intuitionistic-affine",
-            (Order::Cyclic, true, false, true) => "cyclic-intuitionistic-mix",
-            (Order::Cyclic, true, true, true) => "cyclic-intuitionistic-affine-mix",
+            (Order::Cyclic, true, false, false) if star => "lambek-star",
+            (Order::Cyclic, true, false, false) => "lambek",
+            (Order::Cyclic, true, true, false) if star => "lambek-star-affine",
+            (Order::Cyclic, true, true, false) => "lambek-affine",
+            (Order::Cyclic, true, false, true) if star => "lambek-star-mix",
+            (Order::Cyclic, true, false, true) => "lambek-mix",
+            (Order::Cyclic, true, true, true) if star => "lambek-star-affine-mix",
+            (Order::Cyclic, true, true, true) => "lambek-affine-mix",
         }
     }
 
     /// Refuses a combination no calculus has: intuitionistic with Mix,
-    /// and an ordered mode with weakening, Mix or the intuitionistic
-    /// reading.
+    /// and an ordered mode with weakening or Mix.
     ///
     /// # Errors
     ///
     /// [`Error::IntuitionisticMix`] for an intuitionistic mode with Mix,
-    /// [`Error::OrderedMode`] for an ordered mode with weakening, Mix or
-    /// the intuitionistic reading.
+    /// [`Error::OrderedMode`] for an ordered mode with weakening or Mix.
     pub const fn check(self) -> Result<(), Error> {
-        if self.is_ordered() && (self.intuitionistic || self.affine || self.mix) {
+        if self.is_ordered() && (self.affine || self.mix) {
             Err(Error::OrderedMode { mode: self })
         } else if self.intuitionistic && self.mix {
             Err(Error::IntuitionisticMix)
@@ -447,6 +493,8 @@ impl FromStr for Mode {
             "intuitionistic" => Self::INTUITIONISTIC,
             "intuitionistic-affine" => Self::INTUITIONISTIC.with_affine(),
             "cyclic" => Self::CYCLIC,
+            "lambek" => Self::LAMBEK,
+            "lambek-star" => Self::LAMBEK.with_empty_antecedents(),
             _ => {
                 return Err(Error::UnknownName {
                     what: "mode",
@@ -461,20 +509,24 @@ impl FromStr for Mode {
 
 impl Display for Mode {
     /// Writes the mode in words: `classical`, `intuitionistic` or, where
-    /// the order counts, `cyclic`, then `affine` and `with Mix` where they
-    /// apply.
+    /// the order counts, `cyclic` or `Lambek`, then `affine` and `with
+    /// Mix` where they apply, and for the Lambek calculus `with empty
+    /// antecedents` where it allows them.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(match (self.is_ordered(), self.intuitionistic) {
             (false, false) => "classical",
             (false, true) => "intuitionistic",
             (true, false) => "cyclic",
-            (true, true) => "cyclic intuitionistic",
+            (true, true) => "Lambek",
         })?;
         if self.affine {
             f.write_str(" affine")?;
         }
         if self.mix {
             f.write_str(" with Mix")?;
+        }
+        if self.empty_antecedents {
+            f.write_str(" with empty antecedents")?;
         }
         Ok(())
     }
@@ -569,6 +621,8 @@ mod tests {
             Mode::INTUITIONISTIC,
             Mode::INTUITIONISTIC.with_affine(),
             Mode::CYCLIC,
+            Mode::LAMBEK,
+            Mode::LAMBEK.with_empty_antecedents(),
         ];
         assert_eq!(modes.map(Mode::name), Mode::NAMES);
         for mode in modes {
@@ -580,7 +634,7 @@ mod tests {
             assert!(matches!(refused.check(), Err(Error::OrderedMode { mode }) if mode == refused));
         }
         assert!(matches!(
-            "lambek".parse::<Mode>(),
+            "planar".parse::<Mode>(),
             Err(Error::UnknownName {
                 what: "mode",
                 known: Mode::NAMES,
@@ -662,5 +716,28 @@ mod tests {
             "intuitionistic with Mix"
         );
         assert_eq!(Mode::CYCLIC.to_string(), "cyclic");
+        assert_eq!(Mode::LAMBEK.to_string(), "Lambek");
+        assert_eq!(
+            Mode::LAMBEK.with_empty_antecedents().to_string(),
+            "Lambek with empty antecedents"
+        );
+    }
+
+    /// Only the Lambek calculus forbids empty antecedents, and lifting
+    /// the restriction changes no other mode.
+    #[test]
+    fn empty_antecedents() {
+        assert!(!Mode::LAMBEK.allows_empty_antecedents());
+        let star = Mode::LAMBEK.with_empty_antecedents();
+        assert!(star.allows_empty_antecedents() && star != Mode::LAMBEK);
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC, Mode::CYCLIC] {
+            assert!(mode.allows_empty_antecedents());
+            assert_eq!(mode.with_empty_antecedents(), mode);
+        }
+        assert_eq!(Mode::LAMBEK.check(), Ok(()));
+        assert!(matches!(
+            Mode::LAMBEK.with_affine().check(),
+            Err(Error::OrderedMode { .. })
+        ));
     }
 }

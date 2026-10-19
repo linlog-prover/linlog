@@ -1316,7 +1316,7 @@ fn batch_inputs_and_exit_status() {
             out,
             "one: provable (IMLL, intuitionistic, two-sided engine)\ntwo: error: unknown mode \
              `nonsense`: classical, affine, mix, affine-mix, intuitionistic, \
-             intuitionistic-affine or cyclic\n"
+             intuitionistic-affine, cyclic, lambek or lambek-star\n"
         );
         assert_eq!(status, 2);
     }

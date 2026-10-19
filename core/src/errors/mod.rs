@@ -275,13 +275,10 @@ pub enum Error {
     /// premise of a Mix would have no goal.
     #[error("Mix has no intuitionistic form: a premise of a Mix would have no goal")]
     IntuitionisticMix,
-    /// An ordered mode was asked for with weakening, Mix or the
-    /// intuitionistic reading, which no calculus here combines with the
-    /// order: weakening and Mix would let a formula, or a whole premise,
-    /// stand anywhere in the order.
-    #[error(
-        "{mode} mode has no calculus: an ordered mode takes neither weakening, Mix nor the intuitionistic reading"
-    )]
+    /// An ordered mode was asked for with weakening or Mix, which no
+    /// calculus here combines with the order: they would let a formula,
+    /// or a whole premise, stand anywhere in the order.
+    #[error("{mode} mode has no calculus: an ordered mode takes neither weakening nor Mix")]
     #[non_exhaustive]
     OrderedMode {
         /// The mode asked for.

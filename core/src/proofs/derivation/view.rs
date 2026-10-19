@@ -238,19 +238,34 @@ impl<'a> Derivation<'a> {
     /// it shows where used.
     pub(crate) const TWO_SIDED: Mode = Mode::INTUITIONISTIC.with_affine();
 
+    /// The rules of a two-sided derivation of `proof`: of the Lambek
+    /// calculus with empty antecedents for a proof meant for an ordered
+    /// mode, read in its order, and [`TWO_SIDED`](Self::TWO_SIDED) for
+    /// any other.
+    pub(crate) fn two_sided_mode(proof: &Proof) -> Mode {
+        if proof.mode().is_some_and(Mode::is_ordered) {
+            Mode::LAMBEK.with_empty_antecedents()
+        } else {
+            Self::TWO_SIDED
+        }
+    }
+
     /// Unfolds a proof into the two-sided derivation of intuitionistic
     /// linear logic, `Γ ⊢ A` at every inference with the intuitionistic
     /// rule names, unless it is larger than `view` allows or `stop` fires
     /// on the way. The proof must pass the checker in intuitionistic mode
-    /// (affine or not), and the unfolding fails as it would otherwise.
+    /// (affine or not), or for a proof meant for an ordered mode in the
+    /// Lambek calculus with empty antecedents, read in its order, and the
+    /// unfolding fails as it would otherwise.
     pub(crate) fn two_sided(
         proof: &'a Proof,
         view: &ViewOptions,
         limits: &Limits,
         stop: impl FnMut(Progress) -> bool,
     ) -> Result<Self, Error> {
-        let reading = check::reading(proof, Self::TWO_SIDED)?;
-        Self::build(proof, Self::TWO_SIDED, reading, view, limits, stop)
+        let mode = Self::two_sided_mode(proof);
+        let reading = check::reading(proof, mode)?;
+        Self::build(proof, mode, reading, view, limits, stop)
     }
 
     /// Checks the proof in `mode` and unfolds it, two-sided when a reading

@@ -507,7 +507,7 @@ fn the_reading_puts_exactly_the_heads_on_the_left() {
     let sequent: Sequent = "|- ~b * a, ~a, b".parse().unwrap();
     let forest = Forest::new(&sequent).unwrap();
     let reads = |sides: &[Side]| {
-        let reading = Reading::of_parts(&forest, sides, forest.roots()[2]);
+        let reading = Reading::of_parts(&forest, sides, forest.roots()[2], false);
         let task = Task {
             forest: &forest,
             goal: forest.roots(),

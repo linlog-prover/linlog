@@ -36,7 +36,7 @@ pub use derivation::{Compact, Derivation, InfId, Inference, Sides, ViewOptions};
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
 pub use interactive::{GoalId, Interactive, Step, StepError};
-pub use rule::{Named, Rule};
+pub use rule::{Division, Named, Rule};
 pub use size::Size;
 pub use style::{Labels, OpenGoal};
 

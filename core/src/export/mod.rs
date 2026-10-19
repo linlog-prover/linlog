@@ -114,7 +114,7 @@ pub(crate) fn math(
     match printed(sequent, mode, per_occurrence, limits)? {
         None => notation.one_sided(&mut out, sequent),
         Some(forest) => {
-            let reading = crate::occurrences::Reading::new(&forest)
+            let reading = crate::occurrences::Reading::of_mode(&forest, mode)
                 .map_err(crate::Error::NotIntuitionistic)?;
             let roots = forest.root_members();
             notation.sequent(&mut out, &forest, Some(&reading), &roots, false, false)

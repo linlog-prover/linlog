@@ -148,6 +148,8 @@ mod tests {
             Mode::INTUITIONISTIC,
             Mode::INTUITIONISTIC.with_affine(),
             Mode::CYCLIC,
+            Mode::LAMBEK,
+            Mode::LAMBEK.with_empty_antecedents(),
         ];
         let mut rng = Rng::new(7);
         let (mut mutants, mut rejected) = (0, 0);
@@ -166,7 +168,12 @@ mod tests {
                     continue;
                 };
                 mutants += 1;
-                for mode in [*mode, classical.with_affine().with_mix(), Mode::CYCLIC] {
+                for mode in [
+                    *mode,
+                    classical.with_affine().with_mix(),
+                    Mode::CYCLIC,
+                    Mode::LAMBEK,
+                ] {
                     let result = check(&mutant, mode);
                     rejected += u32::from(result.is_err());
                     assert_eq!(
@@ -1068,6 +1075,60 @@ mod tests {
         assert_eq!(
             one.check(cyclic).unwrap_err().fault(),
             Some(&Fault::Forbidden)
+        );
+    }
+
+    /// In the Lambek calculus every sequent of a proof keeps a hypothesis
+    /// unless empty antecedents are allowed, and the ordered reading
+    /// takes either factor as a division's antecedent; the oracle agrees.
+    #[test]
+    fn lambek() {
+        use Node::*;
+        let ordered = |input: &str, nodes: Vec<Node>| {
+            let s = Sequent::parse_ordered(input, crate::Order::Cyclic, &crate::Limits::default())
+                .unwrap();
+            let root = n(nodes.len() as u32 - 1);
+            Proof::new(Forest::new(&s).unwrap(), nodes, root).unwrap()
+        };
+        let (lambek, star) = (Mode::LAMBEK, Mode::LAMBEK.with_empty_antecedents());
+        // a ⊢ (b \ b) ⊗ a, that is ⊢ ~a, (~b ⅋ b) ⊗ a: 0 ~a, 1 ⊗, 2 ⅋,
+        // 3 ~b, 4 b, 5 a. The `⊗R`'s left premise ⊢ b \ b has no
+        // hypothesis.
+        let empty = ordered(
+            "a |- (b \\ b) * a",
+            vec![
+                Ax(o(3), o(4)),
+                Par(o(2), n(0)),
+                Ax(o(0), o(5)),
+                Tensor(o(1), n(1), n(2)),
+            ],
+        );
+        assert_eq!(empty.check(star), Ok(()));
+        assert_eq!(oracle::check(&empty, star), Ok(()));
+        let error = empty.check(lambek).unwrap_err();
+        assert_eq!(
+            (error.node(), error.fault()),
+            (n(1), Some(&Fault::EmptyAntecedent))
+        );
+        assert_eq!(oracle::check(&empty, lambek), Err(error));
+        // b / a, a ⊢ b, that is ⊢ ~a, a ⊗ ~b, b: 0 ~a, 1 ⊗, 2 a, 3 ~b,
+        // 4 b, the antecedent the right factor of `b ⅋ ~a`.
+        let over = ordered(
+            "b / a, a |- b",
+            vec![Ax(o(0), o(2)), Ax(o(3), o(4)), Tensor(o(1), n(0), n(1))],
+        );
+        for mode in [lambek, star] {
+            assert_eq!(over.check(mode), Ok(()));
+            assert_eq!(oracle::check(&over, mode), Ok(()));
+        }
+        // ⊢ a \ a has no hypothesis at all.
+        let bare = ordered("|- a \\ a", vec![Ax(o(1), o(2)), Par(o(0), n(0))]);
+        assert_eq!(bare.check(star), Ok(()));
+        assert_eq!(
+            bare.check(lambek).unwrap_err().fault(),
+            Some(&Fault::Shape(
+                crate::occurrences::ShapeError::EmptyAntecedent
+            ))
         );
     }
 

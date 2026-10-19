@@ -900,7 +900,7 @@ fn read(forest: &Forest, mode: Mode) -> Result<Option<Reading<'_>>, Error> {
     if !mode.intuitionistic {
         return Ok(None);
     }
-    Reading::new(forest)
+    Reading::of_mode(forest, mode)
         .map(Some)
         .map_err(Error::NotIntuitionistic)
 }
@@ -1172,6 +1172,7 @@ impl Modes {
             affine: _,
             mix: _,
             order,
+            empty_antecedents: _,
         } = mode;
         let commutative = order == Order::Commutative;
         match self {

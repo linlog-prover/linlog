@@ -148,6 +148,22 @@ pub struct Named {
     /// derivation; `None` one-sided, and for a rule whose name has no side
     /// (the axiom, Mix, affine weakening, an open goal).
     pub side: Option<Side>,
+    /// In a two-sided derivation of the Lambek calculus, the division a
+    /// rule of an implication acts on (`\L`, `\R`, `/L`, `/R`); `None`
+    /// for every other rule and in every other derivation, where the
+    /// implication is `⊸`.
+    pub division: Option<Division>,
+}
+
+/// One of the two divisions of the Lambek calculus, the implications of
+/// its ordered reading ([`Reading::of_mode`](crate::Reading::of_mode)).
+/// The type is closed, as the calculus is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Division {
+    /// `A \ B`, whose antecedent `A` is written first: `A, A \ B ⊢ B`.
+    Under,
+    /// `B / A`, whose antecedent `A` is written second: `B / A, A ⊢ B`.
+    Over,
 }
 
 impl Named {
@@ -206,15 +222,71 @@ impl Named {
             (One | Promotion, Some(_)) => Some(Output),
             (_, side) => side,
         };
-        Self { rule, side }
+        Self {
+            rule,
+            side,
+            division: None,
+        }
+    }
+
+    /// The rules of the two divisions, `\L`, `\R`, `/L` and `/R`, which
+    /// follow [`ALL`](Self::ALL) in the label tables.
+    pub(crate) const DIVISIONS: [Self; 4] = [
+        divided(Rule::Tensor, Side::Input, Division::Under),
+        divided(Rule::Par, Side::Output, Division::Under),
+        divided(Rule::Tensor, Side::Input, Division::Over),
+        divided(Rule::Par, Side::Output, Division::Over),
+    ];
+
+    /// Returns the rule `rule` applied to `o` as a derivation under
+    /// `reading` names it, or one-sided without a reading: on the side
+    /// of `⊢` the formula stands on, and in the Lambek calculus's ordered
+    /// reading with the division it is.
+    pub(crate) fn applied(
+        rule: Rule,
+        reading: Option<&crate::Reading<'_>>,
+        o: crate::OccId,
+    ) -> Self {
+        use crate::occurrences::IllConnective as C;
+        let named = Self::new(rule, reading.map(|reading| reading.position(o)));
+        let division = match reading.map(|reading| reading.connective(o)) {
+            Some(C::Under) => Division::Under,
+            Some(C::Over) => Division::Over,
+            _ => return named,
+        };
+        match (named.rule, named.side) {
+            (Rule::Tensor, Some(Side::Input)) | (Rule::Par, Some(Side::Output)) => Self {
+                division: Some(division),
+                ..named
+            },
+            _ => named,
+        }
+    }
+
+    /// Returns the rule at `index` of the label tables: of
+    /// [`ALL`](Self::ALL), then of the divisions.
+    pub(crate) const fn at(index: usize) -> Self {
+        if index < Self::ALL.len() {
+            Self::ALL[index]
+        } else {
+            Self::DIVISIONS[index - Self::ALL.len()]
+        }
     }
 
     /// Returns the name: the rule's, or two-sided `⊸L`, `⊸R`, `⊗L`, `⊗R`,
     /// `&L₁`, `&L₂`, `&R`, `⊕L`, `⊕R₁`, `⊕R₂`, `1L`, `1R`, `0L`, `⊤R`, `!L`,
-    /// `!R`, `!c` or `!w`.
+    /// `!R`, `!c` or `!w`, and in the Lambek calculus `\L`, `\R`, `/L` or
+    /// `/R`.
     pub const fn name(self) -> &'static str {
         use Rule::*;
         use Side::{Input, Output};
+        match (self.rule, self.side, self.division) {
+            (Tensor, Some(Input), Some(Division::Under)) => return "\\L",
+            (Par, Some(Output), Some(Division::Under)) => return "\\R",
+            (Tensor, Some(Input), Some(Division::Over)) => return "/L",
+            (Par, Some(Output), Some(Division::Over)) => return "/R",
+            _ => {}
+        }
         match (self.rule, self.side) {
             (Tensor, Some(Input)) => "⊸L",
             (Par, Some(Output)) => "⊸R",
@@ -243,9 +315,13 @@ impl Named {
         self.rule.is_structural()
     }
 
-    /// Returns the rule's place in [`ALL`](Self::ALL), by which the label
-    /// tables are indexed.
+    /// Returns the rule's place in [`ALL`](Self::ALL), or after it among
+    /// the divisions, by which the label tables are indexed.
     pub(crate) const fn index(self) -> usize {
+        if let Some(division) = self.division {
+            let left = matches!(self.rule, Rule::Tensor);
+            return Self::ALL.len() + 2 * (division as usize) + if left { 0 } else { 1 };
+        }
         let mut i = 0;
         while i < Self::ALL.len() {
             let named = Self::ALL[i];
@@ -262,7 +338,11 @@ impl Named {
 
 /// Returns the rule named one-sided, for [`Named::ALL`].
 const fn one_sided(rule: Rule) -> Named {
-    Named { rule, side: None }
+    Named {
+        rule,
+        side: None,
+        division: None,
+    }
 }
 
 /// Returns the rule named on `side`, for [`Named::ALL`].
@@ -270,6 +350,17 @@ const fn two_sided(rule: Rule, side: Side) -> Named {
     Named {
         rule,
         side: Some(side),
+        division: None,
+    }
+}
+
+/// Returns the rule of a division named on `side`, for
+/// [`Named::DIVISIONS`].
+const fn divided(rule: Rule, side: Side, division: Division) -> Named {
+    Named {
+        rule,
+        side: Some(side),
+        division: Some(division),
     }
 }
 
@@ -285,7 +376,7 @@ const fn same_side(a: Option<Side>, b: Option<Side>) -> bool {
 impl From<Rule> for Named {
     /// The rule named one-sided.
     fn from(rule: Rule) -> Self {
-        Self { rule, side: None }
+        one_sided(rule)
     }
 }
 
@@ -307,6 +398,9 @@ impl FromStr for Named {
     fn from_str(text: &str) -> Result<Self, Error> {
         use Rule::*;
         use Side::{Input, Output};
+        if let Some(&named) = Self::DIVISIONS.iter().find(|named| named.name() == text) {
+            return Ok(named);
+        }
         let (rule, side) = match text {
             "ax" => (Ax, None),
             "⊗" | "*" => (Tensor, None),
@@ -346,7 +440,7 @@ impl FromStr for Named {
                 return Err(Error::UnknownName {
                     what: "rule",
                     name: text.into(),
-                    known: NAMES,
+                    known: KNOWN,
                 });
             }
         };
@@ -355,10 +449,15 @@ impl FromStr for Named {
 }
 
 /// The names of [`Named::ALL`], in its order.
-const NAMES: &[&str] = &[
+#[cfg(test)]
+const NAMES: &[&str] = KNOWN.split_at(Named::ALL.len()).0;
+
+/// The names of [`Named::ALL`], in its order, then those of the
+/// divisions.
+const KNOWN: &[&str] = &[
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "⊸L", "⊸R",
     "⊗L", "⊗R", "&L₁", "&L₂", "&R", "⊕L", "⊕R₁", "⊕R₂", "1L", "1R", "0L", "⊤R", "!L", "!R", "!c",
-    "!w", "open",
+    "!w", "open", "\\L", "\\R", "/L", "/R",
 ];
 
 #[cfg(test)]
@@ -380,6 +479,12 @@ mod tests {
                 let named = Named::new(rule, side);
                 assert_eq!(Named::ALL[named.index()], named, "{named:?}");
             }
+        }
+        for (i, named) in Named::DIVISIONS.into_iter().enumerate() {
+            let index = Named::ALL.len() + i;
+            assert_eq!(named.name(), KNOWN[index]);
+            assert_eq!(named.name().parse::<Named>().unwrap(), named, "{named:?}");
+            assert_eq!((named.index(), Named::at(index)), (index, named));
         }
         assert!("?x".parse::<Named>().is_err());
     }

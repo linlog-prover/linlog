@@ -58,11 +58,11 @@ impl Interactive {
         if self.mode.mix {
             rules.push(Mix);
         }
-        let side = self.reading().map(|reading| reading.position(o));
+        let reading = self.reading();
         Ok(rules
             .into_iter()
             .map(|rule| Applicable {
-                rule: Named::new(rule, side),
+                rule: Named::applied(rule, reading.as_ref(), o),
                 needs: match rule {
                     Tensor | Mix => Needs::Split,
                     Ax | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
@@ -96,7 +96,7 @@ impl Interactive {
             let o = formula_at(&sequent, position)?;
             let rule = match &reading {
                 Some(reading) => {
-                    let named = rule.rule.on(reading.position(o));
+                    let named = Named::applied(rule.rule, Some(reading), o);
                     if rule.side.is_some() && rule != named {
                         return Err(StepError::Rule { rule, position });
                     }
@@ -165,7 +165,7 @@ impl Interactive {
             Mix => true,
             Open => false,
         };
-        let named = Named::new(classical, reading.map(|reading| reading.position(o)));
+        let named = Named::applied(classical, reading, o);
         if !acts || rule != named {
             return Err(StepError::Rule { rule, position });
         }
@@ -320,7 +320,7 @@ impl Interactive {
             Rule::Mix
         };
         let reading = self.reading();
-        let rule = Named::new(rule, reading.as_ref().map(|reading| reading.position(o)));
+        let rule = Named::applied(rule, reading.as_ref(), o);
         let premises = self.expand(reading.as_ref(), &sequent, position, rule, left)?;
         let [l, r] = premises.as_slice() else {
             unreachable!("a split has two premises");

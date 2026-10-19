@@ -476,6 +476,8 @@ const NOTATION: Notation = Notation {
     with: "&",
     plus: "⊕",
     lollipop: "⊸",
+    under: "\\",
+    over: "/",
     bang: "!",
     quest: "?",
     one: "1",
@@ -836,7 +838,7 @@ pub fn sequent(
         match super::printed(sequent, mode, PER_OCCURRENCE, limits)? {
             None => one_sided(sequent, style),
             Some(forest) => {
-                let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
+                let reading = Reading::of_mode(&forest, mode).map_err(Error::NotIntuitionistic)?;
                 two_sided(&reading, style)
             }
         },

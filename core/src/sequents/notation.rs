@@ -27,6 +27,11 @@ pub(crate) struct Notation {
     pub(crate) plus: &'static str,
     /// `⊸`, which only a two-sided sequent shows.
     pub(crate) lollipop: &'static str,
+    /// `\`, the left division, which only a two-sided sequent of the
+    /// Lambek calculus shows.
+    pub(crate) under: &'static str,
+    /// `/`, the right division, as `under`.
+    pub(crate) over: &'static str,
     /// `!`
     pub(crate) bang: &'static str,
     /// `?`
@@ -63,6 +68,8 @@ pub(crate) const TEXT: Notation = Notation {
     with: "&",
     plus: "⊕",
     lollipop: "⊸",
+    under: "\\",
+    over: "/",
     bang: "!",
     quest: "?",
     one: "1",
@@ -192,10 +199,10 @@ impl Notation {
                     C::One => out.write_str(self.one)?,
                     C::Top => out.write_str(self.top)?,
                     C::Zero => out.write_str(self.zero)?,
-                    C::Tensor | C::With | C::Plus | C::Lollipop if nested => {
+                    C::Tensor | C::With | C::Plus | C::Lollipop | C::Under | C::Over if nested => {
                         out.write_char('(')?;
                     }
-                    C::Tensor | C::With | C::Plus | C::Lollipop => {}
+                    C::Tensor | C::With | C::Plus | C::Lollipop | C::Under | C::Over => {}
                     C::Bang => out.write_str(self.bang)?,
                 },
                 Stop::Between(o) => {
@@ -203,6 +210,8 @@ impl Notation {
                     out.write_str(match reading.connective(o) {
                         C::Tensor => self.tensor,
                         C::Lollipop => self.lollipop,
+                        C::Under => self.under,
+                        C::Over => self.over,
                         C::With => self.with,
                         C::Atom | C::One | C::Top | C::Zero | C::Bang | C::Plus => self.plus,
                     })?;
@@ -230,8 +239,8 @@ impl Notation {
     }
 
     /// Writes a sequent of a derivation, occurrences in ascending order:
-    /// one-sided, or two-sided under a reading with the hypotheses in id
-    /// order before the turnstile and the goal after it, which `aligned`
+    /// one-sided, or two-sided under a reading with the hypotheses in the
+    /// order it writes them before the turnstile and the goal after it, which `aligned`
     /// lines up with the turnstiles above and below. With `marks`, every
     /// formula stands between the two characters `'\u{2}'` and `'\u{3}'`.
     pub(crate) fn sequent<W: Write>(
@@ -254,10 +263,12 @@ impl Notation {
             }
             return Ok(());
         };
-        let members = || sequent.iter().map(|m| m.occ());
         let output = |o: OccId| reading.position(o) == Side::Output;
-        let goal = members().rfind(|&o| output(o));
-        let hypotheses = members().filter(|&o| !output(o));
+        let goal = sequent.iter().map(|m| m.occ()).rfind(|&o| output(o));
+        let hypotheses = reading
+            .written(sequent)
+            .map(|p| sequent[p].occ())
+            .filter(|&o| !output(o));
         self.two_sided(out, reading, hypotheses, goal, aligned, (open, close))
     }
 

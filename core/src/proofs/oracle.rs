@@ -60,7 +60,7 @@ impl Derived {
 /// Returns the first node that fails, in arena order, with what it needed.
 pub(crate) fn check(proof: &Proof, mode: Mode) -> Result<(), CheckError> {
     let reading = if mode.intuitionistic {
-        match Reading::new(proof.forest()) {
+        match Reading::of_mode(proof.forest(), mode) {
             Ok(reading) => Some(reading),
             Err(e) => {
                 return Err(CheckError::invalid(
@@ -262,7 +262,27 @@ impl<'a> Step<'a> {
         if d.gamma.as_slice().len() > room {
             return Err(self.fail(Fault::Surplus));
         }
-        self.one_succedent(d)
+        self.one_succedent(d).and_then(|d| self.antecedent(d))
+    }
+
+    /// In the Lambek calculus without empty antecedents, checks that what
+    /// the node derived holds a formula in input position.
+    fn antecedent(&self, d: Derived) -> Result<Derived, CheckError> {
+        let Some(reading) = self
+            .reading
+            .filter(|_| !self.mode.allows_empty_antecedents())
+        else {
+            return Ok(d);
+        };
+        if d.gamma
+            .as_slice()
+            .iter()
+            .any(|&o| reading.position(o) == Side::Input)
+        {
+            Ok(d)
+        } else {
+            Err(self.fail(Fault::EmptyAntecedent))
+        }
     }
 
     /// Whether the conclusion of a `⊗` at `o` over the contexts `left` and

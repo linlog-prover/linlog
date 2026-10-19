@@ -13,10 +13,11 @@
 //! this build reads and writes. The writer computes the level from the
 //! content, so a value that a later release represents as this one does
 //! keeps its bytes. Level 1 is that of 0.1.0; level 2 adds the classical
-//! refutation (`{"kind": "classical", "assignment": […]}`) and the cyclic
-//! mode (`"mode": "cyclic"`, and `"order": "cyclic"` in a proof
-//! structure), so a disproof or an unprovable outcome that holds the
-//! refutation and a document of the cyclic mode are written at level 2,
+//! refutation (`{"kind": "classical", "assignment": […]}`) and the
+//! ordered modes (`"mode": "cyclic"`, `"lambek"` and `"lambek-star"`, the
+//! rules of the Lambek calculus's divisions, and `"order": "cyclic"` in a
+//! proof structure), so a disproof or an unprovable outcome that holds
+//! the refutation and a document of an ordered mode are written at level 2,
 //! and every other document at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes

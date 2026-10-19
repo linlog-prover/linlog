@@ -95,6 +95,9 @@ pub enum ShapeError {
         /// The second.
         second: OccId,
     },
+    /// In the Lambek calculus without empty antecedents, the sequent has
+    /// no formula left of `⊢`.
+    EmptyAntecedent,
 }
 
 impl Display for ShapeError {
@@ -164,6 +167,9 @@ impl ShapeError {
                 occurrence(f, *b)?;
                 f.write_str(" can only be the goal, but an intuitionistic sequent has one")
             }
+            ShapeError::EmptyAntecedent => f.write_str(
+                "the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents needs",
+            ),
             ShapeError::Formula { occurrence: o } => {
                 f.write_str(if forest.is_some() {
                     "the subformula "
@@ -244,6 +250,8 @@ pub struct Reading<'a> {
     position: Cow<'a, [Side]>,
     /// The goal.
     goal: OccId,
+    /// Whether the reading is the ordered one of the Lambek calculus.
+    ordered: bool,
 }
 
 impl<'a> Reading<'a> {
@@ -261,6 +269,54 @@ impl<'a> Reading<'a> {
     /// [`SeveralGoals`](ShapeError::SeveralGoals) or
     /// [`Undetermined`](ShapeError::Undetermined).
     pub fn new(forest: &'a Forest) -> Result<Self, ShapeError> {
+        Self::read(forest, false)
+    }
+
+    /// Reads the forest as a sequent of `mode`: as [`new`](Self::new)
+    /// does in a commutative mode, and in an ordered one as a sequent of
+    /// the Lambek calculus, whose formulas stand in the cyclic order of
+    /// [`Sequent::parse_ordered`](crate::Sequent::parse_ordered). There
+    /// an implication is a division, its antecedent the factor in the
+    /// other position from it, whichever that is: in output position
+    /// `A⊥ ⅋ B` is `A \ B` and `B ⅋ A⊥` is `B / A`, and in input
+    /// position, where the reversing dual turned every product round,
+    /// the operands of `⊗` and `⅋` are written right one first, so that
+    /// `B⊥ ⊗ A` is the hypothesis `A \ B` and `A ⊗ B⊥` is `B / A`. The
+    /// hypotheses are read going round from the goal backwards, which is
+    /// the order they were written in. Without empty antecedents
+    /// ([`Mode::allows_empty_antecedents`]) a sequent needs a hypothesis.
+    ///
+    /// [`Mode::allows_empty_antecedents`]: crate::Mode::allows_empty_antecedents
+    ///
+    /// # Errors
+    ///
+    /// Those of [`new`](Self::new), and [`ShapeError::EmptyAntecedent`]
+    /// for a sequent without a hypothesis in the Lambek calculus without
+    /// empty antecedents.
+    ///
+    /// # Examples
+    ///
+    #[cfg_attr(feature = "parse", doc = "```")]
+    #[cfg_attr(not(feature = "parse"), doc = "```ignore")]
+    /// use linlog::{Forest, Limits, Mode, Order, Reading, Sequent};
+    ///
+    /// let text = "b / a, a |- b";
+    /// let sequent = Sequent::parse_ordered(text, Order::Cyclic, &Limits::default())?;
+    /// let forest = Forest::new(&sequent)?;
+    /// let reading = Reading::of_mode(&forest, Mode::LAMBEK)?;
+    /// assert_eq!(reading.to_string(), "b / a, a ⊢ b");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn of_mode(forest: &'a Forest, mode: crate::Mode) -> Result<Self, ShapeError> {
+        let reading = Self::read(forest, mode.is_ordered())?;
+        if !mode.allows_empty_antecedents() && forest.roots().len() < 2 {
+            return Err(ShapeError::EmptyAntecedent);
+        }
+        Ok(reading)
+    }
+
+    /// Reads the forest, in the Lambek calculus's order when `ordered`.
+    fn read(forest: &'a Forest, ordered: bool) -> Result<Self, ShapeError> {
         use Kind::*;
         // Which positions each occurrence can take, children before parents.
         let mut can = vec![0u8; forest.len()];
@@ -275,9 +331,10 @@ impl<'a> Reading<'a> {
                 Top | Zero => IN | OUT,
                 With | Plus => both(l_in && r_in, l_out && r_out),
                 // In input position `A ⊗ B⊥` is `A ⊸ B`, in output position
-                // `A⊥ ⅋ B`: the left factor is the antecedent.
-                Tensor => both(l_out && r_in, l_out && r_out),
-                Par => both(l_in && r_in, l_in && r_out),
+                // `A⊥ ⅋ B`: the left factor is the antecedent, or in the
+                // ordered reading either factor.
+                Tensor => both(l_out && r_in || ordered && l_in && r_out, l_out && r_out),
+                Par => both(l_in && r_in, l_in && r_out || ordered && l_out && r_in),
             };
             if can[o.index()] == 0 {
                 return Err(ShapeError::Formula { occurrence: o });
@@ -291,7 +348,15 @@ impl<'a> Reading<'a> {
                 let &[goal] = right else {
                     return Err(ShapeError::Succedents { count: right.len() });
                 };
-                if let Some(index) = left.iter().position(|&o| can[o.index()] & IN == 0) {
+                let refused = |o: &OccId| can[o.index()] & IN == 0;
+                // The ordered parse reversed the formulas left of ⊢: the
+                // first written is the last root before the goal.
+                let index = if ordered {
+                    left.iter().rposition(refused).map(|i| left.len() - 1 - i)
+                } else {
+                    left.iter().position(refused)
+                };
+                if let Some(index) = index {
                     return Err(ShapeError::Hypothesis { index });
                 }
                 if can[goal.index()] & OUT == 0 {
@@ -337,18 +402,24 @@ impl<'a> Reading<'a> {
                 }
                 continue;
             };
-            // An implication's antecedent, its left factor, flips.
+            // An implication's antecedent flips: its left factor, or in
+            // the ordered reading the right one where only that can.
             let implication = matches!(
                 (forest.kind(o), p),
                 (Tensor, Side::Input) | (Par, Side::Output)
             );
-            position[l.index()] = if implication { !p } else { p };
-            position[r.index()] = p;
+            let takes = |k: OccId, side: Side| {
+                can[k.index()] & if side == Side::Input { IN } else { OUT } != 0
+            };
+            let right_flips = implication && ordered && !(takes(l, !p) && takes(r, p));
+            position[l.index()] = if implication && !right_flips { !p } else { p };
+            position[r.index()] = if right_flips { !p } else { p };
         }
         Ok(Self {
             forest,
             position: Cow::Owned(position.into_vec()),
             goal,
+            ordered,
         })
     }
 
@@ -371,12 +442,24 @@ impl<'a> Reading<'a> {
     /// Returns the reading of `forest` from the positions and the goal
     /// [`into_parts`](Self::into_parts) gave, in constant time.
     #[cfg(feature = "interactive")]
-    pub(crate) const fn of_parts(forest: &'a Forest, position: &'a [Side], goal: OccId) -> Self {
+    pub(crate) const fn of_parts(
+        forest: &'a Forest,
+        position: &'a [Side],
+        goal: OccId,
+        ordered: bool,
+    ) -> Self {
         Self {
             forest,
             position: Cow::Borrowed(position),
             goal,
+            ordered,
         }
+    }
+
+    /// Returns whether this is the ordered reading of the Lambek
+    /// calculus ([`of_mode`](Self::of_mode)).
+    pub fn is_ordered(&self) -> bool {
+        self.ordered
     }
 
     /// Returns the forest read.
@@ -399,22 +482,65 @@ impl<'a> Reading<'a> {
     }
 
     /// Returns the hypotheses: every root but the goal, in the order
-    /// written.
+    /// written. In the ordered reading that is going round from the goal
+    /// backwards, the formulas before it from the last, then those after
+    /// it from the last.
     pub fn hypotheses(&self) -> impl Iterator<Item = OccId> + '_ {
-        self.forest
-            .roots()
-            .iter()
-            .copied()
-            .filter(move |&o| o != self.goal)
+        let roots = self.forest.roots();
+        // The goal is a root, and the roots ascend.
+        let at = roots.partition_point(|&r| r < self.goal);
+        let len = roots.len();
+        let ordered = self.ordered;
+        (0..len - 1).map(move |i| {
+            roots[match (ordered, i < at) {
+                (false, true) => i,
+                (false, false) => i + 1,
+                (true, true) => at - 1 - i,
+                (true, false) => len - 1 - (i - at),
+            }]
+        })
+    }
+
+    /// Returns the positions in `sequent`, a sequent of the forest's
+    /// occurrences in ascending order, of its hypotheses in the order a
+    /// two-sided sequent writes them, then of its goal: in id order, or
+    /// in the ordered reading going round from the goal backwards.
+    pub(crate) fn written<'s>(
+        &'s self,
+        sequent: &'s [super::Member],
+    ) -> impl Iterator<Item = usize> + 's {
+        let output = move |p: usize| self.position(sequent[p].occ()) == Side::Output;
+        let len = sequent.len();
+        let ordered = self.ordered;
+        let at = if ordered {
+            (0..len).rfind(|&p| output(p)).unwrap_or(len)
+        } else {
+            0
+        };
+        let order = (0..len).map(move |i| match (ordered, i < at) {
+            (false, _) => i,
+            (true, true) => at - 1 - i,
+            (true, false) => len - 1 - (i - at),
+        });
+        order
+            .clone()
+            .filter(move |&p| !output(p))
+            .chain(order.filter(move |&p| output(p)))
     }
 
     /// Returns the antecedent and the consequent of an implication `A ⊸ B`:
     /// a `⅋` in output position or a `⊗` in input position, whose antecedent
-    /// is the left factor. `None` for any other occurrence.
+    /// is the left factor, or in the ordered reading the factor in the
+    /// other position. `None` for any other occurrence.
     pub fn implication(&self, o: OccId) -> Option<(OccId, OccId)> {
         match (self.forest.kind(o), self.position(o)) {
             (Kind::Par, Side::Output) | (Kind::Tensor, Side::Input) => {
-                Some((self.forest.left(o)?, self.forest.right(o)?))
+                let (l, r) = (self.forest.left(o)?, self.forest.right(o)?);
+                if self.ordered && self.position(r) != self.position(o) {
+                    Some((r, l))
+                } else {
+                    Some((l, r))
+                }
             }
             _ => None,
         }
@@ -440,9 +566,19 @@ impl<'a> Reading<'a> {
 
     /// Returns the connective, unit or atom that the occurrence `o` is as
     /// an intuitionistic formula in its position: an output `⅋` or an input
-    /// `⊗` is an implication, `⊥` is `1`, an input `⊤` is `0`, and so on.
+    /// `⊗` is an implication, in the ordered reading a division, `⊥` is
+    /// `1`, an input `⊤` is `0`, and so on.
     pub fn connective(&self, o: OccId) -> IllConnective {
         use IllConnective as C;
+        if self.ordered
+            && let Some((antecedent, _)) = self.implication(o)
+        {
+            return if Some(antecedent) == self.operands(o).0 {
+                C::Under
+            } else {
+                C::Over
+            };
+        }
         match (self.forest.kind(o), self.position(o)) {
             (Kind::Atom | Kind::DualAtom, _) => C::Atom,
             (Kind::One | Kind::Bot, _) => C::One,
@@ -495,11 +631,20 @@ impl<'a> Reading<'a> {
 
     /// Returns the first and the second subformula of the intuitionistic
     /// formula at `o`, each if there is one, in the order they are written:
-    /// of an implication the antecedent, then the consequent.
+    /// of an implication the antecedent, then the consequent. In the
+    /// ordered reading the operands of a product in input position are
+    /// written right one first, the reversing dual having turned them
+    /// round, which puts the consequent of `B / A` first.
     pub(crate) fn operands(&self, o: OccId) -> (Option<OccId>, Option<OccId>) {
+        let (l, r) = (self.forest.left(o), self.forest.right(o));
+        if self.ordered {
+            let reversed = self.position(o) == Side::Input
+                && matches!(self.forest.kind(o), Kind::Tensor | Kind::Par);
+            return if reversed { (r, l) } else { (l, r) };
+        }
         match self.implication(o) {
             Some((antecedent, consequent)) => (Some(antecedent), Some(consequent)),
-            None => (self.forest.left(o), self.forest.right(o)),
+            None => (l, r),
         }
     }
 }
@@ -536,6 +681,12 @@ pub enum IllConnective {
     /// `A ⊸ B`, an output `⅋` or an input `⊗`, whose antecedent is its
     /// first operand.
     Lollipop,
+    /// `A \ B` in the Lambek calculus's ordered reading: an output `⅋`
+    /// or an input `⊗` whose antecedent `A` is its first operand.
+    Under,
+    /// `B / A` in the Lambek calculus's ordered reading: an output `⅋` or
+    /// an input `⊗` whose antecedent `A` is its second operand.
+    Over,
 }
 
 /// An intuitionistic formula of a read sequent, as a value that prints it.
@@ -659,6 +810,23 @@ mod tests {
     /// (read as `1 ⊸ (A ⊗ 1) ⊢ A` by a symmetric implication) are refused,
     /// with the sides known and without them, where without them a
     /// sequent with one reading is read and one with two is refused.
+    /// The ordered reading names the first formula written left of ⊢
+    /// that cannot be a hypothesis, as the commutative one does.
+    #[test]
+    fn the_first_written_hypothesis_is_named() {
+        let sequent = Sequent::parse_ordered(
+            "~a, b, ~c |- d",
+            crate::Order::Cyclic,
+            &crate::Limits::default(),
+        )
+        .unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        assert_eq!(
+            Reading::of_mode(&forest, crate::Mode::LAMBEK).unwrap_err(),
+            ShapeError::Hypothesis { index: 0 }
+        );
+    }
+
     #[test]
     fn the_written_sides_decide() {
         let several = "an intuitionistic sequent has exactly one formula right of ⊢, not 2: write the hypotheses left of ⊢";

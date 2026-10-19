@@ -107,7 +107,7 @@ impl Proof {
         mut stop: impl FnMut(Progress) -> bool,
     ) -> Result<Size, CheckError> {
         let mode = if view.two_sided(self) {
-            Derivation::TWO_SIDED
+            Derivation::two_sided_mode(self)
         } else {
             Derivation::ONE_SIDED
         };

@@ -136,7 +136,7 @@ pub(crate) fn reading(proof: &Proof, mode: Mode) -> Result<Option<Reading<'_>>, 
     if !mode.intuitionistic {
         return Ok(None);
     }
-    match Reading::new(proof.forest()) {
+    match Reading::of_mode(proof.forest(), mode) {
         Ok(reading) => Ok(Some(reading)),
         Err(e) => Err(CheckError::invalid(
             proof.root(),
@@ -606,10 +606,15 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
     }
 
     /// Checks the one-succedent condition on what a node derived: one
-    /// output at most, and exactly one unless a `⊤` above supplies it.
+    /// output at most, and exactly one unless a `⊤` above supplies it;
+    /// in the Lambek calculus without empty antecedents, an input besides.
     fn one_succedent(&self, d: Box<State>) -> Result<Box<State>, Halt> {
         if self.reading.is_some() && (d.outputs > 1 || (d.outputs == 0 && !d.any)) {
             return Err(Halt::Fault(Fault::Succedents { count: d.outputs }));
+        }
+        // The zone's count is exact: `within` held it to the bound.
+        if !self.mode.allows_empty_antecedents() && d.gamma.len <= d.outputs {
+            return Err(Halt::Fault(Fault::EmptyAntecedent));
         }
         Ok(d)
     }

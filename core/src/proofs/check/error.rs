@@ -155,6 +155,10 @@ pub enum Fault {
     /// first and the left one's after it, and joining them otherwise
     /// needs an exchange.
     Order,
+    /// In the Lambek calculus without empty antecedents, a sequent of the
+    /// rule has no formula left of `⊢`: every sequent of a proof keeps a
+    /// hypothesis.
+    EmptyAntecedent,
     /// A copy of a member that is not the subformula of a `?`.
     #[non_exhaustive]
     NotUnderQuest {
@@ -301,6 +305,9 @@ impl Invalid {
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
             Order => f.write_str("the premises' contexts are not the arcs on either side of the ⊗"),
+            EmptyAntecedent => f.write_str(
+                "the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents forbids",
+            ),
             NotUnderQuest { member: o } => {
                 if forest.is_none() {
                     f.write_str("occurrence ")?;

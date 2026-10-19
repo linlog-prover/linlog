@@ -194,6 +194,7 @@ impl Serialize for Fault {
             Self::NotEmpty => entries!(s; "kind" => "not_empty"),
             Self::Differ => entries!(s; "kind" => "differ"),
             Self::Order => entries!(s; "kind" => "order"),
+            Self::EmptyAntecedent => entries!(s; "kind" => "empty_antecedent"),
             Self::NotUnderQuest { member } => {
                 entries!(s; "kind" => "not_under_quest"; "member" => &member.get())
             }
@@ -219,6 +220,7 @@ impl Serialize for ShapeError {
             Self::Hypothesis { index } => entries!(s; "kind" => "hypothesis"; "index" => index),
             Self::Undetermined { first, second } => entries!(s;
                 "kind" => "undetermined"; "first" => &first.get(); "second" => &second.get()),
+            Self::EmptyAntecedent => entries!(s; "kind" => "empty_antecedent"),
         }
     }
 }

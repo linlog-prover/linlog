@@ -427,7 +427,7 @@ impl<'a> Build<'a> {
         times: u32,
     ) -> InfId {
         let rule = match (self.reading, principal) {
-            (Some(reading), Some(o)) => rule.on(reading.position(o)),
+            (Some(reading), Some(o)) => crate::proofs::Named::applied(rule, Some(reading), o),
             _ => rule.into(),
         };
         let principal = principal.map(|o| sequent.position(o).unwrap());

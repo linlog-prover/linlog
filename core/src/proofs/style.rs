@@ -7,7 +7,7 @@
 //!
 //! A label is written once per convention in a small markup that each
 //! output sets in its own way: the connective and unit characters `⊗ ⅋ &
-//! ⊕ ⊸ ! ? ⊤ ⊥ 0 1` are symbols, `_x` or `_{xy}` is a subscript, and every
+//! ⊕ ⊸ \ / ! ? ⊤ ⊥ 0 1` are symbols, `_x` or `_{xy}` is a subscript, and every
 //! other character is text set upright. `⊸L` is the upright `L` after
 //! `⊸`, `&L_1` has the subscript `1`. A `*` is a symbol too, a superscript
 //! where the output sets one: the mark of a run of a rule (`?w*`). The
@@ -47,20 +47,23 @@ pub enum Labels {
     Table(BTreeMap<Named, String>),
 }
 
+/// How many rules the label tables hold: [`Named::ALL`], then the
+/// divisions of the Lambek calculus.
+const LABELLED: usize = Named::ALL.len() + Named::DIVISIONS.len();
+
 /// The labels of the upright convention, by rule in the order of
-/// [`Named::ALL`].
-const UPRIGHT: [&str; Named::ALL.len()] = [
+/// [`Named::ALL`], then `\L`, `\R`, `/L` and `/R`.
+const UPRIGHT: [&str; LABELLED] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "⊸L",
     "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L", "⊤R", "!L",
-    "!R", "!c", "!w", "",
+    "!R", "!c", "!w", "", "\\L", "\\R", "/L", "/R",
 ];
 
-/// The labels of the subscript convention, by rule in the order of
-/// [`Named::ALL`].
-const SUBSCRIPT: [&str; Named::ALL.len()] = [
+/// The labels of the subscript convention, in the order of [`UPRIGHT`].
+const SUBSCRIPT: [&str; LABELLED] = [
     "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?_d", "?_c", "?_w", "mix", "wk", "⊸_L",
     "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "1_L", "1_R", "0_L",
-    "⊤_R", "!_L", "!_R", "!_c", "!_w", "",
+    "⊤_R", "!_L", "!_R", "!_c", "!_w", "", "\\_L", "\\_R", "/_L", "/_R",
 ];
 
 impl Labels {
@@ -96,7 +99,7 @@ pub(crate) enum Part<'a> {
 
 /// Whether a character of a label is a symbol.
 fn symbol(c: char) -> bool {
-    "⊗⅋&⊕⊸!?⊤⊥01*∧∨→¬↔".contains(c)
+    "⊗⅋&⊕⊸\\/!?⊤⊥01*∧∨→¬↔".contains(c)
 }
 
 /// Returns the parts of a label's markup in order. A `_` at the end, or
@@ -220,11 +223,11 @@ pub(crate) trait Drawn {
 }
 
 impl Drawn for Derivation<'_> {
-    const RULES: usize = Named::ALL.len();
+    const RULES: usize = LABELLED;
     const OPEN: Option<usize> = Some(Named::new(Rule::Open, None).index());
 
     fn markup(rule: usize, labels: &Labels) -> Option<&str> {
-        labels.markup(Named::ALL[rule])
+        labels.markup(Named::at(rule))
     }
 
     fn len(&self) -> usize {
@@ -278,11 +281,10 @@ impl Drawn for Derivation<'_> {
     #[cfg(feature = "svg")]
     fn positions(&self, id: InfId) -> Vec<usize> {
         let sequent = &self.inference(id).sequent;
-        let mut positions: Vec<usize> = (0..sequent.len()).collect();
-        if let Some(reading) = self.reading() {
-            positions.sort_by_key(|&p| reading.position(sequent[p].occ()) == crate::Side::Output);
+        match self.reading() {
+            Some(reading) => reading.written(sequent).collect(),
+            None => (0..sequent.len()).collect(),
         }
-        positions
     }
 }
 
@@ -313,7 +315,7 @@ mod tests {
     /// plain text are the names.
     #[test]
     fn names_round_trip() {
-        for rule in Named::ALL {
+        for rule in Named::ALL.into_iter().chain(Named::DIVISIONS) {
             assert_eq!(rule.name().parse::<Named>().unwrap(), rule, "{rule:?}");
             if rule.rule != Rule::Open {
                 let label = Labels::Upright.markup(rule).unwrap();

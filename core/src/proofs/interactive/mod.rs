@@ -481,7 +481,7 @@ impl Interactive {
             return Err(Error::OrderedFragment { fragment, mode });
         }
         let reading = if mode.intuitionistic {
-            let reading = Reading::new(&forest).map_err(Error::NotIntuitionistic)?;
+            let reading = Reading::of_mode(&forest, mode).map_err(Error::NotIntuitionistic)?;
             Some(reading.into_parts())
         } else {
             None
@@ -533,7 +533,12 @@ impl Interactive {
     /// and `None` in classical mode.
     pub fn reading(&self) -> Option<Reading<'_>> {
         let (position, goal) = self.reading.as_ref()?;
-        Some(Reading::of_parts(&self.forest, position, *goal))
+        Some(Reading::of_parts(
+            &self.forest,
+            position,
+            *goal,
+            self.mode.is_ordered(),
+        ))
     }
 
     /// Returns every inference, the root first and then in the order the
