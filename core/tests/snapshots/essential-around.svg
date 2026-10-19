@@ -1,43 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" role="img" width="95.904" height="104.08" viewBox="0 0 5994 6505" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="143.872" height="157.392" viewBox="0 0 8992 9837" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ (a⊥ ⅋ b) ⊗ (b⊥ ⅋ a)</title>
 <desc>⊢ (~a ⅋ b) ⊗ (~b ⅋ a)
 ~a[2] — a[6]
 b[3] — ~b[5]
 not a proof net: a switching cycle runs through (~a ⅋ b) ⊗ (~b ⅋ a)[0], ~a ⅋ b[1], b[3], ~b[5], ~b ⅋ a[4]</desc>
 <g fill="none" stroke="black" stroke-width="40">
-<circle id="o0" cx="2996" cy="5415" r="380"/>
-<path d="M2719 5154L1680 4176"/>
-<path d="M2052 4683L2268 4730L2208 4517"/>
-<circle id="o1" cx="1403" cy="3915" r="380"/>
-<path d="M1582 3580L2203 2765"/>
-<path d="M1858 3028L1834 3248L2040 3166"/>
-<circle id="o4" cx="4590" cy="3915" r="380"/>
-<path d="M2996 5795V6165"/>
-<path d="M2882 5885L2996 6075L3110 5885"/>
+<path d="M4162 7686L2075 6557"/>
+<path d="M2981 7176L3202 7166L3089 6975"/>
+<path d="M2323 4599L3207 3577"/>
+<path d="M2741 3942L2703 4160L2914 4091"/>
 </g>
 <g fill="none" stroke="#009e73" stroke-width="40">
 </g>
 <g fill="none" stroke="#cc79a7" stroke-width="40">
-<path d="M4411 3580L3791 2765" stroke-dasharray="40 80"/>
+<path d="M6669 4599L5785 3577" stroke-dasharray="40 80"/>
 </g>
 <g fill="none" stroke="black" stroke-width="40">
-<path id="l3-5" d="M2203 1775A794 476 0 0 1 3791 1775"/>
-<path d="M3092 1185L2902 1299L3092 1413"/>
+<path id="l3-5" d="M3207 2477A1289 773 0 0 1 5785 2477"/>
+<path d="M4591 1590L4401 1704L4591 1818"/>
 </g>
 <g fill="none" stroke="#d55e00" stroke-width="40">
-<path d="M3273 5155L4313 4175"/>
-<path d="M3784 4517L3724 4730L3940 4683"/>
-<path d="M1224 3580L604 2765" stroke-dasharray="40 80"/>
-<path d="M4769 3580L5389 2765"/>
-<path d="M5045 3028L5021 3248L5227 3166"/>
-<path id="l2-6" d="M604 1775A2392 1435 0 0 1 5389 1775"/>
-<path d="M2901 454L3091 340L2901 226"/>
+<path d="M4830 7686L6917 6557"/>
+<path d="M5902 6975L5789 7166L6010 7176"/>
+<path d="M1825 4601L932 3577" stroke-dasharray="40 80"/>
+<path d="M7167 4601L8059 3577"/>
+<path d="M7590 3943L7551 4161L7762 4093"/>
+<path id="l2-6" d="M932 2477A3563 2137 0 0 1 8059 2477"/>
+<path d="M4400 454L4590 340L4400 226"/>
 </g>
-<text x="300" y="2665" textLength="609" lengthAdjust="spacing" id="o2" fill="#009e73">𝑎</text>
-<text x="1909" y="2665" textLength="588" lengthAdjust="spacing" id="o3">𝑏</text>
-<text x="3497" y="2665" textLength="588" lengthAdjust="spacing" id="o5" fill="#009e73">𝑏</text>
-<text x="5085" y="2665" textLength="609" lengthAdjust="spacing" id="o6">𝑎</text>
-<text x="2729" y="5615" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
-<text x="999" y="4115" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
-<text x="4186" y="4115" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="300" y="9327" textLength="8392" lengthAdjust="spacing" id="o0">(𝑎 ⊸ 𝑏) ⊗ (𝑏 ⊸ 𝑎)</text>
+<text x="4229" y="8067" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="628" y="6347" textLength="2873" lengthAdjust="spacing" id="o1">𝑎 ⊸ 𝑏</text>
+<text x="1671" y="5087" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="628" y="3367" textLength="609" lengthAdjust="spacing" id="o2" fill="#009e73">𝑎</text>
+<text x="2913" y="3367" textLength="588" lengthAdjust="spacing" id="o3">𝑏</text>
+<text x="5491" y="6347" textLength="2873" lengthAdjust="spacing" id="o4">𝑏 ⊸ 𝑎</text>
+<text x="6513" y="5087" textLength="808" lengthAdjust="spacing" font-size="800">⊸</text>
+<text x="5491" y="3367" textLength="588" lengthAdjust="spacing" id="o5" fill="#009e73">𝑏</text>
+<text x="7755" y="3367" textLength="609" lengthAdjust="spacing" id="o6">𝑎</text>
 </svg>
