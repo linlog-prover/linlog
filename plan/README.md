@@ -2643,4 +2643,46 @@ client follows it (step 32).
   and `nix flake check` passed at the head. The follow-ups are in
   `later.md` ("Follow-ups: the web bindings"). Next: 32b, the client's
   repository, beside 36a.
+- 2026-10-19: review of step 36a, the order kept and cyclic MLL (one
+  session, Opus 5.5 at high, the panel, 00:20 to 02:14):
+  - `Mode::CYCLIC` (`--cyclic`, the word `cyclic`), unit-free MLL with
+    the written order kept: the ordered parse, whose dual of a product
+    reverses it and which reads the antecedents reversed; the checker,
+    which in the mode allows only `ax`, `⊗` and `⅋` and asks every `⊗`
+    to join the two arcs on either side of it (`Fault::Order`), the
+    oracle the same by a sort of its own; sessions that split a `⊗` at
+    the arcs only; derivations, LaTeX, Typst and SVG without exchange,
+    a planar net drawn without a crossing; the Rocq exporter refuses the
+    mode. Documents of the mode are written at wire level 2. Mix,
+    weakening, units and `-i` with the mode are refused;
+  - `ProofStructure::is_planar` (a stack scan with a crossing as its
+    witness) and the planar search, the net engine's loop under a third
+    criterion that wraps the classical one with two rejections (a link
+    crossing the links made, unbalanced literals between its ends);
+    35a's balance prune kept with its argument, its three symmetry
+    breaks off in the mode (the differential test caught one that
+    rejects the only linking of `⊢ a ⊗ a, ~a, ~a`);
+  - keeping the order cost no change of the arena's canonical form (the
+    written order was canonical already); the ratchet within 0.72 % on
+    every journey; the panel, two rounds, refuted no argument and found
+    four defects, fixed.
+  Two departures for the author, both marked: planarity is a criterion
+  wrapping the classical one rather than a second type parameter of the
+  loop, as api.md 10.8 had it, and the checker tests the arcs by a scan
+  rather than a sort (in form only).
+
+  The review argued the order check against cyclic MLL's tensor rule
+  (with the forest's preorder as the cyclic order, the right premise's
+  context before the left one going round from the `⊗` is exactly the
+  rule), probed the command on thirteen sequents with known answers
+  (rotation invariant; `⊢ a⊗b, ~a, ~b`, `⊢ a⅋b, ~a⊗~b` and `a⊸b, a ⊢ b`
+  refused, their orderly forms proved), and compared both target sets
+  with their oracles itself: no verdict differs; on the focused set
+  only the five rows `TARGETS.md` records and the five the classical
+  refuter decides; the net set equal on all 64 rows. The chain was
+  stacked on 32a's and the keys' scripts; the gate and `nix flake
+  check` passed at the head. The follow-ups (a panic past the
+  structure's vertex bound with the occurrence limit lifted, older than
+  the step) are in `later.md`. Next: 36b, the Lambek calculus, beside
+  32b.
 

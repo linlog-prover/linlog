@@ -752,6 +752,26 @@ From step 32a (2026-10-19), `plan/reports/32-web.md`, "Left open":
   sequent and its derivation): with ordinary logic on the page, after
   version 1 (unassigned).
 
+## Follow-ups: the net engine after the cyclic mode
+
+From step 36a (2026-10-19), `plan/reports/36-lambek.md`, "What is left
+open":
+
+- **A panic past the structure's vertex bound** (unassigned; older than
+  step 36): `Switching::new` expects `ProofStructure::new` to succeed,
+  but nothing between the front door and it checks `nets::MOST`
+  (1 431 655 763 vertices), so with `Limits::occurrences` lifted a
+  sequent of shared subterms that unfolds past it would panic instead
+  of being refused, in every mode. The default limit shields every call
+  that keeps it; a check of the forest's length in `Nets::admits`
+  refuses it.
+- **A conditional symmetry break for the planar search** (unassigned):
+  35a's three breaks are off in the cyclic mode, since exchanging equal
+  literals can break planarity; a break that keeps the cyclic order
+  waits for a row that needs it.
+- **The inherited quadratic `choose`** (35b's open item) holds for the
+  planar search too; it never dominated a measured row.
+
 ## Follow-ups: the focused engine
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,
