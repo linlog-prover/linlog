@@ -15,7 +15,7 @@ certified refutations are a list of escalations (Kripke and phase
 models, failure certificates, reflection) of which 31 takes the cheap
 ones (`plan/later.md`, "Certified refutations"); step 32 ships wasm
 through wasm-bindgen in a worker, with JSON as the wire form
-(`research/32-web.md`); step 22 made every output's options plain data
+(`research/34-web.md`); step 22 made every output's options plain data
 with serde so that "an editor plugin or a notebook reuses the same JSON"
 (`plan/later.md`, "Configurable output"); step 25 reads TPTP problems,
 29 compares linlog with other provers, 38 adds quantifiers
@@ -240,7 +240,7 @@ definitions mirroring the JSON forms, and a second wasm build beside
 32's wasm-bindgen one. The tooling moves fast: broad 0.3 support
 across languages "is still landing" [WASI-lang], [WASIp3]. *Relation.*
 Beside 32, which targets the browser through wasm-bindgen
-(`research/32-web.md`). *Room now.* The library already reads no clock;
+(`research/34-web.md`). *Room now.* The library already reads no clock;
 keep the 32-bit tests 32 plans, coarse calls that return whole results
 (no callback in the search's hot path), and the session's JSON as its
 complete state so that a resource can be rebuilt from it.
@@ -408,6 +408,6 @@ In order of how many candidates lean on it (inference, from section 2):
 - [anywidget] anywidget, PyPI. https://pypi.org/project/anywidget/
 - Repository (this snapshot): `plan/later.md`;
   `plan/notes/research/README.md`, `29-comparison.md`, `31-rocq.md`,
-  `32-web.md`, `design-constraints.md`.
+  `34-web.md`, `design-constraints.md`.
 
 Sources checked 2026-10-09: 31 checked, 2 corrected, 0 removed, 3 claims marked.

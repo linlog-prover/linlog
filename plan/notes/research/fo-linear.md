@@ -1,7 +1,7 @@
 # First-order linear logic in linlog's terms
 
 Written 2026-10-08 from the snapshot of the repository and the sources of
-section 8. It builds on `38-first-order.md` (the survey of provers,
+section 8. It builds on `41-first-order.md` (the survey of provers,
 complexity and the step's needs) and does not repeat it; where the two
 differ, this note holds. "(inference)" marks a conclusion of this note's
 own; every other result cites its source. Section 7 ends with what the
@@ -180,7 +180,7 @@ the index and tags its new constant with it, a metavariable gets the
 index of its creation, and binding a variable of tag `i` to `t` requires,
 "in addition to the usual occurs-check", that `t` contain no constant of
 a greater tag; the variables in `t` with a greater tag are lowered to `i`
-[NJK95, pp. 15–16; Nad93]. This is `38-first-order.md`'s recommendation
+[NJK95, pp. 15–16; Nad93]. This is `41-first-order.md`'s recommendation
 made precise (inference): a level per metavariable and per eigenvariable,
 the eigenvariable's one more than the branch's, which it raises; check
 and lowering ride on the occurs check's walk; the lowering is trailed.
@@ -274,7 +274,7 @@ eigenvariables as constants, `&` equal zones by instance; `⊗`, Mix, `!`,
 *The eigenvariable condition.* It cannot be checked on the derived
 conclusion: a `⊤` above absorbs members the pass never sees
 (`core-proofs.md`, the `any` flag). The claim for the panel, from
-`38-first-order.md`: a proof is valid only if every eigenvariable `a` is
+`41-first-order.md`: a proof is valid only if every eigenvariable `a` is
 introduced by exactly one `Forall` node `N`, occurs in no root, and
 occurs only in witnesses of `Exists` nodes reachable from `N`. *Sound*
 (inference): a member of `N`'s conclusion, visible or absorbed, has a
@@ -295,7 +295,7 @@ over new constants is a proof; inference).
 ### 4.3 Cut (step 34)
 
 With `Cut(OccId, NodeId, NodeId)` on dual trees after the roots
-(`34-cut.md`), the key case `∀`/`∃` substitutes the witness `w` for the
+(`40-cut.md`), the key case `∀`/`∃` substitutes the witness `w` for the
 eigenvariable `a` throughout the `∀` premise, by the substitution lemma
 on derivations [Gir87]; Pfenning's structural proof for linear sequent
 calculi is the form a Rocq mirror can follow [Pfe95]. For linlog's term
@@ -356,7 +356,7 @@ conflict 6).
 A memo entry is a fact only if it holds for every continuation. A
 `Complete` failure of a stable sequent with an *unbound* metavariable is
 not one: a sibling may bind it later and the key then names another
-sequent. Rule for the first version (`38-first-order.md`, made precise):
+sequent. Rule for the first version (`41-first-order.md`, made precise):
 memoize only *ground* stable sequents, keyed by instance; ground keys are
 level-independent, since inside the subtree every new eigenvariable is
 younger than every variable present (inference). Two ground sequents
@@ -554,4 +554,4 @@ in every engine but the focused ones.
 Sources checked 2026-10-08: [LS94], [CP05], [Mil92] and [NJK95] read
 from their PDFs, [BRS24] from its arXiv HTML, the others confirmed
 bibliographically. Girard's 1991 first-order nets are known only through
-[Hug18] and `38-first-order.md`.
+[Hug18] and `41-first-order.md`.

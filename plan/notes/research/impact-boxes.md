@@ -3,8 +3,8 @@
 Written 2026-10-08 for stage 2 of step 28, from the snapshot's code
 (`core/src`, `cli/src`, `bench/src`, the tests and snapshots), read for
 what steps 33 (MELL nets with boxes) and 34 (cut, and its elimination)
-would have to change. It builds on `33-mell-nets.md` ("33 §n"),
-`34-cut.md` ("34 §n") and `README.md` of this directory ("README §n")
+would have to change. It builds on `39-mell-nets.md` ("33 §n"),
+`40-cut.md` ("34 §n") and `README.md` of this directory ("README §n")
 and does not repeat their surveys: where a place is already an item of
 the README, it says so and adds only what the code shows. Paths are
 under `core/src/` unless they name another crate. "(inference)" marks a

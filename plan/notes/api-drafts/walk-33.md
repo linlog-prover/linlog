@@ -1,6 +1,6 @@
 # Walk-through of step 33 (MELL proof nets with boxes) against `api.md`
 
-Read: `api.md` in full, `plan/33-mell-nets.md`, `research/33-mell-nets.md`,
+Read: `api.md` in full, `plan/39-mell-nets.md`, `research/39-mell-nets.md`,
 `mell-nets-spec.md` (section 7 and the notation of section 8),
 `corpus-mell-nets.md`, `impact-boxes.md`, the register entries naming 33
 (28 of them), and `core/src/nets/{mod,graph,sequentialize}.rs`,

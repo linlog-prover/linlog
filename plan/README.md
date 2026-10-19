@@ -50,15 +50,16 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 29 | linlog beside the other provers: a feature matrix and benchmarks (a night), and a CI job that reproduces them | `29-comparison.md` (finished at the review of 28) | Opus 5.5 | high | 24, 28 |
 | 30 | The tests pruned and CI cached, the memory bound charged, the third baseline (a night), and the first release prepared (three sessions) | `30-baseline-release.md` (finished at the review of 29) | Opus 5.5 | high | 29 |
 | 31 | A Rocq library of linlog's own, `linlog` under `rocq/` (three to four sessions) | `31-rocq-library.md` (finished at the review of 30) | Fable 5.1 for the checker's proof, Opus 5.5 for the rest | xhigh for the checker's proof, high for the rest | 28, 30 |
-| 32 | The web front end: the bindings in the workspace, the client in a repository of its own (three sessions, a plan of its own; done 2026-10-19, at https://linlog-prover.github.io/) | `32-web.md` (finished at the review of 31) | Opus 5.5 | high | 22, 28, 30 |
-| 33 | MELL proof nets with exponential boxes (two sessions) | `33-mell-nets.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 32, 40 |
-| 34 | Cut, and cut elimination on terms and on nets (three sessions) | `34-cut.md` (finished at the review of 33) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 33 |
-| 35 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions) | `35-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
-| 36 | Cyclic MLL and the Lambek calculus (two sessions) | `36-lambek.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 35 |
-| 37 | The focused inverse method (two sessions), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 36) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 39 |
-| 38 | First-order linear logic (several sessions, a plan of its own) | `38-first-order.md` (finished at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
-| 39 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session, run after 35 and before 37; ended by its measurement on 2026-10-19, nothing built) | `39-top-cap.md` (written at the review of 35, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
-| 40 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, after 36) | `40-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 36 |
+| 32 | Engines for MLL and IMLL: net pruning, the routing feature, essential nets as an engine and as a drawing (two sessions; done 2026-10-18) | `32-mll-engines.md` (finished at the review of 30) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30 |
+| 33 | The focused engine's cap on the members only a `⊤` can take (R3 of the comparison's gap study; one session; ended by its measurement on 2026-10-19, nothing built) | `33-top-cap.md` (written at the review of 32, 2026-10-18) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 30 |
+| 34 | The web front end: the bindings in the workspace, the client in a repository of its own (a design session and three sessions, a plan of its own; done 2026-10-19, at https://linlog-prover.github.io/) | `34-web.md` (finished at the review of 31), `34-design.md` | Opus 5.5; the design session Fable 5.1 with the author | high | 22, 28, 30 |
+| 35 | Cyclic MLL and the Lambek calculus (two sessions; done 2026-10-19) | `35-lambek.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 32 |
+| 36 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, and one for the web client; done 2026-10-19) | `36-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 35 |
+| 37 | The focused inverse method (two sessions; done 2026-10-19), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 33 |
+| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
+| 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
+| 40 | Cut, and cut elimination on terms and on nets (three sessions) | `40-cut.md` (finished at the review of 39) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39 |
+| 41 | First-order linear logic (several sessions, a plan of its own) | `41-first-order.md` (finished 2026-10-19, at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -81,9 +82,16 @@ lists (the focused engine, intuitionistic mode, interactive proving, the
 exports, parallel search, the benchmarks).
 
 Steps 5–6 and 7 are independent of each other; 10, 11 and 13 are
-independent of each other; 22 is independent of 19 to 21, 31 of 32, and
-33 to 37 of each other except as their rows say. Everything
+independent of each other; 22 is independent of 19 to 21; 31 and 32 ran
+side by side, as did 33 and 34, 35 and 34, and 36 and 37. Everything
 else is in order.
+
+On 2026-10-19 the steps from 32 on were renumbered in the order they
+ran and will run (the author's request; that day's Status entry maps
+the old numbers). The Status log, the decisions' text, the reports and
+the notes keep the numbers they were written with; the step table, the
+prompts of the steps not yet run, `later.md`'s assignments, the
+handoff, the rules files and the file names carry the new ones.
 
 ### Why these models and efforts
 
@@ -222,7 +230,7 @@ the audit's soundness lens, the judge of the API note's three drafts,
 and the Rocq library's proof of the checker (Fable 5.1 at `xhigh`, the
 one session where a stuck model costs most and the kernel checks the
 result). Every other session runs on Opus 5.5 at `high`, the engine
-steps 33 to 38 included, where the panel and the references carry the
+steps 39 to 41 included, where the panel and the references carry the
 assurance; `xhigh` is for a session that is visibly stuck, and `max`
 for none. The step 28 session on the search moves from Fable to Opus
 for the same reason.
@@ -531,13 +539,16 @@ claude --model claude-opus-5-5 --effort high --name step-28 ((open --raw plan/28
 claude --model claude-opus-5-5 --effort high --name step-29 ((open --raw plan/29-comparison.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-30 ((open --raw plan/30-baseline-release.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-fable-5-1 --effort xhigh --name step-31 ((open --raw plan/31-rocq-library.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-32 ((open --raw plan/32-web.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-33 ((open --raw plan/33-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-34 ((open --raw plan/34-cut.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-35 ((open --raw plan/35-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-36 ((open --raw plan/36-lambek.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-32 ((open --raw plan/32-mll-engines.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-33 ((open --raw plan/33-top-cap.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-34 ((open --raw plan/34-web.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-35 ((open --raw plan/35-lambek.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-36 ((open --raw plan/36-net-drawings.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-37 ((open --raw plan/37-inverse.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38-first-order.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38-web-polish.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-39 ((open --raw plan/39-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-40 ((open --raw plan/40-cut.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-41 ((open --raw plan/41-first-order.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
@@ -2451,7 +2462,7 @@ client follows it (step 32).
   a tool, disclosed, never an author, the depositor responsible). The
   author: Zenodo yes; linlog was not written in their employment; the
   web front end's code EUPL-1.2 and its content CC BY 4.0
-  (`32-web.md`).
+  (`34-web.md`).
 - 2026-10-18: the release of 0.1.0, by the author with the planning
   session (Zenodo on, both crates published by hand from e6bde788 with
   a token since revoked, the signed tag `v0.1.0`, whose workflow made the
@@ -2785,7 +2796,7 @@ client follows it (step 32).
   presentation (every formula occurrence a node written as its formula,
   links between them, the conclusions at the bottom) by default and the
   compact drawing as an option; the author agreed. Step 40 does it, one
-  session after 36 (`40-net-drawings.md`); D12 says so.
+  session after 36 (`36-net-drawings.md`); D12 says so.
 - 2026-10-19: review of step 36b, the Lambek calculus, the end of step
   36 (one session, Opus 5.5 at high, the panel, 08:15 to 10:30):
   - `Mode::LAMBEK` (`--lambek`), L without empty antecedents, and L*
@@ -2929,4 +2940,17 @@ client follows it (step 32).
   check` at the head that holds it (its own goal was cleared). The web
   client reads wire level 2; the polish step moves its linlog input,
   after which a saturation refutation reads at level 3.
+- 2026-10-19: the steps from 32 on renumbered in the order they ran and
+  will run (the author's request): 35 → 32 (MLL engines), 39 → 33 (the
+  `⊤` cap), 32 → 34 (the web front end and its design session), 36 → 35
+  (cyclic MLL and Lambek), 40 → 36 (the net drawings), 37 stays (the
+  inverse method), the web client's polish is the new 38, 33 → 39 (MELL
+  nets), 34 → 40 (cut), 38 → 41 (first-order logic). Their prompts,
+  reports and research notes are renamed, every path to them follows,
+  and the step numbers in the table, the prompts not yet run,
+  `later.md`, the handoff and the rules files are the new ones; the
+  Status log above, the decisions' text, the reports and the notes keep
+  the old ones, and a session's label (35a, 40b, …) is always the one
+  its report gives it. Next: step 38, the web client's polish, when work
+  resumes.
 

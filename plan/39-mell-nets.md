@@ -1,9 +1,9 @@
-# Step 33: MELL proof nets with exponential boxes
+# Step 39: MELL proof nets with exponential boxes
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes two
-sessions; this prompt was finished on 2026-10-19, after steps 32, 36, 37 and 40. It says what is
+sessions; this prompt was finished on 2026-10-19, after steps 34 to 37. It says what is
 fixed.
 
 Read `plan/later.md` ("MELL proof nets with exponential boxes"),
@@ -17,7 +17,7 @@ over the occurrence forest, a correctness criterion independent of any
 engine (Danos–Regnier at each box depth with boxes contracted; Guerrini
 and Masini, TCS 254, 2001, for the parsing view), sequentialization
 through boxes, desequentialization of a proof, a JSON form, and the
-drawing with boxes as rectangles, in the command and the web front end. The drawing is step 40's: every formula occurrence written, the
+drawing with boxes as rectangles, in the command and the web front end. The drawing is step 36's: every formula occurrence written, the
 conclusions at the bottom, the compact drawing an option; a box
 encloses the nodes of its contents and its `!` and `?` doors.
 Search stays with the focused engine.
@@ -34,7 +34,7 @@ weakening checkable. Opus 5.5 at `high`; every change of a search or a
 criterion is reviewed by the panel step 26's prompt describes, its
 argument read on Fable 5.1 at `high`.
 
-## What steps 31 to 40 left you
+## What steps 31 to 37 left you
 
 - **The net module** (`core/src/nets/`, `.claude/rules/core-nets.md`):
   `ProofStructure` with `is_correct`, `is_essential` and `is_planar`,
@@ -45,13 +45,13 @@ argument read on Fable 5.1 at `high`.
   its argument, off where they do not carry over. A box is a new kind
   of vertex and a criterion that contracts boxes: say where it plugs
   into `Correctness` or why it stands apart.
-- **The drawing** (step 40): every formula occurrence written, the
+- **The drawing** (step 36): every formula occurrence written, the
   links between them, the conclusions at the bottom, `svg.net=compact`
   the old circles; ids `o<n>` on each occurrence's formula and
   `l<m>-<n>` on links, which the web page's buttons use. A box is a
   rectangle around its contents with its `!` door and `?` doors on its
   border, in both drawings, its snapshot rendered and looked at.
-- **The ordered modes** (cyclic MLL and the Lambek calculus, step 36)
+- **The ordered modes** (cyclic MLL and the Lambek calculus, step 35)
   are unit-free MLL and refuse exponentials, so boxes do not reach
   them; the essential net is IMLL's, and an intuitionistic MELL net is
   left out unless it comes for free, said so.
@@ -76,4 +76,4 @@ on Opus 5.5 and Sonnet 5.5 at `high`, each on a frozen tree. The net
 target set (`bench/net-targets.sh` against
 `bench/targets/net-after-cyclic.csv`) keeps every counter of MLL.
 
-Deliverable: thematic jj commits; `plan/reports/33-mell-nets.md`.
+Deliverable: thematic jj commits; `plan/reports/39-mell-nets.md`.

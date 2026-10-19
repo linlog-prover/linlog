@@ -1,6 +1,6 @@
 # Walk-through of step 35 (MLL engines: symmetry breaking, essential nets)
 
-Read: `plan/notes/api.md` (all but 12/11.5), `plan/35-mll-engines.md`, the research note, the 29 register
+Read: `plan/notes/api.md` (all but 12/11.5), `plan/32-mll-engines.md`, the research note, the 29 register
 entries naming 35, `core/src/search/{net.rs,mod.rs}`, `nets/{mod,skeleton}.rs`, `serialize/nets.rs`,
 `export/svg/net.rs`, `cli/src/prove.rs`, `bench/src/run.rs`, `families.rs`, and the rules files
 (`core-nets.md`, `core-search.md`, `core-parallel.md`). Nothing was run.

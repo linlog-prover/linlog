@@ -1,4 +1,4 @@
-# Step 38: first-order linear logic
+# Step 41: first-order linear logic
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -40,7 +40,7 @@ builds on), on Fable 5.1 at `high`; the rest on Opus 5.5 at `high`
 reviewed by the panel step 26's prompt describes, its argument read on
 Fable 5.1 at `high`.
 
-## What steps 31 to 40 left you
+## What steps 31 to 37 left you
 
 - **The engines** (`search::DISPATCH`, documented on `Engine`): the
   focused engine one- and two-sided, `additive`, `horn`, `net` (a
@@ -61,12 +61,12 @@ Fable 5.1 at `high`.
   a saturation is a semi-decision, and the classical reading of a
   first-order sequent is no longer finite, so each refuter refuses
   quantified goals or carries over with its argument.
-- **The ordered modes** (step 36) refuse every engine but the planar
+- **The ordered modes** (step 35) refuse every engine but the planar
   search; the Lambek calculus's embedding into first-order MILL (Moot
-  and Piazza, 2001) is the other route step 36 left for after this
+  and Piazza, 2001) is the other route step 35 left for after this
   step: weigh it against the planar search once the data model exists.
 - **The outputs**: the derivation view, the exports, the SVG drawings
-  (nets with every formula written, step 40), the web bindings
+  (nets with every formula written, step 36), the web bindings
   (`web/`, `linlog-web`) and the client in its own repository all read
   the forest; a term inside an atom changes what they print and what
   the page's buttons stand over. The wire forms are at level 3; a
@@ -92,4 +92,4 @@ change of a search, a criterion or the checker, its argument on Fable
 5.1 at `high`.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
-jj commits, `plan/reports/38-first-order.md`.
+jj commits, `plan/reports/41-first-order.md`.

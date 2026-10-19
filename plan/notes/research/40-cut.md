@@ -343,7 +343,7 @@ External:
 - [S24] A. S. Troelstra, *Lectures on Linear Logic*, CSLI Lecture Notes 29, 1992 (1990 report: https://eprints.illc.uva.nl/593).
 
 This repository (the snapshot of 2026-10-08):
-- [R1] `plan/34-cut.md`; `plan/reports/17-assessment.md` §5.5.
+- [R1] `plan/40-cut.md`; `plan/reports/17-assessment.md` §5.5.
 - [R2] `core/src/proofs/mod.rs` (`Node`, the size assertion, `Proof`, `Proof::new`).
 - [R3] `core/src/proofs/check.rs` (`State`, `Pass::rule`, `take`, `join`, `Problem`); `.claude/rules/core-proofs.md`.
 - [R4] `core/src/sequents/mod.rs` (`Sequent`, `optimize`, `add`); `core/src/sequents/term.rs` (`Kind::dual`).
@@ -351,7 +351,7 @@ This repository (the snapshot of 2026-10-08):
 - [R6] `plan/README.md`, decisions D5, D6, D6a, D13, D15, D16, D17, D18, D23.
 - [R7] `core/src/search/mod.rs` (`Engine`, `Options`, `Outcome`, `prove_goal`); `.claude/rules/core-search.md`.
 - [R8] `core/src/nets/mod.rs` (`ProofStructure`, `from_proof`); `.claude/rules/core-nets.md`; `plan/reports/05-proof-nets.md`.
-- [R9] `plan/33-mell-nets.md`; `plan/later.md`, "MELL proof nets with exponential boxes".
+- [R9] `plan/39-mell-nets.md`; `plan/later.md`, "MELL proof nets with exponential boxes".
 - [R10] `plan/reports/12-certificates.md` (NanoYalla's files and the `macroll`/`macrollcut` decision).
 - [R11] `core/src/occurrences/reading.rs`; `.claude/rules/core-forest.md`, "The intuitionistic reading".
 - [R12] `core/src/proofs/derivation.rs` (`Rule`, `Inference`); `.claude/rules/core-derivations.md`.

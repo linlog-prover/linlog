@@ -1,7 +1,7 @@
-# Step 32's design session: the web front end's design and five mockups
+# Step 34's design session: the web front end's design and five mockups
 
 You are the design session of the linlog repository's web front end, the
-client step 32 builds (`plan/32-web.md`). The author (Fabian, GitHub
+client step 32 builds (`plan/34-web.md`). The author (Fabian, GitHub
 `flgrubm`) talks with you first, then you have five mockups made, each
 independently, and the author picks one or none. You do not build the
 client: step 32's sessions do, from what you leave. CLAUDE.md applies
@@ -11,7 +11,7 @@ author's shell is nushell, so commands for them use `;` and `(open
 
 ## Read first
 
-- `plan/32-web.md`, whole: the goal, what is fixed (two repositories,
+- `plan/34-web.md`, whole: the goal, what is fixed (two repositories,
   what WebAssembly lacks, the first version as `linlog interact` with a
   mouse, the hosting, the licences), and the author's word of
   2026-10-18 that the client repository's architecture is to be

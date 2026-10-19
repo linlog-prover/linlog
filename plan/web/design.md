@@ -1,6 +1,6 @@
 # The web front end's design
 
-The design session of step 32 (`plan/32-design.md`) wrote this with the
+The design session of step 32 (`plan/34-design.md`) wrote this with the
 author on 2026-10-18. Each decision names who made it and why, and the
 sources are at the end, each with the date it was read. The research
 behind it is `plan/notes/research/web-precedents.md` (the tools that
@@ -334,7 +334,7 @@ point it covers. In particular:
   denylist for `/linlog/`, since every Pages site of the organization
   shares one origin and a root-scoped service worker would also
   control the rustdoc.
-- **D31. Hosting, build, CI**: `plan/32-web.md` fixes hosting from the
+- **D31. Hosting, build, CI**: `plan/34-web.md` fixes hosting from the
   client's repository and names GitHub Pages at
   `linlog-prover.github.io`, with `/linlog` staying the rustdoc, a
   `404.html`, no `.nojekyll` needed, `upload-pages-artifact` and

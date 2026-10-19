@@ -1,9 +1,9 @@
-# Step 34: cut, and cut elimination
+# Step 40: cut, and cut elimination
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
-sessions; this prompt is finished at the review of step 33. It says what
+sessions; this prompt is finished at the review of step 39. It says what
 is fixed.
 
 Read `plan/reports/17-assessment.md` (5.5), `plan/README.md` (D5, D6,
@@ -17,7 +17,7 @@ What a course on linear logic shows and the suite cannot yet: a proof
 with cuts, and its cut-free form reached step by step. A cut rule in
 interactive proofs (the user names the cut formula), proof terms with
 cuts and the checker's rule for them, cut elimination on terms one step
-at a time and to the end, and on MLL nets (and on the nets of step 33),
+at a time and to the end, and on MLL nets (and on the nets of step 39),
 where it is the reason nets exist, each step drawn.
 
 ## Fixed now
@@ -36,7 +36,7 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
 
 ## Known already (2026-10-19), for the review that finishes this prompt
 
-- **The checker has ordered modes** (step 36): cyclic MLL and the
+- **The checker has ordered modes** (step 35): cyclic MLL and the
   Lambek calculus check the arcs at every `⊗` and, in L, a non-empty
   antecedent; a cut in those modes must keep the order (the cut formula
   between the two arcs) or be refused there, said so.
@@ -44,7 +44,7 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
   count equation, and since step 37 the saturated set, wire level 3);
   cut changes no refutation, since every one is about cut-free
   derivability and cut is admissible.
-- **The nets** of step 33 (MELL with boxes) and the drawing of step 40
+- **The nets** of step 39 (MELL with boxes) and the drawing of step 36
   are what cut elimination on nets draws, step by step.
 
-Deliverable: thematic jj commits; `plan/reports/34-cut.md`.
+Deliverable: thematic jj commits; `plan/reports/40-cut.md`.

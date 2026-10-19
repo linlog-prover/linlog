@@ -3,7 +3,7 @@
 Written 2026-10-08 for the design of step 28, stage 2 (`plan/notes/api.md`),
 from the snapshot of the repository; every line number is the snapshot's,
 and every place below was read in the code, not only in the rules files.
-The logic, the techniques and the literature are in `38-first-order.md`
+The logic, the techniques and the literature are in `41-first-order.md`
 (cited "38 §n"), and the reports of steps 18, 20, 22, 24, 25, 26 (item 7)
 and 27 already say where quantifiers go in their own parts; this note
 cites them rather than repeating them. Paths are relative to the

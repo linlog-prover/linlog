@@ -1,6 +1,6 @@
 # The web front end's plan
 
-Written by step 32's first session (2026-10-19) from `plan/32-web.md`
+Written by step 32's first session (2026-10-19) from `plan/34-web.md`
 and the design (`plan/web/design.md`, D1 to D60, fixed). It says which
 session builds what, what version 1 is and leaves out, the bindings'
 API as `linlog-web` offers it, and what the library lacks for the page.
@@ -9,7 +9,7 @@ design left open, it says so.
 
 ## The sessions
 
-Three sessions, each on Opus 5.5 at `high` (`plan/32-web.md`, "How the
+Three sessions, each on Opus 5.5 at `high` (`plan/34-web.md`, "How the
 step runs").
 
 **32a, the plan and the bindings** (this repository alone): this
@@ -35,7 +35,7 @@ flake checks; item 3's measurement. It builds, of the design:
 
 **32b, the client's repository and version 1's core**: sets up
 `/home/tux/Projects/own/linlog-prover.github.io` with jj (the default
-of `plan/32-web.md` item 1, unless that session finds a reason against
+of `plan/34-web.md` item 1, unless that session finds a reason against
 it; creating it on GitHub and pushing are the planning session's). It
 reads `~/Projects/own/website/docs/stack-spec.md` and `website-learn`'s
 `CLAUDE.md`, `.claude/rules/` and `modules/` first (D37) and builds:
@@ -58,7 +58,7 @@ reads `~/Projects/own/website/docs/stack-spec.md` and `website-learn`'s
 - what holds the work: D20 (the link), D29 (autosave), D50 (several
   proofs at once), D51 (import).
 
-**32c, the finish**: hosting and the licence check (`plan/32-web.md`
+**32c, the finish**: hosting and the licence check (`plan/34-web.md`
 items 5 and 6) and the rest of version 1:
 
 - D31 (GitHub Pages at `linlog-prover.github.io`, the rustdoc staying
@@ -82,7 +82,7 @@ it, every sequent in them proved or refuted by the command first.
 
 ## Version 1
 
-`linlog interact` with a mouse (`plan/32-web.md` item 4), widened by the
+`linlog interact` with a mouse (`plan/34-web.md` item 4), widened by the
 design: a sequent in the field, the calculus's switches, the goals with
 clickable formulas, the rules a formula takes, the split, undo per
 branch and redo, a goal's close and all goals', the hint ladder, the
@@ -167,7 +167,7 @@ command's but for:
 
 ## What the library lacks for the page
 
-Each item of `plan/32-web.md`'s "What the bindings must offer the page",
+Each item of `plan/34-web.md`'s "What the bindings must offer the page",
 checked against the library on 2026-10-19:
 
 | the page needs | offered by | missing, and where it goes |
@@ -188,5 +188,5 @@ checked against the library on 2026-10-19:
 
 ## Item 3: the two searches of the default bias under wasm
 
-See `plan/reports/32-web.md`, "Session 32a", for the measurement and
+See `plan/reports/34-web.md`, "Session 32a", for the measurement and
 its answer.

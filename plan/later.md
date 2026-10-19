@@ -36,7 +36,7 @@ new on 2026-10-03, a comparison with the other provers (29, D23).
 
 Deferred beyond the table, with the reason: a search that can be
 suspended (an explicit stack in the focused engine; decided by what
-step 32 measures under wasm); a Lean certificate target (after 31); a
+step 34 measures under wasm); a Lean certificate target (after 31); a
 per-worker proof arena, the duplicated exploration of `&` premises, a
 thread sanitizer (no measurement asks); sharing more among
 interchangeable sequents, the order of a split search's members, the
@@ -727,7 +727,7 @@ holding without it through `textLength`.
 
 ## Follow-ups: the web bindings
 
-From step 32a (2026-10-19), `plan/reports/32-web.md`, "Left open":
+From step 32a (2026-10-19), `plan/reports/34-web.md`, "Left open":
 
 - **A turn's set-up kept across restarts** (unassigned): under wasm the
   default bias's two searches take turns, and each turn restarts its
@@ -745,7 +745,7 @@ From step 32a (2026-10-19), `plan/reports/32-web.md`, "Left open":
   and the memory account's tests on `wasm32-wasip1`; the rest (many use
   threads, which WASI lacks) would show what else assumes 64 bits.
 - **The first steps of a goal's proof as a library call, and `Step` and
-  `Applicable` as wire forms** (step 32's later sessions, if the page
+  `Applicable` as wire forms** (step 34's later sessions, if the page
   wants them in the library; additive at wire level 1): the bindings
   define their own JSON for both and read the hint off the goal's proof.
 - **Ordinary logic's JSON forms** (`ordinary::Outcome`, the ordinary
@@ -754,11 +754,11 @@ From step 32a (2026-10-19), `plan/reports/32-web.md`, "Left open":
 
 ## Follow-ups: the net engine after the cyclic mode
 
-From step 36a (2026-10-19), `plan/reports/36-lambek.md`, "What is left
+From step 36a (2026-10-19), `plan/reports/35-lambek.md`, "What is left
 open":
 
 - **A panic past the structure's vertex bound** (unassigned; older than
-  step 36): `Switching::new` expects `ProofStructure::new` to succeed,
+  step 35): `Switching::new` expects `ProofStructure::new` to succeed,
   but nothing between the front door and it checks `nets::MOST`
   (1 431 655 763 vertices), so with `Limits::occurrences` lifted a
   sequent of shared subterms that unfolds past it would panic instead
@@ -774,7 +774,7 @@ open":
 
 ## The web client's polish: the next step after the break
 
-The author, 2026-10-19, after step 32 went live: one session in the
+The author, 2026-10-19, after step 34 went live: one session in the
 client's repository, with both plugins vetted for the design session
 (`frontend-design` and `education-agent-skills`), run as the next step
 when work resumes; its prompt is written with the renumbering of the
@@ -852,7 +852,7 @@ From the review of step 32b (2026-10-19):
 - **The tab shows the sequent as typed** (`a^`, `par`), where D53 asks
   for it in Euler Math (step 32c).
 
-*Done in session 32c (2026-10-19, `plan/reports/32-web.md`):* a link's
+*Done in session 32c (2026-10-19, `plan/reports/34-web.md`):* a link's
 parse error is shown under the field, a link's session unpacks to at most
 512 KiB, and the tab shows the sequent in signs and Euler Math. The
 parser's `a⊥` stays unassigned.
@@ -878,7 +878,7 @@ Left by session 32c (2026-10-19):
 *Assigned (2026-10-03).* A reference prover kept in the repository,
 test-only, for the differential runs that reviewers so far wrote and
 threw away (the unfocused two-sided prover of step 8, for one): step 26, before
-it changes the engine; the engines of steps 27, 35 and 37 join its test.
+it changes the engine; the engines of steps 27, 32 and 37 join its test.
 The checker has its own since step 18 (`proofs/oracle.rs`). The check and the derivation of a large net:
 step 18. The forward search's missed stop and the portfolio's removal:
 19. The search's own memory: 20. The copy bound, the five sampled
@@ -887,7 +887,7 @@ the goal, Mix's `3^n`, a level of recursion per link of a free chain and
 the first three constant factors: 26. The unit of work, the forward
 bound on Horn programs only, the restart from the frontier and the free
 splits without rows: superseded by step 27 if its engine takes the nets,
-else 26. A search that can be suspended: by step 32's measurement. The
+else 26. A search that can be suspended: by step 34's measurement. The
 pool's split of threads between the two searches: measured in 30. A
 sound affine prune: step 27 answers it for Horn programs. The rest stays
 as written.
@@ -907,7 +907,7 @@ lists the probes owed (A1 to A5). The author decides where they go.
 within their generation, A1's four rows are refuted at levels 5 to 12,
 and five rows without a copy bound are in the target set. R2, R3 and R4
 were adopted by the author on 2026-10-18: R2 in session 31d (on by
-default), R3 as step 39, R4 in step 37; KLE075+1, which Sympli refutes against its header and which
+default), R3 as step 33, R4 in step 37; KLE075+1, which Sympli refutes against its header and which
 has no classical countermodel, is now refuted by linlog in all three
 translations too.
 
@@ -1194,7 +1194,7 @@ meets first on a large problem, and come before any new engine:
     has a fixed seed, which the checker's tables now face untrusted
     input with (deferred: a seed per process would cost the
     reproducible runs, a second hasher for the checker would not); the
-    32-bit case of every integer argument (step 32, under wasm32).
+    32-bit case of every integer argument (step 34, under wasm32).
 - **The forward search misses its stop on the GPPP-1000 nets, by
   minutes.** On one thread they are killed past 10.5 s under a 5 s
   limit, or proved 0.7 to 1.0 s late, in the default and the `--bias
@@ -1396,7 +1396,7 @@ library draws classical derivations one-sided only (`svg::two_sided`
 serves intuitionistic mode); a two-sided reading of a one-sided
 derivation (the antecedents moved left of `⊢` by their polarity, the
 rules renamed) is a presentation pass over `Derivation`, a feature of
-its own, after step 32.
+its own, after step 34.
 
 ## Follow-ups: interactive proving
 
@@ -1404,7 +1404,7 @@ its own, after step 32.
 `close_all` dropping its outcomes on an error: step 28. The reading
 recomputed per operation, a filtered `rules` list, a budget per goal for
 `close_all`, a map from a drawing's inferences to the session's goals:
-steps 22 and 32. The net engine on a sub-forest: deferred.
+steps 22 and 34. The net engine on a sub-forest: deferred.
 
 
 Left open by step 9, none a correctness issue. The net engine works on a

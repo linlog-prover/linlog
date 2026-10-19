@@ -1,7 +1,7 @@
 # Walk-through: step 38 (first-order linear and ordinary logic) against `api.md`
 
-Read: the brief, `api.md` in full, `plan/38-first-order.md`, the research
-notes `38-first-order.md`, `fo-linear.md`, `impact-quantifiers.md`,
+Read: the brief, `api.md` in full, `plan/41-first-order.md`, the research
+notes `41-first-order.md`, `fo-linear.md`, `impact-quantifiers.md`,
 `impact-fo-ordinary.md`, `fo-embeddings.md`, `corpus-fo-linear.md`, the 48
 register entries naming 38, and the present `sequents/`, `occurrences/`,
 `Cargo.toml`. Section numbers are `api.md`'s. Nothing run or edited.

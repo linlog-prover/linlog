@@ -3,7 +3,7 @@
 Written 2026-10-08 from the snapshot of the repository (its code read
 directly: `core/src/`, `cli/src/`, `bench/src/`, `modules/bench.nix`, the
 tests and README), for stage 2 of `plan/28-audit-and-refactor.md`. It
-builds on `38-first-order.md` (the linear side: terms, levels, the trail,
+builds on `41-first-order.md` (the linear side: terms, levels, the trail,
 `(OccId, frame)` members, the prunes) and on `plan/later.md` ("Ordinary
 logic through its embeddings", "First-order linear logic", "Follow-ups:
 ordinary logic"). It does not repeat their surveys. What it adds is a
@@ -41,7 +41,7 @@ over `Prop`.
 2. **Ordinary first-order semantics assumes a non-empty domain**, as
    TPTP and LK/LJ do: `⊢ ∃x.⊤` and `∀x.p(x) ⊢ ∃x.p(x)` are valid. A
    witness for a problem without a closed term must then be a fresh
-   constant. That is open question 3 of `38-first-order.md`: for the
+   constant. That is open question 3 of `41-first-order.md`: for the
    ordinary layer the answer is forced (a constant), and the Rocq
    statement must take an inhabitant.
 3. **First-order certificates of ordinary logic need no library.** The
@@ -57,7 +57,7 @@ over `Prop`.
 |---|---|---|---|
 | `ordinary/mod.rs:237-255` `Node` (`Atom(u32)`, `True`, `False`, `Not`, `And`, `Or`, `Implies`, `Iff`) | atoms are nullary, no binder | `Pred(sym, args)` with the argument list by index (so `Node` stays 12 bytes), `Forall(body)` and `Exists(body)` with the bound variable nameless; `Atom(u32)` kept for nullary predicates | open now: `#[non_exhaustive]` (§10, item 5); the variants at step |
 | `ordinary/mod.rs:258-267` `Node::operands` | at most two children | binders are unary and fit; arguments are terms, not formulas | at step |
-| `ordinary/mod.rs:270-283` `Formulas` (`nodes`, `atoms`, `names`, `ids: HashMap<Node, NodeId>`) | hash-consing makes "equal formula ⇔ equal id", which `same` (`derivation.rs:594-605`) and the `ids.get(&Node::…)` look-ups (`derivation.rs:451,459,464-465`; `rocq.rs:304,329-341`) rely on | equality up to α-renaming, so bound variables must be nameless (locally nameless, as `38-first-order.md` recommends for `Sequent`); a term arena; a symbol table with arities, function symbols and constants | open now: one representation for both arenas, written in `api.md` (§10, item 1) |
+| `ordinary/mod.rs:270-283` `Formulas` (`nodes`, `atoms`, `names`, `ids: HashMap<Node, NodeId>`) | hash-consing makes "equal formula ⇔ equal id", which `same` (`derivation.rs:594-605`) and the `ids.get(&Node::…)` look-ups (`derivation.rs:451,459,464-465`; `rocq.rs:304,329-341`) rely on | equality up to α-renaming, so bound variables must be nameless (locally nameless, as `41-first-order.md` recommends for `Sequent`); a term arena; a symbol table with arities, function symbols and constants | open now: one representation for both arenas, written in `api.md` (§10, item 1) |
 | `ordinary/mod.rs:304-345` `atom_name(u32)`, `atom_names()`, `atom(name)` | a name is an atom | `p/0` and `p/1` are different symbols; constants and functions need their own tables | at step (additive methods) |
 | `ordinary/mod.rs:317-331` `Formulas::add` | callers pass operands of this arena (unchecked) | binder well-formedness: no loose index outside a binder, arities | open now: validate, since it already returns `Result` (item 7) |
 | `ordinary/mod.rs:476-510` `Sequent` and `Sequent::new(formulas, left, right) -> Self` | infallible; ids unchecked; every formula is closed by construction | the formulas must be closed; there must be a policy on free variables of the native syntax | open now: `Result<Self, Error>` (item 7) |
@@ -65,7 +65,7 @@ over `Prop`.
 | `ordinary/translate.rs:18-53` `Core`, `Operand`, `Pattern { bangs, core, operands }` | a pattern puts only `!` on top of the positive image (`bangs`); no binder core | `Forall` and `Exists` cores. The classical γ-formula needs `?` on top of the image that stands right of `⊢`, which `bangs` cannot express (the negative side gets `?`, `translate.rs:391-396`) | at step (all private to the module) |
 | `ordinary/translate.rs:55-59,312-317` `FALSE` and its collision loop over `atom_names()` | atom names are the whole namespace | collision by `(name, arity)` | at step |
 | `ordinary/translate.rs:72-97` `Extra` (the two implications per `↔`, and false) | the only extra nodes are propositional | equality axioms if `=` is read as a predicate (§9), and the inhabitant constant (§0.2) | at step |
-| `ordinary/translate.rs:434-438` `crate::Sequent { terms, roots, atoms }` struct literal; `462-505` `Builder` | the linear sequent has three fields; `Builder` repeats the arena's hash-consing | the linear first-order tables (`38-first-order.md` §3). With one shared term type the translation copies term ids unchanged | open now: a crate-internal constructor instead of the struct literals (`translate.rs:434`, `parse/mod.rs:407`, `serialize/sequents.rs:124`, the test helpers), cheap |
+| `ordinary/translate.rs:434-438` `crate::Sequent { terms, roots, atoms }` struct literal; `462-505` `Builder` | the linear sequent has three fields; `Builder` repeats the arena's hash-consing | the linear first-order tables (`41-first-order.md` §3). With one shared term type the translation copies term ids unchanged | open now: a crate-internal constructor instead of the struct literals (`translate.rs:434`, `parse/mod.rs:407`, `serialize/sequents.rs:124`, the test helpers), cheap |
 | `sequents/term.rs:27-30` `Atom` ("a propositional variable"); `52-77` `Term`, 12 bytes with no size assertion | — | `Pred`/`DualPred` with an argument index (38 note), `Forall`/`Exists` | open now: `assert!(size_of::<Term>() == 12)` beside `Node`'s (item 10) |
 | `sequents/term.rs:196-253` `subterms`, `operands`, `map_subterms`, `offset`, `check_bounds` | only subterm and atom indices | argument ids to offset (`Sequent::add`, `mod.rs:361-379`) and bound-check (`verify_integrity`, `mod.rs:176-201`) | at step |
 | `sequents/mod.rs:281-356` `optimize_atoms`, `merge_atoms`; `serialize/sequents.rs:120-131` (reading merges atoms by name) | "a name is an atom" | the atom is `(name, arity)`, else `p/0` and `p/1` merge | at step, but `api.md` should say the identity is `(name, arity)` |
@@ -173,7 +173,7 @@ compiler does not show (item 2).
 | `serialize/search.rs:10-42` fragment by name | six names | names with the first-order scheme (§1) | open now: the scheme (item 3) |
 | `serialize/interactive.rs` | members as id lists | `[id, frame]` under binders | at step, if the member type is settled (item 6) |
 | `ordinary/mod.rs:66-79,108-135,202-212` `Logic`, `Translation`, `Options` (serde, `deny_unknown_fields`) | — | probably an `equality` or `domain` option (§9) | open now: `#[non_exhaustive]` on `Options` (item 5) |
-| **`ordinary::Sequent` and `ordinary::Derivation` have no JSON form**; `cli/src/ordinary.rs:136` writes the text tree for `--format json` | step 28 creates them (`plan/28-…md`, "From step 25"; `32-web.md`:171-172) | a symbol table with arities, a term arena, binder tags, the inference's term slot | open now: design them with that room and a version from the start (item 4) |
+| **`ordinary::Sequent` and `ordinary::Derivation` have no JSON form**; `cli/src/ordinary.rs:136` writes the text tree for `--format json` | step 28 creates them (`plan/28-…md`, "From step 25"; `34-web.md`:171-172) | a symbol table with arities, a term arena, binder tags, the inference's term slot | open now: design them with that room and a version from the start (item 4) |
 | `cli/src/batch.rs:540-551` JSON lines with `--logic` | the image's outcome, no logic or translation key | unchanged | — |
 
 ## 7. The exports
@@ -274,7 +274,7 @@ compiler does not show (item 2).
    which step 28 creates, designed with room and a version**: a symbol
    table with arities, a term arena key, binder tags, and the
    inference's term slot. They are new, so the room costs nothing now.
-   After 0.1.0 the web client reads them (`32-web.md`), and a change is
+   After 0.1.0 the web client reads them (`34-web.md`), and a change is
    a format version.
 5. **`#[non_exhaustive]` on `ordinary::Node`, `ordinary::Rule`,
    `ordinary::Inference`, `ordinary::Options`, `lltp::Status`,

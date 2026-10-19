@@ -507,7 +507,7 @@ What the code relies on:
   - Measured (one thread): slower than the two-sided engine on every
     intuitionistic row but the 64-link chain, and slower than the net
     engine at the two-sided engine's recursion limit, so no dispatch row
-    and no handover (`plan/reports/35-mll-engines.md`, session 35b). It
+    and no handover (`plan/reports/32-mll-engines.md`, session 35b). It
     beats the net engine on Partition by orders of magnitude: the
     directed rejections cut where the switchings see a cycle only later.
   - What it takes from the front door and the count check: the reading

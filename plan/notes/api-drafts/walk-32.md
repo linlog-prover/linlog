@@ -1,6 +1,6 @@
 # Walk-through of step 32 (the web client) against `plan/notes/api.md`
 
-Read: the design in full; `plan/32-web.md`; `research/32-web.md` and
+Read: the design in full; `plan/34-web.md`; `research/34-web.md` and
 `research/usability/web-developer.md`; the 58 register entries that name
 step 32; `api-drafts/draft-a.md` 3.9 and 7.3.6 (the only place where
 `GoalView`, `Request` and `Response` have a shape); `core/src/proofs/

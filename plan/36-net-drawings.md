@@ -1,4 +1,4 @@
-# Step 40: proof nets drawn with their formulas
+# Step 36: proof nets drawn with their formulas
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -7,8 +7,8 @@ session; this prompt was written on 2026-10-19 at the author's word. It
 says what is fixed.
 
 Read `plan/README.md` (D12, D15, D16), `plan/reports/11-svg.md` (the net's
-layout), `plan/reports/35-mll-engines.md` (session 35b: the essential
-net's drawing), `plan/reports/36-lambek.md` (the planar and Lambek
+layout), `plan/reports/32-mll-engines.md` (session 35b: the essential
+net's drawing), `plan/reports/35-lambek.md` (the planar and Lambek
 drawings), `.claude/rules/core-export.md`, and `core/src/export/svg/net.rs`.
 
 ## Goal
@@ -70,4 +70,4 @@ on cores and memory and told to report only what breaks a stated
 requirement. Builds and tests on the cores the brief names, in capped
 scopes; `nix flake check` under `/tmp/linlog-machine.lock`.
 
-Deliverable: thematic jj commits; `plan/reports/40-net-drawings.md`.
+Deliverable: thematic jj commits; `plan/reports/36-net-drawings.md`.

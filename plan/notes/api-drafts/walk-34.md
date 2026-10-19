@@ -1,6 +1,6 @@
 # Walk-through of step 34 (cut, cut elimination) against `plan/notes/api.md`
 
-Read: api.md in full, `plan/34-cut.md`, `research/34-cut.md`, `research/impact-boxes.md`,
+Read: api.md in full, `plan/40-cut.md`, `research/40-cut.md`, `research/impact-boxes.md`,
 the register entries naming 34, and `core/src` where the first change lands
 (`occurrences/mod.rs`, `occurrences/reading.rs`, `proofs/{mod,interactive}.rs`,
 `search/{mod,net}.rs`, `search/focus/{bias,counts}.rs`). Nothing was built or run.

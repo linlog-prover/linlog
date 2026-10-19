@@ -1,4 +1,4 @@
-# Step 39: the focused engine's cap on the members only a `⊤` can take
+# Step 33: the focused engine's cap on the members only a `⊤` can take
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -101,4 +101,4 @@ and 3 and its builds 4 to 7, step 32's builds 8 to 11; every timed run
 and every `nix` build holds `/tmp/linlog-machine.lock`.
 
 Deliverable: thematic jj commits (none if item 1 ends the step);
-`plan/reports/39-top-cap.md`.
+`plan/reports/33-top-cap.md`.

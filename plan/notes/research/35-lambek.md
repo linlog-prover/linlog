@@ -142,7 +142,7 @@ them in `plan/later.md` as the route for grammar workloads.
 Piazza 2001; Moot 2013), needs quantifiers and is step 38's business,
 as the prompt fixes. Note the title: the paper is "Linguistic
 applications of first order *intuitionistic* linear logic", not
-"multiplicative" as `plan/36-lambek.md` and `17-assessment.md` write.
+"multiplicative" as `plan/35-lambek.md` and `17-assessment.md` write.
 
 **L against L*.** The net engine on the lowered sequent decides L*
 (the spec; Abrusci 2002). Lambek's restriction is an extra condition.
@@ -303,7 +303,7 @@ compares up to rotation. `Refutation` and `Statistics` need nothing;
 - **Units, Mix and affine** in cyclic mode: refuse, say why, list in
   `plan/later.md`.
 - **The title of Moot and Piazza (2001)** should be corrected in
-  `plan/36-lambek.md` and `17-assessment.md`.
+  `plan/35-lambek.md` and `17-assessment.md`.
 - **Comparison targets.** No Lambek benchmark set was found; Grail's
   example grammars and coq-lambek's lexicons are the candidates. The
   prompt should ask for a generated family of cyclic sequents (random
@@ -422,6 +422,6 @@ compares up to rotation. `Refutation` and `Statistics` need nothing;
   `net.rs`; `core/src/serialize/search.rs`, `nets.rs`;
   `core/src/export/notation.rs`, `rocq.rs`, `svg/net.rs`;
   `cli/src/argument_parsing.rs`; `.claude/rules/core-*.md`;
-  `plan/36-lambek.md`, `plan/later.md`, `plan/reports/17-assessment.md`
+  `plan/35-lambek.md`, `plan/later.md`, `plan/reports/17-assessment.md`
 
 Sources checked 2026-10-08: 36 checked, 2 corrected, 0 removed, 0 claims marked.

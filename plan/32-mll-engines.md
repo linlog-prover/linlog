@@ -1,4 +1,4 @@
-# Step 35: engines for MLL and IMLL: net pruning, routing, essential nets
+# Step 32: engines for MLL and IMLL: net pruning, routing, essential nets
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -119,6 +119,6 @@ commit of its own that says why.
 
 Thematic jj commits in each session's own workspace
 (`../linlog-step35a`, `../linlog-step35b`, from the head `planning`
-names); `plan/reports/35-mll-engines.md`, one section and a checklist
+names); `plan/reports/32-mll-engines.md`, one section and a checklist
 row per session; README's "What exists and what is planned" and the
 changelog's `[Unreleased]` kept true. Nothing is pushed.

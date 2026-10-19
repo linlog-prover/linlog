@@ -13,7 +13,7 @@
 **Outcome.** The web front end has its plan, `plan/web/README.md`: the
 three sessions and which of the design's decisions each builds, version
 1 and what it leaves out, the bindings' API call by call, the tab's
-defaults, and, item by item of `plan/32-web.md`'s "What the bindings
+defaults, and, item by item of `plan/34-web.md`'s "What the bindings
 must offer the page", what is offered and what the library lacks. The
 crate `linlog-web` (`web/`, `publish = false`) is the library compiled
 for `wasm32-unknown-unknown` without `parallel` behind nineteen calls of
@@ -416,7 +416,7 @@ report alone.
 
 ### Decisions
 
-- **The repository**: the default name and place of `plan/32-web.md`
+- **The repository**: the default name and place of `plan/34-web.md`
   item 1. Its flake is the author's sites' scheme (flake-parts,
   import-tree, website-learn's `node-modules.nix` and `playwright.nix`,
   a `ci-cache` derivation), the Claude Code setup linlog's (its git and

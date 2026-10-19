@@ -371,7 +371,7 @@ copies they had are gone (F103, F104).
   the outcome names it and carries its counters (in a race the other
   search's are added), `work` both engines' units. Why each part:
   - *No row*: wherever both engines decide, the focused ones are faster
-    (measured on the pruned net engine, `plan/reports/35-mll-engines.md`);
+    (measured on the pruned net engine, `plan/reports/32-mll-engines.md`);
     the net engine decides only where they stop at a limit (long
     implication chains, some sequents of thousands of distinct atoms),
     and which goal reaches a limit depends on the limits, which no
@@ -444,7 +444,7 @@ copies they had are gone (F103, F104).
   `32 w` (the six refutations, 48 million, within seconds); 2²⁴ units
   are some hundredths of a second. *Why turns and no feature*: wins and losses share every static
   feature looked at (`SYJ205` won, `SYJ206` and `SYJ212`, alike in shape,
-  lost; `SYJ208` won at size 4 and lost at size 7), as at step 35's
+  lost; `SYJ208` won at size 4 and lost at size 7), as at step 32's
   routing; the turns cost nothing where the engine is fast. A test
   thread may set both bounds (`TURN`, `turn_bounds`; a share of 0 lets
   a turn run to its end). *Why two closures*: `answer_goal` asks

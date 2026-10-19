@@ -1,4 +1,4 @@
-# Step 36: cyclic MLL and the Lambek calculus
+# Step 35: cyclic MLL and the Lambek calculus
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -8,7 +8,7 @@ is fixed.
 
 Read `plan/later.md` ("Cyclic MLL and the Lambek calculus"),
 `proof-search-specifications.md` ("MLL variants: units, Mix, cyclic MLL
-and Lambek"), `plan/reports/17-assessment.md` (3.8), `35-mll-engines.md`,
+and Lambek"), `plan/reports/17-assessment.md` (3.8), `32-mll-engines.md`,
 and `plan/README.md` (D2, D8, D19).
 
 ## Goal
@@ -34,7 +34,7 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
 ## What step 35 left you
 
 - **The net engine's loop is generic over its criterion**
-  (`plan/reports/35-mll-engines.md`, "The search"): `Linker<'a, C:
+  (`plan/reports/32-mll-engines.md`, "The search"): `Linker<'a, C:
   Correctness>` keeps the choice, the frames, the cadence, the stop,
   the counters and the cubes, and a criterion answers `mate`, `admits`
   (its constant-time rejections), `link` (fallible, for the memory
@@ -93,4 +93,4 @@ at `high`, each on a frozen tree. The net target set
 (`bench/net-targets.sh`, against `bench/targets/net-after-prunes.csv`)
 must keep every counter of the commutative modes.
 
-Deliverable: thematic jj commits; `plan/reports/36-lambek.md`.
+Deliverable: thematic jj commits; `plan/reports/35-lambek.md`.

@@ -345,7 +345,7 @@ New as an outreach item.
 37. M. Kanovich, J. Vauzeilles, "The classical AI planning problems in the mirror of Horn linear logic", MSCS 11(6) (2001) 689–716. https://dblp.org/pid/34/462
 
 Repository: [L] `plan/later.md`; [R] `plan/notes/research/README.md`
-and `32-web.md`, `29-comparison.md` in that directory; [rep25]
+and `34-web.md`, `29-comparison.md` in that directory; [rep25]
 `plan/reports/25-ordinary-logic.md` via later.md; [rep26]
 `plan/reports/26-focused-engine.md`, "Item 4".
 

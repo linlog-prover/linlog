@@ -1,7 +1,7 @@
 # Walk-through of step 36 (cyclic MLL and the Lambek calculus) against `plan/notes/api.md`
 
-Read: the whole design (sections 1 to 14), `plan/36-lambek.md`, the research note
-`plan/notes/research/36-lambek.md`, the register entries naming 36 (R6, R10, R50 to R53,
+Read: the whole design (sections 1 to 14), `plan/35-lambek.md`, the research note
+`plan/notes/research/35-lambek.md`, the register entries naming 36 (R6, R10, R50 to R53,
 R55, R56, R61, R79, R88, R90, R96, R104, R121, R134, R146, R169, R176, R177, R206, R207,
 R209, R216, R230, R237, R241, R246, R248), and the present `Reading`, `Forest`, parser,
 `Mode`, `ProofStructure`, `Nets::admits`, `Modes`/`Feature`, `Interactive::close` and

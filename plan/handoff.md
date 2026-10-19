@@ -38,35 +38,40 @@ none of its memory notes.
   'step*' 'linlog-*'`; `gh run list --limit 6`. Ask the author only
   what none of these answers.
 
-## The steps left (as of the evening of 2026-10-18)
+## The steps left (as of the evening of 2026-10-19)
 
-Steps 31 and 35 are done, reviewed and on `main`. In order, with what
-each needs before it (the table in `plan/README.md` is the authority):
+The steps from 32 on were renumbered that day in the order they run
+(`plan/README.md`, its Status entry maps the old numbers); steps 32 to
+37 are done, reviewed and on `main`, the web client live at
+https://linlog-prover.github.io/ from its own repository,
+`linlog-prover/linlog-prover.github.io` (local checkout
+`/home/tux/Projects/own/linlog-prover.github.io`, jj colocated; you push
+its `main` as you push linlog's, after review, with SSH's `BatchMode`).
+In order, with what each needs before it (the table in `plan/README.md`
+is the authority):
 
-- **39**: the `⊤` cap (R3), one session; its prompt `39-top-cap.md` is
-  written and starts with a measurement that ends the step if the cap
-  can decide nothing (class B's rows were decided by R1 meanwhile).
-  It runs before 37.
-- **32**: the web front end, a plan of its own and a second repository;
-  its prompt is finished. It starts after its design session
-  (`plan/32-design.md`, the author with Fable 5.1, five mockups), whose
-  outcome is `plan/web/design.md`; if that file does not exist yet, ask
-  the author whether the design session has run. The repository's architecture (name,
-  directory, layout) is the session's (the author, 2026-10-18). Once
-  its first commits are reviewed you create it yourself with `gh repo
-  create linlog-prover/NAME --public …` (the author expects that),
-  after saying the exact call and getting the author's yes for it, as
-  for every administrative task; ask too whether the standing push
-  permission covers that repository. It can run
-  beside 39 (39 on cores 2 to 7, 32's builds on 8 to 11).
-- **36** (prompt finished): cyclic MLL and the Lambek calculus, after
-  35. **33** after 32; **34** after 31 and 33; **37** after 36 and 39;
-  **38** after 37 (its first session on Fable 5.1).
+- **38**: the web client's polish, one session in the client's
+  repository, with the `frontend-design` and `education-agent-skills`
+  plugins (the author's requests of 2026-10-19 are its items; the
+  author judges the look from its screenshots). Its prompt is written;
+  its first item moves the client's linlog input to `main`.
+- **39**: MELL nets with boxes (prompt finished), after 38 or beside it
+  (39 touches `core/src/nets/` and the SVG export, 38 only the client).
+- **40**: cut and cut elimination, after 39 (prompt finished at the
+  review of 39).
+- **41**: first-order linear logic, last (prompt finished; its first
+  session on Fable 5.1 at `high`).
 
 Two steps may run side by side when they touch different parts of the
-tree (31 and 35 did); give them the split of "The machine" below. 39
-and 36 both change searches (the focused engine and the net engine):
-not side by side with each other unless their files are disjoint.
+tree; give them the split of "The machine" below.
+
+The author's standing yes of 2026-10-19, beside the push of `main`:
+create, push and set up the client repository (done; rulesets, topics,
+Pages from Actions, the website fields); start the next step when its
+dependencies are reviewed and on `main`; the steps may use cores 2 to
+15, mutation and fuzz runs where a review needs them. The client's
+`CACHIX_AUTH_TOKEN` is the author's to add; until then its CI only
+pulls.
 
 ## How a step runs
 

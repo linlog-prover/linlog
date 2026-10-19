@@ -7,7 +7,7 @@ conclusions; everything about linlog's code names the file and item read.
 ## 1. The problem and the state of the art
 
 **The problem.** A page proves sequents by clicking, with nothing
-installed and nothing sent to a server (`plan/32-web.md`, Goal). So the
+installed and nothing sent to a server (`plan/34-web.md`, Goal). So the
 Rust core runs in the browser as WebAssembly, one long search must not
 freeze the page, and the user must be able to stop it.
 
@@ -103,7 +103,7 @@ search to return to the event loop between slices, since there is no
 shared flag without `SharedArrayBuffer` [S9]: a second reason for the
 suspendable engine of the prompt's question 3 (inference).
 
-**Threads: no**, as `plan/32-web.md` fixes. They need nightly and
+**Threads: no**, as `plan/34-web.md` fixes. They need nightly and
 `build-std` [S8] (the repo pins `stable`) and headers Pages lacks [S11].
 The cost is the default bias's two searches in restarting turns
 (`search/focus/schedule.rs`, `turns`, `TURN_GROWTH` = 4,
@@ -140,7 +140,7 @@ are Rust already (`export::svg`), so the UI is a sequent box, goal
 lists, a rule menu and buttons. A Rust framework adds a second wasm
 module on the main thread, and Leptos and Dioxus both have breaking
 majors in pre-release [S21][S22]. TS also fits D22's split, which a Rust
-client strains (the caveat in `plan/32-web.md`). Against it: the author
+client strains (the caveat in `plan/34-web.md`). Against it: the author
 reads Rust (inference).
 
 **Formulas.** Derivations and nets as linlog's SVG (D12); goals and menus

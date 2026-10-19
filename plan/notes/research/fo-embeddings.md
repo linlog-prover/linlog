@@ -1,6 +1,6 @@
 # Research note: ordinary first-order logic through its embeddings
 
-Written 2026-10-08 from the snapshot of the repository, `38-first-order.md`
+Written 2026-10-08 from the snapshot of the repository, `41-first-order.md`
 (cited as [38]) and the sources of section 7. It specifies what the
 ordinary layer (`core/src/ordinary/`) must become when step 38 gives
 linear logic its quantifiers, so that the design of step 28 leaves the
@@ -525,7 +525,7 @@ be rare, as ILTP's 96 `Non-Theorem` against 1363 `Open` foretell (§3.2).
 
 ## 7. Sources
 
-- [38] `plan/notes/research/38-first-order.md`, 2026-10-08 (this directory).
+- [38] `plan/notes/research/41-first-order.md`, 2026-10-08 (this directory).
 - [Gir87] J.-Y. Girard, *Linear logic*, Theoretical Computer Science 50(1), 1987, pp. 1–101. <https://girard.perso.math.cnrs.fr/linear.pdf> (a scan without text layer; its clauses are quoted here from [Sch94] and [FOP24], which attribute them to it).
 - [Gir95] J.-Y. Girard, *Linear logic: its syntax and semantics*, in Advances in Linear Logic, LMS Lecture Notes 222, CUP 1995. <https://girard.perso.math.cnrs.fr/Synsem.pdf> (§1.2.2 the one-sided first-order rules).
 - [Sch91] H. Schellinx, *Some syntactical observations on linear logic*, Journal of Logic and Computation 1(4), 1991, pp. 537–559. DOI 10.1093/logcom/1.4.537; preprint ILLC ML-1990-08, <https://eprints.illc.uva.nl/id/eprint/1299/>.

@@ -224,7 +224,7 @@ the commit that lands it rewrites that bullet.
 
 - **The calculus's enums stay exhaustive** (`Term`, `Kind`, `Node`,
   `Rule`, `Verdict`, `Branch`, `Sign`, `Polarity`, `Side`, `Division`
-  (the Lambek calculus's two, added at step 36),
+  (the Lambek calculus's two, added at step 35),
   `ordinary::{Node, Rule, Side}`, and `sequents::Visit`, whose enter,
   between and exit describe a walk over any tree); every other public enum, every
   options value and every struct with public fields that a later step

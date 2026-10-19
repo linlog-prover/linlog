@@ -2,20 +2,20 @@
 
 Written 2026-10-09 for the question of how linlog's scope could grow
 beyond or beside its saved plans. I read `plan/later.md`, the research
-notes' `README.md`, `32-web.md`, `usability-baseline.md` and
+notes' `README.md`, `34-web.md`, `usability-baseline.md` and
 `refutations.md` first. Sources outside the repository are [E1] to
 [E24] in the last section; repository files are named by path.
 "(inference)" marks my own conclusions.
 
 What is already planned for teaching: step 32 is "`linlog interact`
 with a mouse", with goals as click targets, rules, undo, close, the
-drawing and the exports (`plan/32-web.md`, "What is fixed now", 4). The
+drawing and the exports (`plan/34-web.md`, "What is fixed now", 4). The
 research note for 32 lists a `graphics-document` root and MathJax speech
-as later accessibility work (`32-web.md`, Accessibility; Formulas).
+as later accessibility work (`34-web.md`, Accessibility; Formulas).
 Steps 33 to 36 add the objects a course shows: MELL nets with boxes,
 cut elimination one step at a time with each step drawn
-(`plan/34-cut.md`), the drawing of essential nets "which teaching wants"
-(`plan/35-mll-engines.md`), Lambek. D21 makes research and teaching
+(`plan/40-cut.md`), the drawing of essential nets "which teaching wants"
+(`plan/32-mll-engines.md`), Lambek. D21 makes research and teaching
 equal aims (`plan/README.md`). Nothing below repeats those.
 
 ## 1. The field as it stands
@@ -102,7 +102,7 @@ search from any goal, a net criterion with a witness
 (`NetError::SwitchingCycle`, `.claude/rules/core-nets.md`), a stable
 JSON state, and SVG with click ids. Running all of it in the browser
 (step 32) is a combination none of the tools above has
-(`32-web.md`, Existing implementations).
+(`34-web.md`, Existing implementations).
 
 ## 2. Candidate extensions
 
@@ -210,7 +210,7 @@ prove in [E11][E6]; one tool for both lets a course show the
 translation, the same goal in LJ and in ILL (inference).
 *Cost.* Real: an interactive state over `ordinary::Derivation`, and the
 JSON form of `ordinary::Sequent` and `ordinary::Derivation` that step
-25's report lists as missing (`32-web.md`, Data model).
+25's report lists as missing (`34-web.md`, Data model).
 *Relation.* New; beside steps 25 and 32.
 *Leave room now.* `Interactive`'s operations (goals, positions, rules,
 apply, undo, proof) described as a trait or a generic over a calculus,
@@ -227,7 +227,7 @@ for screen readers [E23].
 *Value.* Blind and low-vision students can do the same exercises; no
 tool in section 1 offers that for sequents or nets.
 *Cost.* Small in the library (a printer), most of it in the client.
-*Relation.* Extends step 32; `32-web.md` names `graphics-document` and
+*Relation.* Extends step 32; `34-web.md` names `graphics-document` and
 MathJax speech as later work.
 *Leave room now.* The public formula walk (`sequents::fmt::Walk`,
 README §2) able to drive a spoken printer; a derivation outline as a

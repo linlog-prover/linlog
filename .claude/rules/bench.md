@@ -116,7 +116,7 @@ serde_json, which the CLI and the core's tests already have.
   and of `/`, products and their reversals, noun phrases with
   adjectives, products of `a \ a` beside a hypothesis in `lambek` and
   `lambek-star`, random derivations of `L` over two atoms and their
-  exchanged mutants), made by a script kept in step 36's report, read in
+  exchanged mutants), made by a script kept in step 35's report, read in
   the cyclic order like `cyclic.txt`; `--modes classical` runs the
   commutative engines on the same one-sided sequent, and `--modes
   intuitionistic` cannot (the commutative reading has no `/`).

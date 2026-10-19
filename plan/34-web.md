@@ -1,4 +1,4 @@
-# Step 32: the web front end
+# Step 34: the web front end
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -15,7 +15,7 @@ start:
 - `plan/README.md`: D11, D12, D13, D15, D16, D18.
 - `plan/notes/distribution.md`.
 - `plan/web/design.md` and the mockup it names (`plan/web/mockup/`),
-  written by the design session (`plan/32-design.md`) with the author:
+  written by the design session (`plan/34-design.md`) with the author:
   its decisions are fixed for this step, as the items below are.
 
 ## Goal
@@ -93,7 +93,7 @@ sent to a server.
 
 ## What the design session left you
 
-The design session ran on 2026-10-18 with the author (`plan/32-design.md`):
+The design session ran on 2026-10-18 with the author (`plan/34-design.md`):
 `plan/web/design.md` holds D1 to D60, each with who decided it and why,
 and `plan/web/mockup/` is the chosen mockup ("Instrument"), the visual
 reference, with a README of its scenes and fonts. Its decisions are as
@@ -237,5 +237,5 @@ nothing else of the workspace.
 ## Deliverables
 
 `plan/web/README.md` (the step's own plan, by its first session) and
-`plan/reports/32-web.md`, both in this repository; thematic jj commits
+`plan/reports/34-web.md`, both in this repository; thematic jj commits
 here for the bindings and in the client's repository for the client.

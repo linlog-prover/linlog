@@ -37,7 +37,7 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
 is out of date: outside the nets it ends at the time limit (the note's
 2.4). Step 30b closed the levels of its class A (R1), which decided
 class B's rows too (the comparison of 2026-10-18). Step 39 measured
-R3's cap and built nothing (`plan/reports/39-top-cap.md`): not one of
+R3's cap and built nothing (`plan/reports/33-top-cap.md`): not one of
 the held-out sets' 129 undecided rows, of the six undecided rows among
 the seven refutations Sympli has and linlog lacks, or of the families'
 18 undecided rows meets a stable sequent the cap would change (4.5

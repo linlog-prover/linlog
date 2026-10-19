@@ -1,7 +1,7 @@
 # Exponential proof nets: MELL proof structures with boxes
 
 A specification note for step 33, written 2026-10-08 from the snapshot
-of the repository, `33-mell-nets.md`, `34-cut.md` and the sources of
+of the repository, `39-mell-nets.md`, `40-cut.md` and the sources of
 section 10, to check the stage-2 API design against and to implement
 from later. Claims about the literature carry a source `[Sn]`, claims
 about the code name the file, everything else is marked "(inference)".
@@ -128,14 +128,14 @@ Mix both are acyclic and non-empty. Laurent avoids this by taking the
 nullary Mix `void`, under which "the weakening rule is equivalent to the
 more traditional one" and only acyclicity remains [S4 §1.6, §2.1]; that
 changes linlog's calculus, checker and Rocq export and is the author's
-to decide (`33-mell-nets.md` §2). With jumps as unswitched edges, `⊢ ?X,
+to decide (`39-mell-nets.md` §2). With jumps as unswitched edges, `⊢ ?X,
 ?Z` forces the two weakenings to jump to each other, a parallel pair,
 hence incorrect; `⊢ ?X, ?Z, 1` jumps both to `1` and is correct
 (inference). Soundness of the jump criterion for terms is by
 construction (`from_proof` chooses the jump, section 7); completeness is
 Girard's "sequentialisation is an easy exercise" / "immediate" for his
 calculus [S3 §3, §A.2], not a theorem stated for linlog's calculus with
-binary Mix, which is why `33-mell-nets.md` asks for a brute-force
+binary Mix, which is why `39-mell-nets.md` asks for a brute-force
 comparison against the sequent calculus on every small structure before
 the panel. Canonicity holds only modulo jumps [S3 §A.2], and equivalence
 of normal forms in MELL without units is already PSPACE-hard because
@@ -294,7 +294,7 @@ Comparison for linlog's four uses:
 
 Recommendation: the tree of boxes with explicit membership, stored as a
 `box` field per vertex plus a box table; MLL keeps vertex = occurrence
-(inference; `33-mell-nets.md` §3).
+(inference; `39-mell-nets.md` §3).
 
 ## 5. Box-free and other alternatives, and their limits
 
@@ -312,7 +312,7 @@ calculus: maximally multi-focused proofs are canonical and correspond
 one-to-one to unit-free MLL nets, while for "linear logic with units and
 exponentials" the authors note that "the nature of proof nets is less
 well developed or satisfying" [S29]. None of these draws what a course
-draws, a box around a sub-proof, which `plan/33-mell-nets.md` fixes as
+draws, a box around a sub-proof, which `plan/39-mell-nets.md` fixes as
 the representation.
 
 ## 6. Proof search with MELL nets, and the focused engine
@@ -323,7 +323,7 @@ MELL the structure is not fixed by the sequent: how many instances each
 `?B` gets and which boxes each instance crosses are the proof's choices,
 so a net search would enumerate instance counts under a bound and
 linkings over the resulting structures, which is the focused engine's
-copy bound in another dress (inference; `33-mell-nets.md` §1). The
+copy bound in another dress (inference; `39-mell-nets.md` §1). The
 literature on constructing nets by search is focused search read as
 graph construction: Andreoli's "bipolar decomposition of formulas"
 maps into "a sequent system using only atoms" [S30], his proof-net
@@ -379,7 +379,7 @@ coarser than Girard's nets, which tell two doors from one (inference).
   box: Option<BoxId> }`, with `VertexId` the net's own (`u32`), so that
   step 34's box duplication and step 38's quantifier nodes fit; for MLL
   the identity `vertex = occurrence` keeps the net engine's hot path
-  untouched (`33-mell-nets.md` §3; D17). Vertex ids are a *numbering*
+  untouched (`39-mell-nets.md` §3; D17). Vertex ids are a *numbering*
   the structure assigns, not a canonical form (open question 1).
 - Edge kinds as data: `Link::Axiom(v, w)`, `Link::Cut(v, w)` (34),
   `Jump(v, w)`, collector premises with variable arity, door edges. The
@@ -413,7 +413,7 @@ coarser than Girard's nets, which tell two doors from one (inference).
   bool` (D12, D15); `estimate` counts instances and boxes; ids `o<n>` by
   vertex (the occurrence id in MLL), `b<n>` per box, `j<n>` per jump,
   `l<m>-<n>` by vertex ids (`plan/reports/11-svg.md`; the web client's
-  click targets, `32-web.md`).
+  click targets, `34-web.md`).
 - `Outcome::net` and the CLI's `net_into` take the one type;
   `nets_exist` admits MELL and still refuses affine mode and additives.
 
@@ -540,7 +540,7 @@ Further cases for the set: example 1 with `y` outside `B`
 2. **Jumps versus `void`.** The nullary Mix would make weakening free
    and the criterion acyclicity alone [S4], at the cost of the calculus,
    the checker and the Rocq kernels; the author decides
-   (`33-mell-nets.md` §4).
+   (`39-mell-nets.md` §4).
 3. **Exactness of the jump criterion** for linlog's calculus with binary
    Mix: argued here (inference), stated by Girard for his calculus
    [S3], to be established by the oracle test before the panel.
@@ -673,11 +673,11 @@ Further cases for the set: example 1 with `y` outside `B`
   semantics", 2016. https://arxiv.org/abs/1602.00812 ; Grail 3,
   https://github.com/RichardMoot/Grail
 
-Read from the repository snapshot: `plan/33-mell-nets.md`,
+Read from the repository snapshot: `plan/39-mell-nets.md`,
 `plan/later.md` ("MELL proof nets with exponential boxes", "MALL proof
 nets"), `plan/README.md` (D5, D6a, D12, D15–D18), `.claude/rules/core-nets.md`,
 `core/src/nets/{mod,graph,sequentialize,skeleton}.rs`,
 `core/src/serialize/nets.rs`, `core/src/export/svg/{mod,net}.rs`,
 `core/src/proofs/{mod,check}.rs`, `plan/reports/05-proof-nets.md`,
-`plan/reports/11-svg.md`, and the research notes `33-mell-nets.md`,
-`34-cut.md`, `32-web.md`, `35-mll-engines.md`, `README.md`.
+`plan/reports/11-svg.md`, and the research notes `39-mell-nets.md`,
+`40-cut.md`, `34-web.md`, `32-mll-engines.md`, `README.md`.
