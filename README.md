@@ -617,11 +617,13 @@ every choice of the set's sequents) verifies before the verdict. Its
 counters are the sequents taken up, subsumed and kept, and it runs in
 every commutative mode. Without `--engine`, on an intuitionistic goal
 with an exponential and on a goal under Mix (not affine), the engine
-that detection picks searches alone for some tenths of a second, then
-the inverse method takes one turn of a few seconds at most on the same
-thread, and the engine goes on where it stopped: a goal decided within
-the head start sees no turn, and one the inverse method decides in its
-turn is answered by it, which the verdict line names (`inverse engine`).
+that detection picks searches alone for some hundredths of a second,
+then the inverse method takes a turn on the same thread each time the
+engine's work has doubled, starting afresh, of at most a sixteenth of
+that work, and the engine goes on where it stopped: the turns cost at
+most an eighth of the engine's work, a goal decided within the head
+start sees none, and one the inverse method decides in a turn is
+answered by it, which the verdict line names (`inverse engine`).
 On the intuitionistic problems of the LLTP library that is where it
 decides in milliseconds what the backward search leaves undecided after
 a minute. Alone it runs only when asked:
@@ -1713,7 +1715,7 @@ Built:
   transitive closure of bits with an undo log;
   for two additive-only formulas a
   recursion on subformula pairs; in every commutative mode, when asked
-  or for one turn beside the default engine on intuitionistic goals with
+  or in turns beside the default engine on intuitionistic goals with
   an exponential and under Mix, the focused inverse method, a forward
   saturation from the axioms by
   rules that are whole focusing phases, with subsumption over tries of

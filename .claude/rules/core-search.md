@@ -396,20 +396,26 @@ copies they had are gone (F103, F104).
   `links` and `tests` (dominator tests) with the net engine's units. It
   was last in `Engine::ALL` until the inverse method, since `Engine`'s
   order is its declaration order.
-- **The inverse method takes a turn beside the engine of two rows**
+- **The inverse method takes turns beside the engine of two rows**
   (`Engine::Inverse`, `inverse::Inverse`, `core-inverse.md`; `probes`,
   `answer_goal`): a forward saturation in every commutative mode
   (`NotTaken::Mode` in the ordered ones, `NotTaken::Fragment` beyond
   `LL`), not `Engine::parallel`, reading `bias` and `check`; it counts
   `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
-  `memo_entries` (sequents kept). *The turn*: on a search of one thread
+  `memo_entries` (sequents kept). *The turns*: on a search of one thread
   (`Options::threads() == 1`; a race's single side, not its pool) with
   no engine forced and a goal the inverse method admits, once the
-  engine's work (`done`, every thread's) reaches `PROBE_AFTER` (2²⁶) at a
-  poll with units on the calling thread, the inverse method runs inside
-  that poll, on the same task, options, account and `Work`, its stop
-  the caller's and the work bound plus its own `PROBE_WORK` (2²⁶ of its
-  units); a decision (proof, saturation, or an error) is stored and the
+  engine's own work (`done` less the turns' units, every thread's)
+  reaches `PROBE_AFTER` (2²⁴) at a poll with units on the calling
+  thread, and again each time it has doubled, the inverse method runs
+  inside that poll from its start, on the same task, options, account
+  and `Work`, its stop the caller's and the work bound plus its own
+  budget, the engine's own work over `TURN_SHARE` (16), in its units;
+  so the turns do at most an eighth of the engine's work, at every speed
+  (the supervisor's requirement after the first design, one turn of 2²⁶
+  units, could make a row decided in half a second eight times slower).
+  After a turn ends at the memory bound or an index limit no turn comes
+  again. A decision (proof, saturation, or an error) is stored and the
   poll answers true, so the engine ends `Stopped` and `answer_goal`
   answers the turn's `Answer` with `Engine::Inverse` (its counters, as
   a handover's; `work` both); otherwise the turn's answer drops (its
@@ -418,17 +424,26 @@ copies they had are gone (F103, F104).
   `Schedule::Auto` the default bias's second search has its own thread,
   during whose slices the calling thread polls with 0 units; a turn
   then would run beside it. So where the first search ended and the
-  second runs on alone, no turn comes. *Why these constants*: on the
-  rows measured, every goal the engine decided within 2²⁶ of its units
-  took at most 1.1 s, every one past them at least 0.53 s (no row under
-  half a second pays the turn); 101 of the 110 intuitionistic rows only
-  the inverse method decided need at most 2²⁶ of its units (the six
-  refutations 48 million), which take 0.5 to 3.8 s at its slowest rate
-  there. *Why a turn and no feature*: wins and losses share every static
+  second runs on alone, no turn comes. *Why these constants*: the units
+  of the two engines run at similar rates on the library's
+  intuitionistic problems (the two-sided engine 65 000 to 600 000 a
+  millisecond, the inverse method 18 000 to 143 000), so a sixteenth of
+  the work is a small share of the time; a goal the inverse method
+  decides in `w` units is answered once the engine has done about
+  `16 w` (the six refutations, 48 million, within seconds); 2²⁴ units
+  are some hundredths of a second. *Why turns and no feature*: wins and losses share every static
   feature looked at (`SYJ205` won, `SYJ206` and `SYJ212`, alike in shape,
   lost; `SYJ208` won at size 4 and lost at size 7), as at step 35's
-  routing; the turn costs nothing where the engine is fast. A test
-  thread may lower both bounds (`TURN`, `turn_bounds`).
+  routing; the turns cost nothing where the engine is fast. A test
+  thread may set both bounds (`TURN`, `turn_bounds`; a share of 0 lets
+  a turn run to its end). *Why two closures*: `answer_goal` asks
+  `probes` once and gives the engine a poll with the turn's comparison
+  (`done < due`) only on the rows that give turns, the plain `poll`
+  elsewhere; the turn itself is `Turns::take`, `#[cold]` and never
+  inlined. With the comparison in every poll a focused search did a
+  quarter of a percent more instructions (`search-qbf-20-2` of the
+  ratchet, about seven a poll), which took `batch-families` past its
+  ceiling.
   Its `Unprovable` comes from a saturation that ended and carries the
   counts' or the classical refutation where they find one, and else the
   set it saturated with, checked (`Refutation::Saturated`). It is last

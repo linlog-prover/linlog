@@ -220,13 +220,15 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
-- Two rows of the dispatch give the inverse method a turn beside the
+- Two rows of the dispatch give the inverse method turns beside the
   default engine: on an intuitionistic goal with an exponential (beside
   the two-sided engine) and on a goal under Mix without weakening
-  (beside the focused engine), the engine searches alone for 2²⁶ of its
-  units of work, then the inverse method takes one turn of at most 2²⁶
-  of its own on the same thread, inside a poll of the engine, which goes
-  on where it stopped unless the turn decided. Only on a search of one
+  (beside the focused engine), the engine searches alone for 2²⁴ of its
+  units of work, then the inverse method takes a turn each time the
+  engine's own work has doubled, from its start, of at most a sixteenth
+  of that work in its own units, on the same thread, inside a poll of
+  the engine, which goes on where it stopped unless the turn decided:
+  the turns together do at most an eighth of the engine's work. Only on a search of one
   thread with no engine forced (a race's single side takes it); the
   outcome names the engine that answered, and `Statistics::work` counts
   both.
