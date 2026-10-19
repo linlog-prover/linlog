@@ -654,12 +654,18 @@ equal), and so do the rows past it that the engine still decides.
   lists each), and `KLE075` of `KLE-01` faster; `mix/8` to `/11` of the
   families answered by the turns in 0.43 to 0.47 s (before 1.2 s, 9.6 s,
   and for `mix/10` and `/11` the classical refuter after the limit).
-- **The rows no tool decided at 10 s**: 37a's 384 lie within the two
-  sets (135 among the held-out sets, the rest are the other rows), and
-  its list was not kept; rebuilt from the comparison's `runs.csv` (no
-  tool's verdict but a refutation of a proved problem, which by this
-  reading gives 487 problems, 416 of them in the measurement), the
-  default decides 56 of the 416 before and 144 after, and loses none.
+- **The rows no tool decided at 10 s** (37a's 384): its list was not
+  kept. Rebuilt from the comparison's `runs.csv` (no tool's verdict but a
+  refutation of a proved problem), its 249 rows among the other rows
+  come out exactly: before 10 decided, after 61, none lost, no
+  contradiction. Among the held-out sets the same reading gives 167 rows
+  where 37a counted 135 (no reading tried, with or without linlog's own
+  columns, gives 135): before 46 decided, after 83, none lost, no
+  contradiction (`out/the-384.txt`).
+- **The binary measured is the last commit's**: the commits after
+  `ykntmzxo` change comments, documentation and `plan/` only, and the
+  release `linlog-bench` built at the last code commit is byte for byte
+  the one the after run used (`cmp`).
 - **Against the comparison's runs** (`bench/comparison/2026-10-15/runs.csv`,
   every tool): 3 916 problems have a checked proof by some tool; the
   after run answers `unprovable` on none of them.
@@ -880,7 +886,7 @@ an entry in `bench/TARGETS.md`; the oracles stay.
 | The measurement before and after (held-out sets, the 384, class C, the six, the families), no verdict against a checked proof of any tool | done | "The measurement"; `analysis.txt` |
 | The target sets against `after-cyclic.csv` and `net-after-cyclic.csv` | done: every row the dispatch does not move unchanged | "The target sets" |
 | Every code commit gated | done | `gate: passed` before each of `ozwvpkoy`, `ysqzqtvv`, `mtwmloox`, `ssmwxkoq` (in `../linlog-step37b-gate`), `zplymslu`, `unywztnt`, `ykntmzxo`, `tozoztmp` and the last commit |
-| `nix flake check` at the last commit | see the message to `planning` | run under the machine lock after this report's commit, in `../linlog-step37b` |
+| `nix flake check` at the last commit | passed | exit 0 at `mqoxzmnk` and at `kuylznmt` (20:06 and 20:11, "all checks passed!"), run again under the machine lock after this report's commit; that exit status is in the message to `planning` |
 | `.claude/rules/` (`core-inverse.md`, `core-search.md`, `core.md`, `core-sequents.md`, `core-export.md`, `bench.md`, `rocq.md`), README, the changelog | done | the commits above |
 
 ### What is left open
