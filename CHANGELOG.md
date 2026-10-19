@@ -225,10 +225,10 @@ second number (0.1.x to 0.2.0), anything else the third.
   the two-sided engine) and on a goal under Mix without weakening
   (beside the focused engine), the engine searches alone for 2²⁴ of its
   units of work, then the inverse method takes a turn each time the
-  engine's own work has doubled, from its start, of at most a sixteenth
+  engine's own work has doubled, from its start, of at most a thirty-second
   of that work in its own units, on the same thread, inside a poll of
   the engine, which goes on where it stopped unless the turn decided:
-  the turns together do at most an eighth of the engine's work. Only on a search of one
+  the turns together do at most a sixteenth of the engine's work. Only on a search of one
   thread with no engine forced (a race's single side takes it); the
   outcome names the engine that answered, and `Statistics::work` counts
   both.

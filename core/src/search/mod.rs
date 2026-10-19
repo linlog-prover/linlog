@@ -1284,8 +1284,10 @@ const PROBE_AFTER: u64 = 1 << 24;
 /// The share of the engine's own work that a turn of the inverse method
 /// may do, in the inverse method's units: a turn comes each time the
 /// engine's work has doubled, starting afresh, so the turns together do
-/// at most an eighth of the engine's work.
-const TURN_SHARE: u64 = 16;
+/// at most a sixteenth of the engine's work. A sixteenth made the
+/// turns an eighth, which took a row the engine proved in 54 s of a
+/// 60 s limit past it.
+const TURN_SHARE: u64 = 32;
 
 #[cfg(test)]
 thread_local! {
@@ -1557,10 +1559,10 @@ pub(crate) fn goal_fragment(forest: &Forest, goal: &[OccId]) -> Fragment {
 /// counted), some hundredths of a second, which a goal it decides within
 /// never sees; then, and each time the engine's work has doubled, the
 /// inverse method takes a turn on the same thread, from its start, of at
-/// most a sixteenth of that work in its own units, and the engine goes on
-/// where it stopped. So the turns together do at most an eighth of the
+/// most a thirty-second of that work in its own units, and the engine goes
+/// on where it stopped. So the turns together do at most a sixteenth of the
 /// engine's work, and a goal the inverse method decides in `w` of its
-/// units is decided once the engine has done some sixteen times `w`. A
+/// units is decided once the engine has done some thirty-two times `w`. A
 /// decision of a turn answers, its proof checked and its refutation
 /// checked too ([`Refutation::Saturated`]), and the outcome names
 /// [`Inverse`](Engine::Inverse) and carries its counters; else the turn's

@@ -416,10 +416,15 @@ copies they had are gone (F103, F104).
   thread, and again each time it has doubled, the inverse method runs
   inside that poll from its start, on the same task, options, account
   and `Work`, its stop the caller's and the work bound plus its own
-  budget, the engine's own work over `TURN_SHARE` (16), in its units;
-  so the turns do at most an eighth of the engine's work, at every speed
+  budget, the engine's own work over `TURN_SHARE` (32), in its units;
+  so the turns do at most a sixteenth of the engine's work, at every speed
   (the supervisor's requirement after the first design, one turn of 2²⁶
-  units, could make a row decided in half a second eight times slower).
+  units, could make a row decided in half a second eight times slower;
+  then a share of 16, the turns an eighth, made a row the two-sided engine
+  proved in 54 s of the 60 s limit, `SYJ201+1.008` in cbv, unknown: the
+  turns took 11 % of its time; with 32 they take half that, and the rows
+  only the turns won lose those needing more than a thirty-second of the
+  engine's work in a minute).
   After a turn ends at the memory bound or an index limit no turn comes
   again. A decision (proof, saturation, or an error) is stored and the
   poll answers true, so the engine ends `Stopped` and `answer_goal`
@@ -433,10 +438,10 @@ copies they had are gone (F103, F104).
   second runs on alone, no turn comes. *Why these constants*: the units
   of the two engines run at similar rates on the library's
   intuitionistic problems (the two-sided engine 65 000 to 600 000 a
-  millisecond, the inverse method 18 000 to 143 000), so a sixteenth of
+  millisecond, the inverse method 18 000 to 143 000), so a thirty-second of
   the work is a small share of the time; a goal the inverse method
   decides in `w` units is answered once the engine has done about
-  `16 w` (the six refutations, 48 million, within seconds); 2²⁴ units
+  `32 w` (the six refutations, 48 million, within seconds); 2²⁴ units
   are some hundredths of a second. *Why turns and no feature*: wins and losses share every static
   feature looked at (`SYJ205` won, `SYJ206` and `SYJ212`, alike in shape,
   lost; `SYJ208` won at size 4 and lost at size 7), as at step 35's

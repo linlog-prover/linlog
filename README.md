@@ -619,9 +619,9 @@ every commutative mode. Without `--engine`, on an intuitionistic goal
 with an exponential and on a goal under Mix (not affine), the engine
 that detection picks searches alone for some hundredths of a second,
 then the inverse method takes a turn on the same thread each time the
-engine's work has doubled, starting afresh, of at most a sixteenth of
+engine's work has doubled, starting afresh, of at most a thirty-second of
 that work, and the engine goes on where it stopped: the turns cost at
-most an eighth of the engine's work, a goal decided within the head
+most a sixteenth of the engine's work, a goal decided within the head
 start sees none, and one the inverse method decides in a turn is
 answered by it, which the verdict line names (`inverse engine`).
 On the intuitionistic problems of the LLTP library that is where it
