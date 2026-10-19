@@ -772,6 +772,24 @@ open":
 - **The inherited quadratic `choose`** (35b's open item) holds for the
   planar search too; it never dominated a measured row.
 
+## Follow-ups: the web client
+
+From the review of step 32b (2026-10-19):
+
+- **A link whose sequent does not parse opens an empty stage** (step
+  32c): no message, where D15 asks for the parse error under the field
+  with its place, as when the sequent is typed.
+- **The parser reads `a⊥`** (unassigned, the library): the drawings and
+  the derivations print a negated atom as `a⊥`, the parser refuses it
+  (`unexpected "⊥"`), so a student who types what the page shows gets
+  an error.
+- **A link longer than the page writes** (step 32c, or unassigned): the
+  page unpacks whatever `d` holds; a crafted link can expand to a large
+  document in the visitor's own tab before the library's limits read
+  it. A cap on the unpacked bytes refuses it.
+- **The tab shows the sequent as typed** (`a^`, `par`), where D53 asks
+  for it in Euler Math (step 32c).
+
 ## Follow-ups: the focused engine
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,

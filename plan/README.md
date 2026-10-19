@@ -2685,4 +2685,55 @@ client follows it (step 32).
   structure's vertex bound with the occurrence limit lifted, older than
   the step) are in `later.md`. Next: 36b, the Lambek calculus, beside
   32b.
+- 2026-10-19: review of step 32b, the client's repository and version
+  1's core (one session, Opus 5.5 at high, 07:55 to 09:00, beside 36b):
+  - the client at `/home/tux/Projects/own/linlog-prover.github.io`, as
+    the author's sites are built: Astro 7.3, TypeScript 6, Solid 1.9.17
+    (past the 14-day gate for its seroval fix; the author accepted it
+    on 2026-10-19), Tailwind 4 with the mockup's tokens, Biome, Vitest
+    with fast-check, Playwright in nixpkgs' Chromium, npm under Nix, the
+    dendritic flake taking linlog's as a pinned input for `linlog-web`;
+    CI pinned by SHA, the store kept in GitHub's private Actions cache,
+    and only the built site pushed to the public Cachix cache (asked by
+    the review, so that no third-party file reaches it), once the
+    author adds the token;
+  - version 1's core: the module in a worker with a request-id protocol
+    and cancellation by a fresh worker; the sequent field with the parse
+    error's place; the calculus's switches; clickable formulas over
+    linlog's drawing with a camera and the active goal in view; the rule
+    popover, the split chooser, refusals and verdicts in the page's
+    words; undo per branch and redo by replay, the steps list; a goal's
+    close and all goals'; the four-rung hint ladder; the derivation and
+    the finished proof's net (essential for IMLL); every export; the
+    link with the session document; autosave; several proofs; import;
+    the keyboard path; light and dark; 27 Vitest and 24 Playwright
+    tests; a reviewer's five findings fixed, each with a test but one,
+    tested after;
+  - linlog unchanged but the report.
+  Seven departures for the author, each marked in the report: nixpkgs
+  and the flake machinery follow linlog's inputs, not the channel
+  tarball (D41); the drawing takes the theme's colours from CSS
+  overrides, not from `Style` (D26), the exports keep linlog's; `[` and
+  `]` move between goals, not the arrows (D17), as the mockup has it;
+  the hint ladder works on the active goal and does not pick "which
+  goal" (D12); on a phone the bottom band stays a band of icons and only
+  the popovers become a sheet (D18); a Steps action in the bottom band
+  (D13's list); Euler Math taken from linlog's `cli/fonts` at the pinned
+  input.
+
+  The review read the protocol, the link's codec and the CI change,
+  rebuilt the client's checks itself (`--rebuild`: 27 Vitest and 23
+  Playwright tests then, at vzqxtknr), and drove the built site in
+  headless Chromium: a typed sequent reaches the stage with its
+  clickable formulas and the calculus's cluster, and the page's own
+  link, the link without its session, and hand-written links in Unicode
+  and ASCII all reopen the proof; a link whose sequent does not parse
+  opens an empty stage without a word (a follow-up for 32c, with three
+  more in `later.md`, "Follow-ups: the web client"). The planning
+  session created `linlog-prover/linlog-prover.github.io` on GitHub on
+  the author's standing word, pushed its `main`, set its two rulesets,
+  topics and Pages to the Actions source (GitHub had begun a Jekyll
+  build of `main` of its own, which failed and published nothing); its
+  CI passed. Next: 32c, the hosting, the licence check and the rest of
+  version 1.
 
