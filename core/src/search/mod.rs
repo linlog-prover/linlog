@@ -782,13 +782,15 @@ struct Concluding<'a> {
 /// of a goal, in every build, and a check that a bound or the stop gave up
 /// is no verdict on the proof, so no proof is returned unchecked, unless
 /// [`Options::check`] is off: the proof is then the engine's word, and
-/// `Outcome::checked` says so. The check and the refutation hold their
-/// memory on `account`, beside what it holds, within the same bound as
-/// the search.
+/// `Outcome::checked` says so. The check of a proof and the refutation
+/// hold their memory on `account`, beside what it holds, within the same
+/// bound as the search; the check of a saturated set holds its own
+/// outside it, of the order of the set, which the search held within it.
 ///
 /// # Errors
 ///
-/// [`Error::Rejected`] for a proof the checker rejects, a defect.
+/// [`Error::Rejected`] for a proof the checker rejects, and
+/// [`Error::Refutation`] for a saturated set its check refuses: defects.
 #[expect(
     clippy::too_many_arguments,
     reason = "the answer, the goal, and the settings of the search it came from"
@@ -841,14 +843,22 @@ fn conclude(
                     // The set is checked as a proof is, apart from the
                     // engine that saturated, unless the check is off.
                     if options.check {
+                        // Within a work bound of its own, as a proof's
+                        // check is.
+                        let mut done = 0u64;
                         let checked =
                             saturated::check(forest, goal.occurrences, mode, &set, &mut |units| {
-                                stop(Progress::new(Phase::Check, units, 0))
+                                done = done.saturating_add(units);
+                                stop(Progress::new(Phase::Check, units, done))
+                                    || limits.work.is_some_and(|limit| done > limit)
                             });
                         match checked {
                             Ok(()) => {}
                             Err(saturated::Failed::Stopped) => {
-                                return Ok(Verdict::Unknown(Reason::Stopped));
+                                return Ok(Verdict::Unknown(match limits.work {
+                                    Some(limit) if done > limit => Reason::WorkLimit { limit },
+                                    _ => Reason::Stopped,
+                                }));
                             }
                             Err(saturated::Failed::Fault(fault)) => {
                                 return Err(Error::Refutation(fault));

@@ -494,18 +494,22 @@ impl<'s, 'a> Saturation<'s, 'a> {
         }
         self.queue.push(Reverse((kept.size(), id)));
         self.statistics.memo_entries = self.kept.len() as u64;
-        self.fill(id);
+        let units = self.fill(id);
+        self.work(0, units, false)?;
         self.settle()
     }
 
     /// Fills the goal's holes the kept sequent proves: its linear zone
     /// within the hole's members (all of them unless it absorbs or
-    /// weakens) and its unrestricted zone within the hole's.
-    fn fill(&mut self, id: u32) {
+    /// weakens) and its unrestricted zone within the hole's. Returns the
+    /// work: one for each hole looked at and each member compared (a
+    /// goal's phase can have millions of holes).
+    fn fill(&mut self, id: u32) -> u64 {
         let candidates: Vec<u32> = match self.gamma(id).first() {
             Some(o) => self.goal_index.get(o).cloned().unwrap_or_default(),
             None => (0..self.goal.holes.len() as u32).collect(),
         };
+        let mut units = candidates.len() as u64;
         let weak = self.weak(self.kept[id as usize].top);
         for h in candidates {
             if self.filled[h as usize].is_some() {
@@ -513,6 +517,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
             }
             let hole = &self.goal.holes[h as usize];
             let leaves = &self.goal.leaves[hole.leaves.start as usize..hole.leaves.end as usize];
+            units += leaves.len() as u64;
             let theta = &self.goal.leaves[hole.theta.start as usize..hole.theta.end as usize];
             let gamma = self.gamma(id);
             // A member left out is absorbed, or weakened in where it is no
@@ -530,6 +535,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
                 self.unfilled -= 1;
             }
         }
+        units
     }
 
     /// Whether a zone derived by the goal's phase is the goal.
@@ -717,27 +723,26 @@ impl<'s, 'a> Saturation<'s, 'a> {
                     *c = list[p].id;
                 }
                 loop {
-                    // The premises' zones copied before the evaluation ends.
-                    let mut copied = 0;
+                    // Each step evaluated, and the members of the zone it
+                    // yields, which it copied or merged.
+                    let mut units = 0;
                     let mut stack = std::mem::take(&mut self.stack);
                     let derived = {
                         let this = &*self;
                         this.calculus.derive(
                             steps,
-                            &mut |h, z| {
-                                this.zone(chosen[h as usize], None, z);
-                                copied += z.gamma.len() as u64;
-                            },
+                            &mut |h, z| this.zone(chosen[h as usize], None, z),
                             &|s| {
                                 rules.partners
                                     [(slots[s as usize].start + partners[s as usize]) as usize]
                             },
                             None,
                             &mut stack,
+                            &mut units,
                         )
                     };
                     self.stack = stack;
-                    self.work(1, 1 + copied, false)?;
+                    self.work(1, units, false)?;
                     if let Some(z) = derived {
                         // Its coherence and subsumption are tested on its
                         // members.
@@ -877,6 +882,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
                     &|s| rules.partners[(slots[s as usize].start + chosen[s as usize]) as usize],
                     Some(&mut nodes),
                     &mut stack,
+                    &mut 0,
                 )
             };
             let z = z.expect("a kept sequent's rule derives it again");
@@ -909,6 +915,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
                 &|_| unreachable!("the goal's phase has no axioms"),
                 Some(&mut nodes),
                 &mut stack,
+                &mut 0,
             )
             .expect("the goal's phase derives the goal again");
         let mut z = z;

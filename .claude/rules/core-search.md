@@ -255,7 +255,13 @@ copies they had are gone (F103, F104).
   rules re-read and applied to every choice of the set's sequents
   (`core-inverse.md`, faults `Unshaped`, `NotClosed`, `Filled`, and
   `NotApplicable` and `Mismatch` as for the others), which takes as long
-  as the saturation did at most. `Exhausted`, `OneSided` and `StateEquation` answer
+  as the saturation did at most for a set a search gave; `Disproof::check`
+  has no stop, and a set read from elsewhere can make it exponential in
+  the goal's `&` under `⅋` (the phase's holes) or of the degree of a
+  rule's holes in the set (a sequent repeated; the reader does not refuse
+  repeats), which the integers review found (2 491 bytes past 100 s). The
+  search's own check of a set runs under its stop and within
+  `Limits::work` (its units counted apart, as a proof's check's are). `Exhausted`, `OneSided` and `StateEquation` answer
   `RefutationFault::Uncertified` (code `uncertified`, kind unsupported);
   a refutation that does not hold answers code `invalid_refutation`.
   Sums are of at most a forest's 2³² occurrences, within `i64`.

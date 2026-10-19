@@ -157,7 +157,13 @@ a scratch copy; the report lists them).
   into an evaluation, compared with a hole's or indexed when a sequent
   is taken up, a member of a derived sequent tested for coherence, a
   child looked up in a trie (`Trie::lookups`, counted by every query),
-  and one for each application and each premise choice pruned. Polls
+  each step of an evaluation and the linear members of the zone it
+  yields (`derive`'s `units`: each step copies or merges a zone, so on
+  the `wide` sequents with shared literals a count of the premises alone
+  left 130 ms between polls, the integers review), each hole of the
+  goal's phase `fill` looks at and its members (an `&` under a `⅋` per
+  pair doubles them: 18 pairs ran 1.66 s past a time limit), and one for
+  each application and each premise choice pruned. Polls
   stay where they were (every sequent taken up, every
   `APPLICATIONS_PER_POLL` applications or choices, which the tests'
   poll budgets count), plus one wherever `UNITS_PER_POLL` units passed
@@ -222,6 +228,16 @@ a scratch copy; the report lists them).
   shaped as the mode's (`Unshaped`), which the subsumption's soundness
   needs (an affine sequent with no output would otherwise stand for one
   with an output weakened in).
+- **Partners only within the goal's subtrees**: a goal off the roots
+  has occurrences beside it that no proof of it holds; the engine's
+  pre-filter by coherence with the focus drops most of them, and the
+  check, which has no pre-filter, takes none (the panel's argument found
+  a valid set refused as `NotClosed` for `⊢ (?a ⅋ ?~a ⅋ (b ⊗ ~b)) ⊗ (a
+  ⊗ ~a)` with the goal its left factor, while the check took every
+  literal of the forest; pinned by `a_goal_off_the_roots_is_refuted`).
+  The check's memory (the set's index, candidate lists, contexts) is
+  not charged to an account: of the set's order, which the search held
+  within its bound.
 - **What the check prunes, and why that is sound**: only choices whose
   evaluation must fail: two exact premises of one release with
   different contexts (its `&` joins compare them after taking the

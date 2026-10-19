@@ -600,7 +600,11 @@ impl Disproof {
     /// one of every proof. Time and memory are linear in the goal's
     /// occurrences for the first three; the set's check applies every
     /// rule to every choice of its sequents, which takes as long as the
-    /// search that saturated did at most.
+    /// search that saturated did at most for a set a search gave, but has
+    /// no stop here: for a set read from elsewhere it can take time
+    /// exponential in the `&` under `⅋` of the goal and of the degree of
+    /// a rule's holes in the set's size (a set repeating one sequent), so
+    /// a caller checks such a set within a time limit of its own.
     ///
     /// # Errors
     ///

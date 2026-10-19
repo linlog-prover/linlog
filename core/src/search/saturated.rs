@@ -40,7 +40,9 @@
 //! - *The normal form* of the partners: a negative literal under a `?`
 //!   reaches the linear zone only by a copy, so an axiom takes it from the
 //!   unrestricted zone, and from the linear zone only where the goal holds
-//!   it; no copy rule is read for it.
+//!   it; no copy rule is read for it. A partner outside the goal's
+//!   subtrees stands in no proof of the goal, which a goal off the roots
+//!   has beside it.
 //! - *Coherence*: outside the subformulas of `?` no proof's sequent holds
 //!   an occurrence twice, or two that a connective other than `⅋` joins
 //!   (one below the other, or a `⊗`, `&` or `⊕` above both, which sends
@@ -208,6 +210,9 @@ struct Calculus<'a> {
     affine: bool,
     /// Whether each occurrence lies below a `?`.
     copied: Vec<bool>,
+    /// Whether each occurrence lies in a goal member's subtree, which a
+    /// proof of the goal holds nothing outside of.
+    inside: Vec<bool>,
     /// The goal's members, sorted.
     goal: Vec<OccId>,
     /// The subformulas of the `?` the goal reaches through `⅋` alone,
@@ -292,9 +297,11 @@ impl<'a> Calculus<'a> {
     }
 
     /// The partners of a positive literal: the negative literals of its
-    /// atom in the other position under the reading, from the unrestricted
-    /// zone where they lie under a `?`, and from the linear one where they
-    /// do not or the goal holds them.
+    /// atom within the goal's subtrees, in the other position under the
+    /// reading, from the unrestricted zone where they lie under a `?`, and
+    /// from the linear one where they do not or the goal holds them. A
+    /// literal outside the goal's subtrees stands in no sequent of a proof
+    /// of the goal.
     fn partners(&self, p: OccId) -> Vec<Partner> {
         let forest = self.forest;
         let (Some(atom), Some(sign)) = (forest.atom(p), forest.sign(p)) else {
@@ -302,6 +309,9 @@ impl<'a> Calculus<'a> {
         };
         let mut found = Vec::new();
         for &x in forest.literals(atom, !sign) {
+            if !self.inside[x.index()] {
+                continue;
+            }
             if self.reading.is_some() && self.output(x) == self.output(p) {
                 continue;
             }
@@ -953,6 +963,12 @@ pub(crate) fn check(
     }
     let mut members = goal.to_vec();
     members.sort_unstable();
+    let mut inside = vec![false; len];
+    for &g in goal {
+        for o in forest.subtree(g) {
+            inside[o.index()] = true;
+        }
+    }
     let mut globals = Vec::new();
     let mut walk = members.clone();
     while let Some(o) = walk.pop() {
@@ -970,6 +986,7 @@ pub(crate) fn check(
         reading,
         affine: mode.is_affine(),
         copied,
+        inside,
         goal: members,
         globals,
     };
@@ -1169,6 +1186,32 @@ mod tests {
     /// Checks a set as the refutation of a sequent's roots in `mode`.
     fn checked(forest: &Forest, mode: Mode, set: &Saturated) -> Result<(), Failed> {
         check(forest, forest.roots(), mode, set, &mut |_| false)
+    }
+
+    /// A goal off the roots: a literal of the atom outside the goal's
+    /// subtrees is no partner, and the engine's set passes (the panel's
+    /// witness, refused as not closed while the check took every literal
+    /// of the forest).
+    #[test]
+    fn a_goal_off_the_roots_is_refuted() {
+        let sequent: Sequent = "|- ((?a par ?~a) par (b * ~b)) * (a * ~a)".parse().unwrap();
+        let forest = Forest::new(&sequent).unwrap();
+        let members = [crate::Member::new(1)];
+        let goal = crate::search::Goal::new(&forest, &members).unwrap();
+        let options = Options::default().with_engine(Some(Engine::Inverse));
+        let outcome = crate::search::prove_goal(
+            goal,
+            Mode::CLASSICAL,
+            &options,
+            &crate::Limits::default(),
+            |_| false,
+        )
+        .unwrap();
+        let Verdict::Unprovable(disproof) = outcome.verdict else {
+            panic!("{:?}", outcome.verdict);
+        };
+        assert!(matches!(disproof.refutation(), Refutation::Saturated(_)));
+        assert_eq!(disproof.check(), Ok(()));
     }
 
     /// The sets the inverse method refutes with pass in every commutative

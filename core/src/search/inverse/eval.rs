@@ -220,8 +220,10 @@ impl Calculus<'_, '_> {
     /// Evaluates a rule's steps over the premises (`premise` gives the
     /// zone of a hole) and the partners chosen (`partner` gives the
     /// partner of a slot), and returns the sequent derived, or `None`
-    /// where a step's condition fails. With `nodes`, writes the proof term
-    /// into it, the premises' zones carrying their nodes.
+    /// where a step's condition fails, adding to `units` one for each step
+    /// and each linear member of the zone it yields, which the step copied
+    /// or merged. With `nodes`, writes the proof term into it, the
+    /// premises' zones carrying their nodes.
     pub(super) fn derive(
         &self,
         steps: &[Step],
@@ -229,6 +231,7 @@ impl Calculus<'_, '_> {
         partner: &dyn Fn(u32) -> Partner,
         mut nodes: Option<&mut Vec<Node>>,
         stack: &mut Vec<Zone>,
+        units: &mut u64,
     ) -> Option<Zone> {
         let forest = self.shape.forest;
         stack.clear();
@@ -371,6 +374,7 @@ impl Calculus<'_, '_> {
                     z
                 }
             };
+            *units += 1 + z.gamma.len() as u64;
             if !self.shaped(&z) {
                 return None;
             }
