@@ -151,6 +151,12 @@ second number (0.1.x to 0.2.0), anything else the third.
   empty antecedents, asks the body of every implication but the goal
   for a hypothesis of its own; it decides goals off the roots in the
   mode. The net engine refuses the mode.
+- `svg::Style::net` (`svg::NetDrawing`, `--style svg.net=compact`, JSON
+  `styles.svg.net`, `"formulas"` by default or `"compact"`): the compact
+  drawing of a proof net writes only its literals and its conclusions,
+  every inner `⊗` and `⅋` a small circle as before, for a net too wide
+  to write every subformula, and now writes the conclusions under the
+  edges hanging from its bottom layer.
 
 ### Wire forms
 
@@ -181,6 +187,17 @@ second number (0.1.x to 0.2.0), anything else the third.
   witness highlighted.
 
 ### Changed
+
+- A proof net is drawn as the literature draws one: every subformula
+  occurrence of its conclusions written as its formula, where it stands
+  in its conclusion, each `⊗` or `⅋` link joining its two premises to
+  its conclusion written below them with the connective small at the
+  joint, the literals along the top under the axiom links' arcs, and the
+  sequent's formulas at the bottom in its order, a literal among them
+  reached by its link's arc. An essential net writes every formula as
+  the reading reads it. The ids `o<n>` (now each occurrence's formula)
+  and `l<m>-<n>` are kept. This is `--format svg --net`, the PNG and PDF
+  of a net and the web bindings' `draw_net`.
 
 - In a label table of the exports, `\` and `/` are symbols, set as the
   divisions are: LaTeX `\backslash` and `/`, Typst `backslash` and

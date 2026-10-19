@@ -855,15 +855,24 @@ escaped; LaTeX writes Greek letters as their commands (`\alpha`) and the
 derivation so far, an open goal as its sequent under vertical dots.
 
 `--format svg` draws the derivation as an SVG image instead, and with
-`--net` the proof net of the proof, for the sequents `--net` takes: the conclusions at the bottom, every `⊗` and `⅋` a circle (the
-premise edges of a `⅋` dashed and blue, since a switching keeps one of
-them), and every axiom link an arc over the literals it joins. The
-verdict becomes an XML comment. `--style svg.essential=true` draws the net
-of an intuitionistic sequent as its essential net: every edge an arrow
-from the hypotheses toward the goal, the input side in green
-(`svg.input`), the nodes as `⊸` and `⊗`, each implication of the goal's
-side joined to its antecedent by a dotted line (`svg.dominator`), and a
-directed cycle or a path around an implication highlighted. `seq print --format svg` and `show --svg`
+`--net` the proof net of the proof, for the sequents `--net` takes, as
+the literature draws nets: every subformula occurrence of the
+conclusions written as its formula, where it stands in its conclusion;
+the literals along the top, every axiom link an arc over the two it
+joins; each `⊗` or `⅋` link joining its two premises to its conclusion
+written below them, the connective small at the joint (the premise
+edges of a `⅋` dashed and blue, since a switching keeps one of them);
+and the sequent's formulas at the bottom in its order, a literal among
+them reached by its link's arc. `--style svg.net=compact` writes only the
+literals and the conclusions, every inner `⊗` and `⅋` a small circle,
+for a net too wide to write every subformula. The verdict becomes an
+XML comment. `--style svg.essential=true` draws the net of an
+intuitionistic sequent as its essential net: every formula written as
+the reading reads it (a hypothesis `A ⊸ B`, a literal as its atom), every
+edge an arrow from the hypotheses toward the goal, the input side in
+green (`svg.input`), the links as `⊸` and `⊗`, each implication of the
+goal's side joined to its antecedent by a dotted line (`svg.dominator`),
+and a directed cycle or a path around an implication highlighted. `seq print --format svg` and `show --svg`
 in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
@@ -873,6 +882,7 @@ always a document.
 ```console
 $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
 $ linlog prove --net --output net.svg "A * B |- B * A"
+$ linlog prove --net --style svg.net=compact --output compact.svg "A * B |- B * A"
 $ linlog prove -i --net --style svg.essential=true --output essential.svg "A -o B, B -o C |- A -o C"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
@@ -1691,7 +1701,8 @@ Built:
   (ebproof proof trees) and Typst (curryst proof trees, and trees of any
   height in a layout of linlog's own), as fragments or standalone
   documents that choose no font, and drawings of sequents,
-  derivations and proof nets as SVG, laid out with the character widths
+  derivations and proof nets as SVG (every subformula of a net written,
+  or compact), laid out with the character widths
   of the Euler Math font (or another font's), a switching cycle or the
   parts of a disconnected structure highlighted, intuitionistic ones
   also as essential nets (directed edges, polarities, the dominator
@@ -1852,7 +1863,8 @@ into a term for the checker once it is finished. The exports write
 sequents and derivations, finished or not, as LaTeX and Typst source, one
 inference at a time, draw them and proof nets as SVG from layouts of
 their own: a tree by subtree widths, a net by its formula trees under the
-axiom links, and write a finished derivation as a Rocq proof script for
+axiom links, each subformula written where it stands in its conclusion,
+and write a finished derivation as a Rocq proof script for
 the NanoYalla kernel, tracking the order of each goal's formulas so that
 one exchange per `⊗` suffices.
 

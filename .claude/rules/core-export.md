@@ -222,7 +222,7 @@ for NanoYalla. What the code relies on:
   order, which is left to right; connectives by height; links as
   half-ellipses whose height is proportional to their width up to
   `Style::link_cap` and to its square root beyond, so nested links never
-  cross: `net::height` says why). Widths are integer thousandths of an em from
+  cross: `net::height` says why; the two drawings below). Widths are integer thousandths of an em from
   `font.rs`'s advance table of Euler Math 0.75 (a fixed fallback outside
   it); all coordinates are integers, so the output is byte-stable. The
   ordinary connectives `¬ ∧ ∨ → ↔` are in the table from the font's
@@ -347,16 +347,48 @@ for NanoYalla. What the code relies on:
   in the start's distance capped at 35 ms plus 1.4 ms for a wide arc. A
   link drawn in coordinates of its own (a `translate` on each arc) would
   avoid the fault; the drawing does not do it yet.
+- **A net is drawn with its formulas by default** (`Style::net`,
+  `NetDrawing::Formulas`; `Compact` the other value, `--style
+  svg.net=compact`): every occurrence is its formula's text (`o<n>` on
+  it), a connective's text placed with its own main connective under
+  its link's joint, and each premise's subtree as far to its side of
+  the joint as the premise stands in the text (half the connective, a
+  space, and a bracket when the premise is binary). So a one-sided
+  net's every subformula is exactly where it is in its conclusion's
+  text, and since the subtrees of a link's two premises lie on either
+  side of its joint and a layer is below all of its subtree, no edge
+  crosses a formula, a long edge up to a literal included: that is the
+  invariant the separation keeps, and a change of it (a gap that is not
+  at least the text's) can put an edge through a formula, which no test
+  but looking at the rendering catches. Rows are `line_height +
+  node_radius + HEIGHT + DEPTH` apart; the joint is `1.5 · node_radius`
+  above its text's top and the edges stop `node_radius` from it (the
+  `⅋` glyph at `label_size` nearly fills that). A literal that is a
+  conclusion stands on the bottom row and its link's path runs down to
+  it (`M… V top A… V…`), so the conclusions are all at the bottom in
+  the roots' order with no id written twice. Compact keeps the packing
+  `literal_gap` apart and each circle halfway between its premises'
+  anchors, and spaces the conclusions by their texts, written under the
+  edges hanging from the bottom layer (no id on a compound
+  conclusion's text: its circle has `o<n>`). The order at the bottom is
+  the structure's, one-sided: in the Lambek calculus its hypotheses
+  come reversed against the two-sided sequent, as the planar layout
+  needs.
 - **An essential net is the proof net's layout with the reading drawn
-  in** (`Style::essential`, off by default so every drawing before it is
-  byte for byte the same; `input` and `dominator` its colours): every
-  edge an arrowhead halfway along it (half the node radius long, in the
-  edge's group), the input occurrences and their edges in `input`, the
-  nodes `⊸` (an output `⅋`, an input `⊗`) or `⊗`, literals as their
-  atoms, the antecedent's edge dotted in `dominator` (no edge of the
+  in** (`Style::essential`, off by default; `input` and `dominator` its
+  colours): every edge an arrowhead halfway along it (half the node
+  radius long, in the edge's group), the input occurrences, their texts
+  and their edges in `input`, every formula written as the reading
+  writes it (`Notation::ill`: literals as their atoms, `A ⊸ B`, `A \ B`),
+  the links `⊸` (an output `⅋`, an input `⊗`, a division too: a `\` or
+  `/` at a joint reads as a piece of an edge, and the text below tells
+  the side) or `⊗`, the antecedent's edge dotted in `dominator` (no edge
+  of the
   net: the implication must dominate it), each link's arrowhead at the
-  top of its arc toward its output literal, the hypotheses' hanging
-  edges pointing up and the goal's down. The verdict drawn is
+  top of its arc toward its output literal, and in the compact drawing
+  the hypotheses' hanging edges pointing up and the goal's down (the
+  drawing with its formulas has no hanging edges: the colours tell the
+  hypotheses from the goal). The verdict drawn is
   `is_essential`'s (a directed cycle, or the path around an implication
   plus that implication's dotted line, highlighted); the description is
   the net's text form as before. A sequent without an intuitionistic
@@ -365,11 +397,18 @@ for NanoYalla. What the code relies on:
   bytes per edge, root and link and a document's for the two extra
   groups.
 - **A net's drawing has a size bound like a derivation's**: `svg::net`
-  estimates its bytes from the structure (`net::estimate`: fixed bytes
-  per literal plus its name, per connective, conclusion and link, and
-  the description counted by writing the net's text form into a counter
-  that gives up past the limit) and refuses past `limit`; the estimate
-  is at least the drawing (`net_limit` checks it within four times).
+  estimates its bytes from the structure (`net::estimate`: every written
+  formula's text, counted bottom-up from its subformulas' with a
+  `PIECE` per `<text>` (a negated literal's raised `⊥` adds two where
+  the reading does not write the atom alone), fixed bytes per
+  connective, conclusion and link, and the description counted by
+  writing the net's text form into a counter that gives up past the
+  limit) and refuses past `limit`; the estimate is at least the drawing
+  (`net_limit` checks it within four times, on a small net and a chain
+  twelve deep, in each drawing). A formula is written once per
+  subformula, so the drawing with formulas grows with the conclusions'
+  size times their depth, quadratically for a chain: the bound refuses
+  it where the compact drawing still fits.
 - The SVG tree asks `stop` after laying out each inference in its first
   pass too (before the head is written), not only while it writes.
 - **Dependency versions**: krilla-svg pins usvg 0.47, so resvg stays at
