@@ -288,6 +288,15 @@ area that took it (the reports under `plan/reports/` have the tables):
   `after-efficiency` on its 135 decided rows and its counters but on the
   five of `after-routing`, and the five rows `after-classical` decided
   besides.
+- Step 36b, the Lambek calculus (kept in no file: it equals the oracles):
+  the net set has the verdicts and the counters of `net-after-cyclic` on
+  all 64 rows; the focused set the verdicts of `after-cyclic` on its 145
+  decided rows and its counters on 144 of them. The 145th, `mix/11`,
+  ends at the 300 s time limit and is refuted by the classical
+  refutation after it, so its counters say how far the search got in
+  300 s, which is no function of the input: 41 450 894 nodes in
+  `after-classical`, 48 748 043 in `after-cyclic`, 49 947 692 here.
+  Compare it by its verdict alone.
 
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
