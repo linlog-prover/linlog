@@ -18,10 +18,26 @@ second number (0.1.x to 0.2.0), anything else the third.
   subsumes it, and proves the goal once every stable sequent of its
   asynchronous phase is derived. It decides without exponentials, needs
   no copy bound with them, and answers `Unprovable` where its saturation
-  ends, with the refutation `Exhausted` (no certificate yet); its rules,
-  sequents and indices count under the memory bound. Its counters are
-  `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
+  ends, with the set it saturated with as the refutation (below); its
+  rules, sequents and indices count under the memory bound. Its counters
+  are `nodes` (sequents taken up), `memo_hits` (sequents subsumed) and
   `memo_entries` (sequents kept). The dispatch gives it no goal.
+- The refutation by a saturated set, `Refutation::Saturated` with
+  `search::Saturated` (the atoms' polarity and the sequents) and
+  `search::Stable` (a sequent's linear and unrestricted zones and whether
+  it absorbs), in JSON `{"kind": "saturated", "positive": […],
+  "sequents": [{"linear": […], "unrestricted": […], "absorbs": …}, …]}`,
+  which raises the wire level to 3 for a disproof or an unprovable
+  outcome that holds it. `Disproof::check` verifies it apart from the
+  search: the rules of the focused calculus read off the sequent again
+  and applied to every choice of the set's sequents, each sequent derived
+  one the set stands for or one no proof holds, Mix too where the mode
+  has it, and a stable sequent of the goal's phase the set does not
+  give; the faults `RefutationFault::Unshaped`, `NotClosed` and `Filled`
+  say what fails. The search checks it before answering, as it checks a
+  proof, unless `Options::check` is off; the counts' and the classical
+  refutations are preferred where they apply. The Rocq export refuses it
+  (`export::rocq::Unsupported::Saturated`).
 - The Rocq library `rocq-linlog` under `rocq/` (logical path `Linlog`,
   Rocq 9 with its standard library and nothing else): formulas in
   negation normal form over an abstract atom type, the one-sided cut-free

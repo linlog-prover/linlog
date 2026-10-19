@@ -185,7 +185,13 @@ copies they had are gone (F103, F104).
   `Refutation::StateEquation` (weights for every place that an exact
   check confirmed, and the clauses that can never fire, `core-horn.md`),
   the one refutation not computed from the
-  counts. Every other `Unprovable` gets the counts' below.
+  counts. Every other `Unprovable` gets the counts' below. The inverse
+  method's `Refutation::Saturated` is the exception: the refutation of
+  last resort, taken only where the counts and the classical refuter
+  find none (they are smaller and rest on simpler invariants), and
+  checked first like a proof (`search/saturated.rs`, `core-inverse.md`;
+  `Options::check` off skips it; a stop answers `Unknown(Stopped)`, a
+  failed check `Error::Refutation`).
 - **A refutation says what the counts rule out** (`Refutation`,
   `focus::counts::refutation`, called by `prove_goal` on every `Unprovable` of
   every engine that gives none of its own, which construct
@@ -245,7 +251,11 @@ copies they had are gone (F103, F104).
   units in the goal and outside affine mode, `mix` equal to the mode's,
   and every count equal. Those are the conditions under which the search
   states them (`Switches`, `intervals_run`), and the ones the Rocq
-  lemmas prove. `Exhausted`, `OneSided` and `StateEquation` answer
+  lemmas prove. `Saturated` is checked by `search/saturated.rs`, the
+  rules re-read and applied to every choice of the set's sequents
+  (`core-inverse.md`, faults `Unshaped`, `NotClosed`, `Filled`, and
+  `NotApplicable` and `Mismatch` as for the others), which takes as long
+  as the saturation did at most. `Exhausted`, `OneSided` and `StateEquation` answer
   `RefutationFault::Uncertified` (code `uncertified`, kind unsupported);
   a refutation that does not hold answers code `invalid_refutation`.
   Sums are of at most a forest's 2³² occurrences, within `i64`.
@@ -388,11 +398,10 @@ copies they had are gone (F103, F104).
   ones, `NotTaken::Fragment` beyond `LL`), not `Engine::parallel`,
   reading `bias` and `check`; it counts `nodes` (sequents taken up),
   `memo_hits` (sequents subsumed) and `memo_entries` (sequents kept).
-  Its `Unprovable` comes from a saturation that ended and carries
-  `Exhausted` unless the counts or the classical refuter find more;
-  nothing checks the saturation. It is last in `Engine::ALL`. Its first
-  measurement (`plan/reports/37-inverse.md`) is what a row would rest
-  on.
+  Its `Unprovable` comes from a saturation that ended and carries the
+  counts' or the classical refutation where they find one, and else the
+  set it saturated with, checked (`Refutation::Saturated`). It is last
+  in `Engine::ALL`.
 - **Intuitionistic mode** first computes the `Reading`
   (`Error::NotIntuitionistic`, whose message has ids; the CLI describes it
   with formulas) and refuses Mix (`Error::IntuitionisticMix`: a Mix premise

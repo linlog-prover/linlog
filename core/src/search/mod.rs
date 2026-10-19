@@ -38,13 +38,16 @@ mod planar;
 pub(crate) mod reference;
 /// Why a sequent is unprovable, and the disproof that says so.
 mod refutation;
+/// The check of a refutation by a saturated set, apart from the search.
+mod saturated;
 /// A search's count of its work, and the values its threads share.
 mod work;
 
 #[cfg(feature = "parallel")]
 pub use parallel::Pool;
 pub use refutation::{
-    Classical, Disproof, Equation, OneSided, Refutation, RefutationFault, StateEquation, Unbalanced,
+    Classical, Disproof, Equation, OneSided, Refutation, RefutationFault, Saturated, Stable,
+    StateEquation, Unbalanced,
 };
 
 use crate::Error;
@@ -755,6 +758,13 @@ fn conclude(
             Verdict::Proved(Box::new(proof.concluding(goal.occurrences).with_mode(mode)))
         }
         Ok(None) => {
+            // A saturated set is the refutation of last resort: the counts'
+            // and the classical one are smaller and rest on simpler
+            // invariants.
+            let (refutation, saturated) = match refutation {
+                Some(Refutation::Saturated(set)) => (None, Some(set)),
+                refutation => (refutation, None),
+            };
             // What the counts of the goal rule out, under the same bound as
             // the search, where the engine has no refutation of its own,
             // and else a classical assignment where one is found.
@@ -773,6 +783,29 @@ fn conclude(
                 Refutation::Exhausted => classical(&goal, options, account, stop)
                     .map_or(Refutation::Exhausted, Refutation::Classical),
                 refutation => refutation,
+            };
+            let refutation = match (refutation, saturated) {
+                (Refutation::Exhausted, Some(set)) => {
+                    // The set is checked as a proof is, apart from the
+                    // engine that saturated, unless the check is off.
+                    if options.check {
+                        let checked =
+                            saturated::check(forest, goal.occurrences, mode, &set, &mut |units| {
+                                stop(Progress::new(Phase::Check, units, 0))
+                            });
+                        match checked {
+                            Ok(()) => {}
+                            Err(saturated::Failed::Stopped) => {
+                                return Ok(Verdict::Unknown(Reason::Stopped));
+                            }
+                            Err(saturated::Failed::Fault(fault)) => {
+                                return Err(Error::Refutation(fault));
+                            }
+                        }
+                    }
+                    Refutation::Saturated(set)
+                }
+                (refutation, _) => refutation,
             };
             unprovable(forest, mode, refutation, &goal, members)
         }
@@ -2807,6 +2840,7 @@ mod tests {
             Refutation::Classical(Classical {
                 assignment: Vec::new(),
             }),
+            Refutation::Saturated(Saturated::new(Vec::new(), Vec::new())),
         ];
         let refutation_at = |refutation: &Refutation| match refutation {
             Refutation::Exhausted => 0,
@@ -2815,6 +2849,7 @@ mod tests {
             Refutation::Equation(_) => 3,
             Refutation::StateEquation(_) => 4,
             Refutation::Classical(_) => 5,
+            Refutation::Saturated(_) => 6,
         };
         assert_eq!(refutations.len(), Refutation::NAMES.len());
         for (i, refutation) in refutations.iter().enumerate() {

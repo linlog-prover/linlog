@@ -164,8 +164,10 @@ An unprovable verdict says why where the counts of the sequent tell: an
 atom whose literals cannot all meet their duals in axioms (whichever
 additive alternatives a proof takes, and however often a formula under
 `!` or `?` is copied where all of the atom's literals there have one
-sign), or the count equation of the multiplicatives; otherwise it says
-that the search was exhaustive. The
+sign), or the count equation of the multiplicatives; from the inverse
+method below, the sequents its saturation ended in, closed under the
+rules, which are checked apart from the search as a proof is; otherwise
+it says that the search was exhaustive. The
 JSON output carries the same as `refutation`.
 
 Four engines serve classical logic: for two additive-only formulas the
@@ -608,9 +610,12 @@ and proves the goal once every stable sequent the goal decomposes into
 is derived. Without exponentials the sequents it can derive are finitely
 many and it decides; with them it needs no copy bound, proving what is
 provable given time and refuting where nothing new comes, which suits a
-small goal under many hypotheses that `!` makes reusable. Its counters
-are the sequents taken up, subsumed and kept, and it runs in every
-commutative mode, only when asked:
+small goal under many hypotheses that `!` makes reusable. Where it
+refutes, the refutation is the set of sequents it saturated with, which
+a check of its own (the rules read off the sequent again and applied to
+every choice of the set's sequents) verifies before the verdict. Its
+counters are the sequents taken up, subsumed and kept, and it runs in
+every commutative mode, only when asked:
 
 ```console
 $ linlog prove -i --engine inverse --stats "!(a -o b), !(b -o c), a |- c"
@@ -631,7 +636,7 @@ sequents kept: 3
 units of work: 38
 time: 102.44µs
 $ linlog prove -i --engine inverse -q "!(a -o b), a |- b * b"
-unprovable (IMELL, intuitionistic, inverse engine): the search was exhaustive
+unprovable (IMELL, intuitionistic, inverse engine): the search saturated: 2 sequents closed under the rules, and the goal needs one they do not give
 ```
 
 The exit status tells scripts the verdict: 0 provable, 1 unprovable, 3
@@ -1672,7 +1677,9 @@ Built:
 - Automatic proof search for every fragment, MLL to full LL and IMLL to
   ILL, with or without Mix, returning a checked proof (the checker runs
   on every proof, in every build), "unprovable" after
-  an exhaustive search or where the sequent is false read classically
+  an exhaustive search (the inverse method's with the set it saturated
+  with, checked apart from the search) or where the sequent is false
+  read classically
   (a falsifying assignment, looked for within a bound after any search
   that did not prove it), or "unknown" with the reason: a focused sequent
   engine over dyadic sequents of occurrence bitsets with a memo, counts
@@ -1858,8 +1865,9 @@ Built:
 
 Planned, in roughly this order:
 
-- Certified refutations beyond the cheap ones: countermodels of the
-  other logics, failure certificates of the search.
+- Certified refutations beyond the cheap ones and the saturated sets:
+  countermodels of the other logics, failure certificates of the
+  backward search.
 - A web page for proving step by step in the browser, on those bindings.
 - Later: proof nets with exponential boxes, cut elimination on proofs
   and on nets, the inverse method as the default where it is fastest,

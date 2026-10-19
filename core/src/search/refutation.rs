@@ -29,8 +29,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// "pars", "ones", "bottoms", "mix"}` or `{"kind": "state_equation",
 /// "atoms": [[atom, weight], …], "clauses": [[occurrence, weight], …],
 /// "dropped": [occurrence, …]}` or `{"kind": "classical", "assignment":
-/// [true, false, …]}` (a value per atom of the sequent, by index), and
-/// reads back so. A reader refuses a
+/// [true, false, …]}` (a value per atom of the sequent, by index) or
+/// `{"kind": "saturated", "positive": ["atom", "dual", …], "sequents":
+/// [{"linear": [occurrence, …], "unrestricted": [occurrence, …],
+/// "absorbs": false}, …]}`, and reads back so. A reader refuses a
 /// kind it does not know: read as another, it would claim a certificate
 /// it does not hold.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,6 +51,9 @@ pub enum Refutation {
     StateEquation(StateEquation),
     /// The classical reading of the goal is false under an assignment.
     Classical(Classical),
+    /// A forward search saturated: its sequents are closed under the
+    /// rules, and the goal needs one they do not give.
+    Saturated(Saturated),
 }
 
 /// The literals of an atom that cannot all meet their duals in axioms:
@@ -148,6 +153,71 @@ pub struct Classical {
     pub assignment: Vec<bool>,
 }
 
+/// The sequents a forward search kept when it saturated, which are closed
+/// under the rules of the focused calculus and leave a stable sequent of
+/// the goal's asynchronous phase underived: no proof of the goal exists.
+/// Every rule (a focus on a positive formula, or a copy of a `?`
+/// formula's subformula, with the sides of its `⊕`, the partners of its
+/// axioms and the asynchronous phases of what it releases) applied to any
+/// of the sequents derives one that a sequent of the set stands for, or
+/// one no proof holds (a member twice, or two a `⊗`, `&` or `⊕`
+/// separates, outside the subformulas of `?`), and so does Mix where the
+/// mode has it; so by induction every stable sequent of a focused proof
+/// is one a sequent of the set stands for, and some stable sequent of the
+/// goal's phase is one none of them does. The rules are those of the
+/// polarity `positive` names, under which focusing is as complete as
+/// under any other. The certificate is as large as the set, which the
+/// check reads whole and applies every rule to.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Saturated {
+    /// The positive literal of each atom of the sequent, by index:
+    /// [`Sign::Atom`] where the atom is positive, [`Sign::Dual`] where its
+    /// negation is.
+    pub positive: Vec<Sign>,
+    /// The sequents.
+    pub sequents: Vec<Stable>,
+}
+
+/// A stable sequent of a saturated set: positive formulas and negative
+/// literals in its linear zone, subformulas of `?` in its unrestricted
+/// one, as occurrences of the sequent's forest. It stands for the
+/// sequents with exactly this linear zone and an unrestricted zone that
+/// holds this one, and where it `absorbs` (a `⊤` above) or in affine mode
+/// for those with a larger linear zone too, a member in output position
+/// absorbed only where the zone has none and weakened in never. The
+/// subformulas of the `?` the goal reaches through `⅋` alone, which every
+/// sequent of a proof holds, may be left out of its unrestricted zone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Stable {
+    /// The linear zone, sorted, with repeats.
+    pub linear: Vec<OccId>,
+    /// The unrestricted zone, sorted, without repeats.
+    pub unrestricted: Vec<OccId>,
+    /// Whether a `⊤` above absorbs any further linear member.
+    pub absorbs: bool,
+}
+
+impl Stable {
+    /// Returns the stable sequent of the zones given.
+    pub fn new(linear: Vec<OccId>, unrestricted: Vec<OccId>, absorbs: bool) -> Self {
+        Self {
+            linear,
+            unrestricted,
+            absorbs,
+        }
+    }
+}
+
+impl Saturated {
+    /// Returns the saturated set of `sequents` under the polarity
+    /// `positive`.
+    pub fn new(positive: Vec<Sign>, sequents: Vec<Stable>) -> Self {
+        Self { positive, sequents }
+    }
+}
+
 impl Refutation {
     /// The words of the refutations, as [`Refutation::name`] gives them and
     /// the JSON form's `kind` writes them.
@@ -158,6 +228,7 @@ impl Refutation {
         "equation",
         "state_equation",
         "classical",
+        "saturated",
     ];
 
     /// Returns the refutation's word, its `kind` in the JSON form.
@@ -169,6 +240,7 @@ impl Refutation {
             Refutation::Equation(_) => "equation",
             Refutation::StateEquation(_) => "state_equation",
             Refutation::Classical(_) => "classical",
+            Refutation::Saturated(_) => "saturated",
         }
     }
 
@@ -265,6 +337,21 @@ impl Refutation {
                      and every provable sequent reads as a tautology",
                 )
             }
+            Refutation::Saturated(Saturated { sequents, .. }) => write!(
+                f,
+                "the search saturated: {} {} closed under the rules, and the goal needs one {}",
+                sequents.len(),
+                if sequents.len() == 1 {
+                    "sequent"
+                } else {
+                    "sequents"
+                },
+                if sequents.len() == 1 {
+                    "it does not give"
+                } else {
+                    "they do not give"
+                },
+            ),
         }
     }
 }
@@ -458,6 +545,19 @@ pub enum RefutationFault {
     /// The assignment makes the classical reading true.
     #[error("the classical reading is true under the assignment")]
     Satisfied,
+    /// A sequent of a saturated set is none of the mode: under the
+    /// intuitionistic reading it has other than one member in output
+    /// position, or more than one where it absorbs.
+    #[error("a sequent of the saturated set is no sequent of the mode")]
+    Unshaped,
+    /// A rule applied to sequents of a saturated set derives one that
+    /// could stand in a proof and that none of them stands for.
+    #[error("the saturated set is not closed under the rules")]
+    NotClosed,
+    /// The sequents of a saturated set stand for every stable sequent of
+    /// the goal's asynchronous phase, so they do not rule a proof out.
+    #[error("the saturated set gives every stable sequent the goal needs")]
+    Filled,
 }
 
 impl RefutationFault {
@@ -470,6 +570,9 @@ impl RefutationFault {
             Self::Holds => "holds",
             Self::Assignment { .. } => "assignment",
             Self::Satisfied => "satisfied",
+            Self::Unshaped => "unshaped",
+            Self::NotClosed => "not_closed",
+            Self::Filled => "filled",
         }
     }
 }
@@ -485,9 +588,19 @@ impl Disproof {
     /// over the atom in the goal; the count equation by the goal's
     /// formulas, `⊗`, `⅋`, `1` and `⊥`, which must be the ones stated and
     /// fail it, outside affine mode and in the multiplicative fragment
-    /// with units, with Mix exactly where the mode allows it. Those three
-    /// are certificates: every derivation keeps the invariant they
-    /// break. Time and memory are linear in the goal's occurrences.
+    /// with units, with Mix exactly where the mode allows it; a saturated
+    /// set by reading the rules of the focused calculus off the forest
+    /// again, under the set's polarity, and applying each to every choice
+    /// of premises among its sequents, each sequent derived one that a
+    /// sequent of the set stands for or that no proof holds, Mix too
+    /// where the mode has it, its sequents shaped as the mode's are, and
+    /// a stable sequent of the goal's phase that none stands for. Those
+    /// four are certificates: every derivation keeps the invariant the
+    /// first three break, and the set holds a sequent for every stable
+    /// one of every proof. Time and memory are linear in the goal's
+    /// occurrences for the first three; the set's check applies every
+    /// rule to every choice of its sequents, which takes as long as the
+    /// search that saturated did at most.
     ///
     /// # Errors
     ///
@@ -516,6 +629,16 @@ impl Disproof {
                 check_unbalanced(&forest, &goal, self.mode, unbalanced)
             }
             Refutation::Equation(equation) => check_equation(&forest, &goal, self.mode, equation),
+            Refutation::Saturated(saturated) => {
+                match super::saturated::check(&forest, &goal, self.mode, saturated, &mut |_| false)
+                {
+                    Ok(()) => Ok(()),
+                    Err(super::saturated::Failed::Fault(fault)) => Err(fault),
+                    Err(super::saturated::Failed::Stopped) => {
+                        unreachable!("a check without a stop runs to its end")
+                    }
+                }
+            }
             refutation @ (Refutation::Exhausted
             | Refutation::OneSided(_)
             | Refutation::StateEquation(_)) => Err(RefutationFault::Uncertified {

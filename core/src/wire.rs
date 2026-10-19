@@ -17,8 +17,11 @@
 //! ordered modes (`"mode": "cyclic"`, `"lambek"` and `"lambek-star"`, the
 //! rules of the Lambek calculus's divisions, and `"order": "cyclic"` in a
 //! proof structure), so a disproof or an unprovable outcome that holds
-//! the refutation and a document of an ordered mode are written at level 2,
-//! and every other document at level 1. A reader refuses a
+//! the refutation and a document of an ordered mode are written at level 2;
+//! level 3 adds the refutation by a saturated set (`{"kind":
+//! "saturated", "positive": […], "sequents": […]}`), so a disproof or an
+//! unprovable outcome that holds it is written at level 3; every other
+//! document is written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -35,7 +38,8 @@
 //! [`upgrade`] is the one reader of every form: it reads a document of any
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
-//! only adds a kind of refutation and a mode), and
+//! only adds a kind of refutation and a mode, level 3 a kind of
+//! refutation), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -84,10 +88,11 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 2;
+pub const LEVEL: u32 = 3;
 
 /// The level of every document but a disproof (or an unprovable
-/// outcome) with a classical refutation, which is level 2.
+/// outcome) with a classical refutation, which is level 2, or with a
+/// saturated set, which is level 3, and a document of an ordered mode.
 pub(crate) const BASE: u32 = 1;
 
 /// A form [`upgrade`] and [`Within`] read: one whose reading counts a
@@ -235,10 +240,12 @@ pub(crate) const fn level_in(mode: Option<crate::Mode>) -> u32 {
     }
 }
 
-/// The level of a disproof with `refutation` in `mode`: 2 for the
-/// classical refutation and an ordered mode, which level 2 added, else 1.
+/// The level of a disproof with `refutation` in `mode`: 3 for the
+/// saturated set, which level 3 added; 2 for the classical refutation and
+/// an ordered mode, which level 2 added; else 1.
 pub(crate) const fn level_of(refutation: &crate::search::Refutation, mode: crate::Mode) -> u32 {
     match refutation {
+        crate::search::Refutation::Saturated(_) => 3,
         crate::search::Refutation::Classical(_) => 2,
         _ => level_in(Some(mode)),
     }

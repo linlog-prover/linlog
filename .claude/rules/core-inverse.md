@@ -1,6 +1,7 @@
 ---
 paths:
   - "core/src/search/inverse/**"
+  - "core/src/search/saturated.rs"
 ---
 
 # linlog core: the inverse method
@@ -68,8 +69,9 @@ arena writes the proof; `index.rs` the tries subsumption asks;
 
 ## What removes a sequent, and why it removes none a proof needs
 
-Every `Unprovable` of this engine rests on each of these (`Exhausted`,
-no certificate: the saturation is not checked). The argument: a
+Every `Unprovable` of this engine rests on each of these, and its
+certificate (the set it saturated with, "The certificate" below) is
+checked against the same argument by code of its own. The argument: a
 backward focused proof of the goal (complete for every bias and mode,
 `core-focus.md`) has each stable sequent `T` derived forward, up to the
 normal form above, as some kept `S` that subsumes it, by induction on
@@ -183,5 +185,65 @@ a scratch copy; the report lists them).
   subsumption as matching. The rules' terms keep their shape.
 - **A dispatch row**: the engine has none; a row needs the measurement
   of the step report, and its feature in `Feature`.
-- **A certificate for its refutations**: the saturated set closed under
-  the rules, checked without this code, would replace `Exhausted`.
+- **A new filter or rule** in the engine needs its twin in the check
+  (`saturated.rs`), or the engine's sets fail it (`NotClosed`, an error
+  of the search): a filter that drops sequents the check keeps leaves
+  conclusions the set does not subsume.
+
+## The certificate
+
+- **What it is** (`Refutation::Saturated`, `search::Saturated`,
+  `search::Stable`): the polarity (`positive`, the bias's signs) and
+  every kept sequent not killed at its pop (`Saturation::saturated`),
+  zones as kept (globals left out), `absorbs` the `top` flag. Closed:
+  every application to sequents taken up was made, and what it derived
+  was kept or subsumed, a kill leaving a stronger alive one. `conclude`
+  prefers the counts' and the classical refutations (computed first, as
+  before), and checks the set like a proof (`Options::check`), under the
+  stop with `Phase::Check` (a stop gives `Unknown(Stopped)`, a failed
+  check `Error::Refutation`, an error: the engine and the check
+  disagree).
+- **The check** (`search/saturated.rs`, `check`) shares no code with
+  `inverse/`: it re-reads the rules off the forest (`Calculus::rules`:
+  `D1` foci, `D2` copies but negative literals, every `⊕` choice not
+  ending in a `0`), writes each as postorder steps (`write`, no
+  recursion over the formula: forests can be deep), evaluates them with
+  its own `take`, `join` and shape test (`derive`), and applies every
+  rule to every choice of premises among the set (candidates: exact
+  sequents holding the hole's leaves, every weak one) and of partners,
+  plus Mix on every pair where the mode has it and is not affine; each
+  conclusion, globals left out, must be incoherent or subsumed. Then
+  some hole of the goal's phase must be filled by no sequent. Before
+  that it refuses an ordered mode, intuitionistic Mix, an incoherent
+  goal (`NotApplicable`), a polarity of another length, members past
+  the forest or zones out of order (`Mismatch`), and a sequent not
+  shaped as the mode's (`Unshaped`), which the subsumption's soundness
+  needs (an affine sequent with no output would otherwise stand for one
+  with an output weakened in).
+- **What the check prunes, and why that is sound**: only choices whose
+  evaluation must fail: two exact premises of one release with
+  different contexts (its `&` joins compare them after taking the
+  shared leaves, so they fail). No pre-filter of partners by coherence
+  with the focus: the conclusion holds the focus (or, for a copy of a
+  global, nothing it is incoherent with: a global is coherent with every
+  occurrence of the goal), so coherence drops the same conclusions.
+- **Its argument** is the engine's ("What removes a sequent" above):
+  focusing completeness under the set's polarity, the normal form of
+  the `?`-literal partners, the monotonicity of each step, coherence of
+  every proof's sequents given a coherent goal, the globals. A fault
+  shared by the design of both (a rule missing from the calculus as
+  written in both) is what no check catches; the differential test
+  against the reference prover is what guards the calculus itself.
+- **Measured**: the 213 refutations of the measurement's rows the
+  engine refutes within 60 s, every one accepted (the harness's own
+  `Disproof::check`); on the 58 that nothing else refutes the check
+  costs 17 to 90 % of the search (`SYJ210+1.020` in cbv 209 to 330 ms,
+  `SYJ208+1.005` in cbn 9.1 to 10.7 s); on `SYJ207+1.002` in cbv
+  (1 704 sequents) 37 s beside 46 s of search, so a refutation near the
+  time limit can become `Unknown`. Its units count each step by the zone
+  it yields, each candidate and member compared and each subsumption
+  test (polls every `UNITS_PER_POLL`): before they did, a stop came
+  11 s late. The tests: `the_engines_sets_pass` (every commutative
+  mode), `a_wrong_set_is_refused` (one wrong set per condition), and the
+  differential test and the reference comparison, where 69 sets pass
+  through the check.

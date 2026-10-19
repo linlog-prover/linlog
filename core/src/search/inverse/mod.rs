@@ -29,7 +29,10 @@ mod rules;
 mod tests;
 
 use super::memory::{Account, Charged, bytes_of};
-use super::{Answer, Decide, Engine, Finished, NotTaken, Options, Reason, Statistics, Task, Work};
+use super::{
+    Answer, Decide, Engine, Finished, NotTaken, Options, Reason, Refutation, Saturated, Stable,
+    Statistics, Task, Work,
+};
 use crate::Error;
 use crate::fragment::Fragment;
 use crate::hash::HashMap;
@@ -79,9 +82,11 @@ impl Decide for Inverse {
         _work: &Work,
         stop: &mut dyn FnMut(u64) -> bool,
     ) -> Result<Answer, Error> {
-        let mut found = search(task, options, account, stop);
+        let (mut found, refutation) = search(task, options, account, stop);
         found.result = found.result.map_err(|r| r.as_set(options, limits));
-        Ok(Answer::of_arena(task.forest, found, stop))
+        let mut answer = Answer::of_arena(task.forest, found, stop);
+        answer.refutation = refutation;
+        Ok(answer)
     }
 }
 
@@ -113,14 +118,17 @@ const BUILT_PER_POLL: usize = 1 << 12;
 /// rule's index.
 const MIX: u32 = u32::MAX;
 
-/// Runs the search on a task, on the calling thread.
+/// Runs the search on a task, on the calling thread. Where the
+/// saturation ends without proving the goal, returns the sequents it kept
+/// as the refutation.
 fn search(
     task: &Task<'_>,
     options: &Options,
     account: &Account,
     stop: &mut dyn FnMut(u64) -> bool,
-) -> Finished {
+) -> (Finished, Option<Refutation>) {
     let signs = super::focus::bias::signs(task.forest, options.bias);
+    let positive = signs.to_vec();
     let shape = Shape::new(
         task.forest,
         task.goal,
@@ -131,11 +139,11 @@ fn search(
     let mut charged = Charged::new(account);
     let goal = match rules::goal(&shape, &mut charged, stop) {
         Ok(goal) => goal,
-        Err(reason) => return Finished::gave_up(reason),
+        Err(reason) => return (Finished::gave_up(reason), None),
     };
     let derived = match rules::compile(&shape, &mut charged, stop) {
         Ok(rules) => rules,
-        Err(reason) => return Finished::gave_up(reason),
+        Err(reason) => return (Finished::gave_up(reason), None),
     };
     let mut saturation = Saturation::new(
         &shape,
@@ -147,29 +155,28 @@ fn search(
     );
     let result = saturation.run();
     let statistics = saturation.statistics;
+    let finished = |result| Finished {
+        result,
+        nodes: Vec::new(),
+        statistics,
+    };
     match result {
         Ok(Some(premises)) => match saturation.build(&premises) {
-            Ok((root, nodes)) => Finished {
-                result: Ok(Some(root)),
-                nodes,
-                statistics,
-            },
-            Err(reason) => Finished {
-                result: Err(reason),
-                nodes: Vec::new(),
-                statistics,
-            },
+            Ok((root, nodes)) => (
+                Finished {
+                    result: Ok(Some(root)),
+                    nodes,
+                    statistics,
+                },
+                None,
+            ),
+            Err(reason) => (finished(Err(reason)), None),
         },
-        Ok(None) => Finished {
-            result: Ok(None),
-            nodes: Vec::new(),
-            statistics,
-        },
-        Err(reason) => Finished {
-            result: Err(reason),
-            nodes: Vec::new(),
-            statistics,
-        },
+        Ok(None) => (
+            finished(Ok(None)),
+            Some(Refutation::Saturated(saturation.saturated(positive))),
+        ),
+        Err(reason) => (finished(Err(reason)), None),
     }
 }
 
@@ -329,6 +336,24 @@ impl<'s, 'a> Saturation<'s, 'a> {
             statistics: Statistics::default(),
             stop,
         }
+    }
+
+    /// The sequents kept and not subsumed since, which a saturation that
+    /// ended leaves closed under the rules: every application to them was
+    /// made, and what it derived was kept or subsumed by a kept sequent,
+    /// which a kill leaves to one not killed.
+    fn saturated(&self, positive: Vec<crate::occurrences::Sign>) -> Saturated {
+        let sequents = (0..self.kept.len() as u32)
+            .filter(|&id| !self.kept[id as usize].dead)
+            .map(|id| {
+                Stable::new(
+                    self.gamma(id).to_vec(),
+                    self.theta(id).to_vec(),
+                    self.kept[id as usize].top,
+                )
+            })
+            .collect();
+        Saturated::new(positive, sequents)
     }
 
     /// Whether a sequent stands for larger linear zones too.

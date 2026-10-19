@@ -139,8 +139,9 @@ was.
   `atom_eqb` is, since both literals of an axiom compare alike; the
   certificates pass `String.eqb`. These are the conditions under which
   the Rust search states its refutations and `Disproof::check` accepts
-  them, so a certificate exists exactly for a refutation that check
-  accepts. `ill_ll` embeds the two-sided calculus in `ll (lrules R)`
+  them, so a certificate exists exactly for a refutation of those three
+  kinds that check accepts; a saturated set, which the check accepts
+  too, has no theorem here (`Unsupported::Saturated`). `ill_ll` embeds the two-sided calculus in `ll (lrules R)`
   (`one_sided G C` is `itr C :: map (dual ∘ itr) G`, `⊸` as `A⊥ ⅋ B`),
   which gives `ill_tautology` and the two-sided forms
   `iclassical_refutation`, `iunbalanced_refutation`,

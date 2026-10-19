@@ -334,6 +334,13 @@ pub enum Unsupported {
         "the Rocq calculi are commutative, so a derivation or a disproof of the cyclic mode has no certificate"
     )]
     Ordered,
+    /// The disproof's refutation is a saturated set, which the library's
+    /// calculi have no theorem for: its certificate is the set itself,
+    /// which the disproof's check verifies.
+    #[error(
+        "linlog's library has no theorem for a saturated set, so a refutation by one has no certificate in Rocq"
+    )]
+    Saturated,
 }
 
 /// Rocq's keywords, which no atom and no lemma may take.
@@ -811,8 +818,9 @@ pub fn write<'a>(
 /// among them those that rest on the search
 /// ([`RefutationFault::Uncertified`](crate::search::RefutationFault::Uncertified)),
 /// [`Error::Unsupported`]
-/// with [`Unsupported::Disproof`] where the options name NanoYalla and
-/// [`Unsupported::Ordered`] in the cyclic mode,
+/// with [`Unsupported::Disproof`] where the options name NanoYalla,
+/// [`Unsupported::Ordered`] in the cyclic mode and
+/// [`Unsupported::Saturated`] for a refutation by a saturated set,
 /// [`Error::GoalOutputs`] for an intuitionistic goal without exactly one
 /// conclusion, the errors of [`Forest::new`] and of the intuitionistic
 /// reading, and
@@ -827,6 +835,12 @@ pub fn write_disproof(
     }
     if disproof.mode().is_ordered() {
         return Err(Unsupported::Ordered.into());
+    }
+    if matches!(
+        disproof.refutation(),
+        crate::search::Refutation::Saturated(_)
+    ) {
+        return Err(Unsupported::Saturated.into());
     }
     linlog::disproof(disproof, options, out)
 }

@@ -156,8 +156,8 @@ serde_json, which the CLI and the core's tests already have.
   these are findings, not configurations). `checked` is `ok` or the
   checker's message for a proof of the roots, or `failed: …` with how the
   child died in the check; for an unprovable row it is `Disproof::check`'s
-  answer, `ok` for a classical assignment, an unbalanced atom or the count
-  equation verified, `failed: …` for one that does not hold, empty for a
+  answer, `ok` for a classical assignment, an unbalanced atom, the count
+  equation or a saturated set verified, `failed: …` for one that does not hold, empty for a
   refutation that rests on the search (`exhausted`, `one_sided`,
   `state_equation`), so the ranking's "(checked)" covers refutations too; `check_ms` is the wall-clock time of the check
   alone.

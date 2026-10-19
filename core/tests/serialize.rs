@@ -796,16 +796,17 @@ fn wire_levels() {
     let read = |json: &str, limits: &Limits| {
         wire::upgrade::<Sequent, _>(&mut serde_json::Deserializer::from_str(json), limits)
     };
-    let newer = sequent.replacen(r#""version":1"#, r#""version":3"#, 1);
+    let above = wire::LEVEL + 1;
+    let newer = sequent.replacen(r#""version":1"#, &format!(r#""version":{above}"#), 1);
     let error = read(&newer, &Limits::default()).unwrap_err();
     assert!(matches!(
         error,
         Error::Version {
             form: "sequent",
-            found: 3,
+            found,
             supported: wire::LEVEL,
             ..
-        }
+        } if found == u64::from(above)
     ));
     assert_eq!(error.code(), "unsupported_version");
     let old = r#"{"terms":[{"V":0}],"ids":[0],"var_dict":["A"]}"#;

@@ -474,8 +474,10 @@ for NanoYalla. What the code relies on:
   (THEOREM …). vm_compute. reflexivity.` with `classical_refutation _
   (fun a => existsb (String.eqb a) [true atoms])`,
   `unbalanced_refutation String.eqb "a" _` or `equation_refutation _`
-  (`i…` two-sided). It runs `Disproof::check` first and returns its
-  error, so a refutation that rests on the search
+  (`i…` two-sided). A saturated set (`Refutation::Saturated`) is refused
+  first (`Unsupported::Saturated`): the library has no theorem for it,
+  though `Disproof::check` accepts it. It runs `Disproof::check` first
+  and returns its error, so a refutation that rests on the search
   (`RefutationFault::Uncertified`) or that does not hold has no
   certificate: the library's tests and the Rust check accept the same
   refutations under the same conditions, and a certificate is written

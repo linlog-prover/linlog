@@ -616,6 +616,7 @@ pub(super) fn disproof(
         Refutation::Exhausted | Refutation::OneSided(_) | Refutation::StateEquation(_) => {
             unreachable!("the check certifies three refutations alone")
         }
+        Refutation::Saturated(_) => unreachable!("the writer refuses a saturated set first"),
     };
     write!(
         text,

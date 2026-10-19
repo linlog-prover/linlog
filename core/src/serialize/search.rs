@@ -8,7 +8,7 @@ use crate::limits::{Limits, Space};
 use crate::occurrences::{Member, OccId, Sign};
 use crate::search::{
     Bias, Cadence, Classical, Disproof, Engine, Equation, Jobs, OneSided, Outcome as Out, Reason,
-    Refutation, StateEquation, Statistics, Unbalanced, Verdict,
+    Refutation, Saturated, Stable, StateEquation, Statistics, Unbalanced, Verdict,
 };
 use crate::sequents::Atom;
 use crate::wire::{self, Readable};
@@ -219,6 +219,25 @@ enum WhyNot {
         /// The value of each atom, by index.
         assignment: Vec<bool>,
     },
+    /// A forward search saturated.
+    Saturated {
+        /// The positive literal of each atom, by index.
+        positive: Vec<Literal>,
+        /// The sequents of the set.
+        sequents: Vec<StableForm>,
+    },
+}
+
+/// The serialized form of a stable sequent of a saturated set: its zones
+/// by occurrence, and whether it absorbs.
+#[derive(Serialize, Deserialize)]
+struct StableForm {
+    /// The linear zone, sorted, with repeats.
+    linear: Vec<u32>,
+    /// The unrestricted zone, sorted.
+    unrestricted: Vec<u32>,
+    /// Whether a `⊤` above absorbs any further linear member.
+    absorbs: bool,
 }
 
 impl From<&Refutation> for WhyNot {
@@ -269,6 +288,17 @@ impl From<&Refutation> for WhyNot {
             },
             Refutation::Classical(Classical { assignment }) => WhyNot::Classical {
                 assignment: assignment.clone(),
+            },
+            Refutation::Saturated(Saturated { positive, sequents }) => WhyNot::Saturated {
+                positive: positive.iter().map(|&sign| sign.into()).collect(),
+                sequents: sequents
+                    .iter()
+                    .map(|s| StableForm {
+                        linear: s.linear.iter().map(|o| o.get()).collect(),
+                        unrestricted: s.unrestricted.iter().map(|o| o.get()).collect(),
+                        absorbs: s.absorbs,
+                    })
+                    .collect(),
             },
             Refutation::Exhausted => WhyNot::Exhausted,
         }
@@ -327,6 +357,19 @@ impl From<WhyNot> for Refutation {
                 dropped: dropped.into_iter().map(OccId::new).collect(),
             }),
             WhyNot::Classical { assignment } => Refutation::Classical(Classical { assignment }),
+            WhyNot::Saturated { positive, sequents } => Refutation::Saturated(Saturated::new(
+                positive.into_iter().map(Sign::from).collect(),
+                sequents
+                    .into_iter()
+                    .map(|s| {
+                        Stable::new(
+                            s.linear.into_iter().map(OccId::new).collect(),
+                            s.unrestricted.into_iter().map(OccId::new).collect(),
+                            s.absorbs,
+                        )
+                    })
+                    .collect(),
+            )),
         }
     }
 }
@@ -407,6 +450,13 @@ impl DisproofForm {
                 }
                 for o in &equation.dropped {
                     occurrence(o.index())?;
+                }
+            }
+            Refutation::Saturated(saturated) => {
+                for s in &saturated.sequents {
+                    for o in s.linear.iter().chain(&s.unrestricted) {
+                        occurrence(o.index())?;
+                    }
                 }
             }
             Refutation::Exhausted | Refutation::Equation(_) | Refutation::Classical(_) => {}
@@ -719,6 +769,13 @@ mod tests {
                 clauses: vec![(o(3), 1)],
                 dropped: vec![o(5)],
             }),
+            Refutation::Saturated(Saturated::new(
+                vec![Sign::Atom, Sign::Dual],
+                vec![
+                    Stable::new(vec![o(1), o(1), o(4)], vec![o(2)], false),
+                    Stable::new(Vec::new(), Vec::new(), true),
+                ],
+            )),
         ] {
             let json = serde_json::to_string(&refutation).unwrap();
             let back = serde_json::from_str::<Refutation>(&json).unwrap();
