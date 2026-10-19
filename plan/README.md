@@ -2786,4 +2786,42 @@ client follows it (step 32).
   links between them, the conclusions at the bottom) by default and the
   compact drawing as an option; the author agreed. Step 40 does it, one
   session after 36 (`40-net-drawings.md`); D12 says so.
+- 2026-10-19: review of step 36b, the Lambek calculus, the end of step
+  36 (one session, Opus 5.5 at high, the panel, 08:15 to 10:30):
+  - `Mode::LAMBEK` (`--lambek`), L without empty antecedents, and L*
+    (`--empty-antecedents`, the word `lambek-star`); the divisions `A \ B`
+    and `B / A` in the ordered parse; the ordered reading; the checker
+    asks every sequent of L for an input besides its output
+    (`Fault::EmptyAntecedent`), the oracle the same by positions;
+    two-sided derivations, exports and sessions with `\L`, `\R`, `/L`,
+    `/R` and no exchange;
+  - the search: `Planar<C>` generic over the criterion it wraps,
+    `Planar<Essential>` the mode's only engine, and in L every complete
+    linking asked to keep a free hypothesis in every implication's body
+    (`keeps_antecedents`); the net engine refuses the Lambek modes, so a
+    hand-over at a memory bound cannot drop the condition;
+  - a differential test against an enumeration of planar essential
+    linkings and a brute-force cut-free calculus (1 566 sequents, 71
+    provable only in L*); the panel refuted nothing (the argument by
+    Fable 5.1 proved the empty-antecedent equivalence by hand and on
+    27 683 nets) and found one wrong index, fixed.
+  Three departures for the author, each marked: a Lambek sequent whose
+  sides are not given is read from its shapes rather than refused (the
+  engine's goals off the roots are such sequents); the division rules
+  are a field `Named::division` with a closed enum, since `Named::ALL`'s
+  length is part of its type (in form only); the condition of L on nets
+  lives in the search and the checker, not in the public criterion,
+  which stays L*'s and says so, and the command draws a net only for a
+  proof the checker passed in the mode.
+
+  The review read the checker's and the oracle's new rule, stacked the
+  chain on `main`, probed the command on 22 sequents with known answers
+  in L and L* (order: `a, a\b ⊢ b` proved, `a\b, a ⊢ b` refused; type
+  raising and composition proved, composition in the wrong order
+  refused; `(a\a)\b ⊢ b` and `⊢ a\a` only in L*), and compared both
+  target sets with their oracles itself: no verdict differs, the net set
+  equal on all 64 rows, and on the focused set only `mix/11`, which ends
+  at the time limit, so its counters say how fast the search ran. The
+  gate and `nix flake check` passed at the head. Step 36 is done. Next:
+  step 40, the net drawings, then 37 and 33.
 
