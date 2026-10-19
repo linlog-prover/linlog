@@ -45,8 +45,11 @@ use std::collections::BinaryHeap;
 pub(crate) struct Inverse;
 
 impl Decide for Inverse {
-    /// Refuses a goal beyond full linear logic and the modes that keep the
-    /// order of the formulas.
+    /// Refuses a goal beyond full linear logic, the modes that keep the
+    /// order of the formulas, and a goal within the sequent two of whose
+    /// members no sequent of a proof can hold together: the search drops
+    /// every sequent that holds such a pair, which a proof of the sequent's
+    /// roots, or of any goal of a derivation of them, never needs.
     fn admits(&self, task: &Task<'_>) -> Result<(), Error> {
         let because = if !Fragment::LL.contains(task.fragment) {
             NotTaken::Fragment {
@@ -55,6 +58,8 @@ impl Decide for Inverse {
             }
         } else if task.mode.is_ordered() {
             NotTaken::Mode { mode: task.mode }
+        } else if !task.roots && !coherent_goal(task) {
+            NotTaken::Shape
         } else {
             return Ok(());
         };
@@ -78,6 +83,14 @@ impl Decide for Inverse {
         found.result = found.result.map_err(|r| r.as_set(options, limits));
         Ok(Answer::of_arena(task.forest, found, stop))
     }
+}
+
+/// Whether every two members of a goal can stand in one sequent of a proof
+/// of the sequent ([`rules::coherent`]).
+fn coherent_goal(task: &Task<'_>) -> bool {
+    let mut members = task.goal.to_vec();
+    members.sort_unstable();
+    rules::coherent_list(task.forest, &members)
 }
 
 /// How many rule applications the search makes between two polls of its
@@ -383,7 +396,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
     fn coherent(&self, z: &Zone) -> bool {
         let mut all: Vec<OccId> = z.gamma.iter().chain(&z.theta).copied().collect();
         all.sort_unstable();
-        all.windows(2).all(|w| self.shape.coherent(w[0], w[1]))
+        rules::coherent_list(self.shape.forest, &all)
     }
 
     /// Keeps a derived sequent unless a kept one subsumes it or it cannot

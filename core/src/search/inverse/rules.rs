@@ -185,38 +185,53 @@ impl<'a> Shape<'a> {
         self.positive(o) || self.forest.is_literal(o)
     }
 
-    /// Whether an occurrence lies inside the subformula of a `?`, whose
-    /// copies can repeat it.
-    fn copied(&self, o: OccId) -> bool {
-        let mut a = o;
-        while let Some(p) = self.forest.parent(a) {
-            if self.forest.kind(p) == Kind::Quest {
-                return true;
-            }
-            a = p;
-        }
-        false
-    }
-
     /// Whether two occurrences can stand in one sequent of a proof of the
-    /// goal: outside the subformulas of `?`, where nothing is repeated, two
-    /// members of one sequent are distinct, neither lies below the other,
-    /// and the connective that joins them is a `⅋`, since a `⊗`, `&` or
-    /// `⊕` above both sends them to different premises or keeps one side.
+    /// goal, the goal's own members among them ([`coherent`]).
     pub(super) fn coherent(&self, x: OccId, y: OccId) -> bool {
-        let Some(w) = self.forest.lca(x, y) else {
-            return true;
-        };
-        if self.copied(w) {
-            return true;
-        }
-        w != x && w != y && self.forest.kind(w) == Kind::Par
+        coherent(self.forest, x, y)
     }
 
     /// Whether an occurrence is in output position under the reading.
     pub(super) fn output(&self, o: OccId) -> bool {
         self.reading.is_some_and(|r| r.position(o) == Side::Output)
     }
+}
+
+/// Whether an occurrence lies inside the subformula of a `?`, whose copies
+/// can repeat it.
+fn copied(forest: &Forest, o: OccId) -> bool {
+    let mut a = o;
+    while let Some(p) = forest.parent(a) {
+        if forest.kind(p) == Kind::Quest {
+            return true;
+        }
+        a = p;
+    }
+    false
+}
+
+/// Whether two occurrences can stand in one sequent of a proof of a goal
+/// whose own members can: outside the subformulas of `?`, where nothing is
+/// repeated, two members of one sequent are distinct, neither lies below
+/// the other, and the connective that joins them is a `⅋`, since a rule
+/// decomposed it below them, and a `⊗`, `&` or `⊕` above both sends them to
+/// different premises or keeps one side. A goal of the sequent's roots
+/// meets that, and so does every goal of a derivation of them.
+pub(super) fn coherent(forest: &Forest, x: OccId, y: OccId) -> bool {
+    let Some(w) = forest.lca(x, y) else {
+        return true;
+    };
+    if copied(forest, w) {
+        return true;
+    }
+    w != x && w != y && forest.kind(w) == Kind::Par
+}
+
+/// Whether every two members of a list sorted in the forest's order can
+/// stand in one sequent of a proof: those consecutive are, the common
+/// ancestors of a list sorted in preorder being those of its neighbours.
+pub(super) fn coherent_list(forest: &Forest, sorted: &[OccId]) -> bool {
+    sorted.windows(2).all(|w| coherent(forest, w[0], w[1]))
 }
 
 /// A subtree of a rule's term still to be written.
@@ -339,7 +354,14 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
     /// the tables and what the rule being written holds, and polls the
     /// stop with them as work.
     fn tick(&mut self, stop: &mut dyn FnMut(u64) -> bool) -> Result<(), Reason> {
-        self.unpolled += 1;
+        self.tick_by(1, stop)
+    }
+
+    /// Counts `units` of work (steps written, literals scanned for
+    /// partners, members copied into the tables), charging and polling as
+    /// [`Writer::tick`] does.
+    fn tick_by(&mut self, units: u64, stop: &mut dyn FnMut(u64) -> bool) -> Result<(), Reason> {
+        self.unpolled += units;
         if self.unpolled < STEPS_PER_POLL {
             return Ok(());
         }
@@ -464,7 +486,7 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
                 }
             }
         }
-        self.record()?;
+        self.record(stop)?;
         self.settle()
     }
 
@@ -504,32 +526,42 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
     /// of its steps, unless a slot has no partner; refuses a rule that
     /// takes a table past what a `u32` indexes, which only a search without
     /// a memory bound reaches.
-    fn record(&mut self) -> Result<(), Reason> {
+    fn record(&mut self, stop: &mut dyn FnMut(u64) -> bool) -> Result<(), Reason> {
         let base_slot = self.rules.slots.len();
         // Slots, in step order: the reverse of the written order. Rules
         // that focus on the same formula under other `⊕` sides share their
         // literals' lists.
-        for &(p, anchor) in self.slots.iter().rev() {
+        let slots = std::mem::take(&mut self.slots);
+        for &(p, anchor) in slots.iter().rev() {
             let range = match self.rules.lists.get(&(p, anchor)) {
                 Some(range) => range.clone(),
                 None => {
                     let start = self.rules.partners.len() as u32;
-                    self.rules.partners.extend(partners(self.shape, p, anchor));
+                    let (found, scanned) = partners(self.shape, p, anchor);
+                    self.rules.partners.extend(found);
                     let range = start..self.rules.partners.len() as u32;
                     self.rules.lists.insert((p, anchor), range.clone());
+                    self.tick_by(scanned, stop)?;
                     range
                 }
             };
             if range.is_empty() {
                 self.rules.slots.truncate(base_slot);
+                self.holes.clear();
+                self.pending = 0;
                 return Ok(());
             }
             self.rules.slots.push(range);
         }
         let rule = self.rules.all.len() as u32;
-        let (holes, slots) = (self.holes.len() as u32, self.slots.len() as u32);
+        let (holes, slots) = (self.holes.len() as u32, slots.len() as u32);
         let hole_base = self.rules.holes.len() as u32;
-        for (index, (leaves, theta, group)) in self.holes.drain(..).rev().enumerate() {
+        // The holes leave the rule being written as they are copied into
+        // the tables, which are charged and polled as they grow: the goal's
+        // phase can hold tens of millions of members.
+        let written = std::mem::take(&mut self.holes);
+        self.pending += bytes_of(&written);
+        for (index, (leaves, theta, group)) in written.into_iter().rev().enumerate() {
             let start = self.rules.leaves.len() as u32;
             self.rules.leaves.extend_from_slice(&leaves);
             let mid = self.rules.leaves.len() as u32;
@@ -552,14 +584,19 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
                 leaves: start..mid,
                 theta: mid..end,
             });
+            self.pending -= bytes_of(&leaves) + bytes_of(&theta);
+            self.tick_by(1 + (leaves.len() + theta.len()) as u64, stop)?;
         }
+        self.pending = 0;
         let step_base = self.rules.steps.len() as u32;
-        for &step in self.reversed.iter().rev() {
+        for i in (0..self.reversed.len()).rev() {
+            let step = self.reversed[i];
             self.rules.steps.push(match step {
                 Step::Hole(h) => Step::Hole(holes - 1 - h),
                 Step::Axiom(p, s) => Step::Axiom(p, slots - 1 - s),
                 step => step,
             });
+            self.tick(stop)?;
         }
         self.rules.all.push(Rule {
             steps: step_base..self.rules.steps.len() as u32,
@@ -593,8 +630,8 @@ impl<'s, 'a, 'c> Writer<'s, 'a, 'c> {
 /// literals of its atom that can stand beside the formula the focus began
 /// on, from the unrestricted zone where they are the subformula of a `?`
 /// (and from the linear zone too where the goal holds them), with the
-/// opposite position under a reading.
-fn partners(shape: &Shape<'_>, p: OccId, anchor: OccId) -> Vec<Partner> {
+/// opposite position under a reading; and the literals scanned, as work.
+fn partners(shape: &Shape<'_>, p: OccId, anchor: OccId) -> (Vec<Partner>, u64) {
     let forest = shape.forest;
     let (atom, sign) = (
         forest.atom(p).expect("a literal"),
@@ -618,20 +655,23 @@ fn partners(shape: &Shape<'_>, p: OccId, anchor: OccId) -> Vec<Partner> {
             found.push(Partner { x, theta: false });
         }
     }
-    found
+    (found, forest.literals(atom, !sign).len() as u64)
 }
 
 /// Calls `each` with every way of choosing the `⊕` sides under a focus on
 /// `root`, a list of the `⊕` reached and the side taken, until it fails; a
 /// choice that reaches a `0` is left out, since no focus on it succeeds.
+/// `each` is called with `None` for every choice looked at, whole or not,
+/// as a unit of work: choices that a `0` ends can be exponentially many.
 fn plans(
     shape: &Shape<'_>,
     root: OccId,
-    mut each: impl FnMut(&[(OccId, Branch)]) -> Result<(), Reason>,
+    mut each: impl FnMut(Option<&[(OccId, Branch)]>) -> Result<(), Reason>,
 ) -> Result<(), Reason> {
     let forest = shape.forest;
     let mut open = vec![Vec::new()];
     'plans: while let Some(sides) = open.pop() {
+        each(None)?;
         let mut walk = vec![root];
         while let Some(o) = walk.pop() {
             match forest.kind(o) {
@@ -660,7 +700,7 @@ fn plans(
                 _ => {}
             }
         }
-        each(&sides)?;
+        each(Some(&sides))?;
     }
     Ok(())
 }
@@ -700,15 +740,17 @@ pub(super) fn compile(
             let focus = shape.positive(o)
                 && matches!(parent, None | Some(Kind::Par | Kind::With | Kind::Bang));
             if focus {
-                plans(shape, o, |sides| {
-                    writer.write(Pending::Focus(o), sides, o, stop)
+                plans(shape, o, |sides| match sides {
+                    Some(sides) => writer.write(Pending::Focus(o), sides, o, stop),
+                    None => writer.tick(stop),
                 })?;
             }
             let copied =
                 parent == Some(Kind::Quest) && !(forest.is_literal(o) && !shape.positive(o));
             if copied {
-                plans(shape, o, |sides| {
-                    writer.write(Pending::Copy(o), sides, o, stop)
+                plans(shape, o, |sides| match sides {
+                    Some(sides) => writer.write(Pending::Copy(o), sides, o, stop),
+                    None => writer.tick(stop),
                 })?;
             }
         }

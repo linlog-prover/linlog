@@ -1460,9 +1460,15 @@ pub enum Engine {
     /// queue are counted under
     /// [`Limits::memory_bytes`](crate::Limits::memory_bytes), and over it
     /// the search answers `Unknown`, since the sequents kept cannot be
-    /// given back without losing what was derived. Its unit of work is a
-    /// step of a rule written, a sequent taken up and an application of a
-    /// rule or Mix to a choice of premises.
+    /// given back without losing what was derived. It refuses a goal
+    /// within the sequent two of whose members no sequent of a proof holds
+    /// together (one twice or below another, or two a `⊗`, `&` or `⊕`
+    /// separates, outside a `?`), which no derivation of the sequent has.
+    /// Its unit of work is a step of a rule written, a choice of `⊕` sides
+    /// looked at, a literal looked at for an axiom's partner, a member
+    /// copied into the rules' tables, a sequent taken up, and an
+    /// application of a rule or Mix to a choice of premises or a choice
+    /// given up.
     Inverse,
 }
 
@@ -1550,7 +1556,8 @@ pub enum NotTaken {
     /// The goal is not the sequent itself, the only goal the engine takes.
     Goal,
     /// The goal is not of the engine's shape: two additive-only formulas,
-    /// or a Horn program.
+    /// a Horn program, or for the inverse method a goal within the sequent
+    /// whose members can stand together in one sequent of a proof.
     Shape,
 }
 
@@ -1617,6 +1624,11 @@ impl Display for Explained {
                     "the {engine} engine decides {decides} at most, not {goal}"
                 )
             }
+            (Engine::Inverse, NotTaken::Shape) => f.write_str(
+                "the inverse engine does not take a goal two of whose members no sequent of a \
+                 proof holds together: one twice or below another, or two that a ⊗, & or ⊕ \
+                 separates, outside the formula under a ?",
+            ),
             (_, NotTaken::Shape) => {
                 write!(f, "the {engine} engine does not take a goal of this shape")
             }

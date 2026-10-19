@@ -39,6 +39,8 @@ fn decides_small_sequents() {
         ("|- a par ~a", true),
         ("|- ?~a, !a", true),
         ("|- ?~a, a * a", true),
+        // One kept sequent, the empty one, in both holes of one rule.
+        ("|- ?a, ?~a, bot * bot", true),
     ] {
         let verdict = decide(text, Mode::CLASSICAL, 1 << 20);
         match (provable, &verdict) {
@@ -177,4 +179,59 @@ fn agrees_with_the_focused_engine_and_the_reference() {
     }
     eprintln!("decided {decided} of {cases}");
     assert!(2 * decided >= cases, "decided {decided} of {cases}");
+}
+
+/// A goal within the sequent two of whose members no sequent of a proof
+/// holds together is refused, since the search drops every sequent that
+/// holds such a pair; a goal whose members can stand together is decided.
+#[test]
+fn refuses_an_incoherent_goal() {
+    let options = Options::default().with_engine(Some(Engine::Inverse));
+    let goal_of = |text: &str, members: &[u32], mode: Mode| {
+        let forest = crate::occurrences::Forest::new(&text.parse().unwrap()).unwrap();
+        let members: Vec<_> = members.iter().map(|&m| crate::Member::new(m)).collect();
+        let goal = crate::search::Goal::new(&forest, &members).unwrap();
+        crate::search::prove_goal(goal, mode, &options, &Limits::default(), |_| false)
+            .map(|outcome| outcome.verdict)
+    };
+    // The literals a ⊗ separates, and two of the same tensor's factors.
+    for (text, members) in [("|- a * ~a", &[1, 2][..]), ("|- a & ~a", &[1, 2])] {
+        assert!(matches!(
+            goal_of(text, members, Mode::CLASSICAL),
+            Err(crate::Error::EngineRefused {
+                because: crate::search::NotTaken::Shape,
+                ..
+            })
+        ));
+    }
+    // `a` of the tensor and `~a` of another root stand together.
+    let verdict = goal_of("|- a * b, ~a, ~b", &[1, 3], Mode::CLASSICAL).unwrap();
+    assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
+}
+
+/// Choices of `⊕` sides that a `0` ends are work the stop is told of,
+/// however many there are: `0 ⊗ ((a₀ ⊕ b₀) ⊗ …)` has 2¹⁶ of them, none a
+/// rule.
+#[test]
+fn choices_a_zero_ends_are_polled() {
+    let mut factors = "(a0 + b0)".to_owned();
+    for i in 1..16 {
+        factors = format!("((a{i} + b{i}) * {factors})");
+    }
+    let sequent: Sequent = format!("|- 0 * {factors}").parse().unwrap();
+    let options = Options::default().with_engine(Some(Engine::Inverse));
+    let mut work = 0;
+    let stop = |progress: crate::Progress| {
+        work += progress.work;
+        false
+    };
+    prove_within(
+        &sequent,
+        Mode::CLASSICAL,
+        &options,
+        &Limits::default(),
+        stop,
+    )
+    .unwrap();
+    assert!(work >= 1 << 16, "{work} units");
 }

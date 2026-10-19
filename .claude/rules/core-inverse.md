@@ -86,7 +86,7 @@ R2 each checked case by case in `plan/reports/37-inverse.md`).
   `dead`) has an alive one that subsumes it, which is taken up in turn.
   Under a reading a kept exact or affine sequent has exactly one output,
   so a weakening `T ⊆ S` never needs an output weakened in.
-- **Coherence** (`Shape::coherent`, `Saturation::coherent`): outside
+- **Coherence** (`rules::coherent`, `coherent_list`, `Saturation::coherent`): outside
   the subformulas of `?` (`copied`), a sequent of a proof holds each
   occurrence once, none below another, and two members only below a
   `⅋` (a `⊗`, `&` or `⊕` above both sends them to different premises
@@ -94,7 +94,13 @@ R2 each checked case by case in `plan/reports/37-inverse.md`).
   stood beside the others' ancestors when it was decomposed. Pairwise
   is consecutive in id order: the common ancestors of a preorder-sorted
   list are those of its neighbours. A subset of a coherent sequent is
-  coherent, so a sequent that subsumes one of a proof passes.
+  coherent, so a sequent that subsumes one of a proof passes. The
+  argument needs the goal's own members coherent (their common ancestor
+  is decomposed below them in no proof): the roots are, and so is every
+  goal of a derivation of them, but `Goal::new` takes any multiset, so
+  `admits` refuses a goal off the roots that is not (`NotTaken::Shape`;
+  the panel's argument found `[a, ~a]` of `⊢ a ⊗ ~a` refuted before,
+  proved by the focused engine).
 - **Shape under a reading**: R1 at every step (above); a partner of the
   other position than its literal (an `Ax` has one output).
 - **Partners pre-filtered** by coherence with the formula the focus
@@ -131,7 +137,15 @@ a scratch copy; the report lists them).
   tables' ranges, trie nodes); each is refused with `IndexLimit` where
   it would pass (`keep`, `Writer::record`, `Trie::insert`), which only a
   search without a memory bound reaches. Output counts are `u64`.
-- **Work**: a step of a rule written (polled every `STEPS_PER_POLL`), a
+- **Work**: a step of a rule written, a choice of `⊕` sides looked at
+  (one a `0` ends writes no step, and there can be `2ⁿ`), a literal
+  scanned for an axiom's partners (a pass over the atom's literals with
+  an `lca` walk each, seconds on `SYJ206+1.019`), a member copied into
+  the tables by `record` (the goal's phase of `SYJ202+1.007` copies 52
+  million, charged and polled as it goes), all polled every
+  `STEPS_PER_POLL` (the panel's limits reviewer found each of these
+  unpolled at first: a time limit of 2 s ending after 3.2 s, of 4 s
+  after 10.9 s, a memory bound passed by a third); a
   sequent taken up (polled each time), a rule or Mix application and a
   premise choice pruned (polled every `APPLICATIONS_PER_POLL`); the
   proof's writing polls every `BUILT_PER_POLL` kept sequents with no
