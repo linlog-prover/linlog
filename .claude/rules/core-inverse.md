@@ -150,11 +150,26 @@ a scratch copy; the report lists them).
   million, charged and polled as it goes), all polled every
   `STEPS_PER_POLL` (the panel's limits reviewer found each of these
   unpolled at first: a time limit of 2 s ending after 3.2 s, of 4 s
-  after 10.9 s, a memory bound passed by a third); a
-  sequent taken up (polled each time), a rule or Mix application and a
-  premise choice pruned (polled every `APPLICATIONS_PER_POLL`); the
-  proof's writing polls every `BUILT_PER_POLL` kept sequents with no
-  units.
+  after 10.9 s, a memory bound passed by a third). In the saturation
+  the units are what takes the time: a member of a linear zone copied
+  into an evaluation, compared with a hole's or indexed when a sequent
+  is taken up, a member of a derived sequent tested for coherence, a
+  child looked up in a trie (`Trie::lookups`, counted by every query),
+  and one for each application and each premise choice pruned. Polls
+  stay where they were (every sequent taken up, every
+  `APPLICATIONS_PER_POLL` applications or choices, which the tests'
+  poll budgets count), plus one wherever `UNITS_PER_POLL` units passed
+  since the last, which only large zones reach. Counting one unit per
+  application instead made the units per millisecond range from 1 (the
+  `wide` sequents of 2 048 literals, a 1.4 s late stop) to 146 000; by
+  members and lookups they range from about 5 000 (the Partition
+  families) to 143 000 (`SYJ207` in its cbn translation), 18 000 to
+  89 000 on the library's intuitionistic problems, which is what lets a
+  budget of units bound the engine's time. Linear members only: an unrestricted zone is
+  copied whole, which costs little per member, and counting it made
+  `SYJ207`'s units a hundred times cheaper than the rest; a choice
+  pruned is one unit, not its depth, for the same reason. The proof's
+  writing polls every `BUILT_PER_POLL` kept sequents with no units.
 - **Options**: `bias` (the focused engines' rule; `Auto` as they read
   it; on the class C and refutation rows the two rules gave the same
   counts) and `check`. No copy bound: with exponentials the search runs

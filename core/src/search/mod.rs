@@ -1465,10 +1465,12 @@ pub enum Engine {
     /// together (one twice or below another, or two a `⊗`, `&` or `⊕`
     /// separates, outside a `?`), which no derivation of the sequent has.
     /// Its unit of work is a step of a rule written, a choice of `⊕` sides
-    /// looked at, a literal looked at for an axiom's partner, a member
-    /// copied into the rules' tables, a sequent taken up, and an
-    /// application of a rule or Mix to a choice of premises or a choice
-    /// given up.
+    /// looked at, a literal looked at for an axiom's partner and a member
+    /// copied into the rules' tables; in the saturation, a member of a
+    /// linear zone copied, compared or indexed, an entry looked up in the
+    /// index of the kept sequents, and an application of a rule or Mix or
+    /// a choice of premises given up, so that its work grows with its time
+    /// whatever the size of its sequents.
     Inverse,
 }
 

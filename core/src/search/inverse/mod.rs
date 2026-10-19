@@ -98,6 +98,13 @@ fn coherent_goal(task: &Task<'_>) -> bool {
 /// microseconds.
 const APPLICATIONS_PER_POLL: u64 = 1 << 10;
 
+/// How many units of work the search does between two polls of its stop
+/// at most, where the zones it handles are large: some milliseconds. A
+/// unit is a member of a zone copied, compared or indexed, so that the
+/// work a stop is told of grows with the time the search takes, whatever
+/// the size of its sequents.
+const UNITS_PER_POLL: u64 = 1 << 20;
+
 /// How many kept sequents' terms the proof is written for between two
 /// polls of the stop.
 const BUILT_PER_POLL: usize = 1 << 12;
@@ -246,8 +253,11 @@ struct Saturation<'s, 'a> {
     held: usize,
     /// A stack for evaluating a rule's term.
     stack: Vec<Zone>,
-    /// The work done since the last poll.
+    /// The sequents taken up, applications and choices pruned since the
+    /// last poll, which set when the stop is polled.
     unpolled: u64,
+    /// The units of work done since the last poll, which the stop is told.
+    weighed: u64,
     /// The counters.
     statistics: Statistics,
     /// The caller's stop.
@@ -260,6 +270,11 @@ fn grow(list: &mut Vec<u32>, id: u32) -> usize {
     let before = bytes_of(list);
     list.push(id);
     bytes_of(list) - before
+}
+
+/// The members of both zones of a sequent, as units of work.
+fn size(z: &Zone) -> u64 {
+    (z.gamma.len() + z.theta.len()) as u64
 }
 
 /// Returns the members of a sorted list without its repeats.
@@ -310,6 +325,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
             held: 0,
             stack: Vec::new(),
             unpolled: 0,
+            weighed: 0,
             statistics: Statistics::default(),
             stop,
         }
@@ -369,14 +385,17 @@ impl<'s, 'a> Saturation<'s, 'a> {
         Ok(())
     }
 
-    /// Counts work, and polls the stop once enough has been done or when
-    /// `now`.
-    fn work(&mut self, units: u64, now: bool) -> Result<(), Reason> {
-        self.unpolled += units;
-        if (now || self.unpolled >= APPLICATIONS_PER_POLL)
-            && (self.stop)(std::mem::take(&mut self.unpolled))
-        {
-            return Err(Reason::Stopped);
+    /// Counts `events` (sequents taken up, applications, choices pruned)
+    /// that weigh `units` of work, and polls the stop with the units once
+    /// enough of either has been done, or when `now`.
+    fn work(&mut self, events: u64, units: u64, now: bool) -> Result<(), Reason> {
+        self.unpolled += events;
+        self.weighed += units;
+        if now || self.unpolled >= APPLICATIONS_PER_POLL || self.weighed >= UNITS_PER_POLL {
+            self.unpolled = 0;
+            if (self.stop)(std::mem::take(&mut self.weighed)) {
+                return Err(Reason::Stopped);
+            }
         }
         Ok(())
     }
@@ -408,7 +427,9 @@ impl<'s, 'a> Saturation<'s, 'a> {
         if !self.coherent(&z) {
             return Ok(());
         }
-        if self.subsumed(&z, None) {
+        let subsumed = self.subsumed(&z, None);
+        self.work(0, self.exact.lookups() + self.weak.lookups(), false)?;
+        if subsumed {
             self.statistics.memo_hits += 1;
             return Ok(());
         }
@@ -514,7 +535,9 @@ impl<'s, 'a> Saturation<'s, 'a> {
             }
             let mut z = Zone::default();
             self.zone(id, None, &mut z);
-            if self.subsumed(&z, Some(id)) {
+            let subsumed = self.subsumed(&z, Some(id));
+            self.work(0, self.exact.lookups() + self.weak.lookups(), false)?;
+            if subsumed {
                 self.kept[id as usize].dead = true;
                 continue;
             }
@@ -532,7 +555,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
     /// every rule with a premise it can be, the others taken up before it,
     /// and Mix with every sequent taken up.
     fn activate(&mut self, id: u32) -> Result<(), Reason> {
-        self.work(1, true)?;
+        self.work(1, 1 + 2 * u64::from(self.kept[id as usize].gamma), true)?;
         self.statistics.nodes += 1;
         let rank = self.active.len() as u32;
         self.kept[id as usize].rank = rank;
@@ -574,7 +597,8 @@ impl<'s, 'a> Saturation<'s, 'a> {
                 if self.kept[t as usize].dead {
                     continue;
                 }
-                self.work(1, false)?;
+                let sizes = self.kept[t as usize].gamma + self.kept[id as usize].gamma;
+                self.work(1, 1 + 2 * u64::from(sizes), false)?;
                 let (mut l, mut r) = (Zone::default(), Zone::default());
                 self.zone(t, None, &mut l);
                 self.zone(id, None, &mut r);
@@ -638,6 +662,13 @@ impl<'s, 'a> Saturation<'s, 'a> {
                 Some((i, _)) => self.candidates(h, rank, (j as u32) < i),
                 None => unreachable!("a rule with holes is applied with a premise"),
             };
+            // Each candidate was looked at in a list and its zone compared
+            // with the hole's.
+            let looked: u64 = ids
+                .iter()
+                .map(|&t| 1 + u64::from(self.kept[t as usize].gamma))
+                .sum();
+            self.work(0, looked, false)?;
             if ids.is_empty() {
                 return Ok(());
             }
@@ -661,13 +692,17 @@ impl<'s, 'a> Saturation<'s, 'a> {
                     *c = list[p].id;
                 }
                 loop {
-                    self.work(1, false)?;
+                    // The premises' zones copied before the evaluation ends.
+                    let mut copied = 0;
                     let mut stack = std::mem::take(&mut self.stack);
                     let derived = {
                         let this = &*self;
                         this.calculus.derive(
                             steps,
-                            &mut |h, z| this.zone(chosen[h as usize], None, z),
+                            &mut |h, z| {
+                                this.zone(chosen[h as usize], None, z);
+                                copied += z.gamma.len() as u64;
+                            },
                             &|s| {
                                 rules.partners
                                     [(slots[s as usize].start + partners[s as usize]) as usize]
@@ -677,7 +712,11 @@ impl<'s, 'a> Saturation<'s, 'a> {
                         )
                     };
                     self.stack = stack;
+                    self.work(1, 1 + copied, false)?;
                     if let Some(z) = derived {
+                        // Its coherence and subsumption are tested on its
+                        // members.
+                        self.work(0, size(&z), false)?;
                         record.clear();
                         record.push(r);
                         record.extend_from_slice(&chosen);
@@ -699,7 +738,7 @@ impl<'s, 'a> Saturation<'s, 'a> {
             }
             // The next premise at place `j` that fits beside those before.
             while at[j] < lists[j].len() && !self.fits(&lists, &groups, &at, j) {
-                self.work(1, false)?;
+                self.work(1, 1, false)?;
                 at[j] += 1;
             }
             if at[j] < lists[j].len() {

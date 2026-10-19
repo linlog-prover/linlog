@@ -628,7 +628,7 @@ a ⊢ a       b, !(b ⊸ c) ⊢ c
 sequents taken up: 2
 sequents subsumed: 0
 sequents kept: 3
-units of work: 4
+units of work: 38
 time: 102.44µs
 $ linlog prove -i --engine inverse -q "!(a -o b), a |- b * b"
 unprovable (IMELL, intuitionistic, inverse engine): the search was exhaustive

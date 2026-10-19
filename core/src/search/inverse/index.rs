@@ -31,6 +31,9 @@ pub(super) struct Trie {
     /// The bytes of the lists in `ends`, which the table's own capacity
     /// does not count.
     lists: usize,
+    /// The children looked up by the queries since [`Trie::lookups`] was
+    /// last asked: the work they did, whatever their answer.
+    looked: std::cell::Cell<u64>,
 }
 
 impl Trie {
@@ -78,6 +81,7 @@ impl Trie {
                 if j > from && zone[j] == zone[j - 1] {
                     continue;
                 }
+                self.looked.set(self.looked.get() + 1);
                 if let Some(&child) = self.children.get(&(node, zone[j])) {
                     stack.push((child, j + 1));
                 }
@@ -106,6 +110,7 @@ impl Trie {
     ) -> bool {
         let mut node = 0;
         for &o in gamma.iter().chain([&SEPARATOR]) {
+            self.looked.set(self.looked.get() + 1);
             match self.children.get(&(node, o)) {
                 Some(&child) => node = child,
                 None => return false,
@@ -127,6 +132,12 @@ impl Trie {
                 .get(&(node, SEPARATOR))
                 .is_some_and(|&split| self.ends_within(split, theta, &mut hit))
         })
+    }
+
+    /// Returns the children the queries looked up since it was last asked,
+    /// and starts the count again.
+    pub(super) fn lookups(&self) -> u64 {
+        self.looked.take()
     }
 
     /// The bytes the trie holds.
