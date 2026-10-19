@@ -918,7 +918,7 @@ fn svg_formats() {
     let (_, json, _) = linlog(&["prove", "--format", "json", "A * B |- B * A"], "");
     let (status, out, _) = linlog(&["check", "--net", "--format", "svg"], &json);
     assert_eq!(status, 0);
-    assert!(out.contains("<circle id=\"o0\""), "{out}");
+    assert!(out.contains("<g id=\"o0\">"), "{out}");
     let bounds = [
         "--copies",
         "0",
@@ -1187,6 +1187,13 @@ fn every_style_option() {
             "svg",
             "dominator",
             "\"navy\"",
+            true,
+        ),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "net",
+            "\"compact\"",
             true,
         ),
         (&ill, "png", "scale", "1", true),

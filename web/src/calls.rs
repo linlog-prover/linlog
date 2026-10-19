@@ -686,7 +686,9 @@ pub fn draw(session: &str, settings: &str) -> Result<String, Failure> {
 
 /// Returns the proof net of a finished session as an SVG drawing: for a
 /// sequent of unit-free MLL, and with `styles.svg.essential` for one with
-/// an intuitionistic reading, its essential net.
+/// an intuitionistic reading, its essential net; every subformula written,
+/// or with `styles.svg.net` `"compact"` only the literals and the
+/// conclusions.
 ///
 /// # Errors
 ///

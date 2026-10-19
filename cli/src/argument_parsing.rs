@@ -1060,7 +1060,9 @@ pub(crate) struct StyleArgs {
     /// label_size, line_height, premise_gap, literal_gap, label_gap,
     /// margin, stroke_width, link_height, link_cap, node_radius, text,
     /// line, par, link, highlight, background, essential, input,
-    /// dominator; png: scale, pixels; pdf:
+    /// dominator, net (formulas: a proof net with every subformula
+    /// written, or compact: only its literals and conclusions written,
+    /// its inner links circles); png: scale, pixels; pdf:
     /// embed_text, compatible, accessible, title, language, date; rocq:
     /// form, lemma, prelude, kernel (where the command writes Rocq). `null` lifts a
     /// bound (`pixels=null`). Labels

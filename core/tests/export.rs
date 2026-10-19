@@ -19,7 +19,7 @@
 ))]
 
 use linlog::export::rocq::{self, Kernel, Unsupported};
-use linlog::export::svg::{self, Style};
+use linlog::export::svg::{self, NetDrawing, Style};
 use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
@@ -604,8 +604,9 @@ fn lambek() {
     );
 }
 
-/// Proof nets are pinned as SVG: a net whose links cross, a structure
-/// whose switching cycle is highlighted, and one whose second part is.
+/// Proof nets are pinned as SVG: a net whose links cross, drawn with its
+/// formulas and compact, a structure whose switching cycle is
+/// highlighted, and one whose second part is.
 #[test]
 fn nets() {
     let net = ProofStructure::from_proof(
@@ -613,10 +614,16 @@ fn nets() {
         Criterion::MLL,
         &Limits::default(),
         |_| false,
-    );
+    )
+    .unwrap();
     snapshot(
         "net.svg",
-        &svg::net(&net.unwrap(), &Style::default(), &unbounded(), |_| false).unwrap(),
+        &svg::net(&net, &Style::default(), &unbounded(), |_| false).unwrap(),
+    );
+    let compact = Style::default().with_net(NetDrawing::Compact);
+    snapshot(
+        "net-compact.svg",
+        &svg::net(&net, &compact, &unbounded(), |_| false).unwrap(),
     );
 
     let forest = Forest::new(&"|- A * ~A".parse().unwrap()).unwrap();
@@ -697,28 +704,41 @@ fn essential_nets() {
 }
 
 /// A net's drawing estimated past its limit is not drawn; the estimate is
-/// at least the drawing's bytes and within a few times of them.
+/// at least the drawing's bytes and within a few times of them, in every
+/// drawing, also where a deep formula is written once per subformula.
 #[test]
 fn net_limit() {
-    let style = Style::default();
-    let net = ProofStructure::from_proof(
-        &proof("A * B |- B * A", Mode::CLASSICAL),
-        Criterion::MLL,
-        &Limits::default(),
-        |_| false,
-    );
-    let net = net.unwrap();
-    let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
-    let bytes = drawing.len() as u64;
-    assert!(matches!(
-        svg::net(&net, &style, &bounded(bytes), |_| false),
-        Err(Error::Refused(Refusal::Output { estimate_bytes, limit_bytes, .. }))
-            if estimate_bytes > bytes && limit_bytes == bytes
-    ));
-    assert_eq!(
-        svg::net(&net, &style, &bounded(4 * bytes), |_| false),
-        Ok(drawing)
-    );
+    let chain = (1..=12)
+        .map(|i| format!("a{i}"))
+        .collect::<Vec<_>>()
+        .join(" * (");
+    let deep = format!("{chain}{} |- {chain}{}", ")".repeat(11), ")".repeat(11));
+    for sequent in ["A * B |- B * A", deep.as_str()] {
+        let net = ProofStructure::from_proof(
+            &proof(sequent, Mode::CLASSICAL),
+            Criterion::MLL,
+            &Limits::default(),
+            |_| false,
+        );
+        let net = net.unwrap();
+        for style in [
+            Style::default(),
+            Style::default().with_net(NetDrawing::Compact),
+            Style::default().with_essential(true),
+        ] {
+            let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
+            let bytes = drawing.len() as u64;
+            assert!(matches!(
+                svg::net(&net, &style, &bounded(bytes), |_| false),
+                Err(Error::Refused(Refusal::Output { estimate_bytes, limit_bytes, .. }))
+                    if estimate_bytes > bytes && limit_bytes == bytes
+            ));
+            assert_eq!(
+                svg::net(&net, &style, &bounded(4 * bytes), |_| false),
+                Ok(drawing)
+            );
+        }
+    }
 }
 
 /// The SVG layout asks its stop condition in its first pass over the
@@ -805,10 +825,13 @@ fn structure(document: &str) -> [usize; 3] {
 }
 
 /// The documents are well-formed and draw inside their view box, with one
-/// text per conclusion and rule name and one line per inference, and in a
-/// net one circle per connective, one path per premise edge, conclusion
-/// and link, and one text per literal and connective; the raised `⊥` of
-/// a negated literal and the subscript of `&L₂` are texts of their own.
+/// text per conclusion and rule name and one line per inference; in a net
+/// one text per piece of every occurrence's formula and one per
+/// connective at its joint, and one path per premise edge and link, and
+/// in a compact one a text per piece of the literals and the conclusions,
+/// one per connective in its circle, and a path more per conclusion; the
+/// raised `⊥` of a negated literal and the subscript of `&L₂` are texts
+/// of their own.
 #[test]
 fn svg_structure() {
     let style = Style::default();
@@ -853,10 +876,16 @@ fn svg_structure() {
         Criterion::MLL,
         &Limits::default(),
         |_| false,
-    );
+    )
+    .unwrap();
     assert_eq!(
-        structure(&svg::net(&net.unwrap(), &style, &unbounded(), |_| false).unwrap()),
-        [8, 8, 2]
+        structure(&svg::net(&net, &style, &unbounded(), |_| false).unwrap()),
+        [13, 6, 0]
+    );
+    let compact = style.clone().with_net(NetDrawing::Compact);
+    assert_eq!(
+        structure(&svg::net(&net, &compact, &unbounded(), |_| false).unwrap()),
+        [13, 8, 2]
     );
 
     let sequent: Sequent = "x_1 * foo |- A".parse().unwrap();

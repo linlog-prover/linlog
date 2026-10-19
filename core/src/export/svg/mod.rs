@@ -84,7 +84,10 @@ pub struct Style {
     /// nodes, in thousandths of the size of formula text.
     pub label_size: u32,
     /// The distance from the baseline of a conclusion to the baseline of
-    /// its premises, and from one layer of a proof net to the next.
+    /// its premises and from one layer of a compact proof net to the next;
+    /// in a proof net drawn with its formulas, the space between the text
+    /// of one layer and the text of the next, besides the
+    /// [`node_radius`](Self::node_radius) the joints take.
     pub line_height: u32,
     /// The space between two premises side by side.
     pub premise_gap: u32,
@@ -105,7 +108,9 @@ pub struct Style {
     /// low and the arcs of nested links still never cross; `None` for
     /// arcs that grow with their width however wide.
     pub link_cap: Option<u32>,
-    /// The radius of the circle of a `⊗` or `⅋` node of a proof net.
+    /// The radius of the circle of a `⊗` or `⅋` node of a compact proof
+    /// net, and how far the edges of a proof net drawn with its formulas
+    /// stay from the connective at the joint of a link.
     pub node_radius: u32,
     /// The colour of text.
     pub text: String,
@@ -127,14 +132,18 @@ pub struct Style {
     /// Whether a proof structure of a sequent with an intuitionistic
     /// reading is drawn as its essential net: every edge an arrow in the
     /// direction of the net, from the hypotheses toward the goal, the
-    /// input occurrences in the [`input`](Self::input) colour, the nodes
-    /// as the connectives of the reading (`⊸` and `⊗`), every literal as
-    /// its atom, each implication of output position joined to its
+    /// input occurrences in the [`input`](Self::input) colour, every
+    /// formula written as the reading reads it (a literal as its atom),
+    /// the links as the connectives of the reading (`⊸` and `⊗`), each implication of output position joined to its
     /// antecedent by a dotted line in the [`dominator`](Self::dominator)
     /// colour, and a directed cycle or a path around an implication in
     /// the highlight colour. A structure without the reading is drawn as
     /// without this.
     pub essential: bool,
+    /// How a proof net is drawn: every formula occurrence written as a
+    /// node, or compact, with only the literals and the conclusions
+    /// written.
+    pub net: NetDrawing,
     /// The colour of the input occurrences of an essential net, their
     /// edges and the edges below the hypotheses.
     pub input: String,
@@ -176,8 +185,31 @@ impl Default for Style {
             essential: false,
             input: "#009e73".into(),
             dominator: "#cc79a7".into(),
+            net: NetDrawing::Formulas,
         }
     }
+}
+
+/// How a proof net is drawn. In JSON (feature `serialize`) `"formulas"`
+/// or `"compact"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum NetDrawing {
+    /// Every subformula occurrence of the conclusions a node written as
+    /// its formula, where it stands in its conclusion: the literals along
+    /// the top under the axiom links' arcs, each link of a `⊗` or `⅋`
+    /// joining its two premises to its conclusion written below them,
+    /// with the connective small at the joint, and the conclusions in the
+    /// sequent's order at the bottom.
+    #[default]
+    Formulas,
+    /// Only the literals and the conclusions written: the literals along
+    /// the top, every inner `⊗` and `⅋` a small circle, and the
+    /// conclusions in the sequent's order at the bottom, for nets too wide
+    /// to write every subformula.
+    Compact,
 }
 
 impl Style {
@@ -350,6 +382,12 @@ impl Style {
     #[must_use]
     pub fn with_dominator(self, dominator: String) -> Self {
         Self { dominator, ..self }
+    }
+
+    /// Returns the style with another [`net`](Self::net).
+    #[must_use]
+    pub fn with_net(self, net: NetDrawing) -> Self {
+        Self { net, ..self }
     }
 }
 
@@ -927,17 +965,25 @@ pub fn write<'a>(
 /// Returns a proof structure, a proof net or not, complete or not, as an
 /// SVG document, titled with its sequent in plain text.
 ///
-/// The conclusions stand in a row at the bottom and the formula trees
-/// grow upwards from them: every `⊗` and `⅋` is a small labelled circle,
-/// the edges to the two premises of a `⅋` are dashed and share a colour
-/// of their own (a switching keeps one of them), and the literals stand
-/// side by side along the top, each axiom link an arc over the two it
-/// joins; Mix leaves no trace. A structure with a switching cycle has the
-/// cycle's edges in the highlight colour, and one that falls into parts
-/// (those of [`NetError::Disconnected`](crate::nets::NetError::Disconnected))
-/// has the edges, conclusions and links of every part but the first in
-/// it. Literals and connectives are the
-/// elements with the id `o<n>` for occurrence `n`, and a link is `l<m>-<n>`.
+/// The conclusions are written in a row at the bottom, in the sequent's
+/// order, and the formula trees grow upwards from them to the literals,
+/// which stand side by side along the top, each axiom link an arc over
+/// the two it joins (a literal that is a conclusion stands at the bottom,
+/// its link's arc reaching down to it). By default ([`NetDrawing::Formulas`])
+/// every subformula occurrence is written as its formula, where it stands
+/// in its conclusion's text, and the link of a `⊗` or `⅋` joins its two
+/// premises to it with the connective small at the joint; with
+/// [`NetDrawing::Compact`] only the literals and the conclusions are
+/// written and every inner `⊗` and `⅋` is a small labelled circle. The
+/// edges to the two premises of a `⅋` are dashed and share a colour of
+/// their own (a switching keeps one of them); Mix leaves no trace. A
+/// structure with a switching cycle has the cycle's edges in the
+/// highlight colour, and one that falls into parts (those of
+/// [`NetError::Disconnected`](crate::nets::NetError::Disconnected)) has
+/// the edges, conclusions and links of every part but the first in it.
+/// Every occurrence's formula, or a compact net's circle of a connective,
+/// is the element with the id `o<n>` for occurrence `n`, and a link is
+/// `l<m>-<n>`.
 /// With [`Style::essential`], a structure of an intuitionistic sequent is
 /// drawn as its essential net instead, which the field describes, its
 /// highlights those of [`ProofStructure::is_essential`].
@@ -960,8 +1006,9 @@ pub fn net(
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
     style.check()?;
+    let reading = net.reading().ok().filter(|_| style.essential);
     if let Some(limit) = limits.derivation_bytes {
-        let estimate = net::estimate(net, style, limit);
+        let estimate = net::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {
             return Err(Error::Refused(crate::limits::Refusal::Output {
                 what: "drawing",
@@ -972,7 +1019,6 @@ pub fn net(
         }
     }
     let mut stop = stop;
-    let reading = net.reading().ok().filter(|_| style.essential);
     let verdict = match &reading {
         Some(_) => net.is_essential(&mut stop),
         None => net.is_correct(&mut stop),
