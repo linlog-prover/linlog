@@ -547,6 +547,15 @@ answered in `vzqxtknr`:
    the fresh one (the cancel test changed with the behaviour, as the
    commit says).
 
+The reviewer's report is the text it handed back; the harness lets a
+sub-agent return findings only as text and refused its writing them to
+a file, so the report exists in this session as that text (extracted
+verbatim from its transcript there) and as its probes under the
+session's scratchpad, which reproduce findings 1, 2, 4 and 5 on the code
+it reviewed. Finding 3 is the reviewer's reading of the code, not a
+probe; the test that pins its answer is this session's, and fails
+without the answer.
+
 Sound by the reviewer's reading: ids never reused, so a late answer of a
 stopped worker is ignored; a replay is one request; paths, not goal
 numbers; undo past a split and on a finished proof; single-inference
