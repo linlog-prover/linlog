@@ -34,4 +34,17 @@ Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
 the panel step 26's prompt describes, its argument read on Fable 5.1 at
 `high`.
 
+## Known already (2026-10-19), for the review that finishes this prompt
+
+- **The checker has ordered modes** (step 36): cyclic MLL and the
+  Lambek calculus check the arcs at every `⊗` and, in L, a non-empty
+  antecedent; a cut in those modes must keep the order (the cut formula
+  between the two arcs) or be refused there, said so.
+- **Refutations** carry four checked kinds (classical, unbalanced, the
+  count equation, and since step 37 the saturated set, wire level 3);
+  cut changes no refutation, since every one is about cut-free
+  derivability and cut is admissible.
+- **The nets** of step 33 (MELL with boxes) and the drawing of step 40
+  are what cut elimination on nets draws, step by step.
+
 Deliverable: thematic jj commits; `plan/reports/34-cut.md`.

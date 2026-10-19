@@ -4,7 +4,8 @@ You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step is several
 sessions with a plan of its own, which its first session writes; this
-prompt is finished at the review of step 37. It says what is fixed.
+prompt was finished on 2026-10-19, at the review of step 37. It says
+what is fixed.
 
 Read `plan/later.md` ("First-order linear logic"),
 `proof-search-specifications.md` ("First-order fragments"),
@@ -38,6 +39,57 @@ builds on), on Fable 5.1 at `high`; the rest on Opus 5.5 at `high`
 (the re-evaluation of 2026-10-18 in `plan/README.md`); every change of a search, a criterion or the checker is
 reviewed by the panel step 26's prompt describes, its argument read on
 Fable 5.1 at `high`.
+
+## What steps 31 to 40 left you
+
+- **The engines** (`search::DISPATCH`, documented on `Engine`): the
+  focused engine one- and two-sided, `additive`, `horn`, `net` (a
+  hand-over at the focused engines' limits), `essential` (forced
+  only), the planar search of the ordered modes, and since step 37 the
+  focused inverse method, which takes turns beside the default on
+  intuitionistic goals with an exponential and on Mix. The inverse
+  method is the forward method that extends to first-order logic by
+  unification on its initial sequents (Chaudhuri's work on the focused
+  inverse method treats the first-order case; read the source before
+  relying on it), and step 37's report says where the
+  terms go in its database's keys; a backward engine needs unification
+  with a trail. Say which engines gain quantifiers in this step and
+  which refuse them.
+- **Refutations**: the classical refuter, the unbalanced atom, the
+  count equation and the saturated set (step 37, `Refutation::Saturated`,
+  checked in `search/saturated.rs`) are propositional; with quantifiers
+  a saturation is a semi-decision, and the classical reading of a
+  first-order sequent is no longer finite, so each refuter refuses
+  quantified goals or carries over with its argument.
+- **The ordered modes** (step 36) refuse every engine but the planar
+  search; the Lambek calculus's embedding into first-order MILL (Moot
+  and Piazza, 2001) is the other route step 36 left for after this
+  step: weigh it against the planar search once the data model exists.
+- **The outputs**: the derivation view, the exports, the SVG drawings
+  (nets with every formula written, step 40), the web bindings
+  (`web/`, `linlog-web`) and the client in its own repository all read
+  the forest; a term inside an atom changes what they print and what
+  the page's buttons stand over. The wire forms are at level 3; a
+  quantified sequent is a new level.
+- **The oracles** for D17: `bench/targets/after-cyclic.csv` and
+  `bench/targets/net-after-cyclic.csv`, with the rows
+  `bench/TARGETS.md` records; `mix/11` and the rows the inverse
+  method's turns answer (`mix/8` to `mix/11`) are compared at equal
+  work, since a row that ends at its time limit has no repeatable
+  counters.
+- **The Rocq library** (`rocq/`, step 31) proves the propositional
+  calculi, the checker's soundness and the refutations' invariants; its
+  first-order development is this step's, its certificates checked by
+  the flake as today's are.
+
+## How the step runs
+
+Several sessions, a plan of their own (`plan/first-order/README.md`).
+The first, on Fable 5.1 at `high`, writes the plan and settles the data
+model, the proof term and the checker's eigenvariable condition; the
+rest on Opus 5.5 at `high`; the panel of step 26's prompt for every
+change of a search, a criterion or the checker, its argument on Fable
+5.1 at `high`.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
 jj commits, `plan/reports/38-first-order.md`.
