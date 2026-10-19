@@ -147,6 +147,9 @@ pub enum StepError {
         /// going right.
         position: usize,
     },
+    /// In the Lambek calculus without empty antecedents, a premise would
+    /// have no formula left of `⊢`, which no proof of the calculus has.
+    EmptyAntecedent,
 }
 
 impl Display for StepError {
@@ -195,6 +198,10 @@ impl Display for StepError {
             StepError::EmptyPremise => {
                 f.write_str("the split leaves a premise without a formula, which no rule concludes")
             }
+            StepError::EmptyAntecedent => f.write_str(
+                "a premise would have no formula left of ⊢, which the Lambek calculus without \
+                 empty antecedents forbids",
+            ),
             StepError::Exchange { position } => write!(
                 f,
                 "formula {position} goes left before a formula going right, which needs an \
@@ -1313,6 +1320,71 @@ mod tests {
         assert!(matches!(
             Interactive::new(&sequent("|- a & b, ~a"), cyclic),
             Err(Error::OrderedFragment { .. })
+        ));
+    }
+
+    /// In the Lambek calculus a rule on a division is named by it, a split
+    /// that would leave a premise without a hypothesis is refused unless
+    /// empty antecedents are allowed, and the search closes a goal off the
+    /// roots in the order.
+    #[test]
+    fn lambek() {
+        let ordered = |input: &str| {
+            Sequent::parse_ordered(input, crate::Order::Cyclic, &Limits::default()).unwrap()
+        };
+        let lambek = Mode::LAMBEK;
+        // 0 ~a, 1 a ⊗ ~b, 2 a, 3 ~b, 4 b: b / a, a ⊢ b.
+        let mut s = Interactive::new(&ordered("b / a, a |- b"), lambek).unwrap();
+        let g = s.goals().next().unwrap();
+        let slash = "/L".parse::<Named>().unwrap();
+        assert_eq!(names(s.rules(g, 1).unwrap()), [slash]);
+        assert!(matches!(
+            s.apply(g, &Step::new(1, "⊸L".parse::<Named>().unwrap()).at(0)),
+            Err(StepError::Rule { .. })
+        ));
+        let goals = s.apply(g, &Step::new(1, slash).at(0)).unwrap();
+        assert_eq!(
+            goals
+                .iter()
+                .map(|&g| s.goal(g).unwrap().len())
+                .collect::<Vec<_>>(),
+            [2, 2]
+        );
+        s.apply(goals[0], &Step::new(0, Rule::Ax)).unwrap();
+        let options = Options::default();
+        let closed = s
+            .close(
+                goals[1],
+                &options,
+                &ViewOptions::default(),
+                &Limits::default(),
+                |_| false,
+            )
+            .unwrap();
+        assert!(matches!(closed.outcome.verdict, Verdict::Proved(_)) && closed.grafted.is_ok());
+        let proof = s.proof(&Limits::default(), |_| false).unwrap();
+        assert_eq!(proof.check(lambek), Ok(()));
+        assert_eq!(
+            s.derivation().unwrap().to_string(),
+            "───── ax   ───── ax\n\
+             a ⊢ a      b ⊢ b\n\
+             ──────────────── /L\n  \
+             b / a, a ⊢ b"
+        );
+        // 0 ~e, 1 e ⊗ (~a ⅋ a), 2 e, 3 ~a ⅋ a, 4 ~a, 5 a: e ⊢ e ⊗ (a \ a),
+        // whose `⊗R` leaves ⊢ a \ a without a hypothesis.
+        let sequent = ordered("e |- e * (a \\ a)");
+        let step = Step::new(1, Rule::Tensor).at(0);
+        let (mut s, mut star) = (
+            Interactive::new(&sequent, lambek).unwrap(),
+            Interactive::new(&sequent, lambek.with_empty_antecedents()).unwrap(),
+        );
+        let (g, h) = (s.goals().next().unwrap(), star.goals().next().unwrap());
+        assert_eq!(s.apply(g, &step), Err(StepError::EmptyAntecedent));
+        assert_eq!(star.apply(h, &step).map(|goals| goals.len()), Ok(2));
+        assert!(matches!(
+            Interactive::new(&ordered("|- a \\ a"), lambek),
+            Err(Error::NotIntuitionistic(_))
         ));
     }
 

@@ -294,6 +294,9 @@ impl Interactive {
                 if outputs != 1 {
                     return Err(StepError::Succedents { count: outputs });
                 }
+                if !self.mode.allows_empty_antecedents() && premise.as_slice().len() <= outputs {
+                    return Err(StepError::EmptyAntecedent);
+                }
             }
         }
         Ok(premises)
