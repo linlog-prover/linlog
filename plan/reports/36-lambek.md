@@ -5,7 +5,7 @@
 | item | state | evidence |
 |---|---|---|
 | Session 36a: the order kept, and cyclic MLL (session `step-36a`, 2026-10-19) | done (2026-10-19) | The cyclic mode (`Mode::CYCLIC`, `Order`), the ordered parse, the checker's arcs, the planar criterion (`ProofStructure::is_planar`), the planar search as the mode's default (`search/planar.rs`), the session's arc splits, the exports and `--cyclic`; the commutative modes' sequents, JSON forms and snapshots unchanged (behaviour lock passing, its help texts reblessed for the flag). `agrees_with_every_planar_linking` (the engine against every planar linking, every proof checked) and `planarity` (every linking against a pairwise test) pass. 35a's prunes: the skeleton balance kept, the three symmetry breaks off (argument and counterexamples above). Panel in two rounds (Fable 5.1 argument, Opus 5.5 counterexamples, Sonnet 5.5 integers, each at `high` on a frozen tree): four defects found and fixed, nothing of the arguments refuted. Target sets: `net-after-prunes` every counter on 64 rows, `after-efficiency` every counter but the five recorded rows. Measurement on `bench/problems/cyclic.txt` (cores 2 and 3). Every code commit gated; `nix flake check` at the last commit (exit status in the message to `planning`). |
-| Session 36b: the Lambek calculus (session `step-36b`, 2026-10-19) | done (2026-10-19) | The Lambek calculus `L` (`Mode::LAMBEK`, `--lambek`) and `L*` (`with_empty_antecedents`, `--empty-antecedents`): the divisions `A \ B` and `B / A` in the ordered parse; the ordered reading (`Reading::of_mode`, `IllConnective::Under`/`Over`); the checker's empty-antecedent rule beside the arcs (`Fault::EmptyAntecedent`, the oracle's own `antecedent`; `check/mod.rs`'s `lambek` refuses a proof whose `⊗R` premise has none); the two-sided view with the divisions' rules (`Named::division`), the session's rules (`StepError::EmptyAntecedent`), the exports (`lambek.tex`, `.typ`, `.svg`, `lambek-net.svg`), the command and README; the search: `Planar<C>` generic, `Planar<Essential>` as the mode's default with `keeps_antecedents` on complete linkings; `lambek_agrees_with_every_planar_essential_linking` (enumeration of planar essential linkings, brute-force sequent calculus, every proof checked) passes. Commutative and cyclic modes unchanged (behaviour lock passing, only the help reblessed). Panel in one round (Fable 5.1 argument, Opus 5.5 counterexamples, Sonnet 5.5 integers, each at `high` on a frozen tree): nothing of the argument refuted, no unsound or incomplete verdict; an error index fixed, a goal of a sequent outside `L` answered; a handover defect found before it, fixed. Target sets: `net-after-cyclic` every counter on 64 rows, `after-cyclic` every counter on the 144 rows decided within the limit (`mix/11` time-limited). Measurement on `bench/problems/lambek.txt` (cores 2 and 3). Every code commit gated; `nix flake check` at the last commit (exit status in the message to `planning`). |
+| Session 36b: the Lambek calculus (session `step-36b`, 2026-10-19) | done (2026-10-19) | The Lambek calculus `L` (`Mode::LAMBEK`, `--lambek`) and `L*` (`with_empty_antecedents`, `--empty-antecedents`): the divisions `A \ B` and `B / A` in the ordered parse; the ordered reading (`Reading::of_mode`, `IllConnective::Under`/`Over`); the checker's empty-antecedent rule beside the arcs (`Fault::EmptyAntecedent`, the oracle's own `antecedent`; `check/mod.rs`'s `lambek` refuses a proof whose `⊗R` premise has none); the two-sided view with the divisions' rules (`Named::division`), the session's rules (`StepError::EmptyAntecedent`), the exports (`lambek.tex`, `.typ`, `.svg`, `lambek-net.svg`), the command and README; the search: `Planar<C>` generic, `Planar<Essential>` as the mode's default with `keeps_antecedents` on complete linkings; `lambek_agrees_with_every_planar_essential_linking` (enumeration of planar essential linkings, brute-force sequent calculus, every proof checked) passes. Commutative and cyclic modes unchanged (behaviour lock passing, only the help reblessed). Panel in two rounds (Fable 5.1 argument, Opus 5.5 counterexamples, Sonnet 5.5 integers, each at `high` on a frozen tree; round 2 on the fixes after round 1's tree): nothing of the argument refuted, no unsound or incomplete verdict; an error index fixed, a goal of a sequent outside `L` answered; a handover defect found before it, fixed. Target sets: `net-after-cyclic` every counter on 64 rows, `after-cyclic` every counter on the 144 rows decided within the limit, and `mix/11`, time-limited there, every counter equal to the base at equal work. Measurement on `bench/problems/lambek.txt` (cores 2 and 3). Every code commit gated; `nix flake check` at the last commit (exit status in the message to `planning`). |
 
 ## Session 36a: the order kept, and cyclic MLL
 
@@ -886,11 +886,45 @@ rejections, and the commutative and cyclic modes unchanged.
   essential engine before: not changed, as conduct.md asks of a
   pre-existing gap.
 
-No second round: the fixes after the frozen tree are the error index,
-the net engine's refusal of the Lambek modes, a lint (an `expect` in
-`is_essential`, now a `let … else`), documentation, and the measured row
-of the dispatch table; none changes a search's or a criterion's
-argument.
+**Round 2** (tree `../linlog-step36b-panel2` at git `2eb9cffd`, the
+session's final code before `planning` stacked it on `main`; brief
+`panel-round2.md` in the session's scratchpad): the changes after round
+1's tree, which are the error index, the net engine's refusal of the
+Lambek modes, the `let … else` in `is_essential` (a lint), and
+documentation.
+
+- *Argument* (Fable 5.1 at `high`): nothing breaks. The refusal's
+  predicate names exactly the two Lambek modes among those `Mode::check`
+  admits; every path that answers for them (the dispatch, `prepare`, the
+  handover, `race`, goals off the roots, a session's `close`, the batch,
+  the command's and the bindings' net drawings) reaches no search or net
+  judgement without the antecedent condition; the commutative handover
+  is intact (a 40-link chain at 2 000 bytes still goes to the net engine
+  in classical and intuitionistic mode); `is_essential` visits the same
+  implications in the same order with the same polls; the index is the
+  first written offender, as the commutative reading's.
+- *Counterexamples* (Opus 5.5 at `high`): nothing breaks. 3.06 million
+  runs of forced-linking `L` and `L*` sequents under memory bounds from
+  16 bytes to 1 MiB, on the roots and on goals off them, each `Unknown`
+  at the bound or the right verdict, the engine always the essential one,
+  3.4 million proofs through its checker and `check`; the same runs on
+  round 1's code reproduce the defect (2 013 handed to the net engine);
+  every other engine refused on 40 000 forced runs; 25 880 commutative
+  and cyclic runs byte-identical to the base, 690 handovers among them;
+  1 440 `Hypothesis` errors each naming the first refused formula;
+  422 780 structures judged by `is_essential` as at round 1's tree.
+- *Integers and limits* (Sonnet 5.5 at `high`): nothing breaks. The
+  index's arithmetic on every hypothesis list of up to five formulas
+  (2 730 readings), 2 340 runs over memory bounds, recursion depths and
+  work limits in the Lambek modes, each `Ok` with the essential engine
+  and its verdict or the bound's `Unknown`, and the polls of
+  `is_essential`'s loop.
+
+Both rounds noted that a sequent read by the commutative parse and then
+proved in a Lambek mode counts `Hypothesis`'s index in the mirrored
+order; not changed: the ordered modes read text through the ordered
+parse everywhere (the command, the harness), and a library caller who
+mixes the two parses asks the reading of another sequent.
 
 ### The target sets
 
@@ -913,7 +947,15 @@ kept as files: they equal the oracles, as `bench/TARGETS.md` now records.
   limit and is refuted by the classical refutation after it (late), so
   its counters are how far the search got in 300 s on the cores of the
   day: `after-classical` has 41 450 894 nodes on the same row. The 144
-  rows decided within the limit keep every counter.
+  rows decided within the limit keep every counter. At equal work the
+  row keeps them too: the family's instance under one work limit
+  (`Limits::with_work`), built at the base `xmqspvzu` and at the
+  session's code, gives at 2·10⁷ units 172 326 nodes, 148 127 memo hits,
+  24 187 entries and 17 152 523 splits in both, and at 5·10⁹ units
+  19 354 846 nodes, 17 397 466 memo hits, 1 048 576 entries and
+  4 680 221 742 splits in both, every counter equal (two scratch
+  programs, `mix11/` in the session's scratchpad), each then refuted by
+  the classical refutation.
 - **The ratchet** (the gate's journeys under callgrind; the base counted
   at `xmqspvzu` in this session): the divisions in the parser cost the
   commutative reader `read-text` 12 418 964 → 12 468 102 instructions
