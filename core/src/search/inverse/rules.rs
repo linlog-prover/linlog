@@ -215,13 +215,17 @@ fn copied(forest: &Forest, o: OccId) -> bool {
 /// repeated, two members of one sequent are distinct, neither lies below
 /// the other, and the connective that joins them is a `⅋`, since a rule
 /// decomposed it below them, and a `⊗`, `&` or `⊕` above both sends them to
-/// different premises or keeps one side. A goal of the sequent's roots
+/// different premises or keeps one side. Two joined by a `?` formula (the
+/// formula twice, or it beside a member of its subformula, as a goal is
+/// after a contraction and a dereliction) are let through: no stable
+/// sequent holds a `?` formula, which a goal's phase decomposes first, and
+/// all below its subformula may repeat. A goal of the sequent's roots
 /// meets that, and so does every goal of a derivation of them.
 pub(super) fn coherent(forest: &Forest, x: OccId, y: OccId) -> bool {
     let Some(w) = forest.lca(x, y) else {
         return true;
     };
-    if copied(forest, w) {
+    if forest.kind(w) == Kind::Quest || copied(forest, w) {
         return true;
     }
     w != x && w != y && forest.kind(w) == Kind::Par

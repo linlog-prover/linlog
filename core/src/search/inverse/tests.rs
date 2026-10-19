@@ -207,6 +207,15 @@ fn refuses_an_incoherent_goal() {
     // `a` of the tensor and `~a` of another root stand together.
     let verdict = goal_of("|- a * b, ~a, ~b", &[1, 3], Mode::CLASSICAL).unwrap();
     assert!(matches!(verdict, Verdict::Proved(_)), "{verdict:?}");
+    // A `?` formula twice, as after a contraction, and beside its own
+    // subformula, as after a dereliction: goals of a derivation.
+    for members in [&[0, 0, 2][..], &[0, 1, 2]] {
+        let verdict = goal_of("|- ?~a, a * a", members, Mode::CLASSICAL).unwrap();
+        assert!(
+            matches!(verdict, Verdict::Proved(_)),
+            "{members:?}: {verdict:?}"
+        );
+    }
 }
 
 /// Choices of `⊕` sides that a `0` ends are work the stop is told of,

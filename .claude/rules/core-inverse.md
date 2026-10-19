@@ -100,7 +100,12 @@ R2 each checked case by case in `plan/reports/37-inverse.md`).
   goal of a derivation of them, but `Goal::new` takes any multiset, so
   `admits` refuses a goal off the roots that is not (`NotTaken::Shape`;
   the panel's argument found `[a, ~a]` of `⊢ a ⊗ ~a` refuted before,
-  proved by the focused engine).
+  proved by the focused engine). Two members joined by a `?` formula
+  (the formula twice, or beside its own subformula: an interactive goal
+  after `?c` and `?d`, which the first refusal turned away, the panel's
+  second finding) are let through: the goal's phase decomposes the `?`
+  first, so no stable sequent holds the pair, and below its subformula
+  all is `copied`.
 - **Shape under a reading**: R1 at every step (above); a partner of the
   other position than its literal (an `Ax` has one output).
 - **Partners pre-filtered** by coherence with the formula the focus
