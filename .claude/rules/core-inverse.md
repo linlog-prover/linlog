@@ -162,8 +162,13 @@ a scratch copy; the report lists them).
   the `wide` sequents with shared literals a count of the premises alone
   left 130 ms between polls, the integers review), each hole of the
   goal's phase `fill` looks at and its members (an `&` under a `⅋` per
-  pair doubles them: 18 pairs ran 1.66 s past a time limit), and one for
-  each application and each premise choice pruned. Polls
+  pair doubles them: 18 pairs ran 1.66 s past a time limit), each
+  sequent of a posting list `candidates` scans and the hole's members
+  compared with it (most are rejected: on `!(b ⊸ ⊤), !(((c ⊕ b) & !b) ⊕
+  (a ⊗ (a ⊕ c))), !(((c ⊕ a) & !a) ⊕ (b ⊗ (b ⊕ c))) ⊢ b ⊗ a` 2²⁶ units
+  took 24 s while only the sequents returned counted, the counterexample
+  review's finding, now 0.19 s), and one for each application and each
+  premise choice pruned. Polls
   stay where they were (every sequent taken up, every
   `APPLICATIONS_PER_POLL` applications or choices, which the tests'
   poll budgets count), plus one wherever `UNITS_PER_POLL` units passed

@@ -646,8 +646,11 @@ impl<'s, 'a> Saturation<'s, 'a> {
 
     /// The sequents taken up that can go into a hole of a rule beside the
     /// sequent of rank `rank`: before it in the rule's holes, those taken
-    /// up before it; after it, it too.
-    fn candidates(&self, hole: u32, rank: u32, before: bool) -> Vec<u32> {
+    /// up before it; after it, it too. Returns them and the work of the
+    /// scan: one for each sequent of the lists looked at and each member
+    /// of the hole compared with it (most of them rejected, on a posting
+    /// list of thousands).
+    fn candidates(&self, hole: u32, rank: u32, before: bool) -> (Vec<u32>, u64) {
         let hole = &self.rules.holes[hole as usize];
         let leaves = &self.rules.leaves[hole.leaves.start as usize..hole.leaves.end as usize];
         let fits = |t: &u32| {
@@ -660,7 +663,8 @@ impl<'s, 'a> Saturation<'s, 'a> {
                 }
         };
         if leaves.is_empty() {
-            return self.active.iter().copied().filter(fits).collect();
+            let scanned = self.active.len() as u64;
+            return (self.active.iter().copied().filter(fits).collect(), scanned);
         }
         let shortest = distinct(leaves)
             .map(|o| self.postings.get(&o).map_or(&[][..], Vec::as_slice))
@@ -673,7 +677,9 @@ impl<'s, 'a> Saturation<'s, 'a> {
             .filter(|&t| within(leaves, self.gamma(t)))
             .collect();
         out.extend(self.weak_active.iter().copied().filter(fits));
-        out
+        let scanned =
+            shortest.len() as u64 * (1 + leaves.len() as u64) + self.weak_active.len() as u64;
+        (out, scanned)
     }
 
     /// Applies a rule: with `fixed`, the sequent given goes into the hole
@@ -688,11 +694,12 @@ impl<'s, 'a> Saturation<'s, 'a> {
         let rank = fixed.map_or(u32::MAX, |(_, id)| self.kept[id as usize].rank);
         let mut lists: Vec<Vec<Premise>> = Vec::with_capacity(holes);
         for (j, h) in rule.holes.clone().enumerate() {
-            let ids = match fixed {
-                Some((i, id)) if i as usize == j => vec![id],
+            let (ids, scanned) = match fixed {
+                Some((i, id)) if i as usize == j => (vec![id], 0),
                 Some((i, _)) => self.candidates(h, rank, (j as u32) < i),
                 None => unreachable!("a rule with holes is applied with a premise"),
             };
+            self.work(0, scanned, false)?;
             // Each candidate was looked at in a list and its zone compared
             // with the hole's.
             let looked: u64 = ids
