@@ -273,6 +273,7 @@ pub enum Error {
         listed(proof),
         listed(goal)
     )]
+    #[non_exhaustive]
     SequentMismatch {
         /// The formulas the proof concludes that no formula of the goal
         /// matches, as the sequent writes them.

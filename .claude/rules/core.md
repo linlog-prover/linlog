@@ -253,7 +253,7 @@ the commit that lands it rewrites that bullet.
   `ViewOptions`; `export::{Drawable, Form, Styles}`,
   `export::latex::Options`, `export::pdf::{Date, Options}`,
   `export::png::Options`, `export::rocq::{Kernel, Options, Unsupported}`,
-  `export::svg::{Advances, Font, Style}`, `export::typst::{Layout,
+  `export::svg::{Advances, Font, MathFont, Style}` (`MathFont` added after 0.1.0), `export::typst::{Layout,
   Options}`; `families::{Family, Instance}`; `limits::Space`;
   `lltp::{Problem, Status}`; `mist::{Problem, Safety}`;
   `occurrences::IllConnective`; `ordinary::{Logic, Options, Outcome,

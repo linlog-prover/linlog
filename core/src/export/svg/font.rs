@@ -143,8 +143,9 @@ pub enum MathFont {
 }
 
 impl MathFont {
-    /// Every math font, the default first.
-    pub const ALL: [Self; 5] = [
+    /// Every math font, the default first: a slice, since its length
+    /// grows with the next font.
+    pub const ALL: &'static [Self] = &[
         Self::Euler,
         Self::StixTwo,
         Self::Garamond,
@@ -469,7 +470,7 @@ mod tests {
             "Asana-Math.otf",
             "NewCMMath-Book.otf",
         ];
-        for (font, file) in MathFont::ALL.into_iter().zip(files) {
+        for (&font, file) in MathFont::ALL.iter().zip(files) {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../cli/fonts")
                 .join(file);
