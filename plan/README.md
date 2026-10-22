@@ -2976,6 +2976,15 @@ client follows it (step 32).
     CSP, the service worker or the workflows; the client's `nix flake
     check` at the stacked head below; step 38's own at `qmxurvqt` and
     at linlog's `ruzzorqu`.
+  After its report the session ran a second screenshot review (14
+  findings, each answered) and read the classical refuter's ground in
+  the Handbook of linear logic (§1.1, Theorem 1.8.1); its goal's judge
+  then kept asking for a source that states the refuter's soundness
+  in so many words, the theorem's contrapositive, and after four
+  rounds of one sentence each the supervisor cleared the goal. The
+  client's head is `yxtvvlsm`, checked here; the lesson for the goals:
+  "each checked against its source" reads to the judge as "stated in
+  a source", so a goal says which claims a session may derive.
   For the author: the screenshots (`/home/tux/Projects/own/
   linlog-step38-screenshots/`, `before/` and `after/`), the eleven
   judgement calls and two departures in the report, and one
