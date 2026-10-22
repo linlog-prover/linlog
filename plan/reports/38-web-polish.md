@@ -11,12 +11,12 @@
 | 4. A more modern look within "Instrument" | done | translucent clusters with a top sheen, the radius hierarchy, segmented controls and switches redrawn, outlined formulas of the active goal; the screenshots |
 | 5. Ease of use, walked at both widths | done | below, "Ease of use" |
 | 6. The two-sided toggle in classical mode alone | done | `Calculus.tsx`; Playwright `the calculus's switches restart the proof after a warning, and two-sided shows in classical mode alone` |
-| 7. The engine of every search beside its work, its source one gesture away, each reference checked | done, with the gaps said below | `src/lib/engines.ts`, `texts/reference.md` ("The engines"); Playwright `a search names its engine beside its work, with its source on hover and in Learn`; the references' check below |
+| 7. The engine of every search beside its work, its source one gesture away, each reference checked | done | `src/lib/engines.ts`, `texts/reference.md` ("The engines"); Playwright `a search names its engine beside its work, with its source on hover and in Learn`; the references' check below |
 | 8. The engine choice in Settings | built | Settings → Engine; Playwright `Settings forces an engine: …` |
 | 9. Practice along D60, graded, interleaved, decided by the command, sessions saved | done | 52 sequents in 8 lessons; `practice-decided.txt` (52 `linlog prove` outputs, 29 `linlog interact` sessions with `proof` exit 0); Vitest `examples.test.ts` (each verdict and session, and the interleaving); Playwright `practice is grouped by lesson, …` |
 | 10. The sweep | done | fixes and judgement calls below |
 | Before-and-after screenshots, the reviewer's findings answered | done | `/home/tux/Projects/own/linlog-step38-screenshots/` (`before/`, `after/`, 76 each); "The review" |
-| The client's `nix flake check` at its last commit | passed | exit 0 at `zpyotloq` (57167ab6), under the machine lock, "all checks passed!" |
+| The client's `nix flake check` at its last commit | passed | exit 0 at `qmxurvqt` (626c42a4), under the machine lock, "all checks passed!" (and before at `zpyotloq`, 57167ab6) |
 | Any change of linlog gated | no change of linlog's code; this report and `plan/later.md` only | the commit of this report; `nix flake check` at it, under the machine lock; its exit status is in the message to `linlog-ef` |
 
 ## Outcome
@@ -28,7 +28,7 @@ every state by a Playwright test. On a phone the bottom band keeps its
 common actions and More holds the rest with the calculus's switches. The
 two-sided switch shows in classical mode alone. Every search names its
 engine beside its work, with its source on hover and in Learn's reference,
-whose references were checked against the works. Settings can force an
+each reference read in the work itself. Settings can force an
 engine, offering those that take the sequent. Practice has 52 sequents
 along the lessons, provable and unprovable mixed, each decided by linlog's
 command, each provable one with a session that Watch plays step by step.
@@ -50,6 +50,7 @@ The client's commits, on its `main` (`pnrwuykw`):
 | `xntxytuy` | no tip after a touch; README and the rules |
 | `upzpwtwt` | the review's answers (below), and Biome's findings the flake's lint met (native radios, no export from a test file) |
 | `zpyotloq` | the split chooser names its rule in its title |
+| `qmxurvqt` | each engine cited by a work read in itself (above) |
 
 ## Decisions
 
@@ -107,25 +108,30 @@ The client's commits, on its `main` (`pnrwuykw`):
 
 ## The references (item 7)
 
-A research sub-agent (Sonnet 5.5, `medium`) fetched and read each source;
-where a work is paywalled it read a copy or a secondary text and said so.
-What rests on what:
+Every reference the page gives was read in the work itself (2026-10-22);
+the quotation below each is from the text read. A research sub-agent
+(Sonnet 5.5, `medium`) fetched and read most; the session itself read the
+replacements (`curl` and `pdftotext`, the copies in the session's scratch
+directory). Where an original is paywalled and no copy is open (Danos and
+Regnier 1989, Lamarche's 1994 report, Lambek 1958, Yetter 1990, Kanovich
+1995, Whitman 1941, the TOCL version of Murawski and Ong), the page cites an
+open work that states the result instead, and names the result's author in
+its text. That replacement is the client's `qmxurvqt`; the first version
+cited those originals from records and secondary texts, which the goal's
+check found short of "read in its source".
 
-| engine | reference | read |
+| engine | reference given | read, and what it says |
 |---|---|---|
 | focused search, two-sided | Andreoli 1992, JLC 2(3) 297–347, doi:10.1093/logcom/2.3.297 | the paper (CMU copy): "a subclass of proofs, called the 'focusing' proofs, which is both complete … and tractable" |
-| proof-net search | Girard 1987, TCS 50(1) 1–102, doi:10.1016/0304-3975(87)90045-4 | the paper |
-| its criterion | Danos and Regnier 1989, AML 28(3) 181–203, doi:10.1007/BF01622878 | bibliographic record (Crossref); the criterion as a later paper states it, citing them (Nishimuta and Okada, arXiv 1804.02540) |
-| essential nets | Lamarche 1994, preliminary report, Imperial College | no copy found; cited with its theorem by Moot (arXiv 0805.2303) |
-| | Murawski and Ong 2000, LICS 181–191, doi:10.1109/LICS.2000.855768 | the LICS abstract (dominator trees, linear time); the TOCL 2006 version was not reachable, so the page cites the LICS paper |
-| planar nets | Lambek 1958, AMM 65(3) 154–170, doi:10.1080/00029890.1958.11989160 | bibliographic records only (two bibliographies read) |
-| | Lamarche and Retoré 1996, Proofs and Linguistic Categories, CLUEB, 241–262 | the paper (the author's PDF, linked); the volume's data from two bibliographies |
-| | Yetter 1990, JSL 55(1) 41–64, doi:10.2307/2274953 | record and an extract (cyclic linear logic) |
-| Horn engine | Kanovich 1995, APAL 75(1–2) 107–135, doi:10.1016/0168-0072(94)00060-G | the abstract as the Petri-net bibliography gives it (Horn programs, Petri nets); the full text not reachable |
-| | Abdulla, Čerāns, Jonsson, Tsay 1996, LICS 313–321 | the paper's extended abstract: "The reachability problem is solved by a backwards reachability analysis", upward-closed sets by their minimal states |
-| inverse method | Chaudhuri and Pfenning 2005, CSL, LNCS 3634, 200–215, doi:10.1007/11538363_15 | the paper (CMU copy) |
-| additive path | Whitman 1941, Ann. Math. 42(1) 325–330, doi:10.2307/1969001 | page range and Whitman's condition from a paper that states them (arXiv 2310.03366); that the additive path is the free-lattice order is this session's reading, which no linear-logic source found states |
-| classical refuter | Girard 1987 | the paper: no sentence states that provable sequents are classically valid; its §5.1 makes the erasure argument for the intuitionistic case. The page says what the refuter does and cites Girard for linear logic itself |
+| proof-net search | Girard 1987, TCS 50(1) 1–102, doi:10.1016/0304-3975(87)90045-4 | the paper (proof nets and their long-trip criterion) |
+| its criterion (Danos and Regnier's) | Gallier, Constructive logics, Part II: linear logic and proof nets, University of Pennsylvania notes (2010), https://www.cis.upenn.edu/~cis5150/conslog2.pdf | §7: "Definition 7.6 A deduction net Π satisfies the Danos-Regnier criterion, or is sound, iff every switch graph associated with Π is a tree", and its proof of correctness (Theorem 7.9) |
+| essential nets (Lamarche's) | Moot 2008, Graph algorithms for improving type-logical proof search, arXiv:0805.2303 | §2.3: Definition 6 (correct: acyclic, and the two path conditions) and "Theorem 7 (Lamarche (1994)) A sequent Γ ⊢ C is provable in MILL iff its essential net is correct" |
+| planar nets | Lamarche and Retoré 1996, Proof nets for the Lambek calculus: an overview, the author's PDF; Moot 2008 | the paper: "the Lambek calculus corresponds to intuitionistic non-commutative multiplicative linear logic"; Moot on planar axiom linkings (Proposition 10) |
+| Horn engine | Engberg and Winskel 1990, Petri nets as models of linear logic, DAIMI PB-301, doi:10.7146/dpb.v19i301.6682 | the report: "a proof of A ⊢ B in linear logic, where A and B are built from place names just with ⊗, corresponds to a play of the token game taking the marking corresponding to A to that corresponding to B" |
+| its backward search | Abdulla, Čerāns, Jonsson, Tsay 1996, LICS 313–321 | the paper's extended abstract: "The reachability problem is solved by a backwards reachability analysis", upward-closed sets kept by their minimal states |
+| inverse method | Chaudhuri and Pfenning 2005, CSL, LNCS 3634, 200–215, doi:10.1007/11538363_15 | the paper (CMU copy): "we construct a form of focused derivations for propositional linear logic that is appropriate for forward reasoning in the inverse method" |
+| additive path (Whitman's conditions) | Day 1970, A simple solution to the word problem for lattices, Canad. Math. Bull. 13(2) 253–254, doi:10.4153/cmb-1970-051-0 | the paper: "Whitman [2] solved the word problem for lattices", with the conditions (W1) to (W4). That the additive path decides this order is this session's reading |
+| classical refuter | Ferreira, Oliva and Protin, On the various translations between classical, intuitionistic and linear logic, arXiv:2409.02249 | proof of Proposition 1: the forgetful map "makes all the axioms and rules of ILL + PRO derivable in IL"; the classical case is the same check rule by rule |
 
 The sub-agent disclosed that, in its second round, it sent the author's
 e-mail address to the Unpaywall API, which asks for one as a parameter;
@@ -190,8 +196,9 @@ Judgement calls, for the author:
 6. A proof opened from a link draws its grafts without their engine's
    label, since the link carries no engines.
 7. A tab whose sequent did not parse stays open beside the next proof.
-8. The additive path's reference (Whitman's free lattices) is this
-   session's reading of what the engine decides.
+8. That the additive path decides the order of free lattices (Day's
+   statement of Whitman's conditions, its reference) is this session's
+   reading of what the engine decides.
 9. The engines' names in sentences are lower case ("closed by the
    focused search"), standing alone in sentence case ("Focused search").
 10. The dock's "Goal 2 (1 of 1 open)": the goal's number is the step
@@ -276,10 +283,10 @@ two-sided switch, the engine beside the note, the hint and the graft
 
 ## Verification
 
-- Vitest: 92 tests passed at `zpyotloq` (the token check, the saturation's verdict
+- Vitest: 92 tests passed at `qmxurvqt` (the token check, the saturation's verdict
   with the real module, the 52 examples and their sessions, the
   interleaving).
-- Playwright: 49 tests passed against the built site at `zpyotloq` (5 new in
+- Playwright: 49 tests passed against the built site at `qmxurvqt` (5 new in
   `tests/engines.spec.ts`, 2 in `tests/targets.spec.ts`; four changed
   for behaviour this step changes on purpose: the two-sided switch, the
   step list's engine, and practice by lesson in `learn.spec.ts` and
@@ -289,7 +296,7 @@ two-sided switch, the engine beside the note, the hint and the graft
   `lint` check (three Biome findings: `role="radio"` for which native
   radios are meant, and an export from a test file); fixed at their
   cause in `upzpwtwt`, where the check then passed (exit 0).
-- The client's `nix flake check`: exit 0 at `zpyotloq` (57167ab6), its
+- The client's `nix flake check`: exit 0 at `qmxurvqt` (626c42a4), its
   last commit.
 - The practice set: `/home/tux/Projects/own/linlog-step38-screenshots/practice-decided.txt`
   holds each `linlog prove --timeout 10s` output (linlog at `trzqnvtx`,
