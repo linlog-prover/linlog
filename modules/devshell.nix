@@ -65,7 +65,7 @@
           }
           {
             name = "ratchet";
-            help = "Count the journeys' instructions under callgrind against bench/ceilings.csv (`ratchet --lower` writes the counts that went down)";
+            help = "Count the journeys' instructions under callgrind against bench/ceilings.csv, with the cache model's misses against bench/misses.csv (`ratchet --lower` writes the counts that went down, `--record-misses` the misses)";
             command = ''cargo run --release --locked --package linlog-bench -- ratchet --jobs 4 "$@"'';
           }
           {

@@ -1746,7 +1746,7 @@ allocator's paths in another binary layout, and the counts' layout of
 2026-10-22 (an atom's sums together) cut 10 to 17 % of the count where
 the gain in cache lines is not counted at all. The search's memo tables
 and bitsets are where cache behaviour matters and counts see least.
-Proposal: keep the counts as the per-commit tripwire, cheap and
+Taken on the author's word (2026-10-22: the cache model's misses beside the counts, `.claude/rules/bench.md`); the proposal was: keep the counts as the per-commit tripwire, cheap and
 deterministic on a shared laptop and in CI; add callgrind's cache
 simulation (L1 and last-level misses, deterministic too) as columns
 beside each journey's count; read a toolchain's or allocator's move as

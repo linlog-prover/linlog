@@ -585,6 +585,28 @@ serde_json, which the CLI and the core's tests already have.
   commit that says why. `--keep DIR` keeps callgrind's files for
   `callgrind_annotate`. The devshell's `ratchet` runs it on four
   journeys at a time; the flake's `ratchet` check runs `--check`.
+- **Beside each count, the misses of a fixed cache model**
+  (`--cache-sim=yes` with `CACHES`, a performance core of the author's
+  machine: L1 instructions 64 KiB, L1 data 48 KiB, the last level 18 MiB
+  as 18 ways; named, so that CI counts the same misses as the laptop),
+  the first level's and the last's, against `bench/misses.csv`, which
+  `ratchet --record-misses` writes (from the shell's build). They never
+  fail a run: a journey whose misses moved by more than `MISS_NOTICE`
+  (5 %) and `MISS_FLOOR` (10 000) is named after the table, a question
+  for its time pinned to one core before and after. Why not a gate: the
+  two builds' layouts move a journey's misses by up to 9 % where they are
+  few, and the allocator's paths move with any binary (three raises of
+  `render-svg`'s ceiling in a week, read-json's count 1 % up when only
+  the harness changed). Why at all (the author's question of
+  2026-10-22): instructions are blind to the caches, and the search's
+  memo tables and bitsets are where those matter. The simulation doubles callgrind's
+  time (the whole set about two minutes on two cores). Re-record after a
+  change that moves them on purpose, in its commit.
+- **What a move means**: a count or a miss moved by a toolchain, the
+  allocator or a binary's layout, with the code the same per function
+  (`callgrind_annotate` on both files), is a question for the journey's
+  time pinned to one core, never a regression by itself; the baselines'
+  wall time on an idle machine is what decides speed.
 - **The shell's build and the flake's count apart**: the same sources
   built in the sandbox count up to 0.9 % more on `render-svg` and under
   0.1 % elsewhere, and the environment of a run changes nothing. The

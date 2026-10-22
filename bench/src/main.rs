@@ -125,6 +125,13 @@ enum Command {
         /// The ceilings' file
         #[arg(long, value_name = "FILE", default_value = ratchet::CEILINGS)]
         ceilings: PathBuf,
+        /// The recorded misses' file, which the misses of the caches' model
+        /// are compared with (never a failure)
+        #[arg(long, value_name = "FILE", default_value = ratchet::MISSES)]
+        misses: PathBuf,
+        /// Write the misses counted as the new record
+        #[arg(long)]
+        record_misses: bool,
         /// Count only these journeys
         #[arg(long, value_name = "NAME")]
         only: Vec<String>,
@@ -358,6 +365,8 @@ fn main() -> ExitCode {
             check,
             lower,
             ceilings,
+            misses,
+            record_misses,
             only,
             jobs,
             keep,
@@ -367,7 +376,15 @@ fn main() -> ExitCode {
                 (_, true) => ratchet::Action::Lower,
                 _ => ratchet::Action::Show,
             };
-            ratchet::ratchet(action, &ceilings, &only, jobs, keep.as_deref())
+            ratchet::ratchet(
+                action,
+                &ceilings,
+                &misses,
+                record_misses,
+                &only,
+                jobs,
+                keep.as_deref(),
+            )
         }
     };
     match result {

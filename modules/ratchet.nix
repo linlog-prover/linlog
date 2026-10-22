@@ -32,7 +32,8 @@
               ];
             }
             ''
-              linlog-bench ratchet --check --jobs "$NIX_BUILD_CORES" --ceilings ${../bench/ceilings.csv}
+              linlog-bench ratchet --check --jobs "$NIX_BUILD_CORES" --ceilings ${../bench/ceilings.csv} \
+                --misses ${../bench/misses.csv}
               touch $out
             '';
       };
