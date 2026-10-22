@@ -309,6 +309,16 @@ area that took it (the reports under `plan/reports/` have the tables):
   focused engine's; `mix/10` and `/11` now end long before the limit.
   The intuitionistic rows are decided within the head start or by the
   engine with its own counters.
+- The dependency update of 2026-10-22, under rustc 1.99.1 (no new
+  oracle): `deps-columns.csv` with an atom's sums kept together in the
+  counts' rows, tallies and splits, `deps-foldhash.csv` and
+  `net-deps-foldhash.csv` with foldhash 0.2 besides, whose hash function
+  differs. Every decided row, 145 of the focused set and 64 of the net
+  set, has the verdict and the counters of `37b` and `net-37b`, so
+  neither the layout nor the order of a hash table reaches a search.
+  One undecided net, `JoinFreeModules_joinFree-10_50_1`, ends at the
+  memory bound after 3.5 s and 7.98 million nodes, where `37b` ended at
+  its 5 s limit after 7.81 million.
 
 **Without a copy bound.** Every other LLTP row runs at `--copies 3`, a
 bound at which none of the five below is refuted, so when cut entries of
