@@ -1692,6 +1692,39 @@ Each enters as a problem file under `bench/problems/` or as a source in
 search's own bound and the unit of work of the default bias should be
 tuned on, beyond the 109 sampled LLTP problems they were set on.
 
+
+*Instruction counts as the ratchet's measure (unassigned, 2026-10-22,
+the author's question at the update to rustc 1.99.1).* What the sources
+say: rustc's perf suite gates on `instructions:u` because wall time
+varies too much to see a change under 1 % (its author measured
+instruction counts within ±0.2 % on a no-op change, wall time to ±9.7 %;
+<https://internals.rust-lang.org/t/what-is-perf-rust-lang-org-measuring-and-why-is-instructions-u-the-default/9815>);
+SQLite measures with cachegrind for the same reason (repeatable to seven
+digits, wall time to one; <https://www.sqlite.org/cpu.html>); rustls
+gates on callgrind counts and keeps a wall-time mode beside them,
+because counts "do not account for important factors such as cache
+misses and branch mispredictions"
+(<https://github.com/rustls/rustls/blob/main/ci-bench/README.md>).
+Callgrind counts instruction reads alone unless told to simulate the
+caches (`--cache-sim=yes`) or branches (`--branch-sim=yes`;
+<https://valgrind.org/docs/manual/cl-manual.html>). And wall time is no
+safe arbiter either: a program's time moved by a third with the size of
+the environment, once by 300 % (Mytkowicz et al., "Producing Wrong Data
+Without Doing Anything Obviously Wrong!", ASPLOS 2009). What linlog's
+own runs showed: the readers rose 4 to 6 % in count and 7 to 8.5 % in
+time under 1.99.1, read-spec rose 6 % in count and ran 4 % faster,
+`render-svg`'s ceiling was raised three times in a week for the
+allocator's paths in another binary layout, and the counts' layout of
+2026-10-22 (an atom's sums together) cut 10 to 17 % of the count where
+the gain in cache lines is not counted at all. The search's memo tables
+and bitsets are where cache behaviour matters and counts see least.
+Proposal: keep the counts as the per-commit tripwire, cheap and
+deterministic on a shared laptop and in CI; add callgrind's cache
+simulation (L1 and last-level misses, deterministic too) as columns
+beside each journey's count; read a toolchain's or allocator's move as
+a question for pinned time, never as a regression by itself; and leave
+the baselines' wall time, on an idle machine, the arbiter of speed.
+
 ## Follow-ups: certified refutations
 
 *From step 31d (`plan/reports/31-rocq-library.md`, "Session 31d:
