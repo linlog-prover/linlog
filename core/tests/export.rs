@@ -621,13 +621,22 @@ fn net_edges_clear_the_font_s_descenders() {
         (MathFont::StixTwo, 235),
         (MathFont::Garamond, 290),
         (MathFont::Asana, 286),
+        (MathFont::NewComputerModern, 250),
     ] {
         let style = Style::default().with_font(font.font());
         let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
         // The literal `g` on the top layer, and where the edges below it end.
         let number = |text: &str| text.parse::<i64>().unwrap();
         let literal = drawing.split("id=\"o1\"").next().unwrap();
-        let baseline = number(literal.rsplit("y=\"").next().unwrap().split('"').next().unwrap());
+        let baseline = number(
+            literal
+                .rsplit("y=\"")
+                .next()
+                .unwrap()
+                .split('"')
+                .next()
+                .unwrap(),
+        );
         let feet: Vec<i64> = drawing
             .split("<path d=\"M")
             .skip(1)

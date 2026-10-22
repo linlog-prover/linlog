@@ -1039,6 +1039,7 @@ fn fonts() {
         ("stix-two", "'STIX Two Math', serif"),
         ("garamond", "'Garamond-Math', serif"),
         ("asana", "'Asana Math', serif"),
+        ("new-computer-modern", "'NewComputerModernMath', serif"),
     ] {
         let set = svg(&["--font", name]);
         assert!(set.contains(&format!("font-family=\"{family}\"")), "{set}");

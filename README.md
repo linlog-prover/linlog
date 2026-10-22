@@ -928,8 +928,9 @@ in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
 `--font` sets and lays out a drawing in another math font the command
-carries instead: `stix-two` (STIX Two Math), `garamond` (Garamond-Math)
-or `asana` (Asana Math), or `euler`, the default (`--style svg.font=NAME`
+carries instead: `stix-two` (STIX Two Math), `garamond` (Garamond-Math),
+`asana` (Asana Math) or `new-computer-modern` (New Computer Modern Math),
+or `euler`, the default (`--style svg.font=NAME`
 and a style file's `"font": "NAME"` say the same).
 The text stays selectable, and `--standalone` is refused, since an SVG is
 always a document.
@@ -1777,8 +1778,8 @@ Built:
   documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG (every subformula of a net written,
   or compact), laid out with the character widths
-  of Euler Math, STIX Two Math, Garamond-Math or Asana Math (or a font
-  of the caller's), a switching cycle or the
+  of Euler Math, STIX Two Math, Garamond-Math, Asana Math or New Computer
+  Modern Math (or a font of the caller's), a switching cycle or the
   parts of a disconnected structure highlighted, intuitionistic ones
   also as essential nets (directed edges, polarities, the dominator
   condition), with a reading for
@@ -1978,8 +1979,8 @@ Union Public Licence, version 1.2 (EUPL-1.2), whose text is in
 [`LICENSE`](LICENSE).
 
 One part of the repository is someone else's work under its own licence:
-the four math fonts in [`cli/fonts/`](cli/fonts), which the `linlog`
-command embeds to draw proofs, each under the SIL Open Font License 1.1:
+the five math fonts in [`cli/fonts/`](cli/fonts), which the `linlog`
+command embeds to draw proofs, four under the SIL Open Font License 1.1:
 Euler Math, © the American Mathematical Society, Khaled Hosny and
 Daniel Flipo ([`cli/fonts/OFL.txt`](cli/fonts/OFL.txt)); STIX Two Math,
 © the STIX Fonts Project Authors
@@ -1987,9 +1988,13 @@ Daniel Flipo ([`cli/fonts/OFL.txt`](cli/fonts/OFL.txt)); STIX Two Math,
 Garamond-Math, © Yuansheng Zhao and Xiangdong Zeng
 ([`cli/fonts/Garamond-Math-OFL.txt`](cli/fonts/Garamond-Math-OFL.txt));
 and Asana Math, © Apostolos Syropoulos, Young Ryu and Claudio Beccari
-([`cli/fonts/Asana-Math-OFL.txt`](cli/fonts/Asana-Math-OFL.txt)). The
-package `linlog-cli` is therefore `EUPL-1.2 AND OFL-1.1`; the library
-`linlog` contains no font. Drawings and documents made with the fonts
+([`cli/fonts/Asana-Math-OFL.txt`](cli/fonts/Asana-Math-OFL.txt)); and
+New Computer Modern Math (its Book weight), © Antonis Tsolomitis, under
+the GUST Font License, which is the LaTeX Project Public License 1.3c
+([`cli/fonts/NewCMMath-Book-LICENSE.txt`](cli/fonts/NewCMMath-Book-LICENSE.txt),
+which also says where the complete package is). The package
+`linlog-cli` is therefore `EUPL-1.2 AND OFL-1.1 AND LPPL-1.3c`; the
+library `linlog` contains no font. Drawings and documents made with the fonts
 are not covered by their licence.
 
 The problem libraries and the other provers that the benchmarks and the

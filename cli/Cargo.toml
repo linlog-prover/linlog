@@ -7,8 +7,9 @@ description = "The linlog command: decide, check, prove step by step and export 
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-# The binary embeds four math fonts (`fonts/`), each under the OFL.
-license = "EUPL-1.2 AND OFL-1.1"
+# The binary embeds five math fonts (`fonts/`), four under the OFL and New
+# Computer Modern Math under the GUST Font License, which is the LPPL 1.3c.
+license = "EUPL-1.2 AND OFL-1.1 AND LPPL-1.3c"
 repository.workspace = true
 readme = "../README.md"
 keywords = [

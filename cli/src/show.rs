@@ -836,8 +836,9 @@ pub(crate) fn note(format: Format, text: &str) -> String {
 
 /// The math fonts the PNG and PDF drawings are set in, each the file of a
 /// [`MathFont`] beside its licence in `fonts/` (Euler Math's `OFL.txt`,
-/// the others' `<file>-OFL.txt`).
-const FONTS: [(MathFont, &[u8]); 4] = [
+/// STIX Two Math's, Garamond-Math's and Asana Math's `<file>-OFL.txt`, New
+/// Computer Modern Math's `NewCMMath-Book-LICENSE.txt`).
+const FONTS: [(MathFont, &[u8]); 5] = [
     (MathFont::Euler, include_bytes!("../fonts/Euler-Math.otf")),
     (
         MathFont::StixTwo,
@@ -848,6 +849,10 @@ const FONTS: [(MathFont, &[u8]); 4] = [
         include_bytes!("../fonts/Garamond-Math.otf"),
     ),
     (MathFont::Asana, include_bytes!("../fonts/Asana-Math.otf")),
+    (
+        MathFont::NewComputerModern,
+        include_bytes!("../fonts/NewCMMath-Book.otf"),
+    ),
 ];
 
 /// Returns the data of the fonts a render is given: Euler Math, and every

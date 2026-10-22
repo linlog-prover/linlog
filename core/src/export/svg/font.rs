@@ -2,9 +2,10 @@
 // Licensed under the EUPL
 
 //! What the layout knows of the font: the advance of every character the
-//! drawings set, from the tables of four math fonts (Euler Math 0.75 by
-//! default, STIX Two Math 2.12, Garamond-Math 2022-01-03 and Asana Math
-//! 0.962, each 1000 units per em), and the vertical metrics of a line,
+//! drawings set, from the tables of five math fonts (Euler Math 0.75 by
+//! default, STIX Two Math 2.12, Garamond-Math 2022-01-03, Asana Math 0.962
+//! and New Computer Modern Math 7.1.1 in its Book weight, each 1000 units
+//! per em), and the vertical metrics of a line,
 //! which are Euler Math's for every font. The advances were read from
 //! each font's `hmtx` table once; nothing is measured at run time.
 
@@ -115,8 +116,8 @@ impl<'de> serde::Deserialize<'de> for Font {
 }
 
 /// A math font whose advances the layout knows, read from its file. In
-/// JSON (feature `serialize`) `"euler"`, `"stix-two"`, `"garamond"` or
-/// `"asana"`. Each sets every character the drawings set; a renderer
+/// JSON (feature `serialize`) `"euler"`, `"stix-two"`, `"garamond"`,
+/// `"asana"` or `"new-computer-modern"`. Each sets every character the drawings set; a renderer
 /// needs the font's file under its [`family`](Self::family) name.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -135,11 +136,21 @@ pub enum MathFont {
     Garamond,
     /// Asana Math 0.962, Palatino-like, under the SIL Open Font License.
     Asana,
+    /// New Computer Modern Math 7.1.1 in its Book weight, the Computer
+    /// Modern of TeX, under the GUST Font License (the LaTeX Project
+    /// Public License 1.3c).
+    NewComputerModern,
 }
 
 impl MathFont {
     /// Every math font, the default first.
-    pub const ALL: [Self; 4] = [Self::Euler, Self::StixTwo, Self::Garamond, Self::Asana];
+    pub const ALL: [Self; 5] = [
+        Self::Euler,
+        Self::StixTwo,
+        Self::Garamond,
+        Self::Asana,
+        Self::NewComputerModern,
+    ];
 
     /// Returns the family name in the font's file, which a renderer
     /// looks the font up by.
@@ -149,6 +160,7 @@ impl MathFont {
             Self::StixTwo => "STIX Two Math",
             Self::Garamond => "Garamond-Math",
             Self::Asana => "Asana Math",
+            Self::NewComputerModern => "NewComputerModernMath",
         }
     }
 
@@ -159,6 +171,7 @@ impl MathFont {
             Self::StixTwo => 1,
             Self::Garamond => 2,
             Self::Asana => 3,
+            Self::NewComputerModern => 4,
         }
     }
 
@@ -179,6 +192,10 @@ impl MathFont {
             Self::Asana => Font {
                 family: "'Asana Math', serif".to_owned(),
                 advances: Advances::Asana,
+            },
+            Self::NewComputerModern => Font {
+                family: "'NewComputerModernMath', serif".to_owned(),
+                advances: Advances::NewComputerModern,
             },
         }
     }
@@ -203,6 +220,9 @@ pub enum Advances {
     Garamond,
     /// The committed table of Asana Math, with the same fallback.
     Asana,
+    /// The committed table of New Computer Modern Math (Book), with the
+    /// same fallback.
+    NewComputerModern,
     /// One advance for every character.
     Fixed(u32),
     /// A table of the user's, and the advance of a character outside it.
@@ -229,12 +249,13 @@ impl Advances {
     /// Math's `q` reaches 243), and for the other math fonts their deepest
     /// descender, measured in each file (fontTools' bounds of every glyph
     /// of the table): STIX Two Math's `g` 235, Garamond-Math's `g` 290,
-    /// Asana Math's `μ` 286.
+    /// Asana Math's `μ` 286, New Computer Modern Math's `/` 250.
     pub(super) const fn depth(&self) -> i64 {
         match self {
             Self::StixTwo => 235,
             Self::Garamond => 290,
             Self::Asana => 286,
+            Self::NewComputerModern => 250,
             Self::Euler | Self::Fixed(_) | Self::Table { .. } => DEPTH,
         }
     }
@@ -246,6 +267,7 @@ impl Advances {
             Self::StixTwo => advance(c, MathFont::StixTwo),
             Self::Garamond => advance(c, MathFont::Garamond),
             Self::Asana => advance(c, MathFont::Asana),
+            Self::NewComputerModern => advance(c, MathFont::NewComputerModern),
             Self::Fixed(advance) => *advance,
             Self::Table { table, fallback } => table.get(&c).copied().unwrap_or(*fallback),
         }
@@ -274,7 +296,7 @@ const CHARACTERS: [char; 208] = [
 /// em, in the same order: one table per [`MathFont`], in the order of
 /// [`MathFont::ALL`].
 #[rustfmt::skip]
-const ADVANCES: [[u16; 208]; 4] = [
+const ADVANCES: [[u16; 208]; 5] = [
     [
         333, 295, 214, 500, 557, 840, 737, 212, 328, 328, 277, 755,
         277, 544, 277, 501, 499, 499, 499, 499, 499, 499, 499, 499,
@@ -355,6 +377,26 @@ const ADVANCES: [[u16; 208]; 4] = [
         468, 277, 777, 555, 443, 499, 462, 388, 388, 332, 555, 499,
         721, 499, 499, 443,
     ],
+    [
+        332, 278, 374, 833, 500, 833, 778, 278, 389, 389, 500, 778,
+        278, 333, 278, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 278, 278, 778, 778, 778, 472, 778, 750, 708, 722,
+        764, 681, 653, 785, 750, 361, 514, 778, 625, 917, 750, 778,
+        681, 778, 736, 556, 722, 750, 750, 1028, 750, 750, 611, 278,
+        500, 278, 556, 333, 500, 500, 556, 444, 556, 444, 306, 500,
+        556, 278, 306, 528, 278, 833, 556, 500, 556, 528, 392, 394,
+        389, 556, 528, 722, 528, 528, 444, 500, 278, 500, 556, 667,
+        750, 708, 625, 833, 681, 611, 750, 778, 361, 778, 694, 917,
+        750, 667, 778, 750, 681, 722, 722, 778, 722, 750, 778, 722,
+        641, 558, 586, 474, 535, 530, 530, 488, 308, 530, 537, 530,
+        502, 530, 500, 586, 488, 599, 530, 530, 641, 641, 641, 641,
+        576, 778, 1000, 1000, 667, 667, 782, 782, 611, 778, 778, 948,
+        218, 750, 759, 715, 828, 738, 643, 786, 831, 440, 555, 849,
+        681, 970, 803, 763, 642, 791, 759, 613, 584, 683, 583, 944,
+        828, 581, 683, 529, 429, 433, 520, 466, 490, 477, 345, 412,
+        521, 298, 878, 600, 485, 503, 446, 451, 469, 361, 572, 485,
+        716, 572, 490, 465,
+    ],
 ];
 
 /// The advance of a character outside the table, in thousandths of an em:
@@ -425,6 +467,7 @@ mod tests {
             "STIXTwoMath-Regular.otf",
             "Garamond-Math.otf",
             "Asana-Math.otf",
+            "NewCMMath-Book.otf",
         ];
         for (font, file) in MathFont::ALL.into_iter().zip(files) {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

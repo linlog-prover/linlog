@@ -444,7 +444,11 @@ impl Style {
     pub fn check(&self) -> Result<(), Error> {
         let advances: u32 = match &self.font.advances {
             // The committed tables are within the bound (`font.rs`).
-            Advances::Euler | Advances::StixTwo | Advances::Garamond | Advances::Asana => 0,
+            Advances::Euler
+            | Advances::StixTwo
+            | Advances::Garamond
+            | Advances::Asana
+            | Advances::NewComputerModern => 0,
             Advances::Fixed(advance) => *advance,
             Advances::Table { table, fallback } => {
                 table.values().copied().fold(*fallback, u32::max)

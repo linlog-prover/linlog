@@ -1082,7 +1082,8 @@ pub(crate) struct StyleArgs {
     #[arg(long, value_name = "PATH")]
     pub(crate) style_file: Option<PathBuf>,
     /// The math font a drawing (SVG, PNG, PDF) is set and laid out in:
-    /// euler, stix-two, garamond or asana; by default Euler Math
+    /// euler, stix-two, garamond, asana or new-computer-modern; by default
+    /// Euler Math
     /// (styles.svg.font)
     #[arg(long, value_enum, value_name = "FONT")]
     pub(crate) font: Option<FontArg>,
@@ -1099,6 +1100,8 @@ pub(crate) enum FontArg {
     Garamond,
     /// Asana Math 0.962, in the style of Palatino
     Asana,
+    /// New Computer Modern Math 7.1.1 (Book), the Computer Modern of TeX
+    NewComputerModern,
 }
 
 impl From<FontArg> for MathFont {
@@ -1109,6 +1112,7 @@ impl From<FontArg> for MathFont {
             FontArg::StixTwo => Self::StixTwo,
             FontArg::Garamond => Self::Garamond,
             FontArg::Asana => Self::Asana,
+            FontArg::NewComputerModern => Self::NewComputerModern,
         }
     }
 }

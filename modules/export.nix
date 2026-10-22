@@ -49,7 +49,8 @@
       ]);
 
       # Each math font of `--font', the name a PDF embeds it under, and its
-      # directory in nixpkgs' TeX Live, which holds no other math font.
+      # directory in nixpkgs' TeX Live, which holds no other math font of
+      # its family.
       tex = package: "${pkgs.texlivePackages.${package}.tex}/fonts/opentype/public/${package}";
       fonts = [
         {
@@ -71,6 +72,16 @@
           name = "asana";
           embedded = "Asana-Math";
           dir = tex "asana-math";
+        }
+        # The package holds New Computer Modern's every font, its Regular
+        # math font of the same family among them: the Book weight alone.
+        {
+          name = "new-computer-modern";
+          embedded = "NewCMMath-Book";
+          dir = pkgs.runCommand "newcm-math-book" { } ''
+            mkdir $out
+            cp ${tex "newcomputermodern"}/NewCMMath-Book.otf $out/
+          '';
         }
       ];
       eulerMath = tex "euler-math";

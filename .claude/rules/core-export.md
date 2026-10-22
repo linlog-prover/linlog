@@ -216,15 +216,21 @@ for NanoYalla. What the code relies on:
   TeX Live directory), and fails on any output, so a font resvg cannot
   find, or a glyph it lacks (usvg's fallback warns), fails instead of
   falling back silently.
-- **Four math fonts** (`svg::MathFont`: Euler Math 0.75, STIX Two Math
-  2.12, Garamond-Math 2022-01-03, Asana Math 0.962, all OFL 1.1, all
-  1000 units per em), chosen on 2026-10-22 because each sets every
+- **Five math fonts** (`svg::MathFont`: Euler Math 0.75, STIX Two Math
+  2.12, Garamond-Math 2022-01-03, Asana Math 0.962, all OFL 1.1, and New
+  Computer Modern Math 7.1.1 in its Book weight, the package's default,
+  under the GUST Font License; all 1000 units per em), each setting every
   character of the table (`⅋` included: Latin Modern Math, Libertinus
   Math, the TeX Gyre fonts and Fira Math lack it, Fira Math `⊸ ⊢ ⊥ ⊤ ⋮`
-  too) and its licence allows serving the unmodified file. New Computer
-  Modern Math covers the table but is under the GUST Font License, an
-  LPPL 1.3c whose clause 2 makes distributing one file of the Work a
-  modification; XITS Math is STIX's predecessor in the same design.
+  too). New Computer Modern came by the author's request: the GUST Font
+  License is the LPPL 1.3c, whose clause 2 makes distributing one file of
+  the package a modification, so `NewCMMath-Book-LICENSE.txt` meets
+  clause 6 (the file unchanged, no support implied, where the complete
+  Work is) before the GUST and LPPL texts, which must stay verbatim (no
+  whitespace stripped). Its family name is `NewComputerModernMath`, which
+  its Regular weight shares: give a renderer the Book file alone (the
+  export check copies it apart). XITS Math is STIX's predecessor in the
+  same design.
   `svg::Font` reads in JSON as a font's name (`"stix-two"`, a hand-written
   `Deserialize`: a string is a `MathFont`, a map the fields) and always
   writes the fields; `MathFont::font` is the preset, whose `family` is
@@ -248,14 +254,14 @@ for NanoYalla. What the code relies on:
 - **The vertical metrics stay Euler Math's for every font** (`HEIGHT`,
   `DEPTH`, `AXIS`, `SCRIPT`, `RAISE`, `LOWER`), measured against each
   file on 2026-10-22: the raised `⊥` reaches 875 (STIX), 752
-  (Garamond), 805 (Asana) under `HEIGHT` 890; every comma is within
-  `DEPTH` 210; the axis is 258, 250 and 271 against 250 (a fifth of a
-  pixel at 16 px); the deepest descender of the table is 235, 290 and
-  286 (Euler's own `q` 243), inside `DEPTH` plus the margin (300).
+  (Garamond), 805 (Asana), 879 (New Computer Modern) under `HEIGHT` 890;
+  every comma is within `DEPTH` 210; the axis is 258, 250, 271 and 250
+  against 250 (a fifth of a pixel at 16 px); the deepest descender of the
+  table is 235, 290, 286 and 250 (Euler's own `q` 243), inside `DEPTH` plus the margin (300).
   Making them a font's would change Euler's output. One place takes a
   font's own depth: a net drawn with its formulas starts a premise edge
   under its formula at `Advances::depth` (the deepest descender of the
-  table: 235, 290, 286), not `DEPTH`, so that no edge runs into a `g`;
+  table: 235, 290, 286, 250), not `DEPTH`, so that no edge runs into a `g`;
   Euler Math and a caller's font keep `DEPTH`, so their drawings stay
   as they were (`net_edges_clear_the_font_s_descenders`). The compact
   drawing's `FOOT` (100 below a literal's baseline) meets every font's
@@ -325,8 +331,8 @@ for NanoYalla. What the code relies on:
   takes `SOURCE_DATE_EPOCH` or the clock, `pdf::Date::from_unix`).
   Calling `load_system_fonts`, or turning those resvg features on, ends
   it. A text whose font is missing is dropped by usvg without an error,
-  which is why the fonts are an argument and the command embeds the four
-  math fonts (`cli/fonts/`, each with its OFL, `show::FONTS`), giving a
+  which is why the fonts are an argument and the command embeds the five
+  math fonts (`cli/fonts/`, each with its licence, `show::FONTS`), giving a
   render Euler Math and the one whose family the style names, so the
   default render loads what it always did. `Costs::base` (32 MiB)
   covers the font data, at most two files of 0.4 and 0.8 MB. krilla-svg switches krilla's
