@@ -5,11 +5,12 @@
 | item | state | evidence |
 |---|---|---|
 | 1. Native zoom: a pinch and ctrl with the wheel zoom the drawing on the stage; nothing blocks the browser's zoom elsewhere | done | the client's `wvzrmkqt`; `tests/zoom.spec.ts`, two tests (desktop: ctrl with the wheel about the pointer and the check of every element outside the stage; touch screen: a two-finger pinch about the fingers, a one-finger pan, and the browser's own pinch on the top band zooming the page), passing |
-| 2. A font for the rendered exports: an option of linlog (serde, a CLI flag, the bindings' settings), Euler Math the default and unchanged, STIX Two Math and two more, each table read from its file, each licence served | done | linlog's `tvrwrqsp` and `zupynzoz`; `every_table_is_its_font_s` (skrifa reads each file), `fonts` and `every_style_option` in `cli/tests/cli.rs`, `a_font_is_chosen_by_its_name` and `an_export_is_set_in_the_font_the_settings_name` in the bindings; the snapshots and the behaviour lock unchanged but for `--help`; the `export` check, once per font, passed (exit 0) |
-| 2'. The font chosen in the client's export, with a test; one PNG and one PDF per font | done | the client's `wrlrwoum`; Playwright `the export menu chooses the font of the SVG, PNG and PDF, …`; `/home/tux/Projects/own/linlog-step38b-screenshots/exports/{euler,stix-two,garamond,asana}.{png,pdf}`, each PDF embedding its font alone (`pdffonts`) |
+| 2. A font for the rendered exports: an option of linlog (serde, a CLI flag, the bindings' settings), Euler Math the default and unchanged, STIX Two Math and two more, each table read from its file, each licence served; New Computer Modern Math too (the supervisor's addition) | done | linlog's `tvrwrqsp`, `zupynzoz`, `qzxqzvqk` (the descenders), `ormuvkok` and `spxtytpy` (New Computer Modern and its lock); `every_table_is_its_font_s` (skrifa reads each file), `fonts` and `every_style_option` in `cli/tests/cli.rs`, `a_font_is_chosen_by_its_name` and `an_export_is_set_in_the_font_the_settings_name` in the bindings; the snapshots and the behaviour lock unchanged but for `--help`; the `export` check, once per font, passed (exit 0) |
+| 2'. The font chosen in the client's export, with a test; one PNG and one PDF per font | done | the client's `wrlrwoum` and `okxuulsz`; Playwright `the export menu chooses the font of the SVG, PNG and PDF, …`; `/home/tux/Projects/own/linlog-step38b-screenshots/exports/{euler,stix-two,garamond,asana,new-computer-modern}.{png,pdf}`, each PDF embedding its font alone (`pdffonts`) |
 | 3. Light dismiss at both widths | done | the client's `xqyzqkpw`; `tests/dismiss.spec.ts`, a desktop test and a phone test, passing |
 | 4. More complex provable practice problems (the supervisor's addition) | done | the client's `wpspsroq`: 21 problems, 14 provable at difficulty 3, two per lesson from the second, each with a near miss that is not provable; `practice-decided.txt` (21 `linlog prove` outputs, 14 `linlog interact` sessions with `proof` exit 0); Vitest `give every lesson from the second at least two provable problems at the hardest difficulty` and the per-example verdict and session tests |
 | 5. The tab chip's spacing (the supervisor's addition) | done | the client's `vlktpknq`; the screenshots `01-chip` and `01-chip-closeup` at both widths in both themes |
+| 7. Every copyright and copyleft obligation respected (the supervisor's addition; there is no item 6, New Computer Modern going under item 2 as asked) | done | "The licences", the table below; fixed: STIX Two's OFL text verbatim (`vurxrnok`), New Computer Modern's clause 6 notice, the client's check that every served font is linlog's file unmodified (`okxuulsz`), the creator named in the CC BY notice (`pusswryq`) |
 | Before-and-after screenshots; the reviewer's findings answered | see below | `/home/tux/Projects/own/linlog-step38b-screenshots/before/` and `after/` (11 scenes at two widths in two themes, the chip close-ups); "The review" |
 | linlog's part gated, its `nix flake check` passed, "linlog ready" sent | see "Verification" | |
 | The client's lock on the commit the supervisor answered with; its `nix flake check` at its last commit | see "Verification" | |
@@ -26,9 +27,9 @@ and a viewport that allows zoom (WCAG 2.2, 1.4.4). Ctrl with plus and minus
 is always the browser's page zoom; plus and minus alone zoom the drawing,
 as before.
 
-linlog's drawings can be set in four math fonts: Euler Math, still the
-default and byte for byte unchanged, STIX Two Math, Garamond-Math and Asana
-Math. The option is `styles.svg.font`, which reads a font's name; the
+linlog's drawings can be set in five math fonts: Euler Math, still the
+default and byte for byte unchanged, STIX Two Math, Garamond-Math, Asana
+Math and New Computer Modern Math. The option is `styles.svg.font`, which reads a font's name; the
 command takes `--font`, and the bindings take the name in their settings.
 Each font's advance table was read from its file and is checked against
 it by a test, every character a drawing sets has a glyph in every font,
@@ -48,7 +49,8 @@ tab's calculus mark stands apart from the sequent.
 
 - **The fonts** (requirement 2): STIX Two Math 2.12, Garamond-Math
   2022-01-03 and Asana Math 0.962, all under the SIL Open Font License
-  1.1. Every candidate among TeX Live's OpenType math fonts was checked
+  1.1, and, by the author's later request, New Computer Modern Math 7.1.1
+  (below). Every candidate among TeX Live's OpenType math fonts was checked
   against the 208 characters the drawings set (fontTools, `getBestCmap`):
   Latin Modern Math and the five TeX Gyre math fonts lack `⅋`, Libertinus
   Math `⅋` and `⊸`, Fira Math `⅋ ⊢ ⊤ ⊥ ⊸ ⋮`, so none of them can set a
@@ -60,7 +62,29 @@ tab's calculus mark stands apart from the sequent.
   left out; XITS Math is STIX's predecessor in the same design. STIX Two
   (Times), Garamond-Math (Garamond) and Asana Math (Palatino) are the most
   used OFL math fonts that remain, and three different faces beside
-  Euler's upright one. Each licence was read in its source: STIX Two's
+  Euler's upright one. **New Computer Modern Math** came afterwards by the
+  author's request, in its Book weight, the `newcomputermodern` package's
+  default (its Regular weight shares the family name
+  `NewComputerModernMath`, so a renderer gets the Book file alone). Its
+  package ships no licence file: its README says "GustFLv1 or later" and
+  the font's copyright notice points to
+  http://tug.org/fonts/licenses/GUST-FONT-LICENSE.txt, which was read
+  there (version 1.0 of 22 June 2009; TeX Live's `lm-math` carries the
+  2006 preliminary text). The GUST Font License is the LPPL 1.3c or
+  later with a request to rename derived fonts that is "not legally
+  required"; the LPPL's clause 2 counts distributing part of the Work as
+  modification, so linlog's `NewCMMath-Book-LICENSE.txt` meets clause 6:
+  the file is unchanged (a, b: what changed is that the package's other
+  files are left out), no support is implied (c), and where the complete
+  Work is (d: CTAN), followed by the GUST text and the LPPL 1.3c (LaTeX's
+  own `lppl.txt`), verbatim, since the LPPL forbids changing its text. No
+  rule of either repository stands against it: `deny.toml`'s licence list
+  governs crates, and its exception for `linlog-cli` now names
+  `LPPL-1.3c` beside `OFL-1.1`; the client's rule against committed
+  third-party files holds, the font coming from linlog's input. The
+  command's package licence becomes `EUPL-1.2 AND OFL-1.1 AND LPPL-1.3c`,
+  a field only crates.io validates (a valid SPDX expression, checked by
+  hand). Each licence was read in its source: STIX Two's
   `OFL.txt` (copyright "2001-2021 The STIX Fonts Project Authors", Reserved
   Font Name "TM Math" for MicroPress's portions), Garamond-Math's CTAN
   README ("licensed under the SIL Open Font License, Version 1.1") and
@@ -196,6 +220,40 @@ tab's calculus mark stands apart from the sequent.
   author's request, and their bytes are fetched when an export first
   needs them; the page's own drawing stays in Euler Math (D53).
 
+## The licences (item 7)
+
+What each licence asks of a redistributor, read in the text that ships
+with the font (`cli/fonts/OFL.txt` for Euler Math, written from the
+font's three copyright lines and its README's "licensed under the SIL
+Open Font License, Version 1.1"; STIX Two's `OFL.txt`; Garamond-Math's
+README and name table; Asana Math's README; New Computer Modern's
+README, name table and the GUST and LPPL texts), and where each holds.
+Every copy of a font is byte for byte the TeX Live file (`cmp` of each
+`cli/fonts/*.otf` with nixpkgs' TeX Live, all five equal).
+
+| licence | obligation | where it is met | evidence |
+|---|---|---|---|
+| OFL 1.1 (Euler Math, STIX Two Math, Garamond-Math, Asana Math) | condition 2: each copy contains the copyright notice and the licence | linlog's `cli/fonts/` (each `.otf` beside its `*-OFL.txt`: copyright lines and the OFL); the `linlog-cli` crate (`cargo package --list`: `fonts/*.otf` and every `fonts/*.txt`); the command's flake package and so the Cachix cache (`share/doc/linlog-cli/*.txt`, every `cli/fonts/*.txt`); the site (`/fonts/<Family>-OFL.txt` beside each font, byte for byte linlog's, the `licences` check) | `cargo package --list -p linlog-cli`; `modules/workspace.nix` `postInstall`; `licences.py` exit 0 on the build |
+| OFL 1.1 | condition 1: not sold by itself | nothing is sold; the fonts are bundled with software (the command, the site), which condition 2 allows | the licence's text |
+| OFL 1.1 | condition 3: no Modified Version uses a Reserved Font Name ("TM Math" for STIX Two's MicroPress portions; "Asana Math", "pxfonts", "gsmn1000" for Asana Math; none for Euler Math and Garamond-Math), "the primary font name as presented to the users" | every copy is unmodified: the committed files are TeX Live's, the crate and the binary carry them as they are (`include_bytes!`), and the site serves linlog's files byte for byte, which the client's `licences` check now compares (`okxuulsz`); the site's file names carry a hash (`Asana-Math.<hash>.otf`), which changes no byte of the font and no name it presents | `cmp`; `licences.py` |
+| OFL 1.1 | condition 4: no copyright holder's name promotes a Modified Version | no modified version exists; the fonts are named as what they are (export menu, About, README) | |
+| OFL 1.1 | condition 5: distributed under the OFL only | each copy travels with the OFL alone; the crate's licence field is `EUPL-1.2 AND OFL-1.1 AND LPPL-1.3c`, one licence per part | `cli/Cargo.toml` |
+| OFL 1.1 | embedding: a PDF embeds a subset (krilla), a PNG rasterises the glyphs | condition 5: "The requirement for fonts to remain under this license does not apply to any document created using the Font Software"; the preamble: the fonts "can be bundled, embedded"; OFL-FAQ 1.12 ("either in full or a subset") and 1.13 (a graphic made with the font is not subject to the OFL); linlog distributes no such document (its PDFs are made in the `export` check's sandbox, and by users) | STIX Two's `OFL-FAQ.txt` |
+| GUST Font License (LPPL 1.3c), New Computer Modern Math | LPPL clause 2 (a complete unmodified copy) does not apply to one file; clause 6 for a part: (a, b) changes identified, (c) no support implied, (d) where the complete Work is | `NewCMMath-Book-LICENSE.txt` says each, before the GUST text and the LPPL, beside the font in `cli/fonts/`, in the crate, in the package's docs, and on the site as `/fonts/NewCMMath-LICENSE.txt` | the file; `licences.py` |
+| GUST Font License | the request (not legally required) to rename derived fonts | the font is unchanged, so it keeps its name; the notice says so | |
+| LPPL 1.3c | its text not modified ("modification of it is not allowed") | the LPPL and GUST texts are verbatim (whitespace too; checked by comparing with the sources) | the file's tail equals LaTeX's `lppl.txt` |
+| LPPL 1.3c | embedding in a PDF, rasterising in a PNG | clause 1: "Activities other than distribution and/or modification of the Work are not covered by this license … the act of running the Work is not restricted"; clause 11: no restriction on works unrelated to the Work. A drawing is made by running the font, and linlog distributes no such document | the LPPL's text |
+| LPPL 1.3c | sale | no clause forbids it, and nothing is sold | |
+| Every font | the licence listed where the site lists the fonts | About lists all five with their licences and links (ten licences, `learn.spec.ts` fetches each); README's licence sections (linlog and the client); the export menu names the fonts only, as a choice, not a copy | `BottomBand.tsx` `LICENCES` |
+| The flake's packages and Cachix | the same as the files they hold | `linlog-cli` installs every `cli/fonts/*.txt`; `linlog-web` holds no font (`LICENSE`, `THIRD-PARTY-NOTICES.txt`, the module); the client's site package is the served files above; Cachix holds these store paths as built | `.cache/linlog-web` listing; `modules/workspace.nix` |
+| The core crate `linlog` | — | contains no font (`cargo package --list -p linlog`: no `.otf`); its font test reads `../cli/fonts` in the repository | |
+| CC BY 4.0, the written content (D23) | attribution: the creator, the licence, a link | every page with written content says CC BY 4.0 with the link (the `licences` check); the notice now names the creator (`pusswryq`), as section 3(a)(1)(A) asks a re-user to credit; the new practice problems are written content, under the same notice | `licences.py`; `index.astro` |
+| Quotations | short, with the source named | the reference's one quotation (the Handbook of linear logic, section 1.1, one sentence) names the work, its section and a link | `texts/reference.md` |
+| Third-party files | none committed where a rule forbids | the client commits none (its rule): every font comes from linlog's input or npm; linlog's `cli/fonts/` is where the command's fonts live, as Euler Math's always has, which no rule of linlog forbids | `jj file list` of the client: no font file |
+
+The `linlog-cli` crate grows by the fonts: they compress to about 2.7 MB
+(`gzip -9` of `cli/fonts/`), under crates.io's 10 MB limit.
+
 ## The review
 
 One fresh-context reviewer (Opus 5.5, `high`), briefed with the
@@ -269,8 +327,9 @@ otherwise:
 ## Repositories and workspaces
 
 - linlog: `../linlog-step38b`, the commits `tvrwrqsp` (the fonts),
-  `zupynzoz` (the lock blessed) and `qzxqzvqk` (the descenders), on
-  `zxxqmxmx`, and this report's.
+  `zupynzoz` (the lock blessed), `qzxqzvqk` (the descenders), this
+  report's `lysrossv`, `ormuvkok` (New Computer Modern), `spxtytpy` (its
+  lock) and `vurxrnok` (STIX Two's licence verbatim), on `zxxqmxmx`.
 - The client: `/home/tux/Projects/own/linlog-prover.github.io`, its
   commits above `yxtvvlsm` (`main`), local, nothing pushed.
 - Screenshots, exports and scripts:
