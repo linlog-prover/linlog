@@ -50,11 +50,8 @@ its `main` as you push linlog's, after review, with SSH's `BatchMode`).
 In order, with what each needs before it (the table in `plan/README.md`
 is the authority):
 
-- **38**: the web client's polish, one session in the client's
-  repository, with the `frontend-design` and `education-agent-skills`
-  plugins (the author's requests of 2026-10-19 are its items; the
-  author judges the look from its screenshots). Its prompt is written;
-  its first item moves the client's linlog input to `main`.
+- **38**: the web client's polish: done and reviewed on 2026-10-22
+  (Status); the author judges its screenshots and judgement calls.
 - **39**: MELL nets with boxes (prompt finished), after 38 or beside it
   (39 touches `core/src/nets/` and the SVG export, 38 only the client).
 - **40**: cut and cut elimination, after 39 (prompt finished at the

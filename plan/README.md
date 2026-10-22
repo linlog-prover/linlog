@@ -2953,4 +2953,59 @@ client follows it (step 32).
   the old ones, and a session's label (35a, 40b, …) is always the one
   its report gives it. Next: step 38, the web client's polish, when work
   resumes.
-
+- 2026-10-22: review of step 38, the web client's polish (one session,
+  Opus 5.5 at high, 20:03 to 21:50, started and reviewed by the session
+  `linlog-ef` acting as planning):
+  - all eleven items in the client's repository (`qmxurvqt`, eight
+    commits on `pnrwuykw`): one token set and spacing scale with a check
+    that fails on a raw value; one grammar of controls; every control
+    measured in 23 states at both widths by Playwright (44 by 44 on a
+    phone, 24 by 24 on a desktop); More on the phone; the two-sided
+    switch in classical mode alone; every search's engine beside its
+    work with its source on hover and in Learn's reference, each source
+    read in the work itself or an open text that states it; Settings →
+    Engine (built, through `prove` forced at one unit of work, since a
+    bindings call over `search::engine_for` cannot pass the client's
+    check while its lock names only linlog's `main`); 52 practice
+    sequents in 8 lessons, each decided by `linlog prove` and each of
+    the 29 provable ones a session `linlog interact` checked; the
+    saturation refutation shown as the other checked ones;
+  - checked here: the report's claims against the commits, the practice
+    evidence (52 runs, 29 sessions exit 0, 23 unprovable), the
+    screenshots (76 before, 76 after, a pair read), no change of the
+    CSP, the service worker or the workflows; the client's `nix flake
+    check` at the stacked head below; step 38's own at `qmxurvqt` and
+    at linlog's `ruzzorqu`.
+  For the author: the screenshots (`/home/tux/Projects/own/
+  linlog-step38-screenshots/`, `before/` and `after/`), the eleven
+  judgement calls and two departures in the report, and one
+  disclosure: the research sub-agent sent the author's e-mail address
+  to the Unpaywall API, which asks for one; nothing else was sent.
+- 2026-10-22: every dependency of both repositories updated, at the
+  author's request, unattended from 21:15:
+  - linlog (pushed, `tvuzzowm`): Cargo update (15 crates); flake.lock
+    (nixpkgs of 2026-10-20, rustc 1.98.1 → 1.99.1); clippy 1.99's
+    `assert_is_empty` met at its 10 sites and a redundant doc link;
+    wasm-bindgen 0.2.129; the artifact actions; the fuzz nightly of
+    2026-10-21 and its lock; foldhash 0.2 (the target sets equal to
+    `37b` and `net-37b` on every decided row, `mix/8` 0.6 % slower in
+    six runs each); the ratchet's ceilings re-recorded;
+  - the toolchain's counts, investigated on the author's word: 1.99.1
+    cost `Tally::add` 16 % and `Split::shift` 10 % more instructions
+    (search-qbf-20-2 +4.1 %, batch-families +4.0 %, pinned time +3.4 %
+    and +3.0 %), won back and more by keeping an atom's sums together
+    in the counts (`oytkvrlx`: −10 % and −17 % against 1.99.1 before,
+    the target set's counters unchanged); the readers +4 to 6 % (time
+    +7 to 8.5 %, read-spec 4 % faster) from the standard library's
+    inlined string search, raised in the ceilings with the author's
+    yes; whether instruction counts suit the ratchet is a follow-up in
+    `later.md` ("Follow-ups: the benchmarks");
+  - held back: resvg 0.48 (krilla-svg 0.8.1 still takes usvg 0.47,
+    whose tree the PDF export hands it), install-nix-action 31.11.2 and
+    crates-io-auth-action 1.0.6 (under fourteen days old);
+  - the client (stacked on step 38): its lock at linlog's `tvuzzowm`,
+    astro 7.3.7, Vite 8.3.4 (the dev server's advisories, within the
+    age gate), `@playwright/test` 1.64.1 past the gate with the
+    author's yes, recorded in its rules; TypeScript 6 and solid-js 1.x
+    kept; its actions current; `update-deps` now covers all of it.
+  Next: step 39, MELL nets with boxes.
