@@ -207,8 +207,10 @@ even to read.** Every operation goes through `jj`, including lock updates:
   needs no commit and ask the author to enter the passphrase. A long
   session commits as it goes rather than at the end for that reason.
 - Lock bumps are changes of their own, "Cargo update" and "flake.lock: Update".
-  `/update-deps` does both, verifying before it commits; the shell's `up` is
-  the unverified shortcut.
+  `/update-deps` updates every dependency of both repositories (the locks,
+  major releases and exact pins, the toolchain, the fuzz nightly, the
+  actions, the web client), verifying before it commits; the shell's `up`
+  is the unverified shortcut.
 - Work lands on `main` directly or through a GitHub pull request. Pushing is
   outward-facing, so only when asked: `plan/push-main.sh @-`, which moves
   `main` and pushes it, failing at once rather than waiting on a

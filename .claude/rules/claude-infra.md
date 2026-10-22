@@ -98,7 +98,9 @@ Current contents:
   certificates and where a rule, a calculus or quantifiers plug in.
 - `agents/crate-source-explorer.md`: read-only, answers dependency-API questions
   against the Cargo.lock-pinned sources in `~/.cargo/registry`, never the web.
-- `skills/update-deps/`: the lock-file bump procedure (verify, then commit).
+- `skills/update-deps/`: updating every dependency of linlog and the web
+  client (verify, then commit), with what a toolchain bump broke and how
+  it was met.
 - `skills/new-tool/`: getting to know a crate, program, toolchain component or
   flake input from its pinned version, wiring it in and recording what is not
   obvious.
