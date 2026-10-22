@@ -1994,8 +1994,10 @@ the GUST Font License, which is the LaTeX Project Public License 1.3c
 ([`cli/fonts/NewCMMath-Book-LICENSE.txt`](cli/fonts/NewCMMath-Book-LICENSE.txt),
 which also says where the complete package is). The package
 `linlog-cli` is therefore `EUPL-1.2 AND OFL-1.1 AND LPPL-1.3c`; the
-library `linlog` contains no font. Drawings and documents made with the fonts
-are not covered by their licence.
+library `linlog` contains no font. Drawings and documents made with the OFL
+fonts are not covered by their licence (its condition 5); a PNG holds
+no font, while a PDF embeds the part of the font its text uses, and for
+New Computer Modern Math the LPPL makes no exception for documents.
 
 The problem libraries and the other provers that the benchmarks and the
 comparison use are not part of this repository: the flake fetches each

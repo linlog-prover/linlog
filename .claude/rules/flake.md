@@ -172,7 +172,12 @@ workspace with the licence files (`LICENSE` and the links
 `core/LICENSE`, `cli/LICENSE`). The `linlog-cli` package installs
 `LICENSE` and every font's licence (`cli/fonts/*.txt`) under
 `share/doc/linlog-cli/`, since a copy of the binary (the public cache
-holds one) must carry the EUPL's text and the embedded fonts' licences; the `cli` part carries `LICENSE`
+holds one) must carry the EUPL's text and the embedded fonts' licences;
+for the same reason no check keeps its target directory
+(`doInstallCargoArtifacts = false`, the `test-*` checks too: crane keeps
+it by default, and CI pushes every output to the public cache), and any
+store path that holds a font file holds its licence beside it (the
+export check's directory for New Computer Modern); the `cli` part carries `LICENSE`
 for that. The upload
 needs the network and the author's token; `cargo publish --dry-run
 --locked --workspace` in the shell packages and verifies both against

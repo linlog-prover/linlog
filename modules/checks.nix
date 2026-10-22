@@ -97,8 +97,11 @@
         clippy =
           args: craneLib.cargoClippy (args // { cargoClippyExtraArgs = "--all-targets -- --deny warnings"; });
 
-        # `cargo test', not nextest: nextest skips doc tests.
-        test = craneLib.cargoTest;
+        # `cargo test', not nextest: nextest skips doc tests. A test check
+        # keeps no target directory, as no check here does: the public cache
+        # would otherwise hold the command's test binaries, its fonts inside
+        # and their licences not.
+        test = args: craneLib.cargoTest (args // { doInstallCargoArtifacts = false; });
 
         # The tests once more with the assertions a development build has:
         # crane tests in the release profile, where `debug_assert!' is
@@ -114,6 +117,7 @@
               pname = "${args.pname}-debug-assertions";
               cargoArtifacts = workspace.cargoArtifactsDebugAssertions;
               cargoTestExtraArgs = "--all-targets";
+              doInstallCargoArtifacts = false;
             }
           );
       }

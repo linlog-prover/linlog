@@ -74,13 +74,16 @@
           dir = tex "asana-math";
         }
         # The package holds New Computer Modern's every font, its Regular
-        # math font of the same family among them: the Book weight alone.
+        # math font of the same family among them: the Book weight alone,
+        # with the licence linlog gives it, since this path is one file of
+        # the package and the public cache may hold it.
         {
           name = "new-computer-modern";
           embedded = "NewCMMath-Book";
           dir = pkgs.runCommand "newcm-math-book" { } ''
             mkdir $out
             cp ${tex "newcomputermodern"}/NewCMMath-Book.otf $out/
+            cp ${../cli/fonts/NewCMMath-Book-LICENSE.txt} $out/NewCMMath-Book-LICENSE.txt
           '';
         }
       ];
