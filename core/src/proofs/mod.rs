@@ -201,6 +201,27 @@ impl Node {
         self.principal().into_iter().chain(second)
     }
 
+    /// Returns the node with every member it names renamed, or the first
+    /// error the renaming gives.
+    fn renamed<E>(self, rename: impl Fn(Member) -> Result<Member, E>) -> Result<Self, E> {
+        use Node::*;
+        Ok(match self {
+            Ax(a, b) => Ax(rename(a)?, rename(b)?),
+            Tensor(o, l, r) => Tensor(rename(o)?, l, r),
+            Par(o, p) => Par(rename(o)?, p),
+            One(o) => One(rename(o)?),
+            Bot(o, p) => Bot(rename(o)?, p),
+            With(o, l, r) => With(rename(o)?, l, r),
+            Plus(o, b, p) => Plus(rename(o)?, b, p),
+            Top(o) => Top(rename(o)?),
+            Bang(o, p) => Bang(rename(o)?, p),
+            Quest(o, p) => Quest(rename(o)?, p),
+            Copy(o, p) => Copy(rename(o)?, p),
+            Weaken(o, p) => Weaken(rename(o)?, p),
+            Mix(l, r) => Mix(l, r),
+        })
+    }
+
     /// Returns the nodes that prove the premises, in the rule's order: none
     /// for an axiom, `1` or `⊤`, two for `⊗`, `&` and Mix, one otherwise.
     pub fn premises(self) -> impl Iterator<Item = NodeId> {
@@ -518,6 +539,88 @@ impl Proof {
             goal: Some(goal.iter().copied().map(Member::from).collect()),
             ..self
         }
+    }
+
+    /// Returns the proof carried over to `goal`, members of `forest` whose
+    /// formulas are the proof's conclusions up to their order: each
+    /// conclusion is matched to a member of the goal that is the same
+    /// formula (the same connectives, units and literals, the atoms by
+    /// their names), and every occurrence below it renamed to the one in
+    /// the same place below that member. The proof then concludes the goal
+    /// and is what it was, rule for rule; whether it holds in a mode is the
+    /// checker's to say, as for any proof. Of equal formulas any may take
+    /// another's place, since they are alike.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::SequentMismatch`], with the formulas only the proof
+    /// concludes and those only the goal holds, when the two differ beyond
+    /// their order; [`Error::IndexOutOfBounds`] for a member of the goal
+    /// outside `forest`, or a member a node names outside every conclusion.
+    pub fn onto(&self, forest: Forest, goal: &[Member]) -> Result<Self, Error> {
+        if let Some(m) = goal.iter().find(|m| m.occurrence(&forest).is_none()) {
+            return Err(Error::IndexOutOfBounds {
+                space: crate::limits::Space::Member,
+                index: m.index(),
+                len: forest.len(),
+            });
+        }
+        let from = &self.forest;
+        let name = |f: &Forest, o: OccId| f.atom(o).map(|a| f.sequent().atom_name(a).to_owned());
+        let alike = |o: OccId, t: OccId| {
+            from.size(o) == forest.size(t)
+                && from.subtree(o).zip(forest.subtree(t)).all(|(a, b)| {
+                    from.kind(a) == forest.kind(b) && name(from, a) == name(&forest, b)
+                })
+        };
+        // Each conclusion takes the first free member of the goal alike to
+        // it, and each occurrence below it the one in its place there.
+        let mut taken = vec![false; goal.len()];
+        let mut place: Vec<Option<OccId>> = vec![None; from.len()];
+        let mut only_proof = Vec::new();
+        for c in self.conclusion() {
+            match (0..goal.len()).find(|&i| !taken[i] && alike(c, goal[i].occ())) {
+                Some(i) => {
+                    taken[i] = true;
+                    for (o, t) in from.subtree(c).zip(forest.subtree(goal[i].occ())) {
+                        place[o.index()] = Some(t);
+                    }
+                }
+                None => only_proof.push(from.formula(c).to_string()),
+            }
+        }
+        let only_goal: Vec<String> = goal
+            .iter()
+            .zip(&taken)
+            .filter(|&(_, &t)| !t)
+            .map(|(m, _)| forest.formula(m.occ()).to_string())
+            .collect();
+        if !only_proof.is_empty() || !only_goal.is_empty() {
+            return Err(Error::SequentMismatch {
+                proof: only_proof,
+                goal: only_goal,
+            });
+        }
+        let rename = |m: Member| {
+            place
+                .get(m.index())
+                .copied()
+                .flatten()
+                .map(Member::from)
+                .ok_or(Error::IndexOutOfBounds {
+                    space: crate::limits::Space::Member,
+                    index: m.index(),
+                    len: from.len(),
+                })
+        };
+        let nodes = self
+            .nodes
+            .iter()
+            .map(|node| node.renamed(rename))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut carried = Self::new_of_goal(forest, goal, nodes, self.root())?;
+        carried.mode = self.mode;
+        Ok(carried)
     }
 
     /// Returns the occurrences the root concludes: the goal's, or the

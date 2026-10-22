@@ -386,6 +386,52 @@ pub fn apply(session: &str, goal: u32, step: &str, settings: &str) -> Result<Str
     changed(&state, Opened { opened })
 }
 
+/// Closes an open goal with the proof of another finished session, a
+/// tab's of an equal sequent: the source's proof, checked in its own mode,
+/// is carried over to the goal, its formulas matched up to their order
+/// (`Proof::onto`), and grafted as one step, checked again in this
+/// session's mode. Returns the session with its view and the goal
+/// filled.
+///
+/// # Errors
+///
+/// A goal that is not open; `open_goals` for a source not finished;
+/// `sequent_mismatch` for a source whose sequent is not the goal's up to
+/// order, its `details` the formulas only the source has (`proof`) and
+/// only the goal has (`goal`); and `invalid_proof` for a proof this
+/// session's mode does not allow (a rule of another mode), naming the
+/// rule; the session unchanged in each.
+pub fn fill(session: &str, goal: u32, source: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let mut state = session_of(session, &settings)?;
+    let from = session_of(source, &settings)?;
+    let proof = from
+        .proof(&settings.limits, never)
+        .map_err(|e| Failure::described(&e, &from))?;
+    state
+        .fill(
+            GoalId::new(goal),
+            &proof,
+            &settings.view,
+            &settings.limits,
+            never,
+        )
+        .map_err(|e| Failure::described(&e, &state))?;
+    changed(
+        &state,
+        Filled {
+            filled: GoalId::new(goal),
+        },
+    )
+}
+
+/// What a fill closed.
+#[derive(Serialize)]
+struct Filled {
+    /// The goal the source's proof closed.
+    filled: GoalId,
+}
+
 /// What an undo reopened.
 #[derive(Serialize)]
 struct Reopened {

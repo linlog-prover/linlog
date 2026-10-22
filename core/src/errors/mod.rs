@@ -266,6 +266,20 @@ pub enum Error {
     /// proof, only not one of the sequent.
     #[error("the proof concludes a goal, not the sequent")]
     GoalProof,
+    /// A proof carried over to a goal ([`Proof::onto`](crate::proofs::Proof::onto))
+    /// concludes other formulas than the goal holds, beyond their order.
+    #[error(
+        "the proof's conclusions are not the goal's formulas: {} only in the proof, {} only in the goal",
+        listed(proof),
+        listed(goal)
+    )]
+    SequentMismatch {
+        /// The formulas the proof concludes that no formula of the goal
+        /// matches, as the sequent writes them.
+        proof: Vec<String>,
+        /// The goal's formulas that no conclusion of the proof matches.
+        goal: Vec<String>,
+    },
     /// The mode is intuitionistic and the sequent has no intuitionistic
     /// reading. The message names occurrences by id;
     /// [`ShapeError::describe`] names them by formula.
@@ -472,6 +486,16 @@ impl std::fmt::Display for ErrorKind {
     }
 }
 
+/// Returns formulas joined by commas, or "nothing" for none: a side of a
+/// [`Error::SequentMismatch`].
+fn listed(formulas: &[String]) -> String {
+    if formulas.is_empty() {
+        "nothing".to_owned()
+    } else {
+        formulas.join(", ")
+    }
+}
+
 impl Error {
     /// Every code an error of this crate may have.
     pub const CODES: &'static [&'static str] = &[
@@ -500,6 +524,7 @@ impl Error {
         "foreign_proof",
         "goal_mismatch",
         "goal_proof",
+        "sequent_mismatch",
         "not_intuitionistic",
         "intuitionistic_mix",
         "ordered_mode",
@@ -558,6 +583,7 @@ impl Error {
                 Invalid
             }
             Self::GoalProof => Unsupported,
+            Self::SequentMismatch { .. } => Invalid,
             Self::NotIntuitionistic(_)
             | Self::IntuitionisticMix
             | Self::OrderedMode { .. }
@@ -624,6 +650,7 @@ impl Error {
             #[cfg(feature = "interactive")]
             Self::GoalMismatch => "goal_mismatch",
             Self::GoalProof => "goal_proof",
+            Self::SequentMismatch { .. } => "sequent_mismatch",
             Self::NotIntuitionistic(_) => "not_intuitionistic",
             Self::IntuitionisticMix => "intuitionistic_mix",
             Self::OrderedMode { .. } => "ordered_mode",
@@ -898,6 +925,10 @@ mod tests {
             Error::Refutation(crate::search::RefutationFault::Satisfied),
             Error::Refutation(crate::search::RefutationFault::Uncertified { kind: "exhausted" }),
             Error::GoalProof,
+            Error::SequentMismatch {
+                proof: vec!["A ⊗ B".into()],
+                goal: Vec::new(),
+            },
             Error::NotIntuitionistic(ShapeError::NoGoal),
             Error::IntuitionisticMix,
             Error::OrderedMode {
@@ -1078,6 +1109,7 @@ mod tests {
             | Error::Check(_)
             | Error::Refutation(_)
             | Error::GoalProof
+            | Error::SequentMismatch { .. }
             | Error::NotIntuitionistic(_)
             | Error::IntuitionisticMix
             | Error::OrderedMode { .. }

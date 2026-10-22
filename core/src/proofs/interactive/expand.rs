@@ -458,6 +458,32 @@ impl Interactive {
         Ok(())
     }
 
+    /// Closes an open goal with a proof of an equal sequent made elsewhere,
+    /// another session's say: the proof is carried over to the goal
+    /// ([`Proof::onto`]), its conclusions matched to the goal's formulas up
+    /// to their order, and closes the goal as [`close_with`](Self::close_with)
+    /// does, checked in the session's mode, as one step.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Step`] for a goal that is not open,
+    /// [`Error::SequentMismatch`] for a proof whose conclusions are not the
+    /// goal's formulas, and [`close_with`](Self::close_with)'s: above all
+    /// [`Error::Check`] with [`CheckError::Invalid`] for a proof the
+    /// checker rejects in the session's mode, one of another mode's rules.
+    pub fn fill(
+        &mut self,
+        goal: GoalId,
+        proof: &Proof,
+        view: &ViewOptions,
+        limits: &Limits,
+        stop: impl FnMut(Progress) -> bool,
+    ) -> Result<(), Error> {
+        let members = self.goal(goal)?.to_vec();
+        let carried = proof.onto(self.forest.clone(), &members)?;
+        self.close_with(goal, &carried, view, limits, stop)
+    }
+
     /// Runs the search on every open goal in turn, as [`close`](Self::close)
     /// does, and returns each goal with what closing it did; a goal the
     /// search does not prove, or whose closing fails, stays open, and the

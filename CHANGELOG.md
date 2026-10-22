@@ -233,6 +233,16 @@ second number (0.1.x to 0.2.0), anything else the third.
   dotted line in the colour `dominator`, and the essential criterion's
   witness highlighted.
 
+- `Proof::onto(forest, goal)` carries a proof over to a goal of another
+  forest whose formulas are the proof's conclusions up to their order,
+  every occurrence renamed to the one in its place, refusing with the new
+  `Error::SequentMismatch` (code `sequent_mismatch`, `details.proof` and
+  `details.goal` the formulas only on each side) when they differ;
+  `Interactive::fill(goal, &proof, …)` grafts such a proof, another
+  session's, as one step, checked in the session's mode as `close_with`
+  checks; the bindings' `fill(session, goal, source, settings)` takes the
+  source as a finished session.
+
 ### Changed
 
 - The bindings' settings take a string where the tab's settings hold

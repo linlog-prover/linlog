@@ -296,7 +296,10 @@ nothing or a split; or a `StepError`), `apply(goal, &step)` with a `Step`
 returning `Closed`: the outcome and whether the graft was refused, the
 goal then still open and the proof kept), `close_with(goal, &proof, view,
 limits, stop)` (the graft of a proof the caller's own search found, as
-the command's race does), `close_all` (a result per goal, F68),
+the command's race does), `fill(goal, &proof, view, limits, stop)` (a
+proof of an equal sequent from elsewhere, another session's, carried over
+by `Proof::onto` and grafted by `close_with`), `close_all` (a result per
+goal, F68),
 `derivation()` and `derivation_within(view, limits, stop)` (refused past
 `limits.derivation_bytes` by the size estimate's measure) with open
 goals as `Rule::Open` leaves, `derivation_ids()` (a drawn inference's

@@ -136,6 +136,7 @@ to 2³² − 1, anything else refused):
 | `apply(session, goal, step, settings)` | `{"session", "view", "opened"}`, or the refusal with its reason; a step is `{"position", "rule", "left"}`, `left` the positions going to the left premise of a `⊗` or Mix |
 | `undo(session, settings)` | `{"session", "view", "reopened"}` |
 | `close(session, goal, settings)` | `{"session", "view", "outcome", "refused", "refutation_checked"}`: the search within `limits.work`, its proof grafted; `refused` the graft's refusal |
+| `fill(session, goal, source, settings)` | `{"session", "view", "filled"}`: the checked proof of `source`, another finished session of an equal sequent, carried over to the goal (its formulas matched up to order) and grafted, checked in this session's mode; `sequent_mismatch` with `details.proof` and `details.goal` (the formulas only on each side), `open_goals` for an unfinished source, `invalid_proof` for a rule this mode does not allow |
 | `close_all(session, settings)` | `{"session", "view", "results": [{"goal", "outcome", "refused", "error", "work"}]}`: every goal's search within one budget of `limits.work` for all of them, a goal it runs out on `work_limit` |
 | `hint(session, goal, settings)` | `{"outcome", "steps"}`: the search on the goal, the session unchanged, and the first steps of its proof (the structural rules at its root and the first rule that is not one), each for `apply` on the goal the one before opened; following the hints proves the goal |
 | `proof(session, settings)` | the checked proof of a finished session |

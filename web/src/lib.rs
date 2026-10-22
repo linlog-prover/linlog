@@ -110,6 +110,12 @@ mod exports {
         calls::close(session, index(goal, "a goal")?, settings).map_err(thrown)
     }
 
+    /// See [`calls::fill`].
+    #[wasm_bindgen]
+    pub fn fill(session: &str, goal: f64, source: &str, settings: &str) -> Result<String, JsValue> {
+        calls::fill(session, index(goal, "a goal")?, source, settings).map_err(thrown)
+    }
+
     /// See [`calls::close_all`].
     #[wasm_bindgen]
     pub fn close_all(session: &str, settings: &str) -> Result<String, JsValue> {

@@ -1387,6 +1387,66 @@ mod tests {
     /// passes the checker in the session's mode: a proof of another
     /// sequent, larger or smaller, and a weakening in a linear session are
     /// refused, and the session stays as it was.
+    /// A proof of an equal sequent made elsewhere fills a goal, its
+    /// conclusions in another order; one of other formulas is refused,
+    /// saying which on each side, one of another mode's rules is the
+    /// checker's to refuse, and a goal outside the forest is refused, each
+    /// leaving the goal open.
+    #[test]
+    fn fill_carries_a_proof_of_an_equal_sequent() {
+        let (view, limits) = (ViewOptions::default(), Limits::default());
+        let proof_of = |input: &str, mode: Mode| {
+            let outcome = search::prove(&sequent(input), mode, &Options::default()).unwrap();
+            let Verdict::Proved(proof) = outcome.verdict else {
+                panic!("{input}: {:?}", outcome.verdict)
+            };
+            proof
+        };
+        let after_par = || {
+            let (mut s, g) = start("A * B |- B * A", Mode::CLASSICAL);
+            let par = at(&s, g, "~A ⅋ ~B");
+            let goal = s.apply(g, &Step::new(par, Rule::Par)).unwrap()[0];
+            (s, goal)
+        };
+        let (mut s, goal) = after_par();
+        let elsewhere = proof_of("|- B * A, ~A, ~B", Mode::CLASSICAL);
+        s.fill(goal, &elsewhere, &view, &limits, |_| false).unwrap();
+        assert!(s.is_complete());
+        s.proof(&limits, |_| false).unwrap();
+
+        let (mut s, goal) = after_par();
+        let other = proof_of("|- A * B, ~A, ~B", Mode::CLASSICAL);
+        let refused = s.fill(goal, &other, &view, &limits, |_| false).unwrap_err();
+        let Error::SequentMismatch { proof, goal: held } = &refused else {
+            panic!("{refused:?}")
+        };
+        assert_eq!(
+            (proof, held),
+            (&vec!["A ⊗ B".to_owned()], &vec!["B ⊗ A".to_owned()])
+        );
+        assert_eq!(refused.code(), "sequent_mismatch");
+        let fewer = proof_of("|- ~A, A", Mode::CLASSICAL);
+        let refused = s.fill(goal, &fewer, &view, &limits, |_| false).unwrap_err();
+        let Error::SequentMismatch { proof, goal: held } = &refused else {
+            panic!("{refused:?}")
+        };
+        assert_eq!((proof.len(), held.len()), (1, 2), "{refused}");
+        assert_eq!(s.goals().collect::<Vec<_>>(), [goal]);
+
+        let (mut s, g) = start("|- A, ~A, B, ~B", Mode::CLASSICAL);
+        let mixed = proof_of("|- B, ~B, A, ~A", Mode::CLASSICAL.with_mix());
+        assert!(matches!(
+            s.fill(g, &mixed, &view, &limits, |_| false),
+            Err(Error::Check(crate::proofs::CheckError::Invalid(_)))
+        ));
+        assert_eq!(s.goals().collect::<Vec<_>>(), [g]);
+        let past = Member::new(u32::try_from(s.forest().len()).unwrap());
+        assert!(matches!(
+            mixed.onto(s.forest().clone(), &[past]),
+            Err(Error::IndexOutOfBounds { .. })
+        ));
+    }
+
     #[test]
     fn close_with_refuses_a_foreign_proof() {
         let view = ViewOptions::default();

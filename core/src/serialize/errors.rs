@@ -134,6 +134,7 @@ impl Serialize for Details<'_> {
             #[cfg(feature = "interactive")]
             ForeignProof | GoalMismatch => entries!(s),
             GoalProof => entries!(s),
+            SequentMismatch { proof, goal } => entries!(s; "proof" => proof; "goal" => goal),
             #[cfg(feature = "pdf")]
             NoDate => entries!(s),
             IntuitionisticMix | WriteFailed => entries!(s),

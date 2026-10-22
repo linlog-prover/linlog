@@ -66,6 +66,17 @@ serve intuitionistic mode. Invariants:
   `?` formula is the standard `?w` and is allowed in every mode; the dyadic
   engines express the same thing as a `Quest` whose formula goes unused.
 
+- **`Proof::onto(forest, goal)` carries a proof to another forest** by
+  renaming alone: each conclusion takes the first free goal member that is
+  the same formula (the preorder of kinds, and atoms by name, since the two
+  forests number atoms apart), and the occurrences below it map by their
+  offset, a subtree being the ids `o .. o + size(o)`. It proves nothing:
+  the result is checked where it is used (`Interactive::fill` grafts it
+  through `close_with`, which checks it in the session's mode), so a
+  proof of another mode's rules is refused there, not here. Taking any of
+  several equal formulas is sound because they are alike; a node naming a
+  member outside every conclusion is `IndexOutOfBounds`.
+
 ## The checker
 
 `proofs/check/` is the reference for what a proof is (`zones.rs` the

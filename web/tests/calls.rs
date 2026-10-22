@@ -379,3 +379,35 @@ fn a_small_memory_bound_refuses() {
         Err(refused) => assert_eq!(failure(&refused)["kind"], "limit"),
     }
 }
+
+/// A goal is filled from another finished session of an equal sequent,
+/// its formulas in another order, here in intuitionistic mode; a source
+/// of other formulas is refused with them on each side, one not finished
+/// is refused, and a proof the goal's mode does not allow is the checker's
+/// to refuse.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_goal_is_filled_from_another_session() {
+    let finished = |sequent: &str, mode: &str| {
+        let started = calls::start(sequent, mode, "").unwrap();
+        session(&calls::close(&session(&started), 0, "").unwrap())
+    };
+    let target = session(&calls::start("A, A -o B |- B", "intuitionistic", "").unwrap());
+    let source = finished("A -o B, A |- B", "intuitionistic");
+    let filled = calls::fill(&target, 0, &source, "").unwrap();
+    assert_eq!(value(&filled)["view"]["complete"], true, "{filled}");
+
+    let other = finished("B -o A, B |- A", "intuitionistic");
+    let refused = failure(&calls::fill(&target, 0, &other, "").unwrap_err());
+    assert_eq!(refused["code"], "sequent_mismatch", "{refused}");
+    // Every formula of the one differs from every formula of the other.
+    let side = |key: &str| refused["details"][key].as_array().unwrap().len();
+    assert_eq!((side("proof"), side("goal")), (3, 3), "{refused}");
+    let open = session(&calls::start("A |- A", "classical", "").unwrap());
+    let refused = failure(&calls::fill(&target, 0, &open, "").unwrap_err());
+    assert_eq!(refused["code"], "open_goals", "{refused}");
+
+    let classical = session(&calls::start("|- A, ~A, B, ~B", "classical", "").unwrap());
+    let mixed = finished("|- B, ~B, A, ~A", "mix");
+    let refused = failure(&calls::fill(&classical, 0, &mixed, "").unwrap_err());
+    assert_eq!(refused["code"], "invalid_proof", "{refused}");
+}
