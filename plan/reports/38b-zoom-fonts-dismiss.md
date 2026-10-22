@@ -11,6 +11,7 @@
 | 4. More complex provable practice problems (the supervisor's addition) | done | the client's `wpspsroq`: 21 problems, 14 provable at difficulty 3, two per lesson from the second, each with a near miss that is not provable; `practice-decided.txt` (21 `linlog prove` outputs, 14 `linlog interact` sessions with `proof` exit 0); Vitest `give every lesson from the second at least two provable problems at the hardest difficulty` and the per-example verdict and session tests |
 | 5. The tab chip's spacing (the supervisor's addition) | done | the client's `vlktpknq`; the screenshots `01-chip` and `01-chip-closeup` at both widths in both themes |
 | 7. Every copyright and copyleft obligation respected (the supervisor's addition; there is no item 6, New Computer Modern going under item 2 as asked) | done | "The licences", the table below; fixed: STIX Two's OFL text verbatim (`vurxrnok`), New Computer Modern's clause 6 notice, the client's check that every served font is linlog's file unmodified (`okxuulsz`), the creator named in the CC BY notice (`pusswryq`) |
+| 8. The stage's font, a setting among the same five, Euler Math the default; the exports' font following it (the supervisor's addition) | done | the client's commit of item 8; Playwright `Settings sets the formulas' font: …`; `/home/tux/Projects/own/linlog-step38b-screenshots/stage-fonts/{desktop,phone}-light-stage-{euler,stix-two,garamond,asana,new-computer-modern}.png`; the targets test and the token check pass with it |
 | Before-and-after screenshots; the reviewer's findings answered | see below | `/home/tux/Projects/own/linlog-step38b-screenshots/before/` and `after/` (11 scenes at two widths in two themes, the chip close-ups); "The review" |
 | linlog's part gated, its `nix flake check` passed, "linlog ready" sent | see "Verification" | |
 | The client's lock on the commit the supervisor answered with; its `nix flake check` at its last commit | see "Verification" | |
@@ -189,6 +190,29 @@ tab's calculus mark stands apart from the sequent.
   a lesson's end would break. Lesson 1 (the axiom and negation) has no
   harder provable problem that is not a later lesson's.
 
+- **The stage's font** (item 8, the author's request after the first
+  seven): Settings has "Font of the formulas", five native radios in the
+  grammar of the engine choice, saved in `linlog-settings` as
+  `stageFont`. The stage's drawing asks linlog for it
+  (`styles.svg.font`), so it is laid out in its advances; the page sets
+  `--font-math` to it (`:root[data-math-font]`, a token per font), so
+  every formula of the page follows: the formulas' buttons, the dock,
+  the popovers, Learn's and the **tab's sequent too** (one font for the
+  logic everywhere, as Euler Math was). The font's file is fetched and
+  added to the document when it is chosen and not before; the service
+  worker no longer caches the four other math fonts at install but when
+  first fetched (`LATER`), so a visitor who never chooses one never
+  downloads it, and one chosen once works offline. **The exports'
+  font** is `font: MathFont | null`, null following the stage's; a pick
+  in the export menu is kept (it is a setting like the others), and
+  picking the stage's font there makes it follow the stage again. The
+  sizes, all fit for a phone: Euler Math 438 KB and Asana Math 436 KB,
+  Garamond-Math 824 KB and STIX Two Math 839 KB, New Computer Modern
+  Math 1 316 KB, about 2.2, 4.1, 4.2 and 6.6 seconds at a slow 4G's 1.6
+  Mbit/s, once; until it arrives the drawing is shown in a fallback
+  serif at the right widths (`textLength`), so nothing waits on it.
+  (departs from the design: D53, at the author's request)
+
 ## Judgement calls
 
 1. The near misses (seven unprovable problems) were added beside the
@@ -290,6 +314,31 @@ otherwise:
    test `net_edges_clear_the_font_s_descenders` pins all four. The
    compact drawing's edges start 100 below a literal in every font, as
    they always did (a follow-up, below).
+
+The supervisor then asked the same reviewer, in the same round, to judge
+New Computer Modern Math and the licence table; it reported four more:
+
+5. The export check's store path for New Computer Modern held the font
+   alone, one file of an LPPL work without its notice, and CI pushes
+   check dependencies to the public cache. **Holds**: the path now holds
+   `NewCMMath-Book-LICENSE.txt` beside the font (`syrwpuww`).
+6. The `test-*` checks keep crane's target directory, so their outputs
+   hold the command's test binaries, every font inside, without the
+   licences, and CI pushes them. **Holds** (older than this step, Euler
+   Math's case too): `doInstallCargoArtifacts = false` for both, as
+   every other check of the flake has (`syrwpuww`).
+7. The table's LPPL row cited clauses 1 and 11 for embedding, which
+   cover running the font but not handing on a PDF that embeds part of
+   it; README said documents made with the fonts are outside their
+   licence. **Holds**: the row and README now say that the OFL frees
+   documents and the LPPL makes no exception, and that linlog
+   distributes no such PDF.
+8. The table missed the GitHub release's `.crate` files. **Holds**, and
+   the obligation is met there (they carry `fonts/*.txt`): a row added.
+
+It found New Computer Modern holding on every point (advances, glyphs,
+depth 250, bounds, the export check's file, the notice against LPPL
+clause 6, the texts verbatim) and the rest of the table holding.
 
 ## Verification
 
