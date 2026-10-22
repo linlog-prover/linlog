@@ -9,13 +9,14 @@
 | 2'. The font chosen in the client's export, with a test; one PNG and one PDF per font | done | the client's `wrlrwoum` and `okxuulsz`; Playwright `the export menu chooses the font of the SVG, PNG and PDF, …`; `/home/tux/Projects/own/linlog-step38b-screenshots/exports/{euler,stix-two,garamond,asana,new-computer-modern}.{png,pdf}`, each PDF embedding its font alone (`pdffonts`) |
 | 3. Light dismiss at both widths | done | the client's `xqyzqkpw`; `tests/dismiss.spec.ts`, a desktop test and a phone test, passing |
 | 4. More complex provable practice problems (the supervisor's addition) | done | the client's `wpspsroq`: 21 problems, 14 provable at difficulty 3, two per lesson from the second, each with a near miss that is not provable; `practice-decided.txt` (21 `linlog prove` outputs, 14 `linlog interact` sessions with `proof` exit 0); Vitest `give every lesson from the second at least two provable problems at the hardest difficulty` and the per-example verdict and session tests |
-| 5. The tab chip's spacing (the supervisor's addition) | done | the client's `vlktpknq`; the screenshots `01-chip` and `01-chip-closeup` at both widths in both themes |
+| 5. The tab chip's spacing (the supervisor's addition) | done | the client's `vlktpknq`; `tests/chip.spec.ts` (`xmoymlwt`): the gaps measured on the text (16 and 8 pixels at least), and the phone's tab and `+` inside the row, at both widths; it fails on `main`'s site (a gap of 10) and passes here; the screenshots `01-chip` and `01-chip-closeup` at both widths in both themes |
+| 6. (none) | — | the supervisor's numbering has no item 6: New Computer Modern Math went under item 2, as asked |
 | 7. Every copyright and copyleft obligation respected (the supervisor's addition; there is no item 6, New Computer Modern going under item 2 as asked) | done | "The licences", the table below; fixed: STIX Two's OFL text verbatim (`vurxrnok`), New Computer Modern's clause 6 notice, the client's check that every served font is linlog's file unmodified (`okxuulsz`), the creator named in the CC BY notice (`pusswryq`) |
 | 8. The stage's font, a setting among the same five, Euler Math the default; the exports' font following it (the supervisor's addition) | done | the client's commit of item 8; Playwright `Settings sets the formulas' font: …`; `/home/tux/Projects/own/linlog-step38b-screenshots/stage-fonts/{desktop,phone}-light-stage-{euler,stix-two,garamond,asana,new-computer-modern}.png`; the targets test and the token check pass with it |
 | 9. Moving work between tabs (the supervisor's addition): (a) a goal opened in a new tab, which remembers where it came from; (b) a goal filled from another tab's finished proof, linlog's new call carrying the proof over | done | linlog's `qsoqwtqp` (`Proof::onto`, `Error::SequentMismatch`, `Interactive::fill`, the bindings' `fill`; `fill_carries_a_proof_of_an_equal_sequent` and `a_goal_is_filled_from_another_session`, a refusal for each way it fails); the client's `zlwkpvtr`; Playwright `a goal opens in a new tab …` and `a goal is filled from another tab's finished proof …`; screenshots `11-goal-dock` to `14-filled`, before and after |
 | Before-and-after screenshots; the reviewer's findings answered | see below | `/home/tux/Projects/own/linlog-step38b-screenshots/before/` and `after/` (11 scenes at two widths in two themes, the chip close-ups); "The review" |
-| linlog's part gated, its `nix flake check` passed, "linlog ready" sent | see "Verification" | |
-| The client's lock on the commit the supervisor answered with; its `nix flake check` at its last commit | see "Verification" | |
+| linlog's part gated, its `nix flake check` passed, "linlog ready" sent | done | "linlog ready" sent after gate and `nix flake check` exit 0 at `tzpvrrut`; the supervisor rebased the chain onto `zvktswqy`, added `wvxvwrwo` and `qmopnnvu`, and pushed `main` at `qmopnnvu` (bf80f7e4), gate and check passing there |
+| The client's lock on the commit the supervisor answered with; its `nix flake check` at its last commit | done | `zvywrmku`, the lock's `linlog` at `bf80f7e48b1192f78b5fc7d58c14a2aef363f553`; the client's `nix flake check` passed (exit 0, "all checks passed!") at its last commit `xmoymlwt` (e507ebe7): Vitest 114 (`examples.test.ts` 76 among them), Playwright 61, the tests of items 1, 3, 5, 8, 9 (a) and 9 (b) and the fonts' among them |
 
 ## Outcome
 
@@ -386,9 +387,16 @@ clause 6, the texts verbatim) and the rest of the table holding.
 ## Verification
 
 - linlog, last: `gate` and `nix flake check` passed (exit 0) at
-  `qsoqwtqp` (207468e1, `fill`), and before it at `wttllvpx` (e54211a6)
-  and `umzuqsrr` (d548ae5c); the report's own commit is checked again,
-  its exit status in the message to `linlog-ef`.
+  `qsoqwtqp` (207468e1 before the rebase, `fill`), and before it at
+  `wttllvpx` and `umzuqsrr`; `nix flake check` passed (exit 0) at
+  `tzpvrrut`, the report's commit, after which "linlog ready" went to
+  `linlog-ef`. The supervisor rebased the chain onto `zvktswqy` and added
+  `wvxvwrwo` (`MathFont::ALL` a slice, `SequentMismatch`
+  non-exhaustive, `MathFont` in `core.md`'s list) and `qmopnnvu`
+  (`Proof::onto` matches through buckets keyed by the written formula
+  before `alike` decides, instead of comparing every pair with no poll),
+  gate and check passing at `qmopnnvu` (bf80f7e4), `main`. This report's
+  last commit sits on it, its check's exit status in the last message.
 - linlog, first: `gate` passed (exit 0) at `zupynzoz` (a first run failed on
   the behaviour lock's `--help` files, blessed in a commit of its own,
   and a second on the ratchet's `render-svg`, +2.11 %, fixed at its
@@ -409,6 +417,17 @@ clause 6, the texts verbatim) and the rest of the table holding.
   both widths) and item 9's two; the `licences` check on the build exit
   0. One test changed for behaviour changed on purpose: About lists 10
   licences, not 6 (`learn.spec.ts`).
+- The client's `nix flake check` at its last commit `xmoymlwt`
+  (e507ebe7), the lock on linlog's `main` bf80f7e4: exit 0, Vitest 114,
+  Playwright 61.
+- The client's `nix flake check` against this workspace (a preview, no
+  lock committed) failed once in the phone's dismiss test, which the dev
+  shell passed: a sheet slides in, and measured while it moved the press
+  landed on its title whenever the run was fast (CI's mode, no trace).
+  Fixed in the test's aim, not its assertions (`uqwwwvnq`): it measures
+  once no animation runs, and a sheet starting at or above the stage's
+  top covers it there; three CI-mode runs then passed, and the preview
+  check passed (exit 0).
 - Chromium zooms the page from two dispatched touch points spread from
   20 to 100 pixels either side, not from 20 to 60, and CDP's
   `Input.synthesizePinchGesture` zoomed nothing here; the test uses the
@@ -425,7 +444,9 @@ clause 6, the texts verbatim) and the rest of the table holding.
 
 ## Repositories and workspaces
 
-- linlog: `../linlog-step38b`, on `zxxqmxmx`: `tvrwrqsp` (the fonts),
+- linlog: `../linlog-step38b`, rebased by the supervisor onto
+  `zvktswqy` and pushed as `main` (`qmopnnvu`, bf80f7e4) with its two
+  commits; this report's last commit on top. The chain: `tvrwrqsp` (the fonts),
   `zupynzoz` (the lock blessed), `qzxqzvqk` (the descenders), `lysrossv`
   (this report), `ormuvkok` (New Computer Modern), `spxtytpy` (its
   lock), `vurxrnok` (STIX Two's licence verbatim), `umzuqsrr` (the
@@ -438,7 +459,8 @@ clause 6, the texts verbatim) and the rest of the table holding.
   `okxuulsz` (New Computer Modern, the fonts checked unmodified),
   `pusswryq` (the CC BY notice's creator), `qvzwknlo` (the stage's font),
   `rmvmsmxo` (the zoom floor after a step), `zlwkpvtr` (moving work
-  between tabs), and the lock's move to linlog's `main`.
+  between tabs), `uqwwwvnq` (the dismiss test's aim), `zvywrmku` (the
+  lock on linlog's `main`, bf80f7e4) and `xmoymlwt` (item 5's test).
 - The client: `/home/tux/Projects/own/linlog-prover.github.io`, its
   commits above `yxtvvlsm` (`main`), local, nothing pushed.
 - Screenshots, exports and scripts:
