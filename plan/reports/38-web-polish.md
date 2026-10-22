@@ -16,7 +16,7 @@
 | 9. Practice along D60, graded, interleaved, decided by the command, sessions saved | done | 52 sequents in 8 lessons; `practice-decided.txt` (52 `linlog prove` outputs, 29 `linlog interact` sessions with `proof` exit 0); Vitest `examples.test.ts` (each verdict and session, and the interleaving); Playwright `practice is grouped by lesson, …` |
 | 10. The sweep | done | fixes and judgement calls below |
 | Before-and-after screenshots, the reviewers' findings answered | done | `/home/tux/Projects/own/linlog-step38-screenshots/` (`before/`, `after/`, 76 each, the after set at `vkyvntpx`); two reviews, 18 and 14 findings, "The review" |
-| The client's `nix flake check` at its last commit | passed | exit 0 at `qyqttzwz` (3efb3aa3), under the machine lock, "all checks passed!" (and before at `vkyvntpx`, 9f6406ed, `qmxurvqt`, 626c42a4, and `zpyotloq`, 57167ab6) |
+| The client's `nix flake check` at its last commit | passed | exit 0 at `uxlxrmnr` (b05bfd2a), under the machine lock, "all checks passed!", its e2e log listing both touch-target tests among 49 passed (and before at `qyqttzwz`, 3efb3aa3, `vkyvntpx`, 9f6406ed, `qmxurvqt`, 626c42a4, and `zpyotloq`, 57167ab6) |
 | Any change of linlog gated | no change of linlog's code; this report and `plan/later.md` only | `nix flake check` exit 0 at `ruzzorqu` (d0b350ec), the report's commit as the supervisor rebased it onto `tvuzzowm`; run again at this section's commit, its exit status in the message to `linlog-ef` |
 
 ## Outcome
@@ -53,6 +53,7 @@ The client's commits, on its `main` (`pnrwuykw`):
 | `qmxurvqt` | each engine cited by a work read in itself (above) |
 | `vkyvntpx` | the second review's answers (below) |
 | `qyqttzwz` | the classical refuter cited by the Handbook of linear logic's skeleton theorem |
+| `uxlxrmnr` | the Handbook's own sentence on valid classical formulas quoted in the reference |
 
 ## Decisions
 
@@ -133,7 +134,7 @@ check found short of "read in its source".
 | its backward search | Abdulla, Čerāns, Jonsson, Tsay 1996, LICS 313–321 | the paper's extended abstract: "The reachability problem is solved by a backwards reachability analysis", upward-closed sets kept by their minimal states |
 | inverse method | Chaudhuri and Pfenning 2005, CSL, LNCS 3634, 200–215, doi:10.1007/11538363_15 | the paper (CMU copy): "we construct a form of focused derivations for propositional linear logic that is appropriate for forward reasoning in the inverse method" |
 | additive path (Whitman's conditions) | Day 1970, A simple solution to the word problem for lattices, Canad. Math. Bull. 13(2) 253–254, doi:10.4153/cmb-1970-051-0 | the paper: "Whitman [2] solved the word problem for lattices", with the conditions (W1) to (W4). That the additive path decides this order is this session's reading |
-| classical refuter | the LLHandbook project, Handbook of linear logic (public draft of 6 March 2026), https://ll-handbook.pages.math.cnrs.fr/book/ll-handbook-public.pdf | §1.8, the skeleton (⊗ and & as ∧, ⅋ and ⊕ as ∨, the exponentials erased): "Theorem 1.8.1 (Skeleton). Given a (two-sided) proof π of the sequent Γ ⊢ ∆, there exists a classical proof (see Table 1.7) of sk(Γ) ⊢ sk(∆)". An earlier version cited Ferreira, Oliva and Protin (arXiv:2409.02249), whose forgetful map is stated for the intuitionistic case only; replaced in the client's `qyqttzwz` |
+| classical refuter | the LLHandbook project, Handbook of linear logic (public draft of 6 March 2026), https://ll-handbook.pages.math.cnrs.fr/book/ll-handbook-public.pdf | §1.1: "mapping ⊗ and & to ∧ and ⅋ and ⊕ to ∨ turns linear provable formulas into valid classical formulas (see Section 1.8)", that is, true under every assignment, so a sequent false under one has no proof; §1.8, the skeleton (the exponentials erased): "Theorem 1.8.1 (Skeleton). Given a (two-sided) proof π of the sequent Γ ⊢ ∆, there exists a classical proof (see Table 1.7) of sk(Γ) ⊢ sk(∆)". An earlier version cited Ferreira, Oliva and Protin (arXiv:2409.02249), whose forgetful map is stated for the intuitionistic case only; replaced in the client's `qyqttzwz` |
 
 The sub-agent disclosed that, in its second round, it sent the author's
 e-mail address to the Unpaywall API, which asks for one as a parameter;
@@ -329,10 +330,10 @@ two-sided switch, the engine beside the note, the hint and the graft
 
 ## Verification
 
-- Vitest: 92 tests passed at `qyqttzwz` (the token check, the saturation's verdict
+- Vitest: 92 tests passed at `uxlxrmnr` (the token check, the saturation's verdict
   with the real module, the 52 examples and their sessions, the
   interleaving).
-- Playwright: 49 tests passed against the built site at `qyqttzwz` (5 new in
+- Playwright: 49 tests passed against the built site at `uxlxrmnr` (5 new in
   `tests/engines.spec.ts`, 2 in `tests/targets.spec.ts`; four changed
   for behaviour this step changes on purpose: the two-sided switch, the
   step list's engine, and practice by lesson in `learn.spec.ts` and
@@ -342,7 +343,7 @@ two-sided switch, the engine beside the note, the hint and the graft
   `lint` check (three Biome findings: `role="radio"` for which native
   radios are meant, and an export from a test file); fixed at their
   cause in `upzpwtwt`, where the check then passed (exit 0).
-- The client's `nix flake check`: exit 0 at `qyqttzwz` (3efb3aa3), its
+- The client's `nix flake check`: exit 0 at `uxlxrmnr` (b05bfd2a), its
   last commit.
 - The practice set: `/home/tux/Projects/own/linlog-step38-screenshots/practice-decided.txt`
   holds each `linlog prove --timeout 10s` output (linlog at `trzqnvtx`,
