@@ -13,9 +13,9 @@ To obtain additional mathematical fonts, please contact
     68-30 Harrow Street,
     Forest Hills, NY 11375,
     USA
-    Phone: (718) 575-1816.
+    Phone: (718) 575-1816.  
 
-Portions copyright © 1990 by Elsevier, Inc.
+Portions copyright © 1990 by Elsevier, Inc.  
 
 Portions copyright © 2010, 2012, 2014 Adobe Systems Incorporated.
 
@@ -36,7 +36,7 @@ with others.
 
 The OFL allows the licensed fonts to be used, studied, modified and
 redistributed freely as long as they are not sold by themselves. The
-fonts, including any derivative works, can be bundled, embedded,
+fonts, including any derivative works, can be bundled, embedded, 
 redistributed and/or sold with any software provided that any reserved
 names are not used by derivative works. The fonts and derivatives,
 however, cannot be released under any other type of license. The
