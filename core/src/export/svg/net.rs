@@ -450,9 +450,11 @@ pub(super) fn draw(
             baseline - AXIS + layer[o.index()] * line_height,
         ),
     };
-    // Where a premise edge ends under a written formula.
+    // Where a premise edge ends under a written formula, clear of its
+    // descenders.
+    let depth = style.font.advances.depth();
     let foot = |o: OccId| match formulas {
-        true => (x[o.index()], text_y(o) + DEPTH),
+        true => (x[o.index()], text_y(o) + depth),
         false => (x[o.index()], text_y(o) + FOOT),
     };
 

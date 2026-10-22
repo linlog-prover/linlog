@@ -19,7 +19,7 @@
 ))]
 
 use linlog::export::rocq::{self, Kernel, Unsupported};
-use linlog::export::svg::{self, NetDrawing, Style};
+use linlog::export::svg::{self, MathFont, NetDrawing, Style};
 use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
@@ -602,6 +602,41 @@ fn lambek() {
         "lambek-net.svg",
         &svg::net(&net, &style, &unbounded(), |_| false).unwrap(),
     );
+}
+
+/// A net's premise edges start below the deepest descender of the
+/// drawing's math font (measured in each font's file), so that no edge
+/// runs into a `g` written above it; Euler Math's start where they did.
+#[test]
+fn net_edges_clear_the_font_s_descenders() {
+    let net = ProofStructure::from_proof(
+        &proof("|- g par ~g", Mode::CLASSICAL),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    )
+    .unwrap();
+    for (font, descender) in [
+        (MathFont::Euler, 210),
+        (MathFont::StixTwo, 235),
+        (MathFont::Garamond, 290),
+        (MathFont::Asana, 286),
+    ] {
+        let style = Style::default().with_font(font.font());
+        let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
+        // The literal `g` on the top layer, and where the edges below it end.
+        let number = |text: &str| text.parse::<i64>().unwrap();
+        let literal = drawing.split("id=\"o1\"").next().unwrap();
+        let baseline = number(literal.rsplit("y=\"").next().unwrap().split('"').next().unwrap());
+        let feet: Vec<i64> = drawing
+            .split("<path d=\"M")
+            .skip(1)
+            .filter_map(|path| path.split('"').next()?.split_once('L'))
+            .map(|(_, end)| number(end.split(' ').nth(1).unwrap()))
+            .collect();
+        assert!(!feet.is_empty(), "{drawing}");
+        assert_eq!(feet.iter().min().unwrap() - baseline, descender, "{font:?}");
+    }
 }
 
 /// Proof nets are pinned as SVG: a net whose links cross, drawn with its

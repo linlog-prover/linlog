@@ -252,7 +252,14 @@ for NanoYalla. What the code relies on:
   `DEPTH` 210; the axis is 258, 250 and 271 against 250 (a fifth of a
   pixel at 16 px); the deepest descender of the table is 235, 290 and
   286 (Euler's own `q` 243), inside `DEPTH` plus the margin (300).
-  Making them a font's would change Euler's output.
+  Making them a font's would change Euler's output. One place takes a
+  font's own depth: a net drawn with its formulas starts a premise edge
+  under its formula at `Advances::depth` (the deepest descender of the
+  table: 235, 290, 286), not `DEPTH`, so that no edge runs into a `g`;
+  Euler Math and a caller's font keep `DEPTH`, so their drawings stay
+  as they were (`net_edges_clear_the_font_s_descenders`). The compact
+  drawing's `FOOT` (100 below a literal's baseline) meets every font's
+  descenders, Euler's too, as it always did.
 - **SVG** (`export/svg/`): a third table (`NOTATION`, with the atom
   letters as mathematical italic codepoints, which a math font sets as
   math italic, and `\u{1}` standing for the raised `⊥`; `PLAIN` for the

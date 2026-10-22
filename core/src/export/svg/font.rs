@@ -222,6 +222,23 @@ impl Advances {
         Self::Table { table, fallback }
     }
 
+    /// Returns how far below the baseline the lowest character of the
+    /// table reaches, in thousandths of an em, where an edge under a
+    /// written formula may begin: [`DEPTH`] for Euler Math and a font of
+    /// the caller's, so that their drawings stay as they were (Euler
+    /// Math's `q` reaches 243), and for the other math fonts their deepest
+    /// descender, measured in each file (fontTools' bounds of every glyph
+    /// of the table): STIX Two Math's `g` 235, Garamond-Math's `g` 290,
+    /// Asana Math's `μ` 286.
+    pub(super) const fn depth(&self) -> i64 {
+        match self {
+            Self::StixTwo => 235,
+            Self::Garamond => 290,
+            Self::Asana => 286,
+            Self::Euler | Self::Fixed(_) | Self::Table { .. } => DEPTH,
+        }
+    }
+
     /// Returns the advance of a character, in thousandths of an em.
     pub fn advance(&self, c: char) -> u32 {
         match self {
