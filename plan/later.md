@@ -834,6 +834,10 @@ steps (it becomes step 38). What it fixes:
   40b's open point); Enter in the sequent field dropped silently while
   another action runs (step 32c's follow-up).
 
+*Done in step 38 (2026-10-22, `plan/reports/38-web-polish.md`)*, with
+the engine choice in Settings built; the essential net's green and the
+other judgement calls of the sweep are in the report, for the author.
+
 ## Follow-ups: the web client
 
 From the review of step 32b (2026-10-19):
@@ -867,11 +871,35 @@ Left by session 32c (2026-10-19):
   (the client, unassigned): one action that changes a proof runs at a
   time (32b's answer to its review), and a sequent submitted meanwhile,
   while the module still loads on a slow machine for one, is dropped
-  without a word; it could wait for the running action instead.
+  without a word; it could wait for the running action instead. *Done in
+  step 38: it waits.*
 - **`linlog interact` prints a stray comma** (the command, unassigned):
   a two-sided goal whose first hypothesis is not at position 0 prints as
   `goal 2:, 1: A ⊢ 0: A` (`A -o B, B -o C |- A -o C` in `-i` after
   `apply 0 2 ⊸R`, `apply 1 0 ⊸L 2`).
+
+Left by step 38 (2026-10-22, `plan/reports/38-web-polish.md`):
+
+- **The inverse method's turns rarely come in a tab** (the bindings or
+  the dispatch, unassigned): the tab's recursion limit (384) ends the
+  two-sided engine on an intuitionistic goal with `!` long before the
+  head start of 2²⁴ units (`!(a -o a * a * a), a |- a * (a + 0)`:
+  unknown at the recursion limit after 404 262 units, where the command
+  refutes it by saturation at 16.8 million; of the ten goals with a
+  copying clause that the session tried at the tab's settings, six ended
+  so and four were refuted by a turn), and on the page those stay unknown. A turn
+  before a recursion limit stops the engine, or a head start measured
+  against the tab's limits, would bring them to the page.
+- **A bindings call for the engines that take a sequent** (the
+  bindings, unassigned): the page asks `prove` forced to each engine
+  with a budget of one unit, which refuses before searching where the
+  engine does not take the sequent; a call over `search::engine_for`
+  would ask once per engine without starting a search. Written and
+  tested in step 38 and set aside, since the client's lock names only
+  linlog's `main`.
+- **The parser reads no `a⊥`** stays (above).
+- **The judgement calls of step 38's sweep** (the author): in the
+  report, "Judgement calls".
 
 ## Follow-ups: the focused engine
 
