@@ -102,6 +102,10 @@ impl Run<'_> {
     }
 
     /// Takes the counts of a split with no member from the pool.
+    #[expect(
+        clippy::unnecessary_box_returns,
+        reason = "a split search's frame holds its counts, and the box keeps that frame a pointer wide on every level of the recursion"
+    )]
     pub(super) fn take_split(&mut self) -> Box<Split> {
         match self.pools.splits.pop() {
             Some(mut split) => {

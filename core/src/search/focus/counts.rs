@@ -103,14 +103,10 @@ pub(crate) struct Counts {
     /// `n` lies between the entries `n − 1 − o` and `n − o`. Every bound
     /// fits a `u32`: a set-up whose rows have more entries is refused.
     bound: Box<[u32]>,
-    /// The rank of each row entry's atom.
-    rank: Box<[Rank]>,
-    /// The least balance of each row entry's atom. A sum of ±1 over the
-    /// literals below an occurrence, of which a forest that gets counts has
-    /// fewer than 2³¹: within an `i32`.
-    lo: Box<[i32]>,
-    /// The greatest balance of each row entry's atom, bounded as the least.
-    hi: Box<[i32]>,
+    /// The row entries, one after another. A balance is a sum of ±1 over
+    /// the literals below an occurrence, of which a forest that gets counts
+    /// has fewer than 2³¹: within an `i32`.
+    entries: Box<[RowEntry]>,
     /// Per occurrence, whether a `⊤` lies at or below it.
     absorbs: Box<[bool]>,
     /// Per occurrence, `t − p − u + b` over its subtree: at most its
@@ -168,34 +164,24 @@ pub(crate) struct RowEntry {
 /// The rows of the occurrences computed so far, one after another.
 #[derive(Default)]
 struct Rows {
-    /// The rank of each entry's atom.
-    rank: Vec<Rank>,
-    /// The least balance of each entry.
-    lo: Vec<i32>,
-    /// The greatest balance of each entry.
-    hi: Vec<i32>,
+    /// The entries.
+    entries: Vec<RowEntry>,
 }
 
 impl Rows {
     /// The entry at a place.
     fn at(&self, i: usize) -> RowEntry {
-        RowEntry {
-            rank: self.rank[i],
-            lo: self.lo[i],
-            hi: self.hi[i],
-        }
+        self.entries[i]
     }
 
     /// Appends an entry.
     fn push(&mut self, e: RowEntry) {
-        self.rank.push(e.rank);
-        self.lo.push(e.lo);
-        self.hi.push(e.hi);
+        self.entries.push(e);
     }
 
-    /// The bytes the entries' allocations take.
+    /// The bytes the entries' allocation takes.
     fn bytes(&self) -> usize {
-        bytes_of(&self.rank) + bytes_of(&self.lo) + bytes_of(&self.hi)
+        bytes_of(&self.entries)
     }
 
     /// Appends the merge of two rows that lie among the entries, each
@@ -207,18 +193,18 @@ impl Rows {
         let zero = |rank| RowEntry { rank, lo: 0, hi: 0 };
         while i < a.end || j < b.end {
             let (x, y) = match (i < a.end, j < b.end) {
-                (true, true) if self.rank[i] == self.rank[j] => {
+                (true, true) if self.at(i).rank == self.at(j).rank => {
                     i += 1;
                     j += 1;
                     (self.at(i - 1), self.at(j - 1))
                 }
-                (true, other) if !other || self.rank[i] < self.rank[j] => {
+                (true, other) if !other || self.at(i).rank < self.at(j).rank => {
                     i += 1;
-                    (self.at(i - 1), zero(self.rank[i - 1]))
+                    (self.at(i - 1), zero(self.at(i - 1).rank))
                 }
                 _ => {
                     j += 1;
-                    (zero(self.rank[j - 1]), self.at(j - 1))
+                    (zero(self.at(j - 1).rank), self.at(j - 1))
                 }
             };
             self.push(RowEntry {
@@ -436,7 +422,7 @@ impl Counts {
                     (absorb, w)
                 }
             };
-            let Ok(end) = u32::try_from(rows.rank.len()) else {
+            let Ok(end) = u32::try_from(rows.entries.len()) else {
                 return Err(Reason::IndexLimit);
             };
             bound.push(end);
@@ -474,9 +460,7 @@ impl Counts {
         }
         let counts = Self {
             bound: bound.into_boxed_slice(),
-            rank: rows.rank.into_boxed_slice(),
-            lo: rows.lo.into_boxed_slice(),
-            hi: rows.hi.into_boxed_slice(),
+            entries: rows.entries.into_boxed_slice(),
             absorbs: absorbs.into_boxed_slice(),
             weight: weight.into_boxed_slice(),
             row_atoms,
@@ -487,10 +471,7 @@ impl Counts {
             forced: forced.into_boxed_slice(),
             positive,
         };
-        account.resize(
-            charged,
-            counts.rank.len() * (size_of::<Rank>() + 2 * size_of::<i32>()),
-        );
+        account.resize(charged, counts.entries.len() * size_of::<RowEntry>());
         Ok(counts)
     }
 
@@ -524,11 +505,7 @@ impl Counts {
     /// below it, in ascending atom order. Empty when the occurrence absorbs.
     pub(crate) fn row(&self, o: OccId) -> impl Iterator<Item = RowEntry> + '_ {
         let (start, end) = self.span(o);
-        (start..end).map(move |i| RowEntry {
-            rank: self.rank[i],
-            lo: self.lo[i],
-            hi: self.hi[i],
-        })
+        self.entries[start..end].iter().copied()
     }
 
     /// Returns whether a `⊤` lies at or below the occurrence, so that any
@@ -557,7 +534,7 @@ impl Counts {
         if start == end {
             u32::MAX
         } else {
-            self.rank[start].0
+            self.entries[start].rank.0
         }
     }
 
@@ -569,21 +546,18 @@ impl Counts {
 
     /// Returns the bytes a [`Tally`] of this forest allocates.
     pub(crate) fn tally_bytes(&self) -> usize {
-        2 * self.row_atoms * size_of::<i32>()
+        self.row_atoms * size_of::<Sum>()
     }
 
     /// Returns the bytes the counts of a [`Split`] of this forest take.
     pub(crate) fn split_bytes(&self) -> usize {
-        size_of::<Split>() + 6 * self.row_atoms * size_of::<i32>()
+        size_of::<Split>() + self.row_atoms * size_of::<Column>()
     }
 
     /// Returns the counts of a split with no member yet.
     pub(crate) fn split(&self) -> Split {
         Split {
-            lo: [vec![0; self.row_atoms], vec![0; self.row_atoms]],
-            hi: [vec![0; self.row_atoms], vec![0; self.row_atoms]],
-            below: vec![0; self.row_atoms],
-            above: vec![0; self.row_atoms],
+            columns: vec![Column::default(); self.row_atoms],
             bad: [0; 2],
             absorbers: [0; 2],
             open_absorbers: 0,
@@ -631,8 +605,7 @@ impl Counts {
     /// Returns an empty tally, a column per atom that has rows.
     pub(crate) fn tally(&self) -> Tally {
         Tally {
-            lo: vec![0; self.row_atoms],
-            hi: vec![0; self.row_atoms],
+            sums: vec![Sum::default(); self.row_atoms],
             touched: Vec::new(),
             bad: 0,
             absorbers: 0,
@@ -648,10 +621,8 @@ impl Counts {
 /// added and removed one at a time, at the cost of their row.
 #[derive(Clone, Debug)]
 pub(crate) struct Tally {
-    /// Per atom, the summed least balance.
-    lo: Vec<i32>,
-    /// Per atom, the summed greatest balance.
-    hi: Vec<i32>,
+    /// Per atom, the summed interval.
+    sums: Vec<Sum>,
     /// The atoms whose sums a row found at zero since the tally was last
     /// cleared: the only atoms whose sums can be other than zero, each
     /// listed again only after a row left its sums at zero. An atom listed
@@ -673,8 +644,7 @@ impl Tally {
     /// last time and not of the sequent's atoms.
     pub(crate) fn clear(&mut self) {
         for a in self.touched.drain(..) {
-            self.lo[a as usize] = 0;
-            self.hi[a as usize] = 0;
+            self.sums[a as usize] = Sum::default();
         }
         self.bad = 0;
         self.absorbers = 0;
@@ -709,13 +679,14 @@ impl Tally {
     fn apply_as<const PLAIN: bool>(&mut self, counts: &Counts, o: OccId, sign: i32) {
         for e in counts.row(o) {
             let a = e.rank.index();
-            if self.lo[a] == 0 && self.hi[a] == 0 {
+            let sum = &mut self.sums[a];
+            if *sum == Sum::default() {
                 self.touched.push(a as u32);
             }
-            let was_bad = counts.excluded_as::<PLAIN>(a, self.lo[a], self.hi[a]);
-            self.lo[a] += sign * e.lo;
-            self.hi[a] += sign * e.hi;
-            let is_bad = counts.excluded_as::<PLAIN>(a, self.lo[a], self.hi[a]);
+            let was_bad = counts.excluded_as::<PLAIN>(a, sum.lo, sum.hi);
+            sum.lo += sign * e.lo;
+            sum.hi += sign * e.hi;
+            let is_bad = counts.excluded_as::<PLAIN>(a, sum.lo, sum.hi);
             if is_bad && !was_bad {
                 self.bad += 1;
             } else if was_bad && !is_bad {
@@ -740,12 +711,12 @@ impl Tally {
             .touched
             .iter()
             .map(|&a| a as usize)
-            .filter(|&a| counts.excluded(a, self.lo[a], self.hi[a]))
+            .filter(|&a| counts.excluded(a, self.sums[a].lo, self.sums[a].hi))
             .min()?;
         Some((
             counts.ranked[rank],
-            self.lo[rank],
-            self.hi[rank],
+            self.sums[rank].lo,
+            self.sums[rank].hi,
             counts.copied[rank],
         ))
     }
@@ -798,16 +769,8 @@ impl Tally {
 /// necessary conditions, never sufficient.
 #[derive(Clone, Debug)]
 pub(crate) struct Split {
-    /// Per side and atom, the summed least balance of the side's members.
-    lo: [Vec<i32>; 2],
-    /// Per side and atom, the summed greatest balance of the side's members.
-    hi: [Vec<i32>; 2],
-    /// Per atom, the sum of the negative least balances of the open
-    /// members: the most they can lower a side's least balance.
-    below: Vec<i32>,
-    /// Per atom, the sum of the positive greatest balances of the open
-    /// members: the most they can raise a side's greatest balance.
-    above: Vec<i32>,
+    /// Per atom, the sides' sums and what the open members can add.
+    columns: Vec<Column>,
     /// Per side, the number of atoms whose interval excludes zero whatever
     /// the open members do.
     bad: [u32; 2],
@@ -832,19 +795,67 @@ pub(crate) struct Split {
     touched: Vec<u32>,
 }
 
+/// An atom's summed interval in a [`Tally`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Sum {
+    /// The summed least balance.
+    lo: i32,
+    /// The summed greatest balance.
+    hi: i32,
+}
+
+/// An atom's sums in a [`Split`], kept together since a step reads and
+/// writes them all.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Column {
+    /// Per side, the summed least balance of the side's members.
+    lo: [i32; 2],
+    /// Per side, the summed greatest balance of the side's members.
+    hi: [i32; 2],
+    /// The sum of the negative least balances of the open members: the
+    /// most they can lower a side's least balance.
+    below: i32,
+    /// The sum of the positive greatest balances of the open members: the
+    /// most they can raise a side's greatest balance.
+    above: i32,
+}
+
+impl Column {
+    /// Per side, whether no assignment of the open members can bring the
+    /// side's interval of the atom of rank `atom` to contain zero, or the
+    /// atom's copies to balance it ([`Counts::excluded`]).
+    #[inline(always)]
+    fn excludes<const PLAIN: bool>(&self, counts: &Counts, atom: usize) -> [bool; 2] {
+        [0, 1].map(|side| {
+            counts.excluded_as::<PLAIN>(
+                atom,
+                self.lo[side] + self.below,
+                self.hi[side] + self.above,
+            )
+        })
+    }
+}
+
 impl Split {
+    /// Brings the sides' counts of excluded atoms up to date after a step
+    /// moved an atom's sums from excluding as `was` to excluding as `is`.
+    #[inline(always)]
+    fn count_bad(&mut self, was: [bool; 2], is: [bool; 2]) {
+        for side in 0..2 {
+            match (was[side], is[side]) {
+                (false, true) => self.bad[side] += 1,
+                (true, false) => self.bad[side] -= 1,
+                _ => {}
+            }
+        }
+    }
+
     /// Removes every member, at the cost of the rows that came in since the
     /// last time and not of the sequent's atoms: a Petri net has thousands
     /// of atoms and a split touches a few.
     pub(crate) fn clear(&mut self) {
         for a in self.touched.drain(..) {
-            let a = a as usize;
-            for side in 0..2 {
-                self.lo[side][a] = 0;
-                self.hi[side][a] = 0;
-            }
-            self.below[a] = 0;
-            self.above[a] = 0;
+            self.columns[a as usize] = Column::default();
         }
         self.bad = [0; 2];
         self.absorbers = [0; 2];
@@ -861,18 +872,6 @@ impl Split {
     /// members' moves.
     pub(crate) fn set_inert(&mut self, inert: bool) {
         self.inert = inert;
-    }
-
-    /// Whether no assignment of the open members can bring the side's
-    /// interval of the atom to contain zero, or the atom's copies to
-    /// balance it ([`Counts::excluded`]).
-    #[inline(always)]
-    fn excludes<const PLAIN: bool>(&self, counts: &Counts, side: usize, atom: usize) -> bool {
-        counts.excluded_as::<PLAIN>(
-            atom,
-            self.lo[side][atom] + self.below[atom],
-            self.hi[side][atom] + self.above[atom],
-        )
     }
 
     /// Moves a member between the open ones and a side, or adds it to
@@ -901,21 +900,14 @@ impl Split {
         let side = side as usize;
         for e in counts.row(o) {
             let a = e.rank.index();
-            let was = [
-                self.excludes::<PLAIN>(counts, 0, a),
-                self.excludes::<PLAIN>(counts, 1, a),
-            ];
-            self.lo[side][a] += settled * e.lo;
-            self.hi[side][a] += settled * e.hi;
-            self.below[a] += opened * e.lo.min(0);
-            self.above[a] += opened * e.hi.max(0);
-            for (side, was) in was.into_iter().enumerate() {
-                match (was, self.excludes::<PLAIN>(counts, side, a)) {
-                    (false, true) => self.bad[side] += 1,
-                    (true, false) => self.bad[side] -= 1,
-                    _ => {}
-                }
-            }
+            let column = &mut self.columns[a];
+            let was = column.excludes::<PLAIN>(counts, a);
+            column.lo[side] += settled * e.lo;
+            column.hi[side] += settled * e.hi;
+            column.below += opened * e.lo.min(0);
+            column.above += opened * e.hi.max(0);
+            let is = column.excludes::<PLAIN>(counts, a);
+            self.count_bad(was, is);
         }
         if counts.absorbs(o) {
             self.absorbers[side] = self.absorbers[side].wrapping_add_signed(settled);
@@ -944,9 +936,7 @@ impl Split {
     /// the member comes in.
     fn touch(&mut self, counts: &Counts, o: OccId) {
         for e in counts.row(o) {
-            let a = e.rank.index();
-            let zero = |sums: &[Vec<i32>; 2]| sums[0][a] == 0 && sums[1][a] == 0;
-            if zero(&self.lo) && zero(&self.hi) && self.below[a] == 0 && self.above[a] == 0 {
+            if self.columns[e.rank.index()] == Column::default() {
                 self.touched.push(e.rank.0);
             }
         }
@@ -978,21 +968,14 @@ impl Split {
         let (to, from) = (side as usize, 1 - side as usize);
         for e in counts.row(o) {
             let a = e.rank.index();
-            let was = [
-                self.excludes::<PLAIN>(counts, 0, a),
-                self.excludes::<PLAIN>(counts, 1, a),
-            ];
-            self.lo[from][a] -= e.lo;
-            self.hi[from][a] -= e.hi;
-            self.lo[to][a] += e.lo;
-            self.hi[to][a] += e.hi;
-            for (side, was) in was.into_iter().enumerate() {
-                match (was, self.excludes::<PLAIN>(counts, side, a)) {
-                    (false, true) => self.bad[side] += 1,
-                    (true, false) => self.bad[side] -= 1,
-                    _ => {}
-                }
-            }
+            let column = &mut self.columns[a];
+            let was = column.excludes::<PLAIN>(counts, a);
+            column.lo[from] -= e.lo;
+            column.hi[from] -= e.hi;
+            column.lo[to] += e.lo;
+            column.hi[to] += e.hi;
+            let is = column.excludes::<PLAIN>(counts, a);
+            self.count_bad(was, is);
         }
         if counts.absorbs(o) {
             self.absorbers[from] -= 1;
