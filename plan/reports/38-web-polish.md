@@ -15,9 +15,9 @@
 | 8. The engine choice in Settings | built | Settings → Engine; Playwright `Settings forces an engine: …` |
 | 9. Practice along D60, graded, interleaved, decided by the command, sessions saved | done | 52 sequents in 8 lessons; `practice-decided.txt` (52 `linlog prove` outputs, 29 `linlog interact` sessions with `proof` exit 0); Vitest `examples.test.ts` (each verdict and session, and the interleaving); Playwright `practice is grouped by lesson, …` |
 | 10. The sweep | done | fixes and judgement calls below |
-| Before-and-after screenshots, the reviewer's findings answered | done | `/home/tux/Projects/own/linlog-step38-screenshots/` (`before/`, `after/`, 76 each); "The review" |
-| The client's `nix flake check` at its last commit | passed | exit 0 at `qmxurvqt` (626c42a4), under the machine lock, "all checks passed!" (and before at `zpyotloq`, 57167ab6) |
-| Any change of linlog gated | no change of linlog's code; this report and `plan/later.md` only | the commit of this report; `nix flake check` at it, under the machine lock; its exit status is in the message to `linlog-ef` |
+| Before-and-after screenshots, the reviewers' findings answered | done | `/home/tux/Projects/own/linlog-step38-screenshots/` (`before/`, `after/`, 76 each, the after set at `vkyvntpx`); two reviews, 18 and 14 findings, "The review" |
+| The client's `nix flake check` at its last commit | passed | exit 0 at `vkyvntpx` (9f6406ed), under the machine lock, "all checks passed!" (and before at `qmxurvqt`, 626c42a4, and `zpyotloq`, 57167ab6) |
+| Any change of linlog gated | no change of linlog's code; this report and `plan/later.md` only | `nix flake check` exit 0 at `ruzzorqu` (d0b350ec), the report's commit as the supervisor rebased it onto `tvuzzowm`; run again at this section's commit, its exit status in the message to `linlog-ef` |
 
 ## Outcome
 
@@ -51,6 +51,7 @@ The client's commits, on its `main` (`pnrwuykw`):
 | `upzpwtwt` | the review's answers (below), and Biome's findings the flake's lint met (native radios, no export from a test file) |
 | `zpyotloq` | the split chooser names its rule in its title |
 | `qmxurvqt` | each engine cited by a work read in itself (above) |
+| `vkyvntpx` | the second review's answers (below) |
 
 ## Decisions
 
@@ -221,9 +222,13 @@ Judgement calls, for the author:
 A fresh-context reviewer (Opus 5.5, `high`), briefed with the items, the
 colours' meanings and conduct.md's rules on cores and memory (cores 12 to
 15, no builds), read all 76 after screenshots and the befores it needed,
-and reported 18 findings. Each answered; the screenshots were taken again
-after the changes (the after set is the final one; the reviewer saw the
-set at `xntxytuy`):
+and reported 18 findings on the set at `xntxytuy`, answered below. A
+second fresh-context reviewer (the same model, effort and brief) then read
+the set taken at `qmxurvqt`, reporting 14 findings, answered after the
+first round's. The after set under the screenshots' directory is the one
+taken at `vkyvntpx`, the client's last commit.
+
+The first review:
 
 1. Settings' segmented tracks wrapped one segment, the others outside.
    **Holds**: a fieldset's legend is no grid item, so the control sat in
@@ -276,17 +281,57 @@ set at `xntxytuy`):
 18. A wide gap before "Practice" and the line's full stop gone. **Holds**:
     the line is plain text again, with its full stop.
 
-Held by the reviewer's reading: the touch targets on a phone, the
+The second review (the set at `qmxurvqt`):
+
+1. The split's "Passes" looked like a small selected button beside Apply.
+   **Holds**: it is a status, not a control (no target to measure); it
+   now has the verdict's colour without a control's box.
+2. The split chooser covers the conclusion, and the rule popover the
+   rule label beside its formula. **Does not hold**: the design's
+   placement (the chooser under the goal's row so that every formula of
+   the goal stays clickable; the popover beside its formula).
+3. On a phone the popovers stood 5 px above the stage's controls.
+   **Holds**: placed a step of the scale above them.
+4. The empty stage's line had gaps around "Practice". **Holds**.
+5. Titles and contents of the panels were indented differently.
+   **Partly**: Settings' fields now align with the title; a list's row
+   (Export, More) starts at the title's edge and insets its text by the
+   row's padding, as every list of rows does.
+6. The budget field and the engine choice looked different. **Does not
+   hold**: the accent border marks the engine chosen (the accent is
+   selection, D26); the budget field has the sequent field's style.
+7. The selected formula's outline crossed the comma and touched the dock.
+   **Partly**: a button reaches half the gap to its neighbour so that no
+   tap falls between two (item 1); the dock now keeps a step clear of the
+   goal's buttons.
+8. The saturation goal was cut at its start on a phone. **Holds**: a goal
+   wider than the stage is shown from its start; the rest is panned
+   (judgement call 11).
+9. The `+` was cut with Learn on at a phone's width. **Holds**.
+10. Dots showed through "Proved: every goal is closed". **Holds**: the
+    previous fix lost to the keyword's own background by specificity; the
+    stage's keywords now lie on the panel.
+11. More's calculus group was padded unevenly. **Holds**.
+12. The engine is a chip in the note and plain italic text in the
+    drawing. **Does not hold**: in the drawing it keeps the drawing's
+    grammar for the search's labels (D10), with its source on hover; the
+    press is the chip's in the note and the hint, and Steps names it.
+13. "Click the formulas" on a touch screen **holds** ("Choose"); "Goal 2
+    (1 of 1 open)" is judgement call 10.
+14. The phone's band had no labels with Learn on, against D54. **Holds**:
+    with Learn on each action's name stands under its icon.
+
+Held by the first reviewer's reading: the touch targets on a phone, the
 two-sided switch, the engine beside the note, the hint and the graft
 (the phone's graft aside, finding 3), practice's difficulties, mixing and
 `A⊥`, the saturation's wording, and the controls' places.
 
 ## Verification
 
-- Vitest: 92 tests passed at `qmxurvqt` (the token check, the saturation's verdict
+- Vitest: 92 tests passed at `vkyvntpx` (the token check, the saturation's verdict
   with the real module, the 52 examples and their sessions, the
   interleaving).
-- Playwright: 49 tests passed against the built site at `qmxurvqt` (5 new in
+- Playwright: 49 tests passed against the built site at `vkyvntpx` (5 new in
   `tests/engines.spec.ts`, 2 in `tests/targets.spec.ts`; four changed
   for behaviour this step changes on purpose: the two-sided switch, the
   step list's engine, and practice by lesson in `learn.spec.ts` and
@@ -296,7 +341,7 @@ two-sided switch, the engine beside the note, the hint and the graft
   `lint` check (three Biome findings: `role="radio"` for which native
   radios are meant, and an export from a test file); fixed at their
   cause in `upzpwtwt`, where the check then passed (exit 0).
-- The client's `nix flake check`: exit 0 at `qmxurvqt` (626c42a4), its
+- The client's `nix flake check`: exit 0 at `vkyvntpx` (9f6406ed), its
   last commit.
 - The practice set: `/home/tux/Projects/own/linlog-step38-screenshots/practice-decided.txt`
   holds each `linlog prove --timeout 10s` output (linlog at `trzqnvtx`,
