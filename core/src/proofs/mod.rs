@@ -574,19 +574,35 @@ impl Proof {
                 })
         };
         // Each conclusion takes the first free member of the goal alike to
-        // it, and each occurrence below it the one in its place there.
+        // it, and each occurrence below it the one in its place there. The
+        // members wait in buckets by the formula as written, so that a
+        // conclusion compares with the members written as it is and not with
+        // every member, which on a goal of n formulas is n² comparisons;
+        // `alike` still decides.
+        let mut free: crate::hash::HashMap<String, std::collections::VecDeque<usize>> =
+            crate::hash::HashMap::default();
+        for (i, m) in goal.iter().enumerate() {
+            free.entry(forest.formula(m.occ()).to_string())
+                .or_default()
+                .push_back(i);
+        }
         let mut taken = vec![false; goal.len()];
         let mut place: Vec<Option<OccId>> = vec![None; from.len()];
         let mut only_proof = Vec::new();
         for c in self.conclusion() {
-            match (0..goal.len()).find(|&i| !taken[i] && alike(c, goal[i].occ())) {
+            let written = from.formula(c).to_string();
+            let found = free.get_mut(&written).and_then(|bucket| {
+                let at = bucket.iter().position(|&i| alike(c, goal[i].occ()))?;
+                bucket.remove(at)
+            });
+            match found {
                 Some(i) => {
                     taken[i] = true;
                     for (o, t) in from.subtree(c).zip(forest.subtree(goal[i].occ())) {
                         place[o.index()] = Some(t);
                     }
                 }
-                None => only_proof.push(from.formula(c).to_string()),
+                None => only_proof.push(written),
             }
         }
         let only_goal: Vec<String> = goal
