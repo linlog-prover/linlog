@@ -12,6 +12,7 @@
 | 5. The tab chip's spacing (the supervisor's addition) | done | the client's `vlktpknq`; the screenshots `01-chip` and `01-chip-closeup` at both widths in both themes |
 | 7. Every copyright and copyleft obligation respected (the supervisor's addition; there is no item 6, New Computer Modern going under item 2 as asked) | done | "The licences", the table below; fixed: STIX Two's OFL text verbatim (`vurxrnok`), New Computer Modern's clause 6 notice, the client's check that every served font is linlog's file unmodified (`okxuulsz`), the creator named in the CC BY notice (`pusswryq`) |
 | 8. The stage's font, a setting among the same five, Euler Math the default; the exports' font following it (the supervisor's addition) | done | the client's commit of item 8; Playwright `Settings sets the formulas' font: …`; `/home/tux/Projects/own/linlog-step38b-screenshots/stage-fonts/{desktop,phone}-light-stage-{euler,stix-two,garamond,asana,new-computer-modern}.png`; the targets test and the token check pass with it |
+| 9. Moving work between tabs (the supervisor's addition): (a) a goal opened in a new tab, which remembers where it came from; (b) a goal filled from another tab's finished proof, linlog's new call carrying the proof over | done | linlog's `qsoqwtqp` (`Proof::onto`, `Error::SequentMismatch`, `Interactive::fill`, the bindings' `fill`; `fill_carries_a_proof_of_an_equal_sequent` and `a_goal_is_filled_from_another_session`, a refusal for each way it fails); the client's `zlwkpvtr`; Playwright `a goal opens in a new tab …` and `a goal is filled from another tab's finished proof …`; screenshots `11-goal-dock` to `14-filled`, before and after |
 | Before-and-after screenshots; the reviewer's findings answered | see below | `/home/tux/Projects/own/linlog-step38b-screenshots/before/` and `after/` (11 scenes at two widths in two themes, the chip close-ups); "The review" |
 | linlog's part gated, its `nix flake check` passed, "linlog ready" sent | see "Verification" | |
 | The client's lock on the commit the supervisor answered with; its `nix flake check` at its last commit | see "Verification" | |
@@ -213,6 +214,38 @@ tab's calculus mark stands apart from the sequent.
   serif at the right widths (`textLength`), so nothing waits on it.
   (departs from the design: D53, at the author's request)
 
+- **Moving work between tabs** (item 9): **(a)** the dock's arrow ("Open
+  this goal in a new tab", icon alone with its tip, as a browser's
+  open-in-new-tab is conventional) opens the goal's formulas as the
+  field reads them, in the same calculus, in a new tab whose `origin`
+  is the tab and the goal's path, kept in the browser. **(b)** linlog's
+  `Proof::onto(forest, goal)` carries a proof to a goal of another
+  forest: every conclusion takes the first free goal member that is the
+  same formula (preorder of kinds, atoms by name), and every occurrence
+  below it the one at the same offset of that member's subtree; it
+  proves nothing itself. `Interactive::fill` grafts the carried proof
+  through `close_with`, so linlog's checker decides it in the goal's
+  mode, as every graft. The refusals: `Error::SequentMismatch` (code
+  `sequent_mismatch`, the formulas only the proof concludes and only the
+  goal holds), `open_goals` for an unfinished source (the bindings'
+  `fill` takes the source as a session and asks for its checked proof),
+  `invalid_proof` for a proof of another mode's rules, and
+  `IndexOutOfBounds` for a goal outside the forest; each is tested. The
+  page offers "Fill from tab N" under the dock where another tab's
+  proof is finished and its sequent has the goal's formulas in any
+  order; a fill is one step, named "Proof from tab N" in the drawing and
+  "The proof from tab N closed goal …" in the step list, undone by one
+  Undo, and replayed from its own inferences, never by the search. A
+  proof valid only in another calculus (a Mix proof offered to a
+  classical goal) is refused at the goal: the note "Not filled: not a
+  proof in this calculus", with the checker's reason as the page shows
+  it ("invalid proof: node 2 (mix from 0, 1) with premises ⊢ A, ~A and ⊢
+  B, ~B: the mode forbids the rule") and the line that its own tab's
+  calculus allows a rule this one does not; the goal stays open
+  (`after/desktop-light-15-fill-refused.png`). Done after (a), (b) brings the
+  proof back to the goal it came from. Neither half is unsound: the
+  carried proof passes the checker or is refused.
+
 ## Judgement calls
 
 1. The near misses (seven unprovable problems) were added beside the
@@ -235,6 +268,16 @@ tab's calculus mark stands apart from the sequent.
    fits its row (the screenshots).
 7. Safari's gesture events are handled but untested: the tests run
    Chromium only.
+8. Tabs are named by their place in the row ("tab 2"), as the row shows
+   them; a name kept with a fill ("Proof from tab 2") is the place the
+   tab had then.
+9. The offer to fill lists every finished tab of the goal's formulas, the
+   one the goal was opened into first among them only by its place; the
+   `origin` is kept but not shown.
+10. The zoom floor: a step now zooms in to it (the targets test found a
+    formula 43 pixels wide on a phone in Garamond-Math), unless the
+    visitor has zoomed by hand since the last fit, which step 38 left as
+    the visitor's choice.
 
 ## Departures from the design
 
@@ -342,7 +385,11 @@ clause 6, the texts verbatim) and the rest of the table holding.
 
 ## Verification
 
-- linlog: `gate` passed (exit 0) at `zupynzoz` (a first run failed on
+- linlog, last: `gate` and `nix flake check` passed (exit 0) at
+  `qsoqwtqp` (207468e1, `fill`), and before it at `wttllvpx` (e54211a6)
+  and `umzuqsrr` (d548ae5c); the report's own commit is checked again,
+  its exit status in the message to `linlog-ef`.
+- linlog, first: `gate` passed (exit 0) at `zupynzoz` (a first run failed on
   the behaviour lock's `--help` files, blessed in a commit of its own,
   and a second on the ratchet's `render-svg`, +2.11 %, fixed at its
   cause by the table's layout, +0.44 % after); `nix flake check` passed
@@ -355,11 +402,13 @@ clause 6, the texts verbatim) and the rest of the table holding.
   (`KJPMGG+Euler-Math`, `YFNLGA+STIXTwoMath-Regular`,
   `ARBTJL+Garamond-Math`, `FWCMYA+Asana-Math`).
 - The client, built against this workspace (`--override-input linlog
-  path:…`): Vitest 114 passed; `lint` (Biome and `astro check`) clean;
-  Playwright 54 passed, among them `tests/zoom.spec.ts` (2),
-  `tests/dismiss.spec.ts` (2) and the export font test. Two tests changed
-  for behaviour changed on purpose: About lists 9 licences, not 6
-  (`learn.spec.ts`).
+  path:…`): Vitest 114 passed (the token check among them); `lint`
+  (Biome and `astro check`) clean; Playwright 59 passed, among them
+  `tests/zoom.spec.ts` (2), `tests/dismiss.spec.ts` (2), the fonts'
+  tests (the export menu, Settings' font, the targets in every font at
+  both widths) and item 9's two; the `licences` check on the build exit
+  0. One test changed for behaviour changed on purpose: About lists 10
+  licences, not 6 (`learn.spec.ts`).
 - Chromium zooms the page from two dispatched touch points spread from
   20 to 100 pixels either side, not from 20 to 60, and CDP's
   `Input.synthesizePinchGesture` zoomed nothing here; the test uses the
@@ -376,11 +425,27 @@ clause 6, the texts verbatim) and the rest of the table holding.
 
 ## Repositories and workspaces
 
-- linlog: `../linlog-step38b`, the commits `tvrwrqsp` (the fonts),
-  `zupynzoz` (the lock blessed), `qzxqzvqk` (the descenders), this
-  report's `lysrossv`, `ormuvkok` (New Computer Modern), `spxtytpy` (its
-  lock) and `vurxrnok` (STIX Two's licence verbatim), on `zxxqmxmx`.
+- linlog: `../linlog-step38b`, on `zxxqmxmx`: `tvrwrqsp` (the fonts),
+  `zupynzoz` (the lock blessed), `qzxqzvqk` (the descenders), `lysrossv`
+  (this report), `ormuvkok` (New Computer Modern), `spxtytpy` (its
+  lock), `vurxrnok` (STIX Two's licence verbatim), `umzuqsrr` (the
+  report), `syrwpuww` (no font without its licence in the cache's
+  paths), `wttllvpx` (the report), `qsoqwtqp` (`fill`), and the report's
+  last commit.
+- The client's commits above `yxtvvlsm`: `wvzrmkqt` (zoom), `xqyzqkpw`
+  (light dismiss), `vlktpknq` (the chip), `wpspsroq` (practice),
+  `wrlrwoum` (the export's font), `yumxuxuo` (README and rules),
+  `okxuulsz` (New Computer Modern, the fonts checked unmodified),
+  `pusswryq` (the CC BY notice's creator), `qvzwknlo` (the stage's font),
+  `rmvmsmxo` (the zoom floor after a step), `zlwkpvtr` (moving work
+  between tabs), and the lock's move to linlog's `main`.
 - The client: `/home/tux/Projects/own/linlog-prover.github.io`, its
   commits above `yxtvvlsm` (`main`), local, nothing pushed.
 - Screenshots, exports and scripts:
-  `/home/tux/Projects/own/linlog-step38b-screenshots/`.
+  `/home/tux/Projects/own/linlog-step38b-screenshots/`: `before/` and
+  `after/` (scenes 01 to 14 at a desktop's and a phone's width in both
+  themes, the same names), `exports/` (a PNG and a PDF per font),
+  `stage-fonts/` (the stage in each font, both widths, light),
+  `practice-decided.txt` (the practice problems decided), and the
+  scripts `shots.mjs`, `exports.mjs`, `stagefonts.mjs`, `gen.py`,
+  `harder.py`, `steps.mjs`.
