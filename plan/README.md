@@ -3018,3 +3018,40 @@ client follows it (step 32).
     author's yes, recorded in its rules; TypeScript 6 and solid-js 1.x
     kept; its actions current; `update-deps` now covers all of it.
   Next: step 39, MELL nets with boxes.
+- 2026-10-23: review of step 38b, the author's follow-ups to the polish
+  (one session, Opus 5.5 at high, 22:20 to 00:26, unattended from
+  23:58): native zoom (a pinch and Ctrl with the wheel on the stage,
+  the browser's zoom everywhere else); the exports and the stage in
+  five math fonts (Euler Math, the default and byte for byte unchanged,
+  STIX Two Math, Garamond-Math, Asana Math and, at the author's word,
+  New Computer Modern Math; every OpenType math font of TeX Live was
+  checked against the drawings' 208 characters, and Latin Modern, the
+  TeX Gyre fonts and Libertinus lack `⅋`), each width table read from
+  its file and checked glyph by glyph, `svg::MathFont`, `--font`, the
+  bindings' settings, the stage's font in Settings with the exports
+  following it; light dismiss; 21 harder practice problems, each
+  decided and the 14 provable ones with checked sessions; the tab
+  chip's spacing; every font's licence met where a copy travels
+  (`linlog-cli`'s licence field now `EUPL-1.2 AND OFL-1.1 AND
+  LPPL-1.3c`, New Computer Modern's notice under the LPPL's clause 6);
+  and goals and tabs (open a goal in a new tab; fill a goal from
+  another tab's proof, through `Proof::onto` and `Interactive::fill`,
+  the graft checked in the goal's mode).
+  - checked here: the chain's diff, the crate as `cargo package` lists
+    it (each font beside its licence), the service worker (the four
+    optional fonts join its own files, cached when first asked for;
+    nothing reaches `/linlog/`), `Proof::onto`'s matching and that
+    every graft passes the checker; the gate and `nix flake check` at
+    linlog's head, the client's `nix flake check` at its head;
+  - fixed here, as commits of their own: `MathFont::ALL` a slice,
+    `Error::SequentMismatch` non_exhaustive and `MathFont` in core.md's
+    list (the API's rules); `Proof::onto` matching through buckets by
+    the written formula instead of n² comparisons in a call without a
+    stop;
+  - two departures, at the author's request: other fonts than Euler
+    Math in the exports (D25, D16) and on the stage (D53). Seventeen
+    judgement calls are in the report. The supervisor replaced the
+    session's goal with one naming the five requests added during the
+    run, and cleared it when the work was done.
+  Step 39 waits for a week's quota (estimated 13 to 20 % of this
+  account's); the privacy page waits for the author (`later.md`).

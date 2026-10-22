@@ -840,6 +840,26 @@ other judgement calls of the sweep are in the report, for the author.
 
 ## Follow-ups: the web client
 
+*For the author (2026-10-22, "remind me, I'll deal with it later").*
+The web client's privacy notice under the Swiss revFADP (and the GDPR,
+should the site count as offering a service in the EU): the name and
+e-mail address to publish as the person responsible (an alias such as
+`privacy@` on the author's domain), and whether to add a postal
+address or an Impressum (Swiss UWG Art. 3(1)(s) likely does not reach a
+free non-commercial site). The page would say: no cookies, no tracking,
+nothing loaded from third parties (the policy's `default-src 'none'`,
+checked on the live site); GitHub logs visitors' IP addresses for
+hosting and security, in the US, under the Swiss-U.S. Data Privacy
+Framework (GitHub's own entry on its list still to check); what the
+browser keeps (`linlog-settings`, the theme, autosaved tabs, the
+service worker's cache, the optional fonts) and how to clear it; the
+visitors' rights. About has one line on GitHub's logs today.
+
+*Left by step 38b (unassigned).* Safari's trackpad pinch (gesture
+events) is handled and tested by no test; a compact net's edges begin
+a tenth of an em below each literal, inside every font's descenders,
+Euler Math's included (older than step 38b).
+
 From the review of step 32b (2026-10-19):
 
 - **A link whose sequent does not parse opens an empty stage** (step
