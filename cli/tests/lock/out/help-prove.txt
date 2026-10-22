@@ -268,13 +268,14 @@ Options:
           Read the options of the output formats from a JSON file: an object with a key per format (text, latex, typst, svg, png, pdf, and rocq where the command writes Rocq), each holding the fields `--style` names; a field left out keeps its default (styles)
 
       --font <FONT>
-          The math font a drawing (SVG, PNG, PDF) is set and laid out in: euler, stix-two, garamond or asana; by default Euler Math (styles.svg.font)
+          The math font a drawing (SVG, PNG, PDF) is set and laid out in: euler, stix-two, garamond, asana or new-computer-modern; by default Euler Math (styles.svg.font)
 
           Possible values:
-          - euler:    Euler Math 0.75, upright, after Hermann Zapf's Euler for the AMS
-          - stix-two: STIX Two Math 2.12, in the style of Times
-          - garamond: Garamond-Math 2022-01-03, matching EB Garamond
-          - asana:    Asana Math 0.962, in the style of Palatino
+          - euler:               Euler Math 0.75, upright, after Hermann Zapf's Euler for the AMS
+          - stix-two:            STIX Two Math 2.12, in the style of Times
+          - garamond:            Garamond-Math 2022-01-03, matching EB Garamond
+          - asana:               Asana Math 0.962, in the style of Palatino
+          - new-computer-modern: New Computer Modern Math 7.1.1 (Book), the Computer Modern of TeX
 
       --kernel <KERNEL>
           The Rocq kernel a certificate of linear logic is written for; by default the mode's: nanoyalla for classical linear logic, linlog for Mix, affine and intuitionistic logic (styles.rocq.kernel)
