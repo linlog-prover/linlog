@@ -119,7 +119,7 @@ mod tests {
         assert!(s.same(0, 3), "undoing a no-op changes nothing");
         s.undo();
         assert!(!s.same(1, 2) && s.same(0, 1) && s.same(2, 3));
-        assert!(s.log.is_empty());
+        assert_eq!(s.log, []);
         assert!(s.rank.iter().all(|&r| r <= 1), "ranks went back down");
     }
 }

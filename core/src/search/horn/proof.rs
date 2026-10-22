@@ -111,7 +111,7 @@ pub(super) fn build(
     // The goal's pairs come last in the replay, each firing's in its place.
     let mut goal = &pairs[starts[clauses.len()]..];
     let mut root = builder.clause(program.goal, None, &mut goal, NodeId::new(0));
-    debug_assert!(goal.is_empty());
+    debug_assert_eq!(goal, []);
     for &weakened in left.iter().chain(&unused) {
         root = builder.push(Node::Weaken(Member::from(weakened), root));
     }
@@ -119,7 +119,7 @@ pub(super) fn build(
         let head = clause_head(forest, program.body, clause).expect("a clause the program read");
         let mut fired = &pairs[starts[i]..starts[i + 1]];
         root = builder.clause(clause, head, &mut fired, root);
-        debug_assert!(fired.is_empty());
+        debug_assert_eq!(fired, []);
         if reusable {
             root = builder.push(Node::Copy(Member::from(clause), root));
         }

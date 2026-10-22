@@ -729,12 +729,7 @@ mod tests {
                     goal = state.apply(goal, &Step::new(0, Rule::Par)).unwrap()[0];
                     goal = state.apply(goal, &Step::new(0, Rule::Bot)).unwrap()[0];
                 }
-                assert!(
-                    state
-                        .apply(goal, &Step::new(0, Rule::One))
-                        .unwrap()
-                        .is_empty()
-                );
+                assert_eq!(state.apply(goal, &Step::new(0, Rule::One)).unwrap(), []);
                 state
                     .proof(&Limits::default(), |_| false)
                     .unwrap()

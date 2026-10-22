@@ -367,7 +367,7 @@ mod tests {
         let edge = |a: VertexId, b: VertexId| successors(net, a.occ()).contains(&b.occ());
         match error {
             NetError::DirectedCycle { cycle } => {
-                assert!(!cycle.is_empty());
+                assert_ne!(*cycle, []);
                 for (i, &a) in cycle.iter().enumerate() {
                     assert!(edge(a, cycle[(i + 1) % cycle.len()]), "{cycle:?}");
                 }

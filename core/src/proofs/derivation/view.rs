@@ -306,7 +306,7 @@ impl<'a> Derivation<'a> {
         inferences: Vec<Inference>,
         mode: Mode,
     ) -> Self {
-        debug_assert!(!inferences.is_empty());
+        debug_assert_ne!(inferences, []);
         Self {
             forest,
             reading,

@@ -256,7 +256,7 @@ mod tests {
         assert!(c.is_empty());
         c.insert(o(65));
         c.insert(o(3));
-        assert!(c.extra().is_empty());
+        assert_eq!(c.extra(), []);
         c.insert(o(3));
         c.insert(o(3));
         assert_eq!(c.extra(), [(o(3), 2)]);
@@ -268,7 +268,7 @@ mod tests {
         c.remove(o(3));
         assert_eq!(c.extra(), [(o(3), 1)]);
         c.remove(o(3));
-        assert!(c.extra().is_empty());
+        assert_eq!(c.extra(), []);
         assert!(c.contains(o(3)));
         c.remove(o(3));
         assert!(!c.contains(o(3)));

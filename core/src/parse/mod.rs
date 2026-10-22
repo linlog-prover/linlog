@@ -5,7 +5,7 @@
 //! reads straight into the arena, so that neither the nesting of a formula
 //! nor its length costs any of the caller's stack.
 //!
-//! The syntax it reads is documented on [`Sequent`](crate::Sequent), the
+//! The syntax it reads is documented on [`Sequent`], the
 //! type a library user meets it on.
 //!
 //! The arena holds the formulas in negation normal form, one-sided: the

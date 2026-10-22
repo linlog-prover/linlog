@@ -790,8 +790,8 @@ mod tests {
         let f = Forest::new(&Sequent::new()).unwrap();
         assert!(f.is_empty());
         assert_eq!(f.len(), 0);
-        assert!(f.roots().is_empty());
-        assert!(f.all_literals().is_empty());
+        assert_eq!(f.roots(), []);
+        assert_eq!(f.all_literals(), []);
         check_invariants(&f);
     }
 
