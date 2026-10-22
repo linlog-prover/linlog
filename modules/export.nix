@@ -9,8 +9,11 @@
 # `linlog::export::typst::CURRYST' names, read from the source, so a change of
 # one without the other fails to evaluate. The LaTeX
 # and Typst output names no font, so Typst sees only the fonts it embeds;
-# resvg sees Euler Math and no system font. Anything either prints fails
-# the check, so a font they cannot find is not hidden by a fallback.
+# resvg sees one math font and no system font: Euler Math for the
+# snapshots, and each math font the command offers (`--font') for its
+# drawings in that font, the font's own directory of nixpkgs' TeX Live
+# alone. Anything either prints fails the check, so a font they cannot
+# find, or a glyph one lacks, is not hidden by a fallback.
 {
   perSystem =
     {
@@ -45,7 +48,32 @@
         ps."curryst_${lib.replaceStrings [ "." ] [ "_" ] curryst}"
       ]);
 
-      eulerMath = "${pkgs.texlivePackages.euler-math.tex}/fonts/opentype/public/euler-math";
+      # Each math font of `--font', the name a PDF embeds it under, and its
+      # directory in nixpkgs' TeX Live, which holds no other math font.
+      tex = package: "${pkgs.texlivePackages.${package}.tex}/fonts/opentype/public/${package}";
+      fonts = [
+        {
+          name = "euler";
+          embedded = "Euler-Math";
+          dir = tex "euler-math";
+        }
+        {
+          name = "stix-two";
+          embedded = "STIXTwoMath-Regular";
+          dir = tex "stix2-otf";
+        }
+        {
+          name = "garamond";
+          embedded = "Garamond-Math";
+          dir = tex "garamond-math";
+        }
+        {
+          name = "asana";
+          embedded = "Asana-Math";
+          dir = tex "asana-math";
+        }
+      ];
+      eulerMath = tex "euler-math";
     in
     {
       checks.export =
@@ -120,6 +148,27 @@
               resvg --skip-system-fonts --use-fonts-dir ${eulerMath} "$file" "''${file%.svg}.png" 2>log
               if [ -s log ]; then cat log; exit 1; fi
             done
+            # Each math font: drawings that set every connective, unit and
+            # the raised ⊥, rendered by resvg with that font alone, and the
+            # command's PNG and PDF, the font embedded and the PDF conforming.
+            ${lib.concatMapStrings (font: ''
+              mkdir ${font.name} && cd ${font.name}
+              linlog prove --font ${font.name} --format svg --output tree.svg '|- ~A par A, 0 + top, ?(B * ~B), bot'
+              linlog prove -i --font ${font.name} --format svg --output ill.svg '!A, A -o B, C & D |- B * !A * (C + E)'
+              linlog prove --net --font ${font.name} --output net.svg 'A -o B, B -o C |- A -o C'
+              for file in *.svg; do
+                resvg --skip-system-fonts --use-fonts-dir ${font.dir} "$file" "''${file%.svg}.png" 2>log
+                if [ -s log ]; then echo "${font.name}: $file"; cat log; exit 1; fi
+              done
+              linlog prove -i --font ${font.name} --output cli.png '!A, A -o B |- B * !A' 2>/dev/null
+              pngcheck -q cli.png
+              linlog prove -i --font ${font.name} --output cli.pdf '!A, A -o B, C & D |- B * !A * (C + E)' 2>/dev/null
+              pdffonts cli.pdf | grep -q ${font.embedded} || { pdffonts cli.pdf; exit 1; }
+              pdftotext cli.pdf - | grep -q '⊸'
+              verapdf --format text --flavour 4 cli.pdf >verdict 2>&1
+              grep -q '^PASS' verdict || { cat verdict; exit 1; }
+              cd ..
+            '') fonts}
             touch $out
           '';
     };

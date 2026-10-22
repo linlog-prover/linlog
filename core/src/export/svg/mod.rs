@@ -6,7 +6,8 @@
 //!
 //! The layout is computed here, not by the viewer: every width is the sum
 //! of the advances of the style's [`Font`], by default the Euler Math
-//! font's from a table committed with the code, so the output is
+//! font's, or another [`MathFont`]'s, from a table committed with the
+//! code, so the output is
 //! deterministic and needs no font at run time. The document asks for the
 //! font's families (`"Euler Math", "Neo Euler", serif`) and does not embed
 //! the font; every `<text>` carries its computed width as `textLength`, so
@@ -50,7 +51,7 @@ use crate::proofs::style::{Part, parts};
 use crate::proofs::{Labels, OpenGoal};
 use crate::sequents::Sequent;
 use crate::sequents::notation::{Atoms, Notation};
-pub use font::{Advances, Font, MONOSPACE};
+pub use font::{Advances, Font, MONOSPACE, MathFont};
 use font::{DEPTH, HEIGHT, LOWER, RAISE, SCRIPT};
 use std::fmt::Write;
 
@@ -442,7 +443,8 @@ impl Style {
     /// [`Error::InvalidOption`] naming the first key past its maximum.
     pub fn check(&self) -> Result<(), Error> {
         let advances: u32 = match &self.font.advances {
-            Advances::Euler => 0,
+            // The committed tables are within the bound (`font.rs`).
+            Advances::Euler | Advances::StixTwo | Advances::Garamond | Advances::Asana => 0,
             Advances::Fixed(advance) => *advance,
             Advances::Table { table, fallback } => {
                 table.values().copied().fold(*fallback, u32::max)

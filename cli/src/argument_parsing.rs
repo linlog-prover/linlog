@@ -4,6 +4,7 @@
 use clap::builder::TypedValueParser;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use linlog::export::rocq::Kernel;
+use linlog::export::svg::MathFont;
 use linlog::proofs::Compact;
 use linlog::search::{Cadence, Engine, Options, Schedule};
 use linlog::{Bias, Clock, Fragment, Limits, Mode};
@@ -1080,6 +1081,36 @@ pub(crate) struct StyleArgs {
     /// default (styles)
     #[arg(long, value_name = "PATH")]
     pub(crate) style_file: Option<PathBuf>,
+    /// The math font a drawing (SVG, PNG, PDF) is set and laid out in:
+    /// euler, stix-two, garamond or asana; by default Euler Math
+    /// (styles.svg.font)
+    #[arg(long, value_enum, value_name = "FONT")]
+    pub(crate) font: Option<FontArg>,
+}
+
+/// A math font the command embeds, for its drawings.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FontArg {
+    /// Euler Math 0.75, upright, after Hermann Zapf's Euler for the AMS
+    Euler,
+    /// STIX Two Math 2.12, in the style of Times
+    StixTwo,
+    /// Garamond-Math 2022-01-03, matching EB Garamond
+    Garamond,
+    /// Asana Math 0.962, in the style of Palatino
+    Asana,
+}
+
+impl From<FontArg> for MathFont {
+    /// Returns the library's math font.
+    fn from(font: FontArg) -> Self {
+        match font {
+            FontArg::Euler => Self::Euler,
+            FontArg::StixTwo => Self::StixTwo,
+            FontArg::Garamond => Self::Garamond,
+            FontArg::Asana => Self::Asana,
+        }
+    }
 }
 
 /// The Rocq certificate's flags, on the commands that write one.
@@ -1230,7 +1261,7 @@ pub(crate) enum Format {
     /// a high one (`--style typst.layout`)
     Typst,
     /// The verdict as an XML comment, then the derivation drawn as an SVG
-    /// document, set in the Euler Math font unless `--style` names another
+    /// document, set in the Euler Math font unless `--font` names another
     Svg,
     /// The derivation drawn as a PNG image, the verdict on standard error;
     /// written to a file or a pipe, never to a terminal

@@ -80,10 +80,15 @@ for `THIRD-PARTY-NOTICES.txt`.
   (`a_position_past_32_bits_is_refused`). Every count the library writes
   is a `u64`, exact in JavaScript to 2⁵³ (`wire`'s rule).
 - **The settings' overlay refuses a non-object where the tab has an
-  object**: serde reads an array as a struct's fields in order and
-  fills the rest from `Default`, the command's values, so `[]` would
-  have been the command's settings, a gibibyte of memory and a recursion
-  depth the host's stack does not hold.
+  object, but for a string**: serde reads an array as a struct's fields
+  in order and fills the rest from `Default`, the command's values, so
+  `[]` would have been the command's settings, a gibibyte of memory and
+  a recursion depth the host's stack does not hold. A string is a name
+  an option reads in place of its fields (`styles.svg.font`:
+  `"stix-two"`, `a_font_is_chosen_by_its_name`), or is refused by serde.
+- **`render` takes one font's file**: the page passes the file of the
+  font its export's `styles.svg.font` names, and no other font sets the
+  drawing's text (`an_export_is_set_in_the_font_the_settings_name`).
 - **The stack**: `build.rs` links the module with an 8 MiB stack
   (`-zstack-size`, read back as `tab::STACK_BYTES`), but the host's own
   stack, which no page can set (about 1 MiB in Node and in a browser),

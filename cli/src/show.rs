@@ -7,6 +7,7 @@ use crate::limit::detached;
 use crate::style;
 use anyhow::{Context, Result, anyhow, bail};
 use linlog::export::Styles;
+use linlog::export::svg::MathFont;
 use linlog::export::{Drawable, Form, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::{Compact, Sides, TextOptions};
 use linlog::{
@@ -833,9 +834,34 @@ pub(crate) fn note(format: Format, text: &str) -> String {
     lines.join("\n")
 }
 
-/// The Euler Math font, which the PNG and PDF drawings are set in; its
-/// licence is `fonts/OFL.txt`.
-const FONT: &[u8] = include_bytes!("../fonts/Euler-Math.otf");
+/// The math fonts the PNG and PDF drawings are set in, each the file of a
+/// [`MathFont`] beside its licence in `fonts/` (Euler Math's `OFL.txt`,
+/// the others' `<file>-OFL.txt`).
+const FONTS: [(MathFont, &[u8]); 4] = [
+    (MathFont::Euler, include_bytes!("../fonts/Euler-Math.otf")),
+    (
+        MathFont::StixTwo,
+        include_bytes!("../fonts/STIXTwoMath-Regular.otf"),
+    ),
+    (
+        MathFont::Garamond,
+        include_bytes!("../fonts/Garamond-Math.otf"),
+    ),
+    (MathFont::Asana, include_bytes!("../fonts/Asana-Math.otf")),
+];
+
+/// Returns the data of the fonts a render is given: Euler Math, and every
+/// other math font whose family the style names. A font the renderer is
+/// not given cannot set a glyph, so a style that names one family loads
+/// that font and no other.
+fn fonts(styles: &Styles) -> Vec<&'static [u8]> {
+    let family = &styles.svg.font.family;
+    FONTS
+        .iter()
+        .filter(|(font, _)| *font == MathFont::Euler || family.contains(font.family()))
+        .map(|&(_, data)| data)
+        .collect()
+}
 
 /// What became of a drawing handed to a renderer.
 pub(crate) enum Rendered {
@@ -849,8 +875,7 @@ pub(crate) enum Rendered {
 }
 
 /// Renders an SVG document in a binary format, PNG or PDF, with the Euler
-/// Math font and whatever font the style names that the renderer knows
-/// of, on a thread of its own while `stop` is asked every few
+/// Math font and the math font the style names ([`fonts`]), on a thread of its own while `stop` is asked every few
 /// milliseconds: the renderers cannot be stopped from inside. Returns the
 /// bytes, the line of a bound that refused the drawing before it was
 /// parsed, or that `stop` fired; the thread of a stopped render is left
@@ -868,14 +893,16 @@ pub(crate) fn render(
     let rendered = match format {
         Format::Png => {
             let options = styles.png.clone();
+            let fonts = fonts(styles);
             detached(
                 "render",
-                move || png::from_svg(&svg, &[FONT], &options, &limits),
+                move || png::from_svg(&svg, &fonts, &options, &limits),
                 stop,
             )?
         }
         Format::Pdf => {
             let mut options = styles.pdf.clone();
+            let fonts = fonts(styles);
             if options.date.is_none() {
                 options.date = Some(made()?);
             }
@@ -888,7 +915,7 @@ pub(crate) fn render(
             }
             detached(
                 "render",
-                move || pdf::from_svg(&svg, &[FONT], &options, &limits),
+                move || pdf::from_svg(&svg, &fonts, &options, &limits),
                 stop,
             )?
         }

@@ -3,11 +3,12 @@
 
 //! The options of every output format in one value, read from the JSON of
 //! `--style-file` and changed by `--style KEY=VALUE`, `--lemma`,
-//! `--prelude`, `--kernel` and `--standalone`.
+//! `--prelude`, `--kernel`, `--font` and `--standalone`.
 
 use crate::argument_parsing::{RocqArgs, StyleArgs};
 use crate::io;
 use anyhow::{Context, Result, bail};
+use linlog::export::svg::MathFont;
 use linlog::export::{Form, Styles};
 use serde_json::Value;
 
@@ -72,6 +73,9 @@ pub(crate) fn read(
     }
     if let Some(kernel) = rocq.and_then(|r| r.kernel) {
         styles.rocq.kernel = Some(kernel.into());
+    }
+    if let Some(font) = args.font {
+        styles.svg.font = MathFont::from(font).font();
     }
     if standalone {
         styles.latex.form = Form::Standalone;

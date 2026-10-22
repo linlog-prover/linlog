@@ -752,7 +752,8 @@ pub fn export(session: &str, format: &str, settings: &str) -> Result<String, Fai
 }
 
 /// Renders an SVG drawing of the bindings as `png` or `pdf`, with the
-/// font the drawing names (Euler Math) as `font`, the bytes of its file.
+/// font the drawing names (`styles.svg.font`, by default Euler Math) as
+/// `font`, the bytes of its file: no other font sets its text.
 /// A PDF needs `styles.pdf.date`, which the page takes from its clock.
 ///
 /// # Errors

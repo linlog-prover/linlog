@@ -7,7 +7,7 @@ description = "The linlog command: decide, check, prove step by step and export 
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-# The binary embeds the Euler Math font (`fonts/`), under the OFL.
+# The binary embeds four math fonts (`fonts/`), each under the OFL.
 license = "EUPL-1.2 AND OFL-1.1"
 repository.workspace = true
 readme = "../README.md"

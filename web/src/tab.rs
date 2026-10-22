@@ -91,9 +91,10 @@ pub fn read(json: &str) -> Result<Settings, Failure> {
 }
 
 /// Writes `given` over `base`: objects key by key, every other value
-/// whole. Where `base` is an object, `given` must be one: the settings'
-/// reader would take an array for the fields in order and the command's
-/// defaults for the rest.
+/// whole. Where `base` is an object, `given` must be one or a string (a
+/// name the option reads, as a math font's for `styles.svg.font`): the
+/// settings' reader would take an array for the fields in order and the
+/// command's defaults for the rest.
 fn overlay(base: &mut Value, given: Value, at: &str) -> Result<(), Failure> {
     match (base, given) {
         (Value::Object(base), Value::Object(given)) => {
@@ -107,7 +108,7 @@ fn overlay(base: &mut Value, given: Value, at: &str) -> Result<(), Failure> {
             }
             Ok(())
         }
-        (Value::Object(_), _) => Err(Failure::refused(
+        (Value::Object(_), given) if !given.is_string() => Err(Failure::refused(
             "json",
             "malformed",
             &format!("{at} must be a JSON object"),
@@ -134,6 +135,7 @@ const fn parse(text: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use linlog::export::svg::MathFont;
 
     /// A page's key replaces the tab's value and leaves its siblings, and
     /// a misspelt key, or a value that is no object where one belongs, is
@@ -149,5 +151,16 @@ mod tests {
         for array in ["[]", r#"{"limits": []}"#, r#"{"limits": [null]}"#] {
             assert!(read(array).is_err(), "{array}");
         }
+    }
+
+    /// A math font is chosen by its name over the tab's font, and a name
+    /// no option reads is refused.
+    #[test]
+    fn a_font_is_chosen_by_its_name() {
+        let settings = read(r#"{"styles": {"svg": {"font": "stix-two"}}}"#).unwrap();
+        assert_eq!(settings.styles.svg.font, MathFont::StixTwo.font());
+        assert!(settings.styles.svg.ids);
+        assert!(read(r#"{"styles": {"svg": {"font": "stix"}}}"#).is_err());
+        assert!(read(r#"{"limits": "none"}"#).is_err());
     }
 }

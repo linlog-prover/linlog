@@ -1019,6 +1019,51 @@ fn binary_formats() {
     );
 }
 
+/// `--font` sets a drawing in one of the math fonts the command embeds:
+/// the SVG asks for its family and is laid out in its advances, as
+/// `--style svg.font=NAME` sets it, and the PNG is rendered with its file.
+#[test]
+fn fonts() {
+    let svg = |args: &[&str]| {
+        let (status, out, err) = linlog(
+            &[&["prove", "--format", "svg"], args, &["A * B |- B * A"]].concat(),
+            "",
+        );
+        assert_eq!(status, 0, "{err}");
+        out
+    };
+    let euler = svg(&[]);
+    assert!(euler.contains("font-family=\"'Euler Math', 'Neo Euler', serif\""));
+    assert_eq!(svg(&["--font", "euler"]), euler);
+    for (name, family) in [
+        ("stix-two", "'STIX Two Math', serif"),
+        ("garamond", "'Garamond-Math', serif"),
+        ("asana", "'Asana Math', serif"),
+    ] {
+        let set = svg(&["--font", name]);
+        assert!(set.contains(&format!("font-family=\"{family}\"")), "{set}");
+        assert_eq!(svg(&["--style", &format!("svg.font={name}")]), set);
+        let laid = |text: &str| {
+            let lines = text.lines().filter(|l| l.contains("textLength"));
+            lines.map(str::to_owned).collect::<Vec<_>>()
+        };
+        assert_ne!(laid(&set), laid(&euler), "{name}");
+    }
+    let png = |args: &[&str]| {
+        let file = scratch(&format!("font{}.png", args.len()));
+        let path = file.to_str().unwrap();
+        let (status, _, err) = linlog(
+            &[&["prove", "-o", path], args, &["A * B |- B * A"]].concat(),
+            "",
+        );
+        assert_eq!(status, 0, "{err}");
+        std::fs::read(&file).unwrap()
+    };
+    assert_ne!(png(&["--font", "stix-two"]), png(&[]));
+    let (status, _, err) = linlog(&["prove", "--font", "stix", "A |- A"], "");
+    assert_eq!(status, 2, "{err}");
+}
+
 /// Every option of every format, set once with `--style KEY=VALUE` and
 /// once from a `--style-file`, gives the same output, and one that differs
 /// from the default's where the input shows the option.
@@ -1071,6 +1116,7 @@ fn every_style_option() {
             "{\"family\":\"monospace\",\"advances\":{\"fixed\":600}}",
             true,
         ),
+        (&ill, "svg", "font", "\"stix-two\"", true),
         (&ill, "typst", "layout", "\"linlog\"", true),
         (
             &["--style", "layout=linlog", "-i", "A, A -o B |- B"],

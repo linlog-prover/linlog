@@ -23,7 +23,8 @@
       # see the command's code, and no Rust check sees the prose (README
       # aside, whose examples the command's tests run), the scripts or the
       # benchmark data. The core crate's export tests draw with the font the
-      # command embeds.
+      # command embeds, and its tests of the fonts' tables read the fonts'
+      # files.
       parts = {
         core = fileset.unions [
           ../core/Cargo.toml
@@ -191,10 +192,10 @@
             # The `test-cli' check runs them.
             doCheck = false;
             # A copy of the binary carries the licences of what it contains:
-            # the EUPL's text, and the embedded font's OFL with its notice.
+            # the EUPL's text, and each embedded font's OFL with its notice.
             postInstall = ''
               install -Dm644 LICENSE $out/share/doc/linlog-cli/LICENSE
-              install -Dm644 cli/fonts/OFL.txt $out/share/doc/linlog-cli/OFL.txt
+              install -Dm644 -t $out/share/doc/linlog-cli cli/fonts/*.txt
             '';
             # The binary is `linlog', not the package name `nix run' assumes.
             meta.mainProgram = "linlog";

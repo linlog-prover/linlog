@@ -185,6 +185,18 @@ second number (0.1.x to 0.2.0), anything else the third.
   every inner `⊗` and `⅋` a small circle as before, for a net too wide
   to write every subformula, and now writes the conclusions under the
   edges hanging from its bottom layer.
+- Three more math fonts for the drawings beside Euler Math, the default:
+  `svg::MathFont` (`Euler`, `StixTwo`, `Garamond`, `Asana`; JSON
+  `"euler"`, `"stix-two"`, `"garamond"`, `"asana"`) names one, and
+  `MathFont::font` is its `svg::Font`, laid out by the new
+  `svg::Advances` variants `StixTwo`, `Garamond` and `Asana`, each the
+  advances of the font's file (STIX Two Math 2.12, Garamond-Math
+  2022-01-03, Asana Math 0.962) as Euler Math's are. `svg::Font` reads
+  in JSON as a font's name too (`styles.svg.font` `"stix-two"`), so a
+  front end chooses a font by name; the command's `--font NAME` sets it,
+  embeds the three fonts with their licences beside Euler Math
+  (`cli/fonts/`), and renders a PNG or PDF with the font the drawing
+  names. Output with the default font is unchanged.
 
 ### Wire forms
 
@@ -220,6 +232,9 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- The bindings' settings take a string where the tab's settings hold
+  an object, such as a math font's name for `styles.svg.font`; an array
+  there is still refused.
 - Two rows of the dispatch give the inverse method turns beside the
   default engine: on an intuitionistic goal with an exponential (beside
   the two-sided engine) and on a goal under Mix without weakening

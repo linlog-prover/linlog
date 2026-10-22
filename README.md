@@ -36,7 +36,7 @@ nix build github:linlog-prover/linlog                    # or just build it: res
 ```
 
 On Nix before 2.27, `nix profile add` is `nix profile install`. The
-package carries the EUPL and the embedded font's licence under
+package carries the EUPL and the embedded fonts' licences under
 `share/doc/linlog-cli/`.
 
 In a flake of your own, a NixOS or Home Manager configuration say, take
@@ -927,6 +927,10 @@ and a directed cycle or a path around an implication highlighted. `seq print --f
 in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
+`--font` sets and lays out a drawing in another math font the command
+carries instead: `stix-two` (STIX Two Math), `garamond` (Garamond-Math)
+or `asana` (Asana Math), or `euler`, the default (`--style svg.font=NAME`
+and a style file's `"font": "NAME"` say the same).
 The text stays selectable, and `--standalone` is refused, since an SVG is
 always a document.
 
@@ -944,11 +948,21 @@ $ linlog seq print --format svg "A |- A"
 <text x="2712" y="1190" textLength="1380" lengthAdjust="spacing">, 𝐴</text>
 </g>
 </svg>
+$ linlog seq print --format svg --font stix-two "A |- A"
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="62.416" height="27.2" viewBox="0 0 3901 1700" font-family="'STIX Two Math', serif" font-size="1000" fill="black">
+<title>⊢ A⊥, A</title>
+<g>
+<text x="300" y="1190" textLength="1636" lengthAdjust="spacing">⊢ 𝐴</text>
+<text x="1936" y="790" textLength="504" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2440" y="1190" textLength="1161" lengthAdjust="spacing">, 𝐴</text>
+</g>
+</svg>
 ```
 
 `--format png` and `--format pdf` render the same drawings as a PNG image
 (at twice the drawing's size, with its title and description) or a PDF
-page (its text selectable), in the Euler Math font the command carries;
+page (its text selectable), in the math font `--font` names, which the
+command carries (Euler Math by default);
 with `--output` the extension names the format, which `--format`
 overrides, and the verdict goes to standard error. Neither is written to
 a terminal. A file is made only with a derivation or a net in it (or in
@@ -1763,7 +1777,8 @@ Built:
   documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG (every subformula of a net written,
   or compact), laid out with the character widths
-  of the Euler Math font (or another font's), a switching cycle or the
+  of Euler Math, STIX Two Math, Garamond-Math or Asana Math (or a font
+  of the caller's), a switching cycle or the
   parts of a disconnected structure highlighted, intuitionistic ones
   also as essential nets (directed edges, polarities, the dominator
   condition), with a reading for
@@ -1963,13 +1978,19 @@ Union Public Licence, version 1.2 (EUPL-1.2), whose text is in
 [`LICENSE`](LICENSE).
 
 One part of the repository is someone else's work under its own licence:
-the Euler Math font in [`cli/fonts/`](cli/fonts), which the `linlog`
-command embeds to draw proofs, is © the American Mathematical Society,
-Khaled Hosny and Daniel Flipo, under the SIL Open Font License 1.1
-([`cli/fonts/OFL.txt`](cli/fonts/OFL.txt)). The package `linlog-cli`
-is therefore `EUPL-1.2 AND OFL-1.1`; the library `linlog` contains no
-font. Drawings and documents made with the font are not covered by its
-licence.
+the four math fonts in [`cli/fonts/`](cli/fonts), which the `linlog`
+command embeds to draw proofs, each under the SIL Open Font License 1.1:
+Euler Math, © the American Mathematical Society, Khaled Hosny and
+Daniel Flipo ([`cli/fonts/OFL.txt`](cli/fonts/OFL.txt)); STIX Two Math,
+© the STIX Fonts Project Authors
+([`cli/fonts/STIXTwoMath-Regular-OFL.txt`](cli/fonts/STIXTwoMath-Regular-OFL.txt));
+Garamond-Math, © Yuansheng Zhao and Xiangdong Zeng
+([`cli/fonts/Garamond-Math-OFL.txt`](cli/fonts/Garamond-Math-OFL.txt));
+and Asana Math, © Apostolos Syropoulos, Young Ryu and Claudio Beccari
+([`cli/fonts/Asana-Math-OFL.txt`](cli/fonts/Asana-Math-OFL.txt)). The
+package `linlog-cli` is therefore `EUPL-1.2 AND OFL-1.1`; the library
+`linlog` contains no font. Drawings and documents made with the fonts
+are not covered by their licence.
 
 The problem libraries and the other provers that the benchmarks and the
 comparison use are not part of this repository: the flake fetches each

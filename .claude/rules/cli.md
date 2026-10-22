@@ -175,9 +175,12 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `--output` file's extension names (`Format::of_path`), else text
   (`OutputArgs::format`); `--net` writes the net in text, svg, png or
   pdf instead of the derivation. PNG and PDF (`Format::is_binary`) are
-  the SVG drawing rendered by `render` with the Euler Math font the
-  command embeds (`FONT`, `cli/fonts/`, its OFL beside it; the crane
-  source keeps that directory), on a thread of its own
+  the SVG drawing rendered by `render` with the math fonts the
+  command embeds (`FONTS`, `cli/fonts/`, each licence beside it; the crane
+  source keeps that directory): Euler Math and the font whose family
+  `styles.svg.font` names (`fonts`). `--font NAME` (`FontArg`, on every
+  command with `StyleArgs`) is `styles.svg.font = MathFont::font()`,
+  applied after `--style`, as `--style svg.font=NAME` would; on a thread of its own
   (`limit::detached`) while the caller's stop is asked every 5 ms;
   `render(svg, format, &styles, &stop)` answers `Rendered::Bytes`,
   `Refused(line)` (a bound of the library's refused it before the

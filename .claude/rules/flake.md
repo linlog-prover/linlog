@@ -69,7 +69,10 @@ drift), with no font but
 Typst's own, renders the SVG snapshots and CLI drawings with resvg with
 only the Euler Math font of nixpkgs' TeX Live, and checks the CLI's PNG
 (pngcheck) and PDF (poppler: the font embedded, the text extractable;
-veraPDF: every profile conforms), offline; `rocq.nix` is the `rocq`
+veraPDF: every profile conforms), offline, and then once per math font
+of `--font` (the list `fonts`): three drawings rendered by resvg with that
+font's TeX Live directory alone, a PNG, and a PDF with the font embedded
+that conforms to PDF/A-4; `rocq.nix` is the `rocq`
 check, which builds NanoYalla from the non-flake input `nanoyalla`
 (Click & coLLecT pinned to a commit; `export::rocq::NANOYALLA` names
 the version, which an assertion compares with the kernel's README at
@@ -167,9 +170,9 @@ unknown one only warned about; the licence's SPDX expression) no local
 command checks, so a change of those fields is checked by hand. Its source is the whole
 workspace with the licence files (`LICENSE` and the links
 `core/LICENSE`, `cli/LICENSE`). The `linlog-cli` package installs
-`LICENSE` and the font's `OFL.txt` under `share/doc/linlog-cli/`, since
-a copy of the binary (the public cache holds one) must carry the EUPL's
-text and the embedded font's licence; the `cli` part carries `LICENSE`
+`LICENSE` and every font's licence (`cli/fonts/*.txt`) under
+`share/doc/linlog-cli/`, since a copy of the binary (the public cache
+holds one) must carry the EUPL's text and the embedded fonts' licences; the `cli` part carries `LICENSE`
 for that. The upload
 needs the network and the author's token; `cargo publish --dry-run
 --locked --workspace` in the shell packages and verifies both against

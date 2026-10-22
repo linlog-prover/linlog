@@ -206,13 +206,53 @@ for NanoYalla. What the code relies on:
   (`modules/workspace.nix`), since `commonCargoSources` alone drops it.
   `typst::CURRYST` and the nixpkgs curryst in `modules/export.nix` move
   together.
-- **No font in LaTeX and Typst, Euler in SVG.** The LaTeX and Typst
+- **No font in LaTeX and Typst, a math font in SVG.** The LaTeX and Typst
   output never chooses a font, standalone or not: it is pasted into a
   document and takes that document's fonts. Only SVG names one
   (`svg::Font`, Euler Math by default). The export check runs Typst with
   `--ignore-system-fonts` (its embedded fonts serve) and resvg with
-  `--skip-system-fonts` and Euler Math alone, and fails on any output,
-  so a font resvg cannot find fails instead of falling back silently.
+  `--skip-system-fonts` and one math font alone (Euler Math for the
+  snapshots, each `--font` for the command's drawings in it, its own
+  TeX Live directory), and fails on any output, so a font resvg cannot
+  find, or a glyph it lacks (usvg's fallback warns), fails instead of
+  falling back silently.
+- **Four math fonts** (`svg::MathFont`: Euler Math 0.75, STIX Two Math
+  2.12, Garamond-Math 2022-01-03, Asana Math 0.962, all OFL 1.1, all
+  1000 units per em), chosen on 2026-10-22 because each sets every
+  character of the table (`⅋` included: Latin Modern Math, Libertinus
+  Math, the TeX Gyre fonts and Fira Math lack it, Fira Math `⊸ ⊢ ⊥ ⊤ ⋮`
+  too) and its licence allows serving the unmodified file. New Computer
+  Modern Math covers the table but is under the GUST Font License, an
+  LPPL 1.3c whose clause 2 makes distributing one file of the Work a
+  modification; XITS Math is STIX's predecessor in the same design.
+  `svg::Font` reads in JSON as a font's name (`"stix-two"`, a hand-written
+  `Deserialize`: a string is a `MathFont`, a map the fields) and always
+  writes the fields; `MathFont::font` is the preset, whose `family` is
+  the file's family name then `serif` (Euler's keeps Neo Euler).
+- **The tables are the files'**: `font.rs`'s `CHARACTERS` are the
+  sorted characters and `ADVANCES` one table per `MathFont` (the order
+  of `MathFont::ALL`, `column`) in their order, each the font's `hmtx`
+  advance of the character (read with fontTools, `getBestCmap` and
+  `hmtx`, Euler's unchanged). The characters are kept apart from the
+  advances because rows of a character and four advances made the
+  binary search walk wider entries: the `render-svg` journey counted
+  2.1 % more, 0.4 % with the split; `every_table_is_its_font_s`
+  reads each file in `cli/fonts/` with skrifa (a dev-dependency, the
+  version krilla already locks) and fails on a missing glyph or an
+  advance that differs, so a new font or a new character of a printer
+  gets its column or row from the file, never by hand. A character
+  outside the table takes `FALLBACK` (650) in every font; a viewer
+  sets it in whatever font has it and `textLength` keeps the layout,
+  and usvg sets it in another loaded font that has it (a warning) or
+  draws the font's `.notdef`.
+- **The vertical metrics stay Euler Math's for every font** (`HEIGHT`,
+  `DEPTH`, `AXIS`, `SCRIPT`, `RAISE`, `LOWER`), measured against each
+  file on 2026-10-22: the raised `⊥` reaches 875 (STIX), 752
+  (Garamond), 805 (Asana) under `HEIGHT` 890; every comma is within
+  `DEPTH` 210; the axis is 258, 250 and 271 against 250 (a fifth of a
+  pixel at 16 px); the deepest descender of the table is 235, 290 and
+  286 (Euler's own `q` 243), inside `DEPTH` plus the margin (300).
+  Making them a font's would change Euler's output.
 - **SVG** (`export/svg/`): a third table (`NOTATION`, with the atom
   letters as mathematical italic codepoints, which a math font sets as
   math italic, and `\u{1}` standing for the raised `⊥`; `PLAIN` for the
@@ -278,8 +318,11 @@ for NanoYalla. What the code relies on:
   takes `SOURCE_DATE_EPOCH` or the clock, `pdf::Date::from_unix`).
   Calling `load_system_fonts`, or turning those resvg features on, ends
   it. A text whose font is missing is dropped by usvg without an error,
-  which is why the fonts are an argument and the command embeds Euler
-  Math (`cli/fonts/`, with its OFL). krilla-svg switches krilla's
+  which is why the fonts are an argument and the command embeds the four
+  math fonts (`cli/fonts/`, each with its OFL, `show::FONTS`), giving a
+  render Euler Math and the one whose family the style names, so the
+  default render loads what it always did. `Costs::base` (32 MiB)
+  covers the font data, at most two files of 0.4 and 0.8 MB. krilla-svg switches krilla's
   default features on, so none can be turned off there.
 - **The PDF is always PDF/A** (the author's decision): PDF/A-4 (PDF 2.0)
   by default, PDF/A-2u (PDF 1.7) with `compatible`, PDF/A-2a with
