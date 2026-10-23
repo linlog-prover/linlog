@@ -3371,3 +3371,25 @@ client follows it (step 32).
   of `39-mell-nets.md`), after 38i and before step 40. The GitHub
   avatar and the two social previews are set, and the privacy page
   read; both closed.
+- 2026-10-23: review of session 38h, invertible rules applied by
+  themselves (Opus 5.5 at high, 17:31 to 19:00): `Interactive::invert`,
+  `invert_all` and `is_invertible`, one set in every mode, each step
+  validated by `expand` (`⅋ ⊥ & ⊤`; `!` with only `?` beside it; `1`,
+  `⊗` and the axiom on the whole goal; no `?` rule, no Mix, no `wk`),
+  its sources read (Liang and Miller, Miller and Saurin, Chaudhuri's
+  thesis, Curien) and the affine, Mix and ordered cases derived and said
+  so; `interactive::Options { invertible }`, off by default;
+  `linlog interact --invertible`; the bindings; on the page a switch in
+  Settings with its tooltip, undo going back to the visitor's last
+  choice, the hint ladder's first rung reading linlog's judgement, which
+  mends a fault of the live page (it called dereliction `!L` invertible
+  and missed `\R` and `/R`; caught by a heads-up box in the session's
+  pane). Checked here: the sets against their sources and Click &
+  coLLecT's; linlog's part stacked and pushed before the page's; the
+  client's `nix flake check` at the stacked head. No departure.
+  - fixed here, in the client: Practice's test of a reload failed on
+    CI's runner (twice, so the site was not deployed after 43a); the
+    page closes the open menu when the active proof changes, and loading
+    the link at the start changed it, so Practice opened in that moment
+    closed by itself; reproduced on one core (5 of 24), mended (60 of
+    60), a commit of its own (`tqxskttq`).
