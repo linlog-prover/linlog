@@ -3393,3 +3393,18 @@ client follows it (step 32).
     the link at the start changed it, so Practice opened in that moment
     closed by itself; reproduced on one core (5 of 24), mended (60 of
     60), a commit of its own (`tqxskttq`).
+- 2026-10-23: review of session 38i, the nets drawn as the textbooks
+  draw them, as options (Opus 5.5 at high, 18:19 to 21:00, paused from
+  19:05 to 20:15 at the author's word): `svg::Style::net_look`
+  (`NetLook`: premises dashed or plain, conclusions raised or at the
+  bottom, the `?` node one node or its rules `?d`, `?c`, `?w`), the
+  presets `NetLook::LINLOG` (the default, no snapshot moved) and
+  `NetLook::TEXTBOOK`, each choice citing its figure in `core-export.md`;
+  `--style svg.net_look=textbook`; the bindings; Settings → Net drawing
+  with a Look row and a row per option, kept with the settings, the
+  stage and the exports drawing with it. Its reviewer found six wires
+  merging into one bar in the compact drawing, fixed with a test.
+  Checked here: the renders of the default and the textbook look, the
+  screenshots, both parts pushed (linlog `urvnvuvk`, the client
+  `xkyksmut`). No departure. Left to 39c: the default drawing's merged
+  door wires (a heads-up box in the session's pane).
