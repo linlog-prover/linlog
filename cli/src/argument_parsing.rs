@@ -943,7 +943,8 @@ pub(crate) struct OutputArgs {
     pub(crate) output: Option<PathBuf>,
     /// Write the proof net of the proof instead of its derivation, for MLL
     /// without units, with or without Mix, and with boxes for MELL without
-    /// units in classical mode, with or without Mix: as text (the sequent, the
+    /// units, classical with or without Mix or intuitionistic (the net of
+    /// the one-sided sequent): as text (the sequent, the
     /// copies of every ?, its axiom links as pairs of literals with their
     /// vertex numbers, and the verdict of the correctness criterion), as
     /// json (the net's document in place of the outcome), or drawn as svg,

@@ -1259,7 +1259,11 @@ pub fn net(
 /// `⅋`'s premise edges are. A formula has the id `o<n>` when it is the only
 /// vertex of occurrence `n` and `v<k>` (its vertex) when its occurrence has
 /// several; a link `l<x>-<y>` (its vertices) and a box `b<k>` (its `!`
-/// vertex). A switching cycle is in the highlight colour. Refused past
+/// vertex). A switching cycle is in the highlight colour. With
+/// [`Style::essential`], a structure of an intuitionistic sequent is drawn
+/// as its essential net, as [`net()`] draws one, with its boxes, the wires
+/// of a hypothesis `!A` led up into its copies; its highlight is still the
+/// switching cycle, which decides it. Refused past
 /// `limits.derivation_bytes` before anything is drawn, as [`net()`] is; the
 /// criterion that decides the highlight asks `stop` as
 /// [`MellStructure::is_correct`] does.
@@ -1276,8 +1280,9 @@ pub fn mell_net(
     stop: impl FnMut(crate::limits::Progress) -> bool,
 ) -> Result<String, Error> {
     style.check()?;
+    let reading = net.reading().ok().filter(|_| style.essential);
     if let Some(limit) = limits.derivation_bytes {
-        let estimate = mell::estimate(net, style, limit);
+        let estimate = mell::estimate(net, style, reading.is_some(), limit);
         if estimate > limit {
             return Err(Error::Refused(crate::limits::Refusal::Output {
                 what: "drawing",
@@ -1291,7 +1296,7 @@ pub fn mell_net(
     if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
         return Err(refused.into());
     }
-    Ok(mell::draw(net, style, &verdict))
+    Ok(mell::draw(net, style, &verdict, reading.as_ref()))
 }
 
 #[cfg(test)]

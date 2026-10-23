@@ -235,8 +235,8 @@ $ linlog prove --engine net "A & B |- A"
 error: proof nets exist for MLL without units only, not for ALL
 ```
 
-A proof with exponentials, of MELL without units in classical mode with
-or without Mix, gets its net with `!`-boxes. A vertex stands for one
+A proof with exponentials, of MELL without units, classical with or
+without Mix or intuitionistic, gets its net with `!`-boxes. A vertex stands for one
 instance of a subformula, since a `?` formula may be used several times:
 each `?` vertex is listed with its copies, each in the `!`-box it lies in
 where that is another than the `?`'s own, or with `no copy` and the
@@ -254,8 +254,23 @@ provable (MELL, classical, focus engine)
 proof net
 $ linlog prove --net --format json "!a, !b |- !a"
 {"version":4,"sequent":{"terms":[{"D":0},{"?":0},{"D":1},{"?":2},{"V":0},{"!":4}],"roots":[1,3,5],"atoms":["a","b"],"antecedents":2},"mix":false,"vertices":[[1,0,2],[5,2,2]],"links":[[4,3]],"weakenings":[[1,4]]}
-$ linlog prove --net -i "!a |- !a"
-error: proof nets with boxes exist for MELL without units in classical mode, with or without Mix, only, not for MELL in intuitionistic mode
+```
+
+An intuitionistic proof's net is the one of its one-sided sequent: a
+hypothesis `!A` is the conclusion `?~A`, whose copies the boxes and the
+derivation use. Affine logic has no proof nets:
+
+```console
+$ linlog prove --net -i "!a, !(a -o b) |- !b"
+provable (IMELL, intuitionistic, two-sided engine)
+⊢ ?~a, ?(a ⊗ ~b), !b
+?~a[0]: ~a[3] in !b[2]
+?(a ⊗ ~b)[1]: a ⊗ ~b[4] in !b[2]
+~a[3] — a[5]
+~b[6] — b[7]
+proof net
+$ linlog prove --net -i --affine "!a |- !a"
+error: proof nets exist in linear mode only, with or without --mix, not in intuitionistic affine mode
 ```
 
 With exponentials (MELL and full LL) the focus engine searches dyadic
@@ -995,7 +1010,11 @@ with boxes is drawn the same way, every `!`-box a rectangle around what
 lies in it, nested boxes nested: its `!` and an auxiliary door for every
 `?` outside it with a copy inside stand on its bottom border, and the
 wires from the copies, dashed and blue like a `⅋`'s premise edges since a
-switching keeps one wire of a `?`, leave the box through its doors.
+switching keeps one wire of a `?`, leave the box through its doors; with
+`svg.essential=true` an intuitionistic net with boxes is drawn as its
+essential net too, a hypothesis `!A` (the conclusion `?~A`) and its
+wires in green and led up into its copies, its rules those of `!`, and a
+switching cycle highlighted, which is what decides it.
 `--style svg.net_look=textbook` draws a net as the textbooks do instead:
 every edge plain, every conclusion on the bottom row, a `!` with
 auxiliary doors reached by an edge down from its door, and each `?` node
@@ -1023,6 +1042,7 @@ $ linlog prove --net --style svg.net=compact --output compact.svg "A * B |- B * 
 $ linlog prove --net --output boxes.svg "!a, !c |- !(a * a) * ?c"
 $ linlog prove --net --style svg.net_look=textbook --output textbook.svg "!a, !b, !(c * d) |- !((a * a) * (d * c))"
 $ linlog prove -i --net --style svg.essential=true --output essential.svg "A -o B, B -o C |- A -o C"
+$ linlog prove -i --net --style svg.essential=true --output essential-boxes.svg "!a, !(a -o b) |- !(b * a)"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ A⊥, A</title>
@@ -1859,7 +1879,10 @@ Built:
   disconnection named when it fails), sequentialization into a checked
   proof and desequentialization of a proof into its net, a text form and
   a JSON form.
-- Proof nets for MELL without units, with or without Mix: `!`-boxes and a `?` node with any number of copies of its
+- Proof nets for MELL without units, with or without Mix, and for
+  intuitionistic MELL without units (the net of the one-sided sequent,
+  decided by the same criterion without Mix, which a classical proof of
+  an intuitionistic sequent without units never leaves): `!`-boxes and a `?` node with any number of copies of its
   subformula, each weakening hung on an axiom link, an independent
   correctness criterion (Danos–Regnier at every box depth with the boxes
   inside contracted, with the cycle or the disconnection and the box it

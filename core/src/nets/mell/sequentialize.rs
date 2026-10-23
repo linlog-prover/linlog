@@ -59,7 +59,11 @@ enum Step {
 impl MellStructure {
     /// Turns a proof net with boxes into a proof term of its sequent, which
     /// the proof checker accepts in classical mode, with Mix where the
-    /// criterion allows it, the mode the proof records: `⅋`, `⊗`, axiom,
+    /// criterion allows it, the mode the proof records, and, without Mix,
+    /// in intuitionistic mode too where the sequent has an intuitionistic
+    /// reading: every sequent of the term then holds one formula in
+    /// output position, as a classical proof of such a sequent always
+    /// does. Its nodes are `⅋`, `⊗`, axiom,
     /// promotion, `?`, copy and, where the structure falls apart, Mix
     /// nodes, a weakening a `?` rule without copies. It takes time
     /// quadratic in the graph at most, holds within `limits.memory_bytes`
@@ -117,6 +121,11 @@ impl MellStructure {
             .expect("premises precede conclusions and every occurrence is the forest's")
             .with_mode(mode);
         debug_assert_eq!(proof.check(mode), Ok(()));
+        debug_assert!(
+            self.criterion.mix
+                || self.reading().is_err()
+                || proof.check(Mode::INTUITIONISTIC).is_ok()
+        );
         Ok(proof)
     }
 }

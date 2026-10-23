@@ -38,7 +38,7 @@ use super::{Criterion, NONE, NetError, VertexId, afford};
 use crate::Error;
 use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Progress, Refusal, Space};
-use crate::occurrences::{Forest, OccId};
+use crate::occurrences::{Forest, OccId, Reading, ShapeError};
 use crate::sequents::Kind;
 use graph::Graph;
 
@@ -209,20 +209,20 @@ pub struct MellStructure {
 
 impl MellStructure {
     /// Checks that structures with boxes exist for a sequent of `fragment`
-    /// in `mode`: unit-free MELL in classical mode, with or without Mix.
-    /// Intuitionistic mode is left out: its nets would need the
-    /// intuitionistic reading of every box.
+    /// in `mode`: unit-free MELL in classical mode, with or without Mix,
+    /// and in intuitionistic mode, where the net is the one of the
+    /// one-sided sequent and the criterion without Mix decides it (every
+    /// sequent of a classical proof of an intuitionistic sequent without
+    /// units holds one formula in output position). Affine modes are left
+    /// out: a proof there weakens formulas that are no `?`, which a
+    /// structure has no vertex for.
     ///
     /// # Errors
     ///
     /// [`NetError::NotMell`] for any other fragment or mode.
     pub fn exist(fragment: Fragment, mode: Mode) -> Result<(), NetError> {
         let unit_free = Fragment::MLL.union(Fragment::EXPONENTIALS);
-        if unit_free.contains(fragment)
-            && !mode.is_affine()
-            && !mode.is_intuitionistic()
-            && !mode.is_ordered()
-        {
+        if unit_free.contains(fragment) && !mode.is_affine() && !mode.is_ordered() {
             Ok(())
         } else {
             Err(NetError::NotMell { fragment, mode })
@@ -382,6 +382,17 @@ impl MellStructure {
     /// Returns the rules the structure is checked under.
     pub fn criterion(&self) -> Criterion {
         self.criterion
+    }
+
+    /// Returns the intuitionistic reading of the structure's sequent: the
+    /// side of `⊢` every occurrence, and so every vertex, stands on. It is
+    /// recomputed on each call, in time linear in the forest.
+    ///
+    /// # Errors
+    ///
+    /// The [`ShapeError`] of a sequent with no intuitionistic reading.
+    pub fn reading(&self) -> Result<Reading<'_>, ShapeError> {
+        Reading::new(&self.forest)
     }
 
     /// Returns the number of vertices.

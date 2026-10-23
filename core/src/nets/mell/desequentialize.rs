@@ -33,7 +33,9 @@ const UNFOLD_BYTES: u64 = 8 + 28 + 8 + 12 + 16;
 
 impl MellStructure {
     /// Desequentializes a proof of unit-free MELL in classical mode, with
-    /// Mix where the criterion allows it: checks it, unfolds it into its
+    /// Mix where the criterion allows it, or in intuitionistic mode, whose
+    /// every proof is a classical one of the one-sided sequent: checks it
+    /// in classical mode, unfolds it into its
     /// structure with boxes over a copy of the proof's forest, within
     /// `limits` (the check's bounds, and the unfolded vertices, counted
     /// before anything is made, within `limits.memory_bytes`) and until
@@ -48,7 +50,7 @@ impl MellStructure {
     /// # Errors
     ///
     /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
-    /// [`NetError::NotMell`] outside unit-free MELL and classical mode;
+    /// [`NetError::NotMell`] outside unit-free MELL;
     /// the checker's [`CheckError`](crate::proofs::CheckError) for a term
     /// that is no proof; [`Refusal::Index`] for more vertices than a
     /// structure holds; [`NetError::Refused`] when the bound or the stop

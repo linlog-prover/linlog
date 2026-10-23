@@ -127,9 +127,10 @@ for `THIRD-PARTY-NOTICES.txt`.
 
 - **Nets**: `view`'s `net` and `draw_net` gate on `nets_exist`, which
   takes `MellStructure::exist` for a sequent with exponentials, so a
-  finished classical MELL proof draws its net with boxes
-  (`svg::mell_net`, ids `o<n>`, `v<k>`, `b<k>`, `l<x>-<y>`); an
-  intuitionistic MELL proof is refused with `no_nets` as before.
+  finished MELL proof, classical or intuitionistic, draws its net with
+  boxes (`svg::mell_net`, ids `o<n>`, `v<k>`, `b<k>`, `l<x>-<y>`; with
+  `styles.svg.essential` an intuitionistic one as its essential net with
+  boxes, the same ids); an affine one is refused with `no_nets`.
 - **A net's look is `styles.svg.net_look`**, read over the tab's like
   every setting: the name `"textbook"` or `"linlog"` (a string, which the
   overlay lets through where the tab has an object, as for the font), or

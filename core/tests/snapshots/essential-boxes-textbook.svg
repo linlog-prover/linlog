@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="290.816" height="355.536" viewBox="0 0 18176 22221" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ?a⊥, ?(a ⊗ b⊥), !(b ⊗ a)</title>
+<desc>⊢ ?~a, ?(a ⊗ ~b), !(b ⊗ a)
+?~a[0]: ~a[3] in !(b ⊗ a)[2], ~a[4] in !(b ⊗ a)[2]
+?(a ⊗ ~b)[1]: a ⊗ ~b[5] in !(b ⊗ a)[2]
+~a[3] — a[6]
+~a[4] — a[10]
+~b[7] — b[9]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M16220 7021L14631 10959"/>
+<path d="M15354 8859L15389 9078L15566 8944"/>
+<path d="M14489 11691L14489 20821"/>
+<path d="M14375 16161L14489 16351L14603 16161"/>
+<path d="M11396 4041L12289 5065"/>
+<path d="M11693 4557L11904 4625L11865 4407"/>
+<path d="M15259 4041L15995 5045"/>
+<path d="M15479 4534L15683 4620L15663 4399"/>
+<path d="M17191 4041L16446 5046"/>
+<path d="M16783 4398L16761 4619L16966 4534"/>
+<path id="b2" d="M14869 11311H17876V340H7494V11311H14109"/>
+</g>
+<g fill="none" stroke="#009e73" stroke-width="40">
+<path d="M12787 5063L13671 4041"/>
+<path d="M13253 4698L13291 4480L13080 4549"/>
+<path d="M680 20821L680 17651"/>
+<path d="M794 19331L680 19141L566 19331"/>
+<path d="M8178 4971L8178 4041"/>
+<path d="M8292 4601L8178 4411L8064 4601"/>
+<path d="M8178 11311L8178 5731"/>
+<path d="M8292 8616L8178 8426L8064 8616"/>
+<path d="M9787 4971L9787 4041"/>
+<path d="M9901 4601L9787 4411L9673 4601"/>
+<path d="M9787 11311L9787 5731"/>
+<path d="M9901 8616L9787 8426L9673 8616"/>
+<path d="M12539 7951L12539 7021"/>
+<path d="M12653 7581L12539 7391L12425 7581"/>
+<path d="M12539 11311L12539 8711"/>
+<path d="M12653 10106L12539 9916L12425 10106"/>
+<path d="M8178 11311V13531H680V16891"/>
+<path d="M8292 12516L8178 12326L8064 12516"/>
+<path d="M9787 11311V16511H1440L949 17002"/>
+<path d="M5518 16625L5708 16511L5518 16397"/>
+<path d="M12539 11311V19491H2817V20821"/>
+<path d="M12653 15496L12539 15306L12425 15496"/>
+</g>
+<g fill="none" stroke="#cc79a7" stroke-width="40">
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l3-6" d="M8178 2941A1609 965 0 0 1 11396 2941"/>
+<path d="M9692 2090L9882 1976L9692 1862"/>
+<path id="l7-9" d="M13671 2941A794 476 0 0 1 15259 2941"/>
+<path d="M14370 2579L14560 2465L14370 2351"/>
+<path id="l4-10" d="M9787 2941A3702 2221 0 0 1 17191 2941"/>
+<path d="M13394 834L13584 720L13394 606"/>
+</g>
+<text x="533" y="21711" textLength="904" lengthAdjust="spacing" id="o0" fill="#009e73">!𝑎</text>
+<text x="2670" y="21711" textLength="3824" lengthAdjust="spacing" id="o2" fill="#009e73">!(𝑎 ⊸ 𝑏)</text>
+<text x="14342" y="21711" textLength="3482" lengthAdjust="spacing" id="o6">!(𝑏 ⊗ 𝑎)</text>
+<text x="14371" y="11586" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="7874" y="3831" textLength="609" lengthAdjust="spacing" id="v3" fill="#009e73">𝑎</text>
+<text x="9483" y="3831" textLength="609" lengthAdjust="spacing" id="v4" fill="#009e73">𝑎</text>
+<text x="11092" y="6811" textLength="2873" lengthAdjust="spacing" id="o3" fill="#009e73">𝑎 ⊸ 𝑏</text>
+<text x="12135" y="5551" textLength="808" lengthAdjust="spacing" font-size="800" fill="#009e73">⊸</text>
+<text x="11092" y="3831" textLength="609" lengthAdjust="spacing" id="o4">𝑎</text>
+<text x="13377" y="3831" textLength="588" lengthAdjust="spacing" id="o5" fill="#009e73">𝑏</text>
+<text x="14965" y="6811" textLength="2531" lengthAdjust="spacing" id="o7">𝑏 ⊗ 𝑎</text>
+<text x="15953" y="5551" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="14965" y="3831" textLength="588" lengthAdjust="spacing" id="o8">𝑏</text>
+<text x="16887" y="3831" textLength="609" lengthAdjust="spacing" id="o9">𝑎</text>
+<text x="380" y="17535" textLength="600" lengthAdjust="spacing" font-size="769" fill="#009e73">!c</text>
+<text x="7879" y="5580" textLength="599" lengthAdjust="spacing" font-size="668" fill="#009e73">!d</text>
+<text x="9488" y="5580" textLength="599" lengthAdjust="spacing" font-size="668" fill="#009e73">!d</text>
+<text x="12240" y="8560" textLength="599" lengthAdjust="spacing" font-size="668" fill="#009e73">!d</text>
+</svg>

@@ -89,9 +89,10 @@ fn a_proof_by_steps_is_checked_and_exported() {
 
 /// A finished proof with exponentials has its net with boxes: the view
 /// gives no refusal, and `draw_net` draws each box a rectangle, with its
-/// formulas or compact; in intuitionistic mode the view says why there is
-/// no net, and `draw_net` refuses the same. The settings' `net_look`
-/// draws it in the textbooks' look, by the preset's name or its fields.
+/// formulas or compact, in intuitionistic mode too, there also as its
+/// essential net; in affine mode the view says why there is no net, and
+/// `draw_net` refuses the same. The settings' `net_look` draws it in the
+/// textbooks' look, by the preset's name or its fields.
 #[wasm_bindgen_test(unsupported = test)]
 fn a_proof_with_exponentials_draws_its_net_with_boxes() {
     let started = calls::start("!a, !b |- !a", "classical", "").unwrap();
@@ -121,7 +122,21 @@ fn a_proof_with_exponentials_draws_its_net_with_boxes() {
     assert!(textbook.contains(">?w<"), "{textbook}");
     assert_eq!(calls::draw_net(&state, &fields).unwrap(), textbook);
 
-    let started = calls::start("!a |- !a", "intuitionistic", "").unwrap();
+    // An intuitionistic proof's net with boxes, and its essential net;
+    // affine logic has none.
+    let started = calls::start("!a |- !a * !a", "intuitionistic", "").unwrap();
+    let state = session(&calls::close_all(&session(&started), "").unwrap());
+    let view = value(&calls::view(&state, "").unwrap());
+    assert_eq!(
+        (view["complete"].clone(), view["net"].clone()),
+        (json!(true), Value::Null)
+    );
+    let drawing = calls::draw_net(&state, "").unwrap();
+    assert!(drawing.contains(r#"<path id="b"#), "{drawing}");
+    let essential = settings(&json!({"styles": {"svg": {"essential": true}}}));
+    let read = calls::draw_net(&state, &essential).unwrap();
+    assert!(read.contains(r##"stroke="#009e73""##), "{read}");
+    let started = calls::start("!a |- !a", "intuitionistic-affine", "").unwrap();
     let state = session(&calls::close_all(&session(&started), "").unwrap());
     let view = value(&calls::view(&state, "").unwrap());
     assert_eq!(view["net"]["code"], "no_nets", "{view}");

@@ -864,7 +864,8 @@ fn nets_exist(fragment: Fragment, mode: Mode) -> Result<(), NetError> {
 /// Returns the proof net of a finished session as an SVG drawing: for a
 /// sequent of unit-free MLL, and with `styles.svg.essential` for one with
 /// an intuitionistic reading, its essential net; for one of unit-free MELL
-/// in classical mode, its net with boxes, each `!`-box a rectangle (ids
+/// in classical or intuitionistic mode, its net with boxes, each `!`-box a
+/// rectangle, with `styles.svg.essential` the essential net with boxes (ids
 /// `o<n>` on the only vertex of occurrence `n`, `v<k>` on vertex `k` of an
 /// occurrence with several, `b<k>` on the box of the `!` vertex `k`); every
 /// subformula written, or with `styles.svg.net` `"compact"` only the

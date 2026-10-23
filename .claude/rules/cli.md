@@ -176,8 +176,10 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   sequents outside unit-free MLL and of affine mode (`nets_exist`), before
   the search runs; in intuitionistic mode the net printed is the one of
   the one-sided sequent. A sequent with exponentials gets its net with
-  boxes (`MellStructure`, classical with or without Mix; `nets_exist`
-  takes `MellStructure::exist` there), through one `Net` enum (`net_of`
+  boxes (`MellStructure`, classical with or without Mix or
+  intuitionistic, the one-sided sequent's; `nets_exist` takes
+  `MellStructure::exist` there, so affine mode is refused before the
+  search, and `--net -i --affine` says so in README), through one `Net` enum (`net_of`
   makes it, its `Display` and `Serialize` are the library's, `drawing`
   calls `svg::net` or `svg::mell_net`). `--net --format json` writes the
   net's document in place of the outcome (`net_json`, `prove` and

@@ -335,15 +335,49 @@ engine. What the code relies on:
   roots 3.7 s, neither asking the stop. A depth's kept count is its edges less what the switched
   classes drop, which cannot go below zero because the classes are
   disjoint sets of edges.
-- **Modes**: classical, with or without Mix (`MellStructure::exist`,
-  `NetError::NotMell`); intuitionistic MELL is left out (its nets would
-  need the intuitionistic reading in every box) and the ordered modes
-  refuse exponentials; with Mix the criterion is acyclicity at every
+- **Modes**: classical, with or without Mix, and intuitionistic
+  (`MellStructure::exist`, `NetError::NotMell`); the affine modes and the
+  ordered modes have none (an affine proof weakens formulas that are no
+  `?`, which no vertex kind holds; the ordered modes refuse
+  exponentials); with Mix the criterion is acyclicity at every
   depth, weakenings still hung (with Mix and no empty rule, `⊢ ?c ⊗ ?d,
   a, ~a` is acyclic and unprovable). `nets::exist` and the net engine
   are unchanged and MLL only; the command (`nets_exist`, `net_of`) and
   the bindings (`nets_exist`, `draw_net`) take `MellStructure::exist` and
   `from_proof` where the sequent has exponentials.
+- **Intuitionistic MELL is the classical criterion without Mix on the
+  one-sided sequent**, as IMLL's net is (`Criterion::of` gives `MLL` in
+  intuitionistic mode; nothing in the structure records the mode). Why
+  it is exact (derived here, not quoted): under the reading every
+  occurrence has a position, `!` only output with an output premise, `?`
+  only input with an input premise, `a` output, `~a` input, a `⊗` both
+  output or (output, input), a `⅋` (input, output) or both input. Count
+  an output formula 1 and an input 0: an axiom concludes 1, `⊗` takes
+  `s₁ + s₂ − 1`, `⅋`, `?`, a copy (an input from `Θ`) and a promotion
+  keep the sum, so every sequent of a cut-free classical proof without
+  Mix of a sequent with a reading has exactly one output in its linear
+  zone, `Θ` holding inputs only, which is the checker's one-succedent
+  condition (Mix would add 1 + 1). So `sequentialize`'s term, checked
+  classically, is accepted in intuitionistic mode too (a `debug_assert`
+  checks it), and every intuitionistic term is a classical one whose net
+  `from_proof` makes. The count fails with units (Schellinx's
+  counterexample to conservativity, ILLC ML-90-08 §3, uses `⊤` and `0`),
+  which unit-free MELL has none of. The sources: Lamarche (*Proof nets
+  for intuitionistic linear logic: essential nets*, HAL inria-00347336,
+  Prop. 1: in his polarized one-sided system every provable sequent has
+  one output, "a very easy induction"; his system is classical LL's rules
+  restricted to the polarities); Di Donna and Tortora de Falco
+  (arXiv 2506.21678, Def. 74 and Prop. 75: IMELL's grammar of outputs
+  and inputs, one output per provable sequent). Lamarche's own criterion
+  for IMELL (Theorem 1: balanced trails, box edges as links, weakening a
+  ξ-pointer to an output link) and Laurent's polarized criterion (LLP,
+  thesis 2002, Def. 5.10) are other criteria not taken: linlog's
+  structure already has boxes and hangs its weakenings, which is the
+  repair Accattoli names (arXiv 1303.7326 §6: no criterion for IMELL
+  without boxes or jumps, because weakenings break connectedness).
+  `intuitionistic_nets` checks it: fixed nets, random intuitionistic
+  proofs, mutants against the switching enumeration, every accepted
+  mutant's term checked in intuitionistic mode.
 - **Text and JSON**: `Display` writes the sequent, a line per `?` vertex
   (its copies, each with the `!` of its box where that is another than
   the `?`'s, or `no copy, hangs on …`), the links by first id and the

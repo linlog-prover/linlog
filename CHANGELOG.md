@@ -56,6 +56,18 @@ second number (0.1.x to 0.2.0), anything else the third.
   proof too, in place of the outcome when there is a proof.
 - The bindings' `draw_net` draws a finished MELL proof's net with boxes,
   and `view` gives no `net` refusal for it.
+- Proof nets with boxes for intuitionistic MELL without units: the net
+  of the one-sided sequent, decided by the criterion without Mix
+  (`MellStructure::exist` admits intuitionistic mode, affine modes still
+  not), sequentialized into a proof the checker accepts in intuitionistic
+  mode; `MellStructure::reading` gives a structure's reading. The
+  command's `prove --net` and `check --net` and the bindings' `draw_net`
+  and `view` give an intuitionistic MELL proof its net, and with
+  `svg.essential` `svg::mell_net` draws it as an essential net with
+  boxes: the reading's formulas, the input side in the colour `input`,
+  every edge, wire and link an arrow toward the goal, a hypothesis `!A`'s
+  rules `!d`, `!c` and `!w` in the textbook look. No enumeration gained
+  a variant.
 - The bindings' `view` (and every call that answers with a view) gives
   each goal formula, in intuitionistic mode, its `reading`: the formula
   as `Reading::formula` writes it in its position, a hypothesis `A ⊸ B`

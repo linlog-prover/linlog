@@ -1069,6 +1069,73 @@ fn essential_nets() {
         .len() as u64;
     assert!(svg::net(&around, &style, &bounded(bytes), |_| false).is_err());
     assert!(svg::net(&around, &style, &bounded(4 * bytes), |_| false).is_ok());
+
+    // With boxes, in both drawings and the textbook look: a hypothesis
+    // `!a` copied twice into the box of the goal, a hypothesis
+    // `!(a ⊸ b)` once, and an implication whose antecedent is a `!`.
+    let boxed = |input: &str| {
+        MellStructure::from_proof(
+            &proof(input, Mode::INTUITIONISTIC),
+            Criterion::MLL,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap()
+    };
+    let copies = boxed("!a, !(a -o b) |- !(b * a)");
+    let implication = boxed("!(a -o b) |- !a -o !b");
+    for (name, net, look, drawing) in [
+        (
+            "essential-boxes",
+            &copies,
+            NetLook::LINLOG,
+            NetDrawing::Formulas,
+        ),
+        (
+            "essential-boxes-compact",
+            &copies,
+            NetLook::LINLOG,
+            NetDrawing::Compact,
+        ),
+        (
+            "essential-boxes-textbook",
+            &copies,
+            NetLook::TEXTBOOK,
+            NetDrawing::Formulas,
+        ),
+        (
+            "essential-boxes-textbook-compact",
+            &copies,
+            NetLook::TEXTBOOK,
+            NetDrawing::Compact,
+        ),
+        (
+            "essential-boxes-implication",
+            &implication,
+            NetLook::LINLOG,
+            NetDrawing::Formulas,
+        ),
+    ] {
+        let style = style.clone().with_net(drawing).with_net_look(look);
+        let svg = svg::mell_net(net, &style, &unbounded(), |_| false).unwrap();
+        structure(&svg);
+        assert!(
+            svg.contains(&format!(r#"stroke="{}""#, style.input)),
+            "{name}"
+        );
+        let bytes = svg.len() as u64;
+        assert!(svg::mell_net(net, &style, &bounded(bytes - 1), |_| false).is_err());
+        assert!(svg::mell_net(net, &style, &bounded(4 * bytes), |_| false).is_ok());
+        let plain = Style::default().with_net(drawing).with_net_look(look);
+        assert_ne!(
+            svg,
+            svg::mell_net(net, &plain, &unbounded(), |_| false).unwrap()
+        );
+        snapshot(&format!("{name}.svg"), &svg);
+    }
+    let dotted = format!(r#"stroke="{}""#, style.dominator);
+    let drawing = svg::mell_net(&implication, &style, &unbounded(), |_| false).unwrap();
+    assert!(drawing.contains(&dotted), "{drawing}");
 }
 
 /// A net's drawing estimated past its limit is not drawn; the estimate is

@@ -571,6 +571,25 @@ for NanoYalla. What the code relies on:
   classical and intuitionistic nets. The estimate adds an arrowhead's
   bytes per edge, root and link and a document's for the two extra
   groups.
+- **An intuitionistic net with boxes under `Style::essential`** is the
+  MELL layout with the reading drawn in as above (`svg::mell_net` passes
+  the structure's reading): the reading's formulas (a hypothesis `!A` for
+  the input `?A⊥`, written with `!` at its nodes and doors), input
+  vertices, their circles, texts and edges, every wire and every node of
+  the rules in `input`, an arrowhead on every edge toward the goal (into
+  a `?`'s copies upward, along each wire toward its copy: on a wire's
+  longer of its way down from the door and its leg, under the rules on
+  its way down from the door), the edge into an output implication's
+  antecedent dotted in `dominator`, the rules' labels `!d`, `!c`, `!w`;
+  `dashed` is off, as in the MLL essential drawing. The highlight is the
+  switching cycle of `is_correct`, which decides the structure: there is
+  no essential criterion with boxes. The estimate adds an arrowhead's
+  bytes per vertex, root, door, link and rule node, the input colour per
+  text piece, no raised `⊥` pieces (the reading writes atoms plain), and
+  the two groups by their size: a flat `DOCUMENT` for them broke the
+  four-times bound of the textbook look, whose default estimate is
+  already 3.75 times its drawing (`essential_nets`, five snapshots
+  `essential-boxes*`).
 - **A net's drawing has a size bound like a derivation's**: `svg::net`
   estimates its bytes from the structure (`net::estimate`: every written
   formula's text, counted bottom-up from its subformulas' with a

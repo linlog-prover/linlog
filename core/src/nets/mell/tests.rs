@@ -3,12 +3,12 @@
 
 use super::{MellStructure, Parts, Placed, Placement};
 use crate::Error;
-use crate::fragment::Mode;
+use crate::fragment::{Fragment, Mode};
 use crate::limits::{Limits, Refusal};
 use crate::nets::{Criterion, NetError, ProofStructure, VertexId};
 use crate::occurrences::{Forest, Member, OccId};
 use crate::proofs::{Node, NodeId, Proof};
-use crate::search::generate::{self, Rng, Rules};
+use crate::search::generate::{self, IllRules, Rng, Rules};
 use crate::search::{Engine, Options, Verdict};
 use crate::sequents::{Kind, Sequent};
 
@@ -161,13 +161,15 @@ fn matches(
     true
 }
 
-/// Proves a sequent with the focused engine within `copies` copies and
-/// a bound of polls of its stop, which keeps a debug build's search on a
-/// large generated sequent short; `None` unless it found a proof.
+/// Proves a sequent within `copies` copies and a bound of polls of its
+/// stop, which keeps a debug build's search on a large generated sequent
+/// short, with the focused engine, or in intuitionistic mode the engine
+/// the dispatch gives; `None` unless it found a proof.
 fn proof_of(sequent: &Sequent, mode: Mode, copies: u32) -> Option<Proof> {
+    let engine = (!mode.is_intuitionistic()).then_some(Engine::Focus);
     let options = Options::default()
         .with_copies(Some(copies))
-        .with_engine(Some(Engine::Focus));
+        .with_engine(engine);
     let mut polls = 0u32;
     let outcome = crate::search::prove_within(sequent, mode, &options, &Limits::default(), |_| {
         polls += 1;
@@ -613,6 +615,111 @@ fn agrees_with_enumeration() {
         }
     }
     assert!(cases[0] > 30 && cases[1] > 100, "{cases:?}");
+}
+
+/// In intuitionistic mode the net is the one of the one-sided sequent and
+/// the criterion without Mix decides it: a fixed net and its crossed
+/// linking, whose cycle lies in the box; random intuitionistic proofs of
+/// the focused engine, whose nets the criterion accepts; and their
+/// mutants, whose verdict is [`enumerate`]'s and which, accepted,
+/// sequentialize into terms the checker accepts in intuitionistic mode.
+/// Affine modes have no structures with boxes.
+#[test]
+fn intuitionistic_nets() {
+    assert_eq!(
+        MellStructure::exist(Fragment::MELL, Mode::INTUITIONISTIC),
+        Err(NetError::NotMell {
+            fragment: Fragment::MELL,
+            mode: Mode::INTUITIONISTIC
+        })
+    );
+    let imell = Fragment::MLL.union(Fragment::EXPONENTIALS);
+    assert_eq!(MellStructure::exist(imell, Mode::INTUITIONISTIC), Ok(()));
+    for affine in [
+        Mode::INTUITIONISTIC.with_affine(),
+        Mode::CLASSICAL.with_affine(),
+    ] {
+        assert!(MellStructure::exist(imell, affine).is_err(), "{affine}");
+    }
+    // ⊢ !((a ⊸ a) ⊗ (a ⊸ a)): 0 !, 1 ⊗, 2 ⅋, 3 ~a, 4 a, 5 ⅋, 6 ~a, 7 a,
+    // vertex k occurrence k, all in the box of 0.
+    let text = "|- !((a -o a) * (a -o a))";
+    let vertices = [
+        (1, 0, Some(0)),
+        (2, 1, Some(0)),
+        (3, 2, Some(0)),
+        (4, 2, Some(0)),
+        (5, 1, Some(0)),
+        (6, 5, Some(0)),
+        (7, 5, Some(0)),
+    ];
+    let net = build(text, &vertices, &[(3, 4), (6, 7)], &[]).unwrap();
+    let proof = round_trip(&net);
+    assert_eq!(proof.check(Mode::INTUITIONISTIC), Ok(()));
+    let crossed = build(text, &vertices, &[(3, 7), (6, 4)], &[]).unwrap();
+    assert!(
+        matches!(
+            crossed.is_correct(|_| false),
+            Err(NetError::InBox { door, error })
+                if door == v(0) && matches!(*error, NetError::SwitchingCycle { .. })
+        ),
+        "{:?}",
+        crossed.is_correct(|_| false)
+    );
+
+    let criterion = Criterion::of(Mode::INTUITIONISTIC).unwrap();
+    let rules = IllRules {
+        units: false,
+        additives: false,
+        zero: false,
+        exponentials: true,
+    };
+    let mut rng = Rng::new(41);
+    let mut cases = [0; 3];
+    for _ in 0..200 {
+        let budget = 2 + rng.below(9);
+        let ill = generate::ill(&mut rng, rules, 2, budget);
+        let text = generate::two_sided(&ill.hypotheses, &ill.goal);
+        let sequent: Sequent = text.parse().unwrap();
+        let Some(proof) = proof_of(&sequent, Mode::INTUITIONISTIC, ill.copies) else {
+            continue;
+        };
+        let net = MellStructure::from_proof(&proof, criterion, &Limits::default(), |_| false)
+            .unwrap_or_else(|e| panic!("{text:?}: {e}"));
+        assert!(net.reading().is_ok(), "{text:?}");
+        cases[2] += usize::from(net.boxes().next().is_some());
+        for round in 0..8 {
+            let mut parts = net.parts();
+            if round > 0 {
+                mutate(&net, &mut parts, &mut rng);
+            }
+            let Ok(mutant) = MellStructure::from_parts(
+                net.forest().clone(),
+                criterion,
+                &parts,
+                &Limits::default(),
+            ) else {
+                continue;
+            };
+            let verdict = mutant.is_correct(|_| false);
+            if let Some(expected) = enumerate(&mutant) {
+                assert_eq!(verdict.is_ok(), expected, "{mutant:?}: {verdict:?}");
+            }
+            cases[usize::from(verdict.is_ok())] += 1;
+            if verdict.is_ok() {
+                let term = round_trip(&mutant);
+                assert_eq!(
+                    term.check(Mode::INTUITIONISTIC),
+                    Ok(()),
+                    "{text:?}: {mutant:?}"
+                );
+            }
+        }
+    }
+    assert!(
+        cases[0] > 30 && cases[1] > 150 && cases[2] > 40,
+        "{cases:?}"
+    );
 }
 
 /// Moves one link, one copy's box or one weakening's literal of a

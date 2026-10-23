@@ -43,7 +43,7 @@ pub(super) const PAR_MIDDLE: i64 = 344;
 
 /// Writes an arrowhead with its tip at `tip`, pointing along `towards`,
 /// its wings `size` back from the tip.
-fn arrowhead(out: &mut String, tip: (i64, i64), towards: (f64, f64), size: i64) {
+pub(super) fn arrowhead(out: &mut String, tip: (i64, i64), towards: (f64, f64), size: i64) {
     let length = towards.0.hypot(towards.1);
     let (dx, dy) = (towards.0 / length, towards.1 / length);
     let back = (
@@ -68,7 +68,7 @@ fn arrowhead(out: &mut String, tip: (i64, i64), towards: (f64, f64), size: i64) 
 
 /// Writes an arrowhead halfway along the segment from `from` to `to`,
 /// pointing at `to`.
-fn arrow_along(out: &mut String, from: (i64, i64), to: (i64, i64), size: i64) {
+pub(super) fn arrow_along(out: &mut String, from: (i64, i64), to: (i64, i64), size: i64) {
     let towards = ((to.0 - from.0) as f64, (to.1 - from.1) as f64);
     let middle = ((from.0 + to.0) / 2, (from.1 + to.1) / 2);
     let tip = towards_by(middle, towards, size / 2);
@@ -76,7 +76,7 @@ fn arrow_along(out: &mut String, from: (i64, i64), to: (i64, i64), size: i64) {
 }
 
 /// Returns the point `by` from `from` in the direction `towards`.
-fn towards_by(from: (i64, i64), towards: (f64, f64), by: i64) -> (i64, i64) {
+pub(super) fn towards_by(from: (i64, i64), towards: (f64, f64), by: i64) -> (i64, i64) {
     let scale = by as f64 / towards.0.hypot(towards.1);
     (
         from.0 + (towards.0 * scale).round() as i64,
@@ -175,7 +175,7 @@ pub(super) const LINK: u64 = 160;
 /// The bytes an essential net's drawing adds per edge, conclusion and
 /// link: an arrowhead of three points with coordinates of up to twelve
 /// digits; per literal, its colour; and per drawing, its groups.
-const ARROW: u64 = 100;
+pub(super) const ARROW: u64 = 100;
 
 /// A writer that counts the bytes of what it is given escaped for XML,
 /// and fails once they pass `most`.

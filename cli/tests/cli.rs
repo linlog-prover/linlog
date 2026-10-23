@@ -909,10 +909,37 @@ fn mell_nets() {
         assert!(std::fs::read(&path).unwrap().starts_with(magic), "{name}");
     }
 
-    let (status, out, err) = linlog(&["prove", "--net", "-i", "!a |- !a"], "");
+    // An intuitionistic proof has the net of its one-sided sequent, in
+    // `prove` and in `check`; an affine one none.
+    let (status, out, _) = linlog(&["prove", "--net", "-i", "!a |- !a * !a"], "");
+    assert_eq!(status, 0);
+    assert!(
+        out.contains("?~a[0]: ~a[2] in !a[4], ~a[3] in !a[6]"),
+        "{out}"
+    );
+    let (status, proof, _) = linlog(&["prove", "-i", "--format", "json", "!a |- !a * !a"], "");
+    assert_eq!(status, 0);
+    let (status, checked, _) = linlog(&["check", "--net", "-i"], &proof);
+    assert_eq!(status, 0);
+    assert!(checked.ends_with("proof net\n"), "{checked}");
+    let (status, svg, _) = linlog(
+        &[
+            "check",
+            "--net",
+            "-i",
+            "--format",
+            "svg",
+            "--style",
+            "svg.essential=true",
+        ],
+        &proof,
+    );
+    assert_eq!(status, 0);
+    assert!(svg.contains(r#"id="b"#), "{svg}");
+    let (status, out, err) = linlog(&["prove", "--net", "-i", "--affine", "!a |- !a"], "");
     assert_eq!((status, out.as_str()), (2, ""));
     assert!(
-        err.contains("proof nets with boxes exist for MELL"),
+        err.contains("proof nets exist in linear mode only"),
         "{err}"
     );
 }

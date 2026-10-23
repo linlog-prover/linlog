@@ -30,7 +30,8 @@
 
 use super::font::{AXIS, DEPTH, HEIGHT};
 use super::net::{
-    BINARY, CONNECTIVE, Count, DOCUMENT, GROUP, LINK, PAR_MIDDLE, PIECE, ROOT, height, towards,
+    ARROW, BINARY, CONNECTIVE, Count, DOCUMENT, GROUP, LINK, PAR_MIDDLE, PIECE, ROOT, arrow_along,
+    arrowhead, height, towards, towards_by,
 };
 use super::{
     Conclusions, NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, WhyNot, document,
@@ -38,7 +39,7 @@ use super::{
 };
 use crate::hash::HashMap;
 use crate::nets::{MellStructure, NetError, VertexId};
-use crate::occurrences::OccId;
+use crate::occurrences::{OccId, Reading, Side};
 use crate::sequents::Kind;
 use std::fmt::Write;
 
@@ -125,13 +126,21 @@ fn raw(v: Option<VertexId>) -> u32 {
 
 /// Returns the bytes of a structure's drawing, estimated without drawing
 /// it, and at least what the drawing has; once past `most`, some number
-/// past it. Saturating, so that no structure is estimated small.
-pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
+/// past it; `read` when it is drawn as its essential net. Saturating, so
+/// that no structure is estimated small.
+pub(super) fn estimate(net: &MellStructure, style: &Style, read: bool, most: u64) -> u64 {
     let forest = net.forest();
     let sequent = forest.sequent();
     let formulas = style.net == NetDrawing::Formulas;
     let rules = style.net_look.why_not == WhyNot::Rules;
     let bottom = style.net_look.conclusions == Conclusions::Bottom;
+    // Drawn as an essential net, a colour on every piece of text and
+    // label, and an arrowhead or a dotted line on every edge.
+    let colour = match read {
+        true => escaped(&style.input).len() as u64 + 8,
+        false => 0,
+    };
+    let arrow = if read { ARROW + colour } else { 0 };
     let mut bytes = DOCUMENT;
     // Per occurrence, the bytes of its formula's text with letters of four
     // bytes and its negated literals, each a raised `⊥` of two more
@@ -143,7 +152,8 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
         (chars[i], duals[i]) = match (below.as_slice(), forest.atom(o)) {
             ([], atom) => {
                 let name = atom.map_or(0, |a| sequent.atom_name(a).len() as u64);
-                let dual = u64::from(forest.kind(o) == Kind::DualAtom);
+                // The reading writes a literal as its atom.
+                let dual = u64::from(!read && forest.kind(o) == Kind::DualAtom);
                 (name.saturating_mul(4).saturating_add(3), dual)
             }
             (children, _) => children.iter().fold((BINARY, 0u64), |(c, d), &k| {
@@ -165,17 +175,18 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
             let pieces = duals[o.index()].saturating_mul(2).saturating_add(1);
             bytes = bytes
                 .saturating_add(chars[o.index()])
-                .saturating_add(pieces.saturating_mul(PIECE))
-                .saturating_add(GROUP);
+                .saturating_add(pieces.saturating_mul(PIECE + colour))
+                .saturating_add(GROUP + colour);
         }
         // Its symbol and circle or joint and the edges into it, its wire
-        // into a door, and a box's rectangle.
-        bytes = bytes.saturating_add(CONNECTIVE + WIRE);
+        // into a door, and a box's rectangle; drawn as an essential net,
+        // an arrowhead on its edge from its parent or its wire.
+        bytes = bytes.saturating_add(CONNECTIVE + WIRE + arrow);
         if kind(net, v) == Kind::Bang {
             bytes = bytes.saturating_add(BOX);
         }
         if root {
-            bytes = bytes.saturating_add(ROOT);
+            bytes = bytes.saturating_add(ROOT + arrow);
             // And the edge down from a raised `!` to the bottom row.
             if bottom && kind(net, v) == Kind::Bang {
                 bytes = bytes.saturating_add(ROOT);
@@ -186,18 +197,24 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
         if rules {
             let copy = net.parent(v).is_some_and(|q| kind(net, q) == Kind::Quest);
             if copy {
-                bytes = bytes.saturating_add(2 * RULE);
+                bytes = bytes.saturating_add(2 * (RULE + arrow));
             }
             if kind(net, v) == Kind::Quest {
-                bytes = bytes.saturating_add(RULE);
+                bytes = bytes.saturating_add(RULE + arrow);
             }
         }
     }
     let doors = Doors::of(net, rules).pairs.len() as u64;
     let links = net.links().len() as u64;
     bytes = bytes
-        .saturating_add(doors.saturating_mul(DOOR))
-        .saturating_add(links.saturating_mul(LINK));
+        .saturating_add(doors.saturating_mul(DOOR + arrow))
+        .saturating_add(links.saturating_mul(LINK + arrow));
+    if read {
+        // The drawing's two more groups, each an element with its colour,
+        // its stroke's width of up to ten digits and its end.
+        let colours = escaped(&style.input).len() + escaped(&style.dominator).len();
+        bytes = bytes.saturating_add(2 * 70 + colours as u64);
+    }
     if style.description && bytes <= most {
         let mut count = Count::new(most - bytes);
         let _ = write!(count, "{net}");
@@ -209,16 +226,27 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
 /// Returns a proof structure with boxes as an SVG document, titled with
 /// its sequent in plain text; `verdict` is its
 /// [`MellStructure::is_correct`], whose switching cycle is drawn in the
-/// highlight colour.
+/// highlight colour; with the `reading` of its sequent, drawn as its
+/// essential net: the reading's formulas and connectives, the input
+/// occurrences and everything into them in the input colour, every edge,
+/// wire and link an arrow from the hypotheses toward the goal, and the
+/// edge into an implication's antecedent dotted.
 #[expect(
     clippy::too_many_lines,
     reason = "one layout in its passes, as the multiplicative drawing is"
 )]
-pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetError>) -> String {
+pub(super) fn draw(
+    net: &MellStructure,
+    style: &Style,
+    verdict: &Result<(), NetError>,
+    reading: Option<&Reading<'_>>,
+) -> String {
     let forest = net.forest();
     let n = net.len();
     let formulas = style.net == NetDrawing::Formulas;
-    let dashed = style.net_look.premises == Premises::Dashed;
+    // An essential net tells its edges apart by their polarity, not by
+    // the switching.
+    let dashed = reading.is_none() && style.net_look.premises == Premises::Dashed;
     let rules = style.net_look.why_not == WhyNot::Rules;
     let line_height = i64::from(style.line_height);
     let (gap, radius) = (i64::from(style.literal_gap), i64::from(style.node_radius));
@@ -233,10 +261,47 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     let root = |v: u32| parent(v) == NONE;
     let written = |v: u32| formulas || forest.is_literal(occ(v)) || root(v);
     let binary = |v: u32| matches!(kind_of(v), Kind::Tensor | Kind::Par);
+    // A vertex's formula as the drawing writes it: one-sided, or as the
+    // reading reads it, which writes a literal as its atom.
     let write = |out: &mut String, v: u32, brackets: bool| {
-        NOTATION
-            .term(out, forest.sequent(), forest.term(occ(v)), brackets)
-            .unwrap();
+        match reading {
+            Some(r) => NOTATION.ill(out, r, occ(v), brackets),
+            None => NOTATION.term(out, forest.sequent(), forest.term(occ(v)), brackets),
+        }
+        .unwrap();
+    };
+    let input = |v: u32| reading.is_some_and(|r| r.position(occ(v)) == Side::Input);
+    let fill = |v: u32| match input(v) {
+        true => format!(r#" fill="{}""#, escaped(&style.input)),
+        false => String::new(),
+    };
+    let arrow = radius / 2;
+    // A symbol at a joint, a door or in a circle, and the height of its
+    // middle above its baseline: under the reading `A⊥ ⅋ B` in output
+    // position and `A ⊗ B⊥` in input position are `⊸`, and a `?` in input
+    // position is the hypothesis `!A`.
+    let symbol_of = |v: u32| -> (&'static str, i64) {
+        match kind_of(v) {
+            Kind::Par | Kind::Tensor if reading.is_some() => {
+                match (kind_of(v) == Kind::Par) != input(v) {
+                    true => (NOTATION.lollipop, AXIS),
+                    false => (NOTATION.tensor, AXIS),
+                }
+            }
+            Kind::Par => (NOTATION.par, PAR_MIDDLE),
+            Kind::Tensor => (NOTATION.tensor, AXIS),
+            Kind::Quest if reading.is_some() => (NOTATION.bang, PAR_MIDDLE),
+            Kind::Bang => (NOTATION.bang, PAR_MIDDLE),
+            Kind::Quest => (NOTATION.quest, PAR_MIDDLE),
+            Kind::Atom
+            | Kind::DualAtom
+            | Kind::One
+            | Kind::Bot
+            | Kind::Top
+            | Kind::Zero
+            | Kind::With
+            | Kind::Plus => unreachable!("a literal has no symbol, a MELL net no unit or additive"),
+        }
     };
     // Whether a copy lies in another box than its `?` vertex.
     let boxed = |c: u32| {
@@ -501,12 +566,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                     formula.clear();
                     write(&mut formula, l as u32, true);
                     formula.push(' ');
-                    let symbol = if kind_of(v) == Kind::Par {
-                        NOTATION.par
-                    } else {
-                        NOTATION.tensor
-                    };
-                    let half = symbol.chars().map(advance).sum::<i64>() / 2;
+                    let half = symbol_of(v).0.chars().map(advance).sum::<i64>() / 2;
                     from_left[node] = width(&formula) + half;
                     let space = advance(' ');
                     offset[l] = -(half + space + bracket(l as u32, ')') + left.1);
@@ -527,7 +587,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 }
             }
             Kind::Bang | Kind::Quest => {
-                let symbol = if kind_of(v) == Kind::Bang { '!' } else { '?' };
+                let symbol = symbol_of(v).0.chars().map(advance).sum::<i64>();
                 // The subformula as it stands after the symbol: the premise,
                 // or the first copy.
                 let first = if kind_of(v) == Kind::Bang {
@@ -536,10 +596,9 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                     children.first().copied()
                 };
                 if formulas {
-                    from_left[node] = advance(symbol) / 2;
+                    from_left[node] = symbol / 2;
                     if let Some(f) = first {
-                        let at = advance(symbol) + bracket(f, '(') + from_left[f as usize]
-                            - from_left[node];
+                        let at = symbol + bracket(f, '(') + from_left[f as usize] - from_left[node];
                         if kind_of(v) == Kind::Bang {
                             offset[unit(v)] = at;
                         } else {
@@ -805,7 +864,19 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
 
     let (mut lines, mut pars, mut links) = (String::new(), String::new(), String::new());
     let (mut marked, mut texts) = (String::new(), String::new());
+    let (mut input_lines, mut dominator_lines) = (String::new(), String::new());
     let dash = format!("{} {}", 3 * stroke, 3 * stroke);
+    // An edge of an essential net from `from` to `to`, its arrowhead
+    // halfway along it pointing at `to`.
+    let directed = |out: &mut String, from: (i64, i64), to: (i64, i64)| {
+        writeln!(
+            out,
+            r#"<path d="M{} {}L{} {}"/>"#,
+            from.0, from.1, to.0, to.1
+        )
+        .unwrap();
+        arrow_along(out, from, to, arrow);
+    };
     let segment = |out: &mut String, from: (i64, i64), to: (i64, i64), dashed: bool| {
         write!(out, r#"<path d="M{} {}L{} {}""#, from.0, from.1, to.0, to.1).unwrap();
         if dashed {
@@ -813,31 +884,14 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         out.push_str("/>\n");
     };
-    // A symbol at a joint, a door or in a circle.
-    let symbol_of = |v: u32| -> (&'static str, i64) {
-        match kind_of(v) {
-            Kind::Par => (NOTATION.par, PAR_MIDDLE),
-            Kind::Tensor => (NOTATION.tensor, AXIS),
-            Kind::Bang => (NOTATION.bang, PAR_MIDDLE),
-            Kind::Quest => (NOTATION.quest, PAR_MIDDLE),
-            Kind::Atom
-            | Kind::DualAtom
-            | Kind::One
-            | Kind::Bot
-            | Kind::Top
-            | Kind::Zero
-            | Kind::With
-            | Kind::Plus => unreachable!("a literal has no symbol, a MELL net no unit or additive"),
-        }
-    };
-    let label = |texts: &mut String, centre: (i64, i64), (sign, middle): (&str, i64)| {
+    let label = |texts: &mut String, centre: (i64, i64), (sign, middle): (&str, i64), v: u32| {
         let label = run(sign, label_size, &style.font);
         text(
             texts,
             centre.0 - label.width / 2,
             centre.1 + middle * label_size / 1000,
             &label,
-            &format!(r#" font-size="{label_size}""#),
+            &format!(r#" font-size="{label_size}"{}"#, fill(v)),
             None,
         );
     };
@@ -853,11 +907,12 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     for v in 0..n as u32 {
         if written(v) {
             let named = formulas || forest.is_literal(occ(v));
-            let attributes = if named {
+            let mut attributes = if named {
                 format!(r#" id="{}""#, id(v))
             } else {
                 String::new()
             };
+            attributes.push_str(&fill(v));
             formula.clear();
             write(&mut formula, v, false);
             let line = run(&formula, 1000, &style.font);
@@ -876,9 +931,14 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         let centre = node(v);
         if !formulas {
-            circle(&mut lines, centre, Some(&id(v)));
+            let group = if input(v) {
+                &mut input_lines
+            } else {
+                &mut lines
+            };
+            circle(group, centre, Some(&id(v)));
         }
-        label(&mut texts, centre, symbol_of(v));
+        label(&mut texts, centre, symbol_of(v), v);
         let switched = matches!(kind_of(v), Kind::Par | Kind::Quest) && dashed;
         let children: Vec<u32> = if kind_of(v) == Kind::Bang {
             net.premises(VertexId::new(v)).map(VertexId::get).collect()
@@ -888,6 +948,36 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         for c in children {
             let to = end_at(c, centre);
             let from = towards(centre, to, radius);
+            if reading.is_some() {
+                // Output premises lead down into their connective, input
+                // connectives up into their input premises (a `?` into its
+                // copies), and nothing into the antecedent of an output
+                // implication.
+                let (upward, antecedent) = (input(c), input(c) && !input(v));
+                let out = match (marks(v, c), antecedent, upward) {
+                    (true, _, _) => &mut marked,
+                    (false, true, _) => &mut dominator_lines,
+                    (false, false, true) => &mut input_lines,
+                    (false, false, false) => &mut lines,
+                };
+                if antecedent {
+                    writeln!(
+                        out,
+                        r#"<path d="M{} {}L{} {}" stroke-dasharray="{stroke} {}"/>"#,
+                        from.0,
+                        from.1,
+                        to.0,
+                        to.1,
+                        2 * stroke
+                    )
+                    .unwrap();
+                } else if upward {
+                    directed(out, from, to);
+                } else {
+                    directed(out, to, from);
+                }
+                continue;
+            }
             let out = match (marks(v, c), switched) {
                 (true, _) => &mut marked,
                 (false, true) => &mut pars,
@@ -895,26 +985,39 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             };
             segment(out, from, to, switched && marks(v, c));
         }
+        // The goal's edge leads down, a hypothesis's up.
         if formulas && lowered(v) {
-            let foot = (centre.0, text_y(v) - HEIGHT);
-            segment(&mut lines, (centre.0, centre.1 + radius), foot, false);
+            let (start, foot) = (
+                (centre.0, centre.1 + radius),
+                (centre.0, text_y(v) - HEIGHT),
+            );
+            match reading {
+                Some(_) => directed(&mut lines, start, foot),
+                None => segment(&mut lines, start, foot, false),
+            }
         }
         // A compact conclusion's edge hangs from its circle to its text.
         if root(v) && !formulas {
-            writeln!(
-                lines,
-                r#"<path d="M{} {}V{end}"/>"#,
-                centre.0,
-                centre.1 + radius
-            )
-            .unwrap();
+            let (start, foot) = ((centre.0, centre.1 + radius), (centre.0, end));
+            match (reading, input(v)) {
+                (Some(_), true) => directed(&mut input_lines, foot, start),
+                (Some(_), false) => directed(&mut lines, start, foot),
+                (None, _) => {
+                    writeln!(lines, r#"<path d="M{} {}V{end}"/>"#, start.0, start.1).unwrap();
+                }
+            }
         }
     }
     // A node of the rules: its label at `centre`, narrowed to fit inside
     // the node's radius, in a circle when compact and `circled` (the last
-    // node of a `?` vertex has its own, with the vertex's id).
+    // node of a `?` vertex has its own, with the vertex's id); drawn as an
+    // essential net in the input colour, as a hypothesis's rules are.
     let rule_node =
         |lines: &mut String, texts: &mut String, centre: (i64, i64), sign: &str, circled: bool| {
+            let colour = match reading {
+                Some(_) => format!(r#" fill="{}""#, escaped(&style.input)),
+                None => String::new(),
+            };
             if circled && !formulas {
                 circle(lines, centre, None);
             }
@@ -931,15 +1034,27 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 centre.0 - label.width / 2,
                 centre.1 + PAR_MIDDLE * size / 1000,
                 &label,
-                &format!(r#" font-size="{size}""#),
+                &format!(r#" font-size="{size}"{colour}"#),
                 None,
             );
         };
+    // Under the reading the rules are those of a hypothesis `!A`.
+    let why_not = if reading.is_some() {
+        NOTATION.bang
+    } else {
+        NOTATION.quest
+    };
     let (dereliction, contraction, weakening) = (
-        format!("{}d", NOTATION.quest),
-        format!("{}c", NOTATION.quest),
-        format!("{}w", NOTATION.quest),
+        format!("{why_not}d"),
+        format!("{why_not}c"),
+        format!("{why_not}w"),
     );
+    // Under the reading every edge of the rules leads up, from the `?`
+    // vertex's formula into its copies, and lies in the input colour.
+    let (rule_lines, rule_up) = match reading {
+        Some(_) => (&mut input_lines, true),
+        None => (&mut lines, false),
+    };
     // Under the rules, every `?` vertex's nodes, and where each of its
     // wires ends (the node, how far from it, and whether from above): a
     // dereliction under each copy at its depth on the first of its rows,
@@ -951,6 +1066,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     // into a contraction from the side along twice the radius above it,
     // and the first one, with wires alone, along twice the radius above
     // the row over it and down the column, so that no two share a leg.
+    // An edge of the rules from `a` down to `b`; under the reading led up.
+    let rule_edge = |out: &mut String, a: (i64, i64), b: (i64, i64), dashing: bool| match rule_up {
+        true => directed(out, b, a),
+        false => segment(out, a, b, dashing),
+    };
     let mut entry: HashMap<usize, End> = HashMap::default();
     for q in (0..n as u32).filter(|&q| rules && kind_of(q) == Kind::Quest) {
         let k = inputs[q as usize];
@@ -963,7 +1083,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         // A compact conclusion's edge, from `from` down to its text.
         let hanging = |lines: &mut String, marked: &mut String, from: i64| {
             let target = if down { marked } else { lines };
-            writeln!(target, r#"<path d="M{} {from}V{end}"/>"#, x[q as usize]).unwrap();
+            let column = x[q as usize];
+            match rule_up {
+                true => directed(target, (column, end), (column, from)),
+                false => writeln!(target, r#"<path d="M{column} {from}V{end}"/>"#).unwrap(),
+            }
         };
         if bare(q) {
             let into = match formulas {
@@ -982,7 +1106,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 );
             }
             if !formulas && root(q) {
-                hanging(&mut lines, &mut marked, into.1);
+                hanging(&mut *rule_lines, &mut marked, into.1);
             }
             continue;
         }
@@ -992,11 +1116,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         };
         if formulas {
             let into = (last.0, text_y(q) - HEIGHT);
-            let target = if down { &mut marked } else { &mut lines };
-            segment(target, (last.0, last.1 + radius), into, false);
+            let target = if down { &mut marked } else { &mut *rule_lines };
+            rule_edge(target, (last.0, last.1 + radius), into, false);
         } else {
             writeln!(
-                lines,
+                rule_lines,
                 r#"<circle id="{}" cx="{}" cy="{}" r="{radius}"/>"#,
                 id(q),
                 last.0,
@@ -1004,11 +1128,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             )
             .unwrap();
             if root(q) {
-                hanging(&mut lines, &mut marked, last.1 + radius);
+                hanging(&mut *rule_lines, &mut marked, last.1 + radius);
             }
         }
         if k == 0 {
-            rule_node(&mut lines, &mut texts, last, &weakening, false);
+            rule_node(&mut *rule_lines, &mut texts, last, &weakening, false);
             continue;
         }
         // The premises by their distance from the column, each with its
@@ -1059,17 +1183,17 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 1 => last,
                 _ => (x[c as usize], centre_at(first)),
             };
-            rule_node(&mut lines, &mut texts, at, &dereliction, k > 1);
+            rule_node(&mut *rule_lines, &mut texts, at, &dereliction, k > 1);
             let from = end_at(c, at);
-            let target = if mark { &mut marked } else { &mut lines };
-            segment(target, from, towards(at, from, radius), false);
+            let target = if mark { &mut marked } else { &mut *rule_lines };
+            rule_edge(target, from, towards(at, from, radius), false);
             if k > 1 {
                 let target = match (mark, dashed) {
                     (true, _) => &mut marked,
                     (false, true) => &mut pars,
-                    (false, false) => &mut lines,
+                    (false, false) => &mut *rule_lines,
                 };
-                segment(
+                rule_edge(
                     target,
                     towards(at, into, radius),
                     towards(into, at, radius),
@@ -1079,16 +1203,16 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         for j in 1..k {
             let at = contraction_at(j);
-            rule_node(&mut lines, &mut texts, at, &contraction, j + 1 < k);
+            rule_node(&mut *rule_lines, &mut texts, at, &contraction, j + 1 < k);
             if j + 1 < k {
                 let below = contraction_at(j + 1);
                 let mark = from_on <= j && j < to_on;
                 let target = match (mark, dashed) {
                     (true, _) => &mut marked,
                     (false, true) => &mut pars,
-                    (false, false) => &mut lines,
+                    (false, false) => &mut *rule_lines,
                 };
-                segment(
+                rule_edge(
                     target,
                     (column, at.1 + radius),
                     (column, below.1 - radius),
@@ -1110,12 +1234,21 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         let d = doors.index(inside(c), key_of(c));
         let to = point[d];
         let switched = dashed && !bare(q);
+        let plain = if reading.is_some() {
+            &mut input_lines
+        } else {
+            &mut lines
+        };
         let from = if rules {
             let at = (x[c as usize], centre_at(row[c as usize] + 1));
             let from = end_at(c, at);
-            let target = if marks(q, c) { &mut marked } else { &mut lines };
-            segment(target, from, towards(at, from, radius), false);
-            rule_node(&mut lines, &mut texts, at, &dereliction, true);
+            let target = if marks(q, c) {
+                &mut marked
+            } else {
+                &mut *plain
+            };
+            rule_edge(target, from, towards(at, from, radius), false);
+            rule_node(&mut *plain, &mut texts, at, &dereliction, true);
             towards(at, to, radius)
         } else {
             end_at(c, to)
@@ -1123,9 +1256,9 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         let target = match (marks(q, c), switched) {
             (true, _) => &mut marked,
             (false, true) => &mut pars,
-            (false, false) => &mut lines,
+            (false, false) => plain,
         };
-        segment(
+        rule_edge(
             target,
             from,
             towards(to, from, door_radius),
@@ -1180,15 +1313,17 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         };
         let mark = marks(q, b);
         let switched = dashed && !bare(q);
-        let out = match (mark, switched) {
-            (true, _) => &mut marked,
-            (false, true) => &mut pars,
-            (false, false) => &mut lines,
+        let out = match (mark, switched, reading.is_some()) {
+            (true, _, _) => &mut marked,
+            (false, true, _) => &mut pars,
+            (false, false, true) => &mut input_lines,
+            (false, false, false) => &mut lines,
         };
         let dashing = mark && switched;
         if let Some(Some(_)) = above {
             // Down from the door, along its leg to the column and down into
-            // a node of the rules or a formula.
+            // a node of the rules or a formula; under the reading led up,
+            // the arrowhead on its way down from the door.
             let leg = legs[&d];
             write!(out, r#"<path d="M{} {}"#, from.0, from.1).unwrap();
             if from.0 != to.0 {
@@ -1200,6 +1335,10 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 write!(out, r#" stroke-dasharray="{dash}""#).unwrap();
             }
             out.push_str("/>\n");
+            if reading.is_some() {
+                let down = if from.0 == to.0 { to.1 - into } else { leg };
+                arrow_along(out, (from.0, down), from, arrow);
+            }
             continue;
         }
         // Straight down from the door, along twice the radius above the
@@ -1207,12 +1346,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         // so that it crosses no joint or circle on the way.
         let leg = legs.get(&d).copied().unwrap_or(to.1 - 2 * radius);
         if (from.0 - to.0).abs() <= 2 * radius || leg <= from.1 + radius {
-            segment(
-                out,
-                towards(from, to, door_radius),
-                towards(to, from, into),
-                dashing,
-            );
+            let (start, end) = (towards(from, to, door_radius), towards(to, from, into));
+            match reading {
+                Some(_) => directed(out, end, start),
+                None => segment(out, start, end, dashing),
+            }
         } else {
             let side = (from.0 - to.0).signum() * 2 * radius;
             let corner = (to.0 + side, leg);
@@ -1231,14 +1369,28 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 write!(out, r#" stroke-dasharray="{dash}""#).unwrap();
             }
             out.push_str("/>\n");
+            // Under the reading led up, the arrowhead on the longer of its
+            // way down from the door and its way along.
+            if reading.is_some() {
+                let start = (from.0, from.1 + door_radius);
+                match leg - start.1 >= (corner.0 - from.0).abs() {
+                    true => arrow_along(out, (from.0, leg), start, arrow),
+                    false => arrow_along(out, (corner.0, leg), (from.0, leg), arrow),
+                }
+            }
         }
         if rules {
             continue;
         }
         if !formulas {
-            circle(&mut lines, from, None);
+            let group = if reading.is_some() {
+                &mut input_lines
+            } else {
+                &mut lines
+            };
+            circle(group, from, None);
         }
-        label(&mut texts, from, (NOTATION.quest, PAR_MIDDLE));
+        label(&mut texts, from, symbol_of(q), q);
     }
     // Each box's rectangle, its bottom border broken at its doors.
     for b in net.boxes().map(VertexId::get) {
@@ -1299,6 +1451,13 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             write!(out, "V{down_right}").unwrap();
         }
         out.push_str("\"/>\n");
+        // From the input literal to the output one, at the arc's top.
+        if reading.is_some() {
+            let leftwards = left == if input(p) { q } else { p };
+            let towards = (if leftwards { -1.0 } else { 1.0 }, 0.0);
+            let tip = towards_by((a + rx, level - ry), towards, arrow / 2);
+            arrowhead(out, tip, towards, arrow);
+        }
     }
 
     let group = |out: &mut String, colour: &str, extra: &str, content: &str| {
@@ -1313,6 +1472,10 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     };
     let body = |out: &mut String| {
         group(out, &style.line, "", &lines);
+        if reading.is_some() {
+            group(out, &style.input, "", &input_lines);
+            group(out, &style.dominator, "", &dominator_lines);
+        }
         if dashed {
             group(
                 out,

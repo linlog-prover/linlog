@@ -333,7 +333,8 @@ pub enum NetError {
         error: Box<NetError>,
     },
     /// Proof nets with boxes exist for unit-free MELL in classical mode,
-    /// with or without Mix, and the sequent or the mode lies outside.
+    /// with or without Mix, and in intuitionistic mode, and the sequent or
+    /// the mode lies outside.
     #[non_exhaustive]
     NotMell {
         /// The sequent's fragment.
@@ -549,7 +550,7 @@ impl NetError {
             NotMell { fragment, mode } => write!(
                 f,
                 "proof nets with boxes exist for MELL without units in classical mode, with or \
-                 without Mix, only, not for {fragment} in {mode} mode"
+                 without Mix, and in intuitionistic mode, only, not for {fragment} in {mode} mode"
             ),
             Refused { refusal } => write!(f, "{refusal}"),
         }
