@@ -845,7 +845,9 @@ I can revisit them"), after the author accepted them as built; each
 checked that day against the client at `main` 0397f950 (`lwrmzpqv`).
 Each says what the page does, where, why it was kept, and which session
 chose it (its report has the reasoning). To change one, name it to the
-planning session; a change is a session of the client.*
+planning session; a change is a session of the client. Checked again,
+entry by entry, by session 38e against the client at `osyprzqo` (8fb9b3fe),
+after its changes.*
 
 - **Practice hides its answer.** A card's verdict, explanation and Watch
   open only from "Answer" (`src/islands/Learn.tsx`, the `<summary>`
