@@ -376,3 +376,268 @@ JSON form of the structure yet.
   name instances, a change of the calculus's representation. It would
   make the round trip exact and reach the nets that no term reads back
   to now.
+
+## Session 39b: the drawing, the JSON form and the command
+
+**Outcome: a MELL proof has its net with boxes in the library's drawing,
+in JSON, in the command and in the bindings; the compact drawing's edges
+begin at each font's own depth.** `svg::mell_net` draws a
+`MellStructure` with every formula written or compact, each `!`-box a
+rectangle around its contents with its `!` and an auxiliary door per
+`?` vertex outside it (with a copy inside) on its bottom border, nested
+boxes nested, with per-vertex ids. A `MellStructure` has a text form and
+a JSON form at the new wire level 4, whose reader validates through
+`from_parts` within the limits. The command's `--net` gives a classical
+MELL proof its net in text, JSON, SVG, PNG and PDF, in `prove` and
+`check`, and the bindings' `draw_net` draws it for the web page. The net
+target set is unchanged against `net-after-mell`, every code commit was
+gated, and the reviewer's one finding (an edge of the compact drawing
+through a box) is fixed.
+
+### What was built
+
+- **The compact drawing's edges** (`svg/net.rs`): a premise edge begins
+  under a literal at `Advances::depth`, as the drawing with formulas
+  does, instead of `FOOT` (a tenth of an em). That is 210 thousandths of
+  an em for Euler Math and 235, 290, 286 and 250 for STIX Two Math,
+  Garamond-Math, Asana Math and New Computer Modern Math.
+  `net_edges_clear_the_font_s_descenders` checks both drawings now. One
+  snapshot changed, `net-compact.svg`; it was regenerated and rendered
+  in all five fonts (`g * B |- B * g`), and in every one the edges start
+  clear of the `g`'s descender.
+- **The drawing** (`svg/mell.rs`, `svg::mell_net`). It is the
+  multiplicative layout over a layout tree in which a box is one subtree
+  above its `!` vertex: the `!`'s premise stands where it stands in the
+  `!` formula's text, and beside it stand the boxed copies (copies of a
+  `?` outside the box), those of a `?` earlier in the formula trees to
+  its left. The box's rectangle is that subtree's extent plus
+  `node_radius`, so the multiplicative drawing's separation keeps every
+  premise edge out of every box. A door's wire runs straight down from
+  the door, along `2·node_radius` above its target's row, then into it.
+  A `?` stands a row below every door its wires leave. A link over boxes
+  of its own depth rises above the highest lid it spans, so no arc
+  enters a box it does not belong to. The copies of a `?` with several
+  at its own depth stand on the row above it. Ids: `o<n>` on the only
+  vertex of occurrence `n` (as in an MLL net), `v<k>` on vertex `k` of an
+  occurrence with several, `b<k>` on the outline of the box of `!`
+  vertex `k`, `l<x>-<y>` on links by vertex. A switching cycle is
+  highlighted, a wire being the pair of its `?` and the copy or
+  contracted box it comes from. The size is estimated per vertex, door
+  and box and refused past `limits.derivation_bytes` before drawing.
+- **The text form** (`impl Display for MellStructure`): the sequent, a
+  line per `?` vertex (its copies, each with the `!` of its box where
+  that differs from the `?`'s, or `no copy, hangs on …`), the links by
+  first id, and the verdict.
+- **The JSON form** (`serialize/nets.rs`): `{"version": 4, "sequent",
+  "mix", "vertices": [[occurrence, parent, box|null], …], "links",
+  "weakenings"}`, which is `Parts` with the sequent. It is always
+  written at level 4, since `vertices` changes what `links` mean, which
+  `wire.rs` names as a cause to raise the level. It is read through
+  `Forest::from_owned` (`limits.occurrences`) and `from_parts`
+  (`limits.memory_bytes`). `ProofStructure`'s reader refuses a document
+  with `vertices` rather than read its links as occurrences. `wire::LEVEL` is 4,
+  and `core/tests/wire/level-4.txt` holds a level-4 document, never to be
+  rewritten (`the_fourth_level_reads`).
+- **The command** (`cli/src/show.rs`): one `Net` enum, MLL or with
+  boxes. `net_of` makes it (`MellStructure::from_proof` where the
+  sequent has exponentials). `net_into` writes the text form or the
+  drawing, `net_json` the document. `nets_exist` takes
+  `MellStructure::exist` for a sequent with exponentials, so an
+  intuitionistic MELL proof is refused before the search, as an affine
+  one was. `--net --format json` is new for MLL nets too: it writes the
+  net's document in place of the outcome when there is a proof, else the
+  outcome as always.
+- **The bindings** (`web/src/calls.rs`): `view`'s `net` and `draw_net`
+  gate on a `nets_exist` that takes `MellStructure::exist`, and
+  `draw_net` draws through `svg::mell_net` where the sequent has
+  exponentials.
+- **README**: the `--net` section has a MELL example in text and JSON
+  and the intuitionistic refusal, the SVG section describes the boxes and
+  shows `net-boxes.svg`, and "What exists" moves nets with boxes in the
+  command and the web bindings from planned to built.
+
+### Decisions
+
+- **The command takes no net document.** The brief lists "`check` of a
+  net document" and `seq`, but the command reads no net and `seq` shows
+  none: `check` reads proofs and draws their nets with `--net`. So "wherever
+  the command shows or takes an MLL net" is `prove --net` and `check
+  --net`, both done. JSON was not among `--net`'s formats, so this
+  session added it, for MLL and MELL alike, as the net's own document,
+  which the library reads back. It is written in place of the outcome,
+  as `--net` writes the net in place of the derivation in every other
+  format. A nested `net` key in the outcome was the alternative. It was
+  not taken because the outcome would then hold the sequent twice, and
+  a nested value carries no `version` while the MELL form needs level 4.
+- **A weakening's link is not drawn** (the brief leaves this to 39b): a
+  jump line from below would cross the formulas of its literal's
+  ancestors, which stand under the literal. The weakening stands as a
+  `?` with no edge above, as Girard draws one, and the description
+  names its literal. So a box shows no door for a weakening hung inside
+  it, though `auxiliary_doors` counts one (departs from the design: the
+  doors drawn on a border are those of copies, not every auxiliary door
+  the criterion has).
+- **A `!` conclusion with auxiliary doors stays at its own row**, above
+  the bottom, since its `?` vertices must stand below its doors and may
+  be conclusions themselves (departs from the design: "the conclusions
+  at the bottom" holds for every other conclusion; in the compact
+  drawing every conclusion's text is still at the bottom, on a hanging
+  edge).
+- **A door's wire may cross other edges, and in a crowded net a
+  formula.** It links a box to a `?` in another part of the formula
+  trees, which no planar layout of trees avoids in general. Its route
+  (down, along above the target's row, in) keeps it off every joint and
+  circle, and in the snapshots and the examples looked at it crosses no
+  formula.
+- **No new style field**: boxes take the `line` colour, wires the `par`
+  colour and dash (a `?` is switched as a `⅋` is), and the box margin is
+  `node_radius`. A colour of its own for boxes would change the help
+  text's list of fields, and nobody has asked for one.
+- **Disconnection is not highlighted** in a MELL drawing: the components
+  of a depth's switching with doors are not recomputed in the drawing,
+  and the description names the parts.
+
+### Options, front ends and quantifiers (D15, D16, D17)
+
+No option was added. The MELL drawing reads `svg::Style` as the MLL one
+does (`net`, the colours, `node_radius`, `literal_gap`, `link_height`,
+`link_cap`, the font), so the command's `--style svg.…`/`--font` and the
+bindings' `styles.svg` set it already. Quantifiers would add vertex
+kinds to the layout tree: `∀` a box-like region drawn as a box is,
+`∃` a unary vertex like `!`'s without a box.
+
+### Public items added, for step 45
+
+`svg::mell_net` (a function), `impl Display`, `Serialize`, `Deserialize`
+and `wire::Readable` for `MellStructure`. `wire::LEVEL` is 4 (a
+constant's value, as levels 2 and 3 changed it). No closed enum gained a
+variant.
+
+### The snapshots
+
+New: `net-boxes.svg` and `net-boxes-compact.svg` (`!a, !c |- !(a * a) *
+?c`: two copies of `?a⊥` in the box, a dereliction of `?c⊥` outside, a
+link rising over the box), `net-nested.svg` and `net-nested-compact.svg`
+(`!a |- ?a * !!a`: a box in a box, the copy's wire through both doors),
+`net-boxes-cycle.svg` (`⊢ ?~a ⊗ !a` from parts, the cycle through the
+box's door highlighted). Changed: `net-compact.svg` (the edges' start).
+Each was rendered in all five math fonts and looked at. The first four
+were rendered through the command with `--font` (its SVG is byte for
+byte the snapshot), and the cycle with resvg and each font file. The
+boxes enclose their contents, the nested box lies inside the outer one,
+the doors sit on the borders, and no edge starts inside a descender.
+
+### The review
+
+One fresh-context reviewer (Opus 5.5 at `high`), one round, on the
+frozen commit `srlkqrot` (e87af14d), in a jj workspace of its own on
+cores 4 to 7, capped, with bounded runs. It was briefed to judge the
+JSON reader as a system boundary (A1: nothing accepted breaks an
+invariant `from_parts` keeps; A2: no panic, wrap, endless loop or
+unbounded allocation; A3: the wire level as `wire.rs` says) and the
+drawing against item 1 (B), and to report only what breaks those.
+
+- **A1 to A3, no finding.** 30 000 mutated level-4 documents (ids at
+  `u32::MAX`, `2³²`, `−1`, null boxes, duplicated, dropped and swapped
+  vertices, links and weakenings, `mix` flipped): 10 884 accepted, every
+  one passing an invariant check written against the public accessors
+  alone and round-tripping, 19 116 refused, no panic. Cyclic boxes, a
+  vertex in its own box, duplicate links, negative ids were refused by
+  name. A million vertices against a 1 MiB bound were refused in 0.3 s.
+  Level 4 is written and read back byte for byte, levels 5 and 2³²+4
+  refused, and each reader refuses the other's document.
+- **B, finding, confirmed: in the compact drawing an edge between
+  vertices outside a box could run through it** (`|- (!?~b par ?~b),
+  ?!b` and `|- ~c, (!?a * ?~b), ((b * c) par ?!~a)`, compact; 21 of 570
+  engine nets and 59 of 649 random structures with boxes, never in the
+  drawing with formulas). **Answer: holds, fixed** (`ltxzrsto`). The
+  compact layout put a `⊗`/`⅋` circle halfway between its premises'
+  anchors, where a box of one subtree could reach over it, so that the
+  edge to the other premise rose through the box. The circle now stands
+  in the gap between the two subtrees' extents, as a joint stands
+  between them in the drawing with formulas, and a `?` with several
+  copies at its own depth has them on the row above it in both drawings.
+  `edges_keep_out_of_boxes` checks every straight edge of both
+  reproductions and both snapshot sequents, in both drawings; it fails
+  on the old placement with the reviewer's box (x 300–6453, y
+  340–6899). The two compact snapshots that moved
+  (`net-boxes-compact.svg`, `net-nested-compact.svg`) were regenerated
+  and rendered again in the five fonts, and both reproductions were
+  rendered and looked at: no edge enters a box but a door's wire.
+- **Otherwise B held**: on 1 000 engine proofs and 1 000 random
+  structures in both drawings, every vertex inside a box lies strictly
+  in its rectangle and no other overlaps it, inner boxes lie inside
+  outer ones and others apart, links stay in their boxes, everything is
+  inside the view box, every vertex has a unique `o<n>` or `v<k>`, the
+  bound one byte below the drawing refuses it, no panic.
+- **Observation: the walk computing each box's depth was quadratic in
+  the nesting** (a chain of 32 000 nested boxes took 7.7 s in a debug
+  build). **Answer: fixed** in the same commit: a box's chain is walked
+  only up to a box whose depth is known, so each box once. It was not
+  timed again.
+
+The reviewer's scratch test and notes stay outside the repository, in
+`../linlog-step39b-review` (uncommitted) and
+`/tmp/claude-1000/step39b-review/`.
+
+### The net target set
+
+`bench/net-targets.sh after-39b` (its `--inside` part in the unit
+`step39b-net-targets`, under the machine lock, core 2) at `e87af14d`.
+`linlog-bench summary --against bench/targets/net-after-mell.csv
+bench/targets/net-after-39b.csv --counters` gave: verdicts that differ,
+none; "Of the 64 problems both decide alike on one thread, 0 differ in
+nodes, splits, memo_hits, memo_entries, links, tests"; none decided by
+one and not the other. The file is committed (`sqylzmsu`).
+
+### Commits
+
+- `xmlrsppp` (dfe40482) Begin a compact net's edges at the font's own
+  depth: gated, passed.
+- `oluvmwrt` (d019ca11) Draw MELL nets with boxes, in JSON, in the
+  command and the bindings: gated together with the next, passed (exit
+  0); alone it fails only the behaviour lock's help files, which the
+  next blesses.
+- `srlkqrot` (e87af14d) Bless the behaviour lock for MELL nets: the help
+  of `prove` and `check` for `--net`; the frozen tree of the review.
+- `sqylzmsu` (83cbde55) Record the net target set after the MELL drawing:
+  a results file, no code.
+- `ltxzrsto` (c8666da8) Keep a compact net's edges out of the boxes: the
+  review's fix; gated, passed.
+- The last commit holds this report. It is prose only; `nix flake check`
+  ran at it, and its exit status is in the message to `planning`.
+
+The bindings' tests under Node (`nix build
+.#checks.x86_64-linux.web-wasm-tests`, under the machine lock) passed at
+`sqylzmsu`, 16 tests, `a_proof_with_exponentials_draws_its_net_with_boxes`
+among them; the fix touches no binding.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| The drawing of MELL nets in both drawings: boxes as rectangles, `!` and `?` doors on the border, nested boxes nested, per-vertex ids; snapshot tests; rendered in every math font and looked at | done | `svg/mell.rs`, `svg::mell_net`; `mell_nets` (snapshots, nesting, ids, the estimate, the cycle), `edges_keep_out_of_boxes`; "The snapshots" |
+| The compact drawing's edges at each font's own depth, for MLL and MELL nets; the changed snapshots regenerated and looked at | done | `xmlrsppp`; `net_edges_clear_the_font_s_descenders` in both drawings; `net-compact.svg` rendered in five fonts; the MELL drawing uses `Advances::depth` throughout |
+| The JSON form read and written, validated within the limits, refused documents tested, the wire level as `wire.rs` says | done | `serialize/nets.rs`, `wire::LEVEL` 4; `mell_structure_json_format_and_round_trip`, `the_fourth_level_reads` |
+| The command: a MELL proof's net wherever `--net` shows an MLL net, in text, JSON, SVG, PNG and PDF; README with real invocations, run by `readme.rs` | done | `cli/src/show.rs`; `mell_nets` in `cli/tests/cli.rs`; README's `--net` and SVG sections; `readme.rs` passed |
+| The bindings draw a MELL net, tests under Node | done | `draw_net`, `view`; `a_proof_with_exponentials_draws_its_net_with_boxes`; the Node check passed |
+| One fresh-context review of the reader and the drawing, each finding answered | done | "The review" |
+| The net target set against `net-after-mell`, unchanged | unchanged | "The net target set" |
+| Every code commit gated; `nix flake check` at the last commit | done | "Commits"; the exit status in the message to `planning` |
+| Rules files, README and the changelog true | done | `core-nets.md`, `core-export.md`, `cli.md`, `web.md`; README; the changelog's `[Unreleased]` (Added, Changed, Wire forms) |
+
+### What is left open
+
+- The web page: the client's repository moves its linlog input and
+  shows the net tab for MELL. It needs nothing new from the bindings:
+  `view`'s `net` is `null` for a finished classical MELL proof, and
+  `draw_net` answers its drawing. The ids are `o<n>` and `v<k>` on
+  formulas or circles, `b<k>` on a box, and `l<x>-<y>` on links. An
+  intuitionistic MELL proof keeps its greyed tab, `no_nets`.
+- A weakening's link is not drawn, and the doors of weakenings neither.
+- A door's wire can cross edges, and in a crowded net a formula. A
+  routing that goes around the trees would need the layout to reserve
+  lanes.
+- A disconnected MELL structure is drawn without highlight.
+- Intuitionistic MELL nets, and a term → net reading that keeps
+  instances, stay as 39a left them.
