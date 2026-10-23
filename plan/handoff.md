@@ -53,10 +53,11 @@ is the authority):
 - **38**: the web client's polish: done and reviewed on 2026-10-22
   (Status); the author judges its screenshots and judgement calls.
 - **39**: MELL nets with boxes (prompt finished); independent of 40.
-- **40**: the intuitionistic surface (prompt written 2026-10-23): two-sided
-  ILL sequents as the public face, sides recorded at construction, every
-  intuitionistic output raised, a round trip; one session, then the web
-  client's part after linlog's push.
+- **40**: the two-sided surface (prompt written 2026-10-23): research of
+  prior work first; two-sided sequents as the public face, sides recorded
+  at construction, every output raised, a round trip; the first session
+  intuitionistic, the second classical with its two-sided view (D58's
+  switch); each with the web client's part after linlog's push.
 - **41**: cut and cut elimination, after 39 and 40 (prompt finished at
   their reviews; it extends 40's side table to cut formulas).
 - **42**: first-order linear logic, last (prompt finished; its first

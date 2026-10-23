@@ -1448,6 +1448,8 @@ stop for `Image::read_back` and `Derivation::check`, went to step 28.
 
 ## The web front end: a two-sided presentation of classical derivations
 
+*Assigned to step 40's second session (2026-10-23).*
+
 *From the design session (2026-10-18, `plan/web/design.md`, D58).* The
 author wants a toggle between the one-sided and a two-sided
 presentation of a classical linear-logic derivation on the page. The

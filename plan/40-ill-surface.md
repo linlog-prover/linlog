@@ -1,11 +1,13 @@
-# Step 40: the intuitionistic surface, two-sided sequents in and out
+# Step 40: the two-sided surface, intuitionistic and classical
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
-every item, the verification table, no pushing. The step takes one session
-in linlog and a short part in the web client's repository; this prompt was
-written on 2026-10-23 from the author's request and the planning session's
-design, which the author accepted. It says what is fixed.
+every item, the verification table, no pushing. The step takes two
+sessions in linlog, each with a short part in the web client's
+repository: the first the intuitionistic surface, the second the
+classical one. This prompt was written on 2026-10-23 from the author's
+requests and the planning session's design, which the author accepted.
+It says what is fixed.
 
 Read `.claude/rules/core-forest.md` ("The intuitionistic reading"),
 `core-sequents.md` (the parser, `antecedents`, the JSON forms),
@@ -15,10 +17,32 @@ reports of steps 8 (intuitionistic mode) and 9 (interactive proving), and
 the sections 38c and 38d of `plan/reports/38b-zoom-fonts-dismiss.md`;
 `plan/README.md` (D15 to D18).
 
+## Research first (the author, 2026-10-23)
+
+The first session begins by finding out whether this problem has been
+solved neatly and efficiently elsewhere, before it fixes a design: a
+research sub-agent (Sonnet 5.5 at `medium`) reads reputable sources,
+the works themselves where they are open and never from memory, and
+reports what they say with links. What to look for: provers and proof
+assistants that keep a one-sided or polarised calculus inside and show
+two-sided sequents (Click & coLLecT, llprover, the Yalla and NanoYalla
+libraries' translations between their one-sided and two-sided
+calculi, linear-logic tableaux and focused provers), the literature on
+reading intuitionistic linear logic as a polarised fragment of the
+one-sided calculus (Lamarche's polarities, Schellinx on conservativity,
+Danos, Joinet and Schellinx's decorations, Girard's LU) and on
+two-sided classical presentations with explicit negation rules, and how
+parsers and pretty-printers elsewhere keep what was written (concrete
+syntax kept beside an abstract tree, delaboration, source maps) and at
+what cost. The report gives the findings in a section of its own: what
+exists, what fits linlog's forest and occurrences, and whether it
+changes the design below; a better design found there is taken, said
+so, "(departs from the design)" where it changes what is fixed here.
+
 ## Goal
 
 An intuitionistic sequent means what its author wrote, wherever linlog
-shows it. The public face of intuitionistic linear logic is the two-sided
+shows it, and a classical one too (the second session). The public face of intuitionistic linear logic is the two-sided
 sequent: hypotheses and exactly one goal, in the syntax of ILL. Inside,
 everything stays one-sided as it is: the engines, the checker, the nets
 and the proof terms do not change. Every place that writes an
@@ -69,7 +93,8 @@ a round trip pins it.
   intuitionistic output of the library, the command, the exports or the
   bindings. A property test each.
 - **Additive** (0.1.0 is released): public items change only by
-  addition, the classical surface and parser stay as they are. What the
+  addition; the first session leaves the classical surface and parser
+  as they are, and the second extends them by addition only. What the
   permissive intuitionistic input of today becomes (`~(A * ~B), A |- B`
   is read as `A ⊸ B, A ⊢ B`) is the session's to decide with D16, a
   sensible default and a way to change it: refused with a hint, or kept
@@ -84,6 +109,35 @@ a round trip pins it.
   latest label (`bench/targets/deps-foldhash.csv`) and the net set
   against `net-deps-foldhash.csv`, every decided row's counters equal
   (`linlog-bench summary --against … --counters`).
+
+## The second session: the classical surface
+
+Classical linear logic has negation, `⅋`, `?` and `⊥` in its syntax and
+anything on either side, so the lowering to the one-sided form merges
+writings that differ (`Γ, A ⊢ Δ` and `Γ ⊢ A⊥, Δ`; `~(A ⊗ B)` and
+`A⊥ ⅋ B⊥`; `A ⊸ B` and `A⊥ ⅋ B`), and position alone does not say how a
+formula was written, as it does in ILL. So for classical sequents the
+sides are only recorded, never computed:
+
+- **What is recorded**, at construction, per occurrence: its side
+  (flipping at a written negation and at an implication's antecedent)
+  and its notation where two writings lower alike (`A ⊸ B` against
+  `A⊥ ⅋ B`), a few bits each; raising prints what was written, up to
+  brackets and double negations.
+- **The two-sided view of a classical derivation**: every inference's
+  sequent its members split by side, the rules named two-sided (`⊗L`,
+  `⊗R`, `⅋L`, `⅋R`, `⊸L`, `⊸R`, …), and a negation step inserted where
+  the author wrote a negation, which the one-sided proof absorbed (from
+  `Γ, A ⊢ Δ` to `Γ ⊢ A⊥, Δ`), as the view already inserts structural
+  steps that a term does not have. Without the record a one-sided proof
+  has many two-sided derivations; the record picks the one written.
+- **Where it shows**: the command, the text tree, LaTeX, Typst and SVG
+  behind an option (D15), one-sided the default (D16); the bindings'
+  settings; the web client's "Two-sided" switch in classical mode, greyed
+  until now, made live (D58). This takes over `plan/later.md`'s "The web
+  front end: a two-sided presentation of classical derivations".
+- **The round trip** of the first session extends to classical
+  sequents and their proofs, the searches unchanged as before.
 
 ## What step 38 left you
 
@@ -107,11 +161,15 @@ a round trip pins it.
 
 ## How the step runs
 
-One session on Opus 5.5 at `high`, its goal in its launch prompt; a
+Two sessions on Opus 5.5 at `high`, each with its goal in its launch
+prompt: the first the research and the intuitionistic surface, with a
 fresh-context reviewer on Opus 5.5 at `high` for the recorded sides
-against the checker's reading and for the strict parser's refusals,
-told to report only what breaks soundness or a stated requirement. Then
-the client's part, after linlog's `main` holds this step's linlog part.
+against the checker's reading and for the strict parser's refusals;
+the second the classical surface and its two-sided view, with a
+reviewer on Opus 5.5 at `high` for the record and the inserted negation
+steps against the one-sided proofs they present. Each reviewer reports
+only what breaks soundness or a stated requirement. Each session's
+client part comes after linlog's `main` holds its linlog part.
 
 Deliverable: thematic jj commits in both repositories;
 `plan/reports/40-ill-surface.md`.
