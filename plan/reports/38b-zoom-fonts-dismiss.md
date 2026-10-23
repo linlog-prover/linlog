@@ -1501,9 +1501,9 @@ preset.
 
 ### The checklist
 
-Paused at 19:05 at the supervisor's "Pause" (the author needs the
-machine by 19:15), with linlog's part committed but for this report and
-the page's part written and tested but not committed.
+Paused from 19:05 to 20:15 at the supervisor's "Pause" (the author
+needed the machine) and resumed from the checklist this section then
+held.
 
 | item | state | evidence |
 |---|---|---|
@@ -1511,39 +1511,27 @@ the page's part written and tested but not committed.
 | Snapshots for each option and the preset, rendered in every math font and looked at | done | `net_looks` (18 new snapshots: `net-promotion*`, `net-contraction-*`, `net-nested-textbook*`, `net-plain*`, `net-boxes-cycle-textbook`); each drawn by the command in the five fonts (its SVG byte for byte the snapshot), the cycle with resvg; the two moved by `lxnkkttp` looked at again |
 | The command's keys and the preset, README with a real invocation run by `readme.rs`, the bindings' settings, the changelog | done | `--style svg.net_look=textbook` and the three dotted keys (`mell_nets`, `every_style_option`); README's SVG section and picture (the `textbook.svg` that `readme_examples` writes equals the snapshot); `styles.svg.net_look` in the bindings (`a_proof_with_exponentials_draws_its_net_with_boxes`); CHANGELOG `[Unreleased]`, Added |
 | Net target set against `net-after-39b.csv` | done, nothing differs | `bench/targets/net-after-38i.csv`; `summary --against … --counters`: no verdict differs, 0 of 64 differ in nodes, splits, memo_hits, memo_entries, links or tests |
-| Every linlog code commit gated | partly | `gate: passed` (exit 0, cores 4 to 11) on the tree of the lock's commit `yvnrpwrk` (the feature commit alone fails only the lock, as 38h's did); `lxnkkttp` not gated yet |
-| `nix flake check` at the last linlog commit; "linlog ready" to planning | not yet | resume below |
+| Every linlog code commit gated | done | `gate: passed` (exit 0, cores 4 to 11) on the tree of the lock's commit `yvnrpwrk` (the feature commit `umslkouw` alone fails only the behaviour lock, which its next commit blesses, as 38h's did) and at `urvnvuvk`, which holds `lxnkkttp` |
+| `nix flake check` at the last linlog commit; "linlog ready" to planning | done | at `urvnvuvk`: "all checks passed!", exit 0; "linlog ready" sent and the supervisor pushed it (`main` at `352b84e1`); this section's final commit, on `main`, is checked again before the last message |
 | The review, each finding answered | done | "The review" below; its one finding fixed in `lxnkkttp` |
-| The page: Settings → Net drawing, kept, the exports following the stage, a test per behaviour | written, not committed | uncommitted in the client's `@` (`src/islands/state.tsx`, `Stage.tsx`, `BottomBand.tsx`, `tests/prover.spec.ts`); the two new Playwright tests, the targets walk and Vitest (485) passed against this workspace by `--override-input` |
-| Screenshots before and after | before done | `/home/tux/Projects/own/linlog-step38i-screenshots/before/`, 24 files `{desktop,phone}-{light,dark}-{01-settings,02-net-linlog,03-net-plain,04-net-bottom,05-net-rules,06-net-textbook}.png`, `shots.mjs` beside them; after not yet |
-| The client's input on linlog's pushed `main`, its `nix flake check`, `jj st` clean in both | not yet | resume below |
-
-#### Resume
-
-1. In `../linlog-step38i` (head: this report's commit on `lxnkkttp`):
-   `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0
-   taskset -c 4-11 nix develop -c gate`, then `flock
-   /tmp/linlog-machine.lock nix flake check; echo $?`, then send
-   `planning` "linlog ready" with `umslkouw`, `yvnrpwrk`, `lxnkkttp` and
-   this report's commit.
-2. After the supervisor pushes: in `../linlog-prover.github.io-38i`,
-   `nix flake update linlog` and commit `flake.lock` alone ("flake.lock:
-   Update"), then commit the page's change in `@`, then `flock
-   /tmp/linlog-machine.lock nix flake check; echo $?`.
-3. The after screenshots: `flock /tmp/linlog-machine.lock nix build -o
-   /home/tux/Projects/own/linlog-step38i-screenshots/site-after` in the
-   client's workspace, then in its dev shell (cores 4 to 9, capped)
-   `node tests/serve.ts
-   /home/tux/Projects/own/linlog-step38i-screenshots/site-after 8797 &`
-   and `env -u LD_LIBRARY_PATH node
-   /home/tux/Projects/own/linlog-step38i-screenshots/shots.mjs
-   http://127.0.0.1:8797/
-   /home/tux/Projects/own/linlog-step38i-screenshots/after`.
-4. Write this section's outcome and send `planning` the last message.
+| The page: Settings → Net drawing, kept, the exports following the stage, a test per behaviour | done | the client's `xkyksmut` on `xoyyvnvt` ("flake.lock: Update", linlog's input at `352b84e1`): a row Look (linlog, Textbook) and a row per option; `tests/prover.spec.ts` "Settings' net look draws the net as the textbooks do, by the preset or field by field, in the view and the export" and "the net's look is kept with the other settings for the next visit"; the targets walk measures the new buttons at both widths |
+| Screenshots before and after | done | `/home/tux/Projects/own/linlog-step38i-screenshots/{before,after}/`, 24 each with the same names `{desktop,phone}-{light,dark}-{01-settings,02-net-linlog,03-net-plain,04-net-bottom,05-net-rules,06-net-textbook}.png`; `shots.mjs` beside them made both, from the client's site at `ttyrqwmr` and from the page's change built with this workspace's linlog (the content pushed as `352b84e1`) |
+| The client's `nix flake check` at its last commit; `jj st` clean in both | done | at `xkyksmut` (8ee62520), under the machine lock: "all checks passed!", exit 0; both workspaces' `@` empty |
 
 ### Outcome
 
-To be written at the resume; the decisions, judgement calls and review below are final for linlog's part.
+A proof net can now be drawn the way the textbooks draw it, as options
+of the SVG style, which change nothing by default. The edges into a `⅋`
+or `?` and the wires can be plain instead of dashed. A `!` conclusion
+with auxiliary doors can stand on the bottom row with the others. A `?`
+node can be drawn as the nodes of its rules (a dereliction `?d` under
+each copy inside its box, binary contractions `?c` at the `?`'s depth,
+a weakening `?w`), a faithful drawing of the same structure. The preset
+`textbook` sets all three. The command takes them as
+`--style svg.net_look=…`, the bindings as `styles.svg.net_look`, and on
+the page Settings → Net drawing offers the preset and each option; the
+stage and the exports draw with them, and the choice is kept with the
+other settings.
 
 ### The options and the figures they follow
 
@@ -1680,8 +1668,8 @@ only what breaks a stated requirement.
 
 ### What is left open
 
-- **The default drawing's shared legs** (a follow-up the supervisor
-  will schedule; not fixed here,
+- **The default drawing's shared legs** (scheduled for session 39c;
+  not fixed here,
   since it would change the default's snapshots): wires bound for
   different `?`s between the same two rows run along one leg, so where
   their spans overlap they read as one (`net-promotion.svg`, the wires
@@ -1697,7 +1685,10 @@ only what breaks a stated requirement.
 - linlog, `../linlog-step38i` on `pmnrxwkr`: `umslkouw` "Draw nets as
   the textbooks do, as options of the SVG style", `yvnrpwrk` "Bless the
   behaviour lock for the nets' look", `lxnkkttp` "Keep the textbook
-  look's wires apart however many share a row", then this section's
-  commit. Nothing pushed.
-- The client, `../linlog-prover.github.io-38i` on `ttyrqwmr`: the page's
-  change uncommitted in `@`, waiting for linlog's pushed `main`.
+  look's wires apart however many share a row" and `urvnvuvk` "Plan:
+  report session 38i, paused", pushed by the supervisor (`main` at
+  `352b84e1`); then this section's final commit, on `main`.
+- The client, `../linlog-prover.github.io-38i` on `ttyrqwmr`:
+  `xoyyvnvt` "flake.lock: Update" (linlog's input to `352b84e1`) and
+  `xkyksmut` "Draw nets in the textbooks' look, a choice in Settings".
+  Nothing pushed.
