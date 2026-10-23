@@ -1108,3 +1108,59 @@ mark take the pane's width, fixed in `tools/page.py` and reshot.
   private.
 - linlog: `../linlog-step38f` on `luwsvqkq`, this section's commit;
   nothing pushed. The client is untouched.
+
+### The lollipop's colours (the author's follow-up, 2026-10-23)
+
+The author chose the lollipop and asked for its main colour among a few.
+Seven variants of the lollipop alone, the letters in ink and the ring in
+the colour, each in a light, a dark and a one-colour version, under
+`/home/tux/Projects/own/linlog-logo/lollipop-colours/<variant>/`
+(`tools/variants.py`, `raster.sh`, `page.py` beside them); the page
+`lollipop-colours/index.html`, published as a second private artifact,
+https://claude.ai/artifact/EY4cDDSrRxTbJwm6bCwCkz, the first page left as
+it is. It shows the variants side by side in both themes as the 16- and
+32-pixel favicon in a tab, in the 48-pixel top band at its type size, at
+the README's head on GitHub's light and dark canvas, and in the 1 280 by
+640 social preview, with the contrast table and the accent question
+beside them; `lollipop-colours/screenshots/` is the page in Chromium,
+looked at, and `sheet.png` the favicons magnified, looked at.
+
+Every variant passes the client's colour-vision check (`tools/colours.mjs`
+on each `colours.json`: the ring, the letters and the field, both themes,
+14 groups, exit 0). The ring's WCAG 2 contrast:
+
+| variant | light | dark | on white | on the light field | on GitHub's dark canvas | on the dark field |
+|---|---|---|---|---|---|---|
+| violet (`--color-accent`) | #6b46cf | #958ad5 | 6.2:1 | 5.3:1 | 6.2:1 | 6.1:1 |
+| blue (`--color-net-par`) | #045383 | #80c6ff | 8.2:1 | 7.0:1 | 10.3:1 | 10.2:1 |
+| vermilion (`--color-net-highlight`) | #933f02 | #d05c03 | 7.1:1 | 6.1:1 | 4.7:1 | 4.6:1 |
+| orange (Okabe–Ito #e69f00, light darkened) | #9a5b00 | #e69f00 | 5.4:1 | 4.6:1 | 8.4:1 | 8.3:1 |
+| bluish green (Okabe–Ito #009e73, both moved) | #00704f | #21c08f | 6.1:1 | 5.2:1 | 8.1:1 | 8.0:1 |
+| reddish purple (`--color-net-dominator`) | #6d2351 | #ef99c8 | 10.5:1 | 8.9:1 | 9.1:1 | 8.9:1 |
+| ink (`--color-ink`) | #121a2e | #e3e8f4 | 17.3:1 | 14.7:1 | 15.4:1 | 15.2:1 |
+
+Would the site's accent have to change to match? One line each:
+
+- **Violet**: no, it is the accent itself.
+- **Blue**: no change needed, but the ring would wear the nets' colour
+  (a ⅋ edge, an essential net's input side), not the selection's.
+- **Vermilion**: no change needed, but vermilion is a witness's colour in
+  the nets, a meaning the logo would borrow.
+- **Orange**: no change needed; orange carries no meaning on the page
+  today, and its light value is a brown to hold 4.5:1.
+- **Bluish green**: no change needed, but green is kept for a checked
+  proof alone (D26), which a green ring blurs.
+- **Reddish purple**: no change needed, but it is the dominator lines'
+  colour in an essential net and near the accent's hue, so the band
+  would show two purples.
+- **Ink alone**: no second colour at all; the ring is told by its shape.
+
+The recommendation: violet, the page's accent, so that the ring in the
+band is the same colour as the active goal under it and nothing on the
+page has to move; blue is the one other that carries no clash in the
+band, at the price of wearing the nets' meaning. The ink-only variant is
+the safe fallback for places that print in one colour, and is what the
+mono files are anyway.
+
+The commit of this addition is the workspace's second; nothing placed,
+nothing pushed.
