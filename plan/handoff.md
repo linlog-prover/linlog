@@ -246,6 +246,16 @@ pulls.
 - **Stacked chains conflict semantically**: an example names the engine
   that another chain's routing changed; a test's "this takes long"
   breaks when a prune makes it fast. Check the combined head.
+- **Heads-up boxes in a session's pane** (Claude Code's built-in
+  plugin `cc-plugin-you-should-know`, `1: Learn more … 0: Dismiss`,
+  then a feedback box): each carries a finding about that session's
+  work (on 2026-10-23 a defect in a brief, a trade-off for the
+  report). Read its full text in the account's
+  `plugins/store/cc-plugin-you-should-know_builtin-*.json`
+  (`sessions[].view.explanation`, by the session's id), act on it, then
+  dismiss it: `zellij --session linlog-step-NN action write-chars -p
+  terminal_0 0`, and again for the feedback box (the author's standing
+  yes of 2026-10-23); the input line must stay empty.
 - **A pasted goal can lose its Enter**: if the input line still holds
   `/goal [Pasted text …]`, send Enter again.
 - **Signing lapses** at gpg-agent's `max-cache-ttl` however warm the
