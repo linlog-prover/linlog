@@ -71,9 +71,12 @@ is the authority):
 - **42**: first-order linear logic (prompt finished; its first
   session on Fable 5.1 at `high`; it builds on 40's formula type); its
   last session brings first-order logic to the web page.
-- **43**: Learn's lessons with their practice, content in the client, three
-  sessions: 43a (lessons 1 to 5) and 43b (6 to 9) after 39 and 40, beside
-  41 if wanted; 43c (cut and the quantifiers) after 41 and 42. D60's order
+- **43**: Practice and Learn from one store of problems, content in the
+  client, four sessions: 43a (one store of problems, and Practice as a place of its
+  own with only provable problems, the author's of 2026-10-23) after 39,
+  beside 40's linlog session if wanted; 43b (lessons 1 to 5) and 43c (6
+  to 9) after 40, beside 41 if wanted; 43d (cut and the quantifiers)
+  after 41 and 42. D60's order
   is confirmed with the author from each session's outline.
 - **44**: a guide to linlog for AI models (prompt written 2026-10-23),
   one session after 40, documentation only, beside 41 if wanted; once it

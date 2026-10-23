@@ -58,7 +58,7 @@ elimination step by step on the derivation and on the net, each step
 drawn, undoable and named, within step 38's tokens, grammar and
 44-pixel targets; the bindings' calls for both, tested; the client's
 lock moved after linlog's push. No lesson or practice here: those are
-step 43's third session (43c).
+step 43's fourth session (43d).
 
 ## Known already (2026-10-19), for the review that finishes this prompt
 

@@ -107,7 +107,7 @@ quantifier rules in interactive proving (the student gives the witness
 at `∃R` and `∀L`, the page checks the eigenvariable condition through
 the library), the drawing, the bindings' calls, tested, and the
 client's lock moved after linlog's push; no lesson or practice there,
-which step 43's third session (43c) writes.
+which step 43's fourth session (43d) writes.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
 jj commits, `plan/reports/42-first-order.md`.
