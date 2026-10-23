@@ -226,7 +226,7 @@ Options:
           Write to this file instead of standard output; the file is made only with a derivation or a net in it (or in JSON, always), and otherwise the verdict goes to standard error
 
       --net
-          Write the proof net of the proof instead of its derivation, for MLL without units, with or without Mix: as text (the sequent, its axiom links as pairs of literals with their occurrence numbers, and the verdict of the correctness criterion), or drawn as svg, png or pdf (the formula trees with the axiom links as arcs over the literals)
+          Write the proof net of the proof instead of its derivation, for MLL without units, with or without Mix, and with boxes for MELL without units in classical mode, with or without Mix: as text (the sequent, the copies of every ?, its axiom links as pairs of literals with their vertex numbers, and the verdict of the correctness criterion), as json (the net's document in place of the outcome), or drawn as svg, png or pdf (the formula trees with the axiom links as arcs over the literals, every !-box a rectangle around its contents)
 
   -q, --quiet
           Print only the verdict line, not the derivation; with --output, on standard error, since a file holds a derivation or nothing
