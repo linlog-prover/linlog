@@ -123,5 +123,11 @@ drawing), linlog first and then the page, as 38h runs:
    JSON form; `prove --net` and `check --net` in intuitionistic mode;
    the bindings, and the page's net tab live for a finished
    intuitionistic MELL proof after the client's lock moves.
+4. **The default drawing's merged wires** (a heads-up of session 38i,
+   2026-10-23): in today's default MELL drawing two door wires bound for
+   different `?` formulas can run along one horizontal line and read as
+   one (`!a, !b, !(c * d) |- !((a * a) * (d * c))`); 38i kept them apart
+   in the textbook look only. Keep them apart in the default drawing too,
+   the changed snapshots regenerated and looked at.
 
 The report as a section of `plan/reports/39-mell-nets.md`.
