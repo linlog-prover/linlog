@@ -3170,3 +3170,42 @@ client follows it (step 32).
   checker verified or shown to refine the Rocq library's, a checker
   extracted from Rocq run beside it, certificates for more verdicts,
   each weighed by what it would prove and cost).
+- 2026-10-23: review of session 38e, the author's decisions of that
+  day (Opus 5.5 at high, 12:40 to 13:00, started and reviewed here,
+  beside step 39's first session; the planning session on the Max 20x
+  account, unattended from 12:50 at the author's word):
+  - all ten items in the client (twelve commits on `lwrmzpqv`, head
+    `osyprzqo`): the privacy page at `/privacy/` (each statement citing
+    one of ten sources, GitHub's entry on the Data Privacy Framework's
+    list read on the day), linked from About, the wide bottom band, More
+    on a phone and the 404 page; the switches on the tab's chip alone;
+    a forced engine for the visit; every colour of meaning checked by a
+    test over the tokens under Machado, Oliveira and Fernandes's
+    severity-1.0 matrices (OKLab distance 8 simulated, 15 in full
+    colour), the nets on Okabe–Ito hues, a tab's verdict a shape as
+    well as a colour; the essential net's input side blue; the five
+    smaller items. Its reviewer's four findings were each fixed.
+  - checked here: the diff (the two touch-target and dismissal tests
+    changed only where the stage's cluster left); the matrices against
+    the published table; the privacy page's citations (revFADP Arts.
+    19, 25, 32, 49, the DPO's Annex 1, the TCA's Art. 45c, GDPR Arts.
+    6(1)(f), 13, 45(3), Decisions 2021/914 and 2023/1795); before and
+    after screenshots read; the client's e2e, unit, typecheck, CSP and
+    licence checks rebuilt with `--rebuild`, and its `nix flake check`
+    at the head below.
+  - fixed here, a commit of its own: the status popover's "1 open
+    goals" (client `zxqpkpnt`). Also removed: links to the client's
+    `node_modules` and `.cache` that its dev shell had made in linlog's
+    main checkout, untracked, nothing else touched.
+  - for the author: four departures, "(departs from the design)": D58
+    (no cluster on the stage) and D55 (the dock's counter), both at the
+    author's request; D53 (a tab's verdict a coloured shape, not a dot)
+    and D26 in its values (the verdict colours re-chosen in lightness
+    and a few degrees of hue to pass the colour check, the accent from
+    indigo to violet, the checked proof's green bluish by night), both
+    by the colour rule; and nine judgement calls in the report
+    (`plan/reports/38b-zoom-fonts-dismiss.md`, "Session 38e"), among
+    them the colour thresholds of 8 and 15 and the tritanopia matrix
+    that its paper does not claim to handle. Screenshots:
+    `/home/tux/Projects/own/linlog-step38e-screenshots/`.
+  Next: session 38f, the logo's candidates; step 39b after 39a.
