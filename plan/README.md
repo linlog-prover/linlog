@@ -3075,3 +3075,13 @@ client follows it (step 32).
   a git worktree entry without files, which the session removed by
   hand from linlog's `.git/worktrees/`, as `git worktree prune` would;
   nothing else under `.git` was touched.
+- 2026-10-23: review of step 38d, a goal's formulas in their reading
+  (the session step-38b, 08:45 to 09:00): the bindings' view gives each
+  goal formula `reading`, the existing public `Reading::formula`'s text,
+  in intuitionistic mode (absent in classical mode, no wire level), and
+  the page writes it in a goal opened in a new tab, the split
+  chooser's lists, the rules popover's heading and the formula buttons'
+  names, the dual kept as a fallback; a hypothesis `A ⊸ B` now reads
+  `A ⊸ B` there. Checked here: the commit, `nix flake check` at linlog's
+  `wstpsxur` (pushed before the client moved its lock) and at the
+  client's head.
