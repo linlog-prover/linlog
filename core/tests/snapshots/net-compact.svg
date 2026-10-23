@@ -8,13 +8,13 @@ proof net</desc>
 <circle id="o0" cx="2325" cy="4429" r="380"/>
 <path d="M2325 4809V5179"/>
 <circle id="o3" cx="6805" cy="4429" r="380"/>
-<path d="M6578 4124L5949 3279"/>
-<path d="M7032 4124L7662 3279"/>
+<path d="M6564 4136L5949 3389"/>
+<path d="M7047 4136L7662 3389"/>
 <path d="M6805 4809V5179"/>
 </g>
 <g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
-<path d="M2055 4162L1164 3279"/>
-<path d="M2595 4162L3487 3279"/>
+<path d="M2042 4175L1164 3389"/>
+<path d="M2608 4176L3487 3389"/>
 </g>
 <g fill="none" stroke="black" stroke-width="40">
 <path id="l2-4" d="M3487 2289A1231 738 0 0 1 5949 2289"/>

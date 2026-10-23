@@ -285,6 +285,12 @@ second number (0.1.x to 0.2.0), anything else the third.
   thread with no engine forced (a race's single side takes it); the
   outcome names the engine that answered, and `Statistics::work` counts
   both.
+- A compact proof net's premise edges begin below each literal at the
+  deepest descender of the drawing's math font, as the drawing with
+  formulas does, instead of a tenth of an em below its baseline, inside
+  every font's descenders: 210 thousandths of an em for Euler Math, 235,
+  290, 286 and 250 for STIX Two Math, Garamond-Math, Asana Math and New
+  Computer Modern Math.
 - A proof net is drawn as the literature draws one: every subformula
   occurrence of its conclusions written as its formula, where it stands
   in its conclusion, each `⊗` or `⅋` link joining its two premises to

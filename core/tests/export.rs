@@ -606,7 +606,8 @@ fn lambek() {
 
 /// A net's premise edges start below the deepest descender of the
 /// drawing's math font (measured in each font's file), so that no edge
-/// runs into a `g` written above it; Euler Math's start where they did.
+/// runs into a `g` written above it, in the drawing with formulas and in
+/// the compact one alike.
 #[test]
 fn net_edges_clear_the_font_s_descenders() {
     let net = ProofStructure::from_proof(
@@ -623,28 +624,34 @@ fn net_edges_clear_the_font_s_descenders() {
         (MathFont::Asana, 286),
         (MathFont::NewComputerModern, 250),
     ] {
-        let style = Style::default().with_font(font.font());
-        let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
-        // The literal `g` on the top layer, and where the edges below it end.
-        let number = |text: &str| text.parse::<i64>().unwrap();
-        let literal = drawing.split("id=\"o1\"").next().unwrap();
-        let baseline = number(
-            literal
-                .rsplit("y=\"")
-                .next()
-                .unwrap()
-                .split('"')
-                .next()
-                .unwrap(),
-        );
-        let feet: Vec<i64> = drawing
-            .split("<path d=\"M")
-            .skip(1)
-            .filter_map(|path| path.split('"').next()?.split_once('L'))
-            .map(|(_, end)| number(end.split(' ').nth(1).unwrap()))
-            .collect();
-        assert!(!feet.is_empty(), "{drawing}");
-        assert_eq!(feet.iter().min().unwrap() - baseline, descender, "{font:?}");
+        for drawn in [NetDrawing::Formulas, NetDrawing::Compact] {
+            let style = Style::default().with_font(font.font()).with_net(drawn);
+            let drawing = svg::net(&net, &style, &unbounded(), |_| false).unwrap();
+            // The literal `g` on the top layer, and where the edges below it end.
+            let number = |text: &str| text.parse::<i64>().unwrap();
+            let literal = drawing.split("id=\"o1\"").next().unwrap();
+            let baseline = number(
+                literal
+                    .rsplit("y=\"")
+                    .next()
+                    .unwrap()
+                    .split('"')
+                    .next()
+                    .unwrap(),
+            );
+            let feet: Vec<i64> = drawing
+                .split("<path d=\"M")
+                .skip(1)
+                .filter_map(|path| path.split('"').next()?.split_once('L'))
+                .map(|(_, end)| number(end.split(' ').nth(1).unwrap()))
+                .collect();
+            assert!(!feet.is_empty(), "{drawing}");
+            assert_eq!(
+                feet.iter().min().unwrap() - baseline,
+                descender,
+                "{font:?} {drawn:?}"
+            );
+        }
     }
 }
 

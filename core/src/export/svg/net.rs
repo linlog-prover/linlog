@@ -35,9 +35,6 @@ use crate::occurrences::{OccId, Reading, Side};
 use crate::sequents::Kind;
 use std::fmt::Write;
 
-/// How far below a literal's baseline its premise edge ends.
-const FOOT: i64 = 100;
-
 /// The height of the middle of `⅋` above the baseline: unlike `⊗`, it
 /// stands on the baseline instead of being centred on the math axis.
 const PAR_MIDDLE: i64 = 344;
@@ -451,12 +448,9 @@ pub(super) fn draw(
         ),
     };
     // Where a premise edge ends under a written formula, clear of its
-    // descenders.
+    // descenders, in either drawing.
     let depth = style.font.advances.depth();
-    let foot = |o: OccId| match formulas {
-        true => (x[o.index()], text_y(o) + depth),
-        false => (x[o.index()], text_y(o) + FOOT),
-    };
+    let foot = |o: OccId| (x[o.index()], text_y(o) + depth);
 
     // A switching cycle, as its edges, or the parts of a disconnected
     // structure: every occurrence's component in the switching that keeps
