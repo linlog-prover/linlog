@@ -300,9 +300,9 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             stack.extend(on.into_iter().map(|w| (w, false)));
         }
     }
-    // The conclusions on the bottom row and, with the formulas written, the
-    // copies of a `?` vertex with several at its own depth on the row above
-    // it, so that their edges into it cross none of their texts; a `!` vertex with
+    // The conclusions on the bottom row, and the copies of a `?` vertex with
+    // several at its own depth on the row above it, so that their edges
+    // into it pass below every formula and box of the others; a `!` vertex with
     // auxiliary doors stays where it is, above the `?` vertices its wires
     // go to.
     let bottom = (0..forest.roots().len())
@@ -327,11 +327,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         if p == NONE {
             row[v as usize] = bottom;
-        } else if formulas
-            && kind_of(p) == Kind::Quest
-            && !boxed(v)
-            && kids(p as usize).nth(1).is_some()
-        {
+        } else if kind_of(p) == Kind::Quest && !boxed(v) && kids(p as usize).nth(1).is_some() {
             row[v as usize] = row[v as usize].max(row[p as usize] - 1);
         }
     }
@@ -438,9 +434,12 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                     offset[r] = half + space + bracket(r as u32, '(') - right.0;
                     (-from_left[node], text_width - from_left[node])
                 } else {
-                    let span = left.1 + gap - right.0;
-                    offset[l] = -(span / 2);
-                    offset[r] = span - span / 2;
+                    // The circle in the gap between the two subtrees, as a
+                    // joint stands between them: halfway between the
+                    // anchors, a box of one could reach over it, and the
+                    // edge to the other premise would rise through the box.
+                    offset[l] = -(gap / 2) - left.1;
+                    offset[r] = gap - gap / 2 - right.0;
                     from_left[node] = text_width / 2;
                     (
                         (-radius).min(-from_left[node]),
@@ -544,16 +543,26 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         let rx = (b - a) / 2;
         (a, b, rx, height(rx, style))
     };
-    let mut nesting = vec![0u32; n];
+    // Each box's depth, its chain of boxes walked up only to a box whose
+    // depth is known, so that every box is walked once.
+    let mut nesting = vec![u32::MAX; n];
     let mut boxes: Vec<u32> = net.boxes().map(VertexId::get).collect();
+    let mut chain = Vec::new();
     for &b in &boxes {
-        let mut d = 0;
-        let mut c = inside(b);
-        while c != NONE {
-            d += 1;
+        let mut c = b;
+        while c != NONE && nesting[c as usize] == u32::MAX {
+            chain.push(c);
             c = inside(c);
         }
-        nesting[b as usize] = d;
+        let below = if c == NONE {
+            0
+        } else {
+            nesting[c as usize] + 1
+        };
+        for (d, &c) in (below..).zip(chain.iter().rev()) {
+            nesting[c as usize] = d;
+        }
+        chain.clear();
     }
     boxes.sort_unstable_by_key(|&b| std::cmp::Reverse(nesting[b as usize]));
     // Per depth (a box's `!` vertex, or `NONE`), its boxes by their left

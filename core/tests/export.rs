@@ -825,6 +825,60 @@ fn mell_nets() {
     snapshot("net-boxes-cycle.svg", &svg);
 }
 
+/// No straight edge of a net with boxes runs through a box it does not
+/// start or end in: the compact drawing once put a connective's circle
+/// halfway between its premises, under a box of one of them, so that the
+/// edge to the other rose through the box.
+#[test]
+fn edges_keep_out_of_boxes() {
+    let number = |v: &str| v.parse::<i64>().unwrap();
+    for input in [
+        "|- (!?~b par ?~b), ?!b",
+        "|- ~c, (!?a * ?~b), ((b * c) par ?!~a)",
+        "!a, !c |- !(a * a) * ?c",
+        "!a |- ?a * !!a",
+    ] {
+        let net = MellStructure::from_proof(
+            &proof(input, Mode::CLASSICAL),
+            Criterion::MLL,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap();
+        for drawing in [NetDrawing::Formulas, NetDrawing::Compact] {
+            let style = Style::default().with_net(drawing);
+            let svg = svg::mell_net(&net, &style, &unbounded(), |_| false).unwrap();
+            let boxes: Vec<_> = net.boxes().map(|b| outline(&svg, b.get())).collect();
+            let inside = |(x, y): (f64, f64), &(l, t, r, b): &(i64, i64, i64, i64)| {
+                (l as f64) < x && x < r as f64 && (t as f64) < y && y < b as f64
+            };
+            for path in svg.split(r#"<path d="M"#).skip(1) {
+                let d = path.split('"').next().unwrap();
+                // A straight edge; a door's wire, which goes down and
+                // along, may cross edges and is checked by eye.
+                let Some((from, to)) = d.split_once('L').filter(|_| !d.contains(['V', 'H'])) else {
+                    continue;
+                };
+                let point = |p: &str| {
+                    let (x, y) = p.split_once(' ').unwrap();
+                    (number(x) as f64, number(y) as f64)
+                };
+                let (a, b) = (point(from), point(to));
+                for rect in &boxes {
+                    if inside(a, rect) || inside(b, rect) {
+                        continue;
+                    }
+                    let crosses = (1..64).any(|k| {
+                        let t = f64::from(k) / 64.0;
+                        inside((a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1)), rect)
+                    });
+                    assert!(!crosses, "{input} {drawing:?}: {d} through {rect:?}");
+                }
+            }
+        }
+    }
+}
+
 /// Essential nets are pinned as SVG: the net of `a ⊸ b, b ⊸ c ⊢ a ⊸ c`
 /// with its arrows, polarities and the dotted line from the implication
 /// to its antecedent, and a structure whose antecedent reaches the goal

@@ -437,7 +437,13 @@ for NanoYalla. What the code relies on:
   outside it), those of a `?` earlier in the formula trees' pre-order to
   the premise's left. So a box's contents are one subtree, its extent
   plus `node_radius` its rectangle, and the separation argument above
-  keeps every premise edge out of every box and formula. What it cannot
+  keeps every premise edge out of every box and formula. Compact, that
+  needs a `⊗`/`⅋` circle in the gap between its two subtrees' extents,
+  not halfway between their anchors as the MLL compact drawing has it:
+  there a box of one subtree reached over the circle and the edge to the
+  other premise rose through it (the review's finding,
+  `edges_keep_out_of_boxes`); and the copies of a `?` with several at its
+  own depth on the row above it in both drawings. What it cannot
   keep: a door's wire goes from the box to a `?` vertex in another part
   of the trees, so it may cross edges (and in a crowded net a formula);
   it runs straight down from the door, along `2·node_radius` above its
@@ -446,8 +452,8 @@ for NanoYalla. What the code relies on:
   layout children, a `!`'s box contents, the boxes a `?`'s wires leave
   last), so a `?` is always a row below its doors; roots go to the
   bottom, except a `!` with auxiliary doors, which stays at its row (its
-  `?`s must be below it); with formulas the copies of a `?` with several
-  at its own depth go to the row above it. A box's lid is its contents'
+  `?`s must be below it); the copies of a `?` with several at its own
+  depth go to the row above it. A box's lid is its contents'
   arcs plus `node_radius`, a link over boxes of its depth rises by the
   highest lid it spans (a sparse table of the depth's boxes, which lie
   apart), so no arc enters a box it does not belong to. The bottom border

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" role="img" width="255.536" height="200.592" viewBox="0 0 15971 12537" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="264.416" height="200.592" viewBox="0 0 16526 12537" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
 <title>⊢ ?a⊥, ?c⊥, !(a ⊗ a) ⊗ ?c</title>
 <desc>⊢ ?~a, ?~c, !(a ⊗ a) ⊗ ?c
 ?~a[0]: ~a[3] in !(a ⊗ a)[6], ~a[4] in !(a ⊗ a)[6]
@@ -13,18 +13,18 @@ proof net</desc>
 <path d="M1091 10767V11137"/>
 <circle id="o2" cx="3611" cy="10387" r="380"/>
 <path d="M3611 10767V11137"/>
-<circle id="o4" cx="12828" cy="10387" r="380"/>
-<path d="M12565 10112L11656 9162"/>
-<path d="M12992 10044L14099 7730"/>
-<path d="M12828 10767V11137"/>
-<circle id="o5" cx="11393" cy="8887" r="380"/>
-<path d="M11393 8507L11393 7767"/>
-<circle id="o6" cx="11393" cy="7387" r="380"/>
-<path d="M11161 7086L10589 6347"/>
-<path d="M11626 7087L12198 6347"/>
+<circle id="o4" cx="13383" cy="10387" r="380"/>
+<path d="M13080 10158L11697 9116"/>
+<path d="M13490 10022L14156 7752"/>
+<path d="M13383 10767V11137"/>
+<circle id="o5" cx="11394" cy="8887" r="380"/>
+<path d="M11394 8507L11394 7767"/>
+<circle id="o6" cx="11394" cy="7387" r="380"/>
+<path d="M11161 7087L10589 6347"/>
+<path d="M11626 7086L12198 6347"/>
 <circle id="o9" cx="14263" cy="7387" r="380"/>
 <circle cx="7259" cy="8887" r="380"/>
-<path id="b6" d="M7639 8887H11013M11773 8887H12883V3535H5465V8887H6879"/>
+<path id="b6" d="M7639 8887H11014M11774 8887H12883V3535H5465V8887H6879"/>
 </g>
 <g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
 <path d="M3611 10007L3611 6347"/>
@@ -48,8 +48,8 @@ proof net</desc>
 <text x="3730" y="11627" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
 </g>
 <text x="3467" y="10662" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
-<text x="9986" y="12027" textLength="5685" lengthAdjust="spacing">!(𝑎 ⊗ 𝑎) ⊗ ?𝑐</text>
-<text x="12561" y="10587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="10541" y="12027" textLength="5685" lengthAdjust="spacing">!(𝑎 ⊗ 𝑎) ⊗ ?𝑐</text>
+<text x="13116" y="10587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
 <g id="v3">
 <text x="5845" y="6137" textLength="609" lengthAdjust="spacing">𝑎</text>
 <text x="6454" y="5737" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
@@ -62,8 +62,8 @@ proof net</desc>
 <text x="3368" y="6137" textLength="486" lengthAdjust="spacing">𝑐</text>
 <text x="3854" y="5737" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
 </g>
-<text x="11275" y="9162" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
-<text x="11126" y="7587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="11276" y="9162" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="11127" y="7587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
 <text x="10285" y="6137" textLength="609" lengthAdjust="spacing" id="o7">𝑎</text>
 <text x="11894" y="6137" textLength="609" lengthAdjust="spacing" id="o8">𝑎</text>
 <text x="14119" y="7662" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
