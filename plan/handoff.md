@@ -55,7 +55,10 @@ is the authority):
   2026-10-23 (the privacy page, the chip alone, colours for colour-blind
   visitors, five smaller changes), is written as the last section of
   `38-web-polish.md`: one session in the client, Opus 5.5 at `high`,
-  which may run beside 39's first session.
+  which may run beside 39's first session. Then **38f** (the logo's
+  candidates, Fable 5.1 at `high`; the author chooses) and **38g** (the
+  chosen logo placed everywhere, Opus 5.5 at `high`), the last two
+  sections of the same prompt.
 - **39**: MELL nets with boxes (prompt finished); independent of 40.
 - **40**: the two-sided surface (prompt written 2026-10-23): research of
   prior work first; two-sided sequents as the public face, sides recorded

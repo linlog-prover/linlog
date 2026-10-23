@@ -56,7 +56,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 35 | Cyclic MLL and the Lambek calculus (two sessions; done 2026-10-19) | `35-lambek.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 32 |
 | 36 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, and one for the web client; done 2026-10-19) | `36-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 35 |
 | 37 | The focused inverse method (two sessions; done 2026-10-19), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 33 |
-| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins; 38b to 38d the author's follow-ups, done 2026-10-23; 38e the author's decisions, to run) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
+| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins; 38b to 38d the author's follow-ups, done 2026-10-23; 38e the author's decisions, 38f and 38g a logo for linlog, to run) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
 | 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
 | 40 | The two-sided surface: two-sided sequents in and out, the one-sided form compiled from them with every occurrence's side recorded, every output raised, a round trip; intuitionistic first, then classical with its two-sided view (two sessions, each with a part in the web client; research of prior work first) | `40-ill-surface.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer on Opus 5.5 | high | 8, 9, 38 |
 | 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
@@ -3133,3 +3133,10 @@ client follows it (step 32).
   step 39's second session. Every other judgement call of 38 to 38c and
   the departures (the fonts, D25, D16, D53; the chip, D58; the phone's
   seven-icon band) stand as built.
+- 2026-10-23: a logo for linlog, at the author's word, as sessions 38f
+  (the design: candidates shown to the author, who chooses) and 38g (the
+  logo in the client's favicon, icons, header and link previews, in
+  linlog's README, which crates.io renders, and its rustdoc, and files
+  with a checklist for what only the author can set: GitHub's avatar and
+  social previews, a Zenodo community), the last section of
+  `38-web-polish.md`, after 38e.

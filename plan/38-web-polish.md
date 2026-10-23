@@ -168,3 +168,53 @@ built. Before-and-after screenshots of each change at a phone's and a
 desktop's width in both themes; a test per item a test can see; the
 client's `nix flake check` at its last commit; the report as a section
 of `plan/reports/38b-zoom-fonts-dismiss.md`.
+
+## Sessions 38f and 38g: a logo for linlog (the author, 2026-10-23)
+
+The author asked for a modern logo or word mark for linlog, shown
+wherever linlog appears. Two sessions, after 38e (both touch the
+client):
+
+**38f, the design** (Fable 5.1 at `high`, the design session's model in
+the plan's table, as step 34's mockups were; the
+`frontend-design:frontend-design` skill). Four or five candidates, each a
+mark and a word mark, in the spirit of the page's "Instrument"
+direction and today's icon (`public/icon.svg` in the client: an
+inference, two premises over a bar, the turnstile below), drawn from
+what linear logic writes (`⊸`, `⊗`, `⅋`, the turnstile, a proof net's
+links) and never from another project's mark. Each candidate is SVG,
+its text outlined so that no font file goes with it, legible as a
+16-pixel favicon and as a 512-pixel icon, in a light and a dark version
+and in one colour, its colours told apart by colour-blind viewers (the
+author's rule, session 38e). They are shown to the author side by side,
+at every size they will be used, in one page (published privately as an
+artifact where the tool is there, or written to a file whose path the
+session gives), and the author chooses; nothing is placed before that.
+The session proposes the logo's licence (the code is EUPL-1.2, the
+written content CC BY 4.0) for the author to decide.
+
+**38g, the logo everywhere** (Opus 5.5 at `high`), from the chosen
+SVG, every derived size made by a script of the client's flake from
+it, never by hand:
+- **the client**: the favicon (SVG, with the PNG fallbacks browsers
+  ask for), the web app manifest's icons (maskable included), the Apple
+  touch icon, the header where a plain "linlog" stands now, the 404 page
+  and About, and an Open Graph image for link previews, within the CSP
+  and the licences' check;
+- **linlog**: the README's head (an image by absolute URL from the
+  site, which crates.io renders too, since it has no logo of its own),
+  the rustdoc's logo and favicon (`#![doc(html_logo_url = …,
+  html_favicon_url = …)]` on the core crate, by the site's URL, so the
+  Pages documentation and docs.rs show it), and the Rocq library's
+  README;
+- **what only the author can do**, prepared as files with a checklist in
+  the report: GitHub's organisation avatar and each repository's social
+  preview (1 280 by 640) are set in GitHub's web interface alone, and a
+  Zenodo community with the logo, if the author wants one (the DOI
+  record archives each release, the logo with it). No repository
+  setting is changed by the session.
+
+Tests where a test can see it (the header and the icons served, the
+manifest's sizes, the CSP); screenshots before and after at both widths
+in both themes; the reports as sections of
+`plan/reports/38b-zoom-fonts-dismiss.md`.
