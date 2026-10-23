@@ -855,6 +855,17 @@ browser keeps (`linlog-settings`, the theme, autosaved tabs, the
 service worker's cache, the optional fonts) and how to clear it; the
 visitors' rights. About has one line on GitHub's logs today.
 
+*The math text's weight (unassigned, 2026-10-23).* The active tab's
+sequent is shown in a synthesised bold: `.tab[aria-selected="true"]` sets
+weight 600, and the math fonts have one weight each, so the browser
+fakes one (likewise wherever math sits in a semibold label, as the
+practice cards' headings may); `font-synthesis: none` and the normal
+weight on math text fix it. In dark mode `.drawing svg` draws a glow
+(`drop-shadow(0 0 6px)`, light blue at 35 %) around every glyph, which
+reads as extra weight; keeping it off the formulas, or fainter, keeps
+them crisp. The stage itself is Euler Math's own weight, Medium, drawn
+large (checked 2026-10-23: no inherited weight, no fallback font).
+
 *Left by step 38b (unassigned).* Safari's trackpad pinch (gesture
 events) is handled and tested by no test; a compact net's edges begin
 a tenth of an em below each literal, inside every font's descenders,
