@@ -1889,6 +1889,19 @@ installed beside them under `share/doc/linlog-cli/` and checked by the
 flake so that it follows every `cargo update`, closes it. The crates on
 crates.io and the release's `.crate` files are sources and need none.
 
+## For the author, later: a Zenodo community
+
+*Skipped for now at the author's word (2026-10-23); raise it again at
+a release (step 45) or when linlog has more kinds of records.* A
+community page on Zenodo (`zenodo.org/communities/linlog`, its logo
+`/home/tux/Projects/own/linlog-logo/for-github/zenodo-community.png`,
+which 38g drew) gathering the release archives and later the Rocq
+library's releases, papers, slides or data; created by the author on
+Zenodo, the existing records submitted to it by hand. Filing future
+releases into it automatically needs a `.zenodo.json`, which Zenodo then
+reads instead of `CITATION.cff`, so that change is made deliberately,
+its metadata checked against `CITATION.cff`.
+
 ## Follow-ups: a first user's obstacles (step 28's last reader)
 
 The last reader of step 28 (2026-10-14, a fresh context reading README
