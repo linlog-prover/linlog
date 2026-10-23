@@ -471,3 +471,117 @@ clause 6, the texts verbatim) and the rest of the table holding.
   `practice-decided.txt` (the practice problems decided), and the
   scripts `shots.mjs`, `exports.mjs`, `stagefonts.mjs`, `gen.py`,
   `harder.py`, `steps.mjs`.
+
+## Session 38c: the mode per tab, and the chip
+
+The author's three requests of 2026-10-23 (08:10), in the client on top
+of its `main` (e507ebe7); this section in the workspace
+`../linlog-step38c` on linlog's `main` (`lqqomvlo`).
+
+### The checklist
+
+| request | state | evidence |
+|---|---|---|
+| 1. A goal opened in a new tab keeps the original tab's whole mode | done | the client's `szzqpnyt`; `tests/modes.spec.ts`, a goal of an intuitionistic, an intuitionistic affine, a Mix and an affine tab: before the fix the two intuitionistic ones failed (the new tab never started, no formula on its stage) and the Mix and affine ones passed; after it all four pass |
+| 2. Every tab keeps its own mode, across a reload | done | the client's `nvoxzkyx`; `tests/modes.spec.ts`, `each tab keeps its own calculus, across a reload` (three tabs in three calculi, one changed, the others unchanged, the same after a reload and the restore bar) |
+| 3. A tab's calculus chip opens that tab's mode settings, at both widths, by keyboard too; the switches leave the phone's More sheet | done | the client's `nvoxzkyx`; `tests/modes.spec.ts`, `the tab's calculus mark opens its switches, by a press and by a key` at a desktop's and a phone's width (the popover drawn on top where it is, Mix set, Escape, a key opens it with the focus inside, Escape returns the focus to the mark, a new tab's calculus set before it starts, and on a phone More holds no switches); step 38's touch-target walk (both widths, the popover with its switches among its states) and the token check pass |
+| Before-and-after screenshots of the chip and its popover | done | `/home/tux/Projects/own/linlog-step38c-screenshots/before/` and `after/`: `01-chip` (and `-closeup`), `02-chip-popover`, `03-more-sheet`, at a desktop's and a phone's width in both themes |
+| The client's `nix flake check` at its last commit | passed | exit 0, "all checks passed!", at `nvoxzkyx` (0a16a1e6): Vitest 114, Playwright 68, `tests/modes.spec.ts`'s seven among them |
+
+### Outcome
+
+A goal of an intuitionistic tab now opens in a new tab in the same
+calculus, as Mix and affine tabs' goals already did. Each tab keeps its
+own calculus, across a reload. A tab's calculus mark opens its switches
+at every width and by keyboard; on a phone they are no longer under
+More.
+
+### Decisions
+
+- **Where the mode was lost** (request 1): `sequentText` wrote a
+  hypothesis's formula as linlog gives it, one-sided (`A⊥` for the
+  hypothesis `A`, `A ⊗ B⊥` for `A ⊸ B`), left of `⊢`, so the new tab's
+  text was another sequent with no intuitionistic reading; `start`
+  refused it, and the tab stayed unstarted (in the visit's last mode).
+  The mode itself was passed on correctly (`open(text, p.mode)`), which
+  is why Mix and affine tabs' goals opened right. A hypothesis is now
+  written as the dual of its one-sided formula: a negated atom without
+  its negation, any other formula negated whole (`~(A ⊗ ~B)`), which
+  linlog reads as `A ⊸ B`.
+- **The whole mode**: linlog's mode is the calculus (classical or
+  intuitionistic) with Mix and affine weakening, one `Mode` per tab
+  (`Proof.mode`), which the new tab takes whole. The two-sided
+  presentation is not part of it: the switch is greyed (linlog does not
+  draw classical derivations two-sided yet) and holds no state, so there
+  is nothing to carry over.
+- **A new empty tab** (request 2) starts in `lastMode`, the calculus last
+  chosen or started in this visit, classical at a visit's start: a
+  student working in intuitionistic logic wants the next proof in it
+  too, and a visit starts from the design's default (D2). It is not kept
+  across visits, since each tab's own mode is.
+- **The chip's popover** (request 3) holds the "Linear" and "Ordinary"
+  choice as before, the calculus's switches (the same component as the
+  stage's cluster, with its restart warning) and the fragment. Opened
+  by a key (Enter or Space on the mark), the switches take the focus,
+  and Escape gives it back to the mark; opened by a press, the focus
+  stays where it was, so no tip pops up. A tab not yet started can have
+  its calculus set by its mark before it starts.
+- **The desktop's stage keeps its cluster** (judged): a change of
+  calculus stays one press where the work is (step 38's walk), and the
+  cluster shows the calculus at a glance on the stage, as D58 has it.
+  While the mark's popover is open the cluster hides, so the switches and
+  the restart warning (one `ui.pendingMode`) never show twice.
+- **The band's popovers were clipped**: the row of tabs scrolls
+  (`nav.proofs`, `overflow: auto`, 34 pixels high), and the absolute
+  Status and Logic popovers under a tab were cut off by it, invisible,
+  in `main` (the before screenshots show no popover). Its controls still
+  passed the targets walk, which measures what is laid out. Both
+  popovers are now `position: fixed` under the active tab, placed from
+  its box and kept inside the window; the test asks what is drawn at the
+  popover's middle.
+- Two tests reached the switches through More on a phone (the targets
+  walk and the dismiss test); they reach them through the mark now, the
+  behaviour having changed on purpose.
+
+### Departures from the design
+
+- (departs from the design: D58, at the author's request) The calculus's
+  switches are opened by each tab's calculus mark at every width, and on
+  a phone they are no longer folded into More's sheet; on a desktop the
+  stage's cluster stays as D58 places it.
+
+### Judgement calls
+
+1. The desktop's stage cluster stays (above), hidden while the mark's
+   popover is open.
+2. A hypothesis of a goal opened in a new tab is written as a negated
+   formula where it is compound (`(A ⊗ B⊥)⊥` in the tab, which linlog
+   reads as `A ⊸ B`): the page has no reading of a goal's formulas but
+   the one-sided text, and linlog's bindings give none. A reading of a
+   goal's formulas from linlog would let the tab write `A ⊸ B`, a
+   follow-up for the bindings.
+3. Status's popover was placed fixed with the mark's, since one fault
+   clipped both.
+4. A new empty tab starts in the visit's last calculus (above).
+
+### Verification
+
+- `tests/modes.spec.ts` (7 tests) failing where it failed before the
+  fix and passing after, as above; the whole Playwright suite 68 passed
+  (four workers, and again in CI's mode), Vitest 114 (the token check
+  among them), `lint` clean. One run with the default number of workers
+  failed two older tests under load (a link's restore, the tab's signs);
+  both passed alone and in the two full runs after.
+- The client's `nix flake check` at its last commit `nvoxzkyx`
+  (0a16a1e6): exit 0, "all checks passed!", Vitest 114, Playwright 68.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io`,
+  `szzqpnyt` and `nvoxzkyx` on `main` (e507ebe7), local.
+- linlog: `../linlog-step38c` on `main` (`lqqomvlo`), this section's
+  commit. (Making the workspace, a gpg prompt timed out half-way and left
+  a git worktree registered for a directory without files; that entry
+  under `.git/worktrees/` was removed by hand, as `git worktree prune`
+  would, and the workspace made again.)
+- Screenshots and the script: `/home/tux/Projects/own/linlog-step38c-screenshots/`.
