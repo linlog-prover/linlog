@@ -3299,3 +3299,50 @@ client follows it (step 32).
   section of `38-web-polish.md`, in linlog's interactive layer, the
   command and the bindings first, then the page; after 39b's push and
   before step 40, since both touch the interactive layer.
+- 2026-10-23: review of session 39b, the end of step 39 (Opus 5.5 at
+  high, 15:20 to 16:30): `svg::mell_net` draws a `MellStructure` with
+  formulas and compact, each `!`-box a rectangle around its contents,
+  nested boxes nested, the doors on the box's border, ids `o<n>`,
+  `v<k>`, `b<k>` and `l<x>-<y>`; the compact drawing's edges begin at
+  each font's depth (MLL and MELL); the JSON form at wire level 4, its
+  reader through `from_parts` within the limits; `prove --net` and
+  `check --net` give a classical MELL proof its net in text, JSON, SVG,
+  PNG and PDF (`--net --format json` new, for MLL nets too); the
+  bindings' `draw_net` draws it. Its reviewer fuzzed the JSON reader
+  (30 000 documents, nothing) and found a compact edge through a box,
+  fixed with a test.
+  - checked here: the renders in the five fonts looked at; the net
+    target set against `net-after-mell` (64 rows, nothing differs); the
+    command run by hand (a MELL net in text and JSON, the refusal in
+    intuitionistic mode); the gate and `nix flake check` at the head.
+  - for the author, two departures "(departs from the design)": a
+    weakening's link is not drawn (its description names the literal it
+    hangs on) and a box shows no door for it; a `!` conclusion with
+    doors sits one row above the bottom row in the drawing with
+    formulas. The brief's "check of a net document" and `seq` showing a
+    net do not exist in the command, so the session did not invent them.
+  Next: the client's lock moved so that the page draws nets with boxes.
+- 2026-10-23: review of session 43a, the problem store and Practice
+  (Opus 5.5 at high, 15:25 to 16:37, beside 39b): 425 problems (392
+  provable: Easy 76, Moderate 109, Hard 123, Very hard 84; all twelve
+  fragments, all six calculi), 311 generated for a target level, 49
+  from the literature (the Handbook of linear logic, Wikipedia's
+  "Linear logic", single formulas cited), step 38's 73 joined; the
+  client's flake check `problems` runs linlog's command over the store
+  (planted wrong entries fail it); Practice a sheet of its own from the
+  bottom band, only provable problems, filters, a random one, the
+  visitor's own proofs marked (`linlog-practice`, on the privacy page).
+  The difficulty: steps plus the bits of choice a count of atoms does
+  not settle, levels at 6, 14 and 30, validated by Haiku 5.5 and Sonnet
+  5.5 in four rounds declared in advance: effort (4.2, 7.8, 15.2, 20.5
+  commands) and first-attempt success (19, 15, 11, 6 of 20) ordered by
+  the levels; plain success at its ceiling below Very hard, which the
+  session showed cannot be separated with these solvers, and which the
+  supervisor accepted and stopped it at.
+  - checked here: the store check rebuilt (`--rebuild`), eight problems
+    decided by hand with the command, the screenshots, the sources
+    (single formulas, no text copied).
+  - for the author: the four levels and their names; plain success not
+    separating the lower levels (students could test it); on a phone,
+    Export moved into More's sheet (departs from step 38's band); the
+    departure from D47, at the author's request.
