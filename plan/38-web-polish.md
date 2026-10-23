@@ -182,7 +182,13 @@ mark and a word mark, in the spirit of the page's "Instrument"
 direction and today's icon (`public/icon.svg` in the client: an
 inference, two premises over a bar, the turnstile below), drawn from
 what linear logic writes (`⊸`, `⊗`, `⅋`, the turnstile, a proof net's
-links) and never from another project's mark. Each candidate is SVG,
+links) and never from another project's mark. Each candidate comes as a
+family, one spirit in two shapes (the author, 2026-10-23): the full word
+mark for the wide places (the header, the README's head, the rustdoc,
+link previews), and a compact square form for the square ones (the
+favicon, the app icons, the Apple touch icon, GitHub's avatar), which
+may differ from the word mark (the mark alone, a monogram, a simpler
+drawing) as long as the two are plainly one logo. Each is SVG,
 its text outlined so that no font file goes with it, legible as a
 16-pixel favicon and as a 512-pixel icon, in a light and a dark version
 and in one colour, its colours told apart by colour-blind viewers (the
