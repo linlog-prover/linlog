@@ -37,6 +37,8 @@
 
 /// The metrics of the font.
 mod font;
+/// Proof structures with `!`-boxes, drawn as the multiplicative ones are.
+mod mell;
 /// Proof structures as formula trees under their axiom links.
 mod net;
 /// Derivations as proof trees.
@@ -44,7 +46,7 @@ mod tree;
 
 use super::Drawable;
 use crate::Error;
-use crate::nets::ProofStructure;
+use crate::nets::{MellStructure, ProofStructure};
 use crate::occurrences::Reading;
 use crate::ordinary::Symbols;
 use crate::proofs::style::{Part, parts};
@@ -1033,6 +1035,50 @@ pub fn net(
         return Err(refused.into());
     }
     Ok(net::draw(net, style, &verdict, reading.as_ref()))
+}
+
+/// Returns a proof structure with boxes as an SVG document, drawn as
+/// [`net`] draws a proof structure, every subformula written or, with
+/// [`Style::net`] [`NetDrawing::Compact`], the literals and conclusions:
+/// every `!`-box a rectangle around its contents, nested boxes nested, its
+/// `!` vertex and an auxiliary door for every `?` vertex outside it with a
+/// copy inside on its bottom border, the wires of a `?` vertex dashed as a
+/// `⅋`'s premise edges are. A formula has the id `o<n>` when it is the only
+/// vertex of occurrence `n` and `v<k>` (its vertex) when its occurrence has
+/// several; a link `l<x>-<y>` (its vertices) and a box `b<k>` (its `!`
+/// vertex). A switching cycle is in the highlight colour. Refused past
+/// `limits.derivation_bytes` before anything is drawn, as [`net`] is; the
+/// criterion that decides the highlight asks `stop` as
+/// [`MellStructure::is_correct`] does.
+///
+/// # Errors
+///
+/// [`Refusal::Output`](crate::Refusal::Output) past the bound, the
+/// criterion's refusal when `stop` fired, and [`Error::InvalidOption`] for
+/// a style [`Style::check`] refuses.
+pub fn mell_net(
+    net: &MellStructure,
+    style: &Style,
+    limits: &crate::Limits,
+    stop: impl FnMut(crate::limits::Progress) -> bool,
+) -> Result<String, Error> {
+    style.check()?;
+    if let Some(limit) = limits.derivation_bytes {
+        let estimate = mell::estimate(net, style, limit);
+        if estimate > limit {
+            return Err(Error::Refused(crate::limits::Refusal::Output {
+                what: "drawing",
+                estimate_bytes: estimate,
+                limit_bytes: limit,
+                least_bytes: None,
+            }));
+        }
+    }
+    let verdict = net.is_correct(stop);
+    if let Err(refused @ crate::nets::NetError::Refused { .. }) = verdict {
+        return Err(refused.into());
+    }
+    Ok(mell::draw(net, style, &verdict))
 }
 
 #[cfg(test)]

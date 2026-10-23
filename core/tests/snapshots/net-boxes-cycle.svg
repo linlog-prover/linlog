@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="116.864" height="187.616" viewBox="0 0 7304 11726" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ?a⊥ ⊗ !a</title>
+<desc>⊢ ?~a ⊗ !a
+?~a[1]: ~a[4] in !a[2]
+a[3] — ~a[4]
+not a proof net: a switching cycle runs through ?~a ⊗ !a[0], ?~a[1], !a[2]</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M5991 3437L6319 2486"/>
+<path id="b2" d="M4479 3796H5487M6247 3796H7004V340H3415V3796H3719"/>
+</g>
+<g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
+<path d="M4099 2486L4099 3416"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l3-4" d="M4099 1386A1110 666 0 0 1 6319 1386"/>
+</g>
+<g fill="none" stroke="#d55e00" stroke-width="40">
+<path d="M2427 9553L680 8446"/>
+<path d="M2971 9449L5867 5466"/>
+<path d="M4099 4176V6016H1440L949 6507" stroke-dasharray="120 120"/>
+</g>
+<g id="o0">
+<text x="499" y="11216" textLength="971" lengthAdjust="spacing">?𝑎</text>
+<text x="1470" y="10816" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+<text x="2414" y="11216" textLength="1905" lengthAdjust="spacing">⊗ !𝑎</text>
+</g>
+<text x="2481" y="9956" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="o1">
+<text x="499" y="8236" textLength="971" lengthAdjust="spacing">?𝑎</text>
+<text x="1470" y="7836" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="536" y="7051" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+<text x="5720" y="5256" textLength="904" lengthAdjust="spacing" id="o3">!𝑎</text>
+<text x="5749" y="4071" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="6015" y="2276" textLength="609" lengthAdjust="spacing" id="o4">𝑎</text>
+<g id="o2">
+<text x="3795" y="2276" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="4404" y="1876" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="3955" y="4071" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+</svg>

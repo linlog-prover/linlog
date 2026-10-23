@@ -20,8 +20,11 @@
 //! the refutation and a document of an ordered mode are written at level 2;
 //! level 3 adds the refutation by a saturated set (`{"kind":
 //! "saturated", "positive": […], "sequents": […]}`), so a disproof or an
-//! unprovable outcome that holds it is written at level 3; every other
-//! document is written at level 1. A reader refuses a
+//! unprovable outcome that holds it is written at level 3; level 4 adds
+//! the proof structure with boxes, a form whose `"vertices"` key makes its
+//! links name vertices rather than occurrences, so it is always written at
+//! level 4 (and the proof structure's reader refuses a document with that
+//! key); every other document is written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -39,7 +42,7 @@
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
 //! only adds a kind of refutation and a mode, level 3 a kind of
-//! refutation), and
+//! refutation, level 4 a form), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -71,6 +74,13 @@
 //! - **Proof structure**: `{"version": 1, "sequent": {…}, "mix": false,
 //!   "links": [[0, 2], [3, 4]]}`, see
 //!   [`ProofStructure`](crate::ProofStructure).
+//! - **Proof structure with boxes**: `{"version": 4, "sequent": {…},
+//!   "mix": false, "vertices": [[3, 1, 1], …], "links": [[2, 3]],
+//!   "weakenings": []}`: the roots are vertices `0` to `r − 1`, then each
+//!   of `vertices` as `[occurrence, parent, box]`, `box` the `!` vertex of
+//!   its innermost box or `null`; `links` and `weakenings` (a `?` vertex
+//!   without copies and the literal it hangs on) name vertices; see
+//!   [`MellStructure`](crate::MellStructure).
 //! - **Session**: `{"version": 1, "sequent": {…}, "mode":
 //!   "intuitionistic", "inferences": […], "history": […]}`, see
 //!   `Interactive` (feature `interactive`).
@@ -88,12 +98,15 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 3;
+pub const LEVEL: u32 = 4;
 
 /// The level of every document but a disproof (or an unprovable
 /// outcome) with a classical refutation, which is level 2, or with a
 /// saturated set, which is level 3, and a document of an ordered mode.
 pub(crate) const BASE: u32 = 1;
+
+/// The level of a proof structure with boxes, which level 4 added.
+pub(crate) const BOXES: u32 = 4;
 
 /// A form [`upgrade`] and [`Within`] read: one whose reading counts a
 /// sequent against the caller's limits. Sealed: the crate's data forms

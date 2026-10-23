@@ -6,7 +6,7 @@ use crate::io;
 use crate::limit::{Deadline, Notice};
 use crate::settings::{Given, Threads, time_limit};
 use crate::show::{
-    Show, Shown, derivation, disproof_into, every_steps, net_into, nets_exist, note,
+    Show, Shown, derivation, disproof_into, every_steps, net_into, net_json, nets_exist, note,
 };
 use crate::{Status, catch_interrupt, interrupted};
 use anyhow::{Context, Result, bail};
@@ -264,7 +264,18 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
         let status = Status::from(&outcome.verdict);
         let mut out = io::Output::open(args.output.output.as_deref(), format.is_binary())?;
         if format == Format::Json {
-            serde_json::to_writer(out.stream(), &outcome)?;
+            let net = match &outcome.verdict {
+                Verdict::Proved(proof) if show.net => {
+                    let over = || interrupted() || deadline.passed() || io::closed();
+                    let why = || Stop::why(stopped(&deadline));
+                    let found = outcome.net.as_deref();
+                    net_json(found, proof, mode, &show, &over, &why, &mut out)?
+                }
+                _ => false,
+            };
+            if !net {
+                serde_json::to_writer(out.stream(), &outcome)?;
+            }
             out.finish()?;
             return Ok(status);
         }

@@ -9,9 +9,9 @@
 
 use linlog::search::{Engine, Options, prove, prove_within};
 use linlog::{
-    Branch, Criterion, Forest, Fragment, GoalId, Interactive, Limits, Member, Mode, Named,
-    NetError, Node, NodeId, OccId, Order, Proof, ProofStructure, Rule, Sequent, Step, VertexId,
-    ViewOptions,
+    Branch, Criterion, Forest, Fragment, GoalId, Interactive, Limits, MellStructure, Member, Mode,
+    Named, NetError, Node, NodeId, OccId, Order, Placement, Proof, ProofStructure, Rule, Sequent,
+    Step, VertexId, ViewOptions,
 };
 
 /// A sequent's JSON as another form nests it: without `version`.
@@ -399,6 +399,68 @@ fn net_json_format_and_round_trip() {
         back.is_correct(|_| false),
         Err(NetError::Crossing { links: [(x, y), (u, w)], .. }) if [x, y, u, w] == [v(0), v(3), v(2), v(4)]
     ));
+}
+
+/// A proof structure with boxes serializes at level 4 as its sequent,
+/// whether Mix is allowed, its vertices after the roots as `[occurrence,
+/// parent, box]`, its links and its weakenings, and reads back the same
+/// structure through `wire::upgrade`. A document that is no structure is
+/// refused, as `from_parts` refuses its parts: a vertex outside its box or
+/// naming nothing, a link out of its box, a graph past the memory bound;
+/// and the reader of a proof structure without boxes refuses it rather
+/// than read its links as occurrences.
+#[test]
+fn mell_structure_json_format_and_round_trip() {
+    use linlog::{Error, wire};
+    let s: Sequent = "!a, !b |- !a".parse().unwrap();
+    let outcome = prove(&s, Mode::CLASSICAL, &Options::default()).unwrap();
+    let proof = outcome.verdict.proof().unwrap();
+    let net =
+        MellStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| false).unwrap();
+    let json = serde_json::to_string(&net).unwrap();
+    let sequent = nested(&s);
+    assert_eq!(
+        json,
+        format!(
+            r#"{{"version":4,"sequent":{sequent},"mix":false,"vertices":[[1,0,2],[5,2,2]],"links":[[4,3]],"weakenings":[[1,4]]}}"#
+        )
+    );
+    let read = |json: &str, limits: &Limits| {
+        wire::upgrade::<MellStructure, _>(&mut serde_json::Deserializer::from_str(json), limits)
+    };
+    let back = read(&json, &Limits::default()).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    assert_eq!(back.to_string(), net.to_string());
+    assert_eq!(back.is_correct(|_| false), Ok(()));
+
+    let placed = |vertices: &str| {
+        let json = json.replace(r#"[[1,0,2],[5,2,2]]"#, vertices);
+        match read(&json, &Limits::default()) {
+            Err(Error::Net(error)) => match *error {
+                NetError::Placement { fault, .. } => fault,
+                other => panic!("{vertices}: {other:?}"),
+            },
+            other => panic!("{vertices}: {other:?}"),
+        }
+    };
+    // The copy outside the box, so that its link leaves it; the premise of
+    // `!a` outside its box; an occurrence and a parent that are none.
+    assert_eq!(placed("[[1,0,null],[5,2,2]]"), Placement::Link);
+    assert_eq!(placed("[[1,0,2],[5,2,null]]"), Placement::Box);
+    assert_eq!(placed("[[99,0,2],[5,2,2]]"), Placement::Outside);
+    assert_eq!(placed("[[1,4294967295,2],[5,2,2]]"), Placement::Outside);
+    let tiny = Limits::default().with_memory_bytes(Some(64));
+    assert!(matches!(
+        read(&json, &tiny),
+        Err(Error::Net(error)) if matches!(*error, NetError::Refused { .. })
+    ));
+    match wire::upgrade::<ProofStructure, _>(
+        &mut serde_json::Deserializer::from_str(&json),
+        &Limits::default(),
+    ) {
+        Err(Error::Json { message, .. }) => assert!(message.contains("with boxes"), "{message}"),
+        other => panic!("{other:?}"),
+    }
 }
 
 /// A proof in progress serializes as its sequent, mode, inferences (the

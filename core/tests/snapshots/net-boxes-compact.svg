@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="255.536" height="200.592" viewBox="0 0 15971 12537" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ?a⊥, ?c⊥, !(a ⊗ a) ⊗ ?c</title>
+<desc>⊢ ?~a, ?~c, !(a ⊗ a) ⊗ ?c
+?~a[0]: ~a[3] in !(a ⊗ a)[6], ~a[4] in !(a ⊗ a)[6]
+?~c[1]: ~c[5]
+?c[10]: c[11]
+~a[3] — a[8]
+~a[4] — a[9]
+~c[5] — c[11]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<circle id="o0" cx="1091" cy="10387" r="380"/>
+<path d="M1091 10767V11137"/>
+<circle id="o2" cx="3611" cy="10387" r="380"/>
+<path d="M3611 10767V11137"/>
+<circle id="o4" cx="12828" cy="10387" r="380"/>
+<path d="M12565 10112L11656 9162"/>
+<path d="M12992 10044L14099 7730"/>
+<path d="M12828 10767V11137"/>
+<circle id="o5" cx="11393" cy="8887" r="380"/>
+<path d="M11393 8507L11393 7767"/>
+<circle id="o6" cx="11393" cy="7387" r="380"/>
+<path d="M11161 7086L10589 6347"/>
+<path d="M11626 7087L12198 6347"/>
+<circle id="o9" cx="14263" cy="7387" r="380"/>
+<circle cx="7259" cy="8887" r="380"/>
+<path id="b6" d="M7639 8887H11013M11773 8887H12883V3535H5465V8887H6879"/>
+</g>
+<g fill="none" stroke="#0072b2" stroke-width="40" stroke-dasharray="120 120">
+<path d="M3611 10007L3611 6347"/>
+<path d="M14263 7007L14263 6347"/>
+<path d="M6149 6347L7107 8539"/>
+<path d="M8369 6347L7411 8539"/>
+<path d="M7259 9267V9627H1851L1360 10118"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l3-8" d="M6149 5247A2220 1332 0 0 1 10589 5247"/>
+<path id="l4-9" d="M8369 5247A1914 1148 0 0 1 12198 5247"/>
+<path id="l5-11" d="M3611 5247V3535A5326 3195 0 0 1 14263 3535V5247"/>
+</g>
+<g>
+<text x="300" y="12027" textLength="971" lengthAdjust="spacing">?𝑎</text>
+<text x="1271" y="11627" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="947" y="10662" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+<g>
+<text x="2882" y="12027" textLength="848" lengthAdjust="spacing">?𝑐</text>
+<text x="3730" y="11627" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="3467" y="10662" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+<text x="9986" y="12027" textLength="5685" lengthAdjust="spacing">!(𝑎 ⊗ 𝑎) ⊗ ?𝑐</text>
+<text x="12561" y="10587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="v3">
+<text x="5845" y="6137" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="6454" y="5737" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="v4">
+<text x="8065" y="6137" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="8674" y="5737" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="o3">
+<text x="3368" y="6137" textLength="486" lengthAdjust="spacing">𝑐</text>
+<text x="3854" y="5737" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="11275" y="9162" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="11126" y="7587" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<text x="10285" y="6137" textLength="609" lengthAdjust="spacing" id="o7">𝑎</text>
+<text x="11894" y="6137" textLength="609" lengthAdjust="spacing" id="o8">𝑎</text>
+<text x="14119" y="7662" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+<text x="14020" y="6137" textLength="486" lengthAdjust="spacing" id="o10">𝑐</text>
+<text x="7115" y="9162" textLength="289" lengthAdjust="spacing" font-size="800">?</text>
+</svg>

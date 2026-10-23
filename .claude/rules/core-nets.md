@@ -340,8 +340,17 @@ engine. What the code relies on:
   need the intuitionistic reading in every box) and the ordered modes
   refuse exponentials; with Mix the criterion is acyclicity at every
   depth, weakenings still hung (with Mix and no empty rule, `⊢ ?c ⊗ ?d,
-  a, ~a` is acyclic and unprovable). The front ends' `nets::exist` and
-  the net engine are unchanged and MLL only.
+  a, ~a` is acyclic and unprovable). `nets::exist` and the net engine
+  are unchanged and MLL only; the command (`nets_exist`, `net_of`) and
+  the bindings (`nets_exist`, `draw_net`) take `MellStructure::exist` and
+  `from_proof` where the sequent has exponentials.
+- **Text and JSON**: `Display` writes the sequent, a line per `?` vertex
+  (its copies, each with the `!` of its box where that is another than
+  the `?`'s, or `no copy, hangs on …`), the links by first id and the
+  verdict (`text_form`). The JSON form (`serialize/nets.rs`, `Boxed`) is
+  `Parts` with the sequent and `mix`, always at wire level 4, read
+  through `from_parts` within the limits; the MLL reader refuses a
+  document with `vertices`, whose links name vertices.
 - **Tests** (`mell/tests.rs`): fixed nets with their terms and witnesses
   (`classic_nets`); `round_trips` (random MELL proofs of the focused
   engine, with and without Mix: net, term, checker, net again, correct,

@@ -24,8 +24,8 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, Mode, Options, Order,
-    Proof, ProofStructure, Step, VertexId, ViewOptions,
+    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, MellStructure, Mode,
+    OccId, Options, Order, Parts, Placed, Proof, ProofStructure, Step, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Rule, Sequent, Verdict, prove};
@@ -697,6 +697,132 @@ fn nets() {
     let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
     assert!(drawing.contains(&highlight), "{drawing}");
     snapshot("disconnected.svg", &drawing);
+}
+
+/// Returns the rectangle a box's outline `b<k>` encloses in a drawing, as
+/// its left, top, right and bottom.
+fn outline(drawing: &str, b: u32) -> (i64, i64, i64, i64) {
+    let d = drawing
+        .split(&format!(r#"id="b{b}" d=""#))
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    let (mut xs, mut ys) = (Vec::new(), Vec::new());
+    let mut rest = d;
+    while let Some(letter) = rest.chars().next() {
+        let end = rest[1..]
+            .find(|c: char| c.is_ascii_uppercase())
+            .map_or(rest.len(), |i| i + 1);
+        let n: Vec<i64> = rest[1..end]
+            .split(' ')
+            .map(|v| v.parse().unwrap())
+            .collect();
+        match letter {
+            'M' => {
+                xs.push(n[0]);
+                ys.push(n[1]);
+            }
+            'H' => xs.push(n[0]),
+            'V' => ys.push(n[0]),
+            _ => panic!("{d}"),
+        }
+        rest = &rest[end..];
+    }
+    let span = |v: &[i64]| (*v.iter().min().unwrap(), *v.iter().max().unwrap());
+    let ((left, right), (top, bottom)) = (span(&xs), span(&ys));
+    (left, top, right, bottom)
+}
+
+/// Proof nets with boxes are pinned as SVG in both drawings: a box with
+/// two copies of one `?` inside and a contraction outside it, and boxes
+/// nested, the inner rectangle inside the outer one; every drawing lies
+/// in its view box, and its size estimate is at least its bytes and
+/// within four times of them. A vertex of an occurrence with several has its own id
+/// `v<k>`, one alone the occurrence's `o<n>`. A structure whose wire
+/// closes a switching cycle through its box has it highlighted.
+#[test]
+fn mell_nets() {
+    let net = |input: &str| {
+        MellStructure::from_proof(
+            &proof(input, Mode::CLASSICAL),
+            Criterion::MLL,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap()
+    };
+    let drawn = |net: &MellStructure, drawing: NetDrawing| {
+        let style = Style::default().with_net(drawing);
+        svg::mell_net(net, &style, &unbounded(), |_| false).unwrap()
+    };
+    for (name, input) in [
+        ("net-boxes", "!a, !c |- !(a * a) * ?c"),
+        ("net-nested", "!a |- ?a * !!a"),
+    ] {
+        let net = net(input);
+        for (suffix, drawing) in [
+            ("", NetDrawing::Formulas),
+            ("-compact", NetDrawing::Compact),
+        ] {
+            let svg = drawn(&net, drawing);
+            structure(&svg);
+            // The estimate is at least the drawing and within four times.
+            let (style, bytes) = (Style::default().with_net(drawing), svg.len() as u64);
+            assert!(svg::mell_net(&net, &style, &bounded(bytes - 1), |_| false).is_err());
+            assert!(svg::mell_net(&net, &style, &bounded(4 * bytes), |_| false).is_ok());
+            snapshot(&format!("{name}{suffix}.svg"), &svg);
+        }
+    }
+
+    // ⊢ ?~a, ?~c, !(a ⊗ a) ⊗ ?c: the two copies of ?~a in the box are
+    // vertices of one occurrence; the box is `!(a ⊗ a)`'s.
+    let boxes = net("!a, !c |- !(a * a) * ?c");
+    let svg = drawn(&boxes, NetDrawing::Formulas);
+    let copies: Vec<VertexId> = boxes.premises(VertexId::new(0)).collect();
+    assert_eq!(copies.len(), 2);
+    for c in copies {
+        assert!(svg.contains(&format!(r#"id="v{}""#, c.get())), "{svg}");
+    }
+    assert!(svg.contains(r#"id="o0""#), "{svg}");
+    let bang = boxes.boxes().next().unwrap();
+    assert!(svg.contains(&format!(r#"id="b{}""#, bang.get())), "{svg}");
+
+    // ⊢ ?~a ⊗ !!a… nested: the inner box within the outer one, in both
+    // drawings.
+    let nested = net("!a |- ?a * !!a");
+    let (outer, inner): (Vec<_>, Vec<_>) =
+        nested.boxes().partition(|&b| nested.inside(b).is_none());
+    for drawing in [NetDrawing::Formulas, NetDrawing::Compact] {
+        let svg = drawn(&nested, drawing);
+        let (o, i) = (outline(&svg, outer[0].get()), outline(&svg, inner[0].get()));
+        assert!(
+            o.0 < i.0 && o.1 < i.1 && i.2 < o.2 && i.3 < o.3,
+            "{o:?} {i:?}"
+        );
+    }
+
+    // ⊢ ?~a ⊗ !a with the copy of ?~a in the box: ⊗, ?~a, the wire and
+    // !a make a cycle.
+    let forest = Forest::new(&"|- ?~a * !a".parse().unwrap()).unwrap();
+    let (o, v) = (OccId::new, VertexId::new);
+    let mut parts = Parts::default();
+    parts.vertices = vec![
+        Placed::new(o(1), v(0), None),
+        Placed::new(o(3), v(0), None),
+        Placed::new(o(4), v(2), Some(v(2))),
+        Placed::new(o(2), v(1), Some(v(2))),
+    ];
+    parts.links = vec![(v(3), v(4))];
+    let cyclic =
+        MellStructure::from_parts(forest, Criterion::MLL, &parts, &Limits::default()).unwrap();
+    assert!(cyclic.is_correct(|_| false).is_err());
+    let svg = drawn(&cyclic, NetDrawing::Formulas);
+    let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
+    assert!(svg.contains(&highlight), "{svg}");
+    structure(&svg);
+    snapshot("net-boxes-cycle.svg", &svg);
 }
 
 /// Essential nets are pinned as SVG: the net of `a ⊸ b, b ⊸ c ⊢ a ⊸ c`

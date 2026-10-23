@@ -37,7 +37,7 @@ use std::fmt::Write;
 
 /// The height of the middle of `⅋` above the baseline: unlike `⊗`, it
 /// stands on the baseline instead of being centred on the math axis.
-const PAR_MIDDLE: i64 = 344;
+pub(super) const PAR_MIDDLE: i64 = 344;
 
 /// Writes an arrowhead with its tip at `tip`, pointing along `towards`,
 /// its wings `size` back from the tip.
@@ -83,7 +83,7 @@ fn towards_by(from: (i64, i64), towards: (f64, f64), by: i64) -> (i64, i64) {
 }
 
 /// Returns the point `by` along the segment from `from` towards `to`.
-fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
+pub(super) fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
     let (dx, dy) = ((to.0 - from.0) as f64, (to.1 - from.1) as f64);
     let scale = by as f64 / dx.hypot(dy);
     (
@@ -101,7 +101,7 @@ fn towards(from: (i64, i64), to: (i64, i64), by: i64) -> (i64, i64) {
 /// constant `φ` (similar arcs) and for `φ ∝ 1/rx` (then it is a multiple
 /// of the harmonic mean of `x−a` and `b−x`), and an arc with `rx ≤ W` lies
 /// below that harmonic arc of its own interval.
-fn height(rx: i64, style: &Style) -> i64 {
+pub(super) fn height(rx: i64, style: &Style) -> i64 {
     let ratio = i64::from(style.link_height);
     match style.link_cap.map(i64::from) {
         Some(cap) if rx > cap => ratio * cap.saturating_mul(rx).isqrt() / 1000,
@@ -145,30 +145,30 @@ fn components(net: &ProofStructure) -> Vec<usize> {
 
 /// The bytes of a drawing's start, its groups and its end, beyond what
 /// [`estimate`] counts per part.
-const DOCUMENT: u64 = 1000;
+pub(super) const DOCUMENT: u64 = 1000;
 
 /// The bytes of one `<text>` element besides its characters: its
 /// coordinates and width of up to twelve digits, its size, an id and a
 /// fill attribute's name.
-const PIECE: u64 = 140;
+pub(super) const PIECE: u64 = 140;
 
 /// The bytes of the group a formula's text is when it has several pieces,
 /// besides its colour.
-const GROUP: u64 = 40;
+pub(super) const GROUP: u64 = 40;
 
 /// The bytes a connective adds to its formula's text: its symbol, the
 /// spaces around it and the brackets around the formula.
-const BINARY: u64 = 7;
+pub(super) const BINARY: u64 = 7;
 
 /// The bytes of a connective: its circle, its symbol and its two premise
 /// edges.
-const CONNECTIVE: u64 = 400;
+pub(super) const CONNECTIVE: u64 = 400;
 
 /// The bytes of the edge below a conclusion.
-const ROOT: u64 = 60;
+pub(super) const ROOT: u64 = 60;
 
 /// The bytes of a link's arc and the two lines down to its literals.
-const LINK: u64 = 160;
+pub(super) const LINK: u64 = 160;
 
 /// The bytes an essential net's drawing adds per edge, conclusion and
 /// link: an arrowhead of three points with coordinates of up to twelve
@@ -177,11 +177,23 @@ const ARROW: u64 = 100;
 
 /// A writer that counts the bytes of what it is given escaped for XML,
 /// and fails once they pass `most`.
-struct Count {
+pub(super) struct Count {
     /// The bytes counted.
     bytes: u64,
     /// The most it counts before it fails.
     most: u64,
+}
+
+impl Count {
+    /// Returns a counter that fails past `most` bytes.
+    pub(super) const fn new(most: u64) -> Self {
+        Self { bytes: 0, most }
+    }
+
+    /// Returns the bytes counted.
+    pub(super) const fn bytes(&self) -> u64 {
+        self.bytes
+    }
 }
 
 impl Write for Count {
@@ -271,10 +283,7 @@ pub(super) fn estimate(net: &ProofStructure, style: &Style, read: bool, most: u6
         // The text form, as the drawing writes it: its sequent, its links
         // and the verdict, which names the occurrences of a switching
         // cycle or of the parts of a disconnected structure.
-        let mut count = Count {
-            bytes: 0,
-            most: most - bytes,
-        };
+        let mut count = Count::new(most - bytes);
         let _ = write!(count, "{net}");
         bytes = bytes.saturating_add(count.bytes);
     }

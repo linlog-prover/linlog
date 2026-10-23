@@ -430,6 +430,38 @@ for NanoYalla. What the code relies on:
   the structure's, one-sided: in the Lambek calculus its hypotheses
   come reversed against the two-sided sequent, as the planar layout
   needs.
+- **A net with boxes** (`svg::mell_net`, `export/svg/mell.rs`) is the
+  multiplicative layout over a *layout tree*: a vertex's premises, a `!`
+  vertex's box (node `n + b`), a `?` vertex's copies at its own depth,
+  and a box's premise and its *boxed copies* (copies in the box of a `?`
+  outside it), those of a `?` earlier in the formula trees' pre-order to
+  the premise's left. So a box's contents are one subtree, its extent
+  plus `node_radius` its rectangle, and the separation argument above
+  keeps every premise edge out of every box and formula. What it cannot
+  keep: a door's wire goes from the box to a `?` vertex in another part
+  of the trees, so it may cross edges (and in a crowded net a formula);
+  it runs straight down from the door, along `2·node_radius` above its
+  target's joint row, then into it, which keeps it off joints and
+  circles. Rows are a longest path over what a vertex depends on (its
+  layout children, a `!`'s box contents, the boxes a `?`'s wires leave
+  last), so a `?` is always a row below its doors; roots go to the
+  bottom, except a `!` with auxiliary doors, which stays at its row (its
+  `?`s must be below it); with formulas the copies of a `?` with several
+  at its own depth go to the row above it. A box's lid is its contents'
+  arcs plus `node_radius`, a link over boxes of its depth rises by the
+  highest lid it spans (a sparse table of the depth's boxes, which lie
+  apart), so no arc enters a box it does not belong to. The bottom border
+  is broken `node_radius` around the `!` joint and each door. Weakenings
+  stand alone (the literal they hang on is in the description), so the
+  doors drawn are those of copies (departs from `auxiliary_doors`, which
+  counts a weakening's too). Ids: `o<n>` on the only vertex of occurrence
+  `n`, `v<k>` where an occurrence has several, `l<x>-<y>` on links by
+  vertex, `b<k>` on a box's outline; a switching cycle's pairs (a wire is
+  the pair of its `?` and the copy or contracted box it comes from) are
+  highlighted, a disconnection is not. Boxes take the `line` colour,
+  wires and `?` edges the `par` colour and dash: no style field was
+  added. The estimate counts per vertex (an occurrence under a `?` may
+  have none or many), per door and per box, and the text form.
 - **An essential net is the proof net's layout with the reading drawn
   in** (`Style::essential`, off by default; `input` and `dominator` its
   colours): every edge an arrowhead halfway along it (half the node

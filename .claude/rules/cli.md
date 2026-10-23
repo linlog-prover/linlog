@@ -171,7 +171,15 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   say why one is left out). Together they hold `--net`'s refusal of
   sequents outside unit-free MLL and of affine mode (`nets_exist`), before
   the search runs; in intuitionistic mode the net printed is the one of
-  the one-sided sequent. The format is `--format`, else the one the
+  the one-sided sequent. A sequent with exponentials gets its net with
+  boxes (`MellStructure`, classical with or without Mix; `nets_exist`
+  takes `MellStructure::exist` there), through one `Net` enum (`net_of`
+  makes it, its `Display` and `Serialize` are the library's, `drawing`
+  calls `svg::net` or `svg::mell_net`). `--net --format json` writes the
+  net's document in place of the outcome (`net_json`, `prove` and
+  `check`), and the outcome as always when no net is made (the line why
+  on standard error) or the proof is not proved: JSON is always
+  written. The format is `--format`, else the one the
   `--output` file's extension names (`Format::of_path`), else text
   (`OutputArgs::format`); `--net` writes the net in text, svg, png or
   pdf instead of the derivation. PNG and PDF (`Format::is_binary`) are

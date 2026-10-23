@@ -532,6 +532,67 @@ impl MellStructure {
     }
 }
 
+impl std::fmt::Display for MellStructure {
+    /// Writes the sequent, then a line per `?` vertex with its copies
+    /// (`?A⊥[0]: A⊥[3] in !A[1], A⊥[5]`, a copy's box named where it is
+    /// another than the `?` vertex's, by its `!` vertex), or `no copy` and
+    /// the literal it hangs on, then one line per link as `A⊥[3] — A[2]`,
+    /// the links ordered by their first id, then the verdict of the
+    /// criterion: `proof net`, `proof net with Mix`, or `not a proof net: `
+    /// and the reason with formulas. Every vertex is written as its
+    /// formula with its id. No trailing newline.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let vertex = |f: &mut std::fmt::Formatter<'_>, v: VertexId| {
+            let formula = self.forest.formula(self.occurrence[v.index()]);
+            write!(f, "{formula}[{}]", v.get())
+        };
+        writeln!(f, "{}", self.forest.sequent())?;
+        for q in self
+            .vertices()
+            .filter(|&q| self.kind(q.get()) == Kind::Quest)
+        {
+            vertex(f, q)?;
+            f.write_str(":")?;
+            let mut copies = self.premises(q).peekable();
+            if copies.peek().is_none() {
+                f.write_str(" no copy")?;
+                if let Some(l) = self.hangs_on(q) {
+                    f.write_str(", hangs on ")?;
+                    vertex(f, l)?;
+                }
+            }
+            let mut first = true;
+            for c in copies {
+                f.write_str(if first { " " } else { ", " })?;
+                first = false;
+                vertex(f, c)?;
+                if let Some(d) = self.inside(c).filter(|&d| Some(d) != self.inside(q)) {
+                    f.write_str(" in ")?;
+                    vertex(f, d)?;
+                }
+            }
+            f.write_str("\n")?;
+        }
+        let mut links: Vec<(VertexId, VertexId)> = self
+            .links
+            .iter()
+            .map(|&(x, y)| (x.min(y), x.max(y)))
+            .collect();
+        links.sort_unstable();
+        for (x, y) in links {
+            vertex(f, x)?;
+            f.write_str(" — ")?;
+            vertex(f, y)?;
+            f.write_str("\n")?;
+        }
+        match self.is_correct(|_| false) {
+            Ok(()) if self.criterion.mix => f.write_str("proof net with Mix"),
+            Ok(()) => f.write_str("proof net"),
+            Err(e) => write!(f, "not a proof net: {}", e.describe(self)),
+        }
+    }
+}
+
 /// Returns a raw index as a vertex, `None` for `NONE`.
 fn some(raw: u32) -> Option<VertexId> {
     (raw != NONE).then_some(VertexId::new(raw))

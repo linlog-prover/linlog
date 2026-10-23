@@ -11,9 +11,10 @@ use linlog::export::svg::MathFont;
 use linlog::export::{Drawable, Form, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::{Compact, Sides, TextOptions};
 use linlog::{
-    CheckError, Criterion, Derivation, Error, ErrorKind, Forest, Limits, Mode, Proof,
-    ProofStructure, Reading, Refusal, Sequent, Size, ViewOptions,
+    CheckError, Criterion, Derivation, Error, ErrorKind, Forest, Limits, MellStructure, Mode,
+    Proof, ProofStructure, Reading, Refusal, Sequent, Size, ViewOptions,
 };
+use std::borrow::Cow;
 use std::fmt::{Display, Write};
 use std::io::{IsTerminal, Write as _};
 
@@ -69,10 +70,10 @@ impl Show {
         if output.net
             && !matches!(
                 format,
-                Format::Text | Format::Svg | Format::Png | Format::Pdf
+                Format::Text | Format::Json | Format::Svg | Format::Png | Format::Pdf
             )
         {
-            bail!("--net writes the formats text, svg, png and pdf");
+            bail!("--net writes the formats text, json, svg, png and pdf");
         }
         let stdout = std::io::stdout();
         for_terminal(format, output.output.as_deref())?;
@@ -974,8 +975,47 @@ fn made() -> Result<pdf::Date> {
     Ok(pdf::Date::from_unix(seconds))
 }
 
-/// Returns the line for a proof net whose drawing is past the limit.
-fn net_too_large(net: &ProofStructure, error: &Error) -> String {
+/// A proof's net: a proof structure of MLL, or one with boxes of MELL.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+pub(crate) enum Net<'a> {
+    /// The net of an MLL proof, or the one the net engine found.
+    Mll(Cow<'a, ProofStructure>),
+    /// The net with boxes of a proof with exponentials.
+    Mell(MellStructure),
+}
+
+impl Display for Net<'_> {
+    /// Writes the net's text form.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mll(net) => net.fmt(f),
+            Self::Mell(net) => net.fmt(f),
+        }
+    }
+}
+
+impl Net<'_> {
+    /// Returns the net drawn as an SVG document, or the line that says why
+    /// it is not drawn: it is estimated past the limit.
+    fn drawing(&self, show: &Show, stop: &dyn Fn() -> bool) -> std::result::Result<String, String> {
+        let (drawn, size) = match self {
+            Self::Mll(net) => (
+                svg::net(net, &show.styles.svg, &show.limits, |_| stop()),
+                (net.forest().len(), "occurrences", net.links().len()),
+            ),
+            Self::Mell(net) => (
+                svg::mell_net(net, &show.styles.svg, &show.limits, |_| stop()),
+                (net.len(), "vertices", net.links().len()),
+            ),
+        };
+        drawn.map_err(|error| net_too_large(size, &error))
+    }
+}
+
+/// Returns the line for a proof net whose drawing is past the limit, the
+/// net of `size` (its parts, what they are, and its links).
+fn net_too_large(size: (usize, &str, usize), error: &Error) -> String {
     let Error::Refused(Refusal::Output {
         estimate_bytes,
         limit_bytes,
@@ -984,23 +1024,58 @@ fn net_too_large(net: &ProofStructure, error: &Error) -> String {
     else {
         return format!("the proof net is not drawn: {error}");
     };
+    let (parts, what, links) = size;
     format!(
-        "the proof net is not drawn: its {} occurrences and {} links are estimated at {}, over \
-         the limit of {}; the text format writes the net itself, --derivation-limit SIZE raises \
-         the limit and --derivation-limit none lifts it",
-        net.forest().len(),
-        net.links().len(),
+        "the proof net is not drawn: its {parts} {what} and {links} links are estimated at {}, \
+         over the limit of {}; the text format writes the net itself, --derivation-limit SIZE \
+         raises the limit and --derivation-limit none lifts it",
         bytes_text(estimate_bytes),
         bytes_text(limit_bytes)
     )
 }
 
+/// Returns the proof net of a proof: `found`, the net the net engine
+/// found, if it ran; else for a sequent with exponentials its net with
+/// boxes, otherwise its MLL net; or the line that says why it is not
+/// made: a bound refused it, or `stop` fired, for the reason `why` gives.
+///
+/// # Errors
+///
+/// What the library answers that is no refusal.
+pub(crate) fn net_of<'a>(
+    found: Option<&'a ProofStructure>,
+    proof: &Proof,
+    mode: Mode,
+    limits: &Limits,
+    stop: &dyn Fn() -> bool,
+    why: &dyn Fn() -> String,
+) -> Result<std::result::Result<Net<'a>, String>> {
+    if let Some(net) = found {
+        return Ok(Ok(Net::Mll(Cow::Borrowed(net))));
+    }
+    let criterion = Criterion::of(mode)?;
+    let made = if proof.sequent().fragment().has_exponentials() {
+        MellStructure::from_proof(proof, criterion, limits, |_| stop()).map(Net::Mell)
+    } else {
+        ProofStructure::from_proof(proof, criterion, limits, |_| stop())
+            .map(|net| Net::Mll(Cow::Owned(net)))
+    };
+    match made {
+        Ok(net) => Ok(Ok(net)),
+        Err(error) if error.kind() == ErrorKind::Stopped => {
+            Ok(Err(format!("the proof net is not drawn: {}", why())))
+        }
+        Err(error) if error.is_refusal() => Ok(Err(format!("the proof net is not made: {error}"))),
+        Err(error) => Err(error.into()),
+    }
+}
+
 /// Writes the proof net of a proof into `out` as `show` asks: as text, or
 /// drawn as an SVG document, a PNG image or a PDF document; or says why
-/// the drawing is left out: it is estimated past the derivation limit, a
-/// bound of the render refused it, or `stop` fired while it was rendered,
-/// for the reason `why` gives. `found` is the net the net engine found,
-/// if it ran.
+/// it is left out: it is not made ([`net_of`]), its drawing is estimated
+/// past the derivation limit, a bound of the render refused it, or `stop`
+/// fired while it was rendered, for the reason `why` gives. `found` is
+/// the net the net engine found, if it ran.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn net_into(
     found: Option<&ProofStructure>,
@@ -1012,37 +1087,18 @@ pub(crate) fn net_into(
     prefix: Option<&str>,
     out: &mut io::Output,
 ) -> Result<Shown> {
-    let made;
-    let net = match found {
-        Some(net) => net,
-        None => {
-            let criterion = Criterion::of(mode)?;
-            match ProofStructure::from_proof(proof, criterion, &show.limits, |_| stop()) {
-                Ok(net) => made = net,
-                Err(error) if error.kind() == ErrorKind::Stopped => {
-                    return Ok(Shown::LeftOut(format!(
-                        "the proof net is not drawn: {}",
-                        why()
-                    )));
-                }
-                Err(error) if error.is_refusal() => {
-                    return Ok(Shown::LeftOut(format!(
-                        "the proof net is not made: {error}"
-                    )));
-                }
-                Err(error) => return Err(error.into()),
-            }
-            &made
-        }
+    let net = match net_of(found, proof, mode, &show.limits, stop, why)? {
+        Ok(net) => net,
+        Err(line) => return Ok(Shown::LeftOut(line)),
     };
     let separator = prefix.unwrap_or("");
     if !matches!(show.format, Format::Svg | Format::Png | Format::Pdf) {
         write!(out, "{separator}{net}")?;
         return Ok(Shown::Written);
     }
-    let drawing = match svg::net(net, &show.styles.svg, &show.limits, |_| stop()) {
+    let drawing = match net.drawing(show, stop) {
         Ok(drawing) => drawing,
-        Err(error) => return Ok(Shown::LeftOut(net_too_large(net, &error))),
+        Err(line) => return Ok(Shown::LeftOut(line)),
     };
     if show.format == Format::Svg {
         write!(out, "{separator}{drawing}")?;
@@ -1063,14 +1119,48 @@ pub(crate) fn net_into(
     )
 }
 
+/// Writes the proof net of a proof as its JSON document into `out`, and
+/// returns whether it did; the line that says why it is not made goes to
+/// standard error, and the caller writes the outcome instead, since JSON
+/// is always written.
+///
+/// # Errors
+///
+/// What [`net_of`] fails with, and an output that cannot be written.
+pub(crate) fn net_json(
+    found: Option<&ProofStructure>,
+    proof: &Proof,
+    mode: Mode,
+    show: &Show,
+    stop: &dyn Fn() -> bool,
+    why: &dyn Fn() -> String,
+    out: &mut io::Output,
+) -> Result<bool> {
+    match net_of(found, proof, mode, &show.limits, stop, why)? {
+        Ok(net) => {
+            serde_json::to_writer(out.stream(), &net)?;
+            Ok(true)
+        }
+        Err(line) => {
+            eprintln!("{line}");
+            Ok(false)
+        }
+    }
+}
+
 /// Fails unless proof nets exist for the sequent in the mode: unit-free
 /// MLL, linear, with or without Mix, classical or intuitionistic (where
-/// the net is the one of the one-sided sequent).
+/// the net is the one of the one-sided sequent); with exponentials, nets
+/// with boxes of unit-free MELL, classical, with or without Mix.
 pub(crate) fn nets_exist(sequent: &Sequent, mode: Mode) -> Result<()> {
     if mode.is_affine() {
         bail!("proof nets exist in linear mode only, with or without --mix, not in {mode} mode");
     }
-    Ok(linlog::nets::exist(sequent.fragment(), mode)?)
+    let fragment = sequent.fragment();
+    if fragment.has_exponentials() {
+        return Ok(MellStructure::exist(fragment, mode)?);
+    }
+    Ok(linlog::nets::exist(fragment, mode)?)
 }
 
 #[cfg(test)]

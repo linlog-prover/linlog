@@ -815,6 +815,66 @@ fn net_format() {
     }
 }
 
+/// A proof with exponentials gets its net with boxes wherever `--net`
+/// shows an MLL net: its text form after the verdict line, for `prove` and
+/// for `check`; its document with `--format json`, which the library reads
+/// back as a proof net; its drawing, each box a rectangle, as SVG, PNG and
+/// PDF. Intuitionistic mode has no such nets and is refused before the
+/// search.
+#[test]
+fn mell_nets() {
+    let sequent = "!a, !b |- !a";
+    let expected = "⊢ ?~a, ?~b, !a\n\
+                    ?~a[0]: ~a[3] in !a[2]\n\
+                    ?~b[1]: no copy, hangs on a[4]\n\
+                    ~a[3] — a[4]\n\
+                    proof net\n";
+    let (status, out, _) = linlog(&["prove", "--net", sequent], "");
+    assert_eq!(status, 0);
+    assert_eq!(
+        out,
+        format!("provable (MELL, classical, focus engine)\n{expected}")
+    );
+    let (_, proof, _) = linlog(&["prove", "--format", "json", sequent], "");
+    let (status, out, _) = linlog(&["check", "--net"], &proof);
+    assert_eq!(status, 0);
+    assert!(out.ends_with(expected), "{out}");
+
+    for args in [
+        &["prove", "--net", "--format", "json", sequent][..],
+        &["check", "--net", "--format", "json"],
+    ] {
+        let (status, json, _) = linlog(args, &proof);
+        assert_eq!(status, 0, "{args:?}");
+        assert!(json.starts_with(r#"{"version":4,"#), "{json}");
+        let mut document = serde_json::Deserializer::from_str(&json);
+        let net: linlog::MellStructure =
+            linlog::wire::upgrade(&mut document, &linlog::Limits::default()).unwrap();
+        assert_eq!(net.is_correct(|_| false), Ok(()));
+        assert_eq!(format!("{net}\n"), expected);
+    }
+
+    let (status, svg, _) = linlog(&["prove", "--net", "--format", "svg", sequent], "");
+    assert_eq!(status, 0);
+    assert!(svg.contains(r#"<path id="b2" d="M"#), "{svg}");
+    for (name, magic) in [("boxes.png", &b"\x89PNG"[..]), ("boxes.pdf", b"%PDF")] {
+        let path = scratch(name);
+        let (status, _, _) = linlog(
+            &["prove", "--net", "-o", path.to_str().unwrap(), sequent],
+            "",
+        );
+        assert_eq!(status, 0, "{name}");
+        assert!(std::fs::read(&path).unwrap().starts_with(magic), "{name}");
+    }
+
+    let (status, out, err) = linlog(&["prove", "--net", "-i", "!a |- !a"], "");
+    assert_eq!((status, out.as_str()), (2, ""));
+    assert!(
+        err.contains("proof nets with boxes exist for MELL"),
+        "{err}"
+    );
+}
+
 /// `--format latex` and `--format typst` print the verdict as a comment and
 /// the derivation as a proof tree, for `prove`, `check` and the session's
 /// `show`, and the sequent for `seq print`; `--standalone` makes a document
@@ -1014,7 +1074,7 @@ fn binary_formats() {
     let (status, _, err) = linlog(&["prove", "--net", "--format", "latex", "A |- A"], "");
     assert_eq!(status, 2);
     assert!(
-        err.contains("--net writes the formats text, svg, png and pdf"),
+        err.contains("--net writes the formats text, json, svg, png and pdf"),
         "{err}"
     );
 }

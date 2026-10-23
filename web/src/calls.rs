@@ -13,8 +13,9 @@ use linlog::export::{latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Needs, Split};
 use linlog::{
-    Criterion, Disproof, Error, GoalId, Interactive, Member, Mode, Named, Outcome, Progress,
-    ProofStructure, Rule, Sequent, Settings, Side, Step, Verdict, nets, wire,
+    Criterion, Disproof, Error, Fragment, GoalId, Interactive, MellStructure, Member, Mode, Named,
+    NetError, Outcome, Progress, ProofStructure, Rule, Sequent, Settings, Side, Step, Verdict,
+    nets, wire,
 };
 use serde::{Deserialize, Serialize};
 
@@ -220,7 +221,7 @@ impl View {
             steps: state.steps(),
             goals,
             inferences: state.derivation_ids(),
-            net: nets::exist(fragment, state.mode())
+            net: nets_exist(fragment, state.mode())
                 .err()
                 .and_then(|refusal| serde_json::to_value(Error::from(refusal)).ok()),
         }
@@ -738,11 +739,25 @@ pub fn draw(session: &str, settings: &str) -> Result<String, Failure> {
     export(session, "svg", settings)
 }
 
+/// Answers where a session's proof has a net: for a sequent of unit-free
+/// MLL, and with exponentials one with boxes, of unit-free MELL in
+/// classical mode, with or without Mix.
+fn nets_exist(fragment: Fragment, mode: Mode) -> Result<(), NetError> {
+    if fragment.has_exponentials() {
+        MellStructure::exist(fragment, mode)
+    } else {
+        nets::exist(fragment, mode)
+    }
+}
+
 /// Returns the proof net of a finished session as an SVG drawing: for a
 /// sequent of unit-free MLL, and with `styles.svg.essential` for one with
-/// an intuitionistic reading, its essential net; every subformula written,
-/// or with `styles.svg.net` `"compact"` only the literals and the
-/// conclusions.
+/// an intuitionistic reading, its essential net; for one of unit-free MELL
+/// in classical mode, its net with boxes, each `!`-box a rectangle (ids
+/// `o<n>` on the only vertex of occurrence `n`, `v<k>` on vertex `k` of an
+/// occurrence with several, `b<k>` on the box of the `!` vertex `k`); every
+/// subformula written, or with `styles.svg.net` `"compact"` only the
+/// literals and the conclusions.
 ///
 /// # Errors
 ///
@@ -754,10 +769,18 @@ pub fn draw_net(session: &str, settings: &str) -> Result<String, Failure> {
     let proof = state
         .proof(&settings.limits, never)
         .map_err(|e| Failure::described(&e, &state))?;
-    let criterion = Criterion::of(state.mode()).map_err(|e| Failure::from(Error::from(e)))?;
-    let net = ProofStructure::from_proof(&proof, criterion, &settings.limits, never)
-        .map_err(Failure::from)?;
-    svg::net(&net, &settings.styles.svg, &settings.limits, never).map_err(Failure::from)
+    let mode = state.mode();
+    nets_exist(proof.sequent().fragment(), mode).map_err(|e| Failure::from(Error::from(e)))?;
+    let criterion = Criterion::of(mode).map_err(|e| Failure::from(Error::from(e)))?;
+    let (svg_style, limits) = (&settings.styles.svg, &settings.limits);
+    if proof.sequent().fragment().has_exponentials() {
+        let net =
+            MellStructure::from_proof(&proof, criterion, limits, never).map_err(Failure::from)?;
+        return svg::mell_net(&net, svg_style, limits, never).map_err(Failure::from);
+    }
+    let net =
+        ProofStructure::from_proof(&proof, criterion, limits, never).map_err(Failure::from)?;
+    svg::net(&net, svg_style, limits, never).map_err(Failure::from)
 }
 
 /// Returns a session's derivation in a format: `text` (the command's text

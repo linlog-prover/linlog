@@ -935,10 +935,13 @@ pub(crate) struct OutputArgs {
     #[arg(short, long, value_name = "PATH")]
     pub(crate) output: Option<PathBuf>,
     /// Write the proof net of the proof instead of its derivation, for MLL
-    /// without units, with or without Mix: as text (the sequent, its axiom
-    /// links as pairs of literals with their occurrence numbers, and the
-    /// verdict of the correctness criterion), or drawn as svg, png or pdf
-    /// (the formula trees with the axiom links as arcs over the literals)
+    /// without units, with or without Mix, and with boxes for MELL without
+    /// units in classical mode, with or without Mix: as text (the sequent, the
+    /// copies of every ?, its axiom links as pairs of literals with their
+    /// vertex numbers, and the verdict of the correctness criterion), as
+    /// json (the net's document in place of the outcome), or drawn as svg,
+    /// png or pdf (the formula trees with the axiom links as arcs over the
+    /// literals, every !-box a rectangle around its contents)
     #[arg(long)]
     pub(crate) net: bool,
     /// Print only the verdict line, not the derivation; with --output,

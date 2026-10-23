@@ -699,3 +699,21 @@ fn an_unfolding_past_the_vertices_is_refused() {
         "{refused:?}"
     );
 }
+
+/// The text form: the sequent, each `?` vertex's copies with the box of a
+/// copy outside the `?`'s, or the literal a weakening hangs on, the links
+/// by their first id, and the verdict.
+#[test]
+fn text_form() {
+    let sequent: Sequent = "!a, !b |- !a".parse().unwrap();
+    let outcome = crate::search::prove(&sequent, Mode::CLASSICAL, &Options::default()).unwrap();
+    let Verdict::Proved(proof) = &outcome.verdict else {
+        panic!("{:?}", outcome.verdict);
+    };
+    let net =
+        MellStructure::from_proof(proof, Criterion::MLL, &Limits::default(), |_| false).unwrap();
+    assert_eq!(
+        net.to_string(),
+        "⊢ ?~a, ?~b, !a\n?~a[0]: ~a[3] in !a[2]\n?~b[1]: no copy, hangs on a[4]\n~a[3] — a[4]\nproof net"
+    );
+}

@@ -24,8 +24,23 @@ second number (0.1.x to 0.2.0), anything else the third.
   they exist. New `NetError` variants: `Placement` (with `Placement`,
   the fault), `Unattached`, `InBox` (a failure inside a box) and
   `NotMell`, in JSON the kinds `placement`, `unattached`, `in_box` and
-  `not_mell`. The command, the bindings and the drawing do not take them
-  yet.
+  `not_mell`.
+- A MELL structure's text form (`Display`: each `?` vertex's copies and
+  their boxes, a weakening's link, the links, the verdict) and JSON form
+  (`Serialize`, `Deserialize`, `wire::Readable`), read and validated as
+  `MellStructure::from_parts` is, within the limits.
+- `svg::mell_net` draws a proof net with boxes in both drawings, every
+  `!`-box a rectangle around its contents with its `!` and an auxiliary
+  door per `?` vertex outside with a copy inside on its bottom border,
+  nested boxes nested, the ids `o<n>` (the only vertex of occurrence
+  `n`), `v<k>` (vertex `k` of an occurrence with several), `b<k>` and
+  `l<x>-<y>`.
+- The command's `--net` gives a MELL proof (classical, with or without
+  Mix) its net with boxes in `prove` and `check`, as text, SVG, PNG and
+  PDF, and `--net --format json` writes the net's document, of an MLL
+  proof too, in place of the outcome when there is a proof.
+- The bindings' `draw_net` draws a finished MELL proof's net with boxes,
+  and `view` gives no `net` refusal for it.
 - The bindings' `view` (and every call that answers with a view) gives
   each goal formula, in intuitionistic mode, its `reading`: the formula
   as `Reading::formula` writes it in its position, a hypothesis `A ⊸ B`
@@ -236,6 +251,11 @@ second number (0.1.x to 0.2.0), anything else the third.
   "positive": ["atom" | "dual", …], "sequents": [{"linear": […],
   "unrestricted": […], "absorbs": …}, …]}`; a disproof or an unprovable
   outcome that holds it is written at level 3.
+- Level 4: the proof structure with boxes, `{"version": 4, "sequent":
+  {…}, "mix": false, "vertices": [[occurrence, parent, box], …],
+  "links": [[x, y], …], "weakenings": [[q, l], …]}`, whose links name
+  vertices; it is always written at level 4, and the proof structure's
+  reader refuses a document with `vertices`.
 - The essential-net engine for IMLL without units, `Engine::Essential`
   (`--engine essential`, JSON `"essential"`): the net engine's linking
   search over the essential net the intuitionistic reading directs,

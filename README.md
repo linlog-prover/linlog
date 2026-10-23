@@ -235,6 +235,29 @@ $ linlog prove --engine net "A & B |- A"
 error: proof nets exist for MLL without units only, not for ALL
 ```
 
+A proof with exponentials, of MELL without units in classical mode with
+or without Mix, gets its net with `!`-boxes. A vertex stands for one
+instance of a subformula, since a `?` formula may be used several times:
+each `?` vertex is listed with its copies, each in the `!`-box it lies in
+where that is another than the `?`'s own, or with `no copy` and the
+literal of the axiom link its weakening hangs on. `--format json` writes
+the net's document instead of the outcome, which the library reads back
+(`MellStructure`, the form the wire level 4 added):
+
+```console
+$ linlog prove --net "!a, !b |- !a"
+provable (MELL, classical, focus engine)
+⊢ ?~a, ?~b, !a
+?~a[0]: ~a[3] in !a[2]
+?~b[1]: no copy, hangs on a[4]
+~a[3] — a[4]
+proof net
+$ linlog prove --net --format json "!a, !b |- !a"
+{"version":4,"sequent":{"terms":[{"D":0},{"?":0},{"D":1},{"?":2},{"V":0},{"!":4}],"roots":[1,3,5],"atoms":["a","b"],"antecedents":2},"mix":false,"vertices":[[1,0,2],[5,2,2]],"links":[[4,3]],"weakenings":[[1,4]]}
+$ linlog prove --net -i "!a |- !a"
+error: proof nets with boxes exist for MELL without units in classical mode, with or without Mix, only, not for MELL in intuitionistic mode
+```
+
 With exponentials (MELL and full LL) the focus engine searches dyadic
 sequents under a bound on how often a `?` formula is copied on one branch,
 which it deepens from zero: by default it goes on to the next bound until
@@ -923,7 +946,12 @@ the reading reads it (a hypothesis `A ⊸ B`, a literal as its atom), every
 edge an arrow from the hypotheses toward the goal, the input side in
 green (`svg.input`), the links as `⊸` and `⊗`, each implication of the
 goal's side joined to its antecedent by a dotted line (`svg.dominator`),
-and a directed cycle or a path around an implication highlighted. `seq print --format svg` and `show --svg`
+and a directed cycle or a path around an implication highlighted. A net
+with boxes is drawn the same way, every `!`-box a rectangle around what
+lies in it, nested boxes nested: its `!` and an auxiliary door for every
+`?` outside it with a copy inside stand on its bottom border, and the
+wires from the copies, dashed and blue like a `⅋`'s premise edges since a
+switching keeps one wire of a `?`, leave the box through its doors. `seq print --format svg` and `show --svg`
 in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
@@ -939,6 +967,7 @@ always a document.
 $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
 $ linlog prove --net --output net.svg "A * B |- B * A"
 $ linlog prove --net --style svg.net=compact --output compact.svg "A * B |- B * A"
+$ linlog prove --net --output boxes.svg "!a, !c |- !(a * a) * ?c"
 $ linlog prove -i --net --style svg.essential=true --output essential.svg "A -o B, B -o C |- A -o C"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
@@ -1018,6 +1047,11 @@ The first two draw these:
 
 ![The derivation of 1, A & B, B ⊸ C ⊢ C](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/ill.svg)
 ![The proof net of ⊢ A⊥ ⅋ B⊥, B ⊗ A](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/net.svg)
+
+and the net with boxes, its two copies of `?a⊥` in the box of
+`!(a ⊗ a)`:
+
+![The proof net of ⊢ ?a⊥, ?c⊥, !(a ⊗ a) ⊗ ?c](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/net-boxes.svg)
 
 `--settings FILE` reads every setting the flags set from one JSON file,
 in the form a front end keeps: an object with any of `clock`, `limits`,
@@ -1766,13 +1800,14 @@ Built:
   disconnection named when it fails), sequentialization into a checked
   proof and desequentialization of a proof into its net, a text form and
   a JSON form.
-- Proof nets for MELL without units in the library, with or without
-  Mix: `!`-boxes and a `?` node with any number of copies of its
+- Proof nets for MELL without units, with or without Mix: `!`-boxes and a `?` node with any number of copies of its
   subformula, each weakening hung on an axiom link, an independent
   correctness criterion (Danos–Regnier at every box depth with the boxes
   inside contracted, with the cycle or the disconnection and the box it
   lies in named when it fails), sequentialization through the boxes into
-  a checked proof and desequentialization of a proof into its net. The
+  a checked proof and desequentialization of a proof into its net, a text
+  form, a JSON form, and the drawing with every box a rectangle, in the
+  command and the web bindings. The
   net of a proof is canonical only up to which axiom link each weakening
   hangs on, the link the proof's weakening rule has above it: a weakening
   left loose could not be checked, since counting the parts of a net
@@ -1791,7 +1826,7 @@ Built:
   height in a layout of linlog's own), as fragments or standalone
   documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG (every subformula of a net written,
-  or compact), laid out with the character widths
+  or compact; a net with boxes with every `!`-box a rectangle), laid out with the character widths
   of Euler Math, STIX Two Math, Garamond-Math, Asana Math or New Computer
   Modern Math (or a font of the caller's), a switching cycle or the
   parts of a disconnected structure highlighted, intuitionistic ones
@@ -1912,8 +1947,6 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- Proof nets with boxes in the command and the web page: drawn, and in
-  JSON.
 - Later: cut elimination on proofs and on nets, and first-order linear
   logic.
 

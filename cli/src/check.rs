@@ -6,7 +6,9 @@ use crate::io;
 use crate::limit::Deadline;
 use crate::prove::{Stop, on_large_stack, stopped};
 use crate::settings::{Given, time_limit};
-use crate::show::{Show, Shown, abbreviated, derivation, every_steps, net_into, nets_exist};
+use crate::show::{
+    Show, Shown, abbreviated, derivation, every_steps, net_into, net_json, nets_exist,
+};
 use crate::{Status, exit_on_interrupt, interrupted};
 use anyhow::{Context, Result, bail};
 use linlog::{CheckError, Error, ErrorKind, Forest, Limits, Mode, Proof, Reading};
@@ -172,6 +174,13 @@ fn check_into(
             .to_string()
     };
     if format == Format::Json {
+        if show.net && result.is_ok() && !quiet {
+            nets_exist(proof.sequent(), mode)?;
+            let why = || Stop::why(stopped(deadline));
+            if net_json(None, proof, mode, show, &over, &why, out)? {
+                return Ok((status, true));
+            }
+        }
         let (error, message) = match &result {
             Ok(()) => (None, None),
             Err(e) => (Some(Error::from(e.clone())), Some(report(e))),

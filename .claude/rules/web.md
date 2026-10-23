@@ -110,6 +110,12 @@ for `THIRD-PARTY-NOTICES.txt`.
   code `#[wasm_bindgen]` generates, so the workspace's `forbid` holds for
   the bindings too.
 
+- **Nets**: `view`'s `net` and `draw_net` gate on `nets_exist`, which
+  takes `MellStructure::exist` for a sequent with exponentials, so a
+  finished classical MELL proof draws its net with boxes
+  (`svg::mell_net`, ids `o<n>`, `v<k>`, `b<k>`, `l<x>-<y>`); an
+  intuitionistic MELL proof is refused with `no_nets` as before.
+
 ## The build (`modules/web.nix`)
 
 - The `wasm-bindgen` CLI is nixpkgs' `wasm-bindgen-cli_X_Y_Z` for the

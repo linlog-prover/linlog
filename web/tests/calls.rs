@@ -87,6 +87,37 @@ fn a_proof_by_steps_is_checked_and_exported() {
     }
 }
 
+/// A finished proof with exponentials has its net with boxes: the view
+/// gives no refusal, and `draw_net` draws each box a rectangle, with its
+/// formulas or compact; in intuitionistic mode the view says why there is
+/// no net, and `draw_net` refuses the same.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_proof_with_exponentials_draws_its_net_with_boxes() {
+    let started = calls::start("!a, !b |- !a", "classical", "").unwrap();
+    let state = session(&calls::close_all(&session(&started), "").unwrap());
+    let view = value(&calls::view(&state, "").unwrap());
+    assert_eq!(
+        (view["complete"].clone(), view["net"].clone()),
+        (json!(true), Value::Null)
+    );
+    let drawing = calls::draw_net(&state, "").unwrap();
+    assert!(drawing.contains(r#"<path id="b2" d="M"#), "{drawing}");
+    assert!(drawing.contains(r#"id="l"#), "{drawing}");
+    let compact = settings(&json!({"styles": {"svg": {"net": "compact"}}}));
+    assert!(
+        calls::draw_net(&state, &compact)
+            .unwrap()
+            .contains("<circle")
+    );
+
+    let started = calls::start("!a |- !a", "intuitionistic", "").unwrap();
+    let state = session(&calls::close_all(&session(&started), "").unwrap());
+    let view = value(&calls::view(&state, "").unwrap());
+    assert_eq!(view["net"]["code"], "no_nets", "{view}");
+    let refused = failure(&calls::draw_net(&state, "").unwrap_err());
+    assert_eq!(refused["code"], "no_nets", "{refused}");
+}
+
 /// A refusal says why as values, and leaves the session unchanged;
 /// `split_passes` greys a split that cannot pass.
 #[wasm_bindgen_test(unsupported = test)]
