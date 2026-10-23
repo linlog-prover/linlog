@@ -585,3 +585,59 @@ More.
   under `.git/worktrees/` was removed by hand, as `git worktree prune`
   would, and the workspace made again.)
 - Screenshots and the script: `/home/tux/Projects/own/linlog-step38c-screenshots/`.
+
+## Session 38d: goals in their reading
+
+The author's go of 2026-10-23 (08:45) for the follow-up session 38c left:
+a goal's formulas written in their intuitionistic reading wherever the
+page writes them as text. linlog in the workspace `../linlog-step38d`
+(made on `main`, `mvmwrrpr`); the client on its `main` (0a16a1e6).
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| A public, additive way to write one occurrence as its reading writes it | exists already | `Reading::formula(o) -> IllFormula` (public, `occurrences/reading.rs`), whose `Display` is the crate's two-sided printer for one occurrence (`Notation::ill`, through `TEXT`), iterative over the formula (`Stops`); no new core API, as the supervisor's correction says. A core test pins it on occurrences below the roots: `one_occurrence_is_written_in_its_position` (a hypothesis `A ⊸ B` as `A ⊸ B`, the same under a hypothesis's `!` and the goal's `!`, no `~` or `⊥` written) |
+| The bindings' view gives each goal formula its reading | done | linlog's `wstpsxur` (0a8db839): `Formula.reading`, in intuitionistic mode alone (absent in classical mode); `a_goal_s_formulas_carry_their_reading` (a hypothesis `A ⊸ B` reads `A ⊸ B` where its `text` is `A ⊗ ~B`, a goal under `!` opened by a promotion reads `A ⊸ B`, a classical session has no `reading`); the gate and `nix flake check` exit 0 at it |
+| The client uses it | done | the client's `rzkqnwtk`: a goal opened in a new tab, the split chooser's Left and Right lists, the rules popover's heading and the formula buttons' names (`shown`), the dual kept as the fallback for a formula without a reading; `tests/modes.spec.ts`, `a goal's hypothesis A ⊸ B opens in a new tab as A ⊸ B, and the split chooser lists the formulas as they read` |
+| The client's lock on the supervisor's commit, its `nix flake check` | done | the client's `vzypyoxl` (ffc93e59): `flake.lock` names linlog `0a8db83907c5d1a4b621c4ce496fd6d0e0aebfb6`, the commit the supervisor answered with (`wstpsxur`, pushed as it was); the client's `nix flake check` exit 0, "all checks passed!", at it: Vitest 114, Playwright 69 |
+
+### Decisions
+
+- **No new core call.** `Reading::formula` already writes one occurrence
+  as the reading reads it in its position (an input `⊗` as `⊸`, `⊥` as
+  `1`, an input `⊤` as `0`, a literal as its atom), public and documented,
+  and `Interactive::reading()` gives a session's reading. The bindings
+  call them; the core gained one test.
+- **The field is `reading`**, beside `text` and `side`, present in
+  intuitionistic mode and absent in classical mode, where the one-sided
+  `text` is how the formula is written. `text` stays one-sided: it is
+  what a step's position and the parser read.
+- **No wire level** (`wire.rs`): the view is the answer of a call, never
+  a stored document, and a key an older reader may ignore raises no level
+  even in a document.
+- **The client shows a formula through one helper**, `shown`: the
+  reading where linlog gives one, else the one-sided text in signs. The
+  formula buttons' accessible names change accordingly (`A ⊸ B, formula 2
+  of goal 1`), which the new-tab tests of session 38c name now; a step
+  still names a formula by its position.
+- **The dual stays as the fallback** of `sequentText` for a formula
+  without a reading, which an intuitionistic session never has now.
+
+### Verification
+
+- linlog: the gate and `nix flake check` exit 0 at `wstpsxur` (0a8db839),
+  then "linlog ready"; the supervisor pushed it as `main`, its own check
+  passing.
+- The client, against the workspace first (Vitest 114, Playwright 69),
+  then at its last commit `vzypyoxl` with the lock on `0a8db839`: `nix
+  flake check` exit 0, "all checks passed!", Vitest 114, Playwright 69,
+  `a goal's hypothesis A ⊸ B opens in a new tab as A ⊸ B, and the split
+  chooser lists the formulas as they read` among them.
+
+### Repositories and workspaces
+
+- linlog: `../linlog-step38d`, `wstpsxur` (pushed as `main` by the
+  supervisor) and this section's commit on it.
+- The client: `rzkqnwtk` (the readings on the page) and `vzypyoxl` (the
+  lock) on `main` (0a16a1e6), local.
