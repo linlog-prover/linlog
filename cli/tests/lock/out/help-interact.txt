@@ -162,6 +162,9 @@ Options:
           
           [default: auto]
 
+      --invertible
+          Apply every invertible rule by itself, to the sequent at the start and to the goals each step opens: ⅋, ⊥, & and ⊤, ! when every other formula is a ?, 1, ⊗ and the axiom when their formulas are the whole goal (interactive.invertible); the command `invertible on|off` turns it on or off within the session
+
       --derivation-limit <SIZE>
           The largest derivation `close` grafts, by its estimated size; see `prove --derivation-limit` (limits.derivation_bytes)
           
@@ -199,7 +202,7 @@ Options:
           The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (styles.rocq.prelude)
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch`, `ordinary` and `interactive`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
 
   -h, --help
           Print help (see a summary with '-h')

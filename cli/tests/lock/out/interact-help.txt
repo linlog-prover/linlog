@@ -7,7 +7,9 @@ help
 goals               the open goals, with the positions of their formulas
 rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
-undo                retract the last step
+undo                retract the last step, with the invertible steps that followed it
+invertible on|off   apply every invertible rule by itself, at once to every open goal and
+                    then to the goals each step opens, or stop doing so
 close [G]           let the search close goal G, or every open goal
 show [--FORMAT] [FILE]
                     the derivation so far, open goals included, printed or written to FILE:
