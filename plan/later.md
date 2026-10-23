@@ -893,8 +893,9 @@ planning session; a change is a session of the client.*
   the sequent (with the sequent's own spacing, at least 16 pixels on the
   screen, `tests/chip.spec.ts`), its calculus and fragment 8 apart
   (`.pt-mark`). Session 38b. Since 38c the chip opens the tab's mode
-  settings (D58, at the author's request); session 38e makes it the one
-  place for them.
+  settings (D58, at the author's request); since 38e it is the one place
+  for them at every width, the desktop stage's cluster gone, and the
+  status popover writes the mode in the switches' words.
 - **A new empty tab starts in the calculus last chosen in the visit**
   (classical at a visit's start, `lastMode`, `src/islands/state.tsx`).
   Session 38c.
@@ -903,15 +904,16 @@ planning session; a change is a session of the client.*
   chip (`src/islands/TopBand.tsx`). Session 38c.
 - **The phone's bottom band** shows seven icons (undo, redo, close all,
   hint, export, Learn, More), More's sheet holding steps, import,
-  settings, the tour, keys and About; the mockup had a collapsed sheet
-  of three actions. Session 38, departing from the design.
+  settings, the tour, keys and About, and since 38e the privacy page's
+  link, which the wide band shows at its end; the mockup had a collapsed
+  sheet of three actions. Session 38, departing from the design.
 - **Safari's trackpad pinch** (its gesture events) is handled and covered
   by no test (`tests/zoom.spec.ts` runs Chromium); one check by hand on a
   Mac or an iPhone would settle it. Session 38b.
 
 ## Follow-ups: the web client
 
-*Assigned to session 38e (the author decided on 2026-10-23: Fabian Lukas Grubmüller, privacy@grubmueller.dev, no Impressum).*
+*Done in session 38e (2026-10-23, `plan/reports/38b-zoom-fonts-dismiss.md`): the page is `/privacy/`, each statement citing its source; the author decided Fabian Lukas Grubmüller, privacy@grubmueller.dev, no Impressum.*
 The web client's privacy notice under the Swiss revFADP (and the GDPR,
 should the site count as offering a service in the EU): the name and
 e-mail address to publish as the person responsible (an alias such as

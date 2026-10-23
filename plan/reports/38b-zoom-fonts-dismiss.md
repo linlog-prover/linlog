@@ -641,3 +641,281 @@ page writes them as text. linlog in the workspace `../linlog-step38d`
   supervisor) and this section's commit on it.
 - The client: `rzkqnwtk` (the readings on the page) and `vzypyoxl` (the
   lock) on `main` (0a16a1e6), local.
+
+## Session 38e: the author's decisions
+
+The author's ten decisions of 2026-10-23 (`plan/38-web-polish.md`,
+"Session 38e"), in the client on top of its `main` (`lwrmzpqv`,
+0397f950); this section in the workspace `../linlog-step38e` on
+`vrvtpwsl`. Nothing of linlog's code changed.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| 1. A privacy page (Fabian Lukas Grubmüller, privacy@grubmueller.dev, no Impressum), each legal statement read in its source and cited, linked from About and the footer, About's line on GitHub's logs pointing to it | done | the client's `vspwvwtv` and, after the review, `osyprzqo`: `src/pages/privacy.astro` at `/privacy/`, ten numbered sources, every statement citing one; Playwright `the privacy page is served, names who is responsible, cites a source for each statement, and About and the band link it` (and the 404 page's link) and, on a phone, `More's sheet links the privacy page at a phone's width`; both fail on the site before (no page) |
+| 2. The calculus's switches on the tab's chip alone at every width, the desktop stage's cluster gone | done | `uzmnzktm`; Playwright `the calculus's switches are on the tab's mark alone, never on the stage` at both widths: the desktop one fails on the site before, the phone one passed there already (38c had taken them off the phone's stage) |
+| 3. A forced engine lasts for the visit | done | `vytkrqmn`; Playwright `a forced engine holds for the visit: the next visit starts on Automatic, every other setting kept` (fails before: the engine was stored) |
+| 4. Every colour of meaning distinct under simulated deuteranopia, protanopia and tritanopia, checked over the tokens; the nets on Okabe–Ito; no meaning by colour alone | done | `twzyqtqs` and, after the review, `yuluurur`; Vitest `src/styles/colours.test.ts` (each scheme, every pair of each group, 8 under each deficiency and 15 in full colour; the nets' hues within 3° of Okabe–Ito's; the check's own check), which on the old tokens fails 13 pairs by day and 9 by night (with the first groups) and the input side's hue; Playwright `a proof's state is told by its mark's shape as well as its colour` (fails before: a dot) |
+| 5. The essential net's input side in a colour of that palette, not green | done | `yuluurur`: Okabe–Ito's blue (#045383 by day, #80c6ff by night), after the review found the first choice, yellow, too near the amber of "unknown"; Playwright `the essential net draws its input side in the Okabe–Ito palette's blue, never green, in both themes` (fails before) |
+| 6. The status popover writes the mode in the switches' words | done | `rzquvkyx`; Vitest `a mode's words`, Playwright `the status popover writes the calculus in the switches' words` (fails before) |
+| 7. The dock's counter reads "Goal 2 · 1 open" | done | `sumwmuvr`; Playwright `the split chooser sends formulas left …` expects "Goal 3 · 2 open" (fails before) |
+| 8. The additive path's reference claims nothing a source does not state | done | `mlyxkmnm`; Vitest `src/content/reference.test.ts` (the rules cited, Whitman after "Related:" alone, nothing of Whitman in the hover's source) |
+| 9. "Fill from …" names the source tab by its shortened sequent | done | `vzuxxyzm`; Vitest `a tab's sequent, shortened to name the tab`; Playwright `a goal is filled from another tab's finished proof as one step named with the tab's sequent, …` and `a fill names its tab by the tab's sequent, which stays as tabs before it close` (both fail before) |
+| 10. BottomBand.tsx's header comment true | done | `xxsxmuoq` (the header, More's tip and its sheet's doc comment); a comment, which no test sees |
+| Before-and-after screenshots at a phone's and a desktop's width in both themes | done | `/home/tux/Projects/own/linlog-step38e-screenshots/before/` and `after/`, 88 each, the same names (below) |
+| The reviewer's one round, each finding answered | see "The review" | |
+| The client's `nix flake check` at its last commit; README and rules true; `plan/later.md`'s "Kept as built" true | passed | exit 0 at `osyprzqo` (8fb9b3fe), "Verification"; README's "What the page does", `.claude/rules/web.md`, `CLAUDE.md`'s layout; `plan/later.md` in this workspace |
+
+### Outcome
+
+The page has a privacy notice at `/privacy/`, reached from About, from the
+end of the bottom band (More's sheet on a phone) and from the 404 page. It
+says who is responsible and how to write to them, that the site sets no
+cookies, tracks nothing and loads nothing from another server, what
+GitHub logs as the host and under which safeguard it goes to the United
+States, what the browser keeps and how to clear it, and the visitor's
+rights under the Swiss Act and, where it applies, the GDPR; each
+statement cites one of ten sources read in themselves, and the page says
+it is information, not legal advice.
+
+The calculus's switches are on each tab's calculus mark alone, at every
+width. A forced engine holds until the page is loaded again. The status
+writes "Intuitionistic, affine", the dock "Goal 2 · 1 open", and a fill
+names its tab by its sequent ("Fill from ⊢ A⊥, B⊥, B ⊗ A"). The additive
+path is cited by the rules it applies, Whitman's lattices named as
+related.
+
+Every colour that carries a meaning stays apart from the colours seen
+with it under simulated protanopia, deuteranopia and tritanopia, held by
+a test over the tokens; the nets keep Okabe and Ito's hues, the essential
+net's input side yellow instead of green; a tab's state is a shape as
+well as a colour.
+
+The client's commits, on its `main` (`lwrmzpqv`), local:
+
+| change | what |
+|---|---|
+| `uzmnzktm` (108227e1) | item 2, the switches on the mark alone |
+| `rzquvkyx` (01aceb16) | item 6, the mode in the switches' words |
+| `sumwmuvr` (2d1ec1d7) | item 7, the dock's counter |
+| `vzuxxyzm` (0eb40fe2) | item 9, a fill named by its tab's sequent |
+| `vytkrqmn` (d8f86861) | item 3, a forced engine for the visit |
+| `mlyxkmnm` (01767c71) | item 8, the additive path's reference |
+| `xxsxmuoq` (940e6be2) | item 10, the bottom band's header |
+| `twzyqtqs` (7dd8c8fc) | items 4 and 5, the colours |
+| `vspwvwtv` (96c533e7) | item 1, the privacy page |
+| `xkurktxq` (41d218f8) | the bottom band in one row with Learn on, the privacy link included (found by the screenshots) |
+| `yuluurur` (e54cefbb) | the review's finding 1: the nets' colours against the bands' |
+| `osyprzqo` (8fb9b3fe) | the review's findings 2 and 3 on the privacy page |
+
+Each of the first nine commits passed lint and Vitest on its own; the
+chain passed Playwright (78) before it was split into them, whose ninth
+is byte for byte the tree that was tested. The last three passed lint,
+Vitest (121) and Playwright (79) together.
+
+### Decisions
+
+- **The colour check** (item 4). The simulation is Machado, Oliveira and
+  Fernandes 2009, its severity-1.0 matrices read in the authors' own
+  table (their page, Table 1), applied to linear RGB: the paper builds
+  them from the primaries' spectra (its Eq. 8), which add in linear
+  light, so sRGB is linearised first (CSS Color 4's `lin_sRGB`); this is
+  the session's reading, the page itself not saying which RGB. Distance
+  is Euclidean in OKLab times 100 (Ottosson's post, its matrices read
+  there): at least 8 under each deficiency, 15 in full colour, the
+  thresholds of the `dataviz` skill's validator, which uses the same
+  simulation (the page's own choice of threshold, not a published one).
+  The pairs checked are those seen together with a meaning: a proof's
+  states (`ok`, `warn`, `bad`, `accent` for open, `line` for not started),
+  the focus (`accent` among `ink`, inside Learn's frame), each drawing's
+  colours with one another (a net: ink, ⅋, a witness; an essential net:
+  ink, the input side, the dominator lines, a witness), and each drawing's
+  colours with the bands' state and selection colours around it (the
+  review's finding 1; the first groups compared a net's colours only with
+  each other).
+- **Tritanopia**: Machado et al.'s paper says its model "is not intended
+  to handle tritanopia"; the authors' table gives a tritanomaly matrix
+  all the same, and it is the published simulation at hand (Brettel,
+  Viénot and Mollon 1997 is behind a paywall, with no open copy found).
+  The test uses it and says so (departs from nothing, but it is weaker
+  ground than the other two).
+- **The new colours.** Each meaning keeps its hue family; values were
+  searched (a scratch program over OKLCH, lightness and a few degrees of
+  hue, the nets' hues fixed to the palette's) to pass the check with
+  text at 4.5:1 on the field and the panels, and a keyword at 4.5:1 on
+  its wash over a cluster (the old green was 4.43 there). By day: ok
+  #0d430d, warn #715301, bad #b23554, accent #6b46cf, Learn #730e73; by
+  night: ok #06b68c, warn #f5cb4d, bad #ec6e52, accent #958ad5, Learn
+  #f197ed. The net colours are Okabe–Ito's hues at 4.5:1 on the field,
+  the same member per role in both themes: ⅋ and the input side blue
+  (#045383, #80c6ff), the dominator lines reddish purple (#6d2351,
+  #ef99c8), a witness vermilion (#933f02, #d05c03); the palette's values
+  were read in Okabe and Ito's own figure. The accent moved from indigo
+  to violet, to stand apart from the nets' blue.
+- **The input side's colour** (item 5) is the palette's blue, the colour
+  of ⅋'s edges, which are never in an essential net: the session first
+  chose yellow (no meaning on the page), but by day at 4.5:1 a yellow is
+  a dark olive that deuteranopia makes the amber of "unknown" (the
+  review's finding 1). Searched with each of the palette's members for
+  the input side against the bands' colours, by day at 4.5:1: yellow,
+  orange and vermilion reach at most 7.2, sky blue and blue 8.2; blue
+  was taken, as one colour for the two (the test holds both to the
+  palette's blue).
+- **No meaning by colour alone.** A tab's state, a coloured dot before,
+  is now a shape in its colour (a check for proved, a cross for refused
+  or unprovable, a question mark for unknown, a dotted circle for open
+  goals, a dashed one for not started; Lucide's icons). A hint's rungs
+  are a full bar when climbed and a hairline ahead. The rest had a sign
+  already: the keywords are words, the split's left formulas carry an
+  "L" and a failing split dashed premises, the active goal is outlined,
+  Learn's frame says "Learn", ⅋ edges are dashed, dominator lines
+  dotted, the input side's edges point up. A witness's colour has no
+  sign of its own, and is never drawn on the page: it marks a structure
+  that is no proof net, and the page draws nets of finished proofs only.
+- **The privacy page's content.** Swiss law: FADP Art. 19(2) and (4)
+  (identity and contact, purpose, recipients, the state abroad and the
+  safeguard), Art. 16(1) and the DPO's Annex 1 for the United States,
+  Art. 25, 32 and 49 for the rights, the TCA's Art. 45c for what the
+  browser keeps (the visitor told what and why, and that they may
+  refuse); the GDPR's Art. 13 where it applies, with Art. 6(1)(f) as the
+  basis (the page's reading), Art. 45(1) and Decision 2023/1795 for the
+  transfer, Art. 15 to 18, 20, 21 and 77. GitHub's Pages documentation
+  is quoted for the logging ("When a GitHub Pages site is visited, the
+  visitor's IP address is logged and stored for security purposes, …"),
+  its privacy statement (effective 27 April 2026) for the places,
+  retention criteria and its own certifications. GitHub's entry on the
+  Data Privacy Framework list, read on 23 October 2026 through the API
+  the list's page calls (`participant/6174`): "GitHub", San Francisco,
+  the EU-US framework, its UK extension and the Swiss-US framework all
+  active, non-HR data, each to 3 August 2027 (the record also lists
+  lapses from 2021 to 2023, before the present frameworks, which the
+  page does not repeat). Each statement is read in its source by a
+  research sub-agent (Sonnet 5.5, `medium`) and the load-bearing quotes
+  checked again by the session in the files it fetched; Fedlex's own
+  pages being a script, its filestore's HTML of the same texts was read,
+  and EUR-Lex through the Publications Office's CELEX addresses. The
+  page claims no ePrivacy exemption and names no EU representative (GDPR
+  Art. 27); it gives no postal address, as the author decided.
+- **The privacy page's look** (the `frontend-design` skill): a page of
+  text in the 404 page's frame, left-aligned, 640 pixels at most, the
+  title at a new step of the type scale (`--text-title`, 32 pixels,
+  which the 404 page's title takes too), and one figure, "who has which
+  of your data", read like an instrument's readout (three rows: this
+  site, GitHub, your browser), the citations quiet and numbered, the
+  sources a numbered list each citation links to.
+- **A visit** is a load of the page, as for `lastMode` (session 38c): a
+  reload starts on Automatic. Settings says so under the engines.
+- **Item 2** removed the stage's cluster and its offset (`hudBottom`):
+  the drawing's fit and the dock's place keep 96 pixels at the stage's
+  top for the dock, as before when no cluster was drawn.
+
+### Departures from the design
+
+- (departs from the design: D58, at the author's request) The calculus's
+  switches are no longer a floating cluster on the stage at any width;
+  the tab's calculus mark opens them.
+- (departs from the design: D55, at the author's request) The dock's
+  counter joins two facts with a middle dot, "Goal 2 · 1 open", which
+  D55 lists among the tells to avoid.
+- (departs from the design: D53, by the author's rule on colour) A tab's
+  verdict is a coloured shape, no longer a coloured dot.
+- (departs from the design: D26, in its values) The verdict colours keep
+  D26's roles and hue families, re-chosen in lightness and a few degrees
+  of hue so that they pass the colour check; the green of a checked
+  proof is a bluish green by night.
+
+### Judgement calls
+
+1. A fill names its tab by its sequent everywhere the tab was named by
+   its place: the button, its tip, the refusal, the live region and the
+   graft's label in the drawing and the step list ("Proof from ⊢ A⊥, B⊥,
+   B ⊗ A"); cut at 24 characters with an ellipsis (`SHORT`). A graft
+   saved before this change keeps its old key, `tab:2`, and is labelled
+   "proof from 2".
+2. The calculus mark's tip and accessible name use the switches' words
+   too ("Calculus: Intuitionistic, affine; fragment IMLL"), as the status
+   does; the order is the switches' (Mix before affine).
+3. The privacy link stands at the wide bottom band's end with its label
+   and a shield (Lucide's `Shield`), in More's sheet on a phone, and on
+   the 404 page. With Learn on it wrapped the band at 1 280 pixels, which
+   "Kept as built" says keeps one row (seen in the screenshots); the
+   actions pack two pixels tighter with Learn on, and a test holds the
+   row.
+4. The colour thresholds, the groups and the tritanopia matrix, above.
+5. The input side blue, shared with ⅋, above.
+6. The witness's colour, never drawn on the page, has no sign of its
+   own.
+7. The privacy page's legal basis (a legitimate interest) and its reading
+   that GitHub decides what it does with its logs are the page's reading
+   of its sources, which its closing note says.
+
+### What is left open
+
+- The status popover's keyword reads "1 open goals" for one goal (older
+  than this session, seen in the screenshots): a follow-up for the
+  client.
+- A graft filled before this change is labelled by its old key
+  ("proof from 2").
+
+### The review
+
+One fresh-context reviewer (Opus 5.5, `high`) judged the privacy page
+against its sources and the screenshots against the ten items, one
+round, reporting only what breaks an item. Its findings and the answers:
+
+1. **Item 4 and 5: the essential net's yellow input side was not held
+   apart from the bands' colours shown with it**: by day 0.4 from the
+   amber of "unknown" under deuteranopia and 7.7 from the green of a
+   checked proof under protanopia, the test comparing a net's colours
+   only with each other. Holds. The test's groups now put each drawing's
+   colours with the bands' state and selection colours; no set with a
+   yellow input side passes by day at 4.5:1, so the input side is the
+   palette's blue and the bands' colours were chosen again (`yuluurur`,
+   above). The new groups fail on the tokens before it.
+2. **Item 1: the page named one transfer safeguard where GitHub's
+   statement relies on two**: GitHub's statement names other countries
+   besides the United States and the European Commission's standard
+   contractual clauses (Decision 2021/914) for them (FADP Art. 19(4),
+   GDPR Art. 13(1)(f)). Holds. The page now says so in GitHub's words
+   and that GitHub names those countries no further (`osyprzqo`).
+3. **Item 1: "running to 3 August 2027"** read the list's "Next
+   Certification Due Date" (its page's own label for the record's
+   `UsageEndDate`) as an end. Holds, checked in the list's script; the
+   page says "the next certification's due date" (`osyprzqo`).
+4. **The rules**: `.claude/rules/web.md` still named the stage's cluster
+   as inside the restart warning's area. Holds; it names the switches
+   (`yuluurur`).
+
+Everything else the reviewer checked held: the FADP's, the DPO's, the
+TCA's, the GDPR's and Decision 2023/1795's statements against their
+texts, the Pages quotation, the retention paraphrase, what the browser
+keeps against the code, the matrices, constants and palette against
+their sources, and items 2, 3, 6 to 10.
+
+### Verification
+
+- Vitest 121 and Playwright 79 at the last commit (four workers), lint
+  clean; each new Playwright test failing on the site built before the
+  session (`SITE_DIR` at `site-before`) but the phone-width switches
+  test, which passed there already; the colour test failing on the old
+  tokens; the one-row band test failing on the build of `vspwvwtv`.
+- The client's `nix flake check` at its last commit `osyprzqo`
+  (8fb9b3fe), under the machine lock: exit 0, "all checks passed!",
+  Vitest 121, typecheck 0 errors, Playwright 79 passed.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io`, the twelve
+  commits above on `main` (`lwrmzpqv`), local, not pushed.
+- linlog: `../linlog-step38e` on `vrvtpwsl`, this section's and
+  `plan/later.md`'s commit.
+- Screenshots: `/home/tux/Projects/own/linlog-step38e-screenshots/before/`
+  and `after/` (88 each: 13 scenes at a desktop's and a phone's width in
+  both themes, the colour scenes 04 and 05 also under Chromium's
+  simulated deuteranopia, protanopia and tritanopia), the script
+  `shots.mjs`, and the two built sites `site-before/` and `site-after/`.
+- The sources the privacy page was checked against, and the colour
+  search's scratch programs, are in the session's scratch directory,
+  not kept.
+
