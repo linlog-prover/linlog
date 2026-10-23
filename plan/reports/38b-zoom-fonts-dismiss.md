@@ -1313,3 +1313,176 @@ whose `CHECKLIST.md` repeats this list:
   linlog's logo in README, the rustdoc and the Rocq library's README",
   gated (`gate: passed`, exit status 0, on cores 8 to 11); then this
   section's commit. Nothing pushed.
+
+## Session 38h: invertible rules applied automatically
+
+The session of `plan/38-web-polish.md`'s section "Session 38h:
+invertible rules applied automatically" (the brief of 2026-10-23), on
+Opus 5.5 at `high`, 2026-10-23, in linlog's workspace `../linlog-step38h`
+and the client's `../linlog-prover.github.io-38h`. The author asked for
+the automatic application of the invertible rules, off by default, with
+a toggle and an explanatory tooltip, as Click & coLLecT's "auto-reverse"
+does. linlog's part was gated, checked, reviewed and pushed by the
+supervisor (`main` at `fe008c50`); the client's input moved to it.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| One library call applying every rule invertible in the goal's mode, to a goal or every open goal, until none applies, each an ordinary step | done | `Interactive::invert(goal, &limits)` and `invert_all(&limits)` (`core/src/proofs/interactive/invert.rs`), each step through `record`, which `apply` ends with too; `Inverted` says the steps, the goals left open and the refusal of the memory bound if one stopped it. `is_invertible(sequent, &step)` judges one step. |
+| The invertible set of each mode in the rules file, from sources read | done | `.claude/rules/core-derivations.md`, "The invertible rules applied by themselves": the set, its names per mode, and per rule where it was read or how it was derived (below). |
+| The conditional rules' conditions checked | done | `!` only when it is the one formula that is no `?`; `1`, `⊗` and the axiom only when their formulas are the whole goal (`invertible_rule`), and every candidate validated by `expand`. `the_invertible_rules_under_their_conditions` pins `⊢ 1, a`, `⊢ !a, b`, `⊢ a ⊗ b, c`, `⊢ a, ~a, b` (affine) and `⊢ a, ?b` as taking no step. |
+| Never a provable goal into an unprovable one, on generated sequents of every mode | done | `inverting_keeps_every_proof_and_ends`: classical, affine, Mix, both (the 16 rule sets of `generate::provable`), intuitionistic and its affine variant (the 12 of `generate::ill`), `L`, `L*` and the cyclic mode (`generate::lambek`); 568 sequents the search proves, and the search proves every goal the steps leave; every rule of the set fires in the classical, Mix, affine and both intuitionistic modes, and `⅋` and the axiom in the ordered ones (asserted). |
+| It ends | done | The same test checks that every premise of every step is lighter than its conclusion and that a second run takes no step; `inverting_stops_at_the_memory_bound` reaches the bound (`⊢ a & a` six times, 4 KiB) and gets `Refusal::Memory`, its steps undone one by one, and the unbounded run takes its 63 steps. |
+| A completed proof made with it passes the checker | done | The generated test closes the rest by the search and calls `Interactive::proof` (the checker) on each; the fixed cases check the proofs the steps finish alone. |
+| One options value, off by default; `interact`'s flag and command; the bindings' setting | done | `proofs::interactive::Options { invertible }` (`DEFAULT_INVERTIBLE` false) is `Settings::interactive` (`{"interactive": {"invertible": true}}`). `linlog interact --invertible`, the command `invertible on|off`; the bindings read `interactive.invertible` in `start` and `apply` and add `invert_all`. `each_flag_overrides_its_key_in_a_file` pins the flag's key; `the_invertible_rules_apply_by_the_setting` the bindings. |
+| README's usage with real output, run by `cli/tests/readme.rs`; the changelog | done | README's `interact` section has the transcript of `linlog interact --invertible "A -o B, B -o C \|- A -o C"`, which `readme_examples` runs; the status section names the feature; CHANGELOG's `[Unreleased]` entry. |
+| Every linlog code commit gated; `nix flake check` at the last commit; "linlog ready" to planning | done | `gate: passed` (exit status 0, cores 4 to 11) on the tree of the lock's commit; `nix flake check` there: "all checks passed!", exit status 0. SendMessage "linlog ready" with the commits; the supervisor pushed them. |
+| The page: the toggle, off by default, kept with the other settings, its tooltip | done | Settings' switch "Apply invertible rules by themselves" after Budget, stored with the settings; `tests/invertible.spec.ts`: off by default, kept over a reload, turning it on applies the rules at once; its tip. |
+| Undo of the automatic steps | done | `retract` with the view's `invertible` takes back the nearest step that is not invertible with all since (`steps.test.ts`), and the Playwright test undoes `⊕₁` with the `⅋` and the axiom after it, and says so where every step on the branch was automatic. |
+| The hint ladder taking it into account | done | Rung 1 reads linlog's `Hint.invertible` and, with the switch on, says the invertible rules are done (`words.test.ts`, through the real module: `!L` is not invertible, `\R` is; the Playwright test of the rung). |
+| Screenshots before and after | done | `/home/tux/Projects/own/linlog-step38h-screenshots/{before,after}/`: `{desktop,phone}-{light,dark}-{01-settings,02-tooltip,03-proof}.png`, twelve each side, the same names; `shots.mjs` beside them made them from the sites built at `zszotswt` and at the client's commit. |
+| The fresh-context review, each finding answered | done | One round, below. |
+| The client's `nix flake check` at its last commit; `jj st` clean in both | done | At `ttyrqwmr` (45d839d4), under the machine lock: "all checks passed!", exit status 0 (e2e 92 passed, Vitest 485). linlog's at this section's commit, in the message to planning. |
+
+### Outcome
+
+A session can now apply every invertible rule by itself. The library's
+`Interactive::invert` and `invert_all` take, until none applies, the
+steps of the rules whose premises are provable whenever their
+conclusion is, each an ordinary step that `undo` retracts and the
+checker sees in the finished proof. The command takes `--invertible`
+and `invertible on|off`, and its `undo` takes back a step with the
+invertible steps that followed it. On the page, Settings' new switch,
+off by default, applies them when a proof starts, after each step and,
+when it is turned on, at once to every open goal; undo takes back the
+visitor's last choice together with them; the hint ladder's first rung
+knows whether the next rule is invertible from linlog itself and, with
+the switch on, says the invertible rules are done.
+
+### The invertible set and its sources
+
+The same rules in every mode, each step then validated by `expand`
+(which refuses what a mode or the intuitionistic reading does not
+allow): `⅋`, `⊥`, `&`, `⊤`; `!` when every other formula is a `?`;
+`1`, `⊗` and the axiom when their formulas are the whole goal. Two-sided
+in intuitionistic mode these are `⊸R`, `⊗L`, `&R`, `⊕L`, `1L`, `⊤R`,
+`0L`, `!R` (every hypothesis a `!`), `1R`, `⊗R` with no hypothesis and
+the axiom; in the Lambek calculus `\R`, `/R`, `⊗L`, `⊗R` with nothing to
+split and the axiom; in the cyclic mode `⅋`, `⊗` alone and the axiom.
+No `?` rule (dereliction and weakening are not invertible, contraction
+never ends), no Mix and no `wk`. It is Click & coLLecT's set, read in its
+`proof.ml` (`apply_reversible_rule`).
+
+- **Read**: Andreoli's asynchronous connectives (`⊥ ⅋ ? ⊤ &`), whose
+  right rules are always invertible, in Liang and Miller (TCS 410, 2009,
+  §2) and Miller and Saurin (CSL 2007, §2), since Andreoli 1992 itself
+  could not be fetched (OUP and ScienceDirect refused, no open copy);
+  ILL's right-asynchronous `& ⊤ ⊸` and left-asynchronous `⊗ 1 ⊕ 0` in
+  Chaudhuri's thesis (CMU-CS-06-162, §6.1); the method, the premise
+  derived from the conclusion by a cut with axioms, in Curien's notes
+  (arXiv cs/0501035, the reversibility of `⅋` and `&`).
+- **Derived from those, and said so in the rules file**: the affine
+  modes, Mix, the Lambek calculus and the cyclic mode by the same cut,
+  which each admits (no source stating them was obtainable); `!` with a
+  `?`-only context by a cut with `⊢ ?A⊥, A`; `⊗`, `1` and the axiom on
+  the whole goal by the last rule of a cut-free proof, since a
+  one-formula sequent `⊢ A ⊗ B` ends in `⊗` with empty contexts when the
+  empty sequent is underivable and Mix needs two nonempty premises.
+
+### Decisions
+
+- **One set, no choice of sets in the options**: the rules that close a
+  goal (the axiom, `1`, `⊤`) and the conditional ones are forced moves,
+  and focusing's asynchronous set alone would leave the axioms to click.
+  The options value holds the one switch, and the set is in
+  `is_invertible`'s documentation.
+- **The bound is the memory one**: `&` copies its context, so a goal of
+  `n` formulas `a & b` makes `2ⁿ` goals; the bytes of the inferences a
+  run adds count against `limits.memory_bytes`, and the bindings use the
+  smaller of it and `limits.derivation_bytes`, so that no run makes a
+  session the page cannot draw.
+- **Order**: a rule that closes the goal first, then the first position's
+  rule, depth first; which order is taken changes the tree, never
+  provability.
+- **Undo, how and why**: in the library each step is ordinary and `undo`
+  retracts one. The command groups a user's step with the invertible
+  steps after it by its step counts, and its `undo` takes the group back
+  whole. The page derives everything from the session document, which
+  does not say who took a step, so with the switch on its undo per branch
+  goes past every invertible step to the nearest that is not, and takes
+  that back with all since: the visitor's last choice. Taking back only
+  an automatic step would be undone by the next step (the page would
+  apply it again), which is the surprise to avoid. An invertible step the
+  visitor took by hand before turning the switch on is passed over too;
+  where every step on the branch is invertible the note says so.
+- **Replays run with the setting off**: the steps are in the session as
+  they were taken, and a replay that applied the rules after each would
+  find the recorded ones' goals closed.
+- **Where the toggle sits**: Settings, after Budget, as the proving
+  behaviours' place (with `frontend-design`): the page's `.sw` switch,
+  its tip in two sentences, and a line under it, since tips never follow
+  a touch.
+- **The hint's invertibility from linlog**: the bindings' hint says
+  whether its last step is invertible (`is_invertible`), and the page's
+  `ruleKind` reads that instead of a list of names.
+
+### Judgement calls
+
+- **A fix of an existing bug** (the supervisor's addition): the page's
+  first rung called a dereliction (`!L`) "an invertible rule" and missed
+  the Lambek calculus's `\R` and `/R`, from a list of names. It now
+  takes linlog's judgement, the single source; `words.test.ts` checks
+  `!L` and `\R` through the real module.
+- `invert` and `invert_all` are two calls, as `close` and `close_all`
+  are, both over one private run.
+- Turning the switch on applies the rules to every open goal of every
+  proof on the page, not only the visible one, so that no tab waits for a
+  step to catch up.
+- The command prints `applied N invertible steps` when a session starts
+  with them, and `then N invertible steps` before the goals a step left.
+- The behaviour lock's change (only `interact`'s help) is a commit of
+  its own after the code's, as earlier blesses were, so the code commit
+  alone fails the lock test; the gate passed on the tree of the second.
+- The view's new key `invertible` and the answers' `inverted` are keys of
+  a call's answer, no stored document: no wire level.
+
+### Departures from the design
+
+- None from D1 to D60 knowingly. D13's undo per branch is kept, with
+  the switch on taking back the branch's last step that is not
+  invertible; D12's first rung keeps its words for "an invertible rule"
+  and adds the switch's sentence.
+
+### The review
+
+One fresh-context reviewer on Opus 5.5 at `high` read the set against
+the sources and the derivations, and the tests, reporting only what
+breaks a requirement. It found nothing that breaks one: it checked the
+reading's positions (`1` and `!` only in output position, so only `1R`
+and `!R` fire; an input `⊗` alone is refused by the succedent check),
+the `⊗`-alone argument in the affine and Mix modes, and the bound. It
+made `⊗` with a context, `⊕` and dereliction invertible in a copy, and
+the generated test failed in every mode where `expand` lets them
+through. Its one remark, a limit that breaks nothing: the affine modes
+are fed only sequents provable without weakening; it is recorded in the
+rules file.
+
+### What is left open
+
+- The page's Lambek and cyclic modes do not exist yet; the switch will
+  serve them as it is, linlog's set covering both.
+- A run stopped by the memory bound says so in the command; the page
+  shows the steps taken and no message of its own (the answer's
+  `inverted_refused`).
+
+### Repositories and workspaces
+
+- linlog, `../linlog-step38h` on `twllnuzt`: `qlukuulo` "Apply the
+  invertible rules by themselves in an interactive session" and
+  `vmklwpyw` "Bless the behaviour lock for --invertible", pushed by the
+  supervisor (`main` at `fe008c50`); then this section's commit.
+- The client, `../linlog-prover.github.io-38h` on `zszotswt`:
+  `tztzrqyv` "flake.lock: Update" (linlog's input to `fe008c50`) and
+  `ttyrqwmr` "Apply the invertible rules by themselves, a switch in
+  Settings". Nothing pushed.
