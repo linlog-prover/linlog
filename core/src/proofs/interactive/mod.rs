@@ -24,9 +24,12 @@
 #![deny(clippy::wildcard_enum_match_arm)]
 
 mod expand;
+mod invert;
 #[cfg(feature = "serialize")]
 mod replay;
 mod terms;
+
+pub use invert::{Inverted, Options};
 
 use crate::Error;
 use crate::fragment::Mode;

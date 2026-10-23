@@ -512,6 +512,13 @@ pub(crate) struct InteractArgs {
     /// The search's options, bounds and threads, for a `close`.
     #[command(flatten)]
     pub(crate) search: SearchArgs,
+    /// Apply every invertible rule by itself, to the sequent at the start
+    /// and to the goals each step opens: ⅋, ⊥, & and ⊤, ! when every other
+    /// formula is a ?, 1, ⊗ and the axiom when their formulas are the whole
+    /// goal (interactive.invertible); the command `invertible on|off`
+    /// turns it on or off within the session
+    #[arg(long)]
+    pub(crate) invertible: bool,
     /// The largest derivation `close` grafts, by its estimated size; see
     /// `prove --derivation-limit` (limits.derivation_bytes)
     #[arg(long, value_name = "SIZE", value_parser = parse_bytes, default_value_t = Bytes(Some(Limits::DEFAULT_DERIVATION_BYTES)))]
@@ -525,11 +532,11 @@ pub(crate) struct InteractArgs {
     pub(crate) rocq: RocqArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
-    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
-    /// of the fields the flags name in parentheses (`{"search":
-    /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
-    /// out keeps the command's default, and a misspelt one is an error;
-    /// `ordinary` applies under --logic, which names the logic
+    /// `search`, `view`, `styles`, `batch`, `ordinary` and `interactive`,
+    /// each an object of the fields the flags name in parentheses
+    /// (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a
+    /// field left out keeps the command's default, and a misspelt one is
+    /// an error; `ordinary` applies under --logic, which names the logic
     #[arg(long, value_name = "PATH")]
     pub(crate) settings: Option<PathBuf>,
 }

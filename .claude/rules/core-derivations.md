@@ -303,8 +303,9 @@ goal, F68),
 `derivation()` and `derivation_within(view, limits, stop)` (refused past
 `limits.derivation_bytes` by the size estimate's measure) with open
 goals as `Rule::Open` leaves, `derivation_ids()` (a drawn inference's
-goal in the state), `occurrence(m)` and `formula(m)`, and `proof(limits,
-stop)`. A Mix that leaves its right premise empty is
+goal in the state), `occurrence(m)` and `formula(m)`, `proof(limits,
+stop)`, and `invert(goal, &limits)`, `invert_all(&limits)` and
+`is_invertible(sequent, &step)` (`invert.rs`, below). A Mix that leaves its right premise empty is
 `StepError::EmptyPremise`: nothing concludes the empty sequent. What the
 code relies on:
 
@@ -426,3 +427,90 @@ code relies on:
   larger index than its conclusion), so every inference is walked by one
   step; `added` inferences below `len` none of which is below `len −
   added` are exactly the suffix the step must have added.
+
+## The invertible rules applied by themselves
+
+`proofs/interactive/invert.rs`: `Interactive::invert(goal, &limits)` and
+`invert_all(&limits)` apply every invertible rule until none applies,
+`is_invertible(sequent, &step)` judges one step, and
+`interactive::Options { invertible }` (off by default,
+`Settings::interactive`) says whether a front end calls them after each
+step. What the code relies on:
+
+- **The set, the same in every mode, each rule then validated by
+  `expand`**: `⅋`, `⊥`, `&`, `⊤` unconditionally; `!` when every other
+  formula is a `?` (one count of the non-`?` formulas per goal, so a goal
+  of many `!` costs linear time, not quadratic); `1`, `⊗` and the axiom
+  only when their formulas are the whole goal. In intuitionistic mode
+  these are, by the reading, `⊸R`, `⊗L`, `&R`, `⊕L`, `1L`, `⊤R`, `0L`,
+  `!R` (every hypothesis a `!`), `1R`, `⊗R` with no hypotheses and the
+  axiom; in the Lambek calculus `\R`, `/R`, `⊗L`, `⊗R` with nothing to
+  split and the axiom; in the cyclic mode `⅋`, `⊗` alone and the axiom
+  (the ordered modes are unit-free MLL, so the rest never occur). A
+  candidate that `expand` refuses (a premise without its one succedent
+  or, in `L`, without an antecedent) is skipped, so the reading's
+  conditions need no copy here. No `?` rule is in the set: `?d` and `?w`
+  are not invertible, `?c` is but never ends. Mix and `wk` are not
+  invertible. Click & coLLecT's "auto-reverse" applies the same set
+  (its `proof.ml`, `apply_reversible_rule`: `⊤`, `⊥`, `⅋`, `&`,
+  promotion when its context is all `?`, `1`, `⊗` on a one-formula
+  sequent, the axiom), read in its repository in October 2026.
+- **Why each is invertible, and where that was read.** Andreoli's
+  classification (1992; the paper itself could not be fetched): the
+  asynchronous connectives `⊥ ⅋ ? ⊤ & ∀`, whose right-introduction
+  rule is always invertible, as Liang and Miller state it ("Focusing and
+  polarization in linear, intuitionistic, and classical logics", TCS 410,
+  2009, §2) and Miller and Saurin ("From proofs to focused proofs", CSL
+  2007, §2). For ILL, Chaudhuri's thesis ("The focused inverse method for
+  linear logic", CMU-CS-06-162, 2006, §6.1): the right-asynchronous `∀ &
+  ⊤ ⊸` and left-asynchronous `∃ ⊗ 1 ⊕ 0 !`, and "Search using the
+  backward calculus can always apply invertible rules eagerly in any
+  order". The method behind every case is Curien's ("Introduction to
+  linear logic and ludics", arXiv cs/0501035, the reversibility of `⅋`
+  and `&`): the premise follows from the conclusion by a cut with a
+  sequent made of axioms. **Derived here, not read**: the affine modes,
+  Mix, the Lambek calculus and the cyclic mode (no source with these
+  statements was obtainable) by the same cut, which each of these
+  calculi admits (`⅋` with `⊢ B⊥ ⊗ A⊥, A, B` in the cyclic order, `\R`
+  with `A, A \ B ⊢ B`); `!` with every other formula a `?` by a cut
+  with `⊢ ?A⊥, A` (a dereliction on an axiom; `!A ⊢ A` two-sided),
+  Chaudhuri's `!R` being a dyadic calculus's rule, which is no
+  statement on this one; `⊗`, `1` and the axiom on the whole goal by
+  the last rule of a cut-free proof: a one-formula sequent `⊢ A ⊗ B`
+  ends in `⊗` with empty contexts, since no structural rule acts on a
+  formula that is no `?` but `wk`, from the empty sequent, which nothing
+  concludes, and a binary Mix needs two nonempty premises; `1` and the
+  axiom close the goal, which loses nothing.
+- **It ends**: every premise of these rules is lighter than its
+  conclusion (fewer connectives, units and literals), which
+  `inverting_keeps_every_proof_and_ends` checks on every step it takes.
+  `&` copies the context, so a goal of `n` formulas `a & b` makes `2ⁿ`
+  goals: the bytes of the inferences a run adds (`size_of::<Inference>()`
+  and a member's per formula, per premise) are counted against
+  `limits.memory_bytes`, and at the bound the run stops with
+  `Refusal::Memory { phase: View, … }` in `Inverted::finished`, the steps
+  taken standing (`inverting_stops_at_the_memory_bound`). The web
+  bindings bound a run by the smaller of the memory and the derivation
+  bounds.
+- **Order**: a rule that closes the goal (`⊤`, the axiom, `1`) before
+  the others, then the first position's; depth first, so `Inverted::open`
+  is the goals left open from left to right (not the arena's order).
+  Which order is taken changes the tree, never provability.
+- **Each application is an ordinary step** (`record`, which `apply`
+  ends with): the history gains one entry per step and `undo` retracts
+  one at a time. Taking back a user's step with the invertible steps
+  after it is the front end's: the command groups them by its step
+  counts (`cli.md`), the page by the view's `invertible` list.
+- **What the tests cannot catch**: the generated sequents (`generate`'s
+  classical, ILL and Lambek generators, the last read cyclic too) never
+  produce `⊗` alone in intuitionistic or ordered mode; the fixed cases of
+  `the_invertible_rules_under_their_conditions` cover `⊗R` and the
+  cyclic `⊗`. Provability is judged by the search with the default copy
+  bound, and every goal left was proved, but a set that loses proofs
+  only beyond three copies of a `!` would pass.
+  The affine modes are fed only sequents provable without weakening (the
+  classical generator's), so a rule that lost only proofs that need a
+  weakening would pass there; a review that made `⊗` with a context,
+  `⊕` and dereliction invertible saw the test fail in every mode where
+  `expand` lets them through.
+

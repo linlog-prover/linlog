@@ -106,6 +106,21 @@ for `THIRD-PARTY-NOTICES.txt`.
   with the largest levels (copies of a `!`, nested `&`, a Mix of pairs)
   at the limit under Node, in the debug build the check uses. A change
   that grows a level's frames shows there first.
+- **The invertible rules** (`interactive.invertible`, off in the tab's
+  settings as in the library's): `start` applies them to the root and
+  `apply` to the goals its step opened, `opened` then the goals they
+  left open and `inverted` how many steps they took; `invert_all`
+  applies them whatever the settings say, which is what turning the
+  toggle on mid-session needs. A run is bounded by the smaller of
+  `limits.memory_bytes` and `limits.derivation_bytes` (`inverting`), so
+  that it never makes a session the page could not draw. The view's
+  `invertible` lists every closed inference whose rule is invertible on
+  its conclusion, whoever took it (the session does not record who):
+  the page's undo with the toggle on goes past them to the nearest step
+  that is not one. A replay must run with the setting off, or every
+  replayed step would apply the invertible rules again and the recorded
+  ones would find their goals closed. A hint's `invertible` is the
+  library's judgement of its last step, for the ladder's first rung.
 - **`unsafe_code` stays forbidden**: the lint does not see the unsafe
   code `#[wasm_bindgen]` generates, so the workspace's `forbid` holds for
   the bindings too.

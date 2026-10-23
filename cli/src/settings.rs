@@ -267,6 +267,9 @@ impl InteractArgs {
         if apply.set("derivation_limit") {
             settings.limits.derivation_bytes = self.derivation_limit.0;
         }
+        if apply.set("invertible") {
+            settings.interactive.invertible = self.invertible;
+        }
         Ok(settings)
     }
 }
@@ -533,6 +536,8 @@ mod tests {
             --occurrence-limit 12   /limits/occurrences        11                12
             --derivation-limit 3KiB /limits/derivation_bytes   1024              3072
             --compact never         /view/compact              "always"          "never""#;
+        const INTERACT: &str = r#"
+            --invertible            /interactive/invertible    false             true"#;
         const PRINT: &str = r#"
             --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
             --occurrence-limit 12   /limits/occurrences        11                12"#;
@@ -541,7 +546,7 @@ mod tests {
         let path = file.to_str().unwrap();
         for (command, operand, table) in [
             (&["prove"][..], "A |- A", [SEARCH, PROVE].concat()),
-            (&["interact"], "A |- A", SEARCH.to_owned()),
+            (&["interact"], "A |- A", [SEARCH, INTERACT].concat()),
             (&["check"], "proof.json", CHECK.to_owned()),
             (&["seq", "print"], "A |- A", PRINT.to_owned()),
         ] {

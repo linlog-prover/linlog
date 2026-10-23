@@ -98,6 +98,12 @@ mod exports {
         calls::apply(session, index(goal, "a goal")?, step, settings).map_err(thrown)
     }
 
+    /// See [`calls::invert_all`].
+    #[wasm_bindgen]
+    pub fn invert_all(session: &str, settings: &str) -> Result<String, JsValue> {
+        calls::invert_all(session, settings).map_err(thrown)
+    }
+
     /// See [`calls::undo`].
     #[wasm_bindgen]
     pub fn undo(session: &str, settings: &str) -> Result<String, JsValue> {

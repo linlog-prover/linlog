@@ -27,7 +27,9 @@ const HELP: &str = "\
 goals               the open goals, with the positions of their formulas
 rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
-undo                retract the last step
+undo                retract the last step, with the invertible steps that followed it
+invertible on|off   apply every invertible rule by itself, at once to every open goal and
+                    then to the goals each step opens, or stop doing so
 close [G]           let the search close goal G, or every open goal
 show [--FORMAT] [FILE]
                     the derivation so far, open goals included, printed or written to FILE:
@@ -84,8 +86,11 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
         view: ViewOptions::default(),
         limits,
         threads,
+        invertible: false,
+        groups: Vec::new(),
     };
-    on_large_stack(stack_size, move || session.run())?
+    let invertible = settings.interactive.invertible;
+    on_large_stack(stack_size, move || session.run(invertible))?
 }
 
 /// What a target's `write` makes of a derivation, as a string.
@@ -175,15 +180,27 @@ struct Session {
     threads: Threads,
     /// Whether a `close` deepens the copy bound without a bound.
     deepens: bool,
+    /// Whether every invertible rule is applied to the goals each step
+    /// opens.
+    invertible: bool,
+    /// The steps `undo` retracts together, each a step with the invertible
+    /// steps after it or the invertible steps on every goal, by the
+    /// session's count of steps before and after them; a step outside
+    /// them is retracted alone.
+    groups: Vec<(usize, usize)>,
 }
 
 impl Session {
-    /// Reads and runs commands until `quit` or the end of input, and returns
-    /// whether the proof was finished and checks.
-    fn run(&mut self) -> Result<Status> {
+    /// Applies the invertible rules first if `invertible`, then reads and
+    /// runs commands until `quit` or the end of input, and returns whether
+    /// the proof was finished and checks.
+    fn run(&mut self, invertible: bool) -> Result<Status> {
         let stdin = std::io::stdin();
         let prompt = stdin.is_terminal();
         let mut stdout = io::Stdout::lock();
+        if invertible && let Some(taken) = self.invert_all() {
+            writeln!(stdout, "applied {taken}")?;
+        }
         let mut input = stdin.lock();
         // A reader that closed the pipe ends the session as the end of
         // its input does.
@@ -266,12 +283,58 @@ impl Session {
                 let word = rest.get(2).context("which rule? see `rules`")?;
                 let rule: Named = word.parse()?;
                 let step = Step::new(position, rule).left(&positions(3)?);
+                let before = self.state.steps();
                 let opened = self.state.apply(goal, &step)?;
-                self.opened(&opened)
+                if !self.invertible {
+                    return Ok(self.opened(&opened));
+                }
+                let (mut steps, mut open, mut refused) = (0, Vec::new(), None);
+                for goal in opened {
+                    let inverted = self.state.invert(goal, &self.limits)?;
+                    steps += inverted.steps;
+                    open.extend(inverted.open);
+                    refused = refused.or(inverted.finished.err());
+                }
+                self.groups.push((before, self.state.steps()));
+                let then = inverted_line(steps, refused.as_ref());
+                let then = then.map(|t| format!("then {t}\n")).unwrap_or_default();
+                format!("{then}{}", self.opened(&open))
             }
-            "undo" => match self.state.undo() {
-                Some(goal) => format!("reopened {}", self.goal_line(goal)),
-                None => "nothing to undo".to_owned(),
+            "undo" => {
+                let steps = self.state.steps();
+                let back = match self.groups.last() {
+                    Some(&(before, after)) if after == steps => {
+                        self.groups.pop();
+                        steps - before
+                    }
+                    _ => 1,
+                };
+                let mut reopened = None;
+                for _ in 0..back {
+                    reopened = self.state.undo().or(reopened);
+                }
+                match reopened {
+                    Some(goal) if back > 1 => {
+                        format!("retracted {back} steps\nreopened {}", self.goal_line(goal))
+                    }
+                    Some(goal) => format!("reopened {}", self.goal_line(goal)),
+                    None => "nothing to undo".to_owned(),
+                }
+            }
+            "invertible" => match rest {
+                ["on"] => {
+                    let then = self.invert_all();
+                    let goals = self.goals();
+                    match then {
+                        Some(then) => format!("invertible rules on; then {then}\n{goals}"),
+                        None => format!("invertible rules on\n{goals}"),
+                    }
+                }
+                ["off"] => {
+                    self.invertible = false;
+                    "invertible rules off".to_owned()
+                }
+                _ => bail!("invertible on|off: say which"),
             },
             "close" => {
                 let goals = match rest.first() {
@@ -448,6 +511,7 @@ impl Session {
                     );
                 }
                 self.state = state;
+                self.groups.clear();
                 self.goals()
             }
             _ => bail!("unknown command {command:?}; `help` lists them"),
@@ -507,6 +571,18 @@ impl Session {
             ),
             Err(error) => Err(error.into()),
         }
+    }
+
+    /// Turns the invertible rules on and applies them to every open goal,
+    /// as one step for `undo`, and says how many steps that took.
+    fn invert_all(&mut self) -> Option<String> {
+        self.invertible = true;
+        let before = self.state.steps();
+        let inverted = self.state.invert_all(&self.limits);
+        if inverted.steps > 0 {
+            self.groups.push((before, self.state.steps()));
+        }
+        inverted_line(inverted.steps, inverted.finished.as_ref().err())
     }
 
     /// Lists the open goals, or says that none is.
@@ -619,6 +695,27 @@ fn format_of(proof: bool, word: &str) -> Result<Format> {
             rest.join(", ")
         )
     })
+}
+
+/// Says how many invertible steps were taken (`3 invertible steps`), and why they stopped short
+/// if the memory bound stopped them; `None` for none taken and none
+/// refused.
+fn inverted_line(steps: usize, refused: Option<&Refusal>) -> Option<String> {
+    let taken = match steps {
+        1 => "1 invertible step".to_owned(),
+        n => format!("{n} invertible steps"),
+    };
+    match refused {
+        Some(refusal) => Some(format!(
+            "{taken}, stopped by the memory limit of {} (--memory-limit raises it)",
+            match refusal {
+                Refusal::Memory { limit_bytes, .. } => bytes_text(*limit_bytes),
+                _ => refusal.to_string(),
+            }
+        )),
+        None if steps == 0 => None,
+        None => Some(taken),
+    }
 }
 
 #[cfg(test)]

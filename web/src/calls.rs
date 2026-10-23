@@ -11,7 +11,7 @@ use crate::failure::Failure;
 use crate::tab;
 use linlog::export::{latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
-use linlog::proofs::interactive::{Applicable, Needs, Split};
+use linlog::proofs::interactive::{Applicable, Inverted, Needs, Split};
 use linlog::{
     Criterion, Disproof, Error, Fragment, GoalId, Interactive, MellStructure, Member, Mode, Named,
     NetError, Outcome, Progress, ProofStructure, Rule, Sequent, Settings, Side, Step, Verdict,
@@ -177,6 +177,9 @@ struct View {
     /// For each inference `n` of the drawing (`i<n>`), the goal it is in
     /// the session.
     inferences: Vec<GoalId>,
+    /// The session's inferences that a step of an invertible rule closed
+    /// (`Interactive::is_invertible`), whichever took it, in order.
+    invertible: Vec<GoalId>,
     /// `null` when the sequent has proof nets, and otherwise the refusal
     /// that says why not, which the page shows at the greyed net view.
     net: Option<serde_json::Value>,
@@ -221,11 +224,34 @@ impl View {
             steps: state.steps(),
             goals,
             inferences: state.derivation_ids(),
+            invertible: invertible_steps(state),
             net: nets_exist(fragment, state.mode())
                 .err()
                 .and_then(|refusal| serde_json::to_value(Error::from(refusal)).ok()),
         }
     }
+}
+
+/// Returns the inferences of a session that a step of an invertible rule
+/// closed: each closed inference whose rule, on its conclusion, is one.
+fn invertible_steps(state: &Interactive) -> Vec<GoalId> {
+    let Ok(derivation) = state.derivation_within(
+        &linlog::ViewOptions::default(),
+        &linlog::Limits::default().with_derivation_bytes(None),
+        never,
+    ) else {
+        return Vec::new();
+    };
+    let mut found: Vec<GoalId> = (derivation.inferences().iter())
+        .zip(state.derivation_ids())
+        .filter(|(inference, _)| {
+            let step = Step::new(inference.principal().unwrap_or(0), inference.rule());
+            inference.rule().rule != Rule::Open && state.is_invertible(inference.sequent(), &step)
+        })
+        .map(|(_, goal)| goal)
+        .collect();
+    found.sort_unstable();
+    found
 }
 
 /// A session after a call that changed it, with its view and what the
@@ -252,7 +278,9 @@ fn changed(state: &Interactive, said: impl Serialize) -> Result<String, Failure>
 
 /// Starts a proof of a sequent, typed or as JSON, in a mode by its name
 /// (`classical`, `affine`, `mix`, `affine-mix`, `intuitionistic`,
-/// `intuitionistic-affine`), and returns the session with its view.
+/// `intuitionistic-affine`), and returns the session with its view; with
+/// the settings' `interactive.invertible` on, every invertible rule
+/// applied to it first.
 ///
 /// # Errors
 ///
@@ -262,8 +290,12 @@ pub fn start(sequent: &str, mode: &str, settings: &str) -> Result<String, Failur
     let settings = tab::read(settings)?;
     let sequent = sequent_of(sequent, &settings)?;
     let mode: Mode = mode.parse().map_err(Failure::from)?;
-    let state = Interactive::within(&sequent, mode, &settings.limits).map_err(Failure::from)?;
-    changed(&state, serde_json::Map::new())
+    let mut state = Interactive::within(&sequent, mode, &settings.limits).map_err(Failure::from)?;
+    let mut automatic = Automatic::default();
+    if settings.interactive.invertible {
+        automatic.add(state.invert_all(&inverting(&settings)));
+    }
+    changed(&state, automatic)
 }
 
 /// Returns a session's view.
@@ -375,12 +407,54 @@ pub fn split_passes(session: &str, goal: u32, step: &str, settings: &str) -> Res
 /// What a step opened.
 #[derive(Serialize)]
 struct Opened {
-    /// The goals the step opened, in the order of the rule's premises.
+    /// The goals the step opened, in the order of the rule's premises;
+    /// with `interactive.invertible`, those its invertible steps left
+    /// open, from left to right.
     opened: Vec<GoalId>,
+    /// The invertible steps taken after it.
+    #[serde(flatten)]
+    automatic: Automatic,
+}
+
+/// What the invertible rules applied by themselves did.
+#[derive(Default, Serialize)]
+struct Automatic {
+    /// How many invertible steps were taken: none unless the settings'
+    /// `interactive.invertible` is on, or the call applies them anyway.
+    inverted: usize,
+    /// Left out, or the refusal of the bound that stopped the invertible
+    /// steps, the steps taken standing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inverted_refused: Option<serde_json::Value>,
+}
+
+impl Automatic {
+    /// Counts a run of invertible steps and returns the goals it left open.
+    fn add(&mut self, inverted: Inverted) -> Vec<GoalId> {
+        self.inverted += inverted.steps;
+        if let Err(refused) = inverted.finished {
+            self.inverted_refused.get_or_insert(refusal(refused));
+        }
+        inverted.open
+    }
+}
+
+/// Returns the bounds of a run of invertible steps: the settings' memory
+/// bound, and no more than the size of a derivation the page draws, so
+/// that the steps never make a session the page could not show.
+fn inverting(settings: &Settings) -> linlog::Limits {
+    let limits = settings.limits;
+    let bound = match (limits.memory_bytes, limits.derivation_bytes) {
+        (Some(memory), Some(derivation)) => Some(memory.min(derivation)),
+        (memory, derivation) => memory.or(derivation),
+    };
+    limits.with_memory_bytes(bound)
 }
 
 /// Applies a step to a goal and returns the session with the goals it
-/// opened.
+/// opened. With the settings' `interactive.invertible` on, every
+/// invertible rule is then applied to those goals
+/// (`Interactive::invert`), each an ordinary step.
 ///
 /// # Errors
 ///
@@ -389,10 +463,36 @@ struct Opened {
 pub fn apply(session: &str, goal: u32, step: &str, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
     let mut state = session_of(session, &settings)?;
-    let opened = state
+    let mut opened = state
         .apply(GoalId::new(goal), &step_of(step)?)
         .map_err(|e| Failure::described(&Error::from(e), &state))?;
-    changed(&state, Opened { opened })
+    let mut automatic = Automatic::default();
+    if settings.interactive.invertible {
+        let limits = inverting(&settings);
+        for goal in std::mem::take(&mut opened) {
+            let inverted = state
+                .invert(goal, &limits)
+                .map_err(|e| Failure::described(&Error::from(e), &state))?;
+            opened.extend(automatic.add(inverted));
+        }
+    }
+    changed(&state, Opened { opened, automatic })
+}
+
+/// Applies every invertible rule to every open goal
+/// (`Interactive::invert_all`), whatever the settings say, and returns
+/// the session with how many steps that took: what turning the setting
+/// on does to a session under way.
+///
+/// # Errors
+///
+/// As the session's reader.
+pub fn invert_all(session: &str, settings: &str) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let mut state = session_of(session, &settings)?;
+    let mut automatic = Automatic::default();
+    automatic.add(state.invert_all(&inverting(&settings)));
+    changed(&state, automatic)
 }
 
 /// Closes an open goal with the proof of another finished session, a
@@ -586,6 +686,10 @@ struct Hint {
     /// the list. `null` when no proof was found or its derivation was
     /// refused.
     steps: Option<Vec<StepForm>>,
+    /// Whether the last of the steps applies a rule invertible in the
+    /// session's mode (`Interactive::is_invertible`); `null` without
+    /// steps.
+    invertible: Option<bool>,
 }
 
 /// Runs the search on a goal, the session left as it was, and returns
@@ -613,19 +717,26 @@ pub fn hint(session: &str, goal: u32, settings: &str) -> Result<String, Failure>
         never,
     )
     .map_err(|e| Failure::described(&e, &state))?;
-    let steps = match &outcome.verdict {
-        Verdict::Proved(proof) => first_steps(proof, &settings)?,
+    let first = match &outcome.verdict {
+        Verdict::Proved(proof) => first_steps(&state, proof, &settings)?,
         _ => None,
     };
-    written(&Hint { outcome, steps })
+    let (steps, invertible) = first.unzip();
+    written(&Hint {
+        outcome,
+        steps,
+        invertible,
+    })
 }
 
-/// Returns the steps a proof of a goal begins with, as [`Hint::steps`]
-/// says, or `None` when the bounds refuse its derivation.
+/// Returns the steps a proof of a goal of a session begins with, as
+/// [`Hint::steps`] says, with whether the last is invertible, or `None`
+/// when the bounds refuse its derivation.
 fn first_steps(
+    state: &Interactive,
     proof: &linlog::Proof,
     settings: &Settings,
-) -> Result<Option<Vec<StepForm>>, Failure> {
+) -> Result<Option<(Vec<StepForm>, bool)>, Failure> {
     let view = settings.view.with_compact(Compact::Never);
     let derivation = match proof.derivation_within(&view, &settings.limits, never) {
         Ok(derivation) => derivation,
@@ -668,7 +779,7 @@ fn first_steps(
         steps.push(StepForm::of(&step));
         match inference.premises() {
             [premise] if rule.is_structural() => at = *premise,
-            _ => return Ok(Some(steps)),
+            _ => return Ok(Some((steps, state.is_invertible(members, &step)))),
         }
     }
 }

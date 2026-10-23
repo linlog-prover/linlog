@@ -236,6 +236,24 @@ second number (0.1.x to 0.2.0), anything else the third.
   embeds the four fonts with their licences beside Euler Math
   (`cli/fonts/`), and renders a PNG or PDF with the font the drawing
   names. Output with the default font is unchanged.
+- The invertible rules applied without being asked, in every mode:
+  `Interactive::invert(goal, &limits)` and `invert_all(&limits)` apply
+  each rule invertible in the session's mode (`⅋`, `⊥`, `&`, `⊤`; `!`
+  when every other formula is a `?`; `1`, `⊗` and the axiom when their
+  formulas are the whole goal) until none applies, each application an
+  ordinary step that `undo` retracts, the steps' inferences bounded by
+  `limits.memory_bytes` and returning an `Inverted` (the steps taken,
+  the goals left open, the refusal that stopped it if one did);
+  `Interactive::is_invertible(sequent, &step)` says whether a step is
+  one of them. The options value `proofs::interactive::Options` (its
+  field `invertible`, off by default) is the new `Settings::interactive`
+  (`{"interactive": {"invertible": true}}`). `linlog interact` takes
+  `--invertible` and the command `invertible on|off`, and its `undo`
+  retracts a step together with the invertible steps that followed it.
+  The web bindings apply them in `start` and `apply` when the setting
+  is on (`inverted` in the answer), add the call `invert_all`, list in
+  the view the inferences an invertible rule closed (`invertible`), and
+  say of a hint whether its rule is invertible.
 
 ### Wire forms
 

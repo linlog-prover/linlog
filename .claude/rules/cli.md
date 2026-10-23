@@ -619,6 +619,21 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   "mode", "error"}`, `error` the library's written error and `message` its
   text with formulas. A file that is an outcome without a proof is
   refused as such (`read_proof`), not by the key it lacks.
+- **The invertible rules in a session** (`--invertible`, the key
+  `interactive.invertible`, and the command `invertible on|off`): `on`
+  applies them at once to every open goal (`Session::invert_all`, also
+  run before the first command under the flag, its line `applied N
+  invertible steps`), and with them on, `apply` calls
+  `Interactive::invert` on each goal the step opened and lists the goals
+  left open after `then N invertible steps`. `undo` retracts a step with
+  the invertible steps after it: `Session::groups` holds the session's
+  step counts before and after each such run (an `apply` with its
+  invertible steps, an `invertible on`), and `undo` takes back the last
+  group whole when it ends at the current count, else one step, so a
+  `close` or a step taken with them off is undone alone and nothing
+  depends on the commands that fail half-way. `load` clears the groups:
+  a loaded session's steps are undone one at a time. `load` and `close`
+  apply nothing.
 - **`load` in a session refuses a file of another sequent or mode**
   (`Interactive::sequent` and `mode` compared), as `--state` refuses a
   file beside a sequent: the exit status answers for the session's own

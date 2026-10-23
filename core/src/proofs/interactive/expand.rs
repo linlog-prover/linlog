@@ -109,6 +109,19 @@ impl Interactive {
                 self.expand(reading.as_ref(), &sequent, position, rule, left)?,
             )
         };
+        Ok(self.record(goal, position, rule, premises))
+    }
+
+    /// Closes an open goal by a rule at a position with the premises
+    /// [`expand`](Self::expand) computed, opens the premises as goals, and
+    /// returns them.
+    pub(super) fn record(
+        &mut self,
+        goal: GoalId,
+        position: usize,
+        rule: Named,
+        premises: Vec<Multiset>,
+    ) -> Vec<GoalId> {
         let principal = rule.rule.has_principal().then_some(position);
         let base = self.inferences.len() as u32;
         let ids: Vec<InfId> = (0..premises.len() as u32)
@@ -128,7 +141,7 @@ impl Interactive {
         inference.principal = principal;
         inference.premises = ids.clone();
         self.history.push(goal.inf());
-        Ok(ids.into_iter().map(GoalId::of).collect())
+        ids.into_iter().map(GoalId::of).collect()
     }
 
     /// Computes the premises of a rule on a sequent, in the rule's order, or

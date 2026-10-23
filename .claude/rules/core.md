@@ -266,7 +266,8 @@ the commit that lands it rewrites that bullet.
   `occurrences::IllConnective`; `ordinary::{Logic, Options, Outcome,
   Problem, Target, Translation, Verdict}`; `proofs::{Compact, Dyadic,
   Fault, Invalid, Labels, OpenGoal, Refused, Sides, TextOptions}`;
-  `proofs::interactive::{Applicable, Closed, Needs, Split}`;
+  `proofs::interactive::{Applicable, Closed, Inverted, Needs, Options,
+  Split}` (`Inverted` and `Options` added after 0.1.0);
   `search::{Cadence, Equation, Jobs, OneSided, Schedule, StateEquation,
   Unbalanced}`; `search::batch::{Answer, Cores, Options, Plan,
   Problem}`. A new public type joins one of the two lists in its commit.

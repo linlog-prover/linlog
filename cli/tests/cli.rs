@@ -628,8 +628,9 @@ fn intuitionistic_mode() {
 
 /// `interact` reads commands from standard input: rules are listed and
 /// applied by goal and position, refused with a reason, undone, goals are
-/// closed by the search, the session is saved and resumed, and the finished
-/// proof is checked, which decides the exit status.
+/// closed by the search, the session is saved and resumed, the finished
+/// proof is checked, which decides the exit status, and the invertible
+/// rules applied by themselves are undone with the step they followed.
 #[test]
 fn interactive_session() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-session");
@@ -700,6 +701,24 @@ fn interactive_session() {
         \x20 A, A ⊸ B ⊢ B\n"
     );
     assert_eq!((status, err.as_str()), (0, ""));
+
+    // With the invertible rules on from the start, a search's graft is
+    // undone alone and the start's invertible steps together.
+    let script = "goals\nclose 2\nundo\nundo\nundo\n";
+    let args = ["interact", "--invertible", "-i", "A * B, 1 |- B * A"];
+    let (status, out, err) = linlog(&args, script);
+    assert_eq!(
+        out,
+        "applied 2 invertible steps\n\
+         goal 2: 0: A, 1: B ⊢ 2: B ⊗ A\n\
+         goal 2: provable (IMLL, intuitionistic, two-sided engine)\n\
+         no goal is open: `proof` checks the proof\n\
+         reopened goal 2: 0: A, 1: B ⊢ 2: B ⊗ A\n\
+         retracted 2 steps\n\
+         reopened goal 0: 0: A ⊗ B, 1: 1 ⊢ 2: B ⊗ A\n\
+         nothing to undo\n"
+    );
+    assert_eq!((status, err.as_str()), (1, ""));
     let (status, _, err) = linlog(&["interact"], "");
     assert_eq!(status, 2);
     assert!(err.contains("no sequent given"), "{err}");

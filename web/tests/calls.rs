@@ -192,6 +192,67 @@ fn following_the_hints_proves_a_sequent() {
     }
 }
 
+/// With `interactive.invertible` on, starting and every step apply the
+/// invertible rules, the view names the inferences they closed, a hint
+/// says whether its rule is invertible, following the hints still proves
+/// a sequent, and `invert_all` applies them to a session started without.
+#[wasm_bindgen_test(unsupported = test)]
+fn the_invertible_rules_apply_by_the_setting() {
+    assert!(!tab::defaults().interactive.invertible);
+    let on = settings(&json!({"interactive": {"invertible": true}}));
+    let sequent = "A -o B, B -o C |- A -o C";
+    let started = value(&calls::start(sequent, "classical", &on).unwrap());
+    assert_eq!(started["inverted"], 1);
+    assert_eq!(started["view"]["invertible"], json!([0]));
+    let goal = started["view"]["goals"][0]["goal"].as_u64().unwrap() as u32;
+    let hint = value(&calls::hint(&started["session"].to_string(), goal, &on).unwrap());
+    assert_eq!(
+        (hint["steps"][0]["rule"].clone(), hint["invertible"].clone()),
+        (json!("⊗"), json!(false))
+    );
+    let state = started["session"].to_string();
+    let applied = value(&calls::apply(&state, goal, &step(0, "⊗", Some(vec![2])), &on).unwrap());
+    assert_eq!(
+        (applied["inverted"].clone(), applied["opened"].clone()),
+        (json!(1), json!([3]))
+    );
+    assert_eq!(applied["view"]["invertible"], json!([0, 2]));
+    let off = calls::start(sequent, "classical", "").unwrap();
+    let hint = value(&calls::hint(&session(&off), 0, "").unwrap());
+    assert_eq!(
+        (hint["steps"][0]["rule"].clone(), hint["invertible"].clone()),
+        (json!("⅋"), json!(true))
+    );
+    assert_eq!(value(&off)["inverted"], 0);
+    let inverted = value(&calls::invert_all(&session(&off), "").unwrap());
+    assert_eq!(inverted["inverted"], 1);
+    for (sequent, mode) in [
+        ("!(A -o B), A, A |- B * B", "classical"),
+        ("A * B, B -o C |- A * C", "intuitionistic"),
+    ] {
+        let mut state = session(&calls::start(sequent, mode, &on).unwrap());
+        for _ in 0..20 {
+            let view = value(&calls::view(&state, &on).unwrap());
+            let Some(goal) = view["goals"][0]["goal"].as_u64() else {
+                break;
+            };
+            let hint = value(&calls::hint(&state, goal as u32, &on).unwrap());
+            assert_eq!(hint["invertible"], false, "{sequent}");
+            let mut goal = goal as u32;
+            for step in hint["steps"].as_array().unwrap() {
+                let applied = value(&calls::apply(&state, goal, &step.to_string(), &on).unwrap());
+                state = applied["session"].to_string();
+                goal = applied["opened"][0].as_u64().map_or(goal, |g| g as u32);
+            }
+        }
+        assert_eq!(
+            value(&calls::view(&state, &on).unwrap())["complete"],
+            true,
+            "{sequent}"
+        );
+    }
+}
+
 /// Closing a goal stops at the work budget with an honest unknown, and
 /// proves it within the tab's.
 #[wasm_bindgen_test(unsupported = test)]
