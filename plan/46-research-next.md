@@ -53,7 +53,14 @@ author then chooses, with their prompts.
   certificates for more verdicts (intuitionistic proofs, every kind of
   refutation) checked by the library, and which part of the trusted base
   each would remove. It says what is feasible in a step or two and what
-  would be a project of its own, and ranks it with the rest.
+  would be a project of its own, and ranks it with the rest. The
+  author's preference among the tools (2026-10-23): where verifying the
+  Rust code is feasible and Prusti is as good a fit as the others,
+  Prusti; another tool only where it is clearly better suited, with the
+  reasons said. The comparison is made on linlog's own
+  code (the checker's loops, its arena indices and integers, the
+  features of Rust it uses), each tool's state and maintenance read in
+  its sources.
 - **What users say, from what is public**: the repositories' issues and
   discussions, citations of the Zenodo DOI, crates.io's download counts,
   read through the public web and GitHub's public API (no `gh` task,
