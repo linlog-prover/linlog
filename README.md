@@ -1772,7 +1772,14 @@ Built:
   correctness criterion (Danos–Regnier at every box depth with the boxes
   inside contracted, with the cycle or the disconnection and the box it
   lies in named when it fails), sequentialization through the boxes into
-  a checked proof and desequentialization of a proof into its net.
+  a checked proof and desequentialization of a proof into its net. The
+  net of a proof is canonical only up to which axiom link each weakening
+  hangs on, the link the proof's weakening rule has above it: a weakening
+  left loose could not be checked, since counting the parts of a net
+  accepts structures that have no proof. So two proofs that differ only
+  in the order of their rules can give different nets there, and also
+  where a sequent of the proof holds a formula twice, as copies of one
+  `?` formula, since a rule does not say which of the two it acts on.
 - Interactive proving: a proof in progress as a derivation with open
   goals, rules applied to a formula of a goal and validated (the
   connective, the mode, the context a promotion or an axiom needs, one

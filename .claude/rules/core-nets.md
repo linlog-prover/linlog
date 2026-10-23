@@ -207,7 +207,9 @@ engine. What the code relies on:
   weakening closes a switching cycle. The link is the one datum a term
   does not fix (no canonical position in general, Di Donna and Tortora
   de Falco §4): `from_proof` hangs a weakening on the first link its `?`
-  rule's subproof makes.
+  rule's subproof makes. So the net of a proof is canonical only up to
+  that link, and two terms that differ only in rule order can give nets
+  that differ there (moving a `?` rule moves the first link above it).
 - **A term names occurrences, not instances**, so it fixes a net only up
   to the weakenings' links and, where a sequent holds two instances of one
   occurrence, the instance each rule takes (`from_proof` takes the last
@@ -217,7 +219,11 @@ engine. What the code relies on:
   (the panel's witnesses: copies of two `?a` instances behind one box's
   doors all going to the inner one; crossed links of two copies of
   `?(a ⅋ ~a)` coming back parallel); with no occurrence of two vertices
-  it is the identity up to the weakenings' links. Every net read back is
+  it is the identity up to the weakenings' links. Some proof nets are the
+  reading of no term at all: in `⊢ ??~a, !(a ⊗ a)` with each `?~a` owning
+  one copy inside the box, both copy rules lie above both `?~a` rules,
+  so any term gives both copies to one of them (the counterexample
+  panel's W1); they still sequentialize. Every net read back is
   correct (it is a checked term's), which `round_trips` asserts in every
   case, the isomorphism only where no occurrence repeats.
 - **Numbering and validation** (`from_parts`): the roots are vertices
