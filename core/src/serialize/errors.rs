@@ -272,8 +272,33 @@ impl Serialize for NetError {
             Self::Rule { node, rule } => {
                 entries!(s; "kind" => "rule"; "node" => &node.get(); "rule" => rule)
             }
+            Self::Placement { vertex, fault } => entries!(s;
+                "kind" => "placement"; "vertex" => &vertex.get(); "fault" => fault),
+            Self::Unattached { vertex } => {
+                entries!(s; "kind" => "unattached"; "vertex" => &vertex.get())
+            }
+            Self::InBox { door, error } => entries!(s;
+                "kind" => "in_box"; "door" => &door.get(); "error" => error.as_ref()),
+            Self::NotMell { fragment, mode } => entries!(s;
+                "kind" => "not_mell"; "fragment" => fragment; "mode" => mode),
             Self::Refused { refusal } => entries!(s; "kind" => "refused"; "refusal" => refusal),
         }
+    }
+}
+
+impl Serialize for crate::nets::Placement {
+    /// Writes the fault's name in snake case.
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use crate::nets::Placement::*;
+        s.serialize_str(match self {
+            Outside => "outside",
+            Premise => "premise",
+            Premises => "premises",
+            Box => "box",
+            Nesting => "nesting",
+            Link => "link",
+            Weakening => "weakening",
+        })
     }
 }
 

@@ -1007,6 +1007,19 @@ mod tests {
                 node: NodeId::new(0),
                 rule: "wk",
             },
+            NetError::Placement {
+                vertex,
+                fault: crate::nets::Placement::Premise,
+            },
+            NetError::Unattached { vertex },
+            NetError::InBox {
+                door: vertex,
+                error: Box::new(NetError::Empty),
+            },
+            NetError::NotMell {
+                fragment: Fragment::LL,
+                mode: Mode::INTUITIONISTIC,
+            },
             NetError::Refused {
                 refusal: refusals[1].clone(),
             },
@@ -1075,7 +1088,11 @@ mod tests {
                 | NetError::NotIntuitionistic { .. }
                 | NetError::Fragment { .. }
                 | NetError::Mode { .. }
-                | NetError::Rule { .. } => {}
+                | NetError::Rule { .. }
+                | NetError::Placement { .. }
+                | NetError::Unattached { .. }
+                | NetError::InBox { .. }
+                | NetError::NotMell { .. } => {}
             },
             Error::Refused(refusal) => refused(refusal),
             #[cfg(feature = "parse")]

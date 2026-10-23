@@ -1766,6 +1766,13 @@ Built:
   disconnection named when it fails), sequentialization into a checked
   proof and desequentialization of a proof into its net, a text form and
   a JSON form.
+- Proof nets for MELL without units in the library, with or without
+  Mix: `!`-boxes and a `?` node with any number of copies of its
+  subformula, each weakening hung on an axiom link, an independent
+  correctness criterion (Danos–Regnier at every box depth with the boxes
+  inside contracted, with the cycle or the disconnection and the box it
+  lies in named when it fails), sequentialization through the boxes into
+  a checked proof and desequentialization of a proof into its net.
 - Interactive proving: a proof in progress as a derivation with open
   goals, rules applied to a formula of a goal and validated (the
   connective, the mode, the context a promotion or an axiom needs, one
@@ -1898,8 +1905,10 @@ Planned, in roughly this order:
   countermodels of the other logics, failure certificates of the
   backward search.
 - A web page for proving step by step in the browser, on those bindings.
-- Later: proof nets with exponential boxes, cut elimination on proofs
-  and on nets, and first-order linear logic.
+- Proof nets with boxes in the command and the web page: drawn, and in
+  JSON.
+- Later: cut elimination on proofs and on nets, and first-order linear
+  logic.
 
 linlog is very much inspired by [Click & coLLecT](https://www.click-and-collect.linear-logic.org).
 It aims to support more use cases on a modern, more efficient base.

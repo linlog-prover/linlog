@@ -8,8 +8,8 @@ paths:
 
 # linlog core: proof nets, essential nets and the net engines
 
-Loaded, beside `core.md`, when a file of the proof nets or the net
-engine is read or changed. The net engine's cubes on a pool are in
+Loaded, beside `core.md`, when a file of the proof nets (MLL, and MELL
+with boxes) or the net engine is read or changed. The net engine's cubes on a pool are in
 `core-parallel.md`, which loads for `search/net.rs` too.
 
 ## Proof nets
@@ -171,6 +171,153 @@ code relies on:
 - The text form (`Display`: the sequent, `~A[0] — A[2]` per link sorted
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
   ` with the reason in formulas) and the JSON form are pinned in tests.
+
+## Proof nets with boxes: MELL
+
+`nets/mell/` is the representation of unit-free MELL proofs as proof
+nets with `!`-boxes (`MellStructure`, built from `Parts` or by
+`from_proof`), apart from `ProofStructure`, which stays as it was: its
+vertex is its occurrence, which the net engine's hot path relies on,
+while here a vertex is an *instance* of an occurrence (a `?` formula's
+subformula has one vertex per copy). Search stays with the focused
+engine. What the code relies on:
+
+- **The `?` node is the generalised one** (one vertex per `?` instance
+  with any number of copies of its subformula as premises, unordered,
+  each at the `?`'s depth or inside any box nested in its box): it
+  absorbs the associativity and commutativity of contraction,
+  dereliction as one copy and the commutation of contraction with box
+  borders, so the net of a term does not depend on where the term
+  contracts (Accattoli, arXiv:1303.7326 §7: the "nouvelle syntaxe" of
+  n-ary `?`-links). It is what the dyadic terms record: a `?` rule moves
+  the subformula into `Θ`, a copy uses it, nothing says in which order.
+- **A weakening hangs on an axiom link** (`Parts::weakenings`, a `?`
+  vertex without copies and a literal of its box or a box inside it):
+  Guerrini and Masini (*Parsing MELL proof nets*, TCS 254, 2001; read in
+  the IRCS report 96-37 of the same title) glue every weakening formula
+  to an axiom, which keeps a net connected so that Danos–Regnier decides
+  it (their Remark 2), and which is exactly the dyadic calculus, where
+  `Θ` is weakened at `Ax` and a promotion takes all of `Θ` (their `!?`
+  rule). A jumpless weakening cannot be checked by counting components:
+  ACC#w (acyclic, `#w + 1` components per switching and depth) is
+  necessary but not sufficient (Di Donna and Tortora de Falco, FSCD
+  2025, Remark 21, Regnier's counterexample with a weakening under a
+  `⊗`); `⊢ ?c ⊗ (a ⅋ (b ⅋ ~b)), ~a` passes the count and is
+  unprovable, and `classic_nets` checks that every hanging of its
+  weakening closes a switching cycle. The link is the one datum a term
+  does not fix (no canonical position in general, Di Donna and Tortora
+  de Falco §4): `from_proof` hangs a weakening on the first link its `?`
+  rule's subproof makes, so the round trip is the identity up to it.
+- **Numbering and validation** (`from_parts`): the roots are vertices
+  `0..r` in the forest's order, then `Parts::vertices`, each with its
+  occurrence, its parent and the `!` vertex of its innermost box
+  (`inside`). A parent's occurrence is the parent of its premise's, so
+  parents cannot go round; a `⊗`/`⅋` has its two premises once each (left
+  first in `premises`), a `!` its one; a premise of a `⊗`/`⅋` lies where
+  its parent does, a `!`'s premise in its box, a copy in its `?`'s box or
+  one inside it (`Nesting`, an interval per box of a depth-first walk of
+  the box tree, two comparisons); box nesting is walked once per box with
+  a `VISITING` mark (a cycle is `Placement::Nesting`); a link joins two
+  dual literals of one box (`Placement::Link`). Faults are
+  `NetError::Placement` with a `Placement`; the link errors are the MLL
+  ones. A missing link (`Unlinked`) or hanging (`Unattached`) is the
+  criterion's, not the constructor's.
+- **The criterion** (`is_correct`, `graph.rs`): every depth (outside all
+  boxes, inside each box) is a multiplicative structure in which each box
+  inside it is contracted to its `!` vertex, each `?` vertex outside it
+  with a wire into it is a *door vertex* there (Laurent's `?p` auxiliary
+  door), and `?` vertices and doors are switched like a `⅋` of any arity
+  over their wires; the depths' graphs sit side by side in one CSR graph
+  (doors after the vertices), with no edge between depths. Correct means
+  complete, every weakening hung, no switching cycle at any depth (Yeo's
+  deletion, the multiplicative rule: a switched vertex goes when its
+  parent edge, slot 0, is absent or a bridge, any other when all its
+  edges are), and without Mix at every depth kept edges + 1 = vertices.
+  The sources: Straßburger (INRIA RR 6013 §3.1: Danos–Regnier with `?c`
+  as `⅋`, "each box has to be treated separately", valid only without
+  `?w`), Di Donna and Tortora de Falco §5 (the property on the ground
+  structure and inductively on every box's content), Guerrini and
+  Masini Definition 4 (switchings over every set of boxes collapsed; our
+  per-depth form is the box-by-box reading of it, derived, not quoted).
+  Soundness and completeness for linlog's calculus are the two
+  conversions: every checked term's net passes (the induction on the
+  term, each rule keeping every depth correct), and every net that
+  passes sequentializes into a term the checker accepts.
+- **Two wires of one `?` vertex to one other vertex are one edge**: they
+  share a colour, no properly coloured cycle uses both, a switching
+  keeps either alike. `Builder::wire` lays a wire's edges once per
+  (`?`, box) with a stamp per box (wires are added a `?` at a time) and
+  skips the edge to a `!` vertex that is itself a copy of that `?`
+  (`parent[bang] == q`), whose parent edge it already is; so the graph
+  is simple, the Tarjan search may skip the search-tree parent, and every
+  edge of a non-switched vertex has its own colour.
+- **It stands apart from `Correctness`**: that trait is the linking
+  search's interface (constant-time rejections, `link`/`unlink` on a
+  stack, a cadenced exact test); nothing searches MELL nets, and boxes
+  and copies are not chosen by linking, so the criterion is
+  `MellStructure::is_correct`, built once over a fixed structure.
+- **Witnesses**: `SwitchingCycle` and `Disconnected` of the depth,
+  wrapped in `NetError::InBox { door, error }` inside a box; a door is
+  named by its `?` vertex, a contracted box by its `!` vertex; the parts
+  are those of the switching keeping each switched vertex's first wire.
+  `describe` prints vertices as formulas through the sealed
+  `Owner::vertices` (the occurrence of every vertex), which a
+  `MellStructure` gives and every other owner leaves `None`.
+- **Sequentialization** (`sequentialize.rs`): per stage at one depth,
+  open every `⅋` (a `⅋` rule), every `?` vertex (a `?` rule, then a copy
+  rule for each of its copies at its depth, which become conclusions) and,
+  at the start of a box, every door (only the copy rules: its `?` rule
+  lies below the promotion); then Mix by parts, two literals an axiom, a
+  lone `!` vertex its promotion with its box's premise and doors as the
+  next sub-net, else the splitting `⊗` with the smallest id, whose
+  premise edge is a bridge of the plain graph. A depth's graph is an MLL
+  structure with `⅋`s of any arity and hypotheses (a box with its `!`
+  vertex: conclusions the `!` formula and the wires; a link with its
+  hung weakenings), so Laurent's splitting theorem with hypotheses
+  (*An introduction to proof nets*, 2013, Theorem 1.1) gives the
+  splitting `⊗` (its extension to n-ary `⅋` and to hypotheses with more
+  conclusions is derived). A lone `!` vertex has no live wire: its
+  sources were opened in this branch, so their `?` rules lie below the
+  promotion and `Θ` holds their subformulas. The `?` rule goes right
+  below its own copy rules, so that reading the term back gives each
+  copy to its own `?`.
+- **Desequentialization** (`desequentialize.rs`) checks the term first
+  (the unfolding trusts it), counts the unfolded vertices (a node's uses
+  from the root down, saturating; `MOST` refused before anything is
+  made, `an_unfolding_past_the_vertices_is_refused` with a 100-node term
+  of 3·2⁴⁸ vertices), then reads the tree post-order: a rule makes its
+  formula's vertex from instances its premises left open (each premise's
+  vertices are a contiguous range, so the left premise's instance is the
+  last of its occurrence in that range); a `?` rule takes the copies made
+  since it was entered that no inner `?` rule took (the checker's `Θ`,
+  where the innermost `?` rule of an occurrence discharges it); where a
+  sequent holds two instances of one occurrence the last made is taken
+  (any choice is a sequent proof). The vertices are renumbered: roots,
+  then each root's tree depth first.
+- **Numbers**: `MOST` (`u32::MAX / 2 − 1`) bounds vertices and doors, and
+  the slot total is refused at `u32::MAX`; doors and edges are charged
+  to `limits.memory_bytes` as they are made, since the doors are wires
+  times depth at worst (quadratic), so `from_parts` and `from_proof` take
+  `&Limits`. A depth's kept count is its edges less what the switched
+  classes drop, which cannot go below zero because the classes are
+  disjoint sets of edges.
+- **Modes**: classical, with or without Mix (`MellStructure::exist`,
+  `NetError::NotMell`); intuitionistic MELL is left out (its nets would
+  need the intuitionistic reading in every box) and the ordered modes
+  refuse exponentials; with Mix the criterion is acyclicity at every
+  depth, weakenings still hung (with Mix and no empty rule, `⊢ ?c ⊗ ?d,
+  a, ~a` is acyclic and unprovable). The front ends' `nets::exist` and
+  the net engine are unchanged and MLL only.
+- **Tests** (`mell/tests.rs`): fixed nets with their terms and witnesses
+  (`classic_nets`); `round_trips` (random MELL proofs of the focused
+  engine, with and without Mix: net, term, checker, net again, the same
+  up to the order of copies and the weakenings' links, by a backtracking
+  isomorphism); `agrees_with_the_multiplicative_criterion` (on MLL the
+  verdict of `ProofStructure`); `agrees_with_enumeration` (against a
+  brute-force switching enumeration written from the definition, on
+  random nets and their mutants, bounded at 4 096 switchings a depth);
+  the searches in the tests are bounded by a poll count, which a debug
+  build needs on large generated sequents.
 
 ## Planar nets: cyclic MLL and the Lambek calculus
 

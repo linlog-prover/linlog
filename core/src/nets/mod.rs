@@ -26,12 +26,15 @@
 pub(crate) mod essential;
 /// The coloured structure graph and the criterion's tests on it.
 mod graph;
+/// Proof nets of unit-free MELL with `!`-boxes.
+mod mell;
 /// From a proof net to a proof term.
 mod sequentialize;
 /// The `⅋`-free skeleton as a union-find with undo.
 mod skeleton;
 
 pub use graph::Scratch;
+pub use mell::{MellStructure, Parts, Placed, Placement};
 
 use crate::Error;
 use crate::errors::describe::{Budget, Limit, cut};
@@ -303,6 +306,41 @@ pub enum NetError {
         /// The rule's name, as [`Node::name`] gives it.
         rule: &'static str,
     },
+    /// A vertex of a structure with boxes is out of place in the formula
+    /// trees, the boxes, the links or the weakenings.
+    #[non_exhaustive]
+    Placement {
+        /// The vertex.
+        vertex: VertexId,
+        /// What is wrong with it.
+        fault: Placement,
+    },
+    /// A weakening of a structure with boxes, a `?` vertex without copies,
+    /// hangs on no axiom link.
+    #[non_exhaustive]
+    Unattached {
+        /// The `?` vertex.
+        vertex: VertexId,
+    },
+    /// The criterion fails inside a box, with the boxes in it contracted to
+    /// their `!` vertex and the `?` vertices outside it standing for their
+    /// doors.
+    #[non_exhaustive]
+    InBox {
+        /// The box's `!` vertex.
+        door: VertexId,
+        /// How the criterion fails there.
+        error: Box<NetError>,
+    },
+    /// Proof nets with boxes exist for unit-free MELL in classical mode,
+    /// with or without Mix, and the sequent or the mode lies outside.
+    #[non_exhaustive]
+    NotMell {
+        /// The sequent's fragment.
+        fragment: Fragment,
+        /// The mode asked for.
+        mode: Mode,
+    },
     /// A bound or the caller's stop ended the call without a verdict on
     /// the structure.
     #[non_exhaustive]
@@ -323,8 +361,11 @@ impl NetError {
             Self::NoVertex { .. }
             | Self::NotLiteral { .. }
             | Self::NotDual { .. }
-            | Self::LinkedTwice { .. } => Malformed,
+            | Self::LinkedTwice { .. }
+            | Self::Placement { .. } => Malformed,
+            Self::InBox { error, .. } => error.kind(),
             Self::Unlinked { .. }
+            | Self::Unattached { .. }
             | Self::Empty
             | Self::SwitchingCycle { .. }
             | Self::Disconnected { .. }
@@ -334,6 +375,7 @@ impl NetError {
             Self::Fragment { .. }
             | Self::Mode { .. }
             | Self::Rule { .. }
+            | Self::NotMell { .. }
             | Self::NotIntuitionistic { .. } => Unsupported,
             Self::Refused { refusal } => crate::errors::refusal_kind(refusal),
         }
@@ -344,14 +386,20 @@ impl NetError {
     /// refusal's, or `invalid_net`.
     pub fn code(&self) -> &'static str {
         match self {
-            Self::Fragment { .. } | Self::Mode { .. } | Self::Rule { .. } => "no_nets",
+            Self::Fragment { .. }
+            | Self::Mode { .. }
+            | Self::Rule { .. }
+            | Self::NotMell { .. } => "no_nets",
+            Self::InBox { error, .. } => error.code(),
             Self::NotIntuitionistic { .. } => "not_intuitionistic",
             Self::Refused { refusal } => refusal.code(),
             Self::NoVertex { .. }
             | Self::NotLiteral { .. }
             | Self::NotDual { .. }
             | Self::LinkedTwice { .. }
+            | Self::Placement { .. }
             | Self::Unlinked { .. }
+            | Self::Unattached { .. }
             | Self::Empty
             | Self::SwitchingCycle { .. }
             | Self::Disconnected { .. }
@@ -376,14 +424,33 @@ impl NetError {
         forest: Option<&Forest>,
         limit: Limit,
     ) -> FmtResult {
+        self.write_over(f, forest, None, limit)
+    }
+
+    /// Writes the error as [`write`](Self::write) does, reading each
+    /// vertex's occurrence from `vertices` when a structure with boxes is
+    /// given, where vertices are no occurrences.
+    pub(crate) fn write_over(
+        &self,
+        f: &mut Formatter<'_>,
+        forest: Option<&Forest>,
+        vertices: Option<&[OccId]>,
+        limit: Limit,
+    ) -> FmtResult {
         // Each formula, and each list of them, cut after `limit` characters.
-        let vertex = |v: &VertexId| match forest {
-            Some(forest) if v.index() < forest.len() => {
-                let mut formula = String::new();
-                cut(&mut formula, Some(forest), v.occ(), limit).unwrap();
-                format!("{formula}[{}]", v.get())
+        let vertex = |v: &VertexId| {
+            let o = match vertices {
+                Some(table) => table.get(v.index()).copied(),
+                None => forest.and_then(|forest| (v.index() < forest.len()).then(|| v.occ())),
+            };
+            match (forest, o) {
+                (Some(forest), Some(o)) => {
+                    let mut formula = String::new();
+                    cut(&mut formula, Some(forest), o, limit).unwrap();
+                    format!("{formula}[{}]", v.get())
+                }
+                _ => v.get().to_string(),
             }
-            _ => v.get().to_string(),
         };
         let list = |vs: &[VertexId]| {
             let mut text = String::new();
@@ -468,6 +535,21 @@ impl NetError {
                 f,
                 "node {} applies {rule}, which a proof net of MLL without units has no place for",
                 node.get()
+            ),
+            NetError::Placement { vertex: v, fault } => {
+                write!(f, "vertex {} {}", vertex(v), fault.clause())
+            }
+            Unattached { vertex: v } => {
+                write!(f, "the weakening {} hangs on no axiom link", vertex(v))
+            }
+            InBox { door, error } => {
+                write!(f, "inside the box of {}, ", vertex(door))?;
+                error.write_over(f, forest, vertices, limit)
+            }
+            NotMell { fragment, mode } => write!(
+                f,
+                "proof nets with boxes exist for MELL without units in classical mode, with or \
+                 without Mix, only, not for {fragment} in {mode} mode"
             ),
             Refused { refusal } => write!(f, "{refusal}"),
         }

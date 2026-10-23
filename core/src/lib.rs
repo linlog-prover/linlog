@@ -164,7 +164,13 @@ mod sealed {
         unnameable_types,
         reason = "a sealing supertrait is public, so that it may bound a public trait, and unnameable, so that no other crate implements it"
     )]
-    pub trait Owner {}
+    pub trait Owner {
+        /// Returns the occurrence of every vertex the owner's errors name,
+        /// where its vertices are no occurrences: a structure with boxes.
+        fn vertices(&self) -> Option<&[crate::occurrences::OccId]> {
+            None
+        }
+    }
 
     /// Seals [`Readable`](crate::wire::Readable): only the crate's forms
     /// are read at a wire level.
@@ -192,7 +198,9 @@ pub use errors::ParseError;
 pub use errors::{Described, Error, ErrorKind, Owner};
 pub use fragment::{Fragment, Mode, Order};
 pub use limits::{Limits, Phase, Progress, Refusal};
-pub use nets::{Criterion, NetError, ProofStructure, VertexId};
+pub use nets::{
+    Criterion, MellStructure, NetError, Parts, Placed, Placement, ProofStructure, VertexId,
+};
 pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};
 pub use proofs::{
     Branch, CheckError, Derivation, Division, InfId, Inference, Named, Node, NodeId, Proof, Rule,

@@ -11,6 +11,21 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Added
 
+- Proof nets of unit-free MELL with `!`-boxes, in classical mode with or
+  without Mix: `MellStructure`, its vertices instances of the forest's
+  occurrences, a generalised `?` vertex with any number of copies of its
+  subformula, each weakening (a `?` without copies) hung on an axiom
+  link; built from its `Parts` (`Placed` vertices, links, weakenings),
+  validated, or desequentialized from a checked proof
+  (`MellStructure::from_proof`); the criterion `is_correct`
+  (Danos–Regnier at every box depth, boxes contracted, `?` vertices and
+  their auxiliary doors switched over their wires) and `sequentialize`
+  into a proof the checker accepts; `MellStructure::exist` says where
+  they exist. New `NetError` variants: `Placement` (with `Placement`,
+  the fault), `Unattached`, `InBox` (a failure inside a box) and
+  `NotMell`, in JSON the kinds `placement`, `unattached`, `in_box` and
+  `not_mell`. The command, the bindings and the drawing do not take them
+  yet.
 - The bindings' `view` (and every call that answers with a view) gives
   each goal formula, in intuitionistic mode, its `reading`: the formula
   as `Reading::formula` writes it in its position, a hypothesis `A ⊸ B`

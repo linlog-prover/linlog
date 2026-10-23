@@ -2,7 +2,7 @@
 // Licensed under the EUPL
 
 use super::{Error, INVALID_PROOF};
-use crate::nets::{NetError, ProofStructure};
+use crate::nets::{MellStructure, NetError, ProofStructure};
 use crate::occurrences::OccId;
 use crate::occurrences::{Forest, ShapeError};
 use crate::proofs::{CheckError, Derivation, Proof};
@@ -114,6 +114,20 @@ impl Owner for Derivation<'_> {
 
 impl crate::sealed::Owner for ProofStructure {}
 
+impl crate::sealed::Owner for MellStructure {
+    /// The occurrence each vertex stands for.
+    fn vertices(&self) -> Option<&[OccId]> {
+        Some(self.occurrences())
+    }
+}
+
+impl Owner for MellStructure {
+    /// The structure's forest.
+    fn forest(&self) -> &Forest {
+        MellStructure::forest(self)
+    }
+}
+
 impl Owner for ProofStructure {
     /// The structure's forest.
     fn forest(&self) -> &Forest {
@@ -155,6 +169,8 @@ pub struct Described<'a> {
     error: Subject<'a>,
     /// The forest the ids are occurrences of.
     forest: &'a Forest,
+    /// The occurrence of every vertex, where vertices are no occurrences.
+    vertices: Option<&'a [OccId]>,
     /// The most characters of a formula or a list of formulas, or `None`.
     limit: Option<usize>,
 }
@@ -165,6 +181,7 @@ impl<'a> Described<'a> {
         Self {
             error,
             forest: owner.forest(),
+            vertices: owner.vertices(),
             limit: None,
         }
     }
@@ -184,9 +201,13 @@ impl Display for Described<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let forest = Some(self.forest);
         match self.error {
+            Subject::Error(Error::Net(e)) => {
+                f.write_str("not a proof net: ")?;
+                e.write_over(f, forest, self.vertices, self.limit)
+            }
+            Subject::Net(e) => e.write_over(f, forest, self.vertices, self.limit),
             Subject::Error(e) => e.write(f, forest, self.limit),
             Subject::Check(e) => e.write(f, forest, self.limit),
-            Subject::Net(e) => e.write(f, forest, self.limit),
             Subject::Shape(e) => e.write(f, forest, self.limit),
         }
     }
