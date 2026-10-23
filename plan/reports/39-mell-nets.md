@@ -604,7 +604,13 @@ one and not the other. The file is committed (`sqylzmsu`).
   a results file, no code.
 - `ltxzrsto` (c8666da8) Keep a compact net's edges out of the boxes: the
   review's fix; gated, passed.
-- The last commit holds this report. It is prose only; `nix flake check`
+- `xtqxuozv` (744bfb11) this report. The first `nix flake check`, at
+  it, failed in `doc-private`: `svg::mell_net`'s docs linked `net`, which
+  is both the function and the private module of the drawing; the run
+  stopped there.
+- `wwurlmlq` Name `svg::net` unambiguously in `svg::mell_net`'s docs:
+  gated, passed.
+- The last commit amends this list. It is prose only; `nix flake check`
   ran at it, and its exit status is in the message to `planning`.
 
 The bindings' tests under Node (`nix build
