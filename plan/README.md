@@ -3207,5 +3207,9 @@ client follows it (step 32).
     (`plan/reports/38b-zoom-fonts-dismiss.md`, "Session 38e"), among
     them the colour thresholds of 8 and 15 and the tritanopia matrix
     that its paper does not claim to handle. Screenshots:
-    `/home/tux/Projects/own/linlog-step38e-screenshots/`.
+    `/home/tux/Projects/own/linlog-step38e-screenshots/`. The privacy
+    page went live before the author read it; the author's word: leave
+    it up, to be read later (its legal basis, legitimate interest, and
+    GitHub as the one who decides on its logs are the page's own
+    reading, which it says).
   Next: session 38f, the logo's candidates; step 39b after 39a.
