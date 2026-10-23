@@ -9,7 +9,7 @@
 | One store in the client's content, the single source of Practice and Learn: each problem's sequent, calculus, linlog's verdict, difficulty, categories, a session `proof` accepts when provable | done | `src/content/problems/` (425 problems: 392 provable, 33 unprovable); `src/content.config.ts` (the schema); Learn's problems are the store's entries with a `lesson`, Practice's the provable ones (`/problems.json`) |
 | At least 300 provable, every level and every fragment represented, the hardest a real effort; step 38's and 38b's practice joins | done, the hardest for the author to judge | 392 provable, by level 76, 109, 123, 84; all twelve fragments and all six calculi (`store-size.py`); all 73 of step 38's and 38b's sequents are in the store, with their lessons; the validation's agents took 24 to 46 commands on the Very hard ones |
 | Generated with intent, and chosen from the literature, each source read; nothing copied from LLTP or ILTP | done | `gen/gen.py` (built backwards from a planned proof shape, then disguised), `gen/pick.py` (kept only at the level aimed at); 45 problems are stated in a work read in itself and 4 derived from one, which their source line says (`evidence/classics.md`); no library file was read |
-| A difficulty that means something for a human, from the literature and the problems' structure, validated by agents of different strengths, the levels ordering their success and effort | done for effort and first-attempt success, strictly at every level; impossible here for plain success between Easy, Moderate and Hard, confirmed by a third round declared in advance (below, "What cannot be shown") | Rounds 2 and 3 pooled, bound 30 commands and 6 minutes, 20 attempts per level: solved 20, 20, 20, 9; first-attempt success 19, 15, 11, 6; mean commands 4.2, 7.8, 15.2, 20.5. Round 1 (60 commands) ordered effort. The levels' names and boundaries are for the author to judge. `trial/`, `trial2/`, `trial3/` |
+| A difficulty that means something for a human, from the literature and the problems' structure, validated by agents of different strengths, the levels ordering their success and effort | done for effort and first-attempt success, strictly at every level; impossible here for plain success between Easy, Moderate and Hard, confirmed by a third round and a fourth with a weaker solver, each declared in advance: 32 of 32 attempts solved at each of the three levels (below, "What cannot be shown") | Rounds 2 and 3 pooled, bound 30 commands and 6 minutes, 20 attempts per level: solved 20, 20, 20, 9; first-attempt success 19, 15, 11, 6; mean commands 4.2, 7.8, 15.2, 20.5. Round 1 (60 commands) ordered effort. The levels' names and boundaries are for the author to judge. `trial/`, `trial2/`, `trial3/`, `trial4/` |
 | Checked by the flake: linlog's command over the whole store | done | the client's `problems` check (`modules/_checks/problems.py`), failing on a planted wrong entry and passing on the store (Verification) |
 | Practice a place of its own, outside Learn's frame, from the bottom band at every width; only provable problems; filters by category and difficulty; a random one within the filters; a problem on a new tab; the hint ladder its help; the proved ones remembered | done, a test per behaviour | `src/islands/Practice.tsx`, `src/lib/practice.ts`. Its own place outside Learn's frame, from the band, offering the store's provable problems alone, key P: Playwright `practice.spec.ts` "Practice opens from the bottom band, outside Learn's frame, with the store's provable problems alone" and Vitest `practice.test.ts` "offers every provable problem of the store and none of its unprovable ones". At every width: "Practice is in the bottom band at every desktop width" (641 to 1920 pixels) and `phone.spec.ts` "Practice is in the bottom band at a phone's width, and a problem opens from it" (320, 360, 412). Filters by category and difficulty: "the filters show the problems of the chosen categories and levels, kept for the next visit" and Vitest "filters by category, any chosen within a group and every group at once, and by level". A random problem within the filters: "a random problem is one the filters show, and opens on a new tab beside the work open" and Vitest "picks a random problem among those the filters pass, and none from none". A problem on a new tab, the proved ones remembered: "a problem opens on a new tab, and once the visitor proves it, it is marked, also on the next visit" and "a problem the search closes is not marked proved". Closed by Escape or a press outside: `dismiss.spec.ts`. Its controls' sizes: `targets.spec.ts`. Learn's practice from the store: `learn.spec.ts` "a lesson's problem opens at once, and Watch plays its proof one step at a time" and `problems.test.ts` (the lessons' mix, level 3 per lesson); Learn keeps the unprovable: the schema's refinement "an unprovable problem is Learn's" |
 | Learn keeps the unprovable; its practice rubric becomes the lessons' practice, from the store | done | the schema refuses an unprovable problem without a lesson; Learn's frame holds the tutorial (each lesson with its practice) and the reference |
@@ -188,7 +188,8 @@ unprovable problems stay Learn's alone.
 
 The section asks that the levels order the agents' success. Plain success, solved or not
 within the bound, does not separate Easy, Moderate and Hard with these two agents. A third
-round, declared before it ran in order to test exactly this, confirms it.
+round and a fourth with a weaker solver, each declared before it ran in order to test
+exactly this, confirm it.
 
 - **The third round** (`trial3/`, `trial3/PLAN.md` written before any attempt): the same
   bound as the second round (30 commands, 6 minutes), the same harness, rules and
@@ -205,10 +206,17 @@ round, declared before it ran in order to test exactly this, confirms it.
   | 3 Hard | 20/20 | 11/20 | 15.2 | 45 |
   | 4 Very hard | 9/20 | 6/20 | 20.5 | 73 |
 
-- Across all three rounds, both models proved every Easy, Moderate and Hard problem: 26
-  of 26 attempts at each of the three levels. Success there is at its ceiling, and a
-  larger sample of the same levels has only added successes. With these agents, plain
-  success cannot order the three lower levels.
+- **The fourth round** (`trial4/`, `trial4/PLAN.md` written before any attempt): a
+  weaker solver, Haiku 5.5 at `low` effort, under the same bound and harness, on 6 fresh
+  problems per level (seed 4346), 24 attempts. The brief named `medium`; a solver at `low`
+  departs from it, to test the strengths the goal asks for. Its declared test, plain
+  success falling between neighbouring levels, did not hold either: solved 6/6, 6/6,
+  6/6, 4/6, mean commands 5.0, 7.8, 17.3, 19.3.
+- Across all four rounds and three solver strengths (Haiku at `low` and `medium`,
+  Sonnet at `medium`), every Easy, Moderate and Hard problem was proved: 32 of 32
+  attempts at each of the three levels. Success there is at its ceiling, and neither a
+  larger sample nor a weaker solver moved it. With these agents, plain success cannot
+  order the three lower levels.
 - Only a bound tightened after seeing the data would separate them, set between the
   commands Moderate and Hard took (7.8 and 15.2 on average). Such a bound would show the
   bound chosen, not the levels, so none was used. Weaker solvers would fail earlier, but
@@ -339,6 +347,9 @@ round, declared before it ran in order to test exactly this, confirms it.
 
 ### Departures from the design
 
+- The validation's fourth round ran Haiku 5.5 at `low` effort, where the brief names
+  `medium`, to try a weaker solver (above, "What cannot be shown").
+
 - Practice is a place of its own outside Learn's frame (D47), at the author's request, as
   the section says. Learn's frame keeps two of D47's three rubrics, the tutorial and the
   reference. Each lesson's practice sits under its lesson, as D60 orders. (departs from
@@ -440,6 +451,6 @@ calculus the page proves in has problems.
   - `gen/`: the generators, the measure, the picking, the store's build, the classics.
   - `evidence/`: each problem's measures, the interact exits, the classics' passages.
   - `research/`: the research agents' notes.
-  - `trial/`, `trial2/` and `trial3/`: the validation's three rounds, each with its rules, harness, sample, logs and table (`trial2/PLAN.md` and `trial3/PLAN.md` written before their rounds ran).
+  - `trial/` to `trial4/`: the validation's four rounds, each with its rules, harness, sample, logs and table (`trial2/PLAN.md` to `trial4/PLAN.md` written before their rounds ran).
   - `before/` and `after/`: the screenshots, listed by `ls`.
   - `store-size.py`: the store's size by level and category.
