@@ -77,8 +77,8 @@ items 5 and 6) and the rest of version 1:
 - the repository's website field pointing to the client, on the
   author's word.
 
-Learn's lessons (D56, D60) are written by 32c or a content session after
-it, every sequent in them proved or refuted by the command first.
+Learn's lessons (D56, D60) are step 43's, every sequent in them proved
+or refuted by the command first.
 
 ## Version 1
 

@@ -2,7 +2,7 @@
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
-every item, the verification table, no pushing. The step takes three
+every item, the verification table, no pushing. The step takes four
 sessions; this prompt is finished at the reviews of steps 39 and 40. It
 says what is fixed.
 
@@ -27,7 +27,8 @@ its dual need roots of their own beside the sequent's: the first session
 is the data model, the checker and the interactive rule, with the
 propositional search untouched (every proof it returns stays cut-free)
 and `plan/notes/api.md` followed for where quantifiers will go (D17).
-The second is elimination on terms, the third on nets with the drawing.
+The second is elimination on terms, the third on nets with the drawing,
+the fourth cut on the web page (below).
 Termination and the preservation of the conclusion are tested on
 generated proofs with cuts, every result through the checker.
 Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
@@ -46,6 +47,18 @@ formula the goal of the left premise and a hypothesis of the right), so
 every inference of a proof with cuts prints as the ILL sequent it is,
 and step 40's round trip extends to proofs with cuts and to every step
 of their elimination.
+
+## The fourth session: cut on the page (the author, 2026-10-23)
+
+A session of its own after the third, in the bindings and the web client
+(`/home/tux/Projects/own/linlog-prover.github.io`), whose CLAUDE.md
+applies there: the cut rule in the page's interactive proving (the
+student names the cut formula, its two premises open as goals), and
+elimination step by step on the derivation and on the net, each step
+drawn, undoable and named, within step 38's tokens, grammar and
+44-pixel targets; the bindings' calls for both, tested; the client's
+lock moved after linlog's push. No lesson or practice here: those are
+step 43's third session (43c).
 
 ## Known already (2026-10-19), for the review that finishes this prompt
 

@@ -101,7 +101,13 @@ The first, on Fable 5.1 at `high`, writes the plan and settles the data
 model, the proof term and the checker's eigenvariable condition; the
 rest on Opus 5.5 at `high`; the panel of step 26's prompt for every
 change of a search, a criterion or the checker, its argument on Fable
-5.1 at `high`.
+5.1 at `high`. The last session brings first-order logic to the web
+page (the author, 2026-10-23): input with quantifiers and terms, the
+quantifier rules in interactive proving (the student gives the witness
+at `∃R` and `∀L`, the page checks the eigenvariable condition through
+the library), the drawing, the bindings' calls, tested, and the
+client's lock moved after linlog's push; no lesson or practice there,
+which step 43's third session (43c) writes.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
 jj commits, `plan/reports/42-first-order.md`.

@@ -894,7 +894,7 @@ parser's `a⊥` stays unassigned.
 
 Left by session 32c (2026-10-19):
 
-- **Learn's content** (a content session): the lessons of D60 in the
+- **Learn's content** (step 43, assigned 2026-10-23): the lessons of D60 in the
   order of D56, the rules' schemas in the reference, and the hover
   explanations inside the frame (D47); every sequent proved or refuted
   by the command first, as the examples' were.

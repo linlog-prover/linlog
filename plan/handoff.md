@@ -59,9 +59,15 @@ is the authority):
   intuitionistic, the second classical with its two-sided view (D58's
   switch); each with the web client's part after linlog's push.
 - **41**: cut and cut elimination, after 39 and 40 (prompt finished at
-  their reviews; it extends 40's side table to cut formulas).
-- **42**: first-order linear logic, last (prompt finished; its first
-  session on Fable 5.1 at `high`; it builds on 40's formula type).
+  their reviews; it extends 40's side table to cut formulas); its fourth
+  session brings cut to the web page.
+- **42**: first-order linear logic (prompt finished; its first
+  session on Fable 5.1 at `high`; it builds on 40's formula type); its
+  last session brings first-order logic to the web page.
+- **43**: Learn's lessons with their practice, content in the client, three
+  sessions: 43a (lessons 1 to 5) and 43b (6 to 9) after 39 and 40, beside
+  41 if wanted; 43c (cut and the quantifiers) after 41 and 42. D60's order
+  is confirmed with the author from each session's outline.
 
 Two steps may run side by side when they touch different parts of the
 tree; give them the split of "The machine" below.

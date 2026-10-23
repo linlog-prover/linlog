@@ -59,8 +59,9 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
 | 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
 | 40 | The two-sided surface: two-sided sequents in and out, the one-sided form compiled from them with every occurrence's side recorded, every output raised, a round trip; intuitionistic first, then classical with its two-sided view (two sessions, each with a part in the web client; research of prior work first) | `40-ill-surface.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer on Opus 5.5 | high | 8, 9, 38 |
-| 41 | Cut, and cut elimination on terms and on nets (three sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
-| 42 | First-order linear logic (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
+| 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
+| 42 | First-order linear logic, its last session on the web page (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
+| 43 | Learn's lessons in D56's sequence and D60's order, with their practice: lessons 1 to 5, then 6 to 9 (with 39's nets with boxes and 40's two-sided surface), then cut and the quantifiers (three sessions, content in the web client, the education plugins; 43a and 43b may run beside 41) | `43-learn-lessons.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer per session | high | 39, 40 (43c: 41, 42) |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -551,6 +552,7 @@ claude --model claude-opus-5-5 --effort high --name step-39 ((open --raw plan/39
 claude --model claude-opus-5-5 --effort high --name step-40 ((open --raw plan/40-ill-surface.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-41 ((open --raw plan/41-cut.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-42 ((open --raw plan/42-first-order.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-43 ((open --raw plan/43-learn-lessons.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
@@ -3101,3 +3103,16 @@ client follows it (step 32).
   renamed and every path follows; the Status log, the decisions, the
   reports and the notes keep the numbers they were written with. The
   author runs the steps left on the other account (Max 20x).
+- 2026-10-23: the web and Learn added to the steps left, at the author's
+  word, placed by the guidance on sessions (a fresh context per unit of
+  work, one writer per coupled change): step 39 unchanged (its second
+  session is full; its practice and lesson 8's boxes go to 43b); step
+  41 gains a fourth session, cut on the web page (the interactive cut
+  rule, elimination step by step on the derivation and the net); step
+  42 a last session, first-order logic on the page; and a new step 43,
+  Learn's lessons in D56's sequence and D60's order with their practice,
+  content only, in three sessions (43a lessons 1 to 5, 43b 6 to 9 with
+  the nets with boxes and the two-sided surface, 43c cut and the
+  quantifiers after 41 and 42), D60's order confirmed with the author
+  from each session's outline. 43a and 43b touch only the client's
+  content and may run beside step 41's linlog sessions.
