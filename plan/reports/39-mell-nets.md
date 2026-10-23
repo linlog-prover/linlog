@@ -647,3 +647,378 @@ among them; the fix touches no binding.
 - A disconnected MELL structure is drawn without highlight.
 - Intuitionistic MELL nets, and a term → net reading that keeps
   instances, stay as 39a left them.
+
+## Session 39c: intuitionistic MELL nets
+
+**Outcome: intuitionistic MELL proofs have proof nets with boxes.** The
+net of an intuitionistic proof is the structure with boxes of its
+one-sided sequent, and 39a's criterion without Mix decides it exactly:
+under the intuitionistic reading, every sequent of a cut-free classical
+proof without units has exactly one formula in output position, so a
+structure the criterion accepts sequentializes into a term the checker
+accepts in intuitionistic mode, and every intuitionistic term is a
+classical one whose net the criterion accepts. Affine modes stay without
+nets. The command's `prove --net` and `check --net` and the bindings'
+`draw_net` and `view` give an intuitionistic MELL proof its net in text,
+JSON, SVG, PNG and PDF, and with `svg.essential=true` the drawing is the
+essential net with boxes, in both drawings and both of 38i's looks. The
+default MELL drawing now keeps door wires bound for different `?`
+vertices on separate legs. The panel of step 26 refuted
+neither soundness nor completeness; its one finding that held, door
+wires between nested boxes still sharing a leg in the default drawing,
+is fixed. The net target set is unchanged against `net-after-38i`.
+
+### The research
+
+A research sub-agent (Sonnet 5.5 at `medium`) fetched and read the
+sources and quoted them with pages; what it could not fetch is listed
+below and is used for nothing. What each source says:
+
+- **Lamarche**, *Proof nets for intuitionistic linear logic: essential
+  nets* (INRIA report, HAL inria-00347336, 2008, from 1994). Fragment
+  `⊗`, `⊸`, `&`, `!` (p. 2). His system is one-sided with input and output
+  polarities, and its connectives "have the same introduction rules as in
+  ordinary linear logic, except that we have the right to introduce a
+  connective only when it respects the polarity tables" (p. 4).
+  Proposition 1 (p. 4): "Let ⊢ X1,…,Xn be a provable sequent of the
+  system. Then there exists a unique i such that Xi◦. The proof is a very
+  easy induction." For the exponentials he keeps box information as
+  links ("boxedge" links, p. 2; a net must be "well-balanced", p. 15) and
+  a weakening as a pointer ξ to an output link (pp. 9–10, 13); his
+  Theorem 1 (p. 20) is a sequentialization theorem for that net, a
+  criterion of trails, not Danos–Regnier.
+- **Di Donna and Tortora de Falco**, *On the role of connectivity in
+  linear logic proofs* (arXiv 2506.21678v3). Definition 74 gives IMELL's
+  grammar of outputs and inputs (`O ::= X | 1 | O⊗O | O⅋I | I⅋O | !O`,
+  `I ::= X⊥ | ⊥ | I⅋I | I⊗O | O⊗I | ?I`), Proposition 75 (citing
+  Lamarche): "Every provable sequent of IMELL has exactly one output
+  formula." Their introduction: attempts to add conditions to acyclicity
+  for a MELL criterion without Mix "were never really successful", and
+  jumps have "no canonical position in general".
+- **Accattoli**, *Proof nets and the call-by-value λ-calculus* (arXiv
+  1303.7326, §6): "in IMELL there is no correctness criterion unless the
+  syntax is extended with boxes for both ! and ⊸"; "The difficulty … is
+  given by the presence of weakenings, which break connectedness";
+  Regnier's count of `1 + #w` components fails (his Fig. 5.b); "The usual
+  way to circumvent problems … is to add some information … under the
+  form of boxes … or jumps."
+- **Laurent**, *Étude de la polarisation en logique* (thesis, 2002,
+  HAL tel-00007884): for MELL without weakening, Danos–Regnier on every
+  correction graph (Def. 1.10, Th. 1.11), and with weakening a criterion
+  is "un problème ouvert" (§1.2); for polarized linear logic LLP, a
+  criterion of acyclicity and one initial non-weakening node with boxes
+  (Def. 5.10, Th. 5.19), which is LLP's, not IMELL's (Accattoli §6: a
+  weakening under a tensor is not polarizable).
+- **Schellinx**, *Some syntactical observations on linear logic* (ILLC
+  preprint ML-90-08, §3): classical linear logic is not conservative over
+  intuitionistic linear logic; his counterexample `D ⊸ C, (D ⊸ B) ⊸ 0 ⇒
+  C ⊗ ⊤` uses `⊤` and `0` and no exponentials.
+- **Moot** (arXiv 0805.2303, §2) and **Fulop** (arXiv 1203.4912, §4.4),
+  secondary: for unit-free multiplicative intuitionistic logic, the
+  Danos–Regnier criterion applies to the polarized structure, Lamarche's
+  essential nets being an equivalent second criterion; Murawski and Ong
+  (LICS 2000, abstract only) reduce MLL nets to essential nets.
+- **Asperti and Roversi**, *Intuitionistic light affine logic* (arXiv
+  cs/0006010, §3), for the affine case: nets defined inductively with an
+  unconstrained weakening wire; no criterion.
+- Not read (unavailable): Schellinx's journal version, Murawski and
+  Ong's full papers, Laurent's TCS 2003 paper, Guerrini and Masini's TCS
+  paper (39a read their IRCS report), Regnier's and Danos's theses.
+
+### The criterion chosen, and why
+
+**39a's criterion without Mix, on the structure of the one-sided
+sequent** (`MellStructure::is_correct`; `Criterion::of(Mode::INTUITIONISTIC)`
+is `Criterion::MLL`), exactly as IMLL's nets already are. It is
+independent of any engine, and its witness of failure is 39a's (a
+switching cycle or a disconnection, and the box it lies in).
+
+*Why it is exact for linlog's intuitionistic mode (derived here, not
+quoted).* Under the reading (`Reading::read`) every occurrence of a
+sequent that has one gets a position: `!` only in output with an output
+premise, `?` only in input with an input premise, `a` output, `~a`
+input, a `⊗` with both premises output (output) or output and input
+(input, `A ⊸ B` on the left), a `⅋` with input and output premises
+(output, `A ⊸ B` on the right) or both input (input, `A ⊗ B` on the
+left). Count an output formula 1 and an input formula 0. An axiom
+concludes 1; a `⊗` rule concludes `s₁ + s₂ − 1` (an output `⊗` makes
+one output of its two; an input `⊗`, `A ⊸ B` on the left, uses up the
+output `A` of its left premise, and the other premise's output stays); a
+`⅋` rule, a
+`?` rule (an input leaves the linear zone for `Θ`), a copy (an input from
+`Θ`) and a promotion (output premise, output `!`) keep the sum. So every
+sequent of a cut-free classical proof without Mix of a sequent with a
+reading holds exactly one output in its linear zone, and `Θ` holds
+inputs only: that is the checker's one-succedent condition in
+intuitionistic mode (`proofs/check`, "every intuitionistic rule is a
+classical rule on the one-sided sequent"). Mix would add two sums, which
+is why the criterion is the one without Mix. This is Lamarche's
+Proposition 1 and Di Donna and Tortora de Falco's Proposition 75 seen
+from the other side: their systems restrict the classical rules to the
+polarities, and the count shows that without `⊤` and `0` a classical
+proof of a polarized sequent never leaves them. With `⊤` (which absorbs
+outputs) or `0` (which reads in either position) it fails, which is
+Schellinx's counterexample; `1` and `⊥` would keep it, and MELL nets have
+no units at all.
+
+So both directions follow from 39a's: an accepted structure
+sequentializes (39a) into a classical term, which the count makes an
+intuitionistic one; an intuitionistic term is a classical one, whose net
+(39a) is accepted. Nothing new decides anything: `exist` admits
+intuitionistic mode, `sequentialize` gains a `debug_assert` that its term
+passes the intuitionistic check where the sequent has a reading, and the
+docs say what holds.
+
+*Why not the others.* Lamarche's essential nets with exponentials
+(Theorem 1) are a criterion of their own on a different structure (box
+edges as links, weakening as a ξ-pointer to an output link), which would
+be a second representation of the same proofs beside the boxes linlog
+already has, with its own witnesses; the per-depth Danos–Regnier
+criterion already decides linlog's structure, and the count makes it
+exact. Laurent's polarized criterion is LLP's, whose polarities are not
+IMELL's (a weakening under a `⊗` is not polarizable). Accattoli's "no
+criterion for IMELL" is about structures without boxes or jumps; linlog's
+structure has boxes, and its weakenings hang on axiom links (39a), which
+is the jump that restores connectedness.
+
+*Where it does not apply.* The affine modes, classical and
+intuitionistic: an affine proof weakens formulas that are no `?`, which a
+structure has no vertex for (the sources give no criterion either; Asperti
+and Roversi define affine nets inductively). The ordered modes refuse
+exponentials. Units are outside MELL nets altogether.
+
+### What was built
+
+- **The library** (`core/src/nets/mell/`): `MellStructure::exist` admits
+  intuitionistic mode, affine and ordered modes still `NotMell`; a new
+  `MellStructure::reading` (the structure's intuitionistic reading, as
+  `ProofStructure::reading`); `sequentialize`'s docs and a `debug_assert`
+  of the intuitionistic check; `from_proof`'s docs. The refusal's text
+  names intuitionistic mode. The test `intuitionistic_nets`: the units
+  and the affine modes refused; a fixed net `⊢ !((a ⊸ a) ⊗ (a ⊸ a))`
+  whose term passes the intuitionistic check and its crossed linking,
+  refused with a switching cycle inside the box (`InBox`); 200 random
+  intuitionistic proofs of the default engine (`generate::ill` with
+  exponentials), each with seven mutants, every verdict equal to the
+  switching enumeration where it decides, every accepted structure
+  round-tripped and its term checked in intuitionistic mode.
+- **The command**: no code; `--net`'s gate is `MellStructure::exist`. The
+  help of `--net` names intuitionistic mode (the behaviour lock's two help
+  files). `mell_nets` in `cli/tests/cli.rs`: `prove --net -i`, `check
+  --net -i` of a proof in JSON, its essential drawing, and the affine
+  refusal. README's `--net` section shows an intuitionistic MELL net and
+  the affine refusal in place of the old intuitionistic refusal.
+- **The JSON form**: 39b's level-4 document, unchanged; an intuitionistic
+  net's sequent keeps its `antecedents`, so the document says it was
+  written two-sided.
+- **The bindings**: no code; `draw_net` and `view` gate on
+  `MellStructure::exist`. `a_proof_with_exponentials_draws_its_net_with_boxes`
+  draws an intuitionistic MELL net, its essential drawing, and refuses
+  the intuitionistic affine one.
+- **The drawing** (`svg/mell.rs`): under `Style::essential` the reading
+  drawn in, as the MLL essential drawing does: the reading's formulas
+  (`!A` for an input `?A⊥`), input vertices, their texts, circles,
+  edges, wires and the rules' nodes in `input`, an arrowhead on every
+  edge toward the goal (a `?` vertex's edges and wires lead up into its
+  copies), the edge into an output implication's antecedent dotted in
+  `dominator`, the rules' labels `!d`, `!c`, `!w` under the textbook
+  look, the dashed group off. The estimate counts the arrows, the colour
+  and the two groups. Snapshots `essential-boxes`, `-compact`,
+  `-textbook`, `-textbook-compact` (`!a, !(a ⊸ b) ⊢ !(b ⊗ a)`: a
+  hypothesis copied twice into the goal's box, one copied once) and
+  `essential-boxes-implication` (`!(a ⊸ b) ⊢ !a ⊸ !b`: an implication whose
+  antecedent is a `!`, its dotted line).
+- **The default drawing's wires** (item 4 of the plan): the legs of door
+  wires that run level between the same two rows are staggered in
+  linlog's look as in the textbook look (38i), half the radius apart at
+  least, and the rows spaced for the most wires ending on one `?` row.
+  `net_looks` measures six wires in both looks; the five
+  `net-promotion*` snapshots moved.
+
+### Decisions and departures
+
+- **No essential criterion with boxes.** The drawing under
+  `svg.essential` highlights the switching cycle of `is_correct`, which
+  decides the structure; the MLL essential drawing highlights
+  `is_essential`'s directed witnesses. (departs from the design: the plan
+  speaks of "the essential net's drawing with boxes", which this is, but
+  its verdict is the classical criterion's, since the research gave no
+  reason for a second criterion and Lamarche's is on another structure.)
+- **The structure records no mode**, as IMLL's does not: `sequentialize`
+  records `Mode::CLASSICAL` on its term, which the checker also accepts in
+  intuitionistic mode (asserted in the tests and a `debug_assert`). The
+  command and the bindings check and show proofs in the session's mode,
+  so nothing reads the recorded mode of a sequentialized term.
+- **A hypothesis's rules are named `!d`, `!c`, `!w`** under the reading
+  in the textbook look, since the reading writes the input `?A⊥` as `!A`
+  and its doors and nodes as `!`.
+- **The default look's wires apart** reuse the textbook look's staggering
+  rather than a rule of their own; it moves the snapshots where two door
+  wires share a band (only `net-promotion*`), and the compact rows grow
+  by 20 units where two wires share one.
+
+### Options, front ends and quantifiers (D15, D16, D17)
+
+No option was added: the essential drawing with boxes is
+`svg::Style::essential` (`--style svg.essential=true`, the bindings'
+`styles.svg.essential`), with `svg.net` and `svg.net_look` as before.
+Quantifiers would enter the essential drawing as they would the MELL
+drawing (39b), their positions given by the reading.
+
+### Public items added, for step 45
+
+`MellStructure::reading` (a method). No closed enum gained a variant; no
+wire form changed level.
+
+### The review
+
+The panel of step 26, one round each, on the frozen tree `pqklosln`
+(f4595ea7), each in a jj workspace of its own with conduct.md's rules
+(named cores among 4 to 11, capped scopes, bounded runs), each told to
+report only what breaks soundness, completeness or a stated requirement.
+The claims briefed: (1) an accepted structure over a sequent with a
+reading sequentializes into a term the checker accepts in intuitionistic
+mode; (2) every intuitionistic term desequentializes into an accepted
+structure; (3) the refusals (affine, ordered, units) at the library, the
+command and the bindings; (4) the sources used for what they say; and
+for the integers, the drawing's estimate never below the drawing in any
+look, and the legs of one band half the radius apart.
+
+- **The argument (Fable 5.1 at `high`)** stated the reading's rules and
+  the checker's intuitionistic conditions from the code first, then
+  checked the count at every rule (`Ax`, both `⅋`, both `⊗`, `!`, `?`
+  with and without `Θ`, copy, weakening only of a `?`; `any` never set
+  without `⊤`), and ran 299 classical focused proofs of generated
+  unit-free IMELL sequents through the intuitionistic check, their nets
+  and their sequentializations. Claims 1 to 4 held.
+  - *Note: `check -i --mix --net` prints "proof net with Mix".* `check`
+    takes the mode without `Mode::check`, so `-i --mix` reaches the net
+    code with `Criterion::of` giving Mix. **Answer: holds as an
+    observation, not fixed here.** It is older than this session: an IMLL
+    proof under `check -i --mix --net` printed the same before, and the
+    net shown is a true net (the term has no Mix; the checker refuses Mix
+    in intuitionistic mode). The cause is `check`'s mode, which `prove`
+    validates (`Mix has no intuitionistic form`); a follow-up below.
+  - *Note: "the count fails with units" was too broad.* `1` and `⊥` keep
+    the count; `⊤` (absorbing) and `0` (either position) break it, which
+    Schellinx's counterexample uses. **Answer: holds, the wording is
+    corrected** in `core-nets.md` and this report.
+- **The counterexamples (Opus 5.5 at `high`)** wrote its own switching
+  enumeration from the definition and a witness validator, and ran in a
+  release build with debug assertions (so `sequentialize`'s new
+  `debug_assert` was live): sequents from `generate::ill` with
+  exponentials, rewritten to add `!` (`!H`, `!!H`, promotions, currying
+  into `!A ⊸ …` goals), their mutants, a generator heavy in `!`, 28 hand
+  sequents, each also one-sided; proofs from the default dispatch, the
+  forced two-sided and inverse engines and the classical focused engine,
+  with `search::reference` on the small ones. 89 123 structures judged
+  (46 077 accepted, 43 046 refused), its enumeration agreeing on all
+  88 933 it could enumerate and every refusal's witness true; every
+  accepted structure's term accepted in intuitionistic mode; 2 640
+  intuitionistic proofs all giving accepted nets; all 860 classical
+  focused proofs of sequents with a reading accepted by the
+  intuitionistic check. *No finding.*
+- **The integers and limits (Sonnet 5.5 at `high`)** drove the estimate
+  against the drawing (every structure refused one byte below its
+  drawing, about 400 random and many hand sequents, families up to 1 000
+  hypotheses, node radius 1 to 10⁶, line height 0 to 10⁶, every look,
+  both drawings, `essential` on and off, colours of 120 bytes), the
+  stagger with 300 and 1 000 wires in one band, the command's refusals
+  of large renders, and the `debug_assert` (never fired, under 30 ms on
+  nets of 150 hypotheses).
+  - *F1, confirmed: wires from an inner box's door to an outer box's
+    door are not staggered in the default look and share a leg*
+    (`!a ⊢ !(!a ⊗ !a ⊗ !a ⊗ !a)`; with two `?`s, `!a, !b ⊢ !(!a ⊗ !b ⊗ !a ⊗
+    !b)`, four wires of two `?`s on y = 15336, overlapping). **Answer:
+    holds, fixed** (`putlnukx`): those wires join the bands and the row
+    count. Looking at the fix showed a second fault of the first
+    attempt: in the drawing with formulas, the room borrowed from the
+    rules look (`pitch − 3·radius`) let raised legs reach the text of the
+    row above; the default's legs now keep within `line_height −
+    2.5·radius − stroke`, below that text, and the rows grow when a band
+    needs more. `net_looks` measures the four door-to-door wires in both
+    drawings; it fails on the reviewed tree. Four snapshots moved
+    (`net-promotion`, `-plain`, `-bottom`, `essential-boxes`), rendered
+    in the five fonts and looked at.
+  - *F2, confirmed, pre-existing: a division by zero in the rules look's
+    label narrowing* (`svg/mell.rs`, `label_size * room / full`) when a
+    font's labels measure 0 and the room is negative (a style with
+    `"font": {"advances": {"fixed": 0}}`, `net_look` textbook and a
+    stroke of 200). **Answer: holds, not fixed here**: it is session 38i's
+    code, outside this diff, and needs a font of zero widths; a
+    follow-up below.
+  - *Note: with an odd radius the half radius is rounded down* (radius 3
+    gives legs 1 apart). **Answer: as 38i's guarantee is stated, in
+    integers; no change.**
+
+The reviewers' scratch modules and notes stay outside the repository,
+under `/tmp/claude-1000/step39c-review/`.
+
+### The net target set
+
+`bench/net-targets.sh after-39c` (its `--inside` part in the unit
+`step39c-net-targets`, under the machine lock, core 2) at the code of
+`pqklosln`. `linlog-bench summary --against
+bench/targets/net-after-38i.csv bench/targets/net-after-39c.csv
+--counters` gave: verdicts that differ, none; "Of the 64 problems both
+decide alike on one thread, 0 differ in nodes, splits, memo_hits,
+memo_entries, links, tests"; none decided by one and not the other. The
+file is committed (`ytrmtlzo`). The panel's fix touches only the
+drawing, which the net engine does not use.
+
+### Commits
+
+On `puwowxwl` (linlog's `main` when the session began), in
+`../linlog-step39c`:
+
+- `kqywyupq` (4cdec437) Keep the default net drawing's door wires apart:
+  gated alone, in a workspace at its own tree (`gate: passed`, exit 0).
+- `kmwxnqtn` (f4eca170) Give intuitionistic MELL proofs their nets with
+  boxes: gated together with the next (`gate: passed`, exit 0); alone it
+  fails only the behaviour lock's two help files, which the next blesses.
+- `pqklosln` (f4595ea7) Bless the behaviour lock for intuitionistic MELL
+  nets: the help of `prove` and `check` for `--net`; the frozen tree of
+  the review.
+- `ytrmtlzo` (0821e32d) Record the net target set after the
+  intuitionistic MELL nets: a results file, no code.
+- `putlnukx` (c39cbbdf) Keep the door-to-door wires of a net drawing
+  apart: the integers panel's F1; gated (`gate: passed`, exit 0).
+- The last commit holds this report and the units wording of
+  `core-nets.md`. It is prose only; `nix flake check` ran at it, and its
+  exit status is in the message to `planning`.
+
+### What is left open
+
+- **`check -i --mix` accepts a mode that does not exist** (pre-existing):
+  `check` takes the mode without `Mode::check`, so a proof checks as
+  "intuitionistic with Mix" and its net prints "proof net with Mix",
+  for IMLL as before and now for IMELL; `prove` refuses the mode. A
+  one-line fix in `cli/src/check.rs` with a test, for a later session.
+- **A division by zero in the rules look's label narrowing**
+  (pre-existing, session 38i's code, `svg/mell.rs`): with a font whose
+  labels measure 0 and a negative room (a stroke of 200, or a radius of
+  1) `label_size * room / full` panics; `Style::check` accepts such a
+  style. Found by the integers panel; for a later session.
+- **No essential criterion with boxes**: the essential drawing with
+  boxes highlights the classical switching cycle. Lamarche's Theorem 1
+  would be a second criterion on another structure.
+- **Affine nets**: none; the sources read give no criterion for them.
+- What 39b left open stays: weakenings' links not drawn, a door's wire
+  may cross edges and in a crowded net a formula, a disconnected MELL
+  structure drawn without highlight, a term → net reading that keeps
+  instances.
+- The page's part, in the client: below.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| Research: the sources on intuitionistic MELL nets read, the criterion chosen and argued | done | "The research", "The criterion chosen, and why" |
+| The structure: a criterion independent of any engine with a witness of failure, sequentialization into a term the checker accepts in intuitionistic mode, desequentialization, tests | done | 39a's `is_correct` without Mix on the one-sided structure; `MellStructure::exist`, `reading`; `intuitionistic_nets` (fixed nets, a witness inside a box, random proofs and mutants against the enumeration, every accepted term checked in intuitionistic mode, the affine refusals) |
+| The panel on a frozen tree (argument on Fable 5.1 at `high`, counterexamples on Opus 5.5 at `high`, integers on Sonnet 5.5 at `high`), each finding answered | done | "The review"; F1 fixed in `putlnukx` |
+| The drawing in both drawings with 38i's options, the JSON form, `prove --net` and `check --net` in intuitionistic mode, the bindings; snapshots rendered and looked at; README run by `readme.rs` | done | `essential_nets` (five `essential-boxes*` snapshots, rendered in five fonts), `mell_nets` in `cli/tests/cli.rs`, `a_proof_with_exponentials_draws_its_net_with_boxes` (bindings), README's `--net` and SVG sections; `cargo test --workspace` passed |
+| The default MELL drawing's door wires kept apart, the changed snapshots regenerated and looked at | done | `kqywyupq`, `putlnukx`; `net_looks` measures six wires and four door-to-door wires; `net-promotion*` and `essential-boxes` rendered in five fonts |
+| The net target set against `net-after-38i`, unchanged | unchanged | "The net target set" |
+| Every code commit gated; `nix flake check` at the last commit; "linlog ready" to `planning` | done | "Commits"; the flake check's exit status in the message to `planning` |
+| Rules files, README, changelog true | done | `core-nets.md`, `core-export.md`, `cli.md`, `web.md`; README's `--net`, SVG and "What exists"; CHANGELOG `[Unreleased]` (Added, Changed) |
+| The page's net tab live for a finished intuitionistic MELL proof, with a test; the client's `nix flake check` | waiting for linlog's pushed `main` | "The page" below, written after the supervisor answers |

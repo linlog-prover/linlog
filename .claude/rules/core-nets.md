@@ -360,9 +360,10 @@ engine. What the code relies on:
   condition (Mix would add 1 + 1). So `sequentialize`'s term, checked
   classically, is accepted in intuitionistic mode too (a `debug_assert`
   checks it), and every intuitionistic term is a classical one whose net
-  `from_proof` makes. The count fails with units (Schellinx's
-  counterexample to conservativity, ILLC ML-90-08 §3, uses `⊤` and `0`),
-  which unit-free MELL has none of. The sources: Lamarche (*Proof nets
+  `from_proof` makes. The count fails with `⊤` (which absorbs outputs)
+  and `0` (which reads in either position): Schellinx's counterexample to
+  conservativity (ILLC ML-90-08 §3) uses both; `1` and `⊥` keep it, but
+  MELL nets have no units at all. The sources: Lamarche (*Proof nets
   for intuitionistic linear logic: essential nets*, HAL inria-00347336,
   Prop. 1: in his polarized one-sided system every provable sequent has
   one output, "a very easy induction"; his system is classical LL's rules
