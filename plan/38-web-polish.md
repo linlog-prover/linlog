@@ -229,3 +229,50 @@ Tests where a test can see it (the header and the icons served, the
 manifest's sizes, the CSP); screenshots before and after at both widths
 in both themes; the reports as sections of
 `plan/reports/38b-zoom-fonts-dismiss.md`.
+
+## Session 38h: invertible rules applied automatically (the author, 2026-10-23)
+
+The author asked for a toggle, off by default with an explanatory
+tooltip, that applies the invertible rules by itself, as focusing's
+asynchronous phase does and as Click & coLLecT's "auto-reverse" option
+does (its page, read 2026-10-23: "applies systematically reversible
+rules to generated sequents", the introductions of `⅋`, `&`, `⊥`, `⊤`,
+`!` and `1`, and also the axiom on atoms and `⊗` with an empty context).
+One session, Opus 5.5 at `high`, in linlog and then the client, after
+step 39b's push and before step 40 (both touch the interactive layer),
+its goal in its launch prompt:
+
+1. **In the library** (`Interactive`): one call that applies to a goal,
+   or to every open goal, each rule that is invertible in the goal's
+   mode until none applies, every application an ordinary step of the
+   state, so that the completed proof is checked as any other (D13).
+   Which rules are invertible in each mode (classical, intuitionistic
+   two-sided, affine, with Mix, the ordered modes) is read in the
+   sources (Andreoli 1992 for the classical case; the intuitionistic
+   and affine ones from their own sources), never from memory, and
+   written in the rules file; where a rule is invertible only under a
+   condition (`!` when every other formula is a `?`, `1` alone, the
+   axiom, `⊗` with an empty context), the condition is checked. A test
+   that it never turns a provable goal into an unprovable one (the
+   search decides the goal before and the goals after, on generated
+   sequents of every mode), and that it ends.
+2. **One options value** (D15, D16): off by default, with which rules
+   it applies if there is more than one sensible set; `linlog interact`
+   gains a flag and a command for it; the bindings take it as a
+   setting; the JSON state is unchanged or raised as `wire.rs` says.
+3. **On the page**: a toggle where the page keeps its proving
+   behaviours (the session's choice with `frontend-design`, within
+   step 38's grammar), off by default, kept with the other settings,
+   its tooltip saying in two sentences what an invertible rule is and
+   why applying it never loses a proof; undo takes back the automatic
+   steps in a way that does not surprise (the session decides, and says
+   why); the hint ladder's first rung (D12) takes the toggle into
+   account; a test per behaviour; before-and-after screenshots at both
+   widths in both themes.
+
+A fresh-context reviewer on Opus 5.5 at `high` reads the invertible
+sets against their sources and the tests, reporting only what breaks a
+stated requirement. linlog's part first, as 38b's was: the supervisor
+reviews and pushes it, then the client's lock moves to it. The report
+as a section of `plan/reports/38b-zoom-fonts-dismiss.md`.
+
