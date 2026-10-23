@@ -535,10 +535,13 @@ for NanoYalla. What the code relies on:
   `?`'s premises before any height is fixed) that the most wires sharing
   a band stand half the radius apart at least: the uniform compact rows
   left six wires 60 units apart against a 40-unit stroke, one bar to the
-  eye (the review's finding; `net_looks` measures six). The
-  default drawing does not stagger, and two of its wires bound for
-  different `?`s on one row can share a leg (`net-promotion.svg`); a
-  fix would change the default's snapshots. What no test catches: a
+  eye (the review's finding; `net_looks` measures six). The default
+  look staggers the same way: its wires run along twice the radius above
+  their `?`'s row, so a band is a `?` row, and the rows are spaced by the
+  most door wires ending on one `?` row; before, two wires bound for
+  different `?`s on one row shared a leg and read as one
+  (`net-promotion.svg`, `!a, !b, !(c * d) ⊢ !((a ⊗ a) ⊗ (d ⊗ c))`;
+  `net_looks` measures the six wires in both looks). What no test catches: a
   leg through another formula or a wire across an edge (accepted, as
   for the default's wires); look at the renderings.
 - **The estimate under the rules** adds `2 · RULE` per copy (its `?d` and

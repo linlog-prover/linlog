@@ -319,6 +319,11 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- A net with boxes in linlog's look keeps the wires that run level
+  between the same two rows apart, those bound for different `?`
+  vertices included, half the node radius at least, the rows drawn as
+  far apart as that needs, as the textbook look already did; before,
+  two such wires could share one line.
 - linlog has a logo, the word with its i drawn as `⊸` stood on end,
   under CC BY 4.0: the README (and so crates.io), the library's rustdoc
   (its logo and favicon) and the Rocq library's new README show it, by

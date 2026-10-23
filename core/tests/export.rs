@@ -834,9 +834,9 @@ fn mell_nets() {
 /// preset on a `?` with copies at its depth and in a box, and on nested
 /// boxes; plain premises on a multiplicative net, which the other two
 /// options leave as they are. Each lies in its view box and is estimated
-/// at least at its size and within four times of it. Under the rules
-/// wires running level between the same two rows stand apart, and a
-/// switching cycle through a door is still highlighted.
+/// at least at its size and within four times of it. Wires running level
+/// between the same two rows stand apart in both looks, and under the
+/// rules a switching cycle through a door is still highlighted.
 #[test]
 fn net_looks() {
     let mell = |input: &str| {
@@ -890,14 +890,16 @@ fn net_looks() {
         }
     }
 
-    // Six wires running level between the same two rows: each leg half
-    // the radius from the next at least, in both drawings, so that none
-    // reads as part of another.
+    // Six wires running level between the same two rows, each bound for
+    // its own `?`: each leg half the radius from the next at least, in
+    // both drawings and both looks, so that none reads as part of another.
     let six = mell("!a, !b, !c, !d, !e, !f |- !(((a * b) * (c * d)) * (e * f))");
-    for drawing in [NetDrawing::Formulas, NetDrawing::Compact] {
-        let style = Style::default()
-            .with_net(drawing)
-            .with_net_look(NetLook::TEXTBOOK);
+    let drawings = [NetDrawing::Formulas, NetDrawing::Compact];
+    for (drawing, look) in drawings
+        .into_iter()
+        .flat_map(|d| [(d, NetLook::TEXTBOOK), (d, NetLook::LINLOG)])
+    {
+        let style = Style::default().with_net(drawing).with_net_look(look);
         let svg = svg::mell_net(&six, &style, &unbounded(), |_| false).unwrap();
         // A wire's path: down from its door, along its leg and down.
         let mut legs: Vec<i64> = svg
