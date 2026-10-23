@@ -35,6 +35,21 @@ second number (0.1.x to 0.2.0), anything else the third.
   nested boxes nested, the ids `o<n>` (the only vertex of occurrence
   `n`), `v<k>` (vertex `k` of an occurrence with several), `b<k>` and
   `l<x>-<y>`.
+- A net's look, `svg::Style::net_look` (`svg::NetLook`, in JSON its
+  fields or a preset's name): `premises` (`Premises::Dashed`, the
+  default, or `Plain`: the edges into a `⅋` or `?` node and the wires
+  drawn as every other edge), `conclusions` (`Conclusions::Raised`, the
+  default, or `Bottom`: a `!` conclusion with auxiliary doors on the
+  bottom row too, under an edge down from its door) and `why_not`
+  (`WhyNot::Node`, the default, or `Rules`: a `?` node drawn as a
+  dereliction `?d` under each copy, inside its box, binary contractions
+  `?c` and a weakening `?w`, each copy's wire through doors of its
+  own), and the presets `NetLook::LINLOG` (the default, the drawing as
+  before) and `NetLook::TEXTBOOK` (all three the textbooks' way), named
+  by `NetPreset`. The command's `--style svg.net_look=textbook` and
+  `svg.net_look.premises=plain`, `…conclusions=bottom` and
+  `…why_not=rules`, and the bindings' `styles.svg.net_look`. New types
+  only; no enumeration gained a variant.
 - The command's `--net` gives a MELL proof (classical, with or without
   Mix) its net with boxes in `prove` and `check`, as text, SVG, PNG and
   PDF, and `--net --format json` writes the net's document, of an MLL

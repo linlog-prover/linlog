@@ -90,7 +90,8 @@ fn a_proof_by_steps_is_checked_and_exported() {
 /// A finished proof with exponentials has its net with boxes: the view
 /// gives no refusal, and `draw_net` draws each box a rectangle, with its
 /// formulas or compact; in intuitionistic mode the view says why there is
-/// no net, and `draw_net` refuses the same.
+/// no net, and `draw_net` refuses the same. The settings' `net_look`
+/// draws it in the textbooks' look, by the preset's name or its fields.
 #[wasm_bindgen_test(unsupported = test)]
 fn a_proof_with_exponentials_draws_its_net_with_boxes() {
     let started = calls::start("!a, !b |- !a", "classical", "").unwrap();
@@ -109,6 +110,16 @@ fn a_proof_with_exponentials_draws_its_net_with_boxes() {
             .unwrap()
             .contains("<circle")
     );
+    // The textbooks' look, by its name or by its fields: the weakening of
+    // `?b⊥` a node `?w` of its own.
+    assert!(!drawing.contains(">?w<"), "{drawing}");
+    let named = settings(&json!({"styles": {"svg": {"net_look": "textbook"}}}));
+    let fields = settings(&json!({"styles": {"svg": {"net_look": {
+        "premises": "plain", "conclusions": "bottom", "why_not": "rules"
+    }}}}));
+    let textbook = calls::draw_net(&state, &named).unwrap();
+    assert!(textbook.contains(">?w<"), "{textbook}");
+    assert_eq!(calls::draw_net(&state, &fields).unwrap(), textbook);
 
     let started = calls::start("!a |- !a", "intuitionistic", "").unwrap();
     let state = session(&calls::close_all(&session(&started), "").unwrap());

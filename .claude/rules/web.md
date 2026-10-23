@@ -130,6 +130,14 @@ for `THIRD-PARTY-NOTICES.txt`.
   finished classical MELL proof draws its net with boxes
   (`svg::mell_net`, ids `o<n>`, `v<k>`, `b<k>`, `l<x>-<y>`); an
   intuitionistic MELL proof is refused with `no_nets` as before.
+- **A net's look is `styles.svg.net_look`**, read over the tab's like
+  every setting: the name `"textbook"` or `"linlog"` (a string, which the
+  overlay lets through where the tab has an object, as for the font), or
+  an object of `premises`, `conclusions` and `why_not`, each left out
+  keeping linlog's (`a_proof_with_exponentials_draws_its_net_with_boxes`
+  checks both forms). The tab's default is linlog's look; nothing in
+  `tab::defaults` sets it. Under the rules a compact `?` vertex whose
+  one premise is a wire has no circle, so no element carries its id.
 
 ## The build (`modules/web.nix`)
 

@@ -876,6 +876,29 @@ fn mell_nets() {
     let (status, svg, _) = linlog(&["prove", "--net", "--format", "svg", sequent], "");
     assert_eq!(status, 0);
     assert!(svg.contains(r#"<path id="b2" d="M"#), "{svg}");
+    // The textbook look by its name is its three fields; another name is
+    // refused.
+    let drawn = |style: &[&str]| {
+        linlog(
+            &[&["prove", "--net", "--format", "svg"], style, &[sequent]].concat(),
+            "",
+        )
+    };
+    let fields = [
+        "--style",
+        "svg.net_look.premises=plain",
+        "--style",
+        "svg.net_look.conclusions=bottom",
+        "--style",
+        "svg.net_look.why_not=rules",
+    ];
+    let textbook = drawn(&["--style", "svg.net_look=textbook"]);
+    assert_eq!(textbook.0, 0);
+    assert_eq!(textbook, drawn(&fields));
+    assert_ne!(textbook.1, svg);
+    let (status, _, err) = drawn(&["--style", "svg.net_look=textbooks"]);
+    assert_eq!(status, 2);
+    assert!(err.contains("textbook"), "{err}");
     for (name, magic) in [("boxes.png", &b"\x89PNG"[..]), ("boxes.pdf", b"%PDF")] {
         let path = scratch(name);
         let (status, _, _) = linlog(
@@ -1320,6 +1343,27 @@ fn every_style_option() {
             "svg",
             "net",
             "\"compact\"",
+            true,
+        ),
+        (
+            &["--net", "A * B |- B * A"],
+            "svg",
+            "net_look",
+            "{\"premises\":\"plain\"}",
+            true,
+        ),
+        (
+            &["--net", "!a |- (a * a) * !a"],
+            "svg",
+            "net_look",
+            "{\"why_not\":\"rules\"}",
+            true,
+        ),
+        (
+            &["--net", "!a |- (a * a) * !a"],
+            "svg",
+            "net_look",
+            "\"textbook\"",
             true,
         ),
         (&ill, "png", "scale", "1", true),

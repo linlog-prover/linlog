@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="163.744" height="336.736" viewBox="0 0 10234 21046" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>⊢ ?a⊥, ?a ⊗ !!a</title>
+<desc>⊢ ?~a, ?a ⊗ !!a
+?~a[0]: ~a[2], ~a[3] in !a[7]
+?a[4]: a[5]
+~a[2] — a[5]
+~a[3] — a[8]
+proof net</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M4865 18700L3461 8826"/>
+<path d="M5071 18728L8122 11806"/>
+<path d="M8205 9765L8417 8826"/>
+<path d="M8457 6778L8869 2866"/>
+<path d="M680 16476L680 19646"/>
+<path d="M1165 11806L1165 12736"/>
+<path d="M1104 13491L741 15721"/>
+<path d="M3461 4556L3461 7726"/>
+<path d="M3946 2866L3593 3820"/>
+<path d="M6649 2866L6649 3796"/>
+<path d="M6649 4556L6649 7156"/>
+<path d="M6649 10136V15336H1440L949 15827"/>
+<path d="M6649 7156L6649 10136"/>
+<path id="b6" d="M8502 10136H9934V340H5585V10136H7742"/>
+<path id="b7" d="M8797 7156H9554V720H5965V7156H8037"/>
+</g>
+<g fill="none" stroke="black" stroke-width="40">
+<path id="l2-5" d="M1165 10706V1766A1390 834 0 0 1 3946 1766"/>
+<path id="l3-8" d="M6649 1766A1110 666 0 0 1 8869 1766"/>
+</g>
+<g id="o0">
+<text x="499" y="20536" textLength="971" lengthAdjust="spacing">?𝑎</text>
+<text x="1470" y="20136" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="3280" y="20536" textLength="3504" lengthAdjust="spacing" id="o2">?𝑎 ⊗ !!𝑎</text>
+<text x="4651" y="19276" textLength="534" lengthAdjust="spacing" font-size="800">⊗</text>
+<g id="v2">
+<text x="861" y="11596" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="1470" y="11196" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<g id="v3">
+<text x="6345" y="2656" textLength="609" lengthAdjust="spacing">𝑎</text>
+<text x="6954" y="2256" textLength="611" lengthAdjust="spacing" font-size="700">⊥</text>
+</g>
+<text x="3280" y="8616" textLength="971" lengthAdjust="spacing" id="o3">?𝑎</text>
+<text x="3642" y="2656" textLength="609" lengthAdjust="spacing" id="o4">𝑎</text>
+<text x="7975" y="11596" textLength="1199" lengthAdjust="spacing" id="o5">!!𝑎</text>
+<text x="8004" y="10411" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="8270" y="8616" textLength="904" lengthAdjust="spacing" id="o6">!𝑎</text>
+<text x="8299" y="7431" textLength="236" lengthAdjust="spacing" font-size="800">!</text>
+<text x="8565" y="2656" textLength="609" lengthAdjust="spacing" id="o7">𝑎</text>
+<text x="866" y="13329" textLength="599" lengthAdjust="spacing" font-size="621">?d</text>
+<text x="381" y="16339" textLength="599" lengthAdjust="spacing" font-size="707">?c</text>
+<text x="3162" y="4389" textLength="599" lengthAdjust="spacing" font-size="621">?d</text>
+<text x="6350" y="4389" textLength="599" lengthAdjust="spacing" font-size="621">?d</text>
+</svg>

@@ -995,7 +995,16 @@ with boxes is drawn the same way, every `!`-box a rectangle around what
 lies in it, nested boxes nested: its `!` and an auxiliary door for every
 `?` outside it with a copy inside stand on its bottom border, and the
 wires from the copies, dashed and blue like a `⅋`'s premise edges since a
-switching keeps one wire of a `?`, leave the box through its doors. `seq print --format svg` and `show --svg`
+switching keeps one wire of a `?`, leave the box through its doors.
+`--style svg.net_look=textbook` draws a net as the textbooks do instead:
+every edge plain, every conclusion on the bottom row, a `!` with
+auxiliary doors reached by an edge down from its door, and each `?` node
+as the nodes of the rules, a dereliction `?d` under every copy (inside
+the copy's box), each copy's wire leaving its boxes through doors of its
+own, binary contractions `?c` joining them below, and a weakening `?w`.
+Each of the three is a key of its own: `svg.net_look.premises=plain`,
+`svg.net_look.conclusions=bottom` and `svg.net_look.why_not=rules`, and
+`svg.net_look=linlog` is the default. `seq print --format svg` and `show --svg`
 in `interact` draw a sequent and the derivation so far. The drawings ask for
 the Euler Math font without embedding it; every text is stretched to the
 width Euler Math gives it, so a viewer without the font keeps the layout.
@@ -1012,6 +1021,7 @@ $ linlog prove -i --format svg --output proof.svg "1, A & B, B -o C |- C"
 $ linlog prove --net --output net.svg "A * B |- B * A"
 $ linlog prove --net --style svg.net=compact --output compact.svg "A * B |- B * A"
 $ linlog prove --net --output boxes.svg "!a, !c |- !(a * a) * ?c"
+$ linlog prove --net --style svg.net_look=textbook --output textbook.svg "!a, !b, !(c * d) |- !((a * a) * (d * c))"
 $ linlog prove -i --net --style svg.essential=true --output essential.svg "A -o B, B -o C |- A -o C"
 $ linlog seq print --format svg "A |- A"
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="70.272" height="27.2" viewBox="0 0 4392 1700" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
@@ -1096,6 +1106,11 @@ and the net with boxes, its two copies of `?a⊥` in the box of
 `!(a ⊗ a)`:
 
 ![The proof net of ⊢ ?a⊥, ?c⊥, !(a ⊗ a) ⊗ ?c](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/net-boxes.svg)
+
+and a net in the textbooks' look, its two copies of `a⊥` derelicted in
+the box and contracted below it, `?b⊥` weakened:
+
+![The proof net of ⊢ ?a⊥, ?b⊥, ?(c⊥ ⅋ d⊥), !((a ⊗ a) ⊗ (d ⊗ c)) as the textbooks draw it](https://raw.githubusercontent.com/linlog-prover/linlog/main/core/tests/snapshots/net-promotion-textbook.svg)
 
 `--settings FILE` reads every setting the flags set from one JSON file,
 in the form a front end keeps: an object with any of `clock`, `limits`,
@@ -1871,7 +1886,10 @@ Built:
   height in a layout of linlog's own), as fragments or standalone
   documents that choose no font, and drawings of sequents,
   derivations and proof nets as SVG (every subformula of a net written,
-  or compact; a net with boxes with every `!`-box a rectangle), laid out with the character widths
+  or compact; a net with boxes with every `!`-box a rectangle; in
+  linlog's look or the textbooks', with plain edges, the conclusions on
+  the bottom row and a `?` node as the dereliction, contraction and
+  weakening nodes of its rules, each of the three an option of its own), laid out with the character widths
   of Euler Math, STIX Two Math, Garamond-Math, Asana Math or New Computer
   Modern Math (or a font of the caller's), a switching cycle or the
   parts of a disconnected structure highlighted, intuitionistic ones

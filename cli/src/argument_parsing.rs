@@ -1077,7 +1077,12 @@ pub(crate) struct StyleArgs {
     /// line, par, link, highlight, background, essential, input,
     /// dominator, net (formulas: a proof net with every subformula
     /// written, or compact: only its literals and conclusions written,
-    /// its inner links circles); png: scale, pixels; pdf:
+    /// its inner links circles), net_look (a net's look: textbook or
+    /// linlog, the default, or its fields premises: dashed or plain,
+    /// the edges into a ⅋ or ? node; conclusions: raised or bottom, a !
+    /// with auxiliary doors written a row above the ? nodes or on the
+    /// bottom row; why_not: node or rules, a ? node one node or the
+    /// rules' dereliction, contraction and weakening nodes); png: scale, pixels; pdf:
     /// embed_text, compatible, accessible, title, language, date; rocq:
     /// form, lemma, prelude, kernel (where the command writes Rocq). `null` lifts a
     /// bound (`pixels=null`). Labels

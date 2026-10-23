@@ -29,7 +29,9 @@
 //! the colours.
 
 use super::font::{AXIS, DEPTH, HEIGHT};
-use super::{NOTATION, NetDrawing, PLAIN, RAISED_BOT, Style, document, escaped, lay, run, text};
+use super::{
+    NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, document, escaped, lay, run, text,
+};
 use crate::nets::{NetError, ProofStructure};
 use crate::occurrences::{OccId, Reading, Side};
 use crate::sequents::Kind;
@@ -592,7 +594,8 @@ pub(super) fn draw(
                 }
                 continue;
             }
-            let par = forest.kind(o) == Kind::Par;
+            // A plain `⅋` edge is drawn as a `⊗` edge is.
+            let par = forest.kind(o) == Kind::Par && style.net_look.premises == Premises::Dashed;
             let out = match (marks(o, child), par) {
                 (true, _) => &mut marked,
                 (false, true) => &mut pars,
@@ -671,7 +674,7 @@ pub(super) fn draw(
         if reading.is_some() {
             group(out, &style.input, "", &inputs);
             group(out, &style.dominator, "", &dominators);
-        } else {
+        } else if style.net_look.premises == Premises::Dashed {
             group(
                 out,
                 &style.par,

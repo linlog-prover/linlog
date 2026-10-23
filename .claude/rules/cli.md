@@ -162,7 +162,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   `styles.rocq.kernel`, by default `None`, the mode's choice) and
   `--standalone`. `interact` and every command with several formats need
   the prefix. A new option is a field of the library's value, never a
-  flag of its own here.
+  flag of its own here. A field that reads a name in place of its
+  object (`svg.font=stix-two`, `svg.net_look=textbook`) becomes a string
+  in the JSON being changed, so a later dotted key under it
+  (`svg.net_look.premises=dashed`) is refused as "not an object": give
+  the fields, or the name last.
 - `prove.rs` is `prove` and what the batch and a session share with
   it (the search's thread, `searched`, `Stop`, the verdict line, the
   statistics); `check.rs` is `check` (`read_proof`, `check_into`);

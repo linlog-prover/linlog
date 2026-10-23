@@ -19,7 +19,9 @@
 ))]
 
 use linlog::export::rocq::{self, Kernel, Unsupported};
-use linlog::export::svg::{self, MathFont, NetDrawing, Style};
+use linlog::export::svg::{
+    self, Conclusions, MathFont, NetDrawing, NetLook, Premises, Style, WhyNot,
+};
 use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
@@ -823,6 +825,112 @@ fn mell_nets() {
     assert!(svg.contains(&highlight), "{svg}");
     structure(&svg);
     snapshot("net-boxes-cycle.svg", &svg);
+}
+
+/// The looks of a net are pinned as SVG in both drawings: each option
+/// alone and the textbook preset on a `!` conclusion with auxiliary doors,
+/// a `⅋` and a weakening (the compact drawing has its conclusions at the
+/// bottom already, so `bottom` leaves it as it is); the rules and the
+/// preset on a `?` with copies at its depth and in a box, and on nested
+/// boxes; plain premises on a multiplicative net, which the other two
+/// options leave as they are. Each lies in its view box and is estimated
+/// at least at its size and within four times of it. Under the rules a
+/// switching cycle through a door is still highlighted.
+#[test]
+fn net_looks() {
+    let mell = |input: &str| {
+        MellStructure::from_proof(
+            &proof(input, Mode::CLASSICAL),
+            Criterion::MLL,
+            &Limits::default(),
+            |_| false,
+        )
+        .unwrap()
+    };
+    let looks = [
+        ("", NetLook::LINLOG),
+        ("-plain", NetLook::LINLOG.with_premises(Premises::Plain)),
+        (
+            "-bottom",
+            NetLook::LINLOG.with_conclusions(Conclusions::Bottom),
+        ),
+        ("-rules", NetLook::LINLOG.with_why_not(WhyNot::Rules)),
+        ("-textbook", NetLook::TEXTBOOK),
+    ];
+    for (name, input, looks) in [
+        (
+            "net-promotion",
+            "!a, !b, !(c * d) |- !((a * a) * (d * c))",
+            &looks[..],
+        ),
+        ("net-contraction", "!a |- (a * a) * !a", &looks[3..]),
+        ("net-nested", "!a |- ?a * !!a", &looks[4..]),
+    ] {
+        let net = mell(input);
+        for &(look_name, look) in looks {
+            for (suffix, drawing) in [
+                ("", NetDrawing::Formulas),
+                ("-compact", NetDrawing::Compact),
+            ] {
+                let style = Style::default().with_net(drawing).with_net_look(look);
+                let svg = svg::mell_net(&net, &style, &unbounded(), |_| false).unwrap();
+                structure(&svg);
+                let bytes = svg.len() as u64;
+                assert!(svg::mell_net(&net, &style, &bounded(bytes - 1), |_| false).is_err());
+                assert!(svg::mell_net(&net, &style, &bounded(4 * bytes), |_| false).is_ok());
+                if look_name == "-bottom" && drawing == NetDrawing::Compact {
+                    let compact = Style::default().with_net(drawing);
+                    let unchanged = svg::mell_net(&net, &compact, &unbounded(), |_| false);
+                    assert_eq!(svg, unchanged.unwrap());
+                    continue;
+                }
+                snapshot(&format!("{name}{look_name}{suffix}.svg"), &svg);
+            }
+        }
+    }
+
+    // ⊢ ~A ⅋ ~B, B ⊗ A: plain premises, and the other options change nothing.
+    let net = ProofStructure::from_proof(
+        &proof("A * B |- B * A", Mode::CLASSICAL),
+        Criterion::MLL,
+        &Limits::default(),
+        |_| false,
+    )
+    .unwrap();
+    for (suffix, drawing) in [
+        ("", NetDrawing::Formulas),
+        ("-compact", NetDrawing::Compact),
+    ] {
+        let drawn = |look: NetLook| {
+            let style = Style::default().with_net(drawing).with_net_look(look);
+            svg::net(&net, &style, &unbounded(), |_| false).unwrap()
+        };
+        let plain = drawn(NetLook::LINLOG.with_premises(Premises::Plain));
+        assert!(!plain.contains("stroke-dasharray"), "{plain}");
+        assert_eq!(drawn(NetLook::TEXTBOOK), plain);
+        snapshot(&format!("net-plain{suffix}.svg"), &plain);
+    }
+
+    // ⊢ ?~a ⊗ !a with the copy of ?~a in the box: the cycle through the
+    // door under the rules.
+    let forest = Forest::new(&"|- ?~a * !a".parse().unwrap()).unwrap();
+    let (o, v) = (OccId::new, VertexId::new);
+    let mut parts = Parts::default();
+    parts.vertices = vec![
+        Placed::new(o(1), v(0), None),
+        Placed::new(o(3), v(0), None),
+        Placed::new(o(4), v(2), Some(v(2))),
+        Placed::new(o(2), v(1), Some(v(2))),
+    ];
+    parts.links = vec![(v(3), v(4))];
+    let cyclic =
+        MellStructure::from_parts(forest, Criterion::MLL, &parts, &Limits::default()).unwrap();
+    let style = Style::default().with_net_look(NetLook::TEXTBOOK);
+    let svg = svg::mell_net(&cyclic, &style, &unbounded(), |_| false).unwrap();
+    let highlight = format!(r#"stroke="{}""#, Style::default().highlight);
+    assert!(svg.contains(&highlight), "{svg}");
+    structure(&svg);
+    snapshot("net-boxes-cycle-textbook.svg", &svg);
 }
 
 /// No straight edge of a net with boxes runs through a box it does not

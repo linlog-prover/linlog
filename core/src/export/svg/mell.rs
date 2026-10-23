@@ -32,7 +32,10 @@ use super::font::{AXIS, DEPTH, HEIGHT};
 use super::net::{
     BINARY, CONNECTIVE, Count, DOCUMENT, GROUP, LINK, PAR_MIDDLE, PIECE, ROOT, height, towards,
 };
-use super::{NOTATION, NetDrawing, PLAIN, RAISED_BOT, Style, document, escaped, lay, run, text};
+use super::{
+    Conclusions, NOTATION, NetDrawing, PLAIN, Premises, RAISED_BOT, Style, WhyNot, document,
+    escaped, lay, run, text,
+};
 use crate::hash::HashMap;
 use crate::nets::{MellStructure, NetError, VertexId};
 use crate::occurrences::OccId;
@@ -52,27 +55,34 @@ const DOOR: u64 = 400;
 /// The bytes of a wire from a copy into a door.
 const WIRE: u64 = 80;
 
+/// The bytes of a node of the rules: its label, its circle and the edge
+/// into it.
+const RULE: u64 = 200;
+
 /// The auxiliary doors of a structure: every pair of a box and a `?`
-/// vertex outside it with a copy inside, sorted, each with what feeds it
-/// and where its wire goes.
+/// vertex outside it with a copy inside, or under [`WhyNot::Rules`] of a
+/// box and such a copy, sorted, each with what feeds it and where its
+/// wire goes.
 struct Doors {
-    /// The pairs (`!` vertex, `?` vertex), sorted.
+    /// The pairs (`!` vertex, `?` vertex or copy), sorted.
     pairs: Vec<(u32, u32)>,
 }
 
 impl Doors {
     /// Returns the doors of a structure: for each copy outside its `?`
     /// vertex's box, a door on every box from the copy's out to the
-    /// `?`'s, a box's chain walked only until a door already found.
-    fn of(net: &MellStructure) -> Self {
+    /// `?`'s, a box's chain walked only until a door already found; one
+    /// per copy, not per `?` vertex, when `apart`.
+    fn of(net: &MellStructure, apart: bool) -> Self {
         let mut found: crate::hash::HashSet<(u32, u32)> = crate::hash::HashSet::default();
         for c in net.vertices() {
             let Some(q) = net.parent(c).filter(|&q| kind(net, q) == Kind::Quest) else {
                 continue;
             };
             let home = raw(net.inside(q));
+            let key = if apart { c.get() } else { q.get() };
             let mut b = raw(net.inside(c));
-            while b != home && found.insert((b, q.get())) {
+            while b != home && found.insert((b, key)) {
                 b = raw(net.inside(VertexId::new(b)));
             }
         }
@@ -81,12 +91,26 @@ impl Doors {
         Self { pairs }
     }
 
-    /// Returns the index of the door of box `b` for `q`.
-    fn index(&self, b: u32, q: u32) -> usize {
+    /// Returns the index of the door of box `b` for `key`, a `?` vertex
+    /// or a copy.
+    fn index(&self, b: u32, key: u32) -> usize {
         self.pairs
-            .binary_search(&(b, q))
+            .binary_search(&(b, key))
             .expect("a door on the chain of a copy")
     }
+}
+
+/// Where a wire ends under [`WhyNot::Rules`]: at a node of the rules or
+/// at a formula.
+#[derive(Clone, Copy)]
+struct End {
+    /// The node's centre, or the point of the formula it goes into.
+    at: (i64, i64),
+    /// How far from `at` it stops: the node's radius, or none.
+    into: i64,
+    /// The height of its leg when it comes down into `at` from above, or
+    /// none when it comes in from the side.
+    above: Option<i64>,
 }
 
 /// Returns the kind of a vertex's occurrence.
@@ -106,6 +130,8 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
     let forest = net.forest();
     let sequent = forest.sequent();
     let formulas = style.net == NetDrawing::Formulas;
+    let rules = style.net_look.why_not == WhyNot::Rules;
+    let bottom = style.net_look.conclusions == Conclusions::Bottom;
     let mut bytes = DOCUMENT;
     // Per occurrence, the bytes of its formula's text with letters of four
     // bytes and its negated literals, each a raised `⊥` of two more
@@ -150,9 +176,24 @@ pub(super) fn estimate(net: &MellStructure, style: &Style, most: u64) -> u64 {
         }
         if root {
             bytes = bytes.saturating_add(ROOT);
+            // And the edge down from a raised `!` to the bottom row.
+            if bottom && kind(net, v) == Kind::Bang {
+                bytes = bytes.saturating_add(ROOT);
+            }
+        }
+        // Under the rules, a copy's dereliction and the contraction it
+        // goes into, and a `?` vertex's weakening.
+        if rules {
+            let copy = net.parent(v).is_some_and(|q| kind(net, q) == Kind::Quest);
+            if copy {
+                bytes = bytes.saturating_add(2 * RULE);
+            }
+            if kind(net, v) == Kind::Quest {
+                bytes = bytes.saturating_add(RULE);
+            }
         }
     }
-    let doors = Doors::of(net).pairs.len() as u64;
+    let doors = Doors::of(net, rules).pairs.len() as u64;
     let links = net.links().len() as u64;
     bytes = bytes
         .saturating_add(doors.saturating_mul(DOOR))
@@ -177,6 +218,8 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     let forest = net.forest();
     let n = net.len();
     let formulas = style.net == NetDrawing::Formulas;
+    let dashed = style.net_look.premises == Premises::Dashed;
+    let rules = style.net_look.why_not == WhyNot::Rules;
     let line_height = i64::from(style.line_height);
     let (gap, radius) = (i64::from(style.literal_gap), i64::from(style.node_radius));
     let (margin, stroke) = (i64::from(style.margin), i64::from(style.stroke_width));
@@ -209,6 +252,10 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         1 => format!("o{}", occ(v).get()),
         _ => format!("v{v}"),
     };
+    // What a boxed copy's doors are of, its `?` vertex or under the rules
+    // the copy itself, and the `?` vertex of a door's key.
+    let key_of = |c: u32| if rules { c } else { parent(c) };
+    let owner = |key: u32| if rules { parent(key) } else { key };
 
     // The layout tree: a vertex's premises, a `!` vertex's box (node
     // `n + b`), a `?` vertex's copies at its own depth, and a box's
@@ -254,18 +301,43 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
 
     // The doors, and per `?` vertex the boxes whose doors its wires leave
     // last, which it must stand below.
-    let doors = Doors::of(net);
+    let doors = Doors::of(net, rules);
     let target = |d: usize| {
-        let (b, q) = doors.pairs[d];
+        let (b, key) = doors.pairs[d];
         let outer = inside(b);
-        (outer != inside(q)).then(|| doors.index(outer, q))
+        (outer != inside(owner(key))).then(|| doors.index(outer, key))
     };
     let mut last: HashMap<u32, Vec<u32>> = HashMap::default();
-    for (d, &(b, q)) in doors.pairs.iter().enumerate() {
+    for (d, &(b, key)) in doors.pairs.iter().enumerate() {
         if target(d).is_none() {
-            last.entry(q).or_default().push(b);
+            last.entry(owner(key)).or_default().push(b);
         }
     }
+    // Under the rules, per `?` vertex its premises (a copy at its depth or
+    // a wire), its nodes' rows (one for the derelictions of the copies at
+    // its depth, or with wires alone one the first wire comes down
+    // through, a contraction's for every premise past the first, or a
+    // weakening's), and the rows they take above it: all of them where
+    // its formula is written below the last, all but the last where that
+    // is its circle.
+    let (mut inputs, mut levels, mut extra) = (vec![0u32; n], vec![0u32; n], vec![0u32; n]);
+    if rules {
+        for c in 0..n as u32 {
+            if parent(c) != NONE && kind_of(parent(c)) == Kind::Quest {
+                inputs[parent(c) as usize] += 1;
+            }
+        }
+        for q in (0..n as u32).filter(|&q| kind_of(q) == Kind::Quest) {
+            let (k, own) = (inputs[q as usize], kids(q as usize).next().is_some());
+            levels[q as usize] = u32::from(own || k >= 2) + k.saturating_sub(1) + u32::from(k == 0);
+            extra[q as usize] = match formulas {
+                true => levels[q as usize],
+                false => levels[q as usize].saturating_sub(1),
+            };
+        }
+    }
+    // A `?` vertex whose one premise is a wire, which is its conclusion.
+    let bare = |q: u32| rules && kind_of(q) == Kind::Quest && levels[q as usize] == 0;
 
     // Rows: every vertex one below the lowest of what it depends on (its
     // layout children, a box's contents, the boxes its wires leave), in a
@@ -289,11 +361,14 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         let on = depends(v);
         if ready || on.iter().all(|&w| layer[w as usize] != u32::MAX) {
-            let lowest = on.iter().map(|&w| layer[w as usize]).max();
+            // Under the rules, a copy in a box has its dereliction on the
+            // row below it, inside the box.
+            let below = |w: u32| u32::from(rules && kind_of(v) == Kind::Bang && boxed(w));
+            let lowest = on.iter().map(|&w| layer[w as usize] + below(w)).max();
             layer[v as usize] = match (lowest, forest.is_literal(occ(v))) {
                 (_, true) => 0,
-                (Some(l), false) => l + 1,
-                (None, false) => 1,
+                (Some(l), false) => l + 1 + extra[v as usize],
+                (None, false) => 1 + extra[v as usize],
             };
         } else {
             stack.push((v, true));
@@ -302,9 +377,10 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     }
     // The conclusions on the bottom row, and the copies of a `?` vertex with
     // several at its own depth on the row above it, so that their edges
-    // into it pass below every formula and box of the others; a `!` vertex with
-    // auxiliary doors stays where it is, above the `?` vertices its wires
-    // go to.
+    // into it pass below every formula and box of the others (under the
+    // rules every copy at its depth, above its nodes' rows); a `!` vertex
+    // with auxiliary doors stays where it is, above the `?` vertices its
+    // wires go to.
     let bottom = (0..forest.roots().len())
         .map(|r| layer[r])
         .max()
@@ -327,8 +403,11 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         }
         if p == NONE {
             row[v as usize] = bottom;
-        } else if kind_of(p) == Kind::Quest && !boxed(v) && kids(p as usize).nth(1).is_some() {
-            row[v as usize] = row[v as usize].max(row[p as usize] - 1);
+        } else if kind_of(p) == Kind::Quest
+            && !boxed(v)
+            && (rules || kids(p as usize).nth(1).is_some())
+        {
+            row[v as usize] = row[v as usize].max(row[p as usize] - 1 - extra[p as usize]);
         }
     }
 
@@ -613,18 +692,36 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     let rows = row.iter().copied().max().unwrap_or(0);
     let end = baseline - AXIS + i64::from(rows) * line_height + line_height / 2;
     let under = end + HEIGHT;
+    // A `!` conclusion with auxiliary doors written on the bottom row,
+    // under an edge down from its door.
+    let lowered = |v: u32| {
+        style.net_look.conclusions == Conclusions::Bottom
+            && root(v)
+            && kind_of(v) == Kind::Bang
+            && has_doors[v as usize]
+    };
     let text_y = |v: u32| match (formulas, root(v)) {
+        (true, _) if lowered(v) => baseline + i64::from(bottom) * pitch,
         (true, _) => baseline + i64::from(row[v as usize]) * pitch,
         (false, true) => under,
         (false, false) => baseline,
     };
     // A vertex's joint, or a compact vertex's centre.
     let node = |v: u32| match formulas {
-        true => (x[v as usize], text_y(v) - HEIGHT - radius - radius / 2),
+        true => (
+            x[v as usize],
+            baseline + i64::from(row[v as usize]) * pitch - HEIGHT - radius - radius / 2,
+        ),
         false => (
             x[v as usize],
             baseline - AXIS + i64::from(row[v as usize]) * line_height,
         ),
+    };
+    // The centre of a node of the rules on row `r`: where the joints of
+    // the row stand, or a compact circle of the row.
+    let centre_at = |r: u32| match formulas {
+        true => baseline + i64::from(r) * pitch - HEIGHT - radius - radius / 2,
+        false => baseline - AXIS + i64::from(r) * line_height,
     };
     let depth = style.font.advances.depth();
     let foot = |v: u32| (x[v as usize], text_y(v) + depth);
@@ -632,6 +729,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     // foot, or a compact circle's rim towards `to`.
     let end_at = |v: u32, to: (i64, i64)| match formulas || forest.is_literal(occ(v)) {
         true => foot(v),
+        false if bare(v) => node(v),
         false => towards(node(v), to, radius),
     };
     // The doors' points, innermost first: each halfway between what feeds
@@ -642,7 +740,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     by_depth.sort_unstable_by_key(|&d| std::cmp::Reverse(nesting[doors.pairs[d].0 as usize]));
     for c in 0..n as u32 {
         if boxed(c) {
-            let d = doors.index(inside(c), parent(c));
+            let d = doors.index(inside(c), key_of(c));
             feeders[d].push(x[c as usize]);
         }
     }
@@ -741,7 +839,8 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
                 None,
             );
         }
-        if forest.is_literal(occ(v)) {
+        // Under the rules a `?` vertex is its nodes, drawn below.
+        if forest.is_literal(occ(v)) || (rules && kind_of(v) == Kind::Quest) {
             continue;
         }
         let centre = node(v);
@@ -749,7 +848,7 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             circle(&mut lines, centre, Some(&id(v)));
         }
         label(&mut texts, centre, symbol_of(v));
-        let switched = matches!(kind_of(v), Kind::Par | Kind::Quest);
+        let switched = matches!(kind_of(v), Kind::Par | Kind::Quest) && dashed;
         let children: Vec<u32> = if kind_of(v) == Kind::Bang {
             net.premises(VertexId::new(v)).map(VertexId::get).collect()
         } else {
@@ -765,6 +864,10 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             };
             segment(out, from, to, switched && marks(v, c));
         }
+        if formulas && lowered(v) {
+            let foot = (centre.0, text_y(v) - HEIGHT);
+            segment(&mut lines, (centre.0, centre.1 + radius), foot, false);
+        }
         // A compact conclusion's edge hangs from its circle to its text.
         if root(v) && !formulas {
             writeln!(
@@ -776,53 +879,324 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             .unwrap();
         }
     }
-    // The wires: from each boxed copy into its door, and from each door to
-    // the door of the box around it or to its `?` vertex.
+    // A node of the rules: its label at `centre`, narrowed to fit inside
+    // the node's radius, in a circle when compact and `circled` (the last
+    // node of a `?` vertex has its own, with the vertex's id).
+    let rule_node =
+        |lines: &mut String, texts: &mut String, centre: (i64, i64), sign: &str, circled: bool| {
+            if circled && !formulas {
+                circle(lines, centre, None);
+            }
+            let room = 2 * radius - 4 * stroke;
+            let full = run(sign, label_size, &style.font).width;
+            let size = if full > room {
+                label_size * room / full
+            } else {
+                label_size
+            };
+            let label = run(sign, size, &style.font);
+            text(
+                texts,
+                centre.0 - label.width / 2,
+                centre.1 + PAR_MIDDLE * size / 1000,
+                &label,
+                &format!(r#" font-size="{size}""#),
+                None,
+            );
+        };
+    let (dereliction, contraction, weakening) = (
+        format!("{}d", NOTATION.quest),
+        format!("{}c", NOTATION.quest),
+        format!("{}w", NOTATION.quest),
+    );
+    // Under the rules, every `?` vertex's nodes, and where each of its
+    // wires ends (the node, how far from it, and whether from above): a
+    // dereliction under each copy at its depth on the first of its rows,
+    // the contractions in a column over its formula, one a row, joining
+    // the copies first and then the wires, each the nearest to the column
+    // first, and the last node over its formula, or its circle when
+    // compact; a weakening alone, and a lone wire into its formula. A wire
+    // runs level between two rows, as the wires of the one `?` node do:
+    // into a contraction from the side along twice the radius above it,
+    // and the first one, with wires alone, along twice the radius above
+    // the row over it and down the column, so that no two share a leg.
+    let mut entry: HashMap<usize, End> = HashMap::default();
+    for q in (0..n as u32).filter(|&q| rules && kind_of(q) == Kind::Quest) {
+        let k = inputs[q as usize];
+        let wires = doors
+            .pairs
+            .iter()
+            .enumerate()
+            .filter(|&(d, &(_, key))| owner(key) == q && target(d).is_none());
+        let down = parent(q) != NONE && marks(parent(q), q);
+        // A compact conclusion's edge, from `from` down to its text.
+        let hanging = |lines: &mut String, marked: &mut String, from: i64| {
+            let target = if down { marked } else { lines };
+            writeln!(target, r#"<path d="M{} {from}V{end}"/>"#, x[q as usize]).unwrap();
+        };
+        if bare(q) {
+            let into = match formulas {
+                true => (x[q as usize], text_y(q) - HEIGHT),
+                false => node(q),
+            };
+            for (d, _) in wires {
+                let above = Some(node(q).1 - 2 * radius);
+                entry.insert(
+                    d,
+                    End {
+                        at: into,
+                        into: 0,
+                        above,
+                    },
+                );
+            }
+            if !formulas && root(q) {
+                hanging(&mut lines, &mut marked, into.1);
+            }
+            continue;
+        }
+        let last = match formulas {
+            true => (x[q as usize], centre_at(row[q as usize] - 1)),
+            false => node(q),
+        };
+        if formulas {
+            let into = (last.0, text_y(q) - HEIGHT);
+            let target = if down { &mut marked } else { &mut lines };
+            segment(target, (last.0, last.1 + radius), into, false);
+        } else {
+            writeln!(
+                lines,
+                r#"<circle id="{}" cx="{}" cy="{}" r="{radius}"/>"#,
+                id(q),
+                last.0,
+                last.1
+            )
+            .unwrap();
+            if root(q) {
+                hanging(&mut lines, &mut marked, last.1 + radius);
+            }
+        }
+        if k == 0 {
+            rule_node(&mut lines, &mut texts, last, &weakening, false);
+            continue;
+        }
+        // The premises by their distance from the column, each with its
+        // place and whether the cycle runs through it.
+        let mut premises: Vec<(i64, Option<u32>, Option<usize>, bool)> = kids(q as usize)
+            .map(|c| (x[c as usize], Some(c), None, marks(q, c)))
+            .chain(wires.map(|(d, &(b, _))| (point[d].0, None, Some(d), marks(q, b))))
+            .collect();
+        let column = x[q as usize];
+        premises.sort_unstable_by_key(|&(at, copy, ..)| (copy.is_none(), (at - column).abs(), at));
+        let first = row[q as usize] + u32::from(!formulas) - levels[q as usize];
+        let k = k as usize;
+        // Contraction `j` (from 1) joins premise `j`, and the first two.
+        let contraction_at = |j: usize| match j + 1 == k {
+            true => last,
+            false => (column, centre_at(first + j as u32)),
+        };
+        // The contractions on the cycle's way: from the first premise on it
+        // to the last, or down to the formula.
+        let on: Vec<usize> = premises
+            .iter()
+            .enumerate()
+            .filter(|p| p.1.3)
+            .map(|(i, _)| i.max(1))
+            .collect();
+        let from_on = on.iter().copied().min().unwrap_or(k - 1);
+        let to_on = if down {
+            k - 1
+        } else {
+            on.iter().copied().max().unwrap_or(0)
+        };
+        for (i, &(_, copy, wire, mark)) in premises.iter().enumerate() {
+            let into = contraction_at(i.max(1));
+            if let Some(d) = wire {
+                let above = (i == 0).then(|| centre_at(first) - 2 * radius);
+                entry.insert(
+                    d,
+                    End {
+                        at: into,
+                        into: radius,
+                        above,
+                    },
+                );
+                continue;
+            }
+            let c = copy.expect("a copy or a wire");
+            let at = match k {
+                1 => last,
+                _ => (x[c as usize], centre_at(first)),
+            };
+            rule_node(&mut lines, &mut texts, at, &dereliction, k > 1);
+            let from = end_at(c, at);
+            let target = if mark { &mut marked } else { &mut lines };
+            segment(target, from, towards(at, from, radius), false);
+            if k > 1 {
+                let target = match (mark, dashed) {
+                    (true, _) => &mut marked,
+                    (false, true) => &mut pars,
+                    (false, false) => &mut lines,
+                };
+                segment(
+                    target,
+                    towards(at, into, radius),
+                    towards(into, at, radius),
+                    mark && dashed,
+                );
+            }
+        }
+        for j in 1..k {
+            let at = contraction_at(j);
+            rule_node(&mut lines, &mut texts, at, &contraction, j + 1 < k);
+            if j + 1 < k {
+                let below = contraction_at(j + 1);
+                let mark = from_on <= j && j < to_on;
+                let target = match (mark, dashed) {
+                    (true, _) => &mut marked,
+                    (false, true) => &mut pars,
+                    (false, false) => &mut lines,
+                };
+                segment(
+                    target,
+                    (column, at.1 + radius),
+                    (column, below.1 - radius),
+                    mark && dashed,
+                );
+            }
+        }
+    }
+    // The wires: from each boxed copy into its door (under the rules from
+    // its dereliction, a row below it in its box), and from each door to
+    // the door of the box around it or to its `?` vertex. Under the rules
+    // a wire runs through its doors, which have no symbol of their own.
+    let door_radius = if rules { 0 } else { radius };
     for c in 0..n as u32 {
         if !boxed(c) {
             continue;
         }
         let q = parent(c);
-        let d = doors.index(inside(c), q);
+        let d = doors.index(inside(c), key_of(c));
         let to = point[d];
-        let from = end_at(c, to);
-        let out = if marks(q, c) { &mut marked } else { &mut pars };
-        segment(out, from, towards(to, from, radius), marks(q, c));
+        let switched = dashed && !bare(q);
+        let from = if rules {
+            let at = (x[c as usize], centre_at(row[c as usize] + 1));
+            let from = end_at(c, at);
+            let target = if marks(q, c) { &mut marked } else { &mut lines };
+            segment(target, from, towards(at, from, radius), false);
+            rule_node(&mut lines, &mut texts, at, &dereliction, true);
+            towards(at, to, radius)
+        } else {
+            end_at(c, to)
+        };
+        let target = match (marks(q, c), switched) {
+            (true, _) => &mut marked,
+            (false, true) => &mut pars,
+            (false, false) => &mut lines,
+        };
+        segment(
+            target,
+            from,
+            towards(to, from, door_radius),
+            marks(q, c) && switched,
+        );
     }
-    for (d, &(b, q)) in doors.pairs.iter().enumerate() {
+    // Under the rules, the legs of the wires that run level between the
+    // same two rows apart, so that no two share one: going left, the wire
+    // whose door is further left higher, and going right the one further
+    // right, so that where their spans overlap the way down of one does
+    // not cross the other's leg. They stay clear of the circles above.
+    let mut legs: HashMap<usize, i64> = HashMap::default();
+    if rules {
+        let mut bands: HashMap<i64, Vec<(usize, i64, i64)>> = HashMap::default();
+        for d in (0..doors.pairs.len()).filter(|&d| target(d).is_none()) {
+            let End { at: to, above, .. } = entry[&d];
+            let band = above.unwrap_or(to.1 - 2 * radius);
+            bands.entry(band).or_default().push((d, point[d].0, to.0));
+        }
+        let room = if formulas { pitch } else { line_height } - 3 * radius;
+        for (band, mut wires) in bands {
+            wires.sort_unstable_by_key(|&(_, from, to)| match from > to {
+                true => (false, from),
+                false => (true, -from),
+            });
+            let step = radius.min(room / wires.len() as i64);
+            for (i, &(d, ..)) in wires.iter().enumerate() {
+                legs.insert(d, band - (wires.len() - 1 - i) as i64 * step);
+            }
+        }
+    }
+    for (d, &(b, key)) in doors.pairs.iter().enumerate() {
+        let q = owner(key);
         let from = point[d];
-        let to = target(d).map_or_else(|| node(q), |outer| point[outer]);
+        let (to, into, above) = match target(d) {
+            Some(outer) => (point[outer], door_radius, None),
+            None if rules => {
+                let End {
+                    at: to,
+                    into,
+                    above,
+                } = entry[&d];
+                (to, into, Some(above))
+            }
+            None => (node(q), radius, None),
+        };
         let mark = marks(q, b);
-        let out = if mark { &mut marked } else { &mut pars };
+        let switched = dashed && !bare(q);
+        let out = match (mark, switched) {
+            (true, _) => &mut marked,
+            (false, true) => &mut pars,
+            (false, false) => &mut lines,
+        };
+        let dashing = mark && switched;
+        if let Some(Some(_)) = above {
+            // Down from the door, along its leg to the column and down into
+            // a node of the rules or a formula.
+            let leg = legs[&d];
+            write!(out, r#"<path d="M{} {}"#, from.0, from.1).unwrap();
+            if from.0 != to.0 {
+                write!(out, "V{leg}H{}", to.0).unwrap();
+            }
+            write!(out, "V{}", to.1 - into).unwrap();
+            out.push('"');
+            if dashing {
+                write!(out, r#" stroke-dasharray="{dash}""#).unwrap();
+            }
+            out.push_str("/>\n");
+            continue;
+        }
         // Straight down from the door, along twice the radius above the
         // row of what it goes to, and into it from the side it comes from,
         // so that it crosses no joint or circle on the way.
-        let leg = to.1 - 2 * radius;
+        let leg = legs.get(&d).copied().unwrap_or(to.1 - 2 * radius);
         if (from.0 - to.0).abs() <= 2 * radius || leg <= from.1 + radius {
             segment(
                 out,
-                towards(from, to, radius),
-                towards(to, from, radius),
-                mark,
+                towards(from, to, door_radius),
+                towards(to, from, into),
+                dashing,
             );
         } else {
             let side = (from.0 - to.0).signum() * 2 * radius;
             let corner = (to.0 + side, leg);
-            let end = towards(to, corner, radius);
+            let end = towards(to, corner, into);
             write!(
                 out,
                 r#"<path d="M{} {}V{leg}H{}L{} {}""#,
                 from.0,
-                from.1 + radius,
+                from.1 + door_radius,
                 corner.0,
                 end.0,
                 end.1
             )
             .unwrap();
-            if mark {
+            if dashing {
                 write!(out, r#" stroke-dasharray="{dash}""#).unwrap();
             }
             out.push_str("/>\n");
+        }
+        if rules {
+            continue;
         }
         if !formulas {
             circle(&mut lines, from, None);
@@ -835,12 +1209,15 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
         let bottom = node(b).1;
         let ceiling = top - lid[b as usize];
         let mut gaps: Vec<i64> = vec![x[b as usize]];
-        gaps.extend(
-            doors.pairs[doors.pairs.partition_point(|&(c, _)| c < b)..]
-                .iter()
-                .take_while(|&&(c, _)| c == b)
-                .map(|&(c, q)| point[doors.index(c, q)].0),
-        );
+        // Under the rules a wire crosses the border, which has no door.
+        if !rules {
+            gaps.extend(
+                doors.pairs[doors.pairs.partition_point(|&(c, _)| c < b)..]
+                    .iter()
+                    .take_while(|&&(c, _)| c == b)
+                    .map(|&(c, q)| point[doors.index(c, q)].0),
+            );
+        }
         gaps.sort_unstable();
         let mut at = gaps[0] + radius;
         write!(lines, r#"<path id="b{b}" d="M{at} {bottom}"#).unwrap();
@@ -899,12 +1276,14 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
     };
     let body = |out: &mut String| {
         group(out, &style.line, "", &lines);
-        group(
-            out,
-            &style.par,
-            &format!(r#" stroke-dasharray="{dash}""#),
-            &pars,
-        );
+        if dashed {
+            group(
+                out,
+                &style.par,
+                &format!(r#" stroke-dasharray="{dash}""#),
+                &pars,
+            );
+        }
         group(out, &style.link, "", &links);
         if !marked.is_empty() {
             group(out, &style.highlight, "", &marked);

@@ -147,6 +147,8 @@ pub struct Style {
     /// node, or compact, with only the literals and the conclusions
     /// written.
     pub net: NetDrawing,
+    /// How a proof net's switched edges, conclusions and `?` nodes look.
+    pub net_look: NetLook,
     /// The colour of the input occurrences of an essential net, their
     /// edges and the edges below the hypotheses.
     pub input: String,
@@ -189,6 +191,7 @@ impl Default for Style {
             input: "#009e73".into(),
             dominator: "#cc79a7".into(),
             net: NetDrawing::Formulas,
+            net_look: NetLook::LINLOG,
         }
     }
 }
@@ -213,6 +216,210 @@ pub enum NetDrawing {
     /// conclusions in the sequent's order at the bottom, for nets too wide
     /// to write every subformula.
     Compact,
+}
+
+/// How the nodes and edges of a proof net look, in either
+/// [`NetDrawing`]: linlog's own look by default ([`NetLook::LINLOG`]), or
+/// the textbooks' ([`NetLook::TEXTBOOK`]). In JSON (feature `serialize`)
+/// the three fields, or the name of a [`NetPreset`] alone
+/// (`"textbook"`), which reads as that preset's [`NetPreset::look`].
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct NetLook {
+    /// How the premise edges of a `⅋` or `?` node and the wires of a `?`
+    /// node are drawn.
+    pub premises: Premises,
+    /// Where the conclusions of a net with boxes stand.
+    pub conclusions: Conclusions,
+    /// How a `?` node of a net with boxes is drawn.
+    pub why_not: WhyNot,
+}
+
+impl NetLook {
+    /// linlog's own look, the default: switched edges dashed, a `!`
+    /// conclusion with auxiliary doors a row above its `?` nodes, and one
+    /// `?` node with any number of premises.
+    pub const LINLOG: Self = Self {
+        premises: Premises::Dashed,
+        conclusions: Conclusions::Raised,
+        why_not: WhyNot::Node,
+    };
+
+    /// The look the textbooks share: every edge plain, every conclusion
+    /// on the bottom row, and a `?` node drawn as the dereliction,
+    /// contraction and weakening nodes of the sequent calculus's rules.
+    pub const TEXTBOOK: Self = Self {
+        premises: Premises::Plain,
+        conclusions: Conclusions::Bottom,
+        why_not: WhyNot::Rules,
+    };
+
+    /// Returns the look with other [`premises`](Self::premises).
+    #[must_use]
+    pub const fn with_premises(self, premises: Premises) -> Self {
+        Self { premises, ..self }
+    }
+
+    /// Returns the look with other [`conclusions`](Self::conclusions).
+    #[must_use]
+    pub const fn with_conclusions(self, conclusions: Conclusions) -> Self {
+        Self {
+            conclusions,
+            ..self
+        }
+    }
+
+    /// Returns the look with another [`why_not`](Self::why_not).
+    #[must_use]
+    pub const fn with_why_not(self, why_not: WhyNot) -> Self {
+        Self { why_not, ..self }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> serde::Deserialize<'de> for NetLook {
+    /// Reads a look's fields, or a [`NetPreset`]'s name.
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        /// A look's fields as JSON writes them, each left out the default
+        /// look's.
+        #[derive(serde::Deserialize)]
+        #[serde(default, deny_unknown_fields)]
+        struct Fields {
+            /// [`NetLook::premises`].
+            premises: Premises,
+            /// [`NetLook::conclusions`].
+            conclusions: Conclusions,
+            /// [`NetLook::why_not`].
+            why_not: WhyNot,
+        }
+
+        impl Default for Fields {
+            /// Returns the default look's fields.
+            fn default() -> Self {
+                let NetLook {
+                    premises,
+                    conclusions,
+                    why_not,
+                } = NetLook::default();
+                Self {
+                    premises,
+                    conclusions,
+                    why_not,
+                }
+            }
+        }
+
+        /// Reads either form.
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = NetLook;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a net's premises, conclusions and why_not, or the name of a preset")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, name: &str) -> Result<NetLook, E> {
+                use serde::Deserialize;
+                use serde::de::IntoDeserializer;
+                NetPreset::deserialize(name.into_deserializer()).map(NetPreset::look)
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<NetLook, A::Error> {
+                use serde::Deserialize;
+                let Fields {
+                    premises,
+                    conclusions,
+                    why_not,
+                } = Fields::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
+                Ok(NetLook {
+                    premises,
+                    conclusions,
+                    why_not,
+                })
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
+}
+
+/// A named [`NetLook`]. In JSON (feature `serialize`) `"linlog"` or
+/// `"textbook"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum NetPreset {
+    /// [`NetLook::LINLOG`].
+    #[default]
+    Linlog,
+    /// [`NetLook::TEXTBOOK`].
+    Textbook,
+}
+
+impl NetPreset {
+    /// Returns the look the preset names.
+    #[must_use]
+    pub const fn look(self) -> NetLook {
+        match self {
+            Self::Linlog => NetLook::LINLOG,
+            Self::Textbook => NetLook::TEXTBOOK,
+        }
+    }
+}
+
+/// How the premise edges of a `⅋` or `?` node and the wires of a `?` node
+/// are drawn. In JSON (feature `serialize`) `"dashed"` or `"plain"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Premises {
+    /// Dashed and in the [`Style::par`] colour, since a switching keeps
+    /// one of them.
+    #[default]
+    Dashed,
+    /// As every other edge: solid and in the [`Style::line`] colour.
+    Plain,
+}
+
+/// Where the conclusions of a net with boxes stand. A net without boxes
+/// has them all on the bottom row either way, and so does the compact
+/// drawing, which writes each under an edge hanging to the bottom. In
+/// JSON (feature `serialize`) `"raised"` or `"bottom"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum Conclusions {
+    /// On the bottom row, but for a `!` with auxiliary doors, written
+    /// under its door a row above the `?` nodes its wires go to.
+    #[default]
+    Raised,
+    /// Every one on the bottom row, a `!` with auxiliary doors reached by
+    /// an edge down from its door.
+    Bottom,
+}
+
+/// How a `?` node of a net with boxes is drawn. In JSON (feature
+/// `serialize`) `"node"` or `"rules"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum WhyNot {
+    /// One node with every copy of its subformula and every wire from a
+    /// box as a premise, and a weakening one without premises.
+    #[default]
+    Node,
+    /// The nodes of the rules: a dereliction `?d` under every copy (in
+    /// the copy's box), each copy's wire leaving every box through a door
+    /// of its own, binary contractions `?c` joining them at the `?`'s
+    /// depth, the nearest first, and a weakening `?w`; a lone wire is the
+    /// conclusion itself.
+    Rules,
 }
 
 impl Style {
@@ -391,6 +598,12 @@ impl Style {
     #[must_use]
     pub fn with_net(self, net: NetDrawing) -> Self {
         Self { net, ..self }
+    }
+
+    /// Returns the style with another [`net_look`](Self::net_look).
+    #[must_use]
+    pub fn with_net_look(self, net_look: NetLook) -> Self {
+        Self { net_look, ..self }
     }
 }
 

@@ -868,7 +868,9 @@ fn nets_exist(fragment: Fragment, mode: Mode) -> Result<(), NetError> {
 /// `o<n>` on the only vertex of occurrence `n`, `v<k>` on vertex `k` of an
 /// occurrence with several, `b<k>` on the box of the `!` vertex `k`); every
 /// subformula written, or with `styles.svg.net` `"compact"` only the
-/// literals and the conclusions.
+/// literals and the conclusions; in linlog's look, or with
+/// `styles.svg.net_look` `"textbook"` (or its fields `premises`,
+/// `conclusions` and `why_not`) the textbooks'.
 ///
 /// # Errors
 ///

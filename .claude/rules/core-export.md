@@ -465,9 +465,82 @@ for NanoYalla. What the code relies on:
   vertex, `b<k>` on a box's outline; a switching cycle's pairs (a wire is
   the pair of its `?` and the copy or contracted box it comes from) are
   highlighted, a disconnection is not. Boxes take the `line` colour,
-  wires and `?` edges the `par` colour and dash: no style field was
-  added. The estimate counts per vertex (an occurrence under a `?` may
+  wires and `?` edges the `par` colour and dash (under
+  `Premises::Dashed`). The estimate counts per vertex (an occurrence under a `?` may
   have none or many), per door and per box, and the text form.
+- **A net's look is `Style::net_look`** (`svg::NetLook`, three fields,
+  each a closed enum; `NetLook::LINLOG` the default, unchanged from
+  before it existed, and `NetLook::TEXTBOOK` the preset, both constants
+  of the type and `NetPreset` their names, which JSON reads in place of
+  the fields as `Font` reads a `MathFont`'s). Each choice follows a figure
+  read in the source itself (Laurent's proof-net slides as used in
+  Faggian's LMFI 2025 course, slides 42 to 51; Straßburger, *Proof Nets
+  and the Identity of Proofs*, INRIA RR 6013, Fig. 10 on p. 45; Guerrieri,
+  Manara, Pellissier, Tortora de Falco and Vaux Auclair, TLLA 2021,
+  Figs. 1 to 4; Chouquet and Vaux Auclair, LMCS 17:4, Fig. 1):
+  - `premises`: `Dashed` (the edges into a `⅋` or `?` and the wires in
+    the `par` colour and dashed) is linlog's own, no source does it;
+    `Plain` draws them as every other edge, as all four do (Laurent 42
+    and 43, Straßburger Fig. 10, TLLA Figs. 1 and 2, Chouquet Fig. 1).
+    Plain drops the dashed group altogether, so a plain drawing has no
+    `stroke-dasharray` (a highlighted switched edge is not dashed
+    either).
+  - `conclusions`: `Raised` (a `!` with auxiliary doors written under its
+    door, a row above the `?` nodes its wires reach) is linlog's own;
+    `Bottom` writes it on the bottom row under an edge down from its door,
+    as Chouquet Fig. 1 (the `!` on the border, its wire down beside the
+    `?`s' to one line), Laurent 43 (`!A` level with `?Γ`) and Straßburger
+    Fig. 10 (`!A, ?B₁ … ?Bₙ` on one row) do; TLLA Fig. 2 ends its
+    conclusions at several heights. Only the formulas drawing changes:
+    the compact one and every MLL net have their conclusions at the
+    bottom already (`net_looks` asserts the compact drawing equal).
+  - `why_not`: `Node` (one `?` with every copy and wire a premise, a
+    weakening one without) is TLLA Fig. 1 (a `?` vertex of any arity) and
+    Chouquet Fig. 1 (one `?` collecting the copies' wires); `Rules` is
+    Laurent 42 and Straßburger Fig. 10: `?d` under each copy, binary
+    `?c`, `?w`. It is a faithful drawing of the generalised node because
+    that node is the class of nets equal up to the associativity and
+    commutativity of contraction and its commutation with box borders;
+    the drawing picks one member: every dereliction at its copy (in the
+    copy's box, on the row below it, which the layout reserves: a box's
+    `!` is a row lower for a copy in it), every contraction at the `?`'s
+    own depth, so a box has a door per copy, not per `?` (`Doors::of`
+    keyed by copy), and the contractions a left comb in a column over
+    the `?`'s formula, the copies at its depth first and then the wires,
+    each nearest the column first. The doors have no symbol and break no
+    border: a wire crosses it, as in Straßburger Fig. 10 and Chouquet
+    Fig. 1 (Laurent's `?p` door node is not drawn). A lone wire is the
+    conclusion itself and has no node (in the compact drawing no circle,
+    so no element has that vertex's id). Edges into a `?c` are its
+    switched premises (dashed under `Dashed`); a copy's edge into its
+    `?d` and a `?`'s edge down to its formula are not.
+- **The rules' rows and wires**: a `?` vertex takes `levels` rows of
+  nodes (one for the derelictions at its depth, or with wires alone a
+  landing row the first wire comes down through; one per contraction
+  past the first premise; one for a weakening), all above its formula
+  when written, all but the last when its circle is the last node; its
+  layer adds them, so every node is below every box its wires leave.
+  Nodes stand at the joint height of their row in the formulas drawing,
+  so every wire's leg runs between two rows like the default's (level
+  with a node it would pass through other `?`s' nodes on that row: the
+  first attempt did). A side premise comes in along twice the radius
+  above its contraction; the first wire, with wires alone, along twice
+  the radius above the landing row and down the column, so the two
+  premises of the first contraction never share a leg. Legs of several
+  wires between the same two rows are staggered (`legs`, at most the
+  radius apart, within the room below the circles above), the one whose
+  door is further along its direction higher, so that where spans
+  overlap one wire's way down does not cross the other's leg. The
+  default drawing does not stagger, and two of its wires bound for
+  different `?`s on one row can share a leg (`net-promotion.svg`); a
+  fix would change the default's snapshots. What no test catches: a
+  leg through another formula or a wire across an edge (accepted, as
+  for the default's wires); look at the renderings.
+- **The estimate under the rules** adds `2 · RULE` per copy (its `?d` and
+  the `?c` it goes into) and `RULE` per `?` (its last node or weakening),
+  `RULE` being a node's label, circle and edge; the default's slack
+  (about 3.2 times the drawing on `net-promotion`) leaves little room, so
+  `CONNECTIVE` per node broke the within-four-times bound.
 - **An essential net is the proof net's layout with the reading drawn
   in** (`Style::essential`, off by default; `input` and `dominator` its
   colours): every edge an arrowhead halfway along it (half the node
