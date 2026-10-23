@@ -855,6 +855,11 @@ browser keeps (`linlog-settings`, the theme, autosaved tabs, the
 service worker's cache, the optional fonts) and how to clear it; the
 visitors' rights. About has one line on GitHub's logs today.
 
+*Left by step 38c (unassigned).* A goal opened in a new tab writes a
+compound hypothesis negated (`A, (A ⊗ B⊥)⊥ ⊢ D` for `A ⊸ B`): the
+bindings give the page each goal formula's one-sided text and no
+reading; a reading from the bindings would let the tab write `A ⊸ B`.
+
 *Left by step 38b (unassigned).* Safari's trackpad pinch (gesture
 events) is handled and tested by no test; a compact net's edges begin
 a tenth of an em below each literal, inside every font's descenders,

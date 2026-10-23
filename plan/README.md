@@ -3055,3 +3055,23 @@ client follows it (step 32).
     run, and cleared it when the work was done.
   Step 39 waits for a week's quota (estimated 13 to 20 % of this
   account's); the privacy page waits for the author (`later.md`).
+- 2026-10-23: review of step 38c, the author's three requests on the
+  calculus (the session step-38b, Opus 5.5 at high, 08:12 to 08:40):
+  a goal opened in a new tab keeps the original tab's mode (the fault
+  was the goal's text, which wrote each hypothesis in its one-sided
+  form, so that an intuitionistic goal had no reading; a hypothesis is
+  now written as its formula's dual); each tab keeps its own mode
+  across a reload, a new empty tab the visit's last; a tab's calculus
+  mark opens that tab's switches at both widths and by keyboard, the
+  phone's More sheet no longer holds them, the desktop stage keeps its
+  cluster (D58's place); and the band's Logic and Status popovers,
+  which the scrolling row of tabs had clipped since version 1, are
+  drawn. Checked here: the fix, the client's `nix flake check` at its
+  head (`nvoxzkyx`), linlog's at this entry. "(departs from the design:
+  D58, at the author's request)"; five judgement calls in the report.
+  The goal's judge asked after the work for proofs of the messages
+  themselves, so the supervisor cleared the goal. Also for the author:
+  a gpg prompt that timed out while the session made its workspace left
+  a git worktree entry without files, which the session removed by
+  hand from linlog's `.git/worktrees/`, as `git worktree prune` would;
+  nothing else under `.git` was touched.
