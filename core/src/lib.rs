@@ -1,6 +1,10 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
+#![doc(
+    html_logo_url = "https://linlog-prover.github.io/logo/square-dark.svg",
+    html_favicon_url = "https://linlog-prover.github.io/logo/favicon-32.png"
+)]
 //! Decides sequents of linear logic: parse a sequent, prove it, get a
 //! proof the checker has validated, and print or export it. A caller adds
 //! the crate from crates.io and, for the examples below, `serde_json`. An

@@ -266,6 +266,10 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- linlog has a logo, the word with its i drawn as `⊸` stood on end,
+  under CC BY 4.0: the README (and so crates.io), the library's rustdoc
+  (its logo and favicon) and the Rocq library's new README show it, by
+  URL from linlog-prover.github.io, which serves the files.
 - The bindings' settings take a string where the tab's settings hold
   an object, such as a math font's name for `styles.svg.font`; an array
   there is still refused.

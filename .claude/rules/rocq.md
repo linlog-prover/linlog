@@ -16,7 +16,9 @@ was.
   from `_RocqProject` with `rocq makefile` and hands it every target, so
   `make` builds and `make install` installs under `COQLIBINSTALL`),
   `rocq-linlog.opam` (the archive's name for the library; the flake reads
-  its `version:`), `theories/` (the library, logical path `Linlog`) and
+  its `version:`), `README.md` (the library's front page, linlog's logo by
+  URL from the site, as the root README has it; no logo file is in the
+  repository), `theories/` (the library, logical path `Linlog`) and
   `tests/` (certificates the check compiles against the installed library,
   not part of it) and `bridges/` (the equivalences with NanoYalla and
   `nanoill.v`, not part of the package either, compiled by the check
