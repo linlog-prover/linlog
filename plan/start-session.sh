@@ -52,6 +52,10 @@ if ((! ${#resume[@]})); then
 fi
 
 cd "$(dirname "$0")/.."
+# An exited session of the same name would be resurrected with its old
+# panes, one of them an earlier session's command waiting for Enter.
+# delete-session refuses a running one.
+zellij delete-session "linlog-$name" >/dev/null 2>&1 || true
 zellij attach --create-background "linlog-$name" >/dev/null
 zellij --session "linlog-$name" run --name "$name" --cwd "$PWD" -- \
   env "${account[@]}" \
