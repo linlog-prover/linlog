@@ -3165,3 +3165,8 @@ client follows it (step 32).
   from what is public, a ranked list with a recommendation per decision
   for the author, then the prompts of the steps the author chooses,
   numbered from 47.
+- 2026-10-23: step 46's research gains an area of its own at the
+  author's word: correctness verification and its feasibility (the Rust
+  checker verified or shown to refine the Rocq library's, a checker
+  extracted from Rocq run beside it, certificates for more verdicts,
+  each weighed by what it would prove and cost).

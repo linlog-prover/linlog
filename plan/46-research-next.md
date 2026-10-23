@@ -37,6 +37,23 @@ author then chooses, with their prompts.
   ILTP, editors), what models and agents need of linlog beyond step 44's
   guide (an MCP server, if step 44 left it to the author), and
   maintenance (dependencies, toolchains, wasm, accessibility).
+- **Correctness verification, and its feasibility** (the author,
+  2026-10-23), an area of its own. What linlog trusts today: the Rust
+  checker and the checks of refutations (`Disproof::check`), the
+  intuitionistic reading (and step 40's recorded sides), the parser,
+  tested by differential tests, mutation runs and fuzzing; what is
+  verified: the Rocq library's checkers with their soundness theorems,
+  which the exported certificates of classical proofs rest on, and the
+  invariants behind some refutations. The research weighs, with what
+  each would cost here and what it would prove: verifying the Rust
+  checker itself (Verus, Creusot, Prusti, Kani's bounded model
+  checking, Aeneas or hax translating Rust to Lean, Rocq or F*), proving
+  it refines the Rocq checker, running a checker extracted from Rocq
+  beside or instead of it (in the command, in the browser's wasm),
+  certificates for more verdicts (intuitionistic proofs, every kind of
+  refutation) checked by the library, and which part of the trusted base
+  each would remove. It says what is feasible in a step or two and what
+  would be a project of its own, and ranks it with the rest.
 - **What users say, from what is public**: the repositories' issues and
   discussions, citations of the Zenodo DOI, crates.io's download counts,
   read through the public web and GitHub's public API (no `gh` task,
