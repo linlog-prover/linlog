@@ -83,6 +83,10 @@ is the authority):
   every step above is reviewed and on `main` (prompt written 2026-10-23,
   finished at the review of the last step before it); the night and the
   tag are the author's.
+- **46**: research for what to add after 0.2.0 (prompt written
+  2026-10-23), after the release: two sessions with the author between,
+  the research and its synthesis on Fable 5.1 at `high`, then the
+  prompts of the steps the author chooses, numbered from 47.
 
 Two steps may run side by side when they touch different parts of the
 tree; give them the split of "The machine" below.

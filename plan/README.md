@@ -64,6 +64,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 43 | Learn's lessons in D56's sequence and D60's order, with their practice: lessons 1 to 5, then 6 to 9 (with 39's nets with boxes and 40's two-sided surface), then cut and the quantifiers (three sessions, content in the web client, the education plugins; 43a and 43b may run beside 41) | `43-learn-lessons.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer per session | high | 39, 40 (43c: 41, 42) |
 | 44 | A guide to linlog for AI models: a compact summary of the command and the library by the practices current then (research first), every example run by a test, tried on a small model given nothing else, kept true by every later step (one session, documentation only; after 40, may run beside 41) | `44-llm-guide.md` (written 2026-10-23 at the author's word) | Opus 5.5; research on Sonnet 5.5; the trial agents Haiku 5.5 and Sonnet 5.5 | high (the sub-agents `medium`) | 40 |
 | 45 | The fourth baseline, and the second release, 0.2.0, the bump the closed enums' new variants call for (two sessions: the baseline on a night the author gives, then the release prepared, the tag and publication the author's) | `45-release-0.2.0.md` (written 2026-10-23 at the author's word; finished at the review of the last step before it) | Opus 5.5 | high | every step before it |
+| 46 | Research: what to add after 0.2.0, from the literature, the other tools, what users say publicly and `later.md`, ranked, the author choosing; then the prompts of the chosen steps (two sessions with the author between, no code) | `46-research-next.md` (written 2026-10-23 at the author's word) | Fable 5.1 for the research and its synthesis, the sub-agents on Sonnet 5.5; Opus 5.5 for the prompts | high (the sub-agents `medium`) | 45 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -557,6 +558,7 @@ claude --model claude-opus-5-5 --effort high --name step-42 ((open --raw plan/42
 claude --model claude-opus-5-5 --effort high --name step-43 ((open --raw plan/43-learn-lessons.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-44 ((open --raw plan/44-llm-guide.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-45 ((open --raw plan/45-release-0.2.0.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-fable-5-1 --effort high --name step-46 ((open --raw plan/46-research-next.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
@@ -3157,3 +3159,9 @@ client follows it (step 32).
   gives, then the release prepared as 0.1.0's was, the break the closed
   enums' new variants call for found by a tool and listed with what to
   do instead, the tag and publication the author's.
+- 2026-10-23: step 46, research for what to add after 0.2.0, at the
+  author's word, after the release: the scope notes' areas updated and
+  new ones beside them, read in sources by sub-agents, what users say
+  from what is public, a ranked list with a recommendation per decision
+  for the author, then the prompts of the steps the author chooses,
+  numbered from 47.
