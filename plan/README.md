@@ -62,6 +62,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
 | 42 | First-order linear logic, its last session on the web page (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
 | 43 | Learn's lessons in D56's sequence and D60's order, with their practice: lessons 1 to 5, then 6 to 9 (with 39's nets with boxes and 40's two-sided surface), then cut and the quantifiers (three sessions, content in the web client, the education plugins; 43a and 43b may run beside 41) | `43-learn-lessons.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer per session | high | 39, 40 (43c: 41, 42) |
+| 44 | A guide to linlog for AI models: a compact summary of the command and the library by the practices current then (research first), every example run by a test, tried on a small model given nothing else, kept true by every later step (one session, documentation only; after 40, may run beside 41) | `44-llm-guide.md` (written 2026-10-23 at the author's word) | Opus 5.5; research on Sonnet 5.5; the trial agents Haiku 5.5 and Sonnet 5.5 | high (the sub-agents `medium`) | 40 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -553,6 +554,7 @@ claude --model claude-opus-5-5 --effort high --name step-40 ((open --raw plan/40
 claude --model claude-opus-5-5 --effort high --name step-41 ((open --raw plan/41-cut.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-42 ((open --raw plan/42-first-order.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-43 ((open --raw plan/43-learn-lessons.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-44 ((open --raw plan/44-llm-guide.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
@@ -3140,3 +3142,11 @@ client follows it (step 32).
   with a checklist for what only the author can set: GitHub's avatar and
   social previews, a Zenodo community), the last section of
   `38-web-polish.md`, after 38e.
+- 2026-10-23: step 44, a guide to linlog for AI models, at the author's
+  word: research of the current practice first (`llms.txt`, Agent
+  Skills, the vendors' guidance, whether an MCP server helps most, the
+  last the author's to decide), a compact summary and a full reference
+  from what defines each feature, every example run by a test, tried on
+  a small model given nothing else, served in the repository, on the
+  rustdoc site and at the page's root, and kept true by every later step
+  under a rule it adds to conduct.md. After 40; may run beside 41.

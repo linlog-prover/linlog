@@ -75,6 +75,10 @@ is the authority):
   sessions: 43a (lessons 1 to 5) and 43b (6 to 9) after 39 and 40, beside
   41 if wanted; 43c (cut and the quantifiers) after 41 and 42. D60's order
   is confirmed with the author from each session's outline.
+- **44**: a guide to linlog for AI models (prompt written 2026-10-23),
+  one session after 40, documentation only, beside 41 if wanted; once it
+  ends, every step keeps the guide true (its rule in conduct.md), so tell
+  a session of 41 to 43 that began before it.
 
 Two steps may run side by side when they touch different parts of the
 tree; give them the split of "The machine" below.
