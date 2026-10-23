@@ -745,17 +745,33 @@ pub(super) fn draw(
             lid[depth as usize] = tallest + radius;
         }
     }
+    // What a row's height leaves of the band below a row free for legs: by
+    // default with formulas, from twice the radius above the joints up to
+    // the text of the row above (the joint is 1.5 radii above its text's
+    // top); under the rules with formulas, the pitch less the circles
+    // above; compact, the row less the circles above.
+    let room_beside = match (formulas, rules) {
+        (true, false) => 5 * radius / 2 + stroke,
+        (true, true) => 3 * radius - (radius + HEIGHT + DEPTH),
+        (false, _) => 3 * radius,
+    };
     // The rows as far apart as the most wires that run level between the
     // same two rows need, each half the radius from the next at least, so
     // that none reads as part of another: by default a wire runs above the
-    // row of its `?` vertex; under the rules above the row of the node it
-    // comes into, the first of a `?` without copies at its depth above its
-    // landing row, and a lone wire above its formula's row.
+    // row of its `?` vertex, or of the box whose door it goes into; under
+    // the rules above the row of the node it comes into, the first of a `?`
+    // without copies at its depth above its landing row, and a lone wire
+    // above its formula's row (a door there has one wire, which goes
+    // straight down to the next).
     let line_height = {
         let mut level: HashMap<u32, i64> = HashMap::default();
         for (d, &(_, key)) in doors.pairs.iter().enumerate() {
-            if !rules && target(d).is_none() {
-                *level.entry(row[owner(key) as usize]).or_default() += 1;
+            let above = match target(d) {
+                Some(outer) => row[doors.pairs[outer].0 as usize],
+                None => row[owner(key) as usize],
+            };
+            if !rules {
+                *level.entry(above).or_default() += 1;
             }
         }
         for q in (0..n as u32).filter(|&q| rules && kind_of(q) == Kind::Quest) {
@@ -773,8 +789,7 @@ pub(super) fn draw(
             }
         }
         let most = level.values().copied().max().unwrap_or(0);
-        let beside = if formulas { radius + HEIGHT + DEPTH } else { 0 };
-        line_height.max(most * (radius / 2) + 3 * radius - beside)
+        line_height.max(most * (radius / 2) + room_beside)
     };
     let baseline = margin + stroke + highest + HEIGHT;
     let top = baseline - HEIGHT;
@@ -1267,24 +1282,31 @@ pub(super) fn draw(
     }
     // The legs of the wires that run level between the same two rows
     // apart, so that no two share one, wires bound for different `?`
-    // vertices included: going left, the wire whose door is further left
+    // vertices and for the doors of a box around included: going left, the wire whose door is further left
     // higher, and going right the one further right, so that where their
     // spans overlap the way down of one does not cross the other's leg.
     // They stay clear of the circles above.
     let mut legs: HashMap<usize, i64> = HashMap::default();
     {
         let mut bands: HashMap<i64, Vec<(usize, i64, i64)>> = HashMap::default();
-        for d in (0..doors.pairs.len()).filter(|&d| target(d).is_none()) {
-            let (to, band) = if rules {
-                let End { at: to, above, .. } = entry[&d];
-                (to, above.unwrap_or(to.1 - 2 * radius))
-            } else {
-                let to = node(owner(doors.pairs[d].1));
-                (to, to.1 - 2 * radius)
+        for d in (0..doors.pairs.len()).filter(|&d| !rules || target(d).is_none()) {
+            let (to, band) = match target(d) {
+                Some(outer) => (point[outer], point[outer].1 - 2 * radius),
+                None if rules => {
+                    let End { at: to, above, .. } = entry[&d];
+                    (to, above.unwrap_or(to.1 - 2 * radius))
+                }
+                None => {
+                    let to = node(owner(doors.pairs[d].1));
+                    (to, to.1 - 2 * radius)
+                }
             };
             bands.entry(band).or_default().push((d, point[d].0, to.0));
         }
-        let room = if formulas { pitch } else { line_height } - 3 * radius;
+        let room = match (formulas, rules) {
+            (true, true) => pitch - 3 * radius,
+            _ => line_height - room_beside,
+        };
         for (band, mut wires) in bands {
             wires.sort_unstable_by_key(|&(_, from, to)| match from > to {
                 true => (false, from),

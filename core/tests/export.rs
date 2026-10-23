@@ -891,16 +891,24 @@ fn net_looks() {
     }
 
     // Six wires running level between the same two rows, each bound for
-    // its own `?`: each leg half the radius from the next at least, in
-    // both drawings and both looks, so that none reads as part of another.
+    // its own `?`, and four from inner boxes' doors to the doors of two
+    // `?`s on the box around them: each leg half the radius from the next
+    // at least, in both drawings and both looks (the four only by
+    // default: under the rules each door has one wire, straight down), so
+    // that none reads as part of another.
     let six = mell("!a, !b, !c, !d, !e, !f |- !(((a * b) * (c * d)) * (e * f))");
+    let doors = mell("!a, !b |- !(!a * !b * !a * !b)");
     let drawings = [NetDrawing::Formulas, NetDrawing::Compact];
-    for (drawing, look) in drawings
-        .into_iter()
-        .flat_map(|d| [(d, NetLook::TEXTBOOK), (d, NetLook::LINLOG)])
-    {
+    let cases = drawings.into_iter().flat_map(|d| {
+        [
+            (&six, d, NetLook::TEXTBOOK, 6),
+            (&six, d, NetLook::LINLOG, 6),
+            (&doors, d, NetLook::LINLOG, 6),
+        ]
+    });
+    for (net, drawing, look, count) in cases {
         let style = Style::default().with_net(drawing).with_net_look(look);
-        let svg = svg::mell_net(&six, &style, &unbounded(), |_| false).unwrap();
+        let svg = svg::mell_net(net, &style, &unbounded(), |_| false).unwrap();
         // A wire's path: down from its door, along its leg and down.
         let mut legs: Vec<i64> = svg
             .split("<path d=\"M")
@@ -910,7 +918,7 @@ fn net_looks() {
             .collect();
         legs.sort_unstable();
         legs.dedup();
-        assert_eq!(legs.len(), 6, "{svg}");
+        assert_eq!(legs.len(), count, "{svg}");
         let radius = i64::from(style.node_radius);
         assert!(
             legs.windows(2).all(|w| w[1] - w[0] >= radius / 2),

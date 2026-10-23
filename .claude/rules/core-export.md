@@ -537,11 +537,18 @@ for NanoYalla. What the code relies on:
   left six wires 60 units apart against a 40-unit stroke, one bar to the
   eye (the review's finding; `net_looks` measures six). The default
   look staggers the same way: its wires run along twice the radius above
-  their `?`'s row, so a band is a `?` row, and the rows are spaced by the
-  most door wires ending on one `?` row; before, two wires bound for
-  different `?`s on one row shared a leg and read as one
-  (`net-promotion.svg`, `!a, !b, !(c * d) ⊢ !((a ⊗ a) ⊗ (d ⊗ c))`;
-  `net_looks` measures the six wires in both looks). What no test catches: a
+  their `?`'s row, or above the row of the box whose door they go into
+  (a wire from an inner box's door to an outer box's door), so a band is
+  a row, and the rows are spaced by the most door wires ending on one
+  row; before, two wires bound for different `?`s on one row shared a
+  leg and read as one (`net-promotion.svg`, `!a, !b, !(c * d) ⊢ !((a ⊗
+  a) ⊗ (d ⊗ c))`), and so did door-to-door wires (`!a, !b ⊢ !(!a ⊗ !b ⊗
+  !a ⊗ !b)`, the integers panel's witness; `net_looks` measures both, in
+  both looks where they apply). With formulas the default's legs keep
+  within `line_height − 2.5·radius − stroke` above the band, below the
+  text of the row above (the joint is 1.5 radii above its text's top);
+  the rules' room there, `pitch − 3·radius`, reached into that text when
+  first reused. What no test catches: a
   leg through another formula or a wire across an edge (accepted, as
   for the default's wires); look at the renderings.
 - **The estimate under the rules** adds `2 · RULE` per copy (its `?d` and
