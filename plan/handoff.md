@@ -248,8 +248,10 @@ pulls.
   breaks when a prune makes it fast. Check the combined head.
 - **A pasted goal can lose its Enter**: if the input line still holds
   `/goal [Pasted text …]`, send Enter again.
-- **Signing lapses** after two hours however warm the loop; jj commands
-  that write then fail. Sessions commit with `--config
+- **Signing lapses** at gpg-agent's `max-cache-ttl` however warm the
+  loop: 12 hours after the author entered the passphrase since
+  2026-10-23 (two hours before), and restarting the loop does not move
+  that clock; jj commands that write then fail. Sessions commit with `--config
   signing.behavior=drop` and you sign later (`jj sign -r
   'main@origin..REV & ~signed()'`).
 - **The SSH key's cache lapses** separately from the signing key's,
