@@ -3235,3 +3235,50 @@ client follows it (step 32).
   `/home/tux/Projects/own/linlog-logo/` (`lollipop-colours/violet/`).
   One departure, not taken: the par candidate's Euler Math (D25). Next:
   session 38g, the logo placed.
+- 2026-10-23: review of session 39a, MELL proof nets with boxes (Opus
+  5.5 at high, 12:40 to 14:50, beside sessions 38e to 38g): the type
+  `MellStructure` (`core/src/nets/mell/`), unit-free MELL in classical
+  mode with or without Mix, a generalised `?` vertex with any number of
+  copies, each weakening hung on an axiom link (Guerrini and Masini);
+  the criterion `is_correct` (Danos–Regnier at every box depth, the
+  boxes inside contracted), independent of any engine, its witness
+  wrapped in `NetError::InBox` inside a box; `sequentialize` into a
+  dyadic term and `from_proof`; four new `NetError` variants (the enum
+  is non_exhaustive). The panel (the argument on Fable 5.1 at high,
+  confirmed from its transcript; counterexamples on Opus 5.5; integers
+  on Sonnet 5.5) and a fresh-context reviewer: no soundness finding;
+  the round trip's identity claim was wrong and is now claimed only
+  where no occurrence repeats; two quadratic paths made fast.
+  - checked here: the net target set against `net-after-cyclic` (64
+    rows, no verdict or counter differs); a probe of my own in release
+    (5 513 proofs of random MELL sequents to nets and back, and 230 666
+    damaged nets, 4 372 refused, every accepted one sequentialized into
+    a term the checker accepts); the gate and `nix flake check` at the
+    chain stacked on `main`, and again with 38g on top.
+  - for the author, three departures "(departs from the design)": a
+    proof's net is canonical only up to the link each weakening hangs
+    on and, where an occurrence repeats, up to which copy a rule takes
+    (a loose weakening could not be checked; some nets are the reading
+    of no term); `MellStructure` a type of its own beside
+    `ProofStructure`; `from_parts` and `from_proof` take `&Limits`.
+    Intuitionistic MELL nets are left out (`NotMell`).
+  Next: session 39b, the drawing, the JSON form, the command and the
+  bindings.
+- 2026-10-23: review of session 38g, the logo placed (Opus 5.5 at high,
+  14:15 to 15:00): in the client, the six SVGs under `src/logo/` the one
+  source, every raster drawn by the flake (`nix build .#logo`, resvg),
+  the favicon, the manifest's icons, the Apple touch icon, the link
+  preview, the header's mark (30 pixels at the author's word, a commit of
+  the planning session's), About and the 404 page; the guards as the
+  author asked, the logo–accent pair exempt only while equal (a
+  correction of the brief's guard, which a heads-up box in the
+  session's pane caught); the licence check requires every served image
+  to be the logo's under CC BY 4.0. In linlog, README's head (a
+  `<picture>` by the site's URL), the rustdoc's logo and favicon, and
+  `rocq/README.md`. Checked here: the client's checks rebuilt with
+  `--rebuild`, its screenshots and the live site's, every logo URL
+  answering; the gate and `nix flake check` at the stacked head. For the
+  author: the GitHub avatar and the two social previews
+  (`/home/tux/Projects/own/linlog-logo/for-github/CHECKLIST.md`), and
+  whether crates.io shows README's `<picture>` (unverified until the
+  next release).
