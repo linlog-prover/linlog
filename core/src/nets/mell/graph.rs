@@ -611,6 +611,8 @@ impl Graph {
         }
         let at = (0..n as u32).filter(|&v| self.level[v as usize] == level);
         self.search(scratch, at.clone());
+        // Per component's root, the index of its part, or `NONE`.
+        let mut index = vec![NONE; n];
         let mut parts: Vec<(u32, Vec<VertexId>)> = Vec::new();
         for v in at {
             let first = self.start[v as usize] as usize;
@@ -618,10 +620,11 @@ impl Graph {
                 continue;
             }
             let label = scratch.component[v as usize];
-            match parts.iter_mut().find(|(l, _)| *l == label) {
-                Some((_, part)) => part.push(self.named(v)),
-                None => parts.push((label, vec![self.named(v)])),
+            if index[label as usize] == NONE {
+                index[label as usize] = parts.len() as u32;
+                parts.push((label, Vec::new()));
             }
+            parts[index[label as usize] as usize].1.push(self.named(v));
         }
         scratch.removed.fill(false);
         parts.sort_by_key(|(label, _)| *label);

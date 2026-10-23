@@ -54,6 +54,12 @@ const MOST: u64 = (u32::MAX / 2 - 1) as u64;
 /// slots and flags (16).
 const VERTEX_BYTES: u64 = 20 + 8 + 16;
 
+/// The bytes the construction holds per vertex while it builds the
+/// structure, beside it: the premises' counts, offsets and fill (16), the
+/// box nesting's depths, children and intervals (40), and the graph's
+/// builder: a parent, a stamp, a degree, a fill and two edges (40).
+const BUILD_BYTES: u64 = 16 + 40 + 40;
+
 /// The bytes a door vertex of the graph holds: its level, its `?` vertex,
 /// its offset and slots (16).
 const DOOR_BYTES: u64 = 16;
@@ -166,10 +172,13 @@ impl Placement {
 /// vertex per occurrence and no box.
 ///
 /// The structure is built whole, from its [`Parts`] or from a proof term,
-/// and stays as it is. A proof net is canonical up to two things a term
-/// does not fix: which axiom link a weakening hangs on, and, where one
-/// branch of a term holds two `?` vertices of the same occurrence, which of
-/// them a copy belongs to.
+/// and stays as it is. A term names occurrences, not vertices, so it fixes
+/// a net only up to which axiom link a weakening hangs on and, where a
+/// sequent of the term holds two instances of one occurrence, which of
+/// them a rule acts on (and so which of two `?` vertices of one occurrence
+/// a copy belongs to): reading a term back may give another proof net of
+/// the same sequent than the one it came from, and gives the same one up
+/// to the weakenings' links when no occurrence has two vertices.
 #[derive(Clone, Debug)]
 pub struct MellStructure {
     /// The forest of the sequent.
@@ -261,7 +270,7 @@ impl MellStructure {
                 most: MOST,
             }));
         }
-        afford(n * VERTEX_BYTES, limits)?;
+        afford(n * (VERTEX_BYTES + BUILD_BYTES), limits)?;
         let n = n as usize;
         let mut occurrence = Vec::with_capacity(n);
         let mut parent = Vec::with_capacity(n);

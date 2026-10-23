@@ -17,7 +17,7 @@
 //! instances of one occurrence the rule acting on it takes the last one
 //! made: any choice is a sequent proof, and its net a proof net.
 
-use super::{MOST, MellStructure, Parts, Placed, VERTEX_BYTES};
+use super::{BUILD_BYTES, MOST, MellStructure, Parts, Placed, VERTEX_BYTES};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
@@ -26,9 +26,10 @@ use crate::occurrences::OccId;
 use crate::proofs::{Node, NodeId, Proof};
 
 /// The bytes the unfolding holds per vertex beside the structure: its
-/// occurrence, box and premises (16), an entry in a list of open
-/// instances (4) and the renumbering (8).
-const UNFOLD_BYTES: u64 = 16 + 4 + 8;
+/// occurrence and box (8), its list of premises and the entry it takes in
+/// its parent's (28), an entry in a list of open or waiting instances (8),
+/// the renumbering's three arrays (12) and its vertex of the parts (16).
+const UNFOLD_BYTES: u64 = 8 + 28 + 8 + 12 + 16;
 
 impl MellStructure {
     /// Desequentializes a proof of unit-free MELL in classical mode, with
@@ -40,8 +41,9 @@ impl MellStructure {
     /// node. The vertices are numbered from the roots, then each root's
     /// formula tree depth first, a `?` vertex's copies in the order they
     /// were made. Every proof gives a proof net; two proofs that differ in
-    /// the order of their rules give the same one, up to the axiom links
-    /// the weakenings hang on.
+    /// the order of their rules give the same one up to the axiom links the
+    /// weakenings hang on and, where a sequent holds two instances of one
+    /// occurrence, up to the instance a rule takes (the last made).
     ///
     /// # Errors
     ///
@@ -75,7 +77,7 @@ impl MellStructure {
                 most: MOST,
             }));
         }
-        let bytes = vertices.saturating_mul(VERTEX_BYTES + UNFOLD_BYTES);
+        let bytes = vertices.saturating_mul(VERTEX_BYTES + BUILD_BYTES + UNFOLD_BYTES);
         afford(bytes, limits)?;
         let mut unfolding = Unfolding::new(proof, vertices as usize);
         unfolding.run(&mut |done| {

@@ -48,8 +48,9 @@ fn build(
 }
 
 /// Checks that a structure is a net, sequentializes into a proof the
-/// checker accepts, and desequentializes back to the same net up to the
-/// links its weakenings hang on.
+/// checker accepts, and desequentializes back into a net, the same up to
+/// the links its weakenings hang on where no occurrence has two vertices:
+/// otherwise the term does not say which instance a rule acts on.
 fn round_trip(net: &MellStructure) -> Proof {
     assert_eq!(net.is_correct(|_| false), Ok(()));
     let proof = net.sequentialize(&Limits::default(), |_| false).unwrap();
@@ -62,7 +63,15 @@ fn round_trip(net: &MellStructure) -> Proof {
     assert_eq!(proof.check(mode), Ok(()));
     let back =
         MellStructure::from_proof(&proof, net.criterion(), &Limits::default(), |_| false).unwrap();
-    assert!(isomorphic(net, &back), "{net:?}\nback as\n{back:?}");
+    let mut seen = vec![false; net.forest().len()];
+    let repeats = net.vertices().any(|x| {
+        let o = net.occurrence(x).unwrap().index();
+        std::mem::replace(&mut seen[o], true)
+    });
+    assert!(
+        repeats || isomorphic(net, &back),
+        "{net:?}\nback as\n{back:?}"
+    );
     proof
 }
 

@@ -207,7 +207,19 @@ engine. What the code relies on:
   weakening closes a switching cycle. The link is the one datum a term
   does not fix (no canonical position in general, Di Donna and Tortora
   de Falco §4): `from_proof` hangs a weakening on the first link its `?`
-  rule's subproof makes, so the round trip is the identity up to it.
+  rule's subproof makes.
+- **A term names occurrences, not instances**, so it fixes a net only up
+  to the weakenings' links and, where a sequent holds two instances of one
+  occurrence, the instance each rule takes (`from_proof` takes the last
+  made, `take`) and the `?` vertex a copy behind a door goes to (the
+  innermost `?` rule of its occurrence, as `Θ` is a set of occurrences).
+  So net → term → net may give another proof net of the same sequent
+  (the panel's witnesses: copies of two `?a` instances behind one box's
+  doors all going to the inner one; crossed links of two copies of
+  `?(a ⅋ ~a)` coming back parallel); with no occurrence of two vertices
+  it is the identity up to the weakenings' links. Every net read back is
+  correct (it is a checked term's), which `round_trips` asserts in every
+  case, the isomorphism only where no occurrence repeats.
 - **Numbering and validation** (`from_parts`): the roots are vertices
   `0..r` in the forest's order, then `Parts::vertices`, each with its
   occurrence, its parent and the `!` vertex of its innermost box
@@ -279,8 +291,16 @@ engine. What the code relies on:
   conclusions is derived). A lone `!` vertex has no live wire: its
   sources were opened in this branch, so their `?` rules lie below the
   promotion and `Θ` holds their subformulas. The `?` rule goes right
-  below its own copy rules, so that reading the term back gives each
-  copy to its own `?`.
+  below its own copy rules at its depth, so that reading the term back
+  gives those copies to their own `?`; copies behind a door are copied
+  above the promotion and may go to another `?` of their occurrence.
+  With Mix the splitting `⊗` of a plain-connected sub-net without
+  terminal `⅋` is derived from Laurent's Proposition 1.6 (a structure is
+  a net of MLL with Mix iff it is acyclic): its proof's last rule is no
+  Mix (the two premises' nets would be apart in the plain graph), no
+  `⅋` (none is terminal), so a `⊗` whose two sides meet only at it, or
+  the sub-net is an axiom or a box; the same code path as
+  `ProofStructure::sequentialize` with Mix.
 - **Desequentialization** (`desequentialize.rs`) checks the term first
   (the unfolding trusts it), counts the unfolded vertices (a node's uses
   from the root down, saturating; `MOST` refused before anything is
@@ -298,7 +318,15 @@ engine. What the code relies on:
   the slot total is refused at `u32::MAX`; doors and edges are charged
   to `limits.memory_bytes` as they are made, since the doors are wires
   times depth at worst (quadratic), so `from_parts` and `from_proof` take
-  `&Limits`. A depth's kept count is its edges less what the switched
+  `&Limits`. The per-vertex estimates (`VERTEX_BYTES`, `BUILD_BYTES`,
+  `UNFOLD_BYTES`) cover the construction's transient arrays too: the
+  panel measured peaks of 1.5 to 1.85 times the first, smaller ones.
+  The criterion's scratch is linear and uncharged, as in MLL. No step of
+  a stage or of a witness is quadratic in what it handles (the parts of a
+  disconnection indexed by their root, the opened conclusions marked and
+  dropped once, Mix's parts sorted by label): the panel found both, a
+  witness of 40 000 parts taking 3.4 s and a stage of 320 000 weakened
+  roots 3.7 s, neither asking the stop. A depth's kept count is its edges less what the switched
   classes drop, which cannot go below zero because the classes are
   disjoint sets of edges.
 - **Modes**: classical, with or without Mix (`MellStructure::exist`,
@@ -310,9 +338,9 @@ engine. What the code relies on:
   the net engine are unchanged and MLL only.
 - **Tests** (`mell/tests.rs`): fixed nets with their terms and witnesses
   (`classic_nets`); `round_trips` (random MELL proofs of the focused
-  engine, with and without Mix: net, term, checker, net again, the same
-  up to the order of copies and the weakenings' links, by a backtracking
-  isomorphism); `agrees_with_the_multiplicative_criterion` (on MLL the
+  engine, with and without Mix: net, term, checker, net again, correct,
+  and where no occurrence has two vertices the same up to the order of
+  copies and the weakenings' links, by a backtracking isomorphism); `agrees_with_the_multiplicative_criterion` (on MLL the
   verdict of `ProofStructure`); `agrees_with_enumeration` (against a
   brute-force switching enumeration written from the definition, on
   random nets and their mutants, bounded at 4 096 switchings a depth);

@@ -25,7 +25,7 @@ use super::{MellStructure, SCRATCH_BYTES, VERTEX_BYTES};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress};
-use crate::nets::{STOPPED, VertexId, afford};
+use crate::nets::{NONE, STOPPED, VertexId, afford};
 use crate::occurrences::{Member, OccId};
 use crate::proofs::{Node, NodeId, Proof};
 use crate::sequents::Kind;
@@ -226,11 +226,14 @@ impl Sequentialization<'_> {
         let graph = &net.graph;
         let n = graph.vertex_offset();
         let mut rules = Vec::new();
+        // A conclusion opened without a premise in its place is marked
+        // `NONE` and dropped at the end, so that each costs constant time.
         let mut i = 0;
         while i < gamma.len() {
             let c = gamma[i];
             if c >= n {
-                gamma.remove(i);
+                gamma[i] = NONE;
+                i += 1;
                 self.scratch.delete(c);
                 self.copies(c, &mut gamma, &mut rules);
                 continue;
@@ -245,7 +248,8 @@ impl Sequentialization<'_> {
                     gamma.push(r.get());
                 }
                 Kind::Quest => {
-                    gamma.remove(i);
+                    gamma[i] = NONE;
+                    i += 1;
                     self.scratch.delete(c);
                     rules.push(Open::Quest(net.occurrence[c as usize]));
                     self.copies(c, &mut gamma, &mut rules);
@@ -262,6 +266,7 @@ impl Sequentialization<'_> {
                 | Kind::Plus => i += 1,
             }
         }
+        gamma.retain(|&c| c != NONE);
         if !rules.is_empty() {
             self.steps.push(Step::Opened(rules));
         }
@@ -269,20 +274,29 @@ impl Sequentialization<'_> {
         let parts = graph.search(&mut self.scratch, gamma.iter().copied());
         if parts > 1 {
             debug_assert!(net.criterion.mix, "a proof net without Mix is connected");
-            let mut labels: Vec<u32> = Vec::new();
+            // The parts in the order of their first conclusion, by a sort of
+            // the labels, so that a stage of many parts stays near linear.
+            let mut first: Vec<(u32, usize)> = gamma
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| (self.scratch.component(c), i))
+                .collect();
+            first.sort_unstable();
+            first.dedup_by_key(|&mut (label, _)| label);
+            let labels: Vec<u32> = first.iter().map(|&(label, _)| label).collect();
+            first.sort_unstable_by_key(|&(_, i)| i);
+            let mut parts: Vec<Vec<u32>> = vec![Vec::new(); labels.len()];
             for &c in &gamma {
                 let label = self.scratch.component(c);
-                if !labels.contains(&label) {
-                    labels.push(label);
-                }
+                let j = labels.binary_search(&label).expect("every label is listed");
+                parts[j].push(c);
             }
-            for (i, &label) in labels.iter().enumerate().rev() {
+            for (i, &(label, _)) in first.iter().enumerate().rev() {
                 if i > 0 {
                     self.steps.push(Step::Mix);
                 }
-                let part = gamma.iter().copied();
-                let part = part.filter(|&c| self.scratch.component(c) == label);
-                self.steps.push(Step::Prove(part.collect()));
+                let j = labels.binary_search(&label).expect("every label is listed");
+                self.steps.push(Step::Prove(std::mem::take(&mut parts[j])));
             }
         } else if gamma
             .iter()
