@@ -9,7 +9,7 @@
 | One store in the client's content, the single source of Practice and Learn: each problem's sequent, calculus, linlog's verdict, difficulty, categories, a session `proof` accepts when provable | done | `src/content/problems/` (425 problems: 392 provable, 33 unprovable); `src/content.config.ts` (the schema); Learn's problems are the store's entries with a `lesson`, Practice's the provable ones (`/problems.json`) |
 | At least 300 provable, every level and every fragment represented, the hardest a real effort; step 38's and 38b's practice joins | done, the hardest for the author to judge | 392 provable, by level 76, 109, 123, 84; all twelve fragments and all six calculi (`store-size.py`); all 73 of step 38's and 38b's sequents are in the store, with their lessons; the validation's agents took 24 to 46 commands on the Very hard ones |
 | Generated with intent, and chosen from the literature, each source read; nothing copied from LLTP or ILTP | done | `gen/gen.py` (built backwards from a planned proof shape, then disguised), `gen/pick.py` (kept only at the level aimed at); 45 problems are stated in a work read in itself and 4 derived from one, which their source line says (`evidence/classics.md`); no library file was read |
-| A difficulty that means something for a human, from the literature and the problems' structure, validated by agents of different strengths, the levels ordering their success and effort | partly: effort is ordered by the levels, success is not (every attempt succeeded; only error-free success drops, at Very hard); for the author to judge | the metric below; `research/difficulty.md`; the validation's table below (`trial/`) |
+| A difficulty that means something for a human, from the literature and the problems' structure, validated by agents of different strengths, the levels ordering their success and effort | done, in two rounds: under the bound declared before the second round, success never rises from level to level and first-attempt success falls at every level, while effort rises at every level in both rounds; the first round, under a looser bound, ordered effort only (below); the levels' names and boundaries for the author to judge | the metric below; `research/difficulty.md`; the validation's table below (`trial/`) |
 | Checked by the flake: linlog's command over the whole store | done | the client's `problems` check (`modules/_checks/problems.py`), failing on a planted wrong entry and passing on the store (Verification) |
 | Practice a place of its own, outside Learn's frame, from the bottom band at every width; only provable problems; filters by category and difficulty; a random one within the filters; a problem on a new tab; the hint ladder its help; the proved ones remembered | done | `src/islands/Practice.tsx`, `src/lib/practice.ts`; Vitest `src/lib/practice.test.ts`; Playwright `tests/practice.spec.ts` and `tests/phone.spec.ts` (320 to 1920 pixels) |
 | Learn keeps the unprovable; its practice rubric becomes the lessons' practice, from the store | done | the schema refuses an unprovable problem without a lesson; Learn's frame holds the tutorial (each lesson with its practice) and the reference |
@@ -125,13 +125,51 @@ unprovable problems stay Learn's alone.
     commands and time grow at every step from Easy to Very hard. Across the twelve
     problems, the score's rank correlation (Spearman) with the commands is 0.97 for
     Haiku and 0.96 for Sonnet; with the time, 0.97 and 0.92.
-  - **What it does not show.** Success does not separate the levels: every attempt
-    succeeded within the bounds, so in this sample the levels are a scale of effort, not
-    of failure. Only success without a refused step or an undo drops, at Very hard
-    alone. The section asks that the levels order success and effort; this validation
-    shows effort only. More agents would not change that within these bounds, and a
-    tighter bound would order success by construction, so the author judges whether
-    effort suffices, or whether people should try the sample.
+  - **What the first round does not show.** Success does not separate the levels:
+    every attempt succeeded within the bounds. Only success without a refused step or an
+    undo drops, at Very hard alone.
+- **The second round** (`trial2/`). Before any attempt, `trial2/PLAN.md` fixed the bound
+  at 30 commands and 6 minutes, half the first round's commands: TPTP rates a problem by
+  the systems that fail on it within a realistic resource limit. It also fixed a fresh
+  sample, 4 problems per level (seed 4344, none of the first round's, two classical and
+  two intuitionistic per level), and what would refute the levels. The same harness and
+  the same models ran, 32 attempts.
+
+  | level | model | solved | mean commands | mean refused steps | mean seconds |
+  |---|---|---|---|---|---|
+  | 1 Easy | Haiku | 4/4 | 5.0 | 0.0 | 12 |
+  | 1 Easy | Sonnet | 4/4 | 5.2 | 0.5 | 12 |
+  | 2 Moderate | Haiku | 4/4 | 7.5 | 0.0 | 22 |
+  | 2 Moderate | Sonnet | 4/4 | 8.0 | 0.8 | 20 |
+  | 3 Hard | Haiku | 4/4 | 13.0 | 0.2 | 46 |
+  | 3 Hard | Sonnet | 4/4 | 15.8 | 0.5 | 49 |
+  | 4 Very hard | Haiku | 2/4 | 17.5 | 0.2 | 90 |
+  | 4 Very hard | Sonnet | 1/4 | 23.8 | 4.2 | 75 |
+
+  Both models together:
+
+  | level | solved | solved with no refused step and no undo | mean commands | mean seconds |
+  |---|---|---|---|---|
+  | 1 Easy | 8/8 | 7/8 | 5.1 | 12 |
+  | 2 Moderate | 8/8 | 6/8 | 7.8 | 21 |
+  | 3 Hard | 8/8 | 5/8 | 14.4 | 48 |
+  | 4 Very hard | 3/8 | 2/8 | 20.6 | 82 |
+
+  - Effort rises at every level, as in the first round.
+  - First-attempt success (Mayn and van Deemter's measure) falls at every level.
+  - Success within the bound never rises: it is equal from Easy to Hard and falls at
+    Very hard.
+  - So the levels order both success and effort. Plain success separates Very hard from
+    the rest, and first-attempt success separates every level.
+  - The failures were real dead ends or overruns. Sonnet followed a hypothesis that
+    cannot give `C` on `g299` and undid eight steps. Haiku and Sonnet found their routes
+    through the copies of a `!`-hypothesis too long for the bound on `g263`.
+  - A bound counts steps, so a very long proof fails it by length too. `g299`'s stored
+    proof has 49 steps, though no attempt needs the stored proof (Haiku proved `g250`,
+    whose stored proof has 70 steps, in 28 commands). That is part of what Very hard
+    means here: long and full of choices.
+  - Sonnet did not do better than Haiku. The levels are about the problems; the two
+    models' strengths, as a pair of solvers, did not separate in this task.
   - **Where the choice term shows.** The proof's steps alone rank the commands as well
     (0.97 and 0.99), so the choice term adds no rank information here. It shows on
     `g291`, a problem whose proof is short (15 steps) but which needs three copies of a
@@ -289,8 +327,9 @@ Its findings, each answered:
    - The level descriptions now say what the score does: it counts steps too, so a long
      proof can be Hard.
 2. **The validation does not show success ordered by the levels, yet the checklist said
-   done.** **Holds.** The checklist now says "partly". The report adds the error-free
-   success, which drops at Very hard alone, and leaves the judgement to the author.
+   done.** **Holds** for the first round. A second round followed, its bound and sample
+   declared before any attempt (`trial2/PLAN.md`). In it success never rises from level
+   to level and first-attempt success falls at every level (above).
 3. **The four sequents of Girard's translation are not in the cited section.** **Holds.**
    Their source lines now begin "Derived here from" and name what the encoding is applied
    to. The count is now 45 stated and 4 derived.
@@ -345,8 +384,8 @@ calculus the page proves in has problems.
 - Later steps add their problems to the store in the sessions that teach them (39's nets
   with boxes, 40's two-sided surface, 41's cut, 42's quantifiers). Each new problem is
   measured as above before it is filed, and checked by the flake.
-- The validation's sample had no failures. A tighter bound, or students, would test
-  whether the levels also order success.
+- The validation is by agents; students would test the levels for people, and Moderate
+  and Hard are told apart by effort and first-attempt success, not by plain success.
 - The level of an unprovable problem is a hand grade; a measure for "how hard to see
   why not" (lesson 7's erroneous examples) is 43c's.
 
@@ -359,6 +398,6 @@ calculus the page proves in has problems.
   - `gen/`: the generators, the measure, the picking, the store's build, the classics.
   - `evidence/`: each problem's measures, the interact exits, the classics' passages.
   - `research/`: the research agents' notes.
-  - `trial/`: the validation's rules, harness, sample, logs and table.
+  - `trial/` and `trial2/`: the validation's two rounds, each with its rules, harness, sample, logs and table (`trial2/PLAN.md` its bound, declared first).
   - `before/` and `after/`: the screenshots, listed by `ls`.
   - `store-size.py`: the store's size by level and category.
