@@ -154,6 +154,14 @@ sessions 38 to 38c; the reports of those sessions say what each one is.
    state: Whitman's free lattices are named as related, or not at all.
 9. **"Fill from …"** names the source tab by its sequent, shortened, not
    by its place in the row, which changes as tabs close.
+10. **A stale comment**: `src/islands/BottomBand.tsx`'s header still says
+    that More's sheet holds the calculus's switches, which left it at
+    38c; it says what the sheet holds.
+
+What the author accepted as built is listed in `plan/later.md`, "Kept as
+built: the web client's choices, for the author to revisit"; keep that
+list true where this session changes one of them (the chip becomes the
+one place for the mode).
 
 Everything else the judgement calls of sessions 38 to 38c kept stays as
 built. Before-and-after screenshots of each change at a phone's and a

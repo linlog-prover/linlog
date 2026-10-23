@@ -838,6 +838,77 @@ steps (it becomes step 38). What it fixes:
 the engine choice in Settings built; the essential net's green and the
 other judgement calls of the sweep are in the report, for the author.
 
+## Kept as built: the web client's choices, for the author to revisit
+
+*Recorded 2026-10-23 at the author's word ("persist those points, so that
+I can revisit them"), after the author accepted them as built; each
+checked that day against the client at `main` 0397f950 (`lwrmzpqv`).
+Each says what the page does, where, why it was kept, and which session
+chose it (its report has the reasoning). To change one, name it to the
+planning session; a change is a session of the client.*
+
+- **Practice hides its answer.** A card's verdict, explanation and Watch
+  open only from "Answer" (`src/islands/Learn.tsx`, the `<summary>`
+  "Answer"): with provable and unprovable problems mixed, showing them
+  would give the answer away. Session 38.
+- **Practice mixes near misses.** Each harder provable problem has an
+  unprovable near miss beside it, so a lesson stays mixed. Session 38b.
+- **A proof opened from a link draws its grafts without the engine's
+  label**: links carry the session, not the engines (`src/lib/link.ts`;
+  the engines are kept per tab, `Proof.engines`, `src/islands/state.tsx`).
+  Session 38.
+- **A tab whose sequent did not parse stays open** beside the next
+  proof, so the typo can be mended. Session 38.
+- **A goal wider than a phone is panned, not shrunk**, at the size that
+  keeps its formulas 44-pixel targets; the goal navigator brings it into
+  view. Session 38 (finding 4) and 38b.
+- **After a step the stage zooms back up to that size, unless the
+  visitor zoomed by hand** (`src/islands/Stage.tsx`, `byHand` and
+  `floor()`). Session 38b.
+- **Light dismiss** (`src/islands/App.tsx`, the press handler): a press
+  outside a menu, a pane, More's sheet, the bands' popovers, the rule
+  popover, the split chooser or the mode warning closes it; Learn and
+  the tour are not closed by it (each is where the visitor works); a
+  press on the stage that closes something does nothing else, while a
+  press on a band's button closes and acts; on a phone, a press on the
+  bands closes a sheet that covers the stage. Session 38b.
+- **The fonts**: the export's font is chosen in the export menu, the
+  stage's in Settings ("Font of the formulas"), and the export follows
+  the stage's font until the export menu picks another, which is then
+  kept (`exportFont`, `src/islands/state.tsx`); the four optional fonts
+  are fetched only when chosen, and the service worker caches each on
+  its first use (`src/offline/sw.js`, `LATER`); the tab's sequent
+  follows the stage's font (`.m` reads `--font-math`); every font is laid
+  out with Euler Math's vertical metrics, net edges starting at each
+  font's own depth (linlog's `core/src/export/svg/font.rs`). Session
+  38b; the fonts other than Euler Math depart from D25, D16 and D53 at
+  the author's request.
+- **With Learn open, the bottom band packs tighter**, keeping one row at
+  1 280 pixels; a narrower desktop window still wraps it
+  (`src/styles/app.css`, `.app[data-learn]`). Session 38.
+- **Engine names** are lower case inside a sentence ("closed by the
+  focused search"), in sentence case standing alone ("Focused search").
+  Session 38.
+- **The tab's chip**: the calculus mark stands 12 pixels of padding from
+  the sequent (with the sequent's own spacing, at least 16 pixels on the
+  screen, `tests/chip.spec.ts`), its calculus and fragment 8 apart
+  (`.pt-mark`). Session 38b. Since 38c the chip opens the tab's mode
+  settings (D58, at the author's request); session 38e makes it the one
+  place for them.
+- **A new empty tab starts in the calculus last chosen in the visit**
+  (classical at a visit's start, `lastMode`, `src/islands/state.tsx`).
+  Session 38c.
+- **Only a key moves the focus into the chip's popover**; a press leaves
+  it where it was, so no tip appears, and Escape gives it back to the
+  chip (`src/islands/TopBand.tsx`). Session 38c.
+- **The phone's bottom band** shows seven icons (undo, redo, close all,
+  hint, export, Learn, More), More's sheet holding steps, import,
+  settings, the tour, keys and About; the mockup had a collapsed sheet
+  of three actions. Session 38, departing from the design.
+- **Safari's trackpad pinch** (its gesture events) is handled and covered
+  by no test (`tests/zoom.spec.ts` runs Chromium); one check by hand on a
+  Mac or an iPhone would settle it. Session 38b.
+
 ## Follow-ups: the web client
 
 *Assigned to session 38e (the author decided on 2026-10-23: Fabian Lukas Grubmüller, privacy@grubmueller.dev, no Impressum).*
