@@ -80,4 +80,14 @@ on Opus 5.5 and Sonnet 5.5 at `high`, each on a frozen tree. The net
 target set (`bench/net-targets.sh` against
 `bench/targets/net-after-cyclic.csv`) keeps every counter of MLL.
 
+## The machine
+
+Session 38e runs beside the first session, in the web client's
+repository alone. This step's timed runs (`bench/net-targets.sh`, which
+pins core 2) on cores 2 and 3; its builds, tests, the gate and the
+panel's runs on cores 4 to 7 in capped scopes (the gate as CLAUDE.md
+gives it, with `taskset -c 4-7`); 38e's on cores 8 to 11. `nix flake
+check`, `nix build` and every timed run under `flock
+/tmp/linlog-machine.lock`, since the Nix daemon builds on any core.
+
 Deliverable: thematic jj commits; `plan/reports/39-mell-nets.md`.

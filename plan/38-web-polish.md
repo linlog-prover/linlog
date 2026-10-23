@@ -122,8 +122,8 @@ sessions 38 to 38c; the reports of those sessions say what each one is.
 1. **A privacy page** under the Swiss revFADP, worded so that it also
    meets the GDPR's information duty: the person responsible, Fabian
    Lukas Grubmüller, reached at privacy@grubmueller.dev; no Impressum.
-   It says what `plan/later.md` lists ("For the author", the privacy
-   notice): no cookies, no tracking, nothing loaded from third parties
+   It says what `plan/later.md` lists ("Follow-ups: the web client",
+   the privacy notice): no cookies, no tracking, nothing loaded from third parties
    (the CSP's `default-src 'none'`); GitHub's logs of visitors' IP
    addresses for hosting and security, in the US, and the safeguard
    (the Swiss-U.S. Data Privacy Framework: check GitHub's own entry on
@@ -168,6 +168,11 @@ built. Before-and-after screenshots of each change at a phone's and a
 desktop's width in both themes; a test per item a test can see; the
 client's `nix flake check` at its last commit; the report as a section
 of `plan/reports/38b-zoom-fonts-dismiss.md`.
+
+The machine, beside step 39's first session: this session's builds,
+npm and Playwright on cores 8 to 11 in capped scopes, step 39's on 2 to
+7; `nix flake check` and `nix build` under `flock
+/tmp/linlog-machine.lock`.
 
 ## Sessions 38f and 38g: a logo for linlog (the author, 2026-10-23)
 
