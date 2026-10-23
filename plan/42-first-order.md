@@ -1,4 +1,4 @@
-# Step 41: first-order linear logic
+# Step 42: first-order linear logic
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
@@ -82,6 +82,18 @@ Fable 5.1 at `high`.
   first-order development is this step's, its certificates checked by
   the flake as today's are.
 
+## Built on steps 40 and 41 (2026-10-23)
+
+Step 40's ILL formula type keeps the place for `∀` and `∃` (D17): the
+quantifiers join it and its strict parser, and a formula's side is still
+a property of its occurrence, so the side table carries over. What
+changes is the text: an instance in a derivation (an eigenvariable, a
+term substituted at `∃R` or `∀L`) is raised with the substitution in
+force at that inference, so the two-sided sequent printed there is the
+instance, and step 40's round trip extends to first-order sequents and
+their proofs. Step 41's cut, if it reaches first order, cuts on an
+instance with the same rule for its sides.
+
 ## How the step runs
 
 Several sessions, a plan of their own (`plan/first-order/README.md`).
@@ -92,4 +104,4 @@ change of a search, a criterion or the checker, its argument on Fable
 5.1 at `high`.
 
 Deliverable: `plan/first-order/README.md` (the step's own plan), thematic
-jj commits, `plan/reports/41-first-order.md`.
+jj commits, `plan/reports/42-first-order.md`.

@@ -38,7 +38,7 @@ none of its memory notes.
   'step*' 'linlog-*'`; `gh run list --limit 6`. Ask the author only
   what none of these answers.
 
-## The steps left (as of the evening of 2026-10-19)
+## The steps left (as of 2026-10-23)
 
 The steps from 32 on were renumbered that day in the order they run
 (`plan/README.md`, its Status entry maps the old numbers); steps 32 to
@@ -52,12 +52,15 @@ is the authority):
 
 - **38**: the web client's polish: done and reviewed on 2026-10-22
   (Status); the author judges its screenshots and judgement calls.
-- **39**: MELL nets with boxes (prompt finished), after 38 or beside it
-  (39 touches `core/src/nets/` and the SVG export, 38 only the client).
-- **40**: cut and cut elimination, after 39 (prompt finished at the
-  review of 39).
-- **41**: first-order linear logic, last (prompt finished; its first
-  session on Fable 5.1 at `high`).
+- **39**: MELL nets with boxes (prompt finished); independent of 40.
+- **40**: the intuitionistic surface (prompt written 2026-10-23): two-sided
+  ILL sequents as the public face, sides recorded at construction, every
+  intuitionistic output raised, a round trip; one session, then the web
+  client's part after linlog's push.
+- **41**: cut and cut elimination, after 39 and 40 (prompt finished at
+  their reviews; it extends 40's side table to cut formulas).
+- **42**: first-order linear logic, last (prompt finished; its first
+  session on Fable 5.1 at `high`; it builds on 40's formula type).
 
 Two steps may run side by side when they touch different parts of the
 tree; give them the split of "The machine" below.

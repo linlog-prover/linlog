@@ -1,10 +1,10 @@
-# Step 40: cut, and cut elimination
+# Step 41: cut, and cut elimination
 
 You are working in the linlog repository. CLAUDE.md applies throughout: jj
 only (never git), thematic commits as soon as a unit is done, doc comments on
 every item, the verification table, no pushing. The step takes three
-sessions; this prompt is finished at the review of step 39. It says what
-is fixed.
+sessions; this prompt is finished at the reviews of steps 39 and 40. It
+says what is fixed.
 
 Read `plan/reports/17-assessment.md` (5.5), `plan/README.md` (D5, D6,
 D6a, D13, D17), `plan/notes/api.md`, and the reports of steps 2, 5, 9,
@@ -34,6 +34,19 @@ Opus 5.5 at `high`; every change of a search or a criterion is reviewed by
 the panel step 26's prompt describes, its argument read on Fable 5.1 at
 `high`.
 
+## Built on step 40 (2026-10-23)
+
+Step 40 makes the two-sided sequent the public face of intuitionistic
+linear logic: an ILL sequent lowered to the one-sided forest with every
+occurrence's side recorded, every output raised through the reading.
+A cut keeps that exact: the cut formula and its dual, which get roots of
+their own beside the sequent's, get their sides too in intuitionistic
+mode (ILL's cut from `Γ ⊢ A` and `Δ, A ⊢ C` to `Γ, Δ ⊢ C`: the cut
+formula the goal of the left premise and a hypothesis of the right), so
+every inference of a proof with cuts prints as the ILL sequent it is,
+and step 40's round trip extends to proofs with cuts and to every step
+of their elimination.
+
 ## Known already (2026-10-19), for the review that finishes this prompt
 
 - **The checker has ordered modes** (step 35): cyclic MLL and the
@@ -47,4 +60,4 @@ the panel step 26's prompt describes, its argument read on Fable 5.1 at
 - **The nets** of step 39 (MELL with boxes) and the drawing of step 36
   are what cut elimination on nets draws, step by step.
 
-Deliverable: thematic jj commits; `plan/reports/40-cut.md`.
+Deliverable: thematic jj commits; `plan/reports/41-cut.md`.

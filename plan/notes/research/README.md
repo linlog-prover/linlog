@@ -14,11 +14,11 @@ by number, the refutations note as "ref".
 | 31 | `31-rocq.md` | a Rocq kernel (`ll`, `ill` in `Prop`) and a reflective checker mirroring `check.rs`; certificates for every mode |
 | 32 | `34-web.md` | wasm in a worker with page-held JSON state; a progress-carrying `Stop`, tab presets, 32-bit tests |
 | 33 | `39-mell-nets.md` | MELL nets with boxes: vertices as instances, one generalized `?` node, one door per `?`-instance and box, jumps |
-| 34 | `40-cut.md` | `Cut(OccId, NodeId, NodeId)`, dual pairs by offset in an extended forest, bounded elimination on terms and MLL nets |
+| 34 | `41-cut.md` | `Cut(OccId, NodeId, NodeId)`, dual pairs by offset in an extended forest, bounded elimination on terms and MLL nets |
 | 35 | `32-mll-engines.md` | leaf symmetry breaking over pure trees, a balance prune, essential nets as a criterion behind the one net engine |
 | 36 | `35-lambek.md` | cyclic MLL and Lambek by a planar linking search: unsorted roots, a mode-aware dual, `cyclic` in `Mode`, rule R4 |
 | 37 | `37-inverse.md` | the focused inverse method as `--engine inverse`: the weak flag is the checker's `any`; `Context`, `Classes` lifted |
-| 38 | `41-first-order.md` | quantifiers: levels instead of Skolem terms, locally nameless hash-consed terms, members as `(OccId, frame)` |
+| 38 | `42-first-order.md` | quantifiers: levels instead of Skolem terms, locally nameless hash-consed terms, members as `(OccId, frame)` |
 | ref | `refutations.md` | certified refutations in five groups; `Refutation::check` beside the engines; refuters as a second plug-in kind |
 
 ## 2. Requirements shared by several steps

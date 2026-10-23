@@ -14,7 +14,7 @@ research note for 32 lists a `graphics-document` root and MathJax speech
 as later accessibility work (`34-web.md`, Accessibility; Formulas).
 Steps 33 to 36 add the objects a course shows: MELL nets with boxes,
 cut elimination one step at a time with each step drawn
-(`plan/40-cut.md`), the drawing of essential nets "which teaching wants"
+(`plan/41-cut.md`), the drawing of essential nets "which teaching wants"
 (`plan/32-mll-engines.md`), Lambek. D21 makes research and teaching
 equal aims (`plan/README.md`). Nothing below repeats those.
 

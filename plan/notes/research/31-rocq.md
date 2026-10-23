@@ -238,7 +238,7 @@ exactly the datatype the Rocq `node` mirrors. Missing: an `Iterator`
 over nodes that yields what the exporter writes (`Node::occurrences`,
 `Node::premises` exist and suffice); nothing in the way. The cut rule
 (step 34) will add a variant and the Rocq datatype a constructor
-(`plan/40-cut.md`); D17's terms and witnesses would turn an occurrence
+(`plan/41-cut.md`); D17's terms and witnesses would turn an occurrence
 into "occurrence under a substitution" in `Bag`'s key
 (`plan/reports/18-bounded-proofs.md`), which the Rocq side should keep
 room for by making the node's occurrence argument a parameter type.
@@ -359,7 +359,7 @@ In the repository (the snapshot of 2026-10-08): `plan/31-rocq-library.md`;
 `plan/later.md` ("Second certificate kernels", "Certified refutations",
 "Follow-ups: intuitionistic mode"); `plan/README.md` (D15–D23);
 `plan/notes/distribution.md`; `plan/reports/12-certificates.md`,
-`17-assessment.md` (3.10), `18-bounded-proofs.md`; `plan/40-cut.md`;
+`17-assessment.md` (3.10), `18-bounded-proofs.md`; `plan/41-cut.md`;
 `.claude/rules/core.md`, `core-proofs.md`, `core-export.md`, `flake.md`;
 `core/src/lib.rs`, `core/src/proofs/mod.rs`, `check.rs`, `oracle.rs`,
 `derivation.rs`; `core/src/occurrences/mod.rs`, `reading.rs`;

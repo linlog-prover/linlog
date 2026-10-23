@@ -1,7 +1,7 @@
 # Exponential proof nets: MELL proof structures with boxes
 
 A specification note for step 33, written 2026-10-08 from the snapshot
-of the repository, `39-mell-nets.md`, `40-cut.md` and the sources of
+of the repository, `39-mell-nets.md`, `41-cut.md` and the sources of
 section 10, to check the stage-2 API design against and to implement
 from later. Claims about the literature carry a source `[Sn]`, claims
 about the code name the file, everything else is marked "(inference)".
@@ -680,4 +680,4 @@ nets"), `plan/README.md` (D5, D6a, D12, D15–D18), `.claude/rules/core-nets.md`
 `core/src/serialize/nets.rs`, `core/src/export/svg/{mod,net}.rs`,
 `core/src/proofs/{mod,check}.rs`, `plan/reports/05-proof-nets.md`,
 `plan/reports/11-svg.md`, and the research notes `39-mell-nets.md`,
-`40-cut.md`, `34-web.md`, `32-mll-engines.md`, `README.md`.
+`41-cut.md`, `34-web.md`, `32-mll-engines.md`, `README.md`.

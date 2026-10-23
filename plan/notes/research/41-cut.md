@@ -343,7 +343,7 @@ External:
 - [S24] A. S. Troelstra, *Lectures on Linear Logic*, CSLI Lecture Notes 29, 1992 (1990 report: https://eprints.illc.uva.nl/593).
 
 This repository (the snapshot of 2026-10-08):
-- [R1] `plan/40-cut.md`; `plan/reports/17-assessment.md` §5.5.
+- [R1] `plan/41-cut.md`; `plan/reports/17-assessment.md` §5.5.
 - [R2] `core/src/proofs/mod.rs` (`Node`, the size assertion, `Proof`, `Proof::new`).
 - [R3] `core/src/proofs/check.rs` (`State`, `Pass::rule`, `take`, `join`, `Problem`); `.claude/rules/core-proofs.md`.
 - [R4] `core/src/sequents/mod.rs` (`Sequent`, `optimize`, `add`); `core/src/sequents/term.rs` (`Kind::dual`).

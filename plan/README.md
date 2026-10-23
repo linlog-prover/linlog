@@ -58,8 +58,9 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 37 | The focused inverse method (two sessions; done 2026-10-19), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 33 |
 | 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
 | 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
-| 40 | Cut, and cut elimination on terms and on nets (three sessions) | `40-cut.md` (finished at the review of 39) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39 |
-| 41 | First-order linear logic (several sessions, a plan of its own) | `41-first-order.md` (finished 2026-10-19, at the review of 37) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31 |
+| 40 | The intuitionistic surface: two-sided ILL sequents in and out, the one-sided form compiled from them, every output raised, a round trip (one session, and a part in the web client) | `40-ill-surface.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer on Opus 5.5 | high | 8, 9, 38 |
+| 41 | Cut, and cut elimination on terms and on nets (three sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
+| 42 | First-order linear logic (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
 
 A step has a whole number, one prompt file named after it, one report
 under `reports/` with the same name, and as many sessions as it takes to
@@ -547,8 +548,9 @@ claude --model claude-opus-5-5 --effort high --name step-36 ((open --raw plan/36
 claude --model claude-opus-5-5 --effort high --name step-37 ((open --raw plan/37-inverse.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-38 ((open --raw plan/38-web-polish.md) + "\n" + (open --raw plan/conduct.md))
 claude --model claude-opus-5-5 --effort high --name step-39 ((open --raw plan/39-mell-nets.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-40 ((open --raw plan/40-cut.md) + "\n" + (open --raw plan/conduct.md))
-claude --model claude-opus-5-5 --effort high --name step-41 ((open --raw plan/41-first-order.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-40 ((open --raw plan/40-ill-surface.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-41 ((open --raw plan/41-cut.md) + "\n" + (open --raw plan/conduct.md))
+claude --model claude-opus-5-5 --effort high --name step-42 ((open --raw plan/42-first-order.md) + "\n" + (open --raw plan/conduct.md))
 ```
 
 A step of several sessions is started again with the same command, with
@@ -3085,3 +3087,17 @@ client follows it (step 32).
   `A ⊸ B` there. Checked here: the commit, `nix flake check` at linlog's
   `wstpsxur` (pushed before the client moved its lock) and at the
   client's head.
+- 2026-10-23: a step inserted at the author's word: the intuitionistic
+  surface (`40-ill-surface.md`), two-sided ILL sequents as the public
+  face, the one-sided form compiled from them with every occurrence's
+  side recorded, every intuitionistic output raised through the
+  reading, a round trip; the design is the planning session's, accepted
+  by the author ("note this down as a separate step; go with the order
+  you think best"). It runs after step 39, which does not depend on it
+  and whose prompt is finished, and before cut, which extends its side
+  table to cut formulas: cut is now step 41 (`41-cut.md`, with a section
+  on what it builds on), first-order logic step 42 (`42-first-order.md`,
+  likewise, depending on 40 too). Their prompts and research notes are
+  renamed and every path follows; the Status log, the decisions, the
+  reports and the notes keep the numbers they were written with. The
+  author runs the steps left on the other account (Max 20x).
