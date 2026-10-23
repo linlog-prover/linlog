@@ -91,3 +91,37 @@ check`, `nix build` and every timed run under `flock
 /tmp/linlog-machine.lock`, since the Nix daemon builds on any core.
 
 Deliverable: thematic jj commits; `plan/reports/39-mell-nets.md`.
+
+## Session 39c: intuitionistic MELL nets (the author, 2026-10-23)
+
+Session 39a left intuitionistic MELL out (`NetError::NotMell`), as the
+plan allowed; the author asked for it. One session, Opus 5.5 at `high`,
+after 38i and before step 40 (both touch the net module and the
+drawing), linlog first and then the page, as 38h runs:
+
+1. **Research first**: how the literature gives intuitionistic MELL
+   proof nets (Lamarche's essential nets and how they take the
+   exponentials, polarized nets, the IMELL nets built on Guerrini and
+   Masini's boxes, or what else exists), each source read, never from
+   memory, and the choice argued in the report: a criterion
+   independent of any engine, with a witness of failure, that accepts
+   exactly the nets of IMELL proofs in linlog's intuitionistic and
+   affine-intuitionistic modes where it applies, said precisely where it
+   does not. If no sound criterion can be had, say why in the report
+   and in the message to planning, and build nothing.
+2. **The structure and its conversions**: `MellStructure` or the
+   essential net (`Essential`, `core-nets.md`) extended to boxes in
+   intuitionistic mode, whichever the research supports; the criterion,
+   sequentialization into a term the checker accepts in the sequent's
+   mode, desequentialization; the panel of step 26's prompt for the
+   criterion and for sequentialization (the argument on Fable 5.1 at
+   `high`, the counterexamples on Opus 5.5 at `high`, the integers on
+   Sonnet 5.5 at `high`), each on a frozen tree; the net target set
+   against `bench/targets/net-after-39b.csv` unchanged.
+3. **Drawn, in JSON, in the command and on the page**: the essential
+   net's drawing with boxes in both drawings and 38i's options; the
+   JSON form; `prove --net` and `check --net` in intuitionistic mode;
+   the bindings, and the page's net tab live for a finished
+   intuitionistic MELL proof after the client's lock moves.
+
+The report as a section of `plan/reports/39-mell-nets.md`.
