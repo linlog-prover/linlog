@@ -56,7 +56,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 35 | Cyclic MLL and the Lambek calculus (two sessions; done 2026-10-19) | `35-lambek.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 32 |
 | 36 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, and one for the web client; done 2026-10-19) | `36-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 35 |
 | 37 | The focused inverse method (two sessions; done 2026-10-19), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 33 |
-| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
+| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins; 38b to 38d the author's follow-ups, done 2026-10-23; 38e the author's decisions, to run) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
 | 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
 | 40 | The two-sided surface: two-sided sequents in and out, the one-sided form compiled from them with every occurrence's side recorded, every output raised, a round trip; intuitionistic first, then classical with its two-sided view (two sessions, each with a part in the web client; research of prior work first) | `40-ill-surface.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer on Opus 5.5 | high | 8, 9, 38 |
 | 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
@@ -3116,3 +3116,20 @@ client follows it (step 32).
   quantifiers after 41 and 42), D60's order confirmed with the author
   from each session's outline. 43a and 43b touch only the client's
   content and may run beside step 41's linlog sessions.
+- 2026-10-23: the author's decisions on the judgement calls of sessions
+  38 to 38c and the open points, from the planning session's list with a
+  recommendation each, all taken as recommended: the privacy page names
+  Fabian Lukas Grubmüller at privacy@grubmueller.dev, with no Impressum;
+  the calculus's switches live on the tab's chip alone; a forced engine
+  lasts for the visit; the essential net's input side leaves green; the
+  popover's mode in the switches' words; "Goal 2 · 1 open"; the additive
+  path's reference claims nothing unsourced; "Fill from …" names the tab
+  by its sequent; and, the author's rule, every colour that means
+  something stays distinct for colour-blind visitors and never stands
+  alone. These are session 38e (`38-web-polish.md`, its last section),
+  which may run beside step 39's first session. The faked bold of math
+  text and the dark glow on the formulas were mended here (client
+  `lwrmzpqv`, pushed); the compact net's edges in the descenders went to
+  step 39's second session. Every other judgement call of 38 to 38c and
+  the departures (the fonts, D25, D16, D53; the chip, D58; the phone's
+  seven-icon band) stand as built.

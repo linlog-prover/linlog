@@ -110,3 +110,53 @@ LD_LIBRARY_PATH`.
 
 Deliverable: thematic jj commits in the client's repository; in this
 repository `plan/reports/38-web-polish.md`.
+
+## Session 38e: the author's decisions of 2026-10-23
+
+One more session of this step, on Opus 5.5 at `high`, in the client's
+repository alone (no change of linlog), its goal in its launch prompt;
+it may run beside step 39's first session, which touches no file of the
+client. The author decided each item below from the judgement calls of
+sessions 38 to 38c; the reports of those sessions say what each one is.
+
+1. **A privacy page** under the Swiss revFADP, worded so that it also
+   meets the GDPR's information duty: the person responsible, Fabian
+   Lukas Grubmüller, reached at privacy@grubmueller.dev; no Impressum.
+   It says what `plan/later.md` lists ("For the author", the privacy
+   notice): no cookies, no tracking, nothing loaded from third parties
+   (the CSP's `default-src 'none'`); GitHub's logs of visitors' IP
+   addresses for hosting and security, in the US, and the safeguard
+   (the Swiss-U.S. Data Privacy Framework: check GitHub's own entry on
+   the framework's list and say what it shows); what the browser keeps
+   (`linlog-settings`, the theme, autosaved tabs, the service worker's
+   cache and the optional fonts) and how to clear it; the visitors'
+   rights. Every legal statement read in its source (Fedlex, the FDPIC,
+   GitHub's privacy statement), never from memory; linked from About and
+   the footer; About's one line on GitHub's logs points to it.
+2. **The calculus's switches on the tab's chip alone**: the desktop
+   stage's cluster goes, so the chip is the one place at every width.
+3. **A forced engine lasts for the visit**: the page starts on
+   "Automatic"; every other setting is still kept.
+4. **Colours a colour-blind visitor can tell apart** (the author's
+   rule): every colour that carries a meaning (the verdicts, the nets'
+   colours, the essential net's sides, the split's state, the focus)
+   stays distinct under simulated deuteranopia, protanopia and
+   tritanopia (a published simulation, such as Machado, Oliveira and
+   Fernandes 2009, read in its source), checked by a test over the
+   tokens; the nets keep the Okabe–Ito palette they use; and no meaning
+   rests on colour alone (a word, a sign or a shape beside it).
+5. **The essential net's input side** leaves green, which D26 keeps for
+   a checked proof, for a colour of that palette.
+6. **The status popover** writes the mode in the switches' plain words
+   ("Intuitionistic, affine"), not linlog's `intuitionistic-affine`.
+7. **The dock's counter** reads "Goal 2 · 1 open".
+8. **The additive path's reference** claims nothing a source does not
+   state: Whitman's free lattices are named as related, or not at all.
+9. **"Fill from …"** names the source tab by its sequent, shortened, not
+   by its place in the row, which changes as tabs close.
+
+Everything else the judgement calls of sessions 38 to 38c kept stays as
+built. Before-and-after screenshots of each change at a phone's and a
+desktop's width in both themes; a test per item a test can see; the
+client's `nix flake check` at its last commit; the report as a section
+of `plan/reports/38b-zoom-fonts-dismiss.md`.

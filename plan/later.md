@@ -840,7 +840,7 @@ other judgement calls of the sweep are in the report, for the author.
 
 ## Follow-ups: the web client
 
-*For the author (2026-10-22, "remind me, I'll deal with it later").*
+*Assigned to session 38e (the author decided on 2026-10-23: Fabian Lukas Grubmüller, privacy@grubmueller.dev, no Impressum).*
 The web client's privacy notice under the Swiss revFADP (and the GDPR,
 should the site count as offering a service in the EU): the name and
 e-mail address to publish as the person responsible (an alias such as
@@ -855,7 +855,7 @@ browser keeps (`linlog-settings`, the theme, autosaved tabs, the
 service worker's cache, the optional fonts) and how to clear it; the
 visitors' rights. About has one line on GitHub's logs today.
 
-*The math text's weight (unassigned, 2026-10-23).* The active tab's
+*The math text's weight (done 2026-10-23, client `lwrmzpqv`).* The active tab's
 sequent is shown in a synthesised bold: `.tab[aria-selected="true"]` sets
 weight 600, and the math fonts have one weight each, so the browser
 fakes one (likewise wherever math sits in a semibold label, as the
@@ -866,7 +866,7 @@ reads as extra weight; keeping it off the formulas, or fainter, keeps
 them crisp. The stage itself is Euler Math's own weight, Medium, drawn
 large (checked 2026-10-23: no inherited weight, no fallback font).
 
-*Left by step 38b (unassigned).* Safari's trackpad pinch (gesture
+*Left by step 38b (the compact edges assigned to step 39's second session; Safari's pinch for the author to check by hand).* Safari's trackpad pinch (gesture
 events) is handled and tested by no test; a compact net's edges begin
 a tenth of an em below each literal, inside every font's descenders,
 Euler Math's included (older than step 38b).

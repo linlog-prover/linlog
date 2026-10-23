@@ -20,7 +20,11 @@ through boxes, desequentialization of a proof, a JSON form, and the
 drawing with boxes as rectangles, in the command and the web front end. The drawing is step 36's: every formula occurrence written, the
 conclusions at the bottom, the compact drawing an option; a box
 encloses the nodes of its contents and its `!` and `?` doors.
-Search stays with the focused engine.
+Search stays with the focused engine. The second session also mends an
+older fault of the compact drawing (the author, 2026-10-23): a net's
+edges begin a tenth of an em below each literal, inside every font's
+descenders, Euler Math's included; they begin at each font's own depth,
+as the drawing with formulas does since step 38b.
 
 ## Fixed now
 

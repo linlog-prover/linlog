@@ -50,8 +50,12 @@ its `main` as you push linlog's, after review, with SSH's `BatchMode`).
 In order, with what each needs before it (the table in `plan/README.md`
 is the authority):
 
-- **38**: the web client's polish: done and reviewed on 2026-10-22
-  (Status); the author judges its screenshots and judgement calls.
+- **38**: the web client's polish: 38 to 38d done and reviewed on
+  2026-10-22 and 23 (Status); **38e**, the author's decisions of
+  2026-10-23 (the privacy page, the chip alone, colours for colour-blind
+  visitors, five smaller changes), is written as the last section of
+  `38-web-polish.md`: one session in the client, Opus 5.5 at `high`,
+  which may run beside 39's first session.
 - **39**: MELL nets with boxes (prompt finished); independent of 40.
 - **40**: the two-sided surface (prompt written 2026-10-23): research of
   prior work first; two-sided sequents as the public face, sides recorded
