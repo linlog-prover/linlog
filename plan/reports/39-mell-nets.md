@@ -1009,6 +1009,38 @@ On `puwowxwl` (linlog's `main` when the session began), in
   instances.
 - The page's part, in the client: below.
 
+### Paused (planning's "Pause", 2026-10-23, the author needs the machine by 21:35)
+
+Everything up to this report is committed in `../linlog-step39c`
+(head `woomuluy`, this report's commit after it); nothing is left in `@`.
+The first `nix flake check` at `woomuluy` was stopped mid-run (unit
+`step39c-flake`, interrupted while building `features` and `package`);
+it has no verdict. No sub-agent and no other unit runs. "linlog ready"
+is not sent yet; the client's workspace is not made yet.
+
+#### Resume
+
+1. In `../linlog-step39c`: `systemd-run --user --unit step39c-flake
+   --working-directory=$PWD sh -c 'flock /tmp/linlog-machine.lock nix
+   flake check -L > /tmp/step39c-flake.log 2>&1; echo "flake exit $?" >>
+   /tmp/step39c-flake.log'`, at the head (this report's commit, prose
+   only on top of `woomuluy`).
+2. On exit 0, send `planning` "linlog ready" with `kqywyupq`,
+   `kmwxnqtn`, `pqklosln`, `ytrmtlzo`, `putlnukx` and the report's
+   commit, and the exit status.
+3. After the supervisor pushes and names its commit: `jj workspace add
+   --name step39c ../linlog-prover.github.io-39c -r xkyksmut` in the
+   client's repository; there `nix flake update linlog` (commit
+   `flake.lock` alone, "flake.lock: Update"), add a Playwright test in
+   `tests/prover.spec.ts` that a finished intuitionistic MELL proof
+   (`!A |- A * A`, Intuitionistic) has its Net tab live and draws a box
+   (`path[id^="b"]`), run the client's tests from its dev shell (cores
+   4–11, capped, Chromium with `env -u LD_LIBRARY_PATH`), commit, then
+   `flock /tmp/linlog-machine.lock nix flake check` there.
+4. Write the section "The page" here, set the checklist's page row,
+   commit, rerun linlog's `nix flake check` at that last commit, and send
+   `planning` the last message.
+
 ### The checklist
 
 | item | state | evidence |
