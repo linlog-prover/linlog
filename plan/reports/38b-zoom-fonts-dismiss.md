@@ -1486,3 +1486,218 @@ rules file.
   `tztzrqyv` "flake.lock: Update" (linlog's input to `fe008c50`) and
   `ttyrqwmr` "Apply the invertible rules by themselves, a switch in
   Settings". Nothing pushed.
+
+## Session 38i: the nets' drawing as the literature draws it
+
+The session of `plan/38-web-polish.md`'s section "Session 38i: the
+nets' drawing as the literature draws it, as options" (the brief of
+2026-10-23), on Opus 5.5 at `high`, 2026-10-23, in linlog's workspace
+`../linlog-step38i` and the client's `../linlog-prover.github.io-38i`.
+The author asked for the three things in which linlog's MELL drawing
+differs from the four sources (the dashed premises of `⅋` and `?`, a
+`!` conclusion with doors a row up, one `?` node with any number of
+premises) as options beside Formulas and Compact, with a textbook
+preset.
+
+### The checklist
+
+Paused at 19:05 at the supervisor's "Pause" (the author needs the
+machine by 19:15), with linlog's part committed but for this report and
+the page's part written and tested but not committed.
+
+| item | state | evidence |
+|---|---|---|
+| Options of `svg::Style` for MLL and MELL nets in both drawings, defaults unchanged, a named preset, each choice's figure in the rules file | done | `umslkouw`: `Style::net_look`, `NetLook` (`premises`, `conclusions`, `why_not`), `NetLook::LINLOG` and `TEXTBOOK`, `NetPreset`; `.claude/rules/core-export.md` "A net's look is `Style::net_look`"; no existing snapshot changed |
+| Snapshots for each option and the preset, rendered in every math font and looked at | done | `net_looks` (18 new snapshots: `net-promotion*`, `net-contraction-*`, `net-nested-textbook*`, `net-plain*`, `net-boxes-cycle-textbook`); each drawn by the command in the five fonts (its SVG byte for byte the snapshot), the cycle with resvg; the two moved by `lxnkkttp` looked at again |
+| The command's keys and the preset, README with a real invocation run by `readme.rs`, the bindings' settings, the changelog | done | `--style svg.net_look=textbook` and the three dotted keys (`mell_nets`, `every_style_option`); README's SVG section and picture (the `textbook.svg` that `readme_examples` writes equals the snapshot); `styles.svg.net_look` in the bindings (`a_proof_with_exponentials_draws_its_net_with_boxes`); CHANGELOG `[Unreleased]`, Added |
+| Net target set against `net-after-39b.csv` | done, nothing differs | `bench/targets/net-after-38i.csv`; `summary --against … --counters`: no verdict differs, 0 of 64 differ in nodes, splits, memo_hits, memo_entries, links or tests |
+| Every linlog code commit gated | partly | `gate: passed` (exit 0, cores 4 to 11) on the tree of the lock's commit `yvnrpwrk` (the feature commit alone fails only the lock, as 38h's did); `lxnkkttp` not gated yet |
+| `nix flake check` at the last linlog commit; "linlog ready" to planning | not yet | resume below |
+| The review, each finding answered | done | "The review" below; its one finding fixed in `lxnkkttp` |
+| The page: Settings → Net drawing, kept, the exports following the stage, a test per behaviour | written, not committed | uncommitted in the client's `@` (`src/islands/state.tsx`, `Stage.tsx`, `BottomBand.tsx`, `tests/prover.spec.ts`); the two new Playwright tests, the targets walk and Vitest (485) passed against this workspace by `--override-input` |
+| Screenshots before and after | before done | `/home/tux/Projects/own/linlog-step38i-screenshots/before/`, 24 files `{desktop,phone}-{light,dark}-{01-settings,02-net-linlog,03-net-plain,04-net-bottom,05-net-rules,06-net-textbook}.png`, `shots.mjs` beside them; after not yet |
+| The client's input on linlog's pushed `main`, its `nix flake check`, `jj st` clean in both | not yet | resume below |
+
+#### Resume
+
+1. In `../linlog-step38i` (head: this report's commit on `lxnkkttp`):
+   `systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=0
+   taskset -c 4-11 nix develop -c gate`, then `flock
+   /tmp/linlog-machine.lock nix flake check; echo $?`, then send
+   `planning` "linlog ready" with `umslkouw`, `yvnrpwrk`, `lxnkkttp` and
+   this report's commit.
+2. After the supervisor pushes: in `../linlog-prover.github.io-38i`,
+   `nix flake update linlog` and commit `flake.lock` alone ("flake.lock:
+   Update"), then commit the page's change in `@`, then `flock
+   /tmp/linlog-machine.lock nix flake check; echo $?`.
+3. The after screenshots: `flock /tmp/linlog-machine.lock nix build -o
+   /home/tux/Projects/own/linlog-step38i-screenshots/site-after` in the
+   client's workspace, then in its dev shell (cores 4 to 9, capped)
+   `node tests/serve.ts
+   /home/tux/Projects/own/linlog-step38i-screenshots/site-after 8797 &`
+   and `env -u LD_LIBRARY_PATH node
+   /home/tux/Projects/own/linlog-step38i-screenshots/shots.mjs
+   http://127.0.0.1:8797/
+   /home/tux/Projects/own/linlog-step38i-screenshots/after`.
+4. Write this section's outcome and send `planning` the last message.
+
+### Outcome
+
+To be written at the resume; the decisions, judgement calls and review below are final for linlog's part.
+
+### The options and the figures they follow
+
+Each figure was looked at in the source itself (the PDFs downloaded
+and the pages rendered; no sub-agent was needed for the reading):
+Laurent's proof-net slides in Faggian's LMFI 2025 course (slides 42 to
+51, on the handout's pages 7 to 9), Straßburger's RR 6013 (Fig. 10,
+printed p. 45), the TLLA 2021 paper of Guerrieri, Manara, Pellissier,
+Tortora de Falco and Vaux Auclair (Figs. 1 to 4) and Chouquet and Vaux
+Auclair, LMCS 17:4 (Fig. 1).
+
+| option (`svg::NetLook` field) | linlog's default | the other value | the figures it follows |
+|---|---|---|---|
+| `premises`: the edges into a `⅋` or `?` and the wires | `Dashed`, in the `par` colour: linlog's own, no source does it | `Plain`, as every other edge | all four: Laurent 42 and 43 (and 37, 40 for `⅋`), Straßburger Fig. 10, TLLA Figs. 1 and 2, Chouquet Fig. 1 |
+| `conclusions`: a `!` with auxiliary doors | `Raised`, under its door a row above its `?`s: linlog's own | `Bottom`, on the bottom row under an edge down from its door | Chouquet Fig. 1 (the `!` on the border, its wire down to the `?`s' line), Laurent 43 (`!A` level with `?Γ`), Straßburger Fig. 10 (`!A, ?B₁ … ?Bₙ` on one row); TLLA Fig. 2 ends its conclusions at two heights |
+| `why_not`: a `?` node | `Node`, one node, every copy and wire a premise, a weakening one without | `Rules`: a dereliction `?d` under each copy (inside its box), binary contractions `?c` at the `?`'s depth, a weakening `?w`, a door per copy | `Node`: TLLA Fig. 1 (a `?` of any arity), Chouquet Fig. 1 (one `?` collecting the copies' wires); `Rules`: Laurent 42 and Straßburger Fig. 10 |
+| the preset `NetLook::TEXTBOOK` (`"textbook"`) | `NetLook::LINLOG` (`"linlog"`), the drawing as before | plain, bottom, rules | the look the two teaching sources share (Laurent, Straßburger); the two papers differ only in the `?` node |
+
+The doors under the rules have no node of their own and break no
+border: the wire crosses it, as in Straßburger Fig. 10 and Chouquet
+Fig. 1. Laurent's `?p` door node (slide 43) is not drawn.
+
+### Decisions
+
+- **One options value, `Style::net_look`** (D15), a `NetLook` of three
+  closed enums (`Premises`, `Conclusions`, `WhyNot`), each defaulting to
+  today's drawing, so every existing snapshot is unchanged. The preset is
+  a constant of the type, `NetLook::TEXTBOOK` (and `NetLook::LINLOG`),
+  named by `NetPreset`; JSON reads either the fields or a preset's name
+  in their place, as `Style::font` reads a math font's name. So the
+  command's `--style svg.net_look=textbook` and
+  `svg.net_look.premises=plain`, `…conclusions=bottom`,
+  `…why_not=rules`, a style or settings file's `"net_look"`, and the
+  bindings' `styles.svg.net_look` all take it with no code of their
+  own; any other front end does the same. No flag was added: the keys
+  are how every SVG option is set (`svg.net=compact`).
+- **The rules drawn faithfully** by picking one member of the class the
+  generalised `?` stands for (contraction associative and commutative,
+  and commuting with box borders): every dereliction at its copy, in the
+  copy's box on the row below it (the layout reserves that row: a box's
+  `!` stands a row lower for a copy in it), every contraction at the
+  `?`'s own depth, so a box has a door per copy rather than per `?`, and
+  the contractions a left comb in a column over the `?`'s formula,
+  copies at its depth first and then the wires, the nearest first. A
+  weakening is a `?w`; a `?` whose one premise is a wire has no node,
+  the wire being its conclusion.
+- **Where the rules' nodes stand**: at the joint height of their row in
+  the formulas drawing (where `⊗` and `⅋` joints stand), as circles in
+  the compact one, labelled `?d`, `?c`, `?w` narrowed to fit the node's
+  radius. Each wire's leg runs between two rows, as the default's do;
+  the first wire into the first contraction comes down the column from
+  a landing row so that its two premises never share a leg; legs sharing
+  a band are staggered, and the rows are drawn as far apart as the most
+  wires in one band need (half the node radius each).
+- **`Bottom` changes the formulas drawing only**: the compact drawing
+  and every MLL net have their conclusions at the bottom already, which
+  the test asserts rather than pinning a duplicate snapshot.
+- **`Plain` drops the dashed group**: a plain drawing has no
+  `stroke-dasharray` anywhere, a highlighted switched edge included.
+- **The size estimate** adds a node's bytes (`RULE`, 200) for each
+  copy's `?d` and `?c` and each `?`'s last node; the default estimate is
+  unchanged. A first allowance of `CONNECTIVE` per node passed the
+  drawing's four-times bound, which the test caught.
+
+### Judgement calls
+
+- **The preset's `?` node is the rules'**: the four sources agree on
+  plain edges and conclusions at the bottom and split two and two on the
+  `?` node; the preset follows the two teaching sources (Laurent's
+  course slides, Straßburger's survey), the papers' one node staying a
+  choice of its own.
+- **"Plain" is the line colour as well as no dash**: no source colours
+  a switched edge, so a plain edge is drawn as a `⊗`'s is.
+- **The doors under the rules draw no node and break no border**
+  (Straßburger, Chouquet) rather than Laurent's `?p`; the default keeps
+  its `?` at each door.
+- **One door per copy under the rules**, not per `?` as by default:
+  the member of the class with every contraction at the `?`'s depth,
+  so that no contraction stands inside a box (where the layout has no
+  room for a comb above a door). Both are faithful; this one needs no
+  node on a border.
+- **A lone wire is its `?`'s conclusion** with no node: a contraction of
+  one premise does not exist, and the wire already carries `?A`. In the
+  compact drawing that `?` has no circle, so no element carries its id
+  `o<n>`/`v<k>`.
+- **The first premise of a `?` drawn as rules with wires alone comes
+  down through a landing row** of its own, one row more than the comb
+  needs, so that the first contraction's two wires never share a leg.
+- **On the page**: the preset is a row "Look" (linlog, Textbook), each
+  pressed only while the three options are its own, above a labelled row
+  per option ("Edges into ⅋, ?": Dashed, Plain; "A ! with doors": A row
+  up, At the bottom; "A ? node": One node, Its rules), each button with
+  a tip, and a line under them saying what Textbook draws, since tips
+  never follow a touch.
+
+### Departures from the design
+
+- None from D1 to D60 knowingly. The rows are the panel's own grammar
+  (`.lbl` with a dim label and a `.seg`), every button a control of the
+  grammar's height; D16's exports follow the stage's look as they follow
+  its drawing.
+
+### The review
+
+One fresh-context reviewer on Opus 5.5 at `high`, one round, on the
+commit `umslkouw`, comparing the rendered snapshots of each option and
+of the preset with the cited figures and drawing further nets of its own
+(three boxes feeding one `?`, a copy two boxes deep, copies at the `?`'s
+depth beside wires, a `?` inside a box, `??`, `?!`, a lone wire under a
+`⅋`, a weakening inside a box, five and six wires on one row), reporting
+only what breaks a stated requirement.
+
+- **Finding, held and fixed**: in the compact drawing, wires bound for
+  different `?`s between the same two rows merged into one bar from
+  about five on: the staggered legs had only the room the uniform rows
+  leave (`line_height − 3r`, 360 units), so six wires stood 60 units
+  apart against a 40-unit stroke (`!a, !b, !c, !d, !e, !f |- !(((a*b) *
+  (c*d)) * (e*f))`). The rows are now drawn as far apart as the most
+  wires in one band need, half the node radius each, counted from each
+  `?`'s premises before any height is fixed (`lxnkkttp`). The two
+  compact snapshots with two wires in a band moved and were looked at
+  again in the five fonts; `net_looks` measures the six wires' legs in
+  both drawings. The default drawing shares one leg among such wires
+  outright; it stays as it is (below, left open).
+- Everything else it checked was sound: the faithfulness of the rules'
+  drawing (each dereliction in its copy's box on the reserved row, a
+  door per copy, the contractions at the `?`'s depth below every box
+  their wires leave), the highlighted cycle along the contractions,
+  plain premises without a dash in MLL and MELL, `Bottom` lowering only
+  a `!` with doors in the formulas drawing, the defaults on the old
+  code paths, and the preset a constant. Per figure: Laurent 42 and 43,
+  Straßburger Fig. 10, TLLA Figs. 1 and 2 and Chouquet Fig. 1 match the
+  rules file's citations.
+
+### What is left open
+
+- **The default drawing's shared legs** (a follow-up the supervisor
+  will schedule; not fixed here,
+  since it would change the default's snapshots): wires bound for
+  different `?`s between the same two rows run along one leg, so where
+  their spans overlap they read as one (`net-promotion.svg`, the wires
+  of `?a⊥` and `?(c⊥ ⅋ d⊥)`). The rules' staggering and row spacing
+  would serve it.
+- Wires may still cross edges and, in a crowded net, a formula (as the
+  default's do); no test catches that, the renderings show it.
+- A dashed wire under the rules is two paths (inside the box and out of
+  it), so its dash pattern restarts at the door.
+
+### Repositories and workspaces
+
+- linlog, `../linlog-step38i` on `pmnrxwkr`: `umslkouw` "Draw nets as
+  the textbooks do, as options of the SVG style", `yvnrpwrk` "Bless the
+  behaviour lock for the nets' look", `lxnkkttp` "Keep the textbook
+  look's wires apart however many share a row", then this section's
+  commit. Nothing pushed.
+- The client, `../linlog-prover.github.io-38i` on `ttyrqwmr`: the page's
+  change uncommitted in `@`, waiting for linlog's pushed `main`.
