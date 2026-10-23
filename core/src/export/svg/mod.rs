@@ -1038,7 +1038,7 @@ pub fn net(
 }
 
 /// Returns a proof structure with boxes as an SVG document, drawn as
-/// [`net`] draws a proof structure, every subformula written or, with
+/// [`net()`] draws a proof structure, every subformula written or, with
 /// [`Style::net`] [`NetDrawing::Compact`], the literals and conclusions:
 /// every `!`-box a rectangle around its contents, nested boxes nested, its
 /// `!` vertex and an auxiliary door for every `?` vertex outside it with a
@@ -1047,7 +1047,7 @@ pub fn net(
 /// vertex of occurrence `n` and `v<k>` (its vertex) when its occurrence has
 /// several; a link `l<x>-<y>` (its vertices) and a box `b<k>` (its `!`
 /// vertex). A switching cycle is in the highlight colour. Refused past
-/// `limits.derivation_bytes` before anything is drawn, as [`net`] is; the
+/// `limits.derivation_bytes` before anything is drawn, as [`net()`] is; the
 /// criterion that decides the highlight asks `stop` as
 /// [`MellStructure::is_correct`] does.
 ///
