@@ -1164,3 +1164,152 @@ mono files are anyway.
 
 The commit of this addition is the workspace's second; nothing placed,
 nothing pushed.
+
+## Session 38g: the logo placed
+
+The logo's placing session (`plan/38-web-polish.md`, "Sessions 38f and
+38g", the 38g paragraph; the brief of 2026-10-23), on Opus 5.5 at
+`high`, 2026-10-23. The author's choice, the lollipop in violet under
+CC BY 4.0, is in the web client and in linlog. The client's commits are
+reviewed and pushed by the supervisor, who added one at the author's
+request (the band's mark at 30 pixels). linlog's two commits are in
+the workspace `../linlog-step38g`, and nothing of linlog is pushed.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| The chosen SVGs in the client as the one source | done | `src/logo/` holds `wordmark-{light,dark,mono}.svg` and `square-{light,dark,mono}.svg`. Each is the file under `linlog-logo/lollipop-colours/violet/` with only its title and label changed from "linlog (violet)" to "linlog" (a `diff` per file showed nothing else). `src/logo/LICENSE.txt` is the notice. |
+| Every raster made from them by a script of the client's flake | done | `modules/logo.nix` (`packages.logo`, the option `logoFiles`) runs `modules/_logo/derive.py` with nixpkgs' resvg 0.48.1. It writes `site/`: `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `og.png` (1200 by 630). It writes `github/`: `avatar.png` (512) and `social-preview.png` (1280 by 640). The dev shell and every npm task link it at `.cache/linlog-logo`, and the build copies `site/` and `src/logo/` to `/logo/`. |
+| Favicon (SVG and PNG fallback), the manifest's icons (maskable too), Apple touch icon, Open Graph image | done | `Base.astro` links `/logo/favicon-32.png` (32 by 32), `/logo/square-dark.svg` and `/logo/apple-touch-icon.png`. Every page carries Open Graph tags with `og:image` at `https://linlog-prover.github.io/logo/og.png`. The manifest names the three icons. Playwright test `the logo's icons and link preview are served at the sizes the page and the manifest name` fetches every one, checks its status and media type, and reads each PNG's width and height from its header. |
+| The header's word mark, About, the 404 page | done | The new component `Logo.tsx` (the word mark inline) replaces the plain "linlog" in `TopBand.tsx` and opens About. The 404 page links the mark to `/`. Playwright test `the header and the 404 page show linlog's word mark, its ring in the logo's colour` checks both schemes: the mark is visible, it is as high as the band's token (24 pixels in this session's commit, 30 since the supervisor's `rnzzvnuk`), and the ring's computed stroke is the token's value. The About test finds the mark. |
+| Guard 1: the logo's colour a token of its own | done | `--color-logo: light-dark(#6b46cf, #958ad5)` in `tokens.css`, beside `--color-accent` but never `var(--color-accent)`. `app.css` paints the ring with it. |
+| Guard 2: the token in the colour-vision test's band group | done | `colours.test.ts`: the group `logo` is the logo with the bands' five colours. The logo is also paired with ink, Learn's frame and the nets' three colours. Only the pair logo and accent is exempt (`SAME`), and only while the two are equal. A self-check moves line, learn, net-dominator and accent next to the violet and expects each to fail. A live run with `--color-line` set to `#7050c8` failed with `logo: logo and line in full colour` and the three deficiencies; the token was then restored. |
+| Guard 3: the rule line | done | The client's `.claude/rules/web.md`: "The logo's colour is fixed …", with the exemption and the self-check. The section "The logo" covers Figtree's OFL condition 5. |
+| CC BY 4.0 in the licence check, the licences list, the README; About's line | done | `modules/_checks/licences.py`: every image the site serves is under `logo/`, beside `logo/LICENSE.txt`, which names CC BY 4.0 with its link, and every logo SVG has its text outlined. The check printed "the 12 images are the logo's under CC BY 4.0". About lists "linlog's logo: CC BY 4.0" (`/logo/LICENSE.txt`) and says "The name linlog and its mark identify this project, and may not be used to suggest its endorsement of anything else." The client's README and CLAUDE.md say the same. |
+| The client's `nix flake check` at its last commit | done | At `tvkpptwy` (2bd9b5f0), under the machine lock, exit status 0: e2e 81 passed, unit 122 passed, licences, csp and the other checks. The first run failed Biome's `useAnchorContent` on the 404 page's link, which was fixed in the commit (the drawing is a child `Fragment`) before the second run. Again at the last commit, `uwxqplov` (405bc502, the rules' line on the mark's height), exit status 0. |
+| "client ready" to planning before linlog's part ended | done | SendMessage to `planning` with the commits and the URLs; the supervisor pushed the client (its `main` is `tvkpptwy`). |
+| linlog: README's head, the rustdoc's logo and favicon, the Rocq library's README; no logo file | done | README's first line is a `<picture>` with the dark and light word marks by absolute URL from the site. The Licence section says where the logo lives and under which licence. `core/src/lib.rs` has `#![doc(html_logo_url = …/logo/square-dark.svg, html_favicon_url = …/logo/favicon-32.png)]`. `rocq/README.md` is new, with the word mark. No SVG or PNG was added (`jj diff --stat` of the code commit). |
+| Every linlog code commit gated; `nix flake check` at the last commit | done | The one code commit, `yxtzrqkk`, passed `gate` (exit status 0) before it was committed; `nix flake check` ran at this section's commit (its exit status in the message to planning). |
+| The author's files under `linlog-logo/for-github/` | done | `organisation-avatar.png` (512), `social-preview-linlog.png` and `social-preview-linlog-prover.github.io.png` (1280 by 640), `zenodo-community.png` (512) and `CHECKLIST.md`, copied from the client's `nix build .#logo` at its committed head. |
+| Screenshots before and after | done | `/home/tux/Projects/own/linlog-step38g-screenshots/{before,after}/`: `header-`, `about-`, `404-`, `tab-` (the favicon in a mock tab strip, with the PNG fallback beside it), `preview-` (a mock link preview from the page's Open Graph tags) and `page-`, each at `phone` (412 wide) and `desktop` (1280 wide) in `light` and `dark`. That is 24 files on each side, the same names. Taken by a scratch Playwright script in the client's devshell's Chromium; `after/` from the site at `uwxqplov`, with the 30-pixel mark. |
+
+### Outcome
+
+On the site, the mark replaces the plain word in the top band at 30
+pixels high. The letters are in ink and the ring is in the logo's own
+violet, drawn inline, so a theme change repaints it without a redraw.
+About and the 404 page show it at 32 pixels. The browser tab shows the
+square form (`⊸` lying down) on the dark field, as an SVG with a 32-pixel
+PNG fallback. The manifest, the Apple touch icon and the link preview
+take the flake's rasters. The logo's colour cannot follow a later change
+of the accent: it is a token of its own, and the colour-vision test fails
+any colour of meaning that comes near it. In linlog, GitHub's and
+crates.io's README, the rustdoc's sidebar and favicon (on the Pages
+documentation and on docs.rs) and the Rocq library's new README fetch
+the files from the site. No logo file is in linlog.
+
+### Decisions
+
+- **Where the rasters are made**: a derivation of the client's flake
+  (`modules/logo.nix`) running a Python script with nixpkgs' resvg, as the
+  brief asks. Before, the build drew the old icon with linlog's own
+  WebAssembly renderer in Node; that path is gone, along with
+  `public/icon.svg` and the `public/` directory. The build copies the
+  derivation's files the way it takes linlog's fonts, through `.cache/`.
+- **The sources under `src/logo/`, served at `/logo/`**: they are
+  imported raw by the components (Vite does not import from `public/`),
+  and the build copies them. `/logo/` holds every file of the logo, so
+  one notice beside them covers them and the licence check has one place
+  to look.
+- **The dark square everywhere a square is small** (the favicon, the
+  Apple touch icon, the manifest's icons, the rustdoc's logo, GitHub's
+  avatar): it reads on light and dark backgrounds alike, as the old icon
+  did, and a favicon cannot follow the page's theme without a second set
+  of links whose `media` browsers honour unevenly.
+- **The maskable icon** scales the figure to 0.8 about the centre. The
+  figure spans 77 per cent of the square, and its ring reached 208 of the
+  205 pixels a launcher's safe circle allows.
+- **The band's mark larger than the band's words**: the first
+  screenshot at 18 pixels showed the ring as a dot, as session 38f
+  expected, so this session set 24 (`--size-wordmark`). The author then
+  asked for 30, which the supervisor committed (`rnzzvnuk`, the header
+  test's height following); this session's last client commit puts 30
+  in the rules. On a phone the mark stays hidden, as the plain word was.
+- **The link preview and the social previews** are the dark word mark,
+  640 pixels wide, centred on the dark field, with no text beside it:
+  text would need another outlining tool in the client's flake. Both
+  repositories get the same image.
+- **The README's head is the heading itself** (`# <picture>…`) with the
+  alt text "linlog", so the page keeps one first-level heading. The
+  `<source>` for the dark scheme serves GitHub's dark theme. crates.io's
+  sanitiser may drop `<picture>`, which leaves the light `<img>`.
+- **The rustdoc's favicon is the PNG** and its logo the SVG square: PNG
+  is the format every browser takes as a favicon.
+- **The colour guard's shape** (with the supervisor's correction): one
+  group `logo` (the logo and the bands' colours, every pair of which
+  passed already). The logo is also paired with ink, Learn's frame and
+  the nets' colours, one pair each, because a single group would also
+  compare those colours with one another, which no rule asks for: Learn's
+  purple and the dominator lines fail each other and are never shown as
+  rivals. The exemption holds only while logo and accent are equal, so an
+  accent moved near the violet but not onto it fails.
+
+### Judgement calls
+
+- The SVGs' title and `aria-label` say "linlog", not "linlog (violet)":
+  the one change made to the chosen files, metadata only.
+- The About test now finds two links labelled "CC BY 4.0" and eleven
+  local licence links. It picks the written content's link by its list
+  item. This changed because the behaviour changed (a licence entry was
+  added), which the commit says. The header's mark is found by its
+  element, since the top band is inside `main` and has no banner role.
+- No `favicon.ico`: the pages link their icons, and resvg writes no ICO.
+- The Rocq library's README is new (there was none). It says what the
+  library holds, its layout, how to build it, and its licence, from the
+  rules file and the root README.
+- linlog's README's Licence section gains a paragraph on the logo,
+  so that the CC BY 4.0 notice travels with the README that shows it.
+
+### Departures from the design
+
+- None from D1 to D60 knowingly. The header's mark is drawn larger than
+  the band's word size (30 pixels where the band sets its words at 18),
+  which session 38f left to this session and the author settled.
+
+### The author's checklist
+
+The files are under `/home/tux/Projects/own/linlog-logo/for-github/`,
+whose `CHECKLIST.md` repeats this list:
+
+1. The organisation's avatar: `organisation-avatar.png`, in the
+   organisation's settings, "Profile picture".
+2. linlog's social preview: `social-preview-linlog.png`, in linlog's
+   settings, "Social preview".
+3. The site's social preview: `social-preview-linlog-prover.github.io.png`,
+   in the site repository's settings, "Social preview".
+4. Optionally a Zenodo community with `zenodo-community.png`.
+5. Once the site is deployed, check that
+   https://linlog-prover.github.io/logo/wordmark-light.svg answers, so
+   that README shows the logo on GitHub and crates.io.
+
+### What is left open
+
+- crates.io's handling of `<picture>` is not verified here; at worst it
+  shows the light word mark.
+- The README, the rustdoc and the Rocq README show nothing until the site
+  serves `/logo/` (the supervisor is deploying it).
+
+### Repositories and workspaces
+
+- The client, `linlog-prover.github.io`, on top of `zxqpkpnt`:
+  `onplpnxq` (dc16f68d) "Draw linlog's logo from its SVGs in the flake";
+  `tvkpptwy` (2bd9b5f0) "Place linlog's logo on the site, its colour
+  fixed", both pushed by the supervisor; the supervisor's `rnzzvnuk`
+  (6188d4ae) "Draw the header's word mark at 30 pixels, its ring legible
+  in the band", pushed; `uwxqplov` (405bc502) "Say in the rules that the
+  band's word mark is 30 pixels high", not pushed.
+- linlog: `../linlog-step38g` on `ulqqvuxr`: `yxtzrqkk` (d1e2f6fd) "Show
+  linlog's logo in README, the rustdoc and the Rocq library's README",
+  gated (`gate: passed`, exit status 0, on cores 8 to 11); then this
+  section's commit. Nothing pushed.
