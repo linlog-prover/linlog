@@ -3213,3 +3213,25 @@ client follows it (step 32).
     GitHub as the one who decides on its logs are the page's own
     reading, which it says).
   Next: session 38f, the logo's candidates; step 39b after 39a.
+- 2026-10-23: review of session 38f, the logo's candidates (Fable 5.1
+  at high, 13:50 to 14:10, with a follow-up): five candidates, each a
+  word mark and a square form in Figtree Bold outlined (OFL 1.1, no
+  Reserved Font Name, read in its file here), shown at every size and
+  place in a private artifact; then the lollipop in seven colours. The
+  author chose **the lollipop in violet** (the "i" of linlog drawn as
+  `⊸` stood on end, the square form `⊸` lying down) under **CC BY 4.0**,
+  with three guards against later colours: the logo's colour a token of
+  its own with fixed values, apart from the accent; that token in the
+  colour-vision test's band group, so that a later colour too close to
+  it fails the client's check; a rule saying so. Before choosing, the
+  author asked whether the logo infringes anything: two research
+  sub-agents (Sonnet 5.5 at medium) found the parts free (Figtree's
+  licence; the ring and bar drawn from geometry; a sign is no work),
+  no product named linlog by web search, and no tool of the field with
+  a `⊸`, a ring-dotted i or a bar-and-ring mark (`lolli` has no logo;
+  Rocq's and Agda's rendered and looked at here); the four trademark
+  registers could not be queried from here, and the searches the
+  author may run by hand were given. Files:
+  `/home/tux/Projects/own/linlog-logo/` (`lollipop-colours/violet/`).
+  One departure, not taken: the par candidate's Euler Math (D25). Next:
+  session 38g, the logo placed.
