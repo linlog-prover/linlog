@@ -530,7 +530,12 @@ for NanoYalla. What the code relies on:
   wires between the same two rows are staggered (`legs`, at most the
   radius apart, within the room below the circles above), the one whose
   door is further along its direction higher, so that where spans
-  overlap one wire's way down does not cross the other's leg. The
+  overlap one wire's way down does not cross the other's leg; and the
+  rows are drawn apart enough (`line_height` raised, counted from each
+  `?`'s premises before any height is fixed) that the most wires sharing
+  a band stand half the radius apart at least: the uniform compact rows
+  left six wires 60 units apart against a 40-unit stroke, one bar to the
+  eye (the review's finding; `net_looks` measures six). The
   default drawing does not stagger, and two of its wires bound for
   different `?`s on one row can share a leg (`net-promotion.svg`); a
   fix would change the default's snapshots. What no test catches: a

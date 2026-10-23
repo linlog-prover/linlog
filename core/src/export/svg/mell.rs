@@ -686,6 +686,34 @@ pub(super) fn draw(net: &MellStructure, style: &Style, verdict: &Result<(), NetE
             lid[depth as usize] = tallest + radius;
         }
     }
+    // Under the rules, the rows as far apart as the most wires that run
+    // level between the same two rows need, each half the radius from the
+    // next at least, so that none reads as part of another: a wire runs
+    // above the row of the node it comes into, the first of a `?` without
+    // copies at its depth above its landing row, and a lone wire above
+    // its formula's row.
+    let line_height = if rules {
+        let mut level: HashMap<u32, i64> = HashMap::default();
+        for q in (0..n as u32).filter(|&q| kind_of(q) == Kind::Quest) {
+            let (k, own) = (inputs[q as usize], kids(q as usize).count() as u32);
+            let first = row[q as usize] + u32::from(!formulas) - levels[q as usize];
+            let last = row[q as usize] - u32::from(formulas);
+            for i in own..k {
+                let band = match (k, i) {
+                    (1, _) => row[q as usize],
+                    (_, 0) => first,
+                    _ if i.max(1) + 1 == k => last,
+                    _ => first + i.max(1),
+                };
+                *level.entry(band).or_default() += 1;
+            }
+        }
+        let most = level.values().copied().max().unwrap_or(0);
+        let beside = if formulas { radius + HEIGHT + DEPTH } else { 0 };
+        line_height.max(most * (radius / 2) + 3 * radius - beside)
+    } else {
+        line_height
+    };
     let baseline = margin + stroke + highest + HEIGHT;
     let top = baseline - HEIGHT;
     let pitch = line_height + radius + HEIGHT + DEPTH;
