@@ -45,6 +45,12 @@ for `THIRD-PARTY-NOTICES.txt`.
   (`Failure::json`, `Failure::refused`) take the shape and a `code` the
   library uses (`json`, `unknown_name`). A new call returns `Failure`,
   never a message of its own.
+- **A goal formula's `reading`** (intuitionistic mode alone, absent in
+  classical mode) is `Reading::formula(o)`, the crate's two-sided printer
+  for one occurrence in its position; `text` stays one-sided, which is
+  what a step and the parser read. It is a key of a call's answer, no
+  stored document, so no wire level (`wire.rs`: a key an older reader may
+  ignore raises none).
 - **`Step` and `Applicable` have no wire form in the library**: `StepForm`
   (`{"position", "rule", "left"}`) and `Offered` (`{"rule", "split"}`)
   are the bindings', the rule by its `Named` name. When the library

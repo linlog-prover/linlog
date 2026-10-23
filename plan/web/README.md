@@ -130,7 +130,7 @@ to 2³² − 1, anything else refused):
 | `defaults()` | the tab's settings, for the Settings pane |
 | `read(input, settings)` | a typed sequent, a sequent's JSON (`seq json`) or a session (`save`): `{"kind": "sequent" or "session", "sequent", "text", "fragment": {"classical", "intuitionistic"}, "mode", "session"}`; a parse error carries the caret's place, a level above the module's is `unsupported_version` |
 | `start(sequent, mode, settings)` | a new session: `{"session", "view"}`; `mode` one of `classical`, `affine`, `mix`, `affine-mix`, `intuitionistic`, `intuitionistic-affine` |
-| `view(session, settings)` | `{"mode", "fragment", "complete", "steps", "goals": [{"goal", "formulas": [{"text", "occurrence", "side"}]}], "inferences", "net"}`: `inferences[n]` is the goal the drawing's `i<n>` is, `net` the refusal that says why the sequent has no net, or `null` |
+| `view(session, settings)` | `{"mode", "fragment", "complete", "steps", "goals": [{"goal", "formulas": [{"text", "occurrence", "side", "reading"}]}], "inferences", "net"}`: `reading`, in intuitionistic mode alone, the formula as the reading writes it in its position (a hypothesis `A ⊸ B`, whose `text` is `A ⊗ ~B`); `inferences[n]` is the goal the drawing's `i<n>` is, `net` the refusal that says why the sequent has no net, or `null` |
 | `rules(session, goal, position, settings)` | `[{"rule", "split"}]`: the rules the formula takes by its connective and the mode |
 | `split_passes(session, goal, step, settings)` | `false` when the split cannot close |
 | `apply(session, goal, step, settings)` | `{"session", "view", "opened"}`, or the refusal with its reason; a step is `{"position", "rule", "left"}`, `left` the positions going to the left premise of a `⊗` or Mix |

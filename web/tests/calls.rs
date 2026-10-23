@@ -411,3 +411,50 @@ fn a_goal_is_filled_from_another_session() {
     let refused = failure(&calls::fill(&classical, 0, &mixed, "").unwrap_err());
     assert_eq!(refused["code"], "invalid_proof", "{refused}");
 }
+
+/// In intuitionistic mode each goal formula carries its reading beside its
+/// one-sided text: a hypothesis `A ⊸ B` reads `A ⊸ B`, and so does the
+/// formula under a `!` that a promotion opened as a goal; in classical
+/// mode there is no reading.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_goal_s_formulas_carry_their_reading() {
+    let formulas = |answer: &str| value(answer)["view"]["goals"][0]["formulas"].clone();
+    let readings = |answer: &str| {
+        let mut all: Vec<String> = formulas(answer)
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["reading"].as_str().unwrap().to_owned())
+            .collect();
+        all.sort();
+        all
+    };
+    let started = calls::start("A, A -o B |- B", "intuitionistic", "").unwrap();
+    assert_eq!(readings(&started), ["A", "A ⊸ B", "B"], "{started}");
+    let text = formulas(&started)
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["text"] == "A ⊗ ~B");
+    assert!(text, "{started}");
+
+    let banged = calls::start("!(A -o B) |- !(A -o B)", "intuitionistic", "").unwrap();
+    let output = formulas(&banged)
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|f| f["side"] == "output")
+        .unwrap();
+    let promoted = calls::apply(&session(&banged), 0, &step(output, "!", None), "").unwrap();
+    assert_eq!(readings(&promoted), ["!(A ⊸ B)", "A ⊸ B"], "{promoted}");
+
+    let classical = calls::start("A, A -o B |- B", "classical", "").unwrap();
+    let all = formulas(&classical);
+    assert!(
+        all.as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f.get("reading").is_none()),
+        "{classical}"
+    );
+}

@@ -144,6 +144,11 @@ struct Formula {
     /// In intuitionistic mode, `input` for a hypothesis and `output` for
     /// the goal, `null` in classical mode.
     side: Option<&'static str>,
+    /// In intuitionistic mode, the formula as the reading writes it in its
+    /// position (a hypothesis `A ⊸ B` as `A ⊸ B`, where `text` has its
+    /// one-sided `A ⊗ ~B`); absent in classical mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reading: Option<String>,
 }
 
 /// An open goal.
@@ -200,6 +205,9 @@ impl View {
                                     Side::Output => "output",
                                 }
                             }),
+                            reading: reading
+                                .as_ref()
+                                .map(|reading| reading.formula(occurrence).to_string()),
                         }
                     })
                     .collect(),

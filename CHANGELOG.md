@@ -11,6 +11,12 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Added
 
+- The bindings' `view` (and every call that answers with a view) gives
+  each goal formula, in intuitionistic mode, its `reading`: the formula
+  as `Reading::formula` writes it in its position, a hypothesis `A ⊸ B`
+  where `text` has the one-sided `A ⊗ ~B`; the key is absent in
+  classical mode. An added key of a call's answer, no wire level.
+
 - The focused inverse method, `Engine::Inverse` (`--engine inverse`, JSON
   `"inverse"`), in every commutative mode: a forward search that derives
   stable sequents from the axioms upward by rules compiled from the

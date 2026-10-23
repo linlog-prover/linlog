@@ -720,6 +720,30 @@ mod tests {
             .map_err(|e| e.describe(&forest).to_string())
     }
 
+    /// One occurrence, anywhere below a root, is written as the reading
+    /// reads it in its position: a hypothesis `A ⊸ B` (one-sided `A ⊗
+    /// B⊥`) as `A ⊸ B`, the same formula under a hypothesis's `!` and
+    /// under the goal's `!` alike, and a negated atom as its atom.
+    #[test]
+    fn one_occurrence_is_written_in_its_position() {
+        let s: Sequent = "!(A -o B), A |- !(A -o B) * A".parse().unwrap();
+        let forest = Forest::new(&s).unwrap();
+        let reading = Reading::new(&forest).unwrap();
+        let written: Vec<String> = forest
+            .ids()
+            .map(|o| reading.formula(o).to_string())
+            .collect();
+        let at = |text: &str| written.iter().filter(|w| *w == text).count();
+        // Under each `!`, the implication; at the roots, the hypotheses and the goal.
+        assert_eq!(at("A ⊸ B"), 2, "{written:?}");
+        assert_eq!(at("!(A ⊸ B)"), 2, "{written:?}");
+        assert_eq!(at("!(A ⊸ B) ⊗ A"), 1, "{written:?}");
+        assert!(
+            written.iter().all(|w| !w.contains('~') && !w.contains('⊥')),
+            "{written:?}"
+        );
+    }
+
     /// Intuitionistic sequents print back two-sided with `⊸`, `1`, `⊤` and
     /// `0` recovered from their one-sided forms, the goal being the formula
     /// written right of `⊢`.
