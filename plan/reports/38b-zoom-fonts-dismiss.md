@@ -919,3 +919,192 @@ their sources, and items 2, 3, 6 to 10.
   search's scratch programs, are in the session's scratch directory,
   not kept.
 
+
+## Session 38f: the logo's candidates
+
+The logo's design session (`plan/38-web-polish.md`, "Sessions 38f and
+38g", the 38f paragraph), on Fable 5.1 at `high`, 2026-10-23. Nothing
+was placed in the client or in linlog: the candidates and the page are
+in `/home/tux/Projects/own/linlog-logo/`, outside both repositories, and
+this section, in the workspace `../linlog-step38f` on `luwsvqkq`, is the
+session's only commit. The author chooses; session 38g places the
+chosen one.
+
+### The checklist
+
+| item | state | evidence |
+|---|---|---|
+| Four or five candidates, each a word mark and a compact square form, SVG with the text outlined, in a light, a dark and a one-colour version | done | five: `turnstile/`, `lollipop/`, `link/`, `par/`, `inference/`, each `wordmark-{light,dark,mono}.svg` and `square-{light,dark,mono}.svg` (30 files, listed by `tools/make.py`); `grep -c "<text" */*.svg` is 0 for every file |
+| Legible at 16 and at 512 pixels; each candidate rasterised at 16, 32, 180 and 512 and the rasters looked at | done, with two weaknesses | `tools/raster.sh` (resvg 0.48.1): `<candidate>/png/square-{light,dark}-{16,32,180,512}.png` and a contact sheet `sheet.png` per candidate, each looked at; the par's ⅋ is a smudge at 16 pixels and the inference's figure is dense there (below, "What the rasters show") |
+| Every candidate's colours distinct under simulated deuteranopia, protanopia and tritanopia by the client's method | done | `node tools/colours.mjs turnstile lollipop link par inference`: 20 groups (each candidate, each theme, the word mark on the field and the square form), every pair at least 8 apart under each deficiency and 15 in full colour, exit 0; the script copies the matrices, the linearisation, OKLab and the thresholds of the client's `src/styles/colours.test.ts` unchanged |
+| One page showing every candidate at every size and place it will be used, in both themes, its screenshots looked at, published as a private artifact | done | `/home/tux/Projects/own/linlog-logo/index.html` (`tools/page.py`); the artifact https://claude.ai/artifact/UEq8nbTaXg9fYcLPEVCrwH (private, the page with its 70 files); `screenshots/page-{light,dark}.png` and one per candidate and theme (`tools/shots.mjs` in the client's devshell's Chromium), five looked at |
+| The outlined fonts' licences read in their own files and named | done | Figtree: `node_modules/@fontsource-variable/figtree/LICENSE` in the client, the SIL Open Font License 1.1, no Reserved Font Name; Euler Math: `.cache/linlog-fonts/OFL.txt` in the client (the file the client writes, D25), the SIL Open Font License 1.1, no Reserved Font Name; its condition 5 read: "The requirement for fonts to remain under this license does not apply to any document created using the Font Software" |
+| Where each idea comes from, never another project's mark | done | below, "The candidates": each from a sign of the calculus (⊢, ⊸, an axiom link, ⅋, the inference bar) or from today's icon |
+| The recommendation and the proposed licence | done | below |
+| The report committed in `../linlog-step38f`, `jj st` clean, nothing pushed | done | this section; the commit below |
+
+### Outcome
+
+Five candidates, each one logo in two shapes. The word is "linlog" in
+Figtree Bold, the typeface and weight of the page's own top band (its
+`.wordmark`: bold, 18 pixels, letter-spacing −0.5 pixels, which the
+outline keeps as −28 units per em), shaped by HarfBuzz with the font's
+kerning and outlined by fontTools, so no font file goes with any file.
+Each mark is drawn in the word's own measures (a stem of 132 units on an
+ascender of 700, the thin line of a ring, an arc or a bar at 70), which
+is what makes the two shapes one logo. Every colour is one of the page's
+tokens (`tokens.css`): ink, and one of the accent, the nets' blue and the
+green of a checked proof, which is why the page's own colour rule holds
+for every pair a candidate shows. The square form carries the page's
+field as its background (`rx` 96 of 512, as today's icon) in its light
+and dark versions; the one-colour version of both shapes is
+`currentColor`, with no background.
+
+The page shows, for each candidate in both themes: the square form at
+16, 32, 180 and 512 pixels (the rasters themselves); as a browser tab's
+favicon beside the title, under iOS's icon mask, inside a maskable icon's
+circle, and as GitHub's avatar at 40 and 96 pixels; the word mark in the
+page's 48-pixel top band at the band's own type size beside a sample
+tab; at the README's head on GitHub's white and its dark canvas; in a
+1 280 by 640 social preview at half size; and the one-colour versions in
+ink and in white.
+
+### The candidates
+
+Each line: the idea and where it comes from, the colours, what the
+rasters and the page show.
+
+1. **Turnstile**: "⊢ linlog", the word as the conclusion of a one-sided
+   sequent, since every sequent linlog decides begins with ⊢; today's
+   icon's turnstile raised to the mark, drawn in the word's stem weight,
+   not Euler's thin glyph, which 16 pixels would lose. The turnstile in
+   the accent, the word in ink. Clear at every size; the plainest of the
+   five. Its weakness: ⊢ is every logic's sign, not linear logic's.
+2. **Lollipop**: the i of linlog as ⊸ stood on end, its dot the ring of
+   the lollipop (the i is Figtree's dotless i with a ring of radius 130
+   and line 70 joined to the stem); the square form is ⊸ laid down. The
+   ring in the accent, the letters in ink. The one candidate whose mark
+   is inside the word rather than beside it; the square form reads as ⊸
+   at 16 pixels. Its weakness: in the band at 18 pixels the ring is
+   about 5 pixels across, a visible open dot but not much more.
+3. **Link**: an axiom link, the arc a proof net draws above a formula
+   from an atom to its dual, here from the first l of linlog to the
+   second; the square form two stems under their arc. The arc in the
+   nets' blue, the page's colour for a ⅋ edge, the letters in ink. The
+   arc is the one curve among the marks. Its weakness: the square form
+   reads as headphones or a padlock to anyone who does not know nets;
+   widening the stems and lowering the arc did not remove that.
+4. **Par**: Euler Math's ⅋, the connective nobody but linear logic
+   writes, in the glyph the page's every formula is set in, outlined and
+   emboldened by a stroke of 22 units on 1 000 (the hairlines would break
+   at small sizes); the square form the glyph alone. ⅋ in the nets'
+   blue, the word in ink. The most beautiful at 180 and 512 and in the
+   README's head, and the most linlog of the five; at 32 pixels a blue
+   scribble, at 16 a smudge: it does not work as a favicon.
+5. **Inference**: today's icon's figure, two premises over a bar, with
+   the word as the conclusion and the green lamp of a checked proof at
+   the bar's end; the square form today's icon redrawn in the word's
+   stem weight (premises, bar, turnstile below, lamp). The rule in ink,
+   the lamp in the green of a checked proof. The continuity candidate. Its
+   weaknesses: the stacked word mark is small in the 48-pixel band (the
+   word's x-height about 11 pixels), and the square form at 16 pixels is
+   three bars and a dot, a generic list pictogram.
+
+### The recommendation
+
+The lollipop. It is the only candidate whose mark is the word itself, one
+letter changed, so the word mark and the square form are plainly one
+logo without a mark standing beside the word; ⊸ is the sign people
+associate with linear logic first, and the square form reads as ⊸ at
+16 pixels, which the par's ⅋ does not. The turnstile is the runner-up,
+the clearest at every size, if the author prefers a mark that stands
+apart from the word. Both are the author's call; the page shows all five
+alike.
+
+### The licence proposed
+
+CC BY 4.0 for the logo's files, as for the client's written content, with
+a one-line note beside it (in the client's About and licences, where the
+fonts are named) that the name "linlog" and the mark identify this
+project and may not be used to suggest its endorsement of something else;
+CC BY-ND 4.0 is the stricter alternative, which keeps the mark from being
+altered but is not a free-culture licence and sits oddly beside the EUPL
+and CC BY. On the fonts' side nothing constrains the choice: both are
+under the OFL 1.1, whose condition 5 exempts "any document created using
+the Font Software", which an outlined logo is, and no font file travels
+with the SVGs; naming the fonts in the logo's README is a courtesy, not a
+requirement. The author decides.
+
+### Decisions
+
+- **The fonts**: Figtree for the word because the band sets "linlog" in
+  it today, so the word mark in the band is the same word, outlined; the
+  weight the band's (bold, 700, instanced from the variable font). Euler
+  Math only for the par's ⅋, the glyph the page draws. Space Mono (the
+  field's face) was not used: the logo is not typed input.
+- **Euler Math in the par candidate (departs from the design)**: D25 has
+  Euler Math wherever linlog draws and nowhere else; the par's mark is
+  that font's ⅋ outlined into a logo, no font served. Marked for the
+  author's review; the other four candidates use no Euler Math.
+- **The colours**: taken from the tokens so that the client's rule holds
+  by construction, which the check confirms. Two candidates pair ink
+  with the nets' blue rather than the accent (D26 has one accent for
+  selection; a logo is not a selection, but the author may prefer the
+  accent throughout: `THEMES` and each candidate's roles in
+  `tools/make.py` change it).
+- **The marks in the word's stem weight**, not the symbols' own glyphs
+  (except ⅋): a turnstile or a lollipop at Euler's hairline weight is
+  gone at 16 pixels, and a mark in the word's weight is the word's.
+- **The square form's background** is the field, light or dark, with the
+  figure in the centre 60 per cent (inside a maskable icon's safe zone).
+  The light square on GitHub's white is a faint grey tile; the dark
+  square is the one that reads on either, as today's icon does.
+- **The page's own chrome** uses the system font and no web font: the
+  logo files carry their own outlines, and nothing is fetched from any
+  service when the page is viewed.
+- **GitHub's canvas colours** on the page, white and #0d1117, are from
+  memory of GitHub's default themes, not read in a source (an
+  assumption; the README's head is shown on them only to show the two
+  backgrounds).
+- **The tools**: resvg, fontTools, uharfbuzz and brotli from the nixpkgs
+  linlog's `flake.lock` pins (`tools/build-tools.sh`); Chromium through
+  Playwright in the client's devshell, entered from the client's
+  directory with `env -u LD_LIBRARY_PATH`; every run in a capped scope
+  on cores 8 to 11, nix under `/tmp/linlog-machine.lock`.
+
+### What the rasters show
+
+Looked at on each candidate's `png/sheet.png` (16 and 32 magnified
+eightfold, pixel for pixel, 180 and 512 as they are, the word marks at
+1 200 wide in all three versions): the turnstile, the lollipop and the
+link's square forms hold at 16; the par's ⅋ and the inference's figure
+do not (above). The page's screenshots were looked at for the turnstile,
+the lollipop, the link, the par and the inference and the whole page;
+the first run showed the band row broken by a CSS rule that let the word
+mark take the pane's width, fixed in `tools/page.py` and reshot.
+
+### Departures from the design
+
+- The par candidate outlines Euler Math into the logo (D25 has the font
+  nowhere but the drawings) (departs from the design).
+
+### What is left open
+
+- The author's choice among the five, and the licence.
+- If the lollipop is chosen: whether the band keeps the ring at 18
+  pixels or takes a slightly larger word mark; 38g sees it in place.
+- If the link is chosen: the square form's headphone reading needs
+  another drawing (dots for the atoms, or the letters themselves).
+- A candidate's colours other than the tokens' would need the check run
+  on them (`tools/colours.mjs` reads each `colours.json`).
+
+### Repositories and workspaces
+
+- The candidates: `/home/tux/Projects/own/linlog-logo/` (one directory
+  per candidate with its six SVGs, `colours.json` and `png/`; `tools/`
+  the scripts; `index.html`; `screenshots/`; `README.md`), outside both
+  repositories, uncommitted.
+- The artifact: https://claude.ai/artifact/UEq8nbTaXg9fYcLPEVCrwH,
+  private.
+- linlog: `../linlog-step38f` on `luwsvqkq`, this section's commit;
+  nothing pushed. The client is untouched.
