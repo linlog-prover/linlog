@@ -276,3 +276,48 @@ stated requirement. linlog's part first, as 38b's was: the supervisor
 reviews and pushes it, then the client's lock moves to it. The report
 as a section of `plan/reports/38b-zoom-fonts-dismiss.md`.
 
+
+## Session 38i: the nets' drawing as the literature draws it, as options (the author, 2026-10-23)
+
+A research sub-agent compared linlog's MELL drawings (session 39b)
+with the figures of four open sources (Laurent's proof-net slides as
+used in Faggian's LMFI 2025 course; Straßburger, "Proof Nets and the
+Identity of Proofs", Fig. 10; Guerrieri, Manara, Pellissier, Tortora de
+Falco and Vaux Auclair, TLLA 2021, Figs. 1 to 4; Chouquet and Vaux
+Auclair, LMCS 17:4, Fig. 1; the Status entry of 2026-10-23 has the
+table). Boxes, doors, conclusions and weakenings match; three things
+are linlog's own or one camp's: the premises of `⅋` and of `?` nodes
+drawn dashed in the `⅋` colour (no source does), a `!` conclusion with
+doors one row above the bottom row (no source does), and one `?` node
+with any number of premises (two sources; the other two draw
+dereliction, contraction and weakening as nodes of their own). The
+author asked for these as options, as the drawing with formulas and the
+compact one already are (`svg::NetDrawing`, Settings → Net drawing).
+
+One session, Opus 5.5 at `high`, after 38h (both touch the bindings'
+settings and the page's Settings) and before step 40, linlog first and
+then the client, as 38h runs:
+
+1. **Options of `svg::Style`** (D15), each a plain-data value with
+   serde, for MLL and MELL nets in both drawings: the premises of `⅋`
+   and `?` nodes plain or dashed; every conclusion on the bottom row or
+   a `!` with doors one row up; the `?` node drawn as one node or as
+   the literature's dereliction, contraction and weakening nodes (a
+   drawing of the same structure, only if it can be drawn faithfully;
+   say so otherwise). The defaults stay as they are today; a named
+   preset (D15: a value of the options type, not a code path) gives the
+   textbook look the four sources share, each choice's source cited in
+   the rules file, read in the figure itself.
+2. **The command and the bindings**: a flag or `svg.…` key per option
+   and the preset, as `svg.net=compact` is; README's usage section with
+   a real invocation and its picture; the bindings' settings.
+3. **The page**: Settings → Net drawing offers them beside Formulas and
+   Compact, kept with the other settings, within step 38's grammar,
+   44-pixel targets and colour check; the exports follow the stage.
+
+Snapshots for each option and the preset, rendered in every math font
+and looked at; the net target sets unchanged (the drawing is not the
+search); one fresh-context reviewer on Opus 5.5 at `high` for the
+drawings against the cited figures; screenshots before and after at
+both widths in both themes; the report as a section of
+`plan/reports/38b-zoom-fonts-dismiss.md`.

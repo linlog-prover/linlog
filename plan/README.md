@@ -56,7 +56,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 35 | Cyclic MLL and the Lambek calculus (two sessions; done 2026-10-19) | `35-lambek.md` (finished at the review of 32) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 32 |
 | 36 | Proof nets drawn with their formulas: every subformula occurrence written, as the literature draws nets, the compact drawing an option (one session, and one for the web client; done 2026-10-19) | `36-net-drawings.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 35 |
 | 37 | The focused inverse method (two sessions; done 2026-10-19), aimed where the comparison's gap study found it needed (R4) | `37-inverse.md` (finished at the review of 35) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 26, 30, 33 |
-| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins; 38b to 38d the author's follow-ups, done 2026-10-23; 38e the author's decisions, 38f and 38g a logo for linlog, done 2026-10-23; 38h invertible rules applied automatically, in linlog and on the page, after 39b and before 40) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
+| 38 | The web client's polish: touch targets, spacing, consistency, a modern look, ease of use, the engines shown with their references, many more examples (one session, with the `frontend-design` and `education-agent-skills` plugins; 38b to 38d the author's follow-ups, done 2026-10-23; 38e the author's decisions, 38f and 38g a logo for linlog, done 2026-10-23; 38h invertible rules applied automatically, in linlog and on the page, after 39b and before 40; 38i the nets' drawing as the literature draws it, as options, after 38h) | `38-web-polish.md` (written 2026-10-19 at the author's word) | Opus 5.5 | high | 34, 36, 37 |
 | 39 | MELL proof nets with exponential boxes (two sessions) | `39-mell-nets.md` (finished 2026-10-19) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 28, 34, 36 |
 | 40 | The two-sided surface: two-sided sequents in and out, the one-sided form compiled from them with every occurrence's side recorded, every output raised, a round trip; intuitionistic first, then classical with its two-sided view (two sessions, each with a part in the web client; research of prior work first) | `40-ill-surface.md` (written 2026-10-23 at the author's word) | Opus 5.5; a fresh-context reviewer on Opus 5.5 | high | 8, 9, 38 |
 | 41 | Cut, and cut elimination on terms and on nets, and both on the web page (four sessions) | `41-cut.md` (finished at the reviews of 39 and 40) | Opus 5.5; the panel's argument on Fable 5.1 | high, with the panel | 31, 39, 40 |
@@ -3346,3 +3346,16 @@ client follows it (step 32).
     separating the lower levels (students could test it); on a phone,
     Export moved into More's sheet (departs from step 38's band); the
     departure from D47, at the author's request.
+- 2026-10-23: the MELL drawings against the literature, at the author's
+  question: a research sub-agent (Sonnet 5.5 at medium) read the figures
+  of four open sources (Laurent's slides in Faggian's LMFI 2025 course;
+  Straßburger, RR 6013, Fig. 10; Guerrieri, Manara, Pellissier, Tortora
+  de Falco and Vaux Auclair, TLLA 2021; Chouquet and Vaux Auclair, LMCS
+  17:4). Boxes as rectangles, doors on the bottom border, conclusions at
+  the bottom and weakenings drawn free match (none draws a weakening's
+  jump, so 39b's first departure is the literature's practice); the
+  dashed premises of `⅋` and `?` and a `!` conclusion one row up are
+  linlog's own; one `?` node with many premises is one of two camps.
+  The author asked for the textbook forms as options beside Formulas
+  and Compact: session 38i, the last section of `38-web-polish.md`,
+  after 38h and before step 40.
