@@ -352,3 +352,60 @@ differ in `nodes`, `splits`, `memo_hits`, `memo_entries`, `links` or
 `tests`; against `bench/targets/net-after-39c.csv` the net set reports
 the same of its 64. The searches did not change, as expected: the
 lowering of a strict text is the parser's own `Sequent`.
+
+### The client
+
+In `../linlog-prover.github.io-40a` (workspace `step40a`, from the
+client's `ntuwlssz`), after `planning` pushed linlog's `main` at
+`zplxllnm` (`cd9b7ab7`):
+
+- `wlymqvnz` "flake.lock: Update": the input `linlog` moved to
+  `cd9b7ab7` with `nix flake update linlog`.
+- `tvnuqpsv` "Read intuitionistic sequents strictly and write goals
+  without the dual fallback": the worker and `api.readAs` take
+  `read_as`; the field, its preview and an opened document are read in
+  the proof's mode; `sequentText` writes a goal opened in a new tab from
+  its formulas' `text`, the `~(…)` of a one-sided formula gone (linlog
+  writes every intuitionistic formula two-sided); `problems.test.ts`
+  holds every intuitionistic problem (178 of the 425, Learn's examples
+  and Practice's problems alike) to `read_as` in its mode and to the
+  strict reading of its print, and a classical text to the refusal; the
+  client's `.claude/rules/web.md` says so. No problem needed rewriting:
+  all were in ILL's syntax.
+- The client's `nix flake check` at `tvnuqpsv`: "all checks passed!",
+  exit 0, with `check-problems` "all 425 problems are as linlog's command
+  decides them; 392 provable, each with a session that `proof` accepts",
+  the unit tests (431 of `problems.test.ts`) and the e2e tests.
+
+### The checklist
+
+- [x] The research by a sub-agent (Sonnet 5.5 at `medium`), its findings
+  with their sources in "The research", and the design decision they
+  lead to (none changed: the typed surface and recorded sides confirmed).
+- [x] A typed ILL sequent (`IllSequent`: hypotheses in the order written,
+  one goal) and formula (`IllFormula` / `IllConnective` under its
+  reading), built by the strict parser, the JSON form and the explicit
+  one-sided reading; the refusals tested
+  (`the_strict_parser_refuses_classical_symbols`, `the_json_form`,
+  `a_one_sided_sequent_is_read_explicitly`).
+- [x] The sides recorded at lowering, equal to `Reading::new`'s
+  (`the_recorded_sides_are_the_readings`, the `debug_assert`).
+- [x] Every intuitionistic output raised, shown by the property tests of
+  the library, the command and the bindings.
+- [x] The round trip as property tests (`a_parsed_sequent_prints_back_to_itself`,
+  `every_inference_prints_as_an_intuitionistic_sequent`).
+- [x] The permissive input refused with a hint, kept behind
+  `--ill-syntax one-sided`; README, the changelog and the help say so.
+- [x] The target sets against `deps-foldhash.csv` and
+  `net-after-39c.csv`: no verdict differs, 0 counters differ.
+- [x] The reviewer's one round, three findings, each answered and fixed.
+- [x] Every linlog code commit gated; `nix flake check` passed at the
+  report commit (exit 0); "linlog ready" sent to `planning`.
+- [x] The client: its input at linlog's pushed `main` (`cd9b7ab7`), the
+  fallback gone, Practice's store check passing, a test that the
+  intuitionistic examples and practice parse under the strict surface,
+  its `nix flake check` passed at its last commit (exit 0).
+- [x] Nothing pushed by this session; `jj st` clean in both workspaces.
+- [x] `.claude/rules/` amended (core-forest, core-sequents, core-proofs,
+  core-derivations, core-nets, core-export, core, cli, web), README and
+  the changelog true.
