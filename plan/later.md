@@ -1620,6 +1620,14 @@ knob).
 
 ## Follow-ups: the command's output
 
+*Found at the review of session 41a (2026-10-24; unassigned).* `linlog
+check FILE` checks a proof's JSON in the mode its flags give and ignores
+the file's own `"mode"`: a proof that `interact -i` wrote with `proof
+--json` (`"mode": "intuitionistic"`) is reported "valid proof of ⊢ ~A,
+~B, A ⊗ B (classical)" unless `-i` is given, at 0.1.0 as now. Either
+take the file's mode when no flag names one, or refuse a file whose mode
+differs from the flags'.
+
 *Found by step 30's release review (2026-10-17, finding 15; unassigned).*
 The batch's and `check`'s records write `wire::LEVEL` as a constant,
 which is right at level 1 and wrong once a level 2 exists: they should

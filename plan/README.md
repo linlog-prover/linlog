@@ -3537,3 +3537,33 @@ client follows it (step 32).
   client pushed. No departure. The default command's unknown on
   `tripling`, where the inverse method saturates at once, is in
   `later.md` ("Follow-ups: intuitionistic mode").
+- 2026-10-24: review of session 41a, cut in the data model, the checker
+  and interactive proving (Opus 5.5 at high, 10:05 to 13:00, beside 44,
+  43b and 43c): a sequent keeps its cut formulas (`Sequent::cuts`, the
+  formula then its dual numbered after the conclusion); `Node::Cut` and
+  the checker's rule in the classical, affine, Mix and intuitionistic
+  modes, refused in the ordered ones; `Interactive::cut` with the formula
+  typed in the mode's syntax and both occurrences recorded on their
+  sides; `linlog interact`'s `cut G C P…` (README, the guide), the
+  bindings' `cut`; every view and export draws it; the JSON forms at
+  wire level 6; the Rocq calculi's optional `cut_r` and `cut_ir`, their
+  checker arms and soundness cases, certificates with cuts compiled, the
+  assumptions closed. A goal of a forest with cuts is searched on a
+  cut-free forest of its own, so the search never sees a cut; both target
+  sets equal on every decided row. The panel found nothing in the cut
+  rule (the argument on Fable 5.1, a million counterexample terms, the
+  Rocq trusted base); the integers' one finding, a quadratic read of a
+  JSON sequent with many cut formulas, fixed at its cause. Checked here:
+  the trusted rules `cut_r` and `cut_ir`, the checker's tests, and the
+  command: cuts that leave unprovable premises are reported so, a cut in
+  cyclic mode refused, a classical and an intuitionistic proof with a
+  cut written as JSON and Rocq and accepted by `check`; the text checks
+  on the rebased tree; pushed. Departures, each in the report: `cuts` a
+  key of the sequent's form; `Interactive::cut` takes a `CutFormula`; no
+  goal-naming of trees, a re-rooted search instead; and, for the author,
+  a 0.1.0 certificate that wrote its calculus as a record literal (Mix or
+  affine one-sided proofs and their refutations) no longer compiles, the
+  record having gained `cut` (every certificate that names `classical`,
+  `intuitionistic` or `affine` compiles unchanged); the 0.2.0 release
+  (45c) states the break and sets the version. Found here, in
+  `later.md`: `check` ignores a proof file's own mode.
