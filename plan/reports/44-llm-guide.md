@@ -12,8 +12,9 @@ documentation list and the crate's front page link to them, and the web
 page's root serves an `llms.txt` of its own that describes the page and
 points to them. `cli/tests/readme.rs` runs every example of the guide,
 as it runs README's, and fails on a command, flag, session command or
-settings key the guide names that does not exist; it also holds the
-guide's Rust example to a doctest of the library and the summary to its
+settings key the guide names that does not exist; it also holds every
+default and number the guide states to the command's help, the guide's
+Rust example to a doctest of the library, and the summary to its
 budget. A small and a medium model, given only the guide and the
 command, did the brief's seven tasks; the before and after are below.
 The research found that an MCP server is not what lets a model use
@@ -296,6 +297,28 @@ exist, so they moved to a paragraph of their own; a later sentence named
 `check` there, so the test now lets a span name a command of `linlog`
 (a name that exists), and still fails on any other.
 
+## The page's root
+
+In the client (`linlog-prover.github.io`, after linlog's push), one
+commit, `rsxtpzrz`, written on the client's `main` `munpltsm` and
+rebased without a conflict onto `qmlqvzzn`, where the supervisor moved
+`main` with step 43b's lessons: `src/pages/llms.txt.ts`
+serves `/llms.txt` from the written text `src/content/llms.txt`, in the
+proposal's shape (an H1, a blockquote that says the page is a prover in
+the browser for people with no API to call, a paragraph that sends a
+model to the command and the library, then `## Docs` with linlog's
+`/linlog/llms.txt`, `/linlog/llms-full.txt` and the library's API, and
+`## Optional` with the repository and the privacy page), under CC BY
+4.0 as the page's written content. About's text links it. It points to
+the guide rather than copying it, so that the guide stays one text that
+linlog's tests keep true. The client's input of linlog stays where it
+was, since the file only links. A browser test beside About's
+(`tests/learn.spec.ts`) holds About's link, the file's media type, the
+proposal's shape and the two guide links; the client's CLAUDE.md and
+`.claude/rules/web.md` name the file. The six tests of the spec passed,
+and the client's `nix flake check` passed at the commit on both bases
+(`all checks passed!`, exit 0).
+
 ## The MCP question
 
 The research says an MCP server is not what lets a model use linlog
@@ -370,8 +393,8 @@ cut, brings cut into the guide under this rule.
 - [x] Served in the repository and on the rustdoc site (`nix build
   .#doc`: `llms.txt`, `llms-full.txt`, `reference.md` beside the crates'
   docs); linked from README and the crate's front page.
-- [ ] At the page's root (`/llms.txt`) and linked from About: the
-  client's part, after linlog's push.
+- [x] At the page's root (`/llms.txt`, the client's `rsxtpzrz`) and
+  linked from About, after linlog's push.
 - [x] `guide_examples` runs every example of the guide;
   `guide_names_what_exists` fails on a command, flag, session command or
   settings key that does not exist (shown with made-up names);
@@ -383,8 +406,11 @@ cut, brings cut into the guide under this rule.
 - [x] The MCP question answered for the author in `plan/later.md`
   (research: no server now; a sketch for later; nothing built).
 - [x] The rule in `plan/conduct.md` and CLAUDE.md.
-- [x] Every linlog commit that touches code gated (`gate: passed` after
-  the guide's first version, after each trial's fixes); `nix flake check`
-  at the last commit.
-- [ ] The client: `llms.txt`, About's link, a test, its `nix flake
-  check`.
+- [x] Every linlog commit gated (`gate: passed` at the guide's first
+  version with the rule and the MCP answer in the tree, at each trial's
+  fixes, and at the test of the defaults, whose tree the report's
+  commits do not change for any check), and `nix flake check` passed at
+  the last commit (exit 0).
+- [x] The client: `llms.txt`, About's link, a browser test, its `nix
+  flake check` passed at its last commit (exit 0).
+- [x] `jj st` clean in both workspaces; nothing pushed by this session.
