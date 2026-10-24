@@ -3512,3 +3512,8 @@ client follows it (step 32).
   - for the author: an MCP server, "not now" with its reasons and a
     sketch in `later.md` ("For the author: an MCP server for linlog");
     whether to add an `AGENTS.md`, left to the author.
+- 2026-10-24: the author confirmed session 43c's outline of lessons 6 to
+  9 with two changes: lesson 9 (ordinary logic) a regular lesson, not
+  optional (departs from D60's "last and optional", at the author's
+  word); and lesson 7 shows "unknown" happening, a live example outside
+  the store run with a small budget, decided at the default one.
