@@ -161,8 +161,11 @@ pulls.
    commit is reviewed and signed and the gate and `nix flake check`
    passed at the head, `plan/push-main.sh REV`, which fails within a
    minute when the SSH key is locked instead of waiting on a prompt and
-   checks `main@origin` after (a push once failed silently); then watch
-   CI with a background task. Never push any other way, and never make
+   checks `main@origin` after (a push once failed silently), and
+   `plan/push-main.sh --client REV` for the web client's repository;
+   then watch CI with a background task. Never push any other way (a raw
+   `jj git push` asks the author's permission under the settings' `ask`
+   rule, which an unattended run must not), and never make
    a step's start or a review wait on a push: when the key is locked,
    go on and push when the author is back.
 8. **Report** to the author: the outcome first, then what you checked,

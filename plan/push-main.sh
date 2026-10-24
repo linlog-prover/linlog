@@ -2,19 +2,26 @@
 # linlog © Fabian Lukas Grubmüller 2026
 # Licensed under the EUPL
 
-# push-main.sh REV
+# push-main.sh [--client] REV
 #
 # Moves `main` to REV and pushes it, failing within a minute instead of
 # waiting on a passphrase prompt when the SSH key is locked, and checks
 # that `main@origin` is REV afterwards (a push once failed silently).
-# Exit status 0 pushed, 1 the key is locked or the push failed.
+# With --client, in the web client's repository beside this one
+# (../linlog-prover.github.io), which the planning session pushes the
+# same way. Exit status 0 pushed, 1 the key is locked or the push failed.
 set -euo pipefail
 
+repo="$(dirname "$0")/.."
+if [[ ${1-} == --client ]]; then
+  repo="$repo/../linlog-prover.github.io"
+  shift
+fi
 if (($# != 1)); then
-  echo "usage: $0 REV" >&2
+  echo "usage: $0 [--client] REV" >&2
   exit 2
 fi
-cd "$(dirname "$0")/.."
+cd "$repo"
 want=$(jj log --no-graph -r "$1" -T 'commit_id')
 # GitHub's `ssh -T` exits 1 even when it authenticates, so the output decides.
 if [[ $(timeout 20 ssh -o BatchMode=yes -T git@github.com 2>&1) != *successfully* ]]; then
