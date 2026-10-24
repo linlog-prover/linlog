@@ -3496,3 +3496,19 @@ client follows it (step 32).
   drops nothing" mended, ⊤ absorbing). Checked here: the worked proofs
   and hinge answers against the rules, the screenshots; the client
   pushed. No departure. 44 and 41a run on.
+- 2026-10-24: review of step 44, a guide to linlog for AI models (Opus
+  5.5 at high, 10:05 to 12:50, beside 41a and 43b): the Agent Skill
+  `skills/linlog/` (`SKILL.md`, the summary in `llms.txt` shape, 93
+  lines; `reference.md`, the full reference), served on the rustdoc site
+  as `/linlog/llms.txt`, `llms-full.txt` and `reference.md`, and the
+  client's `/llms.txt` pointing to it; tests that run every example,
+  fail on a name that does not exist, hold every stated default to the
+  command's `--help` (the planning session's addition, from a heads-up
+  box in the session's pane) and the summary to its budget; trials on
+  Haiku 5.5 and Sonnet 5.5 with only the guide and the command, 7 of 7
+  tasks each, the failed commands mended in the guide; the rule in
+  `conduct.md` and CLAUDE.md that a step keeps the guide true. Checked
+  here: the diff, the rule, the MCP answer; both parts pushed.
+  - for the author: an MCP server, "not now" with its reasons and a
+    sketch in `later.md` ("For the author: an MCP server for linlog");
+    whether to add an `AGENTS.md`, left to the author.
