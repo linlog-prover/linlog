@@ -184,6 +184,11 @@ pulls.
   sentence lets it answer "impossible". After a reboot or a pause the
   goal must be set again (the `graceful-stop` skill says how: `/goal `
   typed alone, then the condition, then Enter).
+- **A message from a step session does not wake an idle planning
+  session**: it is delivered with the next turn (2026-10-24, when 40a's
+  and 40b's "linlog ready" waited hours for the two-hourly check). While
+  unattended, keep a light cron every 20 minutes (`*/20 * * * *`) that
+  acts on any waiting message and otherwise ends at once.
 - **Supervision**: `notify_when_idle` (one notice, re-subscribe) and the
   two-hourly cron, which is what `/loop 2h …` would schedule; crons fire
   only while you are idle, so keep turns short when one is due. Wait for
