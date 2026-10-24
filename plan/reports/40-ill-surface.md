@@ -675,8 +675,36 @@ two-sided view is asked.
 
 ### The client
 
-(Pending: the client moves its `linlog` input once linlog's `main` holds
-this work.)
+In `../linlog-prover.github.io-40b` (workspace `step40b`, from the
+client's `tvnuqpsv`, its `main` with session 40a's page part), after
+`planning` pushed linlog's `main` at `lmuwntws` (`cf5b5b0f`):
+
+- **"flake.lock: Update"** (`qzyrupzx`): `nix flake update linlog` moved
+  the input from `cd9b7ab7` to `cf5b5b0f`.
+- **"Make the Two-sided switch draw classical derivations as written"**
+  (`munpltsm`): the switch of classical mode in the calculus's popover
+  (`Calculus.tsx`, D58), greyed until now, is live: a setting of the tab,
+  `Settings.twoSided`, off by default and stored with the other settings,
+  not a property of the proof, so it restarts nothing. While it is on,
+  `viewJson` adds `view.classical: "two"` to the settings of every call
+  (`json()`), of the stage's drawing (`drawSettings`) and of the exports,
+  and linlog draws the derivation two-sided as the sequent was typed. The
+  Playwright test that pinned the switch greyed now pins it live and off
+  by default (the behaviour it pinned was meant to change), and a new one,
+  "the two-sided switch draws a classical derivation as written, kept
+  across a reload", proves `A * B |- B * A`, sees the one-sided steps
+  (`by ⅋`), turns the switch on, sees `A ⊗ B ⊢ B ⊗ A, by ⊗L`, and after a
+  reload and the restore finds the switch on and the drawing two-sided.
+  The client's rule `web.md` and the reference text say so.
+- Before the push, the client's flake check ran with its `linlog` input
+  overridden to this session's report commit, the lock untouched: the
+  new test failed twice on its own reload step (the restore bar is a
+  button the test must press, after the page settles, as the other
+  reload tests do), and passed once the test did so.
+- At `munpltsm`, the client's `nix flake check` passed (exit 0, "all
+  checks passed!"): 486 unit tests, 96 Playwright tests, and Practice's
+  store check (`problems`), which runs linlog's command over the 425
+  problems at the pinned input.
 
 ### Checklist
 
@@ -703,7 +731,8 @@ this work.)
 - [x] The fresh-context review, one round, its finding fixed and its note
   answered.
 - [x] Every linlog code commit gated.
-- [ ] `nix flake check` at the last linlog commit, and "linlog ready" sent.
-- [ ] The client: its input moved, the "Two-sided" switch live, kept
-  with the tab's settings, a test, Practice's store check, its `nix
-  flake check`.
+- [x] `nix flake check` at the last linlog commit, and "linlog ready" sent.
+- [x] The client: its input moved to `cf5b5b0f`, the "Two-sided" switch
+  live, the derivation drawn two-sided when it is on, kept with the tab's
+  settings, a test, Practice's store check, its `nix flake check` (exit
+  0 at `munpltsm`).
