@@ -3538,7 +3538,7 @@ client follows it (step 32).
   `tripling`, where the inverse method saturates at once, is in
   `later.md` ("Follow-ups: intuitionistic mode").
 - 2026-10-24: review of session 41a, cut in the data model, the checker
-  and interactive proving (Opus 5.5 at high, 10:05 to 13:00, beside 44,
+  and interactive proving (Opus 5.5 at high, 10:00 to 12:30, beside 44,
   43b and 43c): a sequent keeps its cut formulas (`Sequent::cuts`, the
   formula then its dual numbered after the conclusion); `Node::Cut` and
   the checker's rule in the classical, affine, Mix and intuitionistic
