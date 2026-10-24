@@ -417,7 +417,7 @@ numbers from the output before writing the next step.
 | `close [G]` | lets the search close goal G, or every open goal |
 | `show [--FORMAT] [FILE]` | the derivation so far, open goals included: text, or `--latex`, `--typst`, `--svg`, `--png`, `--pdf` (these two need a FILE) |
 | `proof [--FORMAT] [FILE]` | checks the finished proof and prints it or writes it: text, `--json`, `--latex`, `--typst`, `--svg`, `--png`, `--pdf` or `--rocq`; a FILE without a format takes its extension's, else JSON |
-| `save FILE` | writes the session as JSON |
+| `save FILE` | writes the session as JSON, which `load` and `--state` read and `check` does not |
 | `load FILE` | resumes a session of the same sequent and mode |
 | `help` | the list |
 | `quit` | ends the session |

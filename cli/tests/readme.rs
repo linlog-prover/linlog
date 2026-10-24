@@ -600,7 +600,9 @@ fn guide_names_what_exists() {
             for span in spans {
                 let word = span.split_whitespace().next().unwrap_or("");
                 let is_word = !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase());
-                if is_word && word != "interact" && !session_commands.contains(&word) {
+                // A span may name a command of `linlog` beside the session's.
+                let a_command = COMMANDS.iter().any(|command| command[0] == word);
+                if is_word && !a_command && !session_commands.contains(&word) {
                     failures.push(format!("{name}: no session command {word}"));
                 }
             }

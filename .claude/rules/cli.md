@@ -368,8 +368,9 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   a span starting with `cargo`, `nix` or `rocq`, `TOOLS`, is another
   program's), a `linlog` subcommand that does not exist, a session
   command (the first column of the table under `| session command`, the
-  spans of the summary's `**Step by step.**` paragraph) that `help`
-  does not list, and a settings key (`search.copies`) no help names;
+  spans of the summary's `**Step by step.**` paragraph, where a span
+  may also name a command of `linlog`; a rule's name or an output goes
+  in another paragraph) that `help` does not list, and a settings key (`search.copies`) no help names;
   `guide_s_rust_is_a_doctest` holds each `rust` block to a crate-level
   doctest of `core/src/lib.rs`, which the library's tests run;
   `the_summary_keeps_its_budget` holds the skill's front matter
