@@ -48,9 +48,10 @@ impl InfId {
 /// # JSON
 ///
 /// With the feature `serialize` an object `{"compact": "auto", "sides":
-/// "auto"}`, `compact` one of `"auto"`, `"always"` and `"never"`, `sides`
-/// one of `"auto"`, `"one"` and `"two"`; a key left out keeps its default,
-/// and an unknown one is refused, as for every options value.
+/// "auto", "classical": "one"}`, `compact` one of `"auto"`, `"always"` and
+/// `"never"`, `sides` one of `"auto"`, `"one"` and `"two"`, `classical` one
+/// of `"one"` and `"two"`; a key left out keeps its default, and an unknown
+/// one is refused, as for every options value.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -60,6 +61,33 @@ pub struct ViewOptions {
     pub compact: Compact,
     /// Whether the derivation is one-sided or two-sided.
     pub sides: Sides,
+    /// Whether a front end that holds a classical sequent as it was
+    /// written ([`ClassicalSequent`](crate::ClassicalSequent)) draws its
+    /// derivation one-sided or two-sided ([`TwoSided`](crate::TwoSided)),
+    /// one-sided by default ([`DEFAULT_CLASSICAL`](Self::DEFAULT_CLASSICAL)).
+    /// The library's derivations are one-sided whatever it says: the
+    /// two-sided view is made from one and the record of the sequent.
+    pub classical: ClassicalSides,
+}
+
+/// Whether a derivation of classical linear logic is drawn one-sided, as
+/// the calculus is, or two-sided, as its sequent was written.
+///
+/// # JSON
+///
+/// With the feature `serialize`, `"one"` or `"two"`.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
+pub enum ClassicalSides {
+    /// One-sided: every formula right of `⊢`.
+    #[default]
+    One,
+    /// Two-sided: every inference's formulas on the sides of `⊢` they
+    /// were written on, the rules named by side, and a negation step where
+    /// a negation was written.
+    Two,
 }
 
 /// Whether a derivation is drawn one-sided, as classical linear logic
@@ -98,6 +126,16 @@ pub enum Compact {
 }
 
 impl ViewOptions {
+    /// The default view of a classical derivation: one-sided, as the
+    /// calculus is.
+    pub const DEFAULT_CLASSICAL: ClassicalSides = ClassicalSides::One;
+
+    /// Returns the options with another [`classical`](Self::classical).
+    #[must_use]
+    pub const fn with_classical(self, classical: ClassicalSides) -> Self {
+        Self { classical, ..self }
+    }
+
     /// Returns the options with another [`compact`](Self::compact).
     #[must_use]
     pub const fn with_compact(self, compact: Compact) -> Self {
@@ -198,10 +236,6 @@ pub struct Derivation<'a> {
     inferences: Vec<Inference>,
     /// Whether the root concludes a goal of a proof rather than the
     /// sequent.
-    #[cfg_attr(
-        not(feature = "rocq"),
-        expect(dead_code, reason = "only a certificate asks")
-    )]
     of_goal: bool,
     /// The mode the proof is meant for, where it records one.
     #[cfg_attr(
@@ -318,7 +352,6 @@ impl<'a> Derivation<'a> {
 
     /// Returns whether the root concludes a goal of its proof rather than
     /// the sequent.
-    #[cfg(feature = "rocq")]
     pub(crate) const fn is_of_goal(&self) -> bool {
         self.of_goal
     }

@@ -280,6 +280,70 @@ itself.
   children by position: so `\L` draws its consequent's premise first and
   `/L` its argument's (the stored operands of `B⊥ ⊗ A` and `A ⊗ B⊥`).
 
+## The two-sided view of a classical derivation
+
+`proofs/derivation/classical.rs`: `TwoSided::new(&derivation, writing,
+&limits)` reads a one-sided `Derivation` through the record of how its
+sequent was written (`ClassicalSequent::writing`, a session's
+`writing`; core-forest.md) and holds only, per inference of its own, the
+one-sided inference whose sequent it shows (`shows`), the positions of
+that sequent shown before their negation step, its `ClassicalRule`, its
+premises and `times`; no sequent is copied.
+
+- **A formula is shown on the side its connective was written on**; one
+  written with a negation is shown with it, on its context's side, only
+  between the rule that exposes it and the negation step right above
+  that rule's premise (or, for a formula of the sequent, below the last
+  rule, the root last). So every rule acts on formulas as written, and
+  the negation steps of one premise stack in position order. The children
+  a rule exposes in premise `j` are `exposed`'s: both factors of `⅋`, one
+  each of `⊗` and `&`, the operand of `⊕ᵢ`, `!` and `?d`; structural
+  rules expose none. A derivation of a goal (`is_of_goal`) gets no steps
+  below its root.
+- **The names** (`ClassicalRule::applied`): the one-sided rule and the
+  principal's `Written`: `⊗` on the input side `⅋L` (`⊸L` for an
+  implication), `⅋` `⊗L` on the input side and `⅋R` (`⊸R`) on the
+  output, `1`/`⊥` on the input side `⊥L`/`1L`, `!` promotion `!R` or
+  `?L`, `?d` `?R` or `!L`, `?c`/`?w` `?c`/`?w` on the right and `!c`/`!w`
+  on the left, `⊤` `⊤R` or `0L`; ax, mix and wk keep theirs. A negation
+  step is `~L`/`~R` by the side its formula stands on in its conclusion.
+  The view has its own label tables (`UPRIGHT`, `SUBSCRIPT`, indexed by
+  the declaration order, `ALL` crate-private); a `Labels::Table` keyed by
+  `Named` leaves them upright, as for LK.
+- **A compact run is split by side** (`by_side`): the one-sided builder
+  merges `?w` (or `?c`) applications whatever side their formulas were
+  written on, so a run that acts on both sides is shown as two
+  inferences, the input side's (`!w`, `!c`) below; the upper one shows a
+  sequent with some positions left out (`Shown::hidden`: the lower half's
+  weakened formulas, or the copies the upper half has not made yet). A
+  reviewer's finding: one name for the whole run mixed `?w` with `!w`.
+- **Read one-sided every inference is the term's**: a rule's sequents
+  are its one-sided inference's, a negation step's premise and
+  conclusion one one-sided sequent. `every_inference_parses_back_and_reads_as_its_term`
+  checks, over proofs of generated sequents written at random, drawn
+  with and without compaction, that each
+  inference prints as a sequent that parses back to the same formulas,
+  sides and record, that a rule's principal stands unnegated on the side
+  its name says (implication names exactly for implications), that a
+  negation step moves exactly one formula across, that a structural run
+  adds or removes only formulas on its name's side, as many as it
+  counts (some runs are split in the sample), and that the root is the
+  sequent as written.
+- **Bounded before it is made**: `new` walks once counting
+  (`Counted`: inferences, and bytes by `Size::bytes`'s estimate with each
+  inference's one-sided sequent's weights) and refuses past
+  `limits.derivation_bytes` (`Refusal::Output`) or past
+  `Derivation::MOST` inferences (`Refusal::Index`, reachable only
+  unbounded: the view has at most three times the derivation's
+  inferences and one per root more), then walks again making them. A
+  record of another sequent is a panic (`written::fault`), as an id of
+  another derivation is.
+- Commutative classical only: the command and the bindings draw it in a
+  classical mode of the commutative order (the cyclic mode stays
+  one-sided), and `ViewOptions::classical` (`ClassicalSides`, `one` by
+  default) is the front ends' switch; the library's own derivations are
+  one-sided whatever it says.
+
 ## Interactive proving
 
 `proofs/interactive/` (feature `interactive`; `mod.rs` the types, the

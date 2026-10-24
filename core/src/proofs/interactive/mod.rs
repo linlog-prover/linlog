@@ -34,7 +34,7 @@ pub use invert::{Inverted, Options};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Phase, Progress, Refusal};
-use crate::occurrences::{Forest, Member, OccId, Reading, Side};
+use crate::occurrences::{ClassicalSequent, Forest, Member, OccId, Reading, Side, Written};
 use crate::proofs::derivation::{Derivation, InfId, Inference, ViewOptions};
 use crate::proofs::size::Size;
 use crate::proofs::{Named, Rule};
@@ -431,7 +431,11 @@ pub enum Needs {
 /// order, the conclusion first, each `{"sequent": [ids], "rule": name,
 /// "principal": position, "premises": [indices]}` with the rule's
 /// [`name`](Rule::name), an open goal as its sequent alone; and the
-/// history as the inferences the steps closed, in order. Reading it back
+/// history as the inferences the steps closed, in order. A session that
+/// keeps how its sequent was written ([`writing`](Self::writing)) has the
+/// key `"written": {"inputs": [ids], "implications": [ids]}` too: the
+/// occurrences written on the input side and those written as an
+/// implication, ascending. Reading it back
 /// replays every inference, so a state read is as sound as one built
 /// through [`apply`](Self::apply). It is what a front end keeps between
 /// requests, and what the command's session saves.
@@ -446,6 +450,9 @@ pub struct Interactive {
     /// In intuitionistic mode, the reading's positions and goal, kept so
     /// that [`reading`](Self::reading) costs nothing.
     reading: Option<(Box<[Side]>, OccId)>,
+    /// How the sequent was written, for a session started from a
+    /// classical sequent as written.
+    writing: Option<Box<[Written]>>,
     /// The inferences, top-down: the root first, then the goals each step
     /// opened, in order; an open goal has [`Rule::Open`].
     inferences: Vec<Inference>,
@@ -507,9 +514,46 @@ impl Interactive {
             forest,
             mode,
             reading,
+            writing: None,
             inferences: vec![root],
             history: vec![],
         })
+    }
+
+    /// Starts a proof as [`within`](Self::within) does of a classical
+    /// sequent as it was written, and keeps how it was written
+    /// ([`writing`](Self::writing)), so that its derivation can be drawn
+    /// two-sided ([`TwoSided`](crate::TwoSided)) at any point of the
+    /// proof.
+    ///
+    /// # Errors
+    ///
+    /// As [`within`](Self::within) does.
+    pub fn of_classical(
+        sequent: &ClassicalSequent,
+        mode: Mode,
+        limits: &Limits,
+    ) -> Result<Self, Error> {
+        let mut state = Self::within(sequent.sequent(), mode, limits)?;
+        state.writing = Some(sequent.writing().into());
+        Ok(state)
+    }
+
+    /// Returns how the sequent was written, by occurrence, for a session
+    /// started from a classical sequent as written, and `None` otherwise.
+    pub fn writing(&self) -> Option<&[Written]> {
+        self.writing.as_deref()
+    }
+
+    /// Keeps how the sequent was written, as a session read back carries
+    /// it.
+    #[cfg(feature = "serialize")]
+    pub(crate) fn keep_writing(&mut self, writing: Box<[Written]>) -> Result<(), Error> {
+        if let Some(reason) = crate::occurrences::written::fault(&self.forest, &writing) {
+            return Err(Error::InconsistentSession { reason });
+        }
+        self.writing = Some(writing);
+        Ok(())
     }
 
     /// Returns the forest of the sequent being proved.

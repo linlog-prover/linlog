@@ -172,6 +172,14 @@ time and memory linear in the text. What the code relies on:
   `finish`. A cyclic sequent prints one-sided as any other and
   reads back as itself under the ordered parse. The JSON form has no
   order: a JSON sequent is already lowered.
+- **The record of a classical text is an addition to the one reader**:
+  `read(text, limit, order, written)` fills `written` when given, and
+  `parse::written` is the classical surface's entry
+  (`ClassicalSequent::parse_within`). The parser checks `recording` once
+  per `⊸` it reduces and `finish` once, so `parse_within` and the
+  `read-text` journey pay a branch per `⊸`; the record itself is made
+  after `dualise`, from `negated` and the implications, before
+  `optimize` (core-forest.md, "The classical sequent as written").
 - **Negation is applied at the end.** A term is pushed as it is written;
   a `~`, a `^`, being the antecedent of a `⊸` (which is pushed as `⅋`)
   and standing left of the turnstile each flip the term's flag in

@@ -21,6 +21,8 @@ use crate::fragment::Order;
 use crate::hash::HashMap;
 use crate::limits::{Limits, Refusal, Space};
 use crate::occurrences::Forest;
+use crate::occurrences::reading::Side;
+use crate::occurrences::written::Written;
 use crate::sequents::name::{RESERVED, normalized, starts_identifier};
 use crate::sequents::{Atom, Sequent, Term, TermId};
 use std::borrow::Cow;
@@ -143,16 +145,42 @@ struct Parser<'a> {
     /// The order of the calculus the sequent is read for, which decides
     /// what a negation does to a product and to the antecedents.
     order: Order,
+    /// Whether the reading records how every term was written.
+    recording: bool,
+    /// While recording, the terms written as `⊸`, in ascending order.
+    implications: Vec<TermId>,
 }
 
 /// Reads `text` as a sequent for a calculus of `order`, refused past
-/// `limit` terms. The one place a parser is made and run: both readers
-/// call it, so the parser is a local of this function and its loop, with
-/// what the loop calls, has one caller (a loop each reader inlined cost
-/// the commutative one 1.5 % to 7 % of its instructions, as a shared
-/// callee lost its inlining).
-fn read(text: &str, limit: Option<u64>, order: Order) -> Result<Sequent, Error> {
-    Parser::new(text, limit, order).sequent()
+/// `limit` terms, and where `written` is given fills it with how every
+/// occurrence of the sequent's forest was written. The one place a parser
+/// is made and run: every reader calls it, so the parser is a local of
+/// this function and its loop, with what the loop calls, has one caller
+/// (a loop each reader inlined cost the commutative one 1.5 % to 7 % of
+/// its instructions, as a shared callee lost its inlining).
+fn read(
+    text: &str,
+    limit: Option<u64>,
+    order: Order,
+    written: Option<&mut Vec<Written>>,
+) -> Result<Sequent, Error> {
+    let mut parser = Parser::new(text, limit, order);
+    parser.recording = written.is_some();
+    parser.sequent(written)
+}
+
+/// Reads `text` as a sequent of the commutative calculus within `limits`,
+/// as [`Sequent::parse_within`] does, and returns it with how every
+/// occurrence of its forest was written, by occurrence id.
+pub(crate) fn written(text: &str, limits: &Limits) -> Result<(Sequent, Vec<Written>), Error> {
+    let mut writing = Vec::new();
+    let sequent = read(
+        text,
+        limits.occurrences,
+        Order::Commutative,
+        Some(&mut writing),
+    )?;
+    Ok((sequent, writing))
 }
 
 impl<'a> Parser<'a> {
@@ -178,6 +206,8 @@ impl<'a> Parser<'a> {
             most,
             limit,
             order,
+            recording: false,
+            implications: Vec::new(),
         }
     }
 
@@ -295,6 +325,10 @@ impl<'a> Parser<'a> {
                         Binary::Plus => Term::Plus(left, operand),
                         Binary::Lollipop | Binary::Under => {
                             self.negate(left);
+                            if self.recording {
+                                // The index the term is pushed at below.
+                                self.implications.push(TermId::new(self.terms.len() as u32));
+                            }
                             Term::Par(left, operand)
                         }
                         Binary::Over => {
@@ -502,8 +536,9 @@ impl<'a> Parser<'a> {
         Ok(State::Operand)
     }
 
-    /// Reads the whole input as a sequent.
-    fn sequent(mut self) -> Result<Sequent, Error> {
+    /// Reads the whole input as a sequent, and where `written` is given
+    /// records into it how every occurrence was written.
+    fn sequent(mut self, written: Option<&mut Vec<Written>>) -> Result<Sequent, Error> {
         let mut state = State::Operand;
         loop {
             let blank = &self.input[self.at..];
@@ -511,7 +546,7 @@ impl<'a> Parser<'a> {
             state = match state {
                 State::Operand => self.operand()?,
                 State::Operator(operand) => self.operator(operand)?,
-                State::End => return self.finish(),
+                State::End => return self.finish(written),
             };
         }
     }
@@ -539,16 +574,50 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Applies the negations noted and returns the sequent, optimized. In
-    /// the cyclic order the dual of a product reverses it, `(A ⊗ B)⊥ =
-    /// B⊥ ⅋ A⊥`, and the antecedents `A₁, …, Aₙ ⊢` become `Aₙ⊥, …, A₁⊥`,
-    /// the dual of their product.
-    fn finish(mut self) -> Result<Sequent, Error> {
+    /// Returns how every occurrence of the sequent's forest was written,
+    /// by occurrence id, once the negations are applied: a term the
+    /// negations dualised stands on the input side, which is what
+    /// `negated` then holds of it. Before `optimize` every term has one
+    /// parent, so the terms in preorder from the roots in order are the
+    /// forest's occurrences in its numbering.
+    fn written(&self) -> Vec<Written> {
+        let mut implication = vec![false; self.terms.len()];
+        for &term in &self.implications {
+            implication[term.index()] = true;
+        }
+        let mut writing = Vec::with_capacity(self.terms.len());
+        let mut stack = Vec::new();
+        for &root in &self.roots {
+            stack.push(root);
+            while let Some(term) = stack.pop() {
+                let side = if self.negated[term.index()] {
+                    Side::Input
+                } else {
+                    Side::Output
+                };
+                writing.push(Written::new(side, implication[term.index()]));
+                let (left, right) = self.terms[term.index()].operands();
+                stack.extend(right);
+                stack.extend(left);
+            }
+        }
+        writing
+    }
+
+    /// Applies the negations noted and returns the sequent, optimized,
+    /// and where `written` is given records into it how every occurrence
+    /// was written. In the cyclic order the dual of a product reverses it,
+    /// `(A ⊗ B)⊥ = B⊥ ⅋ A⊥`, and the antecedents `A₁, …, Aₙ ⊢` become
+    /// `Aₙ⊥, …, A₁⊥`, the dual of their product.
+    fn finish(mut self, written: Option<&mut Vec<Written>>) -> Result<Sequent, Error> {
         if self.order == Order::Commutative {
             self.dualise::<false>();
         } else {
             self.dualise::<true>();
             self.roots[..self.antecedents as usize].reverse();
+        }
+        if let Some(written) = written {
+            *written = self.written();
         }
         let mut sequent = Sequent {
             terms: self.terms,
@@ -575,7 +644,7 @@ impl Sequent {
     /// past the bound, and [`Refusal::Index`] for more terms than a forest
     /// indexes, whatever the bound.
     pub fn parse_within(text: &str, limits: &Limits) -> Result<Self, Error> {
-        read(text, limits.occurrences, Order::Commutative)
+        read(text, limits.occurrences, Order::Commutative, None)
     }
 
     /// Parses a sequent as [`parse_within`](Self::parse_within) does, for
@@ -609,7 +678,7 @@ impl Sequent {
     /// # Ok::<(), linlog::Error>(())
     /// ```
     pub fn parse_ordered(text: &str, order: Order, limits: &Limits) -> Result<Self, Error> {
-        read(text, limits.occurrences, order)
+        read(text, limits.occurrences, order, None)
     }
 }
 
@@ -700,14 +769,14 @@ mod tests {
         let input = "A |- !A * B";
         assert_eq!(
             Parser::new(input, Some(5), Order::Commutative)
-                .sequent()
+                .sequent(None)
                 .unwrap()
                 .terms()
                 .len(),
             5
         );
         assert!(matches!(
-            Parser::new(input, Some(4), Order::Commutative).sequent(),
+            Parser::new(input, Some(4), Order::Commutative).sequent(None),
             Err(Error::Refused(Refusal::Occurrences {
                 occurrences: 5,
                 limit: 4

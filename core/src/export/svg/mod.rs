@@ -1180,6 +1180,7 @@ pub fn write<'a>(
     match derivation.into() {
         Drawable::Linear(derivation) => tree::draw(derivation, style, out, stop),
         Drawable::Ordinary(derivation) => tree::draw(derivation, style, out, stop),
+        Drawable::Classical(view) => tree::draw(view, style, out, stop),
     }
 }
 

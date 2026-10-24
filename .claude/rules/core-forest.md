@@ -221,6 +221,44 @@ the lowered forest, the side of every occurrence and the goal.
   (`TEXT.ill`), the one place an atom is written; quantifiers are new
   `IllConnective` variants and new tags of the JSON form.
 
+## The classical sequent as written
+
+`occurrences/written.rs`: `ClassicalSequent` is the lowered forest and,
+per occurrence, a `Written` (one byte: its side, and whether it is an
+implication), which is what the lowering merges and position alone
+cannot tell in classical syntax.
+
+- **The side is the parity the parser's negation pass leaves**: after
+  `dualise`, `Parser::negated[t]` holds whether term `t` was dualised
+  (every `~`, `^`, `⊸` antecedent and left-of-`⊢` above it counted), and
+  that is `Input`; an implication is a term made by `Binary::Lollipop`
+  (`Parser::implications`, filled only while recording). Before
+  `optimize` every term has one parent, so the terms in preorder from
+  the roots in text order are the forest's occurrences in its numbering;
+  `Parser::written` walks them so. Nothing is inferred from the
+  one-sided form.
+- **A negation is where a side differs from its context**: `context(o)`
+  is a root's side of `⊢` (by `antecedents`), the other side for an
+  implication's left factor, the parent's side otherwise; `negated(o)`
+  compares. Double negations record nothing, so printing gives the text
+  back up to them and to brackets. An atom is always `Output`, a negated
+  atom `Input` (`fault` refuses another record: the session reader
+  calls it).
+- **The printer is `Notation::written`** (one walk over `Stops`): the
+  connective is the one-sided kind on the output side and its dual on
+  the input side, `⊸` for an implication, a negation as the target's
+  `dual_prefix`/`dual` around the subformula, in brackets for a binary
+  one and, where the negation is postfix, for `!`/`?`. `Notation::classical`
+  writes `left ⊢ right` with each formula's negation shown or not, for
+  the sequent's `Display` and for `TwoSided`'s inferences.
+- **`read_one_sided`** is the record of the one-sided syntax: every
+  formula on its root's side (`antecedents`), a literal's side its sign's;
+  a JSON, LLTP or `.spec` sequent is drawn two-sided through it.
+- The round trip (`a_written_sequent_prints_back_to_itself`) writes
+  generated sequents at random through `generate::written`, which also
+  says the record the parser must make, and checks the record, the
+  lowering and print-parse equality.
+
 ## Decisions
 
 The author's answers for the release (`plan/notes/api.md` §14), which

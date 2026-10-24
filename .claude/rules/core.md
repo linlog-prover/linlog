@@ -16,9 +16,9 @@ it; only what holds for the whole crate goes here.
 | file | loads for | what it holds |
 |---|---|---|
 | `core-sequents.md` | `sequents/`, `parse/`, `fragment.rs`, `serialize/`, the parse, serialize and lock tests | the arena and its order, negation normal form, terms, kinds, fragments and modes, the parser, the JSON forms of every value |
-| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading, the intuitionistic sequent as written (`IllSequent`) and how outputs are raised |
+| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading, the intuitionistic sequent as written (`IllSequent`) and how outputs are raised, the classical sequent as written (`ClassicalSequent`, `Written`) |
 | `core-proofs.md` | `proofs/mod.rs`, `check/`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
-| `core-derivations.md` | `proofs/derivation/`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive/` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
+| `core-derivations.md` | `proofs/derivation/`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive/` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the two-sided view of a classical derivation (`TwoSided`), the text tree, interactive proving |
 | `core-search.md` | `search/mod.rs`, `memory.rs`, `work.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the work count, the additive path, the test-only reference prover |
 | `core-focus.md` | `search/focus/`, `search/generate.rs` | the focused engine, one- and two-sided: the atom bias, dyadic sequents, the copy bound and the memo, the two searches of the default bias, the arena, counts, interchangeable occurrences, the split search, recursion, allocation |
 | `core-inverse.md` | `search/inverse/`, `search/saturated.rs` | the inverse method: rules as terms with holes, what a derived sequent stands for, the evaluation that mirrors the checker, every filter that removes a sequent and why it removes none a proof needs, the tries, its limits and work, and the check of its refutation by a saturated set |
@@ -264,8 +264,10 @@ the commit that lands it rewrites that bullet.
   Options}`; `families::{Family, Instance}`; `limits::Space`;
   `lltp::{Problem, Status}`; `mist::{Problem, Safety}`;
   `occurrences::IllConnective`; `ordinary::{Logic, Options, Outcome,
-  Problem, Target, Translation, Verdict}`; `proofs::{Compact, Dyadic,
-  Fault, Invalid, Labels, OpenGoal, Refused, Sides, TextOptions}`;
+  Problem, Target, Translation, Verdict}`; `proofs::{ClassicalRule,
+  ClassicalSides, Compact, Dyadic, Fault, Invalid, Labels, OpenGoal,
+  Refused, Sides, TextOptions}` (`ClassicalRule` and `ClassicalSides`
+  added after 0.1.0);
   `proofs::interactive::{Applicable, Closed, Inverted, Needs, Options,
   Split}` (`Inverted` and `Options` added after 0.1.0);
   `search::{Cadence, Equation, Jobs, OneSided, Schedule, StateEquation,

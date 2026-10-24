@@ -467,6 +467,7 @@ pub fn write<'a>(
     match derivation.into() {
         Drawable::Linear(derivation) => tree(derivation, options, out, stop),
         Drawable::Ordinary(derivation) => tree(derivation, options, out, stop),
+        Drawable::Classical(view) => tree(view, options, out, stop),
     }
 }
 

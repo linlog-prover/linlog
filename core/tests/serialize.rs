@@ -463,6 +463,34 @@ fn mell_structure_json_format_and_round_trip() {
     }
 }
 
+/// A session of a classical sequent as written keeps the record under
+/// `written` (the occurrences on the input side and the implications),
+/// which an older reader ignores, so the level stays 1; it reads back
+/// whole, and a record that cannot be the sequent's is refused.
+#[test]
+fn a_session_keeps_how_its_sequent_was_written() {
+    let written: linlog::ClassicalSequent = "A -o B, A |- ~~B".parse().unwrap();
+    let state = Interactive::of_classical(&written, Mode::CLASSICAL, &Limits::default()).unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    assert!(json.starts_with(r#"{"version":1,"#), "{json}");
+    assert!(
+        json.ends_with(r#""written":{"inputs":[0,2,3],"implications":[0]}}"#),
+        "{json}"
+    );
+    let back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.writing(), Some(written.writing()));
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    for broken in [r#""implications":[1]"#, r#""implications":[9]"#] {
+        let broken = json.replace(r#""implications":[0]"#, broken);
+        assert!(
+            serde_json::from_str::<Interactive>(&broken).is_err(),
+            "{broken}"
+        );
+    }
+    let unsorted = json.replace("[0,2,3]", "[2,0,3]");
+    assert!(serde_json::from_str::<Interactive>(&unsorted).is_err());
+}
+
 /// A proof in progress serializes as its sequent, mode, inferences (the
 /// root first; an open goal is its sequent alone) and the goals its steps
 /// closed, and reads back with the same goals, undo history and derivation;

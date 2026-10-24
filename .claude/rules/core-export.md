@@ -29,7 +29,8 @@ for NanoYalla. What the code relies on:
   bytes each (F5); and each target's one `write(&derivation, &options,
   out, stop)` takes
   anything `export::Drawable` (an enum: a linear derivation, finished or
-  with open goals, or one of LK or LJ, by `From`), as a fragment or a
+  with open goals, the two-sided view of a classical one, `TwoSided`, or
+  one of LK or LJ, by `From`), as a fragment or a
   standalone document by `Options::form`; `svg` draws under a `Style` (the font
   and its advances, labels, the open goal's shape, ids per formula,
   sizes, gaps, colours) and also `net(&structure, &style, &limits,
@@ -105,7 +106,9 @@ for NanoYalla. What the code relies on:
   `UPRIGHT`, `SUBSCRIPT`, indexed by `Named::index` in the order of
   `Named::ALL`, plus the user's `Labels::Table` keyed by `Named`), written in a markup
   that each target sets its own way (`parts`: symbols `⊗⅋&⊕⊸!?⊤⊥01`
-  and the ordinary `∧∨→¬↔`,
+  and the ordinary `∧∨→¬↔`; the `~` of a two-sided classical view's
+  `~L`/`~R` is text, which each target escapes, so the markup a user's
+  table writes reads as it did,
   `_x`/`_{xy}` subscripts, `*` a superscript star where the target sets
   one (the mark of a run), other text upright; `latex::label`,
   `typst::label`, `svg::label`, `style::plain` for text). The upright

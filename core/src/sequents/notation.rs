@@ -7,9 +7,10 @@
 //! a sequent of ordinary logic through it. A new connective is an arm here
 //! and a spelling in each table, never a printer of its own.
 
+use crate::occurrences::written::{self, Written};
 use crate::occurrences::{Forest, IllConnective, Member, OccId, Reading, Side};
 use crate::ordinary::{Formulas, NodeId, Symbols};
-use crate::sequents::{Sequent, Stop, Stops, Term, TermId};
+use crate::sequents::{Kind, Sequent, Stop, Stops, Term, TermId};
 use std::fmt::{Result as FmtResult, Write};
 
 /// How a target writes formulas and sequents: the spelling of every
@@ -223,6 +224,163 @@ impl Notation {
                     }
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// Writes the formula at `o` as its author wrote it (`writing`): each
+    /// connective on the side it stands on, `⊸` where an implication was
+    /// written, a negation before every subformula written with one, and
+    /// before `o` itself where `negated` says. A negated binary formula,
+    /// and where the negation follows its operand a negated `!` or `?`, is
+    /// in brackets, as is a binary one inside another.
+    pub(crate) fn written<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        writing: &[Written],
+        o: OccId,
+        negated: bool,
+    ) -> FmtResult {
+        let top = o;
+        let negation = |k: OccId| {
+            if k == top {
+                negated
+            } else {
+                written::negated(forest, writing, k)
+            }
+        };
+        // The connective as written: on the input side the dual of the
+        // one-sided one.
+        let core = |k: OccId| match writing[k.index()].side() {
+            Side::Output => forest.kind(k),
+            Side::Input => forest.kind(k).dual(),
+        };
+        // Where the negation follows its operand, a prefix operator under
+        // it needs brackets to stay under it.
+        let postfix = !self.dual.is_empty();
+        let operands = |k: OccId| (forest.left(k), forest.right(k));
+        for visit in Stops::new(o, false, operands) {
+            match visit {
+                Stop::Enter(k, nested) => {
+                    let negated = negation(k);
+                    if negated {
+                        out.write_str(self.dual_prefix)?;
+                    }
+                    match core(k) {
+                        Kind::Atom => {
+                            let atom = forest.atom(k).expect("a literal has an atom");
+                            self.atom.write(out, forest.sequent().atom_name(atom))?;
+                        }
+                        Kind::DualAtom => {
+                            let atom = forest.atom(k).expect("a literal has an atom");
+                            out.write_str(self.dual_prefix)?;
+                            self.atom.write(out, forest.sequent().atom_name(atom))?;
+                            out.write_str(self.dual)?;
+                        }
+                        Kind::One => out.write_str(self.one)?,
+                        Kind::Bot => out.write_str(self.bot)?,
+                        Kind::Top => out.write_str(self.top)?,
+                        Kind::Zero => out.write_str(self.zero)?,
+                        Kind::Tensor | Kind::Par | Kind::With | Kind::Plus => {
+                            if nested || negated {
+                                out.write_char('(')?;
+                            }
+                        }
+                        kind @ (Kind::Bang | Kind::Quest) => {
+                            if negated && postfix {
+                                out.write_char('(')?;
+                            }
+                            out.write_str(if kind == Kind::Bang {
+                                self.bang
+                            } else {
+                                self.quest
+                            })?;
+                        }
+                    }
+                    if negated && forest.kind(k).arity() == 0 {
+                        out.write_str(self.dual)?;
+                    }
+                }
+                Stop::Between(k) => {
+                    out.write_char(' ')?;
+                    out.write_str(if writing[k.index()].is_implication() {
+                        self.lollipop
+                    } else {
+                        match core(k) {
+                            Kind::Tensor => self.tensor,
+                            Kind::Par => self.par,
+                            Kind::With => self.with,
+                            Kind::Plus
+                            | Kind::Atom
+                            | Kind::DualAtom
+                            | Kind::One
+                            | Kind::Bot
+                            | Kind::Top
+                            | Kind::Zero
+                            | Kind::Bang
+                            | Kind::Quest => self.plus,
+                        }
+                    })?;
+                    out.write_char(' ')?;
+                }
+                Stop::Exit(k, nested) => {
+                    let negated = negation(k);
+                    let arity = forest.kind(k).arity();
+                    if (arity == 2 && (nested || negated)) || (arity == 1 && negated && postfix) {
+                        out.write_char(')')?;
+                    }
+                    if negated {
+                        out.write_str(self.dual)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Writes a classical sequent two-sided, `left ⊢ right`, each formula
+    /// an occurrence as its author wrote it with a negation before it or
+    /// without ([`written`](Self::written)), the turnstile lined up as
+    /// [`sequent`](Self::sequent) does when `aligned` is set, and with
+    /// `marks` every formula between `'\u{2}'` and `'\u{3}'`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the sides and the two switches are what every target passes"
+    )]
+    pub(crate) fn classical<W: Write>(
+        &self,
+        out: &mut W,
+        forest: &Forest,
+        writing: &[Written],
+        left: impl Iterator<Item = (OccId, bool)>,
+        right: impl Iterator<Item = (OccId, bool)>,
+        aligned: bool,
+        marks: bool,
+    ) -> FmtResult {
+        let (open, close) = if marks { ("\u{2}", "\u{3}") } else { ("", "") };
+        let mut any = false;
+        for (o, negated) in left {
+            if any {
+                out.write_str(", ")?;
+            }
+            out.write_str(open)?;
+            self.written(out, forest, writing, o, negated)?;
+            out.write_str(close)?;
+            any = true;
+        }
+        if any {
+            out.write_char(' ')?;
+        }
+        if aligned {
+            out.write_str(self.align)?;
+        }
+        out.write_str(self.turnstile)?;
+        for (i, (o, negated)) in right.enumerate() {
+            out.write_str(if i == 0 { " " } else { ", " })?;
+            out.write_str(open)?;
+            self.written(out, forest, writing, o, negated)?;
+            out.write_str(close)?;
         }
         Ok(())
     }

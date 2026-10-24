@@ -4,7 +4,7 @@
 use super::sequents::Sequent;
 use crate::fragment::Mode;
 use crate::limits::Limits;
-use crate::occurrences::{Forest, Member};
+use crate::occurrences::{Forest, Member, Side, Written};
 use crate::proofs::interactive::Interactive as State;
 use crate::proofs::{InfId, Inference, Named, Rule};
 use crate::wire::{self, Readable};
@@ -49,6 +49,64 @@ pub(super) struct Interactive {
     inferences: Vec<Step>,
     /// The steps, each the inference it closed.
     history: Vec<u32>,
+    /// How the sequent was written, for a session that keeps it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    written: Option<WrittenForm>,
+}
+
+/// The serialized form of how a sequent was written: the occurrences on
+/// the input side and those written as an implication, each ascending.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct WrittenForm {
+    /// The occurrences whose connective was written on the input side.
+    inputs: Vec<u32>,
+    /// The occurrences written as an implication.
+    implications: Vec<u32>,
+}
+
+impl WrittenForm {
+    /// Returns the form of a record.
+    fn of(writing: &[Written]) -> Self {
+        let ids = |keep: fn(Written) -> bool| {
+            // A record has one entry per occurrence, of which a forest has
+            // fewer than `u32::MAX`.
+            (0..writing.len() as u32)
+                .filter(|&o| keep(writing[o as usize]))
+                .collect()
+        };
+        Self {
+            inputs: ids(|w| w.side() == Side::Input),
+            implications: ids(Written::is_implication),
+        }
+    }
+
+    /// Returns the record over a forest of `len` occurrences, refusing an
+    /// id past it and a list out of order.
+    fn record(&self, len: usize) -> Result<Box<[Written]>, crate::Error> {
+        let mut writing = vec![Written::new(Side::Output, false); len];
+        for (list, implication) in [(&self.inputs, false), (&self.implications, true)] {
+            if !list.is_sorted_by(|a, b| a < b) {
+                return Err(crate::Error::InconsistentSession {
+                    reason: "a list of the record is not ascending",
+                });
+            }
+            for &o in list {
+                let Some(written) = writing.get_mut(o as usize) else {
+                    return Err(crate::Error::IndexOutOfBounds {
+                        space: crate::limits::Space::Occurrence,
+                        index: o as usize,
+                        len,
+                    });
+                };
+                *written = if implication {
+                    Written::new(written.side(), true)
+                } else {
+                    Written::new(Side::Input, written.is_implication())
+                };
+            }
+        }
+        Ok(writing.into_boxed_slice())
+    }
 }
 
 impl From<&State> for Interactive {
@@ -69,6 +127,7 @@ impl From<&State> for Interactive {
                 })
                 .collect(),
             history: state.history().iter().map(|id| id.get()).collect(),
+            written: state.writing().map(WrittenForm::of),
         }
     }
 }
@@ -93,7 +152,12 @@ impl Interactive {
             })
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();
-        State::from_parts(forest, proxy.mode, inferences, history)
+        let len = forest.len();
+        let mut state = State::from_parts(forest, proxy.mode, inferences, history)?;
+        if let Some(written) = proxy.written {
+            state.keep_writing(written.record(len)?)?;
+        }
+        Ok(state)
     }
 }
 

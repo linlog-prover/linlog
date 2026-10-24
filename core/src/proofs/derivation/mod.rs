@@ -21,11 +21,19 @@
 //! intuitionistic rule names (`⊸L` for a `⊗` on a hypothesis, `⊗L` for a
 //! `⅋` on one, `!L` for a dereliction, and so on), and what a `⊤` absorbs
 //! is distributed so that each premise keeps exactly one goal.
+//!
+//! A classical derivation is drawn two-sided by [`TwoSided`], a view over
+//! the one-sided derivation and the record of how its sequent was
+//! written: the same inferences with their formulas split by side and
+//! their rules named two-sided, and a negation step wherever a negation
+//! was written.
 
 mod build;
+mod classical;
 mod view;
 
-pub use view::{Compact, Derivation, InfId, Inference, Sides, ViewOptions};
+pub use classical::{ClassicalRule, TwoSided};
+pub use view::{ClassicalSides, Compact, Derivation, InfId, Inference, Sides, ViewOptions};
 
 #[cfg(all(test, feature = "parse"))]
 mod tests {

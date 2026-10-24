@@ -9,10 +9,12 @@ pub mod ill;
 pub mod reading;
 /// Bitsets over occurrence ids.
 pub(crate) mod set;
+pub mod written;
 
 pub use ill::{IllSequent, IllSyntax, InputOptions};
 pub use reading::{IllConnective, IllFormula, Reading, ShapeError, Side};
 pub(crate) use set::OccSet;
+pub use written::{ClassicalSequent, Written};
 
 use crate::Error;
 use crate::limits::{Limits, Refusal, Space};

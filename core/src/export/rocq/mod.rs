@@ -795,6 +795,8 @@ pub fn write<'a>(
         Drawable::Ordinary(derivation) => {
             crate::ordinary::rocq::write(derivation, options, out, stop)
         }
+        // The certificate is the proof's, whichever way it is drawn.
+        Drawable::Classical(view) => linear(view.derivation(), options, out, stop),
     }
 }
 

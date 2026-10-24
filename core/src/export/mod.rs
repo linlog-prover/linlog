@@ -136,12 +136,22 @@ pub enum Drawable<'a> {
     Linear(&'a crate::Derivation<'a>),
     /// A derivation of LK or LJ.
     Ordinary(&'a crate::ordinary::Derivation),
+    /// The two-sided view of a classical derivation, as its sequent was
+    /// written.
+    Classical(&'a crate::TwoSided<'a>),
 }
 
 impl<'a, 'p: 'a> From<&'a crate::Derivation<'p>> for Drawable<'a> {
     /// Draws a derivation of linear logic.
     fn from(derivation: &'a crate::Derivation<'p>) -> Self {
         Self::Linear(derivation)
+    }
+}
+
+impl<'a, 'p: 'a> From<&'a crate::TwoSided<'p>> for Drawable<'a> {
+    /// Draws the two-sided view of a classical derivation.
+    fn from(view: &'a crate::TwoSided<'p>) -> Self {
+        Self::Classical(view)
     }
 }
 

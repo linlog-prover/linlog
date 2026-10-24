@@ -89,8 +89,11 @@
 //!   `⊗`, `⊸` (the antecedent first), `&`, `⊕` and `!`, every operand
 //!   before its term; see [`IllSequent`](crate::IllSequent).
 //! - **Session**: `{"version": 1, "sequent": {…}, "mode":
-//!   "intuitionistic", "inferences": […], "history": […]}`, see
-//!   `Interactive` (feature `interactive`).
+//!   "intuitionistic", "inferences": […], "history": […]}`, and for a
+//!   session that keeps how its sequent was written `"written":
+//!   {"inputs": […], "implications": […]}`, a key that raises no level,
+//!   since a reader that ignores it reads the session as it is and draws
+//!   it one-sided; see `Interactive` (feature `interactive`).
 //! - **Outcome** (written only): `{"version": 1, "linlog": "0.1.0",
 //!   "verdict": "proved", "checked": true, "fragment": "MLL", "mode":
 //!   "classical", "engine": "net", "statistics": {…}, "sequent": {…},

@@ -1017,6 +1017,113 @@ pub(crate) fn lambek(rng: &mut Rng, atoms: u8, budget: usize, star: bool) -> (Ve
     }
 }
 
+/// Writes a sequent of classical linear logic whose one-sided lowering is
+/// `formulas`, with random writings: the first few formulas left of `|-`,
+/// a negation before a subformula here and there (an atom where its side
+/// demands one), a double negation now and then, which records nothing,
+/// and `-o` for a `⅋` on the right or a `⊗` on the left where a coin says
+/// so. Returns the text and, per occurrence in the forest's order, the
+/// record the parser must make of it.
+pub(crate) fn written(
+    rng: &mut Rng,
+    formulas: &[Tree],
+) -> (String, Vec<crate::occurrences::Written>) {
+    use crate::occurrences::Side;
+    let left = rng.below(formulas.len() + 1);
+    let mut text = String::new();
+    let mut record = Vec::new();
+    for (i, formula) in formulas.iter().enumerate() {
+        if i == left {
+            text.push_str(if i == 0 { "|- " } else { " |- " });
+        } else if i > 0 {
+            text.push_str(", ");
+        }
+        let context = if i < left { Side::Input } else { Side::Output };
+        write_at(rng, formula, context, &mut text, &mut record);
+    }
+    if left == formulas.len() {
+        text.push_str(" |-");
+    }
+    (text, record)
+}
+
+/// Writes `formula`, a one-sided formula, so that read in `context` (left
+/// of `|-`, or under an odd number of flips, for `Input`) it lowers to
+/// itself, and records each occurrence in preorder.
+fn write_at(
+    rng: &mut Rng,
+    formula: &Tree,
+    context: crate::occurrences::Side,
+    text: &mut String,
+    record: &mut Vec<crate::occurrences::Written>,
+) {
+    use crate::occurrences::{Side, Written};
+    use Tree::*;
+    // A literal's side is its sign's, so its negation is decided.
+    let negated = match formula {
+        Atom(_) => context == Side::Input,
+        Dual(_) => context == Side::Output,
+        _ => rng.one_in(4),
+    };
+    let double = !negated && rng.one_in(8);
+    let side = if negated { !context } else { context };
+    let output = side == Side::Output;
+    text.push_str(match (negated, double) {
+        (true, _) => "~(",
+        (false, true) => "~~(",
+        (false, false) => "",
+    });
+    let binary = |rng: &mut Rng,
+                  text: &mut String,
+                  record: &mut Vec<Written>,
+                  (l, op, r): (&Tree, &str, &Tree),
+                  implication: bool| {
+        record.push(Written::new(side, implication));
+        text.push('(');
+        write_at(rng, l, if implication { !side } else { side }, text, record);
+        text.push_str(op);
+        write_at(rng, r, side, text, record);
+        text.push(')');
+    };
+    match formula {
+        Atom(a) | Dual(a) => {
+            record.push(Written::new(side, false));
+            text.push((b'a' + a) as char);
+        }
+        One | Bot | Top | Zero => {
+            record.push(Written::new(side, false));
+            let (out, input) = match formula {
+                One => ("1", "bot"),
+                Bot => ("bot", "1"),
+                Top => ("top", "0"),
+                _ => ("0", "top"),
+            };
+            text.push_str(if output { out } else { input });
+        }
+        Tensor(l, r) if !output && rng.one_in(2) => binary(rng, text, record, (l, " -o ", r), true),
+        Par(l, r) if output && rng.one_in(2) => binary(rng, text, record, (l, " -o ", r), true),
+        Tensor(l, r) | Par(l, r) | With(l, r) | Plus(l, r) => {
+            let op = match (formula, output) {
+                (Tensor(..), true) | (Par(..), false) => " * ",
+                (Par(..), true) | (Tensor(..), false) => " par ",
+                (With(..), true) | (Plus(..), false) => " & ",
+                _ => " + ",
+            };
+            binary(rng, text, record, (l, op, r), false);
+        }
+        Bang(a) | Quest(a) => {
+            record.push(Written::new(side, false));
+            let bang = matches!(formula, Bang(_)) == output;
+            text.push(if bang { '!' } else { '?' });
+            write_at(rng, a, side, text, record);
+        }
+        Lolli(..) => unreachable!("a classical sequent is generated one-sided"),
+    }
+    if negated || double {
+        text.push(')');
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
