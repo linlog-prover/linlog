@@ -318,6 +318,17 @@ Options:
           
           [default: auto]
 
+      --classical-sides <SIDES>
+          How a derivation of classical linear logic is drawn: one-sided, or two-sided as the sequent was written, in every format but rocq (view.classical)
+          
+          Two-sided, every sequent has its formulas on the sides of `⊢` they were written on, the rules are named by side (`⊗L`, `⅋R`, `⊸L`, …), and where a negation was written a step `~L` or `~R` moves the formula across `⊢`. A sequent given as JSON, LLTP or .spec is written one-sided, its antecedents on the left. Derivations of intuitionistic linear logic are two-sided always, and those of the cyclic mode one-sided.
+
+          Possible values:
+          - one: One-sided, every formula right of `⊢`
+          - two: Two-sided, as the sequent was written
+          
+          [default: one]
+
       --stats
           Also print what the search cost: the counters of the engine that ran, a line each, and the time
           

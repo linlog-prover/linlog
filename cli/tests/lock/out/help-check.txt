@@ -154,6 +154,17 @@ Options:
           
           [default: auto]
 
+      --classical-sides <SIDES>
+          How a derivation of classical linear logic is drawn: one-sided, or two-sided as the sequent was written, in every format but rocq (view.classical)
+          
+          Two-sided, every sequent has its formulas on the sides of `⊢` they were written on, the rules are named by side (`⊗L`, `⅋R`, `⊸L`, …), and where a negation was written a step `~L` or `~R` moves the formula across `⊢`. A sequent given as JSON, LLTP or .spec is written one-sided, its antecedents on the left. Derivations of intuitionistic linear logic are two-sided always, and those of the cyclic mode one-sided.
+
+          Possible values:
+          - one: One-sided, every formula right of `⊢`
+          - two: Two-sided, as the sequent was written
+          
+          [default: one]
+
       --settings <PATH>
           Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch`, `ordinary` and `input`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
 
