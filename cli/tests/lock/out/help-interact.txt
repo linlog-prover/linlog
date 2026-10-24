@@ -42,11 +42,22 @@ Options:
           
           [default: 50000000]
 
+      --ill-syntax <SYNTAX>
+          How the text of an intuitionistic sequent is read: in its own syntax alone, or in the classical one (input.intuitionistic)
+          
+          With --intuitionistic a sequent is written in the syntax of intuitionistic linear logic, A -o B, A |- B, and a symbol of the classical one (~, ^, par, |, ?, bot) is refused with what to write instead; `one-sided` reads the classical syntax as the one-sided sequent it stands for, ~(A * ~B), A |- B as A ⊸ B, A ⊢ B.
+
+          Possible values:
+          - strict:    The syntax of intuitionistic linear logic alone
+          - one-sided: The classical syntax, read as the one-sided sequent it stands for
+          
+          [default: strict]
+
       --state <PATH>
           Resume a session saved with `save` instead of starting from a sequent; the mode is the file's, so the mode flags are refused
 
   -i, --intuitionistic
-          Intuitionistic linear logic: one formula on the right of ⊢, pars only as implications, and two-sided derivations
+          Intuitionistic linear logic: hypotheses left of ⊢ and one goal right of it, written in its own syntax (--ill-syntax), and two-sided derivations
 
   -a, --affine
           Affine logic: a hypothesis may go unused (weakening)
@@ -202,7 +213,7 @@ Options:
           The lines a standalone Rocq file starts with, before the lemma, in place of the certificate's own import (styles.rocq.prelude)
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch`, `ordinary` and `interactive`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch`, `ordinary`, `interactive` and `input`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic
 
   -h, --help
           Print help (see a summary with '-h')

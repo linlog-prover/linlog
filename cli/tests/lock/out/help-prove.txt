@@ -44,8 +44,19 @@ Options:
           
           [default: 50000000]
 
+      --ill-syntax <SYNTAX>
+          How the text of an intuitionistic sequent is read: in its own syntax alone, or in the classical one (input.intuitionistic)
+          
+          With --intuitionistic a sequent is written in the syntax of intuitionistic linear logic, A -o B, A |- B, and a symbol of the classical one (~, ^, par, |, ?, bot) is refused with what to write instead; `one-sided` reads the classical syntax as the one-sided sequent it stands for, ~(A * ~B), A |- B as A ⊸ B, A ⊢ B.
+
+          Possible values:
+          - strict:    The syntax of intuitionistic linear logic alone
+          - one-sided: The classical syntax, read as the one-sided sequent it stands for
+          
+          [default: strict]
+
   -i, --intuitionistic
-          Intuitionistic linear logic: one formula on the right of ⊢, pars only as implications, and two-sided derivations
+          Intuitionistic linear logic: hypotheses left of ⊢ and one goal right of it, written in its own syntax (--ill-syntax), and two-sided derivations
 
   -a, --affine
           Affine logic: a hypothesis may go unused (weakening)
@@ -313,7 +324,7 @@ Options:
           The focused engines count stable sequents, memo use, splits and the copy bound reached, the net engine literals chosen, links tried and exact tests run, the essential-net engine the same with tests of the dominator condition, the additive one pairs of subformulas, the Horn engine markings, the inverse method the derived sequents taken up, subsumed and kept; every engine its units of work. JSON output always carries the counts; the time is printed only as text, and in a batch's JSON records as `seconds`.
 
       --settings <PATH>
-          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch` and `ordinary`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic, and `batch.mode` is a batch's mode unless a mode flag is given (one sequent's mode is the flags')
+          Read the settings from a JSON file, before the flags, which override it: an object with any of the keys `clock`, `limits`, `search`, `view`, `styles`, `batch`, `ordinary` and `input`, each an object of the fields the flags name in parentheses (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left out keeps the command's default, and a misspelt one is an error; `ordinary` applies under --logic, which names the logic, and `batch.mode` is a batch's mode unless a mode flag is given (one sequent's mode is the flags')
 
       --files-from <LIST>
           Read the paths of the inputs from this file, one per line, or `-` for standard input, read as it streams

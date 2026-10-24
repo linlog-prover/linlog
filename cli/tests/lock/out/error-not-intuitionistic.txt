@@ -2,4 +2,7 @@ $ linlog prove -i '|- ?A, !~A'
 --- status 2
 --- stdout
 --- stderr
-error: not an intuitionistic sequent: the subformula !~A is neither an intuitionistic formula nor the negation of one (⅋ only as A ⊸ B, that is ~A ⅋ B, and ? only under a negation)
+error: cannot parse the sequent
+  |- ?A, !~A
+     ^ unexpected "?"
+  intuitionistic linear logic has no ?: write ?~A right of |- as !A left of it; --ill-syntax one-sided reads the classical syntax
