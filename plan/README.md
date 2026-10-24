@@ -3477,3 +3477,8 @@ client follows it (step 32).
     `TwoSided::new`. One-sided JSON, LLTP and `.spec` input takes the
     record of its one-sided syntax. Next: step 41 (cut), with 44 and 43b
     beside it.
+- 2026-10-24: the author confirmed session 43b's outline of Learn's
+  lessons 1 to 5 as sent (D60's order; classical, one-sided; each
+  lesson's worked and faded proofs, hinge question and misconceptions;
+  the new store problems `extra` and `copy-drop`), the planning session
+  having checked every worked proof and hinge answer against the rules.
