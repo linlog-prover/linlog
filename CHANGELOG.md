@@ -11,6 +11,24 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Added
 
+- `IllSequent`, a sequent of intuitionistic linear logic as written: its
+  hypotheses in the order written and exactly one goal, every formula
+  built from `⊗`, `⊸`, `&`, `⊕`, `!`, `1`, `⊤`, `0` and atoms. It is
+  built by `IllSequent::parse_within` (and `FromStr`), a strict parser
+  that refuses the symbols of classical linear logic (`~`, `^`, `⅋`,
+  `par`, `|`, `?`, `⊥`, `bot`) with a hint of what to write instead
+  (`ParseError::hint`, a new field), by its JSON form, and by
+  `IllSequent::read_one_sided`, the explicit intuitionistic reading of a
+  one-sided sequent. It lowers once to the one-sided forest the engines
+  take and records every occurrence's side there; `IllSequent::reading`
+  is the `Reading` over those sides, equal to `Reading::new`'s.
+- The intuitionistic sequent's JSON form, `{"version": 5, "terms": […],
+  "atoms": […], "hypotheses": […], "goal": n}`, whose terms are the
+  connectives of intuitionistic linear logic alone (a classical tag is
+  refused), at wire level 5 (below).
+- `InputOptions` (`Settings::input`, in JSON `"input"`), how a front end
+  reads its input: `intuitionistic`, an `IllSyntax`, `strict` by default
+  (`InputOptions::DEFAULT_INTUITIONISTIC`) or `one-sided`.
 - Proof nets of unit-free MELL with `!`-boxes, in classical mode with or
   without Mix: `MellStructure`, its vertices instances of the forest's
   occurrences, a generalised `?` vertex with any number of copies of its
@@ -301,6 +319,9 @@ second number (0.1.x to 0.2.0), anything else the third.
   "links": [[x, y], …], "weakenings": [[q, l], …]}`, whose links name
   vertices; it is always written at level 4, and the proof structure's
   reader refuses a document with `vertices`.
+- Level 5: the intuitionistic sequent, `{"version": 5, "terms": […],
+  "atoms": […], "hypotheses": […], "goal": n}` with the terms `V`, `1`,
+  `0`, `⊤`, `⊗`, `⊸`, `&`, `⊕` and `!`; it is always written at level 5.
 - The essential-net engine for IMLL without units, `Engine::Essential`
   (`--engine essential`, JSON `"essential"`): the net engine's linking
   search over the essential net the intuitionistic reading directs,

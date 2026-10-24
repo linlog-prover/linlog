@@ -24,7 +24,9 @@
 //! the proof structure with boxes, a form whose `"vertices"` key makes its
 //! links name vertices rather than occurrences, so it is always written at
 //! level 4 (and the proof structure's reader refuses a document with that
-//! key); every other document is written at level 1. A reader refuses a
+//! key); level 5 adds the intuitionistic sequent, a form of its own whose
+//! terms are the connectives of intuitionistic linear logic, always
+//! written at level 5; every other document is written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -42,7 +44,7 @@
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
 //! only adds a kind of refutation and a mode, level 3 a kind of
-//! refutation, level 4 a form), and
+//! refutation, levels 4 and 5 a form each), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -81,6 +83,11 @@
 //!   its innermost box or `null`; `links` and `weakenings` (a `?` vertex
 //!   without copies and the literal it hangs on) name vertices; see
 //!   [`MellStructure`](crate::MellStructure).
+//! - **Intuitionistic sequent**: `{"version": 5, "terms": [{"V": 0},
+//!   {"V": 1}, {"⊸": [0, 1]}], "atoms": ["A", "B"], "hypotheses": [2,
+//!   0], "goal": 1}` for `A ⊸ B, A ⊢ B`: the terms `V`, `1`, `0`, `⊤`,
+//!   `⊗`, `⊸` (the antecedent first), `&`, `⊕` and `!`, every operand
+//!   before its term; see [`IllSequent`](crate::IllSequent).
 //! - **Session**: `{"version": 1, "sequent": {…}, "mode":
 //!   "intuitionistic", "inferences": […], "history": […]}`, see
 //!   `Interactive` (feature `interactive`).
@@ -98,7 +105,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 4;
+pub const LEVEL: u32 = 5;
 
 /// The level of every document but a disproof (or an unprovable
 /// outcome) with a classical refutation, which is level 2, or with a
@@ -107,6 +114,9 @@ pub(crate) const BASE: u32 = 1;
 
 /// The level of a proof structure with boxes, which level 4 added.
 pub(crate) const BOXES: u32 = 4;
+
+/// The level of an intuitionistic sequent, which level 5 added.
+pub(crate) const ILL: u32 = 5;
 
 /// A form [`upgrade`] and [`Within`] read: one whose reading counts a
 /// sequent against the caller's limits. Sealed: the crate's data forms

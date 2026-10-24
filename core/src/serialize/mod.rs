@@ -72,6 +72,9 @@ pub(crate) mod exact {
         }
     }
 }
+/// Serde support for `IllSequent`: an arena of intuitionistic formulas,
+/// the hypotheses and the goal.
+mod ill;
 /// Serde support for `Interactive`: the sequent, the mode, the inferences
 /// and the steps.
 #[cfg(feature = "interactive")]

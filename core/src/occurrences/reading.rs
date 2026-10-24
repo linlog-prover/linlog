@@ -425,7 +425,6 @@ impl<'a> Reading<'a> {
 
     /// Returns the positions and the goal, for an owner of the forest to
     /// keep beside it.
-    #[cfg(feature = "interactive")]
     pub(crate) fn into_parts(self) -> (Box<[Side]>, OccId) {
         (self.position.into_owned().into_boxed_slice(), self.goal)
     }
@@ -441,7 +440,6 @@ impl<'a> Reading<'a> {
 
     /// Returns the reading of `forest` from the positions and the goal
     /// [`into_parts`](Self::into_parts) gave, in constant time.
-    #[cfg(feature = "interactive")]
     pub(crate) const fn of_parts(
         forest: &'a Forest,
         position: &'a [Side],

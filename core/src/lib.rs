@@ -205,7 +205,9 @@ pub use limits::{Limits, Phase, Progress, Refusal};
 pub use nets::{
     Criterion, MellStructure, NetError, Parts, Placed, Placement, ProofStructure, VertexId,
 };
-pub use occurrences::{Forest, Member, OccId, Reading, ShapeError, Side, Sign};
+pub use occurrences::{
+    Forest, IllSequent, IllSyntax, InputOptions, Member, OccId, Reading, ShapeError, Side, Sign,
+};
 pub use proofs::{
     Branch, CheckError, Derivation, Division, InfId, Inference, Named, Node, NodeId, Proof, Rule,
     Size, ViewOptions,

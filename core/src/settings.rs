@@ -10,7 +10,7 @@ use crate::export::Styles;
 #[cfg(feature = "interactive")]
 use crate::proofs::interactive;
 use crate::search::{Jobs, Options, batch};
-use crate::{Limits, ViewOptions, ordinary};
+use crate::{InputOptions, Limits, ViewOptions, ordinary};
 
 /// What a front end with a clock applies through its stop, each counted in
 /// milliseconds from the front end's start; the library reads no clock.
@@ -130,6 +130,8 @@ pub struct Settings {
     /// How an interactive session takes steps of its own.
     #[cfg(feature = "interactive")]
     pub interactive: interactive::Options,
+    /// How the input is read.
+    pub input: InputOptions,
 }
 
 impl Default for Settings {
@@ -145,6 +147,7 @@ impl Default for Settings {
             ordinary: ordinary::Options::default(),
             #[cfg(feature = "interactive")]
             interactive: interactive::Options::default(),
+            input: InputOptions::default(),
         }
     }
 }
@@ -166,6 +169,12 @@ impl Settings {
     #[must_use]
     pub fn with_search(self, search: Options) -> Self {
         Self { search, ..self }
+    }
+
+    /// Returns the settings with another [`input`](Self::input).
+    #[must_use]
+    pub fn with_input(self, input: InputOptions) -> Self {
+        Self { input, ..self }
     }
 
     /// Returns the settings with another [`view`](Self::view).

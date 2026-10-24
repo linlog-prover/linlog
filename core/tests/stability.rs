@@ -7,7 +7,8 @@
 //! a disproof of a goal off the roots, as 0.1.0 wrote them, one `NAME:
 //! JSON` per line, `wire/level-2.txt` the forms level 2 added and
 //! `wire/level-3.txt` those level 3 added, `wire/level-4.txt` those
-//! level 4 added; none is ever rewritten: where
+//! level 4 added, `wire/level-5.txt` those level 5 added; none is ever
+//! rewritten: where
 //! the lock moves on, these files stay. Every
 //! line of a form that is read back reads through
 //! `wire::upgrade`, and writes the same bytes again; an outcome reads back
@@ -17,7 +18,9 @@
 #![cfg(all(feature = "serialize", feature = "interactive"))]
 
 use linlog::wire::{self, Readable};
-use linlog::{Disproof, Interactive, Limits, MellStructure, Proof, ProofStructure, Sequent};
+use linlog::{
+    Disproof, IllSequent, Interactive, Limits, MellStructure, Proof, ProofStructure, Sequent,
+};
 
 /// Reads one document of the form `T`.
 fn read<T: Readable>(name: &str, json: &str) -> T {
@@ -117,6 +120,25 @@ fn the_fourth_level_reads() {
                 again::<MellStructure>(name, json);
                 let net: MellStructure = read(name, json);
                 assert_eq!(net.is_correct(|_| false), Ok(()), "{name}");
+            }
+            other => panic!("{name}: no form {other}"),
+        }
+    }
+    assert_eq!(lines.lines().count(), 1);
+}
+
+/// The forms level 5 added, as the release that made it wrote them: an
+/// intuitionistic sequent. Never rewritten, as `wire/level-1.txt` is not.
+#[test]
+fn the_fifth_level_reads() {
+    let lines = include_str!("wire/level-5.txt");
+    for line in lines.lines() {
+        let (name, json) = line.split_once(": ").unwrap();
+        match name.split('-').next().unwrap() {
+            "sequent" => {
+                again::<IllSequent>(name, json);
+                let sequent: IllSequent = read(name, json);
+                assert_eq!(sequent.to_string(), "!(A ⊸ B), ⊤, 0 ⊢ (A ⊗ 1) & (B ⊕ ⊤)");
             }
             other => panic!("{name}: no form {other}"),
         }

@@ -4,10 +4,13 @@
 // A variant a later step adds must not fall into an existing arm.
 #![deny(clippy::wildcard_enum_match_arm)]
 
+/// Sequents of intuitionistic linear logic as written.
+pub mod ill;
 pub mod reading;
 /// Bitsets over occurrence ids.
 pub(crate) mod set;
 
+pub use ill::{IllSequent, IllSyntax, InputOptions};
 pub use reading::{IllConnective, IllFormula, Reading, ShapeError, Side};
 pub(crate) use set::OccSet;
 

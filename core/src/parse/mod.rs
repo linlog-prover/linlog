@@ -613,6 +613,56 @@ impl Sequent {
     }
 }
 
+/// What intuitionistic linear logic writes instead of a symbol of the
+/// classical syntax.
+const NEGATION: &str = "intuitionistic linear logic has no negation: write a negated formula \
+                        on the other side of |- (A |- B, not |- ~A, B), and ~A par B as A -o B";
+/// See [`NEGATION`].
+const PAR: &str = "intuitionistic linear logic has no par: write ~A par B as A -o B";
+/// See [`NEGATION`].
+const QUEST: &str = "intuitionistic linear logic has no ?: write ?~A right of |- as !A left of it";
+/// See [`NEGATION`].
+const BOT: &str = "intuitionistic linear logic has no bot: write bot right of |- as 1 left of it";
+
+/// Returns the error for the first symbol of `text` that classical linear
+/// logic has and intuitionistic linear logic does not (`~`, `^`, `⅋`,
+/// `par`, `|` as a connective, `?`, `⊥`, `bot`), with its hint, or `None`
+/// if it has none. The symbols are whole tokens wherever they stand, so a
+/// scan of the characters and identifiers finds them without the parser:
+/// `|` followed by `-` is the turnstile, and an identifier is skipped
+/// whole, so that `bottom` is an atom.
+pub(crate) fn classical(text: &str) -> Option<ParseError> {
+    let mut chars = text.char_indices().peekable();
+    while let Some((at, c)) = chars.next() {
+        let mut end = at + c.len_utf8();
+        let hint = match c {
+            '~' | '^' => NEGATION,
+            '⅋' => PAR,
+            '|' if chars.peek().is_some_and(|&(_, next)| next == '-') => continue,
+            '|' => PAR,
+            '?' => QUEST,
+            '⊥' => BOT,
+            _ if starts_identifier(c) => {
+                while let Some(&(next, d)) = chars.peek() {
+                    if !unicode_ident::is_xid_continue(d) {
+                        break;
+                    }
+                    end = next + d.len_utf8();
+                    chars.next();
+                }
+                match &text[at..end] {
+                    "par" => PAR,
+                    "bot" => BOT,
+                    _ => continue,
+                }
+            }
+            _ => continue,
+        };
+        return Some(ParseError::spanning(text, at..end, &[]).with_hint(hint));
+    }
+    None
+}
+
 impl std::str::FromStr for Sequent {
     type Err = Error;
 

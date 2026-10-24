@@ -34,6 +34,11 @@ pub struct ParseError {
         serde(skip_serializing_if = "std::ops::Not::not")
     )]
     pub reserved: bool,
+    /// What to write instead of what was found, where the input is
+    /// syntax of another logic: a symbol of classical linear logic in an
+    /// intuitionistic sequent.
+    #[cfg_attr(feature = "serialize", serde(skip_serializing_if = "Option::is_none"))]
+    pub hint: Option<&'static str>,
 }
 
 impl ParseError {
@@ -77,6 +82,16 @@ impl ParseError {
             span,
             expected,
             reserved: false,
+            hint: None,
+        }
+    }
+
+    /// Returns the error with a hint of what to write instead.
+    #[must_use]
+    pub(crate) fn with_hint(self, hint: &'static str) -> Self {
+        Self {
+            hint: Some(hint),
+            ..self
         }
     }
 }
@@ -99,6 +114,9 @@ impl fmt::Display for ParseError {
         write!(f, " at line {}, character {}", self.line, self.column)?;
         if !self.expected.is_empty() {
             write!(f, ", expected {}", super::or_list(self.expected))?;
+        }
+        if let Some(hint) = self.hint {
+            write!(f, ": {hint}")?;
         }
         Ok(())
     }
