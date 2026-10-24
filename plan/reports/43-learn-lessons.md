@@ -700,3 +700,300 @@ table, and that the new hovers are off with Learn off. Its findings, each answer
 - The evidence: `/home/tux/Projects/own/linlog-step43b-screenshots/` (`outline.md`,
   `review.md`, `before/`, `after/`, `evidence/`, `scripts/`, `refs/` the Handbook read,
   `shots.mjs`, `run-shots.sh`).
+
+## Session 43c: lessons 6 to 9
+
+### The checklist
+
+| requirement (the brief and the section "Goal") | status | evidence |
+|---|---|---|
+| The outline of lessons 6 to 9 sent to `planning` before the lessons were written, and the author's answer | done: confirmed, with two changes | sent 2026-10-24 11:28 (`/home/tux/Projects/own/linlog-step43c-screenshots/outline.md`); `planning` relayed at 11:31: confirmed as outlined, lesson 9 a regular lesson rather than optional, and lesson 7 to show "unknown" happening live at a small budget (`outline-answer.txt` beside it); a second message asked that every lesson problem be decided at the page's default budget |
+| Lessons 6 to 9 in D56's sequence: a worked proof played with a reason at each inference and "predict the next rule" before each reveal, the faded proof, practice from the store, a self-explanation prompt at the densest step, a hinge question whose wrong answers each name a misconception | done | `src/content/lessons/6-two-sides.md` to `9-ordinary.md`; Vitest `src/content/lessons.test.ts`, Playwright `tests/lessons.spec.ts` |
+| Lesson 7: the erroneous example, "find the step that went wrong", then the refutation; the three verdicts and "unknown" | done | the attempt (`7-no-proof.attempt.json`), "No proof, and why" (three problems asked of linlog), "When the search gives up" (live, at 20 units); Playwright "the attempt plays its steps, …", "a problem asked of linlog …", "a search with a small budget answers unknown, …" |
+| Lesson 8: the net of a finished MLL proof, the switching condition, the essential net, nets with boxes and practice whose nets need boxes | done | "See its net" and "More nets" (an essential net, a box in a box, an intuitionistic box); `bang-bang`, `g164` and `box-door` in its practice; Playwright "a lesson's finished proof shows its net, and its gallery draws nets with boxes" |
+| The reference's rule schemas the lessons use and the frame's hover explanations | done | the two-sided rules of intuitionistic linear logic, `src/content/rules/14-ill-ax.md` to `32-ill-contraction-l.md`, drawn in the reference's new section; an intuitionistic proof's popover shows them on hover; Playwright "the reference draws every rule …" and "in an intuitionistic proof, a rule of the popover shows its two-sided schema"; Vitest "draws each two-sided rule as the one-sided rule it names …" |
+| Every lesson's sequent a store problem with linlog's verdict and session; the store's flake check passing | done | nine new problems and six moved into lessons (below); `evidence/new-problems.txt`, `evidence/*.interact.txt`; `check-problems`: "all 436 problems are as linlog's command decides them; 397 provable, each with a session that `proof` accepts" |
+| Every lesson problem decided at the page's default budget | done | `evidence/budget-after.txt`: at most 16 387 of 2²⁶ units; Vitest "decides every problem of the lessons well inside the page's budget"; `tripling` replaced (below) |
+| The education skills and `frontend-design` used | done | below, "Decisions" |
+| One fresh-context reviewer, one round, each finding answered | done: two findings, both held and answered | below, "The review"; `/home/tux/Projects/own/linlog-step43c-screenshots/review.md` |
+| Before-and-after screenshots of each lesson at a phone's and a desktop's width in both themes | done | `/home/tux/Projects/own/linlog-step43c-screenshots/before/` (20) and `after/` (92) |
+| The client's `nix flake check` at its last commit; `jj st` clean in both workspaces | done | exit status 0 at `lltvnnlv` (19676123); below, "Verification" |
+
+### Outcome
+
+Learn's tutorial now has all nine lessons of D60, in its order, as the author confirmed
+them from the outline (lesson 9 a regular lesson, as the author asked). Lessons 6 to 9
+follow lessons 1 to 5: a worked proof of the store played on the stage one inference at a
+time, the visitor predicting each rule before the page plays it and writes its reason
+beside the inference; a self-explanation prompt with a model answer; the same proof with
+its first steps played and the rest left to the visitor; the lesson's practice; and a
+hinge question whose wrong answers each name their misconception.
+
+- **Lesson 6, two sides**, teaches intuitionistic mode on step 40's two-sided surface: one
+  formula on the right, the rules in pairs, `⊸L` and its split. The reference draws the
+  nineteen two-sided rules of intuitionistic linear logic as schemas, each with the
+  one-sided rule it is, and in an intuitionistic proof the popover shows a rule's
+  two-sided schema on hover.
+- **Lesson 7, when there is no proof**, opens with the erroneous example: the page plays an
+  attempt at a provable sequent step by step, each step with its author's plausible
+  reason, until it is stuck; the visitor finds the step that went wrong (each wrong answer
+  names its misconception); linlog's verdict on the goal that step left, "Unprovable,
+  checked: atom balance", stands beside it. The worked proof then plays the right step.
+  Three sequents with no proof are asked of linlog on the stage, one per reason (atom
+  balance, a classical countermodel, an exhausted search), and a sequent searched with a
+  budget of 20 units answers "Unknown: gave up", which the retry's doublings turn into a
+  proof at 160 units, as the author asked.
+- **Lesson 8, proof nets**, plays weak distributivity with reasons that say what each step
+  is in the net, then turns the stage to the finished proof's net; "More nets" draws an
+  essential net, a box inside a box, and an intuitionistic net with a box.
+- **Lesson 9, ordinary logic**, proves the images of ordinary sequents under linlog's
+  translations, as `linlog seq print --logic …` prints them: the page has no ordinary mode.
+
+Nine problems joined the store and one left it (436 problems, 397 provable), each decided
+by linlog's command and checked by the flake's `problems` check. On the way, a step's reason
+beside a rule whose name has a subscript (`⊕₁`, `&L₂`) turned out never to show, lessons 1
+to 5's included; it is fixed at its cause.
+
+### The lessons
+
+| lesson | worked proof (store) | faded: played, then the visitor's | self-explanation (after step) | hinge | misconceptions named |
+|---|---|---|---|---|---|
+| 6 Two sides | `composition`, `A ⊸ B, B ⊸ C ⊢ A ⊸ C`: ⊸R, ⊸L, ax, ⊸L, ax, ax | ⊸R; then both ⊸L splits and the axioms | which one-sided rule `⊸L` is, and why its split works as `⊗`'s (2, the first ⊸L) | in `A ⊸ B, A, C ⊢ B ⊗ C`, which hypotheses go to ⊸L's left premise | ⊸L's left premise takes every other hypothesis; using `A ⊸ B` leaves `A` in place, as modus ponens does |
+| 7 When there is no proof | `wrong-choice` (new), `(A & B) ⊗ C ⊢ C ⊗ (B ⊕ D)`: ⅋, ⊕₂, ⊗, ax, ⊕₁, ax, after the attempt ⅋, ⊕₁, ⊗, ax, ⊕₁ | ⅋; then the choice onward | count the atoms after the attempt's `⊕₁` and the proof's `⊕₂` (2, the ⊕₂) | why `A ⊗ B ⊢ A` has no proof | a sequent with no proof is classically false; "no proof found" means the search gave up; a wrong step of an attempt means no proof |
+| 8 Proof nets | `weak-distributivity`, `(A ⅋ B) ⊗ C ⊢ A ⅋ (B ⊗ C)`: ⅋, ⅋, ⊗, ax, ⊗, ax, ax | ⅋, ⅋; then both splits and the axioms | where the split's choice shows in the net, and why every switching leaves a tree (3, the first ⊗) | which sequent has a proof net | linking every atom to its dual makes a net; a net may fall apart into pieces; a net read the other way up is a net |
+| 9 Ordinary logic | `girard-modus`, `!(!A ⊸ B), !A ⊢ B`, modus ponens translated: !L, ⊸L, !R, ax, !L, ax | !L; then the rest | why the translation needs both `!` (2, the ⊸L) | why linlog proves Peirce's law classically and refutes it intuitionistically | a formula is valid whatever the logic; translating into linear logic loses valid formulas; the search gave up |
+
+The attempt's wrong answers name their own misconceptions: the first step is to blame; a
+split is to blame whenever an attempt gets stuck after one; a branch that closes can be
+where it went wrong; the wrong step is the one where the attempt got stuck.
+
+Each lesson's practice is its store problems, easiest first, provable and unprovable mixed:
+lesson 6 has 14, lesson 7 has 10, lesson 8 has 15, lesson 9 has 7.
+
+### Decisions
+
+- **The lessons keep 43b's form**: one Markdown file each, the front matter naming the
+  worked proof, a rule and reason per step of its session, the rules to predict among,
+  the faded steps, the prompt and the hinge; `lessons.test.ts` holds the steps to the
+  session's history, as for lessons 1 to 5.
+- **Three optional parts carry what lessons 7 and 8 need**, each in the front matter, so
+  that the content stays data:
+  - `attempt`, the erroneous example: steps with the attempt's own reasons and, for every
+    step but the wrong one, the misconception that would blame it. Its session is
+    `lessons/7-no-proof.attempt.json`, an unfinished session that `linlog interact` wrote
+    (`evidence/attempt.interact.txt`). The page plays it by Redo on the lesson's tab, as it
+    plays the worked proof; the question is answered as the hinge is; the right answer
+    offers "Ask linlog about the goal step 2 left", which takes the attempt back to just
+    after that step and runs the search on the goal it left. `lessons.test.ts` holds that the
+    wrong step is the first after which an open goal has no proof, by the module's search
+    within the page's budget, and that the attempt ends stuck.
+  - `gallery`, problems of the lesson shown on the stage: asked of linlog (`ask`: the search
+    on the sequent itself, as Close runs it, so the page checks the refutation) or replayed
+    with their net drawn (`net`). The test holds that each is a problem of the lesson, the
+    asked ones unprovable, the drawn ones with a net.
+  - `unknown`, a sequent outside the store searched with a budget too small. The page opens
+    it and closes its goal with that budget; the note's "Try N units" doubles it. The test
+    holds the text to the module: unknown at 20, 40 and 80 units, proved at 160 and at the
+    page's budget. The sequent, `(A ⊕ B) ⊗ (A ⊕ B) ⊢ (A ⊗ A) ⊕ (A ⊗ B) ⊕ (B ⊗ A) ⊕ (B ⊗ B)`,
+    was chosen for a search long enough to stop and short enough to decide in three
+    doublings, and a proof a student can see: one of the four cases fits each choice.
+    `linlog prove --deterministic --work-limit 20`, `40`, `80`: unknown; `160`: provable
+    (`evidence/new-problems.txt`).
+  - `net`: the finished worked proof offers "See its net".
+- **The two-sided schemas are rules of their own** (`rules/14-ill-*.md`), not a second
+  drawing of the one-sided ones: the Handbook's Table 1.5 (§1.7.2.1, p. 48, read in its
+  text) in linlog's names (`Rule::name` in `core/src/proofs/rule.rs`: `!w` and `!c` for the
+  Handbook's `(wL)` and `(cL)`), without the cut, the quantifiers and the exchange, each with
+  `oneSided`, the one-sided rule it is. The test holds each to a one-sided rule that lists
+  its name among its two-sided names, so the two tables cannot drift apart. `ruleNamed`
+  prefers a two-sided schema in an intuitionistic proof, whose drawing is two-sided; a
+  classical proof drawn two-sided keeps the one-sided schema, since the intuitionistic
+  rules allow one formula on the right and the classical ones do not.
+- **The new problems**:
+  - lesson 6: `used-up`, the hinge's sequent (from the review), and the Handbook's formula `((((0 ⊸ 1) ⊸ 1) ⊸ 0) ⊸ 0) ⊸ 1` (§1.7.2.1, p. 49),
+    unprovable in intuitionistic mode and provable in classical mode, the Handbook's
+    example of what one formula on the right forbids (`handbook-intuitionistic`,
+    `handbook-classical`);
+  - lesson 7: `wrong-choice`, the attempt's and the worked proof's sequent, and
+    `odd-machine` (below);
+  - lesson 8: `box-door`, `!(A ⊸ B), A ⊢ !B`, a box whose door would not be under `?`;
+  - lesson 9: Peirce's law under both translations (`peirce-intuitionistic`, unprovable;
+    `peirce-classical`, provable in affine mode, unprovable without weakening) and double
+    negation under the call-by-name one (`double-negation-translated`, unprovable).
+  - The provable ones were measured by 43a's measure (`handbook-classical` 15.0, Hard;
+    `wrong-choice` 10.7, Moderate; `peirce-classical` 13.2, Moderate); the unprovable ones
+    were levelled by hand. Their sessions come from linlog's own hints, `proof` exit 0.
+  - Into lessons: `girard-modus`, `girard-k`, `girard-w` and `girard-s` (lesson 9),
+    `bang-bang` and `g164` (lesson 8), each now with an explanation; `g203` and the girard
+    problems had none.
+- **The education skills**:
+  - `erroneous-example-designer`: one realistic error (the wrong half of `&`, chosen
+    early), which shows only later; the visitor finds it, says why, and fixes it in the
+    faded proof; it follows correct examples.
+  - `hinge-question-designer`: each wrong answer is the right answer under one
+    misconception, the options parallel.
+  - `worked-example-fading-designer` and `digital-worked-example-sequence`: one step at a
+    time, the reason at the inference, the faded proof starting before the lesson's own
+    choice, as in 43b.
+  - `self-explanation-prompt-designer`: why-questions at the densest step, answerable from
+    the lesson, free text then a model answer.
+  - `learning-progression-builder`: the prerequisites support D60's order. 6 needs 2 (the
+    split) and 5 (`!`); 7 needs the atom counts and every connective's classical reading,
+    and as an erroneous example it follows correct examples; 8's essential nets need 6 and
+    its boxes 5; 9 needs 5, 6 and 7.
+  - `cognitive-load-analyser`: one prompt at a time, the reasons beside the inference, the
+    new parts in the lesson's own column of parts.
+  - `frontend-design`: the new parts use 43b's grammar alone: the parts' rule in Learn's
+    colour, the hinge's options for the attempt's question, the practice cards for the
+    gallery, no new token; the touch-target walk measures them.
+
+### Judgement calls
+
+- **`tripling` left the store, replaced by `odd-machine`**, at `planning`'s second message
+  (every lesson problem decided at the page's default budget; one that could come back
+  unknown replaced, not marked). The page's budget counts units of work, not time, so a slow
+  machine gives the same verdict; but the page decides `tripling` only after 16 778 456 of
+  its 2²⁶ (67 108 864) units, by the inverse method's saturation, and the command without
+  `--deterministic` answers unknown within 20 seconds. Every other lesson problem needs at
+  most 298 units. `odd-machine`, `!(a ⊸ a ⊗ a ⊗ a), a ⊢ a ⊗ a`, makes `tripling`'s point (each
+  use adds two `a`, so the count stays odd) and is decided in 16 387 units by the Horn
+  engine, with and without `--deterministic` (`evidence/budget.txt`, `budget-after.txt`). An
+  unprovable problem must belong to a lesson, so `tripling` was removed rather than moved.
+- **Lesson 8 takes `bang-bang` (`!A ⊢ !!A`) where the outline named `g203`**: `g203`'s `!` is
+  on the left, `?` one-sided, so its net has a contraction but no box. `bang-bang`'s two
+  promotions draw a box inside a box (the Playwright test counts two).
+- **A fifth unprovable problem in lesson 8, `box-door`**: with three problems whose nets need
+  boxes, the lesson's practice would have had three provable problems in a row, which the
+  store's test refuses; `!(A ⊗ B) ⊢ !A ⊗ !B`, the first candidate, is unknown to the command,
+  so `!(A ⊸ B), A ⊢ !B`, decided unprovable, took its place. The test was not loosened.
+- **Two fixes outside the lessons**, each at its cause:
+  - A step's reason beside a rule whose name has a subscript (`⊕₁`, `⊕₂`, `&L₁`) never
+    showed: linlog draws such a label as a group, and the stage looked for a text. Lesson 3's
+    `⊕` steps had the same fault since 43b. The attempt's Playwright test now pins it.
+  - `close` rounds its budget to whole units: a retry or the lesson's small budget is a
+    fraction or a multiple of the one Settings holds, which a visitor may set to any number.
+- **"Ask linlog" runs the search on the problem's sequent as Close does**, not Close all, so
+  the page checks the refutation and says so ("Unprovable, checked: …").
+- **The attempt's options show each step's reason** under its rule (`cognitive-load-analyser`:
+  without it, the visitor must find each step on the stage to judge it, a split of
+  attention).
+- **The live unknown's sentence names the outcome**: "at 160 units linlog proves it". The
+  command proves it from 120 units; the page's retry doubles 20, 40, 80, 160, so 160 is what
+  the visitor sees, and the test pins those four answers.
+
+### Departures from the design
+
+- None from D21, D22, D47, D56 or D60. Lesson 7 has, besides D56's erroneous example and
+  refutation, a worked proof and a faded proof as the other lessons do: the goal asks the
+  worked-example sequence of every lesson, and the attempt's sequent is provable, so its
+  right proof is the worked one.
+
+### The review
+
+One round, a fresh-context reviewer on Opus 5.5 at `high`, briefed with D21, D22, D47,
+D56, D60, the confirmed outline and the author's changes, the known departures, and the
+machine's rules (linlog's command alone, `--deterministic`, capped, on cores 10 and 11),
+told to report only what breaks a stated requirement
+(`/home/tux/Projects/own/linlog-step43c-screenshots/review.md`). It confirmed:
+- the verdicts of all 45 problems of lessons 6 to 9, each explanation against linlog's
+  reason, and the most work any needs (16 387 units);
+- the live unknown (unknown at 20, 40 and 80 units, provable at 120 and 160, outside the
+  store);
+- every reason, model answer and hinge line of the four lessons;
+- the translations against `seq print`;
+- the Handbook problem against p. 49, and the nineteen schemas against Table 1.5 and
+  linlog's names;
+- every part D56 and D60 ask for, and lesson 9 marked optional nowhere;
+- the three known departures as sound, and that the tests hold what they claim.
+
+Its findings, each answered:
+1. **Lesson 7 stated the atom-pairing reason as a law of every proof**, in its opening,
+   its model answer and its hinge's right answer; `⊤` and `?w` drop formulas (`A ⊢ ⊤` and
+   `!A ⊢ 1` are provable). **Holds.** All three now say where it holds, a goal with no `⊤`
+   and no `?`, which the lesson's sequents are (client `lltvnnlv`).
+2. **Lesson 6's hinge sequent, `A ⊸ B, A, C ⊢ B ⊗ C`, was not a store problem** (borderline;
+   43b's hinges in lessons 2 and 3 set the precedent). **Holds** against the goal's wording.
+   It joined the store as `used-up` in lesson 6, its session from linlog's hints, `proof`
+   exit 0 (`evidence/used-up.interact.txt`), level 2 by 43a's measure (7.3).
+
+### Verification
+
+- **The client's `nix flake check`** passed, exit status 0, at its last commit `lltvnnlv`
+  (19676123), under the machine lock on cores 10 and 11
+  (`/home/tux/Projects/own/linlog-step43c-screenshots/evidence/flake-check.log`):
+  - `check-problems`: "all 436 problems are as linlog's command decides them; 397
+    provable, each with a session that `proof` accepts";
+  - Vitest 527 passed, Playwright 109 passed.
+  - It passed before the review too, at `vzxqvlos` (`evidence/flake-check-1.log`).
+- **Vitest** (527): `lessons.test.ts` now holds the nine lessons in D60's order and each
+  worked proof to its session, with a two-sided schema for every rule of an intuitionistic
+  proof. Its new tests:
+  - the attempt's one wrong step is the first after which an open goal has no proof, by
+    the module's search;
+  - the live unknown answers unknown at 20, 40 and 80 units and proves its sequent at 160
+    and at the page's budget, its text naming 160;
+  - a gallery's problems are the lesson's, the asked ones unprovable, the drawn ones with
+    a net, and lesson 8's worked proof has a net;
+  - every lesson problem is decided within a hundredth of the page's budget, as the store
+    says;
+  - each two-sided rule is the one-sided rule it names.
+- **Playwright** (109). New tests in `tests/lessons.spec.ts`:
+  - the two-sided schema on hover;
+  - the attempt, its question and linlog's answer on the goal it left;
+  - a problem asked of linlog;
+  - the search giving up at 20 units and proving at 160 after three retries;
+  - the net of the worked proof and a box inside a box.
+
+  The touch-target walk now measures lesson 7's attempt, its question and the live
+  unknown, at every width. Three tests changed on purpose, because lessons 6 to 9 are now
+  written:
+  - the reference test counts two lists of schemas;
+  - `learn.spec.ts` opens lesson 6 by its button;
+  - `engines.spec.ts` counts nine written lessons.
+- **The sequents**:
+  - every new problem by `linlog prove --deterministic` and `seq fragment`, the attempt's
+    goals, lesson 6's hinge premises, the live unknown by `--work-limit`, and the
+    translations by `seq print` (`evidence/new-problems.txt`);
+  - the sessions by `linlog interact` from linlog's hints, `proof` exit 0
+    (`evidence/*.interact.txt`; the attempt's exit 1, as an unfinished session's);
+  - every lesson problem at the page's budget by the page's module (`evidence/budget.txt`
+    before the replacement, `budget-after.txt` after; `scripts/budget.mjs`).
+- **Signing**: a signature was tested before each commit; every commit is signed.
+- **The screenshots**: `before/` (20: the four lessons and the reference, each at a phone's
+  and a desktop's width in both themes; before, lessons 6 to 8 were their practice alone
+  and lesson 9 "to come", so its pictures show the tutorial's list) and `after/` (92: the
+  same 20 names, and for each lesson its worked proof in progress, its faded proof and its
+  hinge answered; lesson 7's attempt with its question, a problem asked of linlog and the
+  search giving up; lesson 8's net and a box in a box; a two-sided schema on hover). They
+  were taken by `shots.mjs` from the site built at `rsxtpzrz` and at `lltvnnlv`.
+- **The client's commits**, above `rsxtpzrz` (the client's `main` when the session began,
+  after a rebase from `qmlqvzzn` at `planning`'s word):
+
+  | change | what |
+  |---|---|
+  | `mtmtnkun` | the problems lessons 6 to 9 need, filed in the store |
+  | `qypomyyv` | a lesson's reason placed beside a rule label drawn with a subscript |
+  | `tvypowqr` | a search's scaled budget rounded to whole units |
+  | `vnlrstuz` | `tripling` replaced by `odd-machine`; `bang-bang` into lesson 8 for `g203` |
+  | `vzxqvlos` | lessons 6 to 9, the two-sided rules' schemas |
+  | `lltvnnlv` | the review's answers |
+
+### What is left open
+
+- The command without `--deterministic` answers `tripling` unknown within 20 seconds,
+  where `--deterministic` (and the page) decide it by the inverse method; the race does not
+  give the inverse method its turn there. It is linlog's dispatch, not the lessons', and
+  `tripling` is no longer in the store.
+- The page shows ordinary logic only through its images; lesson 9 can say "type it here"
+  once the page has an ordinary mode (D57).
+- The before-and-after pictures are for the author to judge.
+- A lesson's progress is not remembered across visits, as for lessons 1 to 5.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io-43c`, the jj workspace
+  `step43c` on `rsxtpzrz`, its commits above; nothing pushed.
+- linlog: `../linlog-step43c` on `zuqxrmzx`, this report's commit; no code changed.
+- The evidence: `/home/tux/Projects/own/linlog-step43c-screenshots/` (`outline.md`,
+  `outline-answer.txt`, `review.md`, `before/`, `after/`, `evidence/`, `scripts/`,
+  `shots.mjs`, `run-shots.sh`, `linlog-cli` the command at the client's pinned input).
