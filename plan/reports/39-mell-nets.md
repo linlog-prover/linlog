@@ -667,6 +667,9 @@ vertices on separate legs. The panel of step 26 refuted
 neither soundness nor completeness; its one finding that held, door
 wires between nested boxes still sharing a leg in the default drawing,
 is fixed. The net target set is unchanged against `net-after-38i`.
+Every linlog code commit was gated, `nix flake check` passed, and the
+page's net tab, its linlog input moved to the pushed `main`, draws a
+finished intuitionistic MELL proof's net, with a test.
 
 ### The research
 
@@ -983,9 +986,12 @@ On `puwowxwl` (linlog's `main` when the session began), in
   intuitionistic MELL nets: a results file, no code.
 - `putlnukx` (c39cbbdf) Keep the door-to-door wires of a net drawing
   apart: the integers panel's F1; gated (`gate: passed`, exit 0).
-- The last commit holds this report and the units wording of
-  `core-nets.md`. It is prose only; `nix flake check` ran at it, and its
-  exit status is in the message to `planning`.
+- `woomuluy` (851bfbc6) and `wrnxllxs` (ccb20868, 3e23130a after
+  planning's rebase) this report and the pause, prose; `nix flake check`
+  passed at `wrnxllxs`, and planning pushed it.
+- The last commit, on `main`, holds this report's page section. It is
+  prose only; `nix flake check` ran at it too, and its exit status is in
+  the message to `planning`.
 
 ### What is left open
 
@@ -1007,39 +1013,38 @@ On `puwowxwl` (linlog's `main` when the session began), in
   may cross edges and in a crowded net a formula, a disconnected MELL
   structure drawn without highlight, a term → net reading that keeps
   instances.
-- The page's part, in the client: below.
+- **The library's default essential colours**: `svg::Style::input` is
+  still `#009e73` (green), which the page replaced by the Okabe–Ito blue
+  in session 38e; the command's and the library's essential drawings
+  stay green by default (planning's note, 2026-10-24).
 
-### Paused (planning's "Pause", 2026-10-23, the author needs the machine by 21:35)
+### Paused and resumed
 
-Everything up to this report is committed in `../linlog-step39c`
-(head `woomuluy`, this report's commit after it); nothing is left in `@`.
-The first `nix flake check` at `woomuluy` was stopped mid-run (unit
-`step39c-flake`, interrupted while building `features` and `package`);
-it has no verdict. No sub-agent and no other unit runs. "linlog ready"
-is not sent yet; the client's workspace is not made yet.
+Paused at planning's "Pause" (2026-10-23, 21:30) before the first `nix
+flake check`, which was stopped without a verdict; resumed at planning's
+"Resume" (2026-10-24, 02:40). The rerun at `wrnxllxs` (ccb20868) passed
+("all checks passed!", exit 0), "linlog ready" went to `planning`, which
+reviewed and pushed linlog's `main` as `wrnxllxs` (3e23130a), rebased
+onto two plan commits.
 
-#### Resume
+### The page
 
-1. In `../linlog-step39c`: `systemd-run --user --unit step39c-flake
-   --working-directory=$PWD sh -c 'flock /tmp/linlog-machine.lock nix
-   flake check -L > /tmp/step39c-flake.log 2>&1; echo "flake exit $?" >>
-   /tmp/step39c-flake.log'`, at the head (this report's commit, prose
-   only on top of `woomuluy`).
-2. On exit 0, send `planning` "linlog ready" with `kqywyupq`,
-   `kmwxnqtn`, `pqklosln`, `ytrmtlzo`, `putlnukx` and the report's
-   commit, and the exit status.
-3. After the supervisor pushes and names its commit: `jj workspace add
-   --name step39c ../linlog-prover.github.io-39c -r xkyksmut` in the
-   client's repository; there `nix flake update linlog` (commit
-   `flake.lock` alone, "flake.lock: Update"), add a Playwright test in
-   `tests/prover.spec.ts` that a finished intuitionistic MELL proof
-   (`!A |- A * A`, Intuitionistic) has its Net tab live and draws a box
-   (`path[id^="b"]`), run the client's tests from its dev shell (cores
-   4–11, capped, Chromium with `env -u LD_LIBRARY_PATH`), commit, then
-   `flock /tmp/linlog-machine.lock nix flake check` there.
-4. Write the section "The page" here, set the checklist's page row,
-   commit, rerun linlog's `nix flake check` at that last commit, and send
-   `planning` the last message.
+In the client's workspace `../linlog-prover.github.io-39c`, on its
+`main` `xkyksmut` (8ee62520), as planning named it:
+
+- `flake.lock: Update` moves the input `linlog` from 352b84e1 to
+  3e23130a, linlog's pushed `main`, and is a commit of its own.
+- The page needed no code: its Net tab follows the bindings' `view`,
+  whose `net` is now `null` for a finished intuitionistic MELL proof, and
+  the page already asks for the essential drawing in intuitionistic mode
+  (`BottomBand.tsx`), so the tab draws the essential net with boxes.
+- A Playwright test, "a finished intuitionistic MELL proof's net is drawn
+  with its boxes" (`tests/prover.spec.ts`): `!A ⊢ !A ⊗ !A` in
+  intuitionistic mode, the tab greyed while the goal is open, live once
+  it is closed, the drawing a proof net with its two boxes. On the old
+  lock it fails where it should (the tab stays greyed); on the moved one
+  it passes, beside the other seven net tests.
+- The client's `nix flake check` at its last commit (c865c6b8): "all checks passed!", exit 0.
 
 ### The checklist
 
@@ -1053,4 +1058,4 @@ is not sent yet; the client's workspace is not made yet.
 | The net target set against `net-after-38i`, unchanged | unchanged | "The net target set" |
 | Every code commit gated; `nix flake check` at the last commit; "linlog ready" to `planning` | done | "Commits"; the flake check's exit status in the message to `planning` |
 | Rules files, README, changelog true | done | `core-nets.md`, `core-export.md`, `cli.md`, `web.md`; README's `--net`, SVG and "What exists"; CHANGELOG `[Unreleased]` (Added, Changed) |
-| The page's net tab live for a finished intuitionistic MELL proof, with a test; the client's `nix flake check` | waiting for linlog's pushed `main` | "The page" below, written after the supervisor answers |
+| The page's net tab live for a finished intuitionistic MELL proof, with a test; the client's `nix flake check` | done | "The page"; the client's commits `flake.lock: Update` (779c7fa1) and the test (c865c6b8) on `xkyksmut`; its `nix flake check` passed |
