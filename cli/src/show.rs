@@ -11,8 +11,9 @@ use linlog::export::svg::MathFont;
 use linlog::export::{Drawable, Form, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::{Compact, Sides, TextOptions};
 use linlog::{
-    CheckError, Criterion, Derivation, Error, ErrorKind, Forest, Limits, MellStructure, Mode,
-    Proof, ProofStructure, Reading, Refusal, Sequent, Size, ViewOptions,
+    CheckError, ClassicalSequent, ClassicalSides, Criterion, Derivation, Error, ErrorKind, Forest,
+    Limits, MellStructure, Mode, Order, Proof, ProofStructure, Reading, Refusal, Sequent, Size,
+    TwoSided, ViewOptions, Written as Writing,
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Write};
@@ -111,6 +112,17 @@ impl Show {
             verdict: !output.no_verdict,
             abbreviate: output.abbreviate.0.map(|n| n as usize),
         })
+    }
+
+    /// Returns whether a derivation in `mode` is drawn two-sided as its
+    /// sequent was written: where the view asks it, in a commutative
+    /// classical mode, in every format but rocq, whose certificate is the
+    /// one-sided proof's.
+    pub(crate) fn as_written(&self, mode: Mode) -> bool {
+        self.view.classical == ClassicalSides::Two
+            && !mode.is_intuitionistic()
+            && mode.order() == Order::Commutative
+            && self.format != Format::Rocq
     }
 
     /// A derivation of any size within `limits`, shown as `view` says, in
@@ -503,10 +515,18 @@ pub(crate) fn disproof_into(
 /// built and written and whose reason `why` then gives. A derivation cut
 /// short by `halt` stays written as far as it came. Fails with the
 /// checker's complaint, with formulas, on a proof that is none, and on a
-/// derivation that has no certificate, before anything is written.
+/// derivation that has no certificate, before anything is written. Drawn
+/// two-sided where [`Show::as_written`] says, as `writing` records the
+/// sequent was written, or where it records nothing as its one-sided
+/// syntax writes it.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "what to draw, where, and how it may stop, which every caller has apart"
+)]
 pub(crate) fn derivation(
     proof: &Proof,
     mode: Mode,
+    writing: Option<&[Writing]>,
     show: &Show,
     mut halt: impl FnMut() -> bool,
     why: impl Fn() -> String,
@@ -582,6 +602,22 @@ pub(crate) fn derivation(
             return Ok(Shown::LeftOut(not_built(&error, size)));
         }
     };
+    if show.as_written(mode) {
+        let one_sided;
+        let writing = match writing {
+            Some(writing) => writing,
+            None => {
+                // The proof's sequent passed the bounds already.
+                let unbounded = Limits::default().with_occurrences(None);
+                one_sided = ClassicalSequent::read_one_sided(proof.sequent().clone(), &unbounded)?;
+                one_sided.writing()
+            }
+        };
+        return match TwoSided::new(&d, writing, &show.limits) {
+            Ok(view) => shown(view, fit, show, halt, why, prefix, out),
+            Err(error) => Ok(Shown::LeftOut(not_built(&error, || None))),
+        };
+    }
     shown(d, fit, show, halt, why, prefix, out)
 }
 
@@ -622,6 +658,29 @@ impl Written for Derivation<'_> {
         stop: impl FnMut(linlog::Progress) -> bool,
     ) -> Result<(), Error> {
         Derivation::write_text(self, options, out, stop)
+    }
+}
+
+impl Written for TwoSided<'_> {
+    fn drawable(&self) -> Drawable<'_> {
+        self.into()
+    }
+
+    fn text_size(&self, options: &TextOptions) -> (usize, usize) {
+        TwoSided::text_size(self, options)
+    }
+
+    fn inferences(&self) -> usize {
+        self.len()
+    }
+
+    fn write_text(
+        &self,
+        options: &TextOptions,
+        out: &mut impl Write,
+        stop: impl FnMut(linlog::Progress) -> bool,
+    ) -> Result<(), Error> {
+        TwoSided::write_text(self, options, out, stop)
     }
 }
 
@@ -1217,6 +1276,7 @@ mod tests {
         let shown = derivation(
             &proof,
             Mode::CLASSICAL,
+            None,
             &show,
             || true,
             || "the time limit of 1s was reached".to_owned(),

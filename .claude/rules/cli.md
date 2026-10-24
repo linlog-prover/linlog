@@ -520,6 +520,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   the compact tree). Rocq's derivation is always built with
   `Compact::Never`, since a certificate names every formula it weakens.
   The session has no flag: its grafts are never compact.
+- **`--classical-sides one|two`** (`ClassicalSidesArg`, onto
+  `ViewOptions::classical`, on `prove`, a batch included, and `check`):
+  `two` draws a derivation of a commutative classical mode two-sided as
+  its sequent was written (`Show::as_written`; never for rocq, whose
+  certificate is the one-sided proof's). The record is kept only then:
+  `io::written_in` reads the text of such a mode with
+  `ClassicalSequent::parse_within` when asked (`keep`), so the default
+  path parses as before; `show::derivation` takes it as `writing`, and
+  where there is none (JSON, LLTP, `.spec`, `check`, a session) reads
+  the proof's sequent one-sided. The fit test before building uses the
+  one-sided `Size`; `shown` measures the view's own tree after.
 - **A text tree that does not fit the terminal is not printed** (`--tree
   auto`, the default; `Show::fit`): when standard output is a terminal,
   there is no `--output` and the format is `text`, the tree is printed

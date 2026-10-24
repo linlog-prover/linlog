@@ -1043,6 +1043,38 @@ pub(crate) struct OutputArgs {
     /// star (`?w*`), in every format but rocq (view.compact)
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = CompactArg::Auto)]
     pub(crate) compact: CompactArg,
+    /// How a derivation of classical linear logic is drawn: one-sided, or
+    /// two-sided as the sequent was written, in every format but rocq
+    /// (view.classical)
+    ///
+    /// Two-sided, every sequent has its formulas on the sides of `⊢` they
+    /// were written on, the rules are named by side (`⊗L`, `⅋R`, `⊸L`,
+    /// …), and where a negation was written a step `~L` or `~R` moves the
+    /// formula across `⊢`. A sequent given as JSON, LLTP or .spec is
+    /// written one-sided, its antecedents on the left. Derivations of
+    /// intuitionistic linear logic are two-sided always, and those of the
+    /// cyclic mode one-sided.
+    #[arg(long, value_enum, value_name = "SIDES", default_value_t = ClassicalSidesArg::One)]
+    pub(crate) classical_sides: ClassicalSidesArg,
+}
+
+/// How a derivation of classical linear logic is drawn.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ClassicalSidesArg {
+    /// One-sided, every formula right of `⊢`
+    One,
+    /// Two-sided, as the sequent was written
+    Two,
+}
+
+impl From<ClassicalSidesArg> for linlog::ClassicalSides {
+    /// Returns the library's value of the switch.
+    fn from(sides: ClassicalSidesArg) -> Self {
+        match sides {
+            ClassicalSidesArg::One => Self::One,
+            ClassicalSidesArg::Two => Self::Two,
+        }
+    }
 }
 
 /// When a derivation draws a run of one structural rule as one inference.

@@ -757,6 +757,39 @@ provable (IMELL, intuitionistic, horn engine)
 !A, !B, !C ⊢ 1
 ```
 
+A classical derivation is drawn one-sided by default, as the calculus
+is. `--classical-sides two` draws it two-sided as the sequent was written,
+in every format but Rocq: every sequent has its formulas on the sides of
+`⊢` they were written on, the rules are named by side (`⊗L`, `⅋R`, `⊸L`,
+…), and where a negation was written a step `~L` or `~R` moves the
+formula across `⊢`, which the one-sided proof does without. The text
+keeps how each formula was written; a sequent given as JSON, LLTP or
+`.spec` is written one-sided, its antecedents on the left.
+
+```console
+$ linlog prove --classical-sides two "A par B |- ~(~A * ~B)"
+provable (MLL, classical, focus engine)
+───── ax   ───── ax
+A ⊢ A      B ⊢ B
+──────────────── ⅋L
+  A ⅋ B ⊢ A, B
+  ───────────── ~L
+  A ⅋ B, ~A ⊢ B
+ ─────────────── ~L
+ A ⅋ B, ~A, ~B ⊢
+ ──────────────── ⊗L
+ A ⅋ B, ~A ⊗ ~B ⊢
+────────────────── ~R
+A ⅋ B ⊢ ~(~A ⊗ ~B)
+$ linlog prove --classical-sides two --format latex "A -o B, A |- B"
+% provable (MLL, classical, focus engine)
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap\mathrm{L}$]{A \multimap B, A &\vdash B}
+\end{prooftree}
+```
+
 `--timeout` and Ctrl-C hold while a derivation is built and written as
 they do during the search, and an `--output` file holds a whole output or
 is left as it was.
@@ -1832,7 +1865,10 @@ Built:
   in one pass and in memory proportional to the proof,
   and a derivation view that unfolds a term into the tree of the standard
   sequent calculus, one-sided or two-sided with the rules of ILL, printed
-  as text. The size of a derivation is computed from the term without
+  as text. A classical derivation is drawn two-sided on request, as its
+  sequent was written: the parser records how every subformula was
+  written (its side of `⊢`, and `A ⊸ B` against `A⊥ ⅋ B`), the rules are
+  named by side, and a negation step stands where a negation was written. The size of a derivation is computed from the term without
   building it, and every path that builds one (the text tree, the
   exports, the search inside an interactive proof) keeps within a bound
   on that size, which is an option.
@@ -2079,7 +2115,9 @@ The library keeps a sequent as a compact arena of subformulas in negation
 normal form, one-sided (`Γ ⊢ Δ` becomes `⊢ Γ^⊥, Δ`); an intuitionistic
 sequent is written two-sided, lowered once to the same arena with the
 side of every subformula recorded, and read back two-sided through those
-sides, with no second representation. On top of that it detects the
+sides, with no second representation; a classical sequent's text keeps,
+beside the arena, a byte per subformula occurrence saying how it was
+written, from which its derivations are drawn two-sided. On top of that it detects the
 fragment a sequent lives in and builds the occurrence forest, the
 numbering of subformula occurrences that every proof-search engine, proof
 checker and proof net works on. A proof is a compact term over those

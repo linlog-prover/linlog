@@ -7,7 +7,7 @@
 //! are decided.
 
 use crate::argument_parsing::{Format, InputFormat, ProveArgs};
-use crate::io::{self, admit, sequent_in};
+use crate::io::{self, admit, written_in};
 use crate::limit::Deadline;
 use crate::ordinary;
 use crate::prove::{
@@ -657,24 +657,29 @@ impl Shared {
         let mode = entry.mode.unwrap_or(self.mode);
         let read = self.read;
         let logic = self.ordinary;
-        let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
+        // How a sequent was written is kept for a derivation drawn so.
+        let keep = self.show.view.classical == linlog::ClassicalSides::Two;
+        type Loaded = (Forest, Option<Image>, Option<Box<[linlog::Written]>>);
+        let loaded = deadline.within(move || -> Result<Loaded> {
             let (text, format) = match source {
                 Source::Bad(why) => return Err(anyhow!(why)),
                 Source::Text(text, format) => (text, format),
                 Source::File(path, format) => (io::read(Some(&path), "sequent", memory)?, format),
             };
-            let (sequent, image) = if let Some(options) = logic {
+            let (sequent, image, writing) = if let Some(options) = logic {
                 let sequent = ordinary::sequent_in(&text, format, most)?;
                 let image = ordinary::image(&options, &sequent, most)?;
-                (image.sequent().clone(), Some(image))
+                (image.sequent().clone(), Some(image), None)
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
             } else {
-                (sequent_in(&text, format, most, mode, &read)?, None)
+                let (sequent, writing) = written_in(&text, format, most, mode, &read, keep)?;
+                (sequent, None, writing)
             };
             Ok((
                 Forest::from_owned(admit(sequent, most)?, &io::bound(most))?,
                 image,
+                writing,
             ))
         })?;
         let Some(forest) = loaded else {
@@ -685,7 +690,7 @@ impl Shared {
                 status: Status::Unknown,
             });
         };
-        let (forest, image) = forest?;
+        let (forest, image, writing) = forest?;
         let sequent = forest.sequent();
         let mode = match &image {
             Some(image) => image.mode(),
@@ -741,7 +746,7 @@ impl Shared {
                 &entry.name,
                 directory,
                 &outcome,
-                (mode, image.as_ref()),
+                (mode, image.as_ref(), writing.as_deref()),
                 &line,
                 &deadline,
             )?
@@ -764,7 +769,7 @@ impl Shared {
         name: &str,
         directory: &Path,
         outcome: &Outcome,
-        (mode, image): (Mode, Option<&Image>),
+        (mode, image, writing): (Mode, Option<&Image>, Option<&[linlog::Written]>),
         line: &str,
         deadline: &Deadline,
     ) -> Result<Option<String>> {
@@ -815,7 +820,16 @@ impl Shared {
                     prefix.as_deref(),
                     &mut out,
                 )?,
-                _ => derivation(proof, mode, show, halt, why, prefix.as_deref(), &mut out)?,
+                _ => derivation(
+                    proof,
+                    mode,
+                    writing,
+                    show,
+                    halt,
+                    why,
+                    prefix.as_deref(),
+                    &mut out,
+                )?,
             }
         };
         match shown {

@@ -457,8 +457,16 @@ impl Session {
                     clear_interrupt();
                     let stopped = || "interrupted".to_owned();
                     let prefix = (!text.is_empty()).then_some("\n");
-                    match derivation(&proof, mode, &show, interrupted, stopped, prefix, &mut text)?
-                    {
+                    match derivation(
+                        &proof,
+                        mode,
+                        None,
+                        &show,
+                        interrupted,
+                        stopped,
+                        prefix,
+                        &mut text,
+                    )? {
                         Shown::LeftOut(line) | Shown::Cut(line) => {
                             text.push('\n');
                             text.push_str(&line);

@@ -245,6 +245,6 @@ fn check_into(
         return Ok((status, show.close(out, shown, line.as_deref())?));
     }
     let halt = every_steps(&over);
-    let shown = derivation(proof, mode, show, halt, why, prefix.as_deref(), out)?;
+    let shown = derivation(proof, mode, None, show, halt, why, prefix.as_deref(), out)?;
     Ok((status, show.close(out, shown, line.as_deref())?))
 }

@@ -5,7 +5,10 @@ use crate::argument_parsing::{InputFormat, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::wire::Within;
-use linlog::{Forest, IllSequent, IllSyntax, InputOptions, Limits, Mode, Order, Sequent};
+use linlog::{
+    ClassicalSequent, Forest, IllSequent, IllSyntax, InputOptions, Limits, Mode, Order, Sequent,
+    Written,
+};
 use serde::de::DeserializeSeed;
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Read, Write};
@@ -296,6 +299,37 @@ pub(crate) fn sequent_in(
     }
 }
 
+/// A sequent as it was read, with how it was written where the reading
+/// kept that.
+pub(crate) type AsRead = (Sequent, Option<Box<[Written]>>);
+
+/// Reads a sequent as [`sequent_in`] does, and where `keep` is set and
+/// the sequent is text of a commutative classical mode, keeps how it was
+/// written, for a derivation drawn two-sided.
+///
+/// # Errors
+///
+/// As [`sequent_in`] does.
+pub(crate) fn written_in(
+    text: &str,
+    format: InputFormat,
+    most: u64,
+    mode: Mode,
+    read: &InputOptions,
+    keep: bool,
+) -> Result<AsRead> {
+    let text_format = matches!(format, InputFormat::Auto | InputFormat::Text);
+    if keep && text_format && !mode.is_intuitionistic() && mode.order() == Order::Commutative {
+        let written = ClassicalSequent::parse_within(text, &bound(most)).map_err(|e| match e {
+            linlog::Error::Parse(_) => crate::parse_error(text, e),
+            e => refused(e, most),
+        })?;
+        let writing = written.writing().into();
+        return Ok((written.into_sequent(), Some(writing)));
+    }
+    Ok((sequent_in(text, format, most, mode, read)?, None))
+}
+
 /// Returns whether a JSON text is an intuitionistic sequent's document,
 /// which has `hypotheses` where a sequent's has `roots`.
 fn is_ill_json(text: &str) -> bool {
@@ -409,12 +443,29 @@ impl SequentInput {
         read: &InputOptions,
         mode: Mode,
     ) -> Result<Sequent> {
+        Ok(self.written(limits, read, mode, false)?.0)
+    }
+
+    /// Reads the one sequent as [`sequent`](Self::sequent) does, and where
+    /// `keep` is set keeps how it was written ([`written_in`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`sequent`](Self::sequent) does.
+    pub(crate) fn written(
+        &self,
+        limits: &Limits,
+        read: &InputOptions,
+        mode: Mode,
+        keep: bool,
+    ) -> Result<AsRead> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
         let (text, format) = self.text(false, limits.memory_bytes)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        let sequent = admit(sequent_in(&text, format, most, mode, read)?, most)?;
+        let (sequent, writing) = written_in(&text, format, most, mode, read, keep)?;
+        let sequent = admit(sequent, most)?;
         // A `.p` file is LLTP's unless `--logic` says otherwise, and the
         // ILTP library's problems are `.p` files too: one that reads both
         // ways gets a note, since its verdicts differ.
@@ -427,7 +478,7 @@ impl SequentInput {
                  problem of ordinary logic, which --logic reads"
             );
         }
-        Ok(sequent)
+        Ok((sequent, writing))
     }
 
     /// Reads one formula or sequent of ordinary logic and returns its image
@@ -457,7 +508,8 @@ impl SequentInput {
     }
 
     /// Reads the sequent and lays it out as a forest, within the limits
-    /// as [`sequent`](Self::sequent) reads.
+    /// as [`sequent`](Self::sequent) reads, with how it was written where
+    /// `keep` asks it ([`written_in`]).
     ///
     /// # Errors
     ///
@@ -467,12 +519,11 @@ impl SequentInput {
         limits: &Limits,
         read: &InputOptions,
         mode: Mode,
-    ) -> Result<Forest> {
+        keep: bool,
+    ) -> Result<(Forest, Option<Box<[Written]>>)> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
-        Ok(Forest::from_owned(
-            self.sequent(limits, read, mode)?,
-            &bound(most),
-        )?)
+        let (sequent, writing) = self.written(limits, read, mode, keep)?;
+        Ok((Forest::from_owned(sequent, &bound(most))?, writing))
     }
 }
 

@@ -204,19 +204,21 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
     let limits = settings.limits;
     let (mode, read) = (args.mode.mode(), settings.input);
     let ordinary = crate::settings::ordinary(&settings, &args.logic);
+    // How the sequent was written is kept for a derivation drawn so.
+    let keep = settings.view.classical == linlog::ClassicalSides::Two;
     let loaded = deadline.within(move || match ordinary {
         Some(options) => input
             .image(&options, &limits)
-            .map(|(forest, image)| (forest, Some(image))),
+            .map(|(forest, image)| (forest, Some(image), None)),
         None => input
-            .forest(&limits, &read, mode)
-            .map(|forest| (forest, None)),
+            .forest(&limits, &read, mode, keep)
+            .map(|(forest, writing)| (forest, None, writing)),
     })?;
     let Some(forest) = loaded else {
         let limit = deadline.limit().expect("only a limit passes");
         return unread_into(args, limit);
     };
-    let (forest, image) = forest?;
+    let (forest, image, writing) = forest?;
     let sequent = forest.sequent();
     let mode = image
         .as_ref()
@@ -321,7 +323,16 @@ pub(crate) fn prove(args: &ProveArgs, given: &Given) -> Result<Status> {
                     prefix.as_deref(),
                     &mut out,
                 )?,
-                _ => derivation(proof, mode, &show, halt, why, prefix.as_deref(), &mut out)?,
+                _ => derivation(
+                    proof,
+                    mode,
+                    writing.as_deref(),
+                    &show,
+                    halt,
+                    why,
+                    prefix.as_deref(),
+                    &mut out,
+                )?,
             },
             (Verdict::Unprovable(disproof), Format::Rocq, false) => {
                 disproof_into(disproof, image.as_ref(), &show, prefix.as_deref(), &mut out)

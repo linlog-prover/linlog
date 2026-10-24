@@ -229,6 +229,9 @@ impl ProveArgs {
         if apply.set("compact") {
             settings.view.compact = self.output.compact.into();
         }
+        if apply.set("classical_sides") {
+            settings.view.classical = self.output.classical_sides.into();
+        }
         let batch = &self.batch;
         if let Some(workers) = batch.workers {
             settings.batch.workers = workers.clamp(1, Options::MAX_JOBS);
@@ -310,6 +313,9 @@ impl CheckArgs {
         }
         if apply.set("compact") {
             settings.view.compact = self.output.compact.into();
+        }
+        if apply.set("classical_sides") {
+            settings.view.classical = self.output.classical_sides.into();
         }
         Ok(settings)
     }
