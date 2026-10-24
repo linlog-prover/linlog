@@ -141,6 +141,7 @@ pub(super) fn goal(
         roots: members.iter().map(|&o| forest.term(o)).collect(),
         atoms: sequent.atom_names().to_vec(),
         antecedents: None,
+        cuts: vec![],
     };
     let own = Forest::within(&own, limits)?;
     let mut answer = run(&own)?;

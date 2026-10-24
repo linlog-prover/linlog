@@ -13,7 +13,7 @@ Import ListNotations.
 Open Scope string_scope.
 
 (** [⊢ A⊥, A, B⊥, B] with Mix: the two axioms side by side. *)
-Lemma mix_of_axioms : ll {| mix := true; weakening := false |}
+Lemma mix_of_axioms : ll {| mix := true; weakening := false; cut := false |}
   [covar "A"; var "A"; covar "B"; var "B"].
 Proof.
   apply (soundness_mix String.eqb String.eqb_spec (Mix (Ax "A") (Ax "B"))).
@@ -22,7 +22,7 @@ Qed.
 
 (** [⊢ ⊥ ⅋ ⊥, 1, 1] with Mix, which classical linear logic does not
     derive. *)
-Lemma mix_of_units : ll (atom := string) {| mix := true; weakening := false |}
+Lemma mix_of_units : ll (atom := string) {| mix := true; weakening := false; cut := false |}
   [parr bot bot; one; one].
 Proof.
   apply (soundness_mix String.eqb String.eqb_spec
@@ -31,7 +31,7 @@ Proof.
 Qed.
 
 (** [⊢ A⊥, A, B] in affine logic: [B] weakened. *)
-Lemma weakening_of_atom : ll {| mix := false; weakening := true |}
+Lemma weakening_of_atom : ll {| mix := false; weakening := true; cut := false |}
   [var "B"; covar "A"; var "A"].
 Proof.
   apply (soundness_affine String.eqb String.eqb_spec (Weaken (var "B") (Ax "A"))).
@@ -39,7 +39,7 @@ Proof.
 Qed.
 
 (** [⊢ A ⊗ 1, A⊥, C] in affine logic: [C] weakened below a [⊗]. *)
-Lemma weakening_under_tensor : ll {| mix := false; weakening := true |}
+Lemma weakening_under_tensor : ll {| mix := false; weakening := true; cut := false |}
   [tens (var "A") one; covar "A"; var "C"].
 Proof.
   apply (soundness_affine String.eqb String.eqb_spec
@@ -48,10 +48,10 @@ Proof.
 Qed.
 
 Lemma rejects_mix_in_affine :
-  check String.eqb {| mix := false; weakening := true |} (Mix One One) [one; one] = false.
+  check String.eqb {| mix := false; weakening := true; cut := false |} (Mix One One) [one; one] = false.
 Proof. reflexivity. Qed.
 
 Lemma rejects_weakening_with_mix :
-  check String.eqb {| mix := true; weakening := false |}
+  check String.eqb {| mix := true; weakening := false; cut := false |}
     (Weaken (var "B") (Ax "A")) [var "B"; covar "A"; var "A"] = false.
 Proof. reflexivity. Qed.

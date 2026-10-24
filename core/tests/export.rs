@@ -26,8 +26,9 @@ use linlog::export::{Form, latex, typst};
 use linlog::proofs::{Compact, Sides};
 use linlog::proofs::{Labels, OpenGoal};
 use linlog::{
-    Criterion, Derivation, Forest, GoalId, Inference, Interactive, Limits, MellStructure, Mode,
-    OccId, Options, Order, Parts, Placed, Proof, ProofStructure, Step, VertexId, ViewOptions,
+    Criterion, CutFormula, Derivation, Forest, GoalId, IllSequent, Inference, InputOptions,
+    Interactive, Limits, MellStructure, Mode, OccId, Options, Order, Parts, Placed, Proof,
+    ProofStructure, Step, VertexId, ViewOptions,
 };
 use linlog::{Error, Refusal};
 use linlog::{Named, Rule, Sequent, Verdict, prove};
@@ -78,6 +79,33 @@ fn proof(input: &str, mode: Mode) -> Proof {
         panic!("{input} is provable");
     };
     *proof
+}
+
+/// Returns a proof of `input` in `mode` with a cut on `formula` at its
+/// root, the formulas at `left` going to the cut's first premise, both
+/// premises closed by the search.
+fn cut_proof(input: &str, mode: Mode, formula: &str, left: &[usize]) -> Proof {
+    let limits = Limits::default();
+    let sequent = if mode.is_intuitionistic() {
+        IllSequent::parse_within(input, &limits)
+            .unwrap()
+            .into_sequent()
+    } else {
+        input.parse().unwrap()
+    };
+    let mut session = Interactive::new(&sequent, mode).unwrap();
+    let root = session.goals().next().unwrap();
+    let formula = CutFormula::parse_within(formula, mode, &InputOptions::default(), &limits);
+    session.cut(root, &formula.unwrap(), left, &limits).unwrap();
+    for (_, closed) in session.close_all(
+        &Options::default(),
+        &ViewOptions::default(),
+        &limits,
+        |_| false,
+    ) {
+        assert!(closed.unwrap().grafted.is_ok());
+    }
+    session.proof(&limits, |_| false).unwrap()
 }
 
 /// Pins a derivation's certificates as the snapshots `name.v`, for
@@ -367,6 +395,20 @@ fn every_label() {
             pin_fragments(name, &derivation, Labels::Subscript, OpenGoal::Dots);
         }
     }
+    // A cut on `A ⊸ B`, from `A ⊸ B ⊢ A ⊸ B` and `A, A ⊸ B ⊢ B`.
+    for (name, mode) in [("cut", Mode::CLASSICAL), ("cut_ill", Mode::INTUITIONISTIC)] {
+        let proof = cut_proof("A, A -o B |- B", mode, "A -o B", &[1]);
+        let view = ViewOptions::default().with_sides(if mode.is_intuitionistic() {
+            Sides::Two
+        } else {
+            Sides::One
+        });
+        let derivation = proof.derivation_within(&view, &Limits::default(), |_| false);
+        let derivation = derivation.unwrap();
+        rules.extend(derivation.inferences().iter().map(Inference::rule));
+        pin(name, &derivation);
+        pin_linlog(name, &derivation);
+    }
     let missing: Vec<Named> = Named::ALL
         .into_iter()
         .filter(|r| r.rule != Rule::Open && !rules.contains(r))
@@ -476,10 +518,9 @@ fn certificates() {
             .unwrap()
     };
     assert!(by_mode(&ll, Sides::One).starts_with("Lemma certificate (A B : formula) : ll ["));
-    let mixed = "Lemma certificate : ll (atom := string) {| mix := true; weakening := false |} [";
+    let mixed = "Lemma certificate : ll (atom := string) {| mix := true; weakening := false; cut := false |} [";
     assert!(by_mode(&mix, Sides::One).starts_with(mixed));
-    let weakened =
-        "Lemma certificate : ll (atom := string) {| mix := false; weakening := true |} [";
+    let weakened = "Lemma certificate : ll (atom := string) {| mix := false; weakening := true; cut := false |} [";
     assert!(by_mode(&affine, Sides::One).starts_with(weakened));
     let ill = proof("A, A -o B |- B", Mode::INTUITIONISTIC);
     let two_sided = "Lemma certificate : ill (atom := string) intuitionistic [";

@@ -195,6 +195,17 @@ pub enum Error {
         /// How many root formulas it has.
         roots: usize,
     },
+    /// A cut formula was given as a sequent of `formulas` root formulas,
+    /// or with cut formulas of its own, where one formula is the cut's.
+    #[error(
+        "a cut formula is one formula, not {}",
+        counted(*.formulas, "formula", "formulas")
+    )]
+    #[non_exhaustive]
+    CutFormula {
+        /// How many root formulas the sequent given has.
+        formulas: usize,
+    },
     /// An atom name read from a file or given to a constructor is no
     /// identifier of the text syntax, or is one of its keywords or a word
     /// reserved for a later version of it, so that the sequent written as
@@ -513,6 +524,7 @@ impl Error {
         "index_out_of_bounds",
         "not_topological",
         "antecedents",
+        "cut_formula",
         "atom_name",
         "inconsistent_session",
         "invalid_proof",
@@ -571,6 +583,7 @@ impl Error {
             Self::IndexOutOfBounds { .. }
             | Self::NotTopological { .. }
             | Self::Antecedents { .. }
+            | Self::CutFormula { .. }
             | Self::AtomName { .. } => Malformed,
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => Malformed,
@@ -634,6 +647,7 @@ impl Error {
             Self::IndexOutOfBounds { .. } => "index_out_of_bounds",
             Self::NotTopological { .. } => "not_topological",
             Self::Antecedents { .. } => "antecedents",
+            Self::CutFormula { .. } => "cut_formula",
             Self::AtomName { .. } => "atom_name",
             #[cfg(feature = "interactive")]
             Self::InconsistentSession { .. } => "inconsistent_session",
@@ -917,6 +931,7 @@ mod tests {
                 antecedents: 2,
                 roots: 1,
             },
+            Error::CutFormula { formulas: 2 },
             Error::AtomName { name: "par".into() },
             Error::Check(invalid.clone()),
             Error::Check(CheckError::Refused(Refused {
@@ -1123,6 +1138,7 @@ mod tests {
             | Error::IndexOutOfBounds { .. }
             | Error::NotTopological { .. }
             | Error::Antecedents { .. }
+            | Error::CutFormula { .. }
             | Error::AtomName { .. }
             | Error::Check(_)
             | Error::Refutation(_)

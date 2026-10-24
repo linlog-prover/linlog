@@ -54,8 +54,10 @@ Inductive proof : Type :=
 | Weaken (A : formula) (premise : proof)
     (** [⊢ Θ ; Γ, A] from [⊢ Θ ; Γ], for a [?] formula [A] in every
         calculus and for any [A] with [weakening] *)
-| Mix (left right : proof).
+| Mix (left right : proof)
     (** [⊢ Θ ; Γ, Δ] from [⊢ Θ ; Γ] and [⊢ Θ ; Δ], with [mix] *)
+| Cut (A : formula) (left right : proof).
+    (** [⊢ Θ ; Γ, Δ] from [⊢ Θ ; Γ, A] and [⊢ Θ ; Δ, A⊥], with [cut] *)
 
 End Proofs.
 

@@ -126,9 +126,12 @@ Inductive iproof : Type :=
     (** weakening of a [!] hypothesis, [Γ, !A ⊢ C] from [Γ ⊢ C] *)
 | ICo (A : iformula) (premise : iproof)
     (** contraction, [Γ, !A ⊢ C] from [Γ, !A, !A ⊢ C] *)
-| IWeaken (A : iformula) (premise : iproof).
+| IWeaken (A : iformula) (premise : iproof)
     (** weakening of any hypothesis, [Γ, A ⊢ C] from [Γ ⊢ C], with
         [iweakening] *)
+| ICut (A : iformula) (left right : iproof).
+    (** [Γ, Δ ⊢ C] from [Γ ⊢ A] and [Δ, A ⊢ C], with [icut]: either
+        premise may be the one that proves [A] *)
 
 (** ** Multisets, as lists compared through [iformula_eqb] *)
 
@@ -153,6 +156,28 @@ Fixpoint unoc (l : list iformula) : option (list iformula) :=
   | [] => Some []
   | ioc A :: l' => option_map (cons A) (unoc l')
   | _ :: _ => None
+  end.
+
+(** The conclusion [Γ1, Γ2 ⊢ C2] of a cut on [A] whose first premise
+    [Γ1 ⊢ C1] proves [A] and whose second [Γ2 ⊢ C2] has it as a
+    hypothesis, or [None] when they do not. *)
+Definition cut_by (A : iformula) (l1 : list iformula) (C1 : iformula)
+    (l2 : list iformula) (C2 : iformula) : option (list iformula * iformula) :=
+  if eqb A C1 then
+    match pick A l2 with
+    | Some l2' => Some (l1 ++ l2', C2)
+    | None => None
+    end
+  else None.
+
+(** The conclusion of a cut on [A] from its premises [Γ1 ⊢ C1] and
+    [Γ2 ⊢ C2], whichever of them proves [A]. Where both orders apply,
+    they give the same sequent: then [C1] and [C2] are both [A]. *)
+Definition icut_conclusion (A : iformula) (l1 : list iformula) (C1 : iformula)
+    (l2 : list iformula) (C2 : iformula) : option (list iformula * iformula) :=
+  match cut_by A l1 C1 l2 C2 with
+  | Some s => Some s
+  | None => cut_by A l2 C2 l1 C1
   end.
 
 (** ** The pass *)
@@ -298,6 +323,13 @@ Fixpoint iderive (R : irules) (p : iproof) : option (list iformula * iformula) :
         | None => None
         end
       else None
+  | ICut A q r =>
+      if icut R then
+        match iderive R q, iderive R r with
+        | Some (l1, C1), Some (l2, C2) => icut_conclusion A l1 C1 l2 C2
+        | _, _ => None
+        end
+      else None
   end.
 
 (** Whether [p] proves [hypotheses ⊢ goal] in [R]: its conclusion has
@@ -393,6 +425,29 @@ Local Ltac premise :=
   | H : ill R ?l ?C |- ill R _ ?C => apply (ex_ir R l _ C H); iperm
   end.
 
+(** A cut's conclusion, from premises whose sequents are derivable, is
+    derivable. *)
+Lemma cut_by_sound : forall A l1 C1 l2 C2 l C,
+  icut R = true -> ill R l1 C1 -> ill R l2 C2 ->
+  cut_by atom_eqb A l1 C1 l2 C2 = Some (l, C) -> ill R l C.
+Proof.
+  unfold cut_by; intros * K H1 H2 E.
+  destruct (eqb_spec A C1) as [-> | _]; [| discriminate].
+  destruct (pick atom_eqb C1 l2) as [l2' |] eqn:P; [| discriminate].
+  injection E as <- <-. apply pick_perm in P.
+  apply (cut_ir R K C1 l1 l2' C2); [exact H1 | exact (ex_ir R _ _ _ H2 P)].
+Qed.
+
+Lemma icut_conclusion_sound : forall A l1 C1 l2 C2 l C,
+  icut R = true -> ill R l1 C1 -> ill R l2 C2 ->
+  icut_conclusion atom_eqb A l1 C1 l2 C2 = Some (l, C) -> ill R l C.
+Proof.
+  unfold icut_conclusion; intros * K H1 H2 E.
+  destruct (cut_by atom_eqb A l1 C1 l2 C2) as [[l' C'] |] eqn:B.
+  - injection E as <- <-. exact (cut_by_sound _ _ _ _ _ _ _ K H1 H2 B).
+  - exact (cut_by_sound _ _ _ _ _ _ _ K H2 H1 E).
+Qed.
+
 (** Every conclusion the pass computes is derivable. *)
 Lemma iderive_sound : forall p l C,
   iderive atom_eqb R p = Some (l, C) -> ill R l C.
@@ -426,13 +481,14 @@ Proof.
   - apply wk_ilr; premise.
   - apply co_ilr; premise.
   - apply weakening_ilr; [assumption | premise].
+  - eapply icut_conclusion_sound; [eassumption | | | eassumption]; eassumption.
 Qed.
 
 End Soundness.
 
 (** A term the checker accepts for a sequent proves it in the
     two-sided calculus [R]: intuitionistic linear logic or its affine
-    variant. *)
+    variant, with or without cut. *)
 Theorem soundness_ill {atom : Type} (atom_eqb : atom -> atom -> bool)
   (atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b)) (R : irules) :
   forall (p : iproof atom) (hypotheses : list (iformula atom)) (goal : iformula atom),

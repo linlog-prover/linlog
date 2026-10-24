@@ -416,7 +416,7 @@ impl Observer for Measure<'_> {
                     Self::unary(&sub, &premise, 1, 0, absorbed)
                 }
             }
-            node @ (Tensor(_, l, r) | Mix(l, r)) => {
+            node @ (Tensor(_, l, r) | Mix(l, r) | Cut(_, l, r)) => {
                 let (pl, pr) = (at(l), at(r));
                 // The rule's sequent holds every shared `?` formula twice,
                 // and one contraction below it per formula takes the
@@ -438,7 +438,23 @@ impl Observer for Measure<'_> {
                     Tensor(o, ..) => self
                         .absorbed(&pl, left(o.occ()), facts.absent[0])
                         .saturating_add(self.absorbed(&pr, right(o.occ()), facts.absent[1])),
+                    Cut(a, ..) => {
+                        let a = a.occ();
+                        // A cut formula's occurrence has its dual.
+                        let dual = forest.dual(a).unwrap();
+                        self.absorbed(&pl, a, facts.absent[0])
+                            .saturating_add(self.absorbed(&pr, dual, facts.absent[1]))
+                    }
                     _ => 0,
+                };
+                // Two-sided, the premise that keeps the conclusion's goal:
+                // the right one of a `⊗` (below), and of a cut the one
+                // whose cut formula is no output there.
+                let goal_right = match node {
+                    Cut(a, ..) => self
+                        .reading
+                        .is_some_and(|reading| reading.position(a.occ()) == Side::Output),
+                    _ => true,
                 };
                 // What the rule's conclusion absorbs goes to the left
                 // premise if it absorbs, else to the right one; two-sided,
@@ -449,7 +465,14 @@ impl Observer for Measure<'_> {
                 // way, so the left premise has its goal.
                 let (reached, reached_goal) = if self.reading.is_some() && pl.absorbs && pr.absorbs
                 {
-                    (pl.reached, pr.reached_goal)
+                    (
+                        pl.reached,
+                        if goal_right {
+                            pr.reached_goal
+                        } else {
+                            pl.reached_goal
+                        },
+                    )
                 } else if pl.absorbs {
                     (pl.reached, pl.reached_goal)
                 } else {
@@ -533,7 +556,7 @@ impl Observer for Measure<'_> {
             // The dereliction's sequent holds the formula twice.
             Copy(a, p) if facts.used => firm(p).and(sub.weight.saturating_add(quest(a.occ()))),
             Copy(_, p) => firm(p).and(sub.weight),
-            Tensor(_, l, r) | Mix(l, r) => {
+            Tensor(_, l, r) | Mix(l, r) | Cut(_, l, r) => {
                 let doubled = facts
                     .shared
                     .iter()
@@ -788,6 +811,7 @@ mod tests {
             roots: vec![TermId::new(0), TermId::new(13)],
             atoms: vec!["a".repeat(1 << 20)],
             antecedents: None,
+            cuts: vec![],
         };
         let forest = Forest::new(&sequent).unwrap();
         assert_eq!(forest.len(), 1 + (1 << 13) - 1);

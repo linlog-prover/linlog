@@ -10,13 +10,18 @@
 //! checker runs (the library's `proof`): every rule is its constructor,
 //! but the exponentials, whose `?` formulas the term keeps in an
 //! unrestricted zone. A `Quest` moves a `?` formula there where it first
-//! appears, at the root or as a subformula of the rule below, so that a
-//! dereliction is a `Copy` from the zone, and a contraction and the
-//! weakening of a `?` formula are implicit in it; a promotion then finds
-//! its `?` context in the zone, as the checker's `Bang` requires. A
-//! two-sided derivation becomes a two-sided term (the library's `iproof`),
-//! one constructor per two-sided rule, with the context of a `⊤` on the
-//! right and of a `0` on the left written out.
+//! appears, at the root, as a subformula of the rule below or as a cut
+//! formula or its dual in a cut's premise, so that a dereliction is a
+//! `Copy` from the zone, and a contraction and the weakening of a `?`
+//! formula are implicit in it; a promotion then finds its `?` context in
+//! the zone, as the checker's `Bang` requires. A two-sided derivation
+//! becomes a two-sided term (the library's `iproof`), one constructor per
+//! two-sided rule, with the context of a `⊤` on the right and of a `0` on
+//! the left written out.
+//!
+//! The library names the calculi without cut; a derivation with a cut
+//! states its calculus as a record literal with the cut, proved by the
+//! one-sided theorem for every calculus or by the two-sided one.
 //!
 //! Atoms are Rocq strings, which take any name, so no atom is renamed.
 
@@ -33,13 +38,21 @@ use crate::sequents::{Stop, Stops, Term};
 use std::fmt::Write;
 
 /// The optional rules of the one-sided calculus a certificate states, and
-/// the weakening of the two-sided one.
+/// the weakening and the cut of the two-sided one.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Calculus {
     /// Binary Mix.
     pub(super) mix: bool,
     /// The weakening of any formula.
     pub(super) weakening: bool,
+    /// The cut rule.
+    pub(super) cut: bool,
+}
+
+/// Returns the library's one-sided calculus with these optional rules as
+/// a record literal, which a reader checks against `Calculus.v` alone.
+fn literal(mix: bool, weakening: bool, cut: bool) -> String {
+    format!("{{| mix := {mix}; weakening := {weakening}; cut := {cut} |}}")
 }
 
 /// Writes the certificate of a derivation for linlog's library, one
@@ -73,10 +86,12 @@ pub(super) fn write(
     let root = derivation.inference(derivation.root());
     write!(term.out, "Lemma {} : ", options.lemma)?;
     let theorem = if let Some(reading) = reading {
-        let rules = if calculus.weakening {
-            "affine"
-        } else {
-            "intuitionistic"
+        // The library names the calculi without cut; one with cut is a
+        // record literal.
+        let rules = match (calculus.weakening, calculus.cut) {
+            (true, false) => "affine".to_owned(),
+            (false, false) => "intuitionistic".to_owned(),
+            (weakening, true) => format!("{{| iweakening := {weakening}; icut := true |}}"),
         };
         write!(term.out, "ill (atom := string) {rules} [")?;
         let hypotheses = root
@@ -94,11 +109,16 @@ pub(super) fn write(
         term.iformula(goal(reading, &root.sequent), true);
         format!("soundness_ill String.eqb String.eqb_spec {rules}")
     } else {
-        let (rules, theorem) = match (calculus.mix, calculus.weakening) {
-            (false, false) => ("classical", "soundness_classical"),
-            (true, false) => ("{| mix := true; weakening := false |}", "soundness_mix"),
-            (false, true) => ("{| mix := false; weakening := true |}", "soundness_affine"),
-            (true, true) => ("{| mix := true; weakening := true |}", "soundness"),
+        let Calculus {
+            mix,
+            weakening,
+            cut,
+        } = calculus;
+        let (rules, theorem) = match (mix, weakening, cut) {
+            (false, false, false) => ("classical".to_owned(), "soundness_classical"),
+            (true, false, false) => (literal(mix, weakening, cut), "soundness_mix"),
+            (false, true, false) => (literal(mix, weakening, cut), "soundness_affine"),
+            _ => (literal(mix, weakening, cut), "soundness"),
         };
         write!(term.out, "ll (atom := string) {rules} [")?;
         for (i, m) in root.sequent.iter().enumerate() {
@@ -109,7 +129,7 @@ pub(super) fn write(
         }
         term.out.push(']');
         // The general theorem takes the calculus, its instances name it.
-        if calculus.mix && calculus.weakening {
+        if theorem == "soundness" {
             format!("{theorem} String.eqb String.eqb_spec {rules}")
         } else {
             format!("{theorem} String.eqb String.eqb_spec")
@@ -150,7 +170,9 @@ struct Writer<'a> {
     /// The text not yet handed on.
     out: String,
     /// Per inference, the `?` formulas of its sequent that first appear
-    /// there, which the one-sided term moves into the unrestricted zone.
+    /// there, at the root, as a subformula of the rule below or as a cut
+    /// formula or its dual, which the one-sided term moves into the
+    /// unrestricted zone.
     quests: Vec<Vec<OccId>>,
     /// Per inference, the brackets its term leaves open for its premises.
     closes: Vec<u32>,
@@ -176,6 +198,17 @@ impl<'a> Writer<'a> {
                 .filter(|&o| is_quest(o))
                 .collect();
             for inference in derivation.inferences() {
+                // A cut formula and its dual first appear in the premises.
+                if let Some(a) = inference.cut {
+                    let a = a.occ();
+                    let dual = forest.dual(a).expect("a cut formula has its dual");
+                    for (&premise, o) in inference.premises.iter().zip([a, dual]) {
+                        let sequent = &derivation.inference(premise).sequent;
+                        if is_quest(o) && sequent.iter().any(|m| m.occ() == o) {
+                            quests[premise.index()].push(o);
+                        }
+                    }
+                }
                 let Some(principal) = inference.principal else {
                     continue;
                 };
@@ -321,6 +354,10 @@ impl<'a> Writer<'a> {
             }
             // Implicit in the unrestricted zone.
             Rule::Contraction | Rule::Weakening => {}
+            Rule::Cut => {
+                let a = inference.cut.expect("a cut names its formula").occ();
+                self.node(id, "Cut", &[a], false);
+            }
             Rule::Open => unreachable!("refused before anything is written"),
         }
     }
@@ -399,6 +436,19 @@ impl<'a> Writer<'a> {
             (Rule::AffineWeakening, _) => {
                 let o = principal.expect("a principal formula");
                 self.node(id, "IWeaken", &[o], true);
+                return;
+            }
+            (Rule::Cut, _) => {
+                // The cut formula as the premise that proves it has it:
+                // the occurrence in output position, `A` or its dual.
+                let a = inference.cut.expect("a cut names its formula").occ();
+                let dual = self.forest.dual(a).expect("a cut formula has its dual");
+                let proved = if reading.position(a) == Side::Output {
+                    a
+                } else {
+                    dual
+                };
+                self.node(id, "ICut", &[proved], true);
                 return;
             }
             (Rule::Mix | Rule::Open, _) => {
@@ -578,14 +628,13 @@ pub(super) fn disproof(
         iformula(&forest, reading, &mut text, conclusion, true);
         "i"
     } else {
+        // The refutations hold of the calculi without cut.
         let rules = match (mode.has_mix(), mode.is_affine()) {
-            (false, false) => "classical",
-            (true, false) => "{| mix := true; weakening := false |}",
-            (false, true) => "{| mix := false; weakening := true |}",
-            (true, true) => "{| mix := true; weakening := true |}",
+            (false, false) => "classical".to_owned(),
+            (mix, weakening) => literal(mix, weakening, false),
         };
         text.push_str("ll (atom := string) ");
-        text.push_str(rules);
+        text.push_str(&rules);
         text.push_str(" [");
         for (i, &o) in goal.iter().enumerate() {
             if i > 0 {

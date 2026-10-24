@@ -3,9 +3,10 @@
 `rocq-linlog`, logical path `Linlog`: the Rocq library of
 [linlog](https://github.com/linlog-prover/linlog), a prover of classical
 and intuitionistic linear logic, on Rocq 9 and its standard library
-alone. It holds the one-sided sequent calculus of linear logic, with Mix
-and weakening as parameters, and the two-sided calculus of
-intuitionistic linear logic and its affine variant, as inductives;
+alone. It holds the one-sided sequent calculus of linear logic, with Mix,
+weakening and cut as parameters, and the two-sided calculus of
+intuitionistic linear logic and its affine variant, with cut as a
+parameter, as inductives;
 linlog's proof terms as datatypes, checkers as functions, and for every
 mode the theorem that a term the checker accepts proves its sequent. A
 certificate that linlog writes (`linlog prove --format rocq --kernel

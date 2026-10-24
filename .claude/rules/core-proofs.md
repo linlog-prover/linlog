@@ -77,6 +77,14 @@ serve intuitionistic mode. Invariants:
   several equal formulas is sound because they are alike; a node naming a
   member outside every conclusion is `IndexOutOfBounds`.
 
+- **The cut** (`Node::Cut(a, l, r)`, the last variant, `NAMES` and `TAGS`
+  in that order): `a` lies in a cut formula's `A` tree
+  (`Forest::is_cut_formula`, `Fault::NotACut` otherwise), the first
+  premise has `a` and the second `dual(a)`; `principal()` is `None` and
+  `members()` yields `a`. `Proof::onto` and the session's grafts carry
+  only cut-free proofs (a cut's member lies outside every conclusion, so
+  `onto` refuses it as `IndexOutOfBounds`).
+
 ## The checker
 
 `proofs/check/` is the reference for what a proof is (`zones.rs` the
@@ -318,6 +326,19 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   reference checker with random proofs, mutants and random terms (step 2's
   report); the intricate cases that review named are pinned in
   `check/mod.rs`'s `accepts_every_rule`, so keep them when the checker changes.
+- **The cut's rule** (`pass.rs`, and `oracle.rs` from the pairs
+  themselves): take `a` from the first premise and `dual(a)` from the
+  second, then `join` as `⊗` does, no formula put; `facts.absent` and
+  `facts.needs` as for `⊗`. The ordered modes refuse it with the other
+  non-MLL rules (`Fault::Forbidden`): the reversing dual of an ordered
+  cut formula is no tree of `A`'s shape. Intuitionistically nothing is
+  added: a premise with `a` in output position has `a` as its one goal
+  (R1 at the premise), so the cut keeps one goal, whichever premise
+  proves the cut formula; a `⊤` premise that has its goal cannot absorb
+  an absent output `a` (R2: `Succedents { count: 2 }`, the premise
+  would read `⊢ ⊤, A`). `cut` in `check/mod.rs` pins the refusals, and
+  `oracle::proofs` holds proofs with two cuts each (`with_cuts`), which
+  the differential test, the size estimate and the compact view run.
 - `CheckError` reports ids, not formulas: `node`, its `rule`, the derived
   `premises` as `Dyadic` sequents and a `Fault` (`CheckError::Invalid`'s
   `Invalid`; a refusal has no premises). `Display` prints ids too;

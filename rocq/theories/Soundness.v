@@ -4,8 +4,9 @@
 (** * Soundness of the checker
 
     A term the checker accepts yields a derivation: [soundness] for any
-    calculus [rules] names, and its instances [soundness_classical],
-    [soundness_mix] and [soundness_affine]. The proof follows the pass: every state [derive]
+    calculus [rules] names, cut included, and its instances
+    [soundness_classical], [soundness_mix] and [soundness_affine], the
+    calculi without cut. The proof follows the pass: every state [derive]
     computes is satisfied in the sense of [sat], the sequents it stands
     for are derivable, and the root's state gives the sequent. *)
 
@@ -145,7 +146,8 @@ Theorem derive_sound : forall p s,
   derive atom_eqb R p = Some s -> sat (theta s) (gamma s) (any s).
 Proof.
   induction p as [a | A B l IHl r IHr | A B q IHq | | q IHq | A B l IHl r IHr
-    | A B side q IHq | | A q IHq | A q IHq | A q IHq | A q IHq | l IHl r IHr];
+    | A B side q IHq | | A q IHq | A q IHq | A q IHq | A q IHq | l IHl r IHr
+    | A l IHl r IHr];
     cbn; intros s H.
   - (* Ax *)
     injection H as <-; cbn. intros Δ HΔ. rewrite (HΔ eq_refl). cbn. apply ax_r.
@@ -273,6 +275,23 @@ Proof.
       * eapply ex_r; [apply (mix_r R M); [apply (IHl []); easy | apply (IHr Δ); easy] | perm].
       * rewrite (HΔ eq_refl).
         eapply ex_r; [apply (mix_r R M); [apply (IHl []); easy | apply (IHr []); easy] | perm].
+  - (* Cut *)
+    destruct (cut R) eqn:C; [| discriminate].
+    destruct (derive atom_eqb R l) as [[θl γl al] |] eqn:El; [| discriminate].
+    destruct (derive atom_eqb R r) as [[θr γr ar] |] eqn:Er; [| discriminate].
+    cbn in H.
+    destruct (take atom_eqb A γl al) as [gl |] eqn:Tl; [| discriminate].
+    destruct (take atom_eqb (dual A) γr ar) as [gr |] eqn:Tr; [| discriminate].
+    injection H as <-; cbn.
+    specialize (IHl _ eq_refl); specialize (IHr _ eq_refl); cbn in IHl, IHr.
+    pose proof (take_sat [] _ _ _ _ _ Tl IHl) as Hl; cbn in Hl.
+    pose proof (take_sat [] _ _ _ _ _ Tr IHr) as Hr; cbn in Hr.
+    intros Δ HΔ. destruct al.
+    + eapply ex_r; [apply (cut_r R C A); [apply (Hl Δ); easy | apply (Hr []); easy] | perm].
+    + destruct ar.
+      * eapply ex_r; [apply (cut_r R C A); [apply (Hl []); easy | apply (Hr Δ); easy] | perm].
+      * rewrite (HΔ eq_refl).
+        eapply ex_r; [apply (cut_r R C A); [apply (Hl []); easy | apply (Hr []); easy] | perm].
 Qed.
 
 (** ** The theorem *)
@@ -293,27 +312,28 @@ Qed.
 
 End Soundness.
 
-(** The theorem for classical linear logic, the calculus without Mix and
-    without weakening. *)
+(** The theorem for classical linear logic, the calculus without Mix,
+    weakening or cut. *)
 Theorem soundness_classical {atom : Type} (atom_eqb : atom -> atom -> bool)
   (atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b)) :
   forall (p : proof atom) (sequent : list (formula atom)),
   check atom_eqb classical p sequent = true -> ll classical sequent.
 Proof. exact (soundness atom_eqb atom_eqb_spec classical). Qed.
 
-(** The theorem for linear logic with Mix: binary Mix, no weakening. *)
+(** The theorem for linear logic with Mix: binary Mix, no weakening, no
+    cut. *)
 Theorem soundness_mix {atom : Type} (atom_eqb : atom -> atom -> bool)
   (atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b)) :
   forall (p : proof atom) (sequent : list (formula atom)),
-  check atom_eqb {| mix := true; weakening := false |} p sequent = true ->
-  ll {| mix := true; weakening := false |} sequent.
+  check atom_eqb {| mix := true; weakening := false; cut := false |} p sequent = true ->
+  ll {| mix := true; weakening := false; cut := false |} sequent.
 Proof. exact (soundness atom_eqb atom_eqb_spec _). Qed.
 
 (** The theorem for affine linear logic: weakening of any formula, no
-    Mix. *)
+    Mix, no cut. *)
 Theorem soundness_affine {atom : Type} (atom_eqb : atom -> atom -> bool)
   (atom_eqb_spec : forall a b, reflect (a = b) (atom_eqb a b)) :
   forall (p : proof atom) (sequent : list (formula atom)),
-  check atom_eqb {| mix := false; weakening := true |} p sequent = true ->
-  ll {| mix := false; weakening := true |} sequent.
+  check atom_eqb {| mix := false; weakening := true; cut := false |} p sequent = true ->
+  ll {| mix := false; weakening := true; cut := false |} sequent.
 Proof. exact (soundness atom_eqb atom_eqb_spec _). Qed.

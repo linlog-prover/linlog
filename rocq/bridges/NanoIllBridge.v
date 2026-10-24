@@ -14,7 +14,10 @@
     statements say that a derivation of [nanoill.ill] exists, with
     [inhabited]: they equate derivability, not derivations. Exchange is one [Permutation]
     rule here and a transposition of neighbours there, which is the only
-    difference between the two calculi. *)
+    difference between the two calculi. Neither has cut
+    ([intuitionistic] sets [icut := false]): relating a calculus with cut
+    to [nanoill.v] would need cut elimination, which is not proved
+    here. *)
 
 From Stdlib Require Import List Permutation.
 From Linlog Require Import Intuitionistic.
@@ -114,7 +117,7 @@ Proof.
 Qed.
 
 (** The derivations of [nanoill.ill] are derivations of [ill R], in
-    either calculus. *)
+    every calculus. *)
 Lemma of_nanoill_ill : forall R l D,
   nanoill.ill l D -> ill R (map of_nanoill l) (of_nanoill D).
 Proof.

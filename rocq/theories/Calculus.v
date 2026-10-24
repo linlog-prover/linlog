@@ -4,29 +4,32 @@
 (** * The one-sided sequent calculus of classical linear logic
 
     The trusted definition: [ll R Γ] says that the sequent [⊢ Γ] has a
-    cut-free derivation in the calculus whose optional rules [R] names.
-    A sequent is a list of formulas read as a multiset, so the exchange
-    rule [ex_r] admits any permutation. The rules are the textbook ones,
-    every rule but exchange and Mix acting on the first formula of its
-    conclusion; nothing is derived here, and nothing is assumed. The
-    derivations live in [Prop]: [ll R Γ] says that one exists. *)
+    derivation in the calculus whose optional rules [R] names, a
+    cut-free one when [cut R = false]. A sequent is a list of formulas
+    read as a multiset, so the exchange rule [ex_r] admits any
+    permutation. The rules are the textbook ones, every rule but
+    exchange, Mix and cut acting on the first formula of its conclusion
+    or of its premises; nothing is derived here, and nothing is assumed.
+    The derivations live in [Prop]: [ll R Γ] says that one exists. *)
 
 From Stdlib Require Import List Permutation.
 From Linlog Require Export Formulas.
 Import ListNotations.
 
-(** The optional rules of a calculus: classical linear logic has neither,
-    Mix adds the first, affine logic the second. Mix is the binary rule
-    alone, never the nullary one ([⊢] with nothing); [weakening] is the
-    rule [weakening_r] below, while the weakening of [?] formulas,
-    [wk_r], belongs to every calculus. *)
+(** The optional rules of a calculus: classical linear logic has none,
+    Mix adds the first, affine logic the second, and a calculus with cut
+    the third. Mix is the binary rule alone, never the nullary one ([⊢]
+    with nothing); [weakening] is the rule [weakening_r] below, while
+    the weakening of [?] formulas, [wk_r], belongs to every calculus;
+    [cut] is the rule [cut_r]. *)
 Record rules : Type := Rules {
   mix : bool;        (** binary Mix: [⊢ Γ, Δ] from [⊢ Γ] and [⊢ Δ] *)
   weakening : bool;  (** weakening of any formula, not only of [?] ones *)
+  cut : bool;        (** cut: [⊢ Γ, Δ] from [⊢ A, Γ] and [⊢ A⊥, Δ] *)
 }.
 
-(** Classical linear logic: no Mix, no weakening. *)
-Definition classical : rules := {| mix := false; weakening := false |}.
+(** Classical linear logic: no Mix, no weakening, no cut. *)
+Definition classical : rules := {| mix := false; weakening := false; cut := false |}.
 
 Section Calculus.
 
@@ -66,6 +69,8 @@ Inductive ll (R : rules) : list formula -> Prop :=
 | mix_r : mix R = true -> forall l1 l2,
     ll R l1 -> ll R l2 -> ll R (l1 ++ l2)
 | weakening_r : weakening R = true -> forall A l,
-    ll R l -> ll R (A :: l).
+    ll R l -> ll R (A :: l)
+| cut_r : cut R = true -> forall A l1 l2,
+    ll R (A :: l1) -> ll R (dual A :: l2) -> ll R (l1 ++ l2).
 
 End Calculus.

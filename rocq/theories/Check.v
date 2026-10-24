@@ -167,6 +167,14 @@ Fixpoint derive (R : rules) (p : proof) : option state :=
         let* sr := derive R r in
         Some (State (theta sl ++ theta sr) (gamma sl ++ gamma sr) (any sl || any sr))
       else None
+  | Cut A l r =>
+      if cut R then
+        let* sl := derive R l in
+        let* sr := derive R r in
+        let* gl := take A (gamma sl) (any sl) in
+        let* gr := take (dual A) (gamma sr) (any sr) in
+        Some (State (theta sl ++ theta sr) (gl ++ gr) (any sl || any sr))
+      else None
   end.
 
 (** Whether [p] proves [⊢ sequent] in [R]: its root needs no unrestricted

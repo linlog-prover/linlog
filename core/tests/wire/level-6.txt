@@ -1,0 +1,2 @@
+proof-cut: {"version":6,"sequent":{"terms":[{"D":0},{"V":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1,"cuts":[2]},"nodes":[{"ax":[0,2]},{"ax":[1,3]},{"cut":[2,0,1]}]}
+session-cut: {"version":6,"sequent":{"terms":[{"D":0},{"V":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1,"cuts":[2]},"mode":"intuitionistic","inferences":[{"sequent":[0,1],"rule":"cut","premises":[1,2],"cut":2},{"sequent":[0,2],"rule":"ax"},{"sequent":[1,3]}],"history":[0,1]}

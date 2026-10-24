@@ -221,7 +221,7 @@ impl Kind {
 
 impl Sequent {
     /// Returns the smallest fragment the sequent lives in: the connective
-    /// classes of the terms its root formulas reach.
+    /// classes of the terms its root formulas and its cut formulas reach.
     ///
     /// # Examples
     ///
@@ -245,7 +245,7 @@ impl Sequent {
         // A subterm precedes its parent, so one pass from the top visits every
         // reachable term after the term that reaches it.
         let mut reachable = vec![false; self.terms.len()];
-        for root in &self.roots {
+        for root in self.roots.iter().chain(self.cuts.iter().flatten()) {
             reachable[root.index()] = true;
         }
         for (n, term) in self.terms.iter().enumerate().rev() {
@@ -691,6 +691,7 @@ mod tests {
             roots: vec![TermId::new(1)],
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         };
         assert_eq!(
             s.fragment(),

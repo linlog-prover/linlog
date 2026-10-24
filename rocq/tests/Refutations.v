@@ -21,7 +21,7 @@ Qed.
 
 (** The reading holds in every calculus: with Mix and weakening too. *)
 Lemma classical_with_both :
-  ~ ll (atom := string) {| mix := true; weakening := true |} [wn (var "A"); bot].
+  ~ ll (atom := string) {| mix := true; weakening := true; cut := false |} [wn (var "A"); bot].
 Proof.
   apply (classical_refutation _ (fun a => existsb (String.eqb a) [])).
   vm_compute. reflexivity.
@@ -43,7 +43,7 @@ Qed.
 
 (** With Mix, over the alternatives of a [⊕]: one or two more [A]. *)
 Lemma unbalanced_hull :
-  ~ ll (atom := string) {| mix := true; weakening := false |}
+  ~ ll (atom := string) {| mix := true; weakening := false; cut := false |}
     [aplus (tens (var "A") (var "A")) (tens (var "A") (tens (var "A") (var "A"))); covar "A"].
 Proof.
   apply (unbalanced_refutation String.eqb "A" _).
@@ -66,7 +66,7 @@ Qed.
 
 (** With Mix: one formula where at least three are asked for. *)
 Lemma equation_mix :
-  ~ ll (atom := string) {| mix := true; weakening := false |} [tens (tens (var "A") (covar "A")) one].
+  ~ ll (atom := string) {| mix := true; weakening := false; cut := false |} [tens (tens (var "A") (covar "A")) one].
 Proof.
   apply (equation_refutation _).
   vm_compute. reflexivity.
@@ -93,7 +93,7 @@ Lemma absorbed : unbalanced String.eqb "A" classical [var "A"; top] = false.
 Proof. vm_compute. reflexivity. Qed.
 
 Lemma weakened :
-  unbalanced String.eqb "A" {| mix := false; weakening := true |} [var "A"] = false.
+  unbalanced String.eqb "A" {| mix := false; weakening := true; cut := false |} [var "A"] = false.
 Proof. vm_compute. reflexivity. Qed.
 
 (** The equation holds of an axiom, needs the multiplicatives, and
@@ -105,5 +105,5 @@ Lemma additive_counts : fails_equation classical [awith (var "A") (var "A"); cov
 Proof. vm_compute. reflexivity. Qed.
 
 Lemma mix_counts :
-  fails_equation {| mix := true; weakening := false |} [covar "A"; var "A"; covar "B"; var "B"] = false.
+  fails_equation {| mix := true; weakening := false; cut := false |} [covar "A"; var "A"; covar "B"; var "B"] = false.
 Proof. vm_compute. reflexivity. Qed.

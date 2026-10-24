@@ -26,7 +26,12 @@
 //! level 4 (and the proof structure's reader refuses a document with that
 //! key); level 5 adds the intuitionistic sequent, a form of its own whose
 //! terms are the connectives of intuitionistic linear logic, always
-//! written at level 5; every other document is written at level 1. A reader refuses a
+//! written at level 5; level 6 adds the cut: a sequent's cut formulas
+//! (`"cuts": […]`, without which a proof's cut nodes would name
+//! occurrences past its forest) and the proof's tag `cut`, so a document
+//! whose sequent holds a cut formula is written at level 6, and so is a
+//! proof with a cut, whose sequent holds the cut's formula; every other
+//! document is written at level 1. A reader refuses a
 //! document above its level by name ([`Error::Version`], code
 //! `unsupported_version`), before the other keys when `version` comes
 //! first, as the writer puts it; a document without `version` reads as
@@ -44,7 +49,7 @@
 //! level up to [`LEVEL`] as a value of this release, every older level
 //! through one step per level that changed a form (none so far: level 2
 //! only adds a kind of refutation and a mode, level 3 a kind of
-//! refutation, levels 4 and 5 a form each), and
+//! refutation, levels 4 and 5 a form each, level 6 a key and a tag), and
 //! counts every sequent's occurrences against `limits.occurrences` before
 //! anything unfolds. [`Within`] is the same as a serde seed, for a value
 //! nested in a document of the caller's; the plain `Deserialize` impls read
@@ -68,7 +73,10 @@
 //!   "antecedents": 2}`, see [`Sequent`](crate::Sequent).
 //! - **Proof**: `{"version": 1, "sequent": {…}, "nodes": [{"ax": [0, 2]},
 //!   {"ax": [3, 4]}, {"⊗": [1, 0, 1]}], "mode": "classical"}`, with `goal`
-//!   for a proof of a goal off the roots, see [`Proof`](crate::Proof).
+//!   for a proof of a goal off the roots, see [`Proof`](crate::Proof). A
+//!   proof with cuts is written at level 6: its sequent holds `"cuts": […]`
+//!   and a cut node is `{"cut": [a, l, r]}`, `a` the occurrence of the cut
+//!   formula.
 //! - **Disproof**: `{"version": 1, "sequent": {…}, "mode": "classical",
 //!   "refutation": {"kind": "unbalanced", "atom": 0, "least": 2, "most":
 //!   2}}`, with `goal` for a goal off the roots, see
@@ -108,7 +116,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// The highest wire level this build reads and writes.
-pub const LEVEL: u32 = 5;
+pub const LEVEL: u32 = 6;
 
 /// The level of every document but a disproof (or an unprovable
 /// outcome) with a classical refutation, which is level 2, or with a
@@ -251,10 +259,17 @@ pub(crate) fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Opti
     }
 }
 
-/// The level a written document of a form that level 1 holds whole
-/// carries: a sequent's.
-pub(crate) const fn level() -> Option<u32> {
-    Some(BASE)
+/// The level of a sequent with cut formulas, which level 6 added.
+pub(crate) const CUTS: u32 = 6;
+
+/// The level of a document that holds `sequent`: 6 where it has cut
+/// formulas, which level 6 added, else 1.
+pub(crate) fn level_of_sequent(sequent: &crate::Sequent) -> u32 {
+    if sequent.cuts().is_empty() {
+        BASE
+    } else {
+        CUTS
+    }
 }
 
 /// The level of a document of `mode`, or of no mode: 2 for an ordered

@@ -66,7 +66,7 @@ impl Interactive {
                 needs: match rule {
                     Tensor | Mix => Needs::Split,
                     Ax | Par | One | Bot | With | PlusLeft | PlusRight | Top | Promotion
-                    | Dereliction | Contraction | Weakening | AffineWeakening | Open => {
+                    | Dereliction | Contraction | Weakening | AffineWeakening | Cut | Open => {
                         Needs::Nothing
                     }
                 },
@@ -134,6 +134,7 @@ impl Interactive {
                 principal: None,
                 premises: vec![],
                 times: 1,
+                cut: None,
             });
         }
         let inference = &mut self.inferences[goal.index()];
@@ -176,7 +177,9 @@ impl Interactive {
             Dereliction | Contraction | Weakening => kind == Kind::Quest,
             AffineWeakening => kind != Kind::Quest,
             Mix => true,
-            Open => false,
+            // A cut is no step on a formula of the goal: it is made by
+            // naming its formula (`cut`).
+            Cut | Open => false,
         };
         let named = Named::applied(classical, reading, o);
         if !acts || rule != named {
@@ -188,7 +191,7 @@ impl Interactive {
             // The ordered calculus is unit-free MLL.
             One | Bot | With | PlusLeft | PlusRight | Top | Promotion | Dereliction
             | Contraction | Weakening => !self.mode.is_ordered(),
-            Ax | Tensor | Par | Open => true,
+            Ax | Tensor | Par | Cut | Open => true,
         };
         if !allowed {
             return Err(StepError::Mode {
@@ -299,7 +302,7 @@ impl Interactive {
                 }
                 vec![with(&[])]
             }
-            Open => unreachable!("no formula is the principal one of an open goal"),
+            Cut | Open => unreachable!("refused above: no step names the rule"),
         };
         if let Some(reading) = reading {
             for premise in &premises {
@@ -362,9 +365,14 @@ impl Interactive {
             self.inferences.truncate(first.index());
         }
         let inference = &mut self.inferences[goal.index()];
+        let cut = inference.rule.rule == Rule::Cut;
         inference.rule = Rule::Open.into();
         inference.principal = None;
         inference.premises.clear();
+        inference.cut = None;
+        if cut {
+            self.uncut();
+        }
         Some(GoalId::of(goal))
     }
 

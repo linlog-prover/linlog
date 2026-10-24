@@ -78,6 +78,10 @@ use crate::hash::HashMap;
 /// the text syntax (`Error::AtomName` otherwise), takes a name the table
 /// repeats as one atom, and counts the occurrences against the limits
 /// before anything unfolds. The command's `seq json` writes this form.
+/// A sequent with cut formulas ([`cuts`](Self::cuts)) writes them as
+/// `"cuts": […]`, the term of each cut formula `A` (its dual is the
+/// reader's to build), which a document that holds one writes at wire
+/// level 6; a sequent without them writes no key.
 ///
 #[cfg_attr(all(feature = "parse", feature = "serialize"), doc = "```")]
 #[cfg_attr(not(all(feature = "parse", feature = "serialize")), doc = "```ignore")]
@@ -100,6 +104,10 @@ pub struct Sequent {
     /// How many of the roots, the first ones, were written left of `⊢`;
     /// `None` where no sides were given. At most the number of roots.
     pub(crate) antecedents: Option<u32>,
+    /// The cut formulas, in the order they were added: each the term of a
+    /// formula `A` and the term of its dual `A⊥`, of one shape, which
+    /// the forest numbers after the roots, `A` then `A⊥`.
+    pub(crate) cuts: Vec<[TermId; 2]>,
 }
 
 impl std::default::Default for Sequent {
@@ -117,6 +125,7 @@ impl Sequent {
             roots: vec![],
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         }
     }
 
@@ -150,6 +159,127 @@ impl Sequent {
         self.antecedents
     }
 
+    /// Returns the cut formulas, in the order they were added: per cut
+    /// the term of the formula `A` and the term of its dual `A⊥`. They
+    /// are no part of the conclusion (the [`roots`](Self::roots)): a
+    /// proof with cuts ([`Node::Cut`](crate::Node::Cut)) is of a sequent
+    /// that holds its cut formulas, whose [`Forest`](crate::Forest)
+    /// numbers each pair after the roots. A sequent read as text holds
+    /// none, and `Display` writes the conclusion only.
+    pub fn cuts(&self) -> &[[TermId; 2]] {
+        &self.cuts
+    }
+
+    /// Adds a cut formula: `formula`, a sequent of one root formula `A`
+    /// whose atoms are this sequent's atoms of the same names, joins the
+    /// arena with its dual `A⊥`, and the pair is numbered after the
+    /// roots and the cut formulas before it. The roots and their sides
+    /// are unchanged.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::CutFormula`](crate::Error::CutFormula) when `formula`
+    /// has another number of root formulas than one or cut formulas of
+    /// its own.
+    pub fn add_cut(&mut self, formula: Self) -> Result<(), crate::Error> {
+        if formula.roots.len() != 1 || !formula.cuts.is_empty() {
+            return Err(crate::Error::CutFormula {
+                formulas: formula.roots.len(),
+            });
+        }
+        let offset_atoms = self.atoms.len() as u32;
+        let offset_terms = self.terms.len() as u32;
+        self.terms.extend(
+            formula
+                .terms
+                .into_iter()
+                .map(|e| e.offset(offset_atoms, offset_terms)),
+        );
+        self.atoms.extend(formula.atoms);
+        self.merge_atoms();
+        self.push_cuts(&[TermId::new(formula.roots[0].get() + offset_terms)]);
+        Ok(())
+    }
+
+    /// Adds the cut formulas whose terms are `cuts`, terms of the arena, in
+    /// that order: each one's dual joins the arena, a term for each term
+    /// below it, so the two are of one shape, each the first equal term the
+    /// arena has where it has one, so that a sequent written with its duals
+    /// reads back as it was. Every term is dualised once whatever the
+    /// number of cut formulas that reach it, so the pass costs the arena
+    /// and the cut formulas, not their product; no recursion.
+    pub(crate) fn push_cuts(&mut self, cuts: &[TermId]) {
+        // A sequent read without cut formulas pays nothing for them.
+        if cuts.is_empty() {
+            return;
+        }
+        let mut known =
+            HashMap::<Term, TermId>::with_capacity_and_hasher(self.terms.len(), Default::default());
+        // Not `entry`, whose one use in `optimize_terms` the compiler
+        // inlines into the parser's path when it is the only one.
+        for (n, &term) in self.terms.iter().enumerate().rev() {
+            known.insert(term, TermId::new(n as u32));
+        }
+        let mut dual = HashMap::<TermId, TermId>::default();
+        // A term waits until its subterms have their duals; a subterm comes
+        // before its parent, so no term waits on itself.
+        let mut waiting: Vec<(TermId, bool)> = Vec::new();
+        for &a in cuts {
+            waiting.push((a, false));
+            while let Some((t, ready)) = waiting.pop() {
+                if dual.contains_key(&t) {
+                    continue;
+                }
+                if !ready {
+                    waiting.push((t, true));
+                    let below = self.terms[t.index()].subterms();
+                    waiting.extend(below.filter(|k| !dual.contains_key(k)).map(|k| (k, false)));
+                    continue;
+                }
+                let term = self.terms[t.index()].dual().map_subterms(|k| dual[&k]);
+                let id = match known.get(&term) {
+                    Some(&id) => id,
+                    None => {
+                        let fresh = TermId::new(self.terms.len() as u32);
+                        known.insert(term, fresh);
+                        self.terms.push(term);
+                        fresh
+                    }
+                };
+                dual.insert(t, id);
+            }
+            self.cuts.push([a, dual[&a]]);
+        }
+    }
+
+    /// Takes the last cut formula away, with the terms and atoms past those
+    /// the roots and the other cut formulas reach, which a cut formula
+    /// added last brought: the arena as it was before the cut was added.
+    #[cfg(feature = "interactive")]
+    pub(crate) fn pop_cut(&mut self) {
+        self.cuts.pop();
+        // A subterm precedes its parent, so the highest term any kept
+        // formula reaches is a root or a cut formula itself.
+        let end = self
+            .roots
+            .iter()
+            .chain(self.cuts.iter().flatten())
+            .map(|t| t.index() + 1)
+            .max()
+            .unwrap_or(0);
+        self.terms.truncate(end);
+        let atoms = self
+            .terms
+            .iter()
+            .filter_map(|t| t.atom())
+            .map(|a| a.index() + 1)
+            .max()
+            .unwrap_or(0);
+        // An atom no term names, which only a sequent read from JSON can
+        // have, goes too.
+        self.atoms.truncate(atoms);
+    }
+
     /// A sequent of an arena built elsewhere in the crate: every term's
     /// subterms come before it, every atom is named, the roots are terms of
     /// the arena, as a reader that builds the arena itself makes them, and
@@ -166,6 +296,7 @@ impl Sequent {
             roots,
             atoms,
             antecedents,
+            cuts: vec![],
         };
         debug_assert!(sequent.check().is_ok());
         sequent
@@ -217,9 +348,16 @@ impl Sequent {
     /// has terms; a number that passes `u64::MAX` is returned as that.
     /// One pass over the arena.
     pub fn occurrences(&self) -> u64 {
-        let sizes = self.sizes();
+        self.occurrences_of(&self.sizes())
+    }
+
+    /// Returns the number of occurrences of the sequent from the
+    /// [`sizes`](Self::sizes) of its terms: those of the roots, then those
+    /// of each cut formula and its dual.
+    pub(crate) fn occurrences_of(&self, sizes: &[u64]) -> u64 {
         self.roots
             .iter()
+            .chain(self.cuts.iter().flatten())
             .fold(0u64, |sum, r| sum.saturating_add(sizes[r.index()]))
     }
 
@@ -239,18 +377,21 @@ impl Sequent {
             .enumerate()
             .try_for_each(|(n, e)| e.check_bounds(num_atoms, n as u32))?;
 
-        // check that all root indices are valid
-        self.roots.iter().try_for_each(|n| {
-            if n.get() >= num_terms {
-                Err(crate::Error::IndexOutOfBounds {
-                    space: crate::limits::Space::Term,
-                    index: n.index(),
-                    len: num_terms as usize,
-                })
-            } else {
-                Ok(())
-            }
-        })?;
+        // check that all root and cut indices are valid
+        self.roots
+            .iter()
+            .chain(self.cuts.iter().flatten())
+            .try_for_each(|n| {
+                if n.get() >= num_terms {
+                    Err(crate::Error::IndexOutOfBounds {
+                        space: crate::limits::Space::Term,
+                        index: n.index(),
+                        len: num_terms as usize,
+                    })
+                } else {
+                    Ok(())
+                }
+            })?;
 
         match self.antecedents {
             Some(k) if k as usize > self.roots.len() => Err(crate::Error::Antecedents {
@@ -267,7 +408,7 @@ impl Sequent {
         let num_terms = self.terms.len();
 
         let mut reachable = vec![false; num_terms];
-        for n in &self.roots {
+        for n in self.roots.iter().chain(self.cuts.iter().flatten()) {
             reachable[n.index()] = true;
         }
 
@@ -310,6 +451,9 @@ impl Sequent {
             .iter()
             .map(|k| new_index[k.index()].unwrap())
             .collect();
+        for pair in &mut self.cuts {
+            *pair = pair.map(|k| new_index[k.index()].unwrap());
+        }
     }
 
     /// Numbers the atoms in the order the terms first name them and drops
@@ -401,7 +545,8 @@ impl Sequent {
     }
 
     /// Consumes another sequent and appends its root formulas to this one,
-    /// with the arenas concatenated; an atom of the other sequent is the
+    /// and its cut formulas after this one's, with the arenas
+    /// concatenated; an atom of the other sequent is the
     /// atom of the same name here, if there is one. The sides of the sum
     /// are not known: [`antecedents`](Self::antecedents) is `None`.
     pub fn add(&mut self, s: Self) {
@@ -418,6 +563,12 @@ impl Sequent {
             s.roots
                 .into_iter()
                 .map(|n| TermId::new(n.get() + offset_terms)),
+        );
+
+        self.cuts.extend(
+            s.cuts
+                .into_iter()
+                .map(|pair| pair.map(|n| TermId::new(n.get() + offset_terms))),
         );
 
         self.atoms.extend(s.atoms);
@@ -439,6 +590,7 @@ mod tests {
             roots: roots.iter().map(|&n| TermId::new(n)).collect(),
             atoms: atoms.iter().map(|s| s.to_string()).collect(),
             antecedents: None,
+            cuts: vec![],
         }
     }
 

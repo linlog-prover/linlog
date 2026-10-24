@@ -23,6 +23,25 @@ of terms. Invariants the code relies on:
   runs and serializations of the same sequent; never memoize across forests.
 - Two occurrences of one arena term (a shared subterm, or repeated roots)
   are distinct ids with the same `TermId`.
+- **Cut formulas are trees past the conclusion**: a sequent's
+  `cuts` (pairs of terms `A`, `A⊥` of one shape) are numbered after the
+  roots' trees, `A` then `A⊥` per pair, so `dual(x) = x + size(A)` on the
+  `A` tree and the inverse on the `A⊥` tree (`Forest::dual`, a binary
+  search of the `A` roots, `cuts`, by `root(x)`). `roots()` stays the
+  conclusion; `ids()`, `len()`, the literal lists and `measure` cover the
+  cut trees too. Code that means "the conclusion's occurrences" asks
+  `is_conclusion`; a pass over every id sees the cut trees.
+- **`Sequent::push_cuts` reuses the arena's equal terms** for the duals
+  (a hash of the terms, the first index winning) and dualises each term
+  once for all the cut formulas it is given (a JSON document's together:
+  one at a time cost the arena per cut, quadratic in the document), so a sequent written
+  to JSON with its duals in the arena reads back to the same arena
+  (`cuts` on the wire names `A` only); `add_cut` appends the formula's
+  own terms unshared, as `add` does. `pop_cut` (a session's `undo`)
+  truncates the arena and the atom table to what the roots and the other
+  cut formulas reach, which is exactly what the last cut appended, but
+  an atom no term names (only a hand-written JSON sequent has one) goes
+  too.
 - `parent` is stored raw as `u32` with `u32::MAX` for a root; the accessor
   returns `Option<OccId>`. That is why no forest has `u32::MAX` or more
   occurrences (`Forest::MOST`, crate-private, is the most).
@@ -213,10 +232,19 @@ the lowered forest, the side of every occurrence and the goal.
   `no_intuitionistic_output_writes_a_classical_symbol` (library and
   command) and the bindings' one pin that nothing one-sided leaks; a new
   output joins them.
-- **Where later steps plug in**: a cut's formula is typed by the user
-  as an ILL formula; its two occurrences get their sides where the cut
-  is made (the formula on the goal's side in the left premise, on the
-  hypotheses' in the right), as `lowered` gives a root's. An instance's
+- **A cut formula's sides are recorded where the cut is made**
+  (`Interactive::cut`): the `CutFormula` read from the typed text keeps
+  the sides `lowered` gave its formula as a goal, the `A` tree takes them
+  and the `A⊥` tree their flips (the flips sit at the same places, a
+  `⅋` on the output side and a `⊗` on the input side being duals);
+  `Reading::new` reads the pair the same way (`A` output, `A⊥` input,
+  `ShapeError::CutFormula` otherwise), which a `debug_assert` in `cut`
+  and `the_recorded_sides_are_the_readings` pin. A classical session's
+  record (`Written`) takes the typed formula's record on the `A` tree and
+  every side flipped on the `A⊥` tree (the same text written left of
+  `⊢`); `written::context` puts an `A` root right of `⊢` and an `A⊥` root
+  left of it, and `written::one_sided` records the pair so.
+- **Where later steps plug in**: an instance's
   substitution enters the raising at `Reading::formula`'s atom arm
   (`TEXT.ill`), the one place an atom is written; quantifiers are new
   `IllConnective` variants and new tags of the JSON form.

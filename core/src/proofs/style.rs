@@ -54,16 +54,16 @@ const LABELLED: usize = Named::ALL.len() + Named::DIVISIONS.len();
 /// The labels of the upright convention, by rule in the order of
 /// [`Named::ALL`], then `\L`, `\R`, `/L` and `/R`.
 const UPRIGHT: [&str; LABELLED] = [
-    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "⊸L",
-    "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L", "⊤R", "!L",
-    "!R", "!c", "!w", "", "\\L", "\\R", "/L", "/R",
+    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "cut",
+    "⊸L", "⊸R", "⊗L", "⊗R", "&L_1", "&L_2", "&R", "⊕L", "⊕R_1", "⊕R_2", "1L", "1R", "0L", "⊤R",
+    "!L", "!R", "!c", "!w", "", "\\L", "\\R", "/L", "/R",
 ];
 
 /// The labels of the subscript convention, in the order of [`UPRIGHT`].
 const SUBSCRIPT: [&str; LABELLED] = [
-    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?_d", "?_c", "?_w", "mix", "wk", "⊸_L",
-    "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "1_L", "1_R", "0_L",
-    "⊤_R", "!_L", "!_R", "!_c", "!_w", "", "\\_L", "\\_R", "/_L", "/_R",
+    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕_1", "⊕_2", "⊤", "!", "?_d", "?_c", "?_w", "mix", "wk", "cut",
+    "⊸_L", "⊸_R", "⊗_L", "⊗_R", "&_{L1}", "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "1_L", "1_R",
+    "0_L", "⊤_R", "!_L", "!_R", "!_c", "!_w", "", "\\_L", "\\_R", "/_L", "/_R",
 ];
 
 impl Labels {

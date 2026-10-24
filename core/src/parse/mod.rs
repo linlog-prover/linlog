@@ -624,6 +624,7 @@ impl<'a> Parser<'a> {
             roots: self.roots,
             atoms: self.atoms,
             antecedents: Some(self.antecedents),
+            cuts: vec![],
         };
         sequent.optimize();
         Ok(sequent)

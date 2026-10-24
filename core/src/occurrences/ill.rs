@@ -456,6 +456,43 @@ mod tests {
                     "{text:?} at {o:?}"
                 );
             }
+            // A cut on the goal as written, and on formulas of units,
+            // records its two occurrences as the reading of the sequent
+            // with its cut formulas reads them.
+            #[cfg(feature = "interactive")]
+            {
+                use crate::{CutFormula, InputOptions, Interactive, Limits};
+                let limits = Limits::default();
+                let goal = recorded.formula(recorded.goal()).to_string();
+                let mut session =
+                    Interactive::new(sequent.sequent(), Mode::INTUITIONISTIC).unwrap();
+                let mut open = session.goals().next().unwrap();
+                for cut in [goal.as_str(), "top -o 0", "0 * top"] {
+                    let len = session.goal(open).unwrap().len();
+                    let formula = CutFormula::parse_within(
+                        cut,
+                        Mode::INTUITIONISTIC,
+                        &InputOptions::default(),
+                        &limits,
+                    )
+                    .unwrap();
+                    // Every formula goes to the second premise, the goal
+                    // with them.
+                    open = session.cut(open, &formula, &[], &limits).unwrap()[1];
+                    assert_eq!(session.goal(open).unwrap().len(), len + 1);
+                }
+                let forest = session.forest();
+                let reading = Reading::new(forest).unwrap();
+                let recorded = session.reading().unwrap();
+                assert_eq!(forest.cut_pairs().len(), 3);
+                for o in forest.ids() {
+                    assert_eq!(
+                        reading.position(o),
+                        recorded.position(o),
+                        "{text:?} at {o:?}"
+                    );
+                }
+            }
         }
     }
 
@@ -478,13 +515,27 @@ mod tests {
     #[test]
     fn every_inference_prints_as_an_intuitionistic_sequent() {
         let options = search::Options::default();
-        let mut inferences = 0;
+        let (mut inferences, mut cuts) = (0, 0);
+        let mut proofs = vec![];
         for text in generated(4200, 6) {
             let sequent: IllSequent = text.parse().unwrap();
             let outcome = search::prove(sequent.sequent(), Mode::INTUITIONISTIC, &options).unwrap();
-            let Some(proof) = outcome.verdict.proof() else {
-                continue;
-            };
+            if let Some(proof) = outcome.verdict.proof() {
+                proofs.push((text, proof.clone()));
+            }
+        }
+        // And proofs with cuts of the same sequents.
+        #[cfg(feature = "interactive")]
+        {
+            let found: Vec<_> = proofs
+                .iter()
+                .map(|(_, p)| (p.clone(), Mode::INTUITIONISTIC))
+                .collect();
+            for (proof, _) in crate::proofs::interactive::with_cuts(&found, &mut Rng::new(41)) {
+                proofs.push((proof.sequent().to_string(), proof));
+            }
+        }
+        for (text, proof) in &proofs {
             let derivation = proof.derivation().unwrap();
             let reading = derivation
                 .reading()
@@ -527,10 +578,13 @@ mod tests {
                     reading.formula(goals[0]).to_string(),
                     "{text:?}: {printed:?}"
                 );
+                cuts += usize::from(inference.cut().is_some());
                 inferences += 1;
             }
         }
         assert!(inferences > 200, "{inferences} inferences");
+        #[cfg(feature = "interactive")]
+        assert!(cuts > 50, "{cuts} cuts");
     }
 
     /// The symbols of classical linear logic in every notation's spelling
@@ -735,8 +789,8 @@ mod tests {
             Err(Error::IndexOutOfBounds { index: 3, .. })
         ));
         assert!(matches!(
-            read(r#"{"version":6,"terms":[{"V":0}],"atoms":["A"],"hypotheses":[],"goal":0}"#),
-            Err(Error::Version { found: 6, .. })
+            read(r#"{"version":7,"terms":[{"V":0}],"atoms":["A"],"hypotheses":[],"goal":0}"#),
+            Err(Error::Version { found: 7, .. })
         ));
     }
 }

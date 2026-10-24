@@ -188,6 +188,13 @@ pub enum Fault {
         /// The member copied.
         member: Member,
     },
+    /// A cut names a member that is no occurrence of a cut formula `A`
+    /// of the sequent: one of the conclusion, or of a cut formula's dual.
+    #[non_exhaustive]
+    NotACut {
+        /// The member the cut names.
+        member: Member,
+    },
     /// The node's linear zone holds more formulas than the rest of the
     /// proof can consume: every later rule takes two at most, and the root
     /// concludes the sequent. Only a term no engine builds gets here, and
@@ -336,6 +343,13 @@ impl Invalid {
             EmptyAntecedent => f.write_str(
                 "the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents forbids",
             ),
+            NotACut { member: o } => {
+                if names.is_none() {
+                    f.write_str("occurrence ")?;
+                }
+                cut(f, names, (*o).occ(), limit)?;
+                f.write_str(" is not in a cut formula")
+            }
             NotUnderQuest { member: o } => {
                 if names.is_none() {
                     f.write_str("occurrence ")?;
@@ -382,7 +396,9 @@ fn name(node: Node, reading: Option<&crate::Reading<'_>>) -> &'static str {
         Node::Bang(..) => Rule::Promotion,
         Node::Quest(..) => Rule::Dereliction,
         // Their tags name no connective.
-        Node::Ax(..) | Node::Copy(..) | Node::Weaken(..) | Node::Mix(..) => return node.name(),
+        Node::Ax(..) | Node::Copy(..) | Node::Weaken(..) | Node::Mix(..) | Node::Cut(..) => {
+            return node.name();
+        }
     };
     Named::applied(rule, Some(reading), o.occ()).name()
 }

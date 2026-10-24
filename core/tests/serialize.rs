@@ -13,6 +13,7 @@ use linlog::{
     Named, NetError, Node, NodeId, OccId, Order, Placement, Proof, ProofStructure, Rule, Sequent,
     Step, VertexId, ViewOptions,
 };
+use linlog::{CutFormula, InputOptions};
 
 /// A sequent's JSON as another form nests it: without `version`.
 fn nested(s: &Sequent) -> String {
@@ -215,6 +216,55 @@ fn proof_round_trip() {
         back.derivation().unwrap().to_string(),
         p.derivation().unwrap().to_string()
     );
+}
+
+/// A proof with a cut is written at level 6: its sequent's cut formulas
+/// as `cuts`, each the term of `A` (the arena holds its dual, which the
+/// reader finds again), and the cut as `{"cut": [a, l, r]}`; it reads back
+/// as it was and checks.
+#[test]
+fn proof_with_a_cut_json_format_and_round_trip() {
+    use Node::*;
+    let (o, n) = (|x| Member::from(OccId::new(x)), NodeId::new);
+    // A ⊢ A by a cut on A: 0 ~A, 1 A, the cut formula 2 A and its dual 3 ~A.
+    let mut s: Sequent = "A |- A".parse().unwrap();
+    s.add_cut("|- A".parse().unwrap()).unwrap();
+    let nodes = vec![Ax(o(0), o(2)), Ax(o(1), o(3)), Cut(o(2), n(0), n(1))];
+    let p = Proof::new(Forest::new(&s).unwrap(), nodes, n(2)).unwrap();
+    let json = serde_json::to_string(&p).unwrap();
+    assert_eq!(
+        json,
+        r#"{"version":6,"sequent":{"terms":[{"D":0},{"V":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1,"cuts":[2]},"nodes":[{"ax":[0,2]},{"ax":[1,3]},{"cut":[2,0,1]}]}"#
+    );
+    let back: Proof = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.sequent(), p.sequent());
+    assert_eq!(back.nodes(), p.nodes());
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    assert_eq!(back.check(Mode::INTUITIONISTIC), Ok(()));
+    // Without its cut formulas the sequent reads at level 1, as before.
+    assert!(nested(&"A |- A".parse().unwrap()).find("cuts").is_none());
+}
+
+/// A sequent with many cut formulas over a long arena reads in time of
+/// the document's size: each term's dual is built once, however many cut
+/// formulas reach it (20 000 cuts of a chain of 20 000 terms took seconds
+/// when every cut formula went over the arena again).
+#[test]
+fn many_cut_formulas_read_in_linear_time() {
+    const N: usize = 20_000;
+    let mut terms = vec![r#"{"V":0}"#.to_owned()];
+    terms.extend((1..N).map(|i| format!(r#"{{"⊗":[{},0]}}"#, i - 1)));
+    let cuts = vec!["0"; N].join(",");
+    let json = format!(
+        r#"{{"version":6,"terms":[{}],"roots":[{}],"atoms":["a"],"cuts":[{cuts},{}]}}"#,
+        terms.join(","),
+        N - 1,
+        N - 1
+    );
+    let sequent: Sequent = serde_json::from_str(&json).unwrap();
+    assert_eq!(sequent.cuts().len(), N + 1);
+    // The dual of the chain, once: one new term per term.
+    assert_eq!(sequent.terms().len(), 2 * N);
 }
 
 /// JSON whose nodes point outside the forest or the arena, or at a later
@@ -495,6 +545,41 @@ fn a_session_keeps_how_its_sequent_was_written() {
 /// root first; an open goal is its sequent alone) and the goals its steps
 /// closed, and reads back with the same goals, undo history and derivation;
 /// an inference whose premises are not what its rule yields is rejected.
+/// A session with a cut is written at level 6: its sequent's cut
+/// formulas and the cut's `cut`, the occurrence of its formula; it reads
+/// back as it was, and `undo` on the session read back takes the cut and
+/// its formula away, back to the session as it began.
+#[test]
+fn a_session_with_a_cut_json_format_and_round_trip() {
+    let limits = Limits::default();
+    let s: Sequent = "A |- A".parse().unwrap();
+    let mut state = Interactive::new(&s, Mode::INTUITIONISTIC).unwrap();
+    let fresh = serde_json::to_string(&state).unwrap();
+    let formula =
+        CutFormula::parse_within("A", Mode::INTUITIONISTIC, &InputOptions::default(), &limits)
+            .unwrap();
+    let [first, _] = state.cut(GoalId::new(0), &formula, &[0], &limits).unwrap();
+    state.apply(first, &Step::new(0, Rule::Ax)).unwrap();
+    let json = serde_json::to_string(&state).unwrap();
+    assert_eq!(
+        json,
+        r#"{"version":6,"sequent":{"terms":[{"D":0},{"V":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1,"cuts":[2]},"mode":"intuitionistic","inferences":[{"sequent":[0,1],"rule":"cut","premises":[1,2],"cut":2},{"sequent":[0,2],"rule":"ax"},{"sequent":[1,3]}],"history":[0,1]}"#
+    );
+    let mut back: Interactive = serde_json::from_str(&json).unwrap();
+    assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    back.undo();
+    back.undo();
+    assert_eq!(serde_json::to_string(&back).unwrap(), fresh);
+    // A cut formula no cut made, or a cut on another formula, is refused.
+    for wrong in [
+        json.replace(r#""cut":2"#, r#""cut":3"#),
+        json.replace(r#""cuts":[2]"#, r#""cuts":[2,1]"#),
+    ] {
+        let error = serde_json::from_str::<Interactive>(&wrong).unwrap_err();
+        assert!(error.to_string().contains("cut"), "{error}");
+    }
+}
+
 #[test]
 fn interactive_json_format_and_round_trip() {
     let s: Sequent = "A, A -o B |- B".parse().unwrap();

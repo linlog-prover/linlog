@@ -27,6 +27,9 @@ struct Step {
     /// The premises, absent for a leaf.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     premises: Vec<u32>,
+    /// For a cut, the occurrence of its cut formula.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cut: Option<u32>,
 }
 
 /// The serialized form of a proof in progress: the sequent, the mode, the
@@ -113,7 +116,9 @@ impl From<&State> for Interactive {
     /// Converts a state into its serialized form.
     fn from(state: &State) -> Self {
         Self {
-            version: Some(wire::level_in(Some(state.mode()))),
+            version: Some(
+                wire::level_in(Some(state.mode())).max(wire::level_of_sequent(state.sequent())),
+            ),
             sequent: Sequent::from(state.sequent()),
             mode: state.mode(),
             inferences: state
@@ -124,6 +129,7 @@ impl From<&State> for Interactive {
                     rule: (inference.rule.rule != Rule::Open).then_some(inference.rule),
                     principal: inference.principal,
                     premises: inference.premises.iter().map(|p| p.get()).collect(),
+                    cut: inference.cut.map(Member::get),
                 })
                 .collect(),
             history: state.history().iter().map(|id| id.get()).collect(),
@@ -149,6 +155,7 @@ impl Interactive {
                 principal: step.principal,
                 premises: step.premises.into_iter().map(InfId::new).collect(),
                 times: 1,
+                cut: step.cut.map(Member::new),
             })
             .collect();
         let history = proxy.history.into_iter().map(InfId::new).collect();

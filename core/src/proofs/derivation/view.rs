@@ -179,6 +179,9 @@ pub struct Inference {
     /// as one inference ([`Compact`]), whose principal formula is then
     /// that of the lowest application.
     pub(crate) times: u32,
+    /// For a cut, the occurrence of the cut formula `A` it cuts, which
+    /// its first premise holds, its second holding the dual.
+    pub(crate) cut: Option<Member>,
 }
 
 impl Inference {
@@ -214,6 +217,14 @@ impl Inference {
     /// that of the lowest application.
     pub const fn times(&self) -> u32 {
         self.times
+    }
+
+    /// Returns, for a cut, the member of its cut formula `A`, which the
+    /// first premise's sequent holds, the second holding its dual
+    /// ([`Forest::dual`](crate::Forest::dual)); `None` for every other
+    /// rule.
+    pub const fn cut(&self) -> Option<Member> {
+        self.cut
     }
 }
 

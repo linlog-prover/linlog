@@ -468,6 +468,7 @@ pub fn translate(
         roots: terms,
         atoms: builder.atoms,
         antecedents: Some(antecedents),
+        cuts: vec![],
     };
     linear.optimize();
     let mode = if classical {

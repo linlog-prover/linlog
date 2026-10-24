@@ -4,11 +4,12 @@
 (** * Mix as a hypothesis [?(⊥ ⊗ ⊥)]
 
     A derivation that uses binary Mix becomes one without it, of the
-    same sequent with [?(⊥ ⊗ ⊥)] added, and still without cut: the extra
+    same sequent with [?(⊥ ⊗ ⊥)] added, and with no cut it did not have:
+    the extra
     formula travels up the derivation, a Mix of [⊢ Γ] and [⊢ Δ] becomes
     the [⊗] of [⊢ ⊥, ?(⊥ ⊗ ⊥), Γ] and [⊢ ⊥, ?(⊥ ⊗ ⊥), Δ] under a
     dereliction, and contraction merges the copies that every
-    two-premise rule makes. The proof follows Yalla's [mix_to_ll]
+    two-premise rule, cut included, makes. The proof follows Yalla's [mix_to_ll]
     ([ll_fragments.v]) for the binary case. *)
 
 From Stdlib Require Import List Permutation.
@@ -29,11 +30,12 @@ Proof.
 Qed.
 
 (** A derivation in any calculus gives one of [?(⊥ ⊗ ⊥), Γ] in the same
-    calculus without Mix (its weakening kept). *)
+    calculus without Mix (its weakening and its cut kept). *)
 Theorem mix_to_ll : forall R (l : list formula),
-  ll R l -> ll {| mix := false; weakening := weakening R |} (wn (tens bot bot) :: l).
+  ll R l ->
+  ll {| mix := false; weakening := weakening R; cut := cut R |} (wn (tens bot bot) :: l).
 Proof.
-  intros R l H. set (R' := {| mix := false; weakening := weakening R |}).
+  intros R l H. set (R' := {| mix := false; weakening := weakening R; cut := cut R |}).
   induction H.
   - apply wk_r, ax_r.
   - eapply ex_r; [exact IHll | apply perm_skip, H0].
@@ -74,12 +76,21 @@ Proof.
         apply bot_r; [exact IHll1 | exact IHll2].
     + cbn. apply perm_skip, perm_skip, Permutation_sym, Permutation_middle.
   - eapply ex_r; [apply weakening_r, IHll | apply perm_swap]. assumption.
+  - (* Cut: the copies of the two premises contracted. *)
+    apply co_r.
+    eapply ex_r.
+    + refine (cut_r R' _ A (wn (tens bot bot) :: l1) (wn (tens bot bot) :: l2) _ _).
+      * assumption.
+      * eapply ex_r; [exact IHll1 | apply perm_swap].
+      * eapply ex_r; [exact IHll2 | apply perm_swap].
+    + cbn. apply perm_skip. symmetry. apply Permutation_middle.
 Qed.
 
 (** The case the name says: a derivation with Mix gives one of
     [?(⊥ ⊗ ⊥), Γ] in classical linear logic. *)
 Corollary mix_to_classical : forall l : list formula,
-  ll {| mix := true; weakening := false |} l -> ll classical (wn (tens bot bot) :: l).
+  ll {| mix := true; weakening := false; cut := false |} l ->
+  ll classical (wn (tens bot bot) :: l).
 Proof. intros l H. exact (mix_to_ll _ l H). Qed.
 
 End Mix.

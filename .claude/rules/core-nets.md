@@ -178,6 +178,10 @@ code relies on:
   described `in_mode`), which is what every front end prints in an
   intuitionistic mode.
 
+- **No net of a proof with a cut yet**: `ProofStructure::from_proof` and
+  `MellStructure::from_proof` refuse a `Cut` node as `NetError::Rule`
+  (the latter before its check); a structure has no cut links.
+
 ## Proof nets with boxes: MELL
 
 `nets/mell/` is the representation of unit-free MELL proofs as proof

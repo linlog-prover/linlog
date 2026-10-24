@@ -455,6 +455,22 @@ impl<'a> Step<'a> {
                 }
                 Ok(self.join(self.premise(l), self.premise(r)))
             }
+            Cut(a, l, r) => {
+                // The occurrence of `A⊥` in the place `a` has in `A`, from
+                // the pairs themselves.
+                let a = a.occ();
+                let Some(dual) = f
+                    .cut_pairs()
+                    .find(|&(root, _)| root <= a && a.get() < root.get() + f.size(root))
+                    .map(|(root, dual)| OccId::new(dual.get() + (a.get() - root.get())))
+                else {
+                    return Err(self.fail(Fault::NotACut { member: a.into() }));
+                };
+                let (mut dl, mut dr) = (self.premise(l), self.premise(r));
+                self.take(&mut dl, a, 0)?;
+                self.take(&mut dr, dual, 1)?;
+                Ok(self.join(dl, dr))
+            }
         }
     }
 }
@@ -462,7 +478,8 @@ impl<'a> Step<'a> {
 /// Returns proofs to test a pass over proofs on, each with the mode it was
 /// found in: those the engines find of generated sequents, classical and
 /// intuitionistic, linear and affine, and of the smallest instance of
-/// every family.
+/// every family, and with the feature `interactive` proofs with cuts of
+/// the generated sequents.
 #[cfg(feature = "parse")]
 pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
     use crate::search::generate::{self, IllRules, Rng, Rules};
@@ -508,6 +525,9 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             proofs.push((*proof, mode));
         }
     }
+    // Proofs with cuts of the generated sequents, kept for the end.
+    #[cfg(feature = "interactive")]
+    let cuts = crate::proofs::interactive::with_cuts(&proofs, &mut Rng::new(41));
     for family in crate::families::FAMILIES {
         let instance = family.instance(family.sizes[0], 0).unwrap();
         let options = match instance.copies {
@@ -547,5 +567,7 @@ pub(crate) fn proofs() -> Vec<(Proof, Mode)> {
             proofs.push((*proof, mode));
         }
     }
+    #[cfg(feature = "interactive")]
+    proofs.extend(cuts);
     proofs
 }

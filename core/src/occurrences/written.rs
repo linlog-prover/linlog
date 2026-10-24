@@ -65,8 +65,10 @@ impl Written {
 }
 
 /// Returns the side of `⊢` an occurrence stands on as its parent writes
-/// it: a root's side of the turnstile, the implication's other side for
-/// its antecedent, and its parent's side for every other subformula.
+/// it: a root's side of the turnstile (a cut formula `A` right of it, as
+/// the premise that proves it writes it, and its dual left of it), the
+/// implication's other side for its antecedent, and its parent's side for
+/// every other subformula.
 pub(crate) fn context(forest: &Forest, writing: &[Written], o: OccId) -> Side {
     match forest.parent(o) {
         Some(parent) => {
@@ -75,6 +77,13 @@ pub(crate) fn context(forest: &Forest, writing: &[Written], o: OccId) -> Side {
                 !written.side()
             } else {
                 written.side()
+            }
+        }
+        None if !forest.is_conclusion(o) => {
+            if forest.is_cut_formula(o) {
+                Side::Output
+            } else {
+                Side::Input
             }
         }
         None => {
@@ -121,17 +130,24 @@ pub(crate) fn fault(forest: &Forest, writing: &[Written]) -> Option<&'static str
 }
 
 /// The record of a one-sided sequent as its one-sided syntax writes it:
-/// every formula on its root's side of `⊢`, and an atom negated by a
-/// negation of its own where its root's side is not its own.
+/// every formula on its root's side of `⊢` (a cut formula right of it,
+/// its dual left of it), and an atom negated by a negation of its own
+/// where its root's side is not its own.
 pub(crate) fn one_sided(forest: &Forest) -> Box<[Written]> {
     let mut writing = vec![Written::new(Side::Output, false); forest.len()];
     let antecedents = forest.sequent().antecedents().unwrap_or(0) as usize;
-    for (index, &root) in forest.roots().iter().enumerate() {
+    let roots = forest.roots().iter().enumerate().map(|(index, &root)| {
         let side = if index < antecedents {
             Side::Input
         } else {
             Side::Output
         };
+        (root, side)
+    });
+    let cuts = forest
+        .cut_pairs()
+        .flat_map(|(a, dual)| [(a, Side::Output), (dual, Side::Input)]);
+    for (root, side) in roots.chain(cuts) {
         let end = root.index() + forest.size(root) as usize;
         for (k, written) in writing.iter_mut().enumerate().take(end).skip(root.index()) {
             // A literal's side is its sign's.

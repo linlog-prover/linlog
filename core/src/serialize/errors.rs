@@ -93,6 +93,7 @@ impl Serialize for Details<'_> {
             Antecedents { antecedents, roots } => {
                 entries!(s; "antecedents" => antecedents; "roots" => roots)
             }
+            CutFormula { formulas } => entries!(s; "formulas" => formulas),
             AtomName { name } => entries!(s; "name" => name),
             #[cfg(feature = "interactive")]
             InconsistentSession { reason } => entries!(s; "reason" => reason),
@@ -196,6 +197,9 @@ impl Serialize for Fault {
             Self::Differ => entries!(s; "kind" => "differ"),
             Self::Order => entries!(s; "kind" => "order"),
             Self::EmptyAntecedent => entries!(s; "kind" => "empty_antecedent"),
+            Self::NotACut { member } => {
+                entries!(s; "kind" => "not_a_cut"; "member" => &member.get())
+            }
             Self::NotUnderQuest { member } => {
                 entries!(s; "kind" => "not_under_quest"; "member" => &member.get())
             }
@@ -222,6 +226,9 @@ impl Serialize for ShapeError {
             Self::Undetermined { first, second } => entries!(s;
                 "kind" => "undetermined"; "first" => &first.get(); "second" => &second.get()),
             Self::EmptyAntecedent => entries!(s; "kind" => "empty_antecedent"),
+            Self::CutFormula { occurrence } => {
+                entries!(s; "kind" => "cut_formula"; "occurrence" => &occurrence.get())
+            }
         }
     }
 }

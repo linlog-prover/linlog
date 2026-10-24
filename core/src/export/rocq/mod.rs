@@ -30,14 +30,15 @@
 //! two-sided derivation is exported as the one-sided derivation behind it
 //! (the one-sided [`Rule`] of every [`Named`](crate::proofs::Named) rule), which proves the same
 //! sequent read one-sided.
-//! Mix, the weakening of affine mode and an open goal have no rule in the
-//! kernel, and a derivation with one is refused ([`Unsupported`]). A
+//! Mix, the weakening of affine mode, a cut and an open goal have no rule
+//! in the kernel, and a derivation with one is refused ([`Unsupported`]). A
 //! fragment is the lemma alone, for a file that imports `macroll`; a
 //! standalone file starts with [`Options::prelude`].
 //!
 //! For linlog's library the certificate is a lemma stating the sequent
 //! over the library's own calculus, `ll` one-sided with the rules the
-//! mode allows or `ill` two-sided for a two-sided derivation, proved by
+//! mode allows or `ill` two-sided for a two-sided derivation, with cut
+//! where the derivation uses one, proved by
 //! the library's soundness theorem applied to the derivation as a proof
 //! term, which Rocq's `vm_compute` checks: atoms are strings, every rule
 //! has a term, and nothing is refused but an open goal and a compact run.
@@ -171,13 +172,14 @@ impl Options {
 #[cfg_attr(feature = "serialize", serde(rename_all = "lowercase"))]
 pub enum Kernel {
     /// NanoYalla [`NANOYALLA`], the kernel of Click & coLLecT: classical
-    /// linear logic one-sided, without Mix or the weakening of affine
-    /// mode, checked rule by rule by a proof script.
+    /// linear logic one-sided, without Mix, cut or the weakening of
+    /// affine mode, checked rule by rule by a proof script.
     NanoYalla,
     /// linlog's own Rocq library [`LINLOG`]: one-sided linear logic with
     /// Mix and weakening where the mode allows them, and two-sided
-    /// intuitionistic linear logic and its affine variant, checked by the
-    /// library's checker on a proof term.
+    /// intuitionistic linear logic and its affine variant, each with cut
+    /// where the proof uses one, checked by the library's checker on a
+    /// proof term.
     Linlog,
 }
 
@@ -305,6 +307,12 @@ pub enum Unsupported {
     /// The derivation uses Mix.
     #[error("NanoYalla has no Mix rule, so a proof with Mix has no certificate")]
     Mix,
+    /// The derivation uses a cut, which NanoYalla's kernel has as an
+    /// axiom or as a theorem of the Yalla library only.
+    #[error(
+        "NanoYalla's kernel has no cut rule, so a proof with a cut has its certificate in linlog's library"
+    )]
+    Cut,
     /// The derivation weakens a formula that is not a `?` formula.
     #[error(
         "NanoYalla weakens ? formulas only, so a proof with the weakening of affine mode has no certificate"
@@ -689,7 +697,7 @@ impl Script<'_> {
                 self.braced[r.index()] = true;
             }
             Rule::Tensor => self.tensor(id, goal),
-            Rule::Ax | Rule::Mix | Rule::AffineWeakening | Rule::Open => {
+            Rule::Ax | Rule::Mix | Rule::AffineWeakening | Rule::Cut | Rule::Open => {
                 unreachable!("refused before anything is written")
             }
         }
@@ -886,7 +894,11 @@ fn linear(
         return Err(Unsupported::Ordered.into());
     }
     let uses = |rule| derivation.inferences().iter().any(|i| i.rule.rule == rule);
-    let (mix, weakening) = (uses(Rule::Mix), uses(Rule::AffineWeakening));
+    let (mix, weakening, cut) = (
+        uses(Rule::Mix),
+        uses(Rule::AffineWeakening),
+        uses(Rule::Cut),
+    );
     let mode = derivation.mode();
     let kernel = options.kernel.unwrap_or(match mode {
         Some(mode) if mode.is_intuitionistic() || mode.is_affine() || mode.has_mix() => {
@@ -894,7 +906,7 @@ fn linear(
         }
         // Classical linear logic, or a proof that records no mode and
         // shows its own: NanoYalla, unless it needs what the kernel lacks.
-        _ if mix || weakening || (mode.is_none() && derivation.reading().is_some()) => {
+        _ if mix || weakening || cut || (mode.is_none() && derivation.reading().is_some()) => {
             Kernel::Linlog
         }
         _ => Kernel::NanoYalla,
@@ -907,6 +919,7 @@ fn linear(
             let calculus = linlog::Calculus {
                 mix: mix || mode.is_some_and(Mode::has_mix),
                 weakening: weakening || mode.is_some_and(Mode::is_affine),
+                cut,
             };
             linlog::write(derivation, options, calculus, out, stop)
         }
@@ -929,6 +942,7 @@ fn nanoyalla(
             Rule::Open => return Err(Unsupported::Open.into()),
             Rule::Mix => return Err(Unsupported::Mix.into()),
             Rule::AffineWeakening => return Err(Unsupported::AffineWeakening.into()),
+            Rule::Cut => return Err(Unsupported::Cut.into()),
             Rule::Ax
             | Rule::Tensor
             | Rule::Par

@@ -109,7 +109,15 @@ mod tests {
             (With(a, l, r), 2) => Tensor(a, l, r),
             (Tensor(a, l, r), 3) => Tensor(a, r, l),
             (With(a, l, r), 3) => With(a, r, l),
+            (Tensor(_, l, r) | With(_, l, r), 4) if proof.forest().has_cuts() => {
+                Cut(occ(rng), l, r)
+            }
             (Tensor(_, l, r) | With(_, l, r), _) => Mix(l, r),
+            (Cut(_, l, r), 0) => Cut(occ(rng), l, r),
+            (Cut(a, l, r), 1) => Cut(a, r, l),
+            (Cut(a, l, _), 2) => Cut(a, l, earlier(rng)),
+            (Cut(_, l, r), 3) => Tensor(occ(rng), l, r),
+            (Cut(_, l, r), _) => Mix(l, r),
             (Mix(l, r), 0 | 1) => Tensor(occ(rng), l, r),
             (Mix(l, r), 2) => With(occ(rng), l, r),
             (Mix(l, r), 3) => Mix(r, l),
@@ -141,6 +149,30 @@ mod tests {
         let classical = Mode::CLASSICAL;
         let proofs = oracle::proofs();
         assert!(proofs.len() > 1000, "{} proofs", proofs.len());
+        #[cfg(feature = "interactive")]
+        {
+            let two_cuts = |(p, _): &&(Proof, Mode)| {
+                p.nodes()
+                    .iter()
+                    .filter(|n| matches!(n, Node::Cut(..)))
+                    .count()
+                    == 2
+            };
+            let (classical, ill) = proofs
+                .iter()
+                .filter(two_cuts)
+                .fold((0, 0), |(c, i), (_, m)| {
+                    if m.intuitionistic {
+                        (c, i + 1)
+                    } else {
+                        (c + 1, i)
+                    }
+                });
+            assert!(
+                classical > 50 && ill > 50,
+                "{classical} and {ill} proofs with two cuts"
+            );
+        }
 
         let modes = [
             classical,
@@ -628,6 +660,7 @@ mod tests {
             roots,
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         };
         // Occurrences: 0 is 1, 1 to `width` the ⊥ formulas, then the tree
         // in preorder.
@@ -737,6 +770,7 @@ mod tests {
             roots,
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         };
         // Occurrences: 0 is ⊤, 1 to `width` the ⊥ formulas, then each
         // `⊥ & ⊥` and its two subformulas.
@@ -1042,6 +1076,120 @@ mod tests {
             vec![Ax(o(1), o(3)), Ax(o(2), o(4)), Mix(n(0), n(1))],
         );
         assert_eq!(p.check(m.with_mix()).unwrap_err().fault(), Some(&Forbidden));
+    }
+
+    /// Returns a proof of the sequent `input` parses to, with the cut
+    /// formulas `cuts` added in order, the last node its root.
+    fn with_cuts(input: &str, cuts: &[&str], nodes: Vec<Node>) -> Proof {
+        let mut s: Sequent = input.parse().unwrap();
+        for cut in cuts {
+            s.add_cut(format!("|- {cut}").parse().unwrap()).unwrap();
+        }
+        let root = n(nodes.len() as u32 - 1);
+        Proof::new(Forest::new(&s).unwrap(), nodes, root).unwrap()
+    }
+
+    /// A cut takes its formula from its first premise and the dual from
+    /// its second, in every commutative mode, and is refused on any other
+    /// member, with premises that lack them, where a premise would have
+    /// two goals, and in the ordered modes; the oracle agrees.
+    #[test]
+    fn cut() {
+        use Fault::*;
+        use Node::*;
+        let modes = [
+            Mode::CLASSICAL,
+            Mode::CLASSICAL.with_affine().with_mix(),
+            Mode::INTUITIONISTIC,
+            Mode::INTUITIONISTIC.with_affine(),
+        ];
+        let agree = |p: &Proof, mode: Mode| {
+            let result = p.check(mode);
+            assert_eq!(result, oracle::check(p, mode), "{mode}");
+            result
+        };
+        // A ⊢ A by a cut on A: 0 ~A, 1 A, then the cut formula 2 A and
+        // its dual 3 ~A.
+        let ax = |x, y, r| with_cuts("A |- A", &["A"], vec![Ax(o(0), o(x)), Ax(o(1), o(y)), r]);
+        let good = ax(2, 3, Cut(o(2), n(0), n(1)));
+        assert_eq!(
+            good.forest().cut_pairs().collect::<Vec<_>>(),
+            [(OccId::new(2), OccId::new(3))]
+        );
+        for mode in modes {
+            assert_eq!(agree(&good, mode), Ok(()), "{mode}");
+        }
+        for mode in [
+            Mode::CYCLIC,
+            Mode::LAMBEK,
+            Mode::LAMBEK.with_empty_antecedents(),
+        ] {
+            assert_eq!(agree(&good, mode).unwrap_err().fault(), Some(&Forbidden));
+        }
+        // On the dual, or on a formula of the conclusion: no cut formula.
+        for a in [3, 1] {
+            let wrong = ax(2, 3, Cut(o(a), n(0), n(1)));
+            let error = agree(&wrong, Mode::CLASSICAL).unwrap_err();
+            assert_eq!(error.fault(), Some(&NotACut { member: o(a) }));
+        }
+        // The premises the other way round: the first lacks the formula.
+        let swapped = ax(2, 3, Cut(o(2), n(1), n(0)));
+        let error = agree(&swapped, Mode::CLASSICAL).unwrap_err();
+        assert_eq!(
+            error.fault(),
+            Some(&Missing {
+                premise: 0,
+                member: o(2)
+            })
+        );
+        // A cut formula B the premises do not have.
+        let mismatched = with_cuts(
+            "A |- A",
+            &["B"],
+            vec![Ax(o(0), o(1)), Ax(o(0), o(1)), Cut(o(2), n(0), n(1))],
+        );
+        let error = agree(&mismatched, Mode::CLASSICAL).unwrap_err();
+        assert_eq!(
+            error.fault(),
+            Some(&Missing {
+                premise: 0,
+                member: o(2)
+            })
+        );
+        // A, 0 ⊢ ⊤ by a cut on A: 0 ~A, 1 ⊤ (the hypothesis 0), 2 ⊤, then
+        // 3 A and 4 ~A. Classically either ⊤ absorbs either side; in
+        // intuitionistic mode the goal's ⊤ cannot also absorb the cut
+        // formula, which would make its premise ⊢ ⊤, A, two goals.
+        let tops = |l, r| {
+            with_cuts(
+                "A, 0 |- top",
+                &["A"],
+                vec![Top(o(l)), Top(o(r)), Cut(o(3), n(0), n(1))],
+            )
+        };
+        let (right, two_goals) = (tops(1, 2), tops(2, 1));
+        for mode in modes {
+            assert_eq!(agree(&right, mode), Ok(()), "{mode}");
+        }
+        assert_eq!(agree(&two_goals, Mode::CLASSICAL), Ok(()));
+        let error = agree(&two_goals, Mode::INTUITIONISTIC).unwrap_err();
+        assert_eq!(
+            (error.node(), error.fault()),
+            (n(2), Some(&Succedents { count: 2 }))
+        );
+        // A cut formula that is no intuitionistic formula: ~A cannot be a
+        // goal.
+        let classical = with_cuts(
+            "A |- A",
+            &["~A"],
+            vec![Ax(o(1), o(2)), Ax(o(0), o(3)), Cut(o(2), n(0), n(1))],
+        );
+        assert_eq!(agree(&classical, Mode::CLASSICAL), Ok(()));
+        let error = agree(&classical, Mode::INTUITIONISTIC).unwrap_err();
+        assert!(matches!(
+            error.fault(),
+            Some(Shape(crate::ShapeError::CutFormula { .. }))
+        ));
     }
 
     /// In the cyclic mode a `⊗` joins the two arcs on either side of it,

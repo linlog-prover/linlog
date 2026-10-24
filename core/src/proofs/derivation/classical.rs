@@ -82,6 +82,8 @@ pub enum ClassicalRule {
     /// `wk`, weakening by a formula that is no exponential, in affine
     /// mode.
     Weakening,
+    /// `cut`: from `Γ ⊢ A, Δ` and `Γ', A ⊢ Δ'` to `Γ, Γ' ⊢ Δ, Δ'`.
+    Cut,
     /// `~L`: from `Γ ⊢ A, Δ` to `Γ, A⊥ ⊢ Δ`.
     NegationLeft,
     /// `~R`: from `Γ, A ⊢ Δ` to `Γ ⊢ A⊥, Δ`.
@@ -93,7 +95,7 @@ pub enum ClassicalRule {
 impl ClassicalRule {
     /// Every rule, in the order of declaration, by which the label tables
     /// are indexed.
-    pub(crate) const ALL: [Self; 32] = {
+    pub(crate) const ALL: [Self; 33] = {
         use ClassicalRule::*;
         [
             Axiom,
@@ -125,6 +127,7 @@ impl ClassicalRule {
             QuestWeakening,
             Mix,
             Weakening,
+            Cut,
             NegationLeft,
             NegationRight,
             Open,
@@ -132,18 +135,18 @@ impl ClassicalRule {
     };
 
     /// The upright labels, in the order of [`ALL`](Self::ALL).
-    const UPRIGHT: [&'static str; 32] = [
+    const UPRIGHT: [&'static str; 33] = [
         "ax", "⊗L", "⊗R", "⅋L", "⅋R", "⊸L", "⊸R", "1L", "1R", "⊥L", "⊥R", "&L_1", "&L_2", "&R",
         "⊕L", "⊕R_1", "⊕R_2", "⊤R", "0L", "!L", "!R", "!c", "!w", "?L", "?R", "?c", "?w", "mix",
-        "wk", "~L", "~R", "",
+        "wk", "cut", "~L", "~R", "",
     ];
 
     /// The labels with the side as a subscript, in the order of
     /// [`ALL`](Self::ALL).
-    const SUBSCRIPT: [&'static str; 32] = [
+    const SUBSCRIPT: [&'static str; 33] = [
         "ax", "⊗_L", "⊗_R", "⅋_L", "⅋_R", "⊸_L", "⊸_R", "1_L", "1_R", "⊥_L", "⊥_R", "&_{L1}",
         "&_{L2}", "&_R", "⊕_L", "⊕_{R1}", "⊕_{R2}", "⊤_R", "0_L", "!_L", "!_R", "!_c", "!_w",
-        "?_L", "?_R", "?_c", "?_w", "mix", "wk", "~_L", "~_R", "",
+        "?_L", "?_R", "?_c", "?_w", "mix", "wk", "cut", "~_L", "~_R", "",
     ];
 
     /// Returns the rule's name: `⊗L`, `⅋R`, `⊸L`, `&L₁`, `~R`, and so on.
@@ -179,6 +182,7 @@ impl ClassicalRule {
             QuestWeakening => "?w",
             Mix => "mix",
             Weakening => "wk",
+            Cut => "cut",
             NegationLeft => "~L",
             NegationRight => "~R",
             Open => "open",
@@ -206,14 +210,15 @@ impl ClassicalRule {
             BangWeakening | QuestWeakening => Rule::Weakening,
             Mix => Rule::Mix,
             Weakening => Rule::AffineWeakening,
+            Cut => Rule::Cut,
             Open => Rule::Open,
             NegationLeft | NegationRight => return None,
         })
     }
 
     /// Returns the side of `⊢` the principal formula stands on in the
-    /// rule's conclusion, or `None` for the axiom, Mix, weakening and an
-    /// open goal, whose names have no side.
+    /// rule's conclusion, or `None` for the axiom, Mix, weakening, the cut
+    /// and an open goal, whose names have no side.
     pub const fn side(self) -> Option<Side> {
         use ClassicalRule::*;
         match self {
@@ -223,7 +228,7 @@ impl ClassicalRule {
             TensorRight | ParRight | LollipopRight | OneRight | BotRight | WithRight
             | PlusRight1 | PlusRight2 | TopRight | BangRight | QuestRight | QuestContraction
             | QuestWeakening | NegationRight => Some(Side::Output),
-            Axiom | Mix | Weakening | Open => None,
+            Axiom | Mix | Weakening | Cut | Open => None,
         }
     }
 
@@ -252,6 +257,7 @@ impl ClassicalRule {
             Rule::Weakening => pick(BangWeakening, QuestWeakening),
             Rule::Mix => Mix,
             Rule::AffineWeakening => Weakening,
+            Rule::Cut => Cut,
             Rule::Open => Open,
         }
     }
@@ -437,7 +443,16 @@ impl<'a> TwoSided<'a> {
             let mut premises = Vec::with_capacity(inference.premises().len());
             for (j, &premise) in inference.premises().iter().enumerate() {
                 let top: InfId = ids[premise.index()];
-                let exposed = principal.map_or([None, None], |p| exposed(forest, rule, p, j));
+                // A cut puts its cut formula into its first premise and the
+                // dual into its second, as roots are written.
+                let exposed = match (inference.cut(), principal) {
+                    (Some(a), _) => {
+                        let a = a.occ();
+                        [Some(if j == 0 { a } else { forest.dual(a).unwrap() }), None]
+                    }
+                    (None, Some(p)) => exposed(forest, rule, p, j),
+                    (None, None) => [None, None],
+                };
                 let negated = exposed
                     .into_iter()
                     .flatten()
@@ -824,6 +839,7 @@ fn exposed(forest: &Forest, rule: Rule, p: OccId, j: usize) -> [Option<OccId>; 2
             | Rule::Weakening
             | Rule::Mix
             | Rule::AffineWeakening
+            | Rule::Cut
             | Rule::Open,
             _,
         ) => [None, None],
@@ -904,6 +920,49 @@ mod tests {
     fn proved(written: &ClassicalSequent, mode: Mode) -> Proof {
         let outcome = crate::prove(written.sequent(), mode, &Options::default()).unwrap();
         outcome.verdict.proof().expect("provable").clone()
+    }
+
+    /// Returns a proof with a cut of a written sequent in `mode` and the
+    /// record of its session: the sequent's session cut on one of its
+    /// formulas, typed as it was written (the others going to the first
+    /// premise, or the formula alone where it stands left of `⊢`), both
+    /// goals closed by the search; `None` where the search leaves one.
+    #[cfg(feature = "interactive")]
+    fn cut_written(
+        written: &ClassicalSequent,
+        mode: Mode,
+        rng: &mut Rng,
+    ) -> Option<(Proof, Vec<Written>)> {
+        use crate::{CutFormula, InputOptions, Interactive};
+        let limits = Limits::default();
+        let mut session = Interactive::of_classical(written, mode, &limits).unwrap();
+        let root = session.goals().next().unwrap();
+        let roots = written.forest().roots();
+        let p = rng.below(roots.len());
+        let text = written.formula(roots[p]).to_string();
+        let antecedents = written.sequent().antecedents().unwrap_or(0) as usize;
+        let left: Vec<usize> = if p < antecedents {
+            vec![p]
+        } else {
+            (0..roots.len()).filter(|&q| q != p).collect()
+        };
+        let formula =
+            CutFormula::parse_within(&text, mode, &InputOptions::default(), &limits).unwrap();
+        session.cut(root, &formula, &left, &limits).unwrap();
+        let options = Options::default();
+        let view = ViewOptions::default();
+        for (_, closed) in session.close_all(&options, &view, &limits, |_| false) {
+            closed.ok()?.grafted.ok()?;
+        }
+        let proof = session.proof(&limits, |_| false).ok()?;
+        Some((proof, session.writing().unwrap().to_vec()))
+    }
+
+    /// Returns no proof with a cut: the sessions that make one need the
+    /// feature `interactive`.
+    #[cfg(not(feature = "interactive"))]
+    fn cut_written(_: &ClassicalSequent, _: Mode, _: &mut Rng) -> Option<(Proof, Vec<Written>)> {
+        None
     }
 
     /// Returns the two-sided tree of a sequent's proof in classical mode,
@@ -1025,11 +1084,14 @@ mod tests {
     /// a rule of the term with its principal formula as written on the
     /// side its name says, or a negation step that moves one formula,
     /// written with its negation in the conclusion, without it to the
-    /// other side in the premise. The root is the sequent as written.
+    /// other side in the premise. The root is the sequent as written. The
+    /// same holds of a proof with a cut on a formula typed as written,
+    /// whose two occurrences the session records on their sides.
     #[test]
     fn every_inference_parses_back_and_reads_as_its_term() {
         let limits = Limits::default();
-        let (mut inferences, mut negations, mut split) = (0, 0, 0);
+        let (mut inferences, mut negations, mut split, mut cuts) = (0, 0, 0, 0);
+        let mut cut_rng = Rng::new(41);
         for (i, rules) in Rules::ALL.into_iter().enumerate() {
             let mode = if rules.mix {
                 Mode::CLASSICAL.with_mix()
@@ -1042,126 +1104,137 @@ mod tests {
                 let provable = generate::provable(&mut rng, rules, 3, budget);
                 let (text, _) = generate::written(&mut rng, &provable.formulas);
                 let written: ClassicalSequent = text.parse().unwrap();
-                let proof = proved(&written, mode);
-                for compact in [Compact::Never, Compact::Always] {
-                    let options = ViewOptions::default().with_compact(compact);
-                    let derivation = proof
-                        .derivation_within(&options, &limits, |_| false)
-                        .unwrap();
-                    let view = TwoSided::new(&derivation, written.writing(), &limits).unwrap();
-                    let forest = derivation.forest();
-                    let root = view.root();
-                    assert_eq!(
-                        view.sequent(root).to_string(),
-                        written.to_string(),
-                        "{text}"
-                    );
-                    for k in 0..view.len() {
-                        let id = InfId::new(k as u32);
-                        let printed = view.sequent(id).to_string();
-                        let parsed: ClassicalSequent = printed.parse().unwrap();
-                        let members = shown(&view, id);
-                        let left = members.iter().filter(|m| m.1 == Side::Input).count();
-                        let (pf, pw) = (parsed.forest(), parsed.writing());
+                let plain = (proved(&written, mode), written.writing().to_vec());
+                let cut = cut_written(&written, mode, &mut cut_rng);
+                for (proof, writing) in [Some(plain), cut].into_iter().flatten() {
+                    for compact in [Compact::Never, Compact::Always] {
+                        let options = ViewOptions::default().with_compact(compact);
+                        let derivation = proof
+                            .derivation_within(&options, &limits, |_| false)
+                            .unwrap();
+                        let view = TwoSided::new(&derivation, &writing, &limits).unwrap();
+                        let forest = derivation.forest();
+                        let root = view.root();
                         assert_eq!(
-                            parsed.sequent().antecedents(),
-                            Some(left as u32),
-                            "{printed}"
+                            view.sequent(root).to_string(),
+                            written.to_string(),
+                            "{text}"
                         );
-                        assert_eq!(pf.roots().len(), members.len(), "{printed}");
-                        for (&r, &(m, _, negated)) in pf.roots().iter().zip(&members) {
-                            let o = m.occ();
-                            assert_eq!(pf.size(r), forest.size(o), "{printed}");
-                            for d in 0..forest.size(o) {
-                                let (p, q) = (OccId::new(r.get() + d), OccId::new(o.get() + d));
-                                assert_eq!(pf.kind(p), forest.kind(q), "{printed}");
-                                assert_eq!(pw[p.index()], written.written(q), "{printed}");
-                                let name = |f: &Forest, x| {
-                                    f.atom(x).map(|a| f.sequent().atom_name(a).to_owned())
-                                };
-                                assert_eq!(name(pf, p), name(forest, q), "{printed}");
-                            }
-                            assert_eq!(parsed.is_negated(r), negated, "{printed}");
-                        }
-                        let base = derivation.inference(view.shows(id));
-                        let rule = view.rule(id);
-                        match rule.rule() {
-                            None => {
-                                let &[premise] = view.premises(id) else {
-                                    panic!("a negation step has one premise");
-                                };
-                                assert_eq!(view.shows(premise), view.shows(id));
-                                let above: Vec<_> = view.sides(premise).collect();
-                                let below: Vec<_> = view.sides(id).collect();
-                                let moved: Vec<_> =
-                                    (0..below.len()).filter(|&p| above[p] != below[p]).collect();
-                                let &[p] = &moved[..] else {
-                                    panic!("a negation step moves one formula: {printed}");
-                                };
-                                let (m, side, negated) = below[p];
-                                assert!(negated && !above[p].2, "{printed}");
-                                assert_eq!(above[p].1, written.written(m.occ()).side());
-                                assert_eq!(Some(side), rule.side(), "{printed}");
-                                assert_ne!(side, above[p].1, "{printed}");
-                                negations += 1;
-                            }
-                            Some(one_sided) if one_sided.is_structural() => {
-                                // A run: what it adds or takes away stands on
-                                // its name's side, as many as it counts.
-                                assert_eq!(one_sided, base.rule().rule, "{printed}");
-                                let &[premise] = view.premises(id) else {
-                                    panic!("a structural rule has one premise");
-                                };
-                                let key = |s: &(Member, Side, bool)| (s.0, s.1 == Side::Input, s.2);
-                                let mut below: Vec<_> = view.sides(id).map(|s| key(&s)).collect();
-                                let mut above: Vec<_> =
-                                    view.sides(premise).map(|s| key(&s)).collect();
-                                below.sort_unstable();
-                                above.sort_unstable();
-                                let (larger, smaller) = if one_sided == Rule::Contraction {
-                                    (&above, &below)
-                                } else {
-                                    (&below, &above)
-                                };
-                                let mut moved = larger.clone();
-                                for s in smaller {
-                                    let at =
-                                        moved.iter().position(|m| m == s).expect("a sub-multiset");
-                                    moved.remove(at);
+                        for k in 0..view.len() {
+                            let id = InfId::new(k as u32);
+                            let printed = view.sequent(id).to_string();
+                            let parsed: ClassicalSequent = printed.parse().unwrap();
+                            let members = shown(&view, id);
+                            let left = members.iter().filter(|m| m.1 == Side::Input).count();
+                            let (pf, pw) = (parsed.forest(), parsed.writing());
+                            assert_eq!(
+                                parsed.sequent().antecedents(),
+                                Some(left as u32),
+                                "{printed}"
+                            );
+                            assert_eq!(pf.roots().len(), members.len(), "{printed}");
+                            for (&r, &(m, _, negated)) in pf.roots().iter().zip(&members) {
+                                let o = m.occ();
+                                assert_eq!(pf.size(r), forest.size(o), "{printed}");
+                                for d in 0..forest.size(o) {
+                                    let (p, q) = (OccId::new(r.get() + d), OccId::new(o.get() + d));
+                                    assert_eq!(pf.kind(p), forest.kind(q), "{printed}");
+                                    assert_eq!(pw[p.index()], writing[q.index()], "{printed}");
+                                    let name = |f: &Forest, x| {
+                                        f.atom(x).map(|a| f.sequent().atom_name(a).to_owned())
+                                    };
+                                    assert_eq!(name(pf, p), name(forest, q), "{printed}");
                                 }
-                                assert_eq!(
-                                    moved.len() as u32,
-                                    view.inferences[k].times,
-                                    "{printed}"
-                                );
-                                if let Some(named) = rule.side() {
-                                    let input = named == Side::Input;
-                                    assert!(
-                                        moved.iter().all(|m| m.1 == input),
-                                        "{printed} by {rule}"
-                                    );
-                                }
+                                assert_eq!(parsed.is_negated(r), negated, "{printed}");
                             }
-                            Some(one_sided) => {
-                                assert_eq!(one_sided, base.rule().rule, "{printed}");
-                                assert_eq!(view.premises(id).len(), base.premises().len());
-                                if let Some(position) = base.principal() {
-                                    let (m, side, negated) = view.sides(id).nth(position).unwrap();
-                                    assert!(!negated, "a rule acts on a formula as written");
-                                    if let Some(named) = rule.side() {
-                                        assert_eq!(side, named, "{printed} by {rule}");
+                            let base = derivation.inference(view.shows(id));
+                            let rule = view.rule(id);
+                            match rule.rule() {
+                                None => {
+                                    let &[premise] = view.premises(id) else {
+                                        panic!("a negation step has one premise");
+                                    };
+                                    assert_eq!(view.shows(premise), view.shows(id));
+                                    let above: Vec<_> = view.sides(premise).collect();
+                                    let below: Vec<_> = view.sides(id).collect();
+                                    let moved: Vec<_> = (0..below.len())
+                                        .filter(|&p| above[p] != below[p])
+                                        .collect();
+                                    let &[p] = &moved[..] else {
+                                        panic!("a negation step moves one formula: {printed}");
+                                    };
+                                    let (m, side, negated) = below[p];
+                                    assert!(negated && !above[p].2, "{printed}");
+                                    assert_eq!(above[p].1, writing[m.occ().index()].side());
+                                    assert_eq!(Some(side), rule.side(), "{printed}");
+                                    assert_ne!(side, above[p].1, "{printed}");
+                                    negations += 1;
+                                }
+                                Some(one_sided) if one_sided.is_structural() => {
+                                    // A run: what it adds or takes away stands on
+                                    // its name's side, as many as it counts.
+                                    assert_eq!(one_sided, base.rule().rule, "{printed}");
+                                    let &[premise] = view.premises(id) else {
+                                        panic!("a structural rule has one premise");
+                                    };
+                                    let key =
+                                        |s: &(Member, Side, bool)| (s.0, s.1 == Side::Input, s.2);
+                                    let mut below: Vec<_> =
+                                        view.sides(id).map(|s| key(&s)).collect();
+                                    let mut above: Vec<_> =
+                                        view.sides(premise).map(|s| key(&s)).collect();
+                                    below.sort_unstable();
+                                    above.sort_unstable();
+                                    let (larger, smaller) = if one_sided == Rule::Contraction {
+                                        (&above, &below)
+                                    } else {
+                                        (&below, &above)
+                                    };
+                                    let mut moved = larger.clone();
+                                    for s in smaller {
+                                        let at = moved
+                                            .iter()
+                                            .position(|m| m == s)
+                                            .expect("a sub-multiset");
+                                        moved.remove(at);
                                     }
-                                    let implication = written.written(m.occ()).is_implication();
-                                    let lollipop = matches!(
-                                        rule,
-                                        ClassicalRule::LollipopLeft | ClassicalRule::LollipopRight
+                                    assert_eq!(
+                                        moved.len() as u32,
+                                        view.inferences[k].times,
+                                        "{printed}"
                                     );
-                                    assert_eq!(implication, lollipop, "{printed} by {rule}");
+                                    if let Some(named) = rule.side() {
+                                        let input = named == Side::Input;
+                                        assert!(
+                                            moved.iter().all(|m| m.1 == input),
+                                            "{printed} by {rule}"
+                                        );
+                                    }
+                                }
+                                Some(one_sided) => {
+                                    assert_eq!(one_sided, base.rule().rule, "{printed}");
+                                    assert_eq!(view.premises(id).len(), base.premises().len());
+                                    if let Some(position) = base.principal() {
+                                        let (m, side, negated) =
+                                            view.sides(id).nth(position).unwrap();
+                                        assert!(!negated, "a rule acts on a formula as written");
+                                        if let Some(named) = rule.side() {
+                                            assert_eq!(side, named, "{printed} by {rule}");
+                                        }
+                                        let implication = writing[m.occ().index()].is_implication();
+                                        let lollipop = matches!(
+                                            rule,
+                                            ClassicalRule::LollipopLeft
+                                                | ClassicalRule::LollipopRight
+                                        );
+                                        assert_eq!(implication, lollipop, "{printed} by {rule}");
+                                    }
                                 }
                             }
+                            split += usize::from(!view.inferences[k].hidden.is_empty());
+                            cuts += usize::from(rule == ClassicalRule::Cut);
+                            inferences += 1;
                         }
-                        split += usize::from(!view.inferences[k].hidden.is_empty());
-                        inferences += 1;
                     }
                 }
             }
@@ -1170,5 +1243,7 @@ mod tests {
             inferences > 1000 && negations > 100 && split > 0,
             "{inferences} {negations} {split}"
         );
+        #[cfg(feature = "interactive")]
+        assert!(cuts > 50, "{cuts} cuts");
     }
 }

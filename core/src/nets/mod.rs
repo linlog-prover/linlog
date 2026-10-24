@@ -732,7 +732,7 @@ impl ProofStructure {
     ///
     /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
     /// [`NetError::Rule`] for a node a net has no place for (any but `ax`,
-    /// `⊗`, `⅋` and Mix); otherwise as [`from_links`](Self::from_links)
+    /// `⊗`, `⅋` and Mix, so a cut too, which no structure links yet); otherwise as [`from_links`](Self::from_links)
     /// does, and with the criterion's error if the links are not a proof
     /// net, which happens only for a proof the checker rejects or one that
     /// uses Mix where the criterion forbids it; [`NetError::Refused`] when
@@ -770,7 +770,8 @@ impl ProofStructure {
                 | Node::Bang(..)
                 | Node::Quest(..)
                 | Node::Copy(..)
-                | Node::Weaken(..) => {
+                | Node::Weaken(..)
+                | Node::Cut(..) => {
                     return Err(NetError::Rule {
                         node: NodeId::new(i as u32),
                         rule: node.name(),

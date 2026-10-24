@@ -71,6 +71,10 @@ pub(super) struct Sequent {
     /// absent where the sides are not known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     antecedents: Option<u32>,
+    /// The cut formulas, as arena indices, in the order they were added;
+    /// absent where there are none. Each one's dual is built on reading.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    cuts: Vec<u32>,
 }
 
 impl From<Term> for Expression {
@@ -127,6 +131,7 @@ impl From<&Seq> for Sequent {
             roots: s.roots.iter().map(|k| k.get()).collect(),
             atoms: s.atoms.clone(),
             antecedents: s.antecedents,
+            cuts: s.cuts.iter().map(|[a, _]| a.get()).collect(),
         }
     }
 }
@@ -163,13 +168,25 @@ impl TryFrom<Sequent> for Seq {
             }
             name::check(name)?;
         }
+        let cuts = s.cuts;
         let mut s = Seq {
             terms: s.terms.into_iter().map(Term::from).collect(),
             roots: s.roots.into_iter().map(TermId::new).collect(),
             atoms: s.atoms,
             antecedents: s.antecedents,
+            cuts: vec![],
         };
         s.check()?;
+        let len = s.terms.len();
+        if let Some(&a) = cuts.iter().find(|&&a| a as usize >= len) {
+            return Err(crate::Error::IndexOutOfBounds {
+                space: crate::limits::Space::Term,
+                index: a as usize,
+                len,
+            });
+        }
+        let cuts: Vec<TermId> = cuts.into_iter().map(TermId::new).collect();
+        s.push_cuts(&cuts);
         s.merge_atoms();
         Ok(s)
     }
@@ -180,7 +197,7 @@ impl serde::Serialize for Seq {
     /// indices and atom names.
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut proxy = Sequent::from(self);
-        proxy.version = wire::level();
+        proxy.version = Some(wire::level_of_sequent(self));
         proxy.serialize(serializer)
     }
 }

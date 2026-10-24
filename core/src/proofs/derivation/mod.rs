@@ -621,6 +621,7 @@ mod tests {
             roots: vec![TermId::new(1), TermId::new(2)],
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         };
         let mut nodes = vec![One(o(2))];
         for _ in 0..ROUNDS {
@@ -666,6 +667,7 @@ mod tests {
             roots,
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         };
         let mut nodes = vec![One(o(0))];
         for level in 0..levels {
@@ -813,6 +815,7 @@ mod tests {
             principal,
             premises: premises.to_vec(),
             times: 1,
+            cut: None,
         };
         assert_eq!(
             d.inferences(),

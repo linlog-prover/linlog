@@ -395,6 +395,16 @@ the order they were made; reading validates the links as `from_links`
 does and accepts a partial or incorrect structure, since whether it is a
 net is `is_correct`'s question.
 
+- **Level 6 is the cut** (`wire::CUTS`, `wire::level_of_sequent`): a
+  sequent with cut formulas writes `"cuts": [a, …]`, the term of each
+  `A` (its dual is in the arena, which `push_cuts` finds again on
+  reading, so the arena reads back as it was), and every form that holds
+  such a sequent (proof, session, outcome, disproof) takes the larger of
+  its own level and 6; a proof's cut node is `{"cut": [a, l, r]}` and a
+  session's cut inference names `"cut": a`. Without cut formulas no key
+  is written and every byte stays as it was. `wire/level-6.txt` pins a
+  proof and a session of level 6.
+
 ## Decisions
 
 The author's answers for the release (`plan/notes/api.md` §14), which

@@ -189,6 +189,15 @@ impl Kind {
 /// Two occurrences of one arena term are distinct ids that share a
 /// [`TermId`].
 ///
+/// A sequent with cut formulas ([`Sequent::cuts`]) has a tree for each
+/// cut formula `A` and one for its dual `A⊥` after the roots' trees, in
+/// the same preorder, `A` then `A⊥` per pair: [`roots`](Self::roots)
+/// stays the conclusion, [`ids`](Self::ids) is every occurrence, and
+/// [`cut_pairs`](Self::cut_pairs), [`dual`](Self::dual) and
+/// [`is_conclusion`](Self::is_conclusion) tell the trees apart. The two
+/// trees of a pair are of one shape, so the occurrence of `A⊥` dual to
+/// `x` in `A` is `x + size(A)`.
+///
 /// A forest owns a copy of its sequent, so that an occurrence can be printed
 /// as a formula, and every other per-occurrence datum is an array of `u32`
 /// or smaller.
@@ -229,6 +238,9 @@ pub struct Forest {
     sequent: Sequent,
     /// The occurrence of each root formula, in the sequent's order.
     roots: Box<[OccId]>,
+    /// The occurrence of each cut formula `A`, in the sequent's order;
+    /// its dual's tree follows its own, so `A⊥` is at `a + size(a)`.
+    cuts: Box<[OccId]>,
     /// Per occurrence, its arena term.
     term: Box<[TermId]>,
     /// Per occurrence, the kind of its term.
@@ -261,6 +273,7 @@ impl Forest {
     pub(crate) fn held_bytes(&self) -> usize {
         let sequent = &self.sequent;
         size_of_val(&*self.roots)
+            + size_of_val(&*self.cuts)
             + size_of_val(&*self.term)
             + size_of_val(&*self.kind)
             + size_of_val(&*self.parent)
@@ -323,10 +336,7 @@ impl Forest {
     /// than the limits and a forest allow.
     fn measure(sequent: &Sequent, limits: &Limits) -> Result<Vec<u64>, Error> {
         let sizes = sequent.sizes();
-        let occurrences = sequent
-            .roots()
-            .iter()
-            .fold(0u64, |sum, r| sum.saturating_add(sizes[r.index()]));
+        let occurrences = sequent.occurrences_of(&sizes);
         if let Some(limit) = limits.occurrences
             && occurrences > limit
         {
@@ -373,6 +383,65 @@ impl Forest {
     /// lists them.
     pub fn roots(&self) -> &[OccId] {
         &self.roots
+    }
+
+    /// Returns the cut pairs, in the order the sequent lists its cut
+    /// formulas ([`Sequent::cuts`]): per pair the root occurrence of the
+    /// formula `A` and that of its dual `A⊥`, numbered after the roots'
+    /// trees, `A` then `A⊥`. Empty for a sequent without cuts.
+    pub fn cut_pairs(&self) -> impl ExactSizeIterator<Item = (OccId, OccId)> + '_ {
+        self.cuts
+            .iter()
+            .map(|&a| (a, OccId::new(a.get() + self.size(a))))
+    }
+
+    /// Returns whether the forest has cut formulas.
+    pub fn has_cuts(&self) -> bool {
+        !self.cuts.is_empty()
+    }
+
+    /// Returns whether an occurrence lies in a formula of the conclusion
+    /// (below a root), not in a cut formula or its dual.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
+    pub fn is_conclusion(&self, o: OccId) -> bool {
+        self.cuts.first().is_none_or(|&first| self.root(o) < first)
+    }
+
+    /// Returns the occurrence in the other tree of a cut pair that stands
+    /// where `o` stands in its own, the two trees being of one shape: for
+    /// an occurrence of a cut formula `A` the one of `A⊥` that is its
+    /// dual, and the other way round; `None` for an occurrence of the
+    /// conclusion.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
+    pub fn dual(&self, o: OccId) -> Option<OccId> {
+        let root = self.root(o);
+        // The cut formulas ascend; `A⊥`'s root is no entry.
+        let at = self.cuts.partition_point(|&a| a <= root).checked_sub(1)?;
+        let a = self.cuts[at];
+        let size = self.size(a);
+        if root == a {
+            Some(OccId::new(o.get() + size))
+        } else if root.get() == a.get() + size {
+            Some(OccId::new(o.get() - size))
+        } else {
+            None
+        }
+    }
+
+    /// Returns whether `o` lies in a cut formula `A`, not in its dual:
+    /// where a [`Node::Cut`](crate::Node::Cut) names its cut.
+    ///
+    /// # Panics
+    ///
+    /// For an id of another forest, past this one's end.
+    pub fn is_cut_formula(&self, o: OccId) -> bool {
+        self.dual(o).is_some_and(|d| o < d)
     }
 
     /// Returns whether `goal` is the roots, in any order: the sequent
@@ -605,13 +674,10 @@ impl Forest {
     /// than a forest can hold.
     fn build(sequent: Sequent, term_size: &[u64]) -> Self {
         let terms = sequent.terms();
-        let n = sequent
-            .roots()
-            .iter()
-            .map(|r| term_size[r.index()] as usize)
-            .sum();
+        let n = sequent.occurrences_of(term_size) as usize;
 
         let mut roots = Vec::with_capacity(sequent.roots().len());
+        let mut cuts = Vec::with_capacity(sequent.cuts().len());
         let mut term = Vec::with_capacity(n);
         let mut kind = Vec::with_capacity(n);
         let mut parent = Vec::with_capacity(n);
@@ -622,9 +688,18 @@ impl Forest {
         // Preorder: the right child is pushed first so the left one is
         // visited, with its whole subtree, before it.
         let mut stack: Vec<(TermId, u32, u32)> = Vec::new();
-        for &r in sequent.roots() {
+        let conclusion = sequent.roots().len();
+        let trees = sequent
+            .roots()
+            .iter()
+            .chain(sequent.cuts().iter().flatten());
+        for (i, &r) in trees.enumerate() {
             let root_id = OccId::new(term.len() as u32);
-            roots.push(root_id);
+            if i < conclusion {
+                roots.push(root_id);
+            } else if (i - conclusion).is_multiple_of(2) {
+                cuts.push(root_id);
+            }
             stack.push((r, NONE, 0));
             while let Some((t, p, d)) = stack.pop() {
                 let o = term.len() as u32;
@@ -670,6 +745,7 @@ impl Forest {
         Self {
             sequent,
             roots: roots.into_boxed_slice(),
+            cuts: cuts.into_boxed_slice(),
             term: term.into_boxed_slice(),
             kind: kind.into_boxed_slice(),
             parent: parent.into_boxed_slice(),
@@ -926,6 +1002,7 @@ mod tests {
             roots: vec![TermId::new(1), TermId::new(0), TermId::new(1)],
             atoms: vec!["A".into()],
             antecedents: None,
+            cuts: vec![],
         };
         let f = Forest::new(&s).unwrap();
         check_invariants(&f);
@@ -972,6 +1049,7 @@ mod tests {
             roots: vec![TermId::new(levels)],
             atoms: vec![],
             antecedents: None,
+            cuts: vec![],
         }
     }
 

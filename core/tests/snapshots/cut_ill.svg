@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" width="342.112" height="110.592" viewBox="0 0 21382 6912" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
+<title>A, A ⊸ B ⊢ B</title>
+<desc>1. A ⊢ A, by ax.
+2. B ⊢ B, by ax.
+3. A ⊸ B, A ⊢ B, by ⊸L from 1 and 2.
+4. A ⊸ B ⊢ A ⊸ B, by ⊸R from 3.
+5. A ⊢ A, by ax.
+6. B ⊢ B, by ax.
+7. A, A ⊸ B ⊢ B, by ⊸L from 5 and 6.
+8. A, A ⊸ B ⊢ B, by cut from 4 and 7.</desc>
+<g fill="none" stroke="black" stroke-width="40">
+<path d="M610 5312H18784"/>
+<path d="M610 3812H8176"/>
+<path d="M300 2312H8486"/>
+<path d="M300 812H3204"/>
+<path d="M5812 812H8486"/>
+<path d="M11441 3812H19627"/>
+<path d="M11441 2312H14345"/>
+<path d="M16953 2312H19627"/>
+</g>
+<text x="6447" y="6402" textLength="6500" lengthAdjust="spacing" id="i7">𝐴, 𝐴 ⊸ 𝐵 ⊢ 𝐵</text>
+<text x="18984" y="5512" textLength="1235" lengthAdjust="spacing" font-size="800">cut</text>
+<text x="610" y="4902" textLength="7566" lengthAdjust="spacing" id="i3">𝐴 ⊸ 𝐵 ⊢ 𝐴 ⊸ 𝐵</text>
+<text x="8376" y="4012" textLength="1295" lengthAdjust="spacing" font-size="800">⊸R</text>
+<text x="1143" y="3402" textLength="6500" lengthAdjust="spacing" id="i2">𝐴 ⊸ 𝐵, 𝐴 ⊢ 𝐵</text>
+<text x="8686" y="2512" textLength="1255" lengthAdjust="spacing" font-size="800">⊸L</text>
+<text x="300" y="1902" textLength="2904" lengthAdjust="spacing" id="i0">𝐴 ⊢ 𝐴</text>
+<text x="3404" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="5812" y="1902" textLength="2674" lengthAdjust="spacing" id="i1">𝐵 ⊢ 𝐵</text>
+<text x="8686" y="1012" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="12284" y="4902" textLength="6500" lengthAdjust="spacing" id="i6">𝐴, 𝐴 ⊸ 𝐵 ⊢ 𝐵</text>
+<text x="19827" y="4012" textLength="1255" lengthAdjust="spacing" font-size="800">⊸L</text>
+<text x="11441" y="3402" textLength="2904" lengthAdjust="spacing" id="i4">𝐴 ⊢ 𝐴</text>
+<text x="14545" y="2512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+<text x="16953" y="3402" textLength="2674" lengthAdjust="spacing" id="i5">𝐵 ⊢ 𝐵</text>
+<text x="19827" y="2512" textLength="908" lengthAdjust="spacing" font-size="800">ax</text>
+</svg>

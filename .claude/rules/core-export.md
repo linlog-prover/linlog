@@ -640,7 +640,10 @@ for NanoYalla. What the code relies on:
   another mode than it claims), and a proof that records no mode
   (`Derivation::mode`, set from `Proof::mode` and by `Interactive`) goes
   to linlog's library when its derivation is two-sided or uses those
-  rules. So a classical proof with no kernel named is written for
+  rules; a derivation with a cut goes to linlog's library whatever its
+  mode, and an explicit `NanoYalla` refuses it (`Unsupported::Cut`:
+  NanoYalla's cut is an axiom or Yalla's theorem, no rule of its
+  kernel). So a classical proof with no kernel named is written for
   NanoYalla exactly as before, which the NanoYalla snapshots pin (they
   name the kernel, since by default `ill.v` and `labels_ill.v` would go
   to the library), and an explicit `NanoYalla` keeps every refusal.
@@ -658,8 +661,15 @@ for NanoYalla. What the code relies on:
   it is not the Rust proof's own term (the Rocq checker accepts every
   term that keeps its zones consistent, `rocq.md`). The statement's
   calculus is what the mode allows and what the derivation uses together
-  (`linlog::Calculus`), so a certificate never claims less than the
-  proof needs; `soundness_classical`, `soundness_mix`, `soundness_affine`
+  (`linlog::Calculus`, `cut` among its fields, set by a cut inference),
+  so a certificate never claims less than the proof needs (a proof with
+  a cut states the calculus with `cut := true`, through `soundness` with
+  the record literal); a cut's premises get a `Quest` for a `?` cut
+  formula (the first) or a `?` dual (the second), as a principal
+  formula's children do; one-sided the cut is `Cut A`, `A` as the first
+  premise holds it, two-sided `ICut A`, `A` as the premise that proves it
+  holds it, the premises in the derivation's order (the library's arm
+  takes either order); `soundness_classical`, `soundness_mix`, `soundness_affine`
   or `soundness` with the record for Mix and weakening together. The
   two-sided term writes each formula by its occurrence's position under
   the reading (`Reading::position`): a `top` in output position is `⊤`

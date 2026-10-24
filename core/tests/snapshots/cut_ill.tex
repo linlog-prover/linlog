@@ -1,0 +1,16 @@
+\documentclass[border=5pt]{standalone}
+\usepackage{amssymb}
+\usepackage{cmll}
+\usepackage{ebproof}
+\begin{document}
+\begin{prooftree}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap\mathrm{L}$]{A \multimap B, A &\vdash B}
+\infer1[$\multimap\mathrm{R}$]{A \multimap B &\vdash A \multimap B}
+\infer0[$\mathrm{ax}$]{A &\vdash A}
+\infer0[$\mathrm{ax}$]{B &\vdash B}
+\infer2[$\multimap\mathrm{L}$]{A, A \multimap B &\vdash B}
+\infer2[$\mathrm{cut}$]{A, A \multimap B &\vdash B}
+\end{prooftree}
+\end{document}

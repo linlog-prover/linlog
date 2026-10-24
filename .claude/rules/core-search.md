@@ -579,6 +579,21 @@ copies they had are gone (F103, F104).
   search on a thread with a larger stack (`Limits::stack_bytes`). The net
   engine and its sequentialization keep stacks of their own.
 
+- **A forest with cut formulas is searched on one without them**
+  (`on_own_forest`, at the top of `prove_goal` and `race`): the goal's
+  formulas become the roots of a cut-free sequent over the same arena
+  (intuitionistically its hypotheses first and `antecedents` set, the
+  `GoalOutputs` check made first on the session's reading), the search
+  runs there, and a proof found is renamed back by the shift, as a proof
+  of the goal (of the sequent for the conclusion), and checked again
+  when it was checked (`Error::Rejected` would be a defect of the
+  shift). A disproof is the own sequent's, whose formulas are the
+  goal's. A cut-free forest takes the path it took before, so no
+  counter of the target sets moves; the engines are never handed a cut
+  tree, which their literal lists and the net engine's vertices would
+  read as formulas of the goal. `race` names its stop as `&dyn Fn` there,
+  so that the call back into itself is one instance.
+
 ## The memory bound
 
 `Limits::memory_bytes` (`DEFAULT_MEMORY_BYTES`, one gibibyte; `None`

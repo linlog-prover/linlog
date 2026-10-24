@@ -50,7 +50,8 @@ impl MellStructure {
     /// # Errors
     ///
     /// [`Error::GoalProof`] for a proof of a goal other than the sequent;
-    /// [`NetError::NotMell`] outside unit-free MELL;
+    /// [`NetError::NotMell`] outside unit-free MELL; [`NetError::Rule`]
+    /// for a cut, which no structure links yet;
     /// the checker's [`CheckError`](crate::proofs::CheckError) for a term
     /// that is no proof; [`Refusal::Index`] for more vertices than a
     /// structure holds; [`NetError::Refused`] when the bound or the stop
@@ -70,6 +71,17 @@ impl MellStructure {
             Mode::CLASSICAL
         };
         Self::exist(proof.sequent().fragment(), mode)?;
+        if let Some(i) = proof
+            .nodes()
+            .iter()
+            .position(|n| matches!(n, Node::Cut(..)))
+        {
+            return Err(NetError::Rule {
+                node: NodeId::new(i as u32),
+                rule: "cut",
+            }
+            .into());
+        }
         proof.check_within(mode, limits, &mut stop)?;
         let vertices = unfolded(proof);
         if vertices > MOST {
@@ -112,7 +124,8 @@ fn unfolded(proof: &Proof) -> u64 {
     for i in (0..=root).rev() {
         let made = match nodes[i] {
             Node::Ax(..) => 2,
-            Node::Copy(..) | Node::Mix(..) => 0,
+            // A cut was refused before.
+            Node::Copy(..) | Node::Mix(..) | Node::Cut(..) => 0,
             Node::Tensor(..)
             | Node::Par(..)
             | Node::Bang(..)
@@ -266,7 +279,8 @@ impl<'a> Unfolding<'a> {
             | Node::Top(_)
             | Node::Copy(..)
             | Node::Weaken(..)
-            | Node::Mix(..) => {}
+            | Node::Mix(..)
+            | Node::Cut(..) => {}
         }
         Frame {
             node: id,
@@ -339,6 +353,7 @@ impl<'a> Unfolding<'a> {
             Node::One(_) | Node::Bot(..) | Node::With(..) | Node::Plus(..) | Node::Top(_) => {
                 unreachable!("a checked proof of unit-free MELL has no such rule")
             }
+            Node::Cut(..) => unreachable!("a proof with a cut is refused before"),
         }
     }
 

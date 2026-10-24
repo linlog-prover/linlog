@@ -164,6 +164,10 @@ impl Terms<'_> {
                     PlusLeft | Promotion | Dereliction => [[Some(a()), None], [None; 2]],
                     PlusRight => [[Some(b()), None], [None; 2]],
                     With | Tensor => [[Some(a()), None], [Some(b()), None]],
+                    Cut => {
+                        let a = inference.cut.expect("a cut names its formula").occ();
+                        [[Some(a), None], [f.dual(a), None]]
+                    }
                     Open => unreachable!("no goal is open"),
                 };
                 steps.push(Step::Build(id));
@@ -193,6 +197,10 @@ impl Terms<'_> {
                 Mix => {
                     let (r, l) = (premise(), premise());
                     Node::Mix(l, r)
+                }
+                Cut => {
+                    let (r, l) = (premise(), premise());
+                    Node::Cut(inference.cut.expect("a cut names its formula"), l, r)
                 }
                 Ax | One | Top | Contraction | Weakening | Open => {
                     unreachable!("a rule that is no node over its premises")

@@ -41,6 +41,8 @@ pub enum Rule {
     Mix,
     /// `wk`, weakening of a formula that is not a `?`, in affine mode.
     AffineWeakening,
+    /// `cut`
+    Cut,
     /// An open goal of a proof in progress: a leaf without a rule, which
     /// only the derivation of an interactive state contains.
     Open,
@@ -48,7 +50,7 @@ pub enum Rule {
 
 impl Rule {
     /// Every rule, in the order of declaration.
-    pub const ALL: [Self; 16] = {
+    pub const ALL: [Self; 17] = {
         use Rule::*;
         [
             Ax,
@@ -66,6 +68,7 @@ impl Rule {
             Weakening,
             Mix,
             AffineWeakening,
+            Cut,
             Open,
         ]
     };
@@ -89,6 +92,7 @@ impl Rule {
             Weakening => "?w",
             Mix => "mix",
             AffineWeakening => "wk",
+            Cut => "cut",
             Open => "open",
         }
     }
@@ -103,27 +107,29 @@ impl Rule {
     }
 
     /// Returns how many premises the rule has: none for the axiom, `1`,
-    /// `⊤` and an open goal, two for `⊗`, `&` and Mix, one otherwise.
+    /// `⊤` and an open goal, two for `⊗`, `&`, Mix and the cut, one
+    /// otherwise.
     pub const fn premises(self) -> u8 {
         use Rule::*;
         match self {
             Ax | One | Top | Open => 0,
-            Tensor | With | Mix => 2,
+            Tensor | With | Mix | Cut => 2,
             Par | Bot | PlusLeft | PlusRight | Promotion | Dereliction | Contraction
             | Weakening | AffineWeakening => 1,
         }
     }
 
     /// Returns whether the rule acts on one formula of its conclusion,
-    /// its principal one: every rule but the axiom, Mix and an open goal.
+    /// its principal one: every rule but the axiom, Mix, the cut and an
+    /// open goal.
     pub const fn has_principal(self) -> bool {
-        !matches!(self, Self::Ax | Self::Mix | Self::Open)
+        !matches!(self, Self::Ax | Self::Mix | Self::Cut | Self::Open)
     }
 
     /// Returns the rule as a two-sided derivation names it, applied to a
     /// formula on `side` of `⊢`: `⊗` on a hypothesis is `⊸L`, on the goal
-    /// `⊗R`, and so on. The axiom, Mix, affine weakening and an open goal
-    /// keep their names, with no side.
+    /// `⊗R`, and so on. The axiom, Mix, affine weakening, the cut and an
+    /// open goal keep their names, with no side.
     pub const fn on(self, side: Side) -> Named {
         Named::new(self, Some(side))
     }
@@ -146,7 +152,7 @@ pub struct Named {
     pub rule: Rule,
     /// The side of `⊢` the principal formula stands on, in a two-sided
     /// derivation; `None` one-sided, and for a rule whose name has no side
-    /// (the axiom, Mix, affine weakening, an open goal).
+    /// (the axiom, Mix, affine weakening, the cut, an open goal).
     pub side: Option<Side>,
     /// In a two-sided derivation of the Lambek calculus, the division a
     /// rule of an implication acts on (`\L`, `\R`, `/L`, `/R`); `None`
@@ -169,7 +175,7 @@ pub enum Division {
 impl Named {
     /// Every named rule: the one-sided ones in the order of
     /// [`Rule::ALL`], an open goal last, and the two-sided ones between.
-    pub const ALL: [Self; 34] = {
+    pub const ALL: [Self; 35] = {
         use Rule::*;
         use Side::{Input, Output};
         [
@@ -188,6 +194,7 @@ impl Named {
             one_sided(Weakening),
             one_sided(Mix),
             one_sided(AffineWeakening),
+            one_sided(Cut),
             two_sided(Tensor, Input),
             two_sided(Par, Output),
             two_sided(Par, Input),
@@ -217,7 +224,7 @@ impl Named {
         use Rule::*;
         use Side::{Input, Output};
         let side = match (rule, side) {
-            (Ax | Mix | AffineWeakening | Open, _) | (_, None) => None,
+            (Ax | Mix | AffineWeakening | Cut | Open, _) | (_, None) => None,
             (Bot | Dereliction | Contraction | Weakening, Some(_)) => Some(Input),
             (One | Promotion, Some(_)) => Some(Output),
             (_, side) => side,
@@ -417,6 +424,7 @@ impl FromStr for Named {
             "?w" => (Weakening, None),
             "mix" => (Mix, None),
             "wk" => (AffineWeakening, None),
+            "cut" => (Cut, None),
             "⊸L" | "-oL" => (Tensor, Some(Input)),
             "⊸R" | "-oR" => (Par, Some(Output)),
             "⊗L" | "*L" => (Par, Some(Input)),
@@ -455,9 +463,9 @@ const NAMES: &[&str] = KNOWN.split_at(Named::ALL.len()).0;
 /// The names of [`Named::ALL`], in its order, then those of the
 /// divisions.
 const KNOWN: &[&str] = &[
-    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "⊸L", "⊸R",
-    "⊗L", "⊗R", "&L₁", "&L₂", "&R", "⊕L", "⊕R₁", "⊕R₂", "1L", "1R", "0L", "⊤R", "!L", "!R", "!c",
-    "!w", "open", "\\L", "\\R", "/L", "/R",
+    "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?d", "?c", "?w", "mix", "wk", "cut",
+    "⊸L", "⊸R", "⊗L", "⊗R", "&L₁", "&L₂", "&R", "⊕L", "⊕R₁", "⊕R₂", "1L", "1R", "0L", "⊤R", "!L",
+    "!R", "!c", "!w", "open", "\\L", "\\R", "/L", "/R",
 ];
 
 #[cfg(test)]

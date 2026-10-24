@@ -170,13 +170,13 @@ pub(super) struct Record<'a> {
     /// For a `?` step, whether a copy above uses its formula; for a copy,
     /// whether another copy above uses the same occurrence.
     used: Vec<bool>,
-    /// The nodes whose sequent is kept: every `⊗` and Mix, and the
-    /// premises of `⊗`, Mix and `&`.
+    /// The nodes whose sequent is kept: every `⊗`, Mix and cut, and the
+    /// premises of `⊗`, Mix, cut and `&`.
     kept: Vec<bool>,
     /// The standard sequents of the kept nodes: `?Θ` and `Γ` as the
     /// checker found them.
     pub(super) standard: HashMap<NodeId, Multiset>,
-    /// For a `⊗` or Mix, the unrestricted occurrences both premises need,
+    /// For a `⊗`, Mix or cut, the unrestricted occurrences both premises need,
     /// ascending, where there are any.
     pub(super) shared: HashMap<NodeId, Vec<OccId>>,
     /// The bytes of the sequents and lists kept so far, at
@@ -203,10 +203,13 @@ impl<'a> Record<'a> {
         let mut kept = vec![false; len];
         for id in proof.ids() {
             let node = proof.node(id);
-            if matches!(node, Node::Tensor(..) | Node::Mix(..)) {
+            if matches!(node, Node::Tensor(..) | Node::Mix(..) | Node::Cut(..)) {
                 kept[id.index()] = true;
             }
-            if matches!(node, Node::Tensor(..) | Node::Mix(..) | Node::With(..)) {
+            if matches!(
+                node,
+                Node::Tensor(..) | Node::Mix(..) | Node::Cut(..) | Node::With(..)
+            ) {
                 for p in node.premises() {
                     kept[p.index()] = true;
                 }
@@ -275,6 +278,8 @@ pub(super) enum Task {
         premises: usize,
         /// How many applications of the rule it stands for.
         times: u32,
+        /// For a cut, the occurrence of the cut formula it cuts.
+        cut: Option<OccId>,
     },
     /// Weaken `?` formulas one by one below the subtree finished last.
     Weaken {
@@ -373,9 +378,11 @@ impl<'a> Build<'a> {
                     principal,
                     premises,
                     times,
+                    cut,
                 } => {
                     let premises = self.done.split_off(self.done.len() - premises);
                     let inference = self.infer(sequent, rule, principal, premises, times);
+                    self.inferences[inference.index()].cut = cut.map(Member::from);
                     self.done.push(inference);
                 }
                 Task::Weaken { sequent, unused } if self.compact.is_some() => {
@@ -455,6 +462,7 @@ impl<'a> Build<'a> {
                 principal,
                 premises,
                 times,
+                cut: None,
             });
         }
         self.push(Inference {
@@ -463,6 +471,7 @@ impl<'a> Build<'a> {
             principal,
             premises,
             times,
+            cut: None,
         })
     }
 
@@ -501,6 +510,7 @@ impl<'a> Build<'a> {
             principal: Some(principal),
             premises: 1,
             times: 1,
+            cut: None,
         });
         self.tasks.push(Task::Unfold(p, up));
     }
@@ -596,6 +606,7 @@ impl<'a> Build<'a> {
                         principal: Some(q),
                         premises: 1,
                         times: 1,
+                        cut: None,
                     });
                     self.from(derelicted, Rule::Dereliction, q, p, up);
                 } else {
@@ -606,11 +617,18 @@ impl<'a> Build<'a> {
             Tensor(o, l, r) => self.split(
                 id,
                 actual,
-                Some((o.occ(), left(o.occ()), right(o.occ()))),
+                Join::Tensor(o.occ(), left(o.occ()), right(o.occ())),
                 l,
                 r,
             ),
-            Mix(l, r) => self.split(id, actual, None, l, r),
+            Mix(l, r) => self.split(id, actual, Join::Mix, l, r),
+            Cut(a, l, r) => {
+                let a = a.occ();
+                // The checker took the cut on an occurrence of a cut
+                // formula, which has its dual.
+                let dual = f.dual(a).unwrap();
+                self.split(id, actual, Join::Cut(a, dual), l, r);
+            }
             With(o, l, r) => {
                 let o = o.occ();
                 let up_l = above(&actual, &[o], &[left(o)]);
@@ -621,6 +639,7 @@ impl<'a> Build<'a> {
                     principal: Some(o),
                     premises: 2,
                     times: 1,
+                    cut: None,
                 });
                 self.tasks.push(Task::Pad(r, up_r));
                 self.tasks.push(Task::Pad(l, up_l));
@@ -628,21 +647,14 @@ impl<'a> Build<'a> {
         }
     }
 
-    /// Plans a `⊗` on `o` with subformulas `a` and `b`, or a Mix, at `id`
-    /// with premises `l` and `r`: the context is split as the premises
-    /// derived it, an absorbing premise taking what the `⊤` absorbs, and
-    /// the `?` formulas both premises use are contracted below the rule.
-    fn split(
-        &mut self,
-        id: NodeId,
-        actual: Multiset,
-        tensor: Option<(OccId, OccId, OccId)>,
-        l: NodeId,
-        r: NodeId,
-    ) {
+    /// Plans a `⊗`, a Mix or a cut at `id` with premises `l` and `r`: the
+    /// context is split as the premises derived it, an absorbing premise
+    /// taking what the `⊤` absorbs, and the `?` formulas both premises use
+    /// are contracted below the rule.
+    fn split(&mut self, id: NodeId, actual: Multiset, join: Join, l: NodeId, r: NodeId) {
         let extra = actual.difference(&self.standard(id));
         let (mut up_l, mut up_r) = (self.standard(l), self.standard(r));
-        if let Some((_, a, b)) = tensor {
+        if let Join::Tensor(_, a, b) | Join::Cut(a, b) = join {
             up_l.ensure(a);
             up_r.ensure(b);
         }
@@ -668,8 +680,8 @@ impl<'a> Build<'a> {
         }
         // The rule's conclusion: both contexts, and the `⊗` for its
         // subformulas.
-        let (rule, principal, sequent) = match tensor {
-            Some((o, a, b)) => {
+        let (rule, principal, sequent) = match join {
+            Join::Tensor(o, a, b) => {
                 let (mut rest_l, mut rest_r) = (up_l.clone(), up_r.clone());
                 rest_l.remove(a);
                 rest_r.remove(b);
@@ -677,7 +689,13 @@ impl<'a> Build<'a> {
                 sequent.insert(o);
                 (Rule::Tensor, Some(o), sequent)
             }
-            None => (Rule::Mix, None, up_l.sum(&up_r)),
+            Join::Cut(a, dual) => {
+                let (mut rest_l, mut rest_r) = (up_l.clone(), up_r.clone());
+                rest_l.remove(a);
+                rest_r.remove(dual);
+                (Rule::Cut, None, rest_l.sum(&rest_r))
+            }
+            Join::Mix => (Rule::Mix, None, up_l.sum(&up_r)),
         };
         let shared = self.shared(id);
         debug_assert_eq!(
@@ -702,6 +720,10 @@ impl<'a> Build<'a> {
             principal,
             premises: 2,
             times: 1,
+            cut: match join {
+                Join::Cut(a, _) => Some(a),
+                Join::Tensor(..) | Join::Mix => None,
+            },
         });
         self.tasks.push(Task::Unfold(r, up_r));
         self.tasks.push(Task::Unfold(l, up_l));
@@ -755,6 +777,7 @@ impl<'a> Build<'a> {
             premises: 1,
             // Distinct nodes, fewer than 2³².
             times: count(removed.len()),
+            cut: None,
         });
         self.tasks.push(Task::Unfold(next, up));
     }
@@ -778,4 +801,15 @@ impl<'a> Build<'a> {
         }
         self.tasks.push(Task::Unfold(id, sequent));
     }
+}
+
+/// What a rule of two premises that [`Build::split`] plans joins them by.
+#[derive(Clone, Copy, Debug)]
+enum Join {
+    /// A `⊗` on its occurrence, with its left and right subformula.
+    Tensor(OccId, OccId, OccId),
+    /// Mix.
+    Mix,
+    /// A cut on an occurrence of a cut formula, with its dual.
+    Cut(OccId, OccId),
 }

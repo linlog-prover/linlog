@@ -84,7 +84,16 @@ impl Interactive {
                 }
                 continue;
             }
-            state.replay(reading.as_ref(), InfId::new(id as u32))?;
+            if (inference.rule.rule == Rule::Cut) != inference.cut.is_some() {
+                return Err(Error::InconsistentSession {
+                    reason: "a cut names its cut formula, every other rule none",
+                });
+            }
+            if inference.rule.rule == Rule::Cut {
+                state.replay_cut(InfId::new(id as u32))?;
+            } else {
+                state.replay(reading.as_ref(), InfId::new(id as u32))?;
+            }
         }
         // Seen from the last step back, the inferences a step added are
         // those of its subtree that exist at that point, and they are the
@@ -126,6 +135,21 @@ impl Interactive {
                 });
             }
             len = start;
+        }
+        // The cut formulas are those of the cuts, in the order they were
+        // made, so that `undo` takes back the last one with its cut.
+        let made = state
+            .history
+            .iter()
+            .chain(&history)
+            .filter_map(|id| state.inferences[id.index()].cut);
+        if !made
+            .map(Member::occ)
+            .eq(state.forest.cut_pairs().map(|(a, _)| a))
+        {
+            return Err(Error::InconsistentSession {
+                reason: "the cut formulas are not those of the cuts in the order made",
+            });
         }
         state.history = history;
         Ok(state)

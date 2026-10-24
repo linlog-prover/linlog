@@ -14,7 +14,9 @@
     statements say that a NanoYalla derivation exists, with
     [inhabited]: they equate derivability, not derivations. Exchange is one [Permutation]
     rule here and a transposition of neighbours there, which is the only
-    difference between the two calculi. *)
+    difference between the two calculi. Neither has cut ([classical]
+    sets [cut := false]): relating a calculus with cut to [nanoll.v]
+    would need cut elimination, which is not proved here. *)
 
 From Stdlib Require Import List Permutation.
 From Linlog Require Import Calculus.

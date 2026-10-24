@@ -1025,7 +1025,7 @@ fn rocq_format() {
     assert_eq!(status, 0);
     assert!(
         out.contains(
-            "Lemma certificate : ll (atom := string) {| mix := true; weakening := false |}"
+            "Lemma certificate : ll (atom := string) {| mix := true; weakening := false; cut := false |}"
         ),
         "{out}"
     );

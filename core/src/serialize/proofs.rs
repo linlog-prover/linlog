@@ -57,6 +57,9 @@ pub(super) enum Step {
     /// Mix, from two premises.
     #[serde(rename = "mix")]
     Mix(u32, u32),
+    /// The cut on an occurrence of a cut formula, from two premises.
+    #[serde(rename = "cut")]
+    Cut(u32, u32, u32),
 }
 
 /// The serialized form of a proof: its level at the top of a document,
@@ -104,6 +107,7 @@ impl From<Node> for Step {
             Copy(x, p) => S::Copy(o(x), n_(p)),
             Weaken(x, p) => S::Weaken(o(x), n_(p)),
             Mix(l, r) => S::Mix(n_(l), n_(r)),
+            Cut(a, l, r) => S::Cut(o(a), n_(l), n_(r)),
         }
     }
 }
@@ -129,6 +133,7 @@ impl From<Step> for Node {
             Copy(x, p) => N::Copy(o(x), n(p)),
             Weaken(x, p) => N::Weaken(o(x), n(p)),
             Mix(l, r) => N::Mix(n(l), n(r)),
+            Cut(a, l, r) => N::Cut(o(a), n(l), n(r)),
         }
     }
 }
@@ -149,7 +154,7 @@ impl Proof {
     /// The proof as a document: its level, its keys and its mode.
     fn document(p: &Prf) -> Proof {
         Proof {
-            version: Some(wire::level_in(p.mode())),
+            version: Some(wire::level_in(p.mode()).max(wire::level_of_sequent(p.sequent()))),
             mode: p.mode(),
             ..Proof::keys(p)
         }

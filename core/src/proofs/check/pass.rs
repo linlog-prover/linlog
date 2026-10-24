@@ -845,6 +845,24 @@ impl<'a, 's, O: Observer> Pass<'a, 's, O> {
                 facts.needs = [dl.theta.len(), dr.theta.len()];
                 Ok(self.join(dl, dr))
             }
+            Cut(a, l, r) => {
+                // The ordered modes refused it above: the dual of an
+                // ordered cut formula is not of one shape with it.
+                let a = a.occ();
+                let dual = match f.dual(a) {
+                    Some(dual) if a < dual => dual,
+                    _ => {
+                        return Err(Halt::Fault(Fault::NotACut {
+                            member: Member::from(a),
+                        }));
+                    }
+                };
+                let (mut dl, mut dr) = (self.premise(l)?, self.premise(r)?);
+                facts.needs = [dl.theta.len(), dr.theta.len()];
+                facts.absent[0] = self.take(&mut dl, a, 0)?;
+                facts.absent[1] = self.take(&mut dr, dual, 1)?;
+                Ok(self.join(dl, dr))
+            }
         }
     }
 

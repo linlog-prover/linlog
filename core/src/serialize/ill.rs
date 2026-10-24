@@ -256,6 +256,7 @@ impl Ill {
             atoms: self.atoms,
             // Fewer hypotheses than `u32::MAX`: each is a lowered term.
             antecedents: Some(self.hypotheses.len() as u32),
+            cuts: vec![],
         };
         sequent.merge_atoms();
         let occurrences = sequent.occurrences();

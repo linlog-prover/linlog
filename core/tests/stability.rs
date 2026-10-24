@@ -7,7 +7,8 @@
 //! a disproof of a goal off the roots, as 0.1.0 wrote them, one `NAME:
 //! JSON` per line, `wire/level-2.txt` the forms level 2 added and
 //! `wire/level-3.txt` those level 3 added, `wire/level-4.txt` those
-//! level 4 added, `wire/level-5.txt` those level 5 added; none is ever
+//! level 4 added, `wire/level-5.txt` those level 5 added,
+//! `wire/level-6.txt` those level 6 added; none is ever
 //! rewritten: where
 //! the lock moves on, these files stay. Every
 //! line of a form that is read back reads through
@@ -144,4 +145,30 @@ fn the_fifth_level_reads() {
         }
     }
     assert_eq!(lines.lines().count(), 1);
+}
+
+/// The forms level 6 added, as the release that made it wrote them: a
+/// proof with a cut and a session with one, whose sequents hold their cut
+/// formulas. Never rewritten, as `wire/level-1.txt` is not.
+#[test]
+fn the_sixth_level_reads() {
+    let lines = include_str!("wire/level-6.txt");
+    for line in lines.lines() {
+        let (name, json) = line.split_once(": ").unwrap();
+        match name.split('-').next().unwrap() {
+            "proof" => {
+                again::<Proof>(name, json);
+                let proof: Proof = read(name, json);
+                assert_eq!(proof.check(linlog::Mode::CLASSICAL), Ok(()), "{name}");
+                assert_eq!(proof.sequent().cuts().len(), 1, "{name}");
+            }
+            "session" => {
+                again::<Interactive>(name, json);
+                let session: Interactive = read(name, json);
+                assert_eq!(session.goals().count(), 1, "{name}");
+            }
+            other => panic!("{name}: no form {other}"),
+        }
+    }
+    assert_eq!(lines.lines().count(), 2);
 }

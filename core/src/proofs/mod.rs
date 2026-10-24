@@ -38,7 +38,7 @@ pub use derivation::{
 };
 pub use fmt::TextOptions;
 #[cfg(feature = "interactive")]
-pub use interactive::{GoalId, Interactive, Step, StepError};
+pub use interactive::{CutFormula, GoalId, Interactive, Step, StepError};
 pub use rule::{Division, Named, Rule};
 pub use size::Size;
 pub use style::{Labels, OpenGoal};
@@ -147,6 +147,14 @@ pub enum Node {
     /// Mix, when the mode allows it: `⊢ Θ ; Γ, Δ` from `⊢ Θ ; Γ` and
     /// `⊢ Θ ; Δ`.
     Mix(NodeId, NodeId),
+    /// The cut `⊢ Θ ; Γ, Δ` from `⊢ Θ ; Γ, A` and `⊢ Θ ; Δ, A⊥`, on an
+    /// occurrence of a cut formula `A` of the sequent
+    /// ([`Sequent::cuts`](crate::Sequent::cuts)), whose dual in `A⊥`
+    /// ([`Forest::dual`](crate::Forest::dual)) the second premise
+    /// consumes. Refused in an ordered mode. Intuitionistically `Γ ⊢ A`
+    /// and `Δ, A ⊢ C` give `Γ, Δ ⊢ C`, whichever premise has the cut
+    /// formula in output position.
+    Cut(Member, NodeId, NodeId),
 }
 
 /// A node is a tag, an occurrence and two node indices at most.
@@ -161,18 +169,18 @@ impl Node {
     /// another language matches, one constructor each.
     pub const NAMES: &'static [&'static str] = &[
         "Ax", "Tensor", "Par", "One", "Bot", "With", "Plus", "Top", "Bang", "Quest", "Copy",
-        "Weaken", "Mix",
+        "Weaken", "Mix", "Cut",
     ];
 
     /// The rules' tags in a proof's JSON form and their names
     /// ([`name`](Self::name)): one per variant, and two for `Plus`, whose
     /// branch is in its tag.
     pub const TAGS: &'static [&'static str] = &[
-        "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?", "copy", "wk", "mix",
+        "ax", "⊗", "⅋", "1", "⊥", "&", "⊕₁", "⊕₂", "⊤", "!", "?", "copy", "wk", "mix", "cut",
     ];
 
-    /// Returns the member the rule acts on: `None` for Mix, and the first
-    /// literal of an axiom.
+    /// Returns the member the rule acts on: `None` for Mix and the cut,
+    /// and the first literal of an axiom.
     pub const fn principal(self) -> Option<Member> {
         use Node::*;
         match self {
@@ -188,16 +196,16 @@ impl Node {
             | Quest(o, _)
             | Copy(o, _)
             | Weaken(o, _) => Some(o),
-            Mix(..) => None,
+            Mix(..) | Cut(..) => None,
         }
     }
 
     /// Returns the members the node names: one, or two for an axiom, or
-    /// none for Mix.
+    /// none for Mix; the cut names its cut formula's occurrence.
     pub fn members(self) -> impl Iterator<Item = Member> {
         use Node::*;
         let second = match self {
-            Ax(_, b) => Some(b),
+            Ax(_, b) | Cut(b, ..) => Some(b),
             Tensor(..) | Par(..) | One(_) | Bot(..) | With(..) | Plus(..) | Top(_) | Bang(..)
             | Quest(..) | Copy(..) | Weaken(..) | Mix(..) => None,
         };
@@ -206,7 +214,10 @@ impl Node {
 
     /// Returns the node with every member it names renamed, or the first
     /// error the renaming gives.
-    fn renamed<E>(self, rename: impl Fn(Member) -> Result<Member, E>) -> Result<Self, E> {
+    pub(crate) fn renamed<E>(
+        self,
+        rename: impl Fn(Member) -> Result<Member, E>,
+    ) -> Result<Self, E> {
         use Node::*;
         Ok(match self {
             Ax(a, b) => Ax(rename(a)?, rename(b)?),
@@ -222,16 +233,18 @@ impl Node {
             Copy(o, p) => Copy(rename(o)?, p),
             Weaken(o, p) => Weaken(rename(o)?, p),
             Mix(l, r) => Mix(l, r),
+            Cut(a, l, r) => Cut(rename(a)?, l, r),
         })
     }
 
     /// Returns the nodes that prove the premises, in the rule's order: none
-    /// for an axiom, `1` or `⊤`, two for `⊗`, `&` and Mix, one otherwise.
+    /// for an axiom, `1` or `⊤`, two for `⊗`, `&`, Mix and the cut, one
+    /// otherwise.
     pub fn premises(self) -> impl Iterator<Item = NodeId> {
         use Node::*;
         let (first, second) = match self {
             Ax(..) | One(_) | Top(_) => (None, None),
-            Tensor(_, l, r) | With(_, l, r) | Mix(l, r) => (Some(l), Some(r)),
+            Tensor(_, l, r) | With(_, l, r) | Mix(l, r) | Cut(_, l, r) => (Some(l), Some(r)),
             Par(_, p)
             | Bot(_, p)
             | Plus(_, _, p)
@@ -244,7 +257,7 @@ impl Node {
     }
 
     /// Returns the rule's name: `ax`, `⊗`, `⅋`, `1`, `⊥`, `&`, `⊕₁`, `⊕₂`,
-    /// `⊤`, `!`, `?`, `copy`, `wk` or `mix`.
+    /// `⊤`, `!`, `?`, `copy`, `wk`, `mix` or `cut`.
     pub const fn name(self) -> &'static str {
         use Node::*;
         match self {
@@ -262,6 +275,7 @@ impl Node {
             Copy(..) => "copy",
             Weaken(..) => "wk",
             Mix(..) => "mix",
+            Cut(..) => "cut",
         }
     }
 }
@@ -843,6 +857,7 @@ impl Node {
             Copy(o, p) => Copy(o, f(p)),
             Weaken(o, p) => Weaken(o, f(p)),
             Mix(l, r) => Mix(f(l), f(r)),
+            Cut(o, l, r) => Cut(o, f(l), f(r)),
             leaf @ (Ax(..) | One(_) | Top(_)) => leaf,
         }
     }
@@ -871,6 +886,7 @@ mod tests {
             Node::Copy(m, n),
             Node::Weaken(m, n),
             Node::Mix(n, n),
+            Node::Cut(m, n, n),
         ];
         let names: Vec<String> = nodes
             .iter()

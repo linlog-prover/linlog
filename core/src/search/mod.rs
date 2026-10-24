@@ -252,6 +252,83 @@ pub fn prove_within(
     prove_goal(Goal::conclusion(&forest), mode, options, limits, stop)
 }
 
+/// Decides a goal of a forest with cut formulas by `run` on a forest of
+/// its own, so that no engine sees a cut formula: the goal's formulas as
+/// the roots of a cut-free sequent over the same arena (intuitionistically
+/// its hypotheses first, written left of `⊢`, then its goal), whose
+/// forest numbers each formula's occurrences as the goal's forest does,
+/// shifted. A proof found is carried back by the shift, as a proof of the
+/// goal, and checked there when it was checked; a disproof is the own
+/// sequent's, whose formulas are the goal's.
+fn on_own_forest(
+    goal: Goal<'_>,
+    mode: Mode,
+    limits: &Limits,
+    stop: &mut dyn FnMut(Progress) -> bool,
+    run: impl FnOnce(&Forest, &mut dyn FnMut(Progress) -> bool) -> Result<Outcome, Error>,
+) -> Result<Outcome, Error> {
+    let forest = goal.forest;
+    let mut members: Vec<OccId> = goal.occurrences().into_owned();
+    let antecedents = if mode.is_intuitionistic() {
+        let reading = Reading::of_mode(forest, mode).map_err(Error::NotIntuitionistic)?;
+        let outputs = reading.outputs(members.iter().copied());
+        if outputs != 1 {
+            return Err(Error::GoalOutputs { count: outputs });
+        }
+        // Stable, so the hypotheses keep their order.
+        members.sort_by_key(|&o| reading.position(o) == crate::Side::Output);
+        Some(members.len() as u32 - 1)
+    } else {
+        None
+    };
+    let sequent = forest.sequent();
+    let own = Sequent {
+        terms: sequent.terms().to_vec(),
+        roots: members.iter().map(|&o| forest.term(o)).collect(),
+        atoms: sequent.atom_names().to_vec(),
+        antecedents,
+        cuts: vec![],
+    };
+    let own = Forest::within(&own, limits)?;
+    let mut outcome = run(&own, stop)?;
+    let Verdict::Proved(proof) = &outcome.verdict else {
+        return Ok(outcome);
+    };
+    // The occurrence of the goal's forest that one of the own forest's is:
+    // its formula's member, plus how far into the formula it lies.
+    let lift = |m: Member| {
+        let o = m.occ();
+        let root = own.root(o);
+        let i = own.roots().partition_point(|&r| r < root);
+        Ok::<_, Error>(Member::from(OccId::new(
+            members[i].get() + (o.get() - root.get()),
+        )))
+    };
+    let nodes = proof
+        .nodes()
+        .iter()
+        .map(|&node| node.renamed(lift))
+        .collect::<Result<Vec<_>, _>>()?;
+    let carried = if goal.conclusion {
+        Proof::new(forest.clone(), nodes, proof.root())?
+    } else {
+        Proof::new_of_goal(forest.clone(), goal.members, nodes, proof.root())?
+    };
+    let carried = match proof.mode() {
+        Some(mode) => carried.with_mode(mode),
+        None => carried,
+    };
+    if outcome.checked {
+        match carried.check_within(mode, limits, &mut *stop) {
+            Ok(()) => {}
+            Err(e @ CheckError::Invalid(_)) => return Err(Error::Rejected(Box::new(e))),
+            Err(e @ CheckError::Refused(_)) => return Err(Error::Check(e)),
+        }
+    }
+    outcome.verdict = Verdict::Proved(Box::new(carried));
+    Ok(outcome)
+}
+
 /// Members of a forest that a search decides: its conclusion, the roots,
 /// or a goal a session left open, any multiset of its occurrences. The
 /// roots in any order are the conclusion.
@@ -362,6 +439,11 @@ pub fn prove_goal(
     limits: &Limits,
     mut stop: impl FnMut(Progress) -> bool,
 ) -> Result<Outcome, Error> {
+    if goal.forest.has_cuts() {
+        return on_own_forest(goal, mode, limits, &mut stop, |own, stop| {
+            prove_goal(Goal::conclusion(own), mode, options, limits, stop)
+        });
+    }
     // The input is held for the search: the bound is on all of it.
     let account = memory::Account::holding(limits.memory_bytes, goal.forest.held_bytes() as u64);
     let work = Work::new(limits.work);
@@ -402,6 +484,21 @@ pub fn race(
     stop: impl Fn(Progress) -> bool + Sync,
 ) -> Result<Outcome, Error> {
     use std::sync::atomic::{AtomicBool, Ordering};
+    if goal.forest.has_cuts() {
+        // One instance of the function, whatever the stop's type.
+        let stop: &(dyn Fn(Progress) -> bool + Sync) = &stop;
+        return on_own_forest(goal, mode, limits, &mut |p| stop(p), |own, _| {
+            race(
+                Goal::conclusion(own),
+                mode,
+                options,
+                limits,
+                threads,
+                add_pool,
+                stop,
+            )
+        });
+    }
     let threads = threads.clamp(1, Options::MAX_JOBS);
     let whole = std::sync::Arc::new(memory::Account::holding(
         limits.memory_bytes,
@@ -2980,6 +3077,53 @@ impl Statistics {
 mod tests {
     use super::*;
     use crate::sequents::Atom;
+
+    /// A forest with cut formulas is searched on a cut-free forest of the
+    /// goal's formulas, by every engine that takes the goal: no engine
+    /// sees a cut formula, every proof found is cut-free and checks
+    /// against the goal, which may hold occurrences of the cut formulas,
+    /// and a sequent with cut formulas is proved as its conclusion.
+    #[cfg(feature = "parse")]
+    #[test]
+    fn a_forest_with_cuts_is_searched_without_them() {
+        let mut sequent: Sequent = "A, A -o B |- B".parse().unwrap();
+        sequent.add_cut("|- A -o B".parse().unwrap()).unwrap();
+        // 0 ~A, 1 A ⊗ ~B, 2 A, 3 ~B, 4 B, then 5 ~A ⅋ B and its dual 8.
+        let forest = Forest::new(&sequent).unwrap();
+        let cut_free = |proof: &Proof| !proof.nodes().iter().any(|n| matches!(n, Node::Cut(..)));
+        let limits = Limits::default();
+        for mode in [Mode::CLASSICAL, Mode::INTUITIONISTIC] {
+            let focused = if mode.intuitionistic {
+                Engine::TwoSided
+            } else {
+                Engine::Focus
+            };
+            for engine in [None, Some(focused), Some(Engine::Net)] {
+                let options = Options::default().with_engine(engine);
+                let outcome =
+                    prove_goal(Goal::conclusion(&forest), mode, &options, &limits, |_| {
+                        false
+                    })
+                    .unwrap();
+                let proof = outcome.verdict.proof().expect("provable");
+                assert!(cut_free(proof) && proof.goal().is_none());
+                assert_eq!(proof.sequent(), &sequent);
+                assert_eq!(proof.check(mode), Ok(()));
+            }
+            let members = [Member::new(1), Member::new(5)];
+            let goal = Goal::new(&forest, &members).unwrap();
+            let outcome = prove_goal(goal, mode, &Options::default(), &limits, |_| false).unwrap();
+            let proof = outcome.verdict.proof().expect("A ⊸ B ⊢ A ⊸ B");
+            assert!(cut_free(proof));
+            assert_eq!(proof.goal(), Some(&members[..]));
+            assert_eq!(proof.check(mode), Ok(()));
+            // The dual and the goal: ⊢ A ⊗ ~B, B has no proof.
+            let members = [Member::new(8), Member::new(4)];
+            let goal = Goal::new(&forest, &members).unwrap();
+            let outcome = prove_goal(goal, mode, &Options::default(), &limits, |_| false).unwrap();
+            assert!(matches!(outcome.verdict, Verdict::Unprovable(_)), "{mode}");
+        }
+    }
 
     /// Parses `input`.
     fn sequent(input: &str) -> Sequent {

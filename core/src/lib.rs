@@ -226,7 +226,7 @@ pub use proofs::{
     Named, Node, NodeId, Proof, Rule, Size, TwoSided, ViewOptions,
 };
 #[cfg(feature = "interactive")]
-pub use proofs::{GoalId, Interactive, Step, StepError};
+pub use proofs::{CutFormula, GoalId, Interactive, Step, StepError};
 pub use search::{
     Bias, Counter, Disproof, Engine, Goal, NotTaken, Options, Outcome, Reason, Refutation,
     Statistics, Verdict, prove, prove_goal, prove_within,

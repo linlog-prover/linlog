@@ -23,12 +23,16 @@
 // A rule a later step adds must not fall into an existing arm.
 #![deny(clippy::wildcard_enum_match_arm)]
 
+mod cut;
 mod expand;
 mod invert;
 #[cfg(feature = "serialize")]
 mod replay;
 mod terms;
 
+pub use cut::CutFormula;
+#[cfg(all(test, feature = "parse"))]
+pub(crate) use cut::with_cuts;
 pub use invert::{Inverted, Options};
 
 use crate::Error;
@@ -509,6 +513,7 @@ impl Interactive {
             principal: None,
             premises: vec![],
             times: 1,
+            cut: None,
         };
         Ok(Self {
             forest,
@@ -712,6 +717,7 @@ impl Interactive {
                     sequent: inference.sequent.clone(),
                     rule: inference.rule,
                     principal: inference.principal,
+                    cut: inference.cut,
                     premises: inference
                         .premises
                         .iter()

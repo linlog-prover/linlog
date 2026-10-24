@@ -98,6 +98,15 @@ pub enum ShapeError {
     /// In the Lambek calculus without empty antecedents, the sequent has
     /// no formula left of `⊢`.
     EmptyAntecedent,
+    /// A cut formula is no intuitionistic formula: the root of a cut
+    /// formula `A`, which a cut proves in one premise and uses as a
+    /// hypothesis in the other, cannot be output, or its dual's cannot
+    /// be input.
+    #[non_exhaustive]
+    CutFormula {
+        /// The root of the cut formula `A`.
+        occurrence: OccId,
+    },
 }
 
 impl Display for ShapeError {
@@ -171,6 +180,15 @@ impl ShapeError {
             ShapeError::EmptyAntecedent => f.write_str(
                 "the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents needs",
             ),
+            ShapeError::CutFormula { occurrence: o } => {
+                f.write_str(if forest.is_some() {
+                    "the cut formula "
+                } else {
+                    "cut formula "
+                })?;
+                occurrence(f, *o)?;
+                f.write_str(" is no intuitionistic formula")
+            }
             ShapeError::Formula { occurrence: o } => {
                 f.write_str(if forest.is_some() {
                     "the subformula "
@@ -218,6 +236,10 @@ const OUT: u8 = 2;
 ///   formulas built from `⊤` and `0` allow (`⊢ 0, ⊤`), the reading refuses
 ///   ([`ShapeError::Undetermined`]) and asks for the sides. `⊢ ⊤, a` has
 ///   one reading, `0 ⊢ a`.
+/// - **A cut formula** `A` ([`Sequent::cuts`](crate::Sequent::cuts)) is
+///   proved by one premise of its cut and used as a hypothesis by the
+///   other: its tree reads in output position and its dual's in input
+///   position ([`ShapeError::CutFormula`] where either cannot).
 ///
 /// [`Sequent::antecedents`]: crate::Sequent::antecedents
 ///
@@ -392,9 +414,20 @@ impl<'a> Reading<'a> {
             }
         };
 
+        // A cut formula is the goal of one premise and a hypothesis of
+        // the other: `A` output, `A⊥` input.
+        for (a, dual) in forest.cut_pairs() {
+            if can[a.index()] & OUT == 0 || can[dual.index()] & IN == 0 {
+                return Err(ShapeError::CutFormula { occurrence: a });
+            }
+        }
+
         // The positions, parents before children.
         let mut position = vec![Side::Input; forest.len()].into_boxed_slice();
         position[goal.index()] = Side::Output;
+        for (a, _) in forest.cut_pairs() {
+            position[a.index()] = Side::Output;
+        }
         for o in forest.ids() {
             let p = position[o.index()];
             let Some((l, r)) = forest.left(o).zip(forest.right(o)) else {

@@ -5,16 +5,17 @@
 
     The trusted definition of the intuitionistic statements: [ill R Γ C]
     says that the sequent [Γ ⊢ C], with the hypotheses [Γ] and exactly
-    one conclusion [C], has a cut-free derivation in intuitionistic
-    linear logic, or in its affine variant when [R] adds weakening. The
-    formulas and the rules are those of Yalla's standalone kernel
-    [nanoill.v] and of the textbook calculus over [1], [⊗], [⊸], [⊤],
-    [&], [0], [⊕] and [!], without [⊥]: every sequent has exactly one
-    conclusion, so no rule weakens on the right, the axiom is on atoms
-    (the identity on any formula is derivable), and there is no cut. The
+    one conclusion [C], has a derivation in intuitionistic linear logic,
+    or in its affine variant when [R] adds weakening, a cut-free one
+    when [icut R = false]. The formulas and the rules are those of
+    Yalla's standalone kernel [nanoill.v] and of the textbook calculus
+    over [1], [⊗], [⊸], [⊤], [&], [0], [⊕] and [!], without [⊥]: every
+    sequent has exactly one conclusion, so no rule weakens on the right,
+    and the axiom is on atoms (the identity on any formula is
+    derivable); [nanoill.v] has no cut, which [R] adds here. The
     hypotheses are a list read as a multiset, so the exchange rule
     [ex_ir] admits any permutation, and every left rule acts on the first
-    hypothesis. Nothing is derived here, and nothing is assumed. The derivations live
+    hypothesis, the cut on the first hypothesis of its second premise. Nothing is derived here, and nothing is assumed. The derivations live
     in [Prop]: [ill R Γ C] says that one exists. *)
 
 From Stdlib Require Import List Permutation.
@@ -41,26 +42,29 @@ End Formulas.
 
 Arguments iformula atom : clear implicits.
 
-(** The optional rule of a two-sided calculus: intuitionistic linear
+(** The optional rules of a two-sided calculus: intuitionistic linear
     logic has none, affine logic adds the weakening of any hypothesis
     ([weakening_ilr] below), never of the conclusion, while the weakening
-    of a [!] hypothesis, [wk_ilr], belongs to both. *)
+    of a [!] hypothesis, [wk_ilr], belongs to both; a calculus with cut
+    adds [cut_ir]. *)
 Record irules : Type := IRules {
   iweakening : bool;  (** weakening of any hypothesis, not only of [!] ones *)
+  icut : bool;        (** cut: [Γ, Δ ⊢ C] from [Γ ⊢ A] and [Δ, A ⊢ C] *)
 }.
 
-(** Intuitionistic linear logic: no weakening but of [!] hypotheses. *)
-Definition intuitionistic : irules := {| iweakening := false |}.
+(** Intuitionistic linear logic: no weakening but of [!] hypotheses, no
+    cut. *)
+Definition intuitionistic : irules := {| iweakening := false; icut := false |}.
 
-(** Affine intuitionistic logic: weakening of any hypothesis. *)
-Definition affine : irules := {| iweakening := true |}.
+(** Affine intuitionistic logic: weakening of any hypothesis, no cut. *)
+Definition affine : irules := {| iweakening := true; icut := false |}.
 
 Section Calculus.
 
 Context {atom : Type}.
 Local Notation iformula := (iformula atom).
 
-(** The derivable sequents [Γ ⊢ C], with [R] the optional rule in
+(** The derivable sequents [Γ ⊢ C], with [R] the optional rules in
     force. *)
 Inductive ill (R : irules) : list iformula -> iformula -> Prop :=
 | ax_ir : forall a,
@@ -104,6 +108,8 @@ Inductive ill (R : irules) : list iformula -> iformula -> Prop :=
 | co_ilr : forall A l C,
     ill R (ioc A :: ioc A :: l) C -> ill R (ioc A :: l) C
 | weakening_ilr : iweakening R = true -> forall A l C,
-    ill R l C -> ill R (A :: l) C.
+    ill R l C -> ill R (A :: l) C
+| cut_ir : icut R = true -> forall A l1 l2 C,
+    ill R l1 A -> ill R (A :: l2) C -> ill R (l1 ++ l2) C.
 
 End Calculus.

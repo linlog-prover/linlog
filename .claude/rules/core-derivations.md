@@ -280,6 +280,17 @@ itself.
   children by position: so `\L` draws its consequent's premise first and
   `/L` its argument's (the stored operands of `B⊥ ⊗ A` and `A ⊗ B⊥`).
 
+- **A cut is a split** (`Join::Cut` in `Build::split`, as `⊗` and Mix):
+  the first premise ensures the cut formula's occurrence, the second its
+  dual, the cut's conclusion is both premises without them, and an
+  absorbed goal goes to the premise without one, the second where the
+  cut formula is the first's goal. The size estimate (`size.rs`) does the
+  same, the goal's premise read off `reading.position(a)`, so the two
+  stay equal (`is_the_size_of_the_derivation_built` runs proofs with
+  cuts). A cut inference records its formula (`Inference::cut`, the
+  member of `A` in the first premise), which `TwoSided`, the Rocq writer
+  and the session's term read; a session's JSON carries it as `"cut"`.
+
 ## The two-sided view of a classical derivation
 
 `proofs/derivation/classical.rs`: `TwoSided::new(&derivation, writing,
@@ -343,6 +354,15 @@ premises and `times`; no sequent is copied.
   one-sided), and `ViewOptions::classical` (`ClassicalSides`, `one` by
   default) is the front ends' switch; the library's own derivations are
   one-sided whatever it says.
+
+- **A cut's formula is exposed as a root is** (`walk`): its premises get
+  the cut formula's occurrence (the first) and its dual (the second),
+  each with a negation step above where the typed formula has a negation
+  before it (`written::negated` against `context`, which puts the `A`
+  root right of `⊢` and the `A⊥` root left); the cut is
+  `ClassicalRule::Cut`, `cut`, with no side.
+  `every_inference_parses_back_and_reads_as_its_term` runs proofs with a
+  cut on a formula typed as written.
 
 ## Interactive proving
 
@@ -495,6 +515,27 @@ code relies on:
   larger index than its conclusion), so every inference is walked by one
   step; `added` inferences below `len` none of which is below `len −
   added` are exactly the suffix the step must have added.
+
+- **The cut is a method, not a `Step`** (`Interactive::cut`, `cut.rs`):
+  the cut formula's pair is appended to the session's sequent, so the
+  forest is rebuilt within the caller's `limits.occurrences` and every
+  existing occurrence keeps its id, the new trees following; the reading's
+  positions and the classical record are extended as typed
+  (`core-forest.md`). `expand` refuses a `Step` naming `cut` (`Rule`), and
+  `rules` never offers it. `undo` of a cut pops the last pair
+  (`Sequent::pop_cut`), which is the cut's since the steps after it were
+  undone first; `from_parts` refuses a session whose cut formulas are not
+  those of its cuts in the order made (the history, then the inferences
+  of earlier steps), so that order holds after a read too. A cut's
+  replay (`replay_cut`) recovers the split from the first premise as a
+  `⊗`'s is. The invertible steps leave a cut alone: it is no step of
+  theirs.
+- **The search never sees a cut formula** (`search::on_own_forest`):
+  `close` and the invertible steps call `prove_goal` on the session's
+  forest, which, when it has cut formulas, decides the goal on a
+  cut-free forest of the goal's formulas over the same arena (the
+  hypotheses first with `antecedents`, so the reading's choices are
+  those of the session) and carries the proof back by the shift.
 
 ## The invertible rules applied by themselves
 
