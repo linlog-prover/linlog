@@ -3482,3 +3482,17 @@ client follows it (step 32).
   lesson's worked and faded proofs, hinge question and misconceptions;
   the new store problems `extra` and `copy-drop`), the planning session
   having checked every worked proof and hinge answer against the rules.
+- 2026-10-24: review of session 43b, Learn's lessons 1 to 5 (Opus 5.5
+  at high, 10:05 to 12:30, its outline confirmed by the author at
+  10:11): each lesson a worked proof from the store played on the stage
+  with "predict the next rule" and the reason beside the inference (D22),
+  a self-explanation prompt, the faded proof, practice from the store and
+  a hinge question whose wrong answers name their misconception; lesson
+  2's legal split that leads nowhere played, "Cannot close", taken back;
+  the reference's 13 rule schemas from the Handbook's Table 1.4; hover
+  schemas and readings with Learn on. Three new store problems
+  (`extra`, `copy-drop`, `bare-beside-bang`), the store check at 428
+  problems. Its reviewer's findings answered (a false "linear logic
+  drops nothing" mended, ⊤ absorbing). Checked here: the worked proofs
+  and hinge answers against the rules, the screenshots; the client
+  pushed. No departure. 44 and 41a run on.
