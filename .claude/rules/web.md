@@ -63,6 +63,12 @@ for `THIRD-PARTY-NOTICES.txt`.
   `read_as(input, mode, settings)` is `read` for a mode, its `text`
   two-sided, and is what the page calls for an intuitionistic proof.
   `start` and `prove` read their sequent the same way.
+- **A typed sequent of a commutative classical mode is read as written**
+  in `start` (`ClassicalSequent::parse_within`, `Interactive::of_classical`),
+  so the session carries its record (`"written"`) from the first call and
+  the page's "Two-sided" switch can turn at any point; `export` and
+  `draw` draw it two-sided when `view.classical` is `"two"`, a session
+  without a record (JSON) through `ClassicalSequent::read_one_sided`.
 - **An intuitionistic net is drawn essential** (`draw_net` sets
   `styles.svg.essential` in an intuitionistic mode): the plain drawing of
   the one-sided net writes classical formulas.

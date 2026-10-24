@@ -9,13 +9,13 @@
 
 use crate::failure::Failure;
 use crate::tab;
-use linlog::export::{latex, pdf, png, rocq, svg, typst};
+use linlog::export::{Drawable, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Inverted, Needs, Split};
 use linlog::{
-    Criterion, Disproof, Error, Fragment, GoalId, IllSequent, IllSyntax, Interactive,
-    MellStructure, Member, Mode, Named, NetError, Outcome, Progress, ProofStructure, Rule, Sequent,
-    Settings, Side, Step, Verdict, nets, wire,
+    ClassicalSequent, ClassicalSides, Criterion, Disproof, Error, Fragment, GoalId, IllSequent,
+    IllSyntax, Interactive, MellStructure, Member, Mode, Named, NetError, Outcome, Progress,
+    ProofStructure, Rule, Sequent, Settings, Side, Step, TwoSided, Verdict, nets, wire,
 };
 use serde::{Deserialize, Serialize};
 
@@ -326,8 +326,20 @@ fn changed(state: &Interactive, said: impl Serialize) -> Result<String, Failure>
 pub fn start(sequent: &str, mode: &str, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
     let mode: Mode = mode.parse().map_err(Failure::from)?;
-    let sequent = sequent_in(sequent, mode, &settings)?;
-    let mut state = Interactive::within(&sequent, mode, &settings.limits).map_err(Failure::from)?;
+    // A typed classical sequent keeps how it was written, for a drawing
+    // two-sided at any point of the proof.
+    let mut state = if !mode.is_intuitionistic() && !mode.is_ordered() && !is_json(sequent) {
+        let written =
+            ClassicalSequent::parse_within(sequent, &settings.limits).map_err(Failure::from)?;
+        Interactive::of_classical(&written, mode, &settings.limits)
+    } else {
+        Interactive::within(
+            &sequent_in(sequent, mode, &settings)?,
+            mode,
+            &settings.limits,
+        )
+    }
+    .map_err(Failure::from)?;
     let mut automatic = Automatic::default();
     if settings.interactive.invertible {
         automatic.add(state.invert_all(&inverting(&settings)));
@@ -944,7 +956,10 @@ pub fn draw_net(session: &str, settings: &str) -> Result<String, Failure> {
 /// Returns a session's derivation in a format: `text` (the command's text
 /// tree), `latex`, `typst` and `svg` of the session's tree, open goals
 /// included, and `rocq`, the certificate of a finished session's checked
-/// proof; each in the settings' style for it.
+/// proof; each in the settings' style for it. With `view.classical`
+/// `"two"`, a session of a commutative classical mode is drawn two-sided
+/// as its sequent was written ([`TwoSided`]), or for a session that keeps
+/// no record, one read from JSON, as its one-sided syntax writes it.
 ///
 /// # Errors
 ///
@@ -969,11 +984,39 @@ pub fn export(session: &str, format: &str, settings: &str) -> Result<String, Fai
     let derivation = state
         .derivation_within(&settings.view, limits, never)
         .map_err(Failure::from)?;
+    let mode = state.mode();
+    let as_written = settings.view.classical == ClassicalSides::Two
+        && !mode.is_intuitionistic()
+        && !mode.is_ordered();
+    let one_sided;
+    let writing = match state.writing() {
+        Some(writing) => writing,
+        None if as_written => {
+            // The session's sequent passed the bounds already.
+            let unbounded = linlog::Limits::default().with_occurrences(None);
+            one_sided = ClassicalSequent::read_one_sided(state.sequent().clone(), &unbounded)
+                .map_err(Failure::from)?;
+            one_sided.writing()
+        }
+        None => &[],
+    };
+    let two_sided = if as_written {
+        Some(TwoSided::new(&derivation, writing, limits).map_err(Failure::from)?)
+    } else {
+        None
+    };
+    let drawable: Drawable<'_> = match &two_sided {
+        Some(view) => view.into(),
+        None => (&derivation).into(),
+    };
     match format {
-        "text" => derivation.write_text(&styles.text, &mut out, never),
-        "latex" => latex::write(&derivation, &styles.latex, &mut out, never),
-        "typst" => typst::write(&derivation, &styles.typst, &mut out, never),
-        "svg" => svg::write(&derivation, &styles.svg, &mut out, never),
+        "text" => match &two_sided {
+            Some(view) => view.write_text(&styles.text, &mut out, never),
+            None => derivation.write_text(&styles.text, &mut out, never),
+        },
+        "latex" => latex::write(drawable, &styles.latex, &mut out, never),
+        "typst" => typst::write(drawable, &styles.typst, &mut out, never),
+        "svg" => svg::write(drawable, &styles.svg, &mut out, never),
         _ => {
             return Err(Failure::refused(
                 "unknown_name",

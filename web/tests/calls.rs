@@ -87,6 +87,36 @@ fn a_proof_by_steps_is_checked_and_exported() {
     }
 }
 
+/// A typed classical sequent's session keeps how it was written, and with
+/// `view.classical` `"two"` its derivation is drawn two-sided in every
+/// format, a negation step where a negation was written; by default it
+/// stays one-sided.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_classical_session_is_drawn_as_written() {
+    let started = calls::start("A par B |- ~(~A * ~B)", "classical", "").unwrap();
+    let state = session(&calls::close_all(&session(&started), "").unwrap());
+    let two = settings(&json!({"view": {"classical": "two"}}));
+    let tree = calls::export(&state, "text", &two).unwrap();
+    assert!(
+        tree.ends_with("A ⅋ B ⊢ ~(~A ⊗ ~B)") && tree.contains("~L"),
+        "{tree}"
+    );
+    let one = calls::export(&state, "text", "").unwrap();
+    assert!(
+        one.ends_with("⊢ ~A ⊗ ~B, A ⅋ B") && !one.contains("~R"),
+        "{one}"
+    );
+    for (format, mark) in [
+        ("latex", r"\textasciitilde}R"),
+        ("typst", r#""~R""#),
+        ("svg", "by ~R"),
+    ] {
+        let text = calls::export(&state, format, &two).unwrap();
+        assert!(text.contains(mark), "{format}: {text}");
+    }
+    assert!(calls::draw(&state, &two).unwrap().contains("by ~L"));
+}
+
 /// A finished proof with exponentials has its net with boxes: the view
 /// gives no refusal, and `draw_net` draws each box a rectangle, with its
 /// formulas or compact, in intuitionistic mode too, there also as its

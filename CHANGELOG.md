@@ -299,6 +299,40 @@ second number (0.1.x to 0.2.0), anything else the third.
   is on (`inverted` in the answer), add the call `invert_all`, list in
   the view the inferences an invertible rule closed (`invertible`), and
   say of a hint whether its rule is invertible.
+- `ClassicalSequent`, a sequent of classical linear logic as written: the
+  one-sided forest the engines take and, per occurrence, a `Written`
+  (its `side` of `⊢` and whether it `is_implication`), recorded where the
+  text is read (`ClassicalSequent::parse_within` and `FromStr`, the
+  parser extended by a record it fills) and never inferred, or the
+  record of a one-sided sequent as its syntax writes it
+  (`ClassicalSequent::read_one_sided`). It prints back as written, up
+  to brackets and double negations (`Display`, `formula`), and says
+  where a negation was written (`is_negated`).
+- `TwoSided`, the two-sided view of a classical derivation, built from a
+  one-sided `Derivation` and the record (`TwoSided::new`, refused past
+  `limits.derivation_bytes`): every sequent split by the side of `⊢` its
+  formulas were written on, every rule named two-sided
+  (`ClassicalRule`: `⊗L`, `⊗R`, `⅋L`, `⅋R`, `⊸L`, `⊸R`, `1L`, `1R`,
+  `⊥L`, `⊥R`, `&L₁`, `&L₂`, `&R`, `⊕L`, `⊕R₁`, `⊕R₂`, `⊤R`, `0L`, `!L`,
+  `!R`, `!c`, `!w`, `?L`, `?R`, `?c`, `?w`, `mix`, `wk`), and a negation
+  step `~L` or `~R` inserted where a negation was written. It draws as a
+  text tree (`Display`, `write_text`) and through `Drawable::Classical`
+  (a new variant) in LaTeX, Typst and SVG; Rocq certifies the one-sided
+  derivation it shows.
+- `ViewOptions::classical`, a `ClassicalSides` (`one`, the default
+  `ViewOptions::DEFAULT_CLASSICAL`, or `two`; in JSON `{"view":
+  {"classical": "two"}}`): whether a front end that holds a classical
+  sequent as written draws its derivation two-sided. The command's
+  `--classical-sides one|two` (on `prove`, a batch included, and
+  `check`) sets it.
+- `Interactive::of_classical` starts a session of a classical sequent as
+  written and keeps the record (`Interactive::writing`), so that its
+  derivation can be drawn two-sided at any point of the proof; a
+  session's JSON carries it as `"written": {"inputs": […],
+  "implications": […]}`. The web bindings' `start` keeps it for a typed
+  sequent of a commutative classical mode, and `export` and `draw` draw
+  such a session two-sided when the settings' `view.classical` is
+  `"two"`.
 
 ### Wire forms
 
@@ -322,6 +356,9 @@ second number (0.1.x to 0.2.0), anything else the third.
 - Level 5: the intuitionistic sequent, `{"version": 5, "terms": […],
   "atoms": […], "hypotheses": […], "goal": n}` with the terms `V`, `1`,
   `0`, `⊤`, `⊗`, `⊸`, `&`, `⊕` and `!`; it is always written at level 5.
+- A session's optional key `written`, how its sequent was written, raises
+  no level: a reader that ignores it reads the session as it is, and
+  draws it one-sided.
 - The essential-net engine for IMLL without units, `Engine::Essential`
   (`--engine essential`, JSON `"essential"`): the net engine's linking
   search over the essential net the intuitionistic reading directs,
