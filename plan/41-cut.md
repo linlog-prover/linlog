@@ -60,6 +60,60 @@ drawn, undoable and named, within step 38's tokens, grammar and
 lock moved after linlog's push. No lesson or practice here: those are
 step 43's fourth session (43d).
 
+## What steps 39 and 40 left you (finished 2026-10-24)
+
+- **The two surfaces** (step 40): an intuitionistic sequent is an
+  `IllSequent` (strict parser, its own JSON form at wire level 5, sides
+  recorded at lowering and pinned equal to `Reading::new`), and a
+  classical one a `ClassicalSequent` with each occurrence's side and
+  implication bit recorded by the parser's own pass, drawn two-sided by
+  `TwoSided` behind `ViewOptions::classical`. Step 40's report says
+  where a cut's formulas get their record: typed as written (ILL text in
+  intuitionistic mode, classical text in classical mode), its two
+  occurrences recorded as roots on each side where the cut is made,
+  never read off the one-sided `C` and `C⊥`; the two-sided view names
+  the cut `cut`, and step 40's round trip and recorded-sides tests
+  extend to them.
+- **Nets with boxes** (step 39): `MellStructure`, classical with or
+  without Mix and intuitionistic (the criterion without Mix, exact by
+  the one-output invariant of unit-free proofs, which a cut keeps:
+  a cut adds one input and one output), the weakenings hung on axiom
+  links, sequentialization and desequentialization, the drawings with
+  boxes in both looks (`svg::NetLook`) and the essential drawing; a cut
+  link is a new kind of link, and its elimination on nets with boxes
+  includes the exponential steps (a box entering a box, duplication by
+  contraction, erasure by weakening), each drawn.
+- **The interactive layer** (step 38h): `Interactive::invert` and
+  `invert_all` apply the invertible rules; a cut is no invertible rule,
+  and the automatic steps must leave a goal's cut alone.
+- **The oracles**: the focused target set's latest label is
+  `bench/targets/ill-surface.csv`, the net set's `net-ill-surface.csv`
+  (step 40b's labels, if it recorded new ones, are in its report); the
+  propositional search stays cut-free and every decided row's counters
+  equal.
+- **The Rocq library** still lives under `rocq/`; it moves to a
+  repository of its own only at step 45, so this step extends it here.
+
+## How the step runs
+
+Four sessions on Opus 5.5 at `high`, each with its goal in its launch
+prompt and reviewed by the planning session before the next; the panel
+of step 26's prompt (the argument on Fable 5.1 at `high`, the
+counterexamples on Opus 5.5 at `high`, the integers on Sonnet 5.5 at
+`high`) for the checker's cut rule (41a), for elimination on terms
+(41b) and on nets (41c), each on a frozen tree; a fresh-context reviewer
+on Opus 5.5 at `high` for the page (41d). Each session's linlog part is
+pushed by the planning session before any client part.
+
+## The machine
+
+Steps 43b, 43c (the lessons, in the client alone) and 44 (the guide for
+AI models, documentation in linlog) may run beside this step. This
+step's timed runs on cores 2 and 3 and its builds, the gate and the
+panel's runs on cores 4 to 7; step 44's on 8 and 9; step 43's on 10 and
+11; `nix flake check`, `nix build` and every timed run under `flock
+/tmp/linlog-machine.lock`.
+
 ## Known already (2026-10-19), for the review that finishes this prompt
 
 - **The checker has ordered modes** (step 35): cyclic MLL and the
