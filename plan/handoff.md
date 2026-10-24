@@ -82,7 +82,10 @@ is the authority):
   one session after 40, documentation only, beside 41 if wanted; once it
   ends, every step keeps the guide true (its rule in conduct.md), so tell
   a session of 41 to 43 that began before it.
-- **45**: the fourth baseline and the second release, 0.2.0, last, after
+- **45**: the Rocq library moved to its own repository
+  `linlog-prover/rocq-linlog` (45a, the author's of 2026-10-24, started
+  fresh, its GitHub setup yours as the client's was), then the fourth
+  baseline and the second release, 0.2.0, last, after
   every step above is reviewed and on `main` (prompt written 2026-10-23,
   finished at the review of the last step before it); the night and the
   tag are the author's.

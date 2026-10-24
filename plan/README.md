@@ -63,7 +63,7 @@ amended (see "Review protocol"). `notes/` holds research the prompts rely on.
 | 42 | First-order linear logic, its last session on the web page (several sessions, a plan of its own) | `42-first-order.md` (finished 2026-10-19, at the review of 37; its note on step 40 added 2026-10-23) | Fable 5.1 for the first session (the plan, quantifiers in the data model); Opus 5.5 for the rest; the panel's argument on Fable 5.1 | high, with the panel | 26, 28, 31, 40 |
 | 43 | Practice and Learn from one store of problems (the author, 2026-10-23): the store, and Practice as a place of its own with only provable problems, easy to very hard, by category and at random (43a); then Learn's lessons in D56's sequence and D60's order: lessons 1 to 5, then 6 to 9 (with 39's nets with boxes and 40's two-sided surface), then cut and the quantifiers (four sessions, content in the web client, the education plugins; 43a may run beside 40's linlog session, 43b and 43c beside 41) | `43-learn-lessons.md` (written 2026-10-23 at the author's word, its store and Practice added the same day) | Opus 5.5; a fresh-context reviewer per session | high | 39 (43b, 43c: 40; 43d: 41, 42) |
 | 44 | A guide to linlog for AI models: a compact summary of the command and the library by the practices current then (research first), every example run by a test, tried on a small model given nothing else, kept true by every later step (one session, documentation only; after 40, may run beside 41) | `44-llm-guide.md` (written 2026-10-23 at the author's word) | Opus 5.5; research on Sonnet 5.5; the trial agents Haiku 5.5 and Sonnet 5.5 | high (the sub-agents `medium`) | 40 |
-| 45 | The fourth baseline, and the second release, 0.2.0, the bump the closed enums' new variants call for (two sessions: the baseline on a night the author gives, then the release prepared, the tag and publication the author's) | `45-release-0.2.0.md` (written 2026-10-23 at the author's word; finished at the review of the last step before it) | Opus 5.5 | high | every step before it |
+| 45 | The fourth baseline, and the second release, 0.2.0, the bump the closed enums' new variants call for (three sessions: the Rocq library moved to its own repository `linlog-prover/rocq-linlog`, the author's of 2026-10-24; the baseline on a night the author gives; then the release prepared, the tag and publication the author's) | `45-release-0.2.0.md` (written 2026-10-23 at the author's word; finished at the review of the last step before it) | Opus 5.5 | high | every step before it |
 | 46 | Research: what to add after 0.2.0, from the literature, the other tools, what users say publicly and `later.md`, ranked, the author choosing; then the prompts of the chosen steps (two sessions with the author between, no code) | `46-research-next.md` (written 2026-10-23 at the author's word) | Fable 5.1 for the research and its synthesis, the sub-agents on Sonnet 5.5; Opus 5.5 for the prompts | high (the sub-agents `medium`) | 45 |
 
 A step has a whole number, one prompt file named after it, one report
@@ -3408,3 +3408,13 @@ client follows it (step 32).
   screenshots, both parts pushed (linlog `urvnvuvk`, the client
   `xkyksmut`). No departure. Left to 39c: the default drawing's merged
   door wires (a heads-up box in the session's pane).
+- 2026-10-24: at the author's word, the Rocq library leaves for a
+  repository of its own before 0.2.0: `linlog-prover/rocq-linlog`,
+  started fresh (no history carried over), as step 45's first session
+  (45a; the baseline becomes 45b and the release 45c); the library, its
+  tests, the bridges and their flake modules move, linlog keeps the
+  exporter and its certificate checks against the library taken as a
+  pinned input; the planning session creates and sets up the repository
+  as the client's (the author's yes for that task). Also the author's
+  word of the night: continue unattended through every step, at any
+  hour; a stop comes as a graceful stop.

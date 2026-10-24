@@ -27,10 +27,46 @@ plainly.
 
 ## How the step runs
 
-Two sessions on Opus 5.5 at `high`, each with its goal in its launch
+Three sessions on Opus 5.5 at `high`, each with its goal in its launch
 prompt and reviewed by the planning session before the next.
 
-- **45a, the fourth baseline**, comparable with the third
+- **45a, the Rocq library in its own repository** (the author,
+  2026-10-24; D20 and D22 foresaw it): `rocq/` becomes the repository
+  `linlog-prover/rocq-linlog`, started fresh (one initial commit of the
+  tree as it stands, no history carried over; linlog's history keeps the
+  record, and both changelogs say where the library went), EUPL-1.2.
+  - **What moves**: the library (`rocq/theories`, its `tests/` with the
+    certificates that test it, `Makefile`, `_RocqProject`, the opam file,
+    its README with the logo), the bridges to NanoYalla's `nanoll.v` and
+    Yalla's `nanoill.v` with their flake inputs, the flake modules that
+    build and check them (`modules/rocq-linlog.nix`,
+    `modules/rocq-bridges.nix`: the library built as nixpkgs builds one,
+    every certificate compiled, the theorems' assumptions closed under
+    the global context), and `.claude/rules/rocq.md` as the new
+    repository's own rules, with a CLAUDE.md, a flake in linlog's
+    dendritic style, the licence check, and CI that runs its `nix flake
+    check` and pulls from the Cachix cache `linlog-prover`.
+  - **What stays in linlog**: the exporter and its second kernel
+    (`--kernel linlog`), whose certificates linlog's flake still compiles,
+    now against the library taken as a pinned flake input
+    (`rocq-linlog`, as the client takes linlog), and the NanoYalla export
+    check (`modules/rocq.nix`), which needs no library of linlog's. No
+    certificate test is lost: each one either moves with the library or
+    stays as linlog's exporter check, said in the report which.
+  - **Everything that names `rocq/`** follows: CLAUDE.md (its crates
+    list, the commands, the verification table), README, `CITATION.cff`
+    where it names the library, the rules files, `plan/README.md`'s D20
+    and D22 with a dated note, the guide for AI models (step 44, its
+    rule in conduct.md), the client's About if it links the library.
+  - **GitHub, by the planning session** (the author's yes of
+    2026-10-24): the repository created public in the organisation, the
+    branch ruleset and topics as the client's, Actions on; its
+    `CACHIX_AUTH_TOKEN` is the author's to add. The new repository's
+    `main` is pushed before linlog's change that takes it as an input.
+  - Checked by both flakes' `nix flake check`: the library's at the new
+    repository's head, linlog's (with the exporter's certificates against
+    the pinned library) at its head.
+- **45b, the fourth baseline**, comparable with the third
   (`bench/results/2026-10-17/`; `bench/COMPARISON.md` gains a column),
   by `.claude/rules/bench.md` and the lessons of steps 14, 16 and 30: the
   estimate by arithmetic and a word to the supervisor before the start,
@@ -40,7 +76,7 @@ prompt and reviewed by the planning session before the next.
   beyond those named. A second night of the comparison with other
   tools (step 29's) is the author's to ask for; without it, README's
   "Beside the other provers" says the comparison is of 0.1.0's engines.
-- **45b, the release prepared**, so that the author's acts (the tag, and
+- **45c, the release prepared**, so that the author's acts (the tag, and
   through it the release workflow's publication to crates.io, the GitHub
   release and Zenodo's new version of the DOI) are the last and smallest
   part:
@@ -52,7 +88,8 @@ prompt and reviewed by the planning session before the next.
     true; no deprecated item kept without a reason.
   - **The versions**: 0.2.0 in the manifests, `CITATION.cff` (its
     version and date; the DOI's concept stays), the Rocq library's opam
-    file, the bindings' package, the changelog dated; a dry run of
+    file in its own repository (and its tag, by the author, beside
+    linlog's), the bindings' package, the changelog dated; a dry run of
     publishing both crates (`cargo publish --dry-run`) and the
     `package` check; what docs.rs builds.
   - **The faces**: README as a released tool's (what 0.2.0 adds: the
@@ -66,6 +103,6 @@ prompt and reviewed by the planning session before the next.
 
 ## Deliverables
 
-Thematic jj commits; `bench/results/DAY/`;
+Thematic jj commits in linlog and in `rocq-linlog`; `bench/results/DAY/`;
 `plan/reports/45-release-0.2.0.md`. Pushing, tagging and publishing
 are the author's.
