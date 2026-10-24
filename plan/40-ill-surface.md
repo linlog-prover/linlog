@@ -107,7 +107,7 @@ a round trip pins it.
   raising (step 42).
 - **The searches do not change**: the focused target set against its
   latest label (`bench/targets/deps-foldhash.csv`) and the net set
-  against `net-deps-foldhash.csv`, every decided row's counters equal
+  against `net-after-39c.csv`, every decided row's counters equal
   (`linlog-bench summary --against … --counters`).
 
 ## The second session: the classical surface
@@ -158,6 +158,33 @@ sides are only recorded, never computed:
   session, after its review) before the client moves its lock and
   drops its fallback; its examples and practice in intuitionistic mode
   must parse under the strict surface, which a client test pins.
+
+## What steps 38e to 39c left you (2026-10-24)
+
+- **Practice's store** (step 43a, in the client): 425 problems in
+  `src/content/problems/`, 178 of them intuitionistic, every one written
+  in ILL's own syntax today (no `~`, `⅋`, `?`, `⊥` or `^` in an
+  intuitionistic sequent); the client's flake check `problems` runs
+  linlog's command over the store at the pinned input, so the strict
+  parser and the raised outputs must keep it passing, and a sequent the
+  strict surface refuses is rewritten there, said in the report.
+- **The invertible rules** (38h): `Interactive::invert`, `invert_all`
+  and `is_invertible` (`proofs/interactive/invert.rs`), the command's
+  `interact --invertible` and its lines "applied N invertible steps";
+  what they print of a goal is an intuitionistic output to raise.
+- **The nets' look** (38i): `svg::Style::net_look` and its presets, and
+  the hint ladder's rung reading linlog's `hint.invertible`.
+- **Intuitionistic MELL nets** (39c): `MellStructure` in intuitionistic
+  mode (the classical criterion without Mix, exact by the one-output
+  invariant of unit-free proofs), `MellStructure::reading`, and the
+  drawing of an essential net with boxes, which writes the reading's
+  formulas already; its JSON form and every net's text output are
+  intuitionistic outputs to raise too.
+- **The wire forms are at level 4** since step 39b (a net document with
+  boxes); a typed surface on the wire raises it only as `wire.rs` says.
+- **The machine**: no other step runs beside this one; the planning
+  session reviews each session's linlog part and pushes it before the
+  client's part, as it did for 38h, 38i and 39c.
 
 ## How the step runs
 
