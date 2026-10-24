@@ -123,6 +123,19 @@ and formats you added (real invocations with their output), and keep its
 planned to built. Do not mention the plan, its steps or these sessions
 there.
 
+The guide for AI models, `skills/linlog/` (its summary `SKILL.md`, an
+Agent Skill served as `llms.txt`, and `reference.md`), describes the same
+features for models: a step that changes a command, a flag, a format, a
+JSON form, an exit status, a verdict's wording or a library entry point
+the guide describes changes the guide in the same commit, as it does
+README, and adds a feature it builds there in a sentence and, where
+there is output, an example. `cli/tests/readme.rs` runs every example of
+the guide and fails on a command, flag, session command or settings key
+it names that does not exist; the summary keeps within its budget
+(fewer than 100 lines, 8 000 bytes), so a new feature goes into
+`reference.md` and into the summary only where a model needs it to
+start.
+
 Everything you produce in one reply, including any reasoning or drafting
 before the reply, counts toward a single limit of about 128 000 tokens. If
 that limit is reached before the reply is finished, the whole turn is lost

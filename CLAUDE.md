@@ -37,7 +37,12 @@ Workspace crates:
   format and the main flags with their output, and `cli/tests/readme.rs`
   runs those examples; `linlog <command> --help` is the doc comments of
   `cli/src/argument_parsing.rs`, every flag that sets a key naming
-  it. Exit status 0 proved/valid, 1 unprovable/invalid, 2 error, 3
+  it. The guide for AI models, `skills/linlog/` (an Agent Skill:
+  `SKILL.md` the summary, `reference.md` the full reference, served on
+  the rustdoc site as `llms.txt` and `llms-full.txt`), describes the
+  command and the library for models that use linlog (not a skill of
+  this repository's Claude Code setup); the same test runs its examples
+  and checks every name it uses. Exit status 0 proved/valid, 1 unprovable/invalid, 2 error, 3
   unknown, 130 at a second Ctrl-C.
 - `bench/` is package **`linlog-bench`** (not published, `doc = false`):
   the benchmark harness, the baselines under `bench/results/DAY/`
@@ -147,6 +152,7 @@ Verify as much as the change needs:
 | changes how the focused engine searches, or must not (a refactoring) | add `bench/targets.sh LABEL` and compare `bench/targets/LABEL.csv` with the oracle, `bench/targets/after-efficiency.csv` (`bench/TARGETS.md` says why it is the one): `linlog-bench summary --against bench/targets/after-efficiency.csv bench/targets/LABEL.csv --counters` lists the verdicts that differ and every row decided alike whose `nodes`, `splits`, `memo_hits` or `memo_entries` differ; on one thread they are a function of the input, so a decided row has them equal exactly when the search is |
 | changes how the net engine searches, or must not (a retype of `ProofStructure`) | add `bench/net-targets.sh LABEL` and compare the columns `verdict`, `links` and `tests` of `bench/targets/net-LABEL.csv` with the oracle `bench/targets/net-after-prunes.csv` on every decided row (`summary --against … --counters` compares them) |
 | changes what the command prints, or a console block of README | `cargo test --workspace` runs README's examples (`cli/tests/readme.rs`); a change of output changes README in the same commit |
+| changes a feature the guide for AI models describes (a command, flag, format, JSON form, exit status, verdict or library entry point) | change `skills/linlog/` in the same commit, as README; `cargo test -p linlog-cli --test readme` runs its examples, checks every command, flag, session command and settings key it names, and holds the summary to its budget |
 | touches `search/parallel.rs`, `focus/parallel.rs` or `net::parallel` | `cargo test --workspace` covers them (the CLI depends on `parallel`, and cargo unifies features across a workspace run); `cargo test -p linlog` alone needs `--features parallel` |
 | touches `rocq/` | `nix build .#checks.x86_64-linux.rocq-linlog .#checks.x86_64-linux.rocq-bridges` (the library, every certificate under `rocq/tests/`, the bridges, the theorems' assumptions), under the machine lock while a timed run may hold it |
 | adds or changes a dependency | add `cargo deny check`. New deps must use a license `deny.toml` allows: EUPL-1.2, MIT, Apache-2.0 (± LLVM-exception), Unicode-3.0, Zlib, BSD-2-Clause or BSD-3-Clause |
