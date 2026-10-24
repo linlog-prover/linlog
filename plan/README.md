@@ -3439,3 +3439,41 @@ client follows it (step 32).
   the classical switching cycle that decides the structure. Follow-ups
   in `later.md` ("Follow-ups: the exports"). Next: step 40.
 
+- 2026-10-24: review of step 40, the two-sided surface (two sessions,
+  Opus 5.5 at high, 02:55 to 10:05, unattended):
+  - 40a: `IllSequent`, a strict ILL parser refusing `~ ^ ⅋ ? ⊥` with a
+    hint, its JSON form (wire level 5), `read_one_sided`; every
+    occurrence's side recorded at lowering, pinned equal to
+    `Reading::new`; every intuitionistic output raised (refutations,
+    describe, the command, trees, LaTeX, Typst, SVG, nets, the
+    bindings), property tests for no classical symbol and the round
+    trip; the permissive input refused by default, kept behind
+    `--ill-syntax one-sided`; the page reads with `read_as`, its `~(…)`
+    fallback gone, all 178 intuitionistic Practice problems parsing
+    strictly. The research found Yalla's `iformula` and `ill2ll` the
+    same shape and changed nothing. Its reviewer's three findings
+    (`-obot` slipping the scan, JSON read past `--occurrence-limit`, a
+    misplaced `|-` named as `⅋`) fixed with tests.
+  - 40b: `ClassicalSequent` records one byte per occurrence (the side
+    written and whether as an implication) from the parser's own pass,
+    nothing computed; `TwoSided` draws a classical derivation two-sided
+    with `~L`/`~R` steps where a negation was written, behind
+    `ViewOptions::classical` (`--classical-sides one|two`, one-sided the
+    default); the page's "Two-sided" switch live (D58). Its reviewer's
+    finding (a compact `?w`/`?c` run on both sides named for one)
+    fixed.
+  - checked here: the strict parser's refusals and hints, the
+    permissive flag, the raised trees and refutation texts, and the
+    classical view (`⊸L`, `~R`, `⅋R`) run by hand; the target sets
+    unchanged at both sessions (0 of 145 and 0 of 64 rows differ); the
+    two sessions' linlog parts pushed before their page parts, the
+    report's two sections merged by hand.
+  - for the author, two departures "(departs from the design)": the
+    engines and the checker still compute `Reading::new` on the lowered
+    forest rather than reading the recorded sides (a test and a
+    `debug_assert` pin them equal); `Proof::derivation_within` stays
+    one-sided whatever `ViewOptions::classical` says (a released
+    method's return type cannot change), a library user calling
+    `TwoSided::new`. One-sided JSON, LLTP and `.spec` input takes the
+    record of its one-sided syntax. Next: step 41 (cut), with 44 and 43b
+    beside it.
