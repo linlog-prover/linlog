@@ -3418,3 +3418,24 @@ client follows it (step 32).
   as the client's (the author's yes for that task). Also the author's
   word of the night: continue unattended through every step, at any
   hour; a stop comes as a graceful stop.
+- 2026-10-24: review of session 39c, intuitionistic MELL nets (Opus 5.5
+  at high, 20:20 to 03:30, paused 21:31 to 01:46 at the author's word):
+  `MellStructure` admits intuitionistic mode, decided by 39a's criterion
+  without Mix, exact because every sequent of a classical unit-free
+  proof without Mix holds one output (derived, cited to Lamarche's
+  Prop. 1 and Di Donna and Tortora de Falco's Prop. 75; Accattoli's "no
+  IMELL criterion without boxes or jumps" met by both); the essential
+  drawing with boxes (`svg.essential`), in both looks; the default
+  drawing's door wires kept apart; the page's net tab live for an
+  intuitionistic MELL proof. The panel (the argument on Fable 5.1, its
+  model confirmed): no finding against the criterion; a door-wire
+  overlap and its fix's overreach mended. Checked here: the derived
+  invariant by hand (the axiom one output, `⊗` adding less one, every
+  other rule keeping it; only `⊤`, `0` and Mix break it); a release
+  probe of my own (2 048 engine proofs, 65 771 accepted mutants, every
+  term accepted in intuitionistic mode); the renders; the linlog part
+  pushed before the page's. One departure, "(departs from the design)":
+  no essential criterion with boxes, the essential drawing highlighting
+  the classical switching cycle that decides the structure. Follow-ups
+  in `later.md` ("Follow-ups: the exports"). Next: step 40.
+

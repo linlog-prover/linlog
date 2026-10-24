@@ -1563,6 +1563,21 @@ intuitionistic mode; harmless for the library's own JSON.
 
 ## Follow-ups: the exports
 
+- **The essential net's input side is green in the library's default
+  style** (unassigned, left by step 39c's review, 2026-10-24): the page
+  draws it in the Okabe–Ito blue since session 38e, green being kept for
+  a checked proof (D26), but `svg::Style`'s default `input` colour, which
+  the command's exports use, is still green; the default to follow the
+  page, the snapshots that change regenerated.
+- **A division by zero in the rules look's label narrowing** (unassigned,
+  step 39c's integers panel, F2): a font whose advance table gives a
+  zero width divides by zero where 38i narrows a `?d`/`?c` label; a
+  zero-width advance to be refused where the table is read, or the
+  narrowing to skip it.
+- **`check -i --mix --net` prints "proof net with Mix"** (the command,
+  unassigned, step 39c's argument panelist, note A): `check` takes the
+  mode without `Mode::check`, as for IMLL; the mode to be checked first.
+
 *Assigned (2026-10-03).* All of it is step 22's. Reporting the curryst
 limit upstream is done by others (issue 19, closed as not planned); the
 layout of linlog's own follows.
