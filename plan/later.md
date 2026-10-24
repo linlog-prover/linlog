@@ -1523,7 +1523,7 @@ stop for `Image::read_back` and `Derivation::check`, went to step 28.
 
 ## The web front end: a two-sided presentation of classical derivations
 
-*Assigned to step 40's second session (2026-10-23).*
+*Assigned to step 40's second session (2026-10-23); done there: `TwoSided`, `--classical-sides`, `view.classical` and the client's switch (`plan/reports/40-ill-surface.md`, session 40b).*
 
 *From the design session (2026-10-18, `plan/web/design.md`, D58).* The
 author wants a toggle between the one-sided and a two-sided
