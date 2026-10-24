@@ -1502,6 +1502,15 @@ the focused engine today. The canonical choice among identical hypotheses
   bound: find it (the second search's own structures, the pool's
   workers, or a proof of `&` rules outside the focused engine's charge),
   charge it, and pin it with a test under a bound.
+- **The default leaves to the time limit what the inverse method
+  saturates at once** (found by session 43c, 2026-10-24). `linlog prove
+  -i '!(a -o a * a * a), !(a -o a), a |- a * (a + 0)'` answers unknown
+  after 2 s, the two-sided engine at a copy bound of 101, where `linlog
+  prove -i --deterministic` answers unprovable from the inverse engine,
+  saturated at 14 sequents. The default's race should give the inverse
+  method its turn, or an unprovable that it finds in milliseconds should
+  not wait for the time limit; find why the race misses it and pin the
+  sequent with a test.
 
 ## Follow-ups: ordinary logic
 

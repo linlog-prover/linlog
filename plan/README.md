@@ -3517,3 +3517,23 @@ client follows it (step 32).
   optional (departs from D60's "last and optional", at the author's
   word); and lesson 7 shows "unknown" happening, a live example outside
   the store run with a small budget, decided at the default one.
+- 2026-10-24: review of session 43c, Learn's lessons 6 to 9 (Opus 5.5
+  at high, 11:15 to 12:15, beside 41a): lesson 6 two sides (the 19
+  two-sided rules of ILL drawn as schemas in the reference beside their
+  one-sided rules, and on hover with Learn on), 7 when there is no
+  proof (a wrong step's attempt, linlog's three kinds of answer, and the
+  live Unknown at a budget of 20 units proved at 160 after three "Try"
+  doublings), 8 proof nets (with a box in a box), 9 ordinary logic, a
+  regular lesson. Every lesson problem decided within 16 387 of the
+  page's 2^26 units of work, a test holding each under a hundredth of
+  it: `tripling`, decided only near the budget, replaced by
+  `odd-machine`. The store at 436 problems, 397 provable. Two fixes at
+  their cause: a reason beside a rule drawn with a subscript (lesson 3's
+  since 43b), a scaled budget rounded to whole units. Its reviewer's two
+  findings answered (atoms pair off only where nothing drops them; the
+  hinge's sequent filed). Checked here: the lesson problems and the live
+  example against the command (each verdict as the store says, unknown
+  at 20, 40 and 80, provable at 160), the schemas, the screenshots; the
+  client pushed. No departure. The default command's unknown on
+  `tripling`, where the inverse method saturates at once, is in
+  `later.md` ("Follow-ups: intuitionistic mode").
