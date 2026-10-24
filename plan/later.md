@@ -1960,3 +1960,42 @@ left for later; the fixes it made are in the step's report.
   developer and a front end copy rather than derive. The Euler Math
   font's source and licence are named in the command's tree
   (`cli/fonts/`), not where a reader of README looks.
+
+## For the author: an MCP server for linlog (asked by step 44, not built)
+
+The question was whether a Model Context Protocol server is what lets a
+model use linlog's features most easily. Step 44's research (2026-10-24,
+`plan/reports/44-llm-guide.md` has the sources) says **no, not now**:
+
+- linlog is a local command without state between calls, with text and
+  JSON output and exit statuses that say the verdict. An agent with a
+  shell runs it directly, and the Agent Skill `skills/linlog/` costs it
+  about a hundred tokens until it is needed (agentskills.io's
+  progressive disclosure), where an MCP client that loads every tool's
+  schema up front pays for them on every turn (Anthropic's post on code
+  execution with MCP; practitioners' measurements of CLI against MCP,
+  vendor-written). Claude Code's tool search now defers MCP tools, which
+  narrows the gap but does not reverse it.
+- What a server would add: typed input and output schemas, a read-only
+  hint, cancellation and progress notifications, and use from clients
+  without a shell (a chat app). That is where to revisit the question:
+  when someone asks to use linlog from such a client.
+
+If it is built then, a sketch: a subcommand `linlog mcp` serving MCP
+over stdio (newline-delimited JSON-RPC on standard input and output),
+with a handful of tools named after the commands, each a thin call of
+what the command already does and described by the guide's sentences:
+`prove` (a sequent and the mode flags as an object, the settings'
+`clock`, `limits` and `search` as optional fields; the outcome's JSON as
+`structuredContent`, the verdict line as text), `check` (a proof
+document and the mode), `seq` (print, json or fragment), and the
+session's steps as calls without state that take and return the
+session's JSON, as the web bindings do. Every call keeps the command's
+defaults (2 s, 1 GiB, the copy bound deepened under the limit), so a
+call without arguments answers within its time limit;
+`notifications/cancelled` raises the same stop flag a Ctrl-C does, and
+a long search sends `notifications/progress` from the work count. No
+tool writes a file at first (a drawing comes back as SVG text), so every
+tool is read-only. It needs a JSON-RPC layer (a
+crate such as `rmcp`, judged by the dependency rules then) and a test
+that runs a session over a pipe, as `cli/tests/cli.rs` runs `interact`.
