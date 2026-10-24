@@ -454,3 +454,249 @@ calculus the page proves in has problems.
   - `trial/` to `trial4/`: the validation's four rounds, each with its rules, harness, sample, logs and table (`trial2/PLAN.md` to `trial4/PLAN.md` written before their rounds ran).
   - `before/` and `after/`: the screenshots, listed by `ls`.
   - `store-size.py`: the store's size by level and category.
+
+## Session 43b: lessons 1 to 5
+
+### The checklist
+
+| requirement (the brief and the section "Goal") | status | evidence |
+|---|---|---|
+| The outline of lessons 1 to 5 sent to `planning` before the lessons were written, and the author's answer | done: confirmed as sent | sent 2026-10-24 10:09 (`/home/tux/Projects/own/linlog-step43b-screenshots/outline.md`); `planning` relayed at 10:11: "The author confirmed the outline of lessons 1 to 5 as you sent it at 10:09: the order, the worked and faded proofs, the hinge questions, and the two new store problems (`extra`, `copy-drop`)" |
+| Lessons 1 to 5 in D56's sequence: a worked proof played with a reason at each inference and "predict the next rule" before each reveal, the same proof with its last steps left to the student, practice from the store, a self-explanation prompt at the densest step, a hinge question whose wrong answers each name a misconception | done | `src/content/lessons/1-reading.md` to `5-exponentials.md`, `LessonView` in `src/islands/Learn.tsx`; Playwright `tests/lessons.spec.ts` (7 tests); Vitest `src/content/lessons.test.ts` (14 tests) |
+| Lesson 2's erroneous example, the legal split that leads nowhere | done | `detour` in `2-multiplicatives.md`, played on the stage with linlog's verdict ("Cannot close") and taken back by the next step; `lessons.test.ts` holds that `split_passes` refuses it and that linlog applies it; Playwright "the dead end is a legal split played on the stage, which cannot close, then taken back" |
+| The hinge's answer decides between the next lesson and the faded proof again | done | Playwright "the hinge question names a wrong answer's misconception and offers the faded proof, the right one the next lesson" |
+| The reference's rule schemas the lessons use | done | `src/content/rules/` (13 rules), drawn by `Rules` into `texts/reference.md`; Playwright "the reference draws every rule of the lessons as a schema, with its two-sided names" |
+| The frame's hover explanations (D47): a rule its schema, a connective its reading, a verdict its reason | done | Playwright "with Learn on, a rule of the popover shows its schema and a formula its reading; off, neither"; a verdict's reason is the note's and the status's tip, as before |
+| Every lesson's sequent a store problem with linlog's verdict and session; the store's flake check passing | done | three new problems (`extra`, `copy-drop`, `bare-beside-bang`), `evidence/new-problems.txt`, `evidence/interact.txt`; `check-problems`: "all 428 problems are as linlog's command decides them; 393 provable, each with a session that `proof` accepts" |
+| The education skills and `frontend-design` used | done | below, "Decisions" |
+| One fresh-context reviewer, one round, each finding answered | done | below, "The review"; `/home/tux/Projects/own/linlog-step43b-screenshots/review.md` |
+| Before-and-after screenshots of each lesson at a phone's and a desktop's width in both themes | done | `/home/tux/Projects/own/linlog-step43b-screenshots/before/` (24) and `after/` (92) |
+| The client's `nix flake check` at its last commit; `jj st` clean in both workspaces | done | exit status 0 at `qmlqvzzn` (19116070); below, "Verification" |
+
+### Outcome
+
+Learn's tutorial has its first five lessons written, in D60's order, as the author
+confirmed them from the outline: reading a sequent, the multiplicatives, the additives,
+the units, the exponentials. Each opens from the tutorial's list as a lesson of its own:
+a short opening in plain words; a worked proof of the store played on the stage one
+inference at a time, the visitor predicting each rule among the lesson's rules before the
+page plays it and writes its reason beside the inference; a self-explanation prompt after
+the densest step, with a model answer to compare; the same proof with its first steps
+played and the rest left to the visitor; the lesson's practice from the store; and a
+hinge question whose right answer offers the next lesson and whose wrong answers each say
+the misconception they come from and offer the faded proof again. Lesson 2 also shows the
+legal split that leads nowhere: the page plays it, its two dead premises drawn with linlog's verdict "Cannot close", and the next step takes it back and plays the right split. Lessons
+6 to 9 keep their practice until 43c writes them.
+
+The reference draws the thirteen one-sided rules the lessons use as schemas, each with
+what it does, its two-sided names and the lesson that teaches it, cited from the Handbook
+of linear logic's Table 1.4. With Learn on, a rule in the stage's popover shows its schema
+on hover, and a formula its connective's name and reading; with Learn off, neither.
+
+Three problems joined the store (428 problems, 393 provable), each decided by linlog's
+command and checked by the flake's `problems` check. On the way the touch-target walk,
+extended by the lesson's states, found that the stage's zoom-to-floor fell short on a
+phone (a formula's button 39 pixels wide), which is fixed at its cause.
+
+### The lessons
+
+| lesson | worked proof (store) | faded: played, then the visitor's | self-explanation (after step) | hinge | misconceptions named |
+|---|---|---|---|---|---|
+| 1 Reading a sequent | `identity`, `A ⊢ A`: ax | none played; the one step | why `⊢ A⊥, A` is an axiom and `⊢ A, A` is not (1) | which goal the axiom closes by itself | the axiom pairs a formula with itself; an unused formula may be left over; any atom closes with any negated atom |
+| 2 The multiplicatives | `commute`, `A ⊗ B ⊢ B ⊗ A`: ⅋, ⊗, ax, ax; the dead end played before ⊗ and taken back | ⅋; then ⊗, ax, ax | where the left premise's formulas come from (2, the ⊗) | which split of `(A ⊗ B) ⊗ C` can pass | a factor needs one formula beside it, however many atoms it has; a premise can do without its atoms' duals |
+| 3 The additives | `distributivity`, `A ⊗ (B ⊕ C) ⊢ (A ⊗ B) ⊕ (A ⊗ C)`: ⅋, &, ⊕₁, ⊕₂, ⊗, ⊗, four ax | ⅋, &; then the choices, splits, axioms | why each premise of `&` keeps the whole context (2, the &) | after `&` on `B & C`, what the premises hold | `&` splits as `⊗`; `&` chooses as `⊕`; `&` puts its parts side by side as `⅋` |
+| 4 The units | `units-together`, `(A ⊗ 1) & (1 ⊗ A) ⊢ A ⊗ (1 ⊕ 0)`: ⊕₁, ⅋, ⊥, ⊗, ax, ⊕₁, 1 | ⊕₁, ⅋, ⊥; then the split onward | why `1`'s premise holds nothing else (4, the ⊗) | which goal has a proof | `1` is true and closes beside an axiom; `0` can be left over; the empty goal is proved |
+| 5 The exponentials | `copy-drop` (new), `!A, !B ⊢ !A ⊗ A`: ?w, ?c, ⊗, !, ?d, ?d, ax, ax | ?w, ?c, ⊗; then the promotion onward | why `!` needs every other formula under `?` (4, the !) | which has a proof | `!` on any formula one has; `?` gives copies as `!` does; any hypothesis may be copied |
+
+Each lesson's practice is its store problems (lesson 1: 6, lesson 2: 9, lesson 3: 9,
+lesson 4: 15, lesson 5: 13), easiest first, provable and unprovable mixed.
+
+### Decisions
+
+- **The lessons are content, one Markdown file each** (`src/content/lessons/`, D23): the
+  opening is the body; the front matter names the worked proof (a store problem of the
+  same lesson), one rule and reason per step of its session, the rules to predict among,
+  how many steps the faded proof plays, the self-explanation prompt and its model answer,
+  the hinge question, and lesson 2's dead end. `lessons.test.ts` holds each lesson's
+  steps to its session's history, rule by rule, so a session rewritten in another order
+  fails the test rather than misplacing the reasons.
+- **The worked proof is the session played by Redo** on a tab of its own (`prover.worked`,
+  new in `state.tsx`): the session replayed to the lesson's place, the rest on the redo
+  stack. The faded proof is the same call with the rest left to the visitor. Both reuse
+  the lesson's tab while it holds the problem's sequent, so a lesson opens one tab, not
+  one per press. If the visitor works on the tab meanwhile, the next prediction replays it
+  to where the lesson stands.
+- **The reason stands on the stage beside its inference** (D22), never in Learn's panel:
+  a note in Learn's colour on the rule label's row, past the drawing's right edge so that
+  it covers no goal; under the drawing where the stage leaves no room there; above the
+  stage's controls on a phone. The panel says only whether the prediction was right. This
+  is the lessons' one memorable element (`frontend-design`); everything else keeps step
+  38's grammar, tokens and 44-pixel targets.
+- **The prediction is a row of the lesson's rules as buttons**, with "Show the step" for a
+  visitor who does not want to guess (the expertise-reversal guard of
+  `worked-example-fading-designer`). Every press plays the step; a wrong guess is answered
+  with the right rule, never a refusal (`digital-worked-example-sequence`: immediate,
+  specific feedback).
+- **The faded proof leaves each lesson's new choice to the visitor** (the split, the side of
+  `⊕`, the promotion), not only the closing axioms. `worked-example-fading-designer` fades
+  from the end and keeps the conceptual step supported longest across several completion
+  problems; D56 has one faded proof, and the visitor has just watched the same proof, so
+  the one faded proof starts before the lesson's choice.
+- **The self-explanation prompt is free text kept nowhere, then a model answer**
+  (`self-explanation-prompt-designer`: generation, not recognition), placed after the step
+  D60 names, which is each lesson's densest: the axiom, the split, the `&`, the split
+  around `1`, the promotion. It appears once its step is played and stays.
+- **The hinge questions** (`hinge-question-designer`): each wrong answer is the right
+  answer under one misconception, worded as that idea ("This answer comes from the idea
+  that …"), and why it fails. Where an option is a sequent, it is a store problem of the
+  lesson, and the test holds that it is provable exactly when it is the right answer.
+  Lessons 2 and 3 ask about a split and about premises, which linlog decided
+  (`evidence/hinge-premises.txt`).
+- **The order** (`learning-progression-builder`): D60's, confirmed by the author. Each
+  lesson needs the one before: lesson 2's split needs lesson 1's axiom; the additives'
+  practice uses `⊗`; the units are the multiplicatives' and the additives' units; the
+  exponentials' copies go through `⊗` and `?w` meets `1` in the practice.
+- **Cognitive load** (`cognitive-load-analyser`): the four parts of a lesson stand in
+  order along a rule in Learn's colour; the worked proof shows one prompt at a time;
+  the reason is at the inference, where the eye already is (split attention); the
+  opening is a paragraph or two.
+- **The rules' schemas are content too** (`src/content/rules/`), drawn by the island into
+  the reference's text and into the popover's tip from the same files: the Handbook's
+  Table 1.4, one-sided (read in the Handbook's own PDF, fetched 2026-10-24, p. 22), with
+  the axiom on atoms as linlog applies it (§1.3.2, p. 14, says atoms suffice), and the
+  two-sided names from linlog's `ClassicalRule` table. A two-sided name in the popover
+  (an intuitionistic tab) shows the one-sided rule it names.
+- **The hover readings** are `READINGS` in `words.ts`, which a test holds to the reference
+  table's name and reading columns, so the two cannot drift apart.
+- **`yaml` became a dev dependency** at the version the lock already held (2.9.1, under
+  Astro): the lessons' front matter nests, and the test reads it.
+
+### Judgement calls
+
+- **A third new store problem, `bare-beside-bang`** (`!A, B ⊢ !A ⊗ !B`, unprovable,
+  level 2 by hand), beside the two the outline named. Lesson 5's worked proof
+  (`copy-drop`) must be a store problem of lesson 5, which made the lesson's ninth
+  provable problem; with three unprovable ones, the store's test that a lesson's practice
+  is never three alike in a row cannot hold (at most eight provable problems fit between
+  three unprovable ones). A fourth unprovable problem was needed. This one shows the
+  lesson's stuck point, promotion's context. The test was not loosened.
+- **Lesson 1's worked proof has one inference** (`A ⊢ A`, ax), so its faded proof leaves
+  that one step to the visitor; the outline said so and the author confirmed it.
+- **A wrong prediction still plays the step**, with the right rule named: the worked
+  proof is the page's, and a refusal there would make the visitor guess until right,
+  which the outline did not ask for.
+- **The reason is placed under the drawing** when the drawing's right edge leaves no
+  room on the stage (lesson 3's `&` on a desktop), and above the stage's controls on a
+  phone, where it may cover the root's row but never the active goal.
+- **The hinge's misconception is worded as the idea behind the answer** ("This answer
+  comes from the idea that …"), so that it names a belief, not a fault of the visitor.
+- **A verdict's reason stays a tip with Learn off** (review finding 3, below).
+- **The floor's fix** is outside the lessons, but the walk that measures the lessons'
+  states failed on it, and a failing check is fixed at its cause.
+
+### Departures from the design
+
+- None from D21, D22, D47, D56 or D60. The reference gives each one-sided schema with its
+  two-sided names (D47: "in the one-sided and the two-sided names"); the two-sided schemas
+  themselves come with lesson 6 (43c).
+
+### The review
+
+One round, a fresh-context reviewer on Opus 5.5 at `high`, briefed with D21, D22, D47,
+D56, D60, the confirmed outline and the machine's rules (linlog's command alone, capped,
+on cores 10 and 11), told to report only what breaks a stated requirement
+(`/home/tux/Projects/own/linlog-step43b-screenshots/review.md`). It confirmed every
+verdict and session the lessons use, that each lesson's steps follow its session and
+each reason fits its goal, the hinges' splits and premises, the dead end, every part D56
+and D60 ask for, the schemas against Table 1.4 and the two-sided names against linlog's
+table, and that the new hovers are off with Learn off. Its findings, each answered:
+
+1. **"Linear logic drops nothing that is not under `?`" is false**: `⊤` closes a goal
+   whatever else is in it (`linlog prove "|- ~A, A, B, top"`: provable). **Holds.** Lesson
+   1's hinge, lesson 4's model answer and `extra`'s explanation now say that only `⊤` or
+   `?w` disposes of a formula, and lesson 4's answer gives the true reason: the rule `1`
+   has the conclusion `⊢ 1` (client `qmlqvzzn`).
+2. **Lesson 2's hinge named a misconception that does not lead to its option**: in
+   "`A⊥` with `A ⊗ B`; `B⊥, C⊥` with `C`" the factor `C` takes two formulas. **Holds.** The
+   misconception is now "a factor of `⊗` needs one formula beside it, however many atoms it
+   has", which gives `A ⊗ B` one dual and `C` the rest. The confirmed outline had the old
+   wording; the fix keeps the option and the answer.
+3. **A verdict's reason shows on hover with Learn off**, against D47's "with Learn off
+   none of this". **Does not hold.** D15 gives every visitor the verdict's reason in one
+   sentence, and the note's and the status's tips carried it before Learn's frame
+   existed (2026-10-19); D47's sentence is about what the frame adds. Taking the reason
+   away from the expert's page would break D15.
+4. **`mix` and `wk` showed an empty tip with Learn on**: no rule file covers them.
+   **Holds.** A rule the reference has no schema of now shows no tip. The schemas of Mix
+   and weakening are not lessons 1 to 5's.
+5. **Departures from the confirmed outline, not yet named.**
+   - a. Lesson 1's choices lacked "no rule". **Holds**: added.
+   - b. A third new problem. **Holds**: named above (judgement calls) and to `planning`.
+   - c. The dead end only selected the split in the chooser, where the outline has the
+     page play it, show it fail and take it back. **Holds**: the page now plays it, its
+     premises drawn with linlog's verdict, and the next step takes it back
+     (Playwright "the dead end is a legal split played on the stage, which cannot close,
+     then taken back").
+   - d. The outline said lesson 2 has eleven store problems; it has nine. **Holds**: the
+     outline's count was wrong, the lesson's practice was not; this report says nine.
+
+### Verification
+
+- **The client's `nix flake check`** passed, exit status 0, at its last commit `qmlqvzzn`
+  (19116070), under the machine lock on cores 10 and 11
+  (`/home/tux/Projects/own/linlog-step43b-screenshots/evidence/flake-check.log`):
+  `check-problems` "all 428 problems are as linlog's command decides them; 393 provable,
+  each with a session that `proof` accepts", Vitest 504 passed, Playwright 103 passed. It
+  passed before the review too, at `nnkrvpzp`.
+- **Vitest** (504): `lessons.test.ts` holds each lesson to its session, rule by rule, the
+  faded and prompt steps within it, the dead end refused by `split_passes` and applied by
+  linlog, one right hinge answer and each wrong one with a misconception, an option's
+  problem provable exactly when it is right, a rule file for every rule a worked proof
+  uses, and the hover readings equal to the reference table's; `words.test.ts` the
+  readings.
+- **Playwright** (103): `tests/lessons.spec.ts`, seven tests, one per interaction (the
+  worked proof with its predictions and the reason beside the inference, the dead end, the
+  self-explanation prompt, the faded proof finished by the visitor, the hinge's two
+  outcomes, the hover schema and reading with Learn on and off, the reference's
+  schemas); the touch-target walk now includes a lesson's five states. Four tests changed
+  on purpose, because lessons 1 to 5 now open as lessons: the practice tests open a lesson
+  by its button (`learn.spec.ts`, `phone.spec.ts`, `engines.spec.ts`).
+- **The walk failed before the floor's fix**: "lesson's worked proof: button.fb "B,
+  formula 2 of goal 3" 39×55" at a phone's width; it passes after (client `snmtlozz`).
+- **The sequents**: the three new problems by `linlog prove` and `seq fragment`
+  (`evidence/new-problems.txt`), `copy-drop`'s session by `linlog interact` from linlog's
+  hints, `proof` exit 0, and again resumed from the file (`evidence/interact.txt`); the
+  hinges' premises (`evidence/hinge-premises.txt`); `copy-drop` measured by step 43a's
+  measure at score 21.1, Hard (`scripts/worked-measured.jsonl`).
+- **Signing**: a signature was tested before each commit; every commit is signed.
+- **The screenshots**: `before/` (24: the five lessons and the reference, each at a
+  phone's and a desktop's width in both themes) and `after/` (92: the same 24 names, and
+  for each lesson its worked proof in progress, its faded proof and its hinge answered,
+  lesson 2's dead end, and a rule's schema on hover), taken by `shots.mjs` from the
+  built site at munpltsm and at `qmlqvzzn`.
+- **The client's commits**, above `munpltsm`:
+
+  | change | what |
+  |---|---|
+  | `snsvoswm` | the problems lessons 1 and 5 need, filed in the store |
+  | `snmtlozz` | the zoom-to-floor solved per button, the padding apart |
+  | `tmmtqlrt` | `yaml` as a dev dependency, at the version the lock held |
+  | `nnkrvpzp` | lessons 1 to 5, the rules' schemas, Learn's hover explanations |
+  | `qmlqvzzn` | the review's answers |
+
+### What is left open
+
+- Lessons 6 to 9 (43c): two sides with the two-sided schemas, when there is no proof,
+  proof nets, ordinary logic.
+- The schemas of Mix and weakening, the structural rules of the modes, when a lesson
+  teaches them.
+- A lesson's progress is not remembered across visits: the outline asked for none.
+
+### Repositories and workspaces
+
+- The client: `/home/tux/Projects/own/linlog-prover.github.io-43b`, the jj workspace
+  `step43b` on `munpltsm`, its commits above; nothing pushed.
+- linlog: `../linlog-step43b` on `nvlzxlln`, this report's commit; no code changed.
+- The evidence: `/home/tux/Projects/own/linlog-step43b-screenshots/` (`outline.md`,
+  `review.md`, `before/`, `after/`, `evidence/`, `scripts/`, `refs/` the Handbook read,
+  `shots.mjs`, `run-shots.sh`).
