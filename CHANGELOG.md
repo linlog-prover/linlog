@@ -356,6 +356,13 @@ second number (0.1.x to 0.2.0), anything else the third.
 - Level 5: the intuitionistic sequent, `{"version": 5, "terms": […],
   "atoms": […], "hypotheses": […], "goal": n}` with the terms `V`, `1`,
   `0`, `⊤`, `⊗`, `⊸`, `&`, `⊕` and `!`; it is always written at level 5.
+- Level 6: the cut. A sequent's cut formulas, `"cuts": [a, …]`, the term
+  of each cut formula `A` (its dual is in the arena, which the reader
+  finds again), and the proof's tag `{"cut": [a, l, r]}`; a session's
+  cut inference names its formula, `"cut": a`. A document whose sequent
+  holds a cut formula (a proof with a cut, a session with one, an
+  outcome of a goal of one) is written at level 6; every other document
+  stays as it was.
 - A session's optional key `written`, how its sequent was written, raises
   no level: a reader that ignores it reads the session as it is, and
   draws it one-sided.
@@ -386,6 +393,40 @@ second number (0.1.x to 0.2.0), anything else the third.
   session's, as one step, checked in the session's mode as `close_with`
   checks; the bindings' `fill(session, goal, source, settings)` takes the
   source as a finished session.
+- Proofs with cuts. A sequent holds its cut formulas beside its
+  conclusion (`Sequent::cuts`, each a formula `A` and its dual `A⊥`,
+  added by `Sequent::add_cut`), which its forest numbers after the
+  conclusion, `A` then `A⊥` (`Forest::cut_pairs`, `has_cuts`,
+  `is_conclusion`, `dual`, `is_cut_formula`); the reading reads `A` as
+  output and `A⊥` as input (`ShapeError::CutFormula`, kind
+  `cut_formula`, where it cannot). The proof term `Node::Cut(a, l, r)`
+  (tag `cut`) and the checker's rule: the first premise has `a`, an
+  occurrence of a cut formula `A`, and the second its dual, in every
+  commutative mode, intuitionistically whichever premise proves it;
+  `Fault::NotACut` (kind `not_a_cut`) for a cut on another member, and
+  `Fault::Forbidden` in an ordered mode. `Rule::Cut` and
+  `ClassicalRule::Cut` name it in every view and export (`cut`), and
+  `Inference::cut` gives a cut inference's formula. A net is not built
+  of a proof with a cut (`NetError::Rule`), the read-back to LK and LJ
+  refuses it, and NanoYalla's certificate too (`Unsupported::Cut`): the
+  kernel by default is then linlog's library, whose calculi have the cut
+  as an optional rule.
+- The search decides a goal of a forest with cut formulas on a cut-free
+  forest of the goal's formulas, so no engine sees a cut formula and
+  every proof found is cut-free, carried back to the goal and checked
+  there.
+- The cut in interactive proving: `CutFormula`, a cut formula as typed
+  (`CutFormula::parse_within(text, mode, &input, &limits)` reads it in
+  the syntax of the mode, or `From` an `IllSequent`, a
+  `ClassicalSequent` or a `Sequent` `⊢ C`), and
+  `Interactive::cut(goal, &formula, left, &limits)`, which adds the cut
+  formula to the session's sequent and opens the premises `Γ, A` and
+  `Δ, A⊥`, the occurrences of `A` and `A⊥` recorded as typed (right and
+  left of `⊢`, intuitionistic sides as written); `undo` takes a cut back
+  with its formula; `Error::CutFormula` (code `cut_formula`) for text of
+  another number of formulas than one. The command's `interact` has
+  `cut G C [P…]`, and the bindings' `cut(session, goal, formula, left,
+  settings)`.
 
 ### Changed
 
@@ -487,6 +528,15 @@ second number (0.1.x to 0.2.0), anything else the third.
   components: Lincoln's MLL 3-Partition with bins of five is refuted in
   227 nodes instead of 16 million, Matsuoka's Partition with three
   items in 391 instead of 269 950.
+- The closed enums of the calculus gain the cut, the planned break of
+  0.2.0: `Node::Cut` and `Rule::Cut` (`Rule::ALL` now has 17 rules and
+  `Named::ALL` 35), so a `match` on either names the new variant.
+- The Rocq library's calculi have the cut as an optional rule: `rules`
+  gains the field `cut` and `irules` the field `icut`. A certificate that
+  states its calculus by a record literal (a one-sided proof with Mix or
+  affine weakening, and its refutations) now writes `cut := false`, and
+  one that 0.1.0 wrote without it no longer compiles; a certificate that
+  names `classical`, `intuitionistic` or `affine` is unchanged.
 
 ## [0.1.0] - 2026-10-18
 

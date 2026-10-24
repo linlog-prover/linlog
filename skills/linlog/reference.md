@@ -686,7 +686,7 @@ engine is the unpublished crate `linlog-web` (`web/` of the repository,
 its JavaScript): the library compiled to WebAssembly behind calls of
 JSON text in and JSON, SVG or bytes out, which keep nothing between
 calls. The calls are `about`, `defaults`, `read`, `read_as`, `start`,
-`view`, `rules`, `split_passes`, `apply`, `invert_all`, `undo`, `close`,
+`view`, `rules`, `split_passes`, `apply`, `cut`, `invert_all`, `undo`, `close`,
 `fill`, `close_all`, `hint`, `proof`, `prove`, `draw`, `draw_net`,
 `export`, `render` and `certificate`; each takes the page's settings,
 the JSON of the library's `Settings` laid over a browser tab's defaults,

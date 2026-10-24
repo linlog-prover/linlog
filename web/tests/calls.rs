@@ -117,6 +117,61 @@ fn a_classical_session_is_drawn_as_written() {
     assert!(calls::draw(&state, &two).unwrap().contains("by ~L"));
 }
 
+/// A cut opens two goals, the formula typed as written proved by the
+/// first and used by the second; the finished proof has its cut, written
+/// at the wire level that has it, and is drawn as written with the cut
+/// named; text that is no formula of the mode is refused, the session
+/// unchanged, and `undo` takes the cut back.
+#[wasm_bindgen_test(unsupported = test)]
+fn a_cut_opens_two_goals() {
+    let started = calls::start("A, A -o B |- B", "classical", "").unwrap();
+    let root = value(&started)["view"]["goals"][0]["goal"]
+        .as_u64()
+        .unwrap() as u32;
+    let state = session(&started);
+    let cut = calls::cut(&state, root, "A -o B", "[1]", "").unwrap();
+    let goals = &value(&cut)["view"]["goals"];
+    let texts = |g: usize| -> Vec<Value> {
+        goals[g]["formulas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["text"].clone())
+            .collect()
+    };
+    assert_eq!(texts(0), [json!("A ⊗ ~B"), json!("~A ⅋ B")]);
+    assert_eq!(texts(1), [json!("~A"), json!("B"), json!("A ⊗ ~B")]);
+    let closed = session(&calls::close_all(&session(&cut), "").unwrap());
+    let proof = value(&calls::proof(&closed, "").unwrap());
+    assert_eq!(proof["version"], 6);
+    assert!(
+        proof["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n.get("cut").is_some())
+    );
+    let two = settings(&json!({"view": {"classical": "two"}}));
+    let tree = calls::export(&closed, "text", &two).unwrap();
+    assert!(
+        tree.contains("A ⊸ B ⊢ A ⊸ B") && tree.contains(" cut\n"),
+        "{tree}"
+    );
+    let ill = calls::start("A, A -o B, B -o C |- C", "intuitionistic", "").unwrap();
+    let refused = failure(&calls::cut(&session(&ill), root, "B par C", "[0, 1]", "").unwrap_err());
+    assert_eq!(refused["code"], "parse");
+    let cut = calls::cut(&session(&ill), root, "B", "[0, 1]", "").unwrap();
+    let readings: Vec<Value> = value(&cut)["view"]["goals"][1]["formulas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["reading"].clone())
+        .collect();
+    assert_eq!(readings, [json!("B ⊸ C"), json!("C"), json!("B")]);
+    let undone = value(&calls::undo(&session(&cut), "").unwrap());
+    assert_eq!(undone["session"], value(&ill)["session"]);
+}
+
 /// A finished proof with exponentials has its net with boxes: the view
 /// gives no refusal, and `draw_net` draws each box a rectangle, with its
 /// formulas or compact, in intuitionistic mode too, there also as its
@@ -642,11 +697,8 @@ fn no_intuitionistic_text_writes_a_classical_symbol() {
     let mut finished = 0;
     for _ in 0..16 {
         let hypotheses: Vec<String> = (0..state % 3).map(|_| ill_formula(&mut state, 2)).collect();
-        let sequent = format!(
-            "{} |- {}",
-            hypotheses.join(", "),
-            ill_formula(&mut state, 3)
-        );
+        let goal = ill_formula(&mut state, 3);
+        let sequent = format!("{} |- {goal}", hypotheses.join(", "));
         let check = |what: &str, out: &str| {
             let out = out.replace("<?xml", "").replace("?>", "");
             let rocq = what == "rocq";
@@ -671,8 +723,15 @@ fn no_intuitionistic_text_writes_a_classical_symbol() {
         let read = value(&calls::read_as(&sequent, "intuitionistic", "").unwrap());
         check("read_as", read["text"].as_str().unwrap());
         let started = calls::start(&sequent, "intuitionistic", "").unwrap();
-        let closed = calls::close_all(&session(&started), "").unwrap();
-        for answer in [&started, &closed] {
+        // Cut on the goal, typed as written: the hypotheses prove it, and
+        // it proves itself.
+        let root = value(&started)["view"]["goals"][0]["goal"]
+            .as_u64()
+            .unwrap() as u32;
+        let left = json!((0..hypotheses.len()).collect::<Vec<_>>()).to_string();
+        let cut = calls::cut(&session(&started), root, &goal, &left, "").unwrap();
+        let closed = calls::close_all(&session(&cut), "").unwrap();
+        for answer in [&started, &cut, &closed] {
             for goal in value(answer)["view"]["goals"].as_array().unwrap() {
                 for formula in goal["formulas"].as_array().unwrap() {
                     check("a goal's text", formula["text"].as_str().unwrap());

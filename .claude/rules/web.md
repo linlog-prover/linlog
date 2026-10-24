@@ -165,6 +165,13 @@ for `THIRD-PARTY-NOTICES.txt`.
   `tab::defaults` sets it. Under the rules a compact `?` vertex whose
   one premise is a wire has no circle, so no element carries its id.
 
+- **`cut(session, goal, formula, left, settings)`** reads the cut
+  formula's text with `CutFormula::parse_within` in the session's mode
+  and the settings' `input`, `left` a JSON array of positions, and
+  answers as `apply` does (the invertible steps after it under the
+  setting); `no_intuitionistic_text_writes_a_classical_symbol` cuts every
+  session on its goal before closing it.
+
 ## The build (`modules/web.nix`)
 
 - The `wasm-bindgen` CLI is nixpkgs' `wasm-bindgen-cli_X_Y_Z` for the

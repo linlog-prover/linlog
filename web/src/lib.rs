@@ -104,6 +104,18 @@ mod exports {
         calls::apply(session, index(goal, "a goal")?, step, settings).map_err(thrown)
     }
 
+    /// See [`calls::cut`].
+    #[wasm_bindgen]
+    pub fn cut(
+        session: &str,
+        goal: f64,
+        formula: &str,
+        left: &str,
+        settings: &str,
+    ) -> Result<String, JsValue> {
+        calls::cut(session, index(goal, "a goal")?, formula, left, settings).map_err(thrown)
+    }
+
     /// See [`calls::invert_all`].
     #[wasm_bindgen]
     pub fn invert_all(session: &str, settings: &str) -> Result<String, JsValue> {

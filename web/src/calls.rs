@@ -13,9 +13,9 @@ use linlog::export::{Drawable, latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Inverted, Needs, Split};
 use linlog::{
-    ClassicalSequent, ClassicalSides, Criterion, Disproof, Error, Fragment, GoalId, IllSequent,
-    IllSyntax, Interactive, MellStructure, Member, Mode, Named, NetError, Outcome, Progress,
-    ProofStructure, Rule, Sequent, Settings, Side, Step, TwoSided, Verdict, nets, wire,
+    ClassicalSequent, ClassicalSides, Criterion, CutFormula, Disproof, Error, Fragment, GoalId,
+    IllSequent, IllSyntax, Interactive, MellStructure, Member, Mode, Named, NetError, Outcome,
+    Progress, ProofStructure, Rule, Sequent, Settings, Side, Step, TwoSided, Verdict, nets, wire,
 };
 use serde::{Deserialize, Serialize};
 
@@ -515,6 +515,50 @@ pub fn apply(session: &str, goal: u32, step: &str, settings: &str) -> Result<Str
     let mut opened = state
         .apply(GoalId::new(goal), &step_of(step)?)
         .map_err(|e| Failure::described(&Error::from(e), &state))?;
+    let mut automatic = Automatic::default();
+    if settings.interactive.invertible {
+        let limits = inverting(&settings);
+        for goal in std::mem::take(&mut opened) {
+            let inverted = state
+                .invert(goal, &limits)
+                .map_err(|e| Failure::described(&Error::from(e), &state))?;
+            opened.extend(automatic.add(inverted));
+        }
+    }
+    changed(&state, Opened { opened, automatic })
+}
+
+/// Cuts an open goal on a formula typed as text, written as the session's
+/// mode writes formulas (intuitionistic as `input.intuitionistic` says,
+/// else classical as written), and returns the session with the two goals
+/// it opened: the first proves the formula, with the goal's formulas at
+/// the positions `left` (a JSON array), and the second takes it as a
+/// hypothesis, with the others (`Interactive::cut`). With the settings'
+/// `interactive.invertible` on, every invertible rule is then applied to
+/// those goals, as after `apply`; a cut itself is no invertible step.
+///
+/// # Errors
+///
+/// The parse error of a formula that does not read (its span in the
+/// formula's text), `cut_formula` for text of another number of formulas
+/// than one, and the step's refusal (`kind`: `split`, `succedents`,
+/// `mode` in an ordered mode, …), the session unchanged.
+pub fn cut(
+    session: &str,
+    goal: u32,
+    formula: &str,
+    left: &str,
+    settings: &str,
+) -> Result<String, Failure> {
+    let settings = tab::read(settings)?;
+    let mut state = session_of(session, &settings)?;
+    let left: Vec<usize> = serde_json::from_str(left).map_err(Failure::json)?;
+    let formula =
+        CutFormula::parse_within(formula, state.mode(), &settings.input, &settings.limits)?;
+    let mut opened = state
+        .cut(GoalId::new(goal), &formula, &left, &settings.limits)
+        .map_err(|e| Failure::described(&e, &state))?
+        .to_vec();
     let mut automatic = Automatic::default();
     if settings.interactive.invertible {
         let limits = inverting(&settings);
