@@ -634,8 +634,9 @@ fn intuitionistic_mode() {
 /// `interact` reads commands from standard input: rules are listed and
 /// applied by goal and position, refused with a reason, undone, goals are
 /// closed by the search, the session is saved and resumed, the finished
-/// proof is checked, which decides the exit status, and the invertible
-/// rules applied by themselves are undone with the step they followed.
+/// proof is checked, which decides the exit status, a goal is cut on a
+/// formula typed as written, and the invertible rules applied by
+/// themselves are undone with the step they followed.
 #[test]
 fn interactive_session() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-session");
@@ -706,6 +707,36 @@ fn interactive_session() {
         \x20 A, A ⊸ B ⊢ B\n"
     );
     assert_eq!((status, err.as_str()), (0, ""));
+
+    // A cut on a formula typed as written, which the first premise proves
+    // and the second uses; text that is no formula is refused at the
+    // place it stops; the proof written with its cut checks.
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-cut");
+    std::fs::create_dir_all(&dir).unwrap();
+    let proof = dir.join("proof.json");
+    let script = format!(
+        "cut 0 \"A * * B\"\ncut 0 \"A -o B\" 1\nclose\nproof {p}\n",
+        p = proof.display()
+    );
+    let (status, out, err) = linlog(&["interact", "A, A -o B |- B"], &script);
+    assert_eq!(
+        out,
+        format!(
+            "error: cannot read the cut formula: cannot parse the sequent: unexpected \"*\" at \
+             line 1, character 5, expected a formula\n\
+             opened goal 1: ⊢ 0: A ⊗ ~B, 1: ~A ⅋ B\n\
+             opened goal 2: ⊢ 0: ~A, 1: B, 2: A ⊗ ~B\n\
+             goal 1: provable (MLL, classical, focus engine)\n\
+             goal 2: provable (MLL, classical, focus engine)\n\
+             no goal is open: `proof` checks the proof\n\
+             valid proof written to {}\n",
+            proof.display()
+        )
+    );
+    assert_eq!((status, err.as_str()), (0, ""));
+    let (status, _, _) = linlog(&["check", "-q", proof.to_str().unwrap()], "");
+    assert_eq!(status, 0);
+    std::fs::remove_dir_all(&dir).unwrap();
 
     // With the invertible rules on from the start, a search's graft is
     // undone alone and the start's invertible steps together.

@@ -98,7 +98,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
 - `interact.rs`: `interact`, a line-based session over `Interactive`:
   the state comes from the sequent argument or `--state FILE` (a session
   `save` wrote; the mode is then the file's), the commands from standard
-  input (`goals`, `rules`, `apply`, `undo`, `close`, `show [--FORMAT]
+  input (`goals`, `rules`, `apply`, `cut G C [P…]` (the cut formula's
+  text read by `CutFormula::parse_within` in the session's mode and the
+  settings' `input`, a parse error said as `cannot read the cut
+  formula: …`; with `invertible` on, the invertible steps follow it as
+  after `apply`, `stepped`), `undo`, `close`, `show [--FORMAT]
   [FILE]`, `proof [--FORMAT] [FILE]`, `save`, `load`, `help`, `quit`;
   `HELP` is the list; `show` prints or writes the partial derivation,
   open goals included, as text, LaTeX, Typst, SVG, PNG or PDF, `proof`

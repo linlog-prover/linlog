@@ -15,7 +15,8 @@ use linlog::export::{latex, svg, typst};
 use linlog::proofs::interactive::Needs;
 use linlog::search::{Goal, Options, Outcome, Verdict};
 use linlog::{
-    Error, GoalId, Interactive, Limits, Named, Reading, Refusal, Side, Step, ViewOptions,
+    CutFormula, Error, GoalId, InputOptions, Interactive, Limits, Named, Reading, Refusal, Side,
+    Step, ViewOptions,
 };
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
@@ -27,6 +28,9 @@ const HELP: &str = "\
 goals               the open goals, with the positions of their formulas
 rules G P           the rules that act on formula P of goal G
 apply G P RULE [P…] apply a rule; further positions go to the left premise of a ⊗ or Mix
+cut G C [P…]        cut goal G on the formula C, written as the mode writes formulas (quote
+                    it if it has blanks): the positions P go to the first premise, which
+                    proves C, the others to the second, which uses it
 undo                retract the last step, with the invertible steps that followed it
 invertible on|off   apply every invertible rule by itself, at once to every open goal and
                     then to the goals each step opens, or stop doing so
@@ -84,6 +88,7 @@ pub(crate) fn interact(args: &InteractArgs, given: &Given) -> Result<Status> {
         timeout: time_limit(&settings),
         options: settings.search,
         view: ViewOptions::default(),
+        input: settings.input,
         limits,
         threads,
         invertible: false,
@@ -172,6 +177,8 @@ struct Session {
     options: Options,
     /// How the derivation `close` grafts is shown.
     view: ViewOptions,
+    /// How a cut formula's text is read.
+    input: InputOptions,
     /// The bounds of a `close`'s search and of the derivation it grafts.
     limits: Limits,
     /// How long a `close` may take.
@@ -285,20 +292,21 @@ impl Session {
                 let step = Step::new(position, rule).left(&positions(3)?);
                 let before = self.state.steps();
                 let opened = self.state.apply(goal, &step)?;
-                if !self.invertible {
-                    return Ok(self.opened(&opened));
-                }
-                let (mut steps, mut open, mut refused) = (0, Vec::new(), None);
-                for goal in opened {
-                    let inverted = self.state.invert(goal, &self.limits)?;
-                    steps += inverted.steps;
-                    open.extend(inverted.open);
-                    refused = refused.or(inverted.finished.err());
-                }
-                self.groups.push((before, self.state.steps()));
-                let then = inverted_line(steps, refused.as_ref());
-                let then = then.map(|t| format!("then {t}\n")).unwrap_or_default();
-                format!("{then}{}", self.opened(&open))
+                self.stepped(before, opened)?
+            }
+            "cut" => {
+                let goal = goal(0)?;
+                let text = rest
+                    .get(1)
+                    .context("which cut formula? quote it if it has blanks")?;
+                let formula =
+                    CutFormula::parse_within(text, self.state.mode(), &self.input, &self.limits)
+                        .context("cannot read the cut formula")?;
+                let before = self.state.steps();
+                let opened = self
+                    .state
+                    .cut(goal, &formula, &positions(2)?, &self.limits)?;
+                self.stepped(before, opened.to_vec())?
             }
             "undo" => {
                 let steps = self.state.steps();
@@ -604,6 +612,26 @@ impl Session {
             .map(|&g| self.goal_line(g))
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    /// Returns what a step that opened `opened` prints, the session's
+    /// steps having been `before` steps: with the invertible rules on,
+    /// after applying them to the goals it opened, as one step for `undo`.
+    fn stepped(&mut self, before: usize, opened: Vec<GoalId>) -> Result<String> {
+        if !self.invertible {
+            return Ok(self.opened(&opened));
+        }
+        let (mut steps, mut open, mut refused) = (0, Vec::new(), None);
+        for goal in opened {
+            let inverted = self.state.invert(goal, &self.limits)?;
+            steps += inverted.steps;
+            open.extend(inverted.open);
+            refused = refused.or(inverted.finished.err());
+        }
+        self.groups.push((before, self.state.steps()));
+        let then = inverted_line(steps, refused.as_ref());
+        let then = then.map(|t| format!("then {t}\n")).unwrap_or_default();
+        Ok(format!("{then}{}", self.opened(&open)))
     }
 
     /// Lists goals just opened, or says that the step closed its goal.

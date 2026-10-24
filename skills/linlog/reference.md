@@ -382,7 +382,10 @@ for a proof its `sequent` and `nodes`, so that `check` reads the outcome
 as a proof. A node is one rule instance, premises before conclusions and
 the root last: `{"ax": [x, y]}` on two literals, `{"⊗": [o, l, r]}` on
 an occurrence with two premises' indices, `{"⅋": [o, p]}` with one. An
-occurrence is a subformula's number in the sequent's numbering.
+occurrence is a subformula's number in the sequent's numbering. A proof
+with a cut (from `interact`'s `cut`) is at level 6: its sequent's
+`cuts` name the cut formulas, numbered after the sequent's own, and a
+cut is `{"cut": [a, l, r]}`.
 
 ```console
 $ linlog prove --format json "A |- A"
@@ -435,6 +438,7 @@ numbers from the output before writing the next step.
 | `goals` | the open goals, with the positions of their formulas |
 | `rules G P` | the rules that act on formula P of goal G |
 | `apply G P RULE [P…]` | applies a rule; for `⊗` or Mix the further positions go to the left premise |
+| `cut G C [P…]` | cuts goal G on the formula C (quoted if it has blanks): the positions P go to the first premise, which proves C, the others to the second, which uses it |
 | `undo` | retracts the last step |
 | `invertible on\|off` | applies every invertible rule by itself, or stops doing so |
 | `close [G]` | lets the search close goal G, or every open goal |
@@ -452,6 +456,14 @@ intuitionistic mode `-oL`, `-oR`, `*L`, `*R`, `&L1`, `&L2`, `&R`, `+L`,
 prints the names it applies. `--state FILE` resumes a saved session
 (the mode is the file's), `--invertible` applies the invertible rules
 from the start, and the search flags of `prove` apply to `close`.
+
+`cut G C [P…]` is the one step not on a formula of the goal: C is
+written as the mode writes formulas (intuitionistic in `-i` mode, as the
+sequent is), and of a goal `Γ, Δ ⊢ D` it leaves `Γ ⊢ C` (the formulas
+at P) and `Δ, C ⊢ D`; `undo` takes it back with its formula. The search
+never makes a cut, `close` proves each premise without one, and the
+finished proof keeps the cut (its JSON is at wire level 6, which `check`
+reads).
 
 ```console
 $ printf 'goals\nrules 0 2\napply 0 2 * 0\nclose\nproof\n' | linlog interact "A, B |- A * B"
@@ -475,6 +487,12 @@ closed; no goal is open: `proof` checks the proof
 valid proof written to p.json
 $ linlog check -i -q p.json
 valid proof of A, A ⊸ B ⊢ B (intuitionistic)
+$ printf 'cut 0 B 0 1\nclose\n' | linlog interact -i "A, A -o B, B -o C |- C"
+opened goal 1: 0: A, 1: A ⊸ B ⊢ 2: B
+opened goal 2: 0: B ⊸ C, 2: B ⊢ 1: C
+goal 1: provable (IMLL, intuitionistic, two-sided engine)
+goal 2: provable (IMLL, intuitionistic, two-sided engine)
+no goal is open: `proof` checks the proof
 ```
 
 ## 11. A sequent alone: `seq`

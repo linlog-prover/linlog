@@ -102,7 +102,11 @@ pub(crate) enum Command {
     /// the open goals with the positions of their formulas; `rules G P`
     /// lists the rules that act on formula P of goal G; `apply G P RULE
     /// [P…]` applies a rule, the further positions being the formulas that
-    /// go to the left premise of a ⊗ or Mix; `undo` retracts the last step;
+    /// go to the left premise of a ⊗ or Mix; `cut G C [P…]` cuts goal G on
+    /// the formula C, written as the mode writes formulas (quoted if it
+    /// has blanks), the formulas at the positions P going to the first
+    /// premise, which proves C, and the others to the second, which uses
+    /// it; `undo` retracts the last step;
     /// `close [G]` lets the search close goal G, or every open goal; `show
     /// [--FORMAT] [FILE]` draws the derivation so far, open goals included,
     /// as text, or --latex, --typst, --svg, --png or --pdf; `proof

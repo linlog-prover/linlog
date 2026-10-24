@@ -944,6 +944,33 @@ valid proof (classical)
    ⊢ A ⊗ ~B, B ⊗ ~C, ~A ⅋ C
 ```
 
+`cut G C P…` cuts goal G on a formula C, written as the mode writes
+formulas (intuitionistic in intuitionistic mode, as the sequent is) and
+quoted when it has blanks: the formulas at the positions P go to the
+first premise, which proves C, and the others to the second, which takes
+C as a hypothesis, so that a goal `Γ, Δ ⊢ D` leaves `Γ ⊢ C` and
+`Δ, C ⊢ D`; `undo` takes the cut back with its formula. The search never
+makes a cut, and `close` proves each premise without one:
+
+```console
+$ linlog interact -i "A, A -o B, B -o C |- C"
+> cut 0 B 0 1
+opened goal 1: 0: A, 1: A ⊸ B ⊢ 2: B
+opened goal 2: 0: B ⊸ C, 2: B ⊢ 1: C
+> close
+goal 1: provable (IMLL, intuitionistic, two-sided engine)
+goal 2: provable (IMLL, intuitionistic, two-sided engine)
+no goal is open: `proof` checks the proof
+> proof
+valid proof (intuitionistic)
+───── ax   ───── ax   ───── ax   ───── ax
+A ⊢ A      B ⊢ B      B ⊢ B      C ⊢ C
+──────────────── ⊸L   ──────────────── ⊸L
+  A, A ⊸ B ⊢ B          B ⊸ C, B ⊢ C
+  ────────────────────────────────── cut
+         A, A ⊸ B, B ⊸ C ⊢ C
+```
+
 The exit status is 0 when the session ends with a finished proof that
 checks, 1 otherwise; a command's error is printed as `error: …` and the
 session goes on, and 2 means the session could not start or read its
@@ -1971,6 +1998,14 @@ Built:
   goal, every invertible rule applied by itself on request, translation
   of the finished derivation into a term the checker validates, and a
   JSON form of the session.
+- Proofs with cuts: a sequent holds its cut formulas beside its
+  conclusion, a proof term has the cut rule and the checker its rule in
+  every commutative mode (an ordered mode refuses it), and in
+  interactive proving the user names a cut formula, written as the
+  mode writes formulas, whose two premises open as goals; every view
+  draws the cut, the two-sided ones with the cut formula as it was
+  typed, every export writes it, and a certificate in linlog's Rocq
+  library states the calculus with cut. The search stays cut-free.
 - Export of sequents and derivations, finished or in progress, to LaTeX
   (ebproof proof trees) and Typst (curryst proof trees, and trees of any
   height in a layout of linlog's own), as fragments or standalone
@@ -2001,7 +2036,8 @@ Built:
   on Rocq 9 and its standard library alone): the one-sided calculus of
   classical linear logic as a plain inductive, with Mix and general
   weakening as parameters, and the two-sided calculus of intuitionistic
-  linear logic and its affine variant; linlog's proof terms as
+  linear logic and its affine variant, each with the cut as an optional
+  rule; linlog's proof terms as
   datatypes, one-sided and two-sided, checkers as functions, and for
   every mode the theorem that a term the checker accepts proves its
   sequent, closed under the global context; a certificate is the
