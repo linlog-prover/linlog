@@ -21,7 +21,8 @@
       # parts it needs, so that a change elsewhere leaves its derivation,
       # and its cached result, as they were: the core crate's tests do not
       # see the command's code, and no Rust check sees the prose (README
-      # aside, whose examples the command's tests run), the scripts or the
+      # and the guide for AI models aside, whose examples the command's
+      # tests run), the scripts or the
       # benchmark data. The core crate's export tests draw with the font the
       # command embeds, and its tests of the fonts' tables read the fonts'
       # files.
@@ -43,7 +44,11 @@
         cli-tests = fileset.unions [
           ../cli/tests
           ../README.md
+          ../skills
         ];
+        # The guide for AI models, an Agent Skill, which the rustdoc site
+        # serves.
+        guide = ../skills;
         bench = fileset.unions [
           ../bench/Cargo.toml
           (craneLib.fileset.commonCargoSources ../bench/src)
@@ -205,11 +210,15 @@
         # The rustdoc site the Docs workflow publishes, which the `doc' check
         # also builds: both crates, `linlog' and `linlog_cli', in one tree.
         # rustdoc writes no top-level index, so one redirects to the core
-        # crate.
+        # crate. Beside it the guide for AI models: its summary as
+        # `llms.txt' (the Agent Skill's body, without its front matter) and
+        # its reference as `llms-full.txt' and as the `reference.md' the
+        # summary links to.
         doc = craneLib.cargoDoc (
           argsOf [
             "core"
             "cli"
+            "guide"
           ]
           // {
             inherit cargoArtifacts;
@@ -223,6 +232,10 @@
               <meta http-equiv="refresh" content="0; url=linlog/">
               <a href="linlog/">linlog</a>
               EOF
+              awk 'n >= 2 && (body || NF) { body = 1; print } /^---$/ { n++ }' \
+                skills/linlog/SKILL.md > $out/share/doc/llms.txt
+              install -Dm644 skills/linlog/reference.md $out/share/doc/reference.md
+              install -Dm644 skills/linlog/reference.md $out/share/doc/llms-full.txt
             '';
           }
         );

@@ -1,8 +1,10 @@
 // linlog © Fabian Lukas Grubmüller 2026
 // Licensed under the EUPL
 
-//! README's examples against the binary: every command of every `console`
-//! block of `README.md` is run in a directory of its block's own, through
+//! The examples of README and of the guide for AI models
+//! (`skills/linlog/`) against the binary: every command of every `console`
+//! block of `README.md`, `SKILL.md` and `reference.md` is run in a
+//! directory of its block's own, through
 //! `sh` so that pipes and redirections work, and its output (standard
 //! output and standard error together) is compared with the lines that
 //! follow it in the block. Lines of the block that start with `> ` are
@@ -23,6 +25,10 @@
 //! DIR` of a batch, or any file of a known kind in the block's directory
 //! afterwards) must exist and be of the kind its extension names; its bytes are not compared, since a PDF carries the
 //! date it was made.
+//!
+//! The guide is held to more: every command, flag, session command and
+//! settings key it names exists, its Rust example is a doctest of the
+//! library's, and its summary keeps within its budget.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -33,13 +39,22 @@ use common::timeless;
 /// The README, read when the test is built.
 const README: &str = include_str!("../../README.md");
 
+/// The guide's summary, an Agent Skill's `SKILL.md`.
+const SUMMARY: &str = include_str!("../../skills/linlog/SKILL.md");
+
+/// The guide's full reference beside it.
+const REFERENCE: &str = include_str!("../../skills/linlog/reference.md");
+
+/// The guide's documents by their names.
+const GUIDE: [(&str, &str); 2] = [("SKILL.md", SUMMARY), ("reference.md", REFERENCE)];
+
 /// The programs other than `linlog` that the README's examples call and
 /// this test does not run: the harness has the flake's `bench` check, and
 /// the LaTeX and Rocq output its `export` and `rocq` checks.
 const OTHER_PROGRAMS: [&str; 3] = ["linlog-bench", "pdflatex", "rocq"];
 
 /// The shell's own commands that the examples use to make or show a file.
-const SHELL_COMMANDS: [&str; 2] = ["cat", "echo"];
+const SHELL_COMMANDS: [&str; 3] = ["cat", "echo", "printf"];
 
 /// How much of a block's output is compared.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -78,9 +93,9 @@ struct Block {
     examples: Vec<Example>,
 }
 
-/// Returns the `console` blocks of the text with the check their comment
-/// names.
-fn blocks(text: &str) -> Vec<Block> {
+/// Returns the `console` blocks of the text, the document `name`, with the
+/// check their comment names.
+fn blocks(name: &str, text: &str) -> Vec<Block> {
     let lines: Vec<&str> = text.lines().collect();
     let mut blocks = Vec::new();
     let mut at = 0;
@@ -100,7 +115,7 @@ fn blocks(text: &str) -> Vec<Block> {
                     Some("machine") => Check::Machine,
                     Some("terminal") => Check::Terminal,
                     Some("skip") => Check::Skip,
-                    _ => panic!("README.md:{at}: unknown check {comment}"),
+                    _ => panic!("{name}:{at}: unknown check {comment}"),
                 }
             }
             _ => Check::Exact,
@@ -124,7 +139,7 @@ fn blocks(text: &str) -> Vec<Block> {
                 let example = block
                     .examples
                     .last_mut()
-                    .unwrap_or_else(|| panic!("README.md:{}: output before a command", at + 1));
+                    .unwrap_or_else(|| panic!("{name}:{}: output before a command", at + 1));
                 match line.strip_prefix("> ") {
                     Some(input) => {
                         example.input.push_str(input);
@@ -224,13 +239,12 @@ fn fixtures(directory: &Path) {
     std::fs::write(directory.join("shared.json"), shared).unwrap();
 }
 
-/// Every example of the README gives the output the README shows.
-#[test]
-fn readme_examples() {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("readme");
+/// Runs every example of the document `name`, in directories under
+/// `root`, and returns how many commands ran and what failed.
+fn examples(name: &str, text: &str, root: &Path) -> (usize, Vec<String>) {
     let mut failures = Vec::new();
     let mut ran = 0;
-    for block in blocks(README) {
+    for block in blocks(name, text) {
         if block.check == Check::Skip {
             continue;
         }
@@ -245,7 +259,7 @@ fn readme_examples() {
             }
             assert!(
                 program == "linlog" || SHELL_COMMANDS.contains(&program),
-                "README.md:{}: no rule for the program {program}",
+                "{name}:{}: no rule for the program {program}",
                 example.line
             );
             ran += 1;
@@ -272,15 +286,15 @@ fn readme_examples() {
             };
             if actual != expected {
                 failures.push(format!(
-                    "README.md:{}: $ {}\n--- README\n{expected}\n--- linlog\n{actual}",
+                    "{name}:{}: $ {}\n--- {name}\n{expected}\n--- linlog\n{actual}",
                     example.line, example.command
                 ));
             }
             let mut words = example.command.split_whitespace();
             while let Some(word) = words.next() {
                 if word == "--output" {
-                    let name = words.next().unwrap_or("").trim_matches(['"', '\'']);
-                    let output = directory.join(name);
+                    let output_name = words.next().unwrap_or("").trim_matches(['"', '\'']);
+                    let output = directory.join(output_name);
                     if output.is_dir() {
                         let mut files = Vec::new();
                         walk(&output, &mut files);
@@ -288,17 +302,17 @@ fn readme_examples() {
                             files
                                 .iter()
                                 .filter_map(|file| not_of_its_kind(file))
-                                .map(|why| format!("README.md:{}: {why}", example.line)),
+                                .map(|why| format!("{name}:{}: {why}", example.line)),
                         );
                         if files.is_empty() {
                             failures.push(format!(
-                                "README.md:{}: $ {}\nno file in {name}",
+                                "{name}:{}: $ {}\nno file in {output_name}",
                                 example.line, example.command
                             ));
                         }
                     } else if !output.is_file() {
                         failures.push(format!(
-                            "README.md:{}: $ {}\nno file {name}",
+                            "{name}:{}: $ {}\nno file {output_name}",
                             example.line, example.command
                         ));
                     }
@@ -307,10 +321,352 @@ fn readme_examples() {
         }
         for entry in std::fs::read_dir(&directory).unwrap() {
             if let Some(why) = not_of_its_kind(&entry.unwrap().path()) {
-                failures.push(format!("README.md:{}: {why}", block.line));
+                failures.push(format!("{name}:{}: {why}", block.line));
             }
         }
     }
+    (ran, failures)
+}
+
+/// Every example of the README gives the output the README shows.
+#[test]
+fn readme_examples() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("readme");
+    let (ran, failures) = examples("README.md", README, &root);
     assert!(ran > 40, "only {ran} of the README's commands ran");
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+/// Every example of the guide gives the output the guide shows.
+#[test]
+fn guide_examples() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("guide");
+    let mut ran = 0;
+    let mut failures = Vec::new();
+    for (name, text) in GUIDE {
+        let (each, failed) = examples(name, text, &root.join(name));
+        ran += each;
+        failures.extend(failed);
+    }
+    assert!(ran > 40, "only {ran} of the guide's commands ran");
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
+/// The commands whose help the guide's flags are looked up in, as the
+/// words after `linlog`.
+const COMMANDS: [&[&str]; 6] = [
+    &["prove"],
+    &["check"],
+    &["interact"],
+    &["seq", "print"],
+    &["seq", "json"],
+    &["seq", "fragment"],
+];
+
+/// The programs other than `linlog` whose calls the guide shows, and
+/// whose flags are theirs.
+const TOOLS: [&str; 3] = ["cargo", "nix", "rocq"];
+
+/// The top-level keys of the settings that a flag's help names a field of.
+const SETTINGS: [&str; 8] = [
+    "clock",
+    "limits",
+    "search",
+    "view",
+    "batch",
+    "ordinary",
+    "input",
+    "interactive",
+];
+
+/// Returns what `linlog` writes for the arguments, standard output and
+/// error together.
+fn linlog(arguments: &[&str], input: &str) -> String {
+    let out = common::output(
+        Command::new(env!("CARGO_BIN_EXE_linlog")).args(arguments),
+        input,
+    );
+    let mut text = String::from_utf8(out.stdout).unwrap();
+    text.push_str(&String::from_utf8(out.stderr).unwrap());
+    text
+}
+
+/// Whether `text` holds `word` with no letter, digit, `-` or `_` right
+/// before or after it.
+fn holds_word(text: &str, word: &str) -> bool {
+    let part = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+    text.match_indices(word).any(|(at, _)| {
+        !text[..at].chars().next_back().is_some_and(part)
+            && !text[at + word.len()..].chars().next().is_some_and(part)
+    })
+}
+
+/// Returns the code of a document that names commands: the command lines
+/// of its `console` blocks and its inline code spans (a table's `\|` read
+/// as `|`, a span across a line break joined by a blank), each with the
+/// line it starts on, and its prose outside them. Other code blocks are
+/// left out.
+fn code_of(text: &str) -> (Vec<(usize, String)>, String) {
+    let mut code = Vec::new();
+    let mut prose = String::new();
+    let mut fence: Option<&str> = None;
+    let mut span: Option<(usize, String)> = None;
+    for (at, line) in text.lines().enumerate() {
+        if let Some(rest) = line.strip_prefix("```") {
+            fence = if fence.is_some() { None } else { Some(rest) };
+            continue;
+        }
+        match fence {
+            Some("console") => {
+                if let Some(command) = line.strip_prefix("$ ") {
+                    code.push((at + 1, command.to_owned()));
+                }
+            }
+            Some(_) => {}
+            None => {
+                let line = line.replace("\\|", "|");
+                for (index, piece) in line.split('`').enumerate() {
+                    if index > 0 {
+                        span = match span.take() {
+                            Some(done) => {
+                                code.push(done);
+                                None
+                            }
+                            None => Some((at + 1, String::new())),
+                        };
+                    }
+                    match &mut span {
+                        Some((_, text)) => text.push_str(piece),
+                        None => prose.push_str(piece),
+                    }
+                }
+                match &mut span {
+                    Some((_, text)) => text.push(' '),
+                    None => prose.push('\n'),
+                }
+            }
+        }
+    }
+    (code, prose)
+}
+
+/// Returns the flags a piece of code or prose names: every word that is
+/// `--` and a lowercase name, or `-` and one letter, with a value after
+/// `=` cut off.
+fn flags_in(text: &str) -> Vec<String> {
+    text.split(|c: char| c.is_whitespace() || "`'\"(),;".contains(c))
+        .filter_map(|word| {
+            let word = word.split('=').next().unwrap_or("");
+            let long = word.strip_prefix("--").is_some_and(|name| {
+                name.starts_with(|c: char| c.is_ascii_lowercase())
+                    && name.chars().all(|c| c.is_ascii_lowercase() || c == '-')
+            });
+            let short = word.len() == 2
+                && word.starts_with('-')
+                && word[1..].chars().all(|c| c.is_ascii_alphabetic());
+            (long || short).then(|| word.to_owned())
+        })
+        .collect()
+}
+
+/// Returns the text without what its quotes hold, a sequent or a
+/// script: their `-o` and `|` are no flag and no pipe.
+fn unquoted(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut quote = None;
+    for c in text.chars() {
+        match quote {
+            Some(open) if c == open => quote = None,
+            Some(_) => {}
+            None if c == '\'' || c == '"' => quote = Some(c),
+            None => out.push(c),
+        }
+    }
+    out
+}
+
+/// Whether the help names the flag: a long one as a word, a short one
+/// in front of its long name.
+fn names_flag(help: &str, flag: &str) -> bool {
+    if flag.starts_with("--") {
+        holds_word(help, flag)
+    } else {
+        help.contains(&format!("{flag}, --"))
+    }
+}
+
+/// Every command, flag, session command and settings key the guide names
+/// exists: a flag after `linlog COMMAND` in the command's help, any other
+/// in some command's help or the session's, a session command in the
+/// list `help` prints in a session, and a settings key in the help of the
+/// flag that sets it.
+#[test]
+fn guide_names_what_exists() {
+    let helps: Vec<(&[&str], String)> = COMMANDS
+        .iter()
+        .map(|command| {
+            let mut arguments = command.to_vec();
+            arguments.push("--help");
+            (*command, linlog(&arguments, ""))
+        })
+        .collect();
+    let session = linlog(&["interact", "A |- A"], "help\n");
+    let session_commands: Vec<&str> = session
+        .lines()
+        .filter(|line| line.starts_with(|c: char| c.is_ascii_lowercase()))
+        .filter_map(|line| line.split_whitespace().next())
+        .collect();
+    let every_help = helps
+        .iter()
+        .map(|(_, help)| help.as_str())
+        .collect::<String>()
+        + &session;
+    let mut failures = Vec::new();
+    for (name, text) in GUIDE {
+        let (code, prose) = code_of(text);
+        for flag in flags_in(&prose) {
+            if !names_flag(&every_help, &flag) {
+                failures.push(format!("{name}: the flag {flag} is in no command's help"));
+            }
+        }
+        for (line, piece) in &code {
+            let piece = &unquoted(piece);
+            let first = piece.split_whitespace().next().unwrap_or("");
+            for flag in flags_in(piece)
+                .into_iter()
+                .filter(|_| !TOOLS.contains(&first))
+            {
+                if !names_flag(&every_help, &flag) {
+                    failures.push(format!(
+                        "{name}:{line}: the flag {flag} is in no command's help"
+                    ));
+                }
+            }
+            // Each `linlog COMMAND …` up to the next pipe, list or redirection.
+            for call in piece.split(['|', ';', '>']).filter_map(|part| {
+                let at = part.find("linlog ")?;
+                Some(&part[at + "linlog ".len()..])
+            }) {
+                let mut words = call.split_whitespace();
+                let Some(first) = words.next() else { continue };
+                if !first.starts_with(|c: char| c.is_ascii_lowercase()) {
+                    continue;
+                }
+                let mut command = vec![first];
+                if first == "seq" {
+                    let Some(second) = words.next() else { continue };
+                    command.push(second);
+                }
+                let Some((_, help)) = helps.iter().find(|(known, _)| *known == command.as_slice())
+                else {
+                    failures.push(format!(
+                        "{name}:{line}: no command linlog {}",
+                        command.join(" ")
+                    ));
+                    continue;
+                };
+                for flag in flags_in(&words.collect::<Vec<_>>().join(" ")) {
+                    if !names_flag(help, &flag) {
+                        failures.push(format!(
+                            "{name}:{line}: linlog {} has no flag {flag}",
+                            command.join(" ")
+                        ));
+                    }
+                }
+            }
+            // A settings key such as `search.copies`.
+            if let Some((top, _)) = piece.split_once('.')
+                && SETTINGS.contains(&top)
+                && piece
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '.' || c == '_')
+                && !holds_word(&every_help, piece)
+            {
+                failures.push(format!("{name}:{line}: no flag sets the key {piece}"));
+            }
+        }
+        // The session commands: the first column of the reference's table
+        // and the summary's paragraph on the session.
+        let mut in_table = false;
+        for line in text.lines() {
+            in_table = line.starts_with("| session command") || in_table && line.starts_with('|');
+            let spans: Vec<&str> = if in_table && line.starts_with("| `") {
+                line.split('`').nth(1).into_iter().collect()
+            } else if line.starts_with("**Step by step.**") {
+                line.split('`').skip(1).step_by(2).collect()
+            } else {
+                continue;
+            };
+            for span in spans {
+                let word = span.split_whitespace().next().unwrap_or("");
+                let is_word = !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase());
+                if is_word && word != "interact" && !session_commands.contains(&word) {
+                    failures.push(format!("{name}: no session command {word}"));
+                }
+            }
+        }
+    }
+    // The checks find what they look for.
+    assert!(session_commands.contains(&"apply"), "{session}");
+    assert!(names_flag(&helps[0].1, "--copies") && names_flag(&helps[0].1, "-q"));
+    assert!(!names_flag(&every_help, "--copy") && !names_flag(&every_help, "-z"));
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Every Rust example of the guide is one of the library's crate-level
+/// doctests, which the library's tests compile and run: its lines, those
+/// the doctest hides (`# `) left out, stand together in that doctest.
+#[test]
+fn guide_s_rust_is_a_doctest() {
+    let library = include_str!("../../core/src/lib.rs");
+    let docs: Vec<&str> = library
+        .lines()
+        .filter_map(|line| line.strip_prefix("//!"))
+        .map(|line| line.strip_prefix(' ').unwrap_or(line))
+        .filter(|line| !line.starts_with("# "))
+        .collect();
+    let mut found = 0;
+    for (name, text) in GUIDE {
+        let mut block: Option<Vec<&str>> = None;
+        for line in text.lines() {
+            match (&mut block, line) {
+                (None, "```rust") => block = Some(Vec::new()),
+                (Some(lines), "```") => {
+                    assert!(
+                        docs.windows(lines.len())
+                            .any(|window| window == lines.as_slice()),
+                        "{name}: a Rust example that is no doctest of core/src/lib.rs:\n{}",
+                        lines.join("\n")
+                    );
+                    found += 1;
+                    block = None;
+                }
+                (Some(lines), line) => lines.push(line),
+                (None, _) => {}
+            }
+        }
+    }
+    assert!(found > 0, "the guide has no Rust example");
+}
+
+/// The summary is an Agent Skill within its budget: a `name` matching its
+/// directory and a `description` of at most 1 024 characters in its
+/// front matter, and a body of fewer than 100 lines and at most 8 000
+/// bytes, about 2 000 tokens.
+#[test]
+fn the_summary_keeps_its_budget() {
+    let (front, body) = SUMMARY
+        .strip_prefix("---\n")
+        .and_then(|rest| rest.split_once("\n---\n"))
+        .expect("SKILL.md starts with its front matter");
+    let field = |key: &str| {
+        front
+            .lines()
+            .find_map(|line| line.strip_prefix(key)?.strip_prefix(": "))
+            .unwrap_or_else(|| panic!("SKILL.md has no {key}"))
+    };
+    assert_eq!(field("name"), "linlog");
+    assert!(field("description").chars().count() <= 1024);
+    assert!(body.lines().count() < 100, "{} lines", body.lines().count());
+    assert!(body.len() <= 8000, "{} bytes", body.len());
 }

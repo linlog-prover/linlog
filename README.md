@@ -103,6 +103,14 @@ calculus, which the library's independent checker has validated.
 - The library's API: [docs.rs/linlog](https://docs.rs/linlog) for the
   releases, [linlog-prover.github.io/linlog](https://linlog-prover.github.io/linlog/)
   for `main`, rebuilt on every push.
+- For AI models: a guide to the command and the library, the Agent Skill
+  [`skills/linlog/`](https://github.com/linlog-prover/linlog/tree/main/skills/linlog)
+  (a summary, `SKILL.md`, and the full reference beside it, whose every
+  example a test runs), served as
+  [llms.txt](https://linlog-prover.github.io/linlog/llms.txt) and
+  [llms-full.txt](https://linlog-prover.github.io/linlog/llms-full.txt);
+  copy the directory into an agent's skills (`~/.claude/skills/` for
+  Claude Code) to give it the guide.
 - The changes of every release:
   [CHANGELOG.md](https://github.com/linlog-prover/linlog/blob/main/CHANGELOG.md).
 - The benchmarks: the latest baseline of the engines on the generated

@@ -24,6 +24,12 @@
 //! intuitionistic and minimal, decided through its embeddings into linear
 //! logic, with the proof read back as a derivation of LK or LJ.
 //!
+//! A guide to the crate and to the `linlog` command for AI models is
+//! served beside this documentation, its summary as
+//! [`llms.txt`](https://linlog-prover.github.io/linlog/llms.txt) and its
+//! full reference as
+//! [`llms-full.txt`](https://linlog-prover.github.io/linlog/llms-full.txt).
+//!
 //! # The common path
 //!
 //! Parse a sequent, see which fragment it lives in, prove it, print the

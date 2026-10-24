@@ -357,6 +357,29 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   note a machine of fewer threads than an example's `-j` writes, so the
   test passes on one of any size. The crane source keeps `README.md` for it
   (`modules/workspace.nix`).
+- **The guide for AI models is a test too** (`skills/linlog/`, in
+  `cli/tests/readme.rs`): `guide_examples` runs the `console` blocks of
+  `SKILL.md` and `reference.md` as README's (`printf` beside `cat` and
+  `echo`, for a session's script on a pipe);
+  `guide_names_what_exists` reads every command line and inline code
+  span and fails on a flag after `linlog COMMAND` that the command's
+  `--help` lacks, any other `--flag` or `-x` that no command's help or a
+  session's `help` names (quoted text, a sequent or a script, left out;
+  a span starting with `cargo`, `nix` or `rocq`, `TOOLS`, is another
+  program's), a `linlog` subcommand that does not exist, a session
+  command (the first column of the table under `| session command`, the
+  spans of the summary's `**Step by step.**` paragraph) that `help`
+  does not list, and a settings key (`search.copies`) no help names;
+  `guide_s_rust_is_a_doctest` holds each `rust` block to a crate-level
+  doctest of `core/src/lib.rs`, which the library's tests run;
+  `the_summary_keeps_its_budget` holds the skill's front matter
+  (`name` the directory's, `description` at most 1 024 characters, the
+  Agent Skills limit) and its body (fewer than 100 lines and 8 000
+  bytes). A value of a flag (`--engine NAME`) is not checked by name,
+  only where an example runs it. The crane source of the CLI's tests and
+  of the rustdoc site keeps `skills/` (`modules/workspace.nix`, the part
+  `guide`), and the site serves the body as `llms.txt` and the reference
+  as `llms-full.txt` and `reference.md`.
 - **The behaviour lock** (`cli/tests/lock.rs`) pins what the command
   prints and its exit status on a fixed corpus: every command, every
   output format (PNG and PDF by length and an FNV-1a hash), every
