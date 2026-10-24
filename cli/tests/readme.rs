@@ -672,3 +672,136 @@ fn the_summary_keeps_its_budget() {
     assert!(body.lines().count() < 100, "{} lines", body.lines().count());
     assert!(body.len() <= 8000, "{} bytes", body.len());
 }
+
+/// Returns the section of a command's help that documents the flag: from
+/// its line to the next flag's.
+fn help_of<'h>(help: &'h str, flag: &str) -> Option<&'h str> {
+    let starts = |line: &str| {
+        let line = line.trim_start();
+        line.starts_with("--") || (line.starts_with('-') && line.get(2..4) == Some(", "))
+    };
+    let mut lines = help.lines();
+    let at =
+        lines.position(|line| starts(line) && line.split([' ', ',']).any(|word| word == flag))?;
+    let start = help
+        .lines()
+        .take(at)
+        .map(|line| line.len() + 1)
+        .sum::<usize>();
+    let rest = &help[start..];
+    let first = rest.find('\n').map_or(rest.len(), |end| end + 1);
+    let end = rest[first..]
+        .lines()
+        .take_while(|line| !starts(line))
+        .map(|line| line.len() + 1)
+        .sum::<usize>();
+    Some(&rest[..(first + end).min(rest.len())])
+}
+
+/// Whether the flag's section of the help names `value` as its default.
+fn defaults_to(section: &str, value: &str) -> bool {
+    section.contains(&format!("[default: {value}]"))
+        || section.contains(&format!("default is {value}"))
+        || section.contains(&format!("{value} (by default)"))
+}
+
+/// Every default and number the guide states is the command's: a span
+/// `--flag VALUE` in a sentence that says "default", and every row of the
+/// reference's table of defaults, names the default the flag's `--help`
+/// gives; the batch's order of exit statuses is the one `prove --help`
+/// states; the library's copy bound is `Options::default()`'s. The exit
+/// statuses themselves are shown by examples that print them
+/// (`; echo "exit $?"`), which `guide_examples` runs.
+#[test]
+fn guide_states_the_defaults() {
+    let helps: Vec<String> = COMMANDS
+        .iter()
+        .map(|command| {
+            let mut arguments = command.to_vec();
+            arguments.push("--help");
+            linlog(&arguments, "")
+        })
+        .collect();
+    let mut failures = Vec::new();
+    let mut checked = 0;
+    // The defaults stated, as the document, the flag and the value.
+    let mut stated: Vec<(&str, String, String)> = Vec::new();
+    for (name, text) in GUIDE {
+        let mut fence = false;
+        let mut prose = String::new();
+        let mut in_table = false;
+        for line in text.lines() {
+            if line.starts_with("```") {
+                fence = !fence;
+                continue;
+            }
+            if fence {
+                continue;
+            }
+            in_table = line.starts_with("| flag | default |") || in_table && line.starts_with('|');
+            if in_table {
+                let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+                let flag = cells.get(1).and_then(|cell| cell.split('`').nth(1));
+                let value = cells.get(2).and_then(|cell| cell.split('`').nth(1));
+                if let (Some(flag), Some(value)) = (flag, value) {
+                    let flag = flag.split_whitespace().next().unwrap_or("");
+                    stated.push((name, flag.to_owned(), value.to_owned()));
+                }
+            } else if !line.starts_with('|') {
+                prose.push_str(line);
+                prose.push('\n');
+            }
+        }
+        let prose = prose.replace('\n', " ");
+        for sentence in prose
+            .split(". ")
+            .filter(|sentence| sentence.contains("default"))
+        {
+            for span in sentence.split('`').skip(1).step_by(2) {
+                let mut words = span.split_whitespace();
+                let (Some(flag), Some(value), None) = (words.next(), words.next(), words.next())
+                else {
+                    continue;
+                };
+                let literal = !value.starts_with(|c: char| c.is_ascii_uppercase());
+                if flag.starts_with("--") && literal {
+                    stated.push((name, flag.to_owned(), value.to_owned()));
+                }
+            }
+        }
+        let order = "an error (2) before unknown (3) before unprovable (1) before proved (0)";
+        if prose.contains("exits with its worst") || prose.contains("the exit status is the worst")
+        {
+            checked += 1;
+            if !prose.contains(order) || !helps[0].contains(order) {
+                failures.push(format!(
+                    "{name}: a batch's order of exit statuses is not `prove --help`'s"
+                ));
+            }
+        }
+        for (at, _) in prose.match_indices("bounds the copies") {
+            checked += 1;
+            let after = &prose[at..];
+            let number = after
+                .split("at ")
+                .nth(1)
+                .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next())
+                .and_then(|digits| digits.parse::<u32>().ok());
+            if number != linlog::Options::default().copies {
+                failures.push(format!(
+                    "{name}: the library's default copy bound is {:?}, not {number:?}",
+                    linlog::Options::default().copies
+                ));
+            }
+        }
+    }
+    for (name, flag, value) in &stated {
+        checked += 1;
+        let mut sections = helps.iter().filter_map(|help| help_of(help, flag));
+        if !sections.any(|section| defaults_to(section, value)) {
+            failures.push(format!("{name}: the default of {flag} is not {value}"));
+        }
+    }
+    assert!(checked > 15, "only {checked} defaults were checked");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

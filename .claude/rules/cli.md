@@ -371,6 +371,17 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   spans of the summary's `**Step by step.**` paragraph, where a span
   may also name a command of `linlog`; a rule's name or an output goes
   in another paragraph) that `help` does not list, and a settings key (`search.copies`) no help names;
+  `guide_states_the_defaults` holds every default the guide states to
+  the flag's own section of a command's `--help` (`[default: V]`,
+  `default is V` or `V (by default)`): each row of the reference's table
+  under `| flag | default |`, and each span `--flag VALUE` (a literal
+  value) in a sentence that says "default", so a sentence that says
+  "default" names no other value of a flag; the batch's order of exit
+  statuses is held to `prove --help`'s sentence, and every "bounds the
+  copies … at N" to `linlog::Options::default().copies`. The exit
+  statuses are shown by examples that print them (`; echo "exit $?"`).
+  A number the guide states in no such form is not tested: write it in
+  one, or leave it out.
   `guide_s_rust_is_a_doctest` holds each `rust` block to a crate-level
   doctest of `core/src/lib.rs`, which the library's tests run;
   `the_summary_keeps_its_budget` holds the skill's front matter

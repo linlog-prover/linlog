@@ -33,10 +33,15 @@ provable (MLL, classical, focus engine)
   ⊢ ~A, ~B, B ⊗ A
   ──────────────── ⅋
   ⊢ ~A ⅋ ~B, B ⊗ A
-$ linlog prove -q "A |- B"
+$ linlog prove -q "A |- B"; echo "exit $?"
 unprovable (MLL, classical, focus engine): ~A occurs 1 more time than A in the one-sided sequent, so they cannot all meet in axioms
-$ linlog prove -q --copies 1 "!(A & B) |- A * B"
+exit 1
+$ linlog prove -q --copies 1 "!(A & B) |- A * B"; echo "exit $?"
 unknown (LL, classical, focus engine): the copy bound of 1 was reached after 3.56ms; raise it with --copies N, or lift it with --copies none to deepen it while the time limit lasts
+exit 3
+$ linlog prove --engine net "A & B |- A"; echo "exit $?"
+error: proof nets exist for MLL without units only, not for ALL
+exit 2
 $ linlog prove --logic intuitionistic -q "~~a -> a"
 not valid (intuitionistic logic by the cbn translation into ILL, two-sided engine): the image is unprovable: the search was exhaustive
 ```
@@ -60,7 +65,7 @@ $ linlog prove --format latex "A, A -o B |- B"
 \end{prooftree}
 ```
 
-**Many sequents.** `--input-format lines` reads `NAME: SEQUENT` or `SEQUENT` per line (from `--file` or standard input; blank lines and `#` comments skipped) and answers `NAME: VERDICT` per line in input order; the exit status is the worst (2, 3, 1, 0). `--format json` makes each answer a JSON line.
+**Many sequents.** `--input-format lines` reads `NAME: SEQUENT` or `SEQUENT` per line (from `--file` or standard input; blank lines and `#` comments skipped) and answers `NAME: VERDICT` per line in input order; the exit status is the worst: an error (2) before unknown (3) before unprovable (1) before proved (0). `--format json` makes each answer a JSON line.
 
 **Step by step.** `interact` reads one command per line: `goals`, `rules G P`, `apply G P RULE [P…]` (goal G, the formula at position P; for `*` the positions of G's other formulas that go to the left premise follow, and no other rule takes more positions), `undo`, `close [G]` (the search closes a goal), `show`, `proof [FILE]` (checks the finished proof; a FILE gets the proof's JSON, which `check` reads), `save FILE` and `load FILE` (the session's own JSON, for `load` only), `quit`.
 

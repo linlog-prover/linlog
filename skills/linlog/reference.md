@@ -31,8 +31,8 @@ Contents:
 
 ## 1. Running it
 
-`cargo install --locked linlog-cli` installs the command `linlog` (Rust
-1.92 or later), and `nix run github:linlog-prover/linlog -- ARGS` runs
+`cargo install --locked linlog-cli` installs the command `linlog`, and
+`nix run github:linlog-prover/linlog -- ARGS` runs
 it without installing. The commands are `prove`, `check`, `interact`
 and `seq` (with `print`, `json` and `fragment`).
 
@@ -44,10 +44,27 @@ Exit statuses, the same for every command:
 | 1 | unprovable (`not valid`) | invalid proof | it ended without one |
 | 2 | an error: bad input, a flag that does not apply, an engine forced on a sequent it cannot search | an error | the session could not start or read its input |
 | 3 | unknown: a time limit, a bound, a limit or Ctrl-C ended the search | a limit gave the check up | |
-| 130 | a second Ctrl-C | | |
 
-A batch exits with its worst entry: 2 before 3 before 1 before 0.
-A reader that closes the pipe early (`| head -1`) changes no status.
+A batch exits with its worst entry: an error (2) before unknown (3)
+before unprovable (1) before proved (0). A reader that closes the pipe
+early (`| head -1`) changes no status.
+
+```console
+$ linlog prove -q "A |- A"; echo "exit $?"
+provable (MLL, classical, focus engine)
+exit 0
+$ linlog prove --engine net "A & B |- A"; echo "exit $?"
+error: proof nets exist for MLL without units only, not for ALL
+exit 2
+$ echo '{"version":1,"sequent":{"terms":[{"V":0},{"V":1}],"roots":[0,1],"atoms":["A","B"]},"nodes":[{"ax":[0,1]}]}' | linlog check; echo "exit $?"
+invalid proof of ⊢ A, B (classical): node 0 (ax on A, B): the literals are not an atom and its negation
+exit 1
+$ linlog prove --format json "A * B |- B * A" | linlog check --work-limit 1; echo "exit $?"
+unknown: the proof of ⊢ ~A ⅋ ~B, B ⊗ A (classical) is not checked: the check was given up at node 1, without a verdict on the proof: the call did the most work allowed, 1 unit; raise it with --work-limit N
+exit 3
+$ echo quit | linlog interact "A |- A"; echo "exit $?"
+exit 1
+```
 
 ## 2. Writing a sequent
 
@@ -81,9 +98,9 @@ read by its extension unless `--input-format` says otherwise: `.p` a
 problem of the LLTP library (a TPTP problem under `--logic`), `.spec` a
 coverability problem in the format of the Mist tool (decided in affine
 mode), `.json` a sequent in JSON (section 8), anything else the text
-syntax, which may span lines. `--occurrence-limit N` (fifty million by
-default, or `none`) refuses a sequent with more subformula occurrences,
-before anything unfolds it.
+syntax, which may span lines. `--occurrence-limit N` refuses a sequent
+with more subformula occurrences, before anything unfolds it
+(`--occurrence-limit 50000000` by default, or `none`).
 
 ## 3. Choosing the logic
 
@@ -183,8 +200,8 @@ error, exit status 2). On a terminal the text tree is printed only if it
 fits (`--tree always` prints it regardless, `--tree never` leaves it out);
 into a file or a pipe it is always written.
 
-The engines (`--engine`, by default `auto`, the one the fragment and the
-mode call for):
+The engines (`--engine NAME`; `--engine auto` by default, the one the
+fragment and the mode call for):
 
 | engine | searches |
 |---|---|
@@ -225,8 +242,8 @@ unprovable (MELL, classical, horn engine): the state equation of the Petri net h
 ```
 
 The classical refutation runs after a search that did not prove the
-sequent, within `--classical-work N` formulas evaluated (2²⁶ by
-default, `0` switches it off): it turns an unknown search into
+sequent, within `--classical-work N` formulas evaluated
+(`--classical-work 67108864` by default, `0` switches it off): it turns an unknown search into
 unprovable and never changes a verdict the search gave.
 
 Unknown means a limit ended the search before it decided; it is not
@@ -244,8 +261,14 @@ $ linlog prove --memory-limit 100 "|- (a & b) + (a & c), ~a par (~b & ~c)"
 unknown (MALL, classical, focus engine): the memory limit of 100 B was reached after 32.28µs; raise it with --memory-limit SIZE
 ```
 
-A time limit's line reads `unknown (…): the time limit of 2s was reached
-at a copy bound of N; --timeout DURATION gives the search longer`.
+A time limit's line says at which copy bound the search was:
+
+<!-- readme-check: machine -->
+```console
+$ linlog prove -q --timeout 1s --classical-work 0 "!(A -o A * A), !(A -o B), !(B * B -o C), A |- C * ?D"; echo "exit $?"
+unknown (MELL, classical, focus engine): the time limit of 1s was reached at a copy bound of 46; --timeout DURATION gives the search longer
+exit 3
+```
 
 ## 6. Limits and the search
 
@@ -262,8 +285,8 @@ at a copy bound of N; --timeout DURATION gives the search longer`.
 | `--derivation-limit SIZE` | `64MiB` | the derivation built from a proof; above it the verdict stands without it |
 | `--occurrence-limit N` | `50000000` | the sequent's subformula occurrences |
 
-Threads: one thread searches first, and after `--pool-after` (100ms) the
-machine's other threads join it; `-j N` (`--jobs`) uses N threads from
+Threads: one thread searches first, and after `--pool-after 100ms` by
+default the machine's other threads join it; `-j N` (`--jobs`) uses N threads from
 the start. `--deterministic` runs one thread throughout, so that the
 proof and the statistics are a function of the input; a script that
 must get the same answer everywhere names `--copies` or `--work-limit`,
@@ -294,8 +317,8 @@ written to a terminal.
 
 - `latex`: the verdict as a comment, then a proof tree for the ebproof
   package with the connectives of cmll and amssymb.
-- `typst`: a proof tree for the curryst package, or in linlog's own
-  layout for a tree more than nine inferences high.
+- `typst`: a proof tree for the curryst package, or for a high tree in
+  linlog's own layout (`--style layout=linlog` asks for it always).
 - `svg`, `png`, `pdf`: the derivation drawn, set in Euler Math unless
   `--font stix-two|garamond|asana|new-computer-modern` names another.
 - `rocq`: a certificate (section 18).
@@ -381,7 +404,7 @@ comes from the flags, never from the file: pass the flags the proof was
 found with. Without `-i`, a proof that `prove -i` found is checked as a
 proof of its classical one-sided sequent, which it also is. `--format json` writes `{"version", "verdict", "mode"}`,
 the verdict `valid`, `invalid` or `unknown`, with the library's `error`
-for the last two. Its time limit is `--timeout` (2s), and `--work-limit`
+for the last two. Its time limit is `--timeout 2s` by default, and `--work-limit`
 and `--memory-limit` bound it too; a check a limit gives up is unknown,
 exit status 3. It takes `prove`'s output formats and `--net`.
 
@@ -508,7 +531,7 @@ The modes a record or a problem names: `classical`, `mix`, `affine`,
 `--batch-timeout` the whole batch's; `--cores across|within`,
 `--workers N`, `--batch-memory SIZE` and `--isolate` (a child process
 per sequent) choose how it runs. By default the cores go across the
-sequents, one thread each; what that leaves unknown is worth a second
+sequents, one thread each. What that leaves unknown is worth a second
 pass with `--cores within`.
 
 ## 13. Ordinary logic
@@ -597,7 +620,7 @@ provable (MLL, classical, focus engine)
 
 ## 16. The Rust library
 
-The crate `linlog` (`linlog = "0.1"`) holds all of it; its default
+The crate `linlog` on crates.io holds all of it; its default
 features are `parse`, `serialize`, `interactive`, `latex`, `typst`, `svg`
 and `rocq`, and `parallel`, `png` and `pdf` are off. Its documentation
 is at <https://linlog-prover.github.io/linlog/linlog/> for `main` and on
@@ -629,7 +652,7 @@ let back: linlog::Proof = serde_json::from_str(&json)?;
 back.check(Mode::CLASSICAL)?;
 ```
 
-`Options::default()` bounds the copies of a `?` formula at three, since a
+`Options::default()` bounds the copies of a `?` formula at 3, since a
 library call without a stop must end; the command deepens without a
 bound under its time limit. `prove_within(&sequent, mode, &options,
 &limits, stop)` takes `Limits` and a stop closure (the crate reads no
@@ -654,13 +677,13 @@ shell uses the command instead.
 
 ## 18. Rocq certificates and the Rocq library
 
-`--format rocq` writes the derivation as a Rocq certificate for the
-kernel `--kernel` names: `nanoyalla` (the default for classical linear
-logic; NanoYalla 1.1.3, the kernel of Click & coLLecT, a proof script
-checked rule by rule, which refuses Mix and affine weakening) or
-`linlog` (the default for Mix, affine and intuitionistic logic; the
-Rocq library in `rocq/` of the repository, a proof term its checker
-accepts). An unprovable sequent whose refutation is `unbalanced`,
+A Rocq certificate (`--format rocq`) is written for the kernel
+`--kernel` names. The kernel `nanoyalla` is the default for classical
+linear logic: NanoYalla, the kernel of Click & coLLecT at the version
+`prove --help` names, a proof script checked rule by rule, which
+refuses Mix and affine weakening. The kernel `linlog` is the default for
+Mix, affine and intuitionistic logic: the Rocq library in `rocq/` of the
+repository, a proof term its checker accepts. An unprovable sequent whose refutation is `unbalanced`,
 `equation` or `classical` gets a certificate that the calculus does not
 derive it; one that rests on the search has none. `--standalone` adds
 the imports; `--lemma NAME` names the lemma.
