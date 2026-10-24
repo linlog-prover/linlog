@@ -45,7 +45,7 @@ The derivation is one-sided (`Γ ⊢ Δ` read as `⊢ ~Γ, Δ`); `-i` and `--log
 
 **Limits.** By default a search stops after `--timeout 2s` (`none` for no limit, counted from the command's start) and within `--memory-limit 1GiB`; with `!` or `?` it deepens how often a `?` formula may be copied until it decides, and `--copies N` caps that. `--work-limit N` gives the same answer on every machine; `--deterministic` makes the proof and `--stats` reproducible.
 
-**Output.** `-q` prints the verdict line alone. `--format json` writes one JSON object: `verdict` (`proved`, `unprovable` or `unknown`), `refutation` or `reason`, `fragment`, `mode`, `engine`, `statistics` and the proof, which `check` reads back (give `check` the same logic flags). `--format latex|typst|svg|png|pdf|rocq` or `--output FILE` with that extension exports the derivation; `--net` gives the proof net instead (MLL and MELL without units); `--stats` adds the search's counters.
+**Output.** `-q` prints the verdict line alone. `--format json` writes one JSON object: `verdict` (`proved`, `unprovable` or `unknown`), `refutation` or `reason`, `fragment`, `mode`, `engine`, `statistics` and the proof, which `check` reads back. `check` takes the logic from its flags, never from the file: check a proof of `prove -i` with `check -i`, or it is checked as the classical one-sided sequent. `--format latex|typst|svg|png|pdf|rocq` or `--output FILE` with that extension exports the derivation; `--net` gives the proof net instead (MLL and MELL without units); `--stats` adds the search's counters.
 
 ```console
 $ linlog prove --format json "A |- A" > proof.json
@@ -60,9 +60,11 @@ $ linlog prove --format latex "A, A -o B |- B"
 \end{prooftree}
 ```
 
-**Many sequents.** `--input-format lines` reads `NAME: SEQUENT` per line (from `--file` or standard input) and answers `NAME: VERDICT` per line in input order; the exit status is the worst (2, 3, 1, 0). `--format json` makes each answer a JSON line.
+**Many sequents.** `--input-format lines` reads `NAME: SEQUENT` or `SEQUENT` per line (from `--file` or standard input; blank lines and `#` comments skipped) and answers `NAME: VERDICT` per line in input order; the exit status is the worst (2, 3, 1, 0). `--format json` makes each answer a JSON line.
 
-**Step by step.** `interact` reads one command per line: `goals`, `rules G P`, `apply G P RULE [P…]` (goal G, the formula at position P; for `*` the positions that go to the left premise follow), `undo`, `close [G]` (the search closes a goal), `show`, `proof [FILE]`, `save FILE`, `load FILE`, `quit`. It exits 0 only when the session ends with a checked proof.
+**Step by step.** `interact` reads one command per line: `goals`, `rules G P`, `apply G P RULE [P…]` (goal G, the formula at position P; for `*` the positions of G's other formulas that go to the left premise follow, and no other rule takes more positions), `undo`, `close [G]` (the search closes a goal), `show`, `proof [FILE]`, `save FILE`, `load FILE`, `quit`.
+
+The session starts with goal 0; a step closes its goal and opens new ones with new numbers (`opened goal 1: ⊢ 0: ~A, 1: A`), each goal's formulas numbered from 0, so read the numbers from the output (or `goals`) before the next step; `ax` takes either literal. It exits 0 when the session ends with a checked proof, 1 otherwise.
 
 ```console
 $ printf 'apply 0 2 * 0\nclose\nproof\n' | linlog interact "A, B |- A * B"

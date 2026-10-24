@@ -378,7 +378,8 @@ that lifts the bound that refused the call, where one did.
 `linlog check FILE` (or standard input) reads a proof as `prove --format
 json` writes it and checks it independently of the search. The mode
 comes from the flags, never from the file: pass the flags the proof was
-found with. `--format json` writes `{"version", "verdict", "mode"}`,
+found with. Without `-i`, a proof that `prove -i` found is checked as a
+proof of its classical one-sided sequent, which it also is. `--format json` writes `{"version", "verdict", "mode"}`,
 the verdict `valid`, `invalid` or `unknown`, with the library's `error`
 for the last two. Its time limit is `--timeout` (2s), and `--work-limit`
 and `--memory-limit` bound it too; a check a limit gives up is unknown,
@@ -395,9 +396,16 @@ $ linlog prove --format json "A |- A" | linlog check --format json
 
 `linlog interact SEQUENT` (or `--file`; standard input carries the
 commands) starts a session with the sequent as goal 0 and reads one
-command per line. Formulas are named by their position in a goal, as
-`goals` lists them. A command's error is printed as `error: …` and the
-session goes on.
+command per line. Formulas are named by their position in a goal, from
+0, as `goals` lists them. A step closes its goal and opens its premises
+as new goals with new numbers, each listed (`opened goal 1: ⊢ 0: ~A, 1:
+A`) with its own positions; a goal it closes at once is `closed`. In
+`apply G P RULE [P…]` every position is one of goal G before the step:
+for `⊗` the further positions are G's other formulas that go to the
+left premise, the rest going to the right; `ax` takes either of its two
+literals. A command's error is printed as `error: …` and the session
+goes on, so a script that misnumbers a goal goes on failing: read the
+numbers from the output before writing the next step.
 
 | session command | what it does |
 |---|---|
