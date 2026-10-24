@@ -57,6 +57,12 @@ mod exports {
         calls::read(input, settings).map_err(thrown)
     }
 
+    /// See [`calls::read_as`].
+    #[wasm_bindgen]
+    pub fn read_as(input: &str, mode: &str, settings: &str) -> Result<String, JsValue> {
+        calls::read_as(input, mode, settings).map_err(thrown)
+    }
+
     /// See [`calls::start`].
     #[wasm_bindgen]
     pub fn start(sequent: &str, mode: &str, settings: &str) -> Result<String, JsValue> {

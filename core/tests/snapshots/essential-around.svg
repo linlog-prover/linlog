@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="143.872" height="157.392" viewBox="0 0 8992 9837" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
-<title>⊢ (a⊥ ⅋ b) ⊗ (b⊥ ⅋ a)</title>
-<desc>⊢ (~a ⅋ b) ⊗ (~b ⅋ a)
-~a[2] — a[6]
-b[3] — ~b[5]
-not a proof net: a switching cycle runs through (~a ⅋ b) ⊗ (~b ⅋ a)[0], ~a ⅋ b[1], b[3], ~b[5], ~b ⅋ a[4]</desc>
+<title>⊢ (a ⊸ b) ⊗ (b ⊸ a)</title>
+<desc>⊢ (a ⊸ b) ⊗ (b ⊸ a)
+a[2] — a[6]
+b[3] — b[5]
+not a proof net: a switching cycle runs through (a ⊸ b) ⊗ (b ⊸ a)[0], a ⊸ b[1], b[3], b[5], b ⊸ a[4]</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M4162 7686L2075 6557"/>
 <path d="M2981 7176L3202 7166L3089 6975"/>

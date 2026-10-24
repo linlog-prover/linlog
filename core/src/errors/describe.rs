@@ -2,9 +2,10 @@
 // Licensed under the EUPL
 
 use super::{Error, INVALID_PROOF};
+use crate::Mode;
 use crate::nets::{MellStructure, NetError, ProofStructure};
 use crate::occurrences::OccId;
-use crate::occurrences::{Forest, ShapeError};
+use crate::occurrences::{Forest, Reading, ShapeError};
 use crate::proofs::{CheckError, Derivation, Proof};
 use std::fmt::{self, Display, Formatter, Write};
 
@@ -49,15 +50,30 @@ impl<W: Write + ?Sized> Write for Budget<'_, W> {
     }
 }
 
-/// Writes an occurrence as its formula when a forest is given, else as
-/// its id.
+/// What an error report names occurrences by: the forest's formulas, and
+/// under an intuitionistic reading the formulas as the reading writes
+/// them, two-sided.
+#[derive(Clone, Copy)]
+pub(crate) struct Names<'a> {
+    /// The forest the ids are occurrences of.
+    pub(crate) forest: &'a Forest,
+    /// The reading of an owner in an intuitionistic mode.
+    pub(crate) reading: Option<&'a Reading<'a>>,
+}
+
+/// Writes an occurrence as its formula when names are given, else as its
+/// id.
 pub(crate) fn occurrence(
     f: &mut (impl Write + ?Sized),
-    forest: Option<&Forest>,
+    names: Option<Names<'_>>,
     o: OccId,
 ) -> fmt::Result {
-    match forest {
-        Some(forest) => write!(f, "{}", forest.formula(o)),
+    match names {
+        Some(Names {
+            reading: Some(reading),
+            ..
+        }) => write!(f, "{}", reading.formula(o)),
+        Some(Names { forest, .. }) => write!(f, "{}", forest.formula(o)),
         None => write!(f, "{}", o.get()),
     }
 }
@@ -66,12 +82,12 @@ pub(crate) fn occurrence(
 /// characters with `…` after it.
 pub(crate) fn cut(
     f: &mut (impl Write + ?Sized),
-    forest: Option<&Forest>,
+    names: Option<Names<'_>>,
     o: OccId,
     limit: Limit,
 ) -> fmt::Result {
     let mut budget = Budget::new(f, limit);
-    match occurrence(&mut budget, forest, o) {
+    match occurrence(&mut budget, names, o) {
         Err(_) if budget.cut => budget.f.write_char('…'),
         written => written,
     }
@@ -94,7 +110,12 @@ impl Owner for Forest {
     }
 }
 
-impl crate::sealed::Owner for Proof {}
+impl crate::sealed::Owner for Proof {
+    /// The mode the proof records.
+    fn mode(&self) -> Option<Mode> {
+        Proof::mode(self)
+    }
+}
 
 impl Owner for Proof {
     /// The proof's forest.
@@ -103,7 +124,18 @@ impl Owner for Proof {
     }
 }
 
-impl crate::sealed::Owner for Derivation<'_> {}
+impl crate::sealed::Owner for Derivation<'_> {
+    /// An intuitionistic mode where the derivation is two-sided.
+    fn mode(&self) -> Option<Mode> {
+        self.reading().map(|reading| {
+            if reading.is_ordered() {
+                Mode::LAMBEK
+            } else {
+                Mode::INTUITIONISTIC
+            }
+        })
+    }
+}
 
 impl Owner for Derivation<'_> {
     /// The forest of the proof the derivation unfolds.
@@ -136,7 +168,12 @@ impl Owner for ProofStructure {
 }
 
 #[cfg(feature = "interactive")]
-impl crate::sealed::Owner for crate::Interactive {}
+impl crate::sealed::Owner for crate::Interactive {
+    /// The session's mode.
+    fn mode(&self) -> Option<Mode> {
+        Some(crate::Interactive::mode(self))
+    }
+}
 
 #[cfg(feature = "interactive")]
 impl Owner for crate::Interactive {
@@ -173,6 +210,9 @@ pub struct Described<'a> {
     vertices: Option<&'a [OccId]>,
     /// The most characters of a formula or a list of formulas, or `None`.
     limit: Option<usize>,
+    /// The mode whose reading writes the formulas, where it is an
+    /// intuitionistic one.
+    mode: Option<Mode>,
 }
 
 impl<'a> Described<'a> {
@@ -183,6 +223,7 @@ impl<'a> Described<'a> {
             forest: owner.forest(),
             vertices: owner.vertices(),
             limit: None,
+            mode: owner.mode(),
         }
     }
 
@@ -194,12 +235,35 @@ impl<'a> Described<'a> {
     pub const fn abbreviated(self, limit: Option<usize>) -> Self {
         Self { limit, ..self }
     }
+
+    /// Returns the report with the formulas written as `mode` reads them:
+    /// in an intuitionistic mode two-sided, under the sequent's reading
+    /// (`A ⊸ B` where the one-sided sequent has `A ⊗ ~B` as a
+    /// hypothesis), where the sequent has one; in a classical mode, and
+    /// for a sequent without a reading, as the one-sided sequent writes
+    /// them. A proof that records its mode, a derivation and a session
+    /// give theirs already; this is for an owner that records none, such
+    /// as a forest or a proof structure.
+    #[must_use]
+    pub const fn in_mode(self, mode: Mode) -> Self {
+        Self {
+            mode: Some(mode),
+            ..self
+        }
+    }
 }
 
 impl Display for Described<'_> {
     /// Writes the error with formulas instead of occurrence ids.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let forest = Some(self.forest);
+        let reading = self
+            .mode
+            .filter(|mode| mode.is_intuitionistic())
+            .and_then(|mode| Reading::of_mode(self.forest, mode.with_empty_antecedents()).ok());
+        let forest = Some(Names {
+            forest: self.forest,
+            reading: reading.as_ref(),
+        });
         match self.error {
             Subject::Error(Error::Net(e)) => {
                 f.write_str("not a proof net: ")?;
@@ -252,10 +316,10 @@ impl Error {
     pub(crate) fn write(
         &self,
         f: &mut Formatter<'_>,
-        forest: Option<&Forest>,
+        names: Option<Names<'_>>,
         limit: Option<usize>,
     ) -> fmt::Result {
-        if forest.is_none() {
+        if names.is_none() {
             return Display::fmt(self, f);
         }
         match self {
@@ -263,19 +327,19 @@ impl Error {
                 if let CheckError::Invalid(_) = e {
                     f.write_str(INVALID_PROOF)?;
                 }
-                e.write(f, forest, limit)
+                e.write(f, names, limit)
             }
             Self::Rejected(e) => {
                 f.write_str(REJECTED)?;
-                e.write(f, forest, limit)
+                e.write(f, names, limit)
             }
             Self::Net(e) => {
                 f.write_str("not a proof net: ")?;
-                e.write(f, forest, limit)
+                e.write(f, names, limit)
             }
             Self::NotIntuitionistic(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
-                e.write(f, forest, limit)
+                e.write(f, names, limit)
             }
             _ => Display::fmt(self, f),
         }

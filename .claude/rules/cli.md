@@ -669,6 +669,23 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   intuitionistic reading is exit 2 with core's `ShapeError` described with
   formulas (`describe` in `prove.rs`, which rebuilds the forest for that);
   a classical proof file checked with `-i` is an invalid proof, exit 1.
+- **An intuitionistic sequent's text is read in ILL's syntax**
+  (`io::sequent_in`, which takes the mode and `InputOptions`): in a
+  commutative intuitionistic mode, text (the argument, a file, a batch's
+  line or problem row) goes through `IllSequent::parse_within` unless
+  `--ill-syntax one-sided` (`input.intuitionistic`, a flag of
+  `SequentInput`, so of `prove`, `interact` and every `seq` command)
+  asks for the classical parser; JSON is either form, told by the
+  `hypotheses` key; LLTP and `.spec` problems are one-sided readers and
+  stay so. A refusal's hint is printed under the caret with the flag
+  named (`parse_error`). `seq json -i` writes the intuitionistic form.
+- **No intuitionistic output is one-sided**: the net's text is
+  `written_in(mode)`, the drawing forces `svg.essential` in an
+  intuitionistic mode (`Net::drawing`), a refused proof is described
+  `in_mode(mode)`, and the refutation's phrase is the `Disproof`'s, which
+  reads its mode. `no_intuitionistic_output_writes_a_classical_symbol` in
+  `cli/tests/cli.rs` runs every format, the net, `seq print` and a session
+  over random sequents; a new output of a sequent joins it.
 - **The cyclic mode is a matter of reading in the CLI** (`--cyclic` in
   `ModeArgs`, conflicting with `--intuitionistic`; `seq print --cyclic`,
   `seq json --cyclic`): the order of a mode decides how text is parsed

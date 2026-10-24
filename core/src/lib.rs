@@ -174,6 +174,12 @@ mod sealed {
         fn vertices(&self) -> Option<&[crate::occurrences::OccId]> {
             None
         }
+
+        /// Returns the mode the owner records, whose reading writes the
+        /// formulas of its errors.
+        fn mode(&self) -> Option<crate::Mode> {
+            None
+        }
     }
 
     /// Seals [`Readable`](crate::wire::Readable): only the crate's forms

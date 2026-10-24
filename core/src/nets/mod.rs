@@ -37,7 +37,7 @@ pub use graph::Scratch;
 pub use mell::{MellStructure, Parts, Placed, Placement};
 
 use crate::Error;
-use crate::errors::describe::{Budget, Limit, cut};
+use crate::errors::describe::{Budget, Limit, Names, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
@@ -422,10 +422,10 @@ impl NetError {
     pub(crate) fn write(
         &self,
         f: &mut Formatter<'_>,
-        forest: Option<&Forest>,
+        names: Option<Names<'_>>,
         limit: Limit,
     ) -> FmtResult {
-        self.write_over(f, forest, None, limit)
+        self.write_over(f, names, None, limit)
     }
 
     /// Writes the error as [`write`](Self::write) does, reading each
@@ -434,7 +434,7 @@ impl NetError {
     pub(crate) fn write_over(
         &self,
         f: &mut Formatter<'_>,
-        forest: Option<&Forest>,
+        names: Option<Names<'_>>,
         vertices: Option<&[OccId]>,
         limit: Limit,
     ) -> FmtResult {
@@ -442,12 +442,12 @@ impl NetError {
         let vertex = |v: &VertexId| {
             let o = match vertices {
                 Some(table) => table.get(v.index()).copied(),
-                None => forest.and_then(|forest| (v.index() < forest.len()).then(|| v.occ())),
+                None => names.and_then(|n| (v.index() < n.forest.len()).then(|| v.occ())),
             };
-            match (forest, o) {
-                (Some(forest), Some(o)) => {
+            match (names, o) {
+                (Some(names), Some(o)) => {
                     let mut formula = String::new();
-                    cut(&mut formula, Some(forest), o, limit).unwrap();
+                    cut(&mut formula, Some(names), o, limit).unwrap();
                     format!("{formula}[{}]", v.get())
                 }
                 _ => v.get().to_string(),
@@ -522,7 +522,7 @@ impl NetError {
             ),
             NotIntuitionistic { shape } => {
                 f.write_str("essential nets exist for intuitionistic sequents only: ")?;
-                shape.write(f, forest, limit)
+                shape.write(f, names, limit)
             }
             Fragment { fragment } => write!(
                 f,
@@ -545,7 +545,7 @@ impl NetError {
             }
             InBox { door, error } => {
                 write!(f, "inside the box of {}, ", vertex(door))?;
-                error.write_over(f, forest, vertices, limit)
+                error.write_over(f, names, vertices, limit)
             }
             NotMell { fragment, mode } => write!(
                 f,
@@ -1098,7 +1098,34 @@ impl Display for ProofStructure {
     /// Mix`, `planar proof net` in the cyclic order, or `not a proof net:
     /// ` and the reason with formulas. No trailing newline.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        writeln!(f, "{}", self.sequent())?;
+        self.write(f, None)
+    }
+}
+
+impl ProofStructure {
+    /// Returns the structure for display as `mode` reads it: as
+    /// [`Display`] writes it, and in an intuitionistic mode, where the
+    /// sequent has a reading, with the sequent two-sided and every
+    /// formula as the reading writes it (`A[0] — A[2]`, `A ⊸ B, A ⊢ B`).
+    pub fn written_in(&self, mode: crate::Mode) -> impl Display + '_ {
+        In {
+            structure: self,
+            mode,
+        }
+    }
+
+    /// Writes the structure as [`Display`] does, or as `mode` reads it:
+    /// in an intuitionistic mode every formula as the reading writes it,
+    /// where the sequent has one.
+    fn write(&self, f: &mut Formatter<'_>, mode: Option<crate::Mode>) -> FmtResult {
+        let reading = mode
+            .filter(|mode| mode.is_intuitionistic())
+            .and_then(|_| self.reading().ok());
+        let reading = reading.as_ref();
+        match reading {
+            Some(reading) => writeln!(f, "{reading}")?,
+            None => writeln!(f, "{}", self.sequent())?,
+        }
         let mut links: Vec<(VertexId, VertexId)> = self
             .links
             .iter()
@@ -1106,15 +1133,48 @@ impl Display for ProofStructure {
             .collect();
         links.sort_unstable();
         for (x, y) in links {
-            let (fx, fy) = (self.forest.formula(x.occ()), self.forest.formula(y.occ()));
-            writeln!(f, "{fx}[{}] — {fy}[{}]", x.get(), y.get())?;
+            let formula = |v: VertexId| match reading {
+                Some(reading) => reading.formula(v.occ()).to_string(),
+                None => self.forest.formula(v.occ()).to_string(),
+            };
+            writeln!(
+                f,
+                "{}[{}] — {}[{}]",
+                formula(x),
+                x.get(),
+                formula(y),
+                y.get()
+            )?;
         }
         match self.is_correct(|_| false) {
             Ok(()) if self.criterion.mix => f.write_str("proof net with Mix"),
             Ok(()) if self.criterion.order != Order::Commutative => f.write_str("planar proof net"),
             Ok(()) => f.write_str("proof net"),
-            Err(e) => write!(f, "not a proof net: {}", e.describe(&self.forest)),
+            Err(e) => match mode {
+                Some(mode) => write!(
+                    f,
+                    "not a proof net: {}",
+                    e.describe(&self.forest).in_mode(mode)
+                ),
+                None => write!(f, "not a proof net: {}", e.describe(&self.forest)),
+            },
         }
+    }
+}
+
+/// A proof structure, or one with boxes, for display as a mode reads it.
+pub(crate) struct In<'a, S> {
+    /// The structure.
+    pub(crate) structure: &'a S,
+    /// The mode.
+    pub(crate) mode: crate::Mode,
+}
+
+impl Display for In<'_, ProofStructure> {
+    /// Writes the structure under its reading in an intuitionistic mode,
+    /// else as its own [`Display`] does.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.structure.write(f, Some(self.mode))
     }
 }
 
@@ -1666,5 +1726,13 @@ mod tests {
         ));
         let back = net.sequentialize(&Limits::default(), |_| false).unwrap();
         assert_eq!(back.mode(), Some(Mode::CLASSICAL));
+    }
+}
+
+impl Display for In<'_, crate::MellStructure> {
+    /// Writes the structure under its reading in an intuitionistic mode,
+    /// else as its own [`Display`] does.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.structure.write(f, Some(self.mode))
     }
 }

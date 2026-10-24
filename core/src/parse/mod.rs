@@ -626,19 +626,35 @@ const BOT: &str = "intuitionistic linear logic has no bot: write bot right of |-
 
 /// Returns the error for the first symbol of `text` that classical linear
 /// logic has and intuitionistic linear logic does not (`~`, `^`, `⅋`,
-/// `par`, `|` as a connective, `?`, `⊥`, `bot`), with its hint, or `None`
-/// if it has none. The symbols are whole tokens wherever they stand, so a
-/// scan of the characters and identifiers finds them without the parser:
-/// `|` followed by `-` is the turnstile, and an identifier is skipped
-/// whole, so that `bottom` is an atom.
-pub(crate) fn classical(text: &str) -> Option<ParseError> {
+/// `par`, `|` as a connective, `?`, `⊥`, `bot`), with its hint, if one
+/// starts before byte `before`, else `None`. The symbols are whole tokens
+/// wherever they stand, so a scan finds them without the parser's state,
+/// cutting the text into tokens where the parser does: `|-` is the
+/// turnstile and `-o` the implication, each one token, and an identifier
+/// is read whole from where one starts, so that `bottom` and the `obot`
+/// of `-obot`'s neighbour `|-obot` are atoms and the `bot` of `-obot` is
+/// the constant. The text is scanned whole, so that a token is read as
+/// the parser reads it whatever follows the place.
+pub(crate) fn classical(text: &str, before: usize) -> Option<ParseError> {
     let mut chars = text.char_indices().peekable();
     while let Some((at, c)) = chars.next() {
+        if at >= before {
+            return None;
+        }
         let mut end = at + c.len_utf8();
+        let mut next_is = |d: char| {
+            let is = chars.peek().is_some_and(|&(_, next)| next == d);
+            if is {
+                chars.next();
+            }
+            is
+        };
         let hint = match c {
             '~' | '^' => NEGATION,
             '⅋' => PAR,
-            '|' if chars.peek().is_some_and(|&(_, next)| next == '-') => continue,
+            // The turnstile and the implication, read as single tokens.
+            '|' if next_is('-') => continue,
+            '-' if next_is('o') => continue,
             '|' => PAR,
             '?' => QUEST,
             '⊥' => BOT,

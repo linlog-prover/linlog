@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="290.816" height="355.536" viewBox="0 0 18176 22221" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
-<title>⊢ ?a⊥, ?(a ⊗ b⊥), !(b ⊗ a)</title>
-<desc>⊢ ?~a, ?(a ⊗ ~b), !(b ⊗ a)
-?~a[0]: ~a[3] in !(b ⊗ a)[2], ~a[4] in !(b ⊗ a)[2]
-?(a ⊗ ~b)[1]: a ⊗ ~b[5] in !(b ⊗ a)[2]
-~a[3] — a[6]
-~a[4] — a[10]
-~b[7] — b[9]
+<title>!a, !(a ⊸ b) ⊢ !(b ⊗ a)</title>
+<desc>!a, !(a ⊸ b) ⊢ !(b ⊗ a)
+!a[0]: a[3] in !(b ⊗ a)[2], a[4] in !(b ⊗ a)[2]
+!(a ⊸ b)[1]: a ⊸ b[5] in !(b ⊗ a)[2]
+a[3] — a[6]
+a[4] — a[10]
+b[7] — b[9]
 proof net</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M16220 7021L14631 10959"/>

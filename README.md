@@ -256,18 +256,20 @@ $ linlog prove --net --format json "!a, !b |- !a"
 {"version":4,"sequent":{"terms":[{"D":0},{"?":0},{"D":1},{"?":2},{"V":0},{"!":4}],"roots":[1,3,5],"atoms":["a","b"],"antecedents":2},"mix":false,"vertices":[[1,0,2],[5,2,2]],"links":[[4,3]],"weakenings":[[1,4]]}
 ```
 
-An intuitionistic proof's net is the one of its one-sided sequent: a
-hypothesis `!A` is the conclusion `?~A`, whose copies the boxes and the
-derivation use. Affine logic has no proof nets:
+An intuitionistic proof's net is the one of its one-sided sequent,
+written as the sequent was: a hypothesis `!A`, whose copies the boxes
+and the derivation use, stands for the conclusion `?~A`, and an axiom
+links an atom left of `⊢` to the same atom right of it. Affine logic has
+no proof nets:
 
 ```console
 $ linlog prove --net -i "!a, !(a -o b) |- !b"
 provable (IMELL, intuitionistic, two-sided engine)
-⊢ ?~a, ?(a ⊗ ~b), !b
-?~a[0]: ~a[3] in !b[2]
-?(a ⊗ ~b)[1]: a ⊗ ~b[4] in !b[2]
-~a[3] — a[5]
-~b[6] — b[7]
+!a, !(a ⊸ b) ⊢ !b
+!a[0]: a[3] in !b[2]
+!(a ⊸ b)[1]: a ⊸ b[4] in !b[2]
+a[3] — a[5]
+b[6] — b[7]
 proof net
 $ linlog prove --net -i --affine "!a |- !a"
 error: proof nets exist in linear mode only, with or without --mix, not in intuitionistic affine mode
@@ -563,9 +565,15 @@ provable (MLL, classical, focus engine)
 
 `--intuitionistic` (`-i`) reads the sequent as intuitionistic linear logic,
 as it is written: the hypotheses left of `⊢`, exactly one formula right of
-it, and pars only as implications, which the one-sided form keeps as
-`~A ⅋ B` with the antecedent on the left. The verdict line names the intuitionistic
-fragment, and the derivation is two-sided with the rules of ILL. A
+it, in the syntax of ILL (`⊗ ⊸ & ⊕ !`, `1 ⊤ 0`). A symbol of the
+classical syntax (`~`, `^`, `par`, `|`, `?`, `bot`) is refused with what
+to write instead; `--ill-syntax one-sided` (the settings key
+`input.intuitionistic`) reads the classical syntax as the one-sided
+sequent it stands for, `~(A * ~B), A |- B` as `A ⊸ B, A ⊢ B`, where the
+one-sided formulas decide the sides. The verdict line names the
+intuitionistic fragment, and every output writes the sequent as it was
+written: the derivation is two-sided with the rules of ILL, and the
+refutations, the nets and the errors speak of its formulas. A
 sequent of two additive-only
 formulas to the *additive engine* (a recursion on pairs of subformulas,
 linear in the product of their sizes, in every mode), a Horn program
@@ -588,10 +596,10 @@ only when asked:
 ```console
 $ linlog prove -i --engine essential --net "A -o B, B -o C |- A -o C"
 provable (IMLL, intuitionistic, essential engine)
-⊢ A ⊗ ~B, B ⊗ ~C, ~A ⅋ C
-A[1] — ~A[7]
-~B[2] — B[4]
-~C[5] — C[8]
+A ⊸ B, B ⊸ C ⊢ A ⊸ C
+A[1] — A[7]
+B[2] — B[4]
+C[5] — C[8]
 proof net
 $ linlog prove -i "A -o B -o C, A * B |- C"
 provable (IMLL, intuitionistic, two-sided engine)
@@ -624,9 +632,16 @@ from the memo: 0
 memo entries: 20
 units of work: 20
 time: 89.90µs
-$ linlog prove -i "|- A par B"
+$ linlog prove -i "|- ~A par B"
+error: cannot parse the sequent
+  |- ~A par B
+     ^ unexpected "~"
+  intuitionistic linear logic has no negation: write a negated formula on the other side of |- (A |- B, not |- ~A, B), and ~A par B as A -o B; --ill-syntax one-sided reads the classical syntax
+$ linlog prove -i -q --ill-syntax one-sided "|- ~A par B"
+unprovable (IMLL, intuitionistic, two-sided engine): A occurs negatively 1 more time than positively (positive right of ⊢, negative left of it, an implication's antecedent on the other side), so they cannot all meet in axioms
+$ linlog prove -i --ill-syntax one-sided "|- A par B"
 error: not an intuitionistic sequent: the subformula A ⅋ B is neither an intuitionistic formula nor the negation of one (⅋ only as A ⊸ B, that is ~A ⅋ B, and ? only under a negation)
-$ linlog prove -i "|- ~A, B"
+$ linlog prove -i "A |- B, C"
 error: not an intuitionistic sequent: an intuitionistic sequent has exactly one formula right of ⊢, not 2: write the hypotheses left of ⊢
 ```
 
@@ -896,7 +911,9 @@ type, whose JSON form is what a web client will hold between requests.
 
 `linlog seq` prints a sequent one-sided in negation normal form, or
 two-sided as intuitionistic linear logic reads it, converts it to JSON
-(which a `.json` file or `--input-format json` reads back), or names its fragment:
+(which a `.json` file or `--input-format json` reads back; with `-i` the
+intuitionistic sequent's own form, whose formulas have the connectives
+of ILL alone), or names its fragment:
 
 ```console
 $ linlog seq print "A * B -o C |- A -o B -o C"
@@ -907,6 +924,8 @@ $ linlog seq fragment -i "A & B |- 1"
 IMALL
 $ linlog seq json "A |- A"
 {"version":1,"terms":[{"D":0},{"V":0}],"roots":[0,1],"atoms":["A"],"antecedents":1}
+$ linlog seq json -i "A * B -o C |- A -o B -o C"
+{"version":5,"terms":[{"V":0},{"V":1},{"⊗":[0,1]},{"V":2},{"⊸":[2,3]},{"⊸":[1,3]},{"⊸":[0,5]}],"atoms":["A","B","C"],"hypotheses":[4],"goal":6}
 $ linlog seq fragment "A & B |- 1"
 MALL
 ```
@@ -1247,7 +1266,7 @@ Proof.
   vm_compute. reflexivity.
 Qed.
 $ linlog prove -i --format rocq "A + B |- A"
-(* unprovable (IALL, intuitionistic, additive engine): the classical reading is false where B is true and every other atom false (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), and every provable sequent reads as a tautology *)
+(* unprovable (IALL, intuitionistic, additive engine): the classical reading is false where B is true and every other atom false (! erased, ⊗ and & as and, ⊕ as or, ⊸ as implies, 1 and ⊤ true, 0 false), and every provable sequent reads as a tautology *)
 Lemma certificate : ~ ill (atom := string) intuitionistic [iplus (ivar "A") (ivar "B")] (ivar "A").
 Proof.
   apply (iclassical_refutation _ (fun a => existsb (String.eqb a) ["B"])).
@@ -1798,11 +1817,15 @@ Built:
   MALL, MELL, LL, and their intuitionistic counterparts IMLL to ILL) and
   the modes classical, affine, intuitionistic and Mix as user choices.
 - Intuitionistic linear logic on the same one-sided representation: a
-  sequent is read two-sided as it was written (the hypotheses left of
-  `⊢`, one goal right of it, `⊸` recovered from `~A ⅋ B`, each formula
-  checked to stand where its polarization allows), printed as `Γ ⊢ A`, and
-  proved by the two-sided focused search, by the embedding of IMLL into
-  MLL proof nets, by the additive fast path, or by the Horn engine.
+  sequent is written in the syntax of ILL (the hypotheses left of `⊢`,
+  one goal right of it, the classical symbols refused with a hint, or read
+  from the classical syntax where `--ill-syntax one-sided` asks), lowered
+  once to the one-sided forest with the side of every occurrence recorded,
+  written back two-sided as `Γ ⊢ A` by every output (the derivations, the
+  refutations, the nets, the errors, the exports and the bindings), with
+  a JSON form of its own, and proved by the two-sided focused search, by
+  the embedding of IMLL into MLL proof nets, by the additive fast path, or
+  by the Horn engine.
 - Proofs as compact terms over subformula occurrences, an independent
   checker that decides whether a term proves its sequent (in
   intuitionistic mode also that every sequent of the proof has one goal)
@@ -2054,8 +2077,9 @@ with every other feature).
 
 The library keeps a sequent as a compact arena of subformulas in negation
 normal form, one-sided (`Γ ⊢ Δ` becomes `⊢ Γ^⊥, Δ`); an intuitionistic
-sequent is the same arena read two-sided, through the polarization of its
-subformulas, with no second representation. On top of that it detects the
+sequent is written two-sided, lowered once to the same arena with the
+side of every subformula recorded, and read back two-sided through those
+sides, with no second representation. On top of that it detects the
 fragment a sequent lives in and builds the occurrence forest, the
 numbering of subformula occurrences that every proof-search engine, proof
 checker and proof net works on. A proof is a compact term over those

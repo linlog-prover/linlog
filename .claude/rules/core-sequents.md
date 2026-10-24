@@ -209,6 +209,11 @@ time and memory linear in the text. What the code relies on:
   `lltp::read` refuse the same words as parse errors. A new reader of
   names calls it too, so that every sequent written as text reads back
   as itself (H19: a JSON atom named `top` printed as the unit).
+- **The strict reading of intuitionistic text** is not this parser's:
+  `IllSequent::parse_within` runs it and then `classical`, a scan for
+  the classical tokens, so the parser and its journey are unchanged
+  (`core-forest.md`). `ParseError::hint` (absent from the JSON when
+  `None`) says what to write instead; `Display` puts it after the place.
 - **An error is one `ParseError`**: the byte span of the first character
   that cannot go on a sequent, and that character, or the end of the
   input; the same place in UTF-16 code units (what an editor in
@@ -361,6 +366,19 @@ as `Rule::name` (`Rule` itself serializes as its name, in
 closed. Reading it back goes through `Interactive::from_parts`, which
 replays every closed inference. It is the form a web client holds between
 requests, so it is pinned in `core/tests/serialize.rs`.
+
+`serialize/ill.rs` writes an `IllSequent` as `{"version": 5, "terms":
+[…], "atoms": […], "hypotheses": […], "goal": n}`, always at level 5
+(`wire::ILL`): an arena of ILL terms (`V`, `1`, `0`, `⊤`, `⊗`, `⊸` with
+the antecedent first, `&`, `⊕`, `!`), written from the reading in the
+written order of each root, a term on one side once and a formula once
+(a one-sided `~B` hypothesis-side and a goal's `B` are one `V`).
+Reading checks the names, the bounds and order (through the one-sided
+`Term::check_bounds` of the same shape), refuses an arena whose lowering
+could pass a `u32` of terms, lowers each term once per side it is needed
+on, counts the occurrences against the limits, and lowers through
+`IllSequent::lowered`, which records the sides. A classical tag is an
+unknown variant. `core/tests/wire/level-5.txt` holds one such document.
 
 `serialize/nets.rs` writes a `ProofStructure` as `{"version": 1,
 "sequent": …, "mix": false, "links": [[0, 2], [3, 4]]}` (the criterion's

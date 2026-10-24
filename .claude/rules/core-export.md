@@ -572,8 +572,11 @@ for NanoYalla. What the code relies on:
   drawing with its formulas has no hanging edges: the colours tell the
   hypotheses from the goal). The verdict drawn is
   `is_essential`'s (a directed cycle, or the path around an implication
-  plus that implication's dotted line, highlighted); the description is
-  the net's text form as before. A sequent without an intuitionistic
+  plus that implication's dotted line, highlighted); the title is the
+  sequent two-sided and the description the net's text form under the
+  reading (`written_in`), so an essential drawing has no classical
+  symbol; the front ends set `essential` in an intuitionistic mode, since
+  the plain drawing writes the one-sided formulas. A sequent without an intuitionistic
   reading is drawn as without the option, so one settings file serves
   classical and intuitionistic nets. The estimate adds an arrowhead's
   bytes per edge, root and link and a document's for the two extra

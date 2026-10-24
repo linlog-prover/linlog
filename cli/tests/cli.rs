@@ -492,6 +492,10 @@ fn prove_verdicts_and_exit_statuses() {
         (&["prove", "A * |- A"][..], "cannot parse the sequent"),
         (
             &["prove", "-i", "|- A par B"],
+            "intuitionistic linear logic has no par",
+        ),
+        (
+            &["prove", "-i", "--ill-syntax", "one-sided", "|- A par B"],
             "not an intuitionistic sequent",
         ),
         (
@@ -545,8 +549,9 @@ fn intuitionistic_mode() {
         (
             &["prove", "-i", "-q", "(A -o B) -o A |- A"],
             1,
-            "unprovable (IMLL, intuitionistic, two-sided engine): ~A occurs 1 more time than A in the \
-             one-sided sequent, so they cannot all meet in axioms",
+            "unprovable (IMLL, intuitionistic, two-sided engine): A occurs negatively 1 more time \
+             than positively (positive right of ⊢, negative left of it, an implication's antecedent \
+             on the other side), so they cannot all meet in axioms",
         ),
         (
             &["prove", "-q", "--engine", "additive", "|- A & B, ~A + ~B"],
@@ -560,7 +565,7 @@ fn intuitionistic_mode() {
     }
     for (args, error) in [
         (
-            &["prove", "-i", "|- A par B"][..],
+            &["prove", "-i", "--ill-syntax", "one-sided", "|- A par B"][..],
             "not an intuitionistic sequent: the subformula A ⅋ B is neither an intuitionistic \
              formula nor the negation of one",
         ),
@@ -910,13 +915,11 @@ fn mell_nets() {
     }
 
     // An intuitionistic proof has the net of its one-sided sequent, in
-    // `prove` and in `check`; an affine one none.
+    // `prove` and in `check`, written as the reading writes its formulas;
+    // an affine one none.
     let (status, out, _) = linlog(&["prove", "--net", "-i", "!a |- !a * !a"], "");
     assert_eq!(status, 0);
-    assert!(
-        out.contains("?~a[0]: ~a[2] in !a[4], ~a[3] in !a[6]"),
-        "{out}"
-    );
+    assert!(out.contains("!a[0]: a[2] in !a[4], a[3] in !a[6]"), "{out}");
     let (status, proof, _) = linlog(&["prove", "-i", "--format", "json", "!a |- !a * !a"], "");
     assert_eq!(status, 0);
     let (status, checked, _) = linlog(&["check", "--net", "-i"], &proof);
@@ -1332,8 +1335,10 @@ fn every_style_option() {
             false,
         ),
         (&ill, "svg", "background", "\"white\"", true),
+        // An intuitionistic net is drawn essential whatever the key says,
+        // a classical one with a reading by the key.
         (
-            &["--net", "-i", "A -o B, B -o C |- A -o C"],
+            &["--net", "A -o B, B -o C |- A -o C"],
             "svg",
             "essential",
             "true",
@@ -2412,4 +2417,142 @@ fn an_output_pipe_gets_the_output() {
     assert_eq!(status, 0, "{err}");
     assert!(reader.join().unwrap().starts_with("provable (MLL"));
     std::fs::remove_file(&fifo).unwrap();
+}
+
+/// The symbols of classical linear logic in the spellings of the text,
+/// LaTeX, Typst and SVG outputs, of which no intuitionistic output has any.
+const CLASSICAL: [&str; 8] = ["~", "⅋", "⊥", "?", r"\parr", r"\bot", r"\wn", "perp"];
+
+/// A random formula of intuitionistic linear logic over `a` and `b`, at
+/// most `depth` connectives deep, from the state of a linear congruence.
+fn ill_formula(state: &mut u64, depth: u32) -> String {
+    let mut next = |n: u64| {
+        *state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1);
+        (*state >> 33) % n
+    };
+    if depth == 0 || next(3) == 0 {
+        return ["a", "b", "a", "b", "1", "top", "0"][next(7) as usize].to_owned();
+    }
+    let connective = next(6);
+    let left = ill_formula(state, depth - 1);
+    if connective == 5 {
+        return format!("!{left}");
+    }
+    let right = ill_formula(state, depth - 1);
+    let op = ["*", "-o", "&", "+", "-o"][connective as usize];
+    format!("({left} {op} {right})")
+}
+
+/// No output of an intuitionistic sequent writes a symbol of classical
+/// linear logic: over random sequents, provable or not, the verdict line,
+/// the derivation as text, LaTeX, Typst, SVG and Rocq, the net as text
+/// and drawn, `seq print` in every format, and a session's goals and
+/// derivation (of a Rocq certificate its comments, whose code is Rocq's,
+/// with no constructor of the classical calculus).
+#[test]
+fn no_intuitionistic_output_writes_a_classical_symbol() {
+    let mut state = 40;
+    let mut proved = 0;
+    for _ in 0..24 {
+        let hypotheses: Vec<String> = (0..state % 3).map(|_| ill_formula(&mut state, 2)).collect();
+        let goal = ill_formula(&mut state, 3);
+        let sequent = format!("{} |- {goal}", hypotheses.join(", "));
+        let check = |what: &str, out: &str| {
+            let out = out.replace("<?xml", "").replace("?>", "");
+            let rocq = what == "rocq";
+            let comments: String = out
+                .lines()
+                .filter(|line| !rocq || line.starts_with("(*"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            for symbol in CLASSICAL {
+                assert!(
+                    !comments.contains(symbol),
+                    "{sequent:?}: {what} writes {symbol:?}:\n{out}"
+                );
+            }
+            for word in ["parr", "wn ", "dual", " ll "] {
+                assert!(
+                    !rocq || !out.contains(word),
+                    "{sequent:?}: {what} writes {word:?}"
+                );
+            }
+        };
+        for format in ["text", "latex", "typst", "svg", "rocq"] {
+            let (status, out, err) = linlog(
+                &[
+                    "prove",
+                    "-i",
+                    "--timeout",
+                    "2s",
+                    "--format",
+                    format,
+                    &sequent,
+                ],
+                "",
+            );
+            assert!(status != 2, "{sequent:?}: {err}");
+            proved += usize::from(status == 0 && format == "text");
+            check(format, &out);
+            check(format, &err);
+        }
+        for format in ["text", "svg"] {
+            let (_, out, err) = linlog(
+                &[
+                    "prove",
+                    "-i",
+                    "--timeout",
+                    "2s",
+                    "--net",
+                    "--format",
+                    format,
+                    &sequent,
+                ],
+                "",
+            );
+            check("the net", &out);
+            check("the net", &err);
+        }
+        for format in ["text", "latex", "typst", "svg"] {
+            let (status, out, _) =
+                linlog(&["seq", "print", "-i", "--format", format, &sequent], "");
+            assert_eq!(status, 0, "{sequent:?}");
+            check(format, &out);
+        }
+        let (_, out, err) = linlog(
+            &["interact", "-i", &sequent],
+            "goals\nrules 0 0\nclose 0\nshow\nquit\n",
+        );
+        check("a session", &out);
+        check("a session", &err);
+    }
+    assert!((4..24).contains(&proved), "{proved} of 24 proved");
+}
+
+/// An intuitionistic sequent in JSON whose shared subformulas unfold past
+/// `--occurrence-limit` is refused before anything of that size is built,
+/// as a one-sided one is.
+#[test]
+fn an_intuitionistic_json_sequent_is_read_within_the_limit() {
+    let mut terms = vec![r#"{"V":0}"#.to_owned()];
+    terms.extend((0..29).map(|n| format!(r#"{{"⊗":[{n},{n}]}}"#)));
+    let json = format!(
+        r#"{{"version":5,"terms":[{}],"atoms":["a"],"hypotheses":[],"goal":29}}"#,
+        terms.join(",")
+    );
+    let (status, _, err) = linlog(
+        &[
+            "prove",
+            "-i",
+            "--input-format",
+            "json",
+            "--occurrence-limit",
+            "1000",
+        ],
+        &json,
+    );
+    assert_eq!(status, 2, "{err}");
+    assert!(err.contains("more than the limit of 1000"), "{err}");
 }

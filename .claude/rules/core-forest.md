@@ -156,6 +156,71 @@ the checker, the two-sided derivation and the future essential nets read.
   unchanged), and the JSON of an `Outcome` uses it; a `Fragment` reads
   back from either spelling.
 
+## The intuitionistic sequent as written
+
+`occurrences/ill.rs`: `IllSequent` is a sequent of ILL as its author
+wrote it (hypotheses in the order written, exactly one goal), held as
+the lowered forest, the side of every occurrence and the goal.
+
+- **Three ways in**: `IllSequent::parse_within` (strict text), the JSON
+  form (`serialize/ill.rs`, wire level 5) and `read_one_sided`, the
+  explicit reading of a one-sided sequent, which is `Reading::new` and
+  refuses what it refuses. The first two lower through `lowered`.
+- **The sides are recorded, not inferred**: `lowered` gives the roots
+  their written sides and passes each down, flipping at the left factor
+  of a `⅋` on the goal's side or a `⊗` on the hypotheses' side. That is
+  exact because typed input writes no `⅋`, so those are exactly the
+  written `⊸` (whose lowering puts the antecedent left), and a `⊤` or
+  `0` takes its root's side, never a guess. A `debug_assert` and the
+  test `the_recorded_sides_are_the_readings` (generated sequents and the
+  units on either side) pin that the recorded sides are
+  `Reading::new`'s, on which the checker's one-succedent condition
+  rests; the engines, the checker and the views keep calling
+  `Reading::new` on the lowered forest (the front door takes a
+  `Sequent`), and the test is what makes them one reading.
+- **The strict parser leaves the parser alone**: it runs the
+  commutative parser and `parse::classical`, a scan of the text for a
+  classical token (`~ ^ ⅋ ? ⊥`, `|` not before `-`, the identifiers
+  `par` and `bot`, every identifier skipped whole), which no state of
+  the parser is needed for, since none of those tokens is ILL syntax
+  anywhere; a parse error before the first classical token wins. The
+  hint is `ParseError::hint`. A guard in the parser's arms would have
+  cost the `read-text` journey on every text.
+- **The scan must cut tokens where the parser does**: `|-` and `-o` are
+  one token each and an identifier starts only where the parser starts
+  one, else `A -obot` (the parser's `-o` then `bot`) passes as the atom
+  `obot`, and the recorded sides then describe another sequent than the
+  forest (a reviewer's finding; `debug_assert` in `lowered` catches it in
+  a debug build). It scans the whole text and reports only a token before
+  the parser's error, so that a cut text does not split a `|-`. A new
+  token of the parser is a new case of the scan.
+- **Equality is the written sequent's**: occurrence by occurrence
+  (kind, atom name, side), so a parsed sequent and its JSON, whose
+  arenas share differently, are equal.
+- Commutative only: the Lambek calculus keeps `parse_ordered` and
+  `Reading::of_mode`.
+- `IllSyntax` (`strict`, `one-sided`) in `InputOptions`
+  (`Settings::input`) is how a front end reads an intuitionistic
+  sequent's text; the command's `--ill-syntax` and the bindings' settings
+  set it.
+- **Raising**: every printer of an intuitionistic sequent reads a
+  `Reading` (`Reading::formula`, `Display`, `Derivation::two_sided`). An
+  error report (`Described`) reads the reading of its owner's mode
+  (the sealed `Owner::mode`: a proof's recorded mode, a two-sided
+  derivation, a session) or of `Described::in_mode`, and `Names`
+  (`errors/describe.rs`) carries it to every writer that names an
+  occurrence. The property tests
+  `no_intuitionistic_output_writes_a_classical_symbol` (library and
+  command) and the bindings' one pin that nothing one-sided leaks; a new
+  output joins them.
+- **Where later steps plug in**: a cut's formula is typed by the user
+  as an ILL formula; its two occurrences get their sides where the cut
+  is made (the formula on the goal's side in the left premise, on the
+  hypotheses' in the right), as `lowered` gives a root's. An instance's
+  substitution enters the raising at `Reading::formula`'s atom arm
+  (`TEXT.ill`), the one place an atom is written; quantifiers are new
+  `IllConnective` variants and new tags of the JSON form.
+
 ## Decisions
 
 The author's answers for the release (`plan/notes/api.md` §14), which

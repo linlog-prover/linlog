@@ -522,10 +522,15 @@ impl Interactive {
         member.occ()
     }
 
-    /// Returns the formula a member of the session stands for, as the
-    /// one-sided sequent writes it.
+    /// Returns the formula a member of the session stands for: in an
+    /// intuitionistic mode as the session's reading writes it, two-sided
+    /// (`A ⊸ B` for a hypothesis the one-sided sequent holds as `A ⊗
+    /// ~B`), else as the one-sided sequent writes it.
     pub fn formula(&self, member: Member) -> impl Display + '_ {
-        self.forest.formula(member.occ())
+        match self.reading() {
+            Some(reading) => reading.formula(member.occ()).to_string(),
+            None => self.forest.formula(member.occ()).to_string(),
+        }
     }
 
     /// Returns the sequent being proved.

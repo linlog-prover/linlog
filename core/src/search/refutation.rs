@@ -245,8 +245,15 @@ impl Refutation {
     }
 
     /// Writes the refutation as a phrase, each atom by its name in
-    /// `names`, or by its number without them.
-    fn write(&self, f: &mut Formatter<'_>, names: Option<&[String]>) -> FmtResult {
+    /// `names`, or by its number without them; of an `intuitionistic`
+    /// sequent in its two-sided terms, an atom's occurrences positive
+    /// right of `⊢` and negative left of it.
+    fn write(
+        &self,
+        f: &mut Formatter<'_>,
+        names: Option<&[String]>,
+        intuitionistic: bool,
+    ) -> FmtResult {
         let name = |atom: Atom| match names.and_then(|names| names.get(atom.index())) {
             Some(name) => name.clone(),
             None => format!("#{}", atom.get()),
@@ -254,14 +261,21 @@ impl Refutation {
         match self {
             Refutation::Exhausted => f.write_str("the search was exhaustive"),
             Refutation::Unbalanced(Unbalanced { atom, least, most }) => {
-                write_unbalanced(f, &name(*atom), *least, *most, None)
+                write_unbalanced(f, &name(*atom), *least, *most, None, intuitionistic)
             }
             Refutation::OneSided(OneSided {
                 atom,
                 least,
                 most,
                 copied,
-            }) => write_unbalanced(f, &name(*atom), *least, *most, Some(*copied)),
+            }) => write_unbalanced(
+                f,
+                &name(*atom),
+                *least,
+                *most,
+                Some(*copied),
+                intuitionistic,
+            ),
             Refutation::Equation(Equation {
                 formulas,
                 needed,
@@ -277,13 +291,26 @@ impl Refutation {
                 } else {
                     needed.to_string()
                 };
-                write!(
-                    f,
-                    "the count equation fails: a provable one-sided sequent of MLL has {}#⊗ − \
-                     #⅋ − #1 + #⊥ + 2 formulas, here {tensors} − {pars} − {ones} + {bottoms} + 2 = \
-                     {needed}, and this one has {formulas}",
-                    if *mix { "at least " } else { "exactly " },
-                )
+                let exactly = if *mix { "at least " } else { "exactly " };
+                if intuitionistic {
+                    // A one-sided `⊗` is a `⊗` right of `⊢` or a `⊸` left
+                    // of it, a `⅋` the other two, a `1` a `1` right and a
+                    // `⊥` a `1` left.
+                    write!(
+                        f,
+                        "the count equation fails: a provable sequent of IMLL has {exactly}#⊗ᵣ + \
+                         #⊸ₗ − #⊗ₗ − #⊸ᵣ − #1ᵣ + #1ₗ + 2 formulas (ᵣ right of ⊢, ₗ left of it, an \
+                         implication's antecedent on the other side), here {tensors} − {pars} − \
+                         {ones} + {bottoms} + 2 = {needed}, and this one has {formulas}",
+                    )
+                } else {
+                    write!(
+                        f,
+                        "the count equation fails: a provable one-sided sequent of MLL has \
+                         {exactly}#⊗ − #⅋ − #1 + #⊥ + 2 formulas, here {tensors} − {pars} − \
+                         {ones} + {bottoms} + 2 = {needed}, and this one has {formulas}",
+                    )
+                }
             }
             Refutation::StateEquation(StateEquation { atoms, clauses, .. }) => {
                 f.write_str(
@@ -332,10 +359,13 @@ impl Refutation {
                         if n == 1 { "is" } else { "are" }
                     )?,
                 }
-                f.write_str(
+                f.write_str(if intuitionistic {
+                    " (! erased, ⊗ and & as and, ⊕ as or, ⊸ as implies, 1 and ⊤ true, 0 false), \
+                     and every provable sequent reads as a tautology"
+                } else {
                     " (! and ? erased, ⊗ and & as and, ⅋ and ⊕ as or, 1 and ⊤ true, ⊥ and 0 false), \
-                     and every provable sequent reads as a tautology",
-                )
+                     and every provable sequent reads as a tautology"
+                })
             }
             Refutation::Saturated(Saturated { sequents, .. }) => write!(
                 f,
@@ -368,25 +398,60 @@ fn list(names: &[String]) -> String {
 /// Writes why the literals of an atom named `name` cannot all meet in
 /// axioms: the one outnumbers the other between `least` and `most` times,
 /// outside the exponentials where some literals, all `copied`, lie below
-/// one.
+/// one; of an `intuitionistic` sequent as its positive and negative
+/// occurrences, which are its atoms right and left of `⊢`.
 fn write_unbalanced(
     f: &mut Formatter<'_>,
     name: &str,
     least: i32,
     most: i32,
     copied: Option<Sign>,
+    intuitionistic: bool,
 ) -> FmtResult {
-    let (more, fewer) = if least > 0 {
-        (name.to_owned(), format!("~{name}"))
-    } else {
-        (format!("~{name}"), name.to_owned())
-    };
     let (a, b) = (least.unsigned_abs(), most.unsigned_abs());
     let (a, b) = (a.min(b), a.max(b));
     let excess = if a == b {
         format!("{a}")
     } else {
         format!("{a} to {b}")
+    };
+    let times = if a == 1 && b == 1 { "time" } else { "times" };
+    let alternatives = if a == b {
+        ""
+    } else {
+        ", whichever additive alternatives a proof takes"
+    };
+    if intuitionistic {
+        // An atom in output position is the positive literal.
+        let (more, fewer) = if least > 0 {
+            ("positively", "negatively")
+        } else {
+            ("negatively", "positively")
+        };
+        let (place, copies) = match copied {
+            Some(sign) => (
+                " outside the exponentials",
+                format!(
+                    ", and every occurrence of it below one, which copies add, is {}",
+                    match sign {
+                        Sign::Atom => "positive",
+                        Sign::Dual => "negative",
+                    }
+                ),
+            ),
+            None => ("", String::new()),
+        };
+        return write!(
+            f,
+            "{name} occurs {more} {excess} more {times} than {fewer}{place}{alternatives}{copies} \
+             (positive right of ⊢, negative left of it, an implication's antecedent on the other \
+             side), so they cannot all meet in axioms",
+        );
+    }
+    let (more, fewer) = if least > 0 {
+        (name.to_owned(), format!("~{name}"))
+    } else {
+        (format!("~{name}"), name.to_owned())
     };
     // The copied literal is the one `copied` names, which the engine's
     // refutations make the one that outnumbers; a form read from JSON says
@@ -408,14 +473,8 @@ fn write_unbalanced(
     };
     write!(
         f,
-        "{more} occurs {excess} more {} than {fewer} {place}{}{copies}, so they cannot all \
-         meet in axioms",
-        if a == 1 && b == 1 { "time" } else { "times" },
-        if a == b {
-            ""
-        } else {
-            ", whichever additive alternatives a proof takes"
-        }
+        "{more} occurs {excess} more {times} than {fewer} {place}{alternatives}{copies}, so they \
+         cannot all meet in axioms",
     )
 }
 
@@ -423,7 +482,7 @@ impl Display for Refutation {
     /// Writes the refutation as a phrase, such as `the search was
     /// exhaustive`, with every atom by its number, as in `#0`.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.write(f, None)
+        self.write(f, None, false)
     }
 }
 
@@ -497,9 +556,14 @@ impl Disproof {
 }
 
 impl Display for Disproof {
-    /// Writes the refutation as a phrase, with every atom by its name.
+    /// Writes the refutation as a phrase, with every atom by its name, in
+    /// an intuitionistic mode in the sequent's two-sided terms.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.refutation.write(f, Some(self.sequent.atom_names()))
+        self.refutation.write(
+            f,
+            Some(self.sequent.atom_names()),
+            self.mode.is_intuitionistic(),
+        )
     }
 }
 

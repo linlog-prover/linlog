@@ -553,11 +553,46 @@ impl std::fmt::Display for MellStructure {
     /// and the reason with formulas. Every vertex is written as its
     /// formula with its id. No trailing newline.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.write(f, None)
+    }
+}
+
+impl MellStructure {
+    /// Returns the structure for display as `mode` reads it: as
+    /// [`Display`](std::fmt::Display) writes it, and in an intuitionistic
+    /// mode, where the sequent has a reading, with the sequent two-sided
+    /// and every formula as the reading writes it (`!A[0]: A[3] in
+    /// !A[1]`).
+    pub fn written_in(&self, mode: crate::Mode) -> impl std::fmt::Display + '_ {
+        crate::nets::In {
+            structure: self,
+            mode,
+        }
+    }
+
+    /// Writes the structure as its `Display` does, or as `mode` reads
+    /// it: in an intuitionistic mode every formula as the reading writes
+    /// it, where the sequent has one.
+    pub(crate) fn write(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        mode: Option<crate::Mode>,
+    ) -> std::fmt::Result {
+        let reading = mode
+            .filter(|mode| mode.is_intuitionistic())
+            .and_then(|_| self.reading().ok());
         let vertex = |f: &mut std::fmt::Formatter<'_>, v: VertexId| {
-            let formula = self.forest.formula(self.occurrence[v.index()]);
-            write!(f, "{formula}[{}]", v.get())
+            let o = self.occurrence[v.index()];
+            match &reading {
+                Some(reading) => write!(f, "{}[{}]", reading.formula(o), v.get()),
+                None => write!(f, "{}[{}]", self.forest.formula(o), v.get()),
+            }
         };
-        writeln!(f, "{}", self.forest.sequent())?;
+        match &reading {
+            Some(reading) => writeln!(f, "{reading}")?,
+            None => writeln!(f, "{}", self.forest.sequent())?,
+        }
+
         for q in self
             .vertices()
             .filter(|&q| self.kind(q.get()) == Kind::Quest)
@@ -599,7 +634,10 @@ impl std::fmt::Display for MellStructure {
         match self.is_correct(|_| false) {
             Ok(()) if self.criterion.mix => f.write_str("proof net with Mix"),
             Ok(()) => f.write_str("proof net"),
-            Err(e) => write!(f, "not a proof net: {}", e.describe(self)),
+            Err(e) => match mode {
+                Some(mode) => write!(f, "not a proof net: {}", e.describe(self).in_mode(mode)),
+                None => write!(f, "not a proof net: {}", e.describe(self)),
+            },
         }
     }
 }

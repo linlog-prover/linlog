@@ -4,10 +4,10 @@
 //! What a check reports: the derived sequents of a failing node, the
 //! fault, or the refusal that ended it without a verdict.
 
-use crate::errors::describe::{Budget, Limit, cut, occurrence};
+use crate::errors::describe::{Budget, Limit, Names, cut, occurrence};
 use crate::errors::{Described, Owner, Subject};
 use crate::limits::Refusal;
-use crate::occurrences::{Forest, Member, ShapeError};
+use crate::occurrences::{Member, ShapeError, Side};
 use crate::proofs::{Node, NodeId};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -36,32 +36,55 @@ impl Display for Dyadic {
 impl Dyadic {
     /// Writes the sequent as [`Display`] does, with formulas instead of ids
     /// when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
-        let list = |f: &mut Formatter<'_>, ids: &[Member]| {
+    fn write(&self, f: &mut Formatter<'_>, names: Option<Names<'_>>, limit: Limit) -> FmtResult {
+        let list = |f: &mut Formatter<'_>, ids: &mut dyn Iterator<Item = &Member>, len: usize| {
             let mut budget = Budget::new(f, limit);
-            for (i, &o) in ids.iter().enumerate() {
+            for (i, &o) in ids.enumerate() {
                 let written =
                     std::fmt::Write::write_str(&mut budget, if i == 0 { " " } else { ", " })
-                        .and_then(|()| occurrence(&mut budget, forest, o.occ()));
+                        .and_then(|()| occurrence(&mut budget, names, o.occ()));
                 if written.is_err() && budget.cut {
-                    return write!(budget.f, "… ({} formulas)", ids.len());
+                    return write!(budget.f, "… ({len} formulas)");
                 }
                 written?;
             }
             Ok(())
         };
+        let any =
+            |f: &mut Formatter<'_>, empty: bool| f.write_str(if empty { " …" } else { ", …" });
+        // Two-sided under a reading: `Θ ; Γ ⊢ C`, the unrestricted zone
+        // being hypotheses under a `!`.
+        if let Some(reading) = names.and_then(|n| n.reading) {
+            let side = |side: Side| move |o: &&Member| reading.position(o.occ()) == side;
+            let inputs = self.gamma.iter().filter(side(Side::Input)).count();
+            if !self.theta.is_empty() {
+                list(f, &mut self.theta.iter(), self.theta.len())?;
+                f.write_str(" ;")?;
+            }
+            list(f, &mut self.gamma.iter().filter(side(Side::Input)), inputs)?;
+            if self.any {
+                any(f, inputs == 0)?;
+            }
+            f.write_str(if self.theta.is_empty() && inputs == 0 && !self.any {
+                "⊢"
+            } else {
+                " ⊢"
+            })?;
+            let outputs = self.gamma.len() - inputs;
+            return list(
+                f,
+                &mut self.gamma.iter().filter(side(Side::Output)),
+                outputs,
+            );
+        }
         f.write_str("⊢")?;
         if !self.theta.is_empty() {
-            list(f, &self.theta)?;
+            list(f, &mut self.theta.iter(), self.theta.len())?;
             f.write_str(" ;")?;
         }
-        list(f, &self.gamma)?;
+        list(f, &mut self.gamma.iter(), self.gamma.len())?;
         if self.any {
-            f.write_str(if self.gamma.is_empty() {
-                " …"
-            } else {
-                ", …"
-            })?;
+            any(f, self.gamma.is_empty())?;
         }
         Ok(())
     }
@@ -240,7 +263,7 @@ impl CheckError {
     pub(crate) fn write(
         &self,
         f: &mut Formatter<'_>,
-        forest: Option<&Forest>,
+        names: Option<Names<'_>>,
         limit: Limit,
     ) -> FmtResult {
         let invalid = match self {
@@ -254,18 +277,19 @@ impl CheckError {
                 );
             }
         };
-        invalid.write(f, forest, limit)
+        invalid.write(f, names, limit)
     }
 }
 
 impl Invalid {
     /// Writes the fault as [`CheckError`]'s `Display` does, with formulas
     /// instead of ids when a forest is given.
-    fn write(&self, f: &mut Formatter<'_>, forest: Option<&Forest>, limit: Limit) -> FmtResult {
-        write!(f, "node {} ({}", self.node.get(), self.rule.name())?;
+    fn write(&self, f: &mut Formatter<'_>, names: Option<Names<'_>>, limit: Limit) -> FmtResult {
+        let reading = names.and_then(|n| n.reading);
+        write!(f, "node {} ({}", self.node.get(), name(self.rule, reading))?;
         for (i, o) in self.rule.members().enumerate() {
             f.write_str(if i == 0 { " on " } else { ", " })?;
-            cut(f, forest, o.occ(), limit)?;
+            cut(f, names, o.occ(), limit)?;
         }
         for (i, p) in self.rule.premises().enumerate() {
             write!(f, "{}{}", if i == 0 { " from " } else { ", " }, p.get())?;
@@ -273,7 +297,7 @@ impl Invalid {
         f.write_str(")")?;
         for (i, p) in self.premises.iter().enumerate() {
             f.write_str(if i == 0 { " with premises " } else { " and " })?;
-            p.write(f, forest, limit)?;
+            p.write(f, names, limit)?;
         }
         f.write_str(": ")?;
         use Fault::*;
@@ -281,26 +305,30 @@ impl Invalid {
             Forbidden => f.write_str("the mode forbids the rule"),
             Shape(e) => {
                 f.write_str("not an intuitionistic sequent: ")?;
-                e.write(f, forest, limit)
+                e.write(f, names, limit)
             }
             Succedents { count } => write!(
                 f,
                 "a sequent of the rule has {count} formulas on the right of ⊢ instead of one"
             ),
             Kind { member: o } => {
-                if forest.is_none() {
+                if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, forest, (*o).occ(), limit)?;
+                cut(f, names, (*o).occ(), limit)?;
                 f.write_str(" is not what the rule acts on")
             }
-            NotDual => f.write_str("the literals are not an atom and its negation"),
+            NotDual => f.write_str(if reading.is_some() {
+                "the axiom's formulas are not one atom on either side of ⊢"
+            } else {
+                "the literals are not an atom and its negation"
+            }),
             Missing { premise, member: o } => {
                 write!(f, "premise {premise} lacks ")?;
-                if forest.is_none() {
+                if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, forest, (*o).occ(), limit)
+                cut(f, names, (*o).occ(), limit)
             }
             NotEmpty => f.write_str("the linear zone is not empty"),
             Differ => f.write_str("the premises differ"),
@@ -309,18 +337,23 @@ impl Invalid {
                 "the sequent has no formula left of ⊢, which the Lambek calculus without empty antecedents forbids",
             ),
             NotUnderQuest { member: o } => {
-                if forest.is_none() {
+                if names.is_none() {
                     f.write_str("occurrence ")?;
                 }
-                cut(f, forest, (*o).occ(), limit)?;
-                f.write_str(" is not under a ?")
+                cut(f, names, (*o).occ(), limit)?;
+                // An input `?` is a hypothesis under a `!`.
+                f.write_str(if reading.is_some() {
+                    " is not under a hypothesis's !"
+                } else {
+                    " is not under a ?"
+                })
             }
             Surplus => f.write_str(
                 "the linear zone holds more formulas than the rest of the proof can consume",
             ),
             Conclusion { derived: d } => {
                 f.write_str("the proof concludes ")?;
-                d.write(f, forest, limit)?;
+                d.write(f, names, limit)?;
                 f.write_str(", not the sequent")
             }
         }
@@ -328,3 +361,28 @@ impl Invalid {
 }
 
 impl std::error::Error for CheckError {}
+
+/// Returns the name of a node's rule: its tag, or under a reading the
+/// two-sided name of the rule on its principal formula (`⊸L` for a `⊗` on
+/// a hypothesis).
+fn name(node: Node, reading: Option<&crate::Reading<'_>>) -> &'static str {
+    use crate::proofs::{Branch, Named, Rule};
+    let (Some(reading), Some(o)) = (reading, node.principal()) else {
+        return node.name();
+    };
+    let rule = match node {
+        Node::Tensor(..) => Rule::Tensor,
+        Node::Par(..) => Rule::Par,
+        Node::One(_) => Rule::One,
+        Node::Bot(..) => Rule::Bot,
+        Node::With(..) => Rule::With,
+        Node::Plus(_, Branch::Left, _) => Rule::PlusLeft,
+        Node::Plus(_, Branch::Right, _) => Rule::PlusRight,
+        Node::Top(_) => Rule::Top,
+        Node::Bang(..) => Rule::Promotion,
+        Node::Quest(..) => Rule::Dereliction,
+        // Their tags name no connective.
+        Node::Ax(..) | Node::Copy(..) | Node::Weaken(..) | Node::Mix(..) => return node.name(),
+    };
+    Named::applied(rule, Some(reading), o.occ()).name()
+}

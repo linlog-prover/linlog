@@ -13,9 +13,9 @@ use linlog::export::{latex, pdf, png, rocq, svg, typst};
 use linlog::proofs::Compact;
 use linlog::proofs::interactive::{Applicable, Inverted, Needs, Split};
 use linlog::{
-    Criterion, Disproof, Error, Fragment, GoalId, Interactive, MellStructure, Member, Mode, Named,
-    NetError, Outcome, Progress, ProofStructure, Rule, Sequent, Settings, Side, Step, Verdict,
-    nets, wire,
+    Criterion, Disproof, Error, Fragment, GoalId, IllSequent, IllSyntax, Interactive,
+    MellStructure, Member, Mode, Named, NetError, Outcome, Progress, ProofStructure, Rule, Sequent,
+    Settings, Side, Step, Verdict, nets, wire,
 };
 use serde::{Deserialize, Serialize};
 
@@ -135,10 +135,46 @@ pub fn read(input: &str, settings: &str) -> Result<String, Failure> {
     }
 }
 
+/// Reads a document as [`read`] does, for a session in `mode`: in an
+/// intuitionistic mode of the commutative order a sequent typed is read by
+/// the settings' `input.intuitionistic`, its own syntax alone by default
+/// (a symbol of classical linear logic refused with a hint), a sequent in
+/// JSON may be an intuitionistic sequent's document as well as `seq json`'s,
+/// and `text` is the sequent two-sided; in any other mode, and for a
+/// session, it is [`read`].
+///
+/// # Errors
+///
+/// As [`read`], an unknown mode, and a sequent with no intuitionistic
+/// reading.
+pub fn read_as(input: &str, mode: &str, settings: &str) -> Result<String, Failure> {
+    let mode: Mode = mode.parse().map_err(Failure::from)?;
+    let read_settings = tab::read(settings)?;
+    if !commutative_intuitionistic(mode) {
+        return read(input, settings);
+    }
+    if is_json(input) {
+        let probe: Probe = serde_json::from_str(input).map_err(Failure::json)?;
+        if probe.inferences.is_some() {
+            return read(input, settings);
+        }
+    }
+    let sequent = ill_of(input, &read_settings)?;
+    written(&Read {
+        kind: "sequent",
+        text: sequent.to_string(),
+        fragment: Fragments::of(sequent.sequent()),
+        sequent: sequent.sequent(),
+        mode: None,
+        session: None,
+    })
+}
+
 /// A formula of a goal as the page shows it.
 #[derive(Serialize)]
 struct Formula {
-    /// The formula in the parser's Unicode syntax.
+    /// The formula in the parser's Unicode syntax: in intuitionistic mode
+    /// as the reading writes it in its position, as `reading` does.
     text: String,
     /// Its occurrence in the sequent's forest.
     occurrence: u32,
@@ -146,8 +182,9 @@ struct Formula {
     /// the goal, `null` in classical mode.
     side: Option<&'static str>,
     /// In intuitionistic mode, the formula as the reading writes it in its
-    /// position (a hypothesis `A ⊸ B` as `A ⊸ B`, where `text` has its
-    /// one-sided `A ⊗ ~B`); absent in classical mode.
+    /// position (a hypothesis `A ⊸ B` as `A ⊸ B`, which the one-sided
+    /// sequent holds as `A ⊗ ~B`), the same as `text`; absent in classical
+    /// mode.
     #[serde(skip_serializing_if = "Option::is_none")]
     reading: Option<String>,
 }
@@ -288,8 +325,8 @@ fn changed(state: &Interactive, said: impl Serialize) -> Result<String, Failure>
 /// does not read (an intuitionistic one needs a reading).
 pub fn start(sequent: &str, mode: &str, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
-    let sequent = sequent_of(sequent, &settings)?;
     let mode: Mode = mode.parse().map_err(Failure::from)?;
+    let sequent = sequent_in(sequent, mode, &settings)?;
     let mut state = Interactive::within(&sequent, mode, &settings.limits).map_err(Failure::from)?;
     let mut automatic = Automatic::default();
     if settings.interactive.invertible {
@@ -828,8 +865,8 @@ struct Decided {
 /// As [`start`] for the sequent and the mode, and the search's.
 pub fn prove(sequent: &str, mode: &str, settings: &str) -> Result<String, Failure> {
     let settings = tab::read(settings)?;
-    let sequent = sequent_of(sequent, &settings)?;
     let mode: Mode = mode.parse().map_err(Failure::from)?;
+    let sequent = sequent_in(sequent, mode, &settings)?;
     let outcome = linlog::prove_within(&sequent, mode, &settings.search, &settings.limits, never)
         .map_err(Failure::from)?;
     written(&Decided {
@@ -886,7 +923,14 @@ pub fn draw_net(session: &str, settings: &str) -> Result<String, Failure> {
     let mode = state.mode();
     nets_exist(proof.sequent().fragment(), mode).map_err(|e| Failure::from(Error::from(e)))?;
     let criterion = Criterion::of(mode).map_err(|e| Failure::from(Error::from(e)))?;
-    let (svg_style, limits) = (&settings.styles.svg, &settings.limits);
+    // An intuitionistic net is drawn as its essential net, whose formulas
+    // are the intuitionistic ones.
+    let svg_style = &settings
+        .styles
+        .svg
+        .clone()
+        .with_essential(settings.styles.svg.essential || mode.is_intuitionistic());
+    let limits = &settings.limits;
     if proof.sequent().fragment().has_exponentials() {
         let net =
             MellStructure::from_proof(&proof, criterion, limits, never).map_err(Failure::from)?;
@@ -990,6 +1034,54 @@ pub fn certificate(document: &str, settings: &str) -> Result<String, Failure> {
 /// Returns whether a text is a JSON document rather than a typed sequent.
 fn is_json(input: &str) -> bool {
     input.trim_start().starts_with('{')
+}
+
+/// Returns whether `mode` reads its sequents as intuitionistic sequents
+/// of the commutative order, which the strict syntax is for.
+fn commutative_intuitionistic(mode: Mode) -> bool {
+    mode.is_intuitionistic() && !mode.is_ordered()
+}
+
+/// Reads an intuitionistic sequent: typed by the settings'
+/// `input.intuitionistic`, or as JSON, an intuitionistic sequent's
+/// document or a one-sided sequent read as intuitionistic.
+fn ill_of(input: &str, settings: &Settings) -> Result<IllSequent, Failure> {
+    let limits = &settings.limits;
+    if is_json(input) {
+        /// The key that tells an intuitionistic sequent's document.
+        #[derive(Deserialize)]
+        struct Ill {
+            /// Its hypotheses.
+            hypotheses: Option<serde::de::IgnoredAny>,
+        }
+        let probe: Ill = serde_json::from_str(input).map_err(Failure::json)?;
+        if probe.hypotheses.is_some() {
+            let mut json = serde_json::Deserializer::from_str(input);
+            let sequent = wire::upgrade(&mut json, limits).map_err(Failure::from)?;
+            json.end().map_err(Failure::json)?;
+            return Ok(sequent);
+        }
+        let sequent = sequent_of(input, settings)?;
+        return IllSequent::read_one_sided(sequent, limits).map_err(Failure::from);
+    }
+    match settings.input.intuitionistic {
+        IllSyntax::OneSided => {
+            let sequent = Sequent::parse_within(input, limits).map_err(Failure::from)?;
+            IllSequent::read_one_sided(sequent, limits).map_err(Failure::from)
+        }
+        // A syntax a later version adds reads as the strict one here.
+        _ => IllSequent::parse_within(input, limits).map_err(Failure::from),
+    }
+}
+
+/// Reads a sequent for a session or a search in `mode`: in an
+/// intuitionistic mode of the commutative order as [`ill_of`] reads it,
+/// else typed or as JSON.
+fn sequent_in(input: &str, mode: Mode, settings: &Settings) -> Result<Sequent, Failure> {
+    if commutative_intuitionistic(mode) {
+        return ill_of(input, settings).map(IllSequent::into_sequent);
+    }
+    sequent_of(input, settings)
 }
 
 /// Reads a sequent, typed or as JSON.

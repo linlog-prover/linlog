@@ -200,8 +200,8 @@ pub(crate) struct ProveArgs {
     pub(crate) stats: bool,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
-    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
-    /// of the fields the flags name in parentheses (`{"search":
+    /// `search`, `view`, `styles`, `batch`, `ordinary` and `input`, each an
+    /// object of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error;
     /// `ordinary` applies under --logic, which names the logic, and
@@ -532,8 +532,8 @@ pub(crate) struct InteractArgs {
     pub(crate) rocq: RocqArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
-    /// `search`, `view`, `styles`, `batch`, `ordinary` and `interactive`,
-    /// each an object of the fields the flags name in parentheses
+    /// `search`, `view`, `styles`, `batch`, `ordinary`, `interactive` and
+    /// `input`, each an object of the fields the flags name in parentheses
     /// (`{"search": {"copies": 3}, "limits": {"memory_bytes": null}}`); a
     /// field left out keeps the command's default, and a misspelt one is
     /// an error; `ordinary` applies under --logic, which names the logic
@@ -591,8 +591,8 @@ pub(crate) struct CheckArgs {
     pub(crate) output: OutputArgs,
     /// Read the settings from a JSON file, before the flags, which
     /// override it: an object with any of the keys `clock`, `limits`,
-    /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
-    /// of the fields the flags name in parentheses (`{"search":
+    /// `search`, `view`, `styles`, `batch`, `ordinary` and `input`, each an
+    /// object of the fields the flags name in parentheses (`{"search":
     /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
     /// out keeps the command's default, and a misspelt one is an error;
     /// `ordinary` applies under --logic, which names the logic
@@ -652,8 +652,8 @@ pub(crate) enum SeqCommand {
         memory_limit: Bytes,
         /// Read the settings from a JSON file, before the flags, which
         /// override it: an object with any of the keys `clock`, `limits`,
-        /// `search`, `view`, `styles`, `batch` and `ordinary`, each an object
-        /// of the fields the flags name in parentheses (`{"search":
+        /// `search`, `view`, `styles`, `batch`, `ordinary` and `input`, each
+        /// an object of the fields the flags name in parentheses (`{"search":
         /// {"copies": 3}, "limits": {"memory_bytes": null}}`); a field left
         /// out keeps the command's default, and a misspelt one is an error;
         /// `ordinary` applies under --logic, which names the logic
@@ -675,6 +675,11 @@ pub(crate) enum SeqCommand {
         /// of ⊢ in the reverse order
         #[arg(long)]
         cyclic: bool,
+        /// Print the intuitionistic sequent's own form: its formulas with
+        /// the connectives of intuitionistic linear logic, its hypotheses
+        /// and its goal, which --intuitionistic reads too
+        #[arg(short, long, conflicts_with_all = ["cyclic", "optimize"])]
+        intuitionistic: bool,
         /// Write to this file instead of standard output
         #[arg(short, long, value_name = "PATH")]
         output: Option<PathBuf>,
@@ -736,6 +741,35 @@ pub(crate) struct SequentInput {
     /// refused the same way.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(Limits::DEFAULT_OCCURRENCES)))]
     pub(crate) occurrence_limit: Count<u64>,
+    /// How the text of an intuitionistic sequent is read: in its own
+    /// syntax alone, or in the classical one (input.intuitionistic)
+    ///
+    /// With --intuitionistic a sequent is written in the syntax of
+    /// intuitionistic linear logic, A -o B, A |- B, and a symbol of the
+    /// classical one (~, ^, par, |, ?, bot) is refused with what to write
+    /// instead; `one-sided` reads the classical syntax as the one-sided
+    /// sequent it stands for, ~(A * ~B), A |- B as A ⊸ B, A ⊢ B.
+    #[arg(long, value_enum, value_name = "SYNTAX", default_value_t = IllSyntaxArg::Strict)]
+    pub(crate) ill_syntax: IllSyntaxArg,
+}
+
+/// How the text of an intuitionistic sequent is read.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum IllSyntaxArg {
+    /// The syntax of intuitionistic linear logic alone
+    Strict,
+    /// The classical syntax, read as the one-sided sequent it stands for
+    OneSided,
+}
+
+impl From<IllSyntaxArg> for linlog::IllSyntax {
+    /// The library's syntax of the flag's.
+    fn from(syntax: IllSyntaxArg) -> Self {
+        match syntax {
+            IllSyntaxArg::Strict => Self::Strict,
+            IllSyntaxArg::OneSided => Self::OneSided,
+        }
+    }
 }
 
 /// How an input is read.
@@ -876,8 +910,9 @@ impl From<TranslationArg> for linlog::ordinary::Translation {
 /// The logic a sequent is proved in.
 #[derive(Args, Clone, Debug)]
 pub(crate) struct ModeArgs {
-    /// Intuitionistic linear logic: one formula on the right of ⊢, pars
-    /// only as implications, and two-sided derivations
+    /// Intuitionistic linear logic: hypotheses left of ⊢ and one goal
+    /// right of it, written in its own syntax (--ill-syntax), and
+    /// two-sided derivations
     #[arg(short, long)]
     pub(crate) intuitionistic: bool,
     /// Affine logic: a hypothesis may go unused (weakening)

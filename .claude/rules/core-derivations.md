@@ -27,7 +27,11 @@ in ascending order with repeats, which the writers read through
 `Notation::sequent`), and the builder makes from its multisets
 (`Multiset::into_members`); `principal` is a position in it, `None` for
 `ax` (its sequent is the two literals) and Mix. `Derivation::occurrence`
-and `formula` read a member, as `Proof`'s and `Interactive`'s do.
+and `formula` read a member, as `Proof`'s and `Interactive`'s do;
+`formula` writes it under the reading of a two-sided derivation (a
+session in an intuitionistic mode, a proof that records one, the last
+recomputing the reading per call), else one-sided, so that no
+intuitionistic formula leaves the library one-sided.
 `ProofStructure::from_proof` reads the axiom links off the `Ax` nodes.
 
 `Derivation::two_sided` (crate-private, like `Derivation::new`: the

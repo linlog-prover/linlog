@@ -352,6 +352,33 @@ second number (0.1.x to 0.2.0), anything else the third.
 
 ### Changed
 
+- The command reads the text of an intuitionistic sequent (`-i`, and a
+  batch's intuitionistic entries) in the syntax of intuitionistic linear
+  logic alone: a `~`, `^`, `par`, `|`, `?` or `bot` is refused with a
+  line saying what to write instead. `--ill-syntax one-sided` (the
+  settings key `input.intuitionistic`, on `prove`, `interact` and `seq`)
+  reads the classical syntax as before, `~(A * ~B), A |- B` as `A ⊸ B, A
+  ⊢ B`. A JSON input in intuitionistic mode may be the intuitionistic
+  sequent's form as well as the one-sided one, and `seq json -i` writes
+  the former. The bindings' `start` and `prove` read a typed sequent of an
+  intuitionistic mode the same way, by the settings' `input`, and the new
+  call `read_as(input, mode, settings)` reads one for a mode.
+- Every output of an intuitionistic sequent writes it as it was written,
+  two-sided, with no classical symbol: the refutations' phrases (an atom
+  occurring positively more often than negatively, the count equation
+  over `⊗` and `⊸` on either side, the classical reading with `⊸` as
+  implication), the checker's reports through `describe` (the sequents of
+  a failed node two-sided, the rules by their two-sided names) for a
+  proof, derivation or session in an intuitionistic mode and wherever
+  `Described::in_mode` (new) names one, `Error::SequentMismatch`'s
+  formulas, `Interactive::formula`, `Derivation::formula` of a two-sided
+  derivation and `Proof::formula` of a proof that records an
+  intuitionistic mode, a net's text through `ProofStructure::written_in`
+  and `MellStructure::written_in` (new), and an essential net's SVG title
+  and description. The command and the bindings draw the net of an
+  intuitionistic proof as its essential net, and the bindings' goal
+  formulas have `text` as `reading` writes it.
+
 - A net with boxes in linlog's look keeps the wires that run level
   between the same two rows apart, those bound for different `?`
   vertices included, half the node radius at least, the rows drawn as

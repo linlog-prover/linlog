@@ -47,10 +47,29 @@ for `THIRD-PARTY-NOTICES.txt`.
   never a message of its own.
 - **A goal formula's `reading`** (intuitionistic mode alone, absent in
   classical mode) is `Reading::formula(o)`, the crate's two-sided printer
-  for one occurrence in its position; `text` stays one-sided, which is
-  what a step and the parser read. It is a key of a call's answer, no
-  stored document, so no wire level (`wire.rs`: a key an older reader may
-  ignore raises none).
+  for one occurrence in its position, and in intuitionistic mode `text`
+  is the same (`Interactive::formula` writes under the session's
+  reading): no text of an intuitionistic sequent is one-sided, and a
+  typed intuitionistic sequent is read in ILL's syntax alone, so the
+  one-sided text could not be read back there. It is a key of a call's
+  answer, no stored document, so no wire level (`wire.rs`: a key an older
+  reader may ignore raises none).
+- **A typed sequent of an intuitionistic mode** (commutative; the
+  Lambek calculus keeps its own reading) is read by `sequent_in`/`ill_of`
+  as the settings' `input.intuitionistic` says, strict by default
+  (`IllSequent::parse_within`); JSON may be the intuitionistic sequent's
+  document (told by its `hypotheses` key) or a one-sided sequent read by
+  `IllSequent::read_one_sided`. `read` has no mode and stays as it was;
+  `read_as(input, mode, settings)` is `read` for a mode, its `text`
+  two-sided, and is what the page calls for an intuitionistic proof.
+  `start` and `prove` read their sequent the same way.
+- **An intuitionistic net is drawn essential** (`draw_net` sets
+  `styles.svg.essential` in an intuitionistic mode): the plain drawing of
+  the one-sided net writes classical formulas.
+- `web/tests/calls.rs`'s `no_intuitionistic_text_writes_a_classical_symbol`
+  is the bindings' share of the property that no intuitionistic output
+  has a classical symbol (the library's and the command's are their
+  own); a new call that writes text of a sequent joins it.
 - **`Step` and `Applicable` have no wire form in the library**: `StepForm`
   (`{"position", "rule", "left"}`) and `Offered` (`{"rule", "split"}`)
   are the bindings', the rule by its `Named` name. When the library

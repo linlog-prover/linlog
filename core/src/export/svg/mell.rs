@@ -1512,8 +1512,12 @@ pub(super) fn draw(
         }
         out.push_str(&texts);
     };
+    // An essential net is of the intuitionistic sequent its reading reads.
     let mut title = String::new();
-    PLAIN.one_sided(&mut title, forest.sequent()).unwrap();
+    match reading {
+        Some(reading) => PLAIN.reading(&mut title, reading).unwrap(),
+        None => PLAIN.one_sided(&mut title, forest.sequent()).unwrap(),
+    }
     let width = if forest.roots().is_empty() {
         2 * margin
     } else {
@@ -1523,7 +1527,10 @@ pub(super) fn draw(
         true => baseline + i64::from(rows) * pitch + DEPTH + margin,
         false => under + DEPTH + margin,
     };
-    let description = style.description.then(|| net.to_string());
+    let description = style.description.then(|| match reading {
+        Some(_) => net.written_in(crate::Mode::INTUITIONISTIC).to_string(),
+        None => net.to_string(),
+    });
     document(style, &title, description.as_deref(), (width, height), body)
 }
 

@@ -229,12 +229,12 @@ impl IllSequent {
             // A classical symbol before the place the parser stopped at
             // is the first thing wrong.
             Err(Error::Parse(error)) => {
-                return Err(crate::parse::classical(&text[..error.span.start])
+                return Err(crate::parse::classical(text, error.span.start)
                     .map_or(Error::Parse(error), Error::from));
             }
             Err(error) => return Err(error),
         };
-        if let Some(error) = crate::parse::classical(text) {
+        if let Some(error) = crate::parse::classical(text, text.len()) {
             return Err(error.into());
         }
         Self::lowered(sequent, limits)
@@ -371,6 +371,18 @@ mod tests {
                 "{text:?}: {error}"
             );
             assert!(error.to_string().contains(hint), "{error}");
+        }
+        // The `bot` after an implication written without a space, as the
+        // parser cuts its tokens; the turnstile before an atom is no par.
+        assert_eq!(refused("A -obot |- B").span, 4..7);
+        assert_eq!(refused("(A -obot) -obot |- A").span, 5..8);
+        let sequent: IllSequent = "A |-obot".parse().unwrap();
+        assert_eq!(sequent.to_string(), "A ⊢ obot");
+        // A turnstile where none can stand is the parser's error, at its `-`.
+        for text in ["A |- B |- C", "(A |- B)"] {
+            let error = refused(text);
+            assert_eq!(error.hint, None, "{text:?}");
+            assert!(text[error.span.start..].starts_with('-'), "{text:?}");
         }
         // The parser's own error comes first where it is earlier.
         let error = refused("A * , ~B |- C");
@@ -519,6 +531,161 @@ mod tests {
             }
         }
         assert!(inferences > 200, "{inferences} inferences");
+    }
+
+    /// The symbols of classical linear logic in every notation's spelling
+    /// (text, LaTeX, Typst, SVG), of which no intuitionistic output has
+    /// any.
+    const CLASSICAL: [&str; 8] = ["~", "⅋", "⊥", "?", r"\parr", r"\bot", r"\wn", "perp"];
+
+    /// Asserts that `out`, what `what` wrote of `sequent`, has no symbol of
+    /// classical linear logic: of a Rocq certificate the comments, whose
+    /// code is Rocq's (`~` its negation), and no classical constructor.
+    fn intuitionistic(sequent: &str, what: &str, out: &str) {
+        // An SVG document's declaration is no formula.
+        let out = out.replace("<?xml", "").replace("?>", "");
+        let rocq = out.contains("Lemma certificate");
+        let comments: String = out
+            .lines()
+            .filter(|line| !rocq || line.starts_with("(*"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        for symbol in CLASSICAL {
+            assert!(
+                !comments.contains(symbol),
+                "{sequent:?}: {what} writes {symbol:?}:\n{out}"
+            );
+        }
+        if rocq {
+            for word in ["parr", "wn ", "dual", " ll "] {
+                assert!(
+                    !out.contains(word),
+                    "{sequent:?}: {what} writes {word:?}:\n{out}"
+                );
+            }
+        }
+    }
+
+    /// No output of an intuitionistic sequent writes a symbol of classical
+    /// linear logic: over generated provable sequents and their mutants,
+    /// the sequent printed, a session's goal formulas, the text tree, the
+    /// LaTeX, Typst, SVG and Rocq exports of a proof, its formulas, its
+    /// net's text and drawing, the report of a proof the checker refuses,
+    /// and a refutation's phrase and certificate.
+    #[cfg(all(
+        feature = "latex",
+        feature = "typst",
+        feature = "svg",
+        feature = "rocq",
+        feature = "interactive"
+    ))]
+    #[test]
+    fn no_intuitionistic_output_writes_a_classical_symbol() {
+        use crate::export::{Styles, latex, rocq, svg, typst};
+        use crate::nets::{Criterion, MellStructure, ProofStructure};
+        use crate::proofs::Node;
+        use crate::search::Verdict;
+        use crate::{Interactive, Proof};
+        let styles = Styles::default();
+        let limits = Limits::default();
+        let options = search::Options::default();
+        let essential = styles.svg.clone().with_essential(true);
+        let criterion = Criterion::of(Mode::INTUITIONISTIC).unwrap();
+        let mode = Mode::INTUITIONISTIC;
+        // Proofs, refutations, nets and refused proofs seen.
+        let mut seen = [0; 4];
+        let mut rng = Rng::new(4400);
+        for rules in IllRules::ALL {
+            for _ in 0..6 {
+                let budget = 2 + rng.below(8);
+                let mut ill = generate::ill(&mut rng, rules, 3, budget);
+                let provable = generate::two_sided(&ill.hypotheses, &ill.goal);
+                let mutated =
+                    generate::mutate_two_sided(&mut rng, &mut ill.hypotheses, &mut ill.goal, 3)
+                        .then(|| generate::two_sided(&ill.hypotheses, &ill.goal));
+                for text in std::iter::once(provable).chain(mutated) {
+                    let check = |what: &str, out: &str| intuitionistic(&text, what, out);
+                    let sequent: IllSequent = text.parse().unwrap();
+                    check("the sequent", &sequent.to_string());
+                    let session = Interactive::new(sequent.sequent(), mode).unwrap();
+                    for goal in session.goals() {
+                        for &m in session.goal(goal).unwrap() {
+                            check("a goal's formula", &session.formula(m).to_string());
+                        }
+                    }
+                    let outcome = search::prove(sequent.sequent(), mode, &options).unwrap();
+                    match &outcome.verdict {
+                        Verdict::Proved(proof) => {
+                            seen[0] += 1;
+                            let derivation = proof.derivation().unwrap();
+                            check("the text tree", &derivation.to_string());
+                            let mut out = String::new();
+                            latex::write(&derivation, &styles.latex, &mut out, |_| false).unwrap();
+                            check("LaTeX", &out);
+                            out.clear();
+                            typst::write(&derivation, &styles.typst, &mut out, |_| false).unwrap();
+                            check("Typst", &out);
+                            out.clear();
+                            svg::write(&derivation, &styles.svg, &mut out, |_| false).unwrap();
+                            check("SVG", &out);
+                            out.clear();
+                            rocq::write(&derivation, &styles.rocq, &mut out, |_| false).unwrap();
+                            check("Rocq", &out);
+                            for m in proof.forest().root_members() {
+                                check("a formula of the proof", &proof.formula(m).to_string());
+                            }
+                            let fragment = proof.sequent().fragment();
+                            if crate::nets::exist(fragment, mode).is_ok() {
+                                let net =
+                                    ProofStructure::from_proof(proof, criterion, &limits, |_| {
+                                        false
+                                    })
+                                    .unwrap();
+                                check("the net", &net.written_in(mode).to_string());
+                                let drawn = svg::net(&net, &essential, &limits, |_| false).unwrap();
+                                check("the net drawn", &drawn);
+                                seen[2] += 1;
+                            } else if MellStructure::exist(fragment, mode).is_ok() {
+                                let net =
+                                    MellStructure::from_proof(proof, criterion, &limits, |_| false)
+                                        .unwrap();
+                                check("the net", &net.written_in(mode).to_string());
+                                let drawn =
+                                    svg::mell_net(&net, &essential, &limits, |_| false).unwrap();
+                                check("the net drawn", &drawn);
+                                seen[2] += 1;
+                            }
+                            // An axiom of a literal with itself, which the
+                            // checker refuses.
+                            let mut nodes = proof.nodes().to_vec();
+                            if let Some(n) = nodes.iter().position(|n| matches!(n, Node::Ax(..))) {
+                                let Node::Ax(a, _) = nodes[n] else {
+                                    unreachable!()
+                                };
+                                nodes[n] = Node::Ax(a, a);
+                                let broken =
+                                    Proof::new(proof.forest().clone(), nodes, proof.root())
+                                        .unwrap()
+                                        .with_mode(mode);
+                                let error = broken.check(mode).unwrap_err();
+                                check("a refused proof", &error.describe(&broken).to_string());
+                                seen[3] += 1;
+                            }
+                        }
+                        Verdict::Unprovable(disproof) => {
+                            seen[1] += 1;
+                            check("the refutation", &disproof.to_string());
+                            let mut out = String::new();
+                            if rocq::write_disproof(disproof, &styles.rocq, &mut out).is_ok() {
+                                check("the refutation's certificate", &out);
+                            }
+                        }
+                        Verdict::Unknown(_) => {}
+                    }
+                }
+            }
+        }
+        assert!(seen.iter().all(|&n| n > 5), "{seen:?}");
     }
 
     /// The JSON form writes the sequent as its reading reads it and reads

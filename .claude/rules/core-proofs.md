@@ -261,6 +261,13 @@ that cannot repeat the engine's mistakes. Engines only call `Proof::check`.
   after its subformula and resets the flag, because `⊢ !A, Δ` holds only for
   `?` contexts, which `Θ` already covers. The derivation view instantiates
   the absorbed context top-down.
+- **A refused proof's report is two-sided in an intuitionistic mode**
+  (`check/error.rs`, under `Names`' reading): a derived sequent is
+  `Θ ; Γ ⊢ C` (the unrestricted zone, then the linear zone's inputs left
+  of `⊢`, its outputs right), a node's rule is named by `name(node,
+  reading)` as the two-sided derivation names it (`⊸L` for a `⊗` on a
+  hypothesis; `ax`, `copy`, `wk` keep their tags), and the faults that
+  speak of `?` or of negation say it in ILL's terms.
 - **Intuitionistic mode is the classical check plus the one-succedent
   condition** against the sequent's `Reading` (`Fault::Shape` when there
   is none). Every ILL rule is a classical node, so what is checked is only

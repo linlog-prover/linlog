@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="175.904" height="112.096" viewBox="0 0 10994 7006" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
-<title>⊢ a ⊗ b⊥, b ⊗ c⊥, a⊥ ⅋ c</title>
-<desc>⊢ a ⊗ ~b, b ⊗ ~c, ~a ⅋ c
-a[1] — ~a[7]
-~b[2] — b[4]
-~c[5] — c[8]
+<title>a ⊸ b, b ⊸ c ⊢ a ⊸ c</title>
+<desc>a ⊸ b, b ⊸ c ⊢ a ⊸ c
+a[1] — a[7]
+b[2] — b[4]
+c[5] — c[8]
 proof net</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M1497 4750L604 3726"/>

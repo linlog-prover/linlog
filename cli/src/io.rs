@@ -5,7 +5,7 @@ use crate::argument_parsing::{InputFormat, SequentInput};
 use anyhow::{Context, Result, bail};
 use linlog::ordinary::Image;
 use linlog::wire::Within;
-use linlog::{Forest, Limits, Mode, Order, Sequent};
+use linlog::{Forest, IllSequent, IllSyntax, InputOptions, Limits, Mode, Order, Sequent};
 use serde::de::DeserializeSeed;
 use std::fs;
 use std::io::{self, BufRead, IsTerminal, Read, Write};
@@ -232,8 +232,13 @@ pub(crate) fn sequent_in(
     text: &str,
     format: InputFormat,
     most: u64,
-    order: Order,
+    mode: Mode,
+    read: &InputOptions,
 ) -> Result<Sequent> {
+    let order = mode.order();
+    // The text of an intuitionistic sequent of the commutative order is
+    // read in the syntax the options name, JSON as either form.
+    let intuitionistic = mode.is_intuitionistic() && order == Order::Commutative;
     let unbounded = Limits::default().with_occurrences(None);
     let within = bound(most);
     let refused = |error| refused(error, most);
@@ -241,6 +246,16 @@ pub(crate) fn sequent_in(
         bail!("the cyclic mode reads a sequent as text or JSON, not as an LLTP or .spec problem");
     }
     match format {
+        InputFormat::Json if intuitionistic && is_ill_json(text) => {
+            let mut document = serde_json::Deserializer::from_str(text);
+            // Read within the bound: the reading builds the forest.
+            let sequent = Within::<IllSequent>::new(&within)
+                .deserialize(&mut document)
+                .and_then(|sequent| document.end().map(|()| sequent));
+            Ok(sequent
+                .context("not an intuitionistic sequent in JSON")?
+                .into_sequent())
+        }
         InputFormat::Json => {
             let mut document = serde_json::Deserializer::from_str(text);
             let sequent = Within::<Sequent>::new(&unbounded)
@@ -266,11 +281,31 @@ pub(crate) fn sequent_in(
             )),
             Err(e) => Err(e.into()),
         },
+        _ if intuitionistic && read.intuitionistic == IllSyntax::Strict => {
+            IllSequent::parse_within(text, &within)
+                .map(IllSequent::into_sequent)
+                .map_err(|e| match e {
+                    linlog::Error::Parse(_) => crate::parse_error(text, e),
+                    e => refused(e),
+                })
+        }
         _ => Sequent::parse_ordered(text, order, &within).map_err(|e| match e {
             linlog::Error::Parse(_) => crate::parse_error(text, e),
             e => refused(e),
         }),
     }
+}
+
+/// Returns whether a JSON text is an intuitionistic sequent's document,
+/// which has `hypotheses` where a sequent's has `roots`.
+fn is_ill_json(text: &str) -> bool {
+    /// The key that tells the two forms apart.
+    #[derive(serde::Deserialize)]
+    struct Probe {
+        /// An intuitionistic sequent's hypotheses.
+        hypotheses: Option<serde::de::IgnoredAny>,
+    }
+    serde_json::from_str::<Probe>(text).is_ok_and(|probe| probe.hypotheses.is_some())
 }
 
 /// Returns the library's error, or for an input refused past `most`
@@ -368,13 +403,18 @@ impl SequentInput {
     ///
     /// An input that cannot be read, or text that is no sequent in its
     /// format, or one past the limits.
-    pub(crate) fn sequent(&self, limits: &Limits, order: Order) -> Result<Sequent> {
+    pub(crate) fn sequent(
+        &self,
+        limits: &Limits,
+        read: &InputOptions,
+        mode: Mode,
+    ) -> Result<Sequent> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
         let (text, format) = self.text(false, limits.memory_bytes)?;
         if format == InputFormat::Tptp {
             bail!("--input-format tptp holds ordinary logic, which --logic reads");
         }
-        let sequent = admit(sequent_in(&text, format, most, order)?, most)?;
+        let sequent = admit(sequent_in(&text, format, most, mode, read)?, most)?;
         // A `.p` file is LLTP's unless `--logic` says otherwise, and the
         // ILTP library's problems are `.p` files too: one that reads both
         // ways gets a note, since its verdicts differ.
@@ -422,10 +462,15 @@ impl SequentInput {
     /// # Errors
     ///
     /// As [`sequent`](Self::sequent) does.
-    pub(crate) fn forest(&self, limits: &Limits, order: Order) -> Result<Forest> {
+    pub(crate) fn forest(
+        &self,
+        limits: &Limits,
+        read: &InputOptions,
+        mode: Mode,
+    ) -> Result<Forest> {
         let most = limits.occurrences.unwrap_or(u64::MAX);
         Ok(Forest::from_owned(
-            self.sequent(limits, order)?,
+            self.sequent(limits, read, mode)?,
             &bound(most),
         )?)
     }

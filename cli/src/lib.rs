@@ -266,6 +266,13 @@ pub(crate) fn parse_error(input: &str, error: Error) -> anyhow::Error {
             }
             message.push_str(last);
         }
+        if let Some(hint) = e.hint {
+            write!(
+                message,
+                "\n  {hint}; --ill-syntax one-sided reads the classical syntax"
+            )
+            .unwrap();
+        }
     }
     Explained::error(message, error)
 }

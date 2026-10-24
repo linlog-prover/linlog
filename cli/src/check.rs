@@ -170,6 +170,7 @@ fn check_into(
     };
     let report = |e: &linlog::CheckError| {
         e.describe(proof.forest())
+            .in_mode(mode)
             .abbreviated(show.abbreviate)
             .to_string()
     };

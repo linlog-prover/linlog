@@ -18,7 +18,7 @@
 //! output-shaped root, the goal, and every other root input-shaped.
 
 use super::{Forest, OccId};
-use crate::errors::describe::{Limit, cut};
+use crate::errors::describe::{Limit, Names, cut};
 use crate::errors::{Described, Owner, Subject};
 use crate::sequents::notation::TEXT;
 use crate::sequents::{Kind, Walk};
@@ -120,10 +120,11 @@ impl ShapeError {
     pub(crate) fn write(
         &self,
         f: &mut Formatter<'_>,
-        forest: Option<&Forest>,
+        names: Option<Names<'_>>,
         limit: Limit,
     ) -> FmtResult {
-        let occurrence = |f: &mut Formatter<'_>, o: OccId| cut(f, forest, o, limit);
+        let occurrence = |f: &mut Formatter<'_>, o: OccId| cut(f, names, o, limit);
+        let forest = names.map(|n| n.forest);
         match self {
             ShapeError::NoGoal => f.write_str(
                 "no formula can be the goal: an intuitionistic sequent has exactly one formula on the right of ⊢",

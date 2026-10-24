@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="165.424" height="101.824" viewBox="0 0 10339 6364" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
-<title>⊢ b⊥ ⊗ a, a⊥, b ⊗ c⊥, c</title>
-<desc>⊢ ~b ⊗ a, ~a, b ⊗ ~c, c
-~b[1] — b[5]
-a[2] — ~a[3]
-~c[6] — c[7]
+<title>c / b, a, a \ b ⊢ c</title>
+<desc>c / b, a, a \ b ⊢ c
+b[1] — b[5]
+a[2] — a[3]
+c[6] — c[7]
 planar proof net</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M1997 4108L2889 3084"/>

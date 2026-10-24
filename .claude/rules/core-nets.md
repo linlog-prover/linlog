@@ -171,6 +171,12 @@ code relies on:
 - The text form (`Display`: the sequent, `~A[0] — A[2]` per link sorted
   by first id, then `proof net`, `proof net with Mix` or `not a proof net:
   ` with the reason in formulas) and the JSON form are pinned in tests.
+  A structure records no mode, so `Display` is one-sided;
+  `written_in(mode)` (both structures, through `nets::In`) writes it as
+  the mode reads it, in an intuitionistic one under the reading (`A ⊸ B,
+  A ⊢ B`, `A[1] — A[3]`, a hypothesis `!A[0]: A[3] in !B[2]`, the reason
+  described `in_mode`), which is what every front end prints in an
+  intuitionistic mode.
 
 ## Proof nets with boxes: MELL
 

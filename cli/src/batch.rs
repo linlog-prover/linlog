@@ -20,7 +20,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use linlog::ordinary::Image;
 use linlog::search::batch::{self, Cores};
 use linlog::search::{Goal, Outcome, Pool, Verdict, prove_goal};
-use linlog::{Forest, Mode, Settings};
+use linlog::{Forest, InputOptions, Mode, Settings};
 use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
 use serde_json::value::RawValue;
 use std::collections::{HashSet, VecDeque};
@@ -451,6 +451,8 @@ struct Shared {
     ordinary: Option<linlog::ordinary::Options>,
     /// The most occurrences a sequent may have.
     most: u64,
+    /// How the input is read.
+    read: InputOptions,
     /// The mode of an entry that names none: the mode flags', else the
     /// settings file's `batch.mode`.
     mode: Mode,
@@ -652,7 +654,8 @@ impl Shared {
             Source::Bad(_) => None,
         };
         let source = entry.source;
-        let order = entry.mode.unwrap_or(self.mode).order();
+        let mode = entry.mode.unwrap_or(self.mode);
+        let read = self.read;
         let logic = self.ordinary;
         let loaded = deadline.within(move || -> Result<(Forest, Option<Image>)> {
             let (text, format) = match source {
@@ -667,7 +670,7 @@ impl Shared {
             } else if format == InputFormat::Tptp {
                 bail!("--input-format tptp holds ordinary logic, which --logic reads");
             } else {
-                (sequent_in(&text, format, most, order)?, None)
+                (sequent_in(&text, format, most, mode, &read)?, None)
             };
             Ok((
                 Forest::from_owned(admit(sequent, most)?, &io::bound(most))?,
@@ -1123,6 +1126,7 @@ pub(crate) fn run(args: &ProveArgs, settings: &Settings, start: Instant) -> Resu
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
         most: crate::settings::most(settings),
+        read: settings.input,
         mode: settings.batch.mode,
         threads,
         directory,
@@ -1187,6 +1191,7 @@ fn one(
         timeout: time_limit(settings),
         ordinary: crate::settings::ordinary(settings, &args.logic),
         most: crate::settings::most(settings),
+        read: settings.input,
         mode: settings.batch.mode,
         threads,
         directory,

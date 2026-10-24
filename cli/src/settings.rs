@@ -220,6 +220,9 @@ impl ProveArgs {
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.input.occurrence_limit.0;
         }
+        if apply.set("ill_syntax") {
+            settings.input.intuitionistic = self.input.ill_syntax.into();
+        }
         if apply.set("derivation_limit") {
             settings.limits.derivation_bytes = self.output.derivation_limit.0;
         }
@@ -263,6 +266,9 @@ impl InteractArgs {
         self.search.apply(&mut settings, &apply);
         if apply.set("occurrence_limit") {
             settings.limits.occurrences = self.input.occurrence_limit.0;
+        }
+        if apply.set("ill_syntax") {
+            settings.input.intuitionistic = self.input.ill_syntax.into();
         }
         if apply.set("derivation_limit") {
             settings.limits.derivation_bytes = self.derivation_limit.0;
@@ -319,6 +325,7 @@ pub(crate) fn of_print(
     path: Option<&Path>,
     memory: Option<u64>,
     occurrences: Option<u64>,
+    syntax: linlog::IllSyntax,
     given: &Given,
 ) -> Result<Settings> {
     let mut settings = read(path)?;
@@ -331,6 +338,9 @@ pub(crate) fn of_print(
     }
     if apply.set("occurrence_limit") {
         settings.limits.occurrences = occurrences;
+    }
+    if apply.set("ill_syntax") {
+        settings.input.intuitionistic = syntax;
     }
     Ok(settings)
 }
@@ -483,6 +493,7 @@ mod tests {
                 settings.as_deref(),
                 memory_limit.0,
                 input.occurrence_limit.0,
+                input.ill_syntax.into(),
                 &given,
             )
             .unwrap(),
@@ -528,6 +539,7 @@ mod tests {
             --batch-memory 2MiB     /batch/total_memory_bytes  1048576           2097152
             --compact never         /view/compact              "always"          "never"
             --cores within          /batch/cores               "across"          "within"
+            --ill-syntax one-sided  /input/intuitionistic      "strict"          "one-sided"
             --batch-timeout 2s      /clock/batch_time_limit_ms 1000              2000"#;
         const CHECK: &str = r#"
             --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
@@ -537,10 +549,12 @@ mod tests {
             --derivation-limit 3KiB /limits/derivation_bytes   1024              3072
             --compact never         /view/compact              "always"          "never""#;
         const INTERACT: &str = r#"
-            --invertible            /interactive/invertible    false             true"#;
+            --invertible            /interactive/invertible    false             true
+            --ill-syntax one-sided  /input/intuitionistic      "strict"          "one-sided""#;
         const PRINT: &str = r#"
             --memory-limit 2MiB     /limits/memory_bytes       1048576           2097152
-            --occurrence-limit 12   /limits/occurrences        11                12"#;
+            --occurrence-limit 12   /limits/occurrences        11                12
+            --ill-syntax one-sided  /input/intuitionistic      "strict"          "one-sided""#;
         let file =
             std::env::temp_dir().join(format!("linlog-settings-flags-{}.json", std::process::id()));
         let path = file.to_str().unwrap();
@@ -664,7 +678,9 @@ mod tests {
                 Command::Prove(args) => drop(args.settings(&given).unwrap()),
                 Command::Interact(args) => drop(args.settings(&given).unwrap()),
                 Command::Check(args) => drop(args.settings(&given).unwrap()),
-                Command::Seq { .. } => drop(of_print(None, None, None, &given).unwrap()),
+                Command::Seq { .. } => {
+                    drop(of_print(None, None, None, linlog::IllSyntax::Strict, &given).unwrap())
+                }
             }
             let mut leaf = &cli;
             for word in &line[1..] {

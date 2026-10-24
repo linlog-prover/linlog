@@ -16,7 +16,7 @@ it; only what holds for the whole crate goes here.
 | file | loads for | what it holds |
 |---|---|---|
 | `core-sequents.md` | `sequents/`, `parse/`, `fragment.rs`, `serialize/`, the parse, serialize and lock tests | the arena and its order, negation normal form, terms, kinds, fragments and modes, the parser, the JSON forms of every value |
-| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading |
+| `core-forest.md` | `occurrences/` | the occurrence forest (numbering, the bound on its size, literal lists), `OccSet`, the intuitionistic reading, the intuitionistic sequent as written (`IllSequent`) and how outputs are raised |
 | `core-proofs.md` | `proofs/mod.rs`, `check/`, `oracle.rs` | proof terms and their invariants, the checker: its one pass, its memory bound, its integers, the one-succedent condition |
 | `core-derivations.md` | `proofs/derivation/`, `size.rs`, `fmt.rs`, `multiset.rs`, `interactive/` | the derivation view, the size estimate, the bounds of `ViewOptions`, the compact view, the text tree, interactive proving |
 | `core-search.md` | `search/mod.rs`, `memory.rs`, `work.rs`, `additive.rs`, `reference.rs`, `refutation.rs` | the front door (`prove_goal`, the one engine interface `Decide`, the check of every proof, `Outcome`, `Options`, refutations, the dispatch, where every engine polls its stop), the memory bound, the work count, the additive path, the test-only reference prover |

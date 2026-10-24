@@ -519,7 +519,9 @@ pub(crate) fn derivation(
     let invalid = |e: linlog::CheckError| {
         anyhow!(
             "the proof is invalid: {}",
-            e.describe(proof.forest()).abbreviated(show.abbreviate)
+            e.describe(proof.forest())
+                .in_mode(mode)
+                .abbreviated(show.abbreviate)
         )
     };
     let stopped = || Shown::LeftOut(format!("the derivation is not written: {}", why()));
@@ -996,16 +998,37 @@ impl Display for Net<'_> {
 }
 
 impl Net<'_> {
+    /// Returns the net's text form as `mode` reads it: in an
+    /// intuitionistic mode with the formulas two-sided.
+    fn written_in(&self, mode: Mode) -> String {
+        match self {
+            Self::Mll(net) => net.written_in(mode).to_string(),
+            Self::Mell(net) => net.written_in(mode).to_string(),
+        }
+    }
+
     /// Returns the net drawn as an SVG document, or the line that says why
-    /// it is not drawn: it is estimated past the limit.
-    fn drawing(&self, show: &Show, stop: &dyn Fn() -> bool) -> std::result::Result<String, String> {
+    /// it is not drawn: it is estimated past the limit. In an
+    /// intuitionistic mode it is drawn as its essential net, whose
+    /// formulas are the intuitionistic ones.
+    fn drawing(
+        &self,
+        show: &Show,
+        mode: Mode,
+        stop: &dyn Fn() -> bool,
+    ) -> std::result::Result<String, String> {
+        let style = show
+            .styles
+            .svg
+            .clone()
+            .with_essential(show.styles.svg.essential || mode.is_intuitionistic());
         let (drawn, size) = match self {
             Self::Mll(net) => (
-                svg::net(net, &show.styles.svg, &show.limits, |_| stop()),
+                svg::net(net, &style, &show.limits, |_| stop()),
                 (net.forest().len(), "occurrences", net.links().len()),
             ),
             Self::Mell(net) => (
-                svg::mell_net(net, &show.styles.svg, &show.limits, |_| stop()),
+                svg::mell_net(net, &style, &show.limits, |_| stop()),
                 (net.len(), "vertices", net.links().len()),
             ),
         };
@@ -1093,10 +1116,10 @@ pub(crate) fn net_into(
     };
     let separator = prefix.unwrap_or("");
     if !matches!(show.format, Format::Svg | Format::Png | Format::Pdf) {
-        write!(out, "{separator}{net}")?;
+        write!(out, "{separator}{}", net.written_in(mode))?;
         return Ok(Shown::Written);
     }
-    let drawing = match net.drawing(show, stop) {
+    let drawing = match net.drawing(show, mode, stop) {
         Ok(drawing) => drawing,
         Err(line) => return Ok(Shown::LeftOut(line)),
     };

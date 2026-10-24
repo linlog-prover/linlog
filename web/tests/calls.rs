@@ -530,10 +530,10 @@ fn a_goal_is_filled_from_another_session() {
     assert_eq!(refused["code"], "invalid_proof", "{refused}");
 }
 
-/// In intuitionistic mode each goal formula carries its reading beside its
-/// one-sided text: a hypothesis `A ⊸ B` reads `A ⊸ B`, and so does the
-/// formula under a `!` that a promotion opened as a goal; in classical
-/// mode there is no reading.
+/// In intuitionistic mode each goal formula carries its reading, which
+/// its text is too: a hypothesis `A ⊸ B` reads `A ⊸ B` (the one-sided
+/// sequent holds `A ⊗ ~B`), and so does the formula under a `!` that a
+/// promotion opened as a goal; in classical mode there is no reading.
 #[wasm_bindgen_test(unsupported = test)]
 fn a_goal_s_formulas_carry_their_reading() {
     let formulas = |answer: &str| value(answer)["view"]["goals"][0]["formulas"].clone();
@@ -553,7 +553,7 @@ fn a_goal_s_formulas_carry_their_reading() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|f| f["text"] == "A ⊗ ~B");
+        .any(|f| f["text"] == "A ⊸ B");
     assert!(text, "{started}");
 
     let banged = calls::start("!(A -o B) |- !(A -o B)", "intuitionistic", "").unwrap();
@@ -574,5 +574,100 @@ fn a_goal_s_formulas_carry_their_reading() {
             .iter()
             .all(|f| f.get("reading").is_none()),
         "{classical}"
+    );
+}
+
+/// A random formula of intuitionistic linear logic over `a` and `b`, at
+/// most `depth` connectives deep, from the state of a linear congruence.
+fn ill_formula(state: &mut u64, depth: u32) -> String {
+    let mut next = |n: u64| {
+        *state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1);
+        (*state >> 33) % n
+    };
+    if depth == 0 || next(3) == 0 {
+        return ["a", "b", "a", "b", "1", "top", "0"][next(7) as usize].to_owned();
+    }
+    let connective = next(6);
+    let left = ill_formula(state, depth - 1);
+    if connective == 5 {
+        return format!("!{left}");
+    }
+    let right = ill_formula(state, depth - 1);
+    let op = ["*", "-o", "&", "+", "-o"][connective as usize];
+    format!("({left} {op} {right})")
+}
+
+/// No text the bindings write of an intuitionistic sequent has a symbol
+/// of classical linear logic: over random sequents, the sequent `read_as`
+/// writes, every goal formula's text and reading, and every export of the
+/// session once all its goals are closed (of a Rocq certificate the
+/// comments, whose code is Rocq's, with no classical constructor), and the
+/// net drawn; a sequent written classically is refused with a hint.
+#[wasm_bindgen_test(unsupported = test)]
+fn no_intuitionistic_text_writes_a_classical_symbol() {
+    const CLASSICAL: [&str; 8] = ["~", "⅋", "⊥", "?", r"\parr", r"\bot", r"\wn", "perp"];
+    let mut state = 41;
+    let mut finished = 0;
+    for _ in 0..16 {
+        let hypotheses: Vec<String> = (0..state % 3).map(|_| ill_formula(&mut state, 2)).collect();
+        let sequent = format!(
+            "{} |- {}",
+            hypotheses.join(", "),
+            ill_formula(&mut state, 3)
+        );
+        let check = |what: &str, out: &str| {
+            let out = out.replace("<?xml", "").replace("?>", "");
+            let rocq = what == "rocq";
+            let comments: String = out
+                .lines()
+                .filter(|line| !rocq || line.starts_with("(*"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            for symbol in CLASSICAL {
+                assert!(
+                    !comments.contains(symbol),
+                    "{sequent:?}: {what} writes {symbol:?}:\n{out}"
+                );
+            }
+            for word in ["parr", "wn ", "dual", " ll "] {
+                assert!(
+                    !rocq || !out.contains(word),
+                    "{sequent:?}: {what} writes {word:?}"
+                );
+            }
+        };
+        let read = value(&calls::read_as(&sequent, "intuitionistic", "").unwrap());
+        check("read_as", read["text"].as_str().unwrap());
+        let started = calls::start(&sequent, "intuitionistic", "").unwrap();
+        let closed = calls::close_all(&session(&started), "").unwrap();
+        for answer in [&started, &closed] {
+            for goal in value(answer)["view"]["goals"].as_array().unwrap() {
+                for formula in goal["formulas"].as_array().unwrap() {
+                    check("a goal's text", formula["text"].as_str().unwrap());
+                    check("a goal's reading", formula["reading"].as_str().unwrap());
+                }
+            }
+        }
+        if value(&closed)["view"]["complete"] != true {
+            continue;
+        }
+        finished += 1;
+        for format in ["text", "latex", "typst", "svg", "rocq"] {
+            check(
+                format,
+                &calls::export(&session(&closed), format, "").unwrap(),
+            );
+        }
+        if let Ok(net) = calls::draw_net(&session(&closed), "") {
+            check("the net", &net);
+        }
+    }
+    assert!(finished > 3, "{finished} of 16 finished");
+    let refused = failure(&calls::read_as("~a |- b", "intuitionistic", "").unwrap_err());
+    assert!(
+        refused["message"].as_str().unwrap().contains("no negation"),
+        "{refused}"
     );
 }

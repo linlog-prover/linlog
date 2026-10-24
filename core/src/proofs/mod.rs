@@ -43,7 +43,7 @@ pub use style::{Labels, OpenGoal};
 use crate::Error;
 use crate::fragment::Mode;
 use crate::limits::{Limits, Progress};
-use crate::occurrences::{Forest, Member, OccId};
+use crate::occurrences::{Forest, Member, OccId, Reading};
 use crate::sequents::Sequent;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -528,9 +528,19 @@ impl Proof {
         member.occ()
     }
 
-    /// Returns the formula a member of the proof stands for.
+    /// Returns the formula a member of the proof stands for: of a proof
+    /// that records an intuitionistic mode as the sequent's reading writes
+    /// it, two-sided (a pass over the forest each call), else as the
+    /// one-sided sequent writes it.
     pub fn formula(&self, member: Member) -> impl Display + '_ {
-        self.forest.formula(member.occ())
+        let reading = self
+            .mode
+            .filter(|mode| mode.is_intuitionistic())
+            .and_then(|mode| Reading::of_mode(&self.forest, mode.with_empty_antecedents()).ok());
+        match reading {
+            Some(reading) => reading.formula(member.occ()).to_string(),
+            None => self.forest.formula(member.occ()).to_string(),
+        }
     }
 
     /// Returns the proof with `goal` recorded as what its root concludes.
@@ -602,19 +612,33 @@ impl Proof {
                         place[o.index()] = Some(t);
                     }
                 }
-                None => only_proof.push(written),
+                None => only_proof.push(c),
             }
         }
-        let only_goal: Vec<String> = goal
+        let only_goal: Vec<OccId> = goal
             .iter()
             .zip(&taken)
             .filter(|&(_, &t)| !t)
-            .map(|(m, _)| forest.formula(m.occ()).to_string())
+            .map(|(m, _)| m.occ())
             .collect();
         if !only_proof.is_empty() || !only_goal.is_empty() {
+            // Written as the proof's mode reads each forest: two-sided in
+            // an intuitionistic one, where the forest has a reading.
+            let written = |f: &Forest, os: Vec<OccId>| -> Vec<String> {
+                let reading = self
+                    .mode
+                    .filter(|mode| mode.is_intuitionistic())
+                    .and_then(|mode| Reading::of_mode(f, mode.with_empty_antecedents()).ok());
+                os.into_iter()
+                    .map(|o| match &reading {
+                        Some(reading) => reading.formula(o).to_string(),
+                        None => f.formula(o).to_string(),
+                    })
+                    .collect()
+            };
             return Err(Error::SequentMismatch {
-                proof: only_proof,
-                goal: only_goal,
+                proof: written(from, only_proof),
+                goal: written(&forest, only_goal),
             });
         }
         let rename = |m: Member| {

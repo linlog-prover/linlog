@@ -361,10 +361,14 @@ impl<'a> Derivation<'a> {
         member.occ()
     }
 
-    /// Returns the formula a member of the derivation stands for, as the
+    /// Returns the formula a member of the derivation stands for: in a
+    /// two-sided derivation as its reading writes it, else as the
     /// one-sided sequent writes it.
     pub fn formula(&self, member: Member) -> impl std::fmt::Display + 'a {
-        self.forest.formula(member.occ())
+        match &self.reading {
+            Some(reading) => reading.formula(member.occ()).to_string(),
+            None => self.forest.formula(member.occ()).to_string(),
+        }
     }
 
     /// Returns the intuitionistic reading of a two-sided derivation, or

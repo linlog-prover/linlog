@@ -8,7 +8,7 @@ use crate::argument_parsing::{Format, SeqCommand};
 use crate::settings::{self, Given};
 use crate::{Status, exit_on_interrupt, io, show, style};
 use anyhow::{Result, bail};
-use linlog::{Mode, Order};
+use linlog::{IllSequent, InputOptions, Mode};
 use std::io::Write as _;
 
 /// Returns the mode of `seq`'s `--intuitionistic` flag.
@@ -47,6 +47,7 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                 settings.as_deref(),
                 memory_limit.0,
                 input.occurrence_limit.0,
+                input.ill_syntax.into(),
                 given,
             )?;
             if logic.logic.is_some() && (*intuitionistic || *cyclic || *lambek) {
@@ -68,7 +69,10 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
                     } else {
                         mode_of(*intuitionistic)
                     };
-                    (input.sequent(&settings.limits, mode.order())?, mode)
+                    (
+                        input.sequent(&settings.limits, &settings.input, mode)?,
+                        mode,
+                    )
                 }
             };
             show::form(*standalone, Format::from(*format).has_document())?;
@@ -104,16 +108,25 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
             input,
             optimize,
             cyclic,
+            intuitionistic,
             output,
             memory_limit,
         } => {
             let limits = io::bound(input.most()).with_memory_bytes(memory_limit.0);
-            let order = if *cyclic {
-                Order::Cyclic
+            if *intuitionistic {
+                let read = InputOptions::default().with_intuitionistic(input.ill_syntax.into());
+                let sequent = input.sequent(&limits, &read, Mode::INTUITIONISTIC)?;
+                let sequent = IllSequent::read_one_sided(sequent.clone(), &limits)
+                    .map_err(|e| crate::prove::describe(e, &sequent))?;
+                io::write(output.as_deref(), &serde_json::to_string(&sequent)?)?;
+                return Ok(Status::Yes);
+            }
+            let mode = if *cyclic {
+                Mode::CYCLIC
             } else {
-                Order::Commutative
+                Mode::CLASSICAL
             };
-            let mut sequent = input.sequent(&limits, order)?;
+            let mut sequent = input.sequent(&limits, &InputOptions::default(), mode)?;
             if *optimize {
                 sequent.optimize();
             }
@@ -126,7 +139,9 @@ pub(crate) fn run(command: &SeqCommand, given: &Given) -> Result<Status> {
         } => {
             let mode = mode_of(*intuitionistic);
             let limits = io::bound(input.most()).with_memory_bytes(memory_limit.0);
-            let fragment = input.sequent(&limits, Order::Commutative)?.fragment();
+            let fragment = input
+                .sequent(&limits, &InputOptions::default(), Mode::CLASSICAL)?
+                .fragment();
             io::write(None, fragment.name_in(mode))?;
         }
     }

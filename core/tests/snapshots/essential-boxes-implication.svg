@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" width="244.8" height="243.216" viewBox="0 0 15300 15201" font-family="'Euler Math', 'Neo Euler', serif" font-size="1000" fill="black">
-<title>⊢ ?(a ⊗ b⊥), ?a⊥ ⅋ !b</title>
-<desc>⊢ ?(a ⊗ ~b), ?~a ⅋ !b
-?(a ⊗ ~b)[0]: a ⊗ ~b[2] in !b[7]
-?~a[5]: ~a[6] in !b[7]
-a[3] — ~a[6]
-~b[4] — b[8]
+<title>!(a ⊸ b) ⊢ !a ⊸ !b</title>
+<desc>!(a ⊸ b) ⊢ !a ⊸ !b
+!(a ⊸ b)[0]: a ⊸ b[2] in !b[7]
+!a[5]: a[6] in !b[7]
+a[3] — a[6]
+b[4] — b[8]
 proof net</desc>
 <g fill="none" stroke="black" stroke-width="40">
 <path d="M13884 8941L7650 13023"/>
