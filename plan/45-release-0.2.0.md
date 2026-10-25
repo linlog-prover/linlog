@@ -107,6 +107,25 @@ fourth (45d) after the author's tags.
   the package `linlog`, and the Rocq library as `rocqPackages`' `linlog`
   (or the name nixpkgs' conventions give it), prepared as commits for a
   pull request to nixpkgs that the author opens.
+  - **First, whether to submit at all: a decision of the author's**
+    (2026-10-25). nixpkgs turns away packages that are "too immature" or
+    used by "a niche of 5 people" (`plan/notes/distribution.md`), so the
+    session first reads nixpkgs' inclusion criteria as they stand that
+    day (`CONTRIBUTING.md`, `pkgs/README.md`, how recent pull requests
+    for little-known packages were received) and gathers the evidence of
+    use beyond the author that exists then, from public sources only:
+    crates.io's downloads of each version, the repositories' stars,
+    forks, issues and pull requests by others, citations of the DOI,
+    links to the page or the repositories, mentions where users talk;
+    the page collects no visitor data, so none is claimed. It sends the
+    planning session a short assessment: the criteria quoted, the
+    evidence with its sources, the likely reception, and its
+    recommendation (submit now, wait for a stated sign of use, or offer
+    the package elsewhere, such as linlog's own flake, which already
+    serves `nix run`). The planning session gives it to the author, and
+    nothing below starts before the author's answer; on "wait", the
+    session ends with the assessment in the report and a note in
+    `plan/later.md` of what would change the answer.
   - **Idiomatic, by nixpkgs' current practice, read, not remembered**:
     first read, at nixpkgs' `master` of the day, `CONTRIBUTING.md`,
     `pkgs/README.md`, `pkgs/by-name/README.md`, the manual's sections on

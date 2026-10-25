@@ -120,7 +120,9 @@ wait for users beyond the author.
 The author's decision (2026-10-25): package linlog and its Rocq library
 for nixpkgs after the 0.2.0 tags, session 45d, by nixpkgs' current
 practice; the pull request is the author's, and its text says who uses
-linlog.
+linlog. Then (the same day), given the rule above: 45d first
+re-evaluates, the criteria of the day and the public evidence of use
+before the author, who decides whether to submit at all.
 
 ## Policies on AI assistance
 
