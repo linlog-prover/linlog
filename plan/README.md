@@ -3597,3 +3597,8 @@ client follows it (step 32).
   installed on each Rocq version it admits); 45d, after the tags,
   prepares the submission to the Rocq opam repository before nixpkgs.
   The tag, the pull requests and the library's DOI are the author's.
+- 2026-10-25: the author asked for native packages where feasible: 45c
+  assesses and, where feasible, has the release workflow build a `.deb`,
+  an `.rpm`, a macOS `.pkg` or archive and a Windows `.msi`, each tried
+  in a container or on a runner; code signing (Apple's notarisation,
+  a Windows certificate) is put to the author.

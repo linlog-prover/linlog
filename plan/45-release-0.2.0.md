@@ -120,6 +120,24 @@ fourth (45d) after the author's tags.
       package in someone else's repository or a tap of the
       organisation's is proposed to the author in the final message,
       not created (nixpkgs is 45d's).
+    - **Native packages, where feasible** (the author, 2026-10-25): a
+      `.deb` and an `.rpm` for Linux, and for macOS and Windows what
+      their users install directly (a macOS `.pkg` or the archive
+      current tools ship, a Windows `.msi`), each made by the release
+      workflow from the tag with the tools current practice uses then
+      (at the time of writing cargo-deb, cargo-generate-rpm, cargo-wix,
+      or cargo-dist for several at once, each adopted through the
+      `new-tool` skill), with the licences' texts inside, checksums
+      beside them, and installed, run and removed again in a container
+      or on a runner before the release relies on them. Feasibility is
+      the session's to judge and the report's to say: what each format
+      costs to keep, and what it needs that linlog lacks. Code signing,
+      above all (Apple's notarisation needs a paid developer account, a
+      Windows certificate costs too, and an unsigned package meets
+      Gatekeeper's and SmartScreen's warnings), is the author's to
+      decide; the session builds what is feasible unsigned, says on the
+      download page what a user sees and does, and puts signing to the
+      author in the final message.
     - **Every instruction tried**: the commands for a Linux family run
       in that distribution's container where the machine allows it, the
       rest by a workflow that follows README's commands on GitHub's
