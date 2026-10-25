@@ -138,6 +138,17 @@ fourth (45d) after the author's tags.
       decide; the session builds what is feasible unsigned, says on the
       download page what a user sees and does, and puts signing to the
       author in the final message.
+      Flatpak and AppImage (asked by the author, 2026-10-25) are judged
+      the same way, with the planning session's expectation to check
+      against their documents of the day: both are made for desktop
+      applications with a window; Flathub, as far as the planning
+      session knows, does not take console-only programs, and a
+      Flatpak's sandbox stands between a command and the files it reads
+      and writes, while an AppImage adds nothing to a single
+      self-contained binary. So the portable Linux form is likely a
+      statically linked binary (musl) in an archive, which runs on any
+      distribution; if the documents say otherwise, the session follows
+      them and says so.
     - **Every instruction tried**: the commands for a Linux family run
       in that distribution's container where the machine allows it, the
       rest by a workflow that follows README's commands on GitHub's
