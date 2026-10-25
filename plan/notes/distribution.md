@@ -117,6 +117,11 @@ maintainer; `lib.licenses.eupl12` exists; a tagged release is the normal
 case. The project "too immature" or "a niche of 5 people" is not wanted:
 wait for users beyond the author.
 
+The author's decision (2026-10-25): package linlog and its Rocq library
+for nixpkgs after the 0.2.0 tags, session 45d, by nixpkgs' current
+practice; the pull request is the author's, and its text says who uses
+linlog.
+
 ## Policies on AI assistance
 
 - **crates.io, docs.rs, GitHub, the Rocq opam archive, Rocq's

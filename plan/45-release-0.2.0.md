@@ -27,8 +27,9 @@ plainly.
 
 ## How the step runs
 
-Three sessions on Opus 5.5 at `high`, each with its goal in its launch
-prompt and reviewed by the planning session before the next.
+Four sessions on Opus 5.5 at `high`, each with its goal in its launch
+prompt and reviewed by the planning session before the next; the
+fourth (45d) after the author's tags.
 
 - **45a, the Rocq library in its own repository** (the author,
   2026-10-24; D20 and D22 foresaw it): `rocq/` becomes the repository
@@ -101,8 +102,63 @@ prompt and reviewed by the planning session before the next.
     `plan/later.md` and the reports, in the final message: what is
     theirs to send, set or decide before or after the tag.
 
+- **45d, linlog in nixpkgs** (the author, 2026-10-25), after the
+  author has tagged 0.2.0 in linlog and in `rocq-linlog`: the command as
+  the package `linlog`, and the Rocq library as `rocqPackages`' `linlog`
+  (or the name nixpkgs' conventions give it), prepared as commits for a
+  pull request to nixpkgs that the author opens.
+  - **Idiomatic, by nixpkgs' current practice, read, not remembered**:
+    first read, at nixpkgs' `master` of the day, `CONTRIBUTING.md`,
+    `pkgs/README.md`, `pkgs/by-name/README.md`, the manual's sections on
+    Rust (`doc/languages-frameworks/rust.section.md`) and on Rocq, and
+    the pull request template; then three Rust command-line packages
+    and one Rocq library merged in the last months, as models. The
+    package follows them, not this prompt, where they differ, and the
+    report says what was read and what each choice follows.
+  - **The command**: `pkgs/by-name/li/linlog/package.nix` in the form
+    nixpkgs uses then (at the time of writing: `buildRustPackage` with
+    `finalAttrs`, `fetchFromGitHub` at the tag, `cargoHash`, only the
+    package `linlog-cli` built and tested, `versionCheckHook`,
+    `nix-update-script`, and `meta` with the description, homepage,
+    changelog, `mainProgram = "linlog"` and the licences
+    `cli/Cargo.toml` names, the fonts' included, each checked against
+    `lib.licenses`); the fonts' licence texts installed as linlog's flake
+    installs them.
+  - **The tests run in nixpkgs' sandbox**, on a loaded builder: the
+    command's tests pass there, built as nixpkgs builds them. A test
+    that cannot pass there (a time limit, a thread count, a file outside
+    the source) is fixed in linlog at its cause, a linlog commit
+    reviewed and pushed as usual; until a release carries the fix, the
+    package skips it with `checkFlags` and a comment naming that commit.
+    Nothing is skipped for convenience.
+  - **The Rocq library**: its derivation under nixpkgs' Rocq packages
+    from `rocq-linlog`'s tag (at the time of writing
+    `mkRocqDerivation`, the release's hash, the Rocq versions it builds
+    with), built against each Rocq version nixpkgs has that its opam
+    file allows; the bridges stay out.
+  - **The maintainer**: the author's entry in
+    `maintainers/maintainer-list.nix`, with what they choose to give;
+    the session asks the planning session, which asks the author, and
+    prepares the entry from the answer.
+  - **Checked**: each attribute built in the sandbox (`nix-build -A …`
+    or what nixpkgs' docs name then), the formatter nixpkgs pins run
+    over every changed file, `nixpkgs-review` over the commits, and on
+    `x86_64-linux` only (the report says the other platforms are left
+    to nixpkgs' CI).
+  - **Where**: a local clone of nixpkgs in a scratch directory, through
+    jj, never git; the commits as nixpkgs names them ("maintainers: add
+    …", "linlog: init at 0.2.0", and the Rocq library's), each with the
+    `Assisted-by:` trailer nixpkgs' `CONTRIBUTING.md` asks of work
+    written with an LLM (`plan/notes/distribution.md`).
+  - **The author's acts**: the fork, the push and the pull request, and
+    whether to be the maintainer. The report holds the pull request's
+    text, filled in from the template, saying who uses linlog (the web
+    page, the guide for AI models, the citations), since nixpkgs does
+    not want a package "of a niche of five people" (distribution.md).
+
 ## Deliverables
 
 Thematic jj commits in linlog and in `rocq-linlog`; `bench/results/DAY/`;
-`plan/reports/45-release-0.2.0.md`. Pushing, tagging and publishing
-are the author's.
+the nixpkgs commits in a local clone (45d);
+`plan/reports/45-release-0.2.0.md`. Pushing, tagging, publishing and
+the nixpkgs pull request are the author's.

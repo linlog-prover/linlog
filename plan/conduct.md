@@ -12,6 +12,15 @@ to act, act; do not re-litigate decisions the plan records, and where you
 weigh a choice, pick one and say why in the report rather than surveying the
 alternatives.
 
+Whatever you write, write it idiomatically and by current best practice
+(the author, 2026-10-25): Rust as the language and its ecosystem write
+it today, and anything in another ecosystem's form (a Nix module or
+package, a nixpkgs or opam submission, a Rocq library, a GitHub
+workflow, an npm package, a web page) as that ecosystem's own current
+documentation and recently maintained examples do, read at the version
+you build against rather than recalled. Say in the report what you read
+where a choice follows it.
+
 Don't add features, refactor, or introduce abstractions beyond what the step
 requires. Don't design for hypothetical future requirements beyond what the
 plan names. Avoid premature abstraction, and avoid half-finished
