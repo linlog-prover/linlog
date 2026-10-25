@@ -98,6 +98,37 @@ fourth (45d) after the author's tags.
     logic, the logo); the guide for AI models (step 44) for 0.2.0, its
     tests passing; the web client's linlog input on the release's
     commit, after the author's tag, by the planning session.
+  - **Installing on each system** (the author, 2026-10-25): README's
+    "Install" (today `cargo install` and the flake) becomes instructions
+    for the systems linlog's users have: Linux by its main families
+    (Debian and Ubuntu, Fedora, Arch, NixOS and Nix elsewhere), macOS
+    and Windows, each with how to get what it needs (a Rust toolchain of
+    at least the `rust-version`, which a distribution's own `rustc` may
+    not reach, so rustup where it does not; the build tools Windows
+    needs) and how to update and remove it again.
+    - **Research first**, by conduct.md's rule: how comparable Rust
+      command-line tools tell users to install them today, and which
+      channels each system's users expect (prebuilt binaries on the
+      GitHub release and `cargo binstall`, Homebrew, the AUR, winget or
+      Scoop, a NixOS or home-manager configuration through the flake),
+      with the upkeep each costs. The report recommends which to offer
+      for 0.2.0, and the session builds only what needs no account or
+      outward act: instructions for what exists, and prebuilt binaries
+      if it recommends them, made by the release workflow in the way
+      current tools make them (checksums with them), so that the
+      author's tag publishes them. A channel that needs an account, a
+      package in someone else's repository or a tap of the
+      organisation's is proposed to the author in the final message,
+      not created (nixpkgs is 45d's).
+    - **Every instruction tried**: the commands for a Linux family run
+      in that distribution's container where the machine allows it, the
+      rest by a workflow that follows README's commands on GitHub's
+      Linux, macOS and Windows runners, on a release and weekly, so a
+      broken instruction shows; the report says which were tried how,
+      and which only after the tag.
+    - **The same everywhere it is said**: README, the page's About, and
+      the guide for AI models (its rule in conduct.md) agree, the guide
+      and README's examples kept true by their tests.
   - **The author's reminders**, collected by the planning session from
     `plan/later.md` and the reports, in the final message: what is
     theirs to send, set or decide before or after the tag.

@@ -3581,3 +3581,10 @@ client follows it (step 32).
   the session first assesses nixpkgs' criteria that day and the public
   evidence of use, and the author decides whether to submit, wait or
   stay with linlog's own flake before anything is packaged.
+- 2026-10-25: the author asked for instructions to install linlog-cli
+  on each operating system and the main Linux distributions: 45c gains
+  them (research of how comparable tools install and which channels
+  each system's users expect first; prebuilt binaries from the release
+  workflow if recommended; each instruction tried in a container or by
+  a workflow on GitHub's runners; channels that need an account proposed
+  to the author, not created).
