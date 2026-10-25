@@ -129,12 +129,46 @@ fourth (45d) after the author's tags.
     - **The same everywhere it is said**: README, the page's About, and
       the guide for AI models (its rule in conduct.md) agree, the guide
       and README's examples kept true by their tests.
+  - **The Rocq library published** (the author, 2026-10-25), once 45a
+    has separated it and it holds everything 0.2.0 brings:
+    - **Complete for 0.2.0 first**: every kind of certificate linlog
+      0.2.0 writes (with cut from step 41, first-order from step 42, the
+      two-sided calculi from step 40) compiles against the library and
+      rests on its soundness theorems, their assumptions closed; what it
+      lacks is listed in the report and its README, not glossed.
+    - **By the Rocq community's current practice**, read that day
+      (conduct.md's rule): the Rocq opam repository's contribution
+      guide (`rocq-prover/opam`) and libraries it accepted in the last
+      months, for the package name `rocq-linlog`, the opam file's fields
+      (the `logpath:` tag, bounds on `rocq-core` and `rocq-stdlib` that
+      the library is tested against, the licence, `dev-repo`,
+      `bug-reports`, `doc`), and how such libraries publish their
+      documentation.
+    - **Its own release, in its own repository**: version 0.2.0 beside
+      linlog's; a changelog, `CITATION.cff` and README (with how to
+      install it by opam and by Nix, as for the command) of its own; a
+      release workflow that makes the GitHub release from the tag, as
+      linlog's does; its documentation built (`rocq doc` or what the
+      practice of the day uses) and, if recommended, served on its
+      GitHub Pages, whose switch is the author's yes; `opam lint` and an
+      install from the opam file into a fresh switch for each Rocq
+      version its bounds admit, by the flake or a container, before the
+      tag.
+    - **After the author's tag** (45d): the opam repository's file
+      `released/packages/rocq-linlog/rocq-linlog.0.2.0/opam` with the
+      release archive's checksum, `opam lint --check-upstream` passing,
+      in a local clone, the pull request's text in the report; the pull
+      request, the tag and a Zenodo DOI for the library are the
+      author's. The Rocq Platform waits for evidence of use
+      (`plan/notes/distribution.md`).
   - **The author's reminders**, collected by the planning session from
     `plan/later.md` and the reports, in the final message: what is
     theirs to send, set or decide before or after the tag.
 
-- **45d, linlog in nixpkgs** (the author, 2026-10-25), after the
-  author has tagged 0.2.0 in linlog and in `rocq-linlog`: the command as
+- **45d, the package archives** (the author, 2026-10-25), after the
+  author has tagged 0.2.0 in linlog and in `rocq-linlog`: first the Rocq
+  library's submission to the Rocq opam repository, prepared as 45c's
+  last bullet says; then nixpkgs, as follows: the command as
   the package `linlog`, and the Rocq library as `rocqPackages`' `linlog`
   (or the name nixpkgs' conventions give it), prepared as commits for a
   pull request to nixpkgs that the author opens.
