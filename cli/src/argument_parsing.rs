@@ -104,9 +104,10 @@ pub(crate) enum Command {
     /// entering a box) and the cut formula, then the proof reached, drawn
     /// as `check` draws it; every proof reached is checked. The exit
     /// status is 0 when the elimination ended cut-free or after the steps
-    /// asked for, 1 for a proof that is not valid, 3 when another bound or
-    /// the time limit stopped it (the proof reached is still printed), and
-    /// 2 for an error. With `--format json` the record `{"version",
+    /// asked for with `--steps`, 1 for a proof that is not valid, 3 when
+    /// the default bound on steps, another bound or the time limit stopped
+    /// it with cuts left (the proof reached is still printed), and 2 for an
+    /// error. With `--format json` the record `{"version",
     /// "proof", "steps", "end"}`: the proof reached, each step's `cut`
     /// (the node of the proof it was taken on), `formula` (the occurrence
     /// cut) and `case`, and `end`, `cut_free` or `refused` with the
@@ -628,7 +629,9 @@ pub(crate) struct CheckArgs {
 pub(crate) struct EliminateArgs {
     /// The most steps to take, or `none` (cut.steps)
     ///
-    /// Past it the proof reached is printed with the cuts it still has.
+    /// Past it the proof reached is printed with the cuts it still has;
+    /// the exit status is 0 at a bound given here or in a settings file,
+    /// 3 at the default, which only keeps the call bounded.
     #[arg(long, value_name = "N", value_parser = parse_count::<u64>, default_value_t = Count(Some(cut::Options::DEFAULT_STEPS)))]
     pub(crate) steps: Count<u64>,
     /// The most nodes a proof a step makes may have, or `none` (cut.nodes)

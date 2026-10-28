@@ -736,6 +736,34 @@ fn interactive_session() {
     assert_eq!((status, err.as_str()), (0, ""));
     let (status, _, _) = linlog(&["check", "-q", proof.to_str().unwrap()], "");
     assert_eq!(status, 0);
+    // Its elimination: to the end, done; the one step asked for, done with
+    // a cut left; a bound on nodes the first step passes, unknown with the
+    // proof given; one step asked for by a settings file, done.
+    let file = proof.to_str().unwrap();
+    let last = |out: &str| out.lines().last().unwrap_or_default().to_owned();
+    let (status, out, _) = linlog(&["eliminate", "-q", file], "");
+    assert!(last(&out).starts_with("cut-free proof of"), "{out}");
+    assert_eq!(status, 0);
+    let (status, out, _) = linlog(&["eliminate", "-q", "--steps=1", file], "");
+    assert!(
+        last(&out).contains("left after 1 step: the elimination took"),
+        "{out}"
+    );
+    assert_eq!(status, 0);
+    let (status, out, _) = linlog(&["eliminate", "-q", "--node-limit", "1", file], "");
+    assert!(last(&out).contains("--node-limit N"), "{out}");
+    assert_eq!(status, 3);
+    let settings = dir.join("settings.json");
+    std::fs::write(&settings, r#"{"cut": {"steps": 1}}"#).unwrap();
+    let args = [
+        "eliminate",
+        "-q",
+        "--settings",
+        settings.to_str().unwrap(),
+        file,
+    ];
+    let (status, _, _) = linlog(&args, "");
+    assert_eq!(status, 0);
     std::fs::remove_dir_all(&dir).unwrap();
 
     // With the invertible rules on from the start, a search's graft is

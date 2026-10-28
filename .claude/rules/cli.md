@@ -178,9 +178,11 @@ binary `linlog` (`[[bin]]` in `cli/Cargo.toml`; `meta.mainProgram` in
   its bounds, mode and output are `check`'s, plus `--steps` and
   `--node-limit` for `cut.steps` and `cut.nodes`): the verdict is a line
   per step and the end, as one multi-line note so that every format
-  comments each line; exit 0 at `CutFree` or the steps bound (what was
-  asked), 3 at any other refusal, 1 for an invalid proof, the record of
-  the library with `--format json`;
+  comments each line; exit 0 at `CutFree` or at a steps bound the user
+  set (`--steps`, or a settings file's `cut.steps` other than the
+  default: `asked_steps`), 3 at the default steps bound with cuts left
+  (exit 0 there read as done) and at any other refusal, 1 for an invalid
+  proof, the record of the library with `--format json`;
   `show.rs` is how a derivation, a net or a sequent is shown (`Show`,
   `Shown`, `derivation`, `shown`, `render`, `net_into`, the lines that
   say why one is left out). Together they hold `--net`'s refusal of

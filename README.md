@@ -993,9 +993,10 @@ the proof reached, cuts and all. With `--format json` the output is the
 record `{"version", "proof", "steps", "end"}`: the proof reached, each
 step's `cut` (a node of the proof it was taken on), `formula` and
 `case`, and `end`, `cut_free` or `refused` with its `reason`. The exit
-status is 0 when no cut is left or the steps asked for were taken, 1
-for a proof that is not valid, 3 when another bound or the time limit
-stopped it, and 2 for an error.
+status is 0 when no cut is left or the steps asked for with `--steps`
+were taken, 1 for a proof that is not valid, 3 when the default bound
+on steps, another bound or the time limit stopped it with cuts left,
+and 2 for an error.
 
 ```console
 $ linlog interact -i "!a |- a * a"

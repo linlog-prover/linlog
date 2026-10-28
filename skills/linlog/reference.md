@@ -505,8 +505,9 @@ draws the last. `--steps N` (`cut.steps`) bounds the steps, 10 000 by
 default, and `--node-limit N` (`cut.nodes`) the nodes of a proof a step
 makes, 100 000; a bound prints the proof reached with its cuts. One
 step is `--steps 1`. Exit 0 when no cut is
-left or the steps were taken, 1 for an invalid proof, 3 when another
-bound or the time limit stopped it. `--format json` writes `{"version",
+left or the steps asked for with `--steps` were taken, 1 for an invalid
+proof, 3 when the default bound on steps, another bound or the time
+limit stopped it with cuts left. `--format json` writes `{"version",
 "proof", "steps": [{"cut", "formula", "case", "above"}], "end"}`, `end`
 `cut_free` or `refused` with `reason`, at wire level 6.
 

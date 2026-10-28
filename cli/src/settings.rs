@@ -25,6 +25,12 @@ use std::time::Duration;
 pub(crate) struct Given(HashSet<String>);
 
 impl Given {
+    /// Returns whether the flag of argument `id` was given on the command
+    /// line.
+    pub(crate) fn has(&self, id: &str) -> bool {
+        self.0.contains(id)
+    }
+
     /// Returns the flags given to the command the matches lead to, its
     /// subcommands followed to the last.
     #[must_use]

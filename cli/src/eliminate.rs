@@ -28,6 +28,7 @@ use std::time::Instant;
 pub(crate) fn eliminate(args: &EliminateArgs, given: &Given) -> Result<Status> {
     let start = Instant::now();
     let settings = args.settings(given)?;
+    let asked = asked_steps(given, &settings);
     let deadline = Deadline::start(time_limit(&settings), start)?;
     let check = &args.check;
     let mode = check.mode.mode();
@@ -71,8 +72,9 @@ pub(crate) fn eliminate(args: &EliminateArgs, given: &Given) -> Result<Status> {
     on_large_stack(settings.limits.stack_bytes(), move || {
         let mut out = io::Output::open(path.as_deref(), show.format.is_binary())?;
         let quiet = args.check.output.quiet;
-        let (status, keep) =
-            eliminate_into(&proof, mode, &settings, &show, quiet, &deadline, &mut out)?;
+        let (status, keep) = eliminate_into(
+            &proof, mode, &settings, &show, quiet, asked, &deadline, &mut out,
+        )?;
         if keep {
             out.finish()?;
         }
@@ -80,15 +82,43 @@ pub(crate) fn eliminate(args: &EliminateArgs, given: &Given) -> Result<Status> {
     })?
 }
 
+/// Returns whether the bound on steps is one the user asked for, on the
+/// command line or by a settings file's value other than the default,
+/// rather than the default that keeps a call bounded.
+fn asked_steps(given: &Given, settings: &Settings) -> bool {
+    given.has("steps") || settings.cut.steps != Some(cut::Options::DEFAULT_STEPS)
+}
+
+/// Returns the exit status of an elimination that ended at `end`: done (0)
+/// when no cut is left, or when it took the steps the user `asked` for;
+/// unknown (3) when the default bound on steps, another bound or the stop
+/// ended it with cuts left.
+fn status(end: &End, asked: bool) -> Status {
+    match end {
+        End::CutFree => Status::Yes,
+        End::Refused(Refusal::Elimination {
+            what: linlog::limits::Bound::Steps,
+            ..
+        }) if asked => Status::Yes,
+        _ => Status::Unknown,
+    }
+}
+
 /// Eliminates the cuts of the proof, writes the steps, the end and the
 /// derivation reached into `out`, and returns the status and whether the
-/// output is to be finished.
+/// output is to be finished; `asked` says whether the bound on steps is
+/// the user's.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the command's state, as `check_into` takes it, and the elimination's"
+)]
 fn eliminate_into(
     proof: &Proof,
     mode: Mode,
     settings: &Settings,
     show: &Show,
     quiet: bool,
+    asked: bool,
     deadline: &Deadline,
     out: &mut io::Output,
 ) -> Result<(Status, bool)> {
@@ -153,14 +183,7 @@ fn eliminate_into(
         }
         Err(error) => return Err(error.into()),
     };
-    let status = match &elimination.end {
-        End::CutFree
-        | End::Refused(Refusal::Elimination {
-            what: linlog::limits::Bound::Steps,
-            ..
-        }) => Status::Yes,
-        _ => Status::Unknown,
-    };
+    let status = status(&elimination.end, asked);
     if show.format == Format::Json {
         serde_json::to_writer(out.stream(), &elimination)?;
         return Ok((status, true));
@@ -249,5 +272,67 @@ fn advice(refusal: &Refusal, deadline: &Deadline) -> String {
             ),
             _ => String::new(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::argument_parsing::{Cli, Command};
+    use clap::{CommandFactory, FromArgMatches};
+
+    /// The bound on steps is the user's when `--steps` is given or a file
+    /// sets another value; reaching the default with cuts left is unknown,
+    /// reaching the user's is done, and so is no cut left; every other
+    /// bound is unknown.
+    #[test]
+    fn the_default_bound_on_steps_is_unknown() {
+        let asked = |line: &[&str]| {
+            let matches = Cli::command().try_get_matches_from(line).unwrap();
+            let Command::Eliminate(args) = Cli::from_arg_matches(&matches).unwrap().command else {
+                unreachable!("an eliminate command")
+            };
+            let given = Given::of(&matches);
+            asked_steps(&given, &args.settings(&given).unwrap())
+        };
+        assert!(!asked(&["linlog", "eliminate", "p.json"]));
+        assert!(asked(&["linlog", "eliminate", "--steps=1", "p.json"]));
+        assert!(asked(&[
+            "linlog",
+            "eliminate",
+            "--steps",
+            "10000",
+            "p.json"
+        ]));
+        // The ends of a proof with cuts at one step and at a bound on
+        // nodes the first step passes.
+        let limits = linlog::Limits::default();
+        let mode = Mode::CLASSICAL;
+        let sequent: linlog::Sequent = "A, A -o B |- B".parse().unwrap();
+        let mut session = linlog::Interactive::new(&sequent, mode).unwrap();
+        let goal = session.goals().next().unwrap();
+        let formula = linlog::CutFormula::parse_within(
+            "A -o B",
+            mode,
+            &linlog::InputOptions::default(),
+            &limits,
+        )
+        .unwrap();
+        session.cut(goal, &formula, &[1], &limits).unwrap();
+        let options = linlog::Options::default();
+        let view = linlog::ViewOptions::default();
+        session.close_all(&options, &view, &limits, |_| false);
+        let proof = session.proof(&limits, |_| false).unwrap();
+        let end = |options: cut::Options| {
+            cut::eliminate(&proof, mode, &options, &limits, |_| false)
+                .unwrap()
+                .end
+        };
+        let steps = end(cut::Options::default().with_steps(Some(1)));
+        assert_eq!(status(&steps, false), Status::Unknown);
+        assert_eq!(status(&steps, true), Status::Yes);
+        assert_eq!(status(&end(cut::Options::default()), false), Status::Yes);
+        let nodes = end(cut::Options::default().with_nodes(Some(1)));
+        assert_eq!(status(&nodes, true), Status::Unknown);
     }
 }
