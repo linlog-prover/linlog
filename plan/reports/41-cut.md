@@ -542,7 +542,7 @@ cause with a test that reaches them; their answers are below.
 - **The command** `linlog eliminate PROOF` (`cli/src/eliminate.rs`):
   `check`'s flags, bounds, mode and output formats, and `--steps N`
   (`cut.steps`) and `--node-limit N` (`cut.nodes`); a line per step
-  (`step 1: contraction on the cut of !a`) and the end (`cut-free proof
+  (`1. contraction on the cut of !a`) and the end (`cut-free proof
   of !a ⊢ a ⊗ a (intuitionistic) after 6 steps`, or `proof of … with 2
   cuts left after 2 steps: the elimination took the most steps allowed,
   2; --steps N allows more`) as one note that every format comments line
@@ -793,7 +793,13 @@ ratchet, every journey within its ceiling (the largest change
 `check-qbf-20-2`, +1.17 %; its one note, never a failure, the cache
 misses of `check-qbf-20-2`). "Fix the panel's findings in cut
 elimination" passed it at its own tree, with the ratchet's counts as
-before (the same note on `check-qbf-20-2`'s cache misses).
+before (the same note on `check-qbf-20-2`'s cache misses). "Number the steps
+eliminate prints" passed it at its own tree too: the first `nix flake
+check` failed its `conventions` check, which refuses `step N` and `steps
+N` in README and in comments (the words that would name the plan), on
+the command's lines `step 1: …` and the example `--steps 2`; the lines
+are now numbered (`1. contraction on the cut of !a`) and the flag
+written `--steps=2`, the check unchanged.
 
 ### The target sets
 
