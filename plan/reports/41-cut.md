@@ -911,8 +911,9 @@ changelog lists them under `[Unreleased]`.
   every decided row's counters equal (145 and 64); the search cut-free.
 - [x] Every code commit gated; the behaviour lock changed only in a
   commit of its own.
-- [ ] `nix flake check` at the session's last commit, under the machine
-  lock.
+- [x] `nix flake check` at the session's last commit, under the machine
+  lock (exit 0; the first two runs failed on `conventions` and on `doc`,
+  both fixed at the cause, above).
 - [x] `.claude/rules/` amended (`core-proofs`, `core`, `cli`), README,
   the guide and the changelog true.
 - [x] No new variant of a closed enum (`Node`, `Rule`, `Term`, `Kind`);
