@@ -159,9 +159,11 @@ impl ViewOptions {
 }
 
 /// One inference of a derivation: the sequent it concludes, the rule, and
-/// the inferences of its premises.
+/// the inferences of its premises. Two inferences are equal when they
+/// show the same step, whichever proof term's node they unfold
+/// ([`node`](Self::node)).
 #[non_exhaustive]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq)]
 pub struct Inference {
     /// The sequent concluded, as members in ascending order, one repeated
     /// as often as the sequent holds it.
@@ -185,6 +187,30 @@ pub struct Inference {
     /// In a derivation of a proof term, the node whose rule the inference
     /// shows.
     pub(crate) node: Option<NodeId>,
+}
+
+impl PartialEq for Inference {
+    /// Compares every field but the node, so that the same step unfolded
+    /// from terms whose nodes are numbered apart, or from a session, which
+    /// names no node, is one inference.
+    fn eq(&self, other: &Self) -> bool {
+        // A field added later joins the comparison here.
+        let Self {
+            sequent,
+            rule,
+            principal,
+            premises,
+            times,
+            cut,
+            ..
+        } = self;
+        *sequent == other.sequent
+            && *rule == other.rule
+            && *principal == other.principal
+            && *premises == other.premises
+            && *times == other.times
+            && *cut == other.cut
+    }
 }
 
 impl Inference {

@@ -514,7 +514,8 @@ second number (0.1.x to 0.2.0), anything else the third.
   `cut G C [P…]`, and the bindings' `cut(session, goal, formula, left,
   settings)`.
 - `Inference::node`: in a derivation of a proof term, the node of the
-  term whose rule an inference shows, which turns a node (a cut a step
+  term whose rule an inference shows (which `Inference`'s equality
+  leaves out), which turns a node (a cut a step
   reduced) into the inferences drawn for it.
 - Cut elimination in the web bindings, on a finished session's proof:
   `cuts(session, proof, settings)` lists a proof's cuts with their

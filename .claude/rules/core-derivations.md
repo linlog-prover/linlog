@@ -188,7 +188,10 @@ nodes of a proof the session does not keep) and
 `Interactive::derivation_within` writes `None`. The web bindings
 highlight a cut by it, so a change that unfolds a cut into another
 inference must keep the cut's node on it
-(`every_inference_names_its_node`).
+(`every_inference_names_its_node`). `Inference`'s equality leaves the
+node out (a hand-written `PartialEq`), as 0.1.0's derived one had no
+node to compare: the same step from terms numbered apart, or from a
+session, is one inference.
 
 **The compact view** (`ViewOptions::compact`, set with `with_compact`, `Compact::Auto` by
 default, `Always`, `Never`; `Inference::times`, how many applications of

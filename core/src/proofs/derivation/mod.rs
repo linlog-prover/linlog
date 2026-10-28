@@ -904,6 +904,11 @@ mod tests {
                 ),
             ]
         );
+        let nodes: Vec<_> = d.inferences().iter().map(Inference::node).collect();
+        assert_eq!(
+            nodes,
+            [Some(0), Some(1), Some(2), Some(3), Some(4), None].map(|n| n.map(NodeId::new))
+        );
         assert_eq!(d.root(), i(5));
         assert_eq!(d.inference(i(5)).rule.to_string(), "?c");
         // An invalid proof has no derivation.
