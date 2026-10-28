@@ -1007,6 +1007,14 @@ Left by step 38 (2026-10-22, `plan/reports/38-web-polish.md`):
 - **The judgement calls of step 38's sweep** (the author): in the
   report, "Judgement calls".
 
+Found at the review of 41d (2026-10-28): on a phone the goal bar wraps
+its last icon to a second row since "Cut" joined it (every target still
+44 pixels); `targets.spec`'s tour stop failed twice locally with a
+39-pixel formula button, once on the unchanged client, and passed in the
+final runs (a flake that predates the cut); a replayed classical session
+keeps no record of how it was written, so its cut shows one-sided in the
+two-sided view.
+
 ## Follow-ups: the focused engine
 
 *Assigned (2026-10-03).* A reference prover kept in the repository,

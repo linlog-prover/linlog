@@ -3676,3 +3676,32 @@ client follows it (step 32).
   of 64 decided rows differ). Departures, for the author: the strategy
   the first cut link of the list; `eliminate` takes a callback;
   `Bound::Vertices`; `Placed::parent` an `Option`. Next: 41d.
+- 2026-10-28: review of session 41d, cut on the web page (Opus 5.5 at
+  high, 15:15 to 16:35, unattended; step 41 is done): in linlog the
+  bindings' `cuts`, `cut_step` and `eliminate` on terms and `net_cuts`,
+  `net_cut_step` and `net_eliminate` on nets, each step with its case
+  and the ids to highlight, a tab's drawings within 16 MiB
+  (`tab::DRAWN_BYTES`); `Inference::node` (additive, `Inference` being
+  `#[non_exhaustive]`, its equality kept as 0.1.0's); a session started
+  on a sequent with cut formulas starting from its conclusion, so the
+  page's replay reads it back. On the page: "Cut" in the goal's dock,
+  the cut formula typed in the tab's syntax and the goal's formulas
+  sent to the premise that proves it; on a finished proof with cuts
+  "Next step" (the strategy's, outlined), a cut picked on the drawing,
+  "Before" showing the reduced cut marked, "Undo step", "To the end"
+  within Settings' new "Elimination steps", the nodes and the drawings'
+  bytes, on the derivation and on the net. Its reviewer's three
+  findings (undo per branch losing another branch's cut, a target under
+  44 pixels, `Inference`'s equality) fixed with tests. Found here by a
+  heads-up box in the session's pane: 41c drew an intuitionistic net
+  with cut links one-sided (`⅋`, `⊥`, `A⊥`); fixed at the cause with a
+  test that failed before. Checked here: the linlog part's diff (the
+  public additions, the session's start) before its push; the
+  screenshots at both widths and themes (the chooser, a step on the
+  tree and on the net with its cut marked); both parts pushed, linlog's
+  first. Departures, for the author: the essential drawing of nets with
+  cut links is on (the fix above made it so); the net calls also take a
+  proof's document, so that a proof cutting one occurrence twice reaches
+  the `MellStructure` fallback. Follow-ups in `later.md` ("Follow-ups:
+  the web client"). Next: step 42, its first session on Fable 5.1 at
+  high (the step's plan, quantifiers in the data model).
