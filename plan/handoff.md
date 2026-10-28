@@ -171,11 +171,11 @@ interactive proving, the bindings, the Rocq library). Left, in order:
    revision to base on. Briefs forbid entering the client's dev shell
    from linlog's directory (it once left `node_modules` and `.cache`
    symlinks in linlog's checkout).
-3. **Start it**: `plan/start-session.sh step-NNx MODEL EFFORT
+3. **Start it**: `plan/start-session.sh linlog-step-NNx MODEL EFFORT
    /tmp/linlog-handoff/goal-NNx.txt` (it deletes an exited zellij session
    of the same name first). The goal file is the launch prompt, so the
    goal is set at once. Find its Claude pane (`zellij --session
-   linlog-step-NNx action list-panes`: the pane titled `step-NNx`,
+   linlog-step-NNx action list-panes`: the pane titled `linlog-step-NNx`,
    `terminal_0` or `terminal_1`) and check that its screen shows `◎
    /goal active`. Then `SendMessage` to it with `notify_when_idle: true`
    and no message, and keep two crons: a supervision check (`17 */2 * *
@@ -228,6 +228,12 @@ interactive proving, the bindings, the Rocq library). Left, in order:
    next step, say what it does and every model and effort it starts.
 
 ## Mechanisms, and what each is for
+
+- **Names** (the author, 2026-10-29): every session and agent the
+  planning session starts is named with the prefix `linlog`: step
+  sessions `linlog-step-NNx` (the launcher names the zellij session the
+  same, the prefix once), sub-agents `linlog-…`; the briefs ask step
+  sessions to name their own sub-agents so too.
 
 - **A step session**: a top-level Claude Code session in a detached
   zellij session, one writer per coupled change, its goal in its launch

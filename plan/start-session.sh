@@ -8,8 +8,8 @@
 # Starts an interactive Claude Code session named NAME in the repository,
 # in auto mode, with the files concatenated as its prompt, or resumes the
 # session SESSION_ID (after a reboot, say), inside the detached zellij
-# session `linlog-NAME` (`zellij attach linlog-NAME` to watch it or type
-# into it), and prints the session's id once it has registered. The
+# session `linlog-NAME`, the prefix not doubled (`zellij attach
+# linlog-step-42c` to watch it or type into it), and prints the session's id once it has registered. The
 # planning session runs this to start a step's sessions itself.
 set -euo pipefail
 
@@ -52,12 +52,15 @@ if ((! ${#resume[@]})); then
 fi
 
 cd "$(dirname "$0")/.."
+# The zellij session is named after the session, with linlog's prefix
+# once: `linlog-step-42c` stays as it is, `step-42c` gains it.
+zsession=linlog-${name#linlog-}
 # An exited session of the same name would be resurrected with its old
 # panes, one of them an earlier session's command waiting for Enter.
 # delete-session refuses a running one.
-zellij delete-session "linlog-$name" >/dev/null 2>&1 || true
-zellij attach --create-background "linlog-$name" >/dev/null
-zellij --session "linlog-$name" run --name "$name" --cwd "$PWD" -- \
+zellij delete-session "$zsession" >/dev/null 2>&1 || true
+zellij attach --create-background "$zsession" >/dev/null
+zellij --session "$zsession" run --name "$name" --cwd "$PWD" -- \
   env "${account[@]}" \
   claude "${resume[@]}" --model "$model" --effort "$effort" \
   --permission-mode auto --name "$name" "${prompt[@]}"
