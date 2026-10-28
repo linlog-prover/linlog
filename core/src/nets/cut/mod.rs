@@ -3,7 +3,7 @@
 
 //! Cut elimination on proof nets: a step reduces one cut link, the
 //! caller's or the strategy's, and says which and by which case;
-//! [`eliminate`] takes steps by the strategy until no cut link is left or
+//! [`eliminate`](crate::nets::cut::eliminate) takes steps by the strategy until no cut link is left or
 //! a bound is reached.
 //!
 //! A step rewrites the net around its cut link, as the literature does
@@ -37,8 +37,8 @@
 //! renumbers the vertices: the roots first, then every root's tree and
 //! every cut link's two trees, depth first.
 //!
-//! A step is checked, not trusted: [`step`] returns a net the criterion
-//! accepts, and [`eliminate`] checks every net it reaches before its next
+//! A step is checked, not trusted: [`step`](crate::nets::cut::step) returns a net the criterion
+//! accepts, and [`eliminate`](crate::nets::cut::eliminate) checks every net it reaches before its next
 //! step and the last one before it returns. Every net made is a proof net
 //! of the same conclusion over the same forest, and sequentializes into a
 //! proof the checker accepts, which the tests show on every step.

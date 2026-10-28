@@ -38,7 +38,7 @@ pub use graph::Scratch;
 pub use mell::{MellStructure, Parts, Placed, Placement};
 
 use crate::Error;
-use crate::errors::describe::{Budget, Limit, Names, cut};
+use crate::errors::describe::{Budget, Limit, Names, cut as clipped};
 use crate::errors::{Described, Owner, Subject};
 use crate::fragment::{Fragment, Mode, Order};
 use crate::limits::{Limits, Phase, Progress, Refusal, Space};
@@ -468,7 +468,7 @@ impl NetError {
             match (names, o) {
                 (Some(names), Some(o)) => {
                     let mut formula = String::new();
-                    cut(&mut formula, Some(names), o, limit).unwrap();
+                    clipped(&mut formula, Some(names), o, limit).unwrap();
                     format!("{formula}[{}]", v.get())
                 }
                 _ => v.get().to_string(),
@@ -634,7 +634,7 @@ const STOPPED: NetError = NetError::Refused {
 /// the conclusions' trees and the trees above the cut links' ends, and the
 /// occurrences of the cut formulas' trees above every cut link are none.
 /// For the criterion a cut link is an edge every switching keeps, and
-/// [`cut`](crate::nets::cut) eliminates them.
+/// [`cut`] eliminates them.
 ///
 /// Links are added with [`link`](Self::link), which refuses what is not a
 /// link, and taken back in the reverse order with [`unlink`](Self::unlink),
