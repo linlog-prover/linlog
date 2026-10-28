@@ -1628,6 +1628,14 @@ letters as mathematical italic code points to match Typst; and a smaller
 row height for trees without a raised `⊥` (`Style::line_height` is the
 knob).
 
+Found at the review of 41c (2026-10-28): the essential drawing is off
+for nets with cut links; the term and net eliminations' normal forms
+are compared only where no occurrence has two vertices (the report says
+why); `eliminate --net --output FILE` without `--format svg|png|pdf`
+writes nothing to the file, and `-q` with `--output` writes no drawing
+at all (`-q` drops the derivation, which the file would hold, as for
+`prove`), which surprises when the steps are what is wanted.
+
 ## Follow-ups: the command's output
 
 *Found at the review of session 41a (2026-10-24; unassigned).* `linlog

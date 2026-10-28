@@ -3642,3 +3642,37 @@ client follows it (step 32).
   picks the cut through the library; the command's single step is
   `--steps=1`). Follow-ups in `later.md` ("Follow-ups: interactive
   proving"). Next: 41c.
+- 2026-10-28: review of session 41c, cut elimination on proof nets,
+  drawn (Opus 5.5 at high, 12:40 to 15:25, unattended): cut links in
+  `ProofStructure` (`with_cuts`) and in `MellStructure`, the criteria
+  accepting them classical with and without Mix and intuitionistic,
+  sequentialization giving back the proof with its cuts;
+  `nets::cut::step` (either end of a cut link, or the strategy's: the
+  first of the list) and `eliminate` within `cut::Options` (`nodes`
+  counting vertices), the cases axiom, `⊗ ⅋`, weakening (erasure),
+  dereliction, contraction (duplication) and a box entering a box, every
+  net made checked by the criterion; `svg::net_step` and `mell_net_step`
+  drawing each step in both looks, the cut link a bar under its two
+  formulas and what the step acts on highlighted; `linlog eliminate
+  --net`, one file per step with `--format svg|png|pdf --output FILE`,
+  bounded by `--drawings-limit` (256 MiB by default, a heads-up box in
+  the session's pane: the default could write gigabytes; sent back and
+  fixed). Normal forms against the term elimination: equal on 237 MLL
+  nets, isomorphic on 97 with boxes. Termination with boxes rests on
+  the strong normalisation of MELL nets as de Carvalho and Tortora de
+  Falco recall it (Girard, Danos, Pagani and Tortora de Falco), read in
+  the citing paper only. The panel (the argument on Fable 5.1): no
+  finding in the argument; a valid proof cutting one occurrence twice
+  called "not a proof net" (now through `MellStructure`), a quadratic
+  step with boxes past its time limit and every drawing held in memory
+  (7.7 GB), each fixed with a test. No new variant of a closed enum;
+  the one API break since 0.1.0 is `Placed::parent: Option<VertexId>`,
+  `None` at a cut link's end (an additive form would let a walk to the
+  root loop silently), in the changelog for 45c. Checked here: the
+  command on a contraction cut (5 steps on the net against 6 on the
+  term, no commutative case) and on an MLL cut, the JSON record, the
+  drawings rendered and read in both looks (the duplicated box and its
+  `?c`), the drawings' bound reached, the target sets (0 of 145 and 0
+  of 64 decided rows differ). Departures, for the author: the strategy
+  the first cut link of the list; `eliminate` takes a callback;
+  `Bound::Vertices`; `Placed::parent` an `Option`. Next: 41d.
