@@ -3709,3 +3709,40 @@ client follows it (step 32).
   as relayed (41b's, 41c's with `Placed::parent` an `Option`, and 41d's:
   the essential drawing of nets with cut links on, the net calls taking
   a proof's document).
+- 2026-10-28: review of session 42a, the plan of step 42 and the
+  first-order data model (Fable 5.1 at high, 16:41 to 23:40 with a
+  usage-limit pause from 16:42 to 17:53 and signing lapsed at 20:46,
+  unattended): `plan/first-order/README.md`, nine sessions (42b the
+  proof term and the checker, 42c the focused engine generic over its
+  zone with pinned time on a night of the author's, 42d the first-order
+  focused engine with unification and the first-order reference prover,
+  42e the two-sided engine, interactive proving and the views, 42f cut
+  elimination at first order, 42g the Rocq development, 42h the
+  families and LinearOne, 42i the web page; all on Opus 5.5 at high,
+  the panel wherever a search, a criterion or the checker changes) and
+  its decisions (locally nameless binders, an atom interned by its
+  canonical text, witnesses and eigenvariables in `Node::Forall` and
+  `Node::Exists`, the eigenvariable condition as a set flowing to the
+  root, which engines gain quantifiers, cut at first order on terms and
+  not on nets, the Rocq development with de Bruijn terms). Built: terms,
+  predicates, `∀` and `∃` in the arena and both surfaces' parsers, the
+  printers, the JSON forms at wire level 7; every engine, the checker,
+  interactive proving, the nets, cut elimination and the Rocq export
+  refusing a quantified goal by name; a ground first-order sequent
+  decided as a propositional one. Its reviewer's seven breaks and two
+  unmarked departures fixed with tests. Closed enums' new variants for
+  45c: `Term::{Forall, Exists}`, `Kind::{Forall, Exists}`,
+  `CheckError::Quantifiers`, `Space::Symbol`. Checked here: the command
+  on quantified sequents (one-sided printing with the negation pushed
+  through the binders, a shadowed binder renamed `x_1`, the refusals,
+  exit 2), a JSON round trip of a quantified sequent, ground atoms
+  pairing only when equal (`p(a)`, `p(b)`, `p(f(a))`), the target sets
+  (0 of 145 and 0 of 64 decided rows differ); the ratchet's
+  propositional journeys up to 2 % (reading and rendering, within their
+  ceilings, none raised; the searches unchanged). Departures, for the
+  author: one arity and one role per symbol name (`p` and `p(a)` not in
+  one sequent; `api.md` keyed symbols by name, arity and kind);
+  `CheckError::Quantifiers` instead of a fault; the term limits deferred
+  to 42b; a clashing bound name written `x_1`. For the author too: 42c
+  needs a night for pinned CPU time. Small finding here, for 42b: the
+  parser's arity refusal points at the second use only. Next: 42b.
